@@ -1211,12 +1211,14 @@ static int status_json_filter_fields(sd_json_variant **configuration, StatusMode
 }
 
 static int format_dns_server_one(DNSConfiguration *configuration, DNSServer *s, char **ret) {
-        bool global;
+        _cleanup_free_ char *address = NULL;
+        bool doh, global;
         int r;
 
         assert(s);
         assert(ret);
 
+        doh = streq_ptr(s->transport, "https");
         global = !(configuration->ifindex > 0 || configuration->delegate);
 
         if (global && s->ifindex > 0 && s->ifindex != LOOPBACK_IFINDEX) {
@@ -1228,12 +1230,22 @@ static int format_dns_server_one(DNSConfiguration *configuration, DNSServer *s, 
         r = in_addr_port_ifindex_name_to_string(
                         s->family,
                         &s->in_addr,
-                        s->port != 53 ? s->port : 0,
+                        s->port != (doh ? 443 : 53) ? s->port : 0,
                         s->ifindex,
-                        s->server_name,
-                        ret);
+                        doh ? NULL : s->server_name,
+                        &address);
         if (r < 0)
                 return r;
+
+        if (doh) {
+                if (isempty(s->uri))
+                        return -EINVAL;
+
+                *ret = strjoin(address, "#", s->uri);
+                if (!*ret)
+                        return -ENOMEM;
+        } else
+                *ret = TAKE_PTR(address);
 
         return 1;
 }
@@ -2413,6 +2425,8 @@ static int dump_server_state(sd_json_variant *server) {
         struct server_state {
                 const char *server_name;
                 const char *type;
+                const char *transport;
+                const char *uri;
                 const char *ifname;
                 int ifindex;
                 const char *verified_transport;
@@ -2438,6 +2452,8 @@ static int dump_server_state(sd_json_variant *server) {
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "Server",                 SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct server_state, server_name),               SD_JSON_MANDATORY },
                 { "Type",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct server_state, type),                      SD_JSON_MANDATORY },
+                { "Transport",              SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct server_state, transport),                 0                 },
+                { "URI",                    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct server_state, uri),                       0                 },
                 { "Interface",              SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct server_state, ifname),                    0                 },
                 { "InterfaceIndex",         _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,          offsetof(struct server_state, ifindex),                   SD_JSON_RELAX     },
                 { "VerifiedTransport",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct server_state, verified_transport),        0                 },
@@ -2477,9 +2493,19 @@ static int dump_server_state(sd_json_variant *server) {
                            TABLE_EMPTY,
                            TABLE_FIELD, "Type",
                            TABLE_SET_ALIGN_PERCENT, 100,
-                           TABLE_STRING, server_state.type);
+                           TABLE_STRING, server_state.type,
+                           TABLE_FIELD, "Transport",
+                           TABLE_STRING, server_state.transport ?: "dns");
         if (r < 0)
                 return table_log_add_error(r);
+
+        if (server_state.uri) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "URI",
+                                   TABLE_STRING, server_state.uri);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
 
         if (server_state.ifname) {
                 r = table_add_many(table,
