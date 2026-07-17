@@ -233,6 +233,21 @@
         </varlistentry>
 
         <varlistentry>
+          <term><option>--sign-nvpcr-init</option></term>
+          <term><option>--no-sign-nvpcr-init</option></term>
+
+          <listitem><para>Enable or disable signing of additional PCR policies that are bound to early boot
+          phases and the <literal>nvpcr-init</literal> policy reference. These signed policies are consumed by
+          <citerefentry><refentrytitle>systemd-tpm2-setup-early.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          and <citerefentry><refentrytitle>systemd-tpm2-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          to authorize the initialization of NvPCRs. The extra signatures reuse the first
+          <varname>PCRPrivateKey=</varname>/<option>--pcr-private-key=</option>, hence one must be specified.
+          Defaults to false.</para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><option>--section=<replaceable>NAME</replaceable>:<replaceable>TEXT</replaceable>|<replaceable>@PATH</replaceable></option></term>
           <term><option>--section=<replaceable>NAME</replaceable>:text|binary<optional>@<replaceable>PATH</replaceable></optional></option></term>
 
