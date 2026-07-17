@@ -1471,6 +1471,17 @@ libglib_cflags = declare_dependency(
         compile_args : '-DSYSTEMD_CFLAGS_MARKER_LIBGLIB',
 )
 
+libsoup = dependency('libsoup-3.0', version : '>= 3.2', required : get_option('doh-test-server'))
+doh_test_server = libsoup.found()
+if doh_test_server and get_option('doh-test-server').enabled()
+        if want_tests == 'false'
+                error('-Ddoh-test-server=enabled requires tests')
+        endif
+        if not get_option('resolve')
+                error('-Ddoh-test-server=enabled requires systemd-resolved')
+        endif
+endif
+
 libdbus = dependency('dbus-1',
                      version : '>= 1.3.2',
                      required : get_option('dbus'))
@@ -3155,6 +3166,7 @@ foreach tuple : [
         ['slow tests',             want_slow_tests],
         ['fuzz tests',             want_fuzz_tests],
         ['install tests',          install_tests],
+        ['DoH tests',              doh_test_server],
         ['link-udev-shared',       get_option('link-udev-shared')],
         ['link-systemctl-shared',  get_option('link-systemctl-shared')],
         ['link-networkd-shared',   get_option('link-networkd-shared')],
