@@ -37,6 +37,7 @@ static int run(int argc, char *argv[]) {
         int r;
 
         LIBCRYPTO_NOTE(recommended);
+        LIBCURL_NOTE(recommended);
         LIBIDN2_NOTE(recommended);
         LIBSELINUX_NOTE(recommended);
         LIBSSL_NOTE(recommended);
