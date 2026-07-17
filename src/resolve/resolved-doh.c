@@ -250,10 +250,41 @@ int dns_over_https_uri_expand_for_method(const char *uri_template, DnsOverHttpsM
         return 0;
 }
 
-int dns_over_https_uri_parse(const char *uri_template, char **ret_uri, char **ret_auth_name, uint16_t *ret_port) {
+static int dns_over_https_uri_template_normalize(const char *uri_template, const char *normalized_uri, char **ret) {
+        const char *normalized_authority, *normalized_tail, *template_authority, *template_tail;
+        _cleanup_free_ char *prefix = NULL, *result = NULL;
+
+        assert(uri_template);
+        assert(normalized_uri);
+        assert(ret);
+
+        normalized_authority = ASSERT_PTR(strstr(normalized_uri, "://")) + 3;
+        normalized_tail = ASSERT_PTR(strchr(normalized_authority, '/'));
+        template_authority = ASSERT_PTR(strstr(uri_template, "://")) + 3;
+        template_tail = strpbrk(template_authority, "/?{");
+
+        if (!template_tail) {
+                result = strdup(normalized_uri);
+                if (!result)
+                        return -ENOMEM;
+        } else {
+                prefix = strndup(normalized_uri, normalized_tail - normalized_uri);
+                if (!prefix)
+                        return -ENOMEM;
+
+                result = template_tail[0] == '/' ? strjoin(prefix, template_tail) : strjoin(prefix, "/", template_tail);
+                if (!result)
+                        return -ENOMEM;
+        }
+
+        *ret = TAKE_PTR(result);
+        return 0;
+}
+
+int dns_over_https_uri_parse(const char *uri_template, char **ret_uri, char **ret_uri_template, char **ret_auth_name, uint16_t *ret_port) {
         _cleanup_(curl_freep) char *curl_auth_name = NULL, *normalized = NULL, *port_string = NULL, *scheme = NULL;
         _cleanup_(curl_url_cleanupp) CURLU *url = NULL;
-        _cleanup_free_ char *auth_name = NULL, *expanded = NULL;
+        _cleanup_free_ char *auth_name = NULL, *expanded = NULL, *normalized_template = NULL;
         const char *scheme_separator;
         uint16_t port;
         int r;
@@ -324,8 +355,14 @@ int dns_over_https_uri_parse(const char *uri_template, char **ret_uri, char **re
         if (sym_curl_url_get(url, CURLUPART_URL, &normalized, 0) != CURLUE_OK)
                 return -EINVAL;
 
+        r = dns_over_https_uri_template_normalize(uri_template, normalized, &normalized_template);
+        if (r < 0)
+                return r;
+
         if (ret_uri)
                 *ret_uri = TAKE_PTR(normalized);
+        if (ret_uri_template)
+                *ret_uri_template = TAKE_PTR(normalized_template);
         if (ret_auth_name)
                 *ret_auth_name = TAKE_PTR(auth_name);
         if (ret_port)
