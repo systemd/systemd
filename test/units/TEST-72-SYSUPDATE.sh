@@ -143,9 +143,14 @@ new_version() {
 
 check_no_new_update_available() {
     local client="${1:?}"
+    local output
 
     if [[ "$client" == "sysupdate-cli" ]]; then
         (! "$SYSUPDATE" --verify=no check-new)
+        if output="$("$SYSUPDATE" --verify=no --json=short check-new)"; then
+            exit 1
+        fi
+        [[ "$output" == '{"available":null}' ]]
     elif [[ "$client" == "varlink" ]]; then
         (! varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.CheckNew '{"target":{"class":"host"}}') |& grep io.systemd.SysUpdate.NoUpdateNeeded >/dev/null
     else
