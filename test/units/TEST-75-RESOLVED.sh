@@ -1458,6 +1458,7 @@ testcase_doh() {
     local unit=resolved-doh-test-server.service
     local port=18443
     local config=/run/systemd/resolved.conf.d/90-doh-test.conf
+    local network=/run/systemd/network/75-doh-test.network
     local cert_dir=/run/systemd/resolve/doh-test
     local ca_source="$cert_dir/ca.crt"
     local ca_destination=""
@@ -1490,7 +1491,9 @@ testcase_doh() {
 
     cleanup() {
         rm -f "$config"
+        rm -f "$network"
         systemctl stop "$unit" || :
+        ip link del doh-link 2>/dev/null || :
         ip link del doh-invalid 2>/dev/null || :
         restart_resolved
         rm -f "$ca_destination"
@@ -1621,6 +1624,28 @@ EOF
     assert_eq "$(jq -r '.history[0].question' <<<"$state")" get.doh.test
     assert_eq "$(jq -r '.history[0].dnsId' <<<"$state")" 0
     assert_eq "$(jq -r '.history[0].bodySize' <<<"$state")" 0
+
+    : "A networkd-managed link can configure and route through a DNS-over-HTTPS endpoint"
+    cat >"$network" <<EOF
+[Match]
+Name=doh-link
+
+[Network]
+DNS=$doh_bootstrap#https://doh.test:$port/dns-query{?dns}
+Domains=~link.doh.test
+EOF
+    networkctl reload
+    ip link add doh-link type dummy
+    ip link set doh-link up
+    timeout 30 bash -c "until resolvectl status doh-link > /run/doh-link-status 2>&1 && grep -F 'https://doh.test:$port/dns-query{?dns}' /run/doh-link-status >/dev/null; do sleep 0.5; done"
+    doh_reset
+    run resolvectl query networkd.link.doh.test. --type=A
+    grep -F '192.0.2.1' "$RUN_OUT"
+    state="$(doh_state)"
+    assert_eq "$(jq -r '.requests' <<<"$state")" 1
+    assert_eq "$(jq -r '.history[0].question' <<<"$state")" networkd.link.doh.test
+    rm -f "$network"
+    ip link del doh-link
 
     : "DoH POST fallback when the URI template has no dns variable"
     doh_configure doh.test /dns-query
