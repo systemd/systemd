@@ -27,6 +27,14 @@ CHANGES WITH 262:
           older systemd versions, however systemd continues to accept TPM-sealed
           credentials that were created before this change.
 
+        * The legacy socket for controlling systemd-udevd has been removed, and
+          udevadm now unconditionally uses Varlink IPC. The legacy UNIX socket
+          /run/udev/control, which is sometimes used to check whether udevd is
+          running, has been replaced with a symlink to the Varlink socket. This
+          change does not mean the legacy protocol is supported on this path;
+          rather, the symlink is maintained to ensure the socket is bound under
+          the same conditions as before.
+
         Changes in the system and service manager:
 
         * The manager now embeds a basic set of unit files (basic.target,

@@ -209,8 +209,8 @@ int verb_settle_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
         (void) emit_deprecation_warning();
 
         if (getuid() == 0) {
-                r = udev_ping(MAX(5 * USEC_PER_SEC, arg_timeout_usec), /* ignore_connection_failure= */ true);
-                if (r <= 0)
+                r = udev_ping(MAX(5 * USEC_PER_SEC, arg_timeout_usec));
+                if (r < 0)
                         return r;
         } else {
                 /* For non-privileged users, at least check if udevd is running. */
