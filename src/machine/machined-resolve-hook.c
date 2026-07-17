@@ -125,6 +125,7 @@ int vl_method_resolve_record(
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
 
         _cleanup_free_ struct local_address *addresses = NULL;
+        Machine *addresses_machine = NULL;
         bool found = false, nxdomain = false;
         int n_addresses = -1;
 
@@ -138,10 +139,13 @@ int vl_method_resolve_record(
                         if (!dns_resource_key_is_address(key))
                                 continue;
 
-                        if (n_addresses < 0) {
+                        if (addresses_machine != machine) {
+                                addresses = mfree(addresses);
                                 n_addresses = machine_get_addresses(machine, &addresses);
                                 if (n_addresses < 0)
                                         return n_addresses;
+
+                                addresses_machine = machine;
                         }
 
                         int family = dns_type_to_af(key->type);
