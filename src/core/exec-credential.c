@@ -627,6 +627,7 @@ static int load_credential(
         _cleanup_free_ char *bindname = NULL;
         const char *source = NULL;
         bool missing_ok;
+        bool effective_connect_socket = connect_socket;
         _cleanup_(erase_and_freep) char *data = NULL;
         size_t size, maxsz;
         int r;
@@ -656,7 +657,7 @@ static int load_credential(
                 if (!path_is_valid(path)) /* safety check */
                         return -EINVAL;
 
-                connect_socket = true;
+                effective_connect_socket = true;
                 missing_ok = false;
                 source = path;
 
@@ -679,7 +680,7 @@ static int load_credential(
         } else
                 maxsz = CREDENTIAL_SIZE_MAX;
 
-        if (connect_socket) {
+        if (effective_connect_socket) {
                 flags |= READ_FULL_FILE_CONNECT_SOCKET;
 
                 /* Pass some minimal info about the unit and the credential name we are looking to acquire
