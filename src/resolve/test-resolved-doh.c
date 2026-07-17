@@ -3,8 +3,10 @@
 #include "sd-id128.h"
 
 #include "dns-packet.h"
+#include "resolved-dns-delegate.h"
 #include "resolved-dns-server.h"
 #include "resolved-doh.h"
+#include "resolved-link.h"
 #include "resolved-manager.h"
 #include "siphash24.h"
 #include "tests.h"
@@ -256,6 +258,35 @@ TEST(server_configuration_link) {
         ASSERT_EQ(link->n_dns_servers, 1u);
 
         link = link_free(link);
+}
+
+TEST(server_configuration_delegate) {
+        Manager manager = {};
+        DnsDelegate delegate = { .manager = &manager };
+
+        ASSERT_OK(config_parse_delegate_dns_servers(
+                        "test",
+                        "test.dns-delegate",
+                        1,
+                        "Delegate",
+                        1,
+                        "DNS",
+                        0,
+                        "8.8.8.8#https://dns.google/dns-query{?dns}",
+                        /* data= */ NULL,
+                        &delegate));
+
+        DnsServer *server = ASSERT_PTR(delegate.dns_servers);
+        ASSERT_EQ(server->type, DNS_SERVER_DELEGATE);
+        ASSERT_EQ(server->protocol, DNS_SERVER_PROTOCOL_HTTPS);
+        ASSERT_TRUE(server->delegate == &delegate);
+        ASSERT_EQ(server->config_source, RESOLVE_CONFIG_SOURCE_FILE);
+        ASSERT_EQ(server->port, 443);
+        ASSERT_STREQ(server->server_name, "dns.google");
+        ASSERT_STREQ(server->doh_uri, "https://dns.google/dns-query");
+        ASSERT_STREQ(server->doh_uri_template, "https://dns.google/dns-query{?dns}");
+
+        dns_server_unlink_all(delegate.dns_servers);
 }
 
 TEST(server_configuration_invalid) {
