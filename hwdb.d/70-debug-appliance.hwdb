@@ -5,6 +5,16 @@
 # Permitted keys:
 #   ID_DEBUG_APPLIANCE=?*
 
+# Amlogic devices in burn mode
+# Used to interact with devices over Worldcup / ADNL protocol, see:
+# https://wiki.coreelec.org/coreelec:aml_usb_tool
+#
+# The idVendor and idProduct used are documented in source code here:
+# https://github.com/superna9999/pyamlboot/blob/d2857f4371bcdb7a90d885f24987e03b6d647a8a/PROTOCOL.md?plain=1#L17
+usb:v1B8EpC003*
+usb:v1B8EpC004*
+ ID_DEBUG_APPLIANCE=aml_burn_mode
+
 # Samsung devices in download mode
 # Used to interact with devices over Odin protocol, see:
 # https://en.wikipedia.org/wiki/Odin_(firmware_flashing_software)
