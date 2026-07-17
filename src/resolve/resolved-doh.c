@@ -90,6 +90,8 @@ int dns_over_https_response_headers_read(CURL *easy, uint64_t *ret_age) {
         assert(easy);
 
         code = sym_curl_easy_header(easy, "Content-Type", 0, CURLH_HEADER, -1, &header);
+        if (code == CURLHE_OUT_OF_MEMORY)
+                return -ENOMEM;
         if (code != CURLHE_OK || header->amount != 1 || !dns_over_https_content_type_is_valid(header->value))
                 return -EBADMSG;
 
@@ -102,6 +104,88 @@ int dns_over_https_response_headers_read(CURL *easy, uint64_t *ret_age) {
         if (ret_age)
                 *ret_age = age;
         return 0;
+}
+
+DnsOverHttpsFailureAction dns_over_https_curl_failure_action(CURLcode code) {
+        switch (code) {
+        case CURLE_OK:
+        case CURLE_UNSUPPORTED_PROTOCOL:
+        case CURLE_FAILED_INIT:
+        case CURLE_URL_MALFORMAT:
+        case CURLE_NOT_BUILT_IN:
+        case CURLE_COULDNT_RESOLVE_PROXY: /* Proxies are disabled for DoH. */
+        case CURLE_WRITE_ERROR:           /* Our write callback records its own error first. */
+        case CURLE_READ_ERROR:
+        case CURLE_OUT_OF_MEMORY:
+        case CURLE_ABORTED_BY_CALLBACK:
+        case CURLE_BAD_FUNCTION_ARGUMENT:
+        case CURLE_INTERFACE_FAILED:
+        case CURLE_UNKNOWN_OPTION:
+        case CURLE_SETOPT_OPTION_SYNTAX:
+        case CURLE_SSL_ENGINE_NOTFOUND:
+        case CURLE_SSL_ENGINE_SETFAILED:
+        case CURLE_SSL_CERTPROBLEM:
+        case CURLE_SSL_CIPHER:
+        case CURLE_SEND_FAIL_REWIND:
+        case CURLE_SSL_ENGINE_INITFAILED:
+        case CURLE_SSL_CACERT_BADFILE:
+        case CURLE_AGAIN:                 /* Only returned by curl_easy_send() and curl_easy_recv(). */
+        case CURLE_SSL_CRL_BADFILE:
+        case CURLE_NO_CONNECTION_AVAILABLE:
+        case CURLE_RECURSIVE_API_CALL:
+        case CURLE_PROXY:                 /* Proxies are disabled for DoH. */
+        case CURLE_UNRECOVERABLE_POLL:
+                return DNS_OVER_HTTPS_FAILURE_ABORT;
+
+        case CURLE_COULDNT_CONNECT:
+        case CURLE_HTTP2:
+        case CURLE_PARTIAL_FILE:
+        case CURLE_OPERATION_TIMEDOUT:
+        case CURLE_SSL_CONNECT_ERROR:
+        case CURLE_GOT_NOTHING:
+        case CURLE_SEND_ERROR:
+        case CURLE_RECV_ERROR:
+        case CURLE_SSL_SHUTDOWN_FAILED:
+        case CURLE_HTTP2_STREAM:
+        case CURLE_HTTP3:
+        case CURLE_QUIC_CONNECT_ERROR:
+                return DNS_OVER_HTTPS_FAILURE_RETRY_SAME_SERVER;
+
+        default:
+                /* Certificate verification, endpoint incompatibility, and malformed remote data will not be
+                 * repaired by opening another connection to the same endpoint. */
+                return DNS_OVER_HTTPS_FAILURE_RETRY_NEXT_SERVER;
+        }
+}
+
+/* RFC 8484 §4.2.1 requires DoH clients to apply normal HTTP semantics to non-successful responses:
+ * https://www.rfc-editor.org/rfc/rfc8484.html#section-4.2.1 */
+DnsOverHttpsFailureAction dns_over_https_http_failure_action(long status) {
+        if (status >= 200 && status < 300)
+                return DNS_OVER_HTTPS_FAILURE_ABORT;
+
+        if (IN_SET(status, 408L, 421L, 425L, 502L, 504L))
+                return DNS_OVER_HTTPS_FAILURE_RETRY_SAME_SERVER;
+
+        /* In particular, rotate immediately for 429 and 503 because delayed Retry-After scheduling is not
+         * implemented. Opening a fresh connection would not repair other endpoint or application failures. */
+        if (status > 0)
+                return DNS_OVER_HTTPS_FAILURE_RETRY_NEXT_SERVER;
+
+        return DNS_OVER_HTTPS_FAILURE_ABORT;
+}
+
+static const char* dns_over_https_failure_action_to_string(DnsOverHttpsFailureAction action) {
+        switch (action) {
+        case DNS_OVER_HTTPS_FAILURE_ABORT:
+                return "abort";
+        case DNS_OVER_HTTPS_FAILURE_RETRY_SAME_SERVER:
+                return "retry-same-server";
+        case DNS_OVER_HTTPS_FAILURE_RETRY_NEXT_SERVER:
+                return "retry-next-server";
+        default:
+                return "invalid";
+        }
 }
 
 /* RFC 8484 §3 defines method-specific URI-template expansion, and §4.1 defines the GET and POST requests:
@@ -497,6 +581,7 @@ static int dns_http_request_finished(CurlSlot *slot, CURL *easy, CURLcode code, 
         _cleanup_(dns_http_request_freep) DnsHttpRequest *request = ASSERT_PTR(userdata);
         _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
         DnsServer *server = ASSERT_PTR(request->transaction->server);
+        DnsOverHttpsFailureAction failure_action = DNS_OVER_HTTPS_FAILURE_ABORT;
         uint64_t age = 0;
         long status = 0;
         int r;
@@ -506,27 +591,39 @@ static int dns_http_request_finished(CurlSlot *slot, CURL *easy, CURLcode code, 
 
         request->slot = NULL;
 
-        if (request->response_error < 0)
+        if (request->response_error < 0) {
                 r = request->response_error;
-        else if (code != CURLE_OK) {
+                failure_action = r == -ENOMEM ? DNS_OVER_HTTPS_FAILURE_ABORT : DNS_OVER_HTTPS_FAILURE_RETRY_NEXT_SERVER;
+        } else if (code != CURLE_OK) {
                 log_debug("DNS-over-HTTPS request to %s at %s failed with libcurl error %u (%s).", server->server_name, dns_server_string(server), code, sym_curl_easy_strerror(code));
+                failure_action = dns_over_https_curl_failure_action(code);
+                r = code == CURLE_OPERATION_TIMEDOUT ? -ETIMEDOUT : -EIO;
+        } else if (sym_curl_easy_getinfo(easy, CURLINFO_RESPONSE_CODE, &status) != CURLE_OK) {
                 r = -EIO;
-        } else if (sym_curl_easy_getinfo(easy, CURLINFO_RESPONSE_CODE, &status) != CURLE_OK)
-                r = -EIO;
-        else if (status < 200 || status >= 300) {
+                failure_action = DNS_OVER_HTTPS_FAILURE_ABORT;
+        } else if (status < 200 || status >= 300) {
                 log_debug("DNS-over-HTTPS request to %s at %s returned HTTP status %ld.", server->server_name, dns_server_string(server), status);
+                failure_action = dns_over_https_http_failure_action(status);
                 r = -EREMOTEIO;
         } else {
                 r = dns_over_https_response_headers_read(easy, &age);
-                if (r >= 0)
+                if (r < 0)
+                        failure_action = IN_SET(r, -ENOMEM, -EIO) ? DNS_OVER_HTTPS_FAILURE_ABORT : DNS_OVER_HTTPS_FAILURE_RETRY_NEXT_SERVER;
+                else {
                         r = dns_http_request_make_packet(request, server, age, &packet);
+                        if (r < 0)
+                                failure_action = r == -ENOMEM ? DNS_OVER_HTTPS_FAILURE_ABORT : DNS_OVER_HTTPS_FAILURE_RETRY_NEXT_SERVER;
+                }
         }
 
-        dns_transaction_on_doh_complete(request->transaction, request, packet, r);
+        if (r < 0)
+                log_debug("DNS-over-HTTPS failure action for %s at %s: %s.", server->server_name, dns_server_string(server), dns_over_https_failure_action_to_string(failure_action));
+
+        dns_transaction_on_doh_complete(request->transaction, request, packet, r, failure_action);
         return 0;
 }
 
-static int dns_http_request_set_options(CURL *easy, DnsHttpRequest *request, DnsOverHttpsMethod method) {
+static int dns_http_request_set_options(CURL *easy, DnsHttpRequest *request, DnsOverHttpsMethod method, bool fresh_connection) {
         DnsServer *server;
 
         assert(easy);
@@ -582,6 +679,10 @@ static int dns_http_request_set_options(CURL *easy, DnsHttpRequest *request, Dns
                 return -EIO;
 #endif
 
+        /* Retry one transient failure without reusing the connection that might have caused it. */
+        if (fresh_connection && !easy_setopt(easy, LOG_DEBUG, CURLOPT_FRESH_CONNECT, 1L))
+                return -EIO;
+
         return 0;
 }
 
@@ -612,7 +713,7 @@ int dns_over_https_uri_for_request(const char *uri_template, const char *post_ur
         return 0;
 }
 
-int dns_http_request_new(DnsTransaction *transaction, DnsServer *server, DnsPacket *packet, DnsHttpRequest **ret) {
+int dns_http_request_new(DnsTransaction *transaction, DnsServer *server, DnsPacket *packet, bool fresh_connection, DnsHttpRequest **ret) {
         _cleanup_(curl_easy_cleanupp) CURL *easy = NULL;
         _cleanup_(dns_http_request_freep) DnsHttpRequest *request = NULL;
         _cleanup_free_ char *override = NULL, *uri = NULL;
@@ -676,7 +777,7 @@ int dns_http_request_new(DnsTransaction *transaction, DnsServer *server, DnsPack
         if (r < 0)
                 return r;
 
-        r = dns_http_request_set_options(easy, request, method);
+        r = dns_http_request_set_options(easy, request, method, fresh_connection);
         if (r < 0)
                 return r;
 
