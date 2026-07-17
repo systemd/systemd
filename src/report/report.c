@@ -9,6 +9,7 @@
 #include "dirent-util.h"
 #include "format-table.h"
 #include "help-util.h"
+#include "json-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "options.h"
@@ -22,6 +23,7 @@
 #include "runtime-scope.h"
 #include "set.h"
 #include "sort-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -45,7 +47,7 @@ char *arg_cert = NULL;
 char *arg_trust = NULL;
 char **arg_extra_headers = NULL;
 usec_t arg_network_timeout_usec = TIMEOUT_USEC;
-bool arg_sign = false;
+ReportSignMode arg_sign_mode = REPORT_SIGN_NO;
 
 STATIC_DESTRUCTOR_REGISTER(arg_url, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_key, freep);
@@ -778,6 +780,28 @@ static int verb_list_sources(int argc, char *argv[], uintptr_t _data, void *user
         return 0;
 }
 
+/* String table mapping the io.systemd.Report SignMode enum values (camelCase, per Varlink conventions) onto
+ * ReportSignMode. This is an explicit allowlist of the modes valid for GenerateSigned: unlike the CLI's
+ * report_sign_mode_from_string() it deliberately omits "no" (use the Generate method for unsigned reports). */
+static const char* const report_sign_varlink_mode_table[_REPORT_SIGN_MODE_MAX] = {
+        [REPORT_SIGN_BEST_EFFORT] = "bestEffort",
+        [REPORT_SIGN_REQUIRE_ONE] = "requireOne",
+        [REPORT_SIGN_REQUIRE_ALL] = "requireAll",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(report_sign_varlink_mode, ReportSignMode);
+
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_sign_mode, ReportSignMode, report_sign_varlink_mode_from_string);
+
+typedef struct GenerateParameters {
+        char **matches;
+        ReportSignMode sign_mode;
+} GenerateParameters;
+
+static void generate_parameters_done(GenerateParameters *p) {
+        strv_free(p->matches);
+}
+
 static int vl_method_generate_internal(
                 sd_varlink *link,
                 sd_json_variant *parameters,
@@ -788,22 +812,28 @@ static int vl_method_generate_internal(
         assert(link);
         assert(parameters);
 
-        _cleanup_strv_free_ char **input_matches = NULL;
+        _cleanup_(generate_parameters_done) GenerateParameters p = {
+                .sign_mode = REPORT_SIGN_REQUIRE_ONE,
+        };
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "matches", SD_JSON_VARIANT_ARRAY, sd_json_dispatch_strv, 0, 0 },
+                { "matches", SD_JSON_VARIANT_ARRAY,  sd_json_dispatch_strv,   voffsetof(p, matches),   0                },
+                { "mode",    SD_JSON_VARIANT_STRING, json_dispatch_sign_mode, voffsetof(p, sign_mode), SD_JSON_NULLABLE },
                 {}
         };
 
-        r = sd_varlink_dispatch(link, parameters, dispatch_table, &input_matches);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
+
+        if (p.sign_mode < 0)
+                p.sign_mode = REPORT_SIGN_REQUIRE_ONE;
 
         _cleanup_(context_done) Context context = {
                 .action = ACTION_GENERATE,
         };
 
-        r = parse_metrics_matches(input_matches, &context.matches);
+        r = parse_metrics_matches(p.matches, &context.matches);
         if (r < 0)
                 return sd_varlink_error_invalid_parameter_name(link, "matches");
 
@@ -824,7 +854,7 @@ static int vl_method_generate_internal(
                 /* Use compact JSON formatting (no pretty/color/seq flags), matching the on-the-wire format
                  * used for uploads. context_sign_report() adds the JSON-SEQ record separators itself. */
                 _cleanup_free_ char *s = NULL;
-                r = context_sign_report_as_string(&context, report, /* format_flags= */ 0, &s);
+                r = context_sign_report_as_string(&context, report, p.sign_mode, /* format_flags= */ 0, &s);
                 if (r < 0)
                         return r;
 
@@ -1006,10 +1036,11 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                                 return log_oom();
                         break;
 
-                OPTION_LONG("sign", "BOOL", "Sign the generated report."):
-                        r = parse_boolean_argument("--sign", opts.arg, &arg_sign);
-                        if (r < 0)
-                                return r;
+                OPTION_LONG("sign", "MODE",
+                            "Sign the report: no, best-effort, require-one, require-all"):
+                        arg_sign_mode = report_sign_mode_from_string(opts.arg);
+                        if (arg_sign_mode < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse --sign= mode '%s'.", opts.arg);
                         break;
                 }
 
