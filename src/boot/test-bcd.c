@@ -96,6 +96,7 @@ TEST(offset_bounds) {
         assert_se(!BAD_ARRAY(Key, key_name, 0, 0, sizeof(Key)));
 
         assert_se(bad_offset(0, sizeof(Key) + 1, sizeof(Key)));
+        assert_se(bad_offset(sizeof(Key) + 1, 0, sizeof(Key)));
         assert_se(bad_offset(UINT32_MAX, 2, UINT32_MAX));
 }
 
