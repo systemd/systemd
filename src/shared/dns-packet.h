@@ -190,6 +190,7 @@ int dns_packet_append_answer(DnsPacket *p, DnsAnswer *a, unsigned *completed);
 
 int dns_packet_patch_max_udp_size(DnsPacket *p, uint16_t max_udp_size);
 int dns_packet_patch_ttls(DnsPacket *p, usec_t timestamp);
+int dns_packet_patch_ttls_by_age(DnsPacket *p, uint64_t age);
 
 void dns_packet_truncate(DnsPacket *p, size_t sz);
 int dns_packet_truncate_opt(DnsPacket *p);

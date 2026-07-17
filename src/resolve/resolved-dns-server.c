@@ -48,9 +48,10 @@ static int dns_server_new_full(
                 int ifindex,
                 const char *server_name,
                 const char *doh_uri,
+                const char *doh_uri_template,
                 ResolveConfigSource config_source) {
 
-        _cleanup_free_ char *name = NULL, *uri = NULL;
+        _cleanup_free_ char *name = NULL, *uri = NULL, *uri_template = NULL;
         DnsServer *s;
 
         assert(m);
@@ -63,12 +64,12 @@ static int dns_server_new_full(
         if (protocol < 0 || protocol >= _DNS_SERVER_PROTOCOL_MAX)
                 return -EINVAL;
         if (protocol == DNS_SERVER_PROTOCOL_HTTPS) {
-                if (isempty(server_name) || isempty(doh_uri))
+                if (isempty(server_name) || isempty(doh_uri) || isempty(doh_uri_template))
                         return -EINVAL;
 #if !(HAVE_LIBCURL_HEADER && HAVE_LIBCURL_URL)
                 return -EOPNOTSUPP;
 #endif
-        } else if (doh_uri)
+        } else if (doh_uri || doh_uri_template)
                 return -EINVAL;
 
         if (link) {
@@ -92,6 +93,11 @@ static int dns_server_new_full(
                 if (!uri)
                         return -ENOMEM;
         }
+        if (doh_uri_template) {
+                uri_template = strdup(doh_uri_template);
+                if (!uri_template)
+                        return -ENOMEM;
+        }
 
         s = new(DnsServer, 1);
         if (!s)
@@ -108,6 +114,7 @@ static int dns_server_new_full(
                 .server_name = TAKE_PTR(name),
                 .protocol = protocol,
                 .doh_uri = TAKE_PTR(uri),
+                .doh_uri_template = TAKE_PTR(uri_template),
                 .config_source = config_source,
                 .accessible = -1,
         };
@@ -169,13 +176,17 @@ int dns_server_new(
 
         return dns_server_new_full(
                         m, ret, type, link, delegate, DNS_SERVER_PROTOCOL_DNS,
-                        family, in_addr, port, ifindex, server_name, /* doh_uri= */ NULL, config_source);
+                        family, in_addr, port, ifindex, server_name, /* doh_uri= */ NULL, /* doh_uri_template= */ NULL, config_source);
 }
 
 static DnsServer* dns_server_free(DnsServer *s)  {
         assert(s);
 
         dns_server_unref_stream(s);
+
+#if HAVE_LIBCURL_HEADER && HAVE_LIBCURL_URL
+        s->doh_curl = curl_glue_unref(s->doh_curl);
+#endif
 
 #if ENABLE_DNS_OVER_TLS
         dnstls_server_free(s);
@@ -185,6 +196,7 @@ static DnsServer* dns_server_free(DnsServer *s)  {
         free(s->server_string_full);
         free(s->server_name);
         free(s->doh_uri);
+        free(s->doh_uri_template);
         return mfree(s);
 }
 
@@ -366,6 +378,8 @@ void dns_server_packet_received(
         assert(selected_transport >= 0);
         assert(selected_transport < _DNS_SERVER_TRANSPORT_MAX);
 
+        assert(received_transport != DNS_TRANSACTION_TRANSPORT_HTTPS);
+
         switch (received_transport) {
         case DNS_TRANSACTION_TRANSPORT_UDP:
                 if (s->possible_transport == selected_transport)
@@ -419,6 +433,9 @@ void dns_server_packet_lost(
         assert(transport < _DNS_TRANSACTION_TRANSPORT_MAX);
         assert(selected_transport >= 0);
         assert(selected_transport < _DNS_SERVER_TRANSPORT_MAX);
+
+        if (transport == DNS_TRANSACTION_TRANSPORT_HTTPS)
+                return;
 
         if (s->possible_transport != selected_transport)
                 return;
@@ -688,6 +705,7 @@ DnsServerTransport dns_server_possible_transport(DnsServer *s) {
         DnsServerLevelResult result;
 
         assert(s);
+        assert(!dns_server_is_doh(s));
 
         best = dns_server_best_transport(s);
 
@@ -769,7 +787,11 @@ int dns_server_adjust_opt(DnsServer *server, DnsPacket *packet, DnsServerCapabil
 
         udp_size = udp_header_size(server->family);
 
-        if (in_addr_is_localhost(server->family, &server->address) > 0)
+        if (dns_server_is_doh(server))
+                /* RFC 8484 requires the server to ignore the EDNS UDP payload size. Keep this independent of
+                 * path MTU and UDP fragmentation state when the response is carried by HTTP. */
+                packet_size = DNS_PACKET_SIZE_MAX;
+        else if (in_addr_is_localhost(server->family, &server->address) > 0)
                 packet_size = 65536 - udp_size; /* force linux loopback MTU if localhost address */
         else {
                 /* Use the MTU pointing to the server, subtract the IP/UDP header size */
@@ -847,7 +869,7 @@ const char* dns_server_string_full(DnsServer *server) {
                         if (in_addr_port_ifindex_name_to_string(
                                             server->family, &server->address, server->port != 443 ? server->port : 0, dns_server_ifindex(server),
                                             /* server_name= */ NULL, &address) >= 0)
-                                server->server_string_full = strjoin(address, "#", server->doh_uri);
+                                server->server_string_full = strjoin(address, "#", server->doh_uri_template);
                 } else
                         (void) in_addr_port_ifindex_name_to_string(
                                         server->family, &server->address, server->port, dns_server_ifindex(server),
@@ -872,7 +894,7 @@ bool dns_server_dnssec_supported(DnsServer *server) {
                 return false;
 
         /* DNSSEC servers need to support TCP properly (see RFC5966), if they don't, we assume DNSSEC is borked too */
-        if (server->n_failed_tcp >= DNS_SERVER_FEATURE_RETRY_ATTEMPTS)
+        if (!dns_server_is_doh(server) && server->n_failed_tcp >= DNS_SERVER_FEATURE_RETRY_ATTEMPTS)
                 return false;
 
         return true;
@@ -914,6 +936,7 @@ static void dns_server_hash_func(const DnsServer *s, struct siphash *state) {
         siphash24_compress_string(s->server_name, state);
         siphash24_compress_typesafe(s->protocol, state);
         siphash24_compress_string(s->doh_uri, state);
+        siphash24_compress_string(s->doh_uri_template, state);
 }
 
 static int dns_server_compare_func(const DnsServer *x, const DnsServer *y) {
@@ -943,7 +966,11 @@ static int dns_server_compare_func(const DnsServer *x, const DnsServer *y) {
         if (r != 0)
                 return r;
 
-        return strcmp_ptr(x->doh_uri, y->doh_uri);
+        r = strcmp_ptr(x->doh_uri, y->doh_uri);
+        if (r != 0)
+                return r;
+
+        return strcmp_ptr(x->doh_uri_template, y->doh_uri_template);
 }
 
 DEFINE_HASH_OPS(dns_server_hash_ops, DnsServer, dns_server_hash_func, dns_server_compare_func);
@@ -1018,7 +1045,8 @@ static DnsServer* dns_server_find_with_protocol(
                 int ifindex,
                 const char *name,
                 DnsServerProtocol protocol,
-                const char *doh_uri) {
+                const char *doh_uri,
+                const char *doh_uri_template) {
 
         LIST_FOREACH(servers, s, first)
                 if (s->family == family &&
@@ -1027,14 +1055,15 @@ static DnsServer* dns_server_find_with_protocol(
                     s->ifindex == ifindex &&
                     streq_ptr(s->server_name, name) &&
                     s->protocol == protocol &&
-                    streq_ptr(s->doh_uri, doh_uri))
+                    streq_ptr(s->doh_uri, doh_uri) &&
+                    streq_ptr(s->doh_uri_template, doh_uri_template))
                         return s;
 
         return NULL;
 }
 
 static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, const char *word) {
-        _cleanup_free_ char *doh_uri = NULL, *server_name = NULL;
+        _cleanup_free_ char *doh_uri = NULL, *doh_uri_template = NULL, *server_name = NULL;
         union in_addr_union address;
         int family, r, ifindex = 0;
         uint16_t port;
@@ -1056,7 +1085,7 @@ static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, cons
                 _cleanup_free_ char *auth_name = NULL;
                 uint16_t doh_port;
 
-                r = dns_over_https_uri_parse(server_name, &doh_uri, &auth_name, &doh_port);
+                r = dns_over_https_uri_parse(server_name, &doh_uri, &doh_uri_template, &auth_name, &doh_port);
                 if (r < 0)
                         return r;
                 if (port > 0 && port != doh_port)
@@ -1080,7 +1109,7 @@ static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, cons
                 port = 0;
 
         /* Filter out duplicates */
-        s = dns_server_find_with_protocol(manager_get_first_dns_server(m, type), family, &address, port, ifindex, server_name, protocol, doh_uri);
+        s = dns_server_find_with_protocol(manager_get_first_dns_server(m, type), family, &address, port, ifindex, server_name, protocol, doh_uri, doh_uri_template);
         if (s) {
                 /* Drop the marker. This is used to find the servers that ceased to exist, see
                  * manager_mark_dns_servers() and manager_flush_marked_dns_servers(). */
@@ -1101,6 +1130,7 @@ static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, cons
                         ifindex,
                         server_name,
                         doh_uri,
+                        doh_uri_template,
                         RESOLVE_CONFIG_SOURCE_FILE);
 }
 
@@ -1305,6 +1335,9 @@ DnssecMode dns_server_get_dnssec_mode(DnsServer *s) {
 DnsOverTlsMode dns_server_get_dns_over_tls_mode(DnsServer *s) {
         assert(s);
 
+        if (dns_server_is_doh(s))
+                return DNS_OVER_TLS_NO;
+
         if (s->link)
                 return link_get_dns_over_tls_mode(s->link);
 
@@ -1342,7 +1375,7 @@ void dns_server_reset_features(DnsServer *s) {
         assert(s);
 
         s->verified_transport = _DNS_SERVER_TRANSPORT_INVALID;
-        s->possible_transport = DNS_SERVER_TRANSPORT_BEST;
+        s->possible_transport = dns_server_is_doh(s) ? _DNS_SERVER_TRANSPORT_INVALID : DNS_SERVER_TRANSPORT_BEST;
         s->verified_capability_level = _DNS_SERVER_CAPABILITY_LEVEL_INVALID;
         s->possible_capability_level = DNS_SERVER_CAPABILITY_LEVEL_BEST;
 
@@ -1394,7 +1427,7 @@ void dns_server_dump(DnsServer *s, FILE *f) {
 
         if (dns_server_is_doh(s)) {
                 fprintf(f, "\tAuthentication name: %s\n", s->server_name);
-                fprintf(f, "\tURI: %s\n", s->doh_uri);
+                fprintf(f, "\tURI template: %s\n", s->doh_uri_template);
         }
 
         fputs("\tVerified transport: ", f);
@@ -1508,7 +1541,7 @@ int dns_server_dump_state_to_json(DnsServer *server, sd_json_variant **ret) {
                         SD_JSON_BUILD_PAIR_STRING("Server", strna(dns_server_string_full(server))),
                         SD_JSON_BUILD_PAIR_STRING("Type", strna(dns_server_type_to_string(server->type))),
                         SD_JSON_BUILD_PAIR_STRING("Transport", strna(dns_server_protocol_to_string(server->protocol))),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("URI", server->doh_uri),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("URI", server->doh_uri_template),
                         SD_JSON_BUILD_PAIR_CONDITION(server->type == DNS_SERVER_LINK, "Interface", SD_JSON_BUILD_STRING(server->link ? server->link->ifname : NULL)),
                         SD_JSON_BUILD_PAIR_CONDITION(ifindex > 0, "InterfaceIndex", SD_JSON_BUILD_UNSIGNED(ifindex)),
                         SD_JSON_BUILD_PAIR_STRING("VerifiedTransport", strna(dns_server_transport_to_string(server->verified_transport))),
@@ -1597,6 +1630,6 @@ int dns_server_dump_configuration_to_json(DnsServer *server, sd_json_variant **r
                         SD_JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", SD_JSON_BUILD_UNSIGNED(ifindex)),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("name", server->server_name),
                         SD_JSON_BUILD_PAIR_STRING("transport", strna(dns_server_protocol_to_string(server->protocol))),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("uri", server->doh_uri),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("uri", server->doh_uri_template),
                         SD_JSON_BUILD_PAIR_BOOLEAN("accessible", accessible));
 }
