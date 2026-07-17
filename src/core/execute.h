@@ -513,6 +513,20 @@ static inline bool exec_input_is_inheritable(ExecInput i) {
         return exec_input_is_terminal(i) || IN_SET(i, EXEC_INPUT_SOCKET, EXEC_INPUT_NAMED_FD);
 }
 
+static inline bool exec_input_needs_file(ExecInput i) {
+        /* Requires the companion path from StandardInputFile= */
+        return i == EXEC_INPUT_FILE;
+}
+
+static inline bool exec_output_needs_file(ExecOutput o) {
+        /* Requires the companion path from StandardOutputFile=/StandardOutputFileToAppend=/… (or their
+         * StandardError= equivalents) */
+        return IN_SET(o,
+                      EXEC_OUTPUT_FILE,
+                      EXEC_OUTPUT_FILE_APPEND,
+                      EXEC_OUTPUT_FILE_TRUNCATE);
+}
+
 int exec_spawn(
                 Unit *unit,
                 ExecCommand *command,
