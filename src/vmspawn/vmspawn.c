@@ -70,6 +70,7 @@
 #include "polkit-agent.h"
 #include "pretty-print.h"
 #include "process-util.h"
+#include "ptybroker-client.h"
 #include "ptyfwd.h"
 #include "random-util.h"
 #include "rm-rf.h"
@@ -912,7 +913,7 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_GROUP("Input/Output"): {}
 
                 OPTION_LONG("console", "MODE",
-                            "Console mode (interactive, native, gui, read-only or headless)"):
+                            "Console mode (interactive, native, gui, read-only, headless, broker or broker-log)"):
                         arg_console_mode = console_mode_from_string(opts.arg);
                         if (arg_console_mode < 0)
                                 return log_error_errno(arg_console_mode, "Failed to parse specified console mode: %s", opts.arg);
@@ -3078,7 +3079,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return log_oom();
 
-        _cleanup_close_ int master = -EBADF;
+        _cleanup_close_ int master = -EBADF, console_backend_fd = -EBADF;
+        _cleanup_free_ char *console_pty_name = NULL;
         PTYForwardFlags ptyfwd_flags = 0;
         switch (arg_console_mode) {
 
@@ -3125,6 +3127,54 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
                 break;
         }
+
+        case CONSOLE_BROKER:
+        case CONSOLE_BROKER_LOG:
+                /* In broker mode ptybrokerd owns the frontend (the "master" side) of the pseudo TTY and
+                 * takes care of its output itself — discarding it, or, for broker-log, additionally writing
+                 * it to the logs. It hands us a monitor connection which we forward the local terminal to
+                 * (used as PTY forwarder "master"), plus the backend (the "slave" side) which we pass on to
+                 * QEMU as its console. */
+                r = pty_broker_acquire_pty(
+                                arg_runtime_scope,
+                                arg_console_mode == CONSOLE_BROKER_LOG ? "log" : "null",
+                                /* name= */ NULL,
+                                &master,
+                                &console_backend_fd,
+                                &console_pty_name);
+                if (r < 0)
+                        return r;
+
+                if (!arg_quiet && !isempty(console_pty_name))
+                        log_info("Broker registered console pseudo TTY under name '%s'.", console_pty_name);
+
+                r = strv_extend_many(&cmdline, "-nographic", "-nodefaults");
+                if (r < 0)
+                        return log_oom();
+
+                /* Hand QEMU the already-open backend (slave) fd rather than a filesystem path: register it
+                 * in an fd set and point the chardev at /dev/fdset/2. The fd survives the fork because it's
+                 * added to pass_fds (QEMU is forked with FORK_CLOEXEC_OFF). */
+                if (!GREEDY_REALLOC(pass_fds, n_pass_fds + 1))
+                        return log_oom();
+                pass_fds[n_pass_fds++] = console_backend_fd;
+
+                r = strv_extend(&cmdline, "--add-fd");
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extendf(&cmdline, "fd=%d,set=2,opaque=/dev/console", console_backend_fd);
+                if (r < 0)
+                        return log_oom();
+
+                r = qemu_config_section(config_file, "chardev", "console",
+                                        "backend", "serial",
+                                        "path", "/dev/fdset/2",
+                                        "mux", "off");
+                if (r < 0)
+                        return r;
+
+                break;
 
         case CONSOLE_GUI:
                 /* -vga is a convenience option, keep on cmdline */
@@ -3818,7 +3868,15 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         _cleanup_close_ int child_pty = -EBADF;
-        if (master >= 0) {
+        if (console_backend_fd >= 0) {
+                /* Broker mode: QEMU's stdio should be the broker-provided backend (slave), not derived from
+                 * the monitor connection (which is 'master' here). Reopen it to get an independent open file
+                 * description, so FORK_REARRANGE_STDIO can move it onto stdin/stdout/stderr without disturbing
+                 * the fd we hand QEMU's console chardev via the fd set. */
+                child_pty = fd_reopen(console_backend_fd, O_RDWR|O_CLOEXEC|O_NOCTTY);
+                if (child_pty < 0)
+                        return log_error_errno(child_pty, "Failed to reopen PTY backend: %m");
+        } else if (master >= 0) {
                 child_pty = pty_open_peer(master, O_RDWR|O_CLOEXEC|O_NOCTTY);
                 if (child_pty < 0)
                         return log_error_errno(child_pty, "Failed to open PTY slave: %m");
@@ -3850,6 +3908,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         /* Close QEMU's end of the QMP socketpair in the parent. We don't need it anymore. */
         child_pty = safe_close(child_pty);
         bridge_fds[1] = safe_close(bridge_fds[1]);
+
+        /* In broker mode QEMU has inherited the console backend (slave) fd via the fd set; release our copy
+         * so we don't keep the pseudo TTY's backend side pinned open for the VM's entire lifetime. */
+        console_backend_fd = safe_close(console_backend_fd);
 
         r = prepare_device_info(runtime_dir, &config);
         if (r < 0)
@@ -4337,7 +4399,7 @@ static int run(int argc, char *argv[]) {
                 log_info("%s %sSpawning VM %s on %s.%s",
                          glyph(GLYPH_LIGHT_SHADE), ansi_grey(), arg_machine, u ?: vm_path, ansi_normal());
 
-                if (arg_console_mode == CONSOLE_INTERACTIVE)
+                if (IN_SET(arg_console_mode, CONSOLE_INTERACTIVE, CONSOLE_BROKER, CONSOLE_BROKER_LOG))
                         log_info("%s %sPress %sCtrl-]%s three times within 1s to kill VM.%s",
                                  glyph(GLYPH_LIGHT_SHADE), ansi_grey(), ansi_highlight(), ansi_grey(), ansi_normal());
                 else if (arg_console_mode == CONSOLE_NATIVE)

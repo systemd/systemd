@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?> <!--*-nxml-*-->
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+        "https://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+
+<!--
+  SPDX-License-Identifier: LGPL-2.1-or-later
+
+  This file is part of systemd.
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+-->
+
+<policyconfig>
+
+        <vendor>The systemd Project</vendor>
+        <vendor_url>https://systemd.io</vendor_url>
+
+        <action id="io.systemd.PTYBroker.acquire-pty">
+                <description gettext-domain="systemd">Acquire a pseudo-terminal with a shell</description>
+                <message gettext-domain="systemd">Authentication is required to acquire a pseudo-terminal whose peer side runs a shell as a transient service unit.</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
+        <action id="io.systemd.PTYBroker.enroll-pty">
+                <description gettext-domain="systemd">Enroll a pre-allocated pseudo-terminal</description>
+                <message gettext-domain="systemd">Authentication is required to enroll a pre-allocated pseudo-terminal with the PTY broker.</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
+        <action id="io.systemd.PTYBroker.monitor-pty">
+                <description gettext-domain="systemd">Monitor a pseudo-terminal</description>
+                <message gettext-domain="systemd">Authentication is required to monitor a pseudo-terminal managed by the PTY broker.</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
+        <action id="io.systemd.PTYBroker.configure-pty">
+                <description gettext-domain="systemd">Reconfigure a pseudo-terminal</description>
+                <message gettext-domain="systemd">Authentication is required to reconfigure a pseudo-terminal managed by the PTY broker.</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
+        <action id="io.systemd.PTYBroker.hang-up-pty">
+                <description gettext-domain="systemd">Hang up a pseudo-terminal</description>
+                <message gettext-domain="systemd">Authentication is required to hang up a pseudo-terminal managed by the PTY broker.</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
+</policyconfig>
