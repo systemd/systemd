@@ -328,7 +328,7 @@ TEST(server_transport_features) {
         server->n_failed_tcp = 2;
         server->n_failed_tls = 3;
         server->received_udp_fragment_max = 1232;
-        dns_server_packet_received(server, DNS_TRANSACTION_TRANSPORT_HTTPS, DNS_SERVER_TRANSPORT_TLS, 9000);
+        dns_server_capability_received(server, DNS_SERVER_CAPABILITY_LEVEL_DO);
         ASSERT_EQ(server->n_failed_udp, 1u);
         ASSERT_EQ(server->n_failed_tcp, 2u);
         ASSERT_EQ(server->n_failed_tls, 3u);
