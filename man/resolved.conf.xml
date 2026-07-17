@@ -58,11 +58,26 @@
         <term><varname>DNS=</varname></term>
         <listitem><para>A space-separated list of IPv4 and IPv6 addresses to use as system DNS servers. Each address can
         optionally take a port number separated with <literal>:</literal>, a network interface name or index separated with
-        <literal>%</literal>, and a Server Name Indication (SNI) separated with <literal>#</literal>. When IPv6 address is
-        specified with a port number, then the address must be in the square brackets. That is, the acceptable full formats
-        are <literal>111.222.333.444:9953%ifname#example.com</literal> for IPv4 and
-        <literal>[1111:2222::3333]:9953%ifname#example.com</literal> for IPv6. DNS requests are sent to one of the listed
-        DNS servers in parallel to suitable per-link DNS servers acquired from
+        <literal>%</literal>. When IPv6 address is specified with a port number, then the address must be in the square brackets.
+        Transport specific information is then separated with a <literal>#</literal></para>.
+
+        <para>If the transport is DNS over TLS then after the <literal>#</literal> character, a domain to use for Server Name
+        Indication (SNI) may be supplied.</para>
+
+        <para>If the transport is DNS over HTTPS then after the <literal>#</literal> character, a URI must be supplied. The IP
+        address is then used simply as a bootstrap address. If a port is specified it must match the URI's port otherwise
+        it defaults to <literal>443</literal>. The URI must have the <literal>https://</literal> scheme, a host is required
+        and will be used as the authority name, and a custom port can be supplied.
+        The path component is used for the DNS request and supports template expansion of the <literal>{?dns}</literal>
+        variable specified by <ulink url="https://www.rfc-editor.org/rfc/rfc8484.html#section-3">RFC 8484</ulink>.
+        An entry in this form designates an HTTPS-only endpoint and is never contacted using plain DNS or DNS-over-TLS.
+        It is rejected when DNS-over-HTTPS support is unavailable.</para>
+
+        <para>Examples of acceptable full formats are <literal>111.222.333.444:9953%ifname#example.com</literal> for IPv4 and
+        <literal>[1111:2222::3333]:9953%ifname#example.com</literal> for IPv6.
+        <literal>111.222.333.444#https://example.dns:8443/dns-query{?dns}</literal> for DNS over HTTPS.</para>
+
+        <para>DNS requests are sent to one of the listed DNS servers in parallel to suitable per-link DNS servers acquired from
         <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> or
         set at runtime by external applications.  For compatibility reasons, if this setting is not specified, the DNS
         servers listed in <filename>/etc/resolv.conf</filename> are used instead, if that file exists and any servers
@@ -247,6 +262,9 @@
         Indication (SNI) when opening a TLS connection. Otherwise
         the certificate is checked against the server's IP.
         If the DNS server does not support DNS-over-TLS all DNS requests will fail.</para>
+
+        <para>This setting only controls plain DNS server entries. DNS-over-HTTPS entries select HTTPS explicitly,
+        are never downgraded to plain DNS, and are not affected by this setting.</para>
 
         <para>When set to <literal>opportunistic</literal>
         DNS request are attempted to send encrypted with DNS-over-TLS.
