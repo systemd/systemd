@@ -788,9 +788,11 @@ DuplicateAddressDetection=none</programlisting></para>
           <literal>[1111:2222::3333]:9953%ifname#example.com</literal> for IPv6. If an empty string is
           assigned, then the all previous assignments are cleared. This setting is read by
           <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-          DNS-over-HTTPS URI specifications accepted by the global <varname>DNS=</varname> setting in
-          <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> are not
-          accepted here currently.
+          DNS-over-HTTPS endpoints may use the same URI specification accepted by the global
+          <varname>DNS=</varname> setting in
+          <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          The endpoint is associated with the matched interface and HTTPS connections to it are routed through
+          that interface. DNS-over-HTTPS entries are rejected when DNS-over-HTTPS support is unavailable.
           </para>
 
           <xi:include href="version-info.xml" xpointer="v211"/>

@@ -150,6 +150,8 @@ int dns_server_new(
                 const char *server_name,
                 ResolveConfigSource config_source);
 
+int dns_server_new_from_string(Manager *m, DnsServerType type, Link *link, DnsDelegate *delegate, const char *word, ResolveConfigSource config_source);
+
 DECLARE_TRIVIAL_REF_UNREF_FUNC(DnsServer, dns_server);
 
 void dns_server_unlink(DnsServer *s);
