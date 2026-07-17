@@ -1023,7 +1023,7 @@ testcase_fscrypt() {
 }
 
 testcase_identity_groups() {
-    NEWPASSWORD=foobar homectl create idgrouptest --enforce-password-policy=no
+    NEWPASSWORD=foobar homectl create idgrouptest --storage=directory --shell=/bin/bash --enforce-password-policy=no --rebalance-weight=off
     PASSWORD=foobar homectl activate idgrouptest
 
     machinectl shell idgrouptest@ /usr/bin/bash -euxo pipefail -c "jq '.memberOf = ((.memberOf // []) + [\"systemd-journal\"] | unique) | .lastChangeUSec = ((.lastChangeUSec // 0) + 3600000000)' /home/idgrouptest/.identity > /home/idgrouptest/.identity.new && mv -f /home/idgrouptest/.identity.new /home/idgrouptest/.identity"
@@ -1033,11 +1033,61 @@ testcase_identity_groups() {
 
     local groups
     groups="$(machinectl shell idgrouptest@ /usr/bin/groups)"
-    (! grep -q systemd-journal <<<"$groups")
+    (! grep systemd-journal <<<"$groups" >/dev/null)
 
     homectl deactivate idgrouptest ||:
     wait_for_state idgrouptest inactive
     homectl remove idgrouptest
+
+    # Install a PK rule that allows 'idgrouptest2' user to update homed even
+    # though they are not on an fg console, just for testing
+    mkdir -p /etc/polkit-1/rules.d
+    cat >/etc/polkit-1/rules.d/updatehome.rules <<'EOF'
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.home1.update-home-by-owner" &&
+        subject.user == "idgrouptest2") {
+        return polkit.Result.YES;
+    }
+});
+EOF
+    trap 'rm -f /etc/polkit-1/rules.d/updatehome.rules' RETURN ERR EXIT
+    systemctl try-reload-or-restart polkit.service
+
+    NEWPASSWORD=foobar homectl create idgrouptest2 --storage=directory --shell=/bin/bash --enforce-password-policy=no --rebalance-weight=off
+    PASSWORD=foobar homectl activate idgrouptest2
+
+    cat >/tmp/idgrouptest-add-group.sh <<'EOF'
+#!/bin/bash
+set -exuo pipefail
+
+loginctl show-session "${XDG_SESSION_ID:?}" -p Active --value | grep '^yes$' >/dev/null
+RECORD="$(busctl -j call org.freedesktop.home1 /org/freedesktop/home1 org.freedesktop.home1.Manager GetUserRecordByName s "$USER" | jq -r '.data[0]')"
+TS="$(printf '%s' "$RECORD" | jq '.lastChangeUSec')"
+NEW_TS=$((TS + 172800000000))
+jq --arg g systemd-journal --argjson ts "$NEW_TS" \
+   '.memberOf = ((.memberOf // []) + [$g]) | .lastChangeUSec = $ts' \
+   ~/.identity > ~/.identity.new
+mv -f ~/.identity.new ~/.identity
+# Ensure the identity update is persisted before UpdateHomeEx reads it.
+sync
+
+UPDATE_TS=$((TS + 1))
+UPDATE_RECORD="$(printf '%s' "$RECORD" | jq -c --argjson ts "$UPDATE_TS" --arg p foobar 'del(.binding, .status, .signature) | .lastChangeUSec = $ts | .secret = {password: [$p]}')"
+(! busctl call org.freedesktop.home1 /org/freedesktop/home1 org.freedesktop.home1.Manager UpdateHomeEx "sa{sh}t" "$UPDATE_RECORD" 0 0 )
+EOF
+    chmod +x /tmp/idgrouptest-add-group.sh
+    machinectl shell idgrouptest2@ /tmp/idgrouptest-add-group.sh
+    rm -f /tmp/idgrouptest-add-group.sh
+
+    PASSWORD=foobar homectl authenticate idgrouptest2
+
+    local groups
+    groups="$(machinectl shell idgrouptest2@ /usr/bin/groups)"
+    (! grep systemd-journal <<<"$groups" >/dev/null)
+
+    homectl deactivate idgrouptest2 ||:
+    wait_for_state idgrouptest2 inactive
+    homectl remove idgrouptest2
 }
 
 run_testcases
