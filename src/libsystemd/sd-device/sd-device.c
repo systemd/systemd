@@ -854,25 +854,30 @@ int device_read_uevent_file(sd_device *device) {
         STRV_FOREACH(s, v) {
                 char *eq = strchr(*s, '=');
                 if (!eq) {
-                        log_device_debug(device, "sd-device: Invalid uevent line, ignoring: %s", *s);
+                        _cleanup_free_ char *escaped = cescape(*s);
+                        log_device_debug(device, "sd-device: Invalid uevent line, ignoring: %s", strnull(escaped));
                         continue;
                 }
 
                 *eq = '\0';
 
                 r = handle_uevent_line(device, *s, eq + 1, &major, &minor);
-                if (r < 0)
+                if (r < 0) {
+                        _cleanup_free_ char *escaped_key = cescape(*s), *escaped_value = cescape(eq + 1);
                         log_device_debug_errno(device, r,
                                                "sd-device: Failed to handle uevent entry '%s=%s', ignoring: %m",
-                                               *s, eq + 1);
+                                               strnull(escaped_key), strnull(escaped_value));
+                }
         }
 
         if (major) {
                 r = device_set_devnum(device, major, minor);
-                if (r < 0)
+                if (r < 0) {
+                        _cleanup_free_ char *escaped_major = cescape(major), *escaped_minor = minor ? cescape(minor) : NULL;
                         log_device_debug_errno(device, r,
                                                "sd-device: Failed to set 'MAJOR=%s' and/or 'MINOR=%s' from uevent, ignoring: %m",
-                                               major, strna(minor));
+                                               strnull(escaped_major), minor ? strnull(escaped_minor) : "n/a");
+                }
         }
 
         r = device_in_subsystem(device, "drivers");
