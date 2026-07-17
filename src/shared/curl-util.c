@@ -37,6 +37,7 @@ static DLSYM_PROTOTYPE(curl_multi_setopt) = NULL;
 static DLSYM_PROTOTYPE(curl_multi_socket_action) = NULL;
 DLSYM_PROTOTYPE(curl_slist_append) = NULL;
 DLSYM_PROTOTYPE(curl_slist_free_all) = NULL;
+DLSYM_PROTOTYPE(curl_version_info) = NULL;
 #if HAVE_LIBCURL_URL
 DLSYM_PROTOTYPE(curl_free) = NULL;
 DLSYM_PROTOTYPE(curl_url) = NULL;
@@ -289,7 +290,10 @@ static int curl_glue_timer_callback(CURLM *curl, long timeout_ms, void *userdata
                 if (sd_event_source_set_enabled(g->timer, SD_EVENT_ONESHOT) < 0)
                         return -1;
         } else {
-                if (sd_event_add_time_relative(g->event, &g->timer, CLOCK_BOOTTIME, usec, 0, curl_glue_on_timer, g) < 0)
+                /* libcurl uses this timer to drive its nonblocking state machine. Do not use sd-event's
+                 * default 250ms timer accuracy here, or a zero-delay curl timeout may be coalesced far into
+                 * the future. */
+                if (sd_event_add_time_relative(g->event, &g->timer, CLOCK_BOOTTIME, usec, 1, curl_glue_on_timer, g) < 0)
                         return -1;
 
                 (void) sd_event_source_set_description(g->timer, "curl-timer");
@@ -635,7 +639,8 @@ int dlopen_curl(int log_level) {
                         DLSYM_ARG(curl_multi_setopt),
                         DLSYM_ARG(curl_multi_socket_action),
                         DLSYM_ARG(curl_slist_append),
-                        DLSYM_ARG(curl_slist_free_all)
+                        DLSYM_ARG(curl_slist_free_all),
+                        DLSYM_ARG(curl_version_info)
 #if HAVE_LIBCURL_URL
                         , DLSYM_ARG(curl_free)
                         , DLSYM_ARG(curl_url)
