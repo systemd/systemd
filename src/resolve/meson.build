@@ -67,8 +67,15 @@ if conf.get('ENABLE_DNS_OVER_TLS') == 1
         )
 endif
 
+if conf.get('HAVE_LIBCURL_HEADER') == 1 and conf.get('HAVE_LIBCURL_URL') == 1
+        systemd_resolved_export_sources += files(
+                'resolved-doh.c',
+        )
+endif
+
 resolve_common_template = {
         'dependencies' : [
+                libcurl_cflags,
                 libidn2_cflags,
                 libopenssl_cflags,
         ],
@@ -122,6 +129,10 @@ executables += [
         },
         resolve_test_template + {
                 'sources' : files('test-resolved-packet.c'),
+        },
+        resolve_test_template + {
+                'sources' : files('test-resolved-doh.c'),
+                'conditions' : ['HAVE_LIBCURL_HEADER', 'HAVE_LIBCURL_URL'],
         },
         resolve_test_template + {
                 'sources' : files('test-dnssec.c'),
