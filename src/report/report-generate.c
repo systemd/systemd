@@ -51,8 +51,8 @@ int context_generate_report(Context *context) {
         if (r < 0)
                 return r;
 
-        if (arg_sign) {
-                r = context_sign_report(context, report, arg_json_format_flags, /* output= */ NULL);
+        if (arg_sign_mode != REPORT_SIGN_NO) {
+                r = context_sign_report(context, report, arg_sign_mode, arg_json_format_flags, /* output= */ NULL);
                 if (r < 0)
                         return r;
         } else {
