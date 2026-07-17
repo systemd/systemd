@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-id128.h"
 #include "sd-json.h"
 
 #include "tests.h"
@@ -12,6 +13,78 @@
                 ASSERT_OK(user_record_build((ret), SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_STRING("disposition", "regular"), __VA_ARGS__))); \
                 0;                              \
         })
+
+TEST(shell_validation) {
+        static const char * const invalid_shells[] = {
+                "sh",
+                "/bin/sh\nbad",
+                "/bin/sh:bad",
+                "/bin/sh/",
+        };
+
+        _cleanup_(user_record_unrefp) UserRecord *u = NULL;
+        sd_id128_t mid;
+
+        ASSERT_OK(sd_id128_get_machine(&mid));
+
+        FOREACH_ELEMENT(shell, invalid_shells) {
+                ASSERT_ERROR(user_record_build(
+                                             &u,
+                                             SD_JSON_BUILD_OBJECT(
+                                                             SD_JSON_BUILD_PAIR_STRING("disposition", "regular"),
+                                                             SD_JSON_BUILD_PAIR_STRING("userName", "test"),
+                                                             SD_JSON_BUILD_PAIR_STRING("shell", *shell))),
+                             EINVAL);
+                ASSERT_NULL(u);
+
+                ASSERT_ERROR(user_record_build(
+                                             &u,
+                                             SD_JSON_BUILD_OBJECT(
+                                                             SD_JSON_BUILD_PAIR_STRING("disposition", "regular"),
+                                                             SD_JSON_BUILD_PAIR_STRING("userName", "test"),
+                                                             SD_JSON_BUILD_PAIR_ARRAY(
+                                                                             "perMachine",
+                                                                             SD_JSON_BUILD_OBJECT(
+                                                                                             SD_JSON_BUILD_PAIR_ID128("matchMachineId", mid),
+                                                                                             SD_JSON_BUILD_PAIR_STRING("shell", *shell))))),
+                             EINVAL);
+                ASSERT_NULL(u);
+
+                ASSERT_ERROR(user_record_build(
+                                             &u,
+                                             SD_JSON_BUILD_OBJECT(
+                                                             SD_JSON_BUILD_PAIR_STRING("disposition", "regular"),
+                                                             SD_JSON_BUILD_PAIR_STRING("userName", "test"),
+                                                             SD_JSON_BUILD_PAIR_OBJECT(
+                                                                             "status",
+                                                                             SD_JSON_BUILD_PAIR_OBJECT(
+                                                                                             SD_ID128_TO_STRING(mid),
+                                                                                             SD_JSON_BUILD_PAIR_STRING("fallbackShell", *shell))))),
+                             EINVAL);
+                ASSERT_NULL(u);
+        }
+
+        ASSERT_OK(user_record_build(
+                                  &u,
+                                  SD_JSON_BUILD_OBJECT(
+                                                  SD_JSON_BUILD_PAIR_STRING("disposition", "regular"),
+                                                  SD_JSON_BUILD_PAIR_STRING("userName", "test"),
+                                                  SD_JSON_BUILD_PAIR_STRING("shell", "/bin/sh"),
+                                                  SD_JSON_BUILD_PAIR_ARRAY(
+                                                                  "perMachine",
+                                                                  SD_JSON_BUILD_OBJECT(
+                                                                                  SD_JSON_BUILD_PAIR_ID128("matchMachineId", mid),
+                                                                                  SD_JSON_BUILD_PAIR_STRING("shell", "/bin/bash"))),
+                                                  SD_JSON_BUILD_PAIR_OBJECT(
+                                                                  "status",
+                                                                  SD_JSON_BUILD_PAIR_OBJECT(
+                                                                                  SD_ID128_TO_STRING(mid),
+                                                                                  SD_JSON_BUILD_PAIR_STRING("fallbackShell", "/bin/zsh"),
+                                                                                  SD_JSON_BUILD_PAIR_BOOLEAN("useFallback", true))))));
+        ASSERT_STREQ(u->shell, "/bin/bash");
+        ASSERT_STREQ(u->fallback_shell, "/bin/zsh");
+        ASSERT_STREQ(user_record_shell(u), "/bin/zsh");
+}
 
 TEST(self_changes) {
         _cleanup_(user_record_unrefp) UserRecord *curr = NULL, *new = NULL;
