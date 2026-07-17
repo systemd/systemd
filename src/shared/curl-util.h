@@ -19,7 +19,7 @@ extern DLSYM_PROTOTYPE(curl_easy_init);
 extern DLSYM_PROTOTYPE(curl_easy_perform);
 extern DLSYM_PROTOTYPE(curl_easy_setopt);
 extern DLSYM_PROTOTYPE(curl_easy_strerror);
-#if LIBCURL_VERSION_NUM >= 0x075300
+#if HAVE_LIBCURL_HEADER
 extern DLSYM_PROTOTYPE(curl_easy_header);
 #endif
 extern DLSYM_PROTOTYPE(curl_getdate);
