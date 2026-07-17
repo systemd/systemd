@@ -50,7 +50,7 @@
         <varlistentry>
           <term><varname>DNS=</varname></term>
           <listitem>
-            <para>Takes one or more DNS server specifications, in the same address syntax as the option of the same name in <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>. DNS-over-HTTPS URI specifications are not supported here.</para>
+            <para>Takes one or more DNS server specifications, in the same address syntax as the option of the same name in <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>. This includes DNS-over-HTTPS URI specifications.</para>
             <xi:include href="version-info.xml" xpointer="v258"/>
           </listitem>
         </varlistentry>
