@@ -32,6 +32,8 @@ ssize_t base64mem_full(const void *p, size_t l, size_t line_break, char **ret) _
 static inline ssize_t base64mem(const void *p, size_t l, char **ret) {
         return base64mem_full(p, l, SIZE_MAX, ret);
 }
+/* RFC 4648 base64url without padding. */
+ssize_t base64urlmem(const void *p, size_t l, char **ret) _nonnull_if_nonzero_(1, 2);
 
 ssize_t base64_append(
                 char **prefix,

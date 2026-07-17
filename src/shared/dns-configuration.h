@@ -12,6 +12,8 @@ typedef struct DNSServer {
         uint16_t port;
         int ifindex;
         char *server_name;
+        char *transport;
+        char *uri;
         bool accessible;
         union in_addr_union in_addr;
 } DNSServer;
