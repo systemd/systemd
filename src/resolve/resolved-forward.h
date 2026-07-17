@@ -17,6 +17,7 @@ typedef enum ResolveConfigSource ResolveConfigSource;
 
 typedef struct DnsAnswer DnsAnswer;
 typedef struct DnsDelegate DnsDelegate;
+typedef struct DnsHttpRequest DnsHttpRequest;
 typedef struct DnsPacket DnsPacket;
 typedef struct DnsQuery DnsQuery;
 typedef struct DnsQueryCandidate DnsQueryCandidate;

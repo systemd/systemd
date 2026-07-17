@@ -277,7 +277,7 @@
         <term><command>show-server-state</command></term>
 
         <listitem><para>Show detailed server state information, per DNS Server. The output identifies the transport
-        used by each server and includes the normalized request URI for DNS-over-HTTPS endpoints. Use <option>--json=</option>
+        used by each server and includes the normalized URI template for DNS-over-HTTPS endpoints. Use <option>--json=</option>
         to enable JSON output.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>

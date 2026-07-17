@@ -25,6 +25,7 @@ extern DLSYM_PROTOTYPE(curl_easy_header);
 extern DLSYM_PROTOTYPE(curl_getdate);
 extern DLSYM_PROTOTYPE(curl_slist_append);
 extern DLSYM_PROTOTYPE(curl_slist_free_all);
+extern DLSYM_PROTOTYPE(curl_version_info);
 #if HAVE_LIBCURL_URL
 extern DLSYM_PROTOTYPE(curl_free);
 extern DLSYM_PROTOTYPE(curl_url);

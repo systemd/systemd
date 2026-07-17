@@ -38,6 +38,7 @@ typedef enum DnsTransactionTransport {
         DNS_TRANSACTION_TRANSPORT_UDP,
         DNS_TRANSACTION_TRANSPORT_TCP,
         DNS_TRANSACTION_TRANSPORT_TLS,
+        DNS_TRANSACTION_TRANSPORT_HTTPS,
         _DNS_TRANSACTION_TRANSPORT_MAX,
         _DNS_TRANSACTION_TRANSPORT_INVALID = -EINVAL,
 } DnsTransactionTransport;
@@ -79,12 +80,18 @@ typedef struct DnsServer {
 
         DnsServerProtocol protocol;
         char *doh_uri;
+        char *doh_uri_template;
 
         char *server_string;
         char *server_string_full;
 
         /* The long-lived stream towards this server. */
         DnsStream *stream;
+
+#if HAVE_LIBCURL_HEADER && HAVE_LIBCURL_URL
+        /* The long-lived HTTP connection pool towards this server. */
+        CurlGlue *doh_curl;
+#endif
 
 #if ENABLE_DNS_OVER_TLS
         DnsTlsServerData dnstls_data;
