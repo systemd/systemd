@@ -211,6 +211,44 @@ varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
 timeout 30 bash -c 'until systemctl is-active varlink-transient-wd-home.service; do sleep 0.5; done'
 systemctl show -P WorkingDirectory varlink-transient-wd-home.service | grep '^~$' >/dev/null
 
+# Exec.StandardInput/StandardOutput/StandardError enum properties and Exec.TTYPath
+defer_transient_cleanup varlink-transient-stdio.service
+result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-stdio.service","Exec":{"StandardInput":"null","StandardOutput":"null","StandardError":"journal","TTYPath":"/dev/tty2"},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}')
+echo "$result" | jq -e '.context.Exec.StandardInput == "null"'
+echo "$result" | jq -e '.context.Exec.StandardOutput == "null"'
+echo "$result" | jq -e '.context.Exec.StandardError == "journal"'
+echo "$result" | jq -e '.context.Exec.TTYPath == "/dev/tty2"'
+timeout 30 bash -c 'until systemctl is-active varlink-transient-stdio.service; do sleep 0.5; done'
+systemctl show -P StandardInput varlink-transient-stdio.service | grep '^null$' >/dev/null
+systemctl show -P StandardOutput varlink-transient-stdio.service | grep '^null$' >/dev/null
+systemctl show -P StandardError varlink-transient-stdio.service | grep '^journal$' >/dev/null
+systemctl show -P TTYPath varlink-transient-stdio.service | grep '^/dev/tty2$' >/dev/null
+# "null" is also the default for StandardInput=, hence additionally verify it was written explicitly
+fragment=$(systemctl show -P FragmentPath varlink-transient-stdio.service)
+grep '^StandardInput=null$' "$fragment" >/dev/null
+
+# The combined output types are spelled with a "+" in unit files, but with a "_" in the Varlink IDL (and
+# hence in our own replies). The latter spelling must be accepted, so that replies can be fed back in.
+defer_transient_cleanup varlink-transient-stdio-combined.service
+result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-stdio-combined.service","Exec":{"StandardOutput":"kmsg_console","StandardError":"journal_console"},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}')
+echo "$result" | jq -e '.context.Exec.StandardOutput == "kmsg_console"'
+echo "$result" | jq -e '.context.Exec.StandardError == "journal_console"'
+timeout 30 bash -c 'until systemctl is-active varlink-transient-stdio-combined.service; do sleep 0.5; done'
+systemctl show -P StandardOutput varlink-transient-stdio-combined.service | grep '^kmsg+console$' >/dev/null
+systemctl show -P StandardError varlink-transient-stdio-combined.service | grep '^journal+console$' >/dev/null
+
+# Kill.KillMode/Kill.SendSIGHUP
+defer_transient_cleanup varlink-transient-kill.service
+result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-kill.service","Kill":{"KillMode":"process","SendSIGHUP":true},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}')
+echo "$result" | jq -e '.context.Kill.KillMode == "process"'
+echo "$result" | jq -e '.context.Kill.SendSIGHUP == true'
+timeout 30 bash -c 'until systemctl is-active varlink-transient-kill.service; do sleep 0.5; done'
+systemctl show -P KillMode varlink-transient-kill.service | grep '^process$' >/dev/null
+systemctl show -P SendSIGHUP varlink-transient-kill.service | grep '^yes$' >/dev/null
+
 # Exec.SetCredential: pass a credential and verify the running process can read it
 defer_transient_cleanup varlink-transient-cred.service
 CRED_VALUE_B64=$(printf 'secret-value' | base64 -w0)
@@ -340,6 +378,33 @@ defer_transient_cleanup varlink-transient-bad-rd.service
 expect_invalid_parameter \
     '{"context":{"ID":"varlink-transient-bad-rd.service","Exec":{"RootDirectory":"relative/path"},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
     "Exec.RootDirectory"
+# Note that an unparsable enum value (e.g. StandardOutput=bogus) is rejected by the Varlink IDL
+# validation layer before the JSON dispatch even runs, hence there's no point in testing pid1's
+# dispatch-level enum handling here — and doing so would trip post.sh's "didn't pass validation"
+# journal check, since the IDL layer logs about the rejection.
+# Relative TTYPath is rejected
+defer_transient_cleanup varlink-transient-bad-ttypath.service
+expect_invalid_parameter \
+    '{"context":{"ID":"varlink-transient-bad-ttypath.service","Exec":{"TTYPath":"relative/tty"},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
+    "Exec.TTYPath"
+# The file based stdio types need a companion path, and StandardInput=data a companion payload, neither of
+# which can be passed yet, hence they are rejected
+for t in file append truncate; do
+    defer_transient_cleanup "varlink-transient-bad-stdout-$t.service"
+    expect_invalid_parameter \
+        "{\"context\":{\"ID\":\"varlink-transient-bad-stdout-$t.service\",\"Exec\":{\"StandardOutput\":\"$t\"},\"Service\":{\"Type\":\"oneshot\",\"ExecStart\":[{\"path\":\"/bin/true\"}]}}}" \
+        "Exec.StandardOutput"
+done
+defer_transient_cleanup varlink-transient-bad-stderr.service
+expect_invalid_parameter \
+    '{"context":{"ID":"varlink-transient-bad-stderr.service","Exec":{"StandardError":"file"},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' \
+    "Exec.StandardError"
+for t in file data; do
+    defer_transient_cleanup "varlink-transient-bad-stdin-$t.service"
+    expect_invalid_parameter \
+        "{\"context\":{\"ID\":\"varlink-transient-bad-stdin-$t.service\",\"Exec\":{\"StandardInput\":\"$t\"},\"Service\":{\"Type\":\"oneshot\",\"ExecStart\":[{\"path\":\"/bin/true\"}]}}}" \
+        "Exec.StandardInput"
+done
 # Invalid credential ID
 defer_transient_cleanup varlink-transient-bad-cred-id.service
 expect_invalid_parameter \
@@ -353,6 +418,9 @@ expect_invalid_parameter \
 # Exec on a unit type without an exec context (.slice) is rejected
 varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
     '{"context":{"ID":"varlink-transient-exec.slice","Exec":{"WorkingDirectory":{"path":"/tmp","missingOK":false}}}}' |& grep "io.systemd.Unit.UnitTypeNotSupported"
+# Same for Kill on a unit type without a kill context
+varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-kill.slice","Kill":{"KillMode":"process"}}}' |& grep "io.systemd.Unit.UnitTypeNotSupported"
 # Unknown field in Exec is rejected as PropertyNotSupported
 defer_transient_cleanup varlink-transient-unknown-exec.service
 unsupported_exec=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
@@ -366,6 +434,12 @@ unsupported_service=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTra
     '{"context":{"ID":"varlink-transient-unknown-service.service","Service":{"Type":"oneshot","Restart":"always","ExecStart":[{"path":"/bin/true"}]}}}' 2>&1 || true)
 echo "$unsupported_service" | grep "io.systemd.Unit.PropertyNotSupported"
 echo "$unsupported_service" | grep "Service.Restart"
+# Same for a Kill field
+defer_transient_cleanup varlink-transient-unknown-kill.service
+unsupported_kill=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-transient-unknown-kill.service","Kill":{"KillSignal":"SIGINT"},"Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}' 2>&1 || true)
+echo "$unsupported_kill" | grep "io.systemd.Unit.PropertyNotSupported"
+echo "$unsupported_kill" | grep "Kill.KillSignal"
 set -o pipefail
 
 transient_cleanup
