@@ -3823,7 +3823,7 @@ static int run_systemd(int argc, char *argv[]) {
         }
 
         /* Building without libmount is allowed, but if it is compiled in, then we must be able to load it */
-        r = DLOPEN_LIBMOUNT(LOG_DEBUG, required);
+        r = dlopen_libmount(LOG_DEBUG);
         if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
                 error_message = "Failed to load libmount.so";
                 goto finish;
@@ -4032,11 +4032,13 @@ int main(int argc, char *argv[]) {
         LIBAUDIT_NOTE(recommended);
         LIBBLKID_NOTE(recommended);
         LIBBPF_NOTE(recommended);
-        LIBCRYPTO_NOTE(suggested);
+        LIBCRYPTO_NOTE(recommended);
         LIBCRYPTSETUP_NOTE(recommended);
         LIBKMOD_NOTE(recommended);
+        LIBMOUNT_NOTE(required);
         LIBPCRE2_NOTE(suggested);
         LIBSECCOMP_NOTE(recommended);
+        LIBSELINUX_NOTE(recommended);
         TPM2_NOTE(suggested);
 
 #if SYSTEMD_MULTICALL_BINARY

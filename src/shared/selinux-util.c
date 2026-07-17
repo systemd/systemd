@@ -92,7 +92,7 @@ int dlopen_libselinux(int log_level) {
 #if HAVE_SELINUX
         static void *libselinux_dl = NULL;
 
-        LIBSELINUX_NOTE(recommended);
+        LIBSELINUX_NOTE(suggested);
 
         return dlopen_many_sym_or_warn(
                         &libselinux_dl,

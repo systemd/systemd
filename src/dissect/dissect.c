@@ -494,7 +494,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG("make-archive", NULL, "Convert the DDI to an archive file"):
-                        r = DLOPEN_LIBARCHIVE(LOG_ERR, recommended);
+                        r = dlopen_libarchive(LOG_ERR);
                         if (r < 0)
                                 return r;
 
@@ -1970,6 +1970,7 @@ static int run(int argc, char *argv[]) {
         int r;
 
         LIBACL_NOTE(recommended);
+        LIBARCHIVE_NOTE(recommended);
         LIBBLKID_NOTE(recommended);
         LIBCRYPTO_NOTE(suggested);
         LIBCRYPTSETUP_NOTE(suggested);
