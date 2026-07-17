@@ -632,9 +632,11 @@ int hwdb_update(const char *root, const char *hwdb_bin_dir, bool strict, bool co
 
         FOREACH_ARRAY(i, files, n_files) {
                 ConfFile *c = *i;
+                char *path_in_root;
 
                 log_debug("Reading file \"%s\" -> \"%s\"", c->original_path, c->resolved_path);
-                RET_GATHER(ret, import_file(trie, c->fd, c->original_path, file_priority++, compat));
+                path_in_root = path_startswith_full(c->original_path, empty_to_root(root), PATH_STARTSWITH_RETURN_LEADING_SLASH);
+                RET_GATHER(ret, import_file(trie, c->fd, path_in_root, file_priority++, compat));
         }
 
         strbuf_complete(trie->strings);
