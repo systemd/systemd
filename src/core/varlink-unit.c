@@ -663,6 +663,10 @@ static void transient_exec_command_item_done(TransientExecCommandItem *i) {
 
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_service_type, ServiceType, service_type_from_string);
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_job_mode, JobMode, job_mode_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_collect_mode, CollectMode, collect_mode_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_exec_input, ExecInput, exec_input_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_exec_output, ExecOutput, exec_output_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_kill_mode, KillMode, kill_mode_from_string);
 
 typedef struct TransientWorkingDirectory {
         const char *path;
@@ -702,6 +706,7 @@ typedef struct TransientExecContextParameters {
         const char *root_image;
         const char *root_mstack;
         const char *root_verity;
+        const char *tty_path;
         const char *user_namespace_path;
         bool nice_set;
         int nice;
@@ -719,6 +724,10 @@ typedef struct TransientExecContextParameters {
         int restrict_realtime;
         int restrict_suid_sgid;
         int root_ephemeral;
+        /* Enums: parsed via JSON_DISPATCH_ENUM_DEFINE dispatchers, negative = absent. */
+        ExecInput std_input;
+        ExecOutput std_output;
+        ExecOutput std_error;
 } TransientExecContextParameters;
 
 static void transient_set_credential_array_free(TransientSetCredential *items, size_t n) {
@@ -733,6 +742,20 @@ static void transient_exec_context_parameters_done(TransientExecContextParameter
         strv_free(p->supplementary_groups);
         transient_set_credential_array_free(p->set_credentials, p->n_set_credentials);
         transient_set_credential_array_free(p->set_credentials_encrypted, p->n_set_credentials_encrypted);
+}
+
+typedef struct TransientKillContextParameters {
+        bool present;
+        KillMode kill_mode;  /* negative = absent */
+        int send_sighup;     /* tristate: -1 = absent */
+} TransientKillContextParameters;
+
+static void transient_kill_context_parameters_init(TransientKillContextParameters *p) {
+        assert(p);
+        *p = (TransientKillContextParameters) {
+                .kill_mode = _KILL_MODE_INVALID,
+                .send_sighup = -1,
+        };
 }
 
 typedef struct TransientServiceParameters {
@@ -811,9 +834,12 @@ static int dispatch_transient_exec_command(const char *name, sd_json_variant *va
 typedef struct StartTransientContextParameters {
         const char *id;
         const char *description;
+        CollectMode collect_mode;
         TransientExecContextParameters exec;
+        TransientKillContextParameters kill;
         TransientServiceParameters service;
         const char *bad_exec_field;    /* Set by inner Exec dispatcher to the unknown sub-property name */
+        const char *bad_kill_field;
         const char *bad_service_field;
 } StartTransientContextParameters;
 
@@ -827,8 +853,11 @@ static void transient_exec_context_parameters_init(TransientExecContextParameter
 
 static void start_transient_context_parameters_init(StartTransientContextParameters *p) {
         assert(p);
-        *p = (StartTransientContextParameters) {};
+        *p = (StartTransientContextParameters) {
+                .collect_mode = _COLLECT_MODE_INVALID,
+        };
         transient_exec_context_parameters_init(&p->exec);
+        transient_kill_context_parameters_init(&p->kill);
         transient_service_parameters_init(&p->service);
 }
 
@@ -955,6 +984,18 @@ static int dispatch_transient_set_credential_encrypted(const char *name, sd_json
 
 static int dispatch_transient_exec_context(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 
+static int dispatch_transient_kill(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field kill_dispatch[] = {
+                { "KillMode",   SD_JSON_VARIANT_STRING,  dispatch_kill_mode,        offsetof(TransientKillContextParameters, kill_mode),   0 },
+                { "SendSIGHUP", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, offsetof(TransientKillContextParameters, send_sighup), 0 },
+                {}
+        };
+
+        StartTransientContextParameters *p = ASSERT_PTR(userdata);
+        p->kill.present = true;
+        return sd_json_dispatch_full(variant, kill_dispatch, /* bad= */ NULL, /* flags= */ 0, &p->kill, &p->bad_kill_field);
+}
+
 static int dispatch_transient_service(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field service_dispatch[] = {
                 { "Type",                         SD_JSON_VARIANT_STRING,        dispatch_service_type,           offsetof(TransientServiceParameters, type),              0 },
@@ -973,10 +1014,12 @@ static int dispatch_transient_service(const char *name, sd_json_variant *variant
 
 static int dispatch_transient_context(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field context_dispatch[] = {
-                { "ID",          SD_JSON_VARIANT_STRING, json_dispatch_const_unit_name,   offsetof(StartTransientContextParameters, id),          SD_JSON_MANDATORY },
-                { "Description", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string,   offsetof(StartTransientContextParameters, description), 0                 },
-                { "Exec",        SD_JSON_VARIANT_OBJECT, dispatch_transient_exec_context, 0,                                                      0                 },
-                { "Service",     SD_JSON_VARIANT_OBJECT, dispatch_transient_service,      0,                                                      0                 },
+                { "ID",          SD_JSON_VARIANT_STRING, json_dispatch_const_unit_name,   offsetof(StartTransientContextParameters, id),           SD_JSON_MANDATORY },
+                { "Description", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string,   offsetof(StartTransientContextParameters, description),  0                 },
+                { "CollectMode", SD_JSON_VARIANT_STRING, dispatch_collect_mode,           offsetof(StartTransientContextParameters, collect_mode), 0                 },
+                { "Exec",        SD_JSON_VARIANT_OBJECT, dispatch_transient_exec_context, 0,                                                       0                 },
+                { "Kill",        SD_JSON_VARIANT_OBJECT, dispatch_transient_kill,         0,                                                       0                 },
+                { "Service",     SD_JSON_VARIANT_OBJECT, dispatch_transient_service,      0,                                                       0                 },
                 {}
         };
 
@@ -994,6 +1037,8 @@ static int dispatch_transient_context(const char *name, sd_json_variant *variant
                  * actual sub-property. */
                 if (streq(bad_field, "Exec") && !isempty(p->context.bad_exec_field))
                         p->unsupported_property = strjoin("Exec.", p->context.bad_exec_field);
+                else if (streq(bad_field, "Kill") && !isempty(p->context.bad_kill_field))
+                        p->unsupported_property = strjoin("Kill.", p->context.bad_kill_field);
                 else if (streq(bad_field, "Service") && !isempty(p->context.bad_service_field))
                         p->unsupported_property = strjoin("Service.", p->context.bad_service_field);
                 else
@@ -1015,6 +1060,29 @@ static int transient_unit_apply_properties(Unit *u, StartTransientContextParamet
                 if (r < 0)
                         return r;
                 unit_write_settingf(u, UNIT_RUNTIME|UNIT_ESCAPE_SPECIFIERS, "Description", "Description=%s", p->description);
+        }
+
+        if (p->collect_mode >= 0) {
+                u->collect_mode = p->collect_mode;
+                unit_write_settingf(u, UNIT_RUNTIME, "CollectMode", "CollectMode=%s", collect_mode_to_string(p->collect_mode));
+        }
+
+        return 0;
+}
+
+static int transient_kill_context_apply_properties(Unit *u, KillContext *k, TransientKillContextParameters *p) {
+        assert(u);
+        assert(k);
+        assert(p);
+
+        if (p->kill_mode >= 0) {
+                k->kill_mode = p->kill_mode;
+                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "KillMode", "KillMode=%s", kill_mode_to_string(p->kill_mode));
+        }
+
+        if (p->send_sighup >= 0) {
+                k->send_sighup = p->send_sighup;
+                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "SendSIGHUP", "SendSIGHUP=%s", yes_no(p->send_sighup));
         }
 
         return 0;
@@ -1242,6 +1310,25 @@ DEFINE_APPLY_EXEC_TRISTATE_BOOL(restrict_realtime,         "RestrictRealtime");
 DEFINE_APPLY_EXEC_TRISTATE_BOOL(restrict_suid_sgid,        "RestrictSUIDSGID");
 DEFINE_APPLY_EXEC_TRISTATE_BOOL(root_ephemeral,            "RootEphemeral");
 
+/* Generate an apply fn for an exec-context enum field: copy the parsed value to ExecContext and
+ * write the corresponding "Name=value" line. A negative parsed value means the field was absent.
+ * Mirrors D-Bus BUS_DEFINE_SET_TRANSIENT_PARSE. */
+#define DEFINE_APPLY_EXEC_ENUM(field, JsonName, to_string_fn)           \
+        static int apply_exec_##field(Unit *u, ExecContext *c, TransientExecContextParameters *p) { \
+                assert(c);                                              \
+                assert(p);                                              \
+                if (p->field < 0)                                       \
+                        return 0;                                       \
+                c->field = p->field;                                    \
+                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, JsonName, \
+                                    JsonName "=%s", to_string_fn(p->field)); \
+                return 0;                                               \
+        }
+
+DEFINE_APPLY_EXEC_ENUM(std_error,  "StandardError",  exec_output_to_string);
+DEFINE_APPLY_EXEC_ENUM(std_input,  "StandardInput",  exec_input_to_string);
+DEFINE_APPLY_EXEC_ENUM(std_output, "StandardOutput", exec_output_to_string);
+
 /* Generate an apply fn for an exec-context absolute-path string: validate via path_is_absolute(),
  * copy into ExecContext, write "Name=<path>". Mirrors D-Bus bus_set_transient_path. */
 #define DEFINE_APPLY_EXEC_ABSOLUTE_PATH(field, JsonName)                \
@@ -1268,6 +1355,7 @@ DEFINE_APPLY_EXEC_ABSOLUTE_PATH(root_directory,         "RootDirectory");
 DEFINE_APPLY_EXEC_ABSOLUTE_PATH(root_image,             "RootImage");
 DEFINE_APPLY_EXEC_ABSOLUTE_PATH(root_mstack,            "RootMStack");
 DEFINE_APPLY_EXEC_ABSOLUTE_PATH(root_verity,            "RootVerity");
+DEFINE_APPLY_EXEC_ABSOLUTE_PATH(tty_path,               "TTYPath");
 DEFINE_APPLY_EXEC_ABSOLUTE_PATH(user_namespace_path,    "UserNamespacePath");
 
 /* RootHashPath and RootHashSignaturePath need custom apply fns: the corresponding unit-file
@@ -1331,7 +1419,8 @@ static int apply_exec_root_hash_sig_path(Unit *u, ExecContext *c, TransientExecC
  *                   the property was set), <0 on error. -EINVAL is mapped to err_field by the
  *                   central loop.
  *   tristate      - If true, the int at parse_offset is initialized to -1 (absent sentinel) by
- *                   transient_exec_context_parameters_init(). Defaults to false.
+ *                   transient_exec_context_parameters_init(). Used for tristate bools and enum
+ *                   fields (both treat negative as absent). Defaults to false.
  */
 typedef struct TransientExecProperty {
         const char *json_name;
@@ -1368,6 +1457,13 @@ typedef struct TransientExecProperty {
         { json, "Exec." json, SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string,      \
           offsetof(TransientExecContextParameters, field), 0, apply_exec_##field }
 
+/* Enum property: parsed via a JSON_DISPATCH_ENUM_DEFINE dispatcher directly into the enum field at
+ * parse_offset. Sets .tristate=true so the field is seeded to -1 (= absent) before dispatch; the
+ * matching DEFINE_APPLY_EXEC_ENUM fn treats any negative value as unset. */
+#define EXEC_PROPERTY_ENUM(json, field, dispatch_fn)                                       \
+        { json, "Exec." json, SD_JSON_VARIANT_STRING, dispatch_fn,                         \
+          offsetof(TransientExecContextParameters, field), 0, apply_exec_##field, true }
+
 static const TransientExecProperty exec_properties[] = {
         EXEC_PROPERTY              ("WorkingDirectory",       SD_JSON_VARIANT_OBJECT,        dispatch_transient_working_directory,        0,                                                                       0,             apply_exec_working_directory),
         EXEC_PROPERTY_ABSOLUTE_PATH("RootDirectory",          root_directory),
@@ -1395,6 +1491,10 @@ static const TransientExecProperty exec_properties[] = {
         EXEC_PROPERTY_TRISTATE_BOOL("RestrictSUIDSGID",       restrict_suid_sgid),
         EXEC_PROPERTY_TRISTATE_BOOL("RemoveIPC",              remove_ipc),
         EXEC_PROPERTY              ("Environment",            _SD_JSON_VARIANT_TYPE_INVALID, dispatch_transient_environment,              0,                                                                       0,             apply_exec_environment),
+        EXEC_PROPERTY_ENUM         ("StandardInput",          std_input,  dispatch_exec_input),
+        EXEC_PROPERTY_ENUM         ("StandardOutput",         std_output, dispatch_exec_output),
+        EXEC_PROPERTY_ENUM         ("StandardError",          std_error,  dispatch_exec_output),
+        EXEC_PROPERTY_ABSOLUTE_PATH("TTYPath",                tty_path),
         EXEC_PROPERTY              ("SetCredential",          SD_JSON_VARIANT_ARRAY,         dispatch_transient_set_credential,           0,                                                                       0,             apply_exec_set_credential),
         EXEC_PROPERTY              ("SetCredentialEncrypted", SD_JSON_VARIANT_ARRAY,         dispatch_transient_set_credential_encrypted, 0,                                                                       0,             apply_exec_set_credential_encrypted),
 };
@@ -1402,9 +1502,10 @@ static const TransientExecProperty exec_properties[] = {
 #undef EXEC_PROPERTY_TRISTATE_BOOL
 #undef EXEC_PROPERTY_STRING
 #undef EXEC_PROPERTY_ABSOLUTE_PATH
+#undef EXEC_PROPERTY_ENUM
 
-/* Tristate-bool fields default to -1 (= absent). Default-zeroed slots would look "explicitly false"
- * to the apply path. Initialize all tristate fields here so adding a new tristate property only
+/* Tristate-bool and enum fields default to -1 (= absent). Default-zeroed slots would look
+ * "explicitly set" to the apply path. Initialize all tristate fields here so adding a new such property only
  * requires a new exec_properties[] row, never a fresh designated initializer at the call site.
  * The .tristate descriptor flag drives the loop -- mirrors the .cleanup hook used on the Service
  * side, and avoids fragile dispatch-function-pointer equality checks. */
@@ -1711,6 +1812,18 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
                 r = transient_exec_context_apply_properties(u, c, &p.context.exec, &bad_field);
                 if (r == -EINVAL)
                         return sd_varlink_error_invalid_parameter_name(link, bad_field ?: "Exec");
+                if (r < 0)
+                        return sd_varlink_error_errno(link, r);
+        }
+
+        /* Apply context.Kill only when a Kill object was actually sent, on unit types that have a kill
+         * context. */
+        if (p.context.kill.present) {
+                KillContext *k = unit_get_kill_context(u);
+                if (!k)
+                        return sd_varlink_error(link, VARLINK_ERROR_UNIT_TYPE_NOT_SUPPORTED, NULL);
+
+                r = transient_kill_context_apply_properties(u, k, &p.context.kill);
                 if (r < 0)
                         return sd_varlink_error_errno(link, r);
         }

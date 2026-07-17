@@ -1,0 +1,167 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="ptyctl"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>ptyctl</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>ptyctl</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>ptyctl</refname>
+    <refpurpose>List, monitor and hang up pseudo TTYs registered with the pseudo TTY broker</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>ptyctl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="opt">COMMAND</arg>
+      <arg choice="opt" rep="repeat">NAME</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>ptyctl</command> may be used to introspect and control the pseudo TTY allocations
+    registered with the pseudo TTY broker,
+    <citerefentry><refentrytitle>systemd-ptybrokerd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    The broker keeps the frontend (i.e. the <literal>master</literal>) side of registered pseudo TTYs open,
+    while the payload — a service, a container, a virtual machine console, or similar — runs connected to the
+    backend (i.e. the <literal>slave</literal>) side. <command>ptyctl</command> permits listing these pseudo
+    TTYs, interactively connecting to them, and hanging them up.</para>
+
+    <para>Pseudo TTYs are registered with the broker for example via <option>--console=broker</option> of
+    <citerefentry><refentrytitle>systemd-pty-forward</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> and
+    <citerefentry><refentrytitle>systemd-vmspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>, or
+    via <varname>StandardOutput=broker</varname> in service units, see
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
+
+    <para>The following commands are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><command>list</command></term>
+
+        <listitem><para>List the pseudo TTYs currently registered with the broker, showing their name,
+        description, log tag, frontend and backend types, and backend TTY path. This command is the default
+        if no command is specified.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>monitor</command> <replaceable>NAME</replaceable></term>
+
+        <listitem><para>Connect interactively to the pseudo TTY registered under the specified name: its
+        output is forwarded to the local terminal, and local input is forwarded back to it. To disconnect,
+        press <keycombo><keycap>Ctrl</keycap><keycap>]</keycap></keycombo> three times within one
+        second. Disconnecting only ends the monitor connection, the pseudo TTY itself remains registered with
+        the broker and the payload continues to run.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>hangup</command> <replaceable>NAME</replaceable>…</term>
+
+        <listitem><para>Hang up the pseudo TTYs registered under the specified names. This executes the
+        equivalent of
+        <citerefentry project='man-pages'><refentrytitle>vhangup</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        on the pseudo TTY, disconnecting the session running on its backend side.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--system</option></term>
+        <term><option>--user</option></term>
+
+        <listitem><para>Selects whether to talk to the system-wide instance or the per-user instance of
+        <citerefentry><refentrytitle>systemd-ptybrokerd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        Defaults to <option>--system</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--background=<replaceable>COLOR</replaceable></option></term>
+
+        <listitem><para>Change the terminal background color to the specified ANSI color while monitoring a
+        pseudo TTY. The color specified should be an ANSI X3.64 SGR background color, i.e. strings such as
+        <literal>40</literal>, <literal>41</literal>, …, <literal>47</literal>, <literal>48;2;…</literal>,
+        <literal>48;5;…</literal>. See <ulink
+        url="https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_(Select_Graphic_Rendition)_parameters">ANSI
+        Escape Code (Wikipedia)</ulink> for details. Only has an effect on the <command>monitor</command>
+        command.</para>
+
+        <para>Example: <literal>--background=44</literal> for a blue background.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--title=<replaceable>TITLE</replaceable></option></term>
+
+        <listitem><para>Change the terminal title to the specified string while monitoring a pseudo TTY. Only
+        has an effect on the <command>monitor</command> command.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--quiet</option></term>
+        <term><option>-q</option></term>
+
+        <listitem><para>Suppresses additional informational output while running.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help"/>
+      <xi:include href="standard-options.xml" xpointer="version"/>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-ptybrokerd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-pty-forward</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-vmspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

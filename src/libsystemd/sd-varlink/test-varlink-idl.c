@@ -55,6 +55,7 @@
 #include "varlink-io.systemd.SysInstall.h"
 #include "varlink-io.systemd.SysUpdate.h"
 #include "varlink-io.systemd.SysUpdate.Notify.h"
+#include "varlink-io.systemd.PTYBroker.h"
 #include "varlink-io.systemd.Udev.h"
 #include "varlink-io.systemd.Unit.h"
 #include "varlink-io.systemd.UserDatabase.h"
@@ -235,6 +236,7 @@ TEST(parse_format) {
                 &vl_interface_io_systemd_SysInstall,
                 &vl_interface_io_systemd_SysUpdate,
                 &vl_interface_io_systemd_SysUpdate_Notify,
+                &vl_interface_io_systemd_PTYBroker,
                 &vl_interface_io_systemd_Udev,
                 &vl_interface_io_systemd_Unit,
                 &vl_interface_io_systemd_UserDatabase,

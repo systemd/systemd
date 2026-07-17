@@ -75,11 +75,52 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--read-only</option></term>
+        <term><option>--console=<replaceable>MODE</replaceable></option></term>
 
-        <listitem><para>Do not accept any user input on standard input.</para>
+        <listitem><para>Selects how the terminal for the invoked command is acquired and connected. Takes one
+        of <literal>interactive</literal>, <literal>read-only</literal>, <literal>broker</literal> or
+        <literal>broker-log</literal>.</para>
 
-        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+        <para>If <literal>interactive</literal> (the default) a pseudo TTY is allocated locally and the
+        calling terminal is forwarded to it interactively, i.e. both terminal output and user input are
+        forwarded. If <literal>read-only</literal> this is similar, but no user input from standard input is
+        forwarded to the command.</para>
+
+        <para>If <literal>broker</literal> or <literal>broker-log</literal> the pseudo TTY is not allocated
+        locally, but acquired from
+        <citerefentry><refentrytitle>systemd-ptybrokerd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        In both cases the broker retains the frontend (i.e. the "master") side of the pseudo TTY and the
+        command is invoked on the acquired backend (i.e. the "slave") side. With <literal>broker</literal>
+        the frontend output is discarded (unless monitored), with <literal>broker-log</literal> it is written
+        to the logs by <filename>systemd-ptybrokerd.service</filename>. The allocated pseudo TTY may
+        subsequently be monitored, listed or hung up with
+        <citerefentry><refentrytitle>ptyctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--system</option></term>
+        <term><option>--user</option></term>
+
+        <listitem><para>When <option>--console=broker</option> or <option>--console=broker-log</option> is
+        used, selects whether to talk to the system-wide instance or the per-user instance of
+        <citerefentry><refentrytitle>systemd-ptybrokerd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        Defaults to <option>--system</option>. Has no effect in the other console modes.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--pty-name=<replaceable>NAME</replaceable></option></term>
+
+        <listitem><para>When <option>--console=broker</option> or <option>--console=broker-log</option> is
+        used, registers the newly allocated pseudo TTY under the specified name with
+        <citerefentry><refentrytitle>systemd-ptybrokerd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>;
+        if not specified (the default) the broker picks a randomized name. Has no effect in the other console
+        modes.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help"/>

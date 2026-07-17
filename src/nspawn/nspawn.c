@@ -105,6 +105,7 @@
 #include "polkit-agent.h"
 #include "pretty-print.h"
 #include "process-util.h"
+#include "ptybroker-client.h"
 #include "ptyfwd.h"
 #include "random-util.h"
 #include "raw-clone.h"
@@ -5845,7 +5846,7 @@ static int run_container(
         }
 
         _cleanup_(osc_context_closep) sd_id128_t osc_context_id = SD_ID128_NULL;
-        if (IN_SET(arg_console_mode, CONSOLE_INTERACTIVE, CONSOLE_READ_ONLY) && !terminal_is_dumb()) {
+        if (IN_SET(arg_console_mode, CONSOLE_INTERACTIVE, CONSOLE_READ_ONLY, CONSOLE_BROKER, CONSOLE_BROKER_LOG) && !terminal_is_dumb()) {
                 r = osc_context_open_container(arg_machine, /* ret_seq= */ NULL, &osc_context_id);
                 if (r < 0)
                         return r;
@@ -5860,6 +5861,33 @@ static int run_container(
                 if (fd < 0)
                         return log_error_errno(fd, "Failed to receive master pty from the inner child: %m");
 
+                if (IN_SET(arg_console_mode, CONSOLE_BROKER, CONSOLE_BROKER_LOG)) {
+                        _cleanup_close_ int monitor_fd = -EBADF;
+                        _cleanup_free_ char *pty_name = NULL;
+
+                        /* Hand the console pty frontend (the "master" side, allocated by the inner child
+                         * inside the container's namespace) to ptybrokerd, which takes over its output. We do
+                         * not pass a backend path: it would refer to the container's private /dev/pts and thus
+                         * be meaningless on the host. In return we get a monitor connection which — like the
+                         * frontend fd in the interactive case — we forward the local terminal to. */
+                        r = pty_broker_enroll_pty(
+                                        arg_runtime_scope,
+                                        fd,
+                                        arg_console_mode == CONSOLE_BROKER_LOG ? "log" : "null",
+                                        /* name= */ NULL,
+                                        &monitor_fd,
+                                        &pty_name);
+                        if (r < 0)
+                                return r;
+
+                        if (!arg_quiet)
+                                log_info("Broker registered console pseudo TTY under name '%s'.", pty_name);
+
+                        /* From here on the monitor connection is our forwarder "master"; drop the frontend fd,
+                         * the broker owns it now. */
+                        close_and_replace(fd, monitor_fd);
+                }
+
                 switch (arg_console_mode) {
 
                 case CONSOLE_READ_ONLY:
@@ -5867,6 +5895,8 @@ static int run_container(
 
                         _fallthrough_;
 
+                case CONSOLE_BROKER:
+                case CONSOLE_BROKER_LOG:
                 case CONSOLE_INTERACTIVE:
                         flags |= PTY_FORWARD_IGNORE_VHANGUP;
 
@@ -6667,7 +6697,7 @@ static int run(int argc, char *argv[]) {
                 log_info("%s %sSpawning container %s on %s.%s",
                          glyph(GLYPH_LIGHT_SHADE), ansi_grey(), arg_machine, u ?: t, ansi_normal());
 
-                if (arg_console_mode == CONSOLE_INTERACTIVE)
+                if (IN_SET(arg_console_mode, CONSOLE_INTERACTIVE, CONSOLE_BROKER, CONSOLE_BROKER_LOG))
                         log_info("%s %sPress %sCtrl-]%s three times within 1s to kill container; two times followed by %sr%s\n"
                                  "%s %sto reboot container; two times followed by %sp%s to poweroff container.%s",
                                  glyph(GLYPH_LIGHT_SHADE), ansi_grey(), ansi_highlight(), ansi_grey(), ansi_highlight(), ansi_normal(),

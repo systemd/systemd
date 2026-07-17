@@ -3380,8 +3380,9 @@ SystemCallErrorNumber=EPERM</programlisting>
 
         <listitem><para>Controls where file descriptor 0 (STDIN) of the executed processes is connected to. Takes one
         of <option>null</option>, <option>tty</option>, <option>tty-force</option>, <option>tty-fail</option>,
-        <option>data</option>, <option>file:<replaceable>path</replaceable></option>, <option>socket</option> or
-        <option>fd:<replaceable>name</replaceable></option>.</para>
+        <option>data</option>, <option>file:<replaceable>path</replaceable></option>, <option>socket</option>,
+        <option>fd:<replaceable>name</replaceable></option>, <option>broker</option> or
+        <option>broker-log</option>.</para>
 
         <para>If <option>null</option> is selected, standard input will be connected to <filename>/dev/null</filename>,
         i.e. all read attempts by the process will result in immediate EOF.</para>
@@ -3431,6 +3432,22 @@ SystemCallErrorNumber=EPERM</programlisting>
         <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more
         details about named file descriptors and their ordering.</para>
 
+        <para>The <option>broker</option> and <option>broker-log</option> options connect standard input to a
+        pseudo TTY allocated on the fly by
+        <citerefentry><refentrytitle>systemd-ptybrokerd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>. The
+        broker allocates the pseudo TTY pair and retains its frontend (i.e. the "master" side), while the
+        backend (i.e. the "slave" side) is installed as the executed process' standard input, and the process
+        becomes the controlling process of the terminal. Unlike <option>tty</option> this does not require a
+        physical terminal device to be configured via <varname>TTYPath=</varname>, and hence works even in
+        contexts where no console is available, for example fully headless systems. With <option>broker</option>
+        anything the process writes to the terminal is discarded, while with <option>broker-log</option> the
+        output is additionally forwarded to the logs. The terminal type and dimensions of the allocated pseudo
+        TTY (as exposed via <varname>$TERM</varname>, <varname>$COLORTERM</varname>, <varname>$NO_COLOR</varname>
+        and the terminal window size) are derived from the unit's <varname>Environment=</varname> and
+        <varname>TTYColumns=</varname>/<varname>TTYRows=</varname> settings. When one of these options is used the
+        unit gains an implicit <varname>After=</varname> dependency on
+        <filename>systemd-ptybrokerd.socket</filename>.</para>
+
         <para>This setting defaults to <option>null</option>, unless
         <varname>StandardInputText=</varname>/<varname>StandardInputData=</varname> are set, in which case it
         defaults to <option>data</option>.</para></listitem>
@@ -3444,7 +3461,8 @@ SystemCallErrorNumber=EPERM</programlisting>
         <option>journal</option>, <option>kmsg</option>, <option>journal+console</option>,
         <option>kmsg+console</option>, <option>file:<replaceable>path</replaceable></option>,
         <option>append:<replaceable>path</replaceable></option>, <option>truncate:<replaceable>path</replaceable></option>,
-        <option>socket</option> or <option>fd:<replaceable>name</replaceable></option>.</para>
+        <option>socket</option>, <option>fd:<replaceable>name</replaceable></option>, <option>broker</option> or
+        <option>broker-log</option>.</para>
 
         <para><option>inherit</option> duplicates the file descriptor of standard input for standard output.</para>
 
@@ -3518,6 +3536,16 @@ SystemCallErrorNumber=EPERM</programlisting>
         <varname>FileDescriptorName=</varname> in
         <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for more details about named descriptors and their ordering.</para>
+
+        <para>The <option>broker</option> and <option>broker-log</option> options connect standard output to a
+        pseudo TTY allocated on the fly by
+        <citerefentry><refentrytitle>systemd-ptybrokerd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        with the same semantics as described for <varname>StandardInput=</varname> above. With
+        <option>broker</option> the terminal output is discarded, with <option>broker-log</option> it is
+        forwarded to the logs. This is useful to provide a process with a fully featured terminal on its
+        standard output even on systems that have no physical console, without having to allocate and manage
+        the pseudo TTY manually. When one of these options is used the unit gains an implicit
+        <varname>After=</varname> dependency on <filename>systemd-ptybrokerd.socket</filename>.</para>
 
         <para>If the standard output (or error output, see below) of a unit is connected to the journal or
         the kernel log buffer, the unit will implicitly gain a dependency of type <varname>After=</varname>
