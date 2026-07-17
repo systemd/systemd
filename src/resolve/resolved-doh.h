@@ -15,10 +15,23 @@ typedef enum DnsOverHttpsMethod {
         _DNS_OVER_HTTPS_METHOD_INVALID = -EINVAL,
 } DnsOverHttpsMethod;
 
+typedef enum DnsOverHttpsFailureAction {
+        DNS_OVER_HTTPS_FAILURE_ABORT,
+        DNS_OVER_HTTPS_FAILURE_RETRY_SAME_SERVER,
+        DNS_OVER_HTTPS_FAILURE_RETRY_NEXT_SERVER,
+        _DNS_OVER_HTTPS_FAILURE_ACTION_MAX,
+        _DNS_OVER_HTTPS_FAILURE_ACTION_INVALID = -EINVAL,
+} DnsOverHttpsFailureAction;
+
+DECLARE_STRING_TABLE_LOOKUP(dns_over_https_failure_action, DnsOverHttpsFailureAction);
+
 bool dns_over_https_content_type_is_valid(const char *value);
 bool dns_over_https_age_parse(const char *value, uint64_t *ret_age);
 
 int dns_over_https_response_headers_read(CURL *easy, uint64_t *ret_age);
+
+DnsOverHttpsFailureAction dns_over_https_curl_failure_action(CURLcode code);
+DnsOverHttpsFailureAction dns_over_https_http_failure_action(long status);
 
 int dns_over_https_uri_expand_for_method(const char *uri_template, DnsOverHttpsMethod method, const void *dns_message, size_t dns_message_size, char **ret);
 int dns_over_https_uri_for_request(const char *uri_template, const char *post_uri, const void *dns_message, size_t dns_message_size, DnsOverHttpsMethod *ret_method, char **ret_uri);
@@ -26,7 +39,7 @@ int dns_over_https_uri_parse(const char *uri_template, char **ret_uri, char **re
 
 int dns_over_https_make_connection_override(const DnsServer *server, unsigned curl_version, bool *ret_use_resolve, char **ret);
 
-int dns_http_request_new(DnsTransaction *transaction, DnsServer *server, DnsPacket *packet, DnsHttpRequest **ret);
+int dns_http_request_new(DnsTransaction *transaction, DnsServer *server, DnsPacket *packet, bool fresh_connection, DnsHttpRequest **ret);
 DnsHttpRequest* dns_http_request_free(DnsHttpRequest *request);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsHttpRequest*, dns_http_request_free);

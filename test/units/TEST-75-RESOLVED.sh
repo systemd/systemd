@@ -1492,6 +1492,7 @@ testcase_doh() {
     cleanup() {
         rm -f "$config"
         systemctl stop "$unit" || :
+        ip link del doh-invalid 2>/dev/null || :
         restart_resolved
         rm -f "$ca_destination"
         "${ca_refresh[@]}" || :
@@ -1520,17 +1521,20 @@ testcase_doh() {
     }
 
     doh_state() {
-        doh_curl "$doh_url/state"
+        local state
+
+        state="$(doh_curl "$doh_url/state")"
+        jq -e 'all(.history[]; .httpVersion == "2")' <<<"$state" >/dev/null
+        printf '%s\n' "$state"
     }
 
-    doh_configure() {
-        local authentication_name="${1:?}"
-        local path="${2:?}"
+    doh_apply_configuration() {
+        local dns="${1:?}"
 
         cat >"$config" <<EOF
 [Resolve]
 DNS=
-DNS=$doh_bootstrap#https://$authentication_name:$port$path
+DNS=$dns
 FallbackDNS=
 Domains=
 Domains=~.
@@ -1542,6 +1546,57 @@ EOF
         systemctl restart systemd-resolved.service
         doh_reset
         resolvectl status
+    }
+
+    doh_configure() {
+        local authentication_name="${1:?}"
+        local dns=""
+        local path
+        shift
+
+        [[ $# -gt 0 ]]
+        for path in "$@"; do
+            dns+="${dns:+ }$doh_bootstrap#https://$authentication_name:$port$path"
+        done
+
+        doh_apply_configuration "$dns"
+    }
+
+    doh_expect_failure() {
+        local path="${1:?}"
+        local name="${2:?}"
+        local requests="${3:?}"
+        local state
+
+        doh_configure doh.test "$path{?dns}"
+        (! timeout 30s resolvectl query "$name.doh.test." --type=A)
+        state="$(doh_state)"
+        assert_eq "$(jq -r '.requests' <<<"$state")" "$requests"
+        jq -e --arg path "$path" 'all(.history[]; .path == $path)' <<<"$state"
+    }
+
+    doh_expect_retry_success() {
+        local path="${1:?}"
+        local name="${2:?}"
+        local first_status="${3:?}"
+        local state
+
+        doh_configure doh.test "$path{?dns}"
+        run resolvectl query "$name.doh.test." --type=A
+        grep -F '192.0.2.1' "$RUN_OUT"
+        state="$(doh_state)"
+        assert_eq "$(jq -r '.requests' <<<"$state")" 2
+        assert_eq "$(jq -r '.connections' <<<"$state")" 2
+        assert_eq "$(jq -r '.history[0].responseStatus' <<<"$state")" "$first_status"
+        assert_eq "$(jq -r '.history[1].responseStatus' <<<"$state")" 200
+        test "$(jq -r '.history[0].connection' <<<"$state")" -ne "$(jq -r '.history[1].connection' <<<"$state")"
+    }
+
+    doh_server_feature_state() {
+        local state
+
+        state="$(resolvectl --json=short show-server-state)"
+        jq -c 'map(select(.Transport == "https") | {VerifiedFeatureLevel, PossibleFeatureLevel, FailedUDPAttempts, FailedTCPAttempts, PacketTruncated, PacketBadOpt, PacketRRSIGMissing, PacketInvalid, PacketDoOff})' <<<"$state"
     }
 
     trap cleanup RETURN ERR
@@ -1567,7 +1622,6 @@ EOF
     assert_eq "$(jq -r '.history[0].question' <<<"$state")" get.doh.test
     assert_eq "$(jq -r '.history[0].dnsId' <<<"$state")" 0
     assert_eq "$(jq -r '.history[0].bodySize' <<<"$state")" 0
-    jq -e '.history[0].httpVersion == "1.1" or .history[0].httpVersion == "2"' <<<"$state"
 
     : "DoH POST fallback when the URI template has no dns variable"
     doh_configure doh.test /dns-query
@@ -1608,23 +1662,124 @@ EOF
     state="$(doh_state)"
     test "$(jq -r '.requests' <<<"$state")" -ge 1
 
-    : "Invalid HTTP representations and DNS messages are rejected"
-    doh_configure doh.test '/content-type/wrong{?dns}'
-    (! timeout 30s resolvectl query content-type.doh.test. --type=A)
+    : "Missing, malformed, duplicate, and zero Age values retain cacheable TTLs"
+    local age_endpoint
+    for age_endpoint in missing malformed duplicate zero; do
+        doh_configure doh.test "/age/$age_endpoint{?dns}"
+        run resolvectl query "age-$age_endpoint.doh.test." --type=A
+        doh_reset
+        run resolvectl query "age-$age_endpoint.doh.test." --type=A
+        state="$(doh_state)"
+        assert_eq "$(jq -r '.requests' <<<"$state")" 0
+    done
+
+    : "An overflowing Age value saturates and expires the DNS response immediately"
+    doh_configure doh.test '/age/overflow{?dns}'
+    run resolvectl query age-overflow.doh.test. --type=A
+    doh_reset
+    run resolvectl query age-overflow.doh.test. --type=A
     state="$(doh_state)"
     test "$(jq -r '.requests' <<<"$state")" -ge 1
 
-    doh_configure doh.test '/dns/wrong-id{?dns}'
-    (! timeout 30s resolvectl query wrong-id.doh.test. --type=A)
-    state="$(doh_state)"
-    test "$(jq -r '.requests' <<<"$state")" -ge 1
+    : "Transient HTTP failures are retried once on a fresh connection"
+    local status
+    for status in 408 421 425 502 504; do
+        doh_expect_failure "/http/$status" "http-$status" 2
+        state="$(doh_state)"
+        assert_eq "$(jq -r '.connections' <<<"$state")" 2
+        jq -e --argjson status "$status" 'all(.history[]; .responseStatus == $status)' <<<"$state"
+        test "$(jq -r '.history[0].connection' <<<"$state")" -ne "$(jq -r '.history[1].connection' <<<"$state")"
+    done
 
-    : "Redirects are not followed"
-    doh_configure doh.test '/redirect{?dns}'
-    (! timeout 30s resolvectl query redirect.doh.test. --type=A)
+    : "Rate limits and persistent server failures rotate immediately"
+    for status in 429 500 503; do
+        doh_expect_failure "/http/$status" "http-$status" 1
+        state="$(doh_state)"
+        assert_eq "$(jq -r '.history[0].responseStatus' <<<"$state")" "$status"
+    done
+
+    : "A transient HTTP or connection failure can recover on the one fresh retry"
+    doh_expect_retry_success /retry/http-502 retry-http-502 502
+    doh_expect_retry_success /retry/disconnect retry-disconnect 0
+
+    : "A persistent disconnect is bounded to one fresh retry"
+    doh_expect_failure /disconnect disconnect 2
     state="$(doh_state)"
-    test "$(jq -r '.requests' <<<"$state")" -ge 1
-    jq -e 'all(.history[]; .path == "/redirect")' <<<"$state"
+    assert_eq "$(jq -r '.connections' <<<"$state")" 2
+
+    : "Endpoint failures rotate to the next configured DoH server"
+    doh_configure doh.test '/http/500{?dns}' '/dns-query{?dns}'
+    run resolvectl query rotate.doh.test. --type=A
+    grep -F '192.0.2.1' "$RUN_OUT"
+    state="$(doh_state)"
+    assert_eq "$(jq -r '.requests' <<<"$state")" 2
+    assert_eq "$(jq -r '.history[0].path' <<<"$state")" /http/500
+    assert_eq "$(jq -r '.history[1].path' <<<"$state")" /dns-query
+
+    : "TLS authentication failures rotate to the next configured DoH server"
+    doh_apply_configuration "$doh_bootstrap#https://wrong.test:$port/dns-query{?dns} $doh_bootstrap#https://doh.test:$port/dns-query{?dns}"
+    run resolvectl query tls-rotate.doh.test. --type=A
+    grep -F '192.0.2.1' "$RUN_OUT"
+    state="$(doh_state)"
+    assert_eq "$(jq -r '.requests' <<<"$state")" 1
+    assert_eq "$(jq -r '.history[0].path' <<<"$state")" /dns-query
+
+    : "Local socket configuration failures abort without contacting the next server"
+    doh_reset
+    ip link add doh-invalid type dummy
+    doh_apply_configuration "192.0.2.1%doh-invalid#https://doh.test:$port/dns-query{?dns} $doh_bootstrap#https://doh.test:$port/dns-query{?dns}"
+    ip link del doh-invalid
+    (! timeout 30s resolvectl query interface-abort.doh.test. --type=A)
+    state="$(doh_state)"
+    assert_eq "$(jq -r '.requests' <<<"$state")" 0
+
+    : "Exhausting the fresh retry rotates without entering the classic 24-attempt loop"
+    doh_configure doh.test '/http/502{?dns}' '/dns-query{?dns}'
+    run resolvectl query retry-then-rotate.doh.test. --type=A
+    grep -F '192.0.2.1' "$RUN_OUT"
+    state="$(doh_state)"
+    assert_eq "$(jq -r '.requests' <<<"$state")" 3
+    assert_eq "$(jq -r '.history[0].responseStatus' <<<"$state")" 502
+    assert_eq "$(jq -r '.history[1].responseStatus' <<<"$state")" 502
+    assert_eq "$(jq -r '.history[2].responseStatus' <<<"$state")" 200
+
+    : "DoH failures do not modify classic DNS feature or failure state"
+    doh_configure doh.test '/sequence/content-type-wrong{?dns}'
+    local feature_state_before feature_state_after
+    run resolvectl query feature-baseline.doh.test. --type=A
+    feature_state_before="$(doh_server_feature_state)"
+    (! timeout 30s resolvectl query feature-state.doh.test. --type=A)
+    feature_state_after="$(doh_server_feature_state)"
+    assert_eq "$feature_state_before" "$feature_state_after"
+    state="$(doh_state)"
+    assert_eq "$(jq -r '.requests' <<<"$state")" 2
+
+    : "A DNS media type with parameters is accepted"
+    doh_configure doh.test '/content-type/parameter{?dns}'
+    run resolvectl query content-type-parameter.doh.test. --type=A
+    grep -F '192.0.2.1' "$RUN_OUT"
+
+    : "Every invalid HTTP representation is rejected without a same-server retry"
+    local endpoint failure_index=0
+    for endpoint in /content-type/missing /content-type/wrong /content-type/duplicate; do
+        failure_index=$((failure_index + 1))
+        doh_expect_failure "$endpoint" "representation-$failure_index" 1
+    done
+
+    : "Every invalid DNS response is rejected without a same-server retry"
+    failure_index=0
+    for endpoint in /dns/empty /dns/malformed /dns/truncated /dns/oversized /dns/wrong-id /dns/wrong-question /dns/tc; do
+        failure_index=$((failure_index + 1))
+        doh_expect_failure "$endpoint" "dns-response-$failure_index" 1
+    done
+
+    : "Redirects are rejected and not followed"
+    doh_expect_failure /redirect redirect 1
+
+    : "A stalled DoH exchange gets one fresh retry and then times out"
+    doh_expect_failure /hang timeout 2
+    state="$(doh_state)"
+    assert_eq "$(jq -r '.connections' <<<"$state")" 2
 
     : "Closing a DNS transaction cancels the HTTP request"
     doh_configure doh.test '/hang{?dns}'
@@ -1639,12 +1794,8 @@ EOF
     systemctl reset-failed systemd-resolved.service
     systemctl restart systemd-resolved.service
     wait "$query_pid" || :
-    for _ in {1..100}; do
-        state="$(doh_state)"
-        [[ $(jq -r '.activeRequests' <<<"$state") == 0 ]] && break
-        sleep 0.1
-    done
-    assert_eq "$(jq -r '.activeRequests' <<<"$state")" 0
+    state="$(doh_state)"
+    assert_eq "$(jq -r '.requests' <<<"$state")" 1
 
     : "Sequential queries reuse the same HTTPS connection"
     doh_configure doh.test '/dns-query{?dns}'
