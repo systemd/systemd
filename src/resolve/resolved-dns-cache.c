@@ -756,6 +756,15 @@ int dns_cache_put(
         if (cache_mode == DNS_CACHE_MODE_NO || c->cache_max == 0)
                 return 0;
 
+        /* Stale retention is a resilience feature for unicast DNS, where an expired answer beats no
+         * answer while the configured servers are unreachable. mDNS TTL expiry carries a different
+         * meaning: RFC 6762 treats it as a presence signal — a host or service whose records lapse is
+         * gone (goodbye packets even force this early via TTL=0), and § 5.2 cache maintenance exists so
+         * that expiry happens on time. Retaining expired mDNS records would keep vanished peers alive
+         * in the cache for the whole retention window, so never do that. */
+        if (protocol == DNS_PROTOCOL_MDNS)
+                stale_retention_usec = 0;
+
         dns_cache_remove_previous(c, key, answer);
 
         /* We only care for positive replies and NXDOMAINs, on all other replies we will simply flush the respective
