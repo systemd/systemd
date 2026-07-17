@@ -1533,6 +1533,7 @@ testcase_doh() {
 
     doh_apply_configuration() {
         local dns="${1:?}"
+        local dnssec="${2:-no}"
 
         cat >"$config" <<EOF
 [Resolve]
@@ -1541,7 +1542,7 @@ DNS=$dns
 FallbackDNS=
 Domains=
 Domains=~.
-DNSSEC=no
+DNSSEC=$dnssec
 DNSOverTLS=no
 CacheFromLocalhost=yes
 EOF
@@ -1595,11 +1596,11 @@ EOF
         test "$(jq -r '.history[0].connection' <<<"$state")" -ne "$(jq -r '.history[1].connection' <<<"$state")"
     }
 
-    doh_server_feature_state() {
+    doh_server_learning_state() {
         local state
 
         state="$(resolvectl --json=short show-server-state)"
-        jq -c 'map(select(.Transport == "https") | {VerifiedFeatureLevel, PossibleFeatureLevel, FailedUDPAttempts, FailedTCPAttempts, PacketTruncated, PacketBadOpt, PacketRRSIGMissing, PacketInvalid, PacketDoOff})' <<<"$state"
+        jq -c 'map(select(.Protocol == "https") | {VerifiedTransport, PossibleTransport, VerifiedCapabilityLevel, PossibleCapabilityLevel, FailedUDPAttempts, FailedTCPAttempts, PacketTruncated, PacketBadOpt, PacketRRSIGMissing, PacketInvalid, PacketDoOff})' <<<"$state"
     }
 
     trap cleanup RETURN ERR
@@ -1671,6 +1672,32 @@ EOF
     state="$(doh_state)"
     test "$(jq -r '.requests' <<<"$state")" -ge 1
     assert_eq "$(jq -r '.history[-1].responseStatus' <<<"$state")" 200
+
+    : "DNS error recovery reduces message capabilities without changing the HTTPS transport"
+    doh_apply_configuration "$doh_bootstrap#https://doh.test:$port/dns-query/retry-without-do{?dns}" allow-downgrade
+    run resolvectl query retry-without-do.doh.test. --type=A
+    grep -F '192.0.2.1' "$RUN_OUT"
+    state="$(doh_state)"
+    assert_eq "$(jq -r '.requests' <<<"$state")" 3
+    jq -e '.history[0].doBit and .history[1].doBit and (.history[2].doBit | not) and all(.history[]; .hasOpt)' <<<"$state"
+    jq -e '[.history[].responseDnsRcode] == [2, 2, 0]' <<<"$state"
+    local learning_state
+    learning_state="$(doh_server_learning_state)"
+    assert_eq "$(jq -r '.[0].PossibleTransport' <<<"$learning_state")" n/a
+    assert_eq "$(jq -r '.[0].PossibleCapabilityLevel' <<<"$learning_state")" EDNS0
+    assert_eq "$(jq -r '.[0].FailedUDPAttempts' <<<"$learning_state")" 0
+    assert_eq "$(jq -r '.[0].FailedTCPAttempts' <<<"$learning_state")" 0
+
+    doh_apply_configuration "$doh_bootstrap#https://doh.test:$port/dns-query/retry-without-edns{?dns}"
+    run resolvectl query retry-without-edns.doh.test. --type=A
+    grep -F '192.0.2.1' "$RUN_OUT"
+    state="$(doh_state)"
+    assert_eq "$(jq -r '.requests' <<<"$state")" 2
+    jq -e '.history[0].hasOpt and (.history[1].hasOpt | not) and all(.history[]; .doBit | not)' <<<"$state"
+    jq -e '[.history[].responseDnsRcode] == [1, 0]' <<<"$state"
+    learning_state="$(doh_server_learning_state)"
+    assert_eq "$(jq -r '.[0].PossibleTransport' <<<"$learning_state")" n/a
+    assert_eq "$(jq -r '.[0].PossibleCapabilityLevel' <<<"$learning_state")" plain
 
     : "Age is applied before inserting answers into resolved's cache"
     doh_configure doh.test '/dns-query/aged{?dns}'
@@ -1772,9 +1799,9 @@ EOF
     doh_configure doh.test '/sequence/content-type-wrong{?dns}'
     local feature_state_before feature_state_after
     run resolvectl query feature-baseline.doh.test. --type=A
-    feature_state_before="$(doh_server_feature_state)"
+    feature_state_before="$(doh_server_learning_state)"
     (! timeout 30s resolvectl query feature-state.doh.test. --type=A)
-    feature_state_after="$(doh_server_feature_state)"
+    feature_state_after="$(doh_server_learning_state)"
     assert_eq "$feature_state_before" "$feature_state_after"
     state="$(doh_state)"
     assert_eq "$(jq -r '.requests' <<<"$state")" 2
