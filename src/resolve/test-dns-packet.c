@@ -119,6 +119,39 @@ static void test_dns_resource_record_get_cname_target(void) {
         assert_se(streq(target, "wuff.wuff"));
 }
 
+static DnsPacket* make_ttl_packet(void) {
+        static const uint8_t data[] = {
+                0x00, 0x00, 0x81, 0x80, 0x00, 0x01, 0x00, 0x02, 0x00, 0x00, 0x00, 0x01,
+                0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e', 0x03, 'c', 'o', 'm', 0x00, 0x00, 0x01, 0x00, 0x01,
+                0xc0, 0x0c, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x0a, 0x00, 0x04, 192, 0, 2, 1,
+                0xc0, 0x0c, 0x00, 0x1c, 0x00, 0x01, 0x00, 0x00, 0x00, 0x1e, 0x00, 0x10,
+                0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+                0x00, 0x00, 0x29, 0x04, 0xd0, 0x12, 0x34, 0x56, 0x78, 0x00, 0x00,
+        };
+        DnsPacket *packet = NULL;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, sizeof(data), sizeof(data)));
+        memcpy(DNS_PACKET_DATA(packet), data, sizeof(data));
+        packet->size = sizeof(data);
+        return packet;
+}
+
+static void test_dns_packet_patch_ttls_by_age(void) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = make_ttl_packet();
+
+        ASSERT_OK(dns_packet_patch_ttls_by_age(packet, 20));
+        ASSERT_EQ(unaligned_read_be32(DNS_PACKET_DATA(packet) + 35), 0u);
+        ASSERT_EQ(unaligned_read_be32(DNS_PACKET_DATA(packet) + 51), 10u);
+        ASSERT_EQ(unaligned_read_be32(DNS_PACKET_DATA(packet) + 78), UINT32_C(0x12345678));
+
+        packet = dns_packet_unref(packet);
+        packet = make_ttl_packet();
+        ASSERT_OK(dns_packet_patch_ttls_by_age(packet, UINT64_MAX));
+        ASSERT_EQ(unaligned_read_be32(DNS_PACKET_DATA(packet) + 35), 0u);
+        ASSERT_EQ(unaligned_read_be32(DNS_PACKET_DATA(packet) + 51), 0u);
+        ASSERT_EQ(unaligned_read_be32(DNS_PACKET_DATA(packet) + 78), UINT32_C(0x12345678));
+}
+
 int main(int argc, char **argv) {
         _cleanup_strv_free_ char **v = NULL;
         char **fnames;
@@ -143,6 +176,7 @@ int main(int argc, char **argv) {
         }
 
         test_dns_resource_record_get_cname_target();
+        test_dns_packet_patch_ttls_by_age();
 
         return EXIT_SUCCESS;
 }
