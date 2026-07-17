@@ -179,6 +179,20 @@ executables += [
         },
 ]
 
+if doh_test_server
+        executables += resolve_test_template + {
+                'name' : 'test-resolved-doh-server',
+                'sources' : files('test-resolved-doh-server.c'),
+                'dependencies' : resolve_common_template['dependencies'] + [libsoup],
+                'type' : 'manual',
+        }
+        executables += resolve_test_template + {
+                'name' : 'test-resolved-doh-server-self-test',
+                'sources' : files('test-resolved-doh-server.c'),
+                'dependencies' : resolve_common_template['dependencies'] + [libsoup],
+        }
+endif
+
 install_data('org.freedesktop.resolve1.conf',
              install_dir : dbuspolicydir)
 install_data('org.freedesktop.resolve1.service',
