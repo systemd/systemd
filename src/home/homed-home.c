@@ -999,6 +999,55 @@ static void home_change_finish(Home *h, int ret, UserRecord *hr) {
         }
 
         if (hr) {
+                _cleanup_(user_record_unrefp) UserRecord *signed_hr = NULL;
+                bool signed_locally = false;
+                int allowed, is_signed;
+
+                allowed = user_record_self_changes_allowed(h->record, hr);
+                if (allowed < 0) {
+                        r = log_error_errno(allowed, "Failed to determine whether worker returned permitted changes: %m");
+                        goto finish;
+                }
+
+                if (!allowed) {
+                        r = home_verify_user_record(h, hr, &signed_locally, &error);
+                        if (r < 0)
+                                goto finish;
+                } else {
+                        is_signed = manager_verify_user_record(h->manager, hr);
+                        switch (is_signed) {
+
+                        case USER_RECORD_SIGNED_EXCLUSIVE:
+                                signed_locally = true;
+                                break;
+
+                        case USER_RECORD_SIGNED:
+                        case USER_RECORD_FOREIGN:
+                                break;
+
+                        case USER_RECORD_UNSIGNED:
+                        case -ENOKEY:
+                                if (h->signed_locally <= 0) {
+                                        r = sd_bus_error_setf(&error, BUS_ERROR_HOME_RECORD_SIGNED,
+                                                              "Home %s is signed and cannot be modified locally.", h->user_name);
+                                        goto finish;
+                                }
+
+                                r = manager_sign_user_record(h->manager, hr, &signed_hr, &error);
+                                if (r < 0)
+                                        goto finish;
+
+                                hr = signed_hr;
+                                signed_locally = true;
+                                break;
+
+                        default:
+                                assert(is_signed < 0);
+                                r = log_error_errno(is_signed, "Failed to verify worker returned record: %m");
+                                goto finish;
+                        }
+                }
+
                 if (!FLAGS_SET(flags, SD_HOMED_UPDATE_OFFLINE)) {
                         r = user_record_good_authentication(h->record);
                         if (r < 0)
@@ -1006,8 +1055,11 @@ static void home_change_finish(Home *h, int ret, UserRecord *hr) {
                 }
 
                 r = home_set_record(h, hr);
-                if (r >= 0)
+                if (r >= 0) {
+                        h->signed_locally = signed_locally;
+
                         r = home_save_record(h);
+                }
                 if (r < 0) {
                         if (FLAGS_SET(flags, SD_HOMED_UPDATE_OFFLINE)) {
                                 log_error_errno(r, "Failed to update home record and write it to disk: %m");
