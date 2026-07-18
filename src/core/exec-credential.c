@@ -484,6 +484,7 @@ static int maybe_decrypt_and_write_credential(
                                                 now(CLOCK_REALTIME),
                                                 /* tpm2_device= */ NULL,
                                                 /* tpm2_signature_path= */ NULL,
+                                                /* tpm2_pcrlock_path= */ NULL,
                                                 getuid(),
                                                 &IOVEC_MAKE(data, size),
                                                 flags,
