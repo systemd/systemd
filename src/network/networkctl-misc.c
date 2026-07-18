@@ -123,7 +123,7 @@ int verb_link_varlink_simple_method(int argc, char *argv[], uintptr_t _data, voi
 }
 
 int verb_reload(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        return reload_networkd();
+        return reload_networkd(!arg_no_reconfigure);
 }
 
 int verb_persistent_storage(int argc, char *argv[], uintptr_t _data, void *userdata) {
