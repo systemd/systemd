@@ -235,10 +235,12 @@ static void request_done(ServerContext *c, SoupServerMessage *message, const cha
                 log_info("Request #%" PRIu64 " on connection #%" PRIu64 " %s without an HTTP response.",
                          request->request_id, request->connection_id, result);
 
-        log_debug("Request #%" PRIu64 " response headers: Content-Type=%s, Age=%s",
+        log_debug("Request #%" PRIu64 " response headers: Content-Type=%s, Age=%s, Cache-Control=%s, Expires=%s",
                   request->request_id,
                   strna(soup_message_headers_get_one(headers, "Content-Type")),
-                  strna(soup_message_headers_get_one(headers, "Age")));
+                  strna(soup_message_headers_get_one(headers, "Age")),
+                  strna(soup_message_headers_get_one(headers, "Cache-Control")),
+                  strna(soup_message_headers_get_one(headers, "Expires")));
 
         assert(c->n_active > 0);
         c->n_active--;
@@ -527,6 +529,8 @@ static void respond_dns_packet(
                 DnsPacket *packet,
                 const char *content_type,
                 const char *age,
+                const char *cache_control,
+                const char *expires,
                 bool duplicate_content_type,
                 bool duplicate_age) {
 
@@ -549,6 +553,10 @@ static void respond_dns_packet(
                 if (duplicate_age)
                         soup_message_headers_append(headers, "Age", "61");
         }
+        if (cache_control)
+                soup_message_headers_append(headers, "Cache-Control", cache_control);
+        if (expires)
+                soup_message_headers_append(headers, "Expires", expires);
 
         set_response_body(message, DNS_PACKET_DATA(packet), packet->size);
 }
@@ -696,7 +704,7 @@ static void handle_dns_request(ServerContext *c, SoupServerMessage *message, con
         _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
         _cleanup_(dns_question_unrefp) DnsQuestion *wrong_question = NULL;
         _cleanup_free_ uint8_t *oversized = NULL;
-        const char *content_type = "application/dns-message", *age = NULL;
+        const char *content_type = "application/dns-message", *age = NULL, *cache_control = NULL, *expires = NULL;
         bool duplicate_content_type = false, duplicate_age = false;
         int r, rcode = DNS_RCODE_SUCCESS, status;
 
@@ -785,6 +793,16 @@ static void handle_dns_request(ServerContext *c, SoupServerMessage *message, con
                 age = "0";
         else if (streq(path, "/age/overflow"))
                 age = "184467440737095516160";
+        else if (streq(path, "/cache-control/max-age-zero"))
+                cache_control = "max-age=0";
+        else if (streq(path, "/cache-control/max-age-short"))
+                cache_control = "max-age=1";
+        else if (streq(path, "/cache-control/no-cache"))
+                cache_control = "no-cache";
+        else if (streq(path, "/cache-control/no-store"))
+                cache_control = "no-store";
+        else if (streq(path, "/expires/past"))
+                expires = "Thu, 01 Dec 1994 16:00:00 GMT";
 
         observation->response_status = SOUP_STATUS_OK;
 
@@ -819,7 +837,7 @@ static void handle_dns_request(ServerContext *c, SoupServerMessage *message, con
         else if (streq(path, "/dns/tc"))
                 DNS_PACKET_HEADER(reply)->flags |= htobe16(DNS_PACKET_FLAG_TC);
 
-        respond_dns_packet(message, reply, content_type, age, duplicate_content_type, duplicate_age);
+        respond_dns_packet(message, reply, content_type, age, cache_control, expires, duplicate_content_type, duplicate_age);
         return;
 
 fail:
@@ -847,6 +865,11 @@ static bool path_is_known(const char *path) {
                 "/age/duplicate",
                 "/age/zero",
                 "/age/overflow",
+                "/cache-control/max-age-zero",
+                "/cache-control/max-age-short",
+                "/cache-control/no-cache",
+                "/cache-control/no-store",
+                "/expires/past",
                 "/dns/empty",
                 "/dns/malformed",
                 "/dns/truncated",
