@@ -13,10 +13,12 @@
 #include "dissect-image.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "forward.h"
 #include "fs-util.h"
 #include "install-file.h"
 #include "log.h"
 #include "mkdir.h"
+#include "os-util.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "pretty-print.h"
@@ -46,6 +48,7 @@ typedef struct TarPull {
 
         ImportFlags flags;
         ImportVerify verify;
+        ImageClass class;
         char *image_root;
 
         PullJob *tar_job;
@@ -479,6 +482,7 @@ static void tar_pull_job_on_finished(PullJob *j) {
 
                 clear_progress_bar(/* prefix= */ NULL);
                 r = pull_verify(p->verify,
+                                p->class,
                                 p->tar_job,
                                 p->checksum_job,
                                 p->signature_job,
@@ -711,6 +715,7 @@ int tar_pull_start(
                 const char *local,
                 ImportFlags flags,
                 ImportVerify verify,
+                ImageClass class,
                 const struct iovec *checksum) {
 
         int r;
@@ -719,6 +724,7 @@ int tar_pull_start(
         assert(verify == _IMPORT_VERIFY_INVALID || verify < _IMPORT_VERIFY_MAX);
         assert(verify == _IMPORT_VERIFY_INVALID || verify >= 0);
         assert((verify < 0) || !iovec_is_set(checksum));
+        assert(class >= 0 && class < _IMAGE_CLASS_MAX);
         assert(!(flags & ~IMPORT_PULL_FLAGS_MASK_TAR));
         assert(!(flags & IMPORT_PULL_SETTINGS) || !(flags & IMPORT_DIRECT));
         assert(!(flags & IMPORT_PULL_SETTINGS) || !iovec_is_set(checksum));
@@ -738,6 +744,7 @@ int tar_pull_start(
 
         p->flags = flags;
         p->verify = verify;
+        p->class = class;
 
         /* Set up download job for TAR file */
         r = pull_job_new(&p->tar_job, url, p->glue, p);
