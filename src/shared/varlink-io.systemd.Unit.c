@@ -1570,7 +1570,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(parameter, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
 /* UnitContext is used both as input to StartTransient (subset settable at creation time: ID,
- * Description, Service, and the Exec subset {WorkingDirectory, Environment, SetCredential,
+ * Description, CollectMode, Service, and the Exec subset {WorkingDirectory, Environment, SetCredential,
  * SetCredentialEncrypted}) and as output from List/StartTransient (full unit configuration). Fields
  * that are not settable at creation time are rejected with PropertyNotSupported when supplied as
  * input. */
