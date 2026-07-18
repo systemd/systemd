@@ -6,6 +6,7 @@
 #include "dns-domain.h"
 #include "dns-packet.h"
 #include "dns-question.h"
+#include "extract-word.h"
 #include "hexdecoct.h"
 #include "in-addr-util.h"
 #include "log.h"
@@ -17,6 +18,7 @@
 #include "resolved-manager.h"
 #include "socket-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "time-util.h"
 #include "utf8.h"
 
@@ -95,10 +97,96 @@ bool dns_over_https_age_parse(const char *value, uint64_t *ret_age) {
         return true;
 }
 
-int dns_over_https_response_headers_read(CURL *easy, uint64_t *ret_age) {
+/* RFC 9111 §1.2.2 defines delta-seconds as a non-negative decimal integer and requires
+ * overflow to saturate: https://www.rfc-editor.org/rfc/rfc9111.html#section-1.2.2 */
+static bool dns_over_https_delta_seconds_parse(char *value, uint64_t *ret) {
+        uint64_t result = 0;
+
+        value = strstrip(value);
+        if (isempty(value))
+                return false;
+
+        for (const char *p = value; *p; p++) {
+                unsigned digit;
+
+                if (!ascii_isdigit(*p))
+                        return false;
+
+                digit = *p - '0';
+                if (result > (UINT64_MAX - digit) / 10)
+                        result = UINT64_MAX;
+                else
+                        result = result * 10 + digit;
+        }
+
+        if (ret)
+                *ret = result;
+        return true;
+}
+
+/* RFC 9111 §5.2 defines Cache-Control as a comma-separated list of case-insensitive directive tokens,
+ * each with an optional token or quoted-string argument.
+ *
+ * resolved cannot revalidate an HTTP response independently of its DNS cache entry. Treat no-cache and
+ * no-store, as well as invalid or repeated max-age directives per RFC 9111 §4.2.1,
+ * as an explicit freshness lifetime of zero. */
+int dns_over_https_cache_control_parse(const char *value, uint64_t *ret_max_age) {
+        bool found = false, max_age_seen = false;
+        uint64_t max_age = UINT64_MAX;
+        int r;
+
+        if (!value)
+                return 0;
+
+        for (const char *p = value;;) {
+                _cleanup_free_ char *word = NULL;
+                char *directive, *parameter;
+
+                r = extract_first_word(&p, &word, ",", EXTRACT_UNQUOTE);
+                if (r == -ENOMEM)
+                        return r;
+                if (r < 0) {
+                        found = true;
+                        max_age = 0;
+                        break;
+                }
+                if (r == 0)
+                        break;
+
+                directive = strstrip(word);
+                parameter = strchr(directive, '=');
+                if (parameter) {
+                        *parameter = 0;
+                        parameter = strstrip(parameter + 1);
+                }
+                directive = strstrip(directive);
+
+                if (STRCASE_IN_SET(directive, "no-cache", "no-store")) {
+                        found = true;
+                        max_age = 0;
+                } else if (STRCASE_IN_SET(directive, "max-age")) {
+                        uint64_t parsed;
+
+                        found = true;
+                        if (max_age_seen || !parameter || !dns_over_https_delta_seconds_parse(parameter, &parsed))
+                                max_age = 0;
+                        else
+                                max_age = MIN(max_age, parsed);
+                        max_age_seen = true;
+                }
+        }
+
+        if (found && ret_max_age)
+                *ret_max_age = max_age;
+        return found;
+}
+
+int dns_over_https_response_headers_read(CURL *easy, uint64_t *ret_age, uint64_t *ret_max_ttl) {
         struct curl_header *header;
+        usec_t date = 0, response_time;
         CURLHcode code;
-        uint64_t age = 0;
+        uint64_t age = 0, max_ttl = UINT64_MAX;
+        bool date_valid = true, explicit_freshness = false;
 
         assert(easy);
 
@@ -114,8 +202,63 @@ int dns_over_https_response_headers_read(CURL *easy, uint64_t *ret_age) {
         else if (code != CURLHE_MISSING)
                 return code == CURLHE_OUT_OF_MEMORY ? -ENOMEM : -EIO;
 
+        response_time = now(CLOCK_REALTIME);
+        code = sym_curl_easy_header(easy, "Date", 0, CURLH_HEADER, -1, &header);
+        if (code == CURLHE_OK) {
+                if (header->amount != 1 || curl_parse_http_time(header->value, &date) < 0)
+                        date_valid = false;
+                else
+                        age = MAX(age, LESS_BY(response_time, date) / USEC_PER_SEC);
+        } else if (code == CURLHE_MISSING)
+                date = response_time;
+        else
+                return code == CURLHE_OUT_OF_MEMORY ? -ENOMEM : -EIO;
+
+        code = sym_curl_easy_header(easy, "Cache-Control", 0, CURLH_HEADER, -1, &header);
+        if (code == CURLHE_OK) {
+                size_t n = header->amount;
+
+                for (size_t i = 0; i < n; i++) {
+                        uint64_t parsed;
+                        int r;
+
+                        if (i > 0) {
+                                code = sym_curl_easy_header(easy, "Cache-Control", i, CURLH_HEADER, -1, &header);
+                                if (code != CURLHE_OK)
+                                        return code == CURLHE_OUT_OF_MEMORY ? -ENOMEM : -EIO;
+                        }
+
+                        r = dns_over_https_cache_control_parse(header->value, &parsed);
+                        if (r < 0)
+                                return r;
+                        if (r > 0) {
+                                max_ttl = explicit_freshness ? 0 : parsed;
+                                explicit_freshness = true;
+                        }
+                }
+        } else if (code != CURLHE_MISSING)
+                return code == CURLHE_OUT_OF_MEMORY ? -ENOMEM : -EIO;
+
+        /* Clamp the DNS TTL to the remaining HTTP freshness lifetime. */
+        if (explicit_freshness)
+                max_ttl = LESS_BY(max_ttl, age);
+        else {
+                code = sym_curl_easy_header(easy, "Expires", 0, CURLH_HEADER, -1, &header);
+                if (code == CURLHE_OK) {
+                        usec_t expires;
+
+                        if (header->amount != 1 || !date_valid || curl_parse_http_time(header->value, &expires) < 0)
+                                max_ttl = 0;
+                        else
+                                max_ttl = LESS_BY(LESS_BY(expires, date) / USEC_PER_SEC, age);
+                } else if (code != CURLHE_MISSING)
+                        return code == CURLHE_OUT_OF_MEMORY ? -ENOMEM : -EIO;
+        }
+
         if (ret_age)
                 *ret_age = age;
+        if (ret_max_ttl)
+                *ret_max_ttl = max_ttl;
         return 0;
 }
 
@@ -540,7 +683,7 @@ static int dns_http_request_set_socket_options(void *userdata, curl_socket_t fd,
         return CURL_SOCKOPT_OK;
 }
 
-static int dns_http_request_make_packet(DnsHttpRequest *request, DnsServer *server, uint64_t age, DnsPacket **ret) {
+static int dns_http_request_make_packet(DnsHttpRequest *request, DnsServer *server, uint64_t age, uint64_t max_ttl, DnsPacket **ret) {
         _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
         int r;
 
@@ -569,7 +712,7 @@ static int dns_http_request_make_packet(DnsHttpRequest *request, DnsServer *serv
         if (DNS_PACKET_ID(packet) != 0 || DNS_PACKET_TC(packet))
                 return -EBADMSG;
 
-        r = dns_packet_patch_ttls_by_age(packet, age);
+        r = dns_packet_patch_ttls_by_age_and_max_ttl(packet, age, max_ttl);
         if (r < 0)
                 return r;
 
@@ -593,7 +736,7 @@ static int dns_http_request_finished(CurlSlot *slot, CURL *easy, CURLcode code, 
         _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
         DnsServer *server = ASSERT_PTR(request->transaction->server);
         DnsOverHttpsFailureAction failure_action = DNS_OVER_HTTPS_FAILURE_ABORT;
-        uint64_t age = 0;
+        uint64_t age = 0, max_ttl = UINT64_MAX;
         long status = 0;
         int r;
 
@@ -615,11 +758,11 @@ static int dns_http_request_finished(CurlSlot *slot, CURL *easy, CURLcode code, 
                 failure_action = dns_over_https_http_failure_action(status);
                 r = -EREMOTEIO;
         } else {
-                r = dns_over_https_response_headers_read(easy, &age);
+                r = dns_over_https_response_headers_read(easy, &age, &max_ttl);
                 if (r < 0)
                         failure_action = IN_SET(r, -ENOMEM, -EIO) ? DNS_OVER_HTTPS_FAILURE_ABORT : DNS_OVER_HTTPS_FAILURE_RETRY_NEXT_SERVER;
                 else {
-                        r = dns_http_request_make_packet(request, server, age, &packet);
+                        r = dns_http_request_make_packet(request, server, age, max_ttl, &packet);
                         if (r < 0)
                                 failure_action = r == -ENOMEM ? DNS_OVER_HTTPS_FAILURE_ABORT : DNS_OVER_HTTPS_FAILURE_RETRY_NEXT_SERVER;
                 }
