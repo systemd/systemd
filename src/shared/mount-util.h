@@ -172,6 +172,8 @@ int mount_credentials_fs(const char *path);
 
 int make_fsmount(int error_log_level, const char *what, const char *type, unsigned long flags, const char *options, int userns_fd);
 
+int tmpfs_patch_options(const char *options, uid_t uid_shift, const char *selinux_apifs_context, char **ret);
+
 int path_get_mount_info_at(int dir_fd, const char *path, char **ret_fstype, char **ret_options, char **ret_source);
 static inline int path_get_mount_info(const char *path, char **ret_fstype, char **ret_options, char **ret_source) {
         return path_get_mount_info_at(AT_FDCWD, path, ret_fstype, ret_options, ret_source);

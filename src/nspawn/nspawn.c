@@ -3922,6 +3922,32 @@ static DissectImageFlags determine_dissect_image_flags(void) {
                  (arg_userns_ownership != USER_NAMESPACE_OWNERSHIP_AUTO) ? DISSECT_IMAGE_IDENTITY_UID : 0);
 }
 
+static int mstack_apply_bind_mounts_late(MStack *mstack, const char *directory, MStackFlags flags) {
+        int r;
+
+        /* mstack's bind@/robind@/tmpfs@ entries are always applied here, after mount_all(), rather than
+         * during the initial root assembly above - mount_all() mounts fresh API VFS filesystems (/proc,
+         * /dev, /run, /tmp, /sys), which would otherwise shadow any of these at the same paths. This is
+         * unconditional and unrelated to --volatile= specifically: mstack is authoritative for ordering
+         * regardless of whether --volatile= is in play, so a synthetic --volatile=overlay rw layer (see
+         * mstack_merge_volatile()) is already part of the root assembled above, and bind@/robind@/tmpfs@
+         * naturally end up on top of it here, without needing any volatile-specific handling of their own.
+         *
+         * Open an O_PATH fd anchored to the staged container root so that mstack_apply_bind_mounts() can
+         * use chaseat() to safely resolve bind target paths relative to it, without symlink escape risk. */
+        _cleanup_close_ int root_fd = open(directory, O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW);
+        if (root_fd < 0)
+                return log_error_errno(errno, "Failed to open container root for mstack bind mounts: %m");
+
+        r = mstack_apply_bind_mounts(mstack, root_fd, directory, flags);
+        if (r < 0)
+                return r;
+
+        log_debug("Applied .mstack bind mounts.");
+
+        return 0;
+}
+
 static int outer_child(
                 Barrier *barrier,
                 const char *directory,
@@ -3938,6 +3964,7 @@ static int outer_child(
         bool idmap = false;
         ssize_t l;
         int r;
+        MStackFlags mstack_flags = 0;
 
         /* This is the "outer" child process, i.e the one forked off by the container manager itself.  Its
          * namespace situation is:
@@ -4019,7 +4046,48 @@ static int outer_child(
                 assert(!arg_image);
                 assert(arg_mstack);
 
-                MStackFlags mstack_flags = arg_read_only ? MSTACK_RDONLY : 0;
+                /* Opt-in to the default behavior. */
+                if (arg_read_only)
+                        mstack_flags |= MSTACK_RDONLY;
+
+                /* Decouple arg_read_only from mstack binds. */
+                if (FLAGS_SET(arg_settings_mask, SETTING_READ_ONLY))
+                        mstack_flags |= MSTACK_BINDS_RDONLY;
+
+                bool writable = mstack_has_writable_layers(mstack, 0);
+
+                /* Always defer bind mounts to after mount_all(), so that API VFS
+                 * mounts (/proc, /sys, /dev, /run, /tmp) don't shadow mstack binds.
+                 * The root and /usr mounts are still attached immediately. */
+                mstack_flags |= MSTACK_DEFER_MOUNT;
+
+                if (writable && FLAGS_SET(arg_settings_mask, SETTING_READ_ONLY))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                        "Cannot combine .mstack/ rw/ directory with --read-only.");
+
+                if (writable && arg_volatile_mode != VOLATILE_NO)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                        "Cannot combine .mstack/ rw/ directory with --volatile=. "
+                                        "Use either rw/ for persistent state or --volatile= for ephemeral writes, not both.");
+
+                /* Let mstack itself be authoritative for --volatile=, instead of layering a separate
+                 * volatile mount on top of the finished tree afterwards: merge the requested mode's
+                 * layers into the loaded mount stack before assembling it, so bind@/robind@/tmpfs@
+                 * entries (applied later, see mstack_apply_bind_mounts() below) naturally end up on top
+                 * of it via mstack's own ordering, rather than being masked by a volatile mount applied
+                 * outside mstack's purview afterwards. */
+                r = mstack_merge_volatile(mstack, arg_volatile_mode, /* tmpfs_uid_shift= */ UID_INVALID, arg_selinux_apifs_context);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to merge --volatile= into .mstack/ mount stack: %m");
+
+                /* --volatile= is always forced together with arg_read_only (see the argument
+                 * post-processing above), but - matching prior behavior - that never actually makes a
+                 * volatile mount read-only: it's mstack's own synthetic writable layer (added by
+                 * mstack_merge_volatile() above for --volatile=overlay) that must stay writable
+                 * regardless. Only bind@/robind@ mounts distinguish explicit --read-only via
+                 * MSTACK_BINDS_RDONLY, set above independently of this. */
+                if (arg_volatile_mode != VOLATILE_NO)
+                        mstack_flags &= ~MSTACK_RDONLY;
 
                 /* This creates the needed overlayfs or tmpfs, owned by our target userns. Note that we pass
                  * the target mount dir as temporary mount dir here. We after all just need some dir here
@@ -4028,11 +4096,13 @@ static int outer_child(
                 r = mstack_make_mounts(
                                 mstack,
                                 /* temp_mount_dir= */ directory, /* !! */
-                                mstack_flags);
+                                mstack_flags,
+                                /* uid_shift= */ UID_INVALID); /* nspawn does its own idmapping separately, via --private-users= */
                 if (r < 0)
                         return log_error_errno(r, "Failed to make .mstack/ mounts: %m");
 
-                /* And then attaches all mounts to the directory */
+                /* And then attaches all mounts to the directory. If volatile is set, we're
+                 * skipping bind mounts to mount them after tmpfs overlay, mounting only root. */
                 r = mstack_bind_mounts(
                                 mstack,
                                 directory,
@@ -4040,7 +4110,7 @@ static int outer_child(
                                 mstack_flags,
                                 /* ret_root_fd= */ NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed bind mount .mstack/ mounts: %m");
+                        return log_error_errno(r, "Failed to bind .mstack/ mounts: %m");
         } else {
                 assert(arg_directory);
                 assert(!arg_image);
@@ -4107,6 +4177,32 @@ static int outer_child(
                          "Selected user namespace base " UID_FMT " and range " UID_FMT ".", arg_uid_shift, arg_uid_range);
         }
 
+        /* chown_uid wasn't known yet when the --mstack= case merged --volatile= into 'mstack' above (that
+         * has to happen before the root is even attached, well before this point) - patch in the now-known
+         * uid=/gid= tmpfs parity for any tmpfs mstack_merge_volatile() may still go on to realize. This is
+         * enough on its own for a --volatile=state tmpfs@/var: it's only actually created later, in the
+         * deferred mstack_apply_bind_mounts() pass after mount_all(), well after this point, so it always
+         * sees the patched-in shift. Matches upstream's existing "0 means no shift needed" convention for
+         * uid_shift. */
+        if (arg_mstack) {
+                mstack->tmpfs_uid_shift = chown_uid == 0 ? UID_INVALID : chown_uid;
+                r = free_and_strdup_warn(&mstack->tmpfs_selinux_context, arg_selinux_apifs_context);
+                if (r < 0)
+                        return r;
+
+                /* Unlike --volatile=state's tmpfs@/var above, --volatile=overlay's synthetic writable rw
+                 * layer was already fully realized by mstack_make_mounts() further up, before chown_uid
+                 * was known here - the patched-in tmpfs_uid_shift above is too late to affect it, so it
+                 * ended up owned by whatever uid mstack_make_tmpfs() was invoked with back then (none,
+                 * i.e. host root). mstack_make_tmpfs()'s uid=/gid= mount option only ever affects the
+                 * tmpfs's own top-level root inode, though, and nothing has been created inside it yet at
+                 * this point (real population only starts further down, via base_filesystem_create() and
+                 * friends) - so a plain chown() of the merged root here achieves exactly what the correct
+                 * uid=/gid= mount option would have, without needing to re-realize anything. */
+                if (arg_volatile_mode == VOLATILE_OVERLAY && chown_uid != 0 && chown(directory, chown_uid, chown_uid) < 0)
+                        return log_error_errno(errno, "Failed to chown '%s': %m", directory);
+        }
+
         /* So the whole tree is now MS_SLAVE, i.e. we'll still receive mount/umount events from the host
          * mount namespace. For the directory we are going to run our container let's turn this off, so that
          * we'll live in our own little world from now on, and propagation from the host may only happen via
@@ -4122,13 +4218,44 @@ static int outer_child(
         if (r < 0)
                 return r;
 
-        r = setup_volatile_mode(
-                        directory,
-                        arg_volatile_mode,
-                        chown_uid,
-                        arg_selinux_apifs_context);
-        if (r < 0)
-                return r;
+        _cleanup_(mstack_freep) MStack *synthetic_mstack = NULL;
+        if (!arg_mstack && arg_volatile_mode != VOLATILE_NO) {
+                /* Neither --directory= nor --image= have a mount stack of their own; wrap the already
+                 * attached root as a synthetic single-entry MStack and merge the requested --volatile=
+                 * layers into it exactly as the --mstack= case does above, then run it through the same
+                 * assembly/bind-application pipeline (MSTACK_DEFER_MOUNT so tmpfs@/bind@ realization
+                 * stays correctly ordered after remount_idmap() below, same as the --mstack= case). */
+                /* AT_RECURSIVE: 'directory' may already have submounts of its own (e.g. a separately
+                 * mounted /usr/) from whichever of the three mechanisms further up attached the root;
+                 * without it, open_tree() would silently drop them from the clone, leaving empty
+                 * mountpoint directories behind in the assembled --volatile= result. */
+                _cleanup_close_ int root_fd = open_tree(-1, directory, OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_RECURSIVE|AT_SYMLINK_NOFOLLOW);
+                if (root_fd < 0)
+                        return log_error_errno(errno, "Failed to clone root directory '%s': %m", directory);
+
+                r = mstack_new_from_root_fd(TAKE_FD(root_fd), &synthetic_mstack);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to wrap root directory as a synthetic mount stack: %m");
+
+                r = mstack_merge_volatile(synthetic_mstack, arg_volatile_mode, chown_uid == 0 ? UID_INVALID : chown_uid, arg_selinux_apifs_context);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to merge --volatile= into synthetic mount stack: %m");
+
+                mstack_flags = MSTACK_DEFER_MOUNT;
+
+                r = mstack_make_mounts(synthetic_mstack, /* temp_mount_dir= */ directory, mstack_flags,
+                                       /* uid_shift= */ UID_INVALID); /* nspawn does its own idmapping separately, via --private-users= */
+                if (r < 0)
+                        return log_error_errno(r, "Failed to make synthetic --volatile= mounts: %m");
+
+                r = mstack_bind_mounts(synthetic_mstack, directory, /* where_fd= */ -EBADF, mstack_flags, /* ret_root_fd= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to bind synthetic --volatile= mounts: %m");
+
+                /* Downstream code (the deferred bind/tmpfs@ application below, after mount_all()) treats
+                 * any non-NULL 'mstack' uniformly, regardless of whether it came from --mstack= or here. */
+                mstack = synthetic_mstack;
+        }
 
         _cleanup_(machine_bind_user_context_freep) MachineBindUserContext *bind_user_context = NULL;
         r = machine_bind_user_prepare(
@@ -4256,14 +4383,6 @@ static int outer_child(
                 }
         }
 
-        r = setup_volatile_mode_after_remount_idmap(
-                        directory,
-                        arg_volatile_mode,
-                        chown_uid,
-                        arg_selinux_apifs_context);
-        if (r < 0)
-                return r;
-
         if (dissected_image) {
                 /* Now we know the uid shift, let's now mount everything else that might be in the image. */
                 r = dissected_image_mount_and_warn(
@@ -4348,6 +4467,16 @@ static int outer_child(
         r = bind_user_setup(bind_user_context, directory);
         if (r < 0)
                 return r;
+
+        /* Apply mstack bind mounts after mount_all() so they land on top of API VFS mounts rather than
+         * being shadowed by them. 'mstack' is set here whenever the root came from a mount stack -
+         * either loaded from a .mstack/ directory (arg_mstack) or synthesized above from a plain
+         * --directory=/--image= root for --volatile= (see synthetic_mstack above). */
+        if (mstack) {
+                r = mstack_apply_bind_mounts_late(mstack, directory, mstack_flags);
+                if (r < 0)
+                        return r;
+        }
 
         r = mount_custom(
                         directory,
