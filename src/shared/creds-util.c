@@ -243,6 +243,7 @@ int read_credential_with_decryption(const char *name, void **ret, size_t *ret_si
                                 now(CLOCK_REALTIME),
                                 /* tpm2_device= */ NULL,
                                 /* tpm2_signature_path= */ NULL,
+                                /* tpm2_pcrlock_path= */ NULL,
                                 getuid(),
                                 &IOVEC_MAKE(data, sz),
                                 CREDENTIAL_ANY_SCOPE,
@@ -690,7 +691,9 @@ int get_credential_host_secret(CredentialSecretFlags flags, struct iovec *ret) {
  * but kinda nice to have since we can have a more generic parser. If the TPM2 key is used this is followed
  * by another (unencrypted) header, with information about the TPM2 policy used (specifically: the PCR mask
  * to bind against, and a hash of the resulting policy — the latter being redundant, but speeding up things a
- * bit, since we can more quickly refuse PCR state), followed by a sealed/exported TPM2 HMAC key. This is
+ * bit, since we can more quickly refuse PCR state), followed by a sealed/exported TPM2 HMAC key. If the
+ * TPM2 policy includes a pcrlock policy (i.e. TPM2 PolicyAuthorizeNV) another (unencrypted) header follows,
+ * which contains the serialized NV index handle of the pcrlock policy the credential is bound to. This is
  * then followed by the encrypted data, which begins with a metadata header (which contains validity
  * timestamps as well as the credential name), followed by the actual credential payload. The file ends in
  * the AES256-GCM tag. To make things simple, the AES256-GCM AAD covers the main and the TPM2 header in
@@ -729,6 +732,13 @@ struct _packed_ tpm2_public_key_credential_header {
 struct _packed_ tpm2_pinned_srk_credential_header {
         le32_t size;          /* Size of pinned SRK */
         uint8_t data[];       /* Pinned SRK */
+        /* Followed by NUL bytes until next 8 byte boundary */
+};
+
+struct _packed_ tpm2_pcrlock_credential_header {
+        le32_t size;          /* Size of serialized NV index handle */
+        uint8_t data[];       /* Serialized NV index handle of the pcrlock policy (i.e. for TPM2
+                               * PolicyAuthorizeNV), used at decryption time to find the matching policy */
         /* Followed by NUL bytes until next 8 byte boundary */
 };
 
@@ -867,12 +877,13 @@ int encrypt_credential_and_warn(
                 uint32_t tpm2_hash_pcr_mask,
                 const char *tpm2_pubkey_path,
                 uint32_t tpm2_pubkey_pcr_mask,
+                const char *tpm2_pcrlock_path,
                 uid_t uid,
                 const struct iovec *input,
                 CredentialFlags flags,
                 struct iovec *ret) {
 
-        _cleanup_(iovec_done) struct iovec tpm2_blob = {}, tpm2_srk = {}, tpm2_policy_hash = {}, iv = {}, pubkey = {};
+        _cleanup_(iovec_done) struct iovec tpm2_blob = {}, tpm2_srk = {}, tpm2_policy_hash = {}, tpm2_pcrlock_nv = {}, iv = {}, pubkey = {};
         _cleanup_(iovec_done_erase) struct iovec tpm2_key = {}, output = {}, host_key = {};
         _cleanup_(EVP_CIPHER_CTX_freep) EVP_CIPHER_CTX *context = NULL;
         _cleanup_free_ struct metadata_credential_header *m = NULL;
@@ -921,6 +932,10 @@ int encrypt_credential_and_warn(
         } else
                 uid = UID_INVALID;
 
+        if (tpm2_pcrlock_path && (tpm2_pubkey_path || CRED_KEY_REQUIRES_TPM2_PK(with_key)))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Combining a pcrlock policy with a signed PCR policy is not supported. Use --with-key=tpm2, host+tpm2 or auto.");
+
         if (CRED_KEY_WANTS_HOST(with_key) || CRED_KEY_REQUIRES_HOST(with_key)) {
 
                 r = get_credential_host_secret(
@@ -952,11 +967,34 @@ int encrypt_credential_and_warn(
         } else
                 try_tpm2 = CRED_KEY_REQUIRES_TPM2(with_key);
 
+        _cleanup_(tpm2_pcrlock_policy_done) Tpm2PCRLockPolicy pcrlock_policy = {};
+        bool use_pcrlock = false;
+
+        if (tpm2_pcrlock_path && try_tpm2) {
+                r = tpm2_pcrlock_policy_load(tpm2_pcrlock_path, &pcrlock_policy);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Couldn't find pcrlock policy %s.", tpm2_pcrlock_path);
+
+                /* An empty NV index handle would result in a credential that can never be decrypted, hence
+                 * don't trust the policy file blindly. */
+                if (!iovec_is_set(&pcrlock_policy.nv_handle) || pcrlock_policy.nv_handle.iov_len > CREDENTIAL_FIELD_SIZE_MAX)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Pcrlock policy %s contains an invalid NV index handle.", tpm2_pcrlock_path);
+
+                use_pcrlock = true;
+        }
+
+        if (CRED_KEY_REQUIRES_TPM2_PCRLOCK(with_key) && !use_pcrlock)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Selected key type requires a pcrlock policy, but none specified or found.");
+
         if (try_tpm2) {
                 /* If the firmware does not support TPMs, then UKI measurements are not going to work, hence
                  * PCR 11 public key stuff cannot work. Because of that, if PK is only wanted (but not
-                 * required) we won't try it. */
-                if ((CRED_KEY_WANTS_TPM2_PK(with_key) && tpm2_is_fully_supported()) || CRED_KEY_REQUIRES_TPM2_PK(with_key)) {
+                 * required) we won't try it. The same applies if a pcrlock policy is used, since the two
+                 * cannot be combined. */
+                if ((CRED_KEY_WANTS_TPM2_PK(with_key) && !use_pcrlock && tpm2_is_fully_supported()) ||
+                    CRED_KEY_REQUIRES_TPM2_PK(with_key)) {
 
                         /* Load public key for PCR policies, if one is specified, or explicitly requested */
 
@@ -1006,7 +1044,7 @@ int encrypt_credential_and_warn(
                                 iovec_is_set(&pubkey) ? &public : NULL,
                                 /* pubkey_policy_ref= */ NULL,
                                 /* use_pin= */ false,
-                                /* pcrlock_policy= */ NULL,
+                                use_pcrlock ? &pcrlock_policy : NULL,
                                 &tpm2_policy);
                 if (r < 0)
                         return log_error_errno(r, "Could not calculate sealing policy digest: %m");
@@ -1042,6 +1080,13 @@ int encrypt_credential_and_warn(
                         assert(tpm2_blob.iov_len <= CREDENTIAL_FIELD_SIZE_MAX);
                         assert(tpm2_policy_hash.iov_len <= CREDENTIAL_FIELD_SIZE_MAX);
                         assert(tpm2_srk.iov_len <= CREDENTIAL_FIELD_SIZE_MAX);
+
+                        if (use_pcrlock) {
+                                if (!iovec_memdup(&pcrlock_policy.nv_handle, &tpm2_pcrlock_nv))
+                                        return log_oom();
+
+                                assert(tpm2_pcrlock_nv.iov_len <= CREDENTIAL_FIELD_SIZE_MAX);
+                        }
                 }
         }
 #endif
@@ -1049,14 +1094,20 @@ int encrypt_credential_and_warn(
         if (CRED_KEY_IS_AUTO(with_key)) {
                 /* Let's settle the key type in auto mode now. */
                 assert(!iovec_is_set(&tpm2_key) || iovec_is_set(&tpm2_srk));
+                assert(!iovec_is_set(&tpm2_pcrlock_nv) || !iovec_is_set(&pubkey));
 
-                if (iovec_is_set(&host_key) && iovec_is_set(&tpm2_key))
-                        id = iovec_is_set(&pubkey) ? (sd_id128_equal(with_key, _CRED_AUTO_SCOPED) ?
-                                                      CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED_PINNED_SRK : CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_PINNED_SRK)
-                                                   : (sd_id128_equal(with_key, _CRED_AUTO_SCOPED) ?
-                                                      CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK : CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK);
-                else if (iovec_is_set(&tpm2_key) && !sd_id128_equal(with_key, _CRED_AUTO_SCOPED))
-                        id = iovec_is_set(&pubkey) ? CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK_PINNED_SRK : CRED_AES256_GCM_BY_TPM2_HMAC_PINNED_SRK;
+                if (iovec_is_set(&host_key) && iovec_is_set(&tpm2_key)) {
+                        if (iovec_is_set(&tpm2_pcrlock_nv))
+                                id = sd_id128_equal(with_key, _CRED_AUTO_SCOPED) ?
+                                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK_PCRLOCK : CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK_PCRLOCK;
+                        else
+                                id = iovec_is_set(&pubkey) ? (sd_id128_equal(with_key, _CRED_AUTO_SCOPED) ?
+                                                              CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED_PINNED_SRK : CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_PINNED_SRK)
+                                                           : (sd_id128_equal(with_key, _CRED_AUTO_SCOPED) ?
+                                                              CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK : CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK);
+                } else if (iovec_is_set(&tpm2_key) && !sd_id128_equal(with_key, _CRED_AUTO_SCOPED))
+                        id = iovec_is_set(&tpm2_pcrlock_nv) ? CRED_AES256_GCM_BY_TPM2_HMAC_PINNED_SRK_PCRLOCK :
+                             iovec_is_set(&pubkey) ? CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK_PINNED_SRK : CRED_AES256_GCM_BY_TPM2_HMAC_PINNED_SRK;
                 else if (iovec_is_set(&host_key))
                         id = sd_id128_equal(with_key, _CRED_AUTO_SCOPED) ? CRED_AES256_GCM_BY_HOST_SCOPED : CRED_AES256_GCM_BY_HOST;
                 else if (sd_id128_equal(with_key, _CRED_AUTO_INITRD))
@@ -1064,8 +1115,22 @@ int encrypt_credential_and_warn(
                 else
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                                "TPM2 not available and host key located on temporary file system, no encryption key available.");
-        } else
+        } else {
                 id = with_key;
+
+                if (iovec_is_set(&tpm2_pcrlock_nv)) {
+                        /* Map the key type to its pcrlock-bound counterpart. Only the SRK-pinned types have
+                         * one — all TPM2 credentials minted these days pin the SRK. */
+                        if (sd_id128_equal(id, CRED_AES256_GCM_BY_TPM2_HMAC_PINNED_SRK))
+                                id = CRED_AES256_GCM_BY_TPM2_HMAC_PINNED_SRK_PCRLOCK;
+                        else if (sd_id128_equal(id, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK))
+                                id = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK_PCRLOCK;
+                        else if (sd_id128_equal(id, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK))
+                                id = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK_PCRLOCK;
+                        else if (!CRED_KEY_REQUIRES_TPM2_PCRLOCK(id))
+                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Selected key type cannot be combined with a pcrlock policy.");
+                }
+        }
 
         if (sd_id128_equal(id, CRED_AES256_GCM_BY_NULL)) {
                 if (FLAGS_SET(flags, CREDENTIAL_REFUSE_NULL))
@@ -1124,6 +1189,7 @@ int encrypt_credential_and_warn(
                 ALIGN8(iovec_is_set(&tpm2_key) ? offsetof(struct tpm2_credential_header, policy_hash_and_blob) + tpm2_blob.iov_len + tpm2_policy_hash.iov_len : 0) +
                 ALIGN8(iovec_is_set(&pubkey) ? offsetof(struct tpm2_public_key_credential_header, data) + pubkey.iov_len : 0) +
                 ALIGN8(iovec_is_set(&tpm2_srk) ? offsetof(struct tpm2_pinned_srk_credential_header, data) + tpm2_srk.iov_len : 0) +
+                ALIGN8(iovec_is_set(&tpm2_pcrlock_nv) ? offsetof(struct tpm2_pcrlock_credential_header, data) + tpm2_pcrlock_nv.iov_len : 0) +
                 ALIGN8(uid_is_valid(uid) ? sizeof(struct scoped_credential_header) : 0) +
                 ALIGN8(offsetof(struct metadata_credential_header, name) + strlen_ptr(name)) +
                 input->iov_len + 2U * (size_t) bsz +
@@ -1180,6 +1246,16 @@ int encrypt_credential_and_warn(
                 memcpy(z->data, tpm2_srk.iov_base, tpm2_srk.iov_len);
 
                 p += ALIGN8(offsetof(struct tpm2_pinned_srk_credential_header, data) + tpm2_srk.iov_len);
+        }
+
+        if (iovec_is_set(&tpm2_pcrlock_nv)) {
+                struct tpm2_pcrlock_credential_header *z;
+
+                z = (struct tpm2_pcrlock_credential_header*) ((uint8_t*) output.iov_base + p);
+                z->size = htole32(tpm2_pcrlock_nv.iov_len);
+                memcpy(z->data, tpm2_pcrlock_nv.iov_base, tpm2_pcrlock_nv.iov_len);
+
+                p += ALIGN8(offsetof(struct tpm2_pcrlock_credential_header, data) + tpm2_pcrlock_nv.iov_len);
         }
 
         if (uid_is_valid(uid)) {
@@ -1326,6 +1402,7 @@ int decrypt_credential_and_warn(
                 usec_t validate_timestamp,
                 const char *tpm2_device,
                 const char *tpm2_signature_path,
+                const char *tpm2_pcrlock_path,
                 uid_t uid,
                 const struct iovec *input,
                 CredentialFlags flags,
@@ -1360,6 +1437,7 @@ int decrypt_credential_and_warn(
          *   -EDESTADDRREQ → Credential is incorrectly named (i.e. the authenticated name does not match the actual name)
          *   -ESTALE       → Credential's validity has passed
          *   -ESRCH        → User specified for scope does not exist on this system
+         *   -ENOMEDIUM    → Credential requires a pcrlock policy, but it couldn't be found
          *
          *   (plus the various error codes tpm2_unseal() returns) */
 
@@ -1420,6 +1498,7 @@ int decrypt_credential_and_warn(
             ALIGN8(CRED_KEY_REQUIRES_TPM2(h->id) ? offsetof(struct tpm2_credential_header, policy_hash_and_blob) : 0) +
             ALIGN8(CRED_KEY_REQUIRES_TPM2_PK(h->id) ? offsetof(struct tpm2_public_key_credential_header, data) : 0) +
             ALIGN8(CRED_KEY_REQUIRES_TPM2_PINNED_SRK(h->id) ? offsetof(struct tpm2_pinned_srk_credential_header, data) : 0) +
+            ALIGN8(CRED_KEY_REQUIRES_TPM2_PCRLOCK(h->id) ? offsetof(struct tpm2_pcrlock_credential_header, data) : 0) +
             ALIGN8(CRED_KEY_IS_SCOPED(h->id) ? sizeof(struct scoped_credential_header) : 0) +
             ALIGN8(offsetof(struct metadata_credential_header, name)) +
             tag_size)
@@ -1451,6 +1530,7 @@ int decrypt_credential_and_warn(
                     ALIGN8(offsetof(struct tpm2_credential_header, policy_hash_and_blob) + le32toh(t->blob_size) + le32toh(t->policy_hash_size)) +
                     ALIGN8(CRED_KEY_REQUIRES_TPM2_PK(h->id) ? offsetof(struct tpm2_public_key_credential_header, data) : 0) +
                     ALIGN8(CRED_KEY_REQUIRES_TPM2_PINNED_SRK(h->id) ? offsetof(struct tpm2_pinned_srk_credential_header, data) : 0) +
+                    ALIGN8(CRED_KEY_REQUIRES_TPM2_PCRLOCK(h->id) ? offsetof(struct tpm2_pcrlock_credential_header, data) : 0) +
                     ALIGN8(CRED_KEY_IS_SCOPED(h->id) ? sizeof(struct scoped_credential_header) : 0) +
                     ALIGN8(offsetof(struct metadata_credential_header, name)) +
                     tag_size)
@@ -1472,6 +1552,7 @@ int decrypt_credential_and_warn(
                             p +
                             ALIGN8(offsetof(struct tpm2_public_key_credential_header, data) + le32toh(z_pubkey->size)) +
                             ALIGN8(CRED_KEY_REQUIRES_TPM2_PINNED_SRK(h->id) ? offsetof(struct tpm2_pinned_srk_credential_header, data) : 0) +
+                            ALIGN8(CRED_KEY_REQUIRES_TPM2_PCRLOCK(h->id) ? offsetof(struct tpm2_pcrlock_credential_header, data) : 0) +
                             ALIGN8(CRED_KEY_IS_SCOPED(h->id) ? sizeof(struct scoped_credential_header) : 0) +
                             ALIGN8(offsetof(struct metadata_credential_header, name)) +
                             tag_size)
@@ -1490,6 +1571,7 @@ int decrypt_credential_and_warn(
                         if (input->iov_len <
                             p +
                             ALIGN8(offsetof(struct tpm2_pinned_srk_credential_header, data) + le32toh(z_srk->size)) +
+                            ALIGN8(CRED_KEY_REQUIRES_TPM2_PCRLOCK(h->id) ? offsetof(struct tpm2_pcrlock_credential_header, data) : 0) +
                             ALIGN8(CRED_KEY_IS_SCOPED(h->id) ? sizeof(struct scoped_credential_header) : 0) +
                             ALIGN8(offsetof(struct metadata_credential_header, name)) +
                             tag_size)
@@ -1497,6 +1579,46 @@ int decrypt_credential_and_warn(
 
                         p += ALIGN8(offsetof(struct tpm2_pinned_srk_credential_header, data) +
                                     le32toh(z_srk->size));
+                }
+
+                struct tpm2_pcrlock_credential_header *z_pcrlock = NULL;
+                if (CRED_KEY_REQUIRES_TPM2_PCRLOCK(h->id)) {
+                        z_pcrlock = (struct tpm2_pcrlock_credential_header*) ((uint8_t*) input->iov_base + p);
+
+                        if (le32toh(z_pcrlock->size) > CREDENTIAL_FIELD_SIZE_MAX)
+                                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Unexpected pcrlock NV index handle size.");
+
+                        if (input->iov_len <
+                            p +
+                            ALIGN8(offsetof(struct tpm2_pcrlock_credential_header, data) + le32toh(z_pcrlock->size)) +
+                            ALIGN8(CRED_KEY_IS_SCOPED(h->id) ? sizeof(struct scoped_credential_header) : 0) +
+                            ALIGN8(offsetof(struct metadata_credential_header, name)) +
+                            le32toh(h->tag_size))
+                                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Encrypted file too short.");
+
+                        p += ALIGN8(offsetof(struct tpm2_pcrlock_credential_header, data) +
+                                    le32toh(z_pcrlock->size));
+                }
+
+                _cleanup_(tpm2_pcrlock_policy_done) Tpm2PCRLockPolicy pcrlock_policy = {};
+                if (z_pcrlock) {
+                        r = tpm2_pcrlock_policy_load(tpm2_pcrlock_path, &pcrlock_policy);
+                        if (r < 0)
+                                return r;
+                        if (r == 0) {
+                                /* Match on the NV handle only: we store the SRK public key, not a serialized
+                                 * SRK handle, hence the two cannot be compared. A wrong selection fails
+                                 * closed in the TPM. */
+                                r = tpm2_pcrlock_policy_from_credentials(
+                                                /* srk= */ NULL,
+                                                &IOVEC_MAKE(z_pcrlock->data, le32toh(z_pcrlock->size)),
+                                                &pcrlock_policy);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        return log_error_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
+                                                               "Couldn't find pcrlock policy for credential.");
+                        }
                 }
 
                 _cleanup_(tpm2_context_unrefp) Tpm2Context *tpm2_context = NULL;
@@ -1512,7 +1634,7 @@ int decrypt_credential_and_warn(
                                 z_pubkey ? le64toh(z_pubkey->pcr_mask) : 0,
                                 signature_json,
                                 /* pin= */ NULL,
-                                /* pcrlock_policy= */ NULL,
+                                z_pcrlock ? &pcrlock_policy : NULL,
                                 le16toh(t->primary_alg),
                                 &IOVEC_MAKE(t->policy_hash_and_blob, le32toh(t->blob_size)),
                                 /* n_blobs= */ 1,
@@ -1705,11 +1827,11 @@ int get_credential_host_secret(CredentialSecretFlags flags, struct iovec *ret) {
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Support for encrypted credentials not available.");
 }
 
-int encrypt_credential_and_warn(sd_id128_t with_key, const char *name, usec_t timestamp, usec_t not_after, const char *tpm2_device, uint32_t tpm2_hash_pcr_mask, const char *tpm2_pubkey_path, uint32_t tpm2_pubkey_pcr_mask, uid_t uid, const struct iovec *input, CredentialFlags flags, struct iovec *ret) {
+int encrypt_credential_and_warn(sd_id128_t with_key, const char *name, usec_t timestamp, usec_t not_after, const char *tpm2_device, uint32_t tpm2_hash_pcr_mask, const char *tpm2_pubkey_path, uint32_t tpm2_pubkey_pcr_mask, const char *tpm2_pcrlock_path, uid_t uid, const struct iovec *input, CredentialFlags flags, struct iovec *ret) {
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Support for encrypted credentials not available.");
 }
 
-int decrypt_credential_and_warn(const char *validate_name, usec_t validate_timestamp, const char *tpm2_device, const char *tpm2_signature_path, uid_t uid, const struct iovec *input, CredentialFlags flags, struct iovec *ret) {
+int decrypt_credential_and_warn(const char *validate_name, usec_t validate_timestamp, const char *tpm2_device, const char *tpm2_signature_path, const char *tpm2_pcrlock_path, uid_t uid, const struct iovec *input, CredentialFlags flags, struct iovec *ret) {
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Support for encrypted credentials not available.");
 }
 
@@ -1975,6 +2097,7 @@ static const CredentialsVarlinkError credentials_varlink_error_table[] = {
         { "io.systemd.Credentials.TPMInDictionaryLockout", ENOLCK,       "The TPM is in dictionary lockout mode, cannot operate." },
         { "io.systemd.Credentials.UnexpectedPCRState" ,    EUCLEAN,      "Unexpected TPM PCR state of the system." },
         { "io.systemd.Credentials.NVIndexUnusable",        EADDRNOTAVAIL, "The NV index referenced by the key is missing, unwritten, or unusable, it could be for another system." },
+        { "io.systemd.Credentials.PCRLockPolicyNotFound",  ENOMEDIUM,    "The pcrlock policy required for decryption could not be found." },
 };
 
 const CredentialsVarlinkError* credentials_varlink_error_by_id(const char *id) {
