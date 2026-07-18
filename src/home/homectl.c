@@ -94,8 +94,15 @@ static sd_json_variant *arg_identity_extra_privileged = NULL;
 static sd_json_variant *arg_identity_extra_this_machine = NULL;
 static sd_json_variant *arg_identity_extra_other_machines = NULL;
 static sd_json_variant *arg_identity_extra_rlimits = NULL;
+static sd_json_variant *arg_identity_extra_this_machine_rlimits = NULL;
+static sd_json_variant *arg_identity_extra_other_machines_rlimits = NULL;
 static char **arg_identity_filter = NULL; /* this one is also applied to 'privileged' and 'thisMachine' subobjects */
 static char **arg_identity_filter_rlimits = NULL;
+static char **arg_identity_filter_this_machine_rlimits = NULL;
+static char **arg_identity_filter_other_machines_rlimits = NULL;
+static bool arg_identity_drop_rlimits = false;
+static bool arg_identity_drop_this_machine_rlimits = false;
+static bool arg_identity_drop_other_machines_rlimits = false;
 static uint64_t arg_disk_size = UINT64_MAX;
 static uint64_t arg_disk_size_relative = UINT64_MAX;
 static char **arg_pkcs11_token_uri = NULL;
@@ -128,8 +135,12 @@ STATIC_DESTRUCTOR_REGISTER(arg_identity_extra_this_machine, sd_json_variant_unre
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra_other_machines, sd_json_variant_unrefp);
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra_privileged, sd_json_variant_unrefp);
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra_rlimits, sd_json_variant_unrefp);
+STATIC_DESTRUCTOR_REGISTER(arg_identity_extra_this_machine_rlimits, sd_json_variant_unrefp);
+STATIC_DESTRUCTOR_REGISTER(arg_identity_extra_other_machines_rlimits, sd_json_variant_unrefp);
 STATIC_DESTRUCTOR_REGISTER(arg_identity_filter, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_identity_filter_rlimits, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_identity_filter_this_machine_rlimits, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_identity_filter_other_machines_rlimits, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_pkcs11_token_uri, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fido2_device, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_blob_dir, freep);
@@ -154,8 +165,15 @@ static bool identity_properties_specified(void) {
                 !sd_json_variant_is_blank_object(arg_identity_extra_this_machine) ||
                 !sd_json_variant_is_blank_object(arg_identity_extra_other_machines) ||
                 !sd_json_variant_is_blank_object(arg_identity_extra_rlimits) ||
+                !sd_json_variant_is_blank_object(arg_identity_extra_this_machine_rlimits) ||
+                !sd_json_variant_is_blank_object(arg_identity_extra_other_machines_rlimits) ||
                 !strv_isempty(arg_identity_filter) ||
                 !strv_isempty(arg_identity_filter_rlimits) ||
+                !strv_isempty(arg_identity_filter_this_machine_rlimits) ||
+                !strv_isempty(arg_identity_filter_other_machines_rlimits) ||
+                arg_identity_drop_rlimits ||
+                arg_identity_drop_this_machine_rlimits ||
+                arg_identity_drop_other_machines_rlimits ||
                 !strv_isempty(arg_pkcs11_token_uri) ||
                 !strv_isempty(arg_fido2_device) ||
                 arg_blob_dir ||
@@ -781,6 +799,47 @@ update_password:
         return 1;
 }
 
+static int update_resource_limits(
+                sd_json_variant **identity,
+                const char *field,
+                char **filter_rlimits,
+                sd_json_variant *extra_rlimits,
+                bool drop_rlimits) {
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *rlv = NULL;
+        int r;
+
+        assert(identity);
+        assert(field);
+
+        if (!drop_rlimits && strv_isempty(filter_rlimits) && sd_json_variant_is_blank_object(extra_rlimits))
+                return 0;
+
+        if (!drop_rlimits) {
+                rlv = sd_json_variant_ref(sd_json_variant_by_key(*identity, field));
+
+                r = sd_json_variant_filter(&rlv, filter_rlimits);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to filter resource limits: %m");
+
+                r = sd_json_variant_merge_object(&rlv, extra_rlimits);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set resource limits: %m");
+        }
+
+        if (sd_json_variant_is_blank_object(rlv)) {
+                r = sd_json_variant_filter(identity, STRV_MAKE(field));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to drop resource limits field from identity: %m");
+        } else {
+                r = sd_json_variant_set_field(identity, field, rlv);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to update resource limits of identity: %m");
+        }
+
+        return 0;
+}
+
 static int apply_identity_changes(sd_json_variant **_v) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         int r;
@@ -797,7 +856,15 @@ static int apply_identity_changes(sd_json_variant **_v) {
         if (r < 0)
                 return log_error_errno(r, "Failed to merge identities: %m");
 
-        if (arg_identity_extra_this_machine || arg_identity_extra_other_machines || !strv_isempty(arg_identity_filter)) {
+        if (arg_identity_extra_this_machine ||
+            arg_identity_extra_other_machines ||
+            arg_identity_extra_this_machine_rlimits ||
+            arg_identity_extra_other_machines_rlimits ||
+            !strv_isempty(arg_identity_filter) ||
+            !strv_isempty(arg_identity_filter_this_machine_rlimits) ||
+            !strv_isempty(arg_identity_filter_other_machines_rlimits) ||
+            arg_identity_drop_this_machine_rlimits ||
+            arg_identity_drop_other_machines_rlimits) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *per_machine = NULL, *mmid = NULL;
                 sd_id128_t mid;
 
@@ -863,29 +930,23 @@ static int apply_identity_changes(sd_json_variant **_v) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to merge in perMachine fields: %m");
 
-                        if (arg_identity_filter_rlimits || arg_identity_extra_rlimits) {
-                                _cleanup_(sd_json_variant_unrefp) sd_json_variant *rlv = NULL;
+                        r = update_resource_limits(
+                                        &positive,
+                                        "resourceLimits",
+                                        arg_identity_filter_this_machine_rlimits,
+                                        arg_identity_extra_this_machine_rlimits,
+                                        arg_identity_drop_this_machine_rlimits);
+                        if (r < 0)
+                                return r;
 
-                                rlv = sd_json_variant_ref(sd_json_variant_by_key(positive, "resourceLimits"));
-
-                                r = sd_json_variant_filter(&rlv, arg_identity_filter_rlimits);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to filter resource limits: %m");
-
-                                r = sd_json_variant_merge_object(&rlv, arg_identity_extra_rlimits);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to set resource limits: %m");
-
-                                if (sd_json_variant_is_blank_object(rlv)) {
-                                        r = sd_json_variant_filter(&positive, STRV_MAKE("resourceLimits"));
-                                        if (r < 0)
-                                                return log_error_errno(r, "Failed to drop resource limits field from identity: %m");
-                                } else {
-                                        r = sd_json_variant_set_field(&positive, "resourceLimits", rlv);
-                                        if (r < 0)
-                                                return log_error_errno(r, "Failed to update resource limits of identity: %m");
-                                }
-                        }
+                        r = update_resource_limits(
+                                        &negative,
+                                        "resourceLimits",
+                                        arg_identity_filter_other_machines_rlimits,
+                                        arg_identity_extra_other_machines_rlimits,
+                                        arg_identity_drop_other_machines_rlimits);
+                        if (r < 0)
+                                return r;
 
                         if (!sd_json_variant_is_blank_object(positive)) {
                                 r = sd_json_variant_set_field(&positive, "matchMachineId", mmid);
@@ -912,11 +973,23 @@ static int apply_identity_changes(sd_json_variant **_v) {
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *positive = sd_json_variant_ref(arg_identity_extra_this_machine),
                                 *negative = sd_json_variant_ref(arg_identity_extra_other_machines);
 
-                        if (arg_identity_extra_rlimits) {
-                                r = sd_json_variant_set_field(&positive, "resourceLimits", arg_identity_extra_rlimits);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to update resource limits of identity: %m");
-                        }
+                        r = update_resource_limits(
+                                        &positive,
+                                        "resourceLimits",
+                                        arg_identity_filter_this_machine_rlimits,
+                                        arg_identity_extra_this_machine_rlimits,
+                                        arg_identity_drop_this_machine_rlimits);
+                        if (r < 0)
+                                return r;
+
+                        r = update_resource_limits(
+                                        &negative,
+                                        "resourceLimits",
+                                        arg_identity_filter_other_machines_rlimits,
+                                        arg_identity_extra_other_machines_rlimits,
+                                        arg_identity_drop_other_machines_rlimits);
+                        if (r < 0)
+                                return r;
 
                         if (positive) {
                                 r = sd_json_variant_set_field(&positive, "matchMachineId", mmid);
@@ -968,27 +1041,14 @@ static int apply_identity_changes(sd_json_variant **_v) {
                 }
         }
 
-        if (arg_identity_filter_rlimits) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *rlv = NULL;
-
-                rlv = sd_json_variant_ref(sd_json_variant_by_key(v, "resourceLimits"));
-
-                r = sd_json_variant_filter(&rlv, arg_identity_filter_rlimits);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to filter resource limits: %m");
-
-                /* Note that we only filter resource limits here, but don't apply them. We do that in the perMachine section */
-
-                if (sd_json_variant_is_blank_object(rlv)) {
-                        r = sd_json_variant_filter(&v, STRV_MAKE("resourceLimits"));
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to drop resource limits field from identity: %m");
-                } else {
-                        r = sd_json_variant_set_field(&v, "resourceLimits", rlv);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to update resource limits of identity: %m");
-                }
-        }
+        r = update_resource_limits(
+                        &v,
+                        "resourceLimits",
+                        arg_identity_filter_rlimits,
+                        arg_identity_extra_rlimits,
+                        arg_identity_drop_rlimits);
+        if (r < 0)
+                return r;
 
         return json_variant_unref_and_replace(*_v, v);
 }
@@ -3580,21 +3640,24 @@ static int parse_rebalance_weight(sd_json_variant **identity, const char *field,
         return 0;
 }
 
-static int parse_rlimit_field(sd_json_variant **identity, const char *field, const char *arg) {
+static int parse_rlimit_field(
+                sd_json_variant **identity,
+                char ***filter_rlimits,
+                bool *drop_rlimits,
+                const char *arg) {
+
         int r;
 
         assert(identity);
-        assert(field);
+        assert(filter_rlimits);
+        assert(drop_rlimits);
 
         if (isempty(arg)) {
                 /* Remove all resource limits */
 
-                r = drop_from_identity(field);
-                if (r < 0)
-                        return r;
-
-                arg_identity_filter_rlimits = strv_free(arg_identity_filter_rlimits);
+                *filter_rlimits = strv_free(*filter_rlimits);
                 *identity = sd_json_variant_unref(*identity);
+                *drop_rlimits = true;
                 return 0;
         }
 
@@ -3615,7 +3678,7 @@ static int parse_rlimit_field(sd_json_variant **identity, const char *field, con
         if (isempty(eq + 1)) {
                 /* Remove only the specific rlimit */
 
-                r = strv_extend(&arg_identity_filter_rlimits, rlimit_field);
+                r = strv_extend(filter_rlimits, rlimit_field);
                 if (r < 0)
                         return r;
 
@@ -3624,6 +3687,8 @@ static int parse_rlimit_field(sd_json_variant **identity, const char *field, con
                         return log_error_errno(r, "Failed to filter JSON identity data: %m");
                 return 0;
         }
+
+        *drop_rlimits = false;
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *jcur = NULL, *jmax = NULL;
         struct rlimit rl;
@@ -4617,7 +4682,24 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         break;
 
                 OPTION_LONG("rlimit", "LIMIT=VALUE[:VALUE]", "Set resource limits"):
-                        r = parse_rlimit_field(&arg_identity_extra_rlimits, "resourceLimits", opts.arg);
+                        if (match_identity == &arg_identity_extra)
+                                r = parse_rlimit_field(
+                                                &arg_identity_extra_rlimits,
+                                                &arg_identity_filter_rlimits,
+                                                &arg_identity_drop_rlimits,
+                                                opts.arg);
+                        else if (match_identity == &arg_identity_extra_other_machines)
+                                r = parse_rlimit_field(
+                                                &arg_identity_extra_other_machines_rlimits,
+                                                &arg_identity_filter_other_machines_rlimits,
+                                                &arg_identity_drop_other_machines_rlimits,
+                                                opts.arg);
+                        else
+                                r = parse_rlimit_field(
+                                                &arg_identity_extra_this_machine_rlimits,
+                                                &arg_identity_filter_this_machine_rlimits,
+                                                &arg_identity_drop_this_machine_rlimits,
+                                                opts.arg);
                         if (r < 0)
                                 return r;
                         break;
