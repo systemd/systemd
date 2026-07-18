@@ -66,6 +66,20 @@ CHANGES WITH 262:
           writable upper layer. This requires kernel v7.2 or newer; on older
           kernels execution from overlayfs mounts remains denied entirely.
 
+        Changes in systemd-creds:
+
+        * systemd-creds gained a new --tpm2-pcrlock= option to bind encrypted
+          credentials to a systemd-pcrlock policy (via TPM2 PolicyAuthorizeNV),
+          like systemd-cryptenroll and systemd-repart already can. If a TPM2
+          device is used for encryption, a pcrlock policy found in
+          /run/systemd/pcrlock.json or /var/lib/systemd/pcrlock.json is
+          automatically used, and takes precedence over a TPM2 PCR public key
+          that would otherwise be used automatically (the two cannot be
+          combined by systemd-creds). Specify --tpm2-pcrlock="" to opt out.
+          Note that credentials bound to a pcrlock policy use new key types
+          and hence cannot be decrypted by older versions of systemd,
+          including in a stale initrd.
+
         Changes in systemd-firstboot:
 
         * The "systemd.firstboot=" kernel command line option now accepts the
