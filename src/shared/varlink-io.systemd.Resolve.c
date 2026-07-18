@@ -226,6 +226,10 @@ SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(ifindex, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Server Name Indication (SNI) of the server."),
                 SD_VARLINK_DEFINE_FIELD(name, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Protocol used to communicate with the server, one of \"dns\" or \"https\"."),
+                SD_VARLINK_DEFINE_FIELD(protocol, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("DNS-over-HTTPS request URI, when the protocol is HTTPS."),
+                SD_VARLINK_DEFINE_FIELD(uri, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Indicates if the DNS server is accessible or not."),
                 SD_VARLINK_DEFINE_FIELD(accessible, SD_VARLINK_BOOL, 0));
 
@@ -390,7 +394,7 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_BrowseServiceUpdateFlag,
                 SD_VARLINK_SYMBOL_COMMENT("Encapsulates the service data obtained from browsing."),
                 &vl_type_ServiceData,
-                SD_VARLINK_SYMBOL_COMMENT("Encapsulates a DNS server address specification."),
+                SD_VARLINK_SYMBOL_COMMENT("Encapsulates a configured DNS server endpoint, including its protocol and optional DNS-over-HTTPS URI."),
                 &vl_type_DNSServer,
                 SD_VARLINK_SYMBOL_COMMENT("Encapsulates a search domain specification."),
                 &vl_type_SearchDomain,
