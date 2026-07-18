@@ -31,6 +31,7 @@
 #include "signal-util.h"
 #include "string-util.h"
 #include "verbs.h"
+#include "voa-util.h"
 #include "web-util.h"
 
 static char *arg_image_root = NULL;
@@ -39,6 +40,7 @@ static ImportFlags arg_import_flags = IMPORT_PULL_SETTINGS | IMPORT_PULL_ROOTHAS
 static uint64_t arg_offset = UINT64_MAX, arg_size_max = UINT64_MAX;
 static struct iovec arg_checksum = {};
 static ImageClass arg_class = IMAGE_MACHINE;
+static VOAContext arg_voa_context = _VOA_CONTEXT_INVALID;
 static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
 
 STATIC_DESTRUCTOR_REGISTER(arg_checksum, iovec_done);
@@ -170,8 +172,8 @@ static int verb_tar(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         normalized,
                         arg_import_flags & IMPORT_PULL_FLAGS_MASK_TAR,
                         arg_verify,
-                        arg_class,
-                        &arg_checksum);
+                        arg_voa_context,
+                         &arg_checksum);
         if (r < 0)
                 return log_error_errno(r, "Failed to pull image: %m");
 
@@ -241,7 +243,7 @@ static int verb_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         arg_size_max,
                         arg_import_flags & IMPORT_PULL_FLAGS_MASK_RAW,
                         arg_verify,
-                        arg_class,
+                        arg_voa_context,
                         &arg_checksum);
         if (r < 0)
                 return log_error_errno(r, "Failed to pull image: %m");
@@ -388,6 +390,14 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                                 return r;
                         break;
 
+                OPTION_LONG("voa-context", "CONTEXT", "The context in the Verification of OS Artifacts SPEC, one of: 'host', 'component', 'machine', 'sysext', 'confext', 'portable'"): {
+                        VOAContext vc = voa_context_from_string(opts.arg);
+                        if (c < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid VOA context: %s", opts.arg);
+                        arg_voa_context = vc;
+                        break;
+
+                }
                 OPTION_LONG("verify", "MODE",
                             "Verify downloaded image, one of: 'no', 'checksum', 'signature' or literal SHA256 hash"): {
                         ImportVerify v;
@@ -578,6 +588,11 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
         if (arg_runtime_scope == RUNTIME_SCOPE_USER)
                 arg_import_flags |= IMPORT_FOREIGN_UID;
+
+        /* if the context isn't explicitly passed in, we can infer it from the image class */
+        if (arg_voa_context < 0) {
+                arg_voa_context = (VOAContext) arg_class;
+        }
 
         *ret_args = option_parser_get_args(&opts);
         return 1;

@@ -35,6 +35,7 @@
 #include "sysupdate-partition.h"
 #include "sysupdate-pattern.h"
 #include "sysupdate-resource.h"
+#include "sysupdate-target.h"
 #include "time-util.h"
 #include "utf8.h"
 
@@ -363,6 +364,7 @@ static int resource_load_from_blockdev(Resource *rr) {
 static int download_manifest(
                 const char *url,
                 bool verify_signature,
+                TargetClass class,
                 char **ret_buffer,
                 size_t *ret_size) {
 
@@ -375,6 +377,8 @@ static int download_manifest(
         assert(url);
         assert(ret_buffer);
         assert(ret_size);
+        assert(class >= 0);
+        assert(class < _TARGET_CLASS_MAX);
 
         /* Download a SHA256SUMS file as manifest */
 
@@ -405,6 +409,7 @@ static int download_manifest(
                         "raw",
                         "--direct",                        /* just download the specified URL, don't download anything else */
                         "--verify", verify_signature ? "signature" : "no", /* verify the manifest file */
+                        "--voa-context", target_class_to_string(class),
                         suffixed_url,
                         "-",                               /* write to stdout */
                         NULL
@@ -511,6 +516,7 @@ static int process_magic_file(
 static int resource_load_from_web(
                 Resource *rr,
                 bool verify,
+                TargetClass class,
                 Hashmap **web_cache) {
 
         size_t manifest_size = 0, left = 0;
@@ -532,7 +538,7 @@ static int resource_load_from_web(
         } else {
                 log_debug("Manifest web cache miss for %s.", rr->path);
 
-                r = download_manifest(rr->path, verify, &buf, &manifest_size);
+                r = download_manifest(rr->path, verify, class, &buf, &manifest_size);
                 if (r < 0)
                         return r;
 
@@ -679,7 +685,7 @@ static int instance_cmp(Instance *const*a, Instance *const*b) {
         return path_compare((*a)->path, (*b)->path);
 }
 
-int resource_load_instances(Resource *rr, bool verify, Hashmap **web_cache) {
+int resource_load_instances(Resource *rr, bool verify, TargetClass class, Hashmap **web_cache) {
         int r;
 
         assert(rr);
@@ -702,7 +708,7 @@ int resource_load_instances(Resource *rr, bool verify, Hashmap **web_cache) {
 
         case RESOURCE_URL_FILE:
         case RESOURCE_URL_TAR:
-                r = resource_load_from_web(rr, verify, web_cache);
+                r = resource_load_from_web(rr, verify, class, web_cache);
                 break;
 
         default:

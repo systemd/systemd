@@ -19,10 +19,12 @@ static const char* const voa_purpose_table[_VOA_PURPOSE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(voa_purpose, VOAPurpose);
 
 static const char* const voa_context_table[_VOA_CONTEXT_MAX] = {
-        [VOA_CONTEXT_MACHINE]  = "machine",
-        [VOA_CONTEXT_PORTABLE] = "portable",
-        [VOA_CONTEXT_SYSEXT]   = "sysext",
-        [VOA_CONTEXT_CONFEXT]  = "confext",
+        [VOA_CONTEXT_MACHINE]   = "machine",
+        [VOA_CONTEXT_PORTABLE]  = "portable",
+        [VOA_CONTEXT_SYSEXT]    = "sysext",
+        [VOA_CONTEXT_CONFEXT]   = "confext",
+        [VOA_CONTEXT_HOST]      = "host",
+        [VOA_CONTEXT_COMPONENT] = "component",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(voa_context, VOAContext)

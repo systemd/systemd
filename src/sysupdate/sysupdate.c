@@ -475,6 +475,7 @@ static int context_load_installed_instances(Context *c) {
                 r = resource_load_instances(
                                 &t->target,
                                 c->verify >= 0 ? c->verify : t->verify,
+                                t->context->target_identifier.class,
                                 &c->web_cache);
                 if (r < 0)
                         return r;
@@ -486,6 +487,7 @@ static int context_load_installed_instances(Context *c) {
                 r = resource_load_instances(
                                 &t->target,
                                 c->verify >= 0 ? c->verify : t->verify,
+                                t->context->target_identifier.class,
                                 &c->web_cache);
                 if (r < 0)
                         return r;
@@ -507,6 +509,7 @@ static int context_load_available_instances(Context *c) {
                 r = resource_load_instances(
                                 &t->source,
                                 c->verify >= 0 ? c->verify : t->verify,
+                                t->context->target_identifier.class,
                                 &c->web_cache);
                 if (r < 0)
                         return r;

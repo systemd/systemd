@@ -4,6 +4,7 @@
 #include "import-common.h"
 #include "import-util.h"
 #include "pull-forward.h"
+#include "voa-util.h"
 
 int pull_find_old_etags(
                 const char *url,
@@ -42,7 +43,7 @@ int pull_make_verification_jobs(
 
 int pull_verify(
                 ImportVerify verify,
-                ImageClass class,
+                VOAContext voa_context,
                 PullJob *main_job,
                 PullJob *checksum_job,
                 PullJob *signature_job,
