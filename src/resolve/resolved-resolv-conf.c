@@ -207,6 +207,11 @@ static void write_resolv_conf_server(DnsServer *s, FILE *f, unsigned *count) {
         assert(f);
         assert(count);
 
+        if (dns_server_is_doh(s)) {
+                log_debug("DNS-over-HTTPS server %s cannot be represented in resolv.conf, suppressing it.", strna(dns_server_string_full(s)));
+                return;
+        }
+
         if (!dns_server_string(s)) {
                 log_warning("Out of memory, or invalid DNS address. Ignoring server.");
                 return;
