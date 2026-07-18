@@ -27,8 +27,9 @@ DECLARE_STRING_TABLE_LOOKUP(dns_over_https_failure_action, DnsOverHttpsFailureAc
 
 bool dns_over_https_content_type_is_valid(const char *value);
 bool dns_over_https_age_parse(const char *value, uint64_t *ret_age);
+int dns_over_https_cache_control_parse(const char *value, uint64_t *ret_max_age);
 
-int dns_over_https_response_headers_read(CURL *easy, uint64_t *ret_age);
+int dns_over_https_response_headers_read(CURL *easy, uint64_t *ret_age, uint64_t *ret_max_ttl);
 
 DnsOverHttpsFailureAction dns_over_https_curl_failure_action(CURLcode code);
 DnsOverHttpsFailureAction dns_over_https_http_failure_action(long status);

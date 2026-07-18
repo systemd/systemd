@@ -150,6 +150,20 @@ static void test_dns_packet_patch_ttls_by_age(void) {
         ASSERT_EQ(unaligned_read_be32(DNS_PACKET_DATA(packet) + 35), 0u);
         ASSERT_EQ(unaligned_read_be32(DNS_PACKET_DATA(packet) + 51), 0u);
         ASSERT_EQ(unaligned_read_be32(DNS_PACKET_DATA(packet) + 78), UINT32_C(0x12345678));
+
+        packet = dns_packet_unref(packet);
+        packet = make_ttl_packet();
+        ASSERT_OK(dns_packet_patch_ttls_by_age_and_max_ttl(packet, 20, 5));
+        ASSERT_EQ(unaligned_read_be32(DNS_PACKET_DATA(packet) + 35), 0u);
+        ASSERT_EQ(unaligned_read_be32(DNS_PACKET_DATA(packet) + 51), 5u);
+        ASSERT_EQ(unaligned_read_be32(DNS_PACKET_DATA(packet) + 78), UINT32_C(0x12345678));
+
+        packet = dns_packet_unref(packet);
+        packet = make_ttl_packet();
+        ASSERT_OK(dns_packet_patch_ttls_by_age_and_max_ttl(packet, 0, 0));
+        ASSERT_EQ(unaligned_read_be32(DNS_PACKET_DATA(packet) + 35), 0u);
+        ASSERT_EQ(unaligned_read_be32(DNS_PACKET_DATA(packet) + 51), 0u);
+        ASSERT_EQ(unaligned_read_be32(DNS_PACKET_DATA(packet) + 78), UINT32_C(0x12345678));
 }
 
 int main(int argc, char **argv) {
