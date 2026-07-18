@@ -12,6 +12,7 @@
 #include "dirent-util.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "forward.h"
 #include "hexdecoct.h"
 #include "import-util.h"
 #include "io-util.h"
@@ -412,6 +413,7 @@ static int verify_one(PullJob *checksum_job, PullJob *job) {
 }
 
 static int verify_pkcs7(
+                ImageClass class,
                 const struct iovec *payload,
                 const struct iovec *signature) {
 #if HAVE_OPENSSL
@@ -432,7 +434,7 @@ static int verify_pkcs7(
         if (r < 0)
                 return r;
 
-        r = acquire_voa_paths(&dirs, VOA_PURPOSE_IMAGE, VOA_CONTEXT_MACHINE, VOA_TECHNOLOGY_X509);
+        r = acquire_voa_paths(&dirs, VOA_PURPOSE_IMAGE, (VOAContext) class, VOA_TECHNOLOGY_X509);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire VOA paths: %m");
 
@@ -668,6 +670,7 @@ finish:
 }
 
 int pull_verify(ImportVerify verify,
+                ImageClass class,
                 PullJob *main_job,
                 PullJob *checksum_job,
                 PullJob *signature_job,
@@ -683,6 +686,7 @@ int pull_verify(ImportVerify verify,
 
         assert(verify == _IMPORT_VERIFY_INVALID || verify < _IMPORT_VERIFY_MAX);
         assert(verify == _IMPORT_VERIFY_INVALID || verify >= 0);
+        assert(class >= 0 && class < _IMAGE_CLASS_MAX);
         assert(main_job);
         assert(main_job->state == PULL_JOB_DONE);
 
@@ -739,7 +743,7 @@ int pull_verify(ImportVerify verify,
                                        "Signature is empty, cannot verify.");
 
         if (sig_style == SIGNATURE_PKCS7_PER_DIRECTORY)
-                return verify_pkcs7(&verify_job->payload, &signature_job->payload);
+                return verify_pkcs7(class, &verify_job->payload, &signature_job->payload);
 
         return verify_gpg(&verify_job->payload, &signature_job->payload);
 }

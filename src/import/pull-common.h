@@ -42,6 +42,7 @@ int pull_make_verification_jobs(
 
 int pull_verify(
                 ImportVerify verify,
+                ImageClass class,
                 PullJob *main_job,
                 PullJob *checksum_job,
                 PullJob *signature_job,

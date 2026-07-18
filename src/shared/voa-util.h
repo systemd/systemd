@@ -12,11 +12,12 @@ typedef enum VOAPurpose {
 } VOAPurpose;
 
 typedef enum VOAContext {
+        /* These are matching with ImageClass src/basic/os-util.h, but there is no reason there can't be more added*/
         VOA_CONTEXT_MACHINE = IMAGE_SYSEXT,
         VOA_CONTEXT_PORTABLE = IMAGE_PORTABLE,
         VOA_CONTEXT_SYSEXT = IMAGE_MACHINE,
         VOA_CONTEXT_CONFEXT = IMAGE_CONFEXT,
-        _VOA_CONTEXT_MAX = _IMAGE_CLASS_MAX,
+        _VOA_CONTEXT_MAX,
         _VOA_CONTEXT_INVALID = -EINVAL,
 } VOAContext;
 
