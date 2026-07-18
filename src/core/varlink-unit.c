@@ -663,6 +663,7 @@ static void transient_exec_command_item_done(TransientExecCommandItem *i) {
 
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_service_type, ServiceType, service_type_from_string);
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_job_mode, JobMode, job_mode_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_collect_mode, CollectMode, collect_mode_from_string);
 
 typedef struct TransientWorkingDirectory {
         const char *path;
@@ -811,6 +812,7 @@ static int dispatch_transient_exec_command(const char *name, sd_json_variant *va
 typedef struct StartTransientContextParameters {
         const char *id;
         const char *description;
+        CollectMode collect_mode;
         TransientExecContextParameters exec;
         TransientServiceParameters service;
         const char *bad_exec_field;    /* Set by inner Exec dispatcher to the unknown sub-property name */
@@ -827,7 +829,9 @@ static void transient_exec_context_parameters_init(TransientExecContextParameter
 
 static void start_transient_context_parameters_init(StartTransientContextParameters *p) {
         assert(p);
-        *p = (StartTransientContextParameters) {};
+        *p = (StartTransientContextParameters) {
+                .collect_mode = _COLLECT_MODE_INVALID,
+        };
         transient_exec_context_parameters_init(&p->exec);
         transient_service_parameters_init(&p->service);
 }
@@ -973,10 +977,11 @@ static int dispatch_transient_service(const char *name, sd_json_variant *variant
 
 static int dispatch_transient_context(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field context_dispatch[] = {
-                { "ID",          SD_JSON_VARIANT_STRING, json_dispatch_const_unit_name,   offsetof(StartTransientContextParameters, id),          SD_JSON_MANDATORY },
-                { "Description", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string,   offsetof(StartTransientContextParameters, description), 0                 },
-                { "Exec",        SD_JSON_VARIANT_OBJECT, dispatch_transient_exec_context, 0,                                                      0                 },
-                { "Service",     SD_JSON_VARIANT_OBJECT, dispatch_transient_service,      0,                                                      0                 },
+                { "ID",          SD_JSON_VARIANT_STRING, json_dispatch_const_unit_name,   offsetof(StartTransientContextParameters, id),           SD_JSON_MANDATORY },
+                { "Description", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string,   offsetof(StartTransientContextParameters, description),  0                 },
+                { "CollectMode", SD_JSON_VARIANT_STRING, dispatch_collect_mode,           offsetof(StartTransientContextParameters, collect_mode), 0                 },
+                { "Exec",        SD_JSON_VARIANT_OBJECT, dispatch_transient_exec_context, 0,                                                       0                 },
+                { "Service",     SD_JSON_VARIANT_OBJECT, dispatch_transient_service,      0,                                                       0                 },
                 {}
         };
 
@@ -1015,6 +1020,11 @@ static int transient_unit_apply_properties(Unit *u, StartTransientContextParamet
                 if (r < 0)
                         return r;
                 unit_write_settingf(u, UNIT_RUNTIME|UNIT_ESCAPE_SPECIFIERS, "Description", "Description=%s", p->description);
+        }
+
+        if (p->collect_mode >= 0) {
+                u->collect_mode = p->collect_mode;
+                unit_write_settingf(u, UNIT_RUNTIME, "CollectMode", "CollectMode=%s", collect_mode_to_string(p->collect_mode));
         }
 
         return 0;
