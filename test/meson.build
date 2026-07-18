@@ -127,8 +127,11 @@ if want_tests != 'false'
 
         link_abi_targets = [libsystemd, libudev, libshared, libcore]
         link_abi_targets += module_targets
-        foreach _, exe : executables_by_name
-                link_abi_targets += exe
+        foreach name, exe : executables_by_name
+                # The DoH server is a test-only helper which intentionally links against libsoup.
+                if name not in ['test-resolved-doh-server', 'test-resolved-doh-server-self-test']
+                        link_abi_targets += exe
+                endif
         endforeach
 
         if conf.get('BUILD_MODE_DEVELOPER') == 1

@@ -67,8 +67,15 @@ if conf.get('ENABLE_DNS_OVER_TLS') == 1
         )
 endif
 
+if conf.get('HAVE_LIBCURL_HEADER') == 1 and conf.get('HAVE_LIBCURL_URL') == 1
+        systemd_resolved_export_sources += files(
+                'resolved-doh.c',
+        )
+endif
+
 resolve_common_template = {
         'dependencies' : [
+                libcurl_cflags,
                 libidn2_cflags,
                 libopenssl_cflags,
         ],
@@ -124,6 +131,10 @@ executables += [
                 'sources' : files('test-resolved-packet.c'),
         },
         resolve_test_template + {
+                'sources' : files('test-resolved-doh.c'),
+                'conditions' : ['HAVE_LIBCURL_HEADER', 'HAVE_LIBCURL_URL'],
+        },
+        resolve_test_template + {
                 'sources' : files('test-dnssec.c'),
                 'conditions' : ['HAVE_OPENSSL'],
         },
@@ -167,6 +178,20 @@ executables += [
                 'sources' : files('fuzz-resource-record.c'),
         },
 ]
+
+if doh_test_server
+        executables += resolve_test_template + {
+                'name' : 'test-resolved-doh-server',
+                'sources' : files('test-resolved-doh-server.c'),
+                'dependencies' : resolve_common_template['dependencies'] + [libsoup],
+                'type' : 'manual',
+        }
+        executables += resolve_test_template + {
+                'name' : 'test-resolved-doh-server-self-test',
+                'sources' : files('test-resolved-doh-server.c'),
+                'dependencies' : resolve_common_template['dependencies'] + [libsoup],
+        }
+endif
 
 install_data('org.freedesktop.resolve1.conf',
              install_dir : dbuspolicydir)
