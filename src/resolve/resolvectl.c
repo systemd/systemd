@@ -2206,6 +2206,9 @@ static int call_dns(sd_bus *bus, char **dns, const BusLocator *locator, sd_bus_e
                         r = in_addr_port_ifindex_name_from_string_auto(*p, &data.family, &data.address, &port, &ifindex, &name);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse DNS server address: %s", *p);
+                        if (dns_server_name_classify(name) != DNS_SERVER_NAME)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "DNS server URI specifications are not supported by this command: %s", *p);
 
                         if (ifindex != 0 && ifindex != arg_ifindex)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid ifindex: %i", ifindex);
