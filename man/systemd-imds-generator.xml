@@ -85,7 +85,7 @@
         <listitem>
           <para>Takes a boolean argument. If false the <filename>systemd-imds-import.service</filename> (see
           above) is not pulled into the initial transaction, i.e. no credentials are imported from
-          IMDS. Defaults to true.</para>
+          IMDS. Defaults to true in the initrd, and false otherwise.</para>
 
           <xi:include href="version-info.xml" xpointer="v261"/>
         </listitem>
