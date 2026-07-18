@@ -13,6 +13,16 @@ int socket_address_parse_netlink(SocketAddress *a, const char *s);
 bool socket_address_is(const SocketAddress *a, const char *s, int type);
 bool socket_address_is_netlink(const SocketAddress *a, const char *s);
 
+typedef enum DnsServerNameClass {
+        DNS_SERVER_NAME,
+        DNS_SERVER_NAME_DOH_URI,
+        DNS_SERVER_NAME_OTHER_URI,
+        _DNS_SERVER_NAME_CLASS_MAX,
+        _DNS_SERVER_NAME_CLASS_INVALID = -EINVAL,
+} DnsServerNameClass;
+
+DnsServerNameClass dns_server_name_classify(const char *server_name);
+
 int in_addr_port_ifindex_name_from_string_auto(
                 const char *s,
                 int *ret_family,
