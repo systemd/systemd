@@ -1083,10 +1083,10 @@ int dns_server_new_from_string(Manager *m, DnsServerType type, Link *link, DnsDe
                 return -EINVAL;
 
         DnsServerProtocol protocol = DNS_SERVER_PROTOCOL_DNS;
-        if (server_name && (strstr(server_name, "://") || startswith_no_case(server_name, "https:"))) {
-                if (!startswith_no_case(server_name, "https://"))
-                        return -EPROTONOSUPPORT;
-
+        DnsServerNameClass name_class = dns_server_name_classify(server_name);
+        if (name_class == DNS_SERVER_NAME_OTHER_URI)
+                return -EPROTONOSUPPORT;
+        if (name_class == DNS_SERVER_NAME_DOH_URI) {
 #if HAVE_LIBCURL_HEADER && HAVE_LIBCURL_URL
                 _cleanup_free_ char *auth_name = NULL;
                 uint16_t doh_port;
