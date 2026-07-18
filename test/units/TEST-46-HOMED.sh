@@ -40,6 +40,11 @@ wait_for_state() {
     timeout 2m bash -c "until homectl inspect '${1:?}' | grep -F 'State: $2' >/dev/null; do sleep 2; done"
 }
 
+homectl_dry_run() {
+    SYSTEMD_HOME_DRY_RUN=1 NEWPASSWORD=secretsecret \
+        homectl --no-ask-password "$@" 2>&1
+}
+
 FSTYPE="$(stat --file-system --format "%T" /)"
 
 systemctl start systemd-homed.service systemd-userdbd.socket
@@ -50,6 +55,30 @@ mount -t tmpfs tmpfs /home -o size=290M
 
 # Make sure systemd-homed takes notice of the overmounted /home/
 systemctl kill -sUSR1 systemd-homed
+
+testcase_dry_run_rlimit_matching() {
+    local output
+
+    output="$(homectl_dry_run create test-rlimit-user --rlimit=NOFILE=42 --enforce-password-policy=no)"
+    jq -e '.perMachine | map(select(has("matchMachineId"))) | length == 1' <<<"$output"
+    jq -e '
+        .perMachine[]
+        | select(has("matchMachineId"))
+        | .resourceLimits.RLIMIT_NOFILE == {"cur":42,"max":42}
+    ' <<<"$output"
+
+    output="$(homectl_dry_run create test-rlimit-user \
+        -N --rlimit=NOFILE=42 --storage=directory --enforce-password-policy=no)"
+    jq -e '.perMachine | map(select(has("matchMachineId") and has("resourceLimits"))) | length == 0' <<<"$output"
+    jq -e '
+        .perMachine[]
+        | select(has("matchNotMachineId"))
+        | .resourceLimits.RLIMIT_NOFILE == {"cur":42,"max":42}
+    ' <<<"$output"
+
+    output="$(homectl_dry_run create test-rlimit-user -A --rlimit=NOFILE=42 --enforce-password-policy=no)"
+    jq -e '.resourceLimits.RLIMIT_NOFILE == {"cur":42,"max":42}' <<<"$output"
+}
 
 testcase_basic() {
     local TMP_SKEL
