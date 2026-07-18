@@ -217,6 +217,13 @@ int make_socket_fd(int log_level, const char* address, int type, int flags) {
         return fd;
 }
 
+DnsServerNameClass dns_server_name_classify(const char *server_name) {
+        if (!server_name || (!strstr(server_name, "://") && !startswith_no_case(server_name, "https:")))
+                return DNS_SERVER_NAME;
+
+        return startswith_no_case(server_name, "https://") ? DNS_SERVER_NAME_DOH_URI : DNS_SERVER_NAME_OTHER_URI;
+}
+
 int in_addr_port_ifindex_name_from_string_auto(
                 const char *s,
                 int *ret_family,
