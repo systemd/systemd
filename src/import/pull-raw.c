@@ -9,6 +9,7 @@
 #include "copy.h"
 #include "curl-util.h"
 #include "fd-util.h"
+#include "forward.h"
 #include "fs-util.h"
 #include "import-common.h"
 #include "import-util.h"
@@ -16,6 +17,7 @@
 #include "iovec-util.h"
 #include "log.h"
 #include "mkdir.h"
+#include "os-util.h"
 #include "pull-common.h"
 #include "pull-job.h"
 #include "pull-raw.h"
@@ -36,6 +38,7 @@ typedef struct RawPull {
         sd_event *event;
         CurlGlue *glue;
 
+        ImageClass class;
         ImportFlags flags;
         ImportVerify verify;
         char *image_root;
@@ -800,6 +803,7 @@ int raw_pull_start(
                 uint64_t size_max,
                 ImportFlags flags,
                 ImportVerify verify,
+                ImageClass class,
                 const struct iovec *checksum) {
 
         int r;

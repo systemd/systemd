@@ -7,7 +7,6 @@
 #include "alloc-util.h"
 #include "assert-util.h"
 #include "conf-files.h"
-#include "constants.h"
 #include "copy.h"
 #include "crypto-util.h"
 #include "dirent-util.h"
@@ -31,6 +30,7 @@
 #include "strv.h"
 #include "time-util.h"
 #include "tmpfile-util.h"
+#include "voa-util.h"
 #include "web-util.h"
 
 #define FILENAME_ESCAPE "/.#\"\'"
@@ -417,6 +417,7 @@ static int verify_pkcs7(
 #if HAVE_OPENSSL
         _cleanup_(sk_X509_free_allp) STACK_OF(X509) *sk = NULL;
         _cleanup_strv_free_ char **certs = NULL;
+        _cleanup_strv_free_ char **dirs = NULL;
         _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
         _cleanup_(BIO_freep) BIO *bio = NULL;
         int r;
@@ -431,7 +432,11 @@ static int verify_pkcs7(
         if (r < 0)
                 return r;
 
-        r = conf_files_list_nulstr(&certs, ".crt", /* root= */ NULL, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, CONF_PATHS_NULSTR("import-certs.d"));
+        r = acquire_voa_paths(&dirs, VOA_PURPOSE_IMAGE, VOA_CONTEXT_MACHINE, VOA_TECHNOLOGY_X509);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire VOA paths: %m");
+
+        r = conf_files_list_strv(&certs, "-certificate.pem", /* root= */ NULL, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, (const char **) dirs);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate PKCS#7 certificates: %m");
         if (strv_isempty(certs))
