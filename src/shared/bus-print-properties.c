@@ -58,17 +58,18 @@ int bus_print_property_valuef(const char *name, const char *expected_value, BusP
         return bus_print_property_value(name, expected_value, flags, s);
 }
 
-static int bus_print_property(const char *name, const char *expected_value, sd_bus_message *m, BusPrintPropertyFlags flags) {
-        char type;
-        const char *contents;
+static int bus_print_property(
+                const char *name,
+                const char *expected_value,
+                char type,
+                const char *contents,
+                sd_bus_message *m,
+                BusPrintPropertyFlags flags) {
+
         int r;
 
         assert(name);
         assert(m);
-
-        r = sd_bus_message_peek_type(m, &type, &contents);
-        if (r < 0)
-                return r;
 
         switch (type) {
 
@@ -389,10 +390,16 @@ int bus_message_print_all_properties(
                         if (r < 0)
                                 return r;
 
+                        char value_type;
+                        const char *value_contents;
+                        r = sd_bus_message_peek_type(m, &value_type, &value_contents);
+                        if (r < 0)
+                                return r;
+
                         if (func)
-                                r = func(name, expected_value, m, flags);
+                                r = func(name, expected_value, value_type, value_contents, m, flags);
                         if (!func || r == 0)
-                                r = bus_print_property(name, expected_value, m, flags);
+                                r = bus_print_property(name, expected_value, value_type, value_contents, m, flags);
                         if (r < 0)
                                 return r;
                         if (r == 0) {
