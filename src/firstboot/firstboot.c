@@ -761,6 +761,10 @@ static int process_hostname(int rfd, sd_varlink **mute_console_link) {
                 return log_error_errno(r, "Failed to write /etc/hostname: %m");
 
         log_info("/etc/hostname written.");
+
+        if (!arg_root)
+                (void) hostname_setup(/* really= */ true);
+
         return 0;
 }
 
