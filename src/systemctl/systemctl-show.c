@@ -1169,9 +1169,14 @@ static int map_quota(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_
         return 0;
 }
 
-static int print_property(const char *name, const char *expected_value, sd_bus_message *m, BusPrintPropertyFlags flags) {
-        char bus_type;
-        const char *contents;
+static int print_property(
+                const char *name,
+                const char *expected_value,
+                char type,
+                const char *contents,
+                sd_bus_message *m,
+                BusPrintPropertyFlags flags) {
+
         int r;
 
         assert(name);
@@ -1179,17 +1184,13 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
 
         /* This is a low-level property printer, see print_status_info() for the nicer output */
 
-        r = sd_bus_message_peek_type(m, &bus_type, &contents);
-        if (r < 0)
-                return r;
-
-        switch (bus_type) {
+        switch (type) {
 
         case SD_BUS_TYPE_INT32:
                 if (endswith(name, "ActionExitStatus")) {
                         int32_t i;
 
-                        r = sd_bus_message_read_basic(m, bus_type, &i);
+                        r = sd_bus_message_read_basic(m, type, &i);
                         if (r < 0)
                                 return r;
 
@@ -1202,7 +1203,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                 } else if (streq(name, "NUMAPolicy")) {
                         int32_t i;
 
-                        r = sd_bus_message_read_basic(m, bus_type, &i);
+                        r = sd_bus_message_read_basic(m, type, &i);
                         if (r < 0)
                                 return r;
 
@@ -1216,7 +1217,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                 if (bus_property_is_timestamp(name)) {
                         uint64_t timestamp;
 
-                        r = sd_bus_message_read_basic(m, bus_type, &timestamp);
+                        r = sd_bus_message_read_basic(m, type, &timestamp);
                         if (r < 0)
                                 return r;
 
@@ -1432,14 +1433,14 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         return 1;
 
                 } else if (contents[0] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "Paths")) {
-                        const char *type, *path;
+                        const char *entry_type, *path;
 
                         r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(ss)");
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        while ((r = sd_bus_message_read(m, "(ss)", &type, &path)) > 0)
-                                bus_print_property_valuef(name, expected_value, flags, "%s (%s)", path, type);
+                        while ((r = sd_bus_message_read(m, "(ss)", &entry_type, &path)) > 0)
+                                bus_print_property_valuef(name, expected_value, flags, "%s (%s)", path, entry_type);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -1450,14 +1451,14 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         return 1;
 
                 } else if (contents[0] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "Listen")) {
-                        const char *type, *path;
+                        const char *entry_type, *path;
 
                         r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(ss)");
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        while ((r = sd_bus_message_read(m, "(ss)", &type, &path)) > 0)
-                                bus_print_property_valuef(name, expected_value, flags, "%s (%s)", path, type);
+                        while ((r = sd_bus_message_read(m, "(ss)", &entry_type, &path)) > 0)
+                                bus_print_property_valuef(name, expected_value, flags, "%s (%s)", path, entry_type);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
