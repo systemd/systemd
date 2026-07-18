@@ -11,6 +11,7 @@
 #include "errno-util.h"
 #include "log.h"
 #include "memory-util.h"
+#include "password-quality-util.h"
 #include "strv.h"
 
 static void *passwdqc_dl = NULL;
