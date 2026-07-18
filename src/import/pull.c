@@ -170,6 +170,7 @@ static int verb_tar(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         normalized,
                         arg_import_flags & IMPORT_PULL_FLAGS_MASK_TAR,
                         arg_verify,
+                        arg_class,
                         &arg_checksum);
         if (r < 0)
                 return log_error_errno(r, "Failed to pull image: %m");
@@ -240,6 +241,7 @@ static int verb_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         arg_size_max,
                         arg_import_flags & IMPORT_PULL_FLAGS_MASK_RAW,
                         arg_verify,
+                        arg_class,
                         &arg_checksum);
         if (r < 0)
                 return log_error_errno(r, "Failed to pull image: %m");
