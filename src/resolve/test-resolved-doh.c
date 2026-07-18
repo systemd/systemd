@@ -49,6 +49,32 @@ TEST(age) {
         ASSERT_FALSE(dns_over_https_age_parse("invalid", &age));
 }
 
+TEST(cache_control) {
+        uint64_t max_age = UINT64_MAX;
+
+        ASSERT_EQ(dns_over_https_cache_control_parse(NULL, &max_age), 0);
+        ASSERT_EQ(dns_over_https_cache_control_parse("public", &max_age), 0);
+        ASSERT_EQ(max_age, UINT64_MAX);
+
+        ASSERT_EQ(dns_over_https_cache_control_parse("max-age=60", &max_age), 1);
+        ASSERT_EQ(max_age, 60u);
+        ASSERT_EQ(dns_over_https_cache_control_parse(" MAX-AGE = \"30\" ", &max_age), 1);
+        ASSERT_EQ(max_age, 30u);
+        ASSERT_EQ(dns_over_https_cache_control_parse("private=\"field,other\", max-age=15", &max_age), 1);
+        ASSERT_EQ(max_age, 15u);
+
+        ASSERT_EQ(dns_over_https_cache_control_parse("no-store", &max_age), 1);
+        ASSERT_EQ(max_age, 0u);
+        ASSERT_EQ(dns_over_https_cache_control_parse("no-cache, max-age=60", &max_age), 1);
+        ASSERT_EQ(max_age, 0u);
+        ASSERT_EQ(dns_over_https_cache_control_parse("max-age=60, max-age=30", &max_age), 1);
+        ASSERT_EQ(max_age, 0u);
+        ASSERT_EQ(dns_over_https_cache_control_parse("max-age=invalid", &max_age), 1);
+        ASSERT_EQ(max_age, 0u);
+        ASSERT_EQ(dns_over_https_cache_control_parse("max-age", &max_age), 1);
+        ASSERT_EQ(max_age, 0u);
+}
+
 TEST(uri_expand_for_method) {
         const uint8_t dns_message[] = { 0xfb, 0xff };
         _cleanup_free_ char *uri = NULL;
