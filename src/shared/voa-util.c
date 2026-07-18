@@ -37,10 +37,10 @@ DEFINE_STRING_TABLE_LOOKUP(voa_technology, VOATechnology)
 
 int acquire_voa_paths(char ***ret, VOAPurpose purpose, VOAContext context, VOATechnology technology) {
         _cleanup_strv_free_ char **dirs = NULL;
-        _cleanup_free_ char *os_str;
+        _cleanup_free_ char *os_str = NULL;
         int r;
 
-        r = parse_os_release(NULL, "ID", &os_str);
+        r = parse_os_release(/* root= */ NULL, "ID", &os_str);
         if (r < 0)
                 return log_error_errno(r, "Failed to read os-release file: %m");
         if (isempty(os_str))
