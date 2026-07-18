@@ -70,7 +70,7 @@
 const char* exec_context_tty_path(const ExecContext *context) {
         assert(context);
 
-        if (context->stdio_as_fds)
+        if (context->stdio_as_fds || exec_context_has_broker(context))
                 return NULL;
 
         if (context->tty_path)
@@ -1078,7 +1078,12 @@ static bool exec_context_may_touch_tty(const ExecContext *ec) {
 
 bool exec_context_may_touch_console(const ExecContext *ec) {
 
+        /* PTYs acquired from ptybrokerd are terminals (hence exec_context_may_touch_tty() may return true),
+         * but they never refer to the physical console, so exclude them here. Note that
+         * tty_may_match_dev_console() would otherwise return true for them, as exec_context_tty_path()
+         * reports no path. */
         return exec_context_may_touch_tty(ec) &&
+               !exec_context_has_broker(ec) &&
                tty_may_match_dev_console(exec_context_tty_path(ec));
 }
 
@@ -3146,14 +3151,16 @@ ExecCleanMask exec_clean_mask_from_string(const char *s) {
 }
 
 static const char* const exec_input_table[_EXEC_INPUT_MAX] = {
-        [EXEC_INPUT_NULL]      = "null",
-        [EXEC_INPUT_TTY]       = "tty",
-        [EXEC_INPUT_TTY_FORCE] = "tty-force",
-        [EXEC_INPUT_TTY_FAIL]  = "tty-fail",
-        [EXEC_INPUT_SOCKET]    = "socket",
-        [EXEC_INPUT_NAMED_FD]  = "fd",
-        [EXEC_INPUT_DATA]      = "data",
-        [EXEC_INPUT_FILE]      = "file",
+        [EXEC_INPUT_NULL]       = "null",
+        [EXEC_INPUT_TTY]        = "tty",
+        [EXEC_INPUT_TTY_FORCE]  = "tty-force",
+        [EXEC_INPUT_TTY_FAIL]   = "tty-fail",
+        [EXEC_INPUT_SOCKET]     = "socket",
+        [EXEC_INPUT_NAMED_FD]   = "fd",
+        [EXEC_INPUT_DATA]       = "data",
+        [EXEC_INPUT_FILE]       = "file",
+        [EXEC_INPUT_BROKER]     = "broker",
+        [EXEC_INPUT_BROKER_LOG] = "broker-log",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_input, ExecInput);
@@ -3171,6 +3178,8 @@ static const char* const exec_output_table[_EXEC_OUTPUT_MAX] = {
         [EXEC_OUTPUT_FILE]                = "file",
         [EXEC_OUTPUT_FILE_APPEND]         = "append",
         [EXEC_OUTPUT_FILE_TRUNCATE]       = "truncate",
+        [EXEC_OUTPUT_BROKER]              = "broker",
+        [EXEC_OUTPUT_BROKER_LOG]          = "broker-log",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_output, ExecOutput);
