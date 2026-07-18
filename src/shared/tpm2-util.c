@@ -9538,6 +9538,7 @@ static int pcrlock_policy_load_credential(
         int r;
 
         assert(name);
+        assert(data);
 
         c = strdup(name);
         if (!c)
@@ -9545,12 +9546,28 @@ static int pcrlock_policy_load_credential(
 
         ascii_strlower(c); /* Lowercase, to match what we did at encryption time */
 
+        /* The ESP/XBOOTLDR partition is untrusted, multi-boot-writable storage: anyone can drop a file named
+         * pcrlock.*.cred there. systemd-pcrlock only ever wraps the policy in a null-keyed credential (it
+         * must: the policy needs to be decodable before any pcrlock policy is available). Hence refuse
+         * everything else up front. In particular this breaks the recursion that a pcrlock-bound
+         * (CRED_*_PCRLOCK) credential placed here would otherwise cause: decrypting it would call right back
+         * into tpm2_pcrlock_policy_from_credentials(). */
+        if (data->iov_len < sizeof(sd_id128_t))
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Credential '%s' too short, refusing.", name);
+
+        sd_id128_t cred_id;
+        memcpy(&cred_id, data->iov_base, sizeof(cred_id));
+        if (!sd_id128_equal(cred_id, CRED_AES256_GCM_BY_NULL))
+                return log_debug_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE),
+                                       "Credential '%s' is not a null-keyed credential, refusing to use as pcrlock policy source.", name);
+
         _cleanup_(iovec_done) struct iovec decoded = {};
         r = decrypt_credential_and_warn(
                         c,
                         now(CLOCK_REALTIME),
                         /* tpm2_device= */ NULL,
                         /* tpm2_signature_path= */ NULL,
+                        /* tpm2_pcrlock_path= */ NULL, /* must remain NULL, since we are the pcrlock policy resolver ourselves */
                         UID_INVALID,
                         data,
                         CREDENTIAL_ALLOW_NULL,
