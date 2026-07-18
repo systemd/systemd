@@ -596,6 +596,12 @@ node /org/freedesktop/resolve1 {
       <function>SetLinkDNSEx()</function> (see above). The network interface index will be 0 for the
       system-wide configured services and non-zero for the per-link servers.</para>
 
+      <para>These legacy properties do not expose the transport or URI of DNS-over-HTTPS endpoints. Such endpoints
+      are included using their bootstrap address, port, and authentication name, but clients must not interpret this
+      incomplete representation as a plain DNS endpoint. The DNS configuration exposed through the
+      <literal>io.systemd.Resolve</literal> Varlink interface includes explicit <literal>transport</literal> and
+      <literal>uri</literal> fields.</para>
+
       <para><varname>FallbackDNS</varname> and <varname>FallbackDNSEx</varname> contain arrays of all DNS
       servers configured as fallback servers, if any, using the same format as <varname>DNS</varname> and
       <varname>DNSEx</varname> described above. See the description of <varname>FallbackDNS=</varname> in
