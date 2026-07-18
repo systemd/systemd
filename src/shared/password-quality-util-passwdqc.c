@@ -14,6 +14,7 @@
 #include "alloc-util.h"
 #include "dlfcn-util.h"
 #include "memory-util.h"
+#include "password-quality-util.h"
 #include "strv.h"
 
 static DLSYM_PROTOTYPE(passwdqc_params_reset) = NULL;
