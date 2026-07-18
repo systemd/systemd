@@ -95,6 +95,11 @@ CHANGES WITH 262:
 
         Changes in various tools:
 
+        * homectl's --rlimit= option now honors --match= when setting resource
+          limits. Removing resource limits cannot be combined with an explicit
+          machine match, since the user record format cannot express removing a
+          limit from only one per-machine match.
+
         * bootctl, systemd-oomd, systemd-repart, systemd-sysusers, and
           systemd-tmpfiles now accept -n as a short option for --dry-run.
 
