@@ -1211,12 +1211,14 @@ static int status_json_filter_fields(sd_json_variant **configuration, StatusMode
 }
 
 static int format_dns_server_one(DNSConfiguration *configuration, DNSServer *s, char **ret) {
-        bool global;
+        _cleanup_free_ char *address = NULL;
+        bool doh, global;
         int r;
 
         assert(s);
         assert(ret);
 
+        doh = streq_ptr(s->protocol, "https");
         global = !(configuration->ifindex > 0 || configuration->delegate);
 
         if (global && s->ifindex > 0 && s->ifindex != LOOPBACK_IFINDEX) {
@@ -1228,12 +1230,22 @@ static int format_dns_server_one(DNSConfiguration *configuration, DNSServer *s, 
         r = in_addr_port_ifindex_name_to_string(
                         s->family,
                         &s->in_addr,
-                        s->port != 53 ? s->port : 0,
+                        s->port != (doh ? 443 : 53) ? s->port : 0,
                         s->ifindex,
-                        s->server_name,
-                        ret);
+                        doh ? NULL : s->server_name,
+                        &address);
         if (r < 0)
                 return r;
+
+        if (doh) {
+                if (isempty(s->uri))
+                        return -EINVAL;
+
+                *ret = strjoin(address, "#", s->uri);
+                if (!*ret)
+                        return -ENOMEM;
+        } else
+                *ret = TAKE_PTR(address);
 
         return 1;
 }
@@ -2413,10 +2425,14 @@ static int dump_server_state(sd_json_variant *server) {
         struct server_state {
                 const char *server_name;
                 const char *type;
+                const char *protocol;
+                const char *uri;
                 const char *ifname;
                 int ifindex;
-                const char *verified_feature_level;
-                const char *possible_feature_level;
+                const char *verified_transport;
+                const char *possible_transport;
+                const char *verified_capability_level;
+                const char *possible_capability_level;
                 const char *dnssec_mode;
                 bool dnssec_supported;
                 size_t received_udp_fragment_max;
@@ -2436,10 +2452,14 @@ static int dump_server_state(sd_json_variant *server) {
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "Server",                 SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct server_state, server_name),               SD_JSON_MANDATORY },
                 { "Type",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct server_state, type),                      SD_JSON_MANDATORY },
+                { "Protocol",               SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct server_state, protocol),                  0                 },
+                { "URI",                    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct server_state, uri),                       0                 },
                 { "Interface",              SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct server_state, ifname),                    0                 },
                 { "InterfaceIndex",         _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,          offsetof(struct server_state, ifindex),                   SD_JSON_RELAX     },
-                { "VerifiedFeatureLevel",   SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct server_state, verified_feature_level),    0                 },
-                { "PossibleFeatureLevel",   SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct server_state, possible_feature_level),    0                 },
+                { "VerifiedTransport",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct server_state, verified_transport),        0                 },
+                { "PossibleTransport",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct server_state, possible_transport),        0                 },
+                { "VerifiedCapabilityLevel", SD_JSON_VARIANT_STRING,       sd_json_dispatch_const_string,  offsetof(struct server_state, verified_capability_level), 0                 },
+                { "PossibleCapabilityLevel", SD_JSON_VARIANT_STRING,       sd_json_dispatch_const_string,  offsetof(struct server_state, possible_capability_level), 0                 },
                 { "DNSSECMode",             SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct server_state, dnssec_mode),               SD_JSON_MANDATORY },
                 { "DNSSECSupported",        SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       offsetof(struct server_state, dnssec_supported),          SD_JSON_MANDATORY },
                 { "ReceivedUDPFragmentMax", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,        offsetof(struct server_state, received_udp_fragment_max), SD_JSON_MANDATORY },
@@ -2473,9 +2493,19 @@ static int dump_server_state(sd_json_variant *server) {
                            TABLE_EMPTY,
                            TABLE_FIELD, "Type",
                            TABLE_SET_ALIGN_PERCENT, 100,
-                           TABLE_STRING, server_state.type);
+                           TABLE_STRING, server_state.type,
+                           TABLE_FIELD, "Protocol",
+                           TABLE_STRING, server_state.protocol ?: "dns");
         if (r < 0)
                 return table_log_add_error(r);
+
+        if (server_state.uri) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "URI",
+                                   TABLE_STRING, server_state.uri);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
 
         if (server_state.ifname) {
                 r = table_add_many(table,
@@ -2493,18 +2523,34 @@ static int dump_server_state(sd_json_variant *server) {
                         return table_log_add_error(r);
         }
 
-        if (server_state.verified_feature_level) {
+        if (server_state.verified_transport) {
                 r = table_add_many(table,
-                                   TABLE_FIELD, "Verified feature level",
-                                   TABLE_STRING, server_state.verified_feature_level);
+                                   TABLE_FIELD, "Verified transport",
+                                   TABLE_STRING, server_state.verified_transport);
                 if (r < 0)
                         return table_log_add_error(r);
         }
 
-        if (server_state.possible_feature_level) {
+        if (server_state.possible_transport) {
                 r = table_add_many(table,
-                                   TABLE_FIELD, "Possible feature level",
-                                   TABLE_STRING, server_state.possible_feature_level);
+                                   TABLE_FIELD, "Possible transport",
+                                   TABLE_STRING, server_state.possible_transport);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (server_state.verified_capability_level) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Verified capability level",
+                                   TABLE_STRING, server_state.verified_capability_level);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (server_state.possible_capability_level) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Possible capability level",
+                                   TABLE_STRING, server_state.possible_capability_level);
                 if (r < 0)
                         return table_log_add_error(r);
         }
