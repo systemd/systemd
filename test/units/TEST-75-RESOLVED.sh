@@ -1733,6 +1733,27 @@ EOF
     state="$(doh_state)"
     test "$(jq -r '.requests' <<<"$state")" -ge 1
 
+    : "HTTP cache directives that prohibit reuse prevent insertion into resolved's cache"
+    local cache_path cache_domain
+    for cache_path in cache-control/max-age-zero cache-control/no-cache cache-control/no-store expires/past; do
+        cache_domain="${cache_path//\//-}.doh.test."
+        doh_configure doh.test "/$cache_path{?dns}"
+        run resolvectl query "$cache_domain" --type=A
+        doh_reset
+        run resolvectl query "$cache_domain" --type=A
+        state="$(doh_state)"
+        test "$(jq -r '.requests' <<<"$state")" -ge 1
+    done
+
+    : "Cache-Control max-age bounds resolved's cache lifetime"
+    doh_configure doh.test '/cache-control/max-age-short{?dns}'
+    run resolvectl query cache-control-max-age-short.doh.test. --type=A
+    doh_reset
+    sleep 2
+    run resolvectl query cache-control-max-age-short.doh.test. --type=A
+    state="$(doh_state)"
+    test "$(jq -r '.requests' <<<"$state")" -ge 1
+
     : "Transient HTTP failures are retried once on a fresh connection"
     local status
     for status in 408 421 425 502 504; do
