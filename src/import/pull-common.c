@@ -905,7 +905,7 @@ int pull_job_restart_with_signature(PullJob *j, char **ret) {
                 return 0;
 
         case SIGNATURE_ASC_PER_DIRECTORY: /* Try SHA256SUMS.p7s */
-                log_debug("Got 404 for '%s', now trying to get SHA256SUMS.asc instead.", j->url);
+                log_debug("Got 404 for '%s', now trying to get SHA256SUMS.p7s instead.", j->url);
                 r = import_url_change_last_component(j->url, "SHA256SUMS.p7s", ret);
                 if (r < 0)
                         return log_error_errno(r, "Failed to replace SHA256SUMS.asc suffix: %m");
