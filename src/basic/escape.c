@@ -202,6 +202,10 @@ int cunescape_one(const char *p, size_t length, char32_t *ret, bool *eight_bit, 
                 if (c == 0 && !accept_nul)
                         return -EINVAL;
 
+                /* Don't allow UTF-16 surrogates, they cannot be encoded as valid UTF-8 */
+                if (utf16_is_surrogate(c))
+                        return -EINVAL;
+
                 *ret = c;
                 r = 5;
                 break;
