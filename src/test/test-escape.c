@@ -111,6 +111,14 @@ TEST(cunescape) {
         ASSERT_STREQ(unescaped, "ßßΠA");
         unescaped = mfree(unescaped);
 
+        assert_se(cunescape("\\ud800", 0, &unescaped) < 0);
+        assert_se(cunescape("\\udfff", 0, &unescaped) < 0);
+        assert_se(cunescape("\\ufffe", 0, &unescaped) < 0);
+
+        assert_se(cunescape("\\u00DF", 0, &unescaped) >= 0);
+        ASSERT_STREQ(unescaped, "ß");
+        unescaped = mfree(unescaped);
+
         assert_se(cunescape("\\073", 0, &unescaped) >= 0);
         ASSERT_STREQ(unescaped, ";");
         unescaped = mfree(unescaped);
