@@ -202,6 +202,10 @@ int cunescape_one(const char *p, size_t length, char32_t *ret, bool *eight_bit, 
                 if (c == 0 && !accept_nul)
                         return -EINVAL;
 
+                /* Don't allow invalid code points */
+                if (!unichar_is_valid(c))
+                        return -EINVAL;
+
                 *ret = c;
                 r = 5;
                 break;
