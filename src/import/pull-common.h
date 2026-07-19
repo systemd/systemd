@@ -4,6 +4,7 @@
 #include "import-common.h"
 #include "import-util.h"
 #include "pull-forward.h"
+#include "voa-util.h"
 
 int pull_find_old_etags(
                 const char *url,
@@ -42,6 +43,7 @@ int pull_make_verification_jobs(
 
 int pull_verify(
                 ImportVerify verify,
+                VOAContext voa_context,
                 PullJob *main_job,
                 PullJob *checksum_job,
                 PullJob *signature_job,
@@ -60,10 +62,11 @@ typedef enum VerificationStyle {
 int verification_style_from_url(const char *url, VerificationStyle *ret);
 
 typedef enum SignatureStyle {
-        SIGNATURE_GPG_PER_FILE,      /* ".sha256" files with detached .gpg signature */
-        SIGNATURE_ASC_PER_FILE,      /* SUSE-style ".sha256" files with detached .asc signature */
-        SIGNATURE_GPG_PER_DIRECTORY, /* Ubuntu-style SHA256SUM files with detached SHA256SUM.gpg signatures */
-        SIGNATURE_ASC_PER_DIRECTORY, /* SUSE-style SHA256SUM files with detached SHA256SUM.asc signatures */
+        SIGNATURE_GPG_PER_FILE,        /* ".sha256" files with detached .gpg signature */
+        SIGNATURE_ASC_PER_FILE,        /* SUSE-style ".sha256" files with detached .asc signature */
+        SIGNATURE_GPG_PER_DIRECTORY,   /* Ubuntu-style SHA256SUM files with detached SHA256SUM.gpg signatures */
+        SIGNATURE_ASC_PER_DIRECTORY,   /* SUSE-style SHA256SUM files with detached SHA256SUM.asc signatures */
+        SIGNATURE_PKCS7_PER_DIRECTORY, /* OpenSSL detached PKCS7 signature */
         _SIGNATURE_STYLE_MAX,
         _SIGNATURE_STYLE_INVALID = -EINVAL,
 } SignatureStyle;
