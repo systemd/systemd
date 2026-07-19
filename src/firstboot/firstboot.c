@@ -785,6 +785,13 @@ static int process_hostname(int rfd, sd_varlink **mute_console_link) {
                 return log_error_errno(r, "Failed to write /etc/hostname: %m");
 
         log_info("/etc/hostname written.");
+
+        if (!arg_root) {
+                r = sethostname_idempotent(hostname);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set hostname to <%s>, ignoring: %m", hostname);
+        }
+
         return 0;
 }
 
