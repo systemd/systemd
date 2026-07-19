@@ -1271,7 +1271,7 @@ static int parse_acl_cond_exec(
         assert(cond_exec);
         assert(ret);
 
-        r = DLOPEN_LIBACL(LOG_DEBUG, recommended);
+        r = dlopen_libacl(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -1390,7 +1390,7 @@ static int path_set_acl(
 
         assert(c);
 
-        r = DLOPEN_LIBACL(LOG_DEBUG, recommended);
+        r = dlopen_libacl(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -4854,6 +4854,7 @@ static int run(int argc, char *argv[]) {
         } phase;
         int r;
 
+        LIBACL_NOTE(recommended);
         LIBBLKID_NOTE(recommended);
         LIBCRYPTSETUP_NOTE(suggested);
         LIBCRYPTO_NOTE(suggested);

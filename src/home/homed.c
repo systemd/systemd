@@ -20,6 +20,7 @@ static int run(int argc, char *argv[]) {
         int r;
 
         LIBCRYPT_NOTE(recommended);
+        LIBCRYPTO_NOTE(required);
         PASSWORD_NOTE(suggested);
 
         log_setup();

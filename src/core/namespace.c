@@ -3986,7 +3986,7 @@ int refresh_extensions_in_namespace(
         if (r > 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Target namespace is not separate, cannot reload extensions");
 
-        (void) DLOPEN_CRYPTSETUP(LOG_DEBUG, recommended);
+        (void) dlopen_cryptsetup(LOG_DEBUG);
 
         extension_dir = path_join(p->private_namespace_dir, "unit-extensions");
         if (!extension_dir)

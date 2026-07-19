@@ -99,12 +99,6 @@ static inline int fd_add_uid_acl_permission(int fd, uid_t uid, unsigned mask) {
 
 int dlopen_libacl(int log_level) _dlopen_loader_;
 
-#define DLOPEN_LIBACL(log_level, priority)                              \
-        ({                                                              \
-                LIBACL_NOTE(priority);                                  \
-                dlopen_libacl(log_level);                               \
-        })
-
 int fd_acl_make_read_only(int fd);
 int fd_acl_make_writable(int fd);
 

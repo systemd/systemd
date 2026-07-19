@@ -2407,7 +2407,7 @@ static int mount_test_startable(Unit *u) {
 }
 
 static bool mount_supported(void) {
-        return DLOPEN_LIBMOUNT(LOG_DEBUG, recommended) >= 0;
+        return dlopen_libmount(LOG_DEBUG) >= 0;
 }
 
 static int mount_subsystem_ratelimited(Manager *m) {

@@ -9,6 +9,7 @@
 #include "build.h"
 #include "copy.h"
 #include "crypto-util.h"
+#include "dlopen-note.h"
 #include "efi.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -406,7 +407,7 @@ static int verb_sign(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(iovec_done) struct iovec signed_attributes_signature = {};
         int r;
 
-        r = DLOPEN_LIBCRYPTO(LOG_ERR, required);
+        r = dlopen_libcrypto(LOG_ERR);
         if (r < 0)
                 return r;
 
@@ -696,6 +697,8 @@ static int verb_sign(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
 static int run(int argc, char *argv[]) {
         int r;
+
+        LIBCRYPTO_NOTE(required);
 
         log_setup();
 

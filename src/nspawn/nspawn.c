@@ -45,6 +45,7 @@
 #include "devnum-util.h"
 #include "discover-image.h"
 #include "dissect-image.h"
+#include "dlopen-note.h"
 #include "env-util.h"
 #include "escape.h"
 #include "ether-addr-util.h"
@@ -6148,13 +6149,20 @@ static int run(int argc, char *argv[]) {
         if (arg_cleanup)
                 return do_cleanup();
 
-        (void) DLOPEN_CRYPTSETUP(LOG_DEBUG, suggested);
-        (void) DLOPEN_LIBACL(LOG_DEBUG, recommended);
-        (void) DLOPEN_LIBBLKID(LOG_DEBUG, recommended);
-        (void) DLOPEN_LIBCRYPTO(LOG_WARNING, recommended);
-        (void) DLOPEN_LIBMOUNT(LOG_DEBUG, recommended);
-        (void) DLOPEN_LIBSECCOMP(LOG_DEBUG, recommended);
-        (void) DLOPEN_LIBSELINUX(LOG_DEBUG, recommended);
+        LIBACL_NOTE(recommended);
+        LIBBLKID_NOTE(recommended);
+        LIBCRYPTO_NOTE(recommended);
+        LIBCRYPTSETUP_NOTE(suggested);
+        LIBMOUNT_NOTE(recommended);
+        LIBSECCOMP_NOTE(recommended);
+        LIBSELINUX_NOTE(recommended);
+        (void) dlopen_cryptsetup(LOG_DEBUG);
+        (void) dlopen_libacl(LOG_DEBUG);
+        (void) dlopen_libblkid(LOG_DEBUG);
+        (void) dlopen_libcrypto(LOG_WARNING);
+        (void) dlopen_libmount(LOG_DEBUG);
+        (void) dlopen_libseccomp(LOG_DEBUG);
+        (void) dlopen_libselinux(LOG_DEBUG);
 
         r = cg_has_legacy();
         if (r < 0)

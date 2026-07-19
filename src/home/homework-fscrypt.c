@@ -232,7 +232,7 @@ static int fscrypt_slot_try_v1(
         assert(encrypted_size > 0);
         assert(match_key_descriptor);
 
-        r = DLOPEN_LIBCRYPTO(LOG_ERR, recommended);
+        r = dlopen_libcrypto(LOG_ERR);
         if (r < 0)
                 return r;
 
@@ -331,7 +331,7 @@ static int fscrypt_slot_try_v2(
         assert(iovec_is_set(tag));
         assert(match_key_descriptor);
 
-        r = DLOPEN_LIBCRYPTO(LOG_ERR, recommended);
+        r = dlopen_libcrypto(LOG_ERR);
         if (r < 0)
                 return r;
 
@@ -700,7 +700,7 @@ static int fscrypt_slot_set(
         size_t encrypted_size;
         ssize_t ss;
 
-        r = DLOPEN_LIBCRYPTO(LOG_ERR, recommended);
+        r = dlopen_libcrypto(LOG_ERR);
         if (r < 0)
                 return r;
 
@@ -813,7 +813,7 @@ int home_create_fscrypt(
         assert(setup);
         assert(ret_home);
 
-        r = DLOPEN_LIBCRYPTO(LOG_ERR, recommended);
+        r = dlopen_libcrypto(LOG_ERR);
         if (r < 0)
                 return r;
 

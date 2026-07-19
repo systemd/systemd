@@ -142,7 +142,7 @@ int dlopen_libcrypt(int log_level) {
         if (cached < 0)
                 return cached; /* Already tried, and failed. */
 
-        LIBCRYPT_NOTE(recommended);
+        LIBCRYPT_NOTE(suggested);
 
         /* Several distributions like Debian/Ubuntu and OpenSUSE provide libxcrypt as libcrypt.so.1
          * (libcrypt.so.1.1 on some architectures), while others like Fedora/CentOS and Arch provide it as

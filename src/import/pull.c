@@ -610,6 +610,7 @@ static int run(int argc, char *argv[]) {
         int r;
 
         ARCHIVE_NOTE(recommended);
+        LIBCRYPTO_NOTE(recommended);
         LIBCURL_NOTE(suggested);
         LIBSELINUX_NOTE(recommended);
 

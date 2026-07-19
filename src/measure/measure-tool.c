@@ -179,7 +179,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                             "Select TPM bank (SHA1, SHA256, SHA384, SHA512)"): {
                         const EVP_MD *implementation;
 
-                        r = DLOPEN_LIBCRYPTO(LOG_ERR, required);
+                        r = dlopen_libcrypto(LOG_ERR);
                         if (r < 0)
                                 return r;
 
@@ -1131,6 +1131,7 @@ static int verb_policy_digest(int argc, char *argv[], uintptr_t _data, void *use
 static int run(int argc, char *argv[]) {
         int r;
 
+        LIBCRYPTO_NOTE(required);
         TPM2_NOTE(suggested);
 
         log_setup();
@@ -1140,7 +1141,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        r = DLOPEN_LIBCRYPTO(LOG_ERR, required);
+        r = dlopen_libcrypto(LOG_ERR);
         if (r < 0)
                 return r;
 

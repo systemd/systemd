@@ -91,7 +91,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_LONG("bank", "DIGEST", "Select TPM PCR bank (SHA1, SHA256)"): {
                         const EVP_MD *implementation;
 
-                        r = DLOPEN_LIBCRYPTO(LOG_ERR, required);
+                        r = dlopen_libcrypto(LOG_ERR);
                         if (r < 0)
                                 return r;
 
@@ -508,6 +508,7 @@ static int run(int argc, char *argv[]) {
         int r;
 
         LIBBLKID_NOTE(recommended);
+        LIBCRYPTO_NOTE(required);
         TPM2_NOTE(suggested);
 
         log_setup();

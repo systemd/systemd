@@ -860,6 +860,7 @@ static int run(int argc, char *argv[]) {
         int r;
 
         LIBBLKID_NOTE(recommended);
+        LIBCRYPTO_NOTE(recommended);
         LIBCRYPTSETUP_NOTE(suggested);
         LIBMOUNT_NOTE(recommended);
         LIBTSS2_ESYS_NOTE(suggested);

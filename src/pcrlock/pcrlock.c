@@ -5708,6 +5708,7 @@ static int run(int argc, char *argv[]) {
         int r;
 
         LIBBLKID_NOTE(recommended);
+        LIBCRYPTO_NOTE(required);
         LIBSELINUX_NOTE(recommended);
         TPM2_NOTE(suggested);
 
@@ -5722,7 +5723,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        r = DLOPEN_LIBCRYPTO(LOG_ERR, required);
+        r = dlopen_libcrypto(LOG_ERR);
         if (r < 0)
                 return r;
 

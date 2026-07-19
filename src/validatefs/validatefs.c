@@ -8,6 +8,7 @@
 #include "build.h"
 #include "chase.h"
 #include "device-util.h"
+#include "dlopen-note.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-table.h"
@@ -290,7 +291,7 @@ static int validate_gpt_metadata_one(sd_device *d, const char *path, const Valid
         assert(d);
         assert(f);
 
-        r = DLOPEN_LIBBLKID(LOG_ERR, required);
+        r = dlopen_libblkid(LOG_ERR);
         if (r < 0)
                 return r;
 
@@ -399,6 +400,8 @@ static int validate_fields_check(int fd, const char *path, const ValidateFields 
 
 static int run(int argc, char *argv[]) {
         int r;
+
+        LIBBLKID_NOTE(required);
 
         log_setup();
 

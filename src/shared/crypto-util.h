@@ -449,12 +449,6 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(OpenSSLAskPasswordUI*, openssl_ask_password_ui_
 int dlopen_libcrypto(int log_level) _dlopen_loader_;
 bool dlopen_libcrypto_has_argon2id(void);
 
-#define DLOPEN_LIBCRYPTO(log_level, priority)                           \
-        ({                                                              \
-                LIBCRYPTO_NOTE(priority);                               \
-                dlopen_libcrypto(log_level);                            \
-        })
-
 typedef struct Argon2IdParameters {
         uint64_t memcost_bytes;
         uint32_t iterations;

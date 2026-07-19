@@ -118,7 +118,7 @@ int dlopen_libmount(int log_level) {
 #if HAVE_LIBMOUNT
         static void *libmount_dl = NULL;
 
-        LIBMOUNT_NOTE(recommended);
+        LIBMOUNT_NOTE(suggested);
 
         return dlopen_many_sym_or_warn(
                         &libmount_dl,

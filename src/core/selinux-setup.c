@@ -17,7 +17,7 @@ int mac_selinux_setup(bool *loaded_policy) {
 
         assert(loaded_policy);
 
-        r = DLOPEN_LIBSELINUX(LOG_DEBUG, recommended);
+        r = dlopen_libselinux(LOG_DEBUG);
         if (r < 0)
                 return 0;
 

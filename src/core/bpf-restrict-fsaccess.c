@@ -171,7 +171,7 @@ bool bpf_restrict_fsaccess_supported(void) {
 
         if (supported >= 0)
                 return supported;
-        if (DLOPEN_BPF(LOG_WARNING, recommended) < 0)
+        if (dlopen_bpf(LOG_WARNING) < 0)
                 return (supported = false);
 
         r = lsm_supported("bpf");
@@ -340,7 +340,7 @@ static int restrict_fsaccess_validate_deserialized_fds(Manager *m) {
 
         assert(m);
 
-        r = DLOPEN_BPF(LOG_WARNING, recommended);
+        r = dlopen_bpf(LOG_WARNING);
         if (r < 0)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "bpf-restrict-fsaccess: Failed to load libbpf for FD validation, aborting.");

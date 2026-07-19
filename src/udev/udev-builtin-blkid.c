@@ -520,7 +520,7 @@ static int builtin_blkid(UdevEvent *event, int argc, char *argv[]) {
         int64_t offset = 0;
         int r;
 
-        r = DLOPEN_LIBBLKID(LOG_DEBUG, required);
+        r = dlopen_libblkid(LOG_DEBUG);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "blkid not available: %m");
 

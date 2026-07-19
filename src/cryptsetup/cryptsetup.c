@@ -539,7 +539,7 @@ static int parse_one_option(const char *option) {
 #if HAVE_OPENSSL
                 _cleanup_strv_free_ char **l = NULL;
 
-                r = DLOPEN_LIBCRYPTO(LOG_ERR, recommended);
+                r = dlopen_libcrypto(LOG_ERR);
                 if (r < 0)
                         return r;
 
@@ -2885,6 +2885,8 @@ static int run(int argc, char *argv[]) {
         int r;
 
         LIBBLKID_NOTE(recommended);
+        LIBCRYPTO_NOTE(recommended);
+        LIBCRYPTSETUP_NOTE(required);
         LIBFIDO2_NOTE(suggested);
         LIBMOUNT_NOTE(recommended);
         LIBP11KIT_NOTE(suggested);
@@ -2899,7 +2901,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        r = DLOPEN_CRYPTSETUP(LOG_ERR, required);
+        r = dlopen_cryptsetup(LOG_ERR);
         if (r < 0)
                 return r;
 

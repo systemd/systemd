@@ -1545,7 +1545,7 @@ int manager_startup(Manager *m) {
 
         assert(m);
 
-        r = DLOPEN_LIBCRYPTO(LOG_ERR, required);
+        r = dlopen_libcrypto(LOG_ERR);
         if (r < 0)
                 return r;
 

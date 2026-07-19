@@ -78,7 +78,7 @@ bool bpf_restrict_fs_supported(bool initialize) {
         if (!initialize)
                 return false;
 
-        if (DLOPEN_BPF(LOG_WARNING, recommended) < 0)
+        if (dlopen_bpf(LOG_WARNING) < 0)
                 return (supported = false);
 
         r = lsm_supported("bpf");

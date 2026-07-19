@@ -36,7 +36,7 @@ int swap_list_get(const char *swaps, SwapDevice **head) {
 
         assert(head);
 
-        r = DLOPEN_LIBMOUNT(LOG_ERR, recommended);
+        r = dlopen_libmount(LOG_ERR);
         if (r < 0)
                 return r;
 

@@ -871,6 +871,7 @@ static int run(int argc, char **argv) {
         int r;
 
         COMPRESS_DEFAULT_NOTE;
+        LIBCURL_NOTE(required);
 
         log_setup();
 
@@ -882,7 +883,7 @@ static int run(int argc, char **argv) {
         if (r <= 0)
                 return r;
 
-        r = DLOPEN_CURL(LOG_DEBUG, required);
+        r = dlopen_curl(LOG_DEBUG);
         if (r < 0)
                 return r;
 

@@ -697,6 +697,7 @@ static int run(int argc, char *argv[]) {
         LIBELF_NOTE(suggested);
         LIBMOUNT_NOTE(recommended);
         LIBPCRE2_NOTE(suggested);
+        LIBSECCOMP_NOTE(recommended);
         LIBSELINUX_NOTE(recommended);
         TPM2_NOTE(suggested);
 

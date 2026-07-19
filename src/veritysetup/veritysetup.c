@@ -495,8 +495,9 @@ static int run(int argc, char *argv[]) {
         log_setup();
 
         LIBCRYPTO_NOTE(suggested);
+        LIBCRYPTSETUP_NOTE(required);
 
-        r = DLOPEN_CRYPTSETUP(LOG_ERR, required);
+        r = dlopen_cryptsetup(LOG_ERR);
         if (r < 0)
                 return r;
 

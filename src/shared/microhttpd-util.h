@@ -138,9 +138,3 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct MHD_Response*, sym_MHD_destroy_re
 #endif
 
 int dlopen_microhttpd(int log_level) _dlopen_loader_;
-
-#define DLOPEN_MICROHTTPD(log_level, priority)                          \
-        ({                                                              \
-                LIBMICROHTTPD_NOTE(priority);                           \
-                dlopen_microhttpd(log_level);                           \
-        })

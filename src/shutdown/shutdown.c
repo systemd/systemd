@@ -379,6 +379,7 @@ int main(int argc, char *argv[]) {
         size_t n_luo_fds = 0;
         int cmd, r;
 
+        LIBMOUNT_NOTE(recommended);
         LIBSELINUX_NOTE(recommended);
 
         /* LUO will preserve these across kexec */

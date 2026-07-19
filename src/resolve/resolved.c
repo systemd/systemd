@@ -25,7 +25,10 @@ static int run(int argc, char *argv[]) {
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_stop = NULL;
         int r;
 
+        LIBCRYPTO_NOTE(recommended);
+        LIBIDN2_NOTE(recommended);
         LIBSELINUX_NOTE(recommended);
+        LIBSSL_NOTE(recommended);
 
         log_setup();
 
