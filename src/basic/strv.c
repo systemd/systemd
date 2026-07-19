@@ -1231,7 +1231,7 @@ int strv_rebreak_lines(char **l, size_t width, char ***ret) {
                 bool in_prefix = true; /* still in the whitespace in the beginning of the line? */
                 size_t w = 0;
 
-                for (const char *p = start; *p != 0; p = utf8_next_char(p)) {
+                for (const char *p = start; *p != 0; ) {
                         if (strchr(NEWLINE, *p)) {
                                 in_prefix = true;
                                 whitespace_begin = whitespace_end = NULL;
@@ -1271,6 +1271,8 @@ int strv_rebreak_lines(char **l, size_t width, char ***ret) {
                                 whitespace_begin = whitespace_end = NULL;
                                 w = cw;
                         }
+
+                        p = cw < 0 ? p + 1 : utf8_next_char(p);
                 }
 
                 /* Process rest of the line */
