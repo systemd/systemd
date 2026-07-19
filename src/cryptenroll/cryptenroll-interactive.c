@@ -151,7 +151,7 @@ static int ask_wipe(EnrollContext *c, unsigned existing_mask) {
                         return log_oom();
 
                 bool wipe;
-                r = prompt_loop_yes_no(question, /* def= */ false, &wipe);
+                r = prompt_loop_yes_no(question, "no", /* def= */ false, &wipe);
                 if (r < 0)
                         return r;
 
