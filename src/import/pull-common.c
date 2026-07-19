@@ -552,9 +552,10 @@ static int verify_pkcs7(
                         continue;
                 }
 
-                if (sym_X509_check_purpose(c, X509_PURPOSE_CODE_SIGN, /* ca= */ 0) <= 1)
+                if (sym_X509_check_purpose(c, X509_PURPOSE_CODE_SIGN, /* ca= */ 0) <= 1) {
                         log_debug("X509 certificate: '%s' is not valid for code signing.", *i);
                         continue;
+                }
 
                 if (sym_sk_X509_push(sk, c) == 0)
                         return log_oom_debug();
@@ -787,10 +788,14 @@ int pull_verify(ImportVerify verify,
         assert(signature_job);
         assert(signature_job->state == PULL_JOB_DONE);
 
-        SignatureStyle sig_style;
-        r = signature_style_from_url(signature_job->url, &sig_style, &sig_fn);
+        r = import_url_last_component(signature_job->url, &sig_fn);
         if (r < 0)
-                return log_error_errno(r, "Unable to get signature from URL: %s", signature_job->url);
+                return log_error_errno(r, "Failed to extract filename from URL '%s': %m", signature_job->url);
+        SignatureStyle sig_style = signature_style_from_filename(sig_fn);
+        if (sig_style < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unable to get signature style from file: '%s'", sig_fn);
+
 
 
         if (!iovec_is_set(&signature_job->payload))
