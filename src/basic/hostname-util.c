@@ -132,7 +132,7 @@ char* hostname_cleanup(char *s) {
                         hyphen = false;
                 }
 
-        if (d > s && IN_SET(d[-1], '-', '.'))
+        while (d > s && IN_SET(d[-1], '-', '.'))
                 /* The dot can occur at most once, but we might have multiple
                  * hyphens, hence the loop */
                 d--;
