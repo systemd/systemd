@@ -569,6 +569,14 @@ units = [
           'conditions' : ['ENABLE_NETWORKD'],
         },
         {
+          'file' : 'systemd-networkd-ovsdb-acl.path',
+          'conditions' : ['ENABLE_NETWORKD'],
+        },
+        {
+          'file' : 'systemd-networkd-ovsdb-acl.service',
+          'conditions' : ['ENABLE_NETWORKD'],
+        },
+        {
           'file' : 'systemd-networkd-resolve-hook.socket',
           'conditions' : ['ENABLE_NETWORKD'],
         },
