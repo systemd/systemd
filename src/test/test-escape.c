@@ -102,6 +102,18 @@ TEST(cunescape) {
         ASSERT_STREQ(unescaped, "ßßΠA");
         unescaped = mfree(unescaped);
 
+        /* UTF-16 surrogates cannot be encoded as valid UTF-8 and must be rejected */
+        assert_se(cunescape("\\ud800", 0, &unescaped) < 0);
+        assert_se(cunescape("\\udfff", 0, &unescaped) < 0);
+
+        /* Noncharacters are valid scalar values and stay accepted */
+        assert_se(cunescape("\\ufffe", 0, &unescaped) >= 0);
+        unescaped = mfree(unescaped);
+
+        assert_se(cunescape("\\u00DF", 0, &unescaped) >= 0);
+        ASSERT_STREQ(unescaped, "ß");
+        unescaped = mfree(unescaped);
+
         assert_se(cunescape("\\073", 0, &unescaped) >= 0);
         ASSERT_STREQ(unescaped, ";");
         unescaped = mfree(unescaped);
