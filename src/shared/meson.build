@@ -272,6 +272,7 @@ shared_sources = files(
         'verb-log-control.c',
         'verbs.c',
         'vlan-util.c',
+        'voa-util.c',
         'volatile-util.c',
         'vpick.c',
         'vsock-util.c',

@@ -45,6 +45,8 @@ int parse_openssl_key_source_argument(const char *argument, char **private_key_s
 #  include <openssl/param_build.h>      /* IWYU pragma: export */
 #  include <openssl/pem.h>              /* IWYU pragma: export */
 #  include <openssl/pkcs7.h>            /* IWYU pragma: export */
+#  include <openssl/x509_vfy.h>         /* IWYU pragma: export */
+#  include <openssl/x509v3.h>         /* IWYU pragma: export */
 #  include <openssl/rsa.h>              /* IWYU pragma: export */
 #  include <openssl/sha.h>              /* IWYU pragma: export */
 
@@ -64,6 +66,7 @@ extern DLSYM_PROTOTYPE(ASN1_STRING_length);
 extern DLSYM_PROTOTYPE(ASN1_STRING_new);
 extern DLSYM_PROTOTYPE(ASN1_STRING_set);
 extern DLSYM_PROTOTYPE(ASN1_STRING_set0);
+extern DLSYM_PROTOTYPE(ASN1_TIME_cmp_time_t);
 extern DLSYM_PROTOTYPE(ASN1_TIME_free);
 extern DLSYM_PROTOTYPE(ASN1_TIME_set);
 extern DLSYM_PROTOTYPE(ASN1_TYPE_new);
@@ -252,8 +255,14 @@ extern DLSYM_PROTOTYPE(X509_NAME_oneline);
 extern DLSYM_PROTOTYPE(X509_VERIFY_PARAM_set1_host);
 extern DLSYM_PROTOTYPE(X509_VERIFY_PARAM_set1_ip);
 extern DLSYM_PROTOTYPE(X509_VERIFY_PARAM_set_hostflags);
+extern DLSYM_PROTOTYPE(X509_STORE_add_cert);
+extern DLSYM_PROTOTYPE(X509_STORE_free);
+extern DLSYM_PROTOTYPE(X509_STORE_new);
+extern DLSYM_PROTOTYPE(X509_check_purpose);
 extern DLSYM_PROTOTYPE(X509_free);
 extern DLSYM_PROTOTYPE(X509_get0_pubkey);
+extern DLSYM_PROTOTYPE(X509_get0_notBefore);
+extern DLSYM_PROTOTYPE(X509_get0_notAfter);
 extern DLSYM_PROTOTYPE(X509_get_pubkey);
 extern DLSYM_PROTOTYPE(X509_get_subject_name);
 extern DLSYM_PROTOTYPE(X509_gmtime_adj);
@@ -307,6 +316,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(OSSL_PARAM*, sym_OSSL_PARAM_free, OSSL_P
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(PKCS7_SIGNER_INFO*, sym_PKCS7_SIGNER_INFO_free, PKCS7_SIGNER_INFO_freep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(PKCS7*, sym_PKCS7_free, PKCS7_freep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(X509_NAME*, sym_X509_NAME_free, X509_NAME_freep, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(X509_STORE*, sym_X509_STORE_free, X509_STORE_freep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(X509*, sym_X509_free, X509_freep, NULL);
 
 /* Stack-of macros that go through the dlopen'd sym_OPENSSL_sk_* variants, mirroring the sk_TYPE_OP() helpers

@@ -126,7 +126,16 @@
         signature of <filename>.sha256</filename> or <filename>SHA256SUMS</filename>.  The public key for
         this verification step needs to be available in
         <filename>/usr/lib/systemd/import-pubring.pgp</filename> or
-        <filename>/etc/systemd/import-pubring.pgp</filename>.</para>
+        <filename>/etc/systemd/import-pubring.pgp</filename>.
+        If there is no GPG signature available <option>--verify=signature</option> can also verify the <filename>SHA256SUMS</filename> manifest with a detached PKCS#7 signature
+        <filename>SHA256SUMS.p7s</filename>, using certificates stored in the following locations:
+        <simplelist>
+            <member><filename>/etc/import-certs.d/*.crt</filename></member>
+            <member><filename>/run/import-certs.d/*.crt</filename></member>
+            <member><filename>/usr/local/lib/import-certs.d/*.crt</filename></member>
+            <member><filename>/usr/lib/import-certs.d/*.crt</filename></member>
+        </simplelist>
+        </para>
 
         <para>If <option>-keep-download=yes</option> is specified the image will be downloaded and stored in
         a read-only subvolume/directory in the image directory that is named after the specified URL and its
