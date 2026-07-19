@@ -291,6 +291,10 @@ static DLSYM_PROTOTYPE(X509_NAME_set) = NULL;
 DLSYM_PROTOTYPE(X509_VERIFY_PARAM_set1_host) = NULL;
 DLSYM_PROTOTYPE(X509_VERIFY_PARAM_set1_ip) = NULL;
 DLSYM_PROTOTYPE(X509_VERIFY_PARAM_set_hostflags) = NULL;
+DLSYM_PROTOTYPE(X509_STORE_add_cert) = NULL;
+DLSYM_PROTOTYPE(X509_STORE_free) = NULL;
+DLSYM_PROTOTYPE(X509_STORE_new) = NULL;
+DLSYM_PROTOTYPE(X509_check_purpose) = NULL;
 DLSYM_PROTOTYPE(X509_free) = NULL;
 DLSYM_PROTOTYPE(X509_get0_pubkey) = NULL;
 DLSYM_PROTOTYPE(X509_get0_notAfter) = NULL;
@@ -616,6 +620,10 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(X509_VERIFY_PARAM_set1_host),
                         DLSYM_ARG(X509_VERIFY_PARAM_set1_ip),
                         DLSYM_ARG(X509_VERIFY_PARAM_set_hostflags),
+                        DLSYM_ARG(X509_STORE_add_cert),
+                        DLSYM_ARG(X509_STORE_free),
+                        DLSYM_ARG(X509_STORE_new),
+                        DLSYM_ARG(X509_check_purpose),
                         DLSYM_ARG(X509_free),
                         DLSYM_ARG(X509_get0_pubkey),
                         DLSYM_ARG(X509_get0_notAfter),

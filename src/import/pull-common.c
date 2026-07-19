@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <openssl/x509v3.h>
 #include <unistd.h>
 
 #include "sd-id128.h"
@@ -419,9 +420,12 @@ static int verify_pkcs7(
 #if HAVE_OPENSSL
         _cleanup_(sk_X509_free_allp) STACK_OF(X509) *sk = NULL;
         _cleanup_strv_free_ char **certs = NULL;
-        _cleanup_strv_free_ char **dirs = NULL;
+        _cleanup_strv_free_ char **certificate_dirs = NULL;
+        _cleanup_strv_free_ char **trust_anchors = NULL;
+        _cleanup_strv_free_ char **trust_anchor_dirs = NULL;
         _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
         _cleanup_(BIO_freep) BIO *bio = NULL;
+        _cleanup_(X509_STORE_freep) X509_STORE *store = NULL;
         int r;
 
         assert(iovec_is_valid(payload));
@@ -434,16 +438,6 @@ static int verify_pkcs7(
         if (r < 0)
                 return r;
 
-        r = acquire_voa_paths(&dirs, VOA_PURPOSE_IMAGE, voa_context, VOA_TECHNOLOGY_X509);
-        if (r < 0)
-                return log_error_errno(r, "Failed to acquire VOA paths: %m");
-
-        r = conf_files_list_strv(&certs, "-certificate.pem", /* root= */ NULL, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, (const char **) dirs);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enumerate PKCS#7 certificates: %m");
-        if (strv_isempty(certs))
-                return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "No certificates found to verify PKCS#7 for download.");
-
         const unsigned char *d = signature->iov_base;
         p7 = sym_d2i_PKCS7(/* val_out= */ NULL, &d, (long) signature->iov_len);
         if (!p7)
@@ -452,6 +446,62 @@ static int verify_pkcs7(
         bio = sym_BIO_new_mem_buf(payload->iov_base, payload->iov_len);
         if (!bio)
                 return log_oom_debug();
+
+        r = acquire_voa_trust_anchor_paths(&trust_anchor_dirs, VOA_PURPOSE_IMAGE, voa_context, VOA_TECHNOLOGY_X509);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire VOA trust anchor paths: %m.");
+        store = sym_X509_STORE_new();
+        if (!store)
+                return log_oom_debug();
+
+        r = conf_files_list_strv(&trust_anchors, "-certificate.pem", /* root= */ NULL, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, (const char **) certificate_dirs);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate x509 trust anchor certificates: %m");
+        if (strv_isempty(certs))
+                log_debug_errno(SYNTHETIC_ERRNO(ENODATA), "No trust anchor certificates found to verify PKCS#7 for download.");
+        STRV_FOREACH(i, trust_anchors) {
+                _cleanup_(X509_freep) X509 *c = NULL;
+                _cleanup_fclose_ FILE *f = NULL;
+
+                f = fopen(*i, "re");
+                if (!f) {
+                        log_debug_errno(errno, "Failed to open '%s', ignoring: %m", *i);
+                        continue;
+                }
+
+                c = sym_PEM_read_X509(f, /* x= */ NULL, /* pem_password_cb= */ NULL, /* u= */ NULL);
+                if (!c) {
+                        log_debug("Failed to load X509 certificate '%s', ignoring.", *i);
+                        continue;
+                }
+
+                if (sym_X509_check_purpose(c, X509_PURPOSE_CODE_SIGN, /* ca= */ 1) < 1) {
+                        log_debug("X509 certificate: '%s' is not valid as certificate authority.", *i);
+                        continue;
+                }
+
+                if (sym_X509_STORE_add_cert(store, c) == 0)
+                        return log_oom_debug();
+
+                TAKE_PTR(c);
+        }
+
+        r = conf_files_list_strv(&certs, "-certificate.pem", /* root= */ NULL, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, (const char **) certificate_dirs);
+
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate x509 certificates: %m");
+        if (strv_isempty(certs))
+                log_debug_errno(SYNTHETIC_ERRNO(ENODATA), "No certificates found to verify PKCS#7 for download.");
+
+        r = acquire_voa_certificate_paths(&certificate_dirs, VOA_PURPOSE_IMAGE, voa_context, VOA_TECHNOLOGY_X509);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire VOA certificate paths: %m.");
+
+        r = conf_files_list_strv(&certs, "-certificate.pem", /* root= */ NULL, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, (const char **) certificate_dirs);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate PKCS#7 certificates: %m");
+        if (strv_isempty(certs))
+                log_debug_errno(SYNTHETIC_ERRNO(ENODATA), "No certificates found to verify PKCS#7 for download.");
 
         sk = sym_sk_X509_new_null();
         if (!sk)
@@ -502,13 +552,17 @@ static int verify_pkcs7(
                         continue;
                 }
 
+                if (sym_X509_check_purpose(c, X509_PURPOSE_CODE_SIGN, /* ca= */ 0) <= 1)
+                        log_debug("X509 certificate: '%s' is not valid for code signing.", *i);
+                        continue;
+
                 if (sym_sk_X509_push(sk, c) == 0)
                         return log_oom_debug();
 
                 TAKE_PTR(c);
         }
 
-        r = sym_PKCS7_verify(p7, sk, /* store= */ NULL, bio, /* out= */ NULL, PKCS7_NOINTERN|PKCS7_NOVERIFY|PKCS7_BINARY|PKCS7_DETACHED|PKCS7_NO_DUAL_CONTENT);
+        r = sym_PKCS7_verify(p7, sk, store, bio, /* out= */ NULL, PKCS7_BINARY|PKCS7_DETACHED);
         if (r) {
                 log_info("Signature verification succeeded.");
                 return 0;

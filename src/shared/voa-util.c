@@ -27,7 +27,7 @@ static const char* const voa_context_table[_VOA_CONTEXT_MAX] = {
         [VOA_CONTEXT_COMPONENT] = "component",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(voa_context, VOAContext)
+DEFINE_STRING_TABLE_LOOKUP(voa_context, VOAContext);
 
 static const char* const voa_technology_table[_VOA_TECHNOLOGY_MAX] = {
         [VOA_TECHNOLOGY_X509] = "x509",
@@ -35,12 +35,20 @@ static const char* const voa_technology_table[_VOA_TECHNOLOGY_MAX] = {
         [VOA_TECHNOLOGY_SSH]  = "ssh",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(voa_technology, VOATechnology)
+DEFINE_STRING_TABLE_LOOKUP(voa_technology, VOATechnology);
 
-int acquire_voa_paths(char ***ret, VOAPurpose purpose, VOAContext context, VOATechnology technology) {
+int acquire_voa_paths_full(char ***ret, VOAPurpose purpose, VOAContext context, VOATechnology technology, bool trust_anchor) {
         _cleanup_strv_free_ char **dirs = NULL;
         _cleanup_free_ char *os_str = NULL;
+        _cleanup_free_ char *purpose_str = NULL;
         int r;
+
+        assert(purpose >= 0);
+        assert(purpose < _VOA_PURPOSE_MAX);
+        assert(context >= 0);
+        assert(context < _VOA_CONTEXT_MAX);
+        assert(technology >= 0);
+        assert(technology < _VOA_TECHNOLOGY_MAX);
 
         r = parse_os_release(/* root= */ NULL, "ID", &os_str);
         if (r < 0)
@@ -48,17 +56,13 @@ int acquire_voa_paths(char ***ret, VOAPurpose purpose, VOAContext context, VOATe
         if (isempty(os_str))
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "Failed to get ID field from os-release file");
 
-        const char *purpose_str = voa_purpose_to_string(purpose);
-        if (isempty(purpose_str))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to get voa purpose, invalid enum member: %d", purpose);
-
+        if (trust_anchor) {
+                purpose_str = strjoin("trust-anchor-", voa_purpose_to_string(purpose));
+        } else {
+                purpose_str = strdup(voa_purpose_to_string(purpose));
+        }
         const char *context_str = voa_context_to_string(context);
-        if (isempty(context_str))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to get voa context, invalid enum member: %d", context);
-
         const char *technology_str = voa_technology_to_string(technology);
-        if (isempty(technology_str))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to get voa technology, invalid enum member: %d", technology);
 
         FOREACH_STRING(dir, CONF_PATHS("voa")) {
                 _cleanup_free_ char *full = path_join(dir,

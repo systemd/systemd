@@ -7,6 +7,7 @@
 
 typedef enum VOAPurpose {
         VOA_PURPOSE_IMAGE,
+        VOA_PURPOSE_PACKAGE,
         _VOA_PURPOSE_MAX,
         _VOA_PURPOSE_INVALID = -EINVAL,
 } VOAPurpose;
@@ -38,4 +39,10 @@ DECLARE_STRING_TABLE_LOOKUP(voa_purpose, VOAPurpose);
 DECLARE_STRING_TABLE_LOOKUP(voa_context, VOAContext);
 DECLARE_STRING_TABLE_LOOKUP(voa_technology, VOATechnology);
 
-int acquire_voa_paths(char ***ret, VOAPurpose purpose, VOAContext context, VOATechnology technology);
+int acquire_voa_paths_full(char ***ret, VOAPurpose purpose, VOAContext context, VOATechnology technology, bool trust_anchor);
+static inline int acquire_voa_certificate_paths(char ***ret, VOAPurpose purpose, VOAContext context, VOATechnology technology) {
+        return acquire_voa_paths_full(ret, purpose, context, technology, false);
+};
+static inline int acquire_voa_trust_anchor_paths(char ***ret, VOAPurpose purpose, VOAContext context, VOATechnology technology) {
+        return acquire_voa_paths_full(ret, purpose, context, technology, false);
+};
