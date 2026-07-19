@@ -1267,6 +1267,20 @@ TEST(strv_rebreak_lines) {
 
                 assert_se(strv_equal(a, b));
         }
+
+        assert_se(strv_rebreak_lines(STRV_MAKE("foo\xF0"), 10, &l) >= 0);
+        assert_se(strv_equal(l, STRV_MAKE("foo\xF0")));
+        l = strv_free(l);
+
+        assert_se(strv_rebreak_lines(STRV_MAKE("bar\xFC"), 10, &l) >= 0);
+        assert_se(strv_equal(l, STRV_MAKE("bar\xFC")));
+        l = strv_free(l);
+
+        /* An invalid lead byte reached through the line-break reset path: the break
+         * repoints p at the truncated multibyte char, which must not be blind-skipped
+         * past the NUL. */
+        assert_se(strv_rebreak_lines(STRV_MAKE("a \xF0" "b"), 3, &l) >= 0);
+        l = strv_free(l);
 }
 
 TEST(strv_find_closest) {
