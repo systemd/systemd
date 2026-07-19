@@ -13,7 +13,6 @@
 #include "dissect-image.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "forward.h"
 #include "fs-util.h"
 #include "install-file.h"
 #include "log.h"

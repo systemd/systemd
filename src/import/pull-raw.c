@@ -9,7 +9,6 @@
 #include "copy.h"
 #include "curl-util.h"
 #include "fd-util.h"
-#include "forward.h"
 #include "fs-util.h"
 #include "import-common.h"
 #include "import-util.h"
