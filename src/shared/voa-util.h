@@ -42,7 +42,7 @@ DECLARE_STRING_TABLE_LOOKUP(voa_technology, VOATechnology);
 int acquire_voa_paths_full(char ***ret, VOAPurpose purpose, VOAContext context, VOATechnology technology, bool trust_anchor);
 static inline int acquire_voa_certificate_paths(char ***ret, VOAPurpose purpose, VOAContext context, VOATechnology technology) {
         return acquire_voa_paths_full(ret, purpose, context, technology, false);
-};
+}
 static inline int acquire_voa_trust_anchor_paths(char ***ret, VOAPurpose purpose, VOAContext context, VOATechnology technology) {
-        return acquire_voa_paths_full(ret, purpose, context, technology, false);
-};
+        return acquire_voa_paths_full(ret, purpose, context, technology, true);
+}

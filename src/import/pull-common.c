@@ -13,7 +13,6 @@
 #include "dirent-util.h"
 #include "escape.h"
 #include "fd-util.h"
-#include "forward.h"
 #include "hexdecoct.h"
 #include "import-util.h"
 #include "io-util.h"
@@ -454,11 +453,12 @@ static int verify_pkcs7(
         if (!store)
                 return log_oom_debug();
 
-        r = conf_files_list_strv(&trust_anchors, "-certificate.pem", /* root= */ NULL, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, (const char **) certificate_dirs);
+        r = conf_files_list_strv(&trust_anchors, "-certificate.pem", /* root= */ NULL, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, (const char **) trust_anchor_dirs);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate x509 trust anchor certificates: %m");
-        if (strv_isempty(certs))
-                log_debug_errno(SYNTHETIC_ERRNO(ENODATA), "No trust anchor certificates found to verify PKCS#7 for download.");
+        if (strv_isempty(trust_anchors))
+                return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "No trust anchor certificates found to verify PKCS#7 for download.");
+
         STRV_FOREACH(i, trust_anchors) {
                 _cleanup_(X509_freep) X509 *c = NULL;
                 _cleanup_fclose_ FILE *f = NULL;
@@ -482,16 +482,7 @@ static int verify_pkcs7(
 
                 if (sym_X509_STORE_add_cert(store, c) == 0)
                         return log_oom_debug();
-
-                TAKE_PTR(c);
         }
-
-        r = conf_files_list_strv(&certs, "-certificate.pem", /* root= */ NULL, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, (const char **) certificate_dirs);
-
-        if (r < 0)
-                return log_error_errno(r, "Failed to enumerate x509 certificates: %m");
-        if (strv_isempty(certs))
-                log_debug_errno(SYNTHETIC_ERRNO(ENODATA), "No certificates found to verify PKCS#7 for download.");
 
         r = acquire_voa_certificate_paths(&certificate_dirs, VOA_PURPOSE_IMAGE, voa_context, VOA_TECHNOLOGY_X509);
         if (r < 0)
@@ -552,7 +543,7 @@ static int verify_pkcs7(
                         continue;
                 }
 
-                if (sym_X509_check_purpose(c, X509_PURPOSE_CODE_SIGN, /* ca= */ 0) <= 1) {
+                if (sym_X509_check_purpose(c, X509_PURPOSE_CODE_SIGN, /* ca= */ 0) < 1) {
                         log_debug("X509 certificate: '%s' is not valid for code signing.", *i);
                         continue;
                 }

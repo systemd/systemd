@@ -13,7 +13,8 @@
 #include "voa-util.h"
 
 static const char* const voa_purpose_table[_VOA_PURPOSE_MAX] = {
-        [VOA_PURPOSE_IMAGE]        = "image",
+        [VOA_PURPOSE_IMAGE]   = "image",
+        [VOA_PURPOSE_PACKAGE] = "package",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(voa_purpose, VOAPurpose);
@@ -61,6 +62,9 @@ int acquire_voa_paths_full(char ***ret, VOAPurpose purpose, VOAContext context, 
         } else {
                 purpose_str = strdup(voa_purpose_to_string(purpose));
         }
+        if (!purpose_str)
+                return log_oom();
+
         const char *context_str = voa_context_to_string(context);
         const char *technology_str = voa_technology_to_string(technology);
 

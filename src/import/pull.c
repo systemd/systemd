@@ -173,7 +173,7 @@ static int verb_tar(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         arg_import_flags & IMPORT_PULL_FLAGS_MASK_TAR,
                         arg_verify,
                         arg_voa_context,
-                         &arg_checksum);
+                        &arg_checksum);
         if (r < 0)
                 return log_error_errno(r, "Failed to pull image: %m");
 
@@ -392,7 +392,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_LONG("voa-context", "CONTEXT", "The context in the Verification of OS Artifacts SPEC, one of: 'host', 'component', 'machine', 'sysext', 'confext', 'portable'"): {
                         VOAContext vc = voa_context_from_string(opts.arg);
-                        if (c < 0)
+                        if (vc < 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid VOA context: %s", opts.arg);
                         arg_voa_context = vc;
                         break;
@@ -590,9 +590,8 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 arg_import_flags |= IMPORT_FOREIGN_UID;
 
         /* if the context isn't explicitly passed in, we can infer it from the image class */
-        if (arg_voa_context < 0) {
+        if (arg_voa_context < 0)
                 arg_voa_context = (VOAContext) arg_class;
-        }
 
         *ret_args = option_parser_get_args(&opts);
         return 1;
