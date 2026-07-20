@@ -267,6 +267,69 @@ testcase_basic() {
     homectl remove test-user
 }
 
+testcase_recovery_key_file() (
+    local KEY_FILE=/tmp/homed-recovery-key-file
+    local KEY_FILE2=/tmp/homed-recovery-key-file-update
+    local DRY_RUN_OUTPUT=/tmp/homed-recovery-key-file-dry-run.out
+    local DRY_RUN_ERROR=/tmp/homed-recovery-key-file-dry-run.err
+
+    homectl remove recoverykeyfiletest 2>/dev/null || true
+    rm -f "$KEY_FILE" "$KEY_FILE2" "$DRY_RUN_OUTPUT" "$DRY_RUN_ERROR"
+
+    # shellcheck disable=SC2064
+    trap "homectl remove recoverykeyfiletest 2>/dev/null || true; rm -f '$KEY_FILE' '$KEY_FILE2' '$DRY_RUN_OUTPUT' '$DRY_RUN_ERROR'" EXIT ERR
+
+    (! NEWPASSWORD=Secr3tRecovery \
+        homectl create recoverykeyfiletest \
+        --storage=directory \
+        --recovery-key-file="$KEY_FILE" \
+        --enforce-password-policy=no )
+
+    SYSTEMD_HOME_DRY_RUN=1 \
+    NEWPASSWORD=Secr3tRecovery \
+        homectl create recoverykeyfiletest \
+        --storage=directory \
+        --recovery-key=yes \
+        --recovery-key-file="$KEY_FILE" \
+        --enforce-password-policy=no \
+        >"$DRY_RUN_OUTPUT" \
+        2>"$DRY_RUN_ERROR"
+    grep -E '^[cbdefghijklnrtuv]{8}(-[cbdefghijklnrtuv]{8}){7}$' "$DRY_RUN_OUTPUT" >/dev/null
+    test ! -e "$KEY_FILE"
+
+    NEWPASSWORD=Secr3tRecovery \
+        homectl create recoverykeyfiletest \
+        --storage=directory \
+        --recovery-key=yes \
+        --recovery-key-file="$KEY_FILE" \
+        --rate-limit-interval=1s \
+        --rate-limit-burst=1000 \
+        --enforce-password-policy=no
+
+    test -s "$KEY_FILE"
+    [[ "$(stat -c "%a" "$KEY_FILE")" == "600" ]]
+    grep -E '^[cbdefghijklnrtuv]{8}(-[cbdefghijklnrtuv]{8}){7}$' "$KEY_FILE" >/dev/null
+    PASSWORD="$(cat "$KEY_FILE")" homectl authenticate recoverykeyfiletest
+
+    (! PASSWORD=Secr3tRecovery \
+        homectl update recoverykeyfiletest \
+        --recovery-key=yes \
+        --recovery-key-file="$KEY_FILE" )
+
+    PASSWORD=Secr3tRecovery \
+        homectl update recoverykeyfiletest \
+        --recovery-key=yes \
+        --recovery-key-file="$KEY_FILE2"
+
+    test -s "$KEY_FILE2"
+    [[ "$(stat -c "%a" "$KEY_FILE2")" == "600" ]]
+    grep -E '^[cbdefghijklnrtuv]{8}(-[cbdefghijklnrtuv]{8}){7}$' "$KEY_FILE2" >/dev/null
+    PASSWORD="$(cat "$KEY_FILE2")" homectl authenticate recoverykeyfiletest
+
+    homectl remove recoverykeyfiletest
+    rm -f "$KEY_FILE" "$KEY_FILE2" "$DRY_RUN_OUTPUT" "$DRY_RUN_ERROR"
+)
+
 testcase_blob() {
     # blob directory tests
     # See docs/USER_RECORD_BLOB_DIRS.md

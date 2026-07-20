@@ -1,7 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
+#include <unistd.h>
+
 #include "ansi-color.h"
 #include "errno-util.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "glyph-util.h"
 #include "homectl-recovery-key.h"
 #include "json-util.h"
@@ -103,11 +108,12 @@ static int add_secret(sd_json_variant **v, const char *password) {
         return 0;
 }
 
-int identity_add_recovery_key(sd_json_variant **v) {
+int identity_add_recovery_key(sd_json_variant **v, char **ret_recovery_key) {
         _cleanup_(erase_and_freep) char *password = NULL, *hashed = NULL;
         int r;
 
         assert(v);
+        assert(ret_recovery_key);
 
         /* First, let's generate a secret key  */
         r = make_recovery_key(&password);
@@ -134,6 +140,13 @@ int identity_add_recovery_key(sd_json_variant **v) {
         if (r < 0)
                 return r;
 
+        *ret_recovery_key = TAKE_PTR(password);
+        return 0;
+}
+
+void show_recovery_key(const char *recovery_key) {
+        assert(recovery_key);
+
         /* We output the key itself with a trailing newline to stdout and the decoration around it to stderr
          * instead. */
 
@@ -146,7 +159,7 @@ int identity_add_recovery_key(sd_json_variant **v) {
                 ansi_highlight());
         fflush(stderr);
 
-        fputs(password, stdout);
+        fputs(recovery_key, stdout);
         fflush(stdout);
 
         fputs(ansi_normal(), stderr);
@@ -161,7 +174,48 @@ int identity_add_recovery_key(sd_json_variant **v) {
               "whenever authentication is requested.\n", stderr);
         fflush(stderr);
 
-        (void) print_qrcode(stderr, "Optionally scan the recovery key for safekeeping", password);
+        (void) print_qrcode(stderr, "Optionally scan the recovery key for safekeeping", recovery_key);
+}
 
+void recovery_key_file_closep(RecoveryKeyFile *f) {
+        if (!f)
+                return;
+
+        if (f->remove && f->path)
+                (void) unlink(f->path);
+
+        if (f->fd >= 0)
+                f->fd = safe_close(f->fd);
+}
+
+int recovery_key_file_prepare(RecoveryKeyFile *f, const char *path) {
+        int fd;
+
+        assert(f);
+        assert(path);
+        assert(f->fd < 0 || !f->path);
+
+        fd = open(path, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0600);
+        if (fd < 0)
+                return -errno;
+
+        f->fd = fd;
+        f->path = path;
+        f->remove = true;
+        return 0;
+}
+
+int recovery_key_file_write(RecoveryKeyFile *f, const char *recovery_key) {
+        int r;
+
+        assert(f);
+        assert(f->fd >= 0);
+        assert(recovery_key);
+
+        r = write_string_file_fd(f->fd, recovery_key, WRITE_STRING_FILE_DISABLE_BUFFER|WRITE_STRING_FILE_SYNC);
+        if (r < 0)
+                return r;
+
+        f->remove = false;
         return 0;
 }
