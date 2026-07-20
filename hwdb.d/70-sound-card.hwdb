@@ -52,6 +52,19 @@ usb:v045Ep091E*
  SOUND_FORM_FACTOR=headset
 
 ###########################################################
+# Sony
+###########################################################
+# DualSense (PS5)
+usb:v054Cp0CE6*
+# DualSense Edge (PS5)
+usb:v054Cp0DF2*
+# DualShock 4 [CUH-ZCT1x]
+usb:v054Cp05C4*
+# DualShock 4 [CUH-ZCT2x]
+usb:v054Cp09CC*
+ SOUND_FORM_FACTOR=controller
+
+###########################################################
 # Steelseries
 ###########################################################
 # Arctis Headsets
