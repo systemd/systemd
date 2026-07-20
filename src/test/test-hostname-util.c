@@ -85,6 +85,14 @@ TEST(hostname_cleanup) {
         ASSERT_STREQ(hostname_cleanup(s), "foo.bar");
         s = strdupa_safe("foo.bar..");
         ASSERT_STREQ(hostname_cleanup(s), "foo.bar");
+        s = strdupa_safe("foobar--");
+        ASSERT_STREQ(hostname_cleanup(s), "foobar");
+        s = strdupa_safe("foobar-.");
+        ASSERT_STREQ(hostname_cleanup(s), "foobar");
+        s = strdupa_safe("foobar.-");
+        ASSERT_STREQ(hostname_cleanup(s), "foobar");
+        s = strdupa_safe("foobar-.-");
+        ASSERT_STREQ(hostname_cleanup(s), "foobar");
         s = strdupa_safe("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
         ASSERT_STREQ(hostname_cleanup(s), "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
         s = strdupa_safe("xxxx........xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
