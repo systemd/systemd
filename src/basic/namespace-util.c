@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <linux/magic.h>
 #include <linux/nsfs.h>
+#include <linux/sockios.h>
 #include <sched.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
@@ -410,11 +411,47 @@ int are_our_namespaces(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, 
         return true;
 }
 
+int network_namespace_is_init(int socket_fd) {
+        struct stat a, b;
+        int r;
+
+        /* This works only when privileged. */
+
+        r = RET_NERRNO(stat(pid_namespace_path(1, NAMESPACE_NET), &a));
+        if (r == -ENOENT) {
+                /* If the /proc/ns/<type> API is not around in /proc/ then ns is off in the kernel and we are in the init ns */
+                r = proc_mounted();
+                if (r < 0)
+                        return -ENOENT; /* If we can't determine if /proc/ is mounted propagate original error */
+
+                return r ? true : -ENOSYS;
+        }
+        if (r < 0)
+                return r;
+
+        if (socket_fd >= 0) {
+                _cleanup_close_ int netns = ioctl(socket_fd, SIOCGSKNS);
+                if (netns < 0)
+                        return -errno;
+
+                if (fstat(netns, &b) < 0)
+                        return -errno;
+        } else {
+                if (stat(pid_namespace_path(0, NAMESPACE_NET), &b) < 0)
+                        return -errno;
+        }
+
+        return stat_inode_same(&a, &b);
+}
+
 int namespace_is_init(NamespaceType type) {
         int r;
 
         assert(type >= 0);
         assert(type < _NAMESPACE_TYPE_MAX);
+
+        if (type == NAMESPACE_NET)
+                return network_namespace_is_init(/* socket_fd= */ -EBADF);
 
         if (namespace_info[type].root_inode == 0)
                 return -EBADR; /* Cannot answer this question */

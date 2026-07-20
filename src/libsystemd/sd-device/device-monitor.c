@@ -2,8 +2,6 @@
 
 #include <linux/filter.h>
 #include <linux/netlink.h>
-#include <linux/sockios.h>
-#include <sys/ioctl.h>
 #include <unistd.h>
 
 #include "sd-device.h"
@@ -24,9 +22,9 @@
 #include "log.h"
 #include "log-context.h"
 #include "mountpoint-util.h"
+#include "namespace-util.h"
 #include "set.h"
 #include "socket-util.h"
-#include "stat-util.h"
 #include "string-util.h"
 #include "uid-range.h"
 
@@ -189,35 +187,15 @@ int device_monitor_new_full(sd_device_monitor **ret, MonitorNetlinkGroup group, 
         }
 
         if (DEBUG_LOGGING) {
-                _cleanup_close_ int netns = -EBADF;
-
                 /* So here's the thing: only AF_NETLINK sockets from the main network namespace will get
                  * hardware events. Let's check if ours is from there, and if not generate a debug message,
                  * since we cannot possibly work correctly otherwise. This is just a safety check to make
                  * things easier to debug. */
-
-                netns = ioctl(m->sock, SIOCGSKNS);
-                if (netns < 0)
-                        log_monitor_errno(m, errno, "Unable to get network namespace of udev netlink socket, unable to determine if we are in host netns, ignoring: %m");
-                else {
-                        struct stat a, b;
-
-                        if (fstat(netns, &a) < 0) {
-                                r = log_monitor_errno(m, errno, "Failed to stat netns of udev netlink socket: %m");
-                                goto fail;
-                        }
-
-                        if (stat("/proc/1/ns/net", &b) < 0) {
-                                if (ERRNO_IS_PRIVILEGE(errno))
-                                        /* If we can't access PID1's netns info due to permissions, it's fine, this is a
-                                         * safety check only after all. */
-                                        log_monitor_errno(m, errno, "No permission to stat PID1's netns, unable to determine if we are in host netns, ignoring: %m");
-                                else
-                                        log_monitor_errno(m, errno, "Failed to stat PID1's netns, ignoring: %m");
-
-                        } else if (!stat_inode_same(&a, &b))
-                                log_monitor(m, "Netlink socket we listen on is not from host netns, we won't see device events.");
-                }
+                r = network_namespace_is_init(m->sock);
+                if (r < 0)
+                        log_monitor_errno(m, r, "Failed to check if we are in the main network namespace, ignoring: %m");
+                else if (r == 0)
+                        log_monitor(m, "Netlink socket we listen on is not from the main network namespace, we won't see device events.");
         }
 
         /* Let's bump the receive buffer size, but only if we are not called via socket activation, as in
