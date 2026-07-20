@@ -323,6 +323,9 @@ int tpm2_object_index_to_handle(Tpm2Context *c, TPM2_HANDLE index, const Tpm2Han
 int tpm2_nv_index_to_handle(Tpm2Context *c, TPM2_HANDLE index, const Tpm2Handle *session, TPM2B_NV_PUBLIC **ret_nv_public, TPM2B_NAME **ret_name, Tpm2Handle **ret_handle);
 int tpm2_index_from_handle(Tpm2Context *c, const Tpm2Handle *handle, TPM2_HANDLE *ret_index);
 
+int tpm2_persist_handle(Tpm2Context *c, const Tpm2Handle *transient_handle, const Tpm2Handle *session, TPMI_DH_PERSISTENT persistent_handle_index, Tpm2Handle **ret_persistent_handle);
+int tpm2_evict_handle(Tpm2Context *c, const Tpm2Handle *session, TPMI_DH_PERSISTENT handle_index);
+
 int tpm2_marshal_saved_handle_context(TPMS_CONTEXT *context, void **ret, size_t *ret_size);
 int tpm2_unmarshal_saved_handle_context(const void *data, size_t size, TPMS_CONTEXT *ret);
 int tpm2_load_saved_handle_context(Tpm2Context *c, const TPMS_CONTEXT *context, TPM2B_NAME **ret_name, Tpm2Handle **ret_handle);
