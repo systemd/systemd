@@ -132,6 +132,14 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>cryptsetup.tpm2-fido2</varname></term>
+
+        <listitem><para>This credential specifies when a FIDO2 token is used together with the TPM.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>cryptsetup.fido2-pin</varname></term>
 
         <listitem><para>This credential specifies the FIDO2 token pin.</para>
