@@ -57,4 +57,9 @@ size_t utf8_n_codepoints(const char *str) _pure_;
 int utf8_char_console_width(const char *str) _pure_;
 size_t utf8_console_width(const char *str) _pure_;
 
+/* Like utf8_next_char() from gunicode.h, but never advances past the end of a truncated
+ * multi-byte sequence: on invalid UTF-8 it steps forward by exactly one byte instead of
+ * blindly indexing utf8_skip_data[] with the lead byte. */
+const char *utf8_next_char_safe(const char *p);
+
 size_t utf8_last_length(const char *s, size_t n) _pure_;
