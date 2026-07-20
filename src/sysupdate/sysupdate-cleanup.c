@@ -161,7 +161,7 @@ static int context_is_path_currently_owned(
         assert(path);
         assert(relpath);
 
-        /* Checks if the there's a transfer file for the directoy 'path', and then if any of its patterns
+        /* Checks if the there's a transfer file for the directory 'path', and then if any of its patterns
          * match 'relpath' */
 
         FOREACH_ARRAY(_t, c->transfers, c->n_transfers) {
