@@ -41,7 +41,7 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_DEFINE_INPUT(erase, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("If true, EFI variables are modified to register the installed boot loader in the firmware's boot options database."),
                 SD_VARLINK_DEFINE_INPUT(variables, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("The path to a kernel image, if missing the current kernel is dedected and used."),
+                SD_VARLINK_FIELD_COMMENT("The path to a kernel image, if missing the current kernel is detected and used."),
                 SD_VARLINK_DEFINE_INPUT(kernelImagePath, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
 
                 SD_VARLINK_FIELD_COMMENT("If true, the current locale is copied to target system"),
