@@ -65,6 +65,9 @@ typedef enum HomeSetupFlags {
         HOME_SETUP_RESIZE_DONT_GROW            = 1 << 4, /* If the resize would grow, gracefully terminate operation */
         HOME_SETUP_RESIZE_DONT_SHRINK          = 1 << 5, /* If the resize would shrink, gracefully terminate operation */
         HOME_SETUP_RESIZE_DONT_UNDO            = 1 << 6, /* Leave loopback/DM device context open after successful operation */
+
+        /* LUKS backend: */
+        HOME_SETUP_DONT_FALLOCATE              = 1 << 7, /* Don't fully allocate the backing file while setting up. */
 } HomeSetupFlags;
 
 int home_setup_done(HomeSetup *setup);
