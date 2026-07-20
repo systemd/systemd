@@ -77,24 +77,35 @@
   </refsect1>
 
   <refsect1>
-    <title>Signing key</title>
+    <title>Signing keys</title>
 
-    <para>The attestation signing key is stored as a JSON file named <filename>default.key</filename> in
-    <filename>/var/lib/systemd/report.sign.tpm2/</filename>. Three kinds of key are supported: an ordinary
-    object protected by an existing persistent object such as the SRK or EK, a persistent object, and a
-    primary object that is recreated from a template on each use. In all cases the key must be a restricted
-    signing key. If no key exists, an ordinary key is generated automatically on first use.</para>
+    <para>The attestation signing keys are stored as JSON files named
+    <filename><replaceable>keyname</replaceable>.key</filename> in <filename>/var/lib/systemd/report.sign.tpm2/</filename>.
+    Three kinds of key are supported: an ordinary object protected by an existing persistent object such as
+    the SRK or EK, a persistent object (which may be created as an ordinary or primary object), and a
+    primary object that is recreated from a template on each use. In all cases the keys must be restricted
+    signing keys. If no keys exist, an ordinary key is generated automatically on first use and saved as
+    <filename>default.key</filename>.</para>
 
     <para>For ordinary and primary keys, the loaded object context is cached in the service's runtime
-    directory as <filename>/run/systemd/report.sign.tpm2/default.context</filename> and reused on subsequent
-    invocations, avoiding a repeated <constant>TPM2_Load</constant> (which requires authorization with the
-    parent key) or primary key recreation.</para>
+    directory as <filename>/run/systemd/report.sign.tpm2/<replaceable>keyname</replaceable>.context</filename>
+    and reused on subsequent invocations, avoiding a repeated <constant>TPM2_Load</constant> (which requires
+    authorization with the parent key), or a repeated <constant>TPM2_CreatePrimary</constant> (which requires
+    authorization with the hierarchy and can be slow).</para>
 
     <para>The key may optionally have an associated <emphasis>voucher</emphasis>, stored alongside it as
-    <filename>default.voucher</filename>. This is an opaque credential — for example one issued by a CA during
-    onboarding — that is attached to the signed report and presented to a verifier as proof that the
-    attestation key is authentic. It is deliberately not required to be any particular format (such as an
-    X.509 certificate).</para>
+    <filename><replaceable>keyname</replaceable>.voucher</filename>. This is an opaque credential — for example
+    one issued by a CA during onboarding — that is attached to the signed report and presented to a verifier
+    as proof that the attestation key is authentic. It is deliberately not required to be any particular
+    format (such as an X.509 certificate).</para>
+
+    <para>Additional signing keys may be provisioned explicitly instead of relying on the automatically
+    generated default key by using the <constant>io.systemd.Report.TPM2SignerKeyManager</constant>
+    <ulink url="https://varlink.org/">Varlink</ulink> interface, registered as a AF_UNIX socket at
+    <filename>/run/systemd/io.systemd.Report.TPM2SignerKeyManager</filename>. The interface can be queried
+    with <command>varlinkctl introspect /run/systemd/io.systemd.Report.TPM2SignerKeyManager</command>.</para>
+
+    <para>If more than one key is present, a signed report is generated with each of them.</para>
   </refsect1>
 
   <!-- Note: we do not document the command line switches here. The systemd-report-sign-tpm2 binary itself
