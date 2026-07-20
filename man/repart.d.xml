@@ -757,6 +757,58 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>EncryptAddToken=</varname></term>
+
+        <listitem><para>Registers a custom LUKS2 token in the partition's LUKS2 header at provisioning
+        time. This option may be specified more than once to register multiple tokens. Each invocation adds
+        one token entry. Assigning the empty string clears all previously assigned tokens.</para>
+
+        <para>The syntax is:</para>
+        <programlisting>EncryptAddToken=<replaceable>type</replaceable>[:<replaceable>source</replaceable>:<replaceable>value</replaceable>]</programlisting>
+
+        <para>The <replaceable>type</replaceable> field is mandatory and specifies the LUKS2 token type
+        name (e.g. <literal>tdx-kbs</literal>). It must be a non-empty ASCII string and corresponds to the
+        name of the token handler plugin installed as
+        <filename>libcryptsetup-token-<replaceable>type</replaceable>.so</filename>.</para>
+
+        <para>The optional <replaceable>source</replaceable> and <replaceable>value</replaceable> fields
+        supply token-plugin-specific metadata as a JSON object. Two sources are supported:</para>
+
+        <variablelist>
+          <varlistentry>
+            <term><literal>file</literal></term>
+            <listitem><para>The <replaceable>value</replaceable> is a path to a file containing a JSON
+            object with the extra token metadata. Example:</para>
+            <programlisting>EncryptAddToken=tdx-kbs:file:/etc/repart/tdx-kbs-token.json</programlisting>
+            </listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><literal>data</literal></term>
+            <listitem><para>The <replaceable>value</replaceable> is a Base64-encoded JSON object with the
+            extra token metadata, suitable for embedding directly in the configuration file. Example:</para>
+            <programlisting>EncryptAddToken=tdx-kbs:data:eyJ0cnVzdGVlLmticy51cmwiOiJodHRwOi8va2JzLXNlcnZpY2U6ODA4MCJ9</programlisting>
+            </listitem>
+          </varlistentry>
+        </variablelist>
+
+        <para>The extra metadata object must not contain <literal>type</literal> or
+        <literal>keyslots</literal> fields — these are always set by
+        <command>systemd-repart</command>: <literal>type</literal> is taken from the
+        <replaceable>type</replaceable> argument, and <literal>keyslots</literal> is set to the keyslot
+        number created for this partition.</para>
+
+        <para>This option is supported with all <varname>Encrypt=</varname> modes except
+        <literal>off</literal>. When used with <literal>key-file+tpm2</literal>, the token is bound to the
+        key-file keyslot. When used with <literal>tpm2</literal>, the token is bound to the TPM2
+        keyslot.</para>
+
+        <para>This option has no effect if the partition already exists.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Verity=</varname></term>
 
         <listitem><para>Takes one of <literal>off</literal>, <literal>data</literal>,
