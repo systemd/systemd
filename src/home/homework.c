@@ -437,7 +437,7 @@ int home_setup_done(HomeSetup *setup) {
                 if (setup->do_offline_fallocate) {
                         q = run_fallocate(setup->image_fd, NULL);
                         if (q < 0)
-                                r = q;
+                                log_debug_errno(q, "Failed to allocate backing file blocks, ignoring: %m");
                 }
 
                 if (setup->do_mark_clean) {
@@ -1686,7 +1686,7 @@ static int home_update(UserRecord *h, Hashmap *blobs, UserRecord **ret) {
                 return user_record_clone(h, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_PERMISSIVE, ret);
         }
 
-        r = home_setup(h, flags, &setup, &cache, &header_home);
+        r = home_setup(h, flags | HOME_SETUP_LUKS_DONT_FALLOCATE, &setup, &cache, &header_home);
         if (r < 0)
                 return r;
 
@@ -1754,7 +1754,7 @@ static int home_resize(UserRecord *h, UserRecord **ret) {
         switch (user_record_storage(h)) {
 
         case USER_LUKS:
-                return home_resize_luks(h, flags, &setup, &cache, ret);
+                return home_resize_luks(h, flags | HOME_SETUP_LUKS_DONT_FALLOCATE, &setup, &cache, ret);
 
         case USER_DIRECTORY:
         case USER_SUBVOLUME:
@@ -1788,7 +1788,7 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
-        r = home_setup(h, flags, &setup, &cache, &header_home);
+        r = home_setup(h, flags | HOME_SETUP_LUKS_DONT_FALLOCATE, &setup, &cache, &header_home);
         if (r < 0)
                 return r;
 
@@ -1866,7 +1866,7 @@ static int home_inspect(UserRecord *h, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
-        r = home_setup(h, flags, &setup, &cache, &header_home);
+        r = home_setup(h, flags | HOME_SETUP_LUKS_DONT_FALLOCATE, &setup, &cache, &header_home);
         if (r < 0)
                 return r;
 
