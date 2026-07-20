@@ -425,6 +425,14 @@ typedef struct UserRecord {
         sd_json_variant *json;
 } UserRecord;
 
+#define USER_DISK_SIZE_MAX_MARKER (UINT64_MAX-1)
+
+static inline bool user_record_disk_size_is_max(UserRecord *h) {
+        assert(h);
+
+        return h->disk_size == USER_DISK_SIZE_MAX_MARKER;
+}
+
 UserRecord* user_record_new(void);
 DECLARE_TRIVIAL_REF_UNREF_FUNC(UserRecord, user_record);
 
