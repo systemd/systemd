@@ -267,6 +267,61 @@ testcase_basic() {
     homectl remove test-user
 }
 
+testcase_update_auto_resize_mode_without_space() {
+    local blocks bsize fill_mbytes fill_size image user
+
+    user=no-space-update
+    image="/home/$user.home"
+
+    cleanup_update_auto_resize_mode_without_space() {
+        set +e
+
+        rm -f /home/no-space-update.filler
+
+        if homectl inspect "$user" >/dev/null 2>&1; then
+            homectl deactivate "$user" 2>/dev/null
+            wait_for_state "$user" inactive 2>/dev/null
+            homectl remove "$user" 2>/dev/null
+        fi
+
+        mount /home -o remount,size=290M
+        systemctl restart systemd-homed.service
+    }
+
+    trap cleanup_update_auto_resize_mode_without_space RETURN
+
+    mount /home -o remount,size=900M
+
+    NEWPASSWORD=xEhErW0ndafV4s \
+        homectl create "$user" \
+        --storage=luks \
+        --disk-size=300M \
+        --auto-resize-mode=shrink-and-grow \
+        --luks-discard=no \
+        --luks-offline-discard=yes \
+        --image-path="$image" \
+        --luks-pbkdf-type=pbkdf2 \
+        --luks-pbkdf-time-cost=1ms \
+        --rate-limit-interval=1s \
+        --rate-limit-burst=1000
+
+    PASSWORD=xEhErW0ndafV4s homectl update "$user" --disk-size=max
+    wait_for_state "$user" inactive
+
+    read -r blocks bsize < <(stat --file-system --format "%a %S" /home)
+    fill_size=$((blocks * bsize - 128 * 1024 * 1024))
+    fill_mbytes=$((fill_size / 1024 / 1024))
+    test "$fill_mbytes" -gt 0
+
+    # Leave enough room for the small identity update below, but not enough for the old full-image fallocate().
+    dd if=/dev/zero of=/home/no-space-update.filler bs=1M count="$fill_mbytes"
+
+    systemctl restart systemd-homed.service
+
+    PASSWORD=xEhErW0ndafV4s homectl update "$user" --auto-resize-mode=off
+    homectl inspect "$user" | grep -F "Auto Resize: off" >/dev/null
+}
+
 testcase_blob() {
     # blob directory tests
     # See docs/USER_RECORD_BLOB_DIRS.md
