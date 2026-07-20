@@ -74,6 +74,12 @@ ATTR{pcmC%nD0p/pcm_class}=="modem", ENV{SOUND_CLASS}="modem", GOTO="sound_end"
 # Identify cards on the internal PCI bus as internal
 SUBSYSTEMS=="pci", DEVPATH=="*/0000:00:??.?/sound/*", ENV{SOUND_FORM_FACTOR}="internal", GOTO="sound_end"
 
+# PlayStation controllers can expose USB audio functions
+SUBSYSTEMS=="usb", ENV{ID_VENDOR_ID}=="054c", ENV{ID_MODEL_ID}=="0ce6", ENV{SOUND_FORM_FACTOR}="controller", GOTO="sound_end"
+SUBSYSTEMS=="usb", ENV{ID_VENDOR_ID}=="054c", ENV{ID_MODEL_ID}=="0df2", ENV{SOUND_FORM_FACTOR}="controller", GOTO="sound_end"
+SUBSYSTEMS=="usb", ENV{ID_VENDOR_ID}=="054c", ENV{ID_MODEL_ID}=="05c4", ENV{SOUND_FORM_FACTOR}="controller", GOTO="sound_end"
+SUBSYSTEMS=="usb", ENV{ID_VENDOR_ID}=="054c", ENV{ID_MODEL_ID}=="09cc", ENV{SOUND_FORM_FACTOR}="controller", GOTO="sound_end"
+
 # Devices that also support Image/Video interfaces are most likely webcams
 SUBSYSTEMS=="usb", ENV{ID_USB_INTERFACES}=="*:0e????:*", ENV{SOUND_FORM_FACTOR}="webcam", GOTO="sound_end"
 
