@@ -253,6 +253,8 @@ TEST(namespace_is_init) {
                 r = namespace_is_init(t);
                 if (r == -EBADR)
                         log_info_errno(r, "In root namespace of type '%s': don't know", namespace_info[t].proc_name);
+                else if (t == NAMESPACE_NET && ERRNO_IS_NEG_PRIVILEGE(r))
+                        log_info_errno(r, "In root namespace of type '%s': no privilege: %m", namespace_info[t].proc_name);
                 else {
                         ASSERT_OK(r);
                         log_info("In root namespace of type '%s': %s", namespace_info[t].proc_name, yes_no(r));
