@@ -1520,7 +1520,7 @@ char* find_line_after_internal(const char *haystack, const char *needle) {
 
 bool version_is_valid(const char *s, VersionFlags flags) {
 
-        /* Validates a version string superficially. This does not proces the version string in any
+        /* Validates a version string superficially. This does not process the version string in any
          * semantical way, it mostly just validates that its charset is reasonable. */
 
         if (FLAGS_SET(flags, VERSION_ALLOW_EMPTY) ? !s : isempty(s))
