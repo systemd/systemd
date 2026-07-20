@@ -63,7 +63,7 @@ __systemd_osc_context_precmdline() {
         if [ "$systemd_exitstatus" -gt 128 ] && systemd_signal=$(kill -l "$systemd_exitstatus" 2>&-); then
             printf "\033]3008;end=%.64s;exit=failure;status=%d;signal=SIG%s\033\\" "$systemd_osc_context_cmd_id" "$systemd_exitstatus" "$systemd_signal"
         elif [ "$systemd_exitstatus" -ne 0 ]; then
-            printf "\033]3008;end=%.64s;exit=failure;status=%d\033\\" "$systemd_osc_context_cmd_id" $((systemd_exitstatus))
+            printf "\033]3008;end=%.64s;exit=failure;status=%d\033\\" "$systemd_osc_context_cmd_id" "$systemd_exitstatus"
         else
             printf "\033]3008;end=%.64s;exit=success\033\\" "$systemd_osc_context_cmd_id"
         fi
