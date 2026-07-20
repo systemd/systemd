@@ -1430,7 +1430,7 @@ int home_setup_luks(
                 if (run_mark_dirty(setup->image_fd, true) > 0)
                         setup->do_mark_clean = true;
 
-                if (!user_record_luks_discard(h)) {
+                if (!FLAGS_SET(flags, HOME_SETUP_LUKS_DONT_FALLOCATE) && !user_record_luks_discard(h)) {
                         r = run_fallocate(setup->image_fd, &st);
                         if (r < 0)
                                 return r;
@@ -1505,7 +1505,8 @@ int home_setup_luks(
                 if (user_record_luks_discard(h))
                         (void) run_fitrim(setup->root_fd);
 
-                setup->do_offline_fallocate = !(setup->do_offline_fitrim = user_record_luks_offline_discard(h));
+                setup->do_offline_fitrim = user_record_luks_offline_discard(h);
+                setup->do_offline_fallocate = !setup->do_offline_fitrim;
         }
 
         if (!sd_id128_is_null(found_partition_uuid))
@@ -1609,7 +1610,7 @@ int home_activate_luks(
 
         r = home_setup_luks(
                         h,
-                        0,
+                        flags,
                         NULL,
                         setup,
                         cache,
