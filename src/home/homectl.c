@@ -1885,7 +1885,7 @@ static int parse_disk_size(const char *t, uint64_t *ret) {
         if (streq(t, "min"))
                 *ret = 0;
         else if (streq(t, "max"))
-                *ret = UINT64_MAX-1;  /* Largest size that isn't UINT64_MAX special marker */
+                *ret = USER_DISK_SIZE_MAX_MARKER;
         else {
                 uint64_t ds;
 

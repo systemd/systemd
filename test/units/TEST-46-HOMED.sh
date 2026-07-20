@@ -267,6 +267,74 @@ testcase_basic() {
     homectl remove test-user
 }
 
+testcase_disk_size_max_activation() {
+    local create_output filler user
+
+    user=maxsizetest
+    create_output="/tmp/$user.create"
+    filler="/home/$user.filler"
+
+    if ! command -v mkfs.ext4 >/dev/null; then
+        echo "e2fsprogs not installed, skipping disk-size=max activation test."
+        return 0
+    fi
+
+    # shellcheck disable=SC2329
+    cleanup_disk_size_max_activation() (
+        set +e
+
+        rm -f "$filler" "$create_output"
+
+        if homectl inspect "$user" >/dev/null 2>&1; then
+            homectl deactivate "$user" 2>/dev/null
+            wait_for_state "$user" inactive 2>/dev/null
+            homectl remove "$user" 2>/dev/null
+        fi
+
+        mount /home -o remount,size=290M
+        systemctl restart systemd-homed.service
+    )
+
+    trap cleanup_disk_size_max_activation RETURN ERR EXIT
+
+    mount /home -o remount,size=900M
+
+    if ! NEWPASSWORD=xEhErW0ndafV4s \
+        homectl create "$user" \
+        --storage=luks \
+        --fs-type=ext4 \
+        --disk-size=300M \
+        --auto-resize-mode=shrink-and-grow \
+        --luks-discard=no \
+        --luks-offline-discard=yes \
+        --image-path="/home/$user.home" \
+        --luks-pbkdf-type=pbkdf2 \
+        --luks-pbkdf-time-cost=1ms \
+        --rate-limit-interval=1s \
+        --rate-limit-burst=1000 \
+        >"$create_output" 2>&1; then
+
+        if grep -F "System does not support selected storage backend" "$create_output" >/dev/null; then
+            cat "$create_output"
+            echo "LUKS storage backend not supported, skipping disk-size=max activation test."
+            return 0
+        fi
+
+        cat "$create_output" >&2
+        return 1
+    fi
+    cat "$create_output"
+
+    PASSWORD=xEhErW0ndafV4s homectl update "$user" --disk-size=max
+    wait_for_state "$user" inactive
+
+    dd if=/dev/zero of="$filler" bs=1M count=220
+    systemctl restart systemd-homed.service
+
+    PASSWORD=xEhErW0ndafV4s homectl activate "$user"
+    wait_for_state "$user" active
+}
+
 testcase_blob() {
     # blob directory tests
     # See docs/USER_RECORD_BLOB_DIRS.md
