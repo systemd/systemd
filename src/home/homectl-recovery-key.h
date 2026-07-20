@@ -1,6 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <stdbool.h>
+
 #include "forward.h"
 
-int identity_add_recovery_key(sd_json_variant **v);
+typedef struct RecoveryKeyFile {
+        int fd;
+        const char *path;
+        bool remove;
+} RecoveryKeyFile;
+
+#define RECOVERY_KEY_FILE_NULL ((RecoveryKeyFile) {})
+
+int identity_add_recovery_key(sd_json_variant **v, char **ret_recovery_key);
+void show_recovery_key(const char *recovery_key);
+void recovery_key_file_closep(RecoveryKeyFile *f);
+int recovery_key_file_prepare(RecoveryKeyFile *f, const char *path);
+int recovery_key_file_write(RecoveryKeyFile *f, const char *recovery_key);
