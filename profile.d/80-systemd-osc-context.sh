@@ -52,7 +52,7 @@ __systemd_osc_context_common() {
     if [ -f /etc/machine-id ]; then
         printf ";machineid=%.36s" "$(</etc/machine-id)"
     fi
-    printf ";user=%.255s;hostname=%.255s;bootid=%.36s;pid=%.20d" "$USER" "$HOSTNAME" "$(</proc/sys/kernel/random/boot_id)" "$$"
+    printf ";user=%.255s;hostname=%.255s;bootid=%.36s;pid=%.20s" "$USER" "$HOSTNAME" "$(</proc/sys/kernel/random/boot_id)" "$$"
 }
 
 __systemd_osc_context_precmdline() {
