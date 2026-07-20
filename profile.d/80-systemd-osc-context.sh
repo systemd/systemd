@@ -35,20 +35,24 @@
 shopt -q promptvars || return 0
 
 __systemd_osc_context_escape() {
-    # Escape according to the OSC 3008 spec. Since this requires shelling out
-    # to 'sed' we'll only do it where it's strictly necessary, and skip it when
-    # processing strings we are pretty sure we won't need it for, such as
-    # uuids, id128, hostnames, usernames, since they all come with syntax
-    # requirements that exclude \ and ; anyway. This hence primarily is about
-    # escaping the current working directory.
-    echo "$1" | sed -e 's/\\/\\x5c/g' -e 's/;/\\x3b/g' -e 's/[[:cntrl:]]/⍰/g'
+    # Escape according to the OSC 3008 spec. We'll only do it where it's
+    # strictly necessary, and skip it when processing strings we are pretty
+    # sure we won't need it for, such as uuids, id128, hostnames, usernames,
+    # since they all come with syntax requirements that exclude \ and ;
+    # anyway. This hence primarily is about escaping the current working
+    # directory.
+    local str="$1"
+    str="${str//\\/\\x5c}"
+    str="${str//;/\\x3b}"
+    str="${str//[[:cntrl:]]/⍰}"
+    printf "%s" "${str}"
 }
 
 __systemd_osc_context_common() {
     if [ -f /etc/machine-id ]; then
         printf ";machineid=%.36s" "$(</etc/machine-id)"
     fi
-    printf ";user=%.255s;hostname=%.255s;bootid=%.36s;pid=%.20d" "$USER" "$HOSTNAME" "$(</proc/sys/kernel/random/boot_id)" "$$"
+    printf ";user=%.255s;hostname=%.255s;bootid=%.36s;pid=%.20s" "$USER" "$HOSTNAME" "$(</proc/sys/kernel/random/boot_id)" "$$"
 }
 
 __systemd_osc_context_precmdline() {
@@ -59,7 +63,7 @@ __systemd_osc_context_precmdline() {
         if [ "$systemd_exitstatus" -gt 128 ] && systemd_signal=$(kill -l "$systemd_exitstatus" 2>&-); then
             printf "\033]3008;end=%.64s;exit=failure;status=%d;signal=SIG%s\033\\" "$systemd_osc_context_cmd_id" "$systemd_exitstatus" "$systemd_signal"
         elif [ "$systemd_exitstatus" -ne 0 ]; then
-            printf "\033]3008;end=%.64s;exit=failure;status=%d\033\\" "$systemd_osc_context_cmd_id" $((systemd_exitstatus))
+            printf "\033]3008;end=%.64s;exit=failure;status=%d\033\\" "$systemd_osc_context_cmd_id" "$systemd_exitstatus"
         else
             printf "\033]3008;end=%.64s;exit=success\033\\" "$systemd_osc_context_cmd_id"
         fi
