@@ -5031,7 +5031,7 @@ static void tpm2_make_policy_ref(const char *policy_ref, TPM2B_NONCE *ret_policy
          * As we don't know what the maximum digest size supported by the TPM is when publishing a
          * signed policy, we pick SHA256 which is universally supported on PC-Client devices. Ideally the
          * algorithm ID would be prepended to the digest, but we don't know if the TPM2B_NONCE type can
-         * accomodate this. For this reason, the digest algorithm here should match the one used to create
+         * accommodate this. For this reason, the digest algorithm here should match the one used to create
          * the approved digest for the corresponding policy, which is always SHA256 at the moment.
          *
          * Note that we return a policy ref size of 0 if no string is supplied in order to maintain
