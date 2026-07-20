@@ -82,7 +82,18 @@
  * LUKS2 envelope. (As measured on cryptsetup 2.4.1) */
 #define GPT_LUKS2_OVERHEAD UINT64_C(18874368)
 
+/* Always keep at least 16M free, so that we can safely log in and update the user record while doing so */
+#define HOME_MIN_FREE (16U*1024U*1024U)
+
+/* Keep a little bit more free when calculating "max", so that file system metadata allocations and small
+ * post-resize writes don't make the next full allocation fail. */
+#define HOME_MAX_FREE_PERCENT 1U
+
 static int resize_image_loop(UserRecord *h, HomeSetup *setup, uint64_t old_image_size, uint64_t new_image_size, uint64_t *ret_image_size);
+
+static uint64_t home_max_reserve(uint64_t available) {
+        return MAX(HOME_MIN_FREE, DISK_SIZE_ROUND_UP(available / 100U * HOME_MAX_FREE_PERCENT));
+}
 
 int run_mark_dirty(int fd, bool b) {
         char x = '1';
@@ -2113,7 +2124,9 @@ static int calculate_initial_image_size(UserRecord *h, int image_fd, const char 
 
         upper_boundary = DISK_SIZE_ROUND_DOWN((uint64_t) sfs.f_bsize * sfs.f_bavail);
 
-        if (h->disk_size != UINT64_MAX)
+        if (h->disk_size == UINT64_MAX-1)
+                *ret = DISK_SIZE_ROUND_DOWN(LESS_BY(upper_boundary, home_max_reserve(upper_boundary)));
+        else if (h->disk_size != UINT64_MAX)
                 *ret = MIN(DISK_SIZE_ROUND_DOWN(h->disk_size), upper_boundary);
         else if (h->disk_size_relative == UINT64_MAX) {
 
@@ -2984,9 +2997,6 @@ static int apply_resize_partition(
         return 1;
 }
 
-/* Always keep at least 16M free, so that we can safely log in and update the user record while doing so */
-#define HOME_MIN_FREE (16U*1024U*1024U)
-
 static int get_smallest_fs_size(int fd, uint64_t *ret) {
         uint64_t minsz, needed;
         struct statfs sfs;
@@ -3030,7 +3040,7 @@ static int get_smallest_fs_size(int fd, uint64_t *ret) {
         return 0;
 }
 
-static int get_largest_image_size(int fd, const struct stat *st, uint64_t *ret) {
+static int get_largest_image_size(int fd, const struct stat *st, bool reserve_free, uint64_t *ret) {
         uint64_t used, avail, sum;
         struct statfs sfs;
         int r;
@@ -3053,6 +3063,8 @@ static int get_largest_image_size(int fd, const struct stat *st, uint64_t *ret) 
 
         used = (uint64_t) st->st_blocks * 512;
         avail = (uint64_t) sfs.f_bsize * sfs.f_bavail;
+        if (reserve_free)
+                avail = LESS_BY(avail, home_max_reserve(avail));
 
         if (avail > UINT64_MAX - used)
                 sum = UINT64_MAX;
@@ -3376,7 +3388,11 @@ int home_resize_luks(
 
                 partition_table_extra = old_image_size - setup->partition_size;
 
-                r = get_largest_image_size(setup->image_fd, &st, &largest_size);
+                r = get_largest_image_size(
+                                setup->image_fd,
+                                &st,
+                                h->disk_size == UINT64_MAX-1,
+                                &largest_size);
                 if (r < 0)
                         return r;
                 if (new_image_size > largest_size)
