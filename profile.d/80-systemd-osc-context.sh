@@ -35,13 +35,17 @@
 shopt -q promptvars || return 0
 
 __systemd_osc_context_escape() {
-    # Escape according to the OSC 3008 spec. Since this requires shelling out
-    # to 'sed' we'll only do it where it's strictly necessary, and skip it when
-    # processing strings we are pretty sure we won't need it for, such as
-    # uuids, id128, hostnames, usernames, since they all come with syntax
-    # requirements that exclude \ and ; anyway. This hence primarily is about
-    # escaping the current working directory.
-    echo "$1" | sed -e 's/\\/\\x5c/g' -e 's/;/\\x3b/g' -e 's/[[:cntrl:]]/⍰/g'
+    # Escape according to the OSC 3008 spec. We'll only do it where it's
+    # strictly necessary, and skip it when processing strings we are pretty
+    # sure we won't need it for, such as uuids, id128, hostnames, usernames,
+    # since they all come with syntax requirements that exclude \ and ;
+    # anyway. This hence primarily is about escaping the current working
+    # directory.
+    local systemd_value="$1"
+    systemd_value="${systemd_value//\\/\\x5c}"
+    systemd_value="${systemd_value//;/\\x3b}"
+    systemd_value="${systemd_value//[[:cntrl:]]/⍰}"
+    printf "%s" "$systemd_value"
 }
 
 __systemd_osc_context_common() {
