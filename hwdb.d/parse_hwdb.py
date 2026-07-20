@@ -230,7 +230,7 @@ def property_grammar():
         ('ID_CAMERA_DIRECTION', Or(('front', 'rear'))),
         (
             'SOUND_FORM_FACTOR',
-            Or(('internal', 'webcam', 'speaker', 'headphone', 'headset', 'handset', 'microphone')),
+            Or(('internal', 'webcam', 'speaker', 'headphone', 'headset', 'handset', 'microphone', 'controller')),
         ),
         ('ID_SYS_VENDOR_IS_RUBBISH', zero_one),
         ('ID_PRODUCT_NAME_IS_RUBBISH', zero_one),
