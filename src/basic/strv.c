@@ -8,7 +8,6 @@
 #include "escape.h"
 #include "extract-word.h"
 #include "fileio.h"
-#include "gunicode.h"
 #include "hashmap.h"
 #include "log.h"
 #include "memory-util.h"
@@ -1241,7 +1240,10 @@ int strv_rebreak_lines(char **l, size_t width, char ***ret) {
                 bool in_prefix = true; /* still in the whitespace in the beginning of the line? */
                 size_t w = 0;
 
-                for (const char *p = start; *p != 0; p = utf8_next_char(p)) {
+                for (const char *p = start; *p != 0; ) {
+                        char32_t c;
+                        int k;
+
                         if (strchr(NEWLINE, *p)) {
                                 in_prefix = true;
                                 whitespace_begin = whitespace_end = NULL;
@@ -1258,11 +1260,20 @@ int strv_rebreak_lines(char **l, size_t width, char ***ret) {
                                 in_prefix = false;
                         }
 
+                        /* utf8_next_char() blindly indexes utf8_skip_data[] with the lead byte and
+                         * steps that many bytes forward, which on a truncated multi-byte sequence
+                         * advances past the end of the allocation and makes the loop's *p != 0 check
+                         * read out of bounds. Decode the sequence with utf8_encoded_to_unichar()
+                         * instead — it bounds its own continuation-byte scan at the NUL terminator
+                         * and returns the byte length, so we can step by exactly that and propagate
+                         * the error on invalid UTF-8 rather than walking past it. */
+                        k = utf8_encoded_to_unichar(p, &c);
+                        if (k < 0)
+                                return k;
+
                         int cw = utf8_char_console_width(p);
-                        if (cw < 0) {
-                                log_debug_errno(cw, "Comment to line break contains invalid UTF-8, ignoring.");
-                                cw = 1;
-                        }
+                        if (cw < 0)
+                                return cw;
 
                         w += cw;
 
@@ -1279,8 +1290,9 @@ int strv_rebreak_lines(char **l, size_t width, char ***ret) {
 
                                 p = start = whitespace_end;
                                 whitespace_begin = whitespace_end = NULL;
-                                w = cw;
-                        }
+                                w = 0;
+                        } else
+                                p += k;
                 }
 
                 /* Process rest of the line */
