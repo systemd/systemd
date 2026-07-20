@@ -17,6 +17,14 @@
 #include "strv.h"
 #include "utf8.h"
 
+/* Like utf8_next_char(), but never advances past the end of a (possibly truncated) multi-byte
+ * sequence. utf8_next_char() blindly indexes utf8_skip_data[] with the lead byte and steps that
+ * many bytes forward, which reads past the allocation when the trailing bytes are missing. */
+static inline const char *utf8_next_char_safe(const char *p) {
+        int k = utf8_encoded_valid_unichar(p, SIZE_MAX);
+        return k > 0 ? p + k : p + 1;
+}
+
 char* strv_find(char * const *l, const char *name) {
         assert(name);
 
@@ -1241,7 +1249,7 @@ int strv_rebreak_lines(char **l, size_t width, char ***ret) {
                 bool in_prefix = true; /* still in the whitespace in the beginning of the line? */
                 size_t w = 0;
 
-                for (const char *p = start; *p != 0; p = utf8_next_char(p)) {
+                for (const char *p = start; *p != 0; p = utf8_next_char_safe(p)) {
                         if (strchr(NEWLINE, *p)) {
                                 in_prefix = true;
                                 whitespace_begin = whitespace_end = NULL;

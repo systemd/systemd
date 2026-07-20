@@ -1267,6 +1267,16 @@ TEST(strv_rebreak_lines) {
 
                 assert_se(strv_equal(a, b));
         }
+
+        /* Lines ending in a truncated multi-byte UTF-8 sequence must not make the walker read past the
+         * NUL terminator. The 0xF0 lead byte would have utf8_skip_data[0xF0] == 4, so the old
+         * utf8_next_char() step advanced 4 bytes from a 2-byte allocation and tripped the *p != 0 check
+         * out of bounds. See https://github.com/systemd/systemd/issues/43052 */
+        for (size_t i = 1; i < 100; i++) {
+                _cleanup_strv_free_ char **a = NULL;
+
+                assert_se(strv_rebreak_lines(STRV_MAKE("foo bar baz qux \xF0", "foo \xF0"), i, &a) >= 0);
+        }
 }
 
 TEST(strv_find_closest) {
