@@ -183,7 +183,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 - ed25519 authentication for sd-boot upgrades for the dm-verity key logic
 
-- in sysupdate resolve %C or so as specifier in transfer fiels to the value of
+- in sysupdate resolve %C or so as specifier in transfer fields to the value of
   a specific machine tag channel= or so.
 
 - make vmspawn parse UKIs for direct kernel boot
@@ -201,7 +201,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   environments systemd runs in.
 
 - nspawn/vmspawn: add a concept how we can hand into the payload some proof
-  that it is runnin on a certain host, which it can then include in the report,
+  that it is running on a certain host, which it can then include in the report,
   and which allows us to put together a map about which node runs as payload of
   which other note. in particular useful for transient nodes, as it gives them
   a better location
