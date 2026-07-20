@@ -267,6 +267,81 @@ testcase_basic() {
     homectl remove test-user
 }
 
+testcase_update_auto_resize_mode_without_space() {
+    local blocks bsize create_output fill_mbytes fill_size filler home_size image user
+
+    user=no-space-update
+    create_output="/tmp/$user.create"
+    filler="/home/$user.filler"
+    home_size=512M
+    image="/home/$user.home"
+
+    # shellcheck disable=SC2329
+    cleanup_update_auto_resize_mode_without_space() (
+        set +e
+
+        rm -f "$create_output" "$filler"
+
+        if homectl inspect "$user" >/dev/null 2>&1; then
+            homectl deactivate "$user" 2>/dev/null
+            wait_for_state "$user" inactive 2>/dev/null
+            homectl remove "$user" 2>/dev/null
+        fi
+
+        mount /home -o remount,size=290M
+        systemctl restart systemd-homed.service
+    )
+
+    trap cleanup_update_auto_resize_mode_without_space RETURN ERR EXIT
+
+    mount /home -o remount,size="$home_size"
+
+    if ! NEWPASSWORD=xEhErW0ndafV4s \
+        homectl create "$user" \
+        --storage=luks \
+        --disk-size=300M \
+        --auto-resize-mode=shrink-and-grow \
+        --luks-discard=no \
+        --luks-offline-discard=yes \
+        --image-path="$image" \
+        --luks-pbkdf-type=pbkdf2 \
+        --luks-pbkdf-time-cost=1ms \
+        --rate-limit-interval=1s \
+        --rate-limit-burst=1000 \
+        >"$create_output" 2>&1; then
+
+        if grep -F "System does not support selected storage backend" "$create_output" >/dev/null; then
+            cat "$create_output"
+            echo "LUKS storage backend not supported, skipping update without space test."
+            return 0
+        fi
+
+        cat "$create_output" >&2
+        return 1
+    fi
+    cat "$create_output"
+
+    PASSWORD=xEhErW0ndafV4s homectl update "$user" --disk-size=max
+    wait_for_state "$user" inactive
+
+    read -r blocks bsize < <(stat --file-system --format "%a %S" /home)
+    fill_size=$((blocks * bsize - 128 * 1024 * 1024))
+    fill_mbytes=$((fill_size / 1024 / 1024))
+    test "$fill_mbytes" -gt 0
+
+    # Leave enough room for the small identity update below, but not enough for the old full-image fallocate().
+    dd if=/dev/zero of="$filler" bs=1M count="$fill_mbytes"
+
+    systemctl restart systemd-homed.service
+    wait_for_exist "$user"
+
+    PASSWORD=xEhErW0ndafV4s homectl inspect "$user" >/dev/null
+
+    PASSWORD=xEhErW0ndafV4s NEWPASSWORD=yPN4N0fYNKUkOq homectl passwd "$user"
+    PASSWORD=yPN4N0fYNKUkOq homectl update "$user" --auto-resize-mode=off
+    homectl inspect "$user" | grep -F "Auto Resize: off" >/dev/null
+}
+
 testcase_blob() {
     # blob directory tests
     # See docs/USER_RECORD_BLOB_DIRS.md
