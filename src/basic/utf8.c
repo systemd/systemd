@@ -592,6 +592,27 @@ size_t utf8_n_codepoints(const char *str) {
         return n;
 }
 
+const char *utf8_next_char_safe(const char *p) {
+        int k;
+
+        assert(p);
+
+        /* Like utf8_next_char(), but never advances past the end of a (possibly truncated) multi-byte
+         * sequence. utf8_next_char() blindly indexes utf8_skip_data[] with the lead byte and steps that
+         * many bytes forward, which reads (or, on a page boundary, segfaults) past the allocation when
+         * the trailing bytes are missing. Use utf8_encoded_valid_unichar() to validate first; on invalid
+         * input, fall back to a single-byte step so the caller's *p != 0 terminator check still works. */
+
+        if (*p == 0)
+                return p;
+
+        k = utf8_encoded_valid_unichar(p, SIZE_MAX);
+        if (k < 0)
+                return p + 1;
+
+        return p + k;
+}
+
 size_t utf8_console_width(const char *str) {
         POINTER_MAY_BE_NULL(str);
 
