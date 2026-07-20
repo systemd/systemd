@@ -107,6 +107,7 @@ static int arg_fido2_cred_alg = COSE_ES256;
 static int arg_fido2_cred_alg = 0;
 #endif
 static bool arg_recovery_key = false;
+static char *arg_recovery_key_file = NULL;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static ExportFormat arg_export_format = EXPORT_FORMAT_FULL;
 static uint64_t arg_capability_bounding_set = CAP_MASK_UNSET;
@@ -132,6 +133,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_identity_filter, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_identity_filter_rlimits, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_pkcs11_token_uri, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fido2_device, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_recovery_key_file, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_blob_dir, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_blob_files, hashmap_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_key_name, freep);
@@ -158,6 +160,7 @@ static bool identity_properties_specified(void) {
                 !strv_isempty(arg_identity_filter_rlimits) ||
                 !strv_isempty(arg_pkcs11_token_uri) ||
                 !strv_isempty(arg_fido2_device) ||
+                arg_recovery_key ||
                 arg_blob_dir ||
                 arg_blob_clear ||
                 !hashmap_isempty(arg_blob_files);
@@ -1009,12 +1012,14 @@ static int add_disposition(sd_json_variant **v) {
         return 1;
 }
 
-static int acquire_new_home_record(sd_json_variant *input, UserRecord **ret) {
+static int acquire_new_home_record(sd_json_variant *input, UserRecord **ret, char **ret_recovery_key) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_(erase_and_freep) char *recovery_key = NULL;
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
         int r;
 
         assert(ret);
+        assert(ret_recovery_key);
 
         if (arg_identity) {
                 unsigned line = 0, column = 0;
@@ -1055,7 +1060,7 @@ static int acquire_new_home_record(sd_json_variant *input, UserRecord **ret) {
         }
 
         if (arg_recovery_key) {
-                r = identity_add_recovery_key(&v);
+                r = identity_add_recovery_key(&v, &recovery_key);
                 if (r < 0)
                         return r;
         }
@@ -1087,6 +1092,7 @@ static int acquire_new_home_record(sd_json_variant *input, UserRecord **ret) {
                 return r;
 
         *ret = TAKE_PTR(hr);
+        *ret_recovery_key = TAKE_PTR(recovery_key);
         return 0;
 }
 
@@ -1309,13 +1315,38 @@ static int bus_message_append_blobs(sd_bus_message *m, Hashmap *blobs) {
         return sd_bus_message_close_container(m);
 }
 
+static int finalize_recovery_key(const char *recovery_key) {
+        int r;
+
+        if (!recovery_key)
+                return 0;
+
+        if (arg_recovery_key_file) {
+                r = recovery_key_file_write(arg_recovery_key_file, recovery_key);
+                if (r < 0) {
+                        show_recovery_key(recovery_key);
+                        return log_error_errno(r, "Failed to write recovery key file '%s': %m", arg_recovery_key_file);
+                }
+        }
+
+        show_recovery_key(recovery_key);
+        return 0;
+}
+
 static int create_home_common(sd_json_variant *input, bool show_enforce_password_policy_hint) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
         _cleanup_hashmap_free_ Hashmap *blobs = NULL;
+        _cleanup_(erase_and_freep) char *recovery_key = NULL;
         int r;
 
-        r = acquire_new_home_record(input, &hr);
+        if (arg_recovery_key_file) {
+                r = recovery_key_file_check_available(arg_recovery_key_file);
+                if (r < 0)
+                        return log_error_errno(r, "Recovery key file '%s' is not available: %m", arg_recovery_key_file);
+        }
+
+        r = acquire_new_home_record(input, &hr, &recovery_key);
         if (r < 0)
                 return r;
 
@@ -1423,7 +1454,7 @@ static int create_home_common(sd_json_variant *input, bool show_enforce_password
                         break; /* done */
         }
 
-        return 0;
+        return finalize_recovery_key(recovery_key);
 }
 
 VERB(verb_create_home, "create", "USER", VERB_ANY, 2, 0,
@@ -1466,13 +1497,16 @@ static int verb_create_home(int argc, char *argv[], uintptr_t _data, void *userd
 static int acquire_updated_home_record(
                 sd_bus *bus,
                 const char *username,
-                UserRecord **ret) {
+                UserRecord **ret,
+                char **ret_recovery_key) {
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+        _cleanup_(erase_and_freep) char *recovery_key = NULL;
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
         int r;
 
         assert(ret);
+        assert(ret_recovery_key);
 
         if (arg_identity) {
                 unsigned line = 0, column = 0;
@@ -1554,7 +1588,7 @@ static int acquire_updated_home_record(
         }
 
         if (arg_recovery_key) {
-                r = identity_add_recovery_key(&json);
+                r = identity_add_recovery_key(&json, &recovery_key);
                 if (r < 0)
                         return r;
         }
@@ -1577,6 +1611,7 @@ static int acquire_updated_home_record(
                 return r;
 
         *ret = TAKE_PTR(hr);
+        *ret_recovery_key = TAKE_PTR(recovery_key);
         return 0;
 }
 
@@ -1610,6 +1645,7 @@ static int verb_update_home(int argc, char *argv[], uintptr_t _data, void *userd
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL, *secret = NULL;
         _cleanup_free_ char *buffer = NULL;
+        _cleanup_(erase_and_freep) char *recovery_key = NULL;
         _cleanup_hashmap_free_ Hashmap *blobs = NULL;
         const char *username;
         uint64_t flags = 0;
@@ -1629,13 +1665,19 @@ static int verb_update_home(int argc, char *argv[], uintptr_t _data, void *userd
         bool and_change_password = !strv_isempty(arg_pkcs11_token_uri) || !strv_isempty(arg_fido2_device);
         bool and_resize = arg_disk_size != UINT64_MAX || arg_disk_size_relative != UINT64_MAX;
 
+        if (arg_recovery_key_file) {
+                r = recovery_key_file_check_available(arg_recovery_key_file);
+                if (r < 0)
+                        return log_error_errno(r, "Recovery key file '%s' is not available: %m", arg_recovery_key_file);
+        }
+
         r = acquire_bus(&bus);
         if (r < 0)
                 return r;
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        r = acquire_updated_home_record(bus, username, &hr);
+        r = acquire_updated_home_record(bus, username, &hr, &recovery_key);
         if (r < 0)
                 return r;
 
@@ -1708,6 +1750,10 @@ static int verb_update_home(int argc, char *argv[], uintptr_t _data, void *userd
                 } else
                         break;
         }
+
+        r = finalize_recovery_key(recovery_key);
+        if (r < 0)
+                return r;
 
         if (and_resize)
                 log_info("Resizing home.");
@@ -4446,6 +4492,12 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                                 return r;
                         break;
 
+                OPTION_LONG("recovery-key-file", "PATH", "Write the generated recovery key to a file"):
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_recovery_key_file);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 OPTION_GROUP("Blob Directory User Record Properties"): {}
 
                 OPTION('b', "blob", "[FILENAME=]PATH",
@@ -4949,6 +5001,9 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                                 return r;
                 }
         }
+
+        if (arg_recovery_key_file && !arg_recovery_key)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--recovery-key-file= requires --recovery-key=yes.");
 
         *remaining_args = option_parser_get_args(&opts);
         return 1;
