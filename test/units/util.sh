@@ -276,6 +276,25 @@ tpm_has_pcr() {
     [[ -f "/sys/class/tpm/tpm0/pcr-$algorithm/$pcr" ]]
 }
 
+# Check whether the TPM supports a set of object parameters, via tpm2_testparms.
+# Returns 0 if supported, non-zero otherwise.
+#
+# $1: object type (e.g. rsa, rsa2048, ecc, ecc_nist_p384, aes, aes128, aes128cfb).
+# $2: scheme, for asymmetric keys (optional, e.g. rsassa, rsapss-sha256, ecdsa).
+# $3: symmetric details for asymmetric keys (optional, e.g. aes, aes128, aes128cfb).
+tpm2_supports_params() {
+    local spec="${1:?}"
+
+    if [[ -n "${2:-}" ]]; then
+        spec="$spec:$2"
+    fi
+    if [[ -n "${3:-}" ]]; then
+        spec="$spec:$3"
+    fi
+
+    tpm2_testparms "$spec" &>/dev/null
+}
+
 openssl_supports_kdf() {
     local kdf="${1:?}"
 
