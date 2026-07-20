@@ -1241,7 +1241,7 @@ int strv_rebreak_lines(char **l, size_t width, char ***ret) {
                 bool in_prefix = true; /* still in the whitespace in the beginning of the line? */
                 size_t w = 0;
 
-                for (const char *p = start; *p != 0; p = utf8_next_char(p)) {
+                for (const char *p = start; *p != 0; ) {
                         if (strchr(NEWLINE, *p)) {
                                 in_prefix = true;
                                 whitespace_begin = whitespace_end = NULL;
@@ -1259,7 +1259,8 @@ int strv_rebreak_lines(char **l, size_t width, char ***ret) {
                         }
 
                         int cw = utf8_char_console_width(p);
-                        if (cw < 0) {
+                        bool invalid = cw < 0;
+                        if (invalid) {
                                 log_debug_errno(cw, "Comment to line break contains invalid UTF-8, ignoring.");
                                 cw = 1;
                         }
@@ -1280,7 +1281,13 @@ int strv_rebreak_lines(char **l, size_t width, char ***ret) {
                                 p = start = whitespace_end;
                                 whitespace_begin = whitespace_end = NULL;
                                 w = cw;
+
+                                /* p was repointed to whitespace_end, so the validity we
+                                 * determined above no longer applies to it. */
+                                invalid = utf8_char_console_width(p) < 0;
                         }
+
+                        p = invalid ? p + 1 : utf8_next_char(p);
                 }
 
                 /* Process rest of the line */
