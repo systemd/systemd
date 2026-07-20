@@ -2057,7 +2057,7 @@ static int tpm2_get_custom_ek_template(
 /* This is the default SHA-256 authorization policy for high-range endorsement keys. High-range EKs
  * define a policy that permits the privacy administrator to delegate admin usage of the endorsement key via
  * TPM2_PolicyAuthorizeNV. There is one NV index defined per name algorithm. These and their public
- * attributes are specified in secion A.1 of the "TCG EK Credential Profile for TPM Family 2.0" spec.
+ * attributes are specified in section A.1 of the "TCG EK Credential Profile for TPM Family 2.0" spec.
  *
  * This policy is:
  *
@@ -2075,7 +2075,7 @@ static int tpm2_get_custom_ek_template(
 /* This is the default SHA-384 authorization policy for high-range endorsement keys. High-range EKs
  * define a policy that permits the privacy administrator to delegate admin usage of the endorsement key via
  * TPM2_PolicyAuthorizeNV. There is one NV index defined per name algorithm. These and their public
- * attributes are specified in secion A.1 of the "TCG EK Credential Profile for TPM Family 2.0" spec.
+ * attributes are specified in section A.1 of the "TCG EK Credential Profile for TPM Family 2.0" spec.
  *
  * This policy is:
  *
