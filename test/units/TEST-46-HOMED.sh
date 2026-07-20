@@ -267,6 +267,53 @@ testcase_basic() {
     homectl remove test-user
 }
 
+testcase_disk_size_max_activation() {
+    local user=maxsizetest
+
+    # shellcheck disable=SC2329
+    cleanup_disk_size_max_activation() (
+        set +e
+
+        rm -f /home/maxsizetest.filler
+
+        if homectl inspect "$user" >/dev/null 2>&1; then
+            homectl deactivate "$user" 2>/dev/null
+            wait_for_state "$user" inactive 2>/dev/null
+            homectl remove "$user" 2>/dev/null
+        fi
+
+        mount /home -o remount,size=290M
+        systemctl restart systemd-homed.service
+    )
+
+    trap cleanup_disk_size_max_activation RETURN
+
+    mount /home -o remount,size=900M
+
+    NEWPASSWORD=xEhErW0ndafV4s \
+        homectl create "$user" \
+        --storage=luks \
+        --fs-type=btrfs \
+        --disk-size=300M \
+        --auto-resize-mode=shrink-and-grow \
+        --luks-discard=no \
+        --luks-offline-discard=yes \
+        --image-path="/home/$user.home" \
+        --luks-pbkdf-type=pbkdf2 \
+        --luks-pbkdf-time-cost=1ms \
+        --rate-limit-interval=1s \
+        --rate-limit-burst=1000
+
+    PASSWORD=xEhErW0ndafV4s homectl update "$user" --disk-size=max
+    wait_for_state "$user" inactive
+
+    dd if=/dev/zero of=/home/maxsizetest.filler bs=1M count=220
+    systemctl restart systemd-homed.service
+
+    PASSWORD=xEhErW0ndafV4s homectl activate "$user"
+    wait_for_state "$user" active
+}
+
 testcase_blob() {
     # blob directory tests
     # See docs/USER_RECORD_BLOB_DIRS.md
