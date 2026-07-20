@@ -1638,6 +1638,21 @@ static int home_validate_update(UserRecord *h, HomeSetup *setup, HomeSetupFlags 
         return has_mount; /* return true if the home record is already active */
 }
 
+static int home_setup_for_metadata(
+                UserRecord *h,
+                HomeSetupFlags flags,
+                HomeSetup *setup,
+                PasswordCache *cache,
+                UserRecord **ret_header_home) {
+
+        /* Metadata operations need to mount the home only to read/write identity records. For non-discard
+         * LUKS homes, skip the full backing-file fallocate here so these maintenance operations remain usable
+         * when the sparse image can no longer be fully allocated. Normal create, activation, and resize paths
+         * still call home_setup() directly and keep the existing preallocation behavior. */
+
+        return home_setup(h, flags | HOME_SETUP_DONT_FALLOCATE, setup, cache, ret_header_home);
+}
+
 static int home_update(UserRecord *h, Hashmap *blobs, UserRecord **ret) {
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL, *header_home = NULL, *embedded_home = NULL;
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
@@ -1680,7 +1695,7 @@ static int home_update(UserRecord *h, Hashmap *blobs, UserRecord **ret) {
                 return user_record_clone(h, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_PERMISSIVE, ret);
         }
 
-        r = home_setup(h, flags, &setup, &cache, &header_home);
+        r = home_setup_for_metadata(h, flags, &setup, &cache, &header_home);
         if (r < 0)
                 return r;
 
@@ -1782,7 +1797,7 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
-        r = home_setup(h, flags, &setup, &cache, &header_home);
+        r = home_setup_for_metadata(h, flags, &setup, &cache, &header_home);
         if (r < 0)
                 return r;
 
@@ -1860,7 +1875,7 @@ static int home_inspect(UserRecord *h, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
-        r = home_setup(h, flags, &setup, &cache, &header_home);
+        r = home_setup_for_metadata(h, flags, &setup, &cache, &header_home);
         if (r < 0)
                 return r;
 
