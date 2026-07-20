@@ -1885,7 +1885,7 @@ static int parse_disk_size(const char *t, uint64_t *ret) {
         if (streq(t, "min"))
                 *ret = 0;
         else if (streq(t, "max"))
-                *ret = UINT64_MAX-1;  /* Largest size that isn't UINT64_MAX special marker */
+                *ret = USER_DISK_SIZE_FILL_MARKER;
         else {
                 uint64_t ds;
 
@@ -1893,7 +1893,7 @@ static int parse_disk_size(const char *t, uint64_t *ret) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse disk size parameter: %s", t);
 
-                if (ds >= UINT64_MAX) /* UINT64_MAX has special meaning for us ("dont change"), refuse */
+                if (ds >= USER_DISK_SIZE_FILL_MARKER) /* UINT64_MAX and UINT64_MAX-1 have special meaning for us, refuse */
                         return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Disk size out of range: %s", t);
 
                 *ret = ds;
