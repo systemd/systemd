@@ -171,7 +171,7 @@ int context_sign_report(
         if (fputs(text, output) == EOF)
                 return log_error_errno(errno, "Failed to write report: %m");
 
-        /* For the signatures we can use the requested formattting */
+        /* For the signatures we can use the requested formatting */
         format_flags |= SD_JSON_FORMAT_SEQ;
         format_flags &= ~SD_JSON_FORMAT_OFF;
 
