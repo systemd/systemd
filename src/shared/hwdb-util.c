@@ -416,6 +416,7 @@ static int trie_store(struct trie *trie, const char *filename, bool compat) {
         /* write succeeded */
 
         log_debug("=== trie on-disk ===");
+        log_debug("filename:         %s", filename);
         log_debug("size:             %8"PRIi64" bytes", size);
         log_debug("header:           %8zu bytes", sizeof(struct trie_header_f));
         log_debug("nodes:            %8"PRIu64" bytes (%8"PRIu64")",
