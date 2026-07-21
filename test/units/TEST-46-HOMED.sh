@@ -41,12 +41,13 @@ wait_for_state() {
 }
 
 FSTYPE="$(stat --file-system --format "%T" /)"
+HOME_TMPFS_SIZE=290M
 
 systemctl start systemd-homed.service systemd-userdbd.socket
 
 # Create a tmpfs to use as backing store for the home dir. That way we can enforce a size limit nicely.
 mkdir -p /home
-mount -t tmpfs tmpfs /home -o size=290M
+mount -t tmpfs tmpfs /home -o size="$HOME_TMPFS_SIZE"
 
 # Make sure systemd-homed takes notice of the overmounted /home/
 systemctl kill -sUSR1 systemd-homed
@@ -265,6 +266,119 @@ testcase_basic() {
 
     wait_for_state test-user inactive
     homectl remove test-user
+}
+
+testcase_disk_size_max_activation() {
+    local allocated_bytes blocks bsize create_output fill_bytes fill_mbytes
+    local filler free_after_bytes free_before_bytes free_bytes hole_bytes image image_size
+    local initial_allocated_bytes leave_extra_bytes old_hole_bytes old_unreserved_image_size
+    local reserve_bytes target_free_after_bytes test_home_size user
+
+    user=maxsizetest
+    create_output="/tmp/$user.create"
+    filler="/home/$user.filler"
+    image="/home/$user.home"
+    reserve_bytes=$((16 * 1024 * 1024))
+    leave_extra_bytes=$((12 * 1024 * 1024))
+    test_home_size=512M
+
+    if ! command -v mkfs.ext4 >/dev/null; then
+        echo "e2fsprogs not installed, skipping disk-size=max activation test."
+        return 0
+    fi
+
+    # shellcheck disable=SC2329
+    cleanup_disk_size_max_activation() (
+        set +e
+        local cleanup_user="${1:?}"
+        local cleanup_filler="${2:?}"
+        local cleanup_create_output="${3:?}"
+
+        rm -f "$cleanup_filler" "$cleanup_create_output"
+
+        if homectl inspect "$cleanup_user" >/dev/null 2>&1; then
+            homectl deactivate "$cleanup_user" 2>/dev/null
+            wait_for_state "$cleanup_user" inactive 2>/dev/null
+            homectl remove "$cleanup_user" 2>/dev/null
+        fi
+
+        mount /home -o remount,size="$HOME_TMPFS_SIZE"
+        systemctl restart systemd-homed.service
+    )
+
+    # shellcheck disable=SC2064
+    trap "cleanup_disk_size_max_activation ${user@Q} ${filler@Q} ${create_output@Q}" RETURN ERR EXIT
+
+    mount /home -o remount,size="$test_home_size"
+
+    if ! NEWPASSWORD=xEhErW0ndafV4s \
+        homectl create "$user" \
+        --storage=luks \
+        --fs-type=ext4 \
+        --disk-size=300M \
+        --auto-resize-mode=shrink-and-grow \
+        --luks-discard=no \
+        --luks-offline-discard=yes \
+        --image-path="$image" \
+        --luks-pbkdf-type=pbkdf2 \
+        --luks-pbkdf-time-cost=1ms \
+        --rate-limit-interval=1s \
+        --rate-limit-burst=1000 \
+        >"$create_output" 2>&1; then
+
+        if grep -F "System does not support selected storage backend" "$create_output" >/dev/null; then
+            cat "$create_output"
+            echo "LUKS storage backend not supported, skipping disk-size=max activation test."
+            return 0
+        fi
+
+        cat "$create_output" >&2
+        return 1
+    fi
+    cat "$create_output"
+
+    initial_allocated_bytes="$(($(stat --format "%b" "$image") * 512))"
+    read -r blocks bsize < <(stat --file-system --format "%a %S" /home)
+    free_before_bytes=$((blocks * bsize))
+    old_unreserved_image_size=$(((initial_allocated_bytes + free_before_bytes) / 1024 / 1024 * 1024 * 1024))
+
+    PASSWORD=xEhErW0ndafV4s homectl update "$user" --disk-size=max
+    wait_for_state "$user" inactive
+
+    image_size="$(stat --format "%s" "$image")"
+    allocated_bytes="$(($(stat --format "%b" "$image") * 512))"
+    hole_bytes=$((image_size - allocated_bytes))
+    old_hole_bytes=$((old_unreserved_image_size - allocated_bytes))
+    target_free_after_bytes=$((old_hole_bytes - reserve_bytes + leave_extra_bytes))
+
+    read -r blocks bsize < <(stat --file-system --format "%a %S" /home)
+    free_bytes=$((blocks * bsize))
+    fill_bytes=$((free_bytes - target_free_after_bytes))
+
+    if (( hole_bytes <= 0 ||
+          old_hole_bytes <= 0 ||
+          target_free_after_bytes <= 0 ||
+          fill_bytes <= 0 )); then
+        echo "Not enough free space to exercise disk-size=max activation test, skipping."
+        echo "hole=$hole_bytes old_hole=$old_hole_bytes target_free=$target_free_after_bytes free=$free_bytes"
+        return 0
+    fi
+
+    fill_mbytes=$(((fill_bytes + 1024 * 1024 - 1) / 1024 / 1024))
+
+    # Leave enough free space for the reserved max-sized image, but less than the pre-fix
+    # unreserved disk-size=max image would need for the full fallocate during activation.
+    dd if=/dev/zero of="$filler" bs=1M count="$fill_mbytes"
+
+    read -r blocks bsize < <(stat --file-system --format "%a %S" /home)
+    free_after_bytes=$((blocks * bsize))
+    test "$free_after_bytes" -gt "$hole_bytes"
+    test "$free_after_bytes" -lt "$old_hole_bytes"
+
+    systemctl restart systemd-homed.service
+
+    PASSWORD=xEhErW0ndafV4s homectl activate "$user"
+    wait_for_state "$user" active
 }
 
 testcase_blob() {
