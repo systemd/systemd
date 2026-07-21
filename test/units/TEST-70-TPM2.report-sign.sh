@@ -912,3 +912,80 @@ test_voucher_without_key() {
     echo "OK: voucher without key test"
 }
 test_voucher_without_key
+
+# Delete a signing key via the key manager.
+#
+# $1: the name of the key to delete.
+delete_key() {
+    varlinkctl call "$KEY_MANAGER" io.systemd.Report.TPM2SignerKeyManager.DeleteKey \
+        "$(jq -nc --arg name "$1" '{name: $name}')"
+}
+
+# 10) Deleting a key removes all associated files.
+test_delete_key() {
+    if ! tpm2_supports_params ecc_nist_p256 ecdsa-sha256; then
+        echo "TPM does not support the delete-key test parameters, skipping."
+        return 0
+    fi
+
+    reset_state
+    create_key "delete-me" '{"type":"primary","scheme":"ecdsa","hashAlg":"sha256","eccCurve":"nistp256","hierarchy":"owner"}' >/dev/null
+
+    # Signing caches a key context in the runtime directory.
+    generate_signed >/dev/null
+
+    # Drop a dummy voucher next to the key, to confirm it's removed too.
+    echo "dummy voucher" >"$KEY_DIR/delete-me.voucher"
+
+    test -e "$KEY_DIR/delete-me.key"
+    test -e "$KEY_DIR/delete-me.voucher"
+    test -e "$CONTEXT_DIR/delete-me.context"
+
+    delete_key "delete-me" >/dev/null
+
+    # All of the key's files must be gone.
+    test ! -e "$KEY_DIR/delete-me.key"
+    test ! -e "$KEY_DIR/delete-me.voucher"
+    test ! -e "$CONTEXT_DIR/delete-me.context"
+
+    echo "OK: delete-key test"
+}
+test_delete_key
+
+# 11) Deleting a persistent key also evicts its object from the TPM.
+test_delete_persistent_key() {
+    if ! tpm2_supports_params rsa2048 rsassa-sha256; then
+        echo "TPM does not support the delete-persistent test parameters, skipping."
+        return 0
+    fi
+
+    reset_state
+    create_key "delete-persistent" \
+        "$(jq -nc --argjson ph "$((PERSISTENT_HANDLE))" '{"type":"persistent", "scheme":"rsassa", "hashAlg":"sha256", "rsaKeyBits":2048, "hierarchy":"owner", "persistentHandle":$ph}')" >/dev/null
+
+    test -e "$KEY_DIR/delete-persistent.key"
+    # The persistent object must exist in the TPM.
+    tpm2_readpublic -c "$PERSISTENT_HANDLE" >/dev/null
+
+    delete_key "delete-persistent" >/dev/null
+
+    test ! -e "$KEY_DIR/delete-persistent.key"
+    # ...and its persistent object must have been evicted.
+    assert_fail tpm2_readpublic -c "$PERSISTENT_HANDLE"
+
+    echo "OK: delete-persistent-key test"
+}
+test_delete_persistent_key
+
+# 12) Deleting a key that doesn't exist must fail with NoSuchKey.
+test_delete_no_such_key() {
+    local err
+
+    reset_state
+    err="$(varlinkctl call "$KEY_MANAGER" io.systemd.Report.TPM2SignerKeyManager.DeleteKey \
+        '{"name":"does-not-exist"}' 2>&1 || true)"
+    echo "$err" | grep "io.systemd.Report.TPM2SignerKeyManager.NoSuchKey" >/dev/null
+
+    echo "OK: delete-no-such-key test"
+}
+test_delete_no_such_key

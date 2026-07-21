@@ -1494,6 +1494,124 @@ static int vl_method_create_key(
                         SD_JSON_BUILD_PAIR_STRING("publicPEM", public_pem));
 }
 
+typedef struct DeleteKeyParameters {
+        const char *name;
+} DeleteKeyParameters;
+
+static int vl_method_delete_key(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                sd_varlink_method_flags_t flags,
+                void *userdata) {
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "name", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(DeleteKeyParameters, name), SD_JSON_MANDATORY },
+                {}
+        };
+
+        DeleteKeyParameters p = {};
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (!filename_is_valid(p.name))
+                return sd_varlink_error_invalid_parameter_name(link, "name");
+
+        _cleanup_free_ char *key_fname = strjoin(p.name, REPORT_SIGN_TPM2_KEY_EXT);
+        _cleanup_free_ char *voucher_fname = strjoin(p.name, REPORT_SIGN_TPM2_VOUCHER_EXT);
+        _cleanup_free_ char *context_fname = strjoin(p.name, REPORT_SIGN_TPM2_KEYCONTEXT_EXT);
+        if (!key_fname || !voucher_fname || !context_fname)
+                return log_oom();
+
+        /* Lock the runtime directory and then the persistent directory, both exclusively. We take the two
+         * locks in the same order as the signing path (runtime first, then persistent) to avoid deadlocking. */
+        _cleanup_close_ int runtime_dir_fd = xopenat_lock_full(
+                        AT_FDCWD,
+                        REPORT_SIGN_TPM2_RUNTIME_DIR,
+                        O_CLOEXEC|O_DIRECTORY|O_CREAT,
+                        /* xopen_flags= */ 0,
+                        /* mode= */ 0700,
+                        LOCK_BSD,
+                        LOCK_EX);
+        if (runtime_dir_fd < 0)
+                return log_error_errno(runtime_dir_fd, "Failed to open and lock directory '%s': %m", REPORT_SIGN_TPM2_RUNTIME_DIR);
+
+        _cleanup_close_ int dir_fd = xopenat_lock_full(
+                        AT_FDCWD,
+                        REPORT_SIGN_TPM2_PERSISTENT_DIR,
+                        O_CLOEXEC|O_DIRECTORY|O_CREAT,
+                        /* xopen_flags= */ 0,
+                        /* mode= */ 0700,
+                        LOCK_BSD,
+                        LOCK_EX);
+        if (dir_fd < 0)
+                return log_error_errno(dir_fd, "Failed to open and lock directory '%s': %m", REPORT_SIGN_TPM2_PERSISTENT_DIR);
+
+        /* Check that the key exists. */
+        if (faccessat(dir_fd, key_fname, F_OK, AT_SYMLINK_NOFOLLOW) < 0) {
+                if (errno == ENOENT)
+                        return sd_varlink_error(link, "io.systemd.Report.TPM2SignerKeyManager.NoSuchKey", /* parameters= */ NULL);
+                return log_error_errno(errno, "Failed to check whether signing key '%s' exists: %m", key_fname);
+        }
+
+        /* Load the key data so we know its type, and for persistent keys the handle we may need to evict. */
+        _cleanup_(signing_key_data_freep) SigningKeyData *data = new0(SigningKeyData, 1);
+        if (!data)
+                return log_oom();
+
+        r = load_signing_key_data(dir_fd, key_fname, data);
+        if (r < 0)
+                return r;
+
+        /* For a persistent key, evict the corresponding TPM object too as long as the object matches the
+         * persistent handle stored in the key file. */
+        if (data->type == SIGNING_KEY_PERSISTENT) {
+                _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
+                r = tpm2_context_new_or_warn(/* device= */ NULL, &c);
+                if (r < 0)
+                        return r;
+
+                _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+                r = acquire_persistent_key(c, &data->handle, &handle);
+                if (r < 0)
+                        log_warning_errno(r, "Persistent object for signing key '%s' is missing or no longer matches, not evicting it.", p.name);
+                else {
+                        TPM2_HANDLE index;
+                        r = tpm2_index_from_handle(c, handle, &index);
+                        if (r < 0)
+                                /* Note that this fails on versions of tss2 that don't have Esys_TR_GetTpmHandle. */
+                                return log_error_errno(r, "Failed to determine persistent handle for signing key '%s': %m", p.name);
+
+                        r = tpm2_evict_handle(c, /* session= */ NULL, index);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to evict persistent object for signing key '%s': %m", p.name);
+                }
+        }
+
+        _cleanup_free_ char *dir_path = NULL;
+        (void) fd_get_path(dir_fd, &dir_path);
+
+        /* Remove the key file and its optional voucher from the persistent directory. */
+        if (unlinkat(dir_fd, key_fname, 0) < 0)
+                return log_error_errno(errno, "Failed to remove signing key data file '%s/%s': %m", strnull(dir_path), key_fname);
+
+        if (unlinkat(dir_fd, voucher_fname, 0) < 0 && errno != ENOENT)
+                return log_error_errno(errno, "Failed to remove signing key voucher '%s/%s': %m", strnull(dir_path), voucher_fname);
+
+        /* Remove the cached key context from the runtime directory. */
+        if (unlinkat(runtime_dir_fd, context_fname, 0) < 0 && errno != ENOENT)
+                return log_error_errno(errno, "Failed to remove signing key context '%s': %m", context_fname);
+
+        log_debug("Deleted signing key '%s'.", p.name);
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
 static int vl_server(void) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *vs = NULL;
         int r;
@@ -1511,7 +1629,8 @@ static int vl_server(void) {
         r = sd_varlink_server_bind_method_many(
                         vs,
                         "io.systemd.Report.Signer.Sign", vl_method_sign,
-                        "io.systemd.Report.TPM2SignerKeyManager.CreateKey", vl_method_create_key);
+                        "io.systemd.Report.TPM2SignerKeyManager.CreateKey", vl_method_create_key,
+                        "io.systemd.Report.TPM2SignerKeyManager.DeleteKey", vl_method_delete_key);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink methods: %m");
 
