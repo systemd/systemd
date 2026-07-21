@@ -1265,6 +1265,7 @@ static int vl_method_create_key(
                 { "rsaKeyBits",       _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,             offsetof(CreateKeyParameters, rsa_key_bits),      SD_JSON_NULLABLE  },
                 { "eccCurve",         SD_JSON_VARIANT_STRING,        json_dispatch_ecc_curve,             offsetof(CreateKeyParameters, ecc_curve),         SD_JSON_NULLABLE  },
                 { "parentHandle",     _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,             offsetof(CreateKeyParameters, parent_handle),     SD_JSON_NULLABLE  },
+                { "parentContext",    SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,        offsetof(CreateKeyParameters, parent_context),    SD_JSON_NULLABLE  },
                 { "hierarchy",        SD_JSON_VARIANT_STRING,        json_dispatch_signing_key_hierarchy, offsetof(CreateKeyParameters, hierarchy),         SD_JSON_NULLABLE  },
                 { "persistentHandle", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,             offsetof(CreateKeyParameters, persistent_handle), SD_JSON_NULLABLE  },
                 { "primaryNonce",     SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,        offsetof(CreateKeyParameters, primary_nonce),     SD_JSON_NULLABLE  },
@@ -1322,11 +1323,13 @@ static int vl_method_create_key(
         /* Validate the handle/hierarchy combination for the chosen key type. */
         switch (p.type) {
         case SIGNING_KEY_ORDINARY:
-                /* Must have a parentHandle. */
-                if (p.parent_handle == 0)
+                /* Must have a parentHandle, and it must be persistent. */
+                if (!is_persistent_handle(p.parent_handle))
                         return sd_varlink_error_invalid_parameter_name(link, "parentHandle");
 
-                /* Must not specify a hierarchy or persistentHandle. */
+                /* Must not specify a parentContext, hierarchy or persistentHandle. */
+                if (iovec_is_set(&p.parent_context))
+                        return sd_varlink_error_invalid_parameter_name(link, "parentContext");
                 if (p.hierarchy >= 0)
                         return sd_varlink_error_invalid_parameter_name(link, "hierarchy");
                 if (p.persistent_handle != 0)
@@ -1334,12 +1337,18 @@ static int vl_method_create_key(
                 break;
 
         case SIGNING_KEY_PERSISTENT:
-                /* Exactly one of parentHandle or hierarchy must be specified. */
-                if ((p.parent_handle != 0) == (p.hierarchy >= 0))
-                        return sd_varlink_error_invalid_parameter_name(link, p.parent_handle != 0 ? "hierarchy" : "parentHandle");
+                /* Exactly one of parentHandle, parentContext or hierarchy must be specified. */
+                if ((p.parent_handle != 0) + iovec_is_set(&p.parent_context) + (p.hierarchy >= 0) != 1)
+                        return sd_varlink_error_invalid_parameter_name(link, "parentHandle");
+
+                /* If parentHandle is specified, it must be a persistent handle. */
+                if (p.parent_handle != 0 && !is_persistent_handle(p.parent_handle))
+                        return sd_varlink_error_invalid_parameter_name(link, "parentHandle");
+
                 /* Must have a persistentHandle too. */
-                if (p.persistent_handle == 0)
+                if (!is_persistent_handle(p.persistent_handle))
                         return sd_varlink_error_invalid_parameter_name(link, "persistentHandle");
+
                 /* Cannot persist a key in the null hierarchy. */
                 if (p.hierarchy == SIGNING_KEY_HIERARCHY_NULL)
                         return sd_varlink_error_invalid_parameter_name(link, "hierarchy");
@@ -1350,9 +1359,11 @@ static int vl_method_create_key(
                 if (p.hierarchy < 0)
                         return sd_varlink_error_invalid_parameter_name(link, "hierarchy");
 
-                /* Must not have a parentHandle or persistentHandle. */
+                /* Must not have a parentHandle, parentContext or persistentHandle. */
                 if (p.parent_handle != 0)
                         return sd_varlink_error_invalid_parameter_name(link, "parentHandle");
+                if (iovec_is_set(&p.parent_context))
+                        return sd_varlink_error_invalid_parameter_name(link, "parentContext");
                 if (p.persistent_handle != 0)
                         return sd_varlink_error_invalid_parameter_name(link, "persistentHandle");
                 break;
@@ -1360,12 +1371,6 @@ static int vl_method_create_key(
         default:
                 assert_not_reached();
         }
-
-        /* Make sure parentHandle or persistentHandle where supplied corresponds to a persistent handle. */
-        if (p.parent_handle != 0 && !is_persistent_handle(p.parent_handle))
-                return sd_varlink_error_invalid_parameter_name(link, "parentHandle");
-        if (p.persistent_handle != 0 && !is_persistent_handle(p.persistent_handle))
-                return sd_varlink_error_invalid_parameter_name(link, "persistentHandle");
 
         /* The key is created as a primary key whenever the type is "primary", or where the type is
          * "persistent" with "hierarchy" rather than "parentHandle". */
@@ -1431,19 +1436,35 @@ static int vl_method_create_key(
         _cleanup_(Esys_Freep) TPM2B_NAME *name = NULL;
 
         if (as_primary) {
-                /* This is the path for "primary" keys, or "persistent" keys with a hierarchy rather than
-                 * parentHandle. */
+                /* This is the path for "primary" keys, or "persistent" keys with a "hierarchy" rather than
+                 * "parentHandle" or "parentContext". */
                 r = create_primary_key(c, p.hierarchy, &template, &name, &public, &handle);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create new signing key in TPM: %m");
         } else {
-                /* This is the path for "ordinary" keys, or "persistent" keys with a parentHandle rather than
-                 * a "hierarchy". */
-                r = tpm2_index_to_handle(c, (TPM2_HANDLE) p.parent_handle, /* session= */ NULL, /* ret_name= */ NULL, &parent);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to acquire parent handle: %m");
-                if (r == 0)
-                        return sd_varlink_error_invalid_parameter_name(link, "parentHandle");
+                /* This is the path for "ordinary" keys, or "persistent" keys with either a "parentHandle"
+                * or "parentContext" rather than a "hierarchy". */
+                if (iovec_is_set(&p.parent_context)) {
+                        /* Persistent keys with a "parentContext" corresponding to a saved transient key. */
+                        TPMS_CONTEXT context;
+                        r = tpm2_unmarshal_saved_handle_context(
+                                        p.parent_context.iov_base,
+                                        p.parent_context.iov_len,
+                                        &context);
+                        if (r < 0)
+                                return sd_varlink_error_invalid_parameter_name(link, "parentContext");
+
+                        r = tpm2_load_saved_handle_context(c, &context, /* ret_name= */ NULL, &parent);
+                        if (r < 0)
+                                return sd_varlink_error_invalid_parameter_name(link, "parentContext");
+                } else {
+                        /* "Ordinary" keys or "persistent" keys with a "parentHandle". */
+                        r = tpm2_index_to_handle(c, (TPM2_HANDLE) p.parent_handle, /* session= */ NULL, /* ret_name= */ NULL, &parent);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to acquire parent handle: %m");
+                        if (r == 0)
+                                return sd_varlink_error_invalid_parameter_name(link, "parentHandle");
+                }
 
                 /* If parent corresponds to the EK, we may require a policy session for authorization. */
                 _cleanup_(tpm2_handle_freep) Tpm2Handle *session = NULL;
