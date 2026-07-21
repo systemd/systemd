@@ -75,7 +75,7 @@ __systemd_osc_context_precmdline() {
     fi
 
     # Create or update the shell session
-    printf "\033]3008;start=%.64s%s;type=shell;cwd=%.255s\033\\" "$systemd_osc_context_shell_id" "$(__systemd_osc_context_common)" "$(__systemd_osc_context_escape "$PWD")"
+    printf "\033]3008;start=%.64s;type=shell%s;cwd=%.255s\033\\" "$systemd_osc_context_shell_id" "$(__systemd_osc_context_common)" "$(__systemd_osc_context_escape "$PWD")"
 
     # Prepare cmd id for next command
     read -r systemd_osc_context_cmd_id </proc/sys/kernel/random/uuid
@@ -85,7 +85,7 @@ __systemd_osc_context_ps0() {
     # Skip if PROMPT_COMMAND= is cleared manually or by other profiles.
     [ -n "${systemd_osc_context_cmd_id:-}" ] || return
 
-    printf "\033]3008;start=%.64s%s;type=command;cwd=%.255s\033\\" "$systemd_osc_context_cmd_id" "$(__systemd_osc_context_common)" "$(__systemd_osc_context_escape "$PWD")"
+    printf "\033]3008;start=%.64s;type=command%s;cwd=%.255s\033\\" "$systemd_osc_context_cmd_id" "$(__systemd_osc_context_common)" "$(__systemd_osc_context_escape "$PWD")"
 }
 
 if [ -n "${BASH_VERSION:-}" ]; then
