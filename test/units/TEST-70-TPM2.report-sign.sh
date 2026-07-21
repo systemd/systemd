@@ -440,6 +440,29 @@ def main():
             sys.exit("publicPEM does not match public")
         return
 
+    if mode == "tpm2-tools-context":
+        # Convert a tpm2-tools context file (read from stdin) into the base64
+        # encoded, TSS2-marshaled TPMS_CONTEXT that the CreateKey parentContext
+        # field expects.
+        #
+        # The tpm2-tools format is: magic (u32, 0xBADCC0DE), version (u32, 1),
+        # then hierarchy (u32), savedHandle (u32), sequence (u64), and the
+        # context blob (u16 length + bytes). A marshaled TPMS_CONTEXT instead
+        # orders the fields sequence (u64), savedHandle (u32), hierarchy (u32),
+        # then the blob (u16 length + bytes).
+        blob = sys.stdin.buffer.read()
+        magic, version, hierarchy, saved_handle, sequence, blob_size = struct.unpack(">IIIIQH", blob[:26])
+        if magic != 0xBADCC0DE:
+            sys.exit(f"unexpected tpm2-tools context magic {magic:#x}")
+        if version != 1:
+            sys.exit(f"unsupported tpm2-tools context version {version}")
+        context_blob = blob[26:26 + blob_size]
+        if len(context_blob) != blob_size:
+            sys.exit("truncated tpm2-tools context blob")
+        tpms_context = struct.pack(">QII", sequence, saved_handle, hierarchy) + marshal_bytes_tpm2b(context_blob)
+        print(base64.b64encode(tpms_context).decode())
+        return
+
     if mode != "verify":
         sys.exit(f"unknown mode {mode!r}")
 
@@ -906,7 +929,20 @@ test_key_exists() {
 }
 test_key_exists
 
-# 11) A voucher for the default key with no matching key must not cause a default
+# 11) A persistent key whose parent is an existing persistent storage key.
+test_single_key "persistent-parenthandle" \
+    "$(jq -nc --argjson ph "$((EK_HANDLE))" --argjson kh "$((PERSISTENT_HANDLE))" '{"type":"persistent","scheme":"rsassa","hashAlg":"sha256","rsaKeyBits":2048,"parentHandle":$ph,"persistentHandle":$kh}')" \
+    RSA SHA256 RSASSA 2048
+
+# 12) A persistent key whose parent is a transient storage key, supplied as a
+#     saved context.
+tpm2_createprimary -C o -G ecc -c "$WORK/parent.ctx" >/dev/null
+parent_context="$(python3 "$VERIFY" tpm2-tools-context <"$WORK/parent.ctx")"
+test_single_key "persistent-parentcontext" \
+    "$(jq -nc --arg ctx "$parent_context" --argjson kh "$((PERSISTENT_HANDLE))" '{"type":"persistent","scheme":"rsassa","hashAlg":"sha256","rsaKeyBits":2048,"parentContext":$ctx,"persistentHandle":$kh}')" \
+    RSA SHA256 RSASSA 2048
+
+# 13) A voucher for the default key with no matching key must not cause a default
 #    key to be generated. A voucher certifies the key it was issued for, but is
 #    paired to it by file name alone, so a generated key would end up shipping a
 #    voucher that certifies a different key.
@@ -935,7 +971,7 @@ delete_key() {
         "$(jq -nc --arg name "$1" '{name: $name}')"
 }
 
-# 12) Deleting a key removes all associated files.
+# 14) Deleting a key removes all associated files.
 test_delete_key() {
     if ! tpm2_supports_params ecc_nist_p256 ecdsa-sha256; then
         echo "TPM does not support the delete-key test parameters, skipping."
@@ -966,7 +1002,7 @@ test_delete_key() {
 }
 test_delete_key
 
-# 13) Deleting a persistent key also evicts its object from the TPM.
+# 15) Deleting a persistent key also evicts its object from the TPM.
 test_delete_persistent_key() {
     if ! tpm2_supports_params rsa2048 rsassa-sha256; then
         echo "TPM does not support the delete-persistent test parameters, skipping."
@@ -991,7 +1027,7 @@ test_delete_persistent_key() {
 }
 test_delete_persistent_key
 
-# 14) Deleting a key that doesn't exist must fail with NoSuchKey.
+# 16) Deleting a key that doesn't exist must fail with NoSuchKey.
 test_delete_no_such_key() {
     local err
 
@@ -1035,7 +1071,7 @@ assert_public_matches() {
     jq -c '{public: .public, pem: .publicPEM}' <<<"$listed" | python3 "$VERIFY" pubkey-crosscheck
 }
 
-# 14) List keys of different types, and check the reported properties.
+# 17) List keys of different types, and check the reported properties.
 test_list_keys() {
     if ! tpm2_supports_params ecc_nist_p256 ecdsa-sha256 || ! tpm2_supports_params rsa2048 rsassa-sha256; then
         echo "TPM does not support the list-keys test parameters, skipping."
@@ -1098,7 +1134,7 @@ test_list_keys() {
 }
 test_list_keys
 
-# 15) The filter argument selects keys by name.
+# 18) The filter argument selects keys by name.
 test_list_keys_filter() {
     if ! tpm2_supports_params ecc_nist_p256 ecdsa-sha256; then
         echo "TPM does not support the list-keys-filter test parameters, skipping."
@@ -1125,7 +1161,7 @@ test_list_keys_filter() {
 }
 test_list_keys_filter
 
-# 16) A persistent key whose TPM object has gone away is reported as unavailable.
+# 19) A persistent key whose TPM object has gone away is reported as unavailable.
 test_list_keys_unavailable() {
     if ! tpm2_supports_params rsa2048 rsassa-sha256; then
         echo "TPM does not support the list-keys-unavailable test parameters, skipping."
@@ -1154,7 +1190,7 @@ test_list_keys_unavailable() {
 }
 test_list_keys_unavailable
 
-# 17) An ordinary key whose parent object is incorrect is reported as unavailable.
+# 20) An ordinary key whose parent object is incorrect is reported as unavailable.
 test_list_keys_ordinary_unavailable() {
     if ! tpm2_supports_params ecc_nist_p256 ecdsa-sha256; then
         echo "TPM does not support the list-keys-ordinary-unavailable test parameters, skipping."
@@ -1199,7 +1235,7 @@ test_list_keys_ordinary_unavailable() {
 }
 test_list_keys_ordinary_unavailable
 
-# 18) A primary key whose recreated object no longer matches the stored name
+# 21) A primary key whose recreated object no longer matches the stored name
 #     (e.g. because the hierarchy seed changed) is unavailable.
 test_list_keys_primary_unavailable() {
     if ! tpm2_supports_params ecc_nist_p256 ecdsa-sha256; then
