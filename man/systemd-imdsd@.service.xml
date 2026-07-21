@@ -69,10 +69,10 @@
           <para>Takes one of <literal>off</literal>, <literal>locked</literal>,
           <literal>unlocked</literal>. Controls whether and how to set up networking for IMDS endpoint
           access. Unless set to <literal>off</literal> early boot networking is enabled, ensuring that the
-          IMDS endpoint can be reached. If set to <literal>locked</literal> (the default) direct access to
+          IMDS endpoint can be reached. If set to <literal>locked</literal> direct access to
           the IMDS endpoint by regular unprivileged processes is disabled via a "prohibit" route, so that any
           access must be done through <filename>systemd-imdsd@.service</filename> or its associated tools. If
-          set to <literal>unlocked</literal> this "prohibit" route is not created, and regular unprivileged
+          set to <literal>unlocked</literal> (the default) this "prohibit" route is not created, and regular unprivileged
           processes can directly contact IMDS.</para>
 
           <xi:include href="version-info.xml" xpointer="v261"/>
