@@ -38,6 +38,7 @@ static const char* const voa_technology_table[_VOA_TECHNOLOGY_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(voa_technology, VOATechnology);
 
+/* Implementation of: https://uapi-group.org/specifications/specs/file_hierarchy_for_the_verification_of_os_artifacts */
 int acquire_voa_paths_full(char ***ret, VOAPurpose purpose, VOAContext context, VOATechnology technology, bool trust_anchor) {
         _cleanup_strv_free_ char **dirs = NULL;
         _cleanup_free_ char *os_str = NULL;
@@ -51,17 +52,17 @@ int acquire_voa_paths_full(char ***ret, VOAPurpose purpose, VOAContext context, 
         assert(technology >= 0);
         assert(technology < _VOA_TECHNOLOGY_MAX);
 
+        /* we *could* do more like parsing version info and seperating with : like the spec suggests, but I think ID is a reasonable solution for now */
         r = parse_os_release(/* root= */ NULL, "ID", &os_str);
         if (r < 0)
-                return log_error_errno(r, "Failed to read os-release file: %m");
-        if (isempty(os_str))
+                return log_error_errno(r, "Failed to read os-release file: %m.");
+        if (isempty(os_str) || !filename_is_valid(os_str))
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "Failed to get ID field from os-release file");
 
-        if (trust_anchor) {
+        if (trust_anchor)
                 purpose_str = strjoin("trust-anchor-", voa_purpose_to_string(purpose));
-        } else {
+        else
                 purpose_str = strdup(voa_purpose_to_string(purpose));
-        }
         if (!purpose_str)
                 return log_oom();
 

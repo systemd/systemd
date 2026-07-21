@@ -46,9 +46,15 @@ int parse_openssl_key_source_argument(const char *argument, char **private_key_s
 #  include <openssl/pem.h>              /* IWYU pragma: export */
 #  include <openssl/pkcs7.h>            /* IWYU pragma: export */
 #  include <openssl/x509_vfy.h>         /* IWYU pragma: export */
-#  include <openssl/x509v3.h>         /* IWYU pragma: export */
+#  include <openssl/x509v3.h>           /* IWYU pragma: export */
 #  include <openssl/rsa.h>              /* IWYU pragma: export */
 #  include <openssl/sha.h>              /* IWYU pragma: export */
+
+
+/* for older versions of OpenSSL (<4.0)*/
+#ifndef X509_PURPOSE_CODE_SIGN
+#define X509_PURPOSE_CODE_SIGN 10
+#endif
 
 #  include "dlfcn-util.h"
 

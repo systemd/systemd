@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <openssl/x509v3.h>
 #include <unistd.h>
 
 #include "sd-id128.h"
@@ -475,7 +474,7 @@ static int verify_pkcs7(
                         continue;
                 }
 
-                if (sym_X509_check_purpose(c, X509_PURPOSE_CODE_SIGN, /* ca= */ 1) < 1) {
+                if (sym_X509_check_purpose(c, X509_PURPOSE_CODE_SIGN, /* ca= */ 1) != 1) {
                         log_debug("X509 certificate: '%s' is not valid as certificate authority.", *i);
                         continue;
                 }
@@ -543,8 +542,8 @@ static int verify_pkcs7(
                         continue;
                 }
 
-                if (sym_X509_check_purpose(c, X509_PURPOSE_CODE_SIGN, /* ca= */ 0) < 1) {
-                        log_debug("X509 certificate: '%s' is not valid for code signing.", *i);
+                if (sym_X509_check_purpose(c, X509_PURPOSE_CODE_SIGN, /* ca= */ 0) != 1) {
+                        log_error("X509 certificate: '%s' is not valid for code signing.", *i);
                         continue;
                 }
 
@@ -554,14 +553,17 @@ static int verify_pkcs7(
                 TAKE_PTR(c);
         }
 
-        r = sym_PKCS7_verify(p7, sk, store, bio, /* out= */ NULL, PKCS7_BINARY|PKCS7_DETACHED);
+        /* We specifically want to verify with a detached signature and with NOINTERN in order to allow signature revocation with masking */
+        r = sym_PKCS7_verify(p7, sk, store, bio, /* out= */ NULL, PKCS7_BINARY|PKCS7_DETACHED|PKCS7_NO_DUAL_CONTENT|PKCS7_NOINTERN);
         if (r) {
                 log_info("Signature verification succeeded.");
                 return 0;
         }
 
-        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
-                            "DOWNLOAD INVALID: PKCS#7 Signature verification failed.");
+        _cleanup_free_ char *joined = strv_join(certs, ", ");
+        log_error("Certificates: %s", joined);
+
+        return log_openssl_errors(LOG_ERR, "DOWNLOAD INVALID: PKCS#7 Signature verification failed");
 #else
         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
                         "Can't verify PKCS#7 signature for download. OpenSSL support disabled.");

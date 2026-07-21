@@ -127,14 +127,23 @@
         this verification step needs to be available in
         <filename>/usr/lib/systemd/import-pubring.pgp</filename> or
         <filename>/etc/systemd/import-pubring.pgp</filename>.
-        If there is no GPG signature available <option>--verify=signature</option> can also verify the <filename>SHA256SUMS</filename> manifest with a detached PKCS#7 signature
-        <filename>SHA256SUMS.p7s</filename>, using certificates stored in the following locations:
+        If no GPG signature is available, <option>--verify=signature</option> can also verify the <filename>SHA256SUMS</filename> manifest with a detached PKCS#7 signature
+        <filename>SHA256SUMS.p7s</filename>. The required X.509 certificates are discovered in accordance with the <ulink url="https://uapi-group.org/specifications/specs/file_hierarchy_for_the_verification_of_os_artifacts/"> UAPI.11 File Hierarchy for the Verification of OS Artifacts (VOA)</ulink>.
+        Artifact verifier certificates are read from:
         <simplelist>
-            <member><filename>/etc/import-certs.d/*.crt</filename></member>
-            <member><filename>/run/import-certs.d/*.crt</filename></member>
-            <member><filename>/usr/local/lib/import-certs.d/*.crt</filename></member>
-            <member><filename>/usr/lib/import-certs.d/*.crt</filename></member>
+            <member><filename>/etc/voa/$os/image/$context/x509/*-certificate.pem</filename></member>
+            <member><filename>/run/voa/$os/image/$context/x509/*-certificate.pem</filename></member>
+            <member><filename>/usr/local/lib/voa/$os/image/$context/x509/*-certificate.pem</filename></member>
+            <member><filename>/usr/lib/voa/$os/image/$context/x509/*-certificate.pem</filename></member>
         </simplelist>
+        Trust anchor certificates are read from:
+        <simplelist>
+            <member><filename>/etc/voa/$os/trust-anchor-image/$context/x509/*-certificate.pem</filename></member>
+            <member><filename>/run/voa/$os/trust-anchor-image/$context/x509/*-certificate.pem</filename></member>
+            <member><filename>/usr/local/lib/voa/$os/trust-anchor-image/$context/x509/*-certificate.pem</filename></member>
+            <member><filename>/usr/lib/voa/$os/trust-anchor-image/$context/x509/*-certificate.pem</filename></member>
+        </simplelist>
+        Here <literal>$os</literal> is the <literal>$ID</literal> field from <filename>/etc/os-release</filename> and <literal>$context</literal> is the selected <option>--class=</option>.
         </para>
 
         <para>If <option>-keep-download=yes</option> is specified the image will be downloaded and stored in
