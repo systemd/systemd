@@ -1669,6 +1669,8 @@ int tpm2_evict_handle(
         TSS2_RC rc;
         int r;
 
+        assert(c);
+
         /* Ideally we'd accept a Tpm2Handle, but we can't rely on Esys_TR_GetHandle being available. For now,
          * it's better to just accept a handle index and create the Tpm2Handle locally. */
         if (TPM2_HANDLE_TYPE(handle_index) != TPM2_HT_PERSISTENT)
