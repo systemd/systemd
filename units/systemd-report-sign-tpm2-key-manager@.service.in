@@ -18,6 +18,9 @@ WantsMountsFor=/var/lib/systemd/report.sign.tpm2
 [Service]
 StateDirectory=systemd/report.sign.tpm2
 StateDirectoryMode=0700
+RuntimeDirectory=systemd/report.sign.tpm2
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=yes
 ExecStart={{LIBEXECDIR}}/systemd-report-sign-tpm2
 CapabilityBoundingSet=CAP_DAC_OVERRIDE
 DeviceAllow=/dev/tpmrm0 rw
