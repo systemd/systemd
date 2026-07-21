@@ -554,15 +554,25 @@ static int show_all_names(sd_bus *bus) {
         return print_status_info(&info);
 }
 
-static int get_hostname_based_on_flag(sd_bus *bus) {
-        const char *attr;
+static int hostname_property_from_flags(const char **ret_property) {
+        assert(ret_property);
 
         if (!!arg_static + !!arg_pretty + !!arg_transient > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Cannot query more than one name type at a time");
 
-        attr = arg_pretty ? "PrettyHostname" :
+        *ret_property = arg_pretty ? "PrettyHostname" :
                 arg_static ? "StaticHostname" : "Hostname";
+        return 0;
+}
+
+static int get_hostname_based_on_flag(sd_bus *bus) {
+        const char *attr;
+        int r;
+
+        r = hostname_property_from_flags(&attr);
+        if (r < 0)
+                return r;
 
         return get_one_name(bus, attr, NULL);
 }
@@ -571,6 +581,31 @@ VERB_DEFAULT_NOARG(verb_show_status, "status", "Show current hostname settings")
 static int verb_show_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = userdata;
         int r;
+
+        if (arg_pretty || arg_static || arg_transient) {
+                const char *attr;
+
+                r = hostname_property_from_flags(&attr);
+                if (r < 0)
+                        return r;
+
+                if (sd_json_format_enabled(arg_json_format_flags)) {
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                        _cleanup_free_ char *hostname = NULL;
+
+                        r = get_one_name(bus, attr, &hostname);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_json_build(&v, SD_JSON_BUILD_STRING(hostname));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to build JSON output: %m");
+
+                        return sd_json_variant_dump(v, arg_json_format_flags, NULL, NULL);
+                }
+
+                return get_one_name(bus, attr, NULL);
+        }
 
         if (sd_json_format_enabled(arg_json_format_flags)) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -593,9 +628,6 @@ static int verb_show_status(int argc, char *argv[], uintptr_t _data, void *userd
                 sd_json_variant_dump(v, arg_json_format_flags, NULL, NULL);
                 return 0;
         }
-
-        if (arg_pretty || arg_static || arg_transient)
-                return get_hostname_based_on_flag(bus);
 
         return show_all_names(bus);
 }
