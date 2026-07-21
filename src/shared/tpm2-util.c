@@ -1230,6 +1230,11 @@ int tpm2_read_public(
                         ret_public,
                         ret_name,
                         ret_qname);
+        /* If there is no object, we get TPM2_RC_REFERENCE_H0 if the handle is a transient one, or
+         * a TPM2_RC_HANDLE error for handle 1 if the handle is a persistent one. */
+        if (((rc & ~TPM2_RC_N_MASK) == TPM2_RC_HANDLE) || rc == TPM2_RC_REFERENCE_H0)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOKEY),
+                                       "Failed to read public info for missing key");
         if (rc != TSS2_RC_SUCCESS)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to read public info: %s", sym_Tss2_RC_Decode(rc));

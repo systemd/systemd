@@ -70,8 +70,11 @@ KEY_MANAGER="/run/systemd/io.systemd.Report.TPM2SignerKeyManager"
 KEY_DIR="/var/lib/systemd/report.sign.tpm2"
 CONTEXT_DIR="/run/systemd/report.sign.tpm2"
 
-# A persistent handle used by the "persistent" key test.
+# A persistent handle used by the "persistent" key tests.
 PERSISTENT_HANDLE="0x81020001"
+
+# A persistent handle used as a storage parent for some tests.
+PARENT_HANDLE="0x81030001"
 
 EK_HANDLE="0x81010001"
 
@@ -79,6 +82,7 @@ EK_HANDLE="0x81010001"
 # so each test starts fresh.
 reset_state() {
     tpm2_evictcontrol -C o -c "$PERSISTENT_HANDLE" >/dev/null 2>&1 || true
+    tpm2_evictcontrol -C o -c "$PARENT_HANDLE" >/dev/null 2>&1 || true
     rm -f "$KEY_DIR"/* "$CONTEXT_DIR"/* 2>/dev/null || true
 }
 
@@ -999,3 +1003,233 @@ test_delete_no_such_key() {
     echo "OK: delete-no-such-key test"
 }
 test_delete_no_such_key
+
+# List signing keys via the key manager.
+#
+# $1: optional JSON parameters.
+#
+# Prints one JSON object per key.
+list_keys() {
+    local params="${1:-}"
+    [ -n "$params" ] || params='{}'
+
+    # 'varlinkctl --more' emits its replies as JSON-SEQ (each object prefixed with
+    # an ASCII record separator, 0x1e), so strip those before handing the stream
+    # to jq. Also drop the terminating empty reply, which has no 'name'.
+    varlinkctl call --more "$KEY_MANAGER" io.systemd.Report.TPM2SignerKeyManager.ListKeys "$params" \
+        | tr -d '\036' \
+        | jq -c 'select(.name != null)'
+}
+
+# Assert that a list entry public key matches the one obtained from CreateKey.
+#
+# $1: ListKeys entry.
+# $2: CreateKey reply.
+assert_public_matches() {
+    local listed="$1" created="$2"
+
+    # The JSON public areas must match.
+    [ "$(jq -Sc .public <<<"$listed")" = "$(jq -Sc .public <<<"$created")" ]
+
+    # The entry's public and publicPEM must be PEM/JSON encodings of the same key.
+    jq -c '{public: .public, pem: .publicPEM}' <<<"$listed" | python3 "$VERIFY" pubkey-crosscheck
+}
+
+# 14) List keys of different types, and check the reported properties.
+test_list_keys() {
+    if ! tpm2_supports_params ecc_nist_p256 ecdsa-sha256 || ! tpm2_supports_params rsa2048 rsassa-sha256; then
+        echo "TPM does not support the list-keys test parameters, skipping."
+        return 0
+    fi
+
+    local ordinary_reply primary_reply persistent_reply
+    reset_state
+    ordinary_reply="$(create_key "list-ordinary" \
+        "$(jq -nc --argjson ph "$((EK_HANDLE))" '{"type":"ordinary","scheme":"ecdsa","hashAlg":"sha256","eccCurve":"nistp256","parentHandle":$ph}')")"
+    primary_reply="$(create_key "list-primary" \
+        '{"type":"primary","scheme":"ecdsa","hashAlg":"sha256","eccCurve":"nistp256","hierarchy":"owner"}')"
+    persistent_reply="$(create_key "list-persistent" \
+        "$(jq -nc --argjson ph "$((PERSISTENT_HANDLE))" '{"type":"persistent","scheme":"rsassa","hashAlg":"sha256","rsaKeyBits":2048,"hierarchy":"owner","persistentHandle":$ph}')")"
+
+    # Drop a voucher next to one key, to confirm it's returned (base64 encoded).
+    # We use some binary content to make sure the encoding round-trips faithfully.
+    local voucher
+    voucher="$(printf '\x00\x01\x02voucher\xff')"
+    printf '%s' "$voucher" >"$KEY_DIR/list-ordinary.voucher"
+
+    local keys ordinary primary persistent
+    keys="$(list_keys)"
+
+    ordinary="$(jq -c 'select(.name == "list-ordinary")' <<<"$keys")"
+    primary="$(jq -c 'select(.name == "list-primary")' <<<"$keys")"
+    persistent="$(jq -c 'select(.name == "list-persistent")' <<<"$keys")"
+    [ -n "$ordinary" ]
+    [ -n "$primary" ]
+    [ -n "$persistent" ]
+
+    # Ordinary key: no hierarchy or persistentHandle.
+    [ "$(jq -r .type <<<"$ordinary")" = "ordinary" ]
+    [ "$(jq -r .status <<<"$ordinary")" = "available" ]
+    [ "$(jq -r '.public.type' <<<"$ordinary")" = "ECC" ]
+    [ -z "$(jq -r '.hierarchy // empty' <<<"$ordinary")" ]
+    [ -z "$(jq -r '.persistentHandle // empty' <<<"$ordinary")" ]
+    assert_public_matches "$ordinary" "$ordinary_reply"
+    # The voucher we dropped is returned, base64 encoded.
+    [ "$(jq -r .voucher <<<"$ordinary" | base64 -d)" = "$voucher" ]
+
+    # Primary key: owner hierarchy is set, and no persistentHandle.
+    [ "$(jq -r .type <<<"$primary")" = "primary" ]
+    [ "$(jq -r .status <<<"$primary")" = "available" ]
+    [ "$(jq -r .hierarchy <<<"$primary")" = "owner" ]
+    [ "$(jq -r '.public.type' <<<"$primary")" = "ECC" ]
+    assert_public_matches "$primary" "$primary_reply"
+    # No voucher was created for this key, so none is reported.
+    [ -z "$(jq -r '.voucher // empty' <<<"$primary")" ]
+
+    # Persistent key: persistentHandle is set, and no hierarchy.
+    [ "$(jq -r .type <<<"$persistent")" = "persistent" ]
+    [ "$(jq -r .status <<<"$persistent")" = "available" ]
+    [ "$(jq -r .persistentHandle <<<"$persistent")" = "$((PERSISTENT_HANDLE))" ]
+    [ "$(jq -r '.public.type' <<<"$persistent")" = "RSA" ]
+    assert_public_matches "$persistent" "$persistent_reply"
+    [ -z "$(jq -r '.voucher // empty' <<<"$persistent")" ]
+
+    echo "OK: list-keys test"
+}
+test_list_keys
+
+# 15) The filter argument selects keys by name.
+test_list_keys_filter() {
+    if ! tpm2_supports_params ecc_nist_p256 ecdsa-sha256; then
+        echo "TPM does not support the list-keys-filter test parameters, skipping."
+        return 0
+    fi
+
+    local name
+    reset_state
+    for name in filter-aaa filter-bbb other; do
+        create_key "$name" \
+            '{"type":"primary","scheme":"ecdsa","hashAlg":"sha256","eccCurve":"nistp256","hierarchy":"owner"}' >/dev/null
+    done
+
+    local keys
+    keys="$(list_keys '{"filter":"filter-*"}')"
+
+    # Only the two filter-* keys must be returned.
+    [ "$(jq -s 'length' <<<"$keys")" -eq 2 ]
+    [ -n "$(jq -c 'select(.name == "filter-aaa")' <<<"$keys")" ]
+    [ -n "$(jq -c 'select(.name == "filter-bbb")' <<<"$keys")" ]
+    [ -z "$(jq -c 'select(.name == "other")' <<<"$keys")" ]
+
+    echo "OK: list-keys-filter test"
+}
+test_list_keys_filter
+
+# 16) A persistent key whose TPM object has gone away is reported as unavailable.
+test_list_keys_unavailable() {
+    if ! tpm2_supports_params rsa2048 rsassa-sha256; then
+        echo "TPM does not support the list-keys-unavailable test parameters, skipping."
+        return 0
+    fi
+
+    reset_state
+    create_key "gone-persistent" \
+        "$(jq -nc --argjson ph "$((PERSISTENT_HANDLE))" '{"type":"persistent","scheme":"rsassa","hashAlg":"sha256","rsaKeyBits":2048,"hierarchy":"owner","persistentHandle":$ph}')" >/dev/null
+
+    # Evict the persistent object out from under the key, so it can no longer be loaded.
+    tpm2_evictcontrol -C o -c "$PERSISTENT_HANDLE" >/dev/null
+
+    local keys key
+    keys="$(list_keys)"
+
+    key="$(jq -c 'select(.name == "gone-persistent")' <<<"$keys")"
+    [ -n "$key" ]
+    [ "$(jq -r .status <<<"$key")" = "unavailable" ]
+    # No public area is reported for an unavailable persistent key...
+    [ -z "$(jq -r '.public // empty' <<<"$key")" ]
+    # ...but the persistent handle it was stored at still is.
+    [ "$(jq -r .persistentHandle <<<"$key")" = "$((PERSISTENT_HANDLE))" ]
+
+    echo "OK: list-keys-unavailable test"
+}
+test_list_keys_unavailable
+
+# 17) An ordinary key whose parent object is incorrect is reported as unavailable.
+test_list_keys_ordinary_unavailable() {
+    if ! tpm2_supports_params ecc_nist_p256 ecdsa-sha256; then
+        echo "TPM does not support the list-keys-ordinary-unavailable test parameters, skipping."
+        return 0
+    fi
+
+    reset_state
+    # Start from a clean parent handle.
+    tpm2_evictcontrol -C o -c "$PARENT_HANDLE" >/dev/null 2>&1 || true
+
+    # Create a temporary persistent storage key to act as the ordinary key's parent.
+    tpm2_createprimary -C o -G ecc -c "$WORK/parent.ctx" >/dev/null
+    tpm2_evictcontrol -C o -c "$WORK/parent.ctx" "$PARENT_HANDLE" >/dev/null
+    rm -f "$WORK/parent.ctx"
+
+    local reply created_public
+    reply="$(create_key "orphan-ordinary" \
+        "$(jq -nc --argjson ph "$((PARENT_HANDLE))" '{"type":"ordinary","scheme":"ecdsa","hashAlg":"sha256","eccCurve":"nistp256","parentHandle":$ph}')")"
+    created_public="$(jq -Sc .public <<<"$reply")"
+
+    # Replace the object at the parent handle with a different one, so the ordinary
+    # key can no longer be loaded. This simulates, eg, trying to load a key under
+    # the SRK after a TPM2_Clear.
+    tpm2_evictcontrol -C o -c "$PARENT_HANDLE" >/dev/null
+    tpm2_createprimary -C o -G rsa -c "$WORK/parent.ctx" >/dev/null
+    tpm2_evictcontrol -C o -c "$WORK/parent.ctx" "$PARENT_HANDLE" >/dev/null
+    rm -f "$WORK/parent.ctx"
+
+    local keys key
+    keys="$(list_keys)"
+    key="$(jq -c 'select(.name == "orphan-ordinary")' <<<"$keys")"
+    [ -n "$key" ]
+    [ "$(jq -r .status <<<"$key")" = "unavailable" ]
+    # Even when unavailable, an ordinary key's public area is reported, as it's
+    # stored in the key file.
+    [ -n "$(jq -r '.public // empty' <<<"$key")" ]
+    [ "$(jq -Sc .public <<<"$key")" = "$created_public" ]
+
+    tpm2_evictcontrol -C o -c "$PARENT_HANDLE" >/dev/null
+
+    echo "OK: list-keys-ordinary-unavailable test"
+}
+test_list_keys_ordinary_unavailable
+
+# 18) A primary key whose recreated object no longer matches the stored name
+#     (e.g. because the hierarchy seed changed) is unavailable.
+test_list_keys_primary_unavailable() {
+    if ! tpm2_supports_params ecc_nist_p256 ecdsa-sha256; then
+        echo "TPM does not support the list-keys-primary-unavailable test parameters, skipping."
+        return 0
+    fi
+
+    reset_state
+    mkdir -p "$KEY_DIR"
+
+    # A marshaled TPM2B_PUBLIC for a restricted ECDSA/SHA-256 signing key with NIST
+    # P-256 and an empty unique area.
+    local template
+    template="$(echo "00180023000b00050072000000100018000b0003001000000000" | basenc --base16 -d | basenc --base64)"
+    # A bogus expected name that the recreated key will never match.
+    local bogus_name="000b0000000000000000000000000000000000000000000000000000000000000000"
+
+    jq -nc --arg t "$template" --arg n "$bogus_name" \
+        '{type: "primary", hierarchy: "owner", template: $t, name: $n}' >"$KEY_DIR/bogus-primary.key"
+
+    local keys key
+    keys="$(list_keys)"
+    key="$(jq -c 'select(.name == "bogus-primary")' <<<"$keys")"
+    [ -n "$key" ]
+    [ "$(jq -r .status <<<"$key")" = "unavailable" ]
+    # No public area is reported for an unavailable primary key...
+    [ -z "$(jq -r '.public // empty' <<<"$key")" ]
+    # ...but the hierarchy it lives in still is.
+    [ "$(jq -r .hierarchy <<<"$key")" = "owner" ]
+
+    echo "OK: list-keys-primary-unavailable test"
+}
+test_list_keys_primary_unavailable
