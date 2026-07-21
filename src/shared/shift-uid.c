@@ -297,7 +297,7 @@ static int is_fs_fully_userns_compatible(const struct statfs *sfs) {
 
 static int recurse_fd(int input_fd, const struct stat *st, uid_t shift, bool is_toplevel) {
         _cleanup_closedir_ DIR *d = NULL;
-        _cleanup_close_ int fd = input_fd;
+        _cleanup_close_ int fd = TAKE_FD(input_fd);
         bool changed = false;
         struct statfs sfs;
         int r;
