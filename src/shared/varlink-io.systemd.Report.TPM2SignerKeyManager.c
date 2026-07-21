@@ -40,10 +40,12 @@ static SD_VARLINK_DEFINE_ENUM_TYPE(
 
 static SD_VARLINK_DEFINE_ENUM_TYPE(
                 Hierarchy,
-                SD_VARLINK_FIELD_COMMENT("The TPM's storage hierarchy."),
+                SD_VARLINK_FIELD_COMMENT("The TPM's storage hierarchy. This hierarchy is invalidated by a TPM2_Clear."),
                 SD_VARLINK_DEFINE_ENUM_VALUE(owner),
-                SD_VARLINK_FIELD_COMMENT("The TPM's endorsement hierarchy."),
-                SD_VARLINK_DEFINE_ENUM_VALUE(endorsement));
+                SD_VARLINK_FIELD_COMMENT("The TPM's endorsement hierarchy. This hierarchy is not invalidated by a TPM2_Clear."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(endorsement),
+                SD_VARLINK_FIELD_COMMENT("The TPM's null hierarchy. This hierarchy is invalidated on every TPM reset."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(null));
 
 static SD_VARLINK_DEFINE_METHOD(
                 CreateKey,
