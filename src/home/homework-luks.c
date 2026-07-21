@@ -2561,7 +2561,7 @@ int home_create_luks(
         setup->loop = loop_device_unref(setup->loop);
 
         if (!user_record_luks_offline_discard(h)) {
-                r= run_fallocate(setup->image_fd, NULL /* refresh stat() data */);
+                r = run_fallocate(setup->image_fd, NULL /* refresh stat() data */);
                 if (r < 0)
                         return r;
         }
