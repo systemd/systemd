@@ -179,10 +179,16 @@ int utf8_char_console_width(const char *str) {
         char32_t c;
         int r;
 
+        assert(str);
+
         r = utf8_encoded_to_unichar(str, &c);
         if (r < 0)
                 return r;
 
+        return unichar_console_width(c);
+}
+
+int unichar_console_width(char32_t c) {
         if (c == '\t')
                 return 8; /* Assume a tab width of 8 */
 

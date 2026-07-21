@@ -55,6 +55,7 @@ static inline char32_t utf16_surrogate_pair_to_unichar(char16_t lead, char16_t t
 
 size_t utf8_n_codepoints(const char *str) _pure_;
 int utf8_char_console_width(const char *str) _pure_;
+int unichar_console_width(char32_t c) _pure_;
 size_t utf8_console_width(const char *str) _pure_;
 
 size_t utf8_last_length(const char *s, size_t n) _pure_;
