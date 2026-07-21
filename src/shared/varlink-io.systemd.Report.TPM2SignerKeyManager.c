@@ -47,6 +47,13 @@ static SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The TPM's null hierarchy. This hierarchy is invalidated on every TPM reset."),
                 SD_VARLINK_DEFINE_ENUM_VALUE(null));
 
+static SD_VARLINK_DEFINE_ENUM_TYPE(
+                KeyStatus,
+                SD_VARLINK_FIELD_COMMENT("The signing key is available for signing."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(available),
+                SD_VARLINK_FIELD_COMMENT("The signing key is no longer available. For an ordinary key, this might be because the persistent object in the TPM at the parent handle is no longer the correct one. For persistent keys, this is because the object at the persistent handle in the TPM is no longer available or the correct one. For primary keys, this is because the hierarchy seed has changed."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(unavailable));
+
 static SD_VARLINK_DEFINE_METHOD(
                 CreateKey,
                 SD_VARLINK_FIELD_COMMENT("The name to use for the new signing key."),
@@ -79,6 +86,28 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("The name of the signing key to delete."),
                 SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0));
 
+static SD_VARLINK_DEFINE_METHOD_FULL(
+                ListKeys,
+                SD_VARLINK_REQUIRES_MORE,
+                SD_VARLINK_FIELD_COMMENT("A filter to select which signing keys to return. Supports globbing."),
+                SD_VARLINK_DEFINE_INPUT(filter, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The name of the signing key."),
+                SD_VARLINK_DEFINE_OUTPUT(name, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The type of signing key."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(type, KeyType, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The status of the signing key."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(status, KeyStatus, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The signing key's public area as a JSON encoded TPMT_PUBLIC structure."),
+                SD_VARLINK_DEFINE_OUTPUT(public, SD_VARLINK_OBJECT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The new signing key's public part, PEM encoded."),
+                SD_VARLINK_DEFINE_OUTPUT(publicPEM, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("For persistent signing keys, the handle at which this key is stored in the TPM."),
+                SD_VARLINK_DEFINE_OUTPUT(persistentHandle, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("For primary signing keys, the TPM hierarchy in which the key resides."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(hierarchy, Hierarchy, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The base64 encoded voucher associated with this signing key, if one exists. The format of the voucher is not specified."),
+                SD_VARLINK_DEFINE_OUTPUT(voucher, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+
 static SD_VARLINK_DEFINE_ERROR(KeyExists);
 
 static SD_VARLINK_DEFINE_ERROR(
@@ -98,6 +127,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_CreateKey,
                 SD_VARLINK_SYMBOL_COMMENT("Delete an existing signing key."),
                 &vl_method_DeleteKey,
+                SD_VARLINK_SYMBOL_COMMENT("List available signing keys."),
+                &vl_method_ListKeys,
                 SD_VARLINK_SYMBOL_COMMENT("The type of signing key."),
                 &vl_type_KeyType,
                 SD_VARLINK_SYMBOL_COMMENT("The signature scheme supported by a signing key."),
@@ -108,6 +139,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_ECCCurve,
                 SD_VARLINK_SYMBOL_COMMENT("The TPM hierarchy that a primary signing key is created in."),
                 &vl_type_Hierarchy,
+                SD_VARLINK_SYMBOL_COMMENT("The status of a signing key."),
+                &vl_type_KeyStatus,
                 SD_VARLINK_SYMBOL_COMMENT("A signing key with the requested name already exists."),
                 &vl_error_KeyExists,
                 SD_VARLINK_SYMBOL_COMMENT("The requested combination of key template parameters (signing scheme, digest algorithm, RSA key size or elliptic curve) is not supported by the TPM."),
