@@ -22,6 +22,7 @@
 #include "qcow2-util.h"
 #include "string-util.h"
 #include "tmpfile-util.h"
+#include "voa-util.h"
 #include "web-util.h"
 
 typedef enum RawProgress {
@@ -38,6 +39,7 @@ typedef struct RawPull {
 
         ImportFlags flags;
         ImportVerify verify;
+        VOAContext voa_context;
         char *image_root;
 
         uint64_t offset;
@@ -558,6 +560,7 @@ static void raw_pull_job_on_finished(PullJob *j) {
                 raw_pull_report_progress(p, RAW_VERIFYING);
 
                 r = pull_verify(p->verify,
+                                p->voa_context,
                                 p->raw_job,
                                 p->checksum_job,
                                 p->signature_job,
@@ -799,6 +802,7 @@ int raw_pull_start(
                 uint64_t size_max,
                 ImportFlags flags,
                 ImportVerify verify,
+                VOAContext voa_context,
                 const struct iovec *checksum) {
 
         int r;
@@ -808,6 +812,8 @@ int raw_pull_start(
         assert(verify == _IMPORT_VERIFY_INVALID || verify < _IMPORT_VERIFY_MAX);
         assert(verify == _IMPORT_VERIFY_INVALID || verify >= 0);
         assert((verify < 0) || !iovec_is_set(checksum));
+        assert(voa_context >= 0);
+        assert(voa_context < _VOA_CONTEXT_MAX);
         assert(!(flags & ~IMPORT_PULL_FLAGS_MASK_RAW));
         assert(offset == UINT64_MAX || FLAGS_SET(flags, IMPORT_DIRECT));
         assert(!(flags & (IMPORT_PULL_SETTINGS|IMPORT_PULL_ROOTHASH|IMPORT_PULL_ROOTHASH_SIGNATURE|IMPORT_PULL_VERITY)) || !(flags & IMPORT_DIRECT));
@@ -828,6 +834,7 @@ int raw_pull_start(
 
         p->flags = flags;
         p->verify = verify;
+        p->voa_context = voa_context;
 
         /* Queue job for the image itself */
         r = pull_job_new(&p->raw_job, url, p->glue, p);
