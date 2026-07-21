@@ -543,7 +543,7 @@ static int verify_pkcs7(
                 }
 
                 if (sym_X509_check_purpose(c, X509_PURPOSE_CODE_SIGN, /* ca= */ 0) != 1) {
-                        log_error("X509 certificate: '%s' is not valid for code signing.", *i);
+                        log_debug("X509 certificate: '%s' is not valid for code signing.", *i);
                         continue;
                 }
 
