@@ -302,9 +302,9 @@ int ask_password_plymouth(
         _cleanup_close_ int fd = -EBADF, inotify_fd = -EBADF;
         _cleanup_free_ char *packet = NULL;
         ssize_t k;
-        int r, n;
+        int r;
         char buffer[LINE_MAX];
-        size_t p = 0;
+        size_t packet_size, p = 0;
 
         assert(req);
         assert(ret);
@@ -329,13 +329,16 @@ int ask_password_plymouth(
 
         if (FLAGS_SET(flags, ASK_PASSWORD_ACCEPT_CACHED)) {
                 packet = strdup("c");
-                n = 1;
-        } else if (asprintf(&packet, "*\002%c%s%n", (int) (strlen(message) + 1), message, &n) < 0)
-                packet = NULL;
+                packet_size = 2;
+        } else {
+                r = plymouth_build_password_packet(message, &packet, &packet_size);
+                if (r < 0)
+                        return r;
+        }
         if (!packet)
                 return -ENOMEM;
 
-        r = loop_write_full(fd, packet, n + 1, USEC_INFINITY);
+        r = loop_write_full(fd, packet, packet_size, USEC_INFINITY);
         if (r < 0)
                 return r;
 
@@ -416,10 +419,11 @@ int ask_password_plymouth(
                                  * with a normal password request */
                                 packet = mfree(packet);
 
-                                if (asprintf(&packet, "*\002%c%s%n", (int) (strlen(message) + 1), message, &n) < 0)
-                                        return -ENOMEM;
+                                r = plymouth_build_password_packet(message, &packet, &packet_size);
+                                if (r < 0)
+                                        return r;
 
-                                r = loop_write_full(fd, packet, n + 1, USEC_INFINITY);
+                                r = loop_write_full(fd, packet, packet_size, USEC_INFINITY);
                                 if (r < 0)
                                         return r;
 
