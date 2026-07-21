@@ -36,7 +36,6 @@ systemd-id128 show root --value --json=short | jq -e '.id | type == "string"'
 systemd-id128 --json=short new | jq -e '.id | type == "string"'
 systemd-id128 new -p
 systemd-id128 new -u
-systemd-id128 new -a 4f68bce3e8cd4db196e7fbcaf984b709
 
 systemd-id128 machine-id
 assert_eq "$(systemd-id128 --json=short machine-id | jq --raw-output .id)" "$(</etc/machine-id)"
@@ -56,6 +55,7 @@ assert_eq "$(systemd-id128 boot-id --uuid)" "$(</proc/sys/kernel/random/boot_id)
 systemd-run --wait --pipe bash -euxc '[[ $INVOCATION_ID == "$(systemd-id128 invocation-id)" ]]'
 
 (! systemd-id128)
+(! systemd-id128 new -a 4f68bce3e8cd4db196e7fbcaf984b709)
 (! systemd-id128 new -a '')
 (! systemd-id128 new -a '0')
 (! systemd-id128 invocation-id -a 4f68bce3e8cd4db196e7fbcaf984b709)

@@ -52,6 +52,10 @@ static int verb_new(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_id128_t id;
         int r;
 
+        if (!sd_id128_is_null(arg_app))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Verb \"new\" cannot be combined with --app-specific=.");
+
         r = sd_id128_randomize(&id);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate ID: %m");

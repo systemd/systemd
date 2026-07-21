@@ -167,6 +167,8 @@ systemd-creds --not-after="+1d" encrypt /tmp/cred.orig /tmp/cred.enc
 systemd-creds decrypt /tmp/cred.enc /tmp/cred.dec
 diff /tmp/cred.orig /tmp/cred.dec
 rm -f /tmp/cred.{enc,dec}
+ts="$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+(! systemd-creds --with-key=null --timestamp="$ts" --not-after="$ts" encrypt /tmp/cred.orig /tmp/cred.enc)
 
 # Null-key credentials and the systemd.credentials_boot_policy= setting.
 #
