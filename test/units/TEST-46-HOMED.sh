@@ -1185,6 +1185,7 @@ testcase_identity_groups() {
 
     machinectl shell idgrouptest@ /usr/bin/bash -euxo pipefail -c "jq '.memberOf = ((.memberOf // []) + [\"systemd-journal\"] | unique) | .lastChangeUSec = ((.lastChangeUSec // 0) + 3600000000)' /home/idgrouptest/.identity > /home/idgrouptest/.identity.new && mv -f /home/idgrouptest/.identity.new /home/idgrouptest/.identity"
     jq -e '.memberOf | index("systemd-journal") != null' /home/idgrouptest/.identity
+    wait_for_state idgrouptest active
 
     PASSWORD=foobar homectl authenticate idgrouptest
 
