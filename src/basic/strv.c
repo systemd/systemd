@@ -8,7 +8,6 @@
 #include "escape.h"
 #include "extract-word.h"
 #include "fileio.h"
-#include "gunicode.h"
 #include "hashmap.h"
 #include "log.h"
 #include "memory-util.h"
@@ -16,6 +15,21 @@
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
+
+/* Like utf8_next_char(), but never advances past the end of a (possibly truncated) multi-byte
+ * sequence. utf8_next_char() blindly indexes utf8_skip_data[] with the lead byte and steps that
+ * many bytes forward, which reads past the allocation when the trailing bytes are missing.
+ *
+ * Decode with utf8_encoded_to_unichar() (the same lenient decoder utf8_char_console_width() below
+ * uses) and step by that many bytes; this keeps the per-character step and the width we add to `w`
+ * consistent for decodable-but-invalid input (overlong encodings, encoded surrogates). The decoder
+ * checks every continuation byte's `10xxxxxx` pattern, so a truncated sequence bails out with a
+ * negative return before reading past the NUL terminator, and we fall back to a single-byte step. */
+static inline const char* utf8_next_char_safe(const char *p) {
+        char32_t c;
+        int k = utf8_encoded_to_unichar(p, &c);
+        return k > 0 ? p + k : p + 1;
+}
 
 char* strv_find(char * const *l, const char *name) {
         assert(name);
@@ -1241,7 +1255,7 @@ int strv_rebreak_lines(char **l, size_t width, char ***ret) {
                 bool in_prefix = true; /* still in the whitespace in the beginning of the line? */
                 size_t w = 0;
 
-                for (const char *p = start; *p != 0; p = utf8_next_char(p)) {
+                for (const char *p = start; *p != 0; p = utf8_next_char_safe(p)) {
                         if (strchr(NEWLINE, *p)) {
                                 in_prefix = true;
                                 whitespace_begin = whitespace_end = NULL;
