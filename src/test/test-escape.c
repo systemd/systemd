@@ -111,6 +111,21 @@ TEST(cunescape) {
         ASSERT_STREQ(unescaped, "ßßΠA");
         unescaped = mfree(unescaped);
 
+        /* UTF-16 surrogates cannot be encoded as valid UTF-8 and must be rejected */
+        ASSERT_ERROR(cunescape("\\ud800", 0, &unescaped), EINVAL);
+        ASSERT_ERROR(cunescape("\\udfff", 0, &unescaped), EINVAL);
+
+        /* The code points immediately outside the surrogate range must still decode */
+        ASSERT_OK(cunescape("\\ud7ff", 0, &unescaped));
+        unescaped = mfree(unescaped);
+        ASSERT_OK(cunescape("\\ue000", 0, &unescaped));
+        unescaped = mfree(unescaped);
+
+        /* Noncharacters (e.g. U+FFFE) are valid scalar values, encode fine as UTF-8, and are
+         * relied upon by callers (systemd.mount-extra=), so unlike \U they stay accepted here */
+        ASSERT_OK(cunescape("\\ufffe", 0, &unescaped));
+        unescaped = mfree(unescaped);
+
         assert_se(cunescape("\\073", 0, &unescaped) >= 0);
         ASSERT_STREQ(unescaped, ";");
         unescaped = mfree(unescaped);

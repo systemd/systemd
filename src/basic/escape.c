@@ -202,6 +202,13 @@ int cunescape_one(const char *p, size_t length, char32_t *ret, bool *eight_bit, 
                 if (c == 0 && !accept_nul)
                         return -EINVAL;
 
+                /* Don't allow UTF-16 surrogates, they cannot be encoded as valid UTF-8. Note we
+                 * deliberately do *not* use unichar_is_valid() here (unlike the \U case below):
+                 * it also rejects noncharacters such as U+FFFE, which callers legitimately round-trip
+                 * through \u (e.g. systemd.mount-extra= parsing, see test-fstab-generator). */
+                if (utf16_is_surrogate(c))
+                        return -EINVAL;
+
                 *ret = c;
                 r = 5;
                 break;
