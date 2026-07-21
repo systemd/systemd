@@ -35,25 +35,27 @@
 shopt -q promptvars || return 0
 
 __systemd_osc_context_escape() {
-    # Escape according to the OSC 3008 spec. We'll only do it where it's
-    # strictly necessary, and skip it when processing strings we are pretty
-    # sure we won't need it for, such as uuids, id128, hostnames, usernames,
-    # since they all come with syntax requirements that exclude \ and ;
-    # anyway. This hence primarily is about escaping the current working
-    # directory.
-    local systemd_value="$1"
+    # Escape according to the OSC 3008 spec. We'll skip it when processing
+    # strings we are pretty sure we won't need it for, such as uuids
+    # (originating from /proc/sys/kernel/ or /etc/machine-id) and special shell
+    # variables such as $$ and $? that always expand to decimal numbers.
+    local systemd_format="$1"
+    local systemd_value="$2"
     systemd_value="${systemd_value//\\/\\x5c}"
     systemd_value="${systemd_value//;/\\x3b}"
     systemd_value="${systemd_value//[[:cntrl:]]/⍰}"
-    printf "%s" "$systemd_value"
+    # shellcheck disable=SC2059 # always called with fixed format strings with a single string specifier
+    printf "$systemd_format" "$systemd_value"
 }
 
 __systemd_osc_context_common() {
     if [ -f /etc/machine-id ]; then
         printf ";machineid=%.36s" "$(</etc/machine-id)"
     fi
-    printf ";user=%.255s;hostname=%.255s;bootid=%.36s;pid=%.20s" "$USER" "$HOSTNAME" "$(</proc/sys/kernel/random/boot_id)" "$$"
-    printf ";cwd=%.255s" "$(__systemd_osc_context_escape "$PWD")"
+    __systemd_osc_context_escape ";user=%.255s" "$USER"
+    __systemd_osc_context_escape ";hostname=%.255s" "$HOSTNAME"
+    printf ";bootid=%.36s;pid=%.20s" "$(</proc/sys/kernel/random/boot_id)" "$$"
+    __systemd_osc_context_escape ";cwd=%.255s" "$PWD"
 }
 
 __systemd_osc_context_precmdline() {
