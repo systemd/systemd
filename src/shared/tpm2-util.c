@@ -2721,7 +2721,6 @@ int tpm2_open_ek_user_policy_session(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
                 const Tpm2Handle *ek_handle,
-                const Tpm2Handle *tpm_key,
                 Tpm2Handle **ret_session) {
         int r;
 
@@ -2756,7 +2755,7 @@ int tpm2_open_ek_user_policy_session(
         /* Note that tpm2_make_policy_session is currently hardcoded to SHA256. That's ok for now because
          * we only get this far if the supplied ek_handle has a name algorithm of SHA256. */
         _cleanup_(tpm2_handle_freep) Tpm2Handle *policy_session = NULL;
-        r = tpm2_make_policy_session(c, tpm_key, /* encryption_session= */ NULL, &policy_session);
+        r = tpm2_make_policy_session(c, /* primary= */ NULL, /* encryption_session= */ NULL, &policy_session);
         if (r < 0)
                 return r;
 
