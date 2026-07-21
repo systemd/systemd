@@ -72,6 +72,11 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("The new signing key's public part, PEM encoded."),
                 SD_VARLINK_DEFINE_OUTPUT(publicPEM, SD_VARLINK_STRING, 0));
 
+static SD_VARLINK_DEFINE_METHOD(
+                DeleteKey,
+                SD_VARLINK_FIELD_COMMENT("The name of the signing key to delete."),
+                SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0));
+
 static SD_VARLINK_DEFINE_ERROR(KeyExists);
 
 static SD_VARLINK_DEFINE_ERROR(
@@ -81,6 +86,7 @@ static SD_VARLINK_DEFINE_ERROR(
 
 static SD_VARLINK_DEFINE_ERROR(NotEnoughSpace);
 static SD_VARLINK_DEFINE_ERROR(PersistentHandleExists);
+static SD_VARLINK_DEFINE_ERROR(NoSuchKey);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Report_TPM2SignerKeyManager,
@@ -88,6 +94,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_INTERFACE_COMMENT("API for managing signing keys for the TPM2 report signer."),
                 SD_VARLINK_SYMBOL_COMMENT("Create a new key for signing reports with the TPM."),
                 &vl_method_CreateKey,
+                SD_VARLINK_SYMBOL_COMMENT("Delete an existing signing key."),
+                &vl_method_DeleteKey,
                 SD_VARLINK_SYMBOL_COMMENT("The type of signing key."),
                 &vl_type_KeyType,
                 SD_VARLINK_SYMBOL_COMMENT("The signature scheme supported by a signing key."),
@@ -105,4 +113,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("There is not enough persistent storage space in the TPM to persist a new object."),
                 &vl_error_NotEnoughSpace,
                 SD_VARLINK_SYMBOL_COMMENT("A persistent object already exists at the requested handle."),
-                &vl_error_PersistentHandleExists);
+                &vl_error_PersistentHandleExists,
+                SD_VARLINK_SYMBOL_COMMENT("No signing key with the requested name exists."),
+                &vl_error_NoSuchKey);
