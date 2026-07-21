@@ -126,6 +126,7 @@ static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_signing_key_type, SigningKeyType,
 typedef enum SigningKeyHierarchy {
         SIGNING_KEY_HIERARCHY_OWNER,
         SIGNING_KEY_HIERARCHY_ENDORSEMENT,
+        SIGNING_KEY_HIERARCHY_NULL,
 
         _SIGNING_KEY_HIERARCHY_MAX,
         _SIGNING_KEY_HIERARCHY_INVALID = -EINVAL,
@@ -134,6 +135,7 @@ typedef enum SigningKeyHierarchy {
 static const char* const signing_key_hierarchy_table[_SIGNING_KEY_HIERARCHY_MAX] = {
         [SIGNING_KEY_HIERARCHY_OWNER]       = "owner",
         [SIGNING_KEY_HIERARCHY_ENDORSEMENT] = "endorsement",
+        [SIGNING_KEY_HIERARCHY_NULL]        = "null",
 };
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(signing_key_hierarchy, SigningKeyHierarchy);
 static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_signing_key_hierarchy, SigningKeyHierarchy, signing_key_hierarchy_from_string);
@@ -511,6 +513,9 @@ static int create_primary_key(
                 break;
         case SIGNING_KEY_HIERARCHY_ENDORSEMENT:
                 hierarchy_esys = ESYS_TR_RH_ENDORSEMENT;
+                break;
+        case SIGNING_KEY_HIERARCHY_NULL:
+                hierarchy_esys = ESYS_TR_RH_NULL;
                 break;
         default:
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unsupported hierarchy for primary key");
@@ -1330,6 +1335,9 @@ static int vl_method_create_key(
                 /* Must have a persistentHandle too. */
                 if (p.persistent_handle == 0)
                         return sd_varlink_error_invalid_parameter_name(link, "persistentHandle");
+                /* Cannot persist a key in the null hierarchy. */
+                if (p.hierarchy == SIGNING_KEY_HIERARCHY_NULL)
+                        return sd_varlink_error_invalid_parameter_name(link, "hierarchy");
                 break;
 
         case SIGNING_KEY_PRIMARY:
