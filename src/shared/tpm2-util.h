@@ -395,7 +395,7 @@ int tpm2_get_ek_template(Tpm2Context *c, const Tpm2Handle *session, Tpm2EKTempla
 int tpm2_get_ek(Tpm2Context *c, const Tpm2Handle *session, TPM2B_PUBLIC **ret_public, TPM2B_NAME **ret_name, TPM2B_NAME **ret_qname, Tpm2Handle **ret_handle);
 int tpm2_get_or_create_ek(Tpm2Context *c, const Tpm2Handle *session, TPM2B_PUBLIC **ret_public, TPM2B_NAME **ret_name, TPM2B_NAME **ret_qname, Tpm2Handle **ret_handle);
 
-int tpm2_open_ek_user_policy_session(Tpm2Context *c, const Tpm2Handle *session, const Tpm2Handle *ek_handle, const Tpm2Handle *tpm_key, Tpm2Handle **ret_session);
+int tpm2_open_ek_user_policy_session(Tpm2Context *c, const Tpm2Handle *session, const Tpm2Handle *ek_handle, Tpm2Handle **ret_session);
 
 int tpm2_seal(Tpm2Context *c, uint32_t seal_key_handle, const TPM2B_DIGEST policy_hash[], size_t n_policy, const char *pin, struct iovec *ret_secret, struct iovec **ret_blobs, size_t *ret_n_blobs, uint16_t *ret_primary_alg, struct iovec *ret_srk);
 int tpm2_unseal(Tpm2Context *c, uint32_t hash_pcr_mask, uint16_t pcr_bank, const struct iovec *pubkey, const char *pubkey_policy_ref, uint32_t pubkey_pcr_mask, sd_json_variant *signature, const char *pin, const Tpm2PCRLockPolicy *pcrlock_policy, uint16_t primary_alg, const struct iovec blobs[], size_t n_blobs, const struct iovec known_policy_hash[], size_t n_known_policy_hash, const struct iovec *srk, struct iovec *ret_secret);
