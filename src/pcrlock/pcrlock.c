@@ -48,6 +48,7 @@
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pcrextend-fs-util.h"
 #include "pcrextend-util.h"
 #include "pcrlock-firmware.h"
 #include "pe-binary.h"
