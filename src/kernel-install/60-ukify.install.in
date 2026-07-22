@@ -192,6 +192,9 @@ def kernel_cmdline_base() -> list[str]:
                 if not line.startswith('#')
                 for opt in line.split()]
 
+    if os.getenv('KERNEL_INSTALL_CONF_ROOT'):
+        return []
+
     # If we read /proc/cmdline, we need to do some additional filtering.
     options = Path('/proc/cmdline').read_text().split()
     return [opt for opt in options
