@@ -449,7 +449,11 @@ int rm_rf_at(int dir_fd, const char *path, RemoveFlags flags) {
         if (FLAGS_SET(flags, REMOVE_MISSING_OK) && r == -ENOENT)
                 return 0;
         if (r < 0)
-                return log_error_errno(r, "Failed to determine whether '%s' is the root file system: %m", path);
+                return log_full_errno(
+                                r == -ENOENT ? LOG_DEBUG : LOG_ERR,
+                                r,
+                                "Failed to determine whether '%s' is the root file system: %m",
+                                path);
         if (r > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EPERM),
                                        "Attempted to remove entire root file system, and we can't allow that.");
