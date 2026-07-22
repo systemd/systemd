@@ -2515,18 +2515,16 @@ static int block_open_flag(scmp_filter_ctx seccomp, int flag) {
         else
                 any = true;
 
-#if defined(__SNR_openat2)
-        /* The new openat2() system call can't be filtered sensibly, see above. */
-        r = sym_seccomp_rule_add_exact(
-                        seccomp,
-                        SCMP_ACT_ERRNO(ENOSYS),
-                        SCMP_SYS(openat2),
-                        0);
-        if (r < 0)
-                log_debug_errno(r, "Failed to add filter for openat2: %m");
-        else
-                any = true;
-#endif
+        /* We can't reasonably filter openat2() here, because the flags are in an indirect struct instead of
+         * a regular scalar argument, see also the comment in seccomp_restrict_sxid() above. However,
+         * blocking it here causes an increasing number of issues as more software moves to openat2() without
+         * any fallback to open()/openat().
+         *
+         * Given that calling openat2() with O_SYNC is rather rare, and most of the heavy-lifting is done by
+         * filtering out the sync-family syscalls in seccomp_suppress_sync() below, let's just blanket-allow
+         * openat2() to avoid unnecessarily breaking stuff left and right when nspawn is running with
+         * --suppress-sync=yes. This means that we might issue a synchronous write when something calls
+         * openat2() with O_SYNC, but it is the best we can do at least until a better solution pops up. */
 
         return any ? 0 : r;
 }
@@ -2538,7 +2536,7 @@ int seccomp_suppress_sync(void) {
         /* This behaves slightly differently from SystemCallFilter=~@sync:0, in that negative fds (which
          * we can determine to be invalid) are still refused with EBADF. See #34478.
          *
-         * Additionally, O_SYNC/O_DSYNC are masked. */
+         * Additionally, O_SYNC/O_DSYNC are masked (except for openat2(), see above). */
 
         r = dlopen_libseccomp(LOG_DEBUG);
         if (r < 0)
