@@ -27,6 +27,12 @@ CHANGES WITH 262:
           older systemd versions, however systemd continues to accept TPM-sealed
           credentials that were created before this change.
 
+        * The "tpm2-measure-bank=" crypttab option of systemd-cryptsetup is now
+          deprecated and has no effect anymore. Volume key measurements are now
+          performed via varlink call to systemd-pcrextend, which automatically
+          selects all suitable TPM2 PCR banks; the banks can no longer be
+          restricted per volume. The option is still accepted, but ignored.
+
         * The legacy socket for controlling systemd-udevd has been removed, and
           udevadm now unconditionally uses Varlink IPC. The legacy UNIX socket
           /run/udev/control, which is sometimes used to check whether udevd is
