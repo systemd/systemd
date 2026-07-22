@@ -12,6 +12,7 @@
 #include "escape.h"
 #include "format-table.h"
 #include "help-util.h"
+#include "initrd-util.h"
 #include "json-util.h"
 #include "main-func.h"
 #include "options.h"
@@ -381,7 +382,7 @@ static int extend_nvpcr_now(
                         name,
                         data,
                         secret,
-                        /* sync_secondary_anchor= */ !arg_early,
+                        /* sync_secondary_anchor= */ !(arg_early || in_initrd()),
                         event,
                         safe);
         if (r == -ENOBUFS)
