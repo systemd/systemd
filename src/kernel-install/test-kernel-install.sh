@@ -143,6 +143,17 @@ grep -qE 'initrd' "$BOOT_ROOT/the-token/1.1.1/initrd"
 
 # Install UKI
 if [ -f "$ukify" ]; then
+    if [[ -n "$ukify_install" ]]; then
+        mkdir "$D/empty-conf-root"
+        KERNEL_INSTALL_CONF_ROOT="$D/empty-conf-root" python3 - "$ukify_install" <<'PY'
+import runpy
+import sys
+
+ns = runpy.run_path(sys.argv[1], run_name='not_main')
+assert ns['kernel_cmdline_base']() == []
+PY
+    fi
+
     mkdir "$D/sources/install.conf.d"
     cat >>"$D/sources/install.conf.d/override.conf" <<EOF
 layout=uki
