@@ -443,3 +443,17 @@ int pcrextend_imds_userdata_now(const struct iovec *data) {
 
         return pcrextend_pcr_now(TPM2_PCR_KERNEL_CONFIG, word, /* secret= */ NULL, "imds_userdata");
 }
+
+int pcrextend_volume_key_now(unsigned pcr, const char *word, const struct iovec *volume_key) {
+        assert(word);
+        assert(iovec_is_set(volume_key));
+
+        return pcrextend_pcr_now(pcr, word, volume_key, "volume_key");
+}
+
+int pcrextend_keyslot_now(const char *nvpcr, const char *word) {
+        assert(nvpcr);
+        assert(word);
+
+        return pcrextend_nvpcr_now(nvpcr, word, "keyslot");
+}
