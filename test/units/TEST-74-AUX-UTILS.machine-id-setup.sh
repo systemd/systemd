@@ -69,6 +69,38 @@ testcase_transient() {
     diff "$root/etc/machine-id" "$root/run/machine-id"
 }
 
+testcase_transient_symlink() {
+    local root transient_id committed_id
+
+    root="$(mktemp -d)"
+    trap "root_cleanup $root" RETURN
+    root_mock "$root"
+
+    mkdir -p "$root/persist/etc"
+    echo abc >>"$root/persist/etc/machine-id"
+    ln -s /persist/etc/machine-id "$root/etc/machine-id"
+    mount -o remount,ro "$root"
+    mount -t tmpfs tmpfs "$root/run"
+    transient_id="$(systemd-machine-id-setup --print --root "$root")"
+    mountpoint "$root/persist/etc/machine-id"
+    mount -o remount,rw "$root"
+    committed_id="$(systemd-machine-id-setup --print --commit --root "$root")"
+    [[ "$transient_id" == "$committed_id" ]]
+    (! mountpoint "$root/persist/etc/machine-id")
+    diff "$root/persist/etc/machine-id" "$root/run/machine-id"
+}
+
+testcase_commit_dangling_symlink() {
+    local root
+
+    root="$(mktemp -d)"
+    trap "root_cleanup $root" RETURN
+    root_mock "$root"
+
+    ln -s /persist/etc/machine-id "$root/etc/machine-id"
+    systemd-machine-id-setup --commit --root "$root"
+}
+
 # Check if we correctly processed the invalid machine ID we set up in the respective
 # test.sh file
 systemctl --state=failed --no-legend --no-pager | tee /failed
