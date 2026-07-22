@@ -497,6 +497,13 @@
         unit <literal>systemd-journald-audit.socket</literal> can be disabled and, in this case, this setting
         is without effect.</para>
 
+        <para>Audit records with a type below <constant>AUDIT_FIRST_USER_MSG</constant> (1100) are dropped,
+        with the exception of <constant>AUDIT_USER</constant> (1005) and <constant>AUDIT_LOGIN</constant>
+        (1006). The 1000–1099 range is otherwise reserved for audit-netlink control messages (rule
+        management, daemon configuration) which are not log-worthy. Records of type
+        <constant>AUDIT_LOGIN</constant> carry the loginuid (AUID) transition for new sessions and are
+        required to attribute later actions back to a user.</para>
+
         <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
