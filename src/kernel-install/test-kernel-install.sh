@@ -66,6 +66,17 @@ export KERNEL_INSTALL_BOOT_STUB="$boot_stub"
 export KERNEL_INSTALL_READ_MACHINE_INFO="no"
 export KERNEL_INSTALL_BYPASS="no"
 
+if [[ -n "$ukify_install" ]]; then
+    mkdir "$D/empty-conf-root"
+    KERNEL_INSTALL_CONF_ROOT="$D/empty-conf-root" python3 - "$ukify_install" <<'PY'
+import runpy
+import sys
+
+ns = runpy.run_path(sys.argv[1], run_name='not_main')
+assert ns['kernel_cmdline_base']() == []
+PY
+fi
+
 # Test type#1 installation
 "$kernel_install" -v add 1.1.1 "$D/sources/linux" "$D/sources/initrd"
 
