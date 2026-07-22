@@ -66,6 +66,7 @@ portablectl "${ARGS[@]}" attach --force --now --runtime /usr/share/minimal_0.raw
 
 portablectl is-attached --force minimal-app0
 portablectl inspect --force /usr/share/minimal_0.raw minimal-app0.service
+portablectl inspect --force /usr/share/minimal_0.raw minimal-app0.service | grep -F "minimal-app0.service" >/dev/null
 systemctl is-active minimal-app0.service
 systemctl is-active minimal-app0-foo.service
 systemctl is-active minimal-app0-bar.service && exit 1
