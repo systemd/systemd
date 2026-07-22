@@ -431,6 +431,13 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                                 rebase_after_boot_time = true;
                         }
 
+                        if (b > ts.realtime) {
+                                log_unit_debug(UNIT(t),
+                                               "Calendar timer base time %s is in the future, clamping to current time.",
+                                               FORMAT_TIMESTAMP(b));
+                                b = ts.realtime;
+                        }
+
                         r = calendar_spec_next_usec(v->calendar_spec, b, &v->next_elapse);
                         if (r < 0)
                                 continue;
