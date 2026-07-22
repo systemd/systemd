@@ -37,6 +37,7 @@ testcase_hostname() {
     assert_rc 0 hostnamectl set-hostname testhost
     assert_eq "$(cat /etc/hostname)" "testhost"
     assert_in "Static hostname: testhost" "$(hostnamectl)"
+    assert_eq "$(hostnamectl --json=short --static status | jq --raw-output .)" "testhost"
 
     if [[ -n "$orig" ]]; then
         # reset to original
