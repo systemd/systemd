@@ -16,6 +16,7 @@
 #include "main-func.h"
 #include "options.h"
 #include "parse-argument.h"
+#include "pcrextend-fs-util.h"
 #include "pcrextend-util.h"
 #include "string-table.h"
 #include "string-util.h"
