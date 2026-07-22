@@ -72,6 +72,32 @@ static int acquire_link_dhcp_message(LinkInfo *link) {
         return dhcp_message_parse_json(v, &link->dhcp_message);
 }
 
+static int acquire_link_ovs_info(LinkInfo *link) {
+        int r;
+
+        assert(link);
+
+        sd_json_variant *v;
+        r = json_variant_find_object(link->description, STRV_MAKE("Interface"), &v);
+        if (r == -ENODATA)
+                return 0;
+        if (r < 0)
+                return r;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "OVSBridge",     SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(LinkInfo, ovs_bridge),     0 },
+                { "OVSBond",       SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(LinkInfo, ovs_bond),       0 },
+                { "OVSPortType",   SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(LinkInfo, ovs_port_type),  0 },
+                { "OVSFailMode",   SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(LinkInfo, ovs_fail_mode),  0 },
+                { "OVSInterfaces", SD_JSON_VARIANT_ARRAY,  sd_json_dispatch_strv,   offsetof(LinkInfo, ovs_interfaces), 0 },
+                {}
+        };
+
+        return sd_json_dispatch(v, dispatch_table,
+                                SD_JSON_LOG | SD_JSON_WARNING | SD_JSON_ALLOW_EXTENSIONS,
+                                link);
+}
+
 int link_info_parse_description(LinkInfo *link, sd_varlink *vl) {
         int r;
 
@@ -87,6 +113,7 @@ int link_info_parse_description(LinkInfo *link, sd_varlink *vl) {
         (void) acquire_link_bitrates(link);
         (void) acquire_link_dhcp_client(link);
         (void) acquire_link_dhcp_message(link);
+        (void) acquire_link_ovs_info(link);
 
         return 0;
 }

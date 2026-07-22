@@ -14,6 +14,8 @@ extern const sd_varlink_symbol vl_type_NextHop;
 extern const sd_varlink_symbol vl_type_LLDPNeighbor;
 extern const sd_varlink_symbol vl_type_DNS;
 extern const sd_varlink_symbol vl_type_NTP;
+extern const sd_varlink_symbol vl_type_OVSFailMode;
+extern const sd_varlink_symbol vl_type_OVSPortType;
 extern const sd_varlink_symbol vl_type_SIP;
 extern const sd_varlink_symbol vl_type_Domain;
 extern const sd_varlink_symbol vl_type_DNSSECNegativeTrustAnchor;
