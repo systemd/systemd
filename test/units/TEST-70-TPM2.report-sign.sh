@@ -951,7 +951,15 @@ test_single_key "persistent-parentcontext" \
     "$(jq -nc --arg ctx "$parent_context" --argjson kh "$((PERSISTENT_HANDLE))" '{"type":"persistent","scheme":"rsassa","hashAlg":"sha256","rsaKeyBits":2048,"parentContext":$ctx,"persistentHandle":$kh}')" \
     RSA SHA256 RSASSA 2048
 
-# 13) A voucher for the default key with no matching key must not cause a default
+# 13) The same as test 12, but the transient parent's context is the one written
+#     by tpm2-tools.
+tpm2_createprimary -C o -G ecc -c "$WORK/tools-parent.ctx" >/dev/null
+tools_parent_context="$(base64 -w0 "$WORK/tools-parent.ctx")"
+test_single_key "persistent-tools-parentcontext" \
+    "$(jq -nc --arg ctx "$tools_parent_context" --argjson kh "$((PERSISTENT_HANDLE))" '{"type":"persistent","scheme":"rsassa","hashAlg":"sha256","rsaKeyBits":2048,"parentContext":$ctx,"persistentHandle":$kh}')" \
+    RSA SHA256 RSASSA 2048
+
+# 14) A voucher for the default key with no matching key must not cause a default
 #    key to be generated. A voucher certifies the key it was issued for, but is
 #    paired to it by file name alone, so a generated key would end up shipping a
 #    voucher that certifies a different key.
@@ -980,7 +988,7 @@ delete_key() {
         "$(jq -nc --arg name "$1" '{name: $name}')"
 }
 
-# 14) Deleting a key removes all associated files.
+# 15) Deleting a key removes all associated files.
 test_delete_key() {
     if ! tpm2_supports_params ecc_nist_p256 ecdsa-sha256; then
         echo "TPM does not support the delete-key test parameters, skipping."
@@ -1011,7 +1019,7 @@ test_delete_key() {
 }
 test_delete_key
 
-# 15) Deleting a persistent key also evicts its object from the TPM.
+# 16) Deleting a persistent key also evicts its object from the TPM.
 test_delete_persistent_key() {
     if ! tpm2_supports_params rsa2048 rsassa-sha256; then
         echo "TPM does not support the delete-persistent test parameters, skipping."
@@ -1036,7 +1044,7 @@ test_delete_persistent_key() {
 }
 test_delete_persistent_key
 
-# 16) Deleting a key that doesn't exist must fail with NoSuchKey.
+# 17) Deleting a key that doesn't exist must fail with NoSuchKey.
 test_delete_no_such_key() {
     local err
 
