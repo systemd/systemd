@@ -431,6 +431,21 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                                 rebase_after_boot_time = true;
                         }
 
+                        if (b > ts.realtime) {
+                                /* The base we picked is in the future relative to the current realtime. This
+                                 * happens when the wall clock is set backwards while the timer is already
+                                 * waiting: the base was recorded from the old, later time. Feeding a future
+                                 * base to calendar_spec_next_usec() would schedule the next elapse relative to
+                                 * that stale time instead of now, so systemctl list-timers keeps showing the
+                                 * pre-adjustment elapse and the timer never catches up (see #6036). Clamp to
+                                 * now (minus the random offset, matching the "start from now" branch above) so
+                                 * we recalculate from the current time. */
+                                log_unit_debug(UNIT(t),
+                                               "Calendar timer base time %s is in the future, clamping to current time.",
+                                               FORMAT_TIMESTAMP(b));
+                                b = ts.realtime - random_offset;
+                        }
+
                         r = calendar_spec_next_usec(v->calendar_spec, b, &v->next_elapse);
                         if (r < 0)
                                 continue;
