@@ -318,17 +318,18 @@ int machine_id_commit(const char *root) {
          * in a mount namespace, a new file is created at the right place. Afterwards the mount is also removed in the
          * original mount namespace, thus revealing the file that was just created. */
 
-        _cleanup_close_ int etc_fd = -EBADF;
-        _cleanup_free_ char *etc = NULL;
-        r = chase("/etc/", root, CHASE_PREFIX_ROOT|CHASE_MUST_BE_DIRECTORY, &etc, &etc_fd);
+        _cleanup_close_ int inode_fd = -EBADF;
+        _cleanup_free_ char *etc_machine_id = NULL;
+        r = chase(
+                        "/etc/machine-id",
+                        root,
+                        CHASE_PREFIX_ROOT|CHASE_MUST_BE_REGULAR,
+                        &etc_machine_id,
+                        &inode_fd);
         if (r < 0)
-                return log_error_errno(r, "Failed to open %s: %m", "/etc/");
+                return log_error_errno(r, "Failed to open %s: %m", "/etc/machine-id");
 
-        _cleanup_free_ char *etc_machine_id = path_join(etc, "machine-id");
-        if (!etc_machine_id)
-                return log_oom();
-
-        r = is_mount_point_at(etc_fd, "machine-id", /* flags= */ 0);
+        r = is_mount_point_at(inode_fd, /* path= */ NULL, /* flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether %s is a mount point: %m", etc_machine_id);
         if (r == 0) {
@@ -338,11 +339,16 @@ int machine_id_commit(const char *root) {
 
         /* Read existing machine-id */
 
-        _cleanup_close_ int fd = xopenat_full(etc_fd, "machine-id", O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, XO_REGULAR, MODE_INVALID);
+        _cleanup_close_ int fd = xopenat_full(
+                        inode_fd,
+                        /* path= */ NULL,
+                        O_RDONLY|O_CLOEXEC|O_NOCTTY,
+                        XO_REGULAR,
+                        MODE_INVALID);
         if (fd < 0)
                 return log_error_errno(fd, "Cannot open %s: %m", etc_machine_id);
 
-        etc_fd = safe_close(etc_fd);
+        inode_fd = safe_close(inode_fd);
 
         r = fd_is_temporary_fs(fd);
         if (r < 0)
@@ -366,22 +372,33 @@ int machine_id_commit(const char *root) {
         if (r < 0)
                 return log_error_errno(r, "Failed to set up new mount namespace: %m");
 
-        /* Open /etc/ again after we transitioned into our own private mount namespace */
-        _cleanup_close_ int etc_fd_again = -EBADF;
-        r = chase("/etc/", root, CHASE_PREFIX_ROOT|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, &etc_fd_again);
-        if (r < 0)
-                return log_error_errno(r, "Failed to open %s: %m", "/etc/");
+        /* Open the resolved target's parent after we transitioned into our own private mount namespace. */
+        _cleanup_free_ char *etc_machine_id_filename = NULL;
+        _cleanup_close_ int etc_machine_id_dir_fd = chase_and_open_parent(
+                        "/etc/machine-id",
+                        root,
+                        CHASE_PREFIX_ROOT,
+                        &etc_machine_id_filename);
+        if (etc_machine_id_dir_fd < 0)
+                return log_error_errno(
+                                etc_machine_id_dir_fd,
+                                "Failed to open parent directory of %s: %m",
+                                etc_machine_id);
 
-        r = umountat_detach_verbose(LOG_ERR, etc_fd_again, "machine-id");
+        r = umountat_detach_verbose(LOG_ERR, etc_machine_id_dir_fd, etc_machine_id_filename);
         if (r < 0)
                 return r;
 
         /* Update a persistent version of etc_machine_id */
-        r = id128_write_at(etc_fd_again, "machine-id", ID128_FORMAT_PLAIN | ID128_SYNC_ON_WRITE, id);
+        r = id128_write_at(
+                        etc_machine_id_dir_fd,
+                        etc_machine_id_filename,
+                        ID128_FORMAT_PLAIN | ID128_SYNC_ON_WRITE,
+                        id);
         if (r < 0)
                 return log_error_errno(r, "Cannot write %s. This is mandatory to get a persistent machine ID: %m", etc_machine_id);
 
-        etc_fd_again = safe_close(etc_fd_again);
+        etc_machine_id_dir_fd = safe_close(etc_machine_id_dir_fd);
 
         /* Return to initial namespace and proceed a lazy tmpfs unmount */
         r = namespace_enter(/* pidns_fd= */ -EBADF,
