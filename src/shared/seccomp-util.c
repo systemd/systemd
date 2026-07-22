@@ -2515,18 +2515,14 @@ static int block_open_flag(scmp_filter_ctx seccomp, int flag) {
         else
                 any = true;
 
-#if defined(__SNR_openat2)
-        /* The new openat2() system call can't be filtered sensibly, see above. */
-        r = sym_seccomp_rule_add_exact(
-                        seccomp,
-                        SCMP_ACT_ERRNO(ENOSYS),
-                        SCMP_SYS(openat2),
-                        0);
-        if (r < 0)
-                log_debug_errno(r, "Failed to add filter for openat2: %m");
-        else
-                any = true;
-#endif
+        /* We can't reasonably filter openat2() here, see the comment in seccomp_restrict_sxid() above.
+         * However, blocking it here causes an increasing number of issues as more software moves to
+         * openat2() without any fallback to open()/openat().
+         *
+         * Given that calling openat2() with O_SYNC is rather rare, and we still filter our the sync-family
+         * syscalls in seccomp_suppress_sync() below, let's just blanket-allow openat2() to avoid
+         * unnecessarily breaking stuff left and right in the "nosync" mode, at least until a better solution
+         * pops up. */
 
         return any ? 0 : r;
 }
