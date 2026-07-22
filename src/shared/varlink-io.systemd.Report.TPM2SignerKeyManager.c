@@ -70,7 +70,7 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(eccCurve, ECCCurve, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("For ordinary or persistent keys, the persistent handle for the parent of the new signing key. For persistent keys, only this field, parentContext or hierarchy shall be specified."),
                 SD_VARLINK_DEFINE_INPUT(parentHandle, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("For persistent keys, the base64 encoded TPMS_CONTEXT of the parent of the new signing key, which allows the parent to be a transient object. This must be a TPMS_CONTEXT in the form serialized by TSS2, containing the TSS2 handle metadata. Only this field, parentHandle or hierarchy shall be specified."),
+                SD_VARLINK_FIELD_COMMENT("For persistent keys, the base64 encoded context of the parent of the new signing key, which allows the parent to be a transient object. This must either be a TPMS_CONTEXT in the form serialized by TSS2 ESAPI and containing the ESAPI handle metadata, or a context created by tpm2-tools. Only this field, parentHandle or hierarchy shall be specified."),
                 SD_VARLINK_DEFINE_INPUT(parentContext, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("For persistent or primary keys, the hierarchy to create the new signing key in. For persistent keys, only this field, parentHandle or parentContedt shall be specified."),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(hierarchy, Hierarchy, SD_VARLINK_NULLABLE),
