@@ -219,6 +219,9 @@
         <listitem><para>If <command>status</command> is invoked (or no explicit command is given) and one of these
         switches is specified, <command>hostnamectl</command> will print out just this selected hostname.</para>
 
+        <para>This selection does not apply to JSON output: with <option>--json=</option>,
+        <command>status</command> always prints the full status object.</para>
+
         <para>If used with <command>hostname</command>, only the selected hostnames will be updated. When more
         than one of these switches are specified, all the specified hostnames will be updated. </para>
 
