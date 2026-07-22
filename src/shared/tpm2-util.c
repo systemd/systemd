@@ -154,6 +154,7 @@ static DLSYM_PROTOTYPE(Esys_VerifySignature) = NULL;
 static DLSYM_PROTOTYPE(Tss2_MU_TPM2_CC_Marshal) = NULL;
 static DLSYM_PROTOTYPE(Tss2_MU_TPM2_HANDLE_Marshal) = NULL;
 static DLSYM_PROTOTYPE(Tss2_MU_TPM2B_DIGEST_Marshal) = NULL;
+static DLSYM_PROTOTYPE(Tss2_MU_TPM2B_CONTEXT_DATA_Unmarshal) = NULL;
 static DLSYM_PROTOTYPE(Tss2_MU_TPM2B_ENCRYPTED_SECRET_Marshal) = NULL;
 static DLSYM_PROTOTYPE(Tss2_MU_TPM2B_ENCRYPTED_SECRET_Unmarshal) = NULL;
 static DLSYM_PROTOTYPE(Tss2_MU_TPM2B_NAME_Marshal) = NULL;
@@ -174,6 +175,8 @@ static DLSYM_PROTOTYPE(Tss2_MU_TPMT_HA_Marshal) = NULL;
 static DLSYM_PROTOTYPE(Tss2_MU_TPMT_PUBLIC_Marshal) = NULL;
 static DLSYM_PROTOTYPE(Tss2_MU_TPMT_PUBLIC_Unmarshal) = NULL;
 static DLSYM_PROTOTYPE(Tss2_MU_UINT32_Marshal) = NULL;
+static DLSYM_PROTOTYPE(Tss2_MU_UINT32_Unmarshal) = NULL;
+static DLSYM_PROTOTYPE(Tss2_MU_UINT64_Unmarshal) = NULL;
 
 static DLSYM_PROTOTYPE(Tss2_RC_Decode) = NULL;
 
@@ -269,6 +272,7 @@ static int dlopen_tpm2_mu(int log_level) {
                         &libtss2_mu_dl, "libtss2-mu.so.0", log_level,
                         DLSYM_ARG(Tss2_MU_TPM2_CC_Marshal),
                         DLSYM_ARG(Tss2_MU_TPM2_HANDLE_Marshal),
+                        DLSYM_ARG(Tss2_MU_TPM2B_CONTEXT_DATA_Unmarshal),
                         DLSYM_ARG(Tss2_MU_TPM2B_DIGEST_Marshal),
                         DLSYM_ARG(Tss2_MU_TPM2B_ENCRYPTED_SECRET_Marshal),
                         DLSYM_ARG(Tss2_MU_TPM2B_ENCRYPTED_SECRET_Unmarshal),
@@ -289,7 +293,9 @@ static int dlopen_tpm2_mu(int log_level) {
                         DLSYM_ARG(Tss2_MU_TPMT_HA_Marshal),
                         DLSYM_ARG(Tss2_MU_TPMT_PUBLIC_Marshal),
                         DLSYM_ARG(Tss2_MU_TPMT_PUBLIC_Unmarshal),
-                        DLSYM_ARG(Tss2_MU_UINT32_Marshal));
+                        DLSYM_ARG(Tss2_MU_UINT32_Marshal),
+                        DLSYM_ARG(Tss2_MU_UINT32_Unmarshal),
+                        DLSYM_ARG(Tss2_MU_UINT64_Unmarshal));
 }
 
 _dlopen_loader_
@@ -1518,6 +1524,77 @@ int tpm2_unmarshal_saved_handle_context(const void *data, size_t size, TPMS_CONT
         if (rc != TSS2_RC_SUCCESS)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to unmarshal saved context structure: %s", sym_Tss2_RC_Decode(rc));
+        if (offset != size)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Garbage at end of saved context structure data.");
+
+        *ret = context;
+        return 0;
+}
+
+/* Unmarshal a context blob saved by tpm2-tools into a TPMS_CONTEXT. */
+int tpm2_unmarshal_saved_tpm2_tools_context(const void *data, size_t size, TPMS_CONTEXT *ret) {
+        size_t offset = 0;
+        TPMS_CONTEXT context = {};
+        TSS2_RC rc;
+        int r;
+
+        assert(data);
+        assert(ret);
+
+        r = dlopen_tpm2(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        /* tpm2-tools serializes a tss2 created TPMS_CONTEXT using its own layout which looks like this:
+         *
+         * UINT32 magic (0xbadcc0de)
+         * UINT32 version (1)
+         * UINT32 hierarchy
+         * UINT32 savedHandle
+         * UINT64 sequence
+         * UINT16 contextBlob.size
+         * BYTE[] contextBlob.buffer
+         */
+
+        uint32_t magic;
+        rc = sym_Tss2_MU_UINT32_Unmarshal(data, size, &offset, &magic);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to unmarshal magic field of saved tpm2-tools context structure: %s", sym_Tss2_RC_Decode(rc));
+        if (magic != 0xbadcc0de)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Data is not a tpm2-tools context structure");
+
+        uint32_t version;
+        rc = sym_Tss2_MU_UINT32_Unmarshal(data, size, &offset, &version);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to unmarshal version field of saved tpm2-tools context structure: %s", sym_Tss2_RC_Decode(rc));
+        if (version != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to unmarshal tpm2-tools context structure: unsupported version");
+
+        rc = sym_Tss2_MU_UINT32_Unmarshal(data, size, &offset, &context.hierarchy);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to unmarshal hierarchy field of saved tpm2-tools context structure: %s", sym_Tss2_RC_Decode(rc));
+
+        rc = sym_Tss2_MU_UINT32_Unmarshal(data, size, &offset, &context.savedHandle);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to unmarshal savedHandle field of saved tpm2-tools context structure: %s", sym_Tss2_RC_Decode(rc));
+
+        rc = sym_Tss2_MU_UINT64_Unmarshal(data, size, &offset, &context.sequence);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to unmarshal sequence field of saved tpm2-tools context structure: %s", sym_Tss2_RC_Decode(rc));
+
+        rc = sym_Tss2_MU_TPM2B_CONTEXT_DATA_Unmarshal(data, size, &offset, &context.contextBlob);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to unmarshal contextBlob field of saved tpm2-tools context structure: %s", sym_Tss2_RC_Decode(rc));
+
         if (offset != size)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Garbage at end of saved context structure data.");
