@@ -17,6 +17,7 @@
 #include "iovec-util.h"
 #include "log.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "pidfd-util.h"
 #include "process-util.h"
 #include "random-util.h"
@@ -235,4 +236,15 @@ uint64_t random_u64_range(uint64_t m) {
         } while (x >= UINT64_MAX - remainder);
 
         return x % m;
+}
+
+bool random_is_rng_device(const char *p) {
+        if (!p)
+                return false;
+
+        return PATH_IN_SET(p,
+                           "/dev/urandom",
+                           "/dev/random",
+                           "/dev/hw_random",
+                           "/dev/hwrng");
 }
