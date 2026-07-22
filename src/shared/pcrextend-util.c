@@ -25,7 +25,7 @@
 #include "tpm2-pcr.h"
 #include "user-record.h"
 
-static int pcrextend_pcr_now(unsigned pcr, const char *word, const struct iovec *secret, const char *event) {
+int pcrextend_pcr_now(unsigned pcr, const char *word, const struct iovec *secret, const char *event) {
 
 #if HAVE_TPM2
         int r;
@@ -78,10 +78,13 @@ static int pcrextend_pcr_now(unsigned pcr, const char *word, const struct iovec 
 #endif
 }
 
-static int pcrextend_nvpcr_now(const char *nvpcr, const char *word, const char *event) {
+int pcrextend_nvpcr_now(const char *nvpcr, const char *word, const char *event) {
 
 #if HAVE_TPM2
         int r;
+
+        assert(nvpcr);
+        assert(word);
 
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.PCRExtend");
