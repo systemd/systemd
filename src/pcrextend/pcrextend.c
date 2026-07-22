@@ -12,6 +12,7 @@
 #include "escape.h"
 #include "format-table.h"
 #include "help-util.h"
+#include "initrd-util.h"
 #include "json-util.h"
 #include "main-func.h"
 #include "options.h"
@@ -239,21 +240,22 @@ static int determine_banks(Tpm2Context *c, uint32_t target_pcr_mask) {
         return 0;
 }
 
-static int escape_and_truncate_data(const void *data, size_t size, char **ret) {
+static int escape_and_truncate_data(const struct iovec *data, char **ret) {
         _cleanup_free_ char *safe = NULL;
 
-        assert(data || size == 0);
+        assert(data);
+        assert(iovec_is_valid(data));
         assert(ret);
 
-        if (size > EXTENSION_STRING_SAFE_LIMIT) {
-                safe = cescape_length(data, EXTENSION_STRING_SAFE_LIMIT);
+        if (data->iov_len > EXTENSION_STRING_SAFE_LIMIT) {
+                safe = cescape_length(data->iov_base, EXTENSION_STRING_SAFE_LIMIT);
                 if (!safe)
                         return -ENOMEM;
 
                 if (!strextend(&safe, "..."))
                         return -ENOMEM;
         } else {
-                safe = cescape_length(data, size);
+                safe = cescape_length(data->iov_base, data->iov_len);
                 if (!safe)
                         return -ENOMEM;
         }
@@ -306,8 +308,8 @@ static int tpm2_context_new_for_measurement(Tpm2Context **ret) {
 
 static int extend_pcr_now(
                 uint32_t pcr_mask,
-                const void *data,
-                size_t size,
+                const struct iovec *data,
+                const struct iovec *secret,
                 Tpm2UserspaceEventType event) {
 
         _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
@@ -331,13 +333,13 @@ static int extend_pcr_now(
                 return log_oom();
 
         _cleanup_free_ char *safe = NULL;
-        if (escape_and_truncate_data(data, size, &safe) < 0)
+        if (escape_and_truncate_data(data, &safe) < 0)
                 return log_oom();
 
         BIT_FOREACH(pcr, pcr_mask) {
                 log_debug("Measuring '%s' into PCR index %i, banks %s.", safe, pcr, joined_banks);
 
-                r = tpm2_pcr_extend_bytes(c, arg_banks, pcr, &IOVEC_MAKE(data, size), /* secret= */ NULL, event, safe);
+                r = tpm2_pcr_extend_bytes(c, arg_banks, pcr, data, secret, event, safe);
                 if (r < 0)
                         return log_error_errno(r, "Could not extend PCR: %m");
 
@@ -354,8 +356,8 @@ static int extend_pcr_now(
 
 static int extend_nvpcr_now(
                 const char *name,
-                const void *data,
-                size_t size,
+                const struct iovec *data,
+                const struct iovec *secret,
                 Tpm2UserspaceEventType event) {
 
         _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
@@ -368,7 +370,7 @@ static int extend_nvpcr_now(
                 return r;
 
         _cleanup_free_ char *safe = NULL;
-        if (escape_and_truncate_data(data, size, &safe) < 0)
+        if (escape_and_truncate_data(data, &safe) < 0)
                 return log_oom();
 
         log_debug("Measuring '%s' into NvPCR index '%s'.", safe, name);
@@ -377,9 +379,9 @@ static int extend_nvpcr_now(
                         c,
                         /* session= */ NULL,
                         name,
-                        &IOVEC_MAKE(data, size),
-                        /* secret= */ NULL,
-                        /* sync_secondary_anchor= */ !arg_early,
+                        data,
+                        secret,
+                        /* sync_secondary_anchor= */ !(arg_early || in_initrd()),
                         event,
                         safe);
         if (r == -ENOBUFS)
@@ -401,6 +403,7 @@ typedef struct MethodExtendParameters {
         const char *nvpcr;
         const char *text;
         struct iovec data;
+        struct iovec secret;
         Tpm2UserspaceEventType event_type;
 } MethodExtendParameters;
 
@@ -408,6 +411,7 @@ static void method_extend_parameters_done(MethodExtendParameters *p) {
         assert(p);
 
         iovec_done(&p->data);
+        iovec_done_erase(&p->secret);
 }
 
 static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_tpm2_userspace_event_type, Tpm2UserspaceEventType, tpm2_userspace_event_type_from_string);
@@ -415,10 +419,11 @@ static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_tpm2_userspace_event_type, Tpm2Us
 static int vl_method_extend(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "pcr",       _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,                   offsetof(MethodExtendParameters, pcr),   0 },
-                { "nvpcr",     SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,           offsetof(MethodExtendParameters, nvpcr), 0 },
-                { "text",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,           offsetof(MethodExtendParameters, text),  0 },
-                { "data",      SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,            offsetof(MethodExtendParameters, data),   0 },
+                { "pcr",       _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,                   offsetof(MethodExtendParameters, pcr),        0 },
+                { "nvpcr",     SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,           offsetof(MethodExtendParameters, nvpcr),      0 },
+                { "text",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,           offsetof(MethodExtendParameters, text),       0 },
+                { "data",      SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,            offsetof(MethodExtendParameters, data),       0 },
+                { "secret",    SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,            offsetof(MethodExtendParameters, secret),     0 },
                 { "eventType", SD_JSON_VARIANT_STRING,        json_dispatch_tpm2_userspace_event_type, offsetof(MethodExtendParameters, event_type), 0 },
                 {}
         };
@@ -464,13 +469,13 @@ static int vl_method_extend(sd_varlink *link, sd_json_variant *parameters, sd_va
                 return sd_varlink_error_invalid_parameter_name(link, p.text ? "text" : "data");
 
         if (p.nvpcr) {
-                r = extend_nvpcr_now(p.nvpcr, extend_iovec->iov_base, extend_iovec->iov_len, p.event_type);
+                r = extend_nvpcr_now(p.nvpcr, extend_iovec, &p.secret, p.event_type);
                 if (IN_SET(r, -ENOENT, -ENODEV))
                         return sd_varlink_error(link, "io.systemd.PCRExtend.NoSuchNvPCR", NULL);
                 if (r == -ENOBUFS)
                         return sd_varlink_error(link, "io.systemd.PCRExtend.NvPCRSpaceExhausted", NULL);
         } else
-                r = extend_pcr_now(INDEX_TO_MASK(uint32_t, p.pcr), extend_iovec->iov_base, extend_iovec->iov_len, p.event_type);
+                r = extend_pcr_now(INDEX_TO_MASK(uint32_t, p.pcr), extend_iovec, &p.secret, p.event_type);
         if (r < 0)
                 return r;
 
@@ -482,7 +487,7 @@ static int vl_server(void) {
         int r;
 
         r = varlink_server_new(&varlink_server,
-                               SD_VARLINK_SERVER_ROOT_ONLY | SD_VARLINK_SERVER_MYSELF_ONLY,
+                               SD_VARLINK_SERVER_ROOT_ONLY | SD_VARLINK_SERVER_MYSELF_ONLY | SD_VARLINK_SERVER_INPUT_SENSITIVE,
                                /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate Varlink server: %m");
@@ -601,9 +606,9 @@ static int run(int argc, char *argv[]) {
         }
 
         if (arg_nvpcr_name)
-                r = extend_nvpcr_now(arg_nvpcr_name, word, strlen(word), event);
+                r = extend_nvpcr_now(arg_nvpcr_name, &IOVEC_MAKE(word, strlen(word)), NULL, event);
         else
-                r = extend_pcr_now(arg_pcr_mask, word, strlen(word), event);
+                r = extend_pcr_now(arg_pcr_mask, &IOVEC_MAKE(word, strlen(word)), NULL, event);
         /* Both extend paths report "TPM cannot be used for this measurement" (no PCR bank, missing crypto,
          * no TPM device — see tpm2_context_new_for_measurement()) as -EOPNOTSUPP. Under --graceful we skip
          * those rather than fail and block boot. Genuine faults keep their own errno and are never
