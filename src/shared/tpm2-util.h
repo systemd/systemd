@@ -328,6 +328,7 @@ int tpm2_evict_handle(Tpm2Context *c, const Tpm2Handle *session, TPMI_DH_PERSIST
 
 int tpm2_marshal_saved_handle_context(TPMS_CONTEXT *context, void **ret, size_t *ret_size);
 int tpm2_unmarshal_saved_handle_context(const void *data, size_t size, TPMS_CONTEXT *ret);
+int tpm2_unmarshal_saved_tpm2_tools_context(const void *data, size_t size, TPMS_CONTEXT *ret);
 int tpm2_load_saved_handle_context(Tpm2Context *c, const TPMS_CONTEXT *context, TPM2B_NAME **ret_name, Tpm2Handle **ret_handle);
 int tpm2_save_handle_context(Tpm2Context *c, const Tpm2Handle *handle, TPMS_CONTEXT **ret_context);
 

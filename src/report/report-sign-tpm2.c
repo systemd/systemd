@@ -1445,14 +1445,24 @@ static int vl_method_create_key(
                 /* This is the path for "ordinary" keys, or "persistent" keys with either a "parentHandle"
                 * or "parentContext" rather than a "hierarchy". */
                 if (iovec_is_set(&p.parent_context)) {
-                        /* Persistent keys with a "parentContext" corresponding to a saved transient key. */
+                        /* Persistent keys with a "parentContext" corresponding to a saved transient key.
+                         * Try unmarshalling using the tpm2-tools structure first. */
                         TPMS_CONTEXT context;
-                        r = tpm2_unmarshal_saved_handle_context(
+                        r = tpm2_unmarshal_saved_tpm2_tools_context(
                                         p.parent_context.iov_base,
                                         p.parent_context.iov_len,
                                         &context);
-                        if (r < 0)
+                        if (r < 0 && r != -EOPNOTSUPP)
                                 return sd_varlink_error_invalid_parameter_name(link, "parentContext");
+                        if (r < 0) {
+                                /* The supplied context did not have the tpm2-tools magic header. */
+                                r = tpm2_unmarshal_saved_handle_context(
+                                                p.parent_context.iov_base,
+                                                p.parent_context.iov_len,
+                                                &context);
+                                if (r < 0)
+                                        return sd_varlink_error_invalid_parameter_name(link, "parentContext");
+                        }
 
                         r = tpm2_load_saved_handle_context(c, &context, /* ret_name= */ NULL, &parent);
                         if (r < 0)
