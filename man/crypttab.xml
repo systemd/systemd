@@ -939,11 +939,11 @@
       <varlistentry>
         <term><option>tpm2-measure-bank=</option></term>
 
-        <listitem><para>Selects one or more TPM2 PCR banks to measure the volume key into, as configured with
-        <option>tpm2-measure-pcr=</option> above. Multiple banks may be specified, separated by a colon
-        character. If not specified, automatically determines available and used banks. Expects a message
-        digest name (e.g. <literal>sha1</literal>, <literal>sha256</literal>, …) as argument, to identify the
-        bank.</para>
+        <listitem><para>This option is deprecated and, since version 262, has no effect anymore. The
+        measurement of the volume key is now performed by
+        <citerefentry><refentrytitle>systemd-pcrextend</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        which automatically selects all suitable PCR banks; the bank can no longer be restricted per
+        volume.</para>
 
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
