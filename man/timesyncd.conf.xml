@@ -133,6 +133,21 @@
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>MaxClockStepSec=</varname></term>
+        <listitem><para>Specifies the maximum absolute clock offset that may be corrected based on a single
+        NTP response. If the measured offset exceeds this value, the response is ignored and
+        <command>systemd-timesyncd</command> switches to another server.</para>
+
+        <para>Takes a time span value. The default unit is seconds, but other units may be specified, see
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        Defaults to <literal>infinity</literal>, which permits clock corrections of any size. Systems without
+        a reliable real-time clock may require a large initial correction and should configure this option
+        accordingly.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 

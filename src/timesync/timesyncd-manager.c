@@ -361,6 +361,12 @@ static bool manager_sample_spike_detection(Manager *m, double offset, double del
         return ABS(offset - m->samples[idx_cur].offset) > 3 * jitter;
 }
 
+bool manager_clock_step_is_too_large(Manager *m, double offset) {
+        assert(m);
+
+        return fabs(offset) > (double) m->max_clock_step_usec / USEC_PER_SEC;
+}
+
 static void manager_adjust_poll(Manager *m, double offset, bool spike) {
         assert(m);
 
@@ -529,6 +535,14 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
 
         offset = ((receive - origin) + (trans - dest)) / 2;
         delay = (dest - origin) - (trans - receive);
+
+        if (manager_clock_step_is_too_large(m, offset)) {
+                log_warning("Clock offset %+.3f sec from server %s exceeds MaxClockStepSec=%.3f sec. Disconnecting.",
+                            offset,
+                            m->current_server_name->string,
+                            (double) m->max_clock_step_usec / USEC_PER_SEC);
+                return manager_connect(m);
+        }
 
         spike = manager_sample_spike_detection(m, offset, delay);
 
@@ -1115,6 +1129,7 @@ int manager_new(Manager **ret) {
 
         *m = (Manager) {
                 .root_distance_max_usec = NTP_ROOT_DISTANCE_MAX_USEC,
+                .max_clock_step_usec = DEFAULT_MAX_CLOCK_STEP_USEC,
                 .poll_interval_min_usec = NTP_POLL_INTERVAL_MIN_USEC,
                 .poll_interval_max_usec = NTP_POLL_INTERVAL_MAX_USEC,
 
