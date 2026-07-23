@@ -1837,7 +1837,7 @@ fuzzer_exes = []
 sources = []
 
 # binaries that have --help and are intended for use by humans,
-# usually, but not always, installed in /bin.
+# usually, but not always, installed in /usr/bin.
 public_programs = []
 
 # D-Bus introspection XML export
@@ -2375,7 +2375,7 @@ foreach dict : executables
                 install_shared = install == 'yes'
                 install_static = install_shared and install_standalone
                 build_by_default_shared = build_by_default
-                build_by_default_static = build_by_default and install_standalone
+                build_by_default_static = build_by_default and (install_standalone or want_dlopen_tests)
         elif install == 'static'
                 if is_test or is_fuzz
                         error('Install mode "@0@" is not supported for test or fuzzer target "@1@"'.format(install, name))
@@ -2452,9 +2452,9 @@ foreach dict : executables
                         install: install_static,
                 )
 
-                executables_by_name += { name_static : exe_static }
-
                 if build_by_default_static
+                        executables_by_name += { name_static : exe_static }
+
                         if dict.get('dbus', false) and not build_by_default_shared
                                 dbus_programs += exe_static
                         endif
@@ -2771,18 +2771,20 @@ endif
 foreach exec : public_programs
         name = fs.name(exec.full_path())
         if want_tests != 'false'
-                test('check-help-' + name,
-                     check_help_sh,
-                     suite : 'dist',
-                     args : exec.full_path(),
-                     depends: exec)
-
                 test('check-version-' + name,
                      check_version_sh,
                      suite : 'dist',
                      args : [exec.full_path(),
                              project_major_version],
                      depends: exec)
+
+                if not name.endswith('.standalone')
+                        test('check-help-' + name,
+                             check_help_sh,
+                             suite : 'dist',
+                             args : exec.full_path(),
+                             depends: exec)
+                endif
         endif
 endforeach
 
