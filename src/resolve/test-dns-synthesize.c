@@ -302,4 +302,28 @@ TEST(dns_synthesize_answer_address_local_dns_proxy) {
         ASSERT_TRUE(dns_answer_contains(answer, rr));
 }
 
+
+TEST(dns_synthesize_answer_onion) {
+        Manager manager = {};
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+
+        question = dns_question_new(1);
+        ASSERT_NOT_NULL(question);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "mysecret.onion");
+        ASSERT_NOT_NULL(key);
+
+        ASSERT_OK(dns_question_add(question, key, 0));
+
+        answer = dns_answer_new(0);
+        ASSERT_NOT_NULL(answer);
+
+        /* Verify RFC 7686: .onion leak prevention must return ENXIO to trigger an unconditional NXDOMAIN */
+        ASSERT_ERROR(dns_synthesize_answer(&manager, question, 0, &answer), ENXIO);
+        ASSERT_TRUE(dns_answer_isempty(answer));
+}
+
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
