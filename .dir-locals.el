@@ -20,7 +20,7 @@
  (nxml-mode . ((nxml-child-indent . 2)
                (fill-column . 109)))
  (meson-mode . ((meson-indent-basic . 8)))
- (sh-mode . ((sh-indentation . 4)))
+ (sh-mode . ((sh-basic-offset . 4)))
  (awk-mode . ((c-basic-offset . 8)))
  (python-mode . ((indent-tabs-mode . nil)
                  (tab-width . 4)
