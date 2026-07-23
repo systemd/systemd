@@ -13,7 +13,6 @@ executables += [
                 'dependencies' : [
                         libcurl_cflags,
                 ],
-                'install' : have_standalone_binaries ? 'both' : 'yes',
         },
         libexec_template + {
                 'name' : 'systemd-report-basic',
@@ -22,7 +21,6 @@ executables += [
                         'report-basic.c',
                         'report-basic-server.c',
                 ),
-                'install' : have_standalone_binaries ? 'both' : 'yes',
         },
         libexec_template + {
                 'name' : 'systemd-report-cgroup',
@@ -30,7 +28,6 @@ executables += [
                         'report-cgroup.c',
                         'report-cgroup-server.c',
                 ),
-                'install' : have_standalone_binaries ? 'both' : 'yes',
         },
         libexec_template + {
                 'name' : 'systemd-report-files',
@@ -38,7 +35,6 @@ executables += [
                         'report-files.c',
                         'report-files-server.c',
                 ),
-                'install' : have_standalone_binaries ? 'both' : 'yes',
         },
         libexec_template + {
                 'name' : 'systemd-report-sign-plain',
@@ -47,13 +43,11 @@ executables += [
                 ),
                 'dependencies' : libopenssl_cflags,
                 'conditions' : ['HAVE_OPENSSL'],
-                'install' : have_standalone_binaries ? 'both' : 'yes',
         },
         libexec_template + {
                 'name' : 'systemd-report-sign-tsm',
                 'export' : files(
                         'report-sign-tsm.c',
                 ),
-                'install' : have_standalone_binaries ? 'both' : 'yes',
         },
 ]
