@@ -322,16 +322,7 @@ static int specifier_directory(
         if (r < 0)
                 return r;
 
-        if (arg_root) {
-                _cleanup_free_ char *j = NULL;
-
-                j = path_join(arg_root, p);
-                if (!j)
-                        return -ENOMEM;
-
-                *ret = TAKE_PTR(j);
-        } else
-                *ret = TAKE_PTR(p);
+        *ret = TAKE_PTR(p);
 
         return 0;
 }
@@ -817,9 +808,14 @@ static int dir_cleanup(
 
                         log_action("Would remove", "Removing", "%s directory \"%s\"", sub_path);
                         if (!arg_dry_run &&
-                            unlinkat(dirfd(d), de->d_name, AT_REMOVEDIR) < 0 &&
-                            !IN_SET(errno, ENOENT, ENOTEMPTY))
-                                r = log_warning_errno(errno, "Failed to remove directory \"%s\", ignoring: %m", sub_path);
+                            unlinkat(dirfd(d), de->d_name, AT_REMOVEDIR) < 0) {
+                                if (errno == ENOTEMPTY)
+                                        continue;
+                                if (errno != ENOENT)
+                                        r = log_warning_errno(errno, "Failed to remove directory \"%s\", ignoring: %m", sub_path);
+                        }
+
+                        deleted = true;
 
                 } else {
                         _cleanup_close_ int fd = -EBADF; /* This file descriptor is defined here so that the
@@ -1157,20 +1153,17 @@ static int parse_xattrs_from_arg(Item *i) {
 
                 r = extract_first_word(&p, &xattr, NULL, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to parse extended attribute '%s', ignoring: %m", p);
-                if (r <= 0)
+                        return log_warning_errno(r, "Failed to parse extended attribute '%s': %m", p);
+                if (r == 0)
                         break;
 
                 r = split_pair(xattr, "=", &name, &value);
-                if (r < 0) {
-                        log_warning_errno(r, "Failed to parse extended attribute, ignoring: %s", xattr);
-                        continue;
-                }
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to parse extended attribute: %s", xattr);
 
-                if (isempty(name) || isempty(value)) {
-                        log_warning("Malformed extended attribute found, ignoring: %s", xattr);
-                        continue;
-                }
+                if (isempty(name) || isempty(value))
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                 "Malformed extended attribute: %s", xattr);
 
                 if (strv_push_pair(&i->xattrs, name, value) < 0)
                         return log_oom();
@@ -1242,9 +1235,14 @@ static int parse_acls_from_arg(Item *item) {
 
         r = parse_acl(item->argument, &item->acl_access, &item->acl_access_exec,
                       &item->acl_default, !item->append_or_force);
-        if (r < 0)
-                log_full_errno(arg_graceful && IN_SET(r, -EINVAL, -ENOENT, -ESRCH) ? LOG_DEBUG : LOG_WARNING,
-                               r, "Failed to parse ACL \"%s\", ignoring: %m", item->argument);
+        if (r < 0) {
+                if (arg_graceful && IN_SET(r, -EINVAL, -ENOENT, -ESRCH)) {
+                        log_debug_errno(r, "Failed to parse ACL \"%s\", ignoring: %m", item->argument);
+                        return 0;
+                }
+
+                return log_warning_errno(r, "Failed to parse ACL \"%s\": %m", item->argument);
+        }
 #else
         log_warning("ACLs are not supported, ignoring.");
 #endif
@@ -1743,11 +1741,9 @@ static int parse_caps_from_arg(Item *item) {
         assert(item);
 
         r = capability_vfs_from_string(item->argument, &fcaps);
-        if (r < 0) {
-                log_full_errno(arg_graceful ? LOG_DEBUG : LOG_WARNING,
-                               r, "Failed to parse capabilities \"%s\", ignoring: %m", item->argument);
-                return 0;
-        }
+        if (r < 0)
+                return log_full_errno(arg_graceful ? LOG_DEBUG : LOG_WARNING,
+                                      r, "Failed to parse capabilities \"%s\": %m", item->argument);
 
         item->fcaps_set = true;
         item->fcaps = fcaps;
@@ -2247,10 +2243,13 @@ static int copy_files(Context *c, Item *i) {
                 return log_error_errno(errno, "Failed to openat(%s): %m", i->path);
         }
 
+        if (r < 0 && !IN_SET(r, -EEXIST, -EROFS))
+                return log_error_errno(r, "Failed to copy files to %s: %m", i->path);
+
         if (fstat(fd, &st) < 0)
                 return log_error_errno(errno, "Failed to fstat(%s): %m", i->path);
 
-        if (stat(i->argument, &a) < 0)
+        if (lstat(i->argument, &a) < 0)
                 return log_error_errno(errno, "Failed to stat(%s): %m", i->argument);
 
         if (((st.st_mode ^ a.st_mode) & S_IFMT) != 0) {
@@ -2689,16 +2688,30 @@ static int create_symlink(Context *c, Item *i) {
         assert(i);
 
         if (i->ignore_if_target_missing) {
-                r = chase(i->argument, arg_root, CHASE_SAFE|CHASE_PREFIX_ROOT|CHASE_NOFOLLOW, /* ret_path= */ NULL, /* ret_fd= */ NULL);
+                _cleanup_free_ char *target = NULL;
+                ChaseFlags chase_flags = CHASE_SAFE|CHASE_NOFOLLOW;
+
+                if (!path_is_absolute(i->argument)) {
+                        _cleanup_free_ char *dn = NULL;
+
+                        r = path_extract_directory(i->path, &dn);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to extract directory from path '%s': %m", i->path);
+
+                        target = path_join(dn, i->argument);
+                        if (!target)
+                                return log_oom();
+                } else
+                        chase_flags |= CHASE_PREFIX_ROOT;
+
+                r = chase(target ?: i->argument, arg_root, chase_flags, /* ret_path= */ NULL, /* ret_fd= */ NULL);
                 if (r == -ENOENT) {
                         /* Silently skip over lines where the source file is missing. */
-                        log_debug_errno(r, "Symlink source path '%s/%s' does not exist, skipping line.",
-                                        strempty(arg_root), skip_leading_slash(i->argument));
+                        log_debug_errno(r, "Symlink source path '%s' does not exist, skipping line.", i->argument);
                         return 0;
                 }
                 if (r < 0)
-                        return log_error_errno(r, "Failed to check if symlink source path '%s/%s' exists: %m",
-                                               strempty(arg_root), skip_leading_slash(i->argument));
+                        return log_error_errno(r, "Failed to check if symlink source path '%s' exists: %m", i->argument);
         }
 
         r = path_extract_filename(i->path, &bn);
@@ -4099,8 +4112,10 @@ static int parse_line(
                                           "Set extended attribute requires argument.");
                 }
                 r = parse_xattrs_from_arg(&i);
-                if (r < 0)
+                if (r < 0) {
+                        *invalid_config = true;
                         return r;
+                }
                 break;
 
         case SET_ACL:
@@ -4116,8 +4131,10 @@ static int parse_line(
                                           "Set ACLs requires argument.");
                 }
                 r = parse_acls_from_arg(&i);
-                if (r < 0)
+                if (r < 0) {
+                        *invalid_config = true;
                         return r;
+                }
                 break;
 
         case SET_FCAPS:
@@ -4133,8 +4150,10 @@ static int parse_line(
                                           "Set capabilities requires argument.");
                 }
                 r = parse_caps_from_arg(&i);
-                if (r < 0)
+                if (r < 0) {
+                        *invalid_config = true;
                         return r;
+                }
                 break;
 
         case SET_ATTRIBUTE:
@@ -4401,6 +4420,12 @@ static int parse_line(
         existing = ordered_hashmap_get(h, i.path);
         if (existing) {
                 if (is_duplicated_item(existing, &i)) {
+                        if (i.type == CREATE_SYMLINK && !i.append_or_force) {
+                                *invalid_config = true;
+                                return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EEXIST),
+                                                  "Conflicting symlink line for path \"%s\".", i.path);
+                        }
+
                         log_syntax(NULL, LOG_NOTICE, fname, line, 0,
                                    "Duplicate line for path \"%s\", ignoring.", i.path);
                         return 0;
@@ -4707,6 +4732,8 @@ static int read_config_file(
                         if (candidate_item && candidate_item->age_set) {
                                 i->age = candidate_item->age;
                                 i->age_set = true;
+                                i->age_by_file = candidate_item->age_by_file;
+                                i->age_by_dir = candidate_item->age_by_dir;
                         }
                 }
 
