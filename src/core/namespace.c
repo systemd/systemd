@@ -1643,6 +1643,8 @@ static int mount_mqueuefs(const MountEntry *m) {
         (void) umount_recursive(entry_path, 0);
 
         r = mount_nofollow_verbose(LOG_DEBUG, "mqueue", entry_path, "mqueue", m->flags, mount_entry_options(m));
+        if (r == -ENODEV) /* POSIX message queues may be disabled in the kernel. */
+                return 0;
         if (r < 0)
                 return r;
 
