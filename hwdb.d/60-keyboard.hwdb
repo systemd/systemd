@@ -2435,6 +2435,14 @@ evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:svnPositivo*:pn*:pvr*:rvnPositi
 # Multilaser Ultra (UL154)
 evdev:name:AT Translated Set 2 keyboard:dmi:bvn*bvr*:svnMultilaserIndustrial:pn*:pvr*:rvn*:rnUL154*
  KEYBOARD_KEY_76=touchpad_toggle                        # Fn+f2 toggle touchpad
+ 
+###########################################################
+# PATEN/Labtec
+###########################################################
+# Labtec USB Number Pad for Notebooks (y-UE70)
+evdev:input:b0003v00001020p00000501*
+ KEYBOARD_KEY_c004f=numlock                             # Numlock key
+ KEYBOARD_LED_NUMLOCK=0
 
 ###########################################################
 # Other
