@@ -21,7 +21,6 @@ executables += [
                         libopenssl_cflags,
                         tpm2_cflags,
                 ],
-                'install' : have_standalone_binaries ? 'both' : 'yes',
         },
 ]
 

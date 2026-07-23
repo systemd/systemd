@@ -40,8 +40,9 @@ option('static-libsystemd', type : 'combo',
 option('static-libudev', type : 'combo',
        choices : ['false', 'true', 'pic', 'no-pic'],
        description : 'install a static library for libudev')
-option('standalone-binaries', type : 'boolean', value : false,
-       description : 'also build standalone versions of supported binaries')
+option('standalone-binaries', type : 'string',
+       deprecated : { 'true' : 'repart,report,shutdown,sysusers,tmpfiles', 'false' : '' },
+       description : 'comma-separated list of patterns specifying binaries to install as .standalone')
 option('build-static', type : 'boolean', value : false,
        description : 'build static versions of supported binaries')
 
