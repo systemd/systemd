@@ -99,7 +99,17 @@ endif
 conf.set10('HAVE_SPLIT_BIN', split_bin,
            description : 'bin and sbin directories are separate')
 
-have_standalone_binaries = get_option('standalone-binaries')
+# -Dinstall-standalone has prority, check -Dstandalone-binaries as fallback.
+standalone_binaries = get_option('install-standalone').split(',')
+if standalone_binaries == [] and get_option('standalone-binaries')
+        standalone_binaries = [
+                'systemd-repart',
+                'systemd-report',
+                'systemd-shutdown',
+                'systemd-sysusers',
+                'systemd-tmpfiles',
+        ]
+endif
 
 conf.set10('CREATE_LOG_DIRS', get_option('create-log-dirs'))
 
@@ -1826,7 +1836,7 @@ fuzzer_exes = []
 sources = []
 
 # binaries that have --help and are intended for use by humans,
-# usually, but not always, installed in /bin.
+# usually, but not always, installed in /usr/bin.
 public_programs = []
 
 # D-Bus introspection XML export
@@ -2027,13 +2037,15 @@ endif
 
 # The 'install' field is extended to also control whether the automatically
 # added variant, which is statically linked with libsystemd-shared, is installed:
-#   'yes'    : Mapped to true. The static variant will not be installed.
-#   'no'     : Mapped to false. The static variant will not be installed either.
-#   'both'   : Mapped to true. The static variant will also be installed.
+#   'yes'    : Mapped to true.
+#   'no'     : Mapped to false.
 #   'static' : Mapped to false, and its target name is suffixed with '.shared'.
 #              The static variant will be installed instead using the original name
 #              (without the '.standalone' suffix).
 # Currently, test and fuzzer executables only support 'yes' or 'no'.
+#
+# For executables matched by the install-standalone list, a .standalone variant
+# will be installed if install is true.
 executable_template = {
         'include_directories' : includes,
         'link_with' : [libshared],
@@ -2349,24 +2361,21 @@ foreach dict : executables
         name_static = name + '.standalone'
         install = dict.get('install')
         build_by_default = dict.get('build_by_default')
-        if install == 'yes'
-                install_shared = true
-                install_static = false
-                build_by_default_shared = build_by_default
-                build_by_default_static = false
-        elif install == 'no'
-                install_shared = false
-                install_static = false
-                build_by_default_shared = build_by_default
-                build_by_default_static = false
-        elif install == 'both'
+        install_standalone = false
+        foreach pattern : standalone_binaries
                 if is_test or is_fuzz
-                        error('Install mode "@0@" is not supported for test or fuzzer target "@1@"'.format(install, name))
+                        break
                 endif
-                install_shared = true
-                install_static = true
+                if name.contains(pattern)
+                        install_standalone = true
+                endif
+        endforeach
+
+        if install in ['yes', 'no']
+                install_shared = install == 'yes'
+                install_static = install_standalone
                 build_by_default_shared = build_by_default
-                build_by_default_static = build_by_default
+                build_by_default_static = build_by_default and (install_standalone or want_dlopen_tests)
         elif install == 'static'
                 if is_test or is_fuzz
                         error('Install mode "@0@" is not supported for test or fuzzer target "@1@"'.format(install, name))
@@ -2443,7 +2452,9 @@ foreach dict : executables
                         install: install_static,
                 )
 
-                executables_by_name += { name_static : exe_static }
+                if build_by_default_static
+                        executables_by_name += { name_static : exe_static }
+                endif
 
                 if build_by_default_static
                         if dict.get('dbus', false) and not build_by_default_shared
@@ -2762,18 +2773,20 @@ endif
 foreach exec : public_programs
         name = fs.name(exec.full_path())
         if want_tests != 'false'
-                test('check-help-' + name,
-                     check_help_sh,
-                     suite : 'dist',
-                     args : exec.full_path(),
-                     depends: exec)
-
                 test('check-version-' + name,
                      check_version_sh,
                      suite : 'dist',
                      args : [exec.full_path(),
                              project_major_version],
                      depends: exec)
+
+                if not name.endswith('.standalone')
+                        test('check-help-' + name,
+                             check_help_sh,
+                             suite : 'dist',
+                             args : exec.full_path(),
+                             depends: exec)
+                endif
         endif
 endforeach
 
