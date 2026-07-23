@@ -171,6 +171,7 @@ typedef enum SocketState {
         SOCKET_START_PRE,
         SOCKET_START_OPEN,
         SOCKET_START_CHOWN,
+        SOCKET_START_CONNECT,
         SOCKET_START_POST,
         SOCKET_LISTENING,
         SOCKET_DEFERRED,
