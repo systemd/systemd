@@ -98,6 +98,7 @@
 #include "vmspawn-qmp.h"
 #include "vmspawn-scope.h"
 #include "vmspawn-settings.h"
+#include "vmspawn-suspend.h"
 #include "vmspawn-util.h"
 #include "vmspawn-varlink.h"
 
@@ -3898,6 +3899,14 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         r = vmspawn_varlink_setup(&varlink_ctx, bridge, runtime_dir, &control_address);
         if (r < 0)
                 return r;
+
+        /* Pause the VM around host suspend so the guest's monotonic clock doesn't jump
+         * forward by the suspend duration (which would trip every WatchdogSec deadline
+         * inside the guest as soon as the host wakes back up). Non-fatal if logind isn't
+         * reachable. Declared after varlink_ctx so that the handler (which holds a
+         * non-owning ref to the bridge) is torn down first. */
+        _cleanup_(vmspawn_suspend_handler_freep) VmspawnSuspendHandler *suspend_handler = NULL;
+        (void) vmspawn_suspend_handler_new(system_bus, bridge, &suspend_handler);
 
         TAKE_PTR(bridge);
 
