@@ -12,6 +12,7 @@
 #include "alloc-util.h"
 #include "device-util.h"
 #include "dhcp-duid-internal.h"
+#include "dhcp6-address-registration.h"
 #include "dhcp6-client-internal.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
@@ -681,7 +682,6 @@ static DHCP6MessageType client_message_type_from_state(sd_dhcp6_client *client) 
 
 static int client_append_oro(sd_dhcp6_client *client, uint8_t **buf, size_t *offset) {
         _cleanup_free_ be16_t *p = NULL;
-        be16_t *req_opts;
         size_t n;
 
         assert(client);
@@ -689,46 +689,43 @@ static int client_append_oro(sd_dhcp6_client *client, uint8_t **buf, size_t *off
         assert(*buf);
         assert(offset);
 
+        if (client->state == DHCP6_STATE_STOPPING)
+                return 0;
+
+        p = new(be16_t, client->n_req_opts + 3);
+        if (!p)
+                return -ENOMEM;
+
+        memcpy_safe(p, client->req_opts, client->n_req_opts * sizeof(be16_t));
+        n = client->n_req_opts;
+
         switch (client->state) {
         case DHCP6_STATE_INFORMATION_REQUEST:
-                n = client->n_req_opts;
-                p = new(be16_t, n + 2);
-                if (!p)
-                        return -ENOMEM;
-
-                memcpy_safe(p, client->req_opts, n * sizeof(be16_t));
                 p[n++] = htobe16(SD_DHCP6_OPTION_INFORMATION_REFRESH_TIME); /* RFC 8415 section 21.23 */
                 p[n++] = htobe16(SD_DHCP6_OPTION_INF_MAX_RT); /* RFC 8415 section 21.25 */
-
-                typesafe_qsort(p, n, be16_compare_func);
-                req_opts = p;
                 break;
 
         case DHCP6_STATE_SOLICITATION:
-                n = client->n_req_opts;
-                p = new(be16_t, n + 1);
-                if (!p)
-                        return -ENOMEM;
-
-                memcpy_safe(p, client->req_opts, n * sizeof(be16_t));
                 p[n++] = htobe16(SD_DHCP6_OPTION_SOL_MAX_RT); /* RFC 8415 section 21.24 */
-
-                typesafe_qsort(p, n, be16_compare_func);
-                req_opts = p;
                 break;
 
-        case DHCP6_STATE_STOPPING:
-                return 0;
+        case DHCP6_STATE_REQUEST:
+        case DHCP6_STATE_RENEW:
+        case DHCP6_STATE_REBIND:
+                break;
 
         default:
-                n = client->n_req_opts;
-                req_opts = client->req_opts;
+                assert_not_reached();
         }
+
+        if (client->address_registration.enabled)
+                p[n++] = htobe16(SD_DHCP6_OPTION_ADDR_REG_ENABLE);
 
         if (n == 0)
                 return 0;
 
-        return dhcp6_option_append(buf, offset, SD_DHCP6_OPTION_ORO, n * sizeof(be16_t), req_opts);
+        typesafe_qsort(p, n, be16_compare_func);
+        return dhcp6_option_append(buf, offset, SD_DHCP6_OPTION_ORO, n * sizeof(be16_t), p);
 }
 
 static int client_append_mudurl(sd_dhcp6_client *client, uint8_t **buf, size_t *offset) {
@@ -1142,6 +1139,24 @@ static int log_invalid_message_type(sd_dhcp6_client *client, const DHCP6Message 
                                               "Received unsupported message type %u, ignoring.", message->type);
 }
 
+static void client_process_address_registration_capability(
+                sd_dhcp6_client *client,
+                const sd_dhcp6_lease *lease,
+                uint8_t message_type) {
+
+        int r;
+
+        assert(client);
+        assert(lease);
+
+        r = dhcp6_client_address_registration_discover(
+                        client, message_type, lease->address_registration_supported);
+        if (r < 0)
+                log_dhcp6_client_errno(client, r, "Failed to enable address registration, ignoring: %m");
+        else if (r > 0)
+                log_dhcp6_client(client, "Server supports address registration");
+}
+
 static int client_process_information(
                 sd_dhcp6_client *client,
                 DHCP6Message *message,
@@ -1163,6 +1178,8 @@ static int client_process_information(
                 return log_dhcp6_client_errno(client, r, "Failed to process received reply message, ignoring: %m");
 
         log_dhcp6_client(client, "Processed %s message", dhcp6_message_type_to_string(message->type));
+
+        client_process_address_registration_capability(client, lease, message->type);
 
         sd_dhcp6_lease_unref(client->lease);
         client->lease = TAKE_PTR(lease);
@@ -1212,6 +1229,8 @@ static int client_process_reply(
 
         log_dhcp6_client(client, "Processed %s message", dhcp6_message_type_to_string(message->type));
 
+        client_process_address_registration_capability(client, lease, message->type);
+
         sd_dhcp6_lease_unref(client->lease);
         client->lease = TAKE_PTR(lease);
 
@@ -1257,6 +1276,8 @@ static int client_process_advertise_or_rapid_commit_reply(
 
                 log_dhcp6_client(client, "Processed %s message", dhcp6_message_type_to_string(message->type));
 
+                client_process_address_registration_capability(client, lease, message->type);
+
                 sd_dhcp6_lease_unref(client->lease);
                 client->lease = TAKE_PTR(lease);
 
@@ -1274,6 +1295,8 @@ static int client_process_advertise_or_rapid_commit_reply(
         }
 
         log_dhcp6_client(client, "Processed %s message", dhcp6_message_type_to_string(message->type));
+
+        client_process_address_registration_capability(client, lease, message->type);
 
         if (!client->lease || pref_advertise > pref_lease) {
                 /* If this is the first advertise message or has higher preference, then save the lease. */
@@ -1585,6 +1608,7 @@ int sd_dhcp6_client_new(sd_dhcp6_client **ret) {
                 .request_ia = DHCP6_REQUEST_IA_NA | DHCP6_REQUEST_IA_PD,
                 .fd = -EBADF,
                 .rapid_commit = true,
+                .address_registration.enabled = true,
         };
 
         *ret = TAKE_PTR(client);

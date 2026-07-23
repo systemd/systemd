@@ -1029,6 +1029,17 @@ static int dhcp6_lease_parse_message(
                                 log_dhcp6_client_errno(client, r, "Failed to parse vendor option, ignoring: %m");
 
                         break;
+
+                case SD_DHCP6_OPTION_ADDR_REG_ENABLE:
+                        if (optlen != 0)
+                                log_dhcp6_client(
+                                                client,
+                                                "Received address registration option with invalid "
+                                                "length %zu, ignoring.",
+                                                optlen);
+                        else
+                                lease->address_registration_supported = true;
+                        break;
                 }
         }
 

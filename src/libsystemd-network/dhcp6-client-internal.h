@@ -9,3 +9,6 @@ int dhcp6_client_set_state_callback(
                 sd_dhcp6_client_callback_t cb,
                 void *userdata);
 int dhcp6_client_get_state(sd_dhcp6_client *client);
+
+int dhcp6_client_set_address_registration_enabled(sd_dhcp6_client *client, bool enabled);
+void dhcp6_client_address_registration_reset(sd_dhcp6_client *client);

@@ -11,6 +11,7 @@
 #include "sd-dhcp6-client.h"
 
 #include "dhcp-duid-internal.h"
+#include "dhcp6-address-registration.h"
 #include "dhcp6-option.h"
 #include "dhcp6-protocol.h"
 #include "forward.h"
@@ -68,6 +69,8 @@ struct sd_dhcp6_client {
         OrderedHashmap *extra_options;
         OrderedSet *vendor_options;
         bool rapid_commit;
+
+        DHCP6AddressRegistrationEngine address_registration;
 
         struct sd_dhcp6_lease *lease;
 
