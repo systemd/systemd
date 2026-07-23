@@ -3,6 +3,14 @@
 set -eux
 set -o pipefail
 
+# Verify PrivateIPC= works and creates a separate IPC namespace even if POSIX
+# message queues are not supported.
+host_ipcns=$(readlink /proc/self/ns/ipc)
+private_ipcns=$(systemd-run --quiet --wait --pipe -p PrivateIPC=yes readlink /proc/self/ns/ipc)
+[[ "$private_ipcns" != "$host_ipcns" ]]
+
+[[ -d /proc/sys/fs/mqueue ]] || exit 0
+
 # Verify ownership attributes are applied to message queues
 
 # Select arbitrary non-default attributes to apply to the queue.
