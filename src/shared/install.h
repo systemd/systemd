@@ -232,6 +232,7 @@ typedef enum PresetAction {
         PRESET_ENABLE,
         PRESET_DISABLE,
         PRESET_IGNORE,
+        PRESET_MASK,
         _PRESET_ACTION_MAX,
         _PRESET_ACTION_INVALID = -EINVAL,
         _PRESET_ACTION_ERRNO_MAX = -ERRNO_MAX, /* Ensure this type covers the whole negative errno range */
