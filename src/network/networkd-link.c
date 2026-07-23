@@ -2680,6 +2680,12 @@ static int link_update_name(Link *link, sd_netlink_message *message) {
 
         log_link_info(link, "Interface name change detected, renamed to %s.", ifname);
 
+        /* The legacy ethtool API uses interface names instead of ifindexes, which is racy.
+         * Invalidate the driver cache so it can be re-read later.
+         * TODO: Switch to the new Netlink-based API that accepts ifindex directly. */
+        link->ethtool_driver_read = false;
+        link->driver = mfree(link->driver);
+
         hashmap_remove_value(link->manager->links_by_name, link->ifname, link);
 
         r = free_and_strdup(&link->ifname, ifname);
