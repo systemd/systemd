@@ -161,7 +161,9 @@
 
       <varlistentry>
         <term><varname>DNSSEC=</varname></term>
-        <listitem><para>Takes a boolean argument or <literal>allow-downgrade</literal>.</para>
+        <listitem>
+        <para>Takes a boolean argument, <literal>allow-downgrade</literal>,
+        or <literal>trust-secure-response</literal>.</para>
 
         <para>If set to true, all DNS lookups are DNSSEC-validated locally (excluding LLMNR and Multicast
         DNS). If the response to a lookup request is detected to be invalid a lookup failure is returned to
@@ -173,6 +175,10 @@
         DNSSEC validation vulnerable to "downgrade" attacks, where an attacker might be able to trigger a
         downgrade to non-DNSSEC mode by synthesizing a DNS response that suggests DNSSEC was not
         supported.</para>
+
+        <para>If set to <literal>trust-secure-response</literal>, and the traffic to the DNS server is encrypted,
+        DNSSEC validation is sought from the server and the response is trusted - thus operating as a proxy.
+        No DNSSEC validation is performed by resolved.</para>
 
         <para>If set to false, DNS lookups are not DNSSEC validated.</para>
 
