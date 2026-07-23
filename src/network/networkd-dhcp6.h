@@ -11,7 +11,16 @@ typedef enum DHCP6ClientStartMode {
         _DHCP6_CLIENT_START_MODE_INVALID = -EINVAL,
 } DHCP6ClientStartMode;
 
+typedef enum AddressRegistrationTime {
+        ADDRESS_REGISTRATION_TIME_INITIAL_RETRANSMISSION,
+        ADDRESS_REGISTRATION_TIME_STATIC_REFRESH,
+} AddressRegistrationTime;
+
 bool link_dhcp6_with_address_enabled(Link *link);
+bool dhcp6_address_is_eligible_for_registration(const Address *address);
+void dhcp6_sync_address_registration(Link *link, const Address *address);
+void dhcp6_remove_address_registration(Link *link, const Address *address);
+void dhcp6_reset_address_registration(Link *link);
 int dhcp6_check_ready(Link *link);
 int dhcp6_update_mac(Link *link);
 int dhcp6_start(Link *link);
@@ -22,6 +31,7 @@ int link_drop_dhcp6_config(Link *link, Network *network);
 
 int link_serialize_dhcp6_client(Link *link, FILE *f);
 
+CONFIG_PARSER_PROTOTYPE(config_parse_address_registration_time);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp6_pd_prefix_hint);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp6_mud_url);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp6_client_start_mode);

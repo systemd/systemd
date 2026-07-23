@@ -76,6 +76,7 @@ int dhcp6_client_address_registration_discover_at(
                 bool advertised,
                 usec_t now_usec);
 void dhcp6_client_address_registration_done(sd_dhcp6_client *client);
+
 int dhcp6_client_address_registration_attach_event(sd_dhcp6_client *client);
 void dhcp6_client_address_registration_detach_event(sd_dhcp6_client *client);
 

@@ -205,6 +205,10 @@ typedef struct Network {
         Set *dhcp6_request_options;
         char *dhcp6_netlabel;
         bool dhcp6_send_release;
+        bool dhcp6_register_addresses;
+        usec_t dhcp6_address_registration_initial_retransmission_time_usec;
+        unsigned dhcp6_address_registration_max_retransmissions;
+        usec_t dhcp6_static_address_registration_refresh_interval_usec;
         NFTSetContext dhcp6_nft_set_context;
         uint32_t dhcp6_route_table;
         bool dhcp6_route_table_set;

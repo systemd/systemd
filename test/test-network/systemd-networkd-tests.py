@@ -8619,6 +8619,227 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
     def tearDown(self):
         tear_down_common()
 
+    def test_dhcp_client_address_registration(self):
+        log_file = os.path.join(networkd_ci_temp_dir, 'dhcp6-address-registration.log')
+        peer_script = os.path.join(networkd_ci_temp_dir, 'dhcp6-address-registration-peer.py')
+        peers = []
+
+        def read_events():
+            try:
+                with open(log_file, encoding='utf-8') as f:
+                    return [json.loads(line) for line in f if line.strip()]
+            except FileNotFoundError:
+                return []
+
+        def wait_for_events(predicate, count, timeout=20):
+            deadline = time.monotonic() + timeout
+            while time.monotonic() < deadline:
+                matching = [event for event in read_events() if predicate(event)]
+                if len(matching) >= count:
+                    return matching
+                time.sleep(0.2)
+            self.fail(f'timed out waiting for {count} DHCPv6 address registration events: {read_events()}')
+
+        try:
+            check_output('ip netns add ns-server')
+            check_output('ip netns exec ns-server ip link set lo up')
+
+            for number, supported in [('', True), ('2', True), ('3', False)]:
+                client = f'addr-reg-client{number}'
+                server = f'addr-reg-server{number}'
+                suffix = 1 if not number else int(number)
+                server_address = f'2001:db8:9686::{suffix}'
+                server_link_local = f'fe80::{suffix}'
+
+                check_output('ip link add', client, 'type', 'veth', 'peer', 'name', server)
+                check_output('ip link set', server, 'netns', 'ns-server')
+                check_output('ip netns exec ns-server ip link set', server, 'up')
+                check_output(
+                    'ip netns exec ns-server ip -6 address add',
+                    f'{server_link_local}/64',
+                    'dev',
+                    server,
+                    'nodad',
+                )
+                check_output(
+                    'ip netns exec ns-server ip -6 address add',
+                    f'{server_address}/64',
+                    'dev',
+                    server,
+                    'nodad',
+                )
+
+                command = [
+                    'ip',
+                    'netns',
+                    'exec',
+                    'ns-server',
+                    sys.executable,
+                    peer_script,
+                    server,
+                    log_file,
+                ]
+                if not supported:
+                    command.append('--unsupported')
+                peers.append(
+                    subprocess.Popen(
+                        command,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.STDOUT,
+                    )
+                )
+
+            wait_for_events(lambda event: event.get('event') == 'ready', 3)
+            copy_network_unit('25-address-registration.network')
+            start_networkd()
+            self.wait_online(
+                'addr-reg-client:routable',
+                'addr-reg-client2:routable',
+                'addr-reg-client3:routable',
+            )
+
+            information_requests = [
+                wait_for_events(
+                    lambda event, interface=interface: event.get('event') == 'information-request'
+                    and event.get('interface') == interface,
+                    1,
+                )[-1]
+                for interface in ['addr-reg-server', 'addr-reg-server2', 'addr-reg-server3']
+            ]
+            self.assertTrue(all(event['address_registration_requested'] for event in information_requests))
+
+            registrations = [
+                wait_for_events(
+                    lambda event, interface=interface: event.get('event') == 'registration'
+                    and event.get('address') == '2001:db8:9686::10'
+                    and event.get('interface') == interface,
+                    1,
+                )[-1]
+                for interface in ['addr-reg-server', 'addr-reg-server2']
+            ]
+            self.assertTrue(all(event['source'] == '2001:db8:9686::10' for event in registrations))
+            self.assertTrue(all(event['source_port'] == 546 for event in registrations))
+            self.assertTrue(all(event['destination'] == 'ff02::1:2' for event in registrations))
+            self.assertEqual(len({event['ifindex'] for event in registrations}), 2)
+
+            refreshes = [
+                wait_for_events(
+                    lambda event, interface=interface: event.get('event') == 'registration'
+                    and event.get('address') == '2001:db8:9686::10'
+                    and event.get('interface') == interface,
+                    2,
+                )[-1]
+                for interface in ['addr-reg-server', 'addr-reg-server2']
+            ]
+            for initial, refresh in zip(registrations, refreshes):
+                self.assertNotEqual(initial['transaction_id'], refresh['transaction_id'])
+                self.assertEqual(refresh['source'], '2001:db8:9686::10')
+                self.assertEqual(refresh['preferred_lifetime'], 0xFFFFFFFF)
+                self.assertEqual(refresh['valid_lifetime'], 0xFFFFFFFF)
+
+            transaction_ids = [
+                event['transaction_id']
+                for event in read_events()
+                if event.get('event') == 'registration'
+            ]
+            self.assertEqual(len(transaction_ids), len(set(transaction_ids)))
+
+            time.sleep(1)
+            self.assertFalse(
+                any(
+                    event.get('event') == 'registration'
+                    and event.get('interface') == 'addr-reg-server3'
+                    for event in read_events()
+                )
+            )
+
+            check_output(
+                'ip -6 address add 2001:db8:9686::11/64 dev addr-reg-client nodad preferred_lft 60 valid_lft 120'
+            )
+            late = wait_for_events(
+                lambda event: event.get('event') == 'registration'
+                and event.get('address') == '2001:db8:9686::11',
+                1,
+            )[-1]
+            self.assertEqual(late['source'], '2001:db8:9686::11')
+            self.assertGreater(late['preferred_lifetime'], 0)
+            self.assertLessEqual(late['preferred_lifetime'], 60)
+            self.assertGreater(late['valid_lifetime'], 0)
+            self.assertLessEqual(late['valid_lifetime'], 120)
+
+            check_output('ip -6 address del 2001:db8:9686::11/64 dev addr-reg-client')
+            n_late = len(
+                [
+                    event
+                    for event in read_events()
+                    if event.get('event') == 'registration'
+                    and event.get('address') == '2001:db8:9686::11'
+                ]
+            )
+            time.sleep(1)
+            self.assertEqual(
+                n_late,
+                len(
+                    [
+                        event
+                        for event in read_events()
+                        if event.get('event') == 'registration'
+                        and event.get('address') == '2001:db8:9686::11'
+                    ]
+                ),
+            )
+
+            with open(
+                os.path.join(network_unit_dir, '25-address-registration.network'),
+                mode='a',
+                encoding='utf-8',
+            ) as f:
+                f.write('\n[DHCPv6]\nRegisterAddresses=no\n')
+
+            n_information_requests = {
+                interface: len(
+                    [
+                        event
+                        for event in read_events()
+                        if event.get('event') == 'information-request'
+                        and event.get('interface') == interface
+                    ]
+                )
+                for interface in ['addr-reg-server', 'addr-reg-server2', 'addr-reg-server3']
+            }
+            networkctl_reload()
+            networkctl_reconfigure('addr-reg-client', 'addr-reg-client2', 'addr-reg-client3')
+            disabled_requests = [
+                wait_for_events(
+                    lambda event, interface=interface: event.get('event') == 'information-request'
+                    and event.get('interface') == interface,
+                    n_information_requests[interface] + 1,
+                )[-1]
+                for interface in ['addr-reg-server', 'addr-reg-server2', 'addr-reg-server3']
+            ]
+            self.assertTrue(
+                all(not event['address_registration_requested'] for event in disabled_requests)
+            )
+
+            check_output('ip -6 address add 2001:db8:9686::12/64 dev addr-reg-client nodad')
+            time.sleep(1)
+            self.assertFalse(
+                any(
+                    event.get('event') == 'registration'
+                    and event.get('address') == '2001:db8:9686::12'
+                    for event in read_events()
+                )
+            )
+        finally:
+            for peer in peers:
+                peer.terminate()
+            for peer in peers:
+                try:
+                    peer.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    peer.kill()
+                    peer.wait(timeout=5)
+
     def test_dhcp_client_ipv6_only(self):
         copy_network_unit(
             '25-veth.netdev',

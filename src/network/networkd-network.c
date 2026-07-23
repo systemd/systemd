@@ -6,6 +6,7 @@
 #include "condition.h"
 #include "conf-files.h"
 #include "conf-parser.h"
+#include "dhcp6-client-internal.h"
 #include "extract-word.h"
 #include "in-addr-util.h"
 #include "iovec-util.h"
@@ -425,6 +426,13 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp6_duid.type = _DUID_TYPE_INVALID,
                 .dhcp6_client_start_mode = _DHCP6_CLIENT_START_MODE_INVALID,
                 .dhcp6_send_release = true,
+                .dhcp6_register_addresses = true,
+                .dhcp6_address_registration_initial_retransmission_time_usec =
+                        DHCP6_ADDRESS_REGISTRATION_DEFAULT_IRT,
+                .dhcp6_address_registration_max_retransmissions =
+                        DHCP6_ADDRESS_REGISTRATION_DEFAULT_MRC,
+                .dhcp6_static_address_registration_refresh_interval_usec =
+                        DHCP6_ADDRESS_REGISTRATION_DEFAULT_STATIC_REFRESH_INTERVAL,
                 .dhcp6_pd_prefix_route_type = RTN_UNREACHABLE,
                 .dhcp6_route_table = RT_TABLE_MAIN,
 

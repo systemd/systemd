@@ -21,6 +21,7 @@
 #include "networkd-dhcp-prefix-delegation.h"
 #include "networkd-dhcp-relay.h"
 #include "networkd-dhcp-server.h"
+#include "networkd-dhcp6.h"
 #include "networkd-ipv4acd.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
@@ -1973,6 +1974,8 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         (void) address_get(link, tmp, &address);
 
         if (type == RTM_DELADDR) {
+                dhcp6_remove_address_registration(link, address ?: tmp);
+
                 if (address)
                         address_forget(link, address,
                                        /* removed_by_us= */ FLAGS_SET(address->state, NETWORK_CONFIG_STATE_REMOVING),
@@ -2067,6 +2070,8 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         r = address_update(address);
         if (r < 0)
                 link_enter_failed(link);
+        else
+                dhcp6_sync_address_registration(link, address);
 
 finalize:
         if (tmp->family == AF_INET6) {

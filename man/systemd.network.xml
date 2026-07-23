@@ -3263,6 +3263,52 @@ MultiPathRoute=2001:db8::1@eth0</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RegisterAddresses=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true, the DHCPv6 client requests and performs DHCPv6 Address
+          Registration as specified by
+          <ulink url="https://www.rfc-editor.org/rfc/rfc9686.html">RFC 9686</ulink>. When the DHCPv6 server
+          also indicates support, global IPv6 addresses that are configured via methods other than DHCPv6 IA_NA
+          (ex. SLAAC) are registered with the DHCPv6 server. Only addresses that are configured on the same
+          interface are registered. This is enabled by default.</para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>AddressRegistrationInitialRetransmissionTimeSec=</varname></term>
+        <listitem>
+          <para>Specifies the initial retransmission time for DHCPv6 Address Registration messages. Takes
+          a positive finite duration. Defaults to 1 second.</para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>AddressRegistrationMaxRetransmissions=</varname></term>
+        <listitem>
+          <para>Specifies the maximum total number of transmission attempts for each DHCPv6 Address
+          Registration exchange, including the initial message. Attempts that fail before the message
+          leaves the host count towards the limit. Takes an unsigned integer. A positive value limits the
+          total attempts, while zero permits unlimited attempts. Defaults to 3.</para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>StaticAddressRegistrationRefreshIntervalSec=</varname></term>
+        <listitem>
+          <para>Specifies the interval between DHCPv6 Address Registration refreshes for addresses with an
+          infinite valid lifetime. Takes a positive finite duration. Defaults to 4 hours.</para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>SendHostname=</varname></term>
         <listitem>
           <para>When true (the default), the machine's hostname (or the value specified with
