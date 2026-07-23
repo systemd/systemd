@@ -76,6 +76,7 @@ typedef struct Manager {
         unsigned samples_idx;
         double samples_jitter;
         usec_t root_distance_max_usec;
+        usec_t max_clock_change_usec;
 
         /* last change */
         bool jumped;
@@ -116,6 +117,8 @@ void manager_set_server_name(Manager *m, ServerName *n);
 void manager_set_server_address(Manager *m, ServerAddress *a);
 void manager_flush_server_names(Manager *m, ServerType t);
 void manager_flush_runtime_servers(Manager *m);
+
+bool manager_clock_change_is_too_large(Manager *m, double offset);
 
 int manager_connect(Manager *m);
 void manager_disconnect(Manager *m);
