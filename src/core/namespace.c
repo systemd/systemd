@@ -719,7 +719,7 @@ static int append_tmpfs_mounts(MountList *ml, const TemporaryFileSystem *tmpfs, 
 
         FOREACH_ARRAY(t, tmpfs, n) {
                 _cleanup_free_ char *o = NULL, *str = NULL;
-                unsigned long flags;
+                unsigned long flags = 0;
                 bool ro = false;
                 int r;
 
