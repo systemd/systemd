@@ -1241,7 +1241,7 @@ int strv_rebreak_lines(char **l, size_t width, char ***ret) {
                 bool in_prefix = true; /* still in the whitespace in the beginning of the line? */
                 size_t w = 0;
 
-                for (const char *p = start; *p != 0; p = utf8_next_char(p)) {
+                for (const char *p = start; *p != 0; ) {
                         if (strchr(NEWLINE, *p)) {
                                 in_prefix = true;
                                 whitespace_begin = whitespace_end = NULL;
@@ -1258,11 +1258,13 @@ int strv_rebreak_lines(char **l, size_t width, char ***ret) {
                                 in_prefix = false;
                         }
 
-                        int cw = utf8_char_console_width(p);
-                        if (cw < 0) {
-                                log_debug_errno(cw, "Comment to line break contains invalid UTF-8, ignoring.");
-                                cw = 1;
-                        }
+                        char32_t c;
+                        int n = utf8_encoded_to_unichar(p, &c);
+                        if (n < 0)
+                                return log_debug_errno(n, "Line to break contains invalid UTF-8, refusing: %m");
+
+                        int cw = unichar_console_width(c);
+                        assert(cw >= 0);
 
                         w += cw;
 
@@ -1277,10 +1279,16 @@ int strv_rebreak_lines(char **l, size_t width, char ***ret) {
                                 if (r < 0)
                                         return r;
 
+                                /* Continue with the next line, starting at the first character after the
+                                 * whitespace we broke at. Note, that character has not been measured for
+                                 * the new line yet, hence reset the width and reprocess it. */
                                 p = start = whitespace_end;
                                 whitespace_begin = whitespace_end = NULL;
-                                w = cw;
+                                w = 0;
+                                continue;
                         }
+
+                        p += n;
                 }
 
                 /* Process rest of the line */
