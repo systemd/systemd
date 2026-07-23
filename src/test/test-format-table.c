@@ -581,6 +581,26 @@ TEST(table) {
                              "5min              5min              \n");
 }
 
+TEST(mixed_type_sort) {
+        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_free_ char *formatted = NULL;
+
+        ASSERT_NOT_NULL((table = table_new("key")));
+        table_set_header(table, false);
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
+
+        ASSERT_OK(table_add_cell(table, NULL, TABLE_STRING, "b"));
+        ASSERT_OK(table_add_cell(table, NULL, TABLE_STRING, NULL));
+        ASSERT_OK(table_add_cell(table, NULL, TABLE_STRING, "a"));
+        ASSERT_OK(table_set_sort(table, (size_t) 0));
+        ASSERT_OK(table_format(table, &formatted));
+
+        ASSERT_STREQ(formatted,
+                     "a\n"
+                     "b\n"
+                     "-\n");
+}
+
 TEST(tristate) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *w = NULL;
         _cleanup_(table_unrefp) Table *t = NULL;
