@@ -30,13 +30,18 @@
       <arg choice="plain"><replaceable>UNIX-DOMAIN-SOCKET-PATH</replaceable>
       </arg>
     </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-socket-proxyd</command>
+      <arg choice="opt" rep="repeat"><replaceable>OPTIONS</replaceable></arg>
+      <arg choice="plain">vsock:<replaceable>CID</replaceable>:<replaceable>PORT</replaceable></arg>
+    </cmdsynopsis>
   </refsynopsisdiv>
   <refsect1>
     <title>Description</title>
     <para>
     <command>systemd-socket-proxyd</command> is a generic
     socket-activated network socket forwarder proxy daemon for IPv4,
-    IPv6 and UNIX stream sockets. It may be used to bi-directionally
+    IPv6, UNIX stream and vsock sockets. It may be used to bi-directionally
     forward traffic from a local listening socket to a local or remote
     destination socket.</para>
 

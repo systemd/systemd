@@ -340,6 +340,18 @@ fail:
         return 0; /* ignore errors, continue serving */
 }
 
+static inline size_t strcount_char(const char *s, char c) {
+        size_t n = 0;
+
+        assert(s);
+
+        for (const char *p = s; *p; p++)
+                if (*p == c)
+                        n++;
+
+        return n;
+}
+
 static int resolve_remote(Connection *c) {
 
         static const struct addrinfo hints = {
@@ -360,6 +372,14 @@ static int resolve_remote(Connection *c) {
                 sa_len = r;
 
                 return connection_start(c, &sa.sa, sa_len);
+        }
+
+        if (startswith(arg_remote_host, "vsock:") && strcount_char(arg_remote_host, ':') == 2) {
+                SocketAddress address;
+                r = socket_address_parse_vsock(&address, arg_remote_host);
+                if (r < 0)
+                        return log_error_errno(r, "Can't parse '%s' as a VSOCK address, refusing: %m", arg_remote_host);
+                return connection_start(c, &address.sockaddr.sa, address.size);
         }
 
         service = strrchr(arg_remote_host, ':');
