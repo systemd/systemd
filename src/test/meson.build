@@ -170,6 +170,7 @@ simple_tests += files(
         'test-pe-binary.c',
         'test-percent-util.c',
         'test-pidref.c',
+        'test-plymouth-util.c',
         'test-pressure.c',
         'test-pretty-print.c',
         'test-printf.c',
