@@ -497,6 +497,11 @@ int dns_synthesize_answer(
                         nxdomain = true;
                         continue;
 
+                } else if (dns_name_endswith(name, "onion") > 0) {
+                        /* RFC 7686: .onion names must return NXDOMAIN to prevent leaks */
+                        nxdomain = true;
+                        continue;
+
                 } else if (is_localhost(name)) {
 
                         r = synthesize_localhost_rr(m, key, &answer);
