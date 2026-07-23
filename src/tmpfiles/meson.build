@@ -16,7 +16,6 @@ executables += [
                         libacl_cflags,
                         libselinux_cflags,
                 ],
-                'install' : have_standalone_binaries ? 'both' : 'yes',
         },
         test_template + {
                 'sources' : files('test-offline-passwd.c') +
