@@ -159,7 +159,7 @@
         <varname>f</varname>, <varname>F</varname>, <varname>d</varname>, <varname>D</varname>,
         <varname>v</varname>, <varname>q</varname>, <varname>Q</varname>, <varname>p</varname>,
         <varname>L</varname>, <varname>c</varname>, <varname>b</varname>, <varname>C</varname>,
-        <varname>w</varname>, <varname>e</varname>. If this switch is used at least one
+        <varname>w</varname>, <varname>e</varname>, <varname>E</varname>. If this switch is used at least one
         <filename>tmpfiles.d/</filename> file (or <filename>-</filename> for standard input) must be
         specified on the command line or the invocation will be refused, for safety reasons (as otherwise
         much of the installed system files might be removed).</para>
