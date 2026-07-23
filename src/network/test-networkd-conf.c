@@ -466,4 +466,30 @@ TEST(config_parse_multipath_route) {
         test_config_parse_multipath_route_one("@wg0 abc", 0, 0); /* Non-numeric */
 }
 
+TEST(config_parse_stacked_netdev) {
+        _cleanup_hashmap_free_ Hashmap *netdevs = NULL;
+        ASSERT_OK(config_parse_stacked_netdev("network", "filename", 1, "section", 1, "VLAN", NETDEV_KIND_VLAN, "foo bar baz invalid:name", &netdevs, NULL));
+        ASSERT_OK(config_parse_stacked_netdev("network", "filename", 1, "section", 1, "VXLAN", NETDEV_KIND_VXLAN, "aaa 321 foo bbb", &netdevs, NULL));
+
+        static const struct {
+                const char *name;
+                NetDevKind kind;
+        } expected[] = {
+                { "foo", NETDEV_KIND_VLAN },
+                { "bar", NETDEV_KIND_VLAN },
+                { "baz", NETDEV_KIND_VLAN },
+                { "aaa", NETDEV_KIND_VXLAN },
+                { "bbb", NETDEV_KIND_VXLAN },
+        };
+
+        ASSERT_EQ(hashmap_size(netdevs), ELEMENTSOF(expected));
+        FOREACH_ELEMENT(i, expected) {
+                void *p = ASSERT_NOT_NULL(hashmap_get(netdevs, i->name));
+                ASSERT_EQ(PTR_TO_INT(p), i->kind);
+        }
+
+        ASSERT_OK(config_parse_stacked_netdev("network", "filename", 1, "section", 1, "VXLAN", NETDEV_KIND_VXLAN, "", &netdevs, NULL));
+        ASSERT_NULL(netdevs);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
