@@ -1419,8 +1419,7 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
 
         if (a->type == b->type) {
 
-                /* We only define ordering for cells of the same data type. If cells with different data types are
-                 * compared we follow the order the cells were originally added in */
+                /* Compare cells of the same data type by their type-specific value. */
 
                 switch (a->type) {
 
@@ -1552,12 +1551,23 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
                 case TABLE_JSON:
                         return json_variant_compare(a->json, b->json);
 
+                case TABLE_EMPTY:
+                        break;
+
                 default:
-                        ;
+                        assert_not_reached();
                 }
+        } else {
+                /* Order cells of different types by type, but keep empty cells last. */
+                if (a->type == TABLE_EMPTY)
+                        return 1;
+                if (b->type == TABLE_EMPTY)
+                        return -1;
+
+                return CMP(a->type, b->type);
         }
 
-        /* Generic fallback using the original order in which the cells where added. */
+        /* Preserve the original order of empty cells. */
         return CMP(index_a, index_b);
 }
 
