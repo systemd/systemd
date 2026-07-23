@@ -593,6 +593,8 @@ static void client_cleanup(sd_dhcp6_client *client) {
         (void) event_source_disable(client->timeout_t1);
         (void) event_source_disable(client->timeout_t2);
 
+        /* RFC 9686 section 4.4 keeps registration active across same-link DHCPv6 restarts. */
+
         client_set_state(client, DHCP6_STATE_STOPPED);
 }
 
@@ -1622,6 +1624,8 @@ int sd_dhcp6_client_new(sd_dhcp6_client **ret) {
                         .fd = -EBADF,
                         .initial_retransmission_time_usec = DHCP6_ADDRESS_REGISTRATION_DEFAULT_IRT,
                         .max_retransmissions = DHCP6_ADDRESS_REGISTRATION_DEFAULT_MRC,
+                        .static_refresh_interval_usec =
+                                DHCP6_ADDRESS_REGISTRATION_DEFAULT_STATIC_REFRESH_INTERVAL,
                 },
         };
 
