@@ -35,8 +35,13 @@ CalendarSpec* calendar_spec_free(CalendarSpec *c);
 bool calendar_spec_valid(CalendarSpec *spec);
 
 int calendar_spec_to_string(const CalendarSpec *spec, char **ret);
-int calendar_spec_from_string(const char *p, CalendarSpec **ret);
+int calendar_spec_from_string_full(const char *p, CalendarSpec **ret, bool warn_on_weekday_mismatch);
+
+static inline int calendar_spec_from_string(const char *p, CalendarSpec **ret) {
+        return calendar_spec_from_string_full(p, ret, /* warn_on_weekday_mismatch= */ false);
+}
 
 int calendar_spec_next_usec(const CalendarSpec *spec, usec_t usec, usec_t *next);
+bool calendar_spec_weekday_conflicts(const CalendarSpec *spec, int *ret_actual_wday);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(CalendarSpec*, calendar_spec_free);
