@@ -1267,6 +1267,20 @@ TEST(strv_rebreak_lines) {
 
                 assert_se(strv_equal(a, b));
         }
+
+        /* Invalid UTF-8 is refused rather than measured. Previously a truncated multibyte lead byte at the
+         * end of a line was blind-skipped by its expected length, stepping over the NUL and reading past
+         * the end of the string. */
+        ASSERT_ERROR(strv_rebreak_lines(STRV_MAKE("foo\xF0"), 10, &l), EINVAL);
+        ASSERT_NULL(l);
+
+        ASSERT_ERROR(strv_rebreak_lines(STRV_MAKE("bar\xFC"), 10, &l), EINVAL);
+        ASSERT_NULL(l);
+
+        /* Same, but reached after a line break, i.e. with the scan restarted at the character following
+         * the whitespace we broke at. */
+        ASSERT_ERROR(strv_rebreak_lines(STRV_MAKE("a \xF0" "b"), 3, &l), EINVAL);
+        ASSERT_NULL(l);
 }
 
 TEST(strv_find_closest) {
