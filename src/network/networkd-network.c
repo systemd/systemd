@@ -6,6 +6,7 @@
 #include "condition.h"
 #include "conf-files.h"
 #include "conf-parser.h"
+#include "extract-word.h"
 #include "in-addr-util.h"
 #include "iovec-util.h"
 #include "net-condition.h"
@@ -951,7 +952,6 @@ int config_parse_stacked_netdev(
                 void *data,
                 void *userdata) {
 
-        _cleanup_free_ char *name = NULL;
         NetDevKind kind = ltype;
         Hashmap **h = ASSERT_PTR(data);
         int r;
@@ -971,29 +971,38 @@ int config_parse_stacked_netdev(
                       NETDEV_KIND_XFRM,
                       _NETDEV_KIND_TUNNEL));
 
-        if (!ifname_valid(rvalue)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid netdev name in %s=, ignoring assignment: %s", lvalue, rvalue);
+        if (isempty(rvalue)) {
+                *h = hashmap_free(*h);
                 return 0;
         }
 
-        name = strdup(rvalue);
-        if (!name)
-                return log_oom();
+        for (const char *p = rvalue;;) {
+                _cleanup_free_ char *name = NULL;
 
-        r = hashmap_ensure_put(h, &string_hash_ops_free, name, INT_TO_PTR(kind));
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r < 0)
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Cannot add NetDev '%s' to network, ignoring assignment: %m", name);
-        else if (r == 0)
-                log_syntax(unit, LOG_DEBUG, filename, line, r,
-                           "NetDev '%s' specified twice, ignoring.", name);
-        else
-                TAKE_PTR(name);
+                r = extract_first_word(&p, &name, /* separators= */ NULL, /* flags= */ 0);
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+                if (r == 0)
+                        return 0;
 
-        return 0;
+                if (!ifname_valid(name)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Invalid netdev name in %s=, ignoring assignment: %s", lvalue, name);
+                        continue;
+                }
+
+                r = hashmap_ensure_put(h, &string_hash_ops_free, name, INT_TO_PTR(kind));
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0)
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Cannot add NetDev '%s' to network, ignoring assignment: %m", name);
+                else if (r == 0)
+                        log_syntax(unit, LOG_DEBUG, filename, line, r,
+                                   "NetDev '%s' specified twice, ignoring.", name);
+                else
+                        TAKE_PTR(name);
+        }
 }
 
 int config_parse_required_for_online(

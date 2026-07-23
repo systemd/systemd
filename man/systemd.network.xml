@@ -1298,10 +1298,10 @@ DuplicateAddressDetection=none</programlisting></para>
         <term><varname>VXLAN=</varname></term>
         <term><varname>Xfrm=</varname></term>
         <listitem>
-          <para>The name of an IPoIB, IPVLAN, IPVTAP, MACsec, MACVLAN, MACVTAP, tunnel, VLAN,
-          VXLAN, or Xfrm to be created on the link. See
+          <para>Takes a space-separated list of stacked netdevs to be created on the interface. See
           <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-          This option may be specified more than once.</para>
+          This option may be specified more than once. If an empty string is specified, previous assignments
+          for all netdev types are cleared.</para>
 
           <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
