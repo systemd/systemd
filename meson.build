@@ -2375,7 +2375,7 @@ foreach dict : executables
                 install_shared = install == 'yes'
                 install_static = install_standalone
                 build_by_default_shared = build_by_default
-                build_by_default_static = build_by_default and install_standalone
+                build_by_default_static = build_by_default and (install_standalone or want_dlopen_tests)
         elif install == 'static'
                 if is_test or is_fuzz
                         error('Install mode "@0@" is not supported for test or fuzzer target "@1@"'.format(install, name))
@@ -2452,7 +2452,9 @@ foreach dict : executables
                         install: install_static,
                 )
 
-                executables_by_name += { name_static : exe_static }
+                if build_by_default_static
+                        executables_by_name += { name_static : exe_static }
+                endif
 
                 if build_by_default_static
                         if dict.get('dbus', false) and not build_by_default_shared
