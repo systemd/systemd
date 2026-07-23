@@ -10,6 +10,5 @@ executables += [
                 'public' : true,
                 'export' : files('sysusers.c'),
                 'dependencies' : libaudit_cflags,
-                'install' : have_standalone_binaries ? 'both' : 'yes',
         },
 ]

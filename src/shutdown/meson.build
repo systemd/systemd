@@ -19,7 +19,6 @@ executables += [
                         'shutdown.c',
                 ) + shutdown_detach_sources,
                 'dependencies' : libmount_cflags,
-                'install' : have_standalone_binaries ? 'both' : 'yes',
         },
         test_template + {
                 'sources' : files('test-umount.c') +
