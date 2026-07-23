@@ -19,7 +19,7 @@ static int test_calendar_one(usec_t n, const char *p) {
         TableCell *cell;
         int r;
 
-        r = calendar_spec_from_string(p, &spec);
+        r = calendar_spec_from_string_full(p, &spec, /* warn_on_weekday_mismatch= */ true);
         if (r < 0) {
                 log_error_errno(r, "Failed to parse calendar specification '%s': %m", p);
                 time_parsing_hint(p, /* calendar= */ false, /* timestamp= */ true, /* timespan= */ true);
