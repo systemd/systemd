@@ -233,6 +233,24 @@
         </varlistentry>
 
         <varlistentry>
+          <term><option>--sign-initrd-pcrs</option></term>
+          <term><option>--no-sign-initrd-pcrs</option></term>
+
+          <listitem><para>Enable or disable signing of additional PCR policies that are bound to the initrd
+          phase (after <literal>enter-initrd</literal> and before <literal>leave-initrd</literal>) and the
+          <literal>initrd</literal> policy reference. These additional signed policies are consumed by
+          <citerefentry><refentrytitle>systemd-tpm2-setup-early.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          to authorize the initialization of NvPCRs. They are also useful for enrolling TPM keyslots to encrypted
+          volumes that can only be unlocked from the initrd with
+          <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+          by using the <option>--tpm2-public-key-policyref=initrd</option> option. The extra signatures reuse
+          the first <varname>PCRPrivateKey=</varname>/<option>--pcr-private-key=</option>, hence one must be
+          specified. Defaults to false.</para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><option>--section=<replaceable>NAME</replaceable>:<replaceable>TEXT</replaceable>|<replaceable>@PATH</replaceable></option></term>
           <term><option>--section=<replaceable>NAME</replaceable>:text|binary<optional>@<replaceable>PATH</replaceable></optional></option></term>
 
