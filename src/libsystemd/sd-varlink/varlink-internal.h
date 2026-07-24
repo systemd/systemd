@@ -31,6 +31,7 @@ typedef enum VarlinkState {
         VARLINK_PROCESSED_METHOD_UPGRADE,
         VARLINK_PENDING_METHOD,
         VARLINK_PENDING_METHOD_MORE,
+        VARLINK_PENDING_METHOD_ONEWAY,
         VARLINK_PENDING_METHOD_UPGRADE,
         VARLINK_UPGRADING,
 
@@ -69,6 +70,7 @@ typedef enum VarlinkState {
                VARLINK_PROCESSED_METHOD_UPGRADE,        \
                VARLINK_PENDING_METHOD,                  \
                VARLINK_PENDING_METHOD_MORE,             \
+               VARLINK_PENDING_METHOD_ONEWAY,           \
                VARLINK_PENDING_METHOD_UPGRADE,          \
                VARLINK_UPGRADING)
 
