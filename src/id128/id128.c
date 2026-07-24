@@ -26,6 +26,12 @@ static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 
+COMMAND(
+        "systemd-id128\0",
+        "Generate and print 128-bit identifiers.",
+        .man_pages = "systemd-id128.1\0",
+);
+
 static int print_id(sd_id128_t id) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
         int r;
@@ -229,42 +235,7 @@ static int verb_show(int argc, char *argv[], uintptr_t _data, void *userdata) {
 }
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-id128", "1", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        /* Make the 1st column same width in both tables */
-        (void) table_sync_column_widths(0, options, verbs);
-
-        printf("%s [OPTIONS...] COMMAND\n\n"
-               "%sGenerate and print 128-bit identifiers.%s\n"
-               "\nCommands:\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        printf("\nOptions:\n");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
+        return command_print_help("systemd-id128");
 }
 
 VERB_COMMON_HELP(help);
