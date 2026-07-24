@@ -268,8 +268,33 @@ for fun in cat mask ; do
     }
 done
 
+# Completion function for "show" with option support
+(( $+functions[_systemctl_show] )) || _systemctl_show()
+{
+    local curcontext="$curcontext" state line
+    local -A opt_args
+    local ret=1
+    local -a _systemctl_show_options=(
+        '(-p --property)'{-p+,--property=}'[Show only properties by specific name]:unit property:_systemctl_unit_properties'
+        '(-P)-P+[Equivalent to --value --property=NAME]:unit property:_systemctl_unit_properties'
+        '--value[When showing properties, only print the value]'
+        '(-a --all)'{-a,--all}'[Show all properties/all units currently in memory]'
+        '--no-pager[Do not pipe output into a pager]'
+    )
+    _arguments -s -C \
+        "$_systemctl_show_options[@]" \
+        '*:units:->units' && ret=0
+    case $state in
+        (units)
+            _wanted systemd-units expl unit \
+                    compadd "$@" - $(_systemctl_get_non_template_names)
+            ;;
+    esac
+    return ret
+}
+
 # Completion functions for NONTEMPLATE_UNITS
-for fun in is-active is-failed is-enabled status show preset help list-dependencies edit revert add-wants add-requires set-property; do
+for fun in is-active is-failed is-enabled status preset help list-dependencies edit revert add-wants add-requires set-property; do
     (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
     {
         _wanted systemd-units expl unit \
