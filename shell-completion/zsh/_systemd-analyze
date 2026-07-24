@@ -124,28 +124,40 @@
 _arguments \
     '(- *)'{-h,--help}'[Show help text]' \
     '(- *)--version[Show package version]' \
-    '--system[Operate on system systemd instance]' \
-    '--user[Operate on user systemd instance]' \
-    '--global[Show global user instance config]' \
+    '(-q --quiet)'{-q,--quiet}'[Do not show hints]' \
+    '--recursive-errors=[When verifying a unit, control dependency verification]:MODE:(yes no one)' \
     '--root=[Add support for root argument]:PATH' \
     '--image=[Add support for discrete images]:PATH' \
-    '--recursive-errors=[When verifying a unit, control dependency verification]:MODE' \
-    '--offline=[Perform a security review of the specified unit files]:BOOL:(yes no)' \
-    '--threshold=[Set a value to compare the overall security exposure level with]: NUMBER' \
-    '--security-policy=[Use customized requirements to compare unit files against]: PATH' \
-    "--json=[Generate a JSON output of the security analysis table or plot's raw time data]:MODE:(pretty short off)" \
-    "--table=[Generate a table of plot's raw time data]" \
-    '--profile=[Include the specified profile in the security review of units]: PATH' \
-    '--no-pager[Do not pipe output into a pager]' \
-    "--no-legend[Do not show the headers and footers for plot's raw time data formats]" \
-    '--man=[Do (not) check for existence of man pages]:BOOL:(yes no)' \
-    '--generators=[Do (not) run unit generators]:BOOL:(yes no)' \
+    '--image-policy=[Specify disk image dissection policy]:POLICY' \
+    '(--user)--system[Operate on system systemd instance]' \
+    '(--system)--user[Operate on user systemd instance]' \
+    '--global[Show global user instance config]' \
     '--order[When generating graph for dot, show only order]' \
     '--require[When generating graph for dot, show only requirement]' \
-    '--fuzz=[When printing the tree of the critical chain, print also services, which finished TIMESPAN earlier, than the latest in the branch]:TIMESPAN' \
     '--from-pattern=[When generating a dependency graph, filter only origins]:GLOB' \
     '--to-pattern=[When generating a dependency graph, filter only destinations]:GLOB' \
+    '--fuzz=[When printing the tree of the critical chain, print also services, which finished TIMESPAN earlier, than the latest in the branch]:TIMESPAN' \
+    '--no-pager[Do not pipe output into a pager]' \
     '(-H --host)'{-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
     '(-M --machine)'{-M+,--machine=}'[Operate on local container]:machine:_sd_machines' \
-    '--quiet[Do not show hints]' \
+    '--man=-[Whether to check for existence of man pages]:BOOL:(yes no)' \
+    '--generators=-[Whether to run unit generators (which requires privileges)]:BOOL:(yes no)' \
+    '--instance=[Specify fallback instance name for template units]:NAME' \
+    '--offline=[Perform a security review of the specified unit files]:BOOL:(yes no)' \
+    '--threshold=[Set a value to compare the overall security exposure level with]:NUMBER' \
+    '--security-policy=[Use customized requirements to compare unit files against]:PATH' \
+    "--json=[Generate a JSON output of the security analysis table or plot's raw time data]:MODE:(pretty short off)" \
+    '--iterations=[Show the specified number of iterations]:N' \
+    '--base-time=[Calculate calendar times relative to specified time]:TIMESTAMP' \
+    '--profile=[Include the specified profile in the security review of the units]:PATH' \
+    '(-U --unit)'{-U+,--unit=}'[Evaluate conditions and asserts of unit]:UNIT' \
+    "--table[Output plot's raw time data as a table]" \
+    '--no-legend[Disable column headers and hints in plot with either --table or --json=]' \
+    '--tldr[Skip comments and empty lines]' \
+    '(-m --mask)'{-m,--mask}'[Parse parameter as numeric capability mask]' \
+    '--scale-svg=[Stretch x-axis of plot by FACTOR (default: 1.0)]:FACTOR' \
+    '--detailed[Add more details to SVG plot, e.g. show activation timestamps]' \
+    '--drm-device=[Use this DRM device sysfs path to get EDID]:PATH' \
+    '--debugger=[Use the given debugger]:DEBUGGER:(gdb lldb)' \
+    '(-A --debugger-arguments=)'{-A+,--debugger-arguments=}'[Pass the given arguments to the debugger]:ARGS' \
     '*::systemd-analyze commands:_systemd-analyze_commands'
