@@ -59,7 +59,7 @@ static int generate(void) {
         const char *p;
         int r;
 
-        if (strv_isempty(arg_commands) && !arg_success_action)
+        if (strv_isempty(arg_commands))
                 return 0;
 
         r = generator_open_unit_file(arg_dest, /* source= */ NULL, "kernel-command-line.service", &f);
