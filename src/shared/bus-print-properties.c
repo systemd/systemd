@@ -344,6 +344,20 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
         return 0;
 }
 
+static const char* find_filter_value(char **filter, const char *name) {
+
+        assert(name);
+
+        STRV_FOREACH(f, filter) {
+                const char *p = startswith(*f, name);
+
+                if (p && *p == '=')
+                        return p + 1;
+        }
+
+        return NULL;
+}
+
 int bus_message_print_all_properties(
                 sd_bus_message *m,
                 bus_message_print_t func,
@@ -351,16 +365,22 @@ int bus_message_print_all_properties(
                 BusPrintPropertyFlags flags,
                 Set **found_properties) {
 
+        bool filter_has_value = false;
         int r;
 
         assert(m);
+
+        STRV_FOREACH(f, filter)
+                if (strchr(*f, '=')) {
+                        filter_has_value = true;
+                        break;
+                }
 
         r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "{sv}");
         if (r < 0)
                 return r;
 
         while ((r = sd_bus_message_enter_container(m, SD_BUS_TYPE_DICT_ENTRY, "sv")) > 0) {
-                _cleanup_free_ char *name_with_equal = NULL;
                 const char *name, *contents, *expected_value = NULL;
 
                 r = sd_bus_message_read_basic(m, SD_BUS_TYPE_STRING, &name);
@@ -373,14 +393,9 @@ int bus_message_print_all_properties(
                                 return log_oom();
                 }
 
-                name_with_equal = strjoin(name, "=");
-                if (!name_with_equal)
-                        return log_oom();
-
                 if (!filter ||
                     strv_contains(filter, name) ||
-                    (expected_value = strv_find_startswith(filter, name_with_equal))) {
-
+                    (filter_has_value && (expected_value = find_filter_value(filter, name)))) {
                         r = sd_bus_message_peek_type(m, NULL, &contents);
                         if (r < 0)
                                 return r;
