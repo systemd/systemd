@@ -41,6 +41,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_message, freep);
 static CommandDescription command = {
         "systemd-ask-password\0",
         "Query the user for a passphrase, via the TTY or a UI agent.",
+        .argspec = "MESSAGE",
         .man_pages = "systemd-ask-password.1\0",
 };
 VERB_COMMAND(command);
