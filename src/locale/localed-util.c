@@ -270,8 +270,18 @@ int x11_read_data(Context *c, sd_bus_message *m) {
                                 else if (streq(a[1], "XkbOptions"))
                                         p = &c->x11_from_xorg.options;
 
-                                if (p)
-                                        free_and_replace(*p, a[2]);
+                                if (p) {
+                                        if (isempty(a[2]))
+                                                /* An 'Option "XkbVariant" ""' line is unquoted
+                                                 * by strv_split_full() into a non-NULL empty
+                                                 * string. Since 812aa57d2c an empty string is
+                                                 * rejected by string_is_safe(), so store NULL
+                                                 * instead: an empty value is equivalent to the
+                                                 * field being unset. (See issue #43007.) */
+                                                *p = mfree(*p);
+                                        else
+                                                free_and_replace(*p, a[2]);
+                                }
                         }
 
                 } else if (!in_section && first_word(line, "Section")) {
