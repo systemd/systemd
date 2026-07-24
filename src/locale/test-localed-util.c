@@ -231,6 +231,35 @@ TEST(x11_convert_to_vconsole) {
         ASSERT_STREQ(vc.keymap, "ru");
 }
 
+TEST(x11_context_empty_to_null) {
+        _cleanup_(x11_context_clear) X11Context xc = {};
+
+        /* x11_read_data() parses 'Option "XkbLayout" "gb"' and 'Option "XkbVariant" ""'
+         * with strv_split_full(..., EXTRACT_UNQUOTE), which turns the empty quoted
+         * value into a non-NULL empty string that is free_and_replace()'d into the
+         * field, rather than into NULL. */
+        ASSERT_OK(free_and_strdup(&xc.layout, "gb"));
+        ASSERT_OK(free_and_strdup(&xc.variant, ""));
+
+        /* Since 812aa57d2c ("string-util: beef up string_is_safe()") an empty
+         * string is rejected by string_is_safe() unless STRING_ALLOW_EMPTY is
+         * passed, so x11_context_is_safe() now refuses a context with such a field
+         * (see issue #43007). */
+        ASSERT_FALSE(x11_context_is_safe(&xc));
+
+        /* The setter path (method_set_x11_keyboard) normalizes empty fields to
+         * NULL via x11_context_empty_to_null() before verifying; x11_read_data()
+         * must do the same, otherwise the whole context gets discarded. */
+        x11_context_empty_to_null(&xc);
+        ASSERT_NULL(xc.variant);
+        ASSERT_STREQ(xc.layout, "gb");
+
+        /* With empty fields normalized to NULL the context is safe again, so
+         * x11_context_verify() no longer drops it. */
+        ASSERT_TRUE(x11_context_is_safe(&xc));
+        ASSERT_OK(x11_context_verify(&xc));
+}
+
 static int intro(void) {
         _cleanup_free_ char *map = NULL;
 
