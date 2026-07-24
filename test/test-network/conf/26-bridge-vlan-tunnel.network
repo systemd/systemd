@@ -9,3 +9,18 @@ Bridge=bridge99
 
 [Bridge]
 VLANTunnel=true
+
+[BridgeVLAN]
+VLAN=1-10
+
+[BridgeVLANTunnel]
+VLAN=1-3
+TunnelID=1-3
+
+[BridgeVLANTunnel]
+VLAN=5
+TunnelID=10
+
+[BridgeVLANTunnel]
+VLAN=10
+TunnelID=5
