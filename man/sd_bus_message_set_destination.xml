@@ -80,7 +80,7 @@
     <function>sd_bus_message_get_interface()</function>, and
     <function>sd_bus_message_get_member()</function> return the destination, path, interface, and
     member fields from <parameter>message</parameter> header. The return value will be
-    <constant>NULL</constant> is <parameter>message</parameter> is <constant>NULL</constant> or the
+    <constant>NULL</constant> if <parameter>message</parameter> is <constant>NULL</constant> or the
     message is of a type that does not use those fields or the message does not have them set. See
     <citerefentry><refentrytitle>sd_bus_message_new_method_call</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
     <citerefentry><refentrytitle>sd_bus_message_set_destination</refentrytitle><manvolnum>3</manvolnum></citerefentry>
