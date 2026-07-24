@@ -33,6 +33,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
+#include "tpm2-util.h"
 #include "unit-name.h"
 #include "virt.h"
 
@@ -117,11 +118,13 @@ static int add_cryptsetup(
         }
 
         r = efi_measured_os(LOG_WARNING);
-        if (r > 0) {
+        if (r > 0 && tpm2_is_device_expected()) {
                 /* Enable TPM2 based unlocking automatically, if we have a TPM. See #30176. */
                 if (!strextend_with_separator(&options, ",", "tpm2-device=auto"))
                         return log_oom();
-        } else if (r == 0)
+        } else if (r > 0)
+                log_debug("Will not enable TPM2 based unlocking of volume '%s', no TPM2 device expected.", id);
+        else if (r == 0)
                 log_debug("Will not enable TPM based unlocking of volume '%s', OS measurements are not explicitly requested and not booted via systemd-stub with measurements enabled.", id);
 
         if (FLAGS_SET(flags, MOUNT_MEASURE)) {

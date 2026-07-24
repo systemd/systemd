@@ -33,9 +33,10 @@
 #include "limits-util.h"
 #include "log.h"
 #include "logarithm.h"
+#include "measurement-log.h"
 #include "memory-util.h"
-#include "mkdir.h"
 #include "ordered-set.h"
+#include "proc-cmdline.h"
 #include "random-util.h"
 #include "recurse-dir.h"
 #include "siphash24.h"
@@ -45,7 +46,6 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
-#include "sync-util.h"
 #include "time-util.h"
 #include "tpm2-pcr.h"
 #include "tpm2-util.h"
@@ -7719,23 +7719,6 @@ static int json_dispatch_tpm2_algorithm(const char *name, sd_json_variant *varia
         return 0;
 }
 
-static const char* tpm2_userspace_event_type_table[_TPM2_USERSPACE_EVENT_TYPE_MAX] = {
-        [TPM2_EVENT_PHASE]           = "phase",
-        [TPM2_EVENT_FILESYSTEM]      = "filesystem",
-        [TPM2_EVENT_VOLUME_KEY]      = "volume-key",
-        [TPM2_EVENT_MACHINE_ID]      = "machine-id",
-        [TPM2_EVENT_PRODUCT_ID]      = "product-id",
-        [TPM2_EVENT_KEYSLOT]         = "keyslot",
-        [TPM2_EVENT_NVPCR_INIT]      = "nvpcr-init",
-        [TPM2_EVENT_NVPCR_SEPARATOR] = "nvpcr-separator",
-        [TPM2_EVENT_DM_VERITY]       = "dm-verity",
-        [TPM2_EVENT_IMDS_USERDATA]   = "imds-userdata",
-        [TPM2_EVENT_OS_SEPARATOR]    = "os-separator",
-        [TPM2_EVENT_LOGIN]           = "login",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(tpm2_userspace_event_type, Tpm2UserspaceEventType);
-
 const char* tpm2_userspace_log_path(void) {
         return secure_getenv("SYSTEMD_MEASURE_LOG_USERSPACE") ?: "/run/log/systemd/tpm2-measure.log";
 }
@@ -7745,88 +7728,13 @@ const char* tpm2_firmware_log_path(void) {
 }
 
 #if HAVE_OPENSSL
-static int tpm2_userspace_log_open(void) {
-        _cleanup_close_ int fd = -EBADF;
-        const char *e;
-        int r;
-
-        e = tpm2_userspace_log_path();
-        (void) mkdir_parents(e, 0755);
-
-        /* We use access mode 0600 here (even though the measurements should not strictly be confidential),
-         * because we use BSD file locking on it, and if anyone but root can access the file they can also
-         * lock it, which we want to avoid. */
-        fd = open(e, O_CREAT|O_WRONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0600);
-        if (fd < 0)
-                return log_debug_errno(errno, "Failed to open TPM log file '%s' for writing, ignoring: %m", e);
-
-        if (flock(fd, LOCK_EX) < 0)
-                return log_debug_errno(errno, "Failed to lock TPM log file '%s', ignoring: %m", e);
-
-        r = fd_verify_regular(fd);
-        if (r < 0)
-                return log_debug_errno(r, "TPM log file '%s' is not regular, ignoring: %m", e);
-
-        return TAKE_FD(fd);
-}
-
-static int tpm2_userspace_log_dirty(int fd) {
-        struct stat st;
-
-        if (fd < 0) /* Apparently tpm2_local_log_open() failed earlier, let's not complain again */
-                return 0;
-
-        /* We set the sticky bit when we are about to append to the log file. We'll unset it afterwards
-         * again. If we manage to take a lock on a file that has it set we know we didn't write it fully and
-         * it is corrupted. We return -ESTALE then; callers shall not reset the marker when they are done,
-         * so that the incompleteness remains detectable. Ideally we'd like to use user xattrs for this, but
-         * unfortunately tmpfs (which is our assumed backend fs) doesn't know user xattrs. */
-
-        if (fstat(fd, &st) < 0)
-                return log_debug_errno(errno, "Failed to fstat TPM log file, ignoring: %m");
-
-        if (st.st_mode & S_ISVTX)
-                return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "TPM log file aborted, ignoring.");
-
-        if (fchmod(fd, 0600 | S_ISVTX) < 0)
-                return log_debug_errno(errno, "Failed to chmod() TPM log file, ignoring: %m");
-
-        return 0;
-}
-
-static int tpm2_userspace_log_clean(int fd, bool reset_marker) {
-        int r;
-
-        if (fd < 0) /* Apparently tpm2_local_log_open() failed earlier, let's not complain again */
-                return 0;
-
-        if (fsync(fd) < 0)
-                return log_debug_errno(errno, "Failed to sync JSON data: %m");
-
-        /* If the dirty marker was already set when we acquired the log, an earlier writer died before
-         * writing its record, i.e. the log is missing a record. Keep the marker then, so that the
-         * incompleteness remains detectable. */
-        if (!reset_marker)
-                return 0;
-
-        /* Unset S_ISVTX again */
-        if (fchmod(fd, 0600) < 0)
-                return log_debug_errno(errno, "Failed to chmod() TPM log file, ignoring: %m");
-
-        r = fsync_full(fd);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to sync JSON log: %m");
-
-        return 0;
-}
-
 static int tpm2_userspace_log(
                 int fd,
                 unsigned pcr_index,
                 uint32_t nv_index,
                 const char *nv_index_name,
                 const TPML_DIGEST_VALUES *values,
-                Tpm2UserspaceEventType event_type,
+                UserspaceMeasurementEventType event_type,
                 const char *description,
                 bool reset_marker) {
 
@@ -7837,34 +7745,6 @@ static int tpm2_userspace_log(
 
         assert(values);
         assert(values->count > 0);
-
-        /* We maintain a local PCR measurement log. This implements a subset of the TCG Canonical Event Log
-         * Format – the JSON flavour –
-         * (https://trustedcomputinggroup.org/resource/canonical-event-log-format/), but departs in certain
-         * ways from it, specifically:
-         *
-         * - We don't write out a recnum. It's a bit too vaguely defined which means we'd have to read
-         *   through the whole logs (include firmware logs) before knowing what the next value is we should
-         *   use. Hence we simply don't write this out as append-time, and instead expect a consumer to add
-         *   it in when it uses the data.
-         *
-         * - We write this out in RFC 7464 application/json-seq rather than as a JSON array. Writing this as
-         *   JSON array would mean that for each appending we'd have to read the whole log file fully into
-         *   memory before writing it out again. We prefer a strictly append-only write pattern however. (RFC
-         *   7464 is what jq --seq eats.) Conversion into a proper JSON array is trivial.
-         *
-         * It should be possible to convert this format in a relatively straight-forward way into the
-         * official TCG Canonical Event Log Format on read, by simply adding in a few more fields that can be
-         * determined from the full dataset.
-         *
-         * We set the 'content_type' field to "systemd" to make clear this data is generated by us, and
-         * include various interesting fields in the 'content' subobject, including a CLOCK_BOOTTIME
-         * timestamp which can be used to order this measurement against possibly other measurements
-         * independently done by other subsystems on the system.
-         */
-
-        if (fd < 0) /* Apparently tpm2_local_log_open() failed earlier, let's not complain again */
-                return 0;
 
         r = dlopen_libcrypto(LOG_DEBUG);
         if (r < 0)
@@ -7902,26 +7782,11 @@ static int tpm2_userspace_log(
                                                            SD_JSON_BUILD_PAIR_CONDITION(!!description, "string", SD_JSON_BUILD_STRING(description)),
                                                            SD_JSON_BUILD_PAIR_ID128("bootId", boot_id),
                                                            SD_JSON_BUILD_PAIR_UNSIGNED("timestamp", now(CLOCK_BOOTTIME)),
-                                                           SD_JSON_BUILD_PAIR_CONDITION(event_type >= 0, "eventType", SD_JSON_BUILD_STRING(tpm2_userspace_event_type_to_string(event_type))))));
+                                                           SD_JSON_BUILD_PAIR_CONDITION(event_type >= 0, "eventType", SD_JSON_BUILD_STRING(userspace_measurement_event_type_to_string(event_type))))));
         if (r < 0)
                 return log_debug_errno(r, "Failed to build log record JSON: %m");
 
-        r = sd_json_variant_format(v, SD_JSON_FORMAT_SEQ, &f);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to format JSON: %m");
-
-        if (lseek(fd, 0, SEEK_END) < 0)
-                return log_debug_errno(errno, "Failed to seek to end of JSON log: %m");
-
-        r = loop_write(fd, f, SIZE_MAX);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to write JSON data to log: %m");
-
-        r = tpm2_userspace_log_clean(fd, reset_marker);
-        if (r < 0)
-                return r;
-
-        return 1;
+        return measurement_log_append(fd, v, reset_marker);
 }
 #endif
 
@@ -7931,7 +7796,7 @@ int tpm2_pcr_extend_bytes(
                 unsigned pcr_index,
                 const struct iovec *data,
                 const struct iovec *secret,
-                Tpm2UserspaceEventType event_type,
+                UserspaceMeasurementEventType event_type,
                 const char *description) {
 
 #if HAVE_OPENSSL
@@ -7992,9 +7857,9 @@ int tpm2_pcr_extend_bytes(
 
         /* Open + lock the log file *before* we start measuring, so that no one else can come between our log
          * and our measurement and change either */
-        log_fd = tpm2_userspace_log_open();
+        log_fd = measurement_log_open(tpm2_userspace_log_path());
 
-        bool reset_marker = tpm2_userspace_log_dirty(log_fd) >= 0;
+        bool reset_marker = measurement_log_dirty(log_fd) >= 0;
         rc = sym_Esys_PCR_Extend(
                         c->esys_context,
                         ESYS_TR_PCR0 + pcr_index,
@@ -8114,7 +7979,7 @@ static int nvpcr_extend_bytes(
                 const char *name,
                 const struct iovec *data,
                 const struct iovec *secret,
-                Tpm2UserspaceEventType event_type,
+                UserspaceMeasurementEventType event_type,
                 const char *description) {
 
 #if HAVE_OPENSSL
@@ -8137,7 +8002,7 @@ static int nvpcr_extend_bytes(
 
         /* Open + lock the log file *before* we start measuring, so that no one else can come between our log
          * and our measurement and change either */
-        log_fd = tpm2_userspace_log_open();
+        log_fd = measurement_log_open(tpm2_userspace_log_path());
 
         /* Check if this NvPCR is already anchored */
         const char *anchor_fname = strjoina("/run/systemd/nvpcr/", name, ".anchor");
@@ -8188,7 +8053,7 @@ static int nvpcr_extend_bytes(
 
         log_debug("Successfully acquired handle to existing NV index 0x%" PRIx32 ".", p.nv_index);
 
-        bool reset_marker = tpm2_userspace_log_dirty(log_fd) >= 0;
+        bool reset_marker = measurement_log_dirty(log_fd) >= 0;
 
         r = tpm2_extend_nvpcr_nv_index(
                         c,
@@ -8228,7 +8093,7 @@ int tpm2_nvpcr_extend_bytes(
                 const struct iovec *data,
                 const struct iovec *secret,
                 bool sync_secondary_anchor,
-                Tpm2UserspaceEventType event_type,
+                UserspaceMeasurementEventType event_type,
                 const char *description) {
 
         int r;
@@ -8683,7 +8548,7 @@ int tpm2_nvpcr_initialize(
                 return r;
 
         /* Open + lock the log file *before* we check for the *.anchor flag file. */
-        _cleanup_close_ int log_fd = tpm2_userspace_log_open();
+        _cleanup_close_ int log_fd = measurement_log_open(tpm2_userspace_log_path());
 
         _cleanup_close_ int dfd = open_mkdir("/run/systemd/nvpcr", O_CLOEXEC, 0755);
         if (dfd < 0)
@@ -8749,7 +8614,7 @@ int tpm2_nvpcr_initialize(
 
         log_debug("Successfully acquired handle to NV index 0x%" PRIx32 ".", p.nv_index);
 
-        bool reset_marker = tpm2_userspace_log_dirty(log_fd) >= 0;
+        bool reset_marker = measurement_log_dirty(log_fd) >= 0;
         rc = sym_Esys_NV_Extend(
                         c->esys_context,
                         /* authHandle= */ nv_handle->esys_handle,
@@ -8787,7 +8652,7 @@ int tpm2_nvpcr_initialize(
         if (r < 0)
                 return log_debug_errno(r, "Failed to write anchor file: %m");
 
-        (void) tpm2_userspace_log_clean(log_fd, reset_marker);
+        (void) measurement_log_clean(log_fd, reset_marker);
         log_fd = safe_close(log_fd);
 
         /* Now also measure the initialization into PCR 9, so that there's a trace of it in regular PCRs. You
@@ -8814,7 +8679,7 @@ int tpm2_nvpcr_initialize(
                         TPM2_PCR_KERNEL_INITRD,
                         &IOVEC_MAKE_STRING(word),
                         /* secret= */ NULL,
-                        TPM2_EVENT_NVPCR_INIT,
+                        USERSPACE_MEASUREMENT_EVENT_NVPCR_INIT,
                         word);
         if (r < 0)
                 return log_error_errno(r, "Could not extend PCR %i: %m", TPM2_PCR_KERNEL_INITRD);
@@ -10417,6 +10282,27 @@ Tpm2Support tpm2_support_full(Tpm2Support mask) {
 #endif
 
         return support & mask;
+}
+
+bool tpm2_is_device_expected(void) {
+        int r;
+
+        /* Returns true if a TPM2 device is expected to be available once tpm2.target has been reached:
+         * one is present, the firmware reports one (the driver might be a not yet loaded kmod), or the
+         * software TPM fallback was requested. For generators, which run before device probing and
+         * before the software TPM service. */
+
+        if (tpm2_support_full(TPM2_SUPPORT_DRIVER|TPM2_SUPPORT_FIRMWARE) != 0)
+                return true;
+
+        bool b;
+        r = proc_cmdline_get_bool("systemd.tpm2_software_fallback", /* flags= */ 0, &b);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to parse systemd.tpm2_software_fallback= kernel command line argument, ignoring: %m");
+                return false;
+        }
+
+        return r > 0 && b;
 }
 
 static void print_field(const char *prefix, const char *s, bool supported) {

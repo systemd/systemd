@@ -57,6 +57,11 @@
     <filename>systemd-pcrphase-initrd.service</filename> are system services that measure specific strings
     into TPM2 PCR 11 during boot at various milestones of the boot process.</para>
 
+    <para>All measurements described here are made into every available measurement backend: the TPM2 (if
+    one is present), and, on confidential virtual machines (e.g. Intel TDX), the available runtime measurement
+    registers (RTMRs), with the PCR index mapped to the corresponding RTMR as specified in the UEFI
+    specification. NvPCR measurements are mapped to RTMR 2.</para>
+
     <para><filename>systemd-pcrmachine.service</filename> is a system service that measures the machine ID
     (see <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>) into
     PCR 15.</para>
@@ -228,9 +233,10 @@
       <varlistentry>
         <term><option>--graceful</option></term>
 
-        <listitem><para>If no TPM2 firmware, kernel subsystem, kernel driver or device support is found, exit
-        with exit status 0 (i.e. indicate success). If this is not specified, any attempt to measure without a
-        TPM2 device will cause the invocation to fail.</para>
+        <listitem><para>If no measurement backend (i.e. neither TPM2 firmware, kernel subsystem, kernel
+        driver and device support, nor CC measurement registers) is found, exit with exit status 0
+        (i.e. indicate success). If this is not specified, any attempt to measure without a measurement
+        backend will cause the invocation to fail.</para>
 
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
@@ -327,6 +333,18 @@
         should acquire a <constant>LOCK_SH</constant> lock while doing so.</para>
 
         <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>/run/log/systemd/cc-measure.log</filename></term>
+
+        <listitem><para>Measurements into CC measurement registers (e.g. Intel TDX RTMRs) are logged into a
+        separate event log file of the same format. Its records carry an <literal>rtmr</literal> field
+        identifying the register, in place of the <literal>pcr</literal> field, plus a
+        <literal>mapped_pcr</literal> field indicating the PCR the measurement was mapped from. The same
+        locking protocol applies.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
       </varlistentry>
 
       <varlistentry>
