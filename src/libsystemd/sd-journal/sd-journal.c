@@ -1169,6 +1169,10 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
                 return 0;
 
         r = journal_file_move_to_object(new_file, OBJECT_ENTRY, new_file->current_offset, &o);
+        if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
+                log_debug_errno(r, "Can't get entry at offset %" PRIu64 ", ignoring: %m", new_file->current_offset);
+                return real_journal_next(j, direction);
+        }
         if (r < 0)
                 return r;
 
