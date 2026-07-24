@@ -84,6 +84,42 @@ jobs:
             });
           }
 
+    - name: Label PR based on author's GitHub org membership
+      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+      if: startsWith(github.event_name, 'pull_request') && github.event.action != 'closed'
+      with:
+        script: |
+          // Map of GitHub org to the label applied to PRs opened by its members.
+          const orgLabels = {
+            "amutable": "downstream/amutable",
+          };
+
+          const author = context.payload.pull_request.user.login;
+
+          const labels = [];
+          for (const [org, label] of Object.entries(orgLabels)) {
+            try {
+              await github.rest.orgs.checkMembershipForUser({
+                org: org,
+                username: author,
+              });
+              labels.push(label);
+            } catch (error) {
+              if (error.status !== 404 && error.status !== 302) {
+                throw error;
+              }
+            }
+          }
+
+          if (labels.length > 0) {
+            await github.rest.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: labels,
+            });
+          }
+
     - name: Add please-review label on command in issue comment
       uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
       if: github.event_name == 'issue_comment' && github.event.issue.pull_request && startsWith(github.event.comment.body, '/please-review')
