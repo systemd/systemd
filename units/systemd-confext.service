@@ -21,6 +21,7 @@ ConditionKernelCommandLine=!systemd.confext=0
 
 DefaultDependencies=no
 After=local-fs.target
+After=systemd-sysext.service
 Before=sysinit.target systemd-tmpfiles-setup.service
 Conflicts=shutdown.target
 Before=shutdown.target
