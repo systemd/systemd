@@ -38,7 +38,9 @@
 
     <para>The command takes any number of strings on the command line,
     and will process them individually, one after another. It will
-    output them separated by spaces to stdout.</para>
+    output them separated by spaces to stdout. If <option>--stdin</option> is specified, strings are
+    instead read from standard input, one per line, and the result for each input line is written on a
+    separate output line.</para>
 
     <para>By default, this command will escape the strings passed,
     unless <option>--unescape</option> is passed which results in the
@@ -84,6 +86,16 @@
         <option>--mangle</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v216"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--stdin</option></term>
+
+        <listitem><para>Read strings from standard input, one per line, instead of from the command line.
+        The line ending is not included in the string to escape or unescape, and the result for each line
+        is written on a separate output line. This option may not be combined with command line strings.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -169,6 +181,11 @@ tmp-waldi-foobar.mount</programlisting>
     <para>To generate instance names of three strings:</para>
     <programlisting>$ systemd-escape --template=systemd-nspawn@.service 'My Container 1' 'containerb' 'container/III'
 systemd-nspawn@My\x20Container\x201.service systemd-nspawn@containerb.service systemd-nspawn@container-III.service</programlisting>
+
+    <para>To generate instance names from standard input:</para>
+    <programlisting>$ printf '%s\n' 'My Container 1' 'container/III' | systemd-escape --stdin --template=systemd-nspawn@.service
+systemd-nspawn@My\x20Container\x201.service
+systemd-nspawn@container-III.service</programlisting>
 
     <para>To extract the instance part of an instantiated unit:</para>
     <programlisting>$ systemd-escape -u --instance 'systemd-nspawn@My\x20Container\x201.service'
