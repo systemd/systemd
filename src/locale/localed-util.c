@@ -198,10 +198,78 @@ int vconsole_read_data(Context *c, sd_bus_message *m) {
         return 0;
 }
 
+int x11_context_parse_config(X11Context *xc, FILE *f) {
+        bool in_section = false;
+        int r;
+
+        assert(xc);
+        assert(f);
+
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
+
+                r = read_stripped_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                if (IN_SET(line[0], 0, '#'))
+                        continue;
+
+                if (in_section && first_word(line, "Option")) {
+                        _cleanup_strv_free_ char **a = NULL;
+
+                        r = strv_split_full(&a, line, WHITESPACE, EXTRACT_UNQUOTE);
+                        if (r < 0)
+                                return r;
+
+                        if (strv_length(a) == 3) {
+                                char **p = NULL;
+
+                                if (streq(a[1], "XkbLayout"))
+                                        p = &xc->layout;
+                                else if (streq(a[1], "XkbModel"))
+                                        p = &xc->model;
+                                else if (streq(a[1], "XkbVariant"))
+                                        p = &xc->variant;
+                                else if (streq(a[1], "XkbOptions"))
+                                        p = &xc->options;
+
+                                if (p) {
+                                        if (isempty(a[2]))
+                                                /* An 'Option "XkbVariant" ""' line is unquoted
+                                                 * by strv_split_full() into a non-NULL empty
+                                                 * string. Since 812aa57d2c an empty string is
+                                                 * rejected by string_is_safe(), so store NULL
+                                                 * instead: an empty value is equivalent to the
+                                                 * field being unset. (See issue #43007.) */
+                                                *p = mfree(*p);
+                                        else
+                                                free_and_replace(*p, a[2]);
+                                }
+                        }
+
+                } else if (!in_section && first_word(line, "Section")) {
+                        _cleanup_strv_free_ char **a = NULL;
+
+                        r = strv_split_full(&a, line, WHITESPACE, EXTRACT_UNQUOTE);
+                        if (r < 0)
+                                return -ENOMEM;
+
+                        if (strv_length(a) == 2 && streq(a[1], "InputClass"))
+                                in_section = true;
+
+                } else if (in_section && first_word(line, "EndSection"))
+                        in_section = false;
+        }
+
+        return 0;
+}
+
 int x11_read_data(Context *c, sd_bus_message *m) {
         _cleanup_close_ int fd = -EBADF;
         _cleanup_fclose_ FILE *f = NULL;
-        bool in_section = false;
         struct stat st;
         int r;
 
@@ -239,54 +307,9 @@ int x11_read_data(Context *c, sd_bus_message *m) {
         if (r < 0)
                 return r;
 
-        for (;;) {
-                _cleanup_free_ char *line = NULL;
-
-                r = read_stripped_line(f, LONG_LINE_MAX, &line);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        break;
-
-                if (IN_SET(line[0], 0, '#'))
-                        continue;
-
-                if (in_section && first_word(line, "Option")) {
-                        _cleanup_strv_free_ char **a = NULL;
-
-                        r = strv_split_full(&a, line, WHITESPACE, EXTRACT_UNQUOTE);
-                        if (r < 0)
-                                return r;
-
-                        if (strv_length(a) == 3) {
-                                char **p = NULL;
-
-                                if (streq(a[1], "XkbLayout"))
-                                        p = &c->x11_from_xorg.layout;
-                                else if (streq(a[1], "XkbModel"))
-                                        p = &c->x11_from_xorg.model;
-                                else if (streq(a[1], "XkbVariant"))
-                                        p = &c->x11_from_xorg.variant;
-                                else if (streq(a[1], "XkbOptions"))
-                                        p = &c->x11_from_xorg.options;
-
-                                if (p)
-                                        free_and_replace(*p, a[2]);
-                        }
-
-                } else if (!in_section && first_word(line, "Section")) {
-                        _cleanup_strv_free_ char **a = NULL;
-
-                        r = strv_split_full(&a, line, WHITESPACE, EXTRACT_UNQUOTE);
-                        if (r < 0)
-                                return -ENOMEM;
-
-                        if (strv_length(a) == 2 && streq(a[1], "InputClass"))
-                                in_section = true;
-
-                } else if (in_section && first_word(line, "EndSection"))
-                        in_section = false;
-        }
+        r = x11_context_parse_config(&c->x11_from_xorg, f);
+        if (r < 0)
+                return r;
 
         if (x11_context_verify(&c->x11_from_xorg) < 0)
                 x11_context_clear(&c->x11_from_xorg);

@@ -35,6 +35,8 @@ static inline int vc_context_verify(const VCContext *vc) {
         return vc_context_verify_and_warn(vc, LOG_DEBUG, NULL);
 }
 
+int x11_context_parse_config(X11Context *xc, FILE *f);
+
 int locale_read_data(Context *c, sd_bus_message *m);
 int vconsole_read_data(Context *c, sd_bus_message *m);
 int x11_read_data(Context *c, sd_bus_message *m);
