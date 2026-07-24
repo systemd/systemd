@@ -167,6 +167,9 @@ typedef struct UnitDefaults {
 
         bool restrict_suid_sgid;
 
+        bool protect_kernel_tunables;
+        bool protect_kernel_modules;
+
         OOMPolicy oom_policy;
         int oom_score_adjust;
         bool oom_score_adjust_set;
