@@ -3,10 +3,12 @@
 #include <stdlib.h>
 
 #include "alloc-util.h"
+#include "fd-util.h"
 #include "localed-util.h"
 #include "log.h"
 #include "string-util.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 
 TEST(find_language_fallback) {
         _cleanup_free_ char *ans = NULL, *ans2 = NULL;
@@ -229,6 +231,33 @@ TEST(x11_convert_to_vconsole) {
         ASSERT_OK(free_and_strdup(&xc.variant, NULL));
         ASSERT_OK(x11_convert_to_vconsole(&xc, &vc));
         ASSERT_STREQ(vc.keymap, "ru");
+}
+
+TEST(x11_context_parse_config) {
+        _cleanup_(x11_context_clear) X11Context xc = {};
+        _cleanup_fclose_ FILE *f = NULL;
+        char fn[] = "/tmp/test-x11-config-XXXXXX";
+
+        /* An 'Option "XkbVariant" ""' line is unquoted by strv_split_full()
+         * into a non-NULL empty string. Since 812aa57d2c this is rejected by
+         * x11_context_is_safe(), so x11_context_parse_config() must store NULL
+         * instead. See issue #43007. */
+        ASSERT_OK(fmkostemp_safe(fn, "w+", &f));
+        fputs("Section \"InputClass\"\n"
+              "  Identifier \"Keyboard catchall\"\n"
+              "  MatchIsKeyboard \"on\"\n"
+              "  Option \"XkbLayout\" \"gb\"\n"
+              "  Option \"XkbVariant\" \"\"\n"
+              "EndSection\n", f);
+        ASSERT_OK_ERRNO(fflush(f));
+        rewind(f);
+
+        ASSERT_OK(x11_context_parse_config(&xc, f));
+        ASSERT_STREQ(xc.layout, "gb");
+        ASSERT_NULL(xc.variant);
+        ASSERT_OK(x11_context_verify(&xc));
+
+        (void) unlink(fn);
 }
 
 static int intro(void) {
