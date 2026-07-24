@@ -231,6 +231,21 @@ TEST(x11_convert_to_vconsole) {
         ASSERT_STREQ(vc.keymap, "ru");
 }
 
+TEST(x11_context_empty_string_unsafe) {
+        _cleanup_(x11_context_clear) X11Context xc = {};
+
+        /* Since 812aa57d2c, an empty (non-NULL) string is rejected by
+         * x11_context_is_safe(). x11_read_data() must not store such values.
+         * See issue #43007. */
+        ASSERT_OK(free_and_strdup(&xc.layout, "gb"));
+        ASSERT_OK(free_and_strdup(&xc.variant, ""));
+        ASSERT_FALSE(x11_context_is_safe(&xc));
+
+        xc.variant = mfree(xc.variant);
+        ASSERT_TRUE(x11_context_is_safe(&xc));
+        ASSERT_OK(x11_context_verify(&xc));
+}
+
 static int intro(void) {
         _cleanup_free_ char *map = NULL;
 
