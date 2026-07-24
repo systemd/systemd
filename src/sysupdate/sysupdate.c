@@ -255,7 +255,8 @@ static int read_features(
         r = conf_files_list_strv_full(
                         ".feature",
                         c->root,
-                        CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED|CONF_FILES_WARN,
+                        CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED|CONF_FILES_WARN|
+                        CONF_FILES_DONT_PREFIX_ROOT,
                         dirs,
                         &files,
                         &n_files);
@@ -303,7 +304,8 @@ static int read_transfers(
         assert(suffix);
 
         r = conf_files_list_strv_full(suffix, c->root,
-                                      CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED|CONF_FILES_WARN,
+                                      CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED|CONF_FILES_WARN|
+                                      CONF_FILES_DONT_PREFIX_ROOT,
                                       dirs, &files, &n_files);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate sysupdate.d/*%s definitions: %m", suffix);
