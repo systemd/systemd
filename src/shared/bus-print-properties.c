@@ -351,9 +351,17 @@ int bus_message_print_all_properties(
                 BusPrintPropertyFlags flags,
                 Set **found_properties) {
 
+        bool filter_has_value = false;
         int r;
 
         assert(m);
+
+        /* The value filtering case is expensive to construct, so check if we even need it. */
+        STRV_FOREACH(f, filter)
+                if (strchr(*f, '=')) {
+                        filter_has_value = true;
+                        break;
+                }
 
         r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "{sv}");
         if (r < 0)
@@ -367,19 +375,20 @@ int bus_message_print_all_properties(
                 if (r < 0)
                         return r;
 
-                if (found_properties) {
-                        r = set_ensure_put(found_properties, &string_hash_ops, name);
-                        if (r < 0)
+                if (filter_has_value) {
+                        name_with_equal = strjoin(name, "=");
+                        if (!name_with_equal)
                                 return log_oom();
                 }
 
-                name_with_equal = strjoin(name, "=");
-                if (!name_with_equal)
-                        return log_oom();
-
                 if (!filter ||
                     strv_contains(filter, name) ||
-                    (expected_value = strv_find_startswith(filter, name_with_equal))) {
+                    (filter_has_value && (expected_value = strv_find_startswith(filter, name_with_equal)))) {
+                        if (found_properties && filter) {
+                                r = set_ensure_put(found_properties, &string_hash_ops, name);
+                                if (r < 0)
+                                        return log_oom();
+                        }
 
                         r = sd_bus_message_peek_type(m, NULL, &contents);
                         if (r < 0)
