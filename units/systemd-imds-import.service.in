@@ -14,7 +14,7 @@ Documentation=man:systemd.system-credentials(7)
 DefaultDependencies=no
 Wants=systemd-imdsd.socket network-online.target
 After=systemd-imdsd.socket network-online.target
-Before=sysinit.target systemd-firstboot.service
+Before=sysinit.target systemd-firstboot.service systemd-tmpfiles-setup.service
 Conflicts=shutdown.target
 Before=shutdown.target
 
