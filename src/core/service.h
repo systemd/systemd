@@ -163,6 +163,7 @@ typedef struct Service {
         bool timeout_abort_set;
         usec_t runtime_max_usec;
         usec_t runtime_rand_extra_usec;
+        usec_t revalidate_runtime_begin_usec;
         ServiceTimeoutFailureMode timeout_start_failure_mode;
         ServiceTimeoutFailureMode timeout_stop_failure_mode;
 
@@ -226,6 +227,7 @@ typedef struct Service {
         bool exec_fd_hot:1;
 
         char *bus_name;
+        sd_event_source *bus_name_grace_event_source;
 
         char *status_text;
         char *status_bus_error;
