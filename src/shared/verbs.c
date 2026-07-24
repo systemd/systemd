@@ -347,6 +347,9 @@ static int print_verb_option_help(
                 verb += r; /* Skip over the whole verb group */
         }
 
+        if (cmd->flags & COMMAND_HELP_SEPARATE)
+                (void) table_sync_all_column_widths(0, tables);
+
         const Option *optns = options_find_namespace(options, options_end, cmd->option_namespace);
         if (!optns)
                 return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN),
@@ -376,7 +379,10 @@ static int print_verb_option_help(
                 opt += r; /* Skip over the whole option group */
         }
 
-        (void) table_sync_all_column_widths(0, tables);
+        if (cmd->flags & COMMAND_HELP_SEPARATE)
+                (void) table_sync_all_column_widths(0, tables + n_verbs);
+        else
+                (void) table_sync_all_column_widths(0, tables);
 
         for (size_t i = 0; i < n_verbs + n_opts; i++) {
                 if (table_isempty(tables[i]))
