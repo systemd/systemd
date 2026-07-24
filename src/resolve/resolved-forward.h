@@ -8,6 +8,7 @@
 
 typedef enum DnsAnswerFlags DnsAnswerFlags;
 typedef enum DnsCacheMode DnsCacheMode;
+typedef enum DnsOverHttpsFailureAction DnsOverHttpsFailureAction;
 typedef enum DnsProtocol DnsProtocol;
 typedef enum DnssecResult DnssecResult;
 typedef enum DnssecVerdict DnssecVerdict;
@@ -17,6 +18,7 @@ typedef enum ResolveConfigSource ResolveConfigSource;
 
 typedef struct DnsAnswer DnsAnswer;
 typedef struct DnsDelegate DnsDelegate;
+typedef struct DnsHttpRequest DnsHttpRequest;
 typedef struct DnsPacket DnsPacket;
 typedef struct DnsQuery DnsQuery;
 typedef struct DnsQueryCandidate DnsQueryCandidate;

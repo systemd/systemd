@@ -637,6 +637,30 @@ ssize_t base64mem_full(
         return z - b;
 }
 
+ssize_t base64urlmem(const void *p, size_t l, char **ret) {
+        _cleanup_free_ char *encoded = NULL;
+        ssize_t n;
+
+        assert(p || l == 0);
+        assert(ret);
+
+        n = base64mem(p, l, &encoded);
+        if (n < 0)
+                return n;
+
+        for (char *q = encoded; *q; q++)
+                if (*q == '+')
+                        *q = '-';
+                else if (*q == '/')
+                        *q = '_';
+
+        while (n > 0 && encoded[n - 1] == '=')
+                encoded[--n] = 0;
+
+        *ret = TAKE_PTR(encoded);
+        return n;
+}
+
 static ssize_t base64_append_width(
                 char **prefix,
                 size_t plen,

@@ -125,8 +125,10 @@
       <varlistentry>
         <term><command>status</command> [<replaceable>LINK</replaceable>…]</term>
 
-        <listitem><para>Shows the global and per-link DNS settings currently in effect. If no command is specified,
-        this is the implied default.</para>
+        <listitem><para>Shows the global and per-link DNS settings currently in effect. DNS-over-HTTPS endpoints are
+        shown with their bootstrap address and normalized URI template. In JSON output, DNS server objects include the
+        <literal>transport</literal> field and, for DNS-over-HTTPS endpoints, the <literal>uri</literal> field. If no
+        command is specified, this is the implied default.</para>
 
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
@@ -190,7 +192,10 @@
           <literal>%</literal>, and a Server Name Indication (SNI) separated with <literal>#</literal>. When
           IPv6 address is specified with a port number, then the address must be in the square brackets. That
           is, the acceptable full formats are <literal>111.222.333.444:9953%ifname#example.com</literal> for
-          IPv4 and <literal>[1111:2222::3333]:9953%ifname#example.com</literal> for IPv6. The
+          IPv4 and <literal>[1111:2222::3333]:9953%ifname#example.com</literal> for IPv6. DNS-over-HTTPS URI
+          specifications accepted by the global <varname>DNS=</varname> setting in
+          <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> are not
+          accepted by this per-interface command. The
           <command>domain</command> command expects valid DNS domains, possibly prefixed with
           <literal>~</literal>, and configures a per-interface search or route-only domain. The
           <command>default-route</command> command expects a boolean parameter, and configures whether the
@@ -251,7 +256,8 @@
       <varlistentry>
         <term><command>show-server-state</command></term>
 
-        <listitem><para>Show detailed server state information, per DNS Server. Use <option>--json=</option>
+        <listitem><para>Show detailed server state information, per DNS Server. The output identifies the transport
+        used by each server and includes the normalized URI template for DNS-over-HTTPS endpoints. Use <option>--json=</option>
         to enable JSON output.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>

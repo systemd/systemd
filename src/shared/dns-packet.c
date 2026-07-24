@@ -2752,14 +2752,14 @@ int dns_packet_patch_max_udp_size(DnsPacket *p, uint16_t max_udp_size) {
         return 1;
 }
 
-static int patch_rr(DnsPacket *p, usec_t age) {
+static int patch_rr(DnsPacket *p, usec_t age, uint32_t max_ttl) {
         _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder = REWINDER_INIT(p);
         size_t ttl_index;
         uint32_t ttl;
         uint16_t type, rdlength;
         int r;
 
-        /* Patches the RR at the current rindex, subtracts the specified time from the TTL */
+        /* Patches the RR at the current rindex, subtracting the specified age and applying the TTL ceiling. */
 
         r = dns_packet_read_name(p, NULL, true, NULL);
         if (r < 0)
@@ -2778,7 +2778,7 @@ static int patch_rr(DnsPacket *p, usec_t age) {
                 return r;
 
         if (type != DNS_TYPE_OPT) { /* The TTL of the OPT field is not actually a TTL, skip it */
-                ttl = LESS_BY(ttl * USEC_PER_SEC, age) / USEC_PER_SEC;
+                ttl = MIN(LESS_BY(ttl * USEC_PER_SEC, age) / USEC_PER_SEC, max_ttl);
                 unaligned_write_be32(DNS_PACKET_DATA(p) + ttl_index, ttl);
         }
 
@@ -2794,20 +2794,12 @@ static int patch_rr(DnsPacket *p, usec_t age) {
         return 0;
 }
 
-int dns_packet_patch_ttls(DnsPacket *p, usec_t timestamp) {
+static int dns_packet_patch_ttls_by_usec(DnsPacket *p, usec_t age, uint32_t max_ttl) {
         assert(p);
-        assert(timestamp_is_set(timestamp));
-
-        /* Adjusts all TTLs in the packet by subtracting the time difference between now and the specified timestamp */
 
         _unused_ _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder = REWINDER_INIT(p);
         unsigned n;
-        usec_t k;
         int r;
-
-        k = now(CLOCK_BOOTTIME);
-        assert(k >= timestamp);
-        k -= timestamp;
 
         dns_packet_rewind(p, DNS_PACKET_HEADER_SIZE);
 
@@ -2826,12 +2818,40 @@ int dns_packet_patch_ttls(DnsPacket *p, usec_t timestamp) {
                 if (p->rindex == p->size)
                         break;
 
-                r = patch_rr(p, k);
+                r = patch_rr(p, age, max_ttl);
                 if (r < 0)
                         return r;
         }
 
         return 0;
+}
+
+int dns_packet_patch_ttls(DnsPacket *p, usec_t timestamp) {
+        usec_t n;
+
+        assert(p);
+        assert(timestamp_is_set(timestamp));
+
+        /* Adjusts all TTLs in the packet by subtracting the time difference between now and the specified timestamp */
+
+        n = now(CLOCK_BOOTTIME);
+        assert(n >= timestamp);
+
+        return dns_packet_patch_ttls_by_usec(p, n - timestamp, UINT32_MAX);
+}
+
+int dns_packet_patch_ttls_by_age(DnsPacket *p, uint64_t age) {
+        return dns_packet_patch_ttls_by_age_and_max_ttl(p, age, UINT64_MAX);
+}
+
+int dns_packet_patch_ttls_by_age_and_max_ttl(DnsPacket *p, uint64_t age, uint64_t max_ttl) {
+        assert(p);
+
+        /* HTTP Age and freshness lifetimes are expressed in whole seconds. */
+        return dns_packet_patch_ttls_by_usec(
+                        p,
+                        age > USEC_INFINITY / USEC_PER_SEC ? USEC_INFINITY : age * USEC_PER_SEC,
+                        MIN(max_ttl, (uint64_t) UINT32_MAX));
 }
 
 static void dns_packet_hash_func(const DnsPacket *s, struct siphash *state) {

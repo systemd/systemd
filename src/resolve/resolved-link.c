@@ -28,7 +28,6 @@
 #include "resolved-manager.h"
 #include "resolved-mdns.h"
 #include "set.h"
-#include "socket-netlink.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -259,34 +258,10 @@ int link_process_rtnl(Link *l, sd_netlink_message *m) {
 }
 
 static int link_update_dns_server_one(Link *l, const char *str) {
-        _cleanup_free_ char *name = NULL;
-        int family, ifindex, r;
-        union in_addr_union a;
-        DnsServer *s;
-        uint16_t port;
-
         assert(l);
         assert(str);
 
-        r = in_addr_port_ifindex_name_from_string_auto(str, &family, &a, &port, &ifindex, &name);
-        if (r < 0)
-                return r;
-
-        if (ifindex != 0 && ifindex != l->ifindex)
-                return -EINVAL;
-
-        /* By default, the port number is determined with the transaction feature level.
-         * See dns_transaction_port() and dns_server_port(). */
-        if (IN_SET(port, 53, 853))
-                port = 0;
-
-        s = dns_server_find(l->dns_servers, family, &a, port, 0, name);
-        if (s) {
-                dns_server_move_back_and_unmark(s);
-                return 0;
-        }
-
-        return dns_server_new(l->manager, /* ret= */ NULL, DNS_SERVER_LINK, l, /* delegate= */ NULL, family, &a, port, 0, name, RESOLVE_CONFIG_SOURCE_NETWORKD);
+        return dns_server_new_from_string(l->manager, DNS_SERVER_LINK, l, /* delegate= */ NULL, str, RESOLVE_CONFIG_SOURCE_NETWORKD);
 }
 
 static int link_update_dns_servers(Link *l) {

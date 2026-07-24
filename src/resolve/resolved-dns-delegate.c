@@ -7,7 +7,6 @@
 #include "dns-domain.h"
 #include "extract-word.h"
 #include "hashmap.h"
-#include "in-addr-util.h"
 #include "log.h"
 #include "path-util.h"
 #include "resolved-dns-delegate.h"
@@ -15,7 +14,6 @@
 #include "resolved-dns-search-domain.h"
 #include "resolved-dns-server.h"
 #include "resolved-manager.h"
-#include "socket-netlink.h"
 #include "string-util.h"
 #include "strv.h"
 
@@ -255,49 +253,18 @@ int config_parse_delegate_dns_servers(
                 if (r == 0)
                         break;
 
-                _cleanup_free_ char *server_name = NULL;
-                union in_addr_union address;
-                int family, ifindex = 0;
-                uint16_t port;
-                r = in_addr_port_ifindex_name_from_string_auto(word, &family, &address, &port, &ifindex, &server_name);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse DNS server string '%s', ignoring.", word);
-                        continue;
-                }
-
-                /* Silently filter out 0.0.0.0, 127.0.0.53, 127.0.0.54 (our own stub DNS listener) */
-                if (!dns_server_address_valid(family, &address))
-                        continue;
-
-                /* By default, the port number is determined with the transaction feature level.
-                 * See dns_transaction_port() and dns_server_port(). */
-                if (IN_SET(port, 53, 853))
-                        port = 0;
-
-                /* Filter out duplicates */
-                DnsServer *s = dns_server_find(d->dns_servers, family, &address, port, ifindex, server_name);
-                if (s) {
-                        /* Drop the marker. This is used to find the servers that ceased to exist, see
-                         * manager_mark_dns_servers() and manager_flush_marked_dns_servers(). */
-                        dns_server_move_back_and_unmark(s);
-                        return 0;
-                }
-
-                r = dns_server_new(
+                r = dns_server_new_from_string(
                                 d->manager,
-                                /* ret= */ NULL,
                                 DNS_SERVER_DELEGATE,
                                 /* link= */ NULL,
                                 d,
-                                family,
-                                &address,
-                                port,
-                                ifindex,
-                                server_name,
+                                word,
                                 RESOLVE_CONFIG_SOURCE_FILE);
+                if (r == -ENOMEM)
+                        return log_oom();
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add DNS server: %m");
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to parse DNS server string '%s', ignoring: %m", word);
         }
 
         return 0;
