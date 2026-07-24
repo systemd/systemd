@@ -311,8 +311,6 @@ static int parse_one_option(const char *option) {
                         SET_FLAG(arg_ask_password_flags, ASK_PASSWORD_SILENT, !r);
                 }
         } else if ((val = startswith(option, "password-cache="))) {
-                arg_password_cache_set = true;
-
                 if (streq(val, "read-only")) {
                         arg_ask_password_flags |= ASK_PASSWORD_ACCEPT_CACHED;
                         arg_ask_password_flags &= ~ASK_PASSWORD_PUSH_CACHE;
@@ -325,6 +323,8 @@ static int parse_one_option(const char *option) {
 
                         SET_FLAG(arg_ask_password_flags, ASK_PASSWORD_ACCEPT_CACHED|ASK_PASSWORD_PUSH_CACHE, r);
                 }
+
+                arg_password_cache_set = true;
         } else if (STR_IN_SET(option, "allow-discards", "discard"))
                 arg_discards = true;
         else if (streq(option, "same-cpu-crypt"))
