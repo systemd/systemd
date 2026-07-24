@@ -4,7 +4,6 @@
 
 #include "alloc-util.h"
 #include "capability-util.h"
-#include "efi-api.h"
 #include "fileio.h"
 #include "kmod-setup.h"
 #include "log.h"
@@ -146,10 +145,8 @@ int kmod_setup(void) {
                 /* dmi-sysfs is needed to import credentials from it super early */
                 { "dmi-sysfs",                  "/sys/firmware/dmi/entries",    false, false, NULL                      },
 
-#if HAVE_TPM2
                 /* Make sure the tpm subsystem is available which ConditionSecurity=tpm2 depends on. */
-                { "tpm",                        "/sys/class/tpmrm",             false, false, efi_has_tpm2              },
-#endif
+                { "tpm",                        "/sys/class/tpmrm",             false, false, NULL                      },
         };
 
         int r;
