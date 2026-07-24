@@ -793,17 +793,18 @@ static int print_seat_status_info(sd_bus *bus, const char *path) {
         return 0;
 }
 
-static int print_property(const char *name, const char *expected_value, sd_bus_message *m, BusPrintPropertyFlags flags) {
-        char type;
-        const char *contents;
+static int print_property(
+                const char *name,
+                const char *expected_value,
+                char type,
+                const char *contents,
+                sd_bus_message *m,
+                BusPrintPropertyFlags flags) {
+
         int r;
 
         assert(name);
         assert(m);
-
-        r = sd_bus_message_peek_type(m, &type, &contents);
-        if (r < 0)
-                return r;
 
         switch (type) {
 

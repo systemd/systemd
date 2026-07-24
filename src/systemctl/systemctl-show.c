@@ -1169,19 +1169,20 @@ static int map_quota(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_
         return 0;
 }
 
-static int print_property(const char *name, const char *expected_value, sd_bus_message *m, BusPrintPropertyFlags flags) {
-        char bus_type;
-        const char *contents;
+static int print_property(
+                const char *name,
+                const char *expected_value,
+                char bus_type,
+                const char *contents,
+                sd_bus_message *m,
+                BusPrintPropertyFlags flags) {
+
         int r;
 
         assert(name);
         assert(m);
 
         /* This is a low-level property printer, see print_status_info() for the nicer output */
-
-        r = sd_bus_message_peek_type(m, &bus_type, &contents);
-        if (r < 0)
-                return r;
 
         switch (bus_type) {
 
