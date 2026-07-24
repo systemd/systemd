@@ -38,6 +38,7 @@
 #include "tbf.h"
 #include "tc-util.h"
 #include "teql.h"
+#include "tfilter.h"
 
 const QDiscVTable * const qdisc_vtable[_QDISC_KIND_MAX] = {
         [QDISC_KIND_BFIFO]           = &bfifo_vtable,
@@ -379,6 +380,7 @@ int link_find_qdisc(Link *link, uint32_t handle, const char *kind, QDisc **ret) 
 
 void qdisc_mark_recursive(QDisc *qdisc) {
         TClass *tclass;
+        TFilter *tfilter;
 
         assert(qdisc);
         assert(qdisc->link);
@@ -394,6 +396,14 @@ void qdisc_mark_recursive(QDisc *qdisc) {
                         continue;
 
                 tclass_mark_recursive(tclass);
+        }
+
+        /* also mark all filters attached to the qdisc. */
+        SET_FOREACH(tfilter, qdisc->link->tfilters) {
+                if (tfilter->parent != qdisc->handle)
+                        continue;
+
+                tfilter_mark(tfilter);
         }
 }
 
@@ -427,7 +437,9 @@ static void qdisc_drop(QDisc *qdisc) {
 
         qdisc_mark_recursive(qdisc);
 
-        /* link_qdisc_drop_marked() may invalidate qdisc, so run link_tclass_drop_marked() first. */
+        /* link_qdisc_drop_marked() may invalidate qdisc, so run link_tfilter_drop_marked()
+         * and link_tclass_drop_marked() first. */
+        link_tfilter_drop_marked(qdisc->link);
         link_tclass_drop_marked(qdisc->link);
         link_qdisc_drop_marked(qdisc->link);
 }
