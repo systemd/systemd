@@ -6,6 +6,10 @@
 
 #define VERB_ANY (UINT_MAX)
 
+typedef enum CommandFlags {
+        COMMAND_HELP_SEPARATE = 1 << 0,  /* Do not synchronize the width between verbs and options */
+} CommandFlags;
+
 typedef struct CommandDescription {
         const char *names;             /* nulstr with the main command name and potentially aliases */
         const char *abstract;          /* concrete abstract */
@@ -13,6 +17,7 @@ typedef struct CommandDescription {
         const char *footer;            /* optional footer to print right above man page links */
         const char *man_pages;         /* nulstr with man page names */
         const char *option_namespace;  /* to be used when the options are in a namespace */
+        CommandFlags flags;
 } CommandDescription;
 
 typedef enum VerbFlags {
