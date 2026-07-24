@@ -35,6 +35,31 @@ assert_eq "$(systemd-escape 'hello-world' '/dev/loop1' 'template@🐍')" \
 assert_eq "$(systemd-escape --unescape -- 'hello\x2dworld' '-dev-loop1' 'template\x40\xf0\x9f\x90\x8d')" \
           'hello-world /dev/loop1 template@🐍'
 
+# Multiple strings from stdin to escape/unescape
+assert_eq "$(systemd-escape --stdin <<EOF
+hello-world
+/dev/loop1
+template@🐍
+EOF
+)" $'hello\\x2dworld\n-dev-loop1\ntemplate\\x40\\xf0\\x9f\\x90\\x8d'
+assert_eq "$(systemd-escape --stdin <<EOF
+hello
+
+world
+EOF
+)" $'hello\n\nworld'
+assert_eq "$(systemd-escape --stdin --path --suffix=mount <<EOF
+/var/lib/machines
+/srv/my data
+EOF
+)" $'var-lib-machines.mount\nsrv-my\\x20data.mount'
+assert_eq "$(systemd-escape --stdin --unescape <<EOF
+hello\x2dworld
+-dev-loop1
+template\x40\xf0\x9f\x90\x8d
+EOF
+)" $'hello-world\n/dev/loop1\ntemplate@🐍'
+
 # --suffix= is not compatible with --unescape
 assert_eq "$(systemd-escape --suffix=mount -- '-+ěščřž---🤔')" \
           '\x2d\x2b\xc4\x9b\xc5\xa1\xc4\x8d\xc5\x99\xc5\xbe\x2d\x2d\x2d\xf0\x9f\xa4\x94.mount'
@@ -56,6 +81,12 @@ check_escape '/this/is/where/my/stuff/is/ with spaces though ' \
 check_escape '/this/is/where/my/stuff/is/ with spaces though ' \
              'mount-my-stuff@this-is-where-my-stuff-is-\x20with\x20spaces\x20though\x20.service' \
              --template=mount-my-stuff@.service --path
+
+assert_eq "$(systemd-escape --stdin --template=hello@.service <<EOF
+hello
+this has spaces
+EOF
+)" $'hello@hello.service\nhello@this\\x20has\\x20spaces.service'
 
 # --instance (must be used with --unescape)
 assert_eq "$(systemd-escape --unescape --instance 'hello@\x20\x20what\x20\x2d\x20is\x20_\x20love\x3f\x20\xf0\x9f\xa4\x94\x20\xc2\xaf\x5c_\x28\xe3\x83\x84\x29_-\xc2\xaf.service')" \
@@ -87,6 +118,7 @@ assert_eq "$(systemd-escape --mangle 'daily-existential-crisis .timer')" 'daily-
 assert_eq "$(systemd-escape --mangle 'trailing-whitespace.mount ')" 'trailing-whitespace.mount\x20.service'
 
 (! systemd-escape)
+(! systemd-escape --stdin hello)
 (! systemd-escape --suffix='' hello)
 (! systemd-escape --suffix=invalid hello)
 (! systemd-escape --suffix=mount --template=hello@.service hello)
