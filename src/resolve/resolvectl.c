@@ -3224,32 +3224,6 @@ static void help_dns_classes(void) {
         DUMP_STRING_TABLE(dns_class, int, _DNS_CLASS_MAX);
 }
 
-static int compat_help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = option_parser_get_help_table_ns("systemd-resolve", &options);
-        if (r < 0)
-                return r;
-
-        pager_open(arg_pager_flags);
-
-        help_cmdline("[OPTIONS…] HOSTNAME|ADDRESS…");
-        help_cmdline("[OPTIONS…] --service [[NAME] TYPE] DOMAIN");
-        help_cmdline("[OPTIONS…] --openpgp EMAIL@DOMAIN…");
-        help_cmdline("[OPTIONS…] --statistics");
-        help_cmdline("[OPTIONS…] --reset-statistics");
-        help_abstract("Resolve domain names, IPv4 and IPv6 addresses, DNS records, and services.");
-
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("resolvectl", "1");
-        return 0;
-}
-
 static int native_help(void) {
         _cleanup_(table_unrefp) Table *verbs = NULL, *options = NULL;
         int r;
@@ -3301,7 +3275,8 @@ static int compat_parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_NAMESPACE("systemd-resolve"): {}
 
                 OPTION_COMMON_HELP:
-                        return compat_help();
+                        printf("systemd-resolve is deprecated. Call resolvectl instead.\n");
+                        return 0;
 
                 OPTION_COMMON_VERSION:
                         return version();
