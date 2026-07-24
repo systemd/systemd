@@ -10,6 +10,7 @@ systemctl_sources = files(
         'systemctl-is-enabled.c',
         'systemctl-is-system-running.c',
         'systemctl-kill.c',
+        'systemctl-limits.c',
         'systemctl-list-dependencies.c',
         'systemctl-list-jobs.c',
         'systemctl-list-machines.c',
