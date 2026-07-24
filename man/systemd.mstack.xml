@@ -68,6 +68,14 @@
       <listitem><para>If a <filename>root/</filename> subdirectory exists, it is used as root of the
       resulting mount hierarchy, and only the <filename>usr/</filename> subtree of the overlayfs mount will
       be bound to <filename>usr/</filename> in the hierarchy.</para></listitem>
+
+      <listitem><para>A <filename>tmpfs@<replaceable>location</replaceable>/</filename> directory (which
+      should be left empty) mounts a fresh, writable <literal>tmpfs</literal> at the mount point
+      indicated by the <varname>location</varname> identifier, using the same escaping logic as
+      <filename>bind@<replaceable>location</replaceable>/</filename>. Unlike the other entry types, its
+      contents (if any) are ignored: the <literal>tmpfs</literal> mounted at runtime always starts out
+      empty, regardless of what — if anything — is stored below the
+      <filename>tmpfs@<replaceable>location</replaceable>/</filename> directory itself.</para></listitem>
     </orderedlist>
 
     <para>Note that each of the entry types above may be a symbolic link pointing to a directory or image

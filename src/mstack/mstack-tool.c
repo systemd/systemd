@@ -309,7 +309,7 @@ static int inspect_mstack(void) {
                                 TABLE_STRING, m->what,
                                 TABLE_STRING, image_type_to_string(m->image_type),
                                 TABLE_PATH, w,
-                                TABLE_PATH, m->where ?: ((mstack->root_mount && mstack->root_mount != m) ? "/usr" : "/"),
+                                TABLE_PATH, m->where ?: "/",
                                 TABLE_STRING, m->sort_key);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -334,6 +334,7 @@ static int mount_mstack(void) {
                         arg_image_policy,
                         arg_image_filter,
                         arg_mstack_flags,
+                        /* uid_shift= */ UID_INVALID,
                         /* ret_root_fd= */ NULL);
          if (r < 0)
                  return log_error_errno(r, "Failed to apply .mstack/ directory '%s': %m", arg_what);

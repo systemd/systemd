@@ -2,6 +2,7 @@
 
 #include <linux/loop.h>
 #include <sys/mount.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-varlink.h"
@@ -16,6 +17,7 @@
 #include "loop-util.h"
 #include "macro.h"
 #include "mount-util.h"
+#include "mountpoint-util.h"
 #include "mstack.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -25,8 +27,10 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "tmpfile-util.h"
 #include "uid-classification.h"
+#include "user-util.h"
 #include "unit-name.h"
 #include "vpick.h"
 
@@ -52,8 +56,9 @@ static void mstack_done(MStack *mstack) {
         mstack->root_mount = NULL;
         mstack->has_tmpfs_root = mstack->has_overlayfs = false;
         mstack->path = mfree(mstack->path);
+        mstack->tmpfs_selinux_context = mfree(mstack->tmpfs_selinux_context);
         safe_close(mstack->root_mount_fd);
-        safe_close(mstack->usr_mount_fd);
+        safe_close(mstack->usr_extract_fd);
 }
 
 MStack* mstack_free(MStack *mstack) {
@@ -273,6 +278,32 @@ static int mstack_load_one(MStack *mstack, const char *dir, int dir_fd, const ch
                 return 0;
         }
 
+        r = validate_prefix_name(unsuffixed, "tmpfs@", &parameter);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to check prefix of %s/%s: %m", dir, fname);
+        if (r > 0) {
+                _cleanup_free_ char *where = NULL;
+                r = unit_name_path_unescape(parameter, &where);
+                if (r < 0)
+                        return log_debug_errno(r, "Cannot unescape path '%s' of '%s/%s'", parameter, dir, fname);
+
+                if (mstack_find(mstack, MSTACK_TMPFS, /* sort_key= */ NULL, /* where= */ where))
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTUNIQ), "Duplicate tmpfs entry, refusing");
+
+                *m = (MStackMount) {
+                        .mount_type = MSTACK_TMPFS,
+                        .what = TAKE_PTR(what),
+                        .what_fd = TAKE_FD(what_fd),
+                        .mount_fd = -EBADF,
+                        .where = TAKE_PTR(where),
+                        .image_type = image_type,
+                };
+
+                mstack->n_mounts++;
+                log_debug("Found mstack tmpfs layer '%s' ('%s')", empty_to_root(m->where), m->what);
+                return 0;
+        }
+
         if (streq(unsuffixed, "root")) {
                 if (mstack_find(mstack, MSTACK_ROOT, /* sort_key= */ NULL, /* where= */ NULL))
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOTUNIQ), "Duplicate root entry, refusing");
@@ -341,7 +372,7 @@ static int mstack_normalize(MStack *mstack) {
         typesafe_qsort(mstack->mounts, mstack->n_mounts, mount_compare_func);
 
         size_t n_layers = 0;
-        bool has_rw = false, has_root_bind = false, has_usr_bind = false, has_root = false;
+        bool has_rw = false, has_synthetic_rw = false, has_root_bind = false, has_usr_bind = false, has_root = false;
         FOREACH_ARRAY(m, mstack->mounts, mstack->n_mounts) {
                 switch (m->mount_type) {
                 case MSTACK_LAYER:
@@ -351,6 +382,11 @@ static int mstack_normalize(MStack *mstack) {
                 case MSTACK_RW:
                         assert(!has_rw);
                         has_rw = true;
+                        /* A synthetic rw layer (e.g. from --volatile=overlay) carries no backing fd yet -
+                         * it's only realized into a throwaway tmpfs later, in mstack_make_mounts(). Track
+                         * it separately: it can't be collapsed into a MSTACK_BIND below like a real rw/
+                         * entry could, since there's nothing to bind-mount yet. */
+                        has_synthetic_rw = m->what_fd < 0 && m->mount_fd < 0;
                         break;
 
                 case MSTACK_BIND:
@@ -364,6 +400,10 @@ static int mstack_normalize(MStack *mstack) {
                 case MSTACK_ROOT:
                         assert(!has_root);
                         has_root = true;
+                        break;
+
+                case MSTACK_TMPFS:
+                        /* A fresh tmpfs submount on top; doesn't participate in the overlayfs stack. */
                         break;
 
                 default:
@@ -380,8 +420,22 @@ static int mstack_normalize(MStack *mstack) {
                 has_rw = false;
         }
 
-        /* Only a single read-only or read-write layer? Turn into bind mount! */
-        if (n_layers + has_rw == 1) {
+        /* A lone synthetic rw layer (e.g. a bare --volatile=overlay with nothing else in the .mstack/) has
+         * no backing fd to turn into a bind mount below - there's nothing to bind-mount yet, it's only
+         * realized into a throwaway tmpfs later, in mstack_make_mounts(). Drop it instead: with nothing
+         * else left, has_tmpfs_root below naturally becomes true, and mstack_make_mounts() already
+         * creates a fresh writable tmpfs root unconditionally in that case - the exact same end result a
+         * bind mount would have produced, once realized. */
+        if (!has_root && n_layers == 0 && has_rw && has_synthetic_rw) {
+                mstack_remove(mstack, MSTACK_RW);
+                has_rw = false;
+        }
+
+        /* Only a single read-only or read-write layer, and no root/ to combine it with? Turn into bind
+         * mount! (If root/ is present, always build a real overlay below instead, with root/ folded in
+         * as the base layer, so root/ and the layer/rw content merge across the whole tree rather than
+         * just /usr/.) */
+        if (!has_root && n_layers + has_rw == 1) {
                 FOREACH_ARRAY(m, mstack->mounts, mstack->n_mounts) {
                         if (m->mount_type == MSTACK_LAYER)
                                 m->mount_type = MSTACK_ROBIND;
@@ -390,29 +444,11 @@ static int mstack_normalize(MStack *mstack) {
                         else
                                 continue;
 
-                        if (has_root) {
-                                /* If there's a root dir, let's only bind mount the /usr/ subdir */
-                                _cleanup_close_ int usr_fd = openat(m->what_fd, "usr", O_CLOEXEC|O_PATH|O_NOFOLLOW|O_DIRECTORY);
-                                if (usr_fd < 0)
-                                        return log_debug_errno(errno, "Failed to open /usr/ subdir: %m");
+                        r = free_and_strdup_warn(&m->where, "/");
+                        if (r < 0)
+                                return r;
 
-                                _cleanup_free_ char *usr = path_join(m->what, "usr");
-                                if (!usr)
-                                        return log_oom();
-
-                                r = free_and_strdup_warn(&m->where, "/usr");
-                                if (r < 0)
-                                        return r;
-
-                                close_and_replace(m->what_fd, usr_fd);
-                                free_and_replace(m->what, usr);
-                        } else {
-                                r = free_and_strdup_warn(&m->where, "/");
-                                if (r < 0)
-                                        return r;
-
-                                has_root_bind = true;
-                        }
+                        has_root_bind = true;
                 }
 
                 n_layers = 0;
@@ -428,7 +464,11 @@ static int mstack_normalize(MStack *mstack) {
         /* After converting, let's sort things again */
         typesafe_qsort(mstack->mounts, mstack->n_mounts, mount_compare_func);
 
-        /* Find root mount (unless it's the overlayfs stack) */
+        /* Find root mount (unless it's the overlayfs stack). Reset first: mstack_normalize() can run
+         * more than once on the same MStack (e.g. mstack_merge_volatile() re-normalizes after mutating
+         * topology), and a stale pointer from an earlier call must not survive if the root candidate's
+         * identity changed (or disappeared) since then. */
+        mstack->root_mount = NULL;
         FOREACH_ARRAY(m, mstack->mounts, mstack->n_mounts)
                 if ((m->mount_type == MSTACK_ROOT) ||
                     (IN_SET(m->mount_type, MSTACK_BIND, MSTACK_ROBIND) && empty_or_root(m->where))) {
@@ -494,11 +534,136 @@ static int mount_get_fd(MStackMount *m) {
         return m->what_fd;
 }
 
-static bool mount_is_ro(MStackMount *m, MStackFlags flags) {
+int mstack_new_from_root_fd(int root_fd, MStack **ret) {
+        int r;
+
+        assert(root_fd >= 0);
+        assert(ret);
+
+        _cleanup_(mstack_freep) MStack *mstack = new(MStack, 1);
+        if (!mstack)
+                return -ENOMEM;
+
+        *mstack = MSTACK_INIT;
+
+        if (!GREEDY_REALLOC(mstack->mounts, 1))
+                return -ENOMEM;
+
+        /* Wrap the already-mounted root as a single MSTACK_ROOT entry. We take ownership of root_fd. */
+        mstack->mounts[0] = (MStackMount) {
+                .mount_type = MSTACK_ROOT,
+                .what_fd = -EBADF,
+                .mount_fd = root_fd,
+                .image_type = IMAGE_DIRECTORY,
+        };
+        mstack->n_mounts = 1;
+
+        r = mstack_normalize(mstack);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(mstack);
+        return 0;
+}
+
+int mstack_merge_volatile(
+                MStack *mstack,
+                VolatileMode mode,
+                uid_t tmpfs_uid_shift,
+                const char *tmpfs_selinux_context) {
+
+        int r;
+
+        assert(mstack);
+
+        if (mode == VOLATILE_NO)
+                return 0;
+
+        /* Remember the tmpfs parity settings; they are consulted whenever we realize a tmpfs below. */
+        mstack->tmpfs_uid_shift = tmpfs_uid_shift;
+        r = free_and_strdup_warn(&mstack->tmpfs_selinux_context, tmpfs_selinux_context);
+        if (r < 0)
+                return r;
+
+        switch (mode) {
+
+        case VOLATILE_OVERLAY:
+                /* Demote any plain root into a read-only lower layer so the overlay covers the whole tree
+                 * (not just /usr/), then add a synthetic writable upper layer on a throwaway tmpfs. */
+                FOREACH_ARRAY(m, mstack->mounts, mstack->n_mounts)
+                        if (m->mount_type == MSTACK_ROOT)
+                                m->mount_type = MSTACK_LAYER;
+
+                if (mstack_find(mstack, MSTACK_RW, /* sort_key= */ NULL, /* where= */ NULL))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Cannot add volatile overlay: mount stack already has a writable layer.");
+
+                if (!GREEDY_REALLOC(mstack->mounts, mstack->n_mounts + 1))
+                        return -ENOMEM;
+
+                mstack->mounts[mstack->n_mounts++] = (MStackMount) {
+                        .mount_type = MSTACK_RW,
+                        .what_fd = -EBADF, /* synthetic: tmpfs backing is realized in mstack_make_mounts() */
+                        .mount_fd = -EBADF,
+                        .image_type = _IMAGE_TYPE_INVALID,
+                };
+                break;
+
+        case VOLATILE_STATE: {
+                /* Keep the existing root read-only, and mount a fresh tmpfs on /var/ on top. */
+                if (mstack_find(mstack, MSTACK_TMPFS, /* sort_key= */ NULL, "/var"))
+                        break;
+
+                _cleanup_free_ char *where = strdup("/var");
+                if (!where)
+                        return -ENOMEM;
+
+                if (!GREEDY_REALLOC(mstack->mounts, mstack->n_mounts + 1))
+                        return -ENOMEM;
+
+                mstack->mounts[mstack->n_mounts++] = (MStackMount) {
+                        .mount_type = MSTACK_TMPFS,
+                        .what_fd = -EBADF,
+                        .mount_fd = -EBADF,
+                        .where = TAKE_PTR(where),
+                        .image_type = _IMAGE_TYPE_INVALID,
+                };
+                break;
+        }
+
+        case VOLATILE_YES:
+                /* Replace the root with a throwaway tmpfs, keeping only /usr/ from the prepared tree,
+                 * read-only. Since root/ (if any) is now folded directly into the same overlay as
+                 * layer@/rw (see mstack_merge_volatile()'s VOLATILE_OVERLAY case and
+                 * mstack_make_overlayfs()), there's no longer a way to cleanly pull /usr/ out of an
+                 * individual entry before assembly - root/ and layer@/rw may need to merge across the
+                 * whole tree first. So this is deferred: just validate here that there is SOMETHING to
+                 * extract /usr/ from, and let mstack_make_mounts() do the actual extraction once it has
+                 * a fully assembled tree to clone /usr/ out of (see extract_usr_only there). */
+                if (!mstack->root_mount && !mstack->has_overlayfs)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "--volatile=yes requires a root directory or layer@ content to extract /usr/ from.");
+
+                mstack->extract_usr_only = true;
+                return 0;
+
+        default:
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unsupported volatile mode for mstack merge.");
+        }
+
+        return mstack_normalize(mstack);
+}
+
+static bool mount_is_ro(MStack *mstack, MStackMount *m, MStackFlags flags) {
+        assert(mstack);
         assert(m);
 
+        /* root/ is always folded into the overlay as its base layer when one exists (see
+         * mstack_make_overlayfs()), so from that point on it must be treated exactly like any other
+         * read-only layer: nothing should ever write into it directly again, only into rw/'s upperdir. */
         return FLAGS_SET(flags, MSTACK_RDONLY) ||
-                IN_SET(m->mount_type, MSTACK_LAYER, MSTACK_ROBIND);
+                IN_SET(m->mount_type, MSTACK_LAYER, MSTACK_ROBIND) ||
+                (m->mount_type == MSTACK_ROOT && mstack->has_overlayfs);
 }
 
 static const char* mount_name(MStackMount *m) {
@@ -539,6 +704,15 @@ int mstack_open_images(
 
         FOREACH_ARRAY(m, mstack->mounts, mstack->n_mounts) {
 
+                /* A tmpfs submount is created fresh at attach time; there's no backing image to open. */
+                if (m->mount_type == MSTACK_TMPFS)
+                        continue;
+
+                /* Synthetic entries (e.g. a --volatile= root/rw layer) already carry a ready-made mount
+                 * fd (or get one later); there's nothing on disk to open here. */
+                if (m->what_fd < 0)
+                        continue;
+
                 DissectImageFlags dissect_image_flags =
                         DISSECT_IMAGE_DISCARD|
                         DISSECT_IMAGE_GENERIC_ROOT|
@@ -551,7 +725,7 @@ int mstack_open_images(
                         DISSECT_IMAGE_PIN_PARTITION_DEVICES|
                         DISSECT_IMAGE_ALLOW_USERSPACE_VERITY;
 
-                SET_FLAG(dissect_image_flags, DISSECT_IMAGE_READ_ONLY, mount_is_ro(m, flags));
+                SET_FLAG(dissect_image_flags, DISSECT_IMAGE_READ_ONLY, mount_is_ro(mstack, m, flags));
                 SET_FLAG(dissect_image_flags, DISSECT_IMAGE_FOREIGN_UID, userns_fd >= 0);
 
                 switch (m->image_type) {
@@ -668,8 +842,8 @@ int mstack_open_images(
                                                 /* path= */ "",
                                                 OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_EMPTY_PATH,
                                                 &(struct mount_attr) {
-                                                        .attr_set = mount_is_ro(m, flags) ? MOUNT_ATTR_RDONLY : 0,
-                                                        .attr_clr = mount_is_ro(m, flags) ? 0 : MOUNT_ATTR_RDONLY,
+                                                        .attr_set = mount_is_ro(mstack, m, flags) ? MOUNT_ATTR_RDONLY : 0,
+                                                        .attr_clr = mount_is_ro(mstack, m, flags) ? 0 : MOUNT_ATTR_RDONLY,
                                                         .propagation = MS_PRIVATE, /* disconnect us from bind mount source */
                                                 });
                                 if (m->mount_fd < 0)
@@ -687,7 +861,7 @@ int mstack_open_images(
         return 0;
 }
 
-static int mstack_has_writable_layers(MStack *mstack, MStackFlags flags) {
+bool mstack_has_writable_layers(MStack *mstack, MStackFlags flags) {
         assert(mstack);
 
         if (FLAGS_SET(flags, MSTACK_RDONLY))
@@ -714,10 +888,12 @@ static int fsconfig_add_layer(int sb_fd, const char *key, int layer_fd) {
         }
 
         r = RET_NERRNO(fsconfig(sb_fd, FSCONFIG_SET_FD, key, /* value= */ NULL, layer_fd));
-        if (r != -EBADF && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
+        if (r != -EBADF && r != -EINVAL && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 return r;
 
-        /* overlayfs learnt support for FSCONFIG_SET_FD only with linux 6.13, hence provide a fallback here via /proc/self/fd/ */
+        /* overlayfs learnt support for FSCONFIG_SET_FD only with linux 6.13. On kernels 6.5–6.12,
+         * the overlayfs parameter parser recognises the key but rejects the fd type with EINVAL.
+         * Fall back to the /proc/self/fd/ string path for all of these. */
 
         // FIXME: This compatibility code path shall be removed once kernel 6.13
         //        becomes the new minimal baseline
@@ -727,10 +903,62 @@ static int fsconfig_add_layer(int sb_fd, const char *key, int layer_fd) {
         return RET_NERRNO(fsconfig(sb_fd, FSCONFIG_SET_STRING, key, layer_path, /* aux= */ 0));
 }
 
+static int mstack_make_tmpfs(MStack *mstack, const char *limits, int *ret_mnt_fd) {
+        _cleanup_free_ char *options = NULL;
+        int r;
+
+        assert(mstack);
+        assert(ret_mnt_fd);
+
+        /* Creates a fresh tmpfs mount fd. On top of the base 'mode=0755' and the passed size/inode
+         * limits we also apply uid=/gid= and the SELinux 'context=' (when plumbed in), for parity with
+         * nspawn's volatile tmpfs handling. */
+        const char *base = strjoina("mode=0755", strempty(limits));
+        r = tmpfs_patch_options(base, mstack->tmpfs_uid_shift, mstack->tmpfs_selinux_context, &options);
+        if (r < 0)
+                return log_oom_debug();
+
+        int mnt_fd = make_fsmount(
+                        LOG_DEBUG,
+                        empty_to_root(mstack->path),
+                        "tmpfs",
+                        MS_STRICTATIME,
+                        options ?: base,
+                        /* userns_fd= */ -EBADF);
+        if (mnt_fd < 0)
+                return mnt_fd;
+
+        *ret_mnt_fd = mnt_fd;
+        return 0;
+}
+
+/* Sets the remaining overlayfs mount options and materializes the superblock. Split out of
+ * mstack_make_overlayfs() below so it can be called a second time, on a second superblock, as part of
+ * the "lowerdir+" EINVAL fallback described there. */
+static int mstack_overlayfs_create(int sb_fd, bool writable, const char *source) {
+        assert(sb_fd >= 0);
+        assert(source);
+
+        if (!writable && fsconfig(sb_fd, FSCONFIG_SET_FLAG, "ro", /* value= */ NULL, /* aux= */ 0) < 0)
+                return log_debug_errno(errno, "Failed to set read-only mount flag: %m");
+
+        if (fsconfig(sb_fd, FSCONFIG_SET_FLAG, "userxattr", /* value= */ NULL, /* aux= */ 0) < 0)
+                return log_debug_errno(errno, "Failed to set userxattr mount flag: %m");
+
+        if (fsconfig(sb_fd, FSCONFIG_SET_STRING, "source", source, /* aux= */ 0) < 0)
+                return log_debug_errno(errno, "Failed to set mount source: %m");
+
+        /* This is where the superblock is materialized. It must be called from the child's namespace,
+         * where the mounts are attached as described above, otherwise overlayfs is unhappy and will
+         * refuse the superblock to be created. */
+        return RET_NERRNO(fsconfig(sb_fd, FSCONFIG_CMD_CREATE, /* key= */ NULL, /* value= */ NULL, /* aux= */ 0));
+}
+
 static int mstack_make_overlayfs(
                 MStack *mstack,
                 const char *temp_mount_dir,
                 MStackFlags flags,
+                uid_t uid_shift,
                 int *ret_overlayfs_mnt_fd) {
 
         int r;
@@ -746,9 +974,31 @@ static int mstack_make_overlayfs(
 
         bool writable = mstack_has_writable_layers(mstack, flags);
 
+        /* overlayfs cannot itself be the target of an idmapped mount (mount_setattr(MOUNT_ATTR_IDMAP) on an
+         * already-merged overlay returns EINVAL) - the kernel only supports idmapping the individual layers
+         * that go INTO an overlay, before they're merged. So if an idmap was requested, acquire the userns
+         * once here and apply it to each layer's cloned mount fd below, before it's merged; the assembled
+         * overlay then inherits the mapping from its already-idmapped layers. */
+        _cleanup_close_ int uidmap_userns_fd = -EBADF;
+        if (uid_is_valid(uid_shift)) {
+                uidmap_userns_fd = make_userns(uid_shift, MSTACK_UID_SHIFT_RANGE, UID_INVALID, UID_INVALID, REMOUNT_IDMAPPING_NONE);
+                if (uidmap_userns_fd < 0)
+                        return log_debug_errno(uidmap_userns_fd, "Failed to create idmap userns: %m");
+        }
+
         _cleanup_close_ int sb_fd = fsopen("overlay", FSOPEN_CLOEXEC);
         if (sb_fd < 0)
                 return log_debug_errno(errno, "Failed to create overlayfs: %m");
+
+        /* Some kernels only partially back-port overlayfs's fs_context-based incremental "lowerdir+"
+         * layer scheme (mainlined in Linux 6.5): every individual fsconfig() call to add a layer via
+         * "lowerdir+" succeeds, yet FSCONFIG_CMD_CREATE still fails with EINVAL. A bare retry on the
+         * same fs_context after that returns EBUSY, so a genuinely fresh superblock is needed - and
+         * since fds opened by the child below after fork() aren't visible to us afterwards, it has to
+         * be opened here, before forking, so it's shared with the child exactly like the one above. */
+        _cleanup_close_ int sb_fd_fallback = fsopen("overlay", FSOPEN_CLOEXEC);
+        if (sb_fd_fallback < 0)
+                return log_debug_errno(errno, "Failed to create fallback overlayfs: %m");
 
         _cleanup_close_pair_ int errno_pipe_fds[2] = EBADF_PAIR;
         if (pipe2(errno_pipe_fds, O_CLOEXEC) < 0)
@@ -772,18 +1022,68 @@ static int mstack_make_overlayfs(
         if (r == 0) {
                 /* child */
 
+                /* Every fd contributing a "lowerdir+" layer, plus the upperdir/workdir fds if any,
+                 * kept open (rather than closed at the end of their loop iteration) so that, if the
+                 * primary "lowerdir+" attempt below fails with EINVAL, we can still refer to them via
+                 * FORMAT_PROC_FD_PATH() to build the legacy joined "lowerdir=" fallback. */
+                _cleanup_free_ int *lower_fds = NULL;
+                size_t n_lower_fds = 0;
+                int upperdir_fd = -EBADF, workdir_fd = -EBADF;
+
                 /* Kernel expects the stack in reverse order, hence go from back to front */
                 for (size_t i = mstack->n_mounts; i > 0; i--) {
                         MStackMount *m = mstack->mounts + i - 1;
 
-                        if (!IN_SET(m->mount_type, MSTACK_RW, MSTACK_LAYER))
+                        if (!IN_SET(m->mount_type, MSTACK_RW, MSTACK_LAYER, MSTACK_ROOT))
                                 continue;
+
+                        int source_fd = ASSERT_FD(mount_get_fd(m));
+                        bool rw_readonly = m->mount_type == MSTACK_RW && mount_is_ro(mstack, m, flags);
+                        bool rw_writable = m->mount_type == MSTACK_RW && !rw_readonly;
+                        bool have_data_dir = true;
+
+                        /* Ensure 'data'/'work' exist (if needed) on the ORIGINAL source, before cloning it
+                         * below - not on the clone itself. Idmapped mounts (applied to the clone further
+                         * down) refuse further inode creation through them for a caller outside the mapped
+                         * range (EOVERFLOW - our own, unmapped credentials can't be represented as a
+                         * backing-store owner), and separately the kernel also refuses to idmap a mount that
+                         * has itself already had inodes created through that specific mount instance
+                         * (EINVAL) - so any creation has to happen on the pre-clone source, never on the
+                         * clone we're about to idmap. */
+                        if (rw_writable) {
+                                if (mkdirat(source_fd, "data", 0755) < 0 && errno != EEXIST)
+                                        report_errno_and_exit(errno_pipe_fds[1], -errno);
+                                if (mkdirat(source_fd, "work", 0755) < 0 && errno != EEXIST)
+                                        report_errno_and_exit(errno_pipe_fds[1], -errno);
+                        } else if (rw_readonly) {
+                                r = RET_NERRNO(faccessat(source_fd, "data", F_OK, 0));
+                                if (r == -ENOENT) /* If the 'data' dir doesn't exist, just skip over this
+                                                    * layer entirely, it apparently was never created, but
+                                                    * that's fine for a read-only invocation */
+                                        have_data_dir = false;
+                                else if (r < 0)
+                                        report_errno_and_exit(errno_pipe_fds[1], r);
+                        }
 
                         /* overlayfs refuses to work with layers on mounts not owned by our userns, hence create a
                          * clone that is owned by our userns */
-                        _cleanup_close_ int cloned_fd = mount_fd_clone(ASSERT_FD(mount_get_fd(m)), /* recursive= */ false, /* replacement_fd= */ NULL);
+                        _cleanup_close_ int cloned_fd = mount_fd_clone(source_fd, /* recursive= */ false, /* replacement_fd= */ NULL);
                         if (cloned_fd < 0)
                                 report_errno_and_exit(errno_pipe_fds[1], cloned_fd);
+
+                        /* Idmap the layer here, while it's still a fresh, unattached clone with nothing yet
+                         * created through it: this is the only point at which the kernel allows
+                         * MOUNT_ATTR_IDMAP for what will become part of an overlay (see the
+                         * uidmap_userns_fd comment above). */
+                        if (uidmap_userns_fd >= 0 &&
+                            mount_setattr(cloned_fd, "", AT_EMPTY_PATH,
+                                          &(struct mount_attr) {
+                                                  .attr_set = MOUNT_ATTR_IDMAP,
+                                                  .userns_fd = uidmap_userns_fd,
+                                          }, sizeof(struct mount_attr)) < 0) {
+                                log_debug_errno(errno, "Failed to idmap layer %s: %m", m->what);
+                                report_errno_and_exit(errno_pipe_fds[1], -errno);
+                        }
 
                         /* When working with detached mounts overlayfs (which requires kernel 6.14) currently
                          * insists on upperdir being the root inode of the mount. But that collides with the
@@ -801,15 +1101,12 @@ static int mstack_make_overlayfs(
                         switch (m->mount_type) {
 
                         case MSTACK_RW: {
-                                if (mount_is_ro(m, flags)) {
-                                        /* If invoked in read-only mode we'll not create the data dir, but use it if it exists */
+                                if (rw_readonly) {
+                                        if (!have_data_dir)
+                                                break;
+
                                         _cleanup_close_ int data_fd = openat(temp_fd, "data", O_CLOEXEC|O_NOFOLLOW|O_DIRECTORY);
                                         if (data_fd < 0) {
-                                                if (errno == ENOENT) /* If the 'data' dir doesn't exist, just skip
-                                                                      * over it, it apparently was never created, but
-                                                                      * that's fine for a read-only invocation */
-                                                        break;
-
                                                 log_debug_errno(errno, "Failed to open 'data' directory below 'rw' layer: %m");
                                                 report_errno_and_exit(errno_pipe_fds[1], -errno);
                                         }
@@ -820,25 +1117,23 @@ static int mstack_make_overlayfs(
                                                 log_debug_errno(r, "Failed to set mount layer lowerdir+=%s/data: %m", m->what);
                                                 report_errno_and_exit(errno_pipe_fds[1], r);
                                         }
+
+                                        if (!GREEDY_REALLOC(lower_fds, n_lower_fds + 1))
+                                                report_errno_and_exit(errno_pipe_fds[1], -ENOMEM);
+                                        lower_fds[n_lower_fds++] = TAKE_FD(data_fd);
                                 } else {
-                                        /* If invoked in writable mode, let's create the data dir if it is missing */
-                                        _cleanup_close_ int data_fd = open_mkdir_at(temp_fd, "data", O_CLOEXEC|O_NOFOLLOW, 0755);
+                                        /* 'data'/'work' were already created (if missing) on the pre-clone
+                                         * source above, so just open them here. */
+                                        _cleanup_close_ int data_fd = openat(temp_fd, "data", O_CLOEXEC|O_NOFOLLOW|O_DIRECTORY);
                                         if (data_fd < 0) {
-                                                log_debug_errno(data_fd, "Failed to open 'data' directory below 'rw' layer: %m");
-                                                report_errno_and_exit(errno_pipe_fds[1], data_fd);
+                                                log_debug_errno(errno, "Failed to open 'data' directory below 'rw' layer: %m");
+                                                report_errno_and_exit(errno_pipe_fds[1], -errno);
                                         }
 
-                                        r = fsconfig_add_layer(sb_fd, "upperdir", data_fd);
-                                        if (r < 0) {
-                                                log_debug_errno(r, "Failed to set mount layer upperdir=%s/data: %m", m->what);
-                                                report_errno_and_exit(errno_pipe_fds[1], r);
-                                        }
-
-                                        /* Similar, create the work directory */
-                                        _cleanup_close_ int work_fd = open_mkdir_at(temp_fd, "work", O_CLOEXEC|O_NOFOLLOW, 0755);
+                                        _cleanup_close_ int work_fd = openat(temp_fd, "work", O_CLOEXEC|O_NOFOLLOW|O_DIRECTORY);
                                         if (work_fd < 0) {
-                                                log_debug_errno(work_fd, "Failed to open 'work' directory below 'rw' layer: %m");
-                                                report_errno_and_exit(errno_pipe_fds[1], work_fd);
+                                                log_debug_errno(errno, "Failed to open 'work' directory below 'rw' layer: %m");
+                                                report_errno_and_exit(errno_pipe_fds[1], -errno);
                                         }
 
                                         /* rm_rf_children() takes possession of the fd no matter what, let's dup it here */
@@ -853,11 +1148,20 @@ static int mstack_make_overlayfs(
                                         if (r < 0)
                                                 log_debug_errno(r, "Failed to empty 'work' directory below 'rw' layer, ignoring: %m");
 
+                                        r = fsconfig_add_layer(sb_fd, "upperdir", data_fd);
+                                        if (r < 0) {
+                                                log_debug_errno(r, "Failed to set mount layer upperdir=%s/data: %m", m->what);
+                                                report_errno_and_exit(errno_pipe_fds[1], r);
+                                        }
+
                                         r = fsconfig_add_layer(sb_fd, "workdir", work_fd);
                                         if (r < 0) {
                                                 log_debug_errno(r, "Failed to set mount layer workdir=%s/work: %m", m->what);
                                                 report_errno_and_exit(errno_pipe_fds[1], r);
                                         }
+
+                                        upperdir_fd = TAKE_FD(data_fd);
+                                        workdir_fd = TAKE_FD(work_fd);
 
                                         break;
                                 }
@@ -865,11 +1169,20 @@ static int mstack_make_overlayfs(
                         }
 
                         case MSTACK_LAYER:
+                        case MSTACK_ROOT:
+                                /* root/ sorts before every layer@ (MSTACK_ROOT is the lowest mount type),
+                                 * so it's processed last in this reverse loop and naturally ends up as the
+                                 * bottommost lowerdir here: the base that layer@/rw sit on top of, across
+                                 * the whole tree rather than just /usr/. */
                                 r = fsconfig_add_layer(sb_fd, "lowerdir+", temp_fd);
                                 if (r < 0) {
                                         log_debug_errno(r, "Failed to set mount layer lowerdir+=%s: %m", m->what);
                                         report_errno_and_exit(errno_pipe_fds[1], r);
                                 }
+
+                                if (!GREEDY_REALLOC(lower_fds, n_lower_fds + 1))
+                                        report_errno_and_exit(errno_pipe_fds[1], -ENOMEM);
+                                lower_fds[n_lower_fds++] = TAKE_FD(temp_fd);
 
                                 break;
 
@@ -878,33 +1191,43 @@ static int mstack_make_overlayfs(
                         }
                 }
 
-                if (!writable && fsconfig(sb_fd, FSCONFIG_SET_FLAG, "ro", /* value= */ NULL, /* aux= */ 0) < 0) {
-                        log_debug_errno(errno, "Failed to set read-only mount flag: %m");
-                        report_errno_and_exit(errno_pipe_fds[1], -errno);
-                }
+                r = mstack_overlayfs_create(sb_fd, writable, empty_to_root(mstack->path));
+                if (r == -EINVAL && n_lower_fds > 0) {
+                        log_debug_errno(r, "Failed to realize overlayfs via incremental 'lowerdir+', retrying with a single joined 'lowerdir=': %m");
 
-                if (fsconfig(sb_fd, FSCONFIG_SET_FLAG, "userxattr", /* value= */ NULL, /* aux= */ 0) < 0) {
-                        log_debug_errno(errno, "Failed to set userxattr mount flag: %m");
-                        report_errno_and_exit(errno_pipe_fds[1], -errno);
-                }
+                        _cleanup_strv_free_ char **lower_paths = NULL;
+                        FOREACH_ARRAY(fd, lower_fds, n_lower_fds)
+                                if (strv_extend(&lower_paths, FORMAT_PROC_FD_PATH(*fd)) < 0)
+                                        report_errno_and_exit(errno_pipe_fds[1], -ENOMEM);
 
-                if (fsconfig(sb_fd, FSCONFIG_SET_STRING, "source", mstack->path, /* aux= */ 0) < 0) {
-                        log_debug_errno(errno, "Failed to set mount source: %m");
-                        report_errno_and_exit(errno_pipe_fds[1], -errno);
-                }
+                        _cleanup_free_ char *joined = strv_join(lower_paths, ":");
+                        if (!joined)
+                                report_errno_and_exit(errno_pipe_fds[1], -ENOMEM);
 
-                /* This is where the superblock is materialized. It must be called from the child's
-                 * namespace, where the mounts are attached as described above, otherwise overlayfs is
-                 * unhappy and will refuse the superblock to be created. */
-                if (fsconfig(sb_fd, FSCONFIG_CMD_CREATE, /* key= */ NULL, /* value= */ NULL, /* aux= */ 0) < 0) {
-                        log_debug_errno(errno, "Failed to realize overlayfs: %m");
-                        report_errno_and_exit(errno_pipe_fds[1], -errno);
+                        if (fsconfig(sb_fd_fallback, FSCONFIG_SET_STRING, "lowerdir", joined, /* aux= */ 0) < 0)
+                                report_errno_and_exit(errno_pipe_fds[1], -errno);
+
+                        if (upperdir_fd >= 0 &&
+                            fsconfig(sb_fd_fallback, FSCONFIG_SET_STRING, "upperdir", FORMAT_PROC_FD_PATH(upperdir_fd), /* aux= */ 0) < 0)
+                                report_errno_and_exit(errno_pipe_fds[1], -errno);
+
+                        if (workdir_fd >= 0 &&
+                            fsconfig(sb_fd_fallback, FSCONFIG_SET_STRING, "workdir", FORMAT_PROC_FD_PATH(workdir_fd), /* aux= */ 0) < 0)
+                                report_errno_and_exit(errno_pipe_fds[1], -errno);
+
+                        r = mstack_overlayfs_create(sb_fd_fallback, writable, empty_to_root(mstack->path));
                 }
+                if (r < 0)
+                        report_errno_and_exit(errno_pipe_fds[1], r);
 
                 report_errno_and_exit(errno_pipe_fds[1], 0);
         }
 
+        /* The child above realizes whichever of the two superblocks actually worked (see the
+         * "lowerdir+" EINVAL fallback there); try the primary one first, then the fallback. */
         _cleanup_close_ int overlayfs_mnt_fd = fsmount(sb_fd, FSMOUNT_CLOEXEC, 0);
+        if (overlayfs_mnt_fd < 0)
+                overlayfs_mnt_fd = fsmount(sb_fd_fallback, FSMOUNT_CLOEXEC, 0);
         if (overlayfs_mnt_fd < 0)
                 return log_debug_errno(errno, "Failed to create mount fd: %m");
 
@@ -922,22 +1245,35 @@ static int mstack_make_overlayfs(
 int mstack_make_mounts(
                 MStack *mstack,
                 const char *temp_mount_dir,
-                MStackFlags flags) {
+                MStackFlags flags,
+                uid_t uid_shift) {
 
         int r;
 
         assert(mstack);
         assert(temp_mount_dir);
 
+        /* Synthetic 'rw' layers (e.g. from --volatile=overlay) carry no on-disk backing; realize a
+         * throwaway tmpfs to hold their 'data'/'work' subdirs before assembling the overlayfs. */
+        FOREACH_ARRAY(m, mstack->mounts, mstack->n_mounts)
+                if (m->mount_type == MSTACK_RW && m->what_fd < 0 && m->mount_fd < 0) {
+                        r = mstack_make_tmpfs(mstack, TMPFS_LIMITS_ROOTFS, &m->mount_fd);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to create tmpfs backing for synthetic rw layer: %m");
+                }
+
         _cleanup_close_ int overlayfs_mnt_fd = -EBADF;
-        r = mstack_make_overlayfs(mstack, temp_mount_dir, flags, &overlayfs_mnt_fd);
+        r = mstack_make_overlayfs(mstack, temp_mount_dir, flags, uid_shift, &overlayfs_mnt_fd);
         if (r < 0)
                 return r;
         if (r > 0)
                 log_debug("Acquired mstack overlayfs mount.");
 
         assert(mstack->root_mount_fd < 0);
-        if (mstack->root_mount) {
+        if (mstack->root_mount && !mstack->has_overlayfs) {
+                /* If there's also an overlay (layer@/rw), root/ was already folded into it as the base
+                 * lowerdir by mstack_make_overlayfs() above, so the overlay fd itself becomes our root
+                 * below; there's nothing further to do for root/ here in that case. */
                 assert(!mstack->has_tmpfs_root);
 
                 mstack->root_mount_fd = fcntl(mount_get_fd(mstack->root_mount), F_DUPFD_CLOEXEC, 3);
@@ -947,46 +1283,204 @@ int mstack_make_mounts(
                 log_debug("Acquired mstack root bind mount.");
 
         } else if (mstack->has_tmpfs_root) {
-                _cleanup_close_ int sb_fd = fsopen("tmpfs", FSOPEN_CLOEXEC);
-                if (sb_fd < 0)
-                        return log_debug_errno(errno, "Failed to create tmpfs: %m");
-
-                if (fsconfig(sb_fd, FSCONFIG_SET_STRING, "source", mstack->path, 0) < 0)
-                        return log_debug_errno(errno, "Failed to set mount source: %m");
-
-                if (fsconfig(sb_fd, FSCONFIG_SET_STRING, "mode", "0755", 0) < 0)
-                        return log_debug_errno(errno, "Failed to set mount source: %m");
-
-                if (fsconfig(sb_fd, FSCONFIG_CMD_CREATE, NULL, NULL, 0) < 0)
-                        return log_debug_errno(errno, "Failed to realize tmpfs: %m");
-
-                mstack->root_mount_fd = fsmount(sb_fd, FSMOUNT_CLOEXEC, 0);
-                if (mstack->root_mount_fd < 0)
-                        return log_debug_errno(errno, "Failed to create mount fd: %m");
+                r = mstack_make_tmpfs(mstack, TMPFS_LIMITS_ROOTFS, &mstack->root_mount_fd);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to create root tmpfs: %m");
 
                 log_debug("Acquired root tmpfs mount.");
         }
 
-        if (mstack->root_mount_fd >= 0 && overlayfs_mnt_fd >= 0) {
-                /* If we have an overlayfs and a root fs, then the overlayfs should be placed on /usr/. */
-                mstack->usr_mount_fd = open_tree(overlayfs_mnt_fd, "usr", OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW);
-                if (mstack->usr_mount_fd < 0)
-                        return log_debug_errno(errno, "Failed to create bind mount inode '/usr/': %m");
-
-                if (mount_setattr(mstack->usr_mount_fd, "", AT_EMPTY_PATH,
-                                  &(struct mount_attr) {
-                                          .attr_set = mount_is_ro(mstack->root_mount, flags) ? MOUNT_ATTR_RDONLY : 0,
-                                          .attr_clr = mount_is_ro(mstack->root_mount, flags) ? 0 : MOUNT_ATTR_RDONLY,
-                                          .propagation = MS_PRIVATE, /* disconnect us from bind mount source */
-                                  }, sizeof(struct mount_attr)) < 0)
-                        return log_debug_errno(errno, "Failed to mark usr bind mount read-only: %m");
-
-                log_debug("Acquired mstack overlayfs '/usr/' submount.");
-        }
-
-        /* If we acquired no other root fs, then the overlayfs is our root */
+        /* If we acquired no other root fs (or root/ was folded into the overlay above as its base layer),
+         * then the overlayfs is our root */
         if (mstack->root_mount_fd < 0)
                 mstack->root_mount_fd = TAKE_FD(overlayfs_mnt_fd);
+        else if (uid_is_valid(uid_shift)) {
+                /* Unlike the overlay case above (already idmapped layer-by-layer before merging), this is a
+                 * plain, single, not-yet-attached mount (a bind of root/ alone, or a throwaway tmpfs) -
+                 * regular filesystems ARE a valid target for MOUNT_ATTR_IDMAP directly. */
+                _cleanup_close_ int userns_fd = make_userns(uid_shift, MSTACK_UID_SHIFT_RANGE, UID_INVALID, UID_INVALID, REMOUNT_IDMAPPING_NONE);
+                if (userns_fd < 0)
+                        return log_debug_errno(userns_fd, "Failed to create idmap userns: %m");
+
+                if (mount_setattr(mstack->root_mount_fd, "", AT_EMPTY_PATH,
+                                  &(struct mount_attr) {
+                                          .attr_set = MOUNT_ATTR_IDMAP,
+                                          .userns_fd = userns_fd,
+                                  }, sizeof(struct mount_attr)) < 0)
+                        return log_debug_errno(errno, "Failed to idmap root mount: %m");
+        }
+
+        if (mstack->extract_usr_only) {
+                /* --volatile=yes only keeps /usr/ around; validate the tree has adopted the merged-/usr
+                 * scheme before going any further, same as the pre-mstack implementation did: /bin (and by
+                 * extension /sbin, /lib, /lib64) must either not exist yet (a naked /usr/, the rest is
+                 * created below by base_filesystem_create()) or already be a symlink into /usr/. Anything
+                 * else (in particular a real /bin/ directory) means /usr/ alone isn't enough to boot. */
+                struct stat st;
+                if (fstatat(mstack->root_mount_fd, "bin", &st, AT_SYMLINK_NOFOLLOW) < 0) {
+                        if (errno != ENOENT)
+                                return log_debug_errno(errno, "Failed to stat /bin below --volatile=yes root: %m");
+                } else if (S_ISDIR(st.st_mode))
+                        return log_error_errno(SYNTHETIC_ERRNO(EISDIR),
+                                               "Sorry, --volatile=yes mode is not supported with OS images that have not merged /bin/, /sbin/, /lib/, /lib64/ into /usr/. "
+                                               "Please work with your distribution and help them adopt the merged /usr scheme.");
+                else if (!S_ISLNK(st.st_mode))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "If --volatile=yes is used /bin must be a symlink (for merged /usr support) or non-existent "
+                                               "(in which case a symlink is created automatically).");
+
+                /* We now have a fully assembled tree at root_mount_fd (whatever combination of root/,
+                 * layer@, rw/ that represents); clone /usr/ out of it - the same
+                 * open_tree()-on-a-detached-mount pattern used for overlayfs_mnt_fd above works
+                 * identically here regardless of which of the three paths above produced root_mount_fd -
+                 * before replacing root_mount_fd itself with a throwaway tmpfs. */
+                mstack->usr_extract_fd = open_tree(mstack->root_mount_fd, "usr",
+                                                   OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW);
+                if (mstack->usr_extract_fd < 0)
+                        return log_debug_errno(errno, "Failed to clone /usr/ for --volatile=yes: %m");
+
+                if (mount_setattr(mstack->usr_extract_fd, "", AT_EMPTY_PATH,
+                                  &(struct mount_attr) {
+                                          .attr_set = MOUNT_ATTR_RDONLY,
+                                          .propagation = MS_PRIVATE, /* disconnect us from bind mount source */
+                                  }, sizeof(struct mount_attr)) < 0)
+                        return log_debug_errno(errno, "Failed to mark /usr/ read-only for --volatile=yes: %m");
+
+                mstack->root_mount_fd = safe_close(mstack->root_mount_fd);
+                r = mstack_make_tmpfs(mstack, TMPFS_LIMITS_ROOTFS, &mstack->root_mount_fd);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to create throwaway root tmpfs for --volatile=yes: %m");
+
+                /* If there was an explicit root/ entry, it's now fully consumed: its content only lives
+                 * on in usr_extract_fd, and root_mount_fd is a throwaway tmpfs that has nothing to do
+                 * with it any more. Clear the stale pointer so mstack_bind_mounts()'s root_writable check
+                 * correctly takes the "throwaway tmpfs, stay writable" branch instead of the "protect the
+                 * real root/ entry" one - otherwise the fresh tmpfs would incorrectly end up read-only
+                 * (mstack_has_writable_layers() is false for --volatile=yes, there's no rw/ layer),
+                 * breaking base_filesystem_create() and friends immediately afterwards. */
+                mstack->root_mount = NULL;
+
+                log_debug("Extracted /usr/ for --volatile=yes, replaced root with a throwaway tmpfs.");
+        }
+
+        return 0;
+}
+
+/* Extracted to make it reusable for mstack deferred binds. */
+static int mstack_apply_attr(int dfd, MStackMountType mount_type, bool writable, MStackFlags flags) {
+        /* ROBIND is always read-only.
+         * ROOT is read-only if writable is false (due to MSTACK_RDONLY or no write layers).
+         * BIND is read-only if and only if MSTACK_BINDS_RDONLY (--read-only flag)
+         * is explicitly set. */
+        bool rdonly = mount_type == MSTACK_ROBIND ||
+                      (mount_type == MSTACK_ROOT && !writable) ||
+                      (mount_type == MSTACK_BIND && FLAGS_SET(flags, MSTACK_BINDS_RDONLY));
+
+        /* Do not use AT_RECURSIVE on the ROOT mount to avoid recursively overwriting
+         * attributes of bind mounts (like bind@) attached inside it earlier. */
+        int attr_flags = AT_EMPTY_PATH | (mount_type == MSTACK_ROOT ? 0 : AT_RECURSIVE);
+
+        if (mount_setattr(dfd, "", attr_flags,
+                          &(struct mount_attr) {
+                                  .attr_set = rdonly ? MOUNT_ATTR_RDONLY : 0,
+                                  .attr_clr = rdonly ? 0 : MOUNT_ATTR_RDONLY,
+                          }, sizeof(struct mount_attr)) < 0)
+                return log_debug_errno(errno, "Failed to set mount attributes: %m");
+
+        return 0;
+}
+
+static int mstack_apply_propagation(int dfd) {
+        if (mount_setattr(dfd, "", AT_EMPTY_PATH|AT_RECURSIVE,
+                          &(struct mount_attr) {
+                                  .propagation = MS_SHARED,
+                          }, sizeof(struct mount_attr)) < 0)
+                return log_debug_errno(errno, "Failed to set mount propagation: %m");
+
+        return 0;
+}
+
+/* Extracted to make it reusable for mstack deferred binds. */
+int mstack_apply_bind_mounts(
+                MStack *mstack,
+                int root_fd,
+                const char *where,
+                MStackFlags flags) {
+        int r;
+
+        assert(mstack);
+        assert(root_fd >= 0);
+        assert(where);
+
+        bool writable = mstack_has_writable_layers(mstack, flags);
+
+        FOREACH_ARRAY(m, mstack->mounts, mstack->n_mounts) {
+                if (!IN_SET(m->mount_type, MSTACK_BIND, MSTACK_ROBIND, MSTACK_TMPFS) ||
+                    m == mstack->root_mount)
+                        continue;
+
+                /* Bind/robind mounts have their fd pre-made in mstack_make_mounts(); a tmpfs submount is
+                 * created fresh here. Either way 'mount_fd' below is what we attach. */
+                _cleanup_close_ int tmpfs_fd = -EBADF;
+                if (m->mount_type == MSTACK_TMPFS) {
+                        r = mstack_make_tmpfs(mstack, TMPFS_LIMITS_VOLATILE_STATE, &tmpfs_fd);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to create tmpfs for '%s': %m", m->where);
+                } else
+                        assert(m->mount_fd >= 0);
+
+                int mount_fd = m->mount_type == MSTACK_TMPFS ? tmpfs_fd : m->mount_fd;
+
+                _cleanup_close_ int parent_fd = -EBADF;
+                _cleanup_close_ int subdir_fd = -EBADF;
+                _cleanup_free_ char *filename = NULL;
+
+                /* Resolve parent directory. This allows resolving benign path symlinks
+                 *    (like /var/run -> /run) safely while staying within the root_fd boundary.
+                 *    We do NOT pass CHASE_PROHIBIT_SYMLINKS here to allow resolution. */
+                parent_fd = chase_and_open_parent_at(root_fd, root_fd, m->where, CHASE_MKDIR_0755, &filename);
+                if (parent_fd == -EROFS)
+                        return log_error_errno(parent_fd, "Failed to create parent directory for '%s': root is read-only. "
+                                        "Add an rw/ directory to the .mstack/, use --volatile= to provide a writable root layer, "
+                                        "or pre-create bind target directory in the base layer: %m", m->where);
+                if (parent_fd < 0)
+                        return log_debug_errno(parent_fd, "Failed to open parent of mount point '%s': %m", m->where);
+
+                /* Resolve, validate, and/or create the leaf target directory relative to parent_fd. */
+                r = chaseat(root_fd, parent_fd, filename, CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, &subdir_fd);
+                if (r == -EROFS)
+                        return log_error_errno(r, "Failed to create mount point directory '%s': root is read-only. "
+                                        "Add an rw/ directory to the .mstack/, use --volatile= to provide a writable root layer, "
+                                        "or pre-create bind target directory in the base layer: %m", m->where);
+                if (r < 0) {
+                        if (IN_SET(r, -ELOOP, -EREMCHG))
+                                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                                       "Security violation: Mount target '%s' is a symbolic link.",
+                                                       m->where);
+
+                        return log_debug_errno(r, "Failed to open mount point inode '%s': %m", m->where);
+                }
+
+                if (move_mount(mount_fd, "", subdir_fd, "", MOVE_MOUNT_F_EMPTY_PATH|MOVE_MOUNT_T_EMPTY_PATH) < 0)
+                        return log_debug_errno(errno, "Failed to attach bind mount to '%s' subdir: %m", m->where);
+
+                /* Set mount attributes on each bind mount fd after attaching it.
+                 * For the non-deferred path (called from mstack_bind_mounts()), this is
+                 * redundant since mstack_bind_mounts() applies a recursive mount_setattr()
+                 * on root_fd afterward - but mount_setattr() is idempotent so it's harmless.
+                 * For the deferred path (called from apply_deferred_mstack_bind_mounts()),
+                 * this is the only place attributes are set on these mounts since the
+                 * recursive root_fd call already happened before they were attached. */
+                r = mstack_apply_attr(mount_fd, m->mount_type, writable, flags);
+                if (r < 0)
+                        return r;
+
+                r = mstack_apply_propagation(mount_fd);
+                if (r < 0)
+                        return r;
+
+                log_debug("Attached mstack '%s/' mount to '%s%s/'.", m->where, where, m->where);
+        }
 
         return 0;
 }
@@ -1001,6 +1495,8 @@ int mstack_bind_mounts(
         int r;
 
         assert(mstack);
+
+        bool writable = mstack_has_writable_layers(mstack, flags);
 
         _cleanup_close_ int _where_fd = -EBADF;
         if (where_fd == AT_FDCWD) {
@@ -1030,48 +1526,68 @@ int mstack_bind_mounts(
         if (root_fd < 0)
                 return log_debug_errno(errno, "Failed to mount root mount '%s': %m", where);
 
-        if (mstack->usr_mount_fd >= 0) {
+        if (mstack->usr_extract_fd >= 0) {
+                /* --volatile=yes: attach the /usr/ extracted by mstack_make_mounts() now, early (same
+                 * timing as the root mount above, well before the caller's own idmap remount step, if
+                 * any) - a plain bind entry would only be attached in the deferred pass below, too late
+                 * for that idmap step to see and correctly map /usr/. */
                 _cleanup_close_ int subdir_fd = -EBADF;
                 r = chaseat(root_fd, root_fd, "usr", CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, &subdir_fd);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to open mount point inode '%s': %m", where);
+                        return log_debug_errno(r, "Failed to open mount point inode '%s/usr': %m", where);
 
-                if (move_mount(mstack->usr_mount_fd, "", subdir_fd, "", MOVE_MOUNT_F_EMPTY_PATH|MOVE_MOUNT_T_EMPTY_PATH) < 0)
-                        return log_debug_errno(errno, "Failed to attach bind mount to '/usr/' subdir: %m");
+                if (move_mount(mstack->usr_extract_fd, "", subdir_fd, "", MOVE_MOUNT_F_EMPTY_PATH|MOVE_MOUNT_T_EMPTY_PATH) < 0)
+                        return log_debug_errno(errno, "Failed to attach extracted /usr/ to '%s/usr': %m", where);
 
-                log_debug("Attached mstack '/usr/' mount to '%s/usr/'.", where);
+                log_debug("Attached extracted /usr/ to '%s/usr/'.", where);
         }
 
-        FOREACH_ARRAY(m, mstack->mounts, mstack->n_mounts) {
-
-                if (!IN_SET(m->mount_type, MSTACK_BIND, MSTACK_ROBIND) ||
-                    m == mstack->root_mount)
-                        continue;
-
-                assert(m->mount_fd >= 0);
-
-                _cleanup_close_ int subdir_fd = -EBADF;
-                r = chaseat(root_fd, root_fd, m->where, CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, &subdir_fd);
+        if (!FLAGS_SET(flags, MSTACK_DEFER_MOUNT)) {
+                r = mstack_apply_bind_mounts(mstack, root_fd, where, flags);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to open mount point inode '%s': %m", m->where);
+                        return r;
+        } else {
+                /* Pre-create bind mount target directories while root is still writable.
+                 * The actual mounts are deferred to after mount_all(), at which point the
+                 * root may already be read-only. Directories under paths that mount_all()
+                 * replaces (e.g. /run, /tmp) will be hidden, but the deferred apply
+                 * recreates them on the new writable mounts. */
+                FOREACH_ARRAY(m, mstack->mounts, mstack->n_mounts) {
+                        if (!IN_SET(m->mount_type, MSTACK_BIND, MSTACK_ROBIND, MSTACK_TMPFS) ||
+                            m == mstack->root_mount)
+                                continue;
 
-                if (move_mount(m->mount_fd, "", subdir_fd, "", MOVE_MOUNT_F_EMPTY_PATH|MOVE_MOUNT_T_EMPTY_PATH) < 0)
-                        return log_debug_errno(errno, "Failed to attach bind mount to '%s' subdir: %m", m->where);
+                        _cleanup_free_ char *filename = NULL;
+                        _cleanup_close_ int parent_fd = chase_and_open_parent_at(
+                                        root_fd, root_fd, m->where, CHASE_MKDIR_0755, &filename);
+                        if (parent_fd < 0)
+                                continue;
 
-                log_debug("Attached mstack '%s/' mount to '%s/%s/'.", m->where, where, m->where);
+                        _cleanup_close_ int subdir_fd = -EBADF;
+                        (void) chaseat(root_fd, parent_fd, filename,
+                                       CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY,
+                                       /* ret_path= */ NULL, &subdir_fd);
+                }
         }
+
+        /* root/ now always folds into the overlay as its base layer whenever one exists (see
+         * mstack_make_overlayfs()/mount_is_ro()), so a plain root/ entry no longer needs special
+         * protection here - 'writable' alone (does an rw/ or synthetic --volatile=overlay layer exist?)
+         * is correct. A throwaway tmpfs root (has_tmpfs_root, no real root/ entry backing it - e.g. from
+         * --volatile=yes) has nothing to protect and is never tied to an rw/ layer's writability at all,
+         * so it stays writable unless the caller explicitly asked for read-only. */
+        bool root_writable = mstack->root_mount ? writable : !FLAGS_SET(flags, MSTACK_RDONLY);
+        r = mstack_apply_attr(root_fd, MSTACK_ROOT, root_writable, flags);
+        if (r < 0)
+                return r;
 
         /* If we have a tmpfs root, the above might have created mount point inodes. Hence we left the tmpfs
          * writable for that. Let's fix that now. Also, let's enable propagation for the future. (Reminder:
          * we disconnect propagation from the host, but we *want* propagation by default for everything
          * created further down the tree. Hence we'll set MS_SHARED here right-away.) */
-        if (mount_setattr(root_fd, "", AT_EMPTY_PATH|AT_RECURSIVE,
-                          &(struct mount_attr) {
-                                  .attr_set = FLAGS_SET(flags, MSTACK_RDONLY) ? MOUNT_ATTR_RDONLY : 0,
-                                  .attr_clr = FLAGS_SET(flags, MSTACK_RDONLY) ? 0 : MOUNT_ATTR_RDONLY,
-                                  .propagation = MS_SHARED,
-                          }, sizeof(struct mount_attr)) < 0)
-                return log_debug_errno(errno, "Failed to mark root bind mount read-only: %m");
+        r = mstack_apply_propagation(root_fd);
+        if (r < 0)
+                return r;
 
         if (ret_root_fd)
                 *ret_root_fd = TAKE_FD(root_fd);
@@ -1089,6 +1605,7 @@ int mstack_apply(
                 const ImagePolicy *image_policy,
                 const ImageFilter *image_filter,
                 MStackFlags flags,
+                uid_t uid_shift,
                 int *ret_root_fd) {
         int r;
 
@@ -1112,7 +1629,7 @@ int mstack_apply(
                 temp_mount_dir = t;
         }
 
-        r = mstack_make_mounts(&mstack, temp_mount_dir, flags);
+        r = mstack_make_mounts(&mstack, temp_mount_dir, flags, uid_shift);
         if (r < 0)
                 return r;
 
@@ -1153,7 +1670,7 @@ int mstack_is_read_only(MStack *mstack) {
                 return false;
 
         FOREACH_ARRAY(m, mstack->mounts, mstack->n_mounts)
-                if (IN_SET(m->mount_type, MSTACK_ROOT, MSTACK_RW, MSTACK_BIND))
+                if (IN_SET(m->mount_type, MSTACK_ROOT, MSTACK_RW, MSTACK_BIND, MSTACK_TMPFS))
                         return false;
 
         return true;
@@ -1192,6 +1709,7 @@ static const char *const mstack_mount_type_table[] = {
         [MSTACK_ROOT]   = "root",
         [MSTACK_LAYER]  = "layer",
         [MSTACK_RW]     = "rw",
+        [MSTACK_TMPFS]  = "tmpfs",
         [MSTACK_BIND]   = "bind",
         [MSTACK_ROBIND] = "robind",
 };
