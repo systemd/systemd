@@ -160,12 +160,14 @@ printf '%s' "$result" | jq --seq --slurp -e 'any(.[]; .job.Result == "done")' >/
 # Transient service with Description and RemainAfterExit
 defer_transient_cleanup varlink-transient-desc.service
 result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
-    '{"context":{"ID":"varlink-transient-desc.service","Description":"Test description property","Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}')
+    '{"context":{"ID":"varlink-transient-desc.service","Description":"Test description property","CollectMode":"inactive_or_failed","Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}')
 echo "$result" | jq -e '.context.Description == "Test description property"'
+echo "$result" | jq -e '.context.CollectMode == "inactive_or_failed"'
 echo "$result" | jq -e '.context.Service.Type == "oneshot"'
 echo "$result" | jq -e '.context.Service.RemainAfterExit == true'
 echo "$result" | jq -e '.context.Service.ExecStart[0].path == "/bin/true"'
 echo "$result" | jq -e '.runtime'
+systemctl show -P CollectMode varlink-transient-desc.service | grep '^inactive-or-failed$' >/dev/null
 
 # Transient service with explicit arguments
 defer_transient_cleanup varlink-transient-args.service
