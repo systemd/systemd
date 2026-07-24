@@ -2,18 +2,18 @@
 
 #include <stdlib.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "build.h"
 #include "extract-word.h"
 #include "fileio.h"
-#include "format-table.h"
-#include "help-util.h"
 #include "log.h"
-#include "options.h"
 #include "resolvconf-compat.h"
 #include "resolvectl.h"
 #include "string-util.h"
 #include "strv.h"
+#include "verbs.h"
 
 typedef enum LookupType  {
         LOOKUP_TYPE_REGULAR,
@@ -21,35 +21,22 @@ typedef enum LookupType  {
         LOOKUP_TYPE_EXCLUSIVE, /* -x */
 } LookupType;
 
-static int resolvconf_help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = option_parser_get_help_table_ns("resolvconf", &options);
-        if (r < 0)
-                return r;
-
-        help_cmdline("-a INTERFACE <FILE");
-        help_cmdline("-d INTERFACE");
-        help_abstract("Register DNS server and domain configuration with systemd-resolved.");
-
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\n"
+COMMAND(
+        "resolvconf\0",
+        "Register DNS server and domain configuration with systemd-resolved.",
+        .man_pages = "resolvectl.1\0",
+        .argspec = "-a INTERFACE <FILE\0"
+                   "-d INTERFACE\0",
+        .footer =
                "This is a compatibility alias for the resolvectl(1) tool, providing native\n"
                "command line compatibility with the resolvconf(8) tool of various Linux\n"
                "distributions and BSD systems. Some options supported by other implementations\n"
                "are not supported and are ignored: -m, -u. Various options supported by other\n"
                "implementations are not supported and will cause the invocation to fail:\n"
                "-I, -i, -l, -R, -r, -v, -V, --enable-updates, --disable-updates,\n"
-               "--updates-are-enabled.\n");
-
-        help_man_page_reference("resolvectl", "1");
-        return 0;
-}
+               "--updates-are-enabled.",
+        .option_namespace = "resolvconf",
+);
 
 static int parse_nameserver(const char *string) {
         int r;
@@ -194,7 +181,7 @@ int resolvconf_parse_argv(int argc, char *argv[]) {
                 OPTION_NAMESPACE("resolvconf"): {}
 
                 OPTION_COMMON_HELP:
-                        return resolvconf_help();
+                        return command_print_help("resolvconf");
 
                 OPTION_COMMON_VERSION:
                         return version();
