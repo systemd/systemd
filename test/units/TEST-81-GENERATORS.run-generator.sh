@@ -32,6 +32,10 @@ check_kernel_cmdline_target() {
 SYSTEMD_PROC_CMDLINE="" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
 [[ "$(find "$OUT_DIR" ! -type d | wc -l)" -eq 0 ]]
 
+: "run-generator: action without command"
+SYSTEMD_PROC_CMDLINE="systemd.run_success_action=reboot" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
+[[ "$(find "$OUT_DIR" ! -type d | wc -l)" -eq 0 ]]
+
 : "run-generator: single command"
 CMDLINE="systemd.run='echo hello world'"
 SYSTEMD_PROC_CMDLINE="$CMDLINE" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
