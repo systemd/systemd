@@ -288,6 +288,17 @@ int x11_read_data(Context *c, sd_bus_message *m) {
                         in_section = false;
         }
 
+        /* An 'Option "XkbVariant" ""' line in 00-keyboard.conf is unquoted by
+         * strv_split_full(..., EXTRACT_UNQUOTE) into a non-NULL empty string, not
+         * NULL. Since 812aa57d2c ("string-util: beef up string_is_safe()") an empty
+         * string is rejected by string_is_safe() unless STRING_ALLOW_EMPTY is
+         * passed, so x11_context_is_safe() now refuses such a context and
+         * x11_context_verify() would discard the whole thing (see issue #43007).
+         * Normalize empty fields to NULL, just like method_set_x11_keyboard() does
+         * on the setter path: an empty value is equivalent to the field being
+         * unset. */
+        x11_context_empty_to_null(&c->x11_from_xorg);
+
         if (x11_context_verify(&c->x11_from_xorg) < 0)
                 x11_context_clear(&c->x11_from_xorg);
 
