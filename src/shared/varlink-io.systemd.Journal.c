@@ -9,7 +9,11 @@ static SD_VARLINK_DEFINE_METHOD(
 
 static SD_VARLINK_DEFINE_METHOD(Rotate);
 static SD_VARLINK_DEFINE_METHOD(FlushToVar);
-static SD_VARLINK_DEFINE_METHOD(RelinquishVar);
+
+static SD_VARLINK_DEFINE_METHOD(
+                RelinquishVar,
+                SD_VARLINK_FIELD_COMMENT("Controls whether to preserve the late-shutdown journal by storing it in the service manager's file descriptor store instead of a file in /run/. Disabled by default."),
+                SD_VARLINK_DEFINE_INPUT(FDStore, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_ERROR(NotSupportedByNamespaces);
 
