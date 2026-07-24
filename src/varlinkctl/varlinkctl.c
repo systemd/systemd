@@ -81,47 +81,6 @@ static void push_fds_done(PushFds *p) {
 STATIC_DESTRUCTOR_REGISTER(arg_graceful, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_push_fds, push_fds_done);
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
-        int r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, options, verbs);
-
-        pager_open(arg_pager_flags);
-
-        help_cmdline("[OPTIONS...] COMMAND ...");
-        help_abstract("Introspect Varlink Services.");
-
-        help_section("Commands");
-
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        help_section("Options");
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nWith --exec, specify the command to invoke:\n"
-               "  %s --exec call ADDRESS METHOD PARAMS -- CMDLINE…\n",
-               program_invocation_short_name);
-
-        help_man_page_reference("varlinkctl", "1");
-        return 0;
-}
-
-VERB_COMMON_HELP(help);
-
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         int r;
 
@@ -134,7 +93,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("varlinkctl");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -324,6 +283,15 @@ static void get_info_data_done(GetInfoData *d) {
 
         d->interfaces = strv_free(d->interfaces);
 }
+
+static CommandDescription command = {
+        "varlinkctl\0",
+        "Introspect Varlink Services.",
+        .man_pages = "varlinkctl.1\0",
+        .footer = "With --exec, specify the command to invoke:\n"
+                  "  varlinkctl --exec call ADDRESS METHOD PARAMS -- CMDLINE…",
+};
+VERB_COMMAND(command);
 
 VERB(verb_info, "info", "ADDRESS", 2, 2, 0, "Show service information");
 VERB(verb_info, "list-interfaces", "ADDRESS", 2, 2, 0, "List interfaces implemented by service");
@@ -1487,6 +1455,8 @@ static int verb_serve(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         return 0;
 }
+
+VERB_COMMON_HELP_AUTO("varlinkctl");
 
 static int run(int argc, char *argv[]) {
         int r;
