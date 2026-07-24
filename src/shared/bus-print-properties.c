@@ -367,12 +367,6 @@ int bus_message_print_all_properties(
                 if (r < 0)
                         return r;
 
-                if (found_properties) {
-                        r = set_ensure_put(found_properties, &string_hash_ops, name);
-                        if (r < 0)
-                                return log_oom();
-                }
-
                 name_with_equal = strjoin(name, "=");
                 if (!name_with_equal)
                         return log_oom();
@@ -380,6 +374,11 @@ int bus_message_print_all_properties(
                 if (!filter ||
                     strv_contains(filter, name) ||
                     (expected_value = strv_find_startswith(filter, name_with_equal))) {
+                        if (found_properties && filter) {
+                                r = set_ensure_put(found_properties, &string_hash_ops, name);
+                                if (r < 0)
+                                        return log_oom();
+                        }
 
                         r = sd_bus_message_peek_type(m, NULL, &contents);
                         if (r < 0)
