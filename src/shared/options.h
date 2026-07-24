@@ -45,7 +45,7 @@ typedef struct _alignptr_ Option {
 } Option;
 assert_cc(sizeof(Option) % sizeof(void*) == 0);
 
-#define _OPTION(counter, fl, sc, lc, mv, d, h)                          \
+#define _OPTION_ENTRY(counter, fl, sc, lc, mv, d, h)                    \
         _section_("SYSTEMD_OPTIONS")                                    \
         _alignptr_                                                      \
         _used_                                                          \
@@ -60,7 +60,10 @@ assert_cc(sizeof(Option) % sizeof(void*) == 0);
                 .metavar = mv,                                          \
                 .data = d,                                              \
                 .help = h,                                              \
-        };                                                              \
+        }
+
+#define _OPTION(counter, fl, sc, lc, mv, d, h)                          \
+        _OPTION_ENTRY(counter, fl, sc, lc, mv, d, h);                   \
         case (0x100 + counter)
 
 /* Magic entry in the table (which will not be returned) that designates the start of the namespace <ns>.
@@ -88,6 +91,9 @@ assert_cc(sizeof(Option) % sizeof(void*) == 0);
 /* This can be used when custom error handling is needed. */
 #define OPTION_ERROR                                                    \
         case INT_MIN ... -1
+
+#define OPTION_COMMON_HELP_ENTRY                                        \
+        _OPTION_ENTRY(__COUNTER__, /* fl= */ 0, 'h', "help", NULL, /* d= */ 0u, "Show this help")
 
 #define OPTION_COMMON_HELP                                              \
         OPTION('h', "help", NULL, "Show this help")
