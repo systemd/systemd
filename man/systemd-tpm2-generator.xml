@@ -38,6 +38,11 @@
     <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
     details.</para>
 
+    <para>On Intel TDX confidential VMs the generator similarly adds the dependency when the RTMR
+    measurement interface of the <filename>tdx-guest</filename> driver has not shown up yet, and makes
+    <filename>tpm2.target</filename> wait for the <filename>/dev/tdx_guest</filename> device, so that the
+    measurement services do not start before measuring into the RTMRs is possible.</para>
+
     <para>The <option>systemd.tpm2_wait=</option> kernel command line option may be used to override
     behaviour of the generator. It accepts a boolean value: if true then <filename>tpm2.target</filename>
     will be added as synchronization point even if the firmware has not detected a TPM2 device. If false, the

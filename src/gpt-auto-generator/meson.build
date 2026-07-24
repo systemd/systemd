@@ -5,5 +5,6 @@ executables += [
                 'name' : 'systemd-gpt-auto-generator',
                 'conditions' : ['HAVE_BLKID'],
                 'sources' : files('gpt-auto-generator.c'),
+                'dependencies' : [tpm2_cflags, libopenssl_cflags],
         },
 ]
