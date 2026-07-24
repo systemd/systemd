@@ -57,8 +57,6 @@
 #include "dissect-image.h"
 #include "dlopen-note.h"
 #include "extract-word.h"
-#include "format-table.h"
-#include "help-util.h"
 #include "image-policy.h"
 #include "log.h"
 #include "loop-util.h"
@@ -198,62 +196,13 @@ static int verb_transient_settings(int argc, char *argv[], uintptr_t _data, void
         return 0;
 }
 
-static int help(void) {
-        static const char *const vgroups[] = {
-                "Boot Analysis",
-                "Dependency Analysis",
-                "Configuration Files and Search Paths",
-                "Enumerate OS Concepts",
-                "Expression Evaluation",
-                "Clock & Time",
-                "Unit & Service Analysis",
-                "Executable Analysis",
-                "TPM Operations",
-        };
+COMMAND(
+        "systemd-analyze\0",
+        .abstract = "Profile systemd, show unit dependencies, check unit files.",
+        .man_pages = "systemd-analyze.1\0",
+);
 
-        Table *vtables[ELEMENTSOF(vgroups)] = {};
-        CLEANUP_ELEMENTS(vtables, table_unref_array_clear);
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        pager_open(arg_pager_flags);
-
-        for (size_t i = 0; i < ELEMENTSOF(vgroups); i++) {
-                r = verbs_get_help_table_group(vgroups[i], &vtables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        assert_cc(ELEMENTSOF(vtables) == 9);
-        (void) table_sync_column_widths(0, options, vtables[0], vtables[1], vtables[2],
-                                        vtables[3], vtables[4], vtables[5], vtables[6],
-                                        vtables[7], vtables[8]);
-
-        help_cmdline("[OPTIONS...] COMMAND ...");
-        help_abstract("Profile systemd, show unit dependencies, check unit files.");
-
-        for (size_t i = 0; i < ELEMENTSOF(vgroups); i++) {
-                help_section(vgroups[i]);
-                r = table_print_or_warn(vtables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("systemd-analyze", "1");
-
-        return 0;
-}
-
-VERB_COMMON_HELP_HIDDEN(help);
+VERB_COMMON_HELP_AUTO_HIDDEN("systemd-analyze");
 
 /* When updating this list, including descriptions, apply changes to
  * shell-completion/bash/systemd-analyze and shell-completion/zsh/_systemd-analyze too. */
@@ -386,7 +335,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-analyze");
 
                 OPTION_COMMON_VERSION:
                         return version();
