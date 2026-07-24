@@ -195,6 +195,7 @@ int manager_next_hostname(Manager *m);
 
 bool manager_packet_from_local_address(Manager *m, DnsPacket *p);
 bool manager_packet_from_our_transaction(Manager *m, DnsPacket *p);
+bool manager_mdns_record_is_ours(Manager *m, DnsResourceRecord *rr);
 
 DnsScope* manager_find_scope_from_protocol(Manager *m, int ifindex, DnsProtocol protocol, int family);
 
