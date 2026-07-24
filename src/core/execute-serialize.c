@@ -3249,7 +3249,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         r = extract_first_word(&val,
                                                &source,
                                                ":" WHITESPACE,
-                                               EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS|EXTRACT_UNESCAPE_SEPARATORS);
+                                               EXTRACT_DONT_COALESCE_SEPARATORS|EXTRACT_UNESCAPE_SEPARATORS);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -3265,7 +3265,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                 r = extract_first_word(&val,
                                                        &destination,
                                                        ":" WHITESPACE,
-                                                       EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS|EXTRACT_UNESCAPE_SEPARATORS);
+                                                       EXTRACT_DONT_COALESCE_SEPARATORS|EXTRACT_UNESCAPE_SEPARATORS);
                                 if (r < 0)
                                         return r;
                                 if (r == 0)
@@ -3276,7 +3276,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                 if (val && val[-1] == ':') {
                                         _cleanup_free_ char *options = NULL;
 
-                                        r = extract_first_word(&val, &options, NULL, EXTRACT_UNQUOTE);
+                                        r = extract_first_word(&val, &options, NULL, 0);
                                         if (r < 0)
                                                 return r;
 
@@ -3308,7 +3308,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         r = extract_first_word(&val,
                                                &source,
                                                ":" WHITESPACE,
-                                               EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS|EXTRACT_UNESCAPE_SEPARATORS);
+                                               EXTRACT_DONT_COALESCE_SEPARATORS|EXTRACT_UNESCAPE_SEPARATORS);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -3324,7 +3324,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                 r = extract_first_word(&val,
                                                        &destination,
                                                        ":" WHITESPACE,
-                                                       EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS|EXTRACT_UNESCAPE_SEPARATORS);
+                                                       EXTRACT_DONT_COALESCE_SEPARATORS|EXTRACT_UNESCAPE_SEPARATORS);
                                 if (r < 0)
                                         return r;
                                 if (r == 0)
@@ -3335,7 +3335,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                 if (val && val[-1] == ':') {
                                         _cleanup_free_ char *options = NULL;
 
-                                        r = extract_first_word(&val, &options, NULL, EXTRACT_UNQUOTE);
+                                        r = extract_first_word(&val, &options, NULL, 0);
                                         if (r < 0)
                                                 return r;
 
@@ -3543,7 +3543,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
 
                         r = extract_many_words(&val,
                                                NULL,
-                                               EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS,
+                                               EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS,
                                                &source,
                                                &destination);
                         if (r < 0)
@@ -3583,7 +3583,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         r = extract_first_word(&val,
                                                &source,
                                                NULL,
-                                               EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS);
+                                               EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS);
                         if (r < 0)
                                 return r;
                         if (r == 0)
