@@ -32,7 +32,6 @@
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "hashmap.h"
-#include "help-util.h"
 #include "hexdecoct.h"
 #include "home-util.h"
 #include "homectl-fido2.h"
@@ -179,6 +178,13 @@ static int acquire_bus(sd_bus **bus) {
 
         return 0;
 }
+
+COMMAND(
+        "homectl\0",
+        "Create, manipulate or inspect home directories.",
+        .man_pages = "homectl.1\0",
+        .flags = COMMAND_HELP_SEPARATE,  /* the option table is very wide */
+);
 
 VERB_GROUP("Basic User Manipulation Commands");
 VERB(verb_list_homes, "list", /* argspec= */ NULL, VERB_ANY, 1, VERB_DEFAULT,
@@ -4002,90 +4008,7 @@ static int parse_fido2_device_field(const char *arg) {
         return 1;
 }
 
-static int help(void) {
-        static const char* const vgroups[] = {
-                "Basic User Manipulation Commands",
-                "Advanced User Manipulation Commands",
-                "User Migration Commands",
-                "Signing Keys Commands",
-                "Lock/Unlock Commands",
-                "Other Commands",
-        };
-
-        static const char* const ogroups[] = {
-                NULL,
-                "General User Record Properties",
-                "Authentication User Record Properties",
-                "Blob Directory User Record Properties",
-                "Account Management User Record Properties",
-                "Password Policy User Record Properties",
-                "Resource Management User Record Properties",
-                "Storage User Record Properties",
-                "LUKS Storage User Record Properties",
-                "Mounting User Record Properties",
-                "CIFS User Record Properties",
-                "Login Behaviour User Record Properties",
-        };
-
-        Table *vtables[ELEMENTSOF(vgroups)] = {};
-        CLEANUP_ELEMENTS(vtables, table_unref_array_clear);
-        Table *otables[ELEMENTSOF(ogroups)] = {};
-        CLEANUP_ELEMENTS(otables, table_unref_array_clear);
-        int r;
-
-        for (size_t i = 0; i < ELEMENTSOF(vgroups); i++) {
-                r = verbs_get_help_table_group(vgroups[i], &vtables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        for (size_t i = 0; i < ELEMENTSOF(ogroups); i++) {
-                r = option_parser_get_help_table_group(ogroups[i], &otables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        /* The two groups are not synchronized because the option table is very wide. */
-
-        assert_cc(ELEMENTSOF(vtables) == 6);
-        (void) table_sync_column_widths(0, vtables[0], vtables[1], vtables[2],
-                                        vtables[3], vtables[4], vtables[5]);
-
-        assert_cc(ELEMENTSOF(otables) == 12);
-        (void) table_sync_column_widths(0, otables[0], otables[1], otables[2], otables[3],
-                                        otables[4], otables[5], otables[6], otables[7],
-                                        otables[8], otables[9], otables[10], otables[11]);
-
-        pager_open(arg_pager_flags);
-
-        help_cmdline("[OPTIONS…] COMMAND …");
-        help_abstract("Create, manipulate or inspect home directories.");
-
-        for (size_t i = 0; i < ELEMENTSOF(vgroups); i++) {
-                help_section(vgroups[i]);
-                r = table_print_or_warn(vtables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        help_section("Options");
-        r = table_print_or_warn(otables[0]);
-        if (r < 0)
-                return r;
-
-        for (size_t i = 1; i < ELEMENTSOF(ogroups); i++) {
-                help_section(ogroups[i]);
-                r = table_print_or_warn(otables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        help_man_page_reference("homectl", "1");
-
-        return 0;
-}
-
-VERB_COMMON_HELP_HIDDEN(help);
+VERB_COMMON_HELP_AUTO_HIDDEN("homectl");
 
 static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         _cleanup_strv_free_ char **arg_languages = NULL;
@@ -4114,7 +4037,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("homectl");
 
                 OPTION_COMMON_VERSION:
                         return version();
