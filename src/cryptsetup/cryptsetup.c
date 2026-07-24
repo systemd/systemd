@@ -193,19 +193,20 @@ static int parse_one_option(const char *option) {
                         return log_oom();
 
         } else if ((val = startswith(option, "size="))) {
+                unsigned key_size;
 
-                r = safe_atou(val, &arg_key_size);
+                r = safe_atou(val, &key_size);
                 if (r < 0) {
                         log_warning_errno(r, "Failed to parse %s, ignoring: %m", option);
                         return 0;
                 }
 
-                if (arg_key_size % 8) {
+                if (key_size % 8) {
                         log_warning("size= not a multiple of 8, ignoring.");
                         return 0;
                 }
 
-                arg_key_size /= 8;
+                arg_key_size = key_size / 8;
 
         } else if ((val = startswith(option, "sector-size="))) {
 
