@@ -73,6 +73,7 @@ shared_sources = files(
         'edit-util.c',
         'efi-api.c',
         'efi-loader.c',
+        'efivars.c',
         'elf-util.c',
         'enable-mempool.c',
         'ethtool-util.c',
