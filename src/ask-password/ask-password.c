@@ -14,7 +14,6 @@
 #include "json-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "options.h"
 #include "parse-argument.h"
 #include "pretty-print.h"
 #include "string-table.h"
@@ -23,6 +22,7 @@
 #include "time-util.h"
 #include "varlink-io.systemd.AskPassword.h"
 #include "varlink-util.h"
+#include "verbs.h"
 
 static const char *arg_icon = NULL;
 static const char *arg_id = NULL;               /* identifier for 'ask-password' protocol */
@@ -38,32 +38,15 @@ static bool arg_varlink = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_message, freep);
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
+static CommandDescription command = {
+        "systemd-ask-password\0",
+        "Query the user for a passphrase, via the TTY or a UI agent.",
+        .argspec = "MESSAGE\0",
+        .man_pages = "systemd-ask-password.1\0",
+};
+VERB_COMMAND(command);
 
-        r = terminal_urlify_man("systemd-ask-password", "1", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        printf("%s [OPTIONS...] MESSAGE\n"
-               "\n%sQuery the user for a passphrase, via the TTY or a UI agent.%s\n"
-               "\nOptions:\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
+VERB_COMMON_HELP_AUTO_HIDDEN("systemd-ask-password");
 
 static int parse_argv(int argc, char *argv[]) {
 
@@ -78,7 +61,7 @@ static int parse_argv(int argc, char *argv[]) {
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-ask-password");
 
                 OPTION_COMMON_VERSION:
                         return version();
