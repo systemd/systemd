@@ -30,6 +30,7 @@
 #include "initrd-util.h"
 #include "io-util.h"
 #include "json-util.h"
+#include "libfido2-util.h"
 #include "limits-util.h"
 #include "log.h"
 #include "logarithm.h"
@@ -4042,16 +4043,26 @@ static void tpm2_trim_auth_value(TPM2B_AUTH *auth) {
                 log_debug("authValue ends in 0, trimming as required by the TPM2 specification Part 1 section 'HMAC Computation' authValue Note 2.");
 }
 
-int tpm2_auth_value_from_pin(TPMI_ALG_HASH hash, const char *pin, TPM2B_AUTH *ret_auth) {
+int tpm2_auth_value_from_pin_and_fido2(TPMI_ALG_HASH hash, const char *pin, const char *fido2_secret, TPM2B_AUTH *ret_auth) {
         TPM2B_AUTH auth = {};
         int r;
 
-        assert(pin);
         assert(ret_auth);
 
-        r = tpm2_digest_buffer(hash, &auth, pin, strlen(pin), /* extend= */ false);
-        if (r < 0)
-                return r;
+        if (!pin && !fido2_secret)
+                return 0;
+
+        if (pin) {
+                r = tpm2_digest_buffer(hash, &auth, pin, strlen(pin), /* extend= */ false);
+                if (r < 0)
+                        return r;
+        }
+
+        if (fido2_secret) {
+                r = tpm2_digest_buffer(hash, &auth, fido2_secret, strlen(fido2_secret), /* extend= */ !!pin);
+                if (r < 0)
+                        return r;
+        }
 
         tpm2_trim_auth_value(&auth);
 
@@ -4077,19 +4088,19 @@ int tpm2_set_auth_binary(Tpm2Context *c, const Tpm2Handle *handle, const TPM2B_A
         return 0;
 }
 
-int tpm2_set_auth(Tpm2Context *c, const Tpm2Handle *handle, const char *pin) {
+int tpm2_set_auth(Tpm2Context *c, const Tpm2Handle *handle, const char *pin, const char *fido2_secret) {
         TPM2B_AUTH auth = {};
         int r;
 
         assert(c);
         assert(handle);
 
-        if (!pin)
+        if (!pin && !fido2_secret)
                 return 0;
 
         CLEANUP_ERASE(auth);
 
-        r = tpm2_auth_value_from_pin(TPM2_ALG_SHA256, pin, &auth);
+        r = tpm2_auth_value_from_pin_and_fido2(TPM2_ALG_SHA256, pin, fido2_secret, &auth);
         if (r < 0)
                 return r;
 
@@ -5181,6 +5192,7 @@ int tpm2_calculate_sealing_policy(
                 const TPM2B_PUBLIC *public,
                 const char *pubkey_policy_ref,
                 bool use_pin,
+                bool use_fido2,
                 const Tpm2PCRLockPolicy *pcrlock_policy,
                 TPM2B_DIGEST *digest) {
 
@@ -5224,7 +5236,7 @@ int tpm2_calculate_sealing_policy(
                         return r;
         }
 
-        if (use_pin) {
+        if (use_pin || use_fido2) {
                 r = tpm2_calculate_policy_auth_value(digest);
                 if (r < 0)
                         return r;
@@ -5245,6 +5257,7 @@ static int tpm2_build_sealing_policy(
                 uint32_t pubkey_pcr_mask,
                 sd_json_variant *signature_json,
                 bool use_pin,
+                bool use_fido2,
                 const Tpm2PCRLockPolicy *pcrlock_policy,
                 TPM2B_DIGEST **ret_policy_digest) {
 
@@ -5311,7 +5324,7 @@ static int tpm2_build_sealing_policy(
                         return r;
         }
 
-        if (use_pin) {
+        if (use_pin || use_fido2) {
                 r = tpm2_policy_auth_value(c, session, NULL);
                 if (r < 0)
                         return r;
@@ -5950,6 +5963,7 @@ static int tpm2_calculate_seal_private(
                 const TPM2B_PUBLIC *parent,
                 const TPM2B_NAME *name,
                 const char *pin,
+                const char *fido2_secret,
                 const TPM2B_DIGEST *seed,
                 const void *secret,
                 size_t secret_size,
@@ -6002,11 +6016,9 @@ static int tpm2_calculate_seal_private(
 
         TPM2B_AUTH auth = {};
         CLEANUP_ERASE(auth);
-        if (pin) {
-                r = tpm2_auth_value_from_pin(parent->publicArea.nameAlg, pin, &auth);
-                if (r < 0)
-                        return r;
-        }
+        r = tpm2_auth_value_from_pin_and_fido2(parent->publicArea.nameAlg, pin, fido2_secret, &auth);
+        if (r < 0)
+                return r;
 
         TPM2B_SENSITIVE sensitive = {
                 .size = sizeof(TPMT_SENSITIVE),
@@ -6302,6 +6314,7 @@ int tpm2_calculate_seal(
                 const struct iovec *secret,
                 const TPM2B_DIGEST *policy,
                 const char *pin,
+                const char *fido2_secret,
                 struct iovec *ret_secret,
                 struct iovec *ret_blob,
                 struct iovec *ret_serialized_parent) {
@@ -6369,7 +6382,7 @@ int tpm2_calculate_seal(
                 return r;
 
         TPM2B_PRIVATE private;
-        r = tpm2_calculate_seal_private(parent_public, &name, pin, &random_seed, secret->iov_base, secret->iov_len, &private);
+        r = tpm2_calculate_seal_private(parent_public, &name, pin, fido2_secret, &random_seed, secret->iov_base, secret->iov_len, &private);
         if (r < 0)
                 return r;
 
@@ -6435,6 +6448,7 @@ int tpm2_seal(Tpm2Context *c,
               const TPM2B_DIGEST policy[],
               size_t n_policy,
               const char *pin,
+              const char *fido2_secret,
               struct iovec *ret_secret,
               struct iovec **ret_blobs,
               size_t *ret_n_blobs,
@@ -6491,12 +6505,9 @@ int tpm2_seal(Tpm2Context *c,
         };
 
         CLEANUP_ERASE(hmac_sensitive);
-
-        if (pin) {
-                r = tpm2_auth_value_from_pin(TPM2_ALG_SHA256, pin, &hmac_sensitive.userAuth);
-                if (r < 0)
-                        return r;
-        }
+        r = tpm2_auth_value_from_pin_and_fido2(TPM2_ALG_SHA256, pin, fido2_secret, &hmac_sensitive.userAuth);
+        if (r < 0)
+                return r;
 
         assert(sizeof(hmac_sensitive.data.buffer) >= hmac_sensitive.data.size);
 
@@ -6660,6 +6671,7 @@ int tpm2_unseal(Tpm2Context *c,
                 uint32_t pubkey_pcr_mask,
                 sd_json_variant *signature,
                 const char *pin,
+                const char *fido2_secret,
                 const Tpm2PCRLockPolicy *pcrlock_policy,
                 uint16_t primary_alg,
                 const struct iovec blobs[],
@@ -6681,7 +6693,7 @@ int tpm2_unseal(Tpm2Context *c,
          *   -EUCLEAN         → PCR state doesn't match expectations
          *   -EPERM           → stored policy does not match TPM state
          *   -ENOTRECOVERABLE → all other kinds of TPM errors
-         *   -EILSEQ          → bad PIN
+         *   -EILSEQ          → bad PIN or FIDO2 secret
          *
          * Of these all four of EREMCHG, ENOANO, EUCLEAN, EPERM can all mean that PCR state is not matching
          * expectations. */
@@ -6804,11 +6816,11 @@ int tpm2_unseal(Tpm2Context *c,
                         if (r < 0)
                                 return r;
 
-                        /* If a PIN is set for the seal object, use it to bind the session key to that
-                         * object. This prevents active bus interposers from faking a TPM and seeing the
-                         * unsealed value. An active interposer could fake a TPM, satisfying the encrypted
+                        /* If a PIN or FIDO2 key are set for the seal object, use it to bind the session key
+                         * to that object. This prevents active bus interposers from faking a TPM and seeing
+                         * the unsealed value. An active interposer could fake a TPM, satisfying the encrypted
                          * session, and just forward everything to the *real* TPM. */
-                        r = tpm2_set_auth(c, hmac_key, pin);
+                        r = tpm2_set_auth(c, hmac_key, pin, fido2_secret);
                         if (r < 0)
                                 return r;
 
@@ -6825,7 +6837,7 @@ int tpm2_unseal(Tpm2Context *c,
                                         encryption_session,
                                         &policy_session);
                         if (r < 0)
-                                return r; /* Will return EILSEQ on auth failure (i.e. bad PIN) */
+                                return r; /* Will return EILSEQ on auth failure (i.e. bad PIN or FIDO2) */
 
                         /* If both public PCR key and pcrlock policies are requested, then generate the
                          * public PCR policy for the first shared, and the pcrlock policy for the 2nd */
@@ -6840,6 +6852,7 @@ int tpm2_unseal(Tpm2Context *c,
                                         shard == 0 ? pubkey_pcr_mask : 0,
                                         signature,
                                         !!pin,
+                                        !!fido2_secret,
                                         (shard == 1 || !iovec_is_set(pubkey)) ? pcrlock_policy : NULL,
                                         &policy_digest);
                         if (r == -EUCLEAN && i > 0) {
@@ -9283,7 +9296,7 @@ int tpm2_policy_super_pcr(
                                 if (single_value_pcrs & (UINT32_C(1) << pcr))
                                         (void) strextendf_with_separator(&j, ", ", "%" PRIu32, pcr);
 
-                        return log_error_errno(r, "Combined value for PCR(s) %s encoded in policy does not match the current TPM state. Either the system has been tempered with or the provided policy is incorrect.", strna(j));
+                        return log_error_errno(r, "Combined value for PCR(s) %s encoded in policy does not match the current TPM state. Either the system has been tampered with or the provided policy is incorrect.", strna(j));
                 }
                 if (r < 0)
                         return log_error_errno(r, "Failed to submit PCR policy to TPM: %m");
@@ -9316,7 +9329,7 @@ int tpm2_policy_super_pcr(
                                 &pcr_selection,
                                 &current_policy_digest);
                 if (r == -EUCLEAN)
-                        return log_error_errno(r, "Value for PCR %" PRIu32 " encoded in policy does not match the current TPM state. Either the system has been tempered with or the provided policy is incorrect.", pcr);
+                        return log_error_errno(r, "Value for PCR %" PRIu32 " encoded in policy does not match the current TPM state. Either the system has been tampered with or the provided policy is incorrect.", pcr);
                 if (r < 0)
                         return log_error_errno(r, "Failed to submit PCR policy to TPM: %m");
 
@@ -9358,7 +9371,7 @@ int tpm2_policy_super_pcr(
                                 n_branches,
                                 &current_policy_digest);
                 if (r == -ENOANO)
-                        return log_error_errno(r, "None of the alternative values for PCR %" PRIu32 " encoded in policy match the current TPM state. Either the system has been tempered with or the provided policy is incorrect.", pcr);
+                        return log_error_errno(r, "None of the alternative values for PCR %" PRIu32 " encoded in policy match the current TPM state. Either the system has been tampered with or the provided policy is incorrect.", pcr);
                 if (r < 0)
                         return log_error_errno(r, "Failed to submit OR policy to TPM: %m");
 
@@ -9881,6 +9894,9 @@ int tpm2_make_luks2_json(
                 const struct iovec *pcrlock_nv,
                 TPM2Flags flags,
                 const Argon2IdParameters *argon2id_params,
+                const struct iovec *fido2_cid,
+                const struct iovec *fido2_salt,
+                Fido2EnrollFlags fido2_flags,
                 sd_json_variant **ret) {
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *hmj = NULL, *pkmj = NULL;
@@ -9937,6 +9953,7 @@ int tpm2_make_luks2_json(
                         SD_JSON_BUILD_PAIR_VARIANT("tpm2-policy-hash", phj),
                         SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_PIN), "tpm2-pin", SD_JSON_BUILD_BOOLEAN(true)),
                         SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_PCRLOCK), "tpm2_pcrlock", SD_JSON_BUILD_BOOLEAN(true)),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_FIDO2), "tpm2_fido2", SD_JSON_BUILD_BOOLEAN(true)),
                         SD_JSON_BUILD_PAIR_CONDITION(pubkey_pcr_mask != 0, "tpm2_pubkey_pcrs", SD_JSON_BUILD_VARIANT(pkmj)),
                         SD_JSON_BUILD_PAIR_CONDITION(iovec_is_set(pubkey), "tpm2_pubkey", JSON_BUILD_IOVEC_BASE64(pubkey)),
                         SD_JSON_BUILD_PAIR_CONDITION(pubkey_policy_ref != NULL, "tpm2_pubkey_ref", SD_JSON_BUILD_STRING(pubkey_policy_ref)),
@@ -9945,7 +9962,13 @@ int tpm2_make_luks2_json(
                         SD_JSON_BUILD_PAIR_CONDITION(iovec_is_set(pcrlock_nv), "tpm2_pcrlock_nv", JSON_BUILD_IOVEC_BASE64(pcrlock_nv)),
                         SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_ARGON2ID), "tpm2_argon2id_memcost", SD_JSON_BUILD_UNSIGNED(argon2id_params_safe.memcost_bytes)),
                         SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_ARGON2ID), "tpm2_argon2id_iterations", SD_JSON_BUILD_UNSIGNED(argon2id_params_safe.iterations)),
-                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_ARGON2ID), "tpm2_argon2id_lanes", SD_JSON_BUILD_UNSIGNED(argon2id_params_safe.lanes)));
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_ARGON2ID), "tpm2_argon2id_lanes", SD_JSON_BUILD_UNSIGNED(argon2id_params_safe.lanes)),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_FIDO2), "fido2-credential", JSON_BUILD_IOVEC_BASE64(fido2_cid)),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_FIDO2), "fido2-salt", JSON_BUILD_IOVEC_BASE64(fido2_salt)),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_FIDO2), "fido2-rp", JSON_BUILD_CONST_STRING("io.systemd.cryptsetup")),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_FIDO2), "fido2-clientPin-required", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(fido2_flags, FIDO2ENROLL_PIN))),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_FIDO2), "fido2-up-required", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(fido2_flags, FIDO2ENROLL_UP))),
+                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_FIDO2), "fido2-uv-required", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(fido2_flags, FIDO2ENROLL_UV))));
         if (r < 0)
                 return r;
 
@@ -10029,15 +10052,21 @@ int tpm2_parse_luks2_json(
                 struct iovec *ret_srk,
                 struct iovec *ret_pcrlock_nv,
                 TPM2Flags *ret_flags,
-                Argon2IdParameters *ret_argon2id_params) {
+                Argon2IdParameters *ret_argon2id_params,
+                struct iovec *ret_fido2_cid,
+                struct iovec *ret_fido2_salt,
+                char **ret_fido2_rp_id,
+                Fido2EnrollFlags *ret_fido2_flags) {
 
-        _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
+        _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {}, fido2_cid = {}, fido2_salt = {};
         _cleanup_free_ char *pubkey_ref = NULL;
         uint32_t hash_pcr_mask = 0, pubkey_pcr_mask = 0;
         uint16_t primary_alg = 0;
         uint16_t pcr_bank = UINT16_MAX; /* default: pick automatically */
         int r, keyslot = -1;
         TPM2Flags flags = 0;
+        Fido2EnrollFlags fido2_flags = 0;
+        _cleanup_free_ char *fido2_rp = NULL;
         sd_json_variant *w;
 
         assert(v);
@@ -10133,6 +10162,14 @@ int tpm2_parse_luks2_json(
                 SET_FLAG(flags, TPM2_FLAGS_USE_PCRLOCK, sd_json_variant_boolean(w));
         }
 
+        w = sd_json_variant_by_key(v, "tpm2_fido2");
+        if (w) {
+                if (!sd_json_variant_is_boolean(w))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 FIDO2 policy is not a boolean.");
+
+                SET_FLAG(flags, TPM2_FLAGS_USE_FIDO2, sd_json_variant_boolean(w));
+        }
+
         w = sd_json_variant_by_key(v, "tpm2_salt");
         if (w) {
                 r = json_variant_unbase64_iovec(w, &salt);
@@ -10225,6 +10262,58 @@ int tpm2_parse_luks2_json(
         } else if (ap.memcost_bytes > 0 || ap.iterations > 0 || ap.lanes > 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EUCLEAN), "Incomplete Argon2id parameters in LUKS2 token.");
 
+        w = sd_json_variant_by_key(v, "fido2-credential");
+        if (w) {
+                r = json_variant_unbase64_iovec(w, &fido2_cid);
+                if (r < 0)
+                        return log_debug_errno(r, "Invalid base64 data in 'fido2-credential' field.");
+        }
+
+        w = sd_json_variant_by_key(v, "fido2-salt");
+        if (w) {
+                r = json_variant_unbase64_iovec(w, &fido2_salt);
+                if (r < 0)
+                        return log_debug_errno(r, "Invalid base64 data in 'fido2-salt' field.");
+        }
+
+        w = sd_json_variant_by_key(v, "fido2-rp");
+        if (w) {
+                /* The "rp" field is optional. */
+
+                if (!sd_json_variant_is_string(w))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "FIDO2 token data's 'fido2-rp' field is not a string.");
+
+                assert(!fido2_rp);
+                fido2_rp = strdup(sd_json_variant_string(w));
+                if (!fido2_rp)
+                        return log_oom_debug();
+        }
+
+        w = sd_json_variant_by_key(v, "fido2-clientPin-required");
+        if (w) {
+                if (!sd_json_variant_is_boolean(w))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "FIDO2 client PIN required is not a boolean.");
+
+                SET_FLAG(fido2_flags, FIDO2ENROLL_PIN, sd_json_variant_boolean(w));
+        }
+
+        w = sd_json_variant_by_key(v, "fido2-up-required");
+        if (w) {
+                if (!sd_json_variant_is_boolean(w))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "FIDO2 user presence required is not a boolean.");
+
+                SET_FLAG(fido2_flags, FIDO2ENROLL_UP, sd_json_variant_boolean(w));
+        }
+
+        w = sd_json_variant_by_key(v, "fido2-uv-required");
+        if (w) {
+                if (!sd_json_variant_is_boolean(w))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "FIDO2 user validation required is not a boolean.");
+
+                SET_FLAG(fido2_flags, FIDO2ENROLL_UV, sd_json_variant_boolean(w));
+        }
+
         if (ret_keyslot)
                 *ret_keyslot = keyslot;
         if (ret_hash_pcr_mask)
@@ -10257,6 +10346,15 @@ int tpm2_parse_luks2_json(
                 *ret_flags = flags;
         if (ret_argon2id_params)
                 *ret_argon2id_params = ap;
+        if (ret_fido2_cid)
+                *ret_fido2_cid = TAKE_STRUCT(fido2_cid);
+        if (ret_fido2_salt)
+                *ret_fido2_salt = TAKE_STRUCT(fido2_salt);
+        if (ret_fido2_rp_id)
+                *ret_fido2_rp_id = TAKE_PTR(fido2_rp);
+        if (ret_fido2_flags)
+                *ret_fido2_flags = fido2_flags;
+
         return 0;
 }
 
