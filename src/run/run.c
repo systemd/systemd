@@ -846,7 +846,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         arg_unit = opts.arg;
                         break;
 
-                OPTION_LONG("property", "NAME=VALUE", "Set service or scope unit property"):
+                OPTION('p', "property", "NAME=VALUE", "Set service or scope unit property"):
                         if (strv_extend(&arg_property, opts.arg) < 0)
                                 return log_oom();
                         break;
