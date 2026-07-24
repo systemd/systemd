@@ -78,7 +78,7 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                                 return -EINVAL;
                         }
 
-                        if (flags & (EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS)) {
+                        if (flags & (EXTRACT_CUNESCAPE | EXTRACT_UNESCAPE_SEPARATORS | EXTRACT_UNESCAPE_RELAX)) {
                                 bool eight_bit = false;
                                 char32_t u;
 
