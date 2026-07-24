@@ -14,7 +14,6 @@
 #include "main-func.h"
 #include "options.h"
 #include "parse-argument.h"
-#include "pretty-print.h"
 #include "string-util.h"
 #include "strv.h"
 #include "verbs.h"
@@ -234,11 +233,7 @@ static int verb_show(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return 0;
 }
 
-static int help(void) {
-        return command_print_help("systemd-id128");
-}
-
-VERB_COMMON_HELP(help);
+VERB_COMMON_HELP_AUTO("systemd-id128");
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         int r;
@@ -251,7 +246,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-id128");
 
                 OPTION_COMMON_VERSION:
                         return version();

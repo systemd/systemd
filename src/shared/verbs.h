@@ -125,6 +125,12 @@ int _verbs_get_help_table(
         VERB(verb_help, "help", NULL, VERB_ANY, VERB_ANY, 0, NULL);     \
         _VERB_COMMON_HELP_IMPL(impl)
 
+#define VERB_COMMON_HELP_AUTO(program)                                  \
+        VERB_FULL(verb_help_auto, "help", NULL, VERB_ANY, VERB_ANY, 0, (uintptr_t) program, "Show this help")
+
+#define VERB_COMMON_HELP_AUTO_HIDDEN(program)                           \
+        VERB_FULL(verb_help_auto, "help", NULL, VERB_ANY, VERB_ANY, 0, (uintptr_t) program, NULL)
+
 int _command_print_help(
                 const Verb verbs[],
                 const Verb verbs_end[],
@@ -136,3 +142,7 @@ int _command_print_help(
                 __start_SYSTEMD_VERBS, __stop_SYSTEMD_VERBS,            \
                 __start_SYSTEMD_OPTIONS, __stop_SYSTEMD_OPTIONS,        \
                 name)
+
+static inline int verb_help_auto(int argc, char **argv, uintptr_t data, void *userdata) {
+        return command_print_help((const char*) ASSERT_PTR(data));
+}
