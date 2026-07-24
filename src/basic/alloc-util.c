@@ -164,10 +164,3 @@ void* greedy_realloc_append(
 
         return q;
 }
-
-void free_many(void **p, size_t n) {
-        assert(p || n == 0);
-
-        FOREACH_ARRAY(i, p, n)
-                *i = mfree(*i);
-}
