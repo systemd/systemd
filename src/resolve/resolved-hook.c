@@ -137,9 +137,11 @@ static int on_filter_reply(
                                 r = hook_acquire_filter(h);
                                 if (r < 0)
                                         goto terminate;
-                        } else
-                                log_warning("Connection terminated while querying filter of hook '%s', and reconnection attempts failed too quickly, giving up.", h->socket_path);
 
+                                return 1;
+                        }
+
+                        log_warning("Connection terminated while querying filter of hook '%s', and reconnection attempts failed too quickly, giving up.", h->socket_path);
                         goto terminate;
                 }
 
@@ -342,6 +344,7 @@ static int manager_hook_add(Manager *m, const char *p, usec_t seen_usec) {
         Hook *found = hashmap_get(m->hooks, p);
         if (found) {
                 found->seen_usec = seen_usec;
+                (void) hook_acquire_filter(found);
                 return 0;
         }
 
