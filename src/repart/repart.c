@@ -343,6 +343,11 @@ typedef struct PartitionEncryptedVolume {
         bool fixate_volume_key;
 } PartitionEncryptedVolume;
 
+typedef struct PartitionEncryptAddToken {
+        char *type;                /* token type name, always set */
+        sd_json_variant *data;     /* extra fields (excluding type/keyslots), may be NULL */
+} PartitionEncryptAddToken;
+
 static PartitionEncryptedVolume* partition_encrypted_volume_free(PartitionEncryptedVolume *c) {
         if (!c)
                 return NULL;
@@ -352,6 +357,19 @@ static PartitionEncryptedVolume* partition_encrypted_volume_free(PartitionEncryp
         free(c->options);
 
         return mfree(c);
+}
+
+static void partition_encrypt_add_token_done(PartitionEncryptAddToken *t) {
+        assert(t);
+        free(t->type);
+        sd_json_variant_unref(t->data);
+}
+
+static void partition_encrypt_add_token_free_many(PartitionEncryptAddToken *tokens, size_t n) {
+        assert(tokens || n == 0);
+        FOREACH_ARRAY(t, tokens, n)
+                partition_encrypt_add_token_done(t);
+        free(tokens);
 }
 
 typedef struct CopyFiles {
@@ -538,6 +556,8 @@ typedef struct Partition {
         size_t n_mountpoints;
 
         PartitionEncryptedVolume *encrypted_volume;
+        PartitionEncryptAddToken *encrypt_add_tokens;
+        size_t n_encrypt_add_tokens;
 
         unsigned last_percent;
         RateLimit progress_ratelimit;
@@ -866,6 +886,7 @@ static Partition* partition_free(Partition *p) {
         p->n_mountpoints = 0;
 
         partition_encrypted_volume_free(p->encrypted_volume);
+        partition_encrypt_add_token_free_many(p->encrypt_add_tokens, p->n_encrypt_add_tokens);
 
         partition_unlink_supplement(p);
 
@@ -926,6 +947,9 @@ static void partition_foreignize(Partition *p) {
         p->n_mountpoints = 0;
 
         p->encrypted_volume = partition_encrypted_volume_free(p->encrypted_volume);
+        partition_encrypt_add_token_free_many(p->encrypt_add_tokens, p->n_encrypt_add_tokens);
+        p->encrypt_add_tokens = NULL;
+        p->n_encrypt_add_tokens = 0;
 
         partition_unlink_supplement(p);
 }
@@ -2661,7 +2685,7 @@ static int config_parse_encrypted_volume(
         int r;
 
         if (isempty(rvalue)) {
-                p->encrypted_volume = mfree(p->encrypted_volume);
+                p->encrypted_volume = partition_encrypted_volume_free(p->encrypted_volume);
                 return 0;
         }
 
@@ -2723,6 +2747,124 @@ static int config_parse_encrypted_volume(
                 .keyfile = TAKE_PTR(keyfile),
                 .options = TAKE_PTR(options),
                 .fixate_volume_key = fixate_volume_key,
+        };
+
+        return 0;
+}
+
+static int config_parse_encrypt_add_token(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Partition *p = ASSERT_PTR(data);
+        int r;
+
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                partition_encrypt_add_token_free_many(p->encrypt_add_tokens, p->n_encrypt_add_tokens);
+                p->encrypt_add_tokens = NULL;
+                p->n_encrypt_add_tokens = 0;
+                return 0;
+        }
+
+        /* Syntax: EncryptAddToken=<type>[:<source>:<value>]
+         *   where source is "file" (path) or "data" (base64-encoded JSON).
+         * The token type name is always supplied explicitly and stored separately.
+         * Extra metadata may be supplied as:
+         *   :file:/path/to/metadata.json   — read JSON from file
+         *   :data:<base64>                 — inline base64-encoded JSON
+         */
+
+        _cleanup_free_ char *type = NULL, *source = NULL, *value = NULL;
+        const char *q = rvalue;
+
+        /* Extract only type and source; leave the rest of q as the value verbatim.
+         * This allows ':' in the value (e.g. file paths containing colons). */
+        r = extract_many_words(&q, ":", EXTRACT_DONT_COALESCE_SEPARATORS, &type, &source);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0)
+                return log_syntax(unit, LOG_ERR, filename, line, r,
+                                  "Failed to parse %s=: %s", lvalue, rvalue);
+        if (r < 1)
+                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "%s= requires at least a token type name.", lvalue);
+
+        /* Validate the type name: must be a non-empty identifier-like ASCII string without whitespace */
+        if (isempty(type) || !string_is_safe(type, STRING_ASCII | STRING_DISALLOW_WHITESPACE))
+                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "Invalid token type name in %s=: %s", lvalue, type);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *extra = NULL;
+
+        if (source) {
+                /* EXTRACT_DONT_COALESCE_SEPARATORS yields an empty-string source for inputs like
+                 * 'type:' (trailing colon) or 'type::value' (double colon) — reject explicitly. */
+                if (isempty(source))
+                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "Empty source in %s=, expected 'file' or 'data': %s", lvalue, rvalue);
+                /* Value is the remainder of the input after source, so ':' in it is preserved. */
+                if (isempty(q))
+                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "%s= source '%s' requires a value.", lvalue, source);
+
+                value = strdup(q);
+                if (!value)
+                        return log_oom();
+
+                _cleanup_free_ char *json_text = NULL;
+
+                if (streq(source, "file")) {
+                        /* Load JSON from a file */
+                        r = read_full_file(value, &json_text, NULL);
+                        if (r < 0)
+                                return log_syntax(unit, LOG_ERR, filename, line, r,
+                                                  "Failed to read token data file '%s': %m", value);
+                } else if (streq(source, "data")) {
+                        /* Decode base64-encoded JSON */
+                        void *decoded = NULL;
+                        size_t decoded_size = 0;
+                        r = unbase64mem(value, &decoded, &decoded_size);
+                        if (r < 0)
+                                return log_syntax(unit, LOG_ERR, filename, line, r,
+                                                  "Failed to decode base64 token data in %s=: %m", lvalue);
+                        json_text = strndup(decoded, decoded_size);
+                        free(decoded);
+                        if (!json_text)
+                                return log_oom();
+                } else
+                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "Unknown source '%s' in %s=, expected 'file' or 'data'.", source, lvalue);
+
+                r = sd_json_parse(json_text, SD_JSON_PARSE_MUST_BE_OBJECT, &extra, NULL, NULL);
+                if (r < 0)
+                        return log_syntax(unit, LOG_ERR, filename, line, r,
+                                          "Token data in %s= is not a valid JSON object: %m", lvalue);
+
+                /* Reject any pre-set "type" or "keyslots" — we manage those */
+                if (sd_json_variant_by_key(extra, "type"))
+                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "Token data in %s= must not contain a \"type\" field (set by the type name argument).", lvalue);
+                if (sd_json_variant_by_key(extra, "keyslots"))
+                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "Token data in %s= must not contain a \"keyslots\" field (set automatically).", lvalue);
+        }
+
+        if (!GREEDY_REALLOC(p->encrypt_add_tokens, p->n_encrypt_add_tokens + 1))
+                return log_oom();
+
+        p->encrypt_add_tokens[p->n_encrypt_add_tokens++] = (PartitionEncryptAddToken) {
+                .type = TAKE_PTR(type),
+                .data = TAKE_PTR(extra),
         };
 
         return 0;
@@ -2962,6 +3104,7 @@ static int partition_read_definition(
                 { "Partition", "VerityHashBlockSizeBytes", config_parse_block_size,        0,                                  &p->verity_hash_block_size  },
                 { "Partition", "MountPoint",               config_parse_mountpoint,        0,                                  p                           },
                 { "Partition", "EncryptedVolume",          config_parse_encrypted_volume,  0,                                  p                           },
+                { "Partition", "EncryptAddToken",          config_parse_encrypt_add_token, 0,                                  p                           },
                 { "Partition", "TPM2PCRs",                 config_parse_tpm2_pcrs,         0,                                  p                           },
                 { "Partition", "KeyFile",                  config_parse_key_file,          0,                                  p                           },
                 { "Partition", "Integrity",                config_parse_integrity,         0,                                  &p->integrity               },
@@ -3174,6 +3317,10 @@ static int partition_read_definition(
         if (p->encrypt == ENCRYPT_OFF && p->encrypt_kdf >= 0)
                 log_syntax(NULL, LOG_WARNING, path, 1, 0,
                            "EncryptKDF= has no effect with Encrypt=off.");
+
+        if (p->n_encrypt_add_tokens > 0 && p->encrypt == ENCRYPT_OFF)
+                log_syntax(NULL, LOG_WARNING, path, 1, 0,
+                           "EncryptAddToken= has no effect with Encrypt=off.");
 
         if (p->encrypt != ENCRYPT_OFF && p->integrity == INTEGRITY_INLINE && p->discard > 0)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
@@ -5442,6 +5589,44 @@ static size_t dmcrypt_proper_key_size(Partition *p) {
         }
 }
 
+#if HAVE_LIBCRYPTSETUP
+static int partition_add_tokens_for_keyslot(Partition *p, struct crypt_device *cd, int keyslot) {
+        int r;
+
+        assert(p);
+        assert(cd);
+
+        char keyslot_str[DECIMAL_STR_MAX(int)];
+        xsprintf(keyslot_str, "%i", keyslot);
+
+        FOREACH_ARRAY(t, p->encrypt_add_tokens, p->n_encrypt_add_tokens) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                /* Build the token object: start with extra data if any, then inject type and keyslots */
+                if (t->data) {
+                        v = sd_json_variant_ref(t->data);
+
+                        r = sd_json_variant_merge_objectbo(&v,
+                                        SD_JSON_BUILD_PAIR_STRING("type", t->type),
+                                        SD_JSON_BUILD_PAIR("keyslots",
+                                                SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_STRING(keyslot_str))));
+                } else
+                        r = sd_json_buildo(&v,
+                                        SD_JSON_BUILD_PAIR_STRING("type", t->type),
+                                        SD_JSON_BUILD_PAIR("keyslots",
+                                                SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_STRING(keyslot_str))));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build LUKS2 token JSON for type '%s': %m", t->type);
+
+                r = cryptsetup_add_token_json(cd, v);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add LUKS2 token '%s' to header: %m", t->type);
+        }
+
+        return 0;
+}
+#endif
+
 static int partition_encrypt(Context *context, Partition *p, PartitionTarget *target, bool offline, bool temporary) {
 #if HAVE_LIBCRYPTSETUP
 #if HAVE_TPM2
@@ -5646,8 +5831,14 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 if (r < 0)
                         return log_error_errno(r, "Failed to add LUKS2 key: %m");
 
+                int key_file_keyslot = r;
+
                 passphrase = strempty(iovec_key->iov_base);
                 passphrase_size = iovec_key->iov_len;
+
+                r = partition_add_tokens_for_keyslot(p, cd, key_file_keyslot);
+                if (r < 0)
+                        return r;
         }
 
         if (IN_SET(p->encrypt, ENCRYPT_TPM2, ENCRYPT_KEY_FILE_TPM2)) {
@@ -5852,6 +6043,14 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 r = cryptsetup_add_token_json(cd, v);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add TPM2 JSON token to LUKS2 header: %m");
+
+                /* For key-file+tpm2 the custom tokens were already bound to the key-file keyslot
+                 * above; only bind them to the TPM2 keyslot in pure TPM2 mode. */
+                if (p->encrypt == ENCRYPT_TPM2) {
+                        r = partition_add_tokens_for_keyslot(p, cd, keyslot);
+                        if (r < 0)
+                                return r;
+                }
 
                 passphrase = base64_encoded;
                 passphrase_size = strlen(base64_encoded);
