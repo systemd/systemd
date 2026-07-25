@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-json.h"
+
 #include "format-table.h"
 #include "log.h"
 #include "options.h"
@@ -460,6 +462,24 @@ char* option_get_synopsis(const Option *opt, const char *joiner, bool show_metav
                        option_arg_optional(opt) ? "]" : "");
 }
 
+const Option* options_find_namespace(
+                const Option options[],
+                const Option options_end[],
+                const char *namespace) {
+
+        if (!namespace)
+                /* The first part is the default unnamed namespace, so
+                 * if the namespace was not specified, we are in it. */
+                return options;
+
+        for (const Option *opt = options; opt < options_end; opt++)
+                if (FLAGS_SET(opt->flags, OPTION_NAMESPACE_MARKER) &&
+                    streq(namespace, ASSERT_PTR(opt->long_code)))
+                        return opt + 1;
+
+        return NULL; /* not found :/ */
+}
+
 int _option_parser_get_help_table_full(
                 const Option options[],
                 const Option options_end[],
@@ -467,6 +487,8 @@ int _option_parser_get_help_table_full(
                 const char *group,
                 Table **ret) {
         int r;
+
+        // TODO: drop this function and all its wrappers
 
         assert(ret);
 
@@ -482,7 +504,8 @@ int _option_parser_get_help_table_full(
                                          * <group>? The first part is the default group, so if the group was
                                          * not specified, we are in it. */
 
-        for (const Option *opt = options; opt < options_end; opt++) {
+        const Option *opt;
+        for (opt = options; opt < options_end; opt++) {
                 bool ns_marker = FLAGS_SET(opt->flags, OPTION_NAMESPACE_MARKER);
                 if (!in_ns) {
                         in_ns = ns_marker && streq(namespace, opt->long_code);
@@ -533,5 +556,164 @@ int _option_parser_get_help_table_full(
 
         table_set_header(table, false);
         *ret = TAKE_PTR(table);
+        assert(opt - options < INT_MAX);
+        return opt - options;
+}
+
+int options_get_help_table_group(
+                const Option options[],
+                const Option options_end[],
+                Table **ret,
+                const char **ret_group) {
+        int r;
+
+        assert(ret);
+
+        _cleanup_(table_unrefp) Table *table = table_new("names", "help");
+        if (!table)
+                return log_oom();
+
+        assert(options_end > options);
+
+        bool group_marker = FLAGS_SET(options[0].flags, OPTION_GROUP_MARKER);
+        const char *group = group_marker ? ASSERT_PTR(options[0].long_code) : NULL;
+
+        const Option *opt;
+        for (opt = options + group_marker; opt < options_end; opt++) {
+                if (FLAGS_SET(opt->flags, OPTION_NAMESPACE_MARKER))
+                        /* End of our namespace */
+                        break;
+
+                if (FLAGS_SET(opt->flags, OPTION_GROUP_MARKER))
+                        /* End of our namespace */
+                        break;
+
+                if (!opt->help)
+                        /* No help string — we do not show the option */
+                        continue;
+
+                _cleanup_free_ char *s = option_get_synopsis(opt, " ", /* show_metavar= */ true);
+                if (!s)
+                        return log_oom();
+
+                /* We indent the option string by two spaces. We could set the minimum cell width and
+                 * right-align for a similar result, but that'd be more work. This is only used for
+                 * display. */
+                bool shift_left = opt->short_code != 0 || FLAGS_SET(opt->flags, OPTION_HELP_ENTRY_VERBATIM);
+                const char *prefix = shift_left ? "  " : "     ";
+                _cleanup_free_ char *t = strjoin(prefix, s);
+                if (!t)
+                        return log_oom();
+
+                r = table_add_many(table, TABLE_STRING, t);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                _cleanup_strv_free_ char **split = strv_split(opt->help, /* separators= */ NULL);
+                if (!split)
+                        return log_oom();
+
+                r = table_add_many(table, TABLE_STRV_WRAPPED, split);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        assert(!table_isempty(table));  /* Empty group? Something is off. */
+
+        table_set_header(table, false);
+        *ret = TAKE_PTR(table);
+        *ret_group = group;
+
+        assert(opt - options < INT_MAX);
+        return opt - options;
+}
+
+static int option_build_json(const Option *opt, const char *group, sd_json_variant **ret) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *names = NULL;
+        int r;
+
+        assert(opt);
+        assert(opt->short_code != 0 || opt->long_code);
+        assert(ret);
+
+        if (opt->short_code != 0) {
+                char s[3] = { '-', opt->short_code };
+
+                r = sd_json_variant_append_arrayb(&names, SD_JSON_BUILD_STRING(s));
+                if (r < 0)
+                        return r;
+        }
+
+        if (opt->long_code) {
+                _cleanup_free_ char *s = strjoin("--", opt->long_code);
+                if (!s)
+                        return -ENOMEM;
+
+                r = sd_json_variant_append_arrayb(&names, SD_JSON_BUILD_STRING(s));
+                if (r < 0)
+                        return r;
+        }
+
+        const char *argtype =
+                option_arg_required(opt) ? "required_argument" :
+                option_arg_optional(opt) ? "optional_argument" :
+                "no_argument";
+
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_VARIANT("names", names),
+                        SD_JSON_BUILD_PAIR_STRING("argument", argtype),
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        !!opt->metavar,
+                                        "metavar", SD_JSON_BUILD_STRING(opt->metavar)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!opt->help, "help", SD_JSON_BUILD_STRING(opt->help)),
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        !!group,
+                                        "group", SD_JSON_BUILD_STRV(STRV_MAKE(group))));
+}
+
+int options_build_json(
+                const Option options[],
+                const Option options_end[],
+                const char *namespace,
+                sd_json_variant **ret) {
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        const char *group = NULL;
+        int r;
+
+        assert(ret);
+
+        const Option *start = options_find_namespace(options, options_end, namespace);
+        if (!start)
+                return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN),
+                                       "Option namespace %s not found.",
+                                       namespace ?: "(unnamed)");
+
+        for (const Option *opt = start; opt < options_end; opt++) {
+                if (FLAGS_SET(opt->flags, OPTION_NAMESPACE_MARKER))
+                        break;  /* End of our namespace */
+
+                if (FLAGS_SET(opt->flags, OPTION_GROUP_MARKER)) {
+                        group = opt->long_code;
+                        continue;
+                }
+
+                if (option_is_metadata(opt))
+                        /* Positional and help entries are only used for display */
+                        continue;
+
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *o = NULL;
+                r = option_build_json(opt, group, &o);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build JSON object for option '%s': %m",
+                                               opt->long_code ?: CHAR_TO_STR(opt->short_code));
+
+                r = sd_json_variant_append_array(&array, o);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to append JSON object to array: %m");
+        }
+
+        *ret = TAKE_PTR(array);
         return 0;
 }

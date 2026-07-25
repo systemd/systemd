@@ -23,25 +23,18 @@
 
 #define PCI_CLASS_GRAPHICS_CARD 0x30000
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *verbs = NULL;
-        int r;
+static CommandDescription command = {
+        "systemd-backlight\0",
+        "Save and restore backlight brightness at shutdown and boot.",
+        .argspec = "COMMAND [backlight|leds]:DEVICE",
+        .man_pages = "systemd-backlight.8\0",
+};
+VERB_COMMAND(command);
 
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
+VERB_COMMON_HELP_AUTO_HIDDEN("systemd-backlight");
 
-        help_cmdline("COMMAND [backlight|leds]:DEVICE");
-        help_abstract("Save and restore backlight brightness at shutdown and boot.");
-
-        help_section("Commands");
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("systemd-backlight", "8");
-        return 0;
-}
+OPTION_COMMON_HELP_ENTRY;
+OPTION_COMMON_INTROSPECT_CLI_ENTRY;
 
 static int has_multiple_graphics_cards(void) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
@@ -643,7 +636,10 @@ static int run(int argc, char *argv[]) {
         log_setup();
 
         if (argv_looks_like_help(argc, argv))
-                return help();
+                return command_print_help("systemd-backlight");
+
+        if (strv_contains(strv_skip(argv, 1), "--introspect-cli"))
+                return introspect_cli(SD_JSON_FORMAT_OFF);
 
         umask(0022);
 

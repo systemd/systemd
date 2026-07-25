@@ -45,7 +45,7 @@ typedef struct _alignptr_ Option {
 } Option;
 assert_cc(sizeof(Option) % sizeof(void*) == 0);
 
-#define _OPTION(counter, fl, sc, lc, mv, d, h)                          \
+#define _OPTION_ENTRY(counter, fl, sc, lc, mv, d, h)                    \
         _section_("SYSTEMD_OPTIONS")                                    \
         _alignptr_                                                      \
         _used_                                                          \
@@ -60,7 +60,10 @@ assert_cc(sizeof(Option) % sizeof(void*) == 0);
                 .metavar = mv,                                          \
                 .data = d,                                              \
                 .help = h,                                              \
-        };                                                              \
+        }
+
+#define _OPTION(counter, fl, sc, lc, mv, d, h)                          \
+        _OPTION_ENTRY(counter, fl, sc, lc, mv, d, h);                   \
         case (0x100 + counter)
 
 /* Magic entry in the table (which will not be returned) that designates the start of the namespace <ns>.
@@ -89,11 +92,22 @@ assert_cc(sizeof(Option) % sizeof(void*) == 0);
 #define OPTION_ERROR                                                    \
         case INT_MIN ... -1
 
+#define OPTION_COMMON_HELP_ENTRY                                        \
+        _OPTION_ENTRY(__COUNTER__, /* fl= */ 0, 'h', "help", NULL, /* d= */ 0u, "Show this help")
+
 #define OPTION_COMMON_HELP                                              \
         OPTION('h', "help", NULL, "Show this help")
 
 #define OPTION_COMMON_VERSION                                           \
         OPTION_LONG("version", NULL, "Show package version")
+
+#define OPTION_COMMON_INTROSPECT_CLI                                    \
+        /* This option is internal-only for now and not shown in --help */ \
+        OPTION_LONG("introspect-cli", NULL, /* help= */ NULL)
+
+/* For programs which do not do option parsing, but check the argv array directly. */
+#define OPTION_COMMON_INTROSPECT_CLI_ENTRY                              \
+        _OPTION_ENTRY(__COUNTER__, /* fl= */ 0, /* sc= */ 0, "introspect-cli", /* mv= */ NULL, /* d= */ 0u, /* h= */ NULL)
 
 #define OPTION_COMMON_NO_PAGER                                          \
         OPTION_LONG("no-pager", NULL, "Do not start a pager")
@@ -266,6 +280,11 @@ char* option_parser_get_arg(const OptionParser *state, size_t i);
 
 char* option_get_synopsis(const Option *opt, const char *joiner, bool show_metavar);
 
+const Option* options_find_namespace(
+                const Option options[],
+                const Option options_end[],
+                const char *namespace);
+
 int _option_parser_get_help_table_full(
                 const Option options[],
                 const Option options_end[],
@@ -280,3 +299,17 @@ int _option_parser_get_help_table_full(
         option_parser_get_help_table_full(/* namespace= */ NULL, group, ret)
 #define option_parser_get_help_table(ret)                               \
         option_parser_get_help_table_group(/* group= */ NULL, ret)
+
+int options_get_help_table_group(
+                const Option options[],
+                const Option options_end[],
+                Table **ret,
+                const char **ret_group);
+
+/* Build a JSON array of CLI-introspection option objects for the options in the given namespace.
+ * Returns NULL in *ret if the namespace defines no options. */
+int options_build_json(
+                const Option options[],
+                const Option options_end[],
+                const char *namespace,
+                sd_json_variant **ret);

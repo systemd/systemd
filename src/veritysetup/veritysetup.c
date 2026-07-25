@@ -51,26 +51,6 @@ STATIC_DESTRUCTOR_REGISTER(arg_fec_what, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_hash_signature, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_measure_nvpcr, freep);
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *verbs = NULL;
-        int r;
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        help_cmdline("COMMAND ...");
-        help_abstract("Attach or detach a verity protected block device.");
-
-        help_section("Commands");
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("systemd-veritysetup@.service", "8");
-        return 0;
-}
-
 static int parse_roothashsig_option(const char *option, bool strict) {
         _cleanup_free_ void *rhs = NULL;
         size_t rhss = 0;
@@ -318,6 +298,13 @@ static int parse_options(const char *options) {
         return r;
 }
 
+static CommandDescription command = {
+        "systemd-veritysetup\0",
+        "Attach or detach a verity-protected block device.",
+        .man_pages = "systemd-veritysetup@.service.8\0",
+};
+VERB_COMMAND(command);
+
 VERB(verb_attach, "attach", "VOLUME DATADEVICE HASHDEVICE ROOTHASH [OPTIONS]", 5, 6, 0,
      "Attach a verity protected block device");
 static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) {
@@ -486,11 +473,17 @@ static int verb_detach(int argc, char *argv[], uintptr_t _data, void *userdata) 
         return 0;
 }
 
+OPTION_COMMON_HELP_ENTRY;
+OPTION_COMMON_INTROSPECT_CLI_ENTRY;
+
 static int run(int argc, char *argv[]) {
         int r;
 
         if (argv_looks_like_help(argc, argv))
-                return help();
+                return command_print_help("systemd-veritysetup");
+
+        if (strv_contains(strv_skip(argv, 1), "--introspect-cli"))
+                return introspect_cli(SD_JSON_FORMAT_OFF);
 
         log_setup();
 
