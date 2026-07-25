@@ -8,6 +8,7 @@
 #include "pager.h"
 
 typedef enum TableDataType {
+        /* Except for TABLE_EMPTY, declaration order defines the order between cells of different types. */
         TABLE_EMPTY,
         TABLE_STRING,
         TABLE_STRING_WITH_ANSI,    /* like the above, but contains ANSI sequences/TABs. They will be stripped when outputting to JSON */
