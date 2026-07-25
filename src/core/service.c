@@ -4413,8 +4413,10 @@ static int service_arm_pid_file_retry(Service *s) {
                 /* Run after SIGCHLD and cgroup-empty processing, so they get the first chance to advance
                  * the service state before we retry the PID file ourselves. */
                 r = sd_event_source_set_priority(s->pid_file_retry_event_source, EVENT_PRIORITY_PID_FILE_RETRY);
-                if (r < 0)
-                        return log_unit_error_errno(UNIT(s), r, "Failed to set priority of deferred PID file event source: %m");
+                if (r < 0) {
+		        s->pid_file_retry_event_source = sd_event_source_disable_unref(s->pid_file_retry_event_source);
+			return log_unit_error_errno(UNIT(s), r, "Failed to set priority of deferred PID file event source: %m");
+		}
 
                 (void) sd_event_source_set_description(s->pid_file_retry_event_source, "service-pid-file-retry");
         }
