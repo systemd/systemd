@@ -2863,7 +2863,7 @@ static int dns_delegation_type(DnsTransaction *t) {
 
         assert(t);
 
-        /* Check that this is a answer to a query for a DS record */
+        /* Check that this is an answer to a query for a DS record */
         if (dns_transaction_key(t)->type != DNS_TYPE_DS)
                 return DELEGATION_NONE;
 
