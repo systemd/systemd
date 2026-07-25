@@ -559,6 +559,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         strv_free_and_replace(arg_debugger_args, l);
                         break;
                 }
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
                 }
 
         _cleanup_strv_free_ char **args = strv_copy(option_parser_get_args(&opts)); /* args is [arg1, arg2, …] */

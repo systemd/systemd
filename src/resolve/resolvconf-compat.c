@@ -240,6 +240,9 @@ int resolvconf_parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("updates-are-enabled", NULL, /* help= */ NULL):
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Switch --updates-are-enabled not supported.");
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (arg_mode == _MODE_INVALID)

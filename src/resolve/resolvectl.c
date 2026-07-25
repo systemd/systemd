@@ -3447,6 +3447,9 @@ static int compat_parse_argv(int argc, char *argv[], char ***remaining_args) {
                         if (r < 0)
                                 return r;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
                 }
 
         if (arg_type == 0 && arg_class != 0)
@@ -3674,6 +3677,9 @@ static int native_parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_COMMON_LOWERCASE_J:
                         arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
                 }
 
         if (arg_raw != RAW_NONE && sd_json_format_enabled(arg_json_format_flags))

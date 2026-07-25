@@ -136,6 +136,9 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_SHORT('n', NULL, "Do not suffix password written to standard output with newline"):
                         arg_newline = false;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (isempty(emoji) || streq(emoji, "auto"))

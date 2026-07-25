@@ -292,6 +292,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION('u', "uuid", NULL, "Output in UUID format"):
                         arg_mode = ID128_PRINT_UUID;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
                 }
 
         if (arg_mode == ID128_PRINT_PRETTY && sd_json_format_enabled(arg_json_format_flags))
