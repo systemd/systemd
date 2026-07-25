@@ -44,6 +44,9 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("low", NULL, "Check if battery is discharging and low"):
                         arg_action = ACTION_LOW;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (option_parser_get_n_args(&opts) > 0)

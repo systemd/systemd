@@ -642,6 +642,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_COMMON_VERSION:
                         return version();
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         *ret_args = option_parser_get_args(&opts);
