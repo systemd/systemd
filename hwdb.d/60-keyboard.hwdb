@@ -899,6 +899,10 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPProBook11G2*:pvr*
  KEYBOARD_KEY_d8=!touchpad_off                          # Fn+F2: touchpad off
  KEYBOARD_KEY_d9=!touchpad_on                           # Fn+F2: touchpad on
 
+# HP ProBook x360 435 G7 - Brazilian ABNT2 keyboard
+evdev:atkbd:dmi:bvnHP*:bvr*:bd*:svnHP*:pnHPProBookx360435G7*:pvr*
+ KEYBOARD_KEY_4e=ro                                     # slash/question key
+
 # HP mt44 Mobile Thin Client
 evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHP*mt44*Mobile*Thin*Client*:*
  KEYBOARD_KEY_64=calendar                               # Calendar icon (Fn + F12)
