@@ -163,7 +163,7 @@ msgstr "ユーザー %s のログイン試行が頻繁すぎます。後ほど�
 
 #: src/home/pam_systemd_home.c:345
 msgid "Password: "
-msgstr "パスワード："
+msgstr "パスワード： "
 
 #: src/home/pam_systemd_home.c:347
 #, c-format
@@ -173,11 +173,11 @@ msgstr ""
 
 #: src/home/pam_systemd_home.c:348
 msgid "Sorry, try again: "
-msgstr "すみません、パスワードを再入力してください："
+msgstr "すみません、パスワードを再入力してください： "
 
 #: src/home/pam_systemd_home.c:370
 msgid "Recovery key: "
-msgstr "復旧キー："
+msgstr "復旧キー： "
 
 #: src/home/pam_systemd_home.c:372
 #, c-format
@@ -190,7 +190,7 @@ msgstr ""
 
 #: src/home/pam_systemd_home.c:373
 msgid "Sorry, reenter recovery key: "
-msgstr "すみません、復旧キーを再入力してください："
+msgstr "すみません、復旧キーを再入力してください： "
 
 #: src/home/pam_systemd_home.c:393
 #, c-format
@@ -199,7 +199,7 @@ msgstr "ユーザー %s のセキュリティトークンが挿入されてい�
 
 #: src/home/pam_systemd_home.c:394 src/home/pam_systemd_home.c:397
 msgid "Try again with password: "
-msgstr "パスワードを入力して再試行してください："
+msgstr "パスワードを入力して再試行してください： "
 
 #: src/home/pam_systemd_home.c:396
 #, c-format
@@ -212,7 +212,7 @@ msgstr ""
 
 #: src/home/pam_systemd_home.c:416
 msgid "Security token PIN: "
-msgstr "セキュリティトークンのPIN："
+msgstr "セキュリティトークンのPIN： "
 
 #: src/home/pam_systemd_home.c:433
 #, c-format
@@ -247,7 +247,7 @@ msgstr "ユーザー %s のセキュリティトークンのPINが正しくあ�
 #: src/home/pam_systemd_home.c:473 src/home/pam_systemd_home.c:492
 #: src/home/pam_systemd_home.c:511
 msgid "Sorry, retry security token PIN: "
-msgstr "すみません、セキュリティトークンのPINを再入力してください："
+msgstr "すみません、セキュリティトークンのPINを再入力してください： "
 
 #: src/home/pam_systemd_home.c:491
 #, c-format
