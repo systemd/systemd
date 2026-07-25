@@ -1411,154 +1411,156 @@ int table_hide_column_from_display_internal(Table *t, ...) {
         return 0;
 }
 
-static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t index_b) {
+static int cell_data_compare(TableData *a, TableData *b) {
         int r;
 
         assert(a);
         assert(b);
 
-        if (a->type == b->type) {
+        r = CMP(a->type == TABLE_EMPTY, b->type == TABLE_EMPTY);
+        if (r != 0)
+                return r;
 
-                /* We only define ordering for cells of the same data type. If cells with different data types are
-                 * compared we follow the order the cells were originally added in */
+        r = CMP(a->type, b->type);
+        if (r != 0)
+                return r;
 
-                switch (a->type) {
+        switch (a->type) {
 
-                case TABLE_STRING:
-                case TABLE_STRING_WITH_ANSI:
-                case TABLE_FIELD:
-                case TABLE_HEADER:
-                        return strcmp(a->string, b->string);
+        case TABLE_STRING:
+        case TABLE_STRING_WITH_ANSI:
+        case TABLE_FIELD:
+        case TABLE_HEADER:
+                return strcmp(a->string, b->string);
 
-                case TABLE_PATH:
-                case TABLE_PATH_BASENAME:
-                        return path_compare(a->string, b->string);
+        case TABLE_PATH:
+        case TABLE_PATH_BASENAME:
+                return path_compare(a->string, b->string);
 
-                case TABLE_VERSION:
-                        return strverscmp_improved(a->string, b->string);
+        case TABLE_VERSION:
+                return strverscmp_improved(a->string, b->string);
 
-                case TABLE_STRV:
-                case TABLE_STRV_WRAPPED:
-                        return strv_compare(a->strv, b->strv);
+        case TABLE_STRV:
+        case TABLE_STRV_WRAPPED:
+                return strv_compare(a->strv, b->strv);
 
-                case TABLE_BOOLEAN:
-                case TABLE_BOOLEAN_CHECKMARK:
-                        if (!a->boolean && b->boolean)
-                                return -1;
-                        if (a->boolean && !b->boolean)
-                                return 1;
-                        return 0;
+        case TABLE_BOOLEAN:
+        case TABLE_BOOLEAN_CHECKMARK:
+                if (!a->boolean && b->boolean)
+                        return -1;
+                if (a->boolean && !b->boolean)
+                        return 1;
+                return 0;
 
-                case TABLE_TRISTATE:
-                        /* NB: we do not use CMP() here, since we want to collapse all negative and all
-                         * positive into one bucket each. */
-                        if ((a->tristate < 0 && b->tristate >= 0) ||
-                            (a->tristate == 0 && b->tristate > 0))
-                                return -1;
+        case TABLE_TRISTATE:
+                /* NB: we do not use CMP() here, since we want to collapse all negative and all
+                 * positive into one bucket each. */
+                if ((a->tristate < 0 && b->tristate >= 0) ||
+                    (a->tristate == 0 && b->tristate > 0))
+                        return -1;
 
-                        if ((b->tristate < 0 && a->tristate >= 0) ||
-                            (b->tristate == 0 && a->tristate > 0))
-                                return 1;
-                        return 0;
+                if ((b->tristate < 0 && a->tristate >= 0) ||
+                    (b->tristate == 0 && a->tristate > 0))
+                        return 1;
+                return 0;
 
-                case TABLE_TIMESTAMP:
-                case TABLE_TIMESTAMP_UTC:
-                case TABLE_TIMESTAMP_RELATIVE:
-                case TABLE_TIMESTAMP_RELATIVE_MONOTONIC:
-                case TABLE_TIMESTAMP_LEFT:
-                case TABLE_TIMESTAMP_DATE:
-                        return CMP(a->timestamp, b->timestamp);
+        case TABLE_TIMESTAMP:
+        case TABLE_TIMESTAMP_UTC:
+        case TABLE_TIMESTAMP_RELATIVE:
+        case TABLE_TIMESTAMP_RELATIVE_MONOTONIC:
+        case TABLE_TIMESTAMP_LEFT:
+        case TABLE_TIMESTAMP_DATE:
+                return CMP(a->timestamp, b->timestamp);
 
-                case TABLE_TIMESPAN:
-                case TABLE_TIMESPAN_MSEC:
-                case TABLE_TIMESPAN_DAY:
-                        return CMP(a->timespan, b->timespan);
+        case TABLE_TIMESPAN:
+        case TABLE_TIMESPAN_MSEC:
+        case TABLE_TIMESPAN_DAY:
+                return CMP(a->timespan, b->timespan);
 
-                case TABLE_SIZE:
-                case TABLE_BPS:
-                        return CMP(a->size, b->size);
+        case TABLE_SIZE:
+        case TABLE_BPS:
+                return CMP(a->size, b->size);
 
-                case TABLE_INT:
-                case TABLE_SIGNAL:
-                        return CMP(a->int_val, b->int_val);
+        case TABLE_INT:
+        case TABLE_SIGNAL:
+                return CMP(a->int_val, b->int_val);
 
-                case TABLE_INT8:
-                        return CMP(a->int8, b->int8);
+        case TABLE_INT8:
+                return CMP(a->int8, b->int8);
 
-                case TABLE_INT16:
-                        return CMP(a->int16, b->int16);
+        case TABLE_INT16:
+                return CMP(a->int16, b->int16);
 
-                case TABLE_INT32:
-                        return CMP(a->int32, b->int32);
+        case TABLE_INT32:
+                return CMP(a->int32, b->int32);
 
-                case TABLE_INT64:
-                        return CMP(a->int64, b->int64);
+        case TABLE_INT64:
+                return CMP(a->int64, b->int64);
 
-                case TABLE_UINT:
-                        return CMP(a->uint_val, b->uint_val);
+        case TABLE_UINT:
+                return CMP(a->uint_val, b->uint_val);
 
-                case TABLE_UINT8:
-                        return CMP(a->uint8, b->uint8);
+        case TABLE_UINT8:
+                return CMP(a->uint8, b->uint8);
 
-                case TABLE_UINT16:
-                        return CMP(a->uint16, b->uint16);
+        case TABLE_UINT16:
+                return CMP(a->uint16, b->uint16);
 
-                case TABLE_UINT32:
-                case TABLE_UINT32_HEX:
-                case TABLE_UINT32_HEX_0x:
-                        return CMP(a->uint32, b->uint32);
+        case TABLE_UINT32:
+        case TABLE_UINT32_HEX:
+        case TABLE_UINT32_HEX_0x:
+                return CMP(a->uint32, b->uint32);
 
-                case TABLE_UINT64:
-                case TABLE_UINT64_HEX:
-                case TABLE_UINT64_HEX_0x:
-                        return CMP(a->uint64, b->uint64);
+        case TABLE_UINT64:
+        case TABLE_UINT64_HEX:
+        case TABLE_UINT64_HEX_0x:
+                return CMP(a->uint64, b->uint64);
 
-                case TABLE_PERCENT:
-                        return CMP(a->percent, b->percent);
+        case TABLE_PERCENT:
+                return CMP(a->percent, b->percent);
 
-                case TABLE_IFINDEX:
-                        return CMP(a->ifindex, b->ifindex);
+        case TABLE_IFINDEX:
+                return CMP(a->ifindex, b->ifindex);
 
-                case TABLE_IN_ADDR:
-                        return CMP(a->address.in.s_addr, b->address.in.s_addr);
+        case TABLE_IN_ADDR:
+                return CMP(a->address.in.s_addr, b->address.in.s_addr);
 
-                case TABLE_IN6_ADDR:
-                        return memcmp(&a->address.in6, &b->address.in6, FAMILY_ADDRESS_SIZE(AF_INET6));
+        case TABLE_IN6_ADDR:
+                return memcmp(&a->address.in6, &b->address.in6, FAMILY_ADDRESS_SIZE(AF_INET6));
 
-                case TABLE_UUID:
-                case TABLE_ID128:
-                        return memcmp(&a->id128, &b->id128, sizeof(sd_id128_t));
+        case TABLE_UUID:
+        case TABLE_ID128:
+                return memcmp(&a->id128, &b->id128, sizeof(sd_id128_t));
 
-                case TABLE_UID:
-                        return CMP(a->uid, b->uid);
+        case TABLE_UID:
+                return CMP(a->uid, b->uid);
 
-                case TABLE_GID:
-                        return CMP(a->gid, b->gid);
+        case TABLE_GID:
+                return CMP(a->gid, b->gid);
 
-                case TABLE_PID:
-                        return CMP(a->pid, b->pid);
+        case TABLE_PID:
+                return CMP(a->pid, b->pid);
 
-                case TABLE_MODE:
-                case TABLE_MODE_INODE_TYPE:
-                        return CMP(a->mode, b->mode);
+        case TABLE_MODE:
+        case TABLE_MODE_INODE_TYPE:
+                return CMP(a->mode, b->mode);
 
-                case TABLE_DEVNUM:
-                        r = CMP(major(a->devnum), major(b->devnum));
-                        if (r != 0)
-                                return r;
+        case TABLE_DEVNUM:
+                r = CMP(major(a->devnum), major(b->devnum));
+                if (r != 0)
+                        return r;
 
-                        return CMP(minor(a->devnum), minor(b->devnum));
+                return CMP(minor(a->devnum), minor(b->devnum));
 
-                case TABLE_JSON:
-                        return json_variant_compare(a->json, b->json);
+        case TABLE_JSON:
+                return json_variant_compare(a->json, b->json);
 
-                default:
-                        ;
-                }
+        case TABLE_EMPTY:
+                return 0;
+
+        default:
+                assert_not_reached();
         }
-
-        /* Generic fallback using the original order in which the cells where added. */
-        return CMP(index_a, index_b);
 }
 
 static int table_data_compare(const size_t *a, const size_t *b, Table *t) {
@@ -1586,7 +1588,7 @@ static int table_data_compare(const size_t *a, const size_t *b, Table *t) {
                 d = t->data[*a + t->sort_map[i]];
                 dd = t->data[*b + t->sort_map[i]];
 
-                r = cell_data_compare(d, *a, dd, *b);
+                r = cell_data_compare(d, dd);
                 if (r != 0)
                         return t->reverse_map && t->reverse_map[t->sort_map[i]] ? -r : r;
         }
