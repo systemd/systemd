@@ -19,6 +19,7 @@ void bus_manager_send_finished(
 
 void bus_manager_send_reloading(Manager *m, bool active);
 void bus_manager_send_change_signal(Manager *m);
+void manager_cancel_list_unit_files_ops(Manager *m);
 
 int bus_property_get_oom_policy(
                 sd_bus *bus,
