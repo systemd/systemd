@@ -487,6 +487,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                 OPTION_COMMON_VERSION:
                         return version();
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         *ret_args = option_parser_get_args(&opts);
@@ -500,6 +503,9 @@ static int run(int argc, char *argv[]) {
         r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
+
+        if (strv_contains(strv_skip(argv, 1), "--introspect-cli"))
+                return introspect_cli(SD_JSON_FORMAT_OFF);
 
         log_setup();
 
