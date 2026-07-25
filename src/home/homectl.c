@@ -4852,6 +4852,9 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_SHORT('N', NULL, /* help= */ NULL):
                         match_identity = &arg_identity_extra_other_machines;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
                 }
 
         if (!strv_isempty(arg_languages)) {
