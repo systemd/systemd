@@ -828,6 +828,21 @@ static int create_socket(const char *askpwdir, char **ret) {
         return TAKE_FD(fd);
 }
 
+bool ask_password_agent_request_is_valid(const AskPasswordRequest *req) {
+        /* These fields end up in single-line "Key=value" assignments in the agent request file, hence a
+         * newline (or any other control character) in them would let the caller add further assignments to
+         * the [Ask] section, which agents then happily honour. Only the characters string_is_safe() rejects
+         * by default matter here, the rest is fine to appear in a prompt. */
+        const StringSafeFlags flags = STRING_ALLOW_EMPTY | STRING_ALLOW_BACKSLASHES |
+                                      STRING_ALLOW_QUOTES | STRING_ALLOW_GLOBS;
+
+        assert(req);
+
+        return (!req->message || string_is_safe(req->message, flags)) &&
+               (!req->icon || string_is_safe(req->icon, flags)) &&
+               (!req->id || string_is_safe(req->id, flags));
+}
+
 int ask_password_agent(
                 const AskPasswordRequest *req,
                 AskPasswordFlags flags,
@@ -849,6 +864,10 @@ int ask_password_agent(
         /* We don't support the flag file concept for now when querying via the agent logic */
         if (req->flag_file)
                 return -EOPNOTSUPP;
+
+        if (!ask_password_agent_request_is_valid(req))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Password request contains unsafe characters, refusing.");
 
         _cleanup_free_ char *askpwdir = NULL;
         r = get_ask_password_directory_for_flags(flags, &askpwdir);
