@@ -1612,7 +1612,11 @@ int open_tree_attr_with_fallback(int dir_fd, const char *path, unsigned flags, s
         fd = open_tree_attr(dir_fd, path, flags, attr, sizeof(struct mount_attr));
         if (fd >= 0)
                 return TAKE_FD(fd);
-        if (!ERRNO_IS_NOT_SUPPORTED(errno))
+        /* Some kernels appear to mishandle MOUNT_ATTR_IDMAP specifically when set via the combined
+         * open_tree_attr() syscall (introduced in Linux 6.15), returning EBUSY where the older two-step
+         * open_tree() + mount_setattr() sequence below succeeds cleanly on a fresh, unattached clone -
+         * fall back to that in this case too, not just for the "syscall not supported at all" errnos. */
+        if (!ERRNO_IS_NOT_SUPPORTED(errno) && !(errno == EBUSY && FLAGS_SET(attr->attr_set, MOUNT_ATTR_IDMAP)))
                 return log_debug_errno(errno, "Failed to open tree and set mount attributes: %m");
 
         if (attr->attr_clr & MOUNT_ATTR_IDMAP)
@@ -2136,6 +2140,36 @@ int make_fsmount(
                                       type);
 
         return TAKE_FD(mnt_fd);
+}
+
+int tmpfs_patch_options(
+                const char *options,
+                uid_t uid_shift,
+                const char *selinux_apifs_context,
+                char **ret) {
+
+        _cleanup_free_ char *buf = NULL;
+
+        assert(ret);
+
+        if (options) {
+                buf = strdup(options);
+                if (!buf)
+                        return -ENOMEM;
+        }
+
+        if (uid_shift != UID_INVALID)
+                if (strextendf_with_separator(&buf, ",", "uid=" UID_FMT ",gid=" UID_FMT, uid_shift, uid_shift) < 0)
+                        return -ENOMEM;
+
+#if HAVE_SELINUX
+        if (selinux_apifs_context)
+                if (strextendf_with_separator(&buf, ",", "context=\"%s\"", selinux_apifs_context) < 0)
+                        return -ENOMEM;
+#endif
+
+        *ret = TAKE_PTR(buf);
+        return !!*ret;
 }
 
 char* umount_and_rmdir_and_free(char *p) {
