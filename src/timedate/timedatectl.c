@@ -963,6 +963,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION('a', "all", NULL, "Show all properties, including empty ones"):
                         SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         *ret_args = option_parser_get_args(&opts);
