@@ -2,7 +2,6 @@
 #pragma once
 
 #include "forward.h"
-#include "volatile-util.h"
 
 typedef enum MountSettingsMask {
         MOUNT_FATAL              = 1 << 0, /* if set, a mount error is considered fatal */
@@ -63,17 +62,9 @@ int mount_sysfs(const char *dest, MountSettingsMask mount_settings);
 int mount_custom(const char *dest, CustomMount *mounts, size_t n, uid_t uid_shift, uid_t uid_range, const char *selinux_apifs_context, MountSettingsMask mount_settings);
 bool has_custom_root_mount(const CustomMount *mounts, size_t n);
 
-int setup_volatile_mode(const char *directory, VolatileMode mode, uid_t uid_shift, const char *selinux_apifs_context);
-int setup_volatile_mode_after_remount_idmap(
-                const char *directory,
-                VolatileMode mode,
-                uid_t uid_shift,
-                const char *selinux_apifs_context);
-
 int pivot_root_parse(char **pivot_root_new, char **pivot_root_old, const char *s);
 int setup_pivot_root(const char *directory, const char *pivot_root_new, const char *pivot_root_old);
 
-int tmpfs_patch_options(const char *options,uid_t uid_shift, const char *selinux_apifs_context, char **ret);
 
 int pin_fully_visible_api_fs(void);
 int wipe_fully_visible_api_fs(int mntns_fd);
