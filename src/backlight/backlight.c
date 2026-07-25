@@ -34,6 +34,7 @@ VERB_COMMAND(command);
 VERB_COMMON_HELP_AUTO_HIDDEN("systemd-backlight");
 
 OPTION_COMMON_HELP_ENTRY;
+OPTION_COMMON_INTROSPECT_CLI_ENTRY;
 
 static int has_multiple_graphics_cards(void) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
@@ -636,6 +637,9 @@ static int run(int argc, char *argv[]) {
 
         if (argv_looks_like_help(argc, argv))
                 return command_print_help("systemd-backlight");
+
+        if (strv_contains(strv_skip(argv, 1), "--introspect-cli"))
+                return introspect_cli(SD_JSON_FORMAT_OFF);
 
         umask(0022);
 

@@ -474,12 +474,16 @@ static int verb_detach(int argc, char *argv[], uintptr_t _data, void *userdata) 
 }
 
 OPTION_COMMON_HELP_ENTRY;
+OPTION_COMMON_INTROSPECT_CLI_ENTRY;
 
 static int run(int argc, char *argv[]) {
         int r;
 
         if (argv_looks_like_help(argc, argv))
                 return command_print_help("systemd-veritysetup");
+
+        if (strv_contains(strv_skip(argv, 1), "--introspect-cli"))
+                return introspect_cli(SD_JSON_FORMAT_OFF);
 
         log_setup();
 
