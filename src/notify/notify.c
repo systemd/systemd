@@ -283,7 +283,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
         case ACTION_NOTIFY: {
                 if (arg_fdname && fdset_isempty(arg_fds))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No file descriptors passed, but --fdname= set, refusing.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No file descriptors passed, but --fdname= used, refusing.");
 
                 size_t n_arg_env;
 
@@ -308,14 +308,10 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         n_arg_env = strv_length(args);
 
                 have_env = have_env || n_arg_env > 0;
-                if (!have_env) {
-                        if (do_exec)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No notify message specified while --exec, refusing.");
-
-                        /* No argument at all? */
-                        help();
-                        return -EINVAL;
-                }
+                if (!have_env)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               do_exec ? "No notify message specified with --exec, refusing." :
+                                                         "Nothing to notify about was specified.");
 
                 if (n_arg_env > 0) {
                         arg_env = strv_copy_n(args, n_arg_env);
