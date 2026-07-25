@@ -38,7 +38,7 @@ static const char* const voa_technology_table[_VOA_TECHNOLOGY_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(voa_technology, VOATechnology);
 
 /* Implementation of: https://uapi-group.org/specifications/specs/file_hierarchy_for_the_verification_of_os_artifacts */
-int acquire_voa_paths_full(char ***ret, VOAPurpose purpose, VOAContext context, VOATechnology technology, bool trust_anchor) {
+int acquire_voa_paths_full(char ***ret, VOAPurpose purpose, VOAContext context, VOATechnology technology, bool trust_anchor, const char* root_override) {
         _cleanup_strv_free_ char **dirs = NULL;
         _cleanup_free_ char *os_str = NULL;
         _cleanup_free_ char *purpose_str = NULL;
@@ -68,7 +68,11 @@ int acquire_voa_paths_full(char ***ret, VOAPurpose purpose, VOAContext context, 
         const char *context_str = voa_context_to_string(context);
         const char *technology_str = voa_technology_to_string(technology);
 
-        FOREACH_STRING(dir, CONF_PATHS("voa")) {
+        const char *conf_roots = root_override;
+        if (isempty(conf_roots))
+                conf_roots = CONF_PATHS("voa");
+
+        FOREACH_STRING(dir, conf_roots) {
                 _cleanup_free_ char *full = path_join(dir,
                                                 os_str,
                                                 purpose_str,

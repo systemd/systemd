@@ -424,6 +424,7 @@ static int verify_pkcs7(
         _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
         _cleanup_(BIO_freep) BIO *bio = NULL;
         _cleanup_(X509_STORE_freep) X509_STORE *store = NULL;
+        const char *voa_root_override;
         int r;
 
         assert(iovec_is_valid(payload));
@@ -431,6 +432,10 @@ static int verify_pkcs7(
 
         if (!iovec_is_set(payload) || !iovec_is_set(signature))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Empty signature or payload!");
+
+        voa_root_override = empty_to_null(secure_getenv("SYSTEMD_VOA_ROOT"));
+        if (!isempty(voa_root_override))
+                log_debug("Using SYSTEMD_VOA_ROOT override: %s", voa_root_override);
 
         r = dlopen_libcrypto(LOG_DEBUG);
         if (r < 0)
@@ -445,7 +450,7 @@ static int verify_pkcs7(
         if (!bio)
                 return log_oom_debug();
 
-        r = acquire_voa_trust_anchor_paths(&trust_anchor_dirs, VOA_PURPOSE_IMAGE, voa_context, VOA_TECHNOLOGY_X509);
+        r = acquire_voa_trust_anchor_paths(&trust_anchor_dirs, VOA_PURPOSE_IMAGE, voa_context, VOA_TECHNOLOGY_X509, voa_root_override);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire VOA trust anchor paths: %m.");
         store = sym_X509_STORE_new();
@@ -483,7 +488,7 @@ static int verify_pkcs7(
                         return log_openssl_errors(LOG_ERR, "Failed to add cert %s to x509 store", *i);
         }
 
-        r = acquire_voa_certificate_paths(&certificate_dirs, VOA_PURPOSE_IMAGE, voa_context, VOA_TECHNOLOGY_X509);
+        r = acquire_voa_certificate_paths(&certificate_dirs, VOA_PURPOSE_IMAGE, voa_context, VOA_TECHNOLOGY_X509, voa_root_override);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire VOA certificate paths: %m.");
 

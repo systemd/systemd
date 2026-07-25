@@ -38,10 +38,11 @@ DECLARE_STRING_TABLE_LOOKUP(voa_purpose, VOAPurpose);
 DECLARE_STRING_TABLE_LOOKUP(voa_context, VOAContext);
 DECLARE_STRING_TABLE_LOOKUP(voa_technology, VOATechnology);
 
-int acquire_voa_paths_full(char ***ret, VOAPurpose purpose, VOAContext context, VOATechnology technology, bool trust_anchor);
-static inline int acquire_voa_certificate_paths(char ***ret, VOAPurpose purpose, VOAContext context, VOATechnology technology) {
-        return acquire_voa_paths_full(ret, purpose, context, technology, false);
+int acquire_voa_paths_full(char ***ret, VOAPurpose purpose, VOAContext context, VOATechnology technology, bool trust_anchor, const char *root_override);
+
+static inline int acquire_voa_certificate_paths(char ***ret, VOAPurpose purpose, VOAContext context, VOATechnology technology, const char *root_override) {
+        return acquire_voa_paths_full(ret, purpose, context, technology, false, root_override);
 }
-static inline int acquire_voa_trust_anchor_paths(char ***ret, VOAPurpose purpose, VOAContext context, VOATechnology technology) {
-        return acquire_voa_paths_full(ret, purpose, context, technology, true);
+static inline int acquire_voa_trust_anchor_paths(char ***ret, VOAPurpose purpose, VOAContext context, VOATechnology technology,  const char *root_override) {
+        return acquire_voa_paths_full(ret, purpose, context, technology, true, root_override);
 }
