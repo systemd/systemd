@@ -281,13 +281,6 @@ int efi_measured_uki(int log_level) {
          * being used, but it measured things into a different PCR than we are configured for in
          * userspace. (i.e. we expect PCR 11 being used for this by both sd-stub and us) */
 
-        r = secure_getenv_bool("SYSTEMD_FORCE_MEASURE"); /* Give user a chance to override the variable test,
-                                                          * for debugging purposes */
-        if (r >= 0)
-                return (cached = r);
-        if (r != -ENXIO)
-                log_debug_errno(r, "Failed to parse $SYSTEMD_FORCE_MEASURE, ignoring: %m");
-
         if (!efi_has_tpm2())
                 return (cached = 0);
 
@@ -323,12 +316,19 @@ int efi_measured_os(int log_level) {
         if (cached >= 0)
                 return cached;
 
+        r = secure_getenv_bool("SYSTEMD_FORCE_MEASURE"); /* Give user a chance to override the variable test,
+                                                          * for debugging purposes */
+        if (r >= 0)
+                return (cached = r);
+        if (r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_FORCE_MEASURE, ignoring: %m");
+
         bool b;
         r = proc_cmdline_get_bool("systemd.tpm2_measured_os", /* flags= */ 0, &b);
+        if (r > 0)
+                return (cached = b);
         if (r < 0)
                 log_debug_errno(r, "Failed to parse systemd.tpm2_measured_os= kernel command line argument, ignoring: %m");
-        else if (r > 0)
-                return (cached = b);
 
         /* If nothing is explicitly configured, just assume that if we booted with a measured UKI we also want a measured OS */
         return (cached = efi_measured_uki(log_level));
