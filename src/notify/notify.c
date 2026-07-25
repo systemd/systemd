@@ -6,6 +6,7 @@
 
 #include "sd-daemon.h"
 #include "sd-event.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "build.h"
@@ -15,13 +16,10 @@
 #include "exit-status.h"
 #include "fd-util.h"
 #include "fdset.h"
-#include "format-table.h"
 #include "format-util.h"
-#include "help-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "notify-recv.h"
-#include "options.h"
 #include "parse-util.h"
 #include "pidref.h"
 #include "process-util.h"
@@ -30,6 +28,7 @@
 #include "strv.h"
 #include "time-util.h"
 #include "user-util.h"
+#include "verbs.h"
 
 static enum {
         ACTION_NOTIFY,
@@ -56,27 +55,15 @@ STATIC_DESTRUCTOR_REGISTER(arg_exec, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fds, fdset_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fdname, freep);
 
-static int help(void) {
-        int r;
-
-        _cleanup_(table_unrefp) Table *options = NULL;
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        help_cmdline("[OPTIONS...] [VARIABLE=VALUE...]");
-        help_cmdline("[OPTIONS...] --exec [VARIABLE=VALUE...] ; -- CMDLINE...");
-        help_cmdline("[OPTIONS...] --fork -- CMDLINE...");
-        help_abstract("Notify the service manager about service status updates.");
-
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("systemd-notify", "1");
-        return 0;
-}
+COMMAND(
+        "systemd-notify\0",
+        "Notify the service manager about service status updates.",
+        .argspec =
+                "[VARIABLE=VALUE…]\0"
+                "--exec [VARIABLE=VALUE…] ; -- CMDLINE…\0"
+                "--fork -- CMDLINE…\0",
+        .man_pages = "systemd-notify.1\0",
+);
 
 static int get_manager_pid(PidRef *ret) {
         int r;
@@ -159,7 +146,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-notify");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -413,7 +400,6 @@ static int on_child(sd_event_source *s, const siginfo_t *si, void *userdata) {
 }
 
 static int action_fork(char *const *_command) {
-
         static const int forward_signals[] = {
                 SIGHUP,
                 SIGTERM,
