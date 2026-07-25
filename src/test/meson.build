@@ -60,6 +60,7 @@ simple_tests += files(
         'test-architecture.c',
         'test-argv-util.c',
         'test-arphrd-util.c',
+        'test-ask-password-agent.c',
         'test-audit-util.c',
         'test-barrier.c',
         'test-binfmt-util.c',
