@@ -42,7 +42,6 @@
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "nsresource.h"
-#include "options.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -60,6 +59,7 @@
 #include "tmpfile-util.h"
 #include "uid-classification.h"
 #include "user-util.h"
+#include "verbs.h"
 #include "vpick.h"
 
 static enum {
@@ -121,63 +121,27 @@ STATIC_DESTRUCTOR_REGISTER(arg_loop_ref, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_filter, image_filter_freep);
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL, *commands = NULL;
-        int r;
-
-        pager_open(arg_pager_flags);
-
-        r = terminal_urlify_man("systemd-dissect", "1", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = option_parser_get_help_table_ns("systemd-dissect", &options);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table_full("systemd-dissect", "Commands", &commands);
-        if (r < 0)
-                return r;
-
-        /* Make the 1st column same width in both tables */
-        (void) table_sync_column_widths(0, options, commands);
-
-        printf("%1$s [OPTIONS...] IMAGE\n"
-               "%1$s [OPTIONS...] --mount IMAGE PATH\n"
-               "%1$s [OPTIONS...] --umount PATH\n"
-               "%1$s [OPTIONS...] --attach IMAGE\n"
-               "%1$s [OPTIONS...] --detach PATH\n"
-               "%1$s [OPTIONS...] --list IMAGE\n"
-               "%1$s [OPTIONS...] --mtree IMAGE\n"
-               "%1$s [OPTIONS...] --with IMAGE [COMMAND…]\n"
-               "%1$s [OPTIONS...] --copy-from IMAGE PATH [TARGET]\n"
-               "%1$s [OPTIONS...] --copy-to IMAGE [SOURCE] PATH\n"
-               "%1$s [OPTIONS...] --make-archive IMAGE [TARGET]\n"
-               "%1$s [OPTIONS...] --discover\n"
-               "%1$s [OPTIONS...] --validate IMAGE\n"
-               "%1$s [OPTIONS...] --shift IMAGE UIDBASE\n"
-               "\n%2$sDissect a Discoverable Disk Image (DDI).%3$s\n"
-               "\n%4$sOptions:%5$s\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal(),
-               ansi_underline(),
-               ansi_normal());
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\n%sCommands:%s\n", ansi_underline(), ansi_normal());
-
-        r = table_print_or_warn(commands);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
+COMMAND(
+        "systemd-dissect\0",
+        "Dissect a Discoverable Disk Image (DDI).",
+        .argspec =
+               "IMAGE\0"
+               "--mount IMAGE PATH\0"
+               "--umount PATH\0"
+               "--attach IMAGE\0"
+               "--detach PATH\0"
+               "--list IMAGE\0"
+               "--mtree IMAGE\0"
+               "--with IMAGE [COMMAND…]\0"
+               "--copy-from IMAGE PATH [TARGET]\0"
+               "--copy-to IMAGE [SOURCE] PATH\0"
+               "--make-archive IMAGE [TARGET]\0"
+               "--discover\0"
+               "--validate IMAGE\0"
+               "--shift IMAGE UIDBASE\0",
+        .man_pages = "systemd-dissect.1\0",
+        .option_namespace = "systemd-dissect",
+);
 
 static int parse_image_path_argument(const char *path, char **ret_root, char **ret_image) {
         _cleanup_free_ char *p = NULL;
@@ -439,7 +403,7 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_GROUP("Commands"): {}
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-dissect");
 
                 OPTION_COMMON_VERSION:
                         return version();
