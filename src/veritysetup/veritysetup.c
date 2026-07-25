@@ -501,6 +501,9 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
+        if (strv_contains(strv_skip(argv, 1), "--introspect-cli"))
+                return introspect_cli(SD_JSON_FORMAT_OFF);
+
         log_setup();
 
         LIBCRYPTO_NOTE(suggested);
