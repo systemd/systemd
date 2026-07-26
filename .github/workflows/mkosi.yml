@@ -73,7 +73,7 @@ jobs:
           - distro: ubuntu
             release: resolute
           - distro: fedora
-            release: "43"
+            release: "44"
             sanitizers: address,undefined
             llvm: 1
           - distro: fedora
