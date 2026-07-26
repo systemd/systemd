@@ -34,6 +34,7 @@ const sd_bus_vtable bus_slice_vtable[] = {
          * systemctl set-property), hence they aren't marked as constant */
         SD_BUS_PROPERTY("ConcurrencyHardMax", "u", bus_property_get_unsigned, offsetof(Slice, concurrency_hard_max), 0),
         SD_BUS_PROPERTY("ConcurrencySoftMax", "u", bus_property_get_unsigned, offsetof(Slice, concurrency_soft_max), 0),
+        SD_BUS_PROPERTY("ActivatingConcurrencyMax", "u", bus_property_get_unsigned, offsetof(Slice, activating_concurrency_max), 0),
         SD_BUS_PROPERTY("NCurrentlyActive", "u", property_get_currently_active, 0, 0),
         SD_BUS_VTABLE_END
 };
@@ -58,6 +59,26 @@ static int bus_slice_set_transient_property(
 
         if (streq(name, "ConcurrencySoftMax"))
                 return bus_set_transient_unsigned(u, name, &s->concurrency_soft_max, message, flags, reterr_error);
+
+        if (streq(name, "ActivatingConcurrencyMax")) {
+                uint32_t v;
+                int r;
+
+                r = sd_bus_message_read(message, "u", &v);
+                if (r < 0)
+                        return r;
+
+                if (v == 0)
+                        return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
+                                                "ActivatingConcurrencyMax= must be positive");
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        s->activating_concurrency_max = v;
+                        unit_write_settingf(u, flags, name, "ActivatingConcurrencyMax=%" PRIu32, v);
+                }
+
+                return 1;
+        }
 
         return 0;
 }
