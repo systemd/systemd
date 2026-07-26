@@ -37,7 +37,12 @@ fi
 minor=$(systemctl --version | awk '/^systemd/{print$2}')
 networkd=
 resolved=
+udev=
 unitscmd='systemctl list-units --failed *systemd*'
+
+if command -v udevadm >/dev/null && systemctl is-active --quiet systemd-udevd.service; then
+    udev=1
+fi
 
 if [[ $($unitscmd --output json | jq length) -gt 0 ]]; then
     echo 'Systemd failed units found before the test:'
@@ -58,7 +63,7 @@ check_sd() {
         fail=1
     fi
 
-    if command -v udevadm >/dev/null && ! udevadm control --ping --timeout=5; then
+    if [[ -n $udev ]] && ! udevadm control --ping --timeout=5; then
         echo 'Udev failed after the test!'
         fail=1
     fi
