@@ -90,6 +90,7 @@ wrap=(
     lvm
     mdadm
     mkfs.btrfs
+    mkfs.erofs
     mkfs.ext4
     mksquashfs
     mount
