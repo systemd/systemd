@@ -1841,13 +1841,21 @@ int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_moun
                 /* If possible on a newer kernel, use MS_PRIVATE to decouple it from the original mount.
                  * Otherwise MNT_DETACH of the source path could propagate through and unmount the
                  * just-moved nested children at the destination (relevant for preserving nested mounts
-                 * under sysext hierarchies). */
+                 * under sysext hierarchies).
+                 *
+                 * Also, pass AT_NO_AUTOMOUNT so that we clone automount points (i.e. autofs mounts) as
+                 * they are, instead of triggering them. OPEN_TREE_CLONE would otherwise force them to be
+                 * mounted, and — worse — block until the automount request has been served. If the
+                 * automount point is managed by PID 1 itself (as is the case for systemd's own
+                 * /proc/sys/fs/binfmt_misc automount point, which is cloned whenever a private /proc is
+                 * set up for a service) this can take a long time during boot, since the resulting mount
+                 * job competes with the ongoing boot transaction. */
                 static bool mount_attr_unsupported = false;
 
                 if (!mount_attr_unsupported) {
                         mount_fd = open_tree_attr_with_fallback(
                                         AT_FDCWD, path,
-                                        OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_RECURSIVE,
+                                        OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_RECURSIVE|AT_NO_AUTOMOUNT,
                                         &(struct mount_attr) { .propagation = MS_PRIVATE });
                         if (mount_fd == -ENOENT) /* The path may be hidden by another over-mount or already unmounted. */
                                 continue;
@@ -1861,7 +1869,7 @@ int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_moun
                 }
 
                 if (mount_attr_unsupported) {
-                        mount_fd = RET_NERRNO(open_tree(AT_FDCWD, path, OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_RECURSIVE));
+                        mount_fd = RET_NERRNO(open_tree(AT_FDCWD, path, OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_RECURSIVE|AT_NO_AUTOMOUNT));
                         if (mount_fd == -ENOENT)
                                 continue;
                         if (mount_fd < 0)
