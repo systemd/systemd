@@ -231,19 +231,10 @@ static void service_unwatch_main_pid(Service *s) {
         unit_unwatch_pidref_done(UNIT(s), &s->main_pid);
 }
 
-static void service_disable_pid_file_retry(Service *s) {
-        assert(s);
-
-        if (!s->pid_file_retry_event_source)
-                return;
-
-        (void) sd_event_source_set_enabled(s->pid_file_retry_event_source, SD_EVENT_OFF);
-}
-
 static void service_unwatch_pid_file(Service *s) {
         assert(s);
 
-        service_disable_pid_file_retry(s);
+        (void) sd_event_source_set_enabled(s->pid_file_retry_event_source, SD_EVENT_OFF);
 
         if (!s->pid_file_pathspec)
                 return;
@@ -1840,7 +1831,8 @@ static int service_coldplug(Unit *u) {
                 }
         }
 
-        if (IN_SET(s->deserialized_state, SERVICE_START, SERVICE_START_POST) &&
+        if (s->type == SERVICE_FORKING &&
+            IN_SET(s->deserialized_state, SERVICE_START, SERVICE_START_POST) &&
             s->pid_file &&
             !pidref_is_set(&s->control_pid) &&
             !s->main_pid_known) {
@@ -1852,8 +1844,12 @@ static int service_coldplug(Unit *u) {
                         return r;
 
                 r = service_arm_pid_file_retry(s);
-                if (r < 0)
+                if (r < 0) {
+                        /* service_demand_pid_file() already installed the inotify watch. Undo it before bailing out so we do
+                         * not leave a live watch attached to a service whose state was never restored. */
+                        service_unwatch_pid_file(s);
                         return r;
+                }
         }
 
         service_set_state(s, s->deserialized_state);
