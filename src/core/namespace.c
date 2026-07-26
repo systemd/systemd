@@ -3155,7 +3155,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
 
         } else if (p->rootfs && p->rootfs->mstack_loaded) {
 
-                r = mstack_make_mounts(p->rootfs->mstack_loaded, root, mstack_flags);
+                r = mstack_make_mounts(p->rootfs->mstack_loaded, root, mstack_flags, /* uid_shift= */ UID_INVALID);
                 if (r < 0)
                         return r;
 
