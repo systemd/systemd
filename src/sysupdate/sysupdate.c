@@ -1230,6 +1230,7 @@ static bool image_type_can_sysupdate(ImageType image_type) {
         return IN_SET(image_type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME, IMAGE_RAW, IMAGE_BLOCK);
 }
 
+/* Assumes validation of the image has already been done */
 static int context_load_paths_from_image(Context *context, Image *image) {
         assert(context);
         assert(image);
@@ -1255,6 +1256,19 @@ static int context_load_paths_from_image(Context *context, Image *image) {
         }
 }
 
+/* Assumes validation of the component has already been done */
+static int context_load_paths_from_component(Context *context, const char *component_name) {
+        assert(context);
+        assert(component_name);
+
+        assert(!context->component);
+
+        context->component = strdup(component_name);
+        if (!context->component)
+                return log_oom();
+        return 0;
+}
+
 static void target_identifier_hash_func(const TargetIdentifier *t, struct siphash *state) {
         assert(t);
 
@@ -1274,10 +1288,6 @@ static int target_identifier_compare_func(const TargetIdentifier *x, const Targe
 
         return strcmp(x->name, y->name);
 }
-
-DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(target_identifier_hash_ops,
-                                              TargetIdentifier, target_identifier_hash_func, target_identifier_compare_func,
-                                              TargetIdentifier, target_identifier_free);
 
 /* This is basically a presentational struct to collect together all the data for the
  * user-visible Target type in varlink/D-Bus. The data comes from Transfers and UpdateSets. */
@@ -1333,6 +1343,25 @@ static int target_new(TargetClass class, const char *name, Target **ret) {
         return 0;
 }
 
+static void target_hash_func(const Target *t, struct siphash *state) {
+        assert(t);
+
+        target_identifier_hash_func(&t->identifier, state);
+}
+
+static int target_compare_func(const Target *x, const Target *y) {
+        assert(x);
+        assert(y);
+
+        return target_identifier_compare_func(&x->identifier, &y->identifier);
+}
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(target_hash_ops,
+                                              Target, target_hash_func, target_compare_func,
+                                              Target, target_free);
+
+/* Needs context_load_online() to have been called on `context`, or context_load_offline()
+ * plus context_discover_update_sets(). */
 static int context_build_target(Context *context, TargetClass class, const char *name, Target **ret) {
         _cleanup_(target_freep) Target *t = NULL;
         _cleanup_strv_free_ char **versions = NULL, **appstream_urls = NULL;
@@ -1400,7 +1429,7 @@ static int enumerate_image_class(RuntimeScope runtime_scope, TargetClass class, 
                 return r;
 
         HASHMAP_FOREACH(image, images) {
-                _cleanup_(target_identifier_freep) TargetIdentifier *t = NULL;
+                _cleanup_(target_freep) Target *t = NULL;
                 bool have = false;
                 _cleanup_(context_done) Context image_context = CONTEXT_NULL;
 
@@ -1431,11 +1460,15 @@ static int enumerate_image_class(RuntimeScope runtime_scope, TargetClass class, 
                         continue;
                 }
 
-                r = target_identifier_new(class, image->name, &t);
+                r = context_discover_update_sets(&image_context);
                 if (r < 0)
                         return r;
 
-                r = set_ensure_consume(targets, &target_identifier_hash_ops, TAKE_PTR(t));
+                r = context_build_target(&image_context, class, image->name, &t);
+                if (r < 0)
+                        return r;
+
+                r = set_ensure_consume(targets, &target_hash_ops, TAKE_PTR(t));
                 if (r < 0)
                         return r;
         }
@@ -1455,25 +1488,45 @@ static int context_enumerate_components(Context *context, Set **targets) {
                 return r;
 
         if (have_default_component) {
-                _cleanup_(target_identifier_freep) TargetIdentifier *t = NULL;
+                _cleanup_(target_freep) Target *t = NULL;
 
-                r = target_identifier_new(TARGET_HOST, "host", &t);
+                r = context_build_target(context, TARGET_HOST, "host", &t);
                 if (r < 0)
                         return r;
 
-                r = set_ensure_consume(targets, &target_identifier_hash_ops, TAKE_PTR(t));
+                r = set_ensure_consume(targets, &target_hash_ops, TAKE_PTR(t));
                 if (r < 0)
                         return r;
         }
 
         STRV_FOREACH(component, component_names) {
-                _cleanup_(target_identifier_freep) TargetIdentifier *t = NULL;
+                _cleanup_(target_freep) Target *t = NULL;
+                _cleanup_(context_done) Context component_context = CONTEXT_NULL;
 
-                r = target_identifier_new(TARGET_COMPONENT, *component, &t);
+                r = context_load_paths_from_component(&component_context, *component);
                 if (r < 0)
                         return r;
 
-                r = set_ensure_consume(targets, &target_identifier_hash_ops, TAKE_PTR(t));
+                component_context.offline = true;
+
+                /* Load the component in a separate Context specific to its sysupdate.$component.d
+                 * directory. */
+                r = context_load_offline(
+                                &component_context,
+                                PROCESS_IMAGE_READ_ONLY,
+                                /* read_definitions_flags= */ 0);
+                if (r < 0)
+                        return r;
+
+                r = context_discover_update_sets(&component_context);
+                if (r < 0)
+                        return r;
+
+                r = context_build_target(&component_context, TARGET_COMPONENT, *component, &t);
+                if (r < 0)
+                        return r;
+
+                r = set_ensure_consume(targets, &target_hash_ops, TAKE_PTR(t));
                 if (r < 0)
                         return r;
         }
@@ -3214,25 +3267,33 @@ static int vl_method_list_targets(sd_varlink *link, sd_json_variant *parameters,
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *l = NULL;
 
+        r = context_discover_update_sets(&context);
+        if (r < 0)
+                return r;
+
         r = context_enumerate_targets(&context, &targets);
         if (r < 0)
                 return r;
 
         /* Sort to ensure consistent ordering */
         size_t n;
-        _cleanup_free_ TargetIdentifier **sorted = NULL;
+        _cleanup_free_ Target **sorted = NULL;
         r = set_dump_sorted(targets, (void***) &sorted, &n);
         if (r < 0)
                 return log_oom();
 
         FOREACH_ARRAY(p, sorted, n) {
-                TargetIdentifier *target_identifier = *p;
-                const char *name = (target_identifier->class != TARGET_HOST) ? target_identifier->name : NULL;
+                Target *target = *p;
+                const char *name = (target->identifier.class != TARGET_HOST) ? target->identifier.name : NULL;
 
                 r = sd_json_variant_append_arraybo(&l,
                                 SD_JSON_BUILD_PAIR_OBJECT("id",
-                                                JSON_BUILD_PAIR_ENUM("class", target_class_to_string(target_identifier->class)),
-                                                SD_JSON_BUILD_PAIR_STRING("name", name)));
+                                                JSON_BUILD_PAIR_ENUM("class", target_class_to_string(target->identifier.class)),
+                                                SD_JSON_BUILD_PAIR_STRING("name", name)),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("currentVersion", target->current_version),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("currentVersionIsPending", target->current_version_is_pending),
+                                JSON_BUILD_PAIR_STRV_NON_EMPTY("allVersions", target->all_versions),
+                                JSON_BUILD_PAIR_STRV_NON_EMPTY("appstreamUrls", target->appstream_urls));
                 if (r < 0)
                         return r;
         }
