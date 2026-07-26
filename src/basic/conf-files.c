@@ -102,6 +102,9 @@ static int conf_file_prefix_root(ConfFile *c, const char *root, ConfFilesFlags f
 
         assert(c);
 
+        if (FLAGS_SET(flags, CONF_FILES_DONT_PREFIX_ROOT))
+                return 0;
+
         int log_level = conf_files_log_level(flags);
 
         r = chaseat_prefix_root(c->result, root, &p);
