@@ -273,6 +273,7 @@ typedef struct UnitStatusInfo {
         /* Slice */
         unsigned concurrency_hard_max;
         unsigned concurrency_soft_max;
+        unsigned activating_concurrency_max;
         unsigned n_currently_active;
 
         /* CGroup */
@@ -758,16 +759,21 @@ static void print_status_info(
         if (endswith(i->id, ".slice")) {
                 printf(" Act. Units: %u", i->n_currently_active);
 
-                if (i->concurrency_soft_max != UINT_MAX || i->concurrency_hard_max != UINT_MAX) {
+                if (i->concurrency_soft_max != UINT_MAX || i->concurrency_hard_max != UINT_MAX || i->activating_concurrency_max != UINT_MAX) {
                         fputs(" (", stdout);
 
                         if (i->concurrency_soft_max != UINT_MAX && i->concurrency_soft_max < i->concurrency_hard_max) {
                                 printf("soft limit: %u", i->concurrency_soft_max);
-                                if (i->concurrency_hard_max != UINT_MAX)
+                                if (i->concurrency_hard_max != UINT_MAX || i->activating_concurrency_max != UINT_MAX)
                                         fputs("; ", stdout);
                         }
-                        if (i->concurrency_hard_max != UINT_MAX)
+                        if (i->concurrency_hard_max != UINT_MAX) {
                                 printf("hard limit: %u", i->concurrency_hard_max);
+                                if (i->activating_concurrency_max != UINT_MAX)
+                                        fputs("; ", stdout);
+                        }
+                        if (i->activating_concurrency_max != UINT_MAX)
+                                printf("activating limit: %u", i->activating_concurrency_max);
 
                         putchar(')');
                 }
@@ -2260,6 +2266,7 @@ static int show_one(
                 { "What",                           "s",               NULL,           offsetof(UnitStatusInfo, what)                              },
                 { "ConcurrencyHardMax",             "u",               NULL,           offsetof(UnitStatusInfo, concurrency_hard_max)              },
                 { "ConcurrencySoftMax",             "u",               NULL,           offsetof(UnitStatusInfo, concurrency_soft_max)              },
+                { "ActivatingConcurrencyMax",       "u",               NULL,           offsetof(UnitStatusInfo, activating_concurrency_max)        },
                 { "NCurrentlyActive",               "u",               NULL,           offsetof(UnitStatusInfo, n_currently_active)                },
                 { "MemoryCurrent",                  "t",               NULL,           offsetof(UnitStatusInfo, memory_current)                    },
                 { "MemoryPeak",                     "t",               NULL,           offsetof(UnitStatusInfo, memory_peak)                       },
@@ -2336,6 +2343,9 @@ static int show_one(
                 .ip_egress_bytes = UINT64_MAX,
                 .io_read_bytes = UINT64_MAX,
                 .io_write_bytes = UINT64_MAX,
+                .concurrency_soft_max = UINT_MAX,
+                .concurrency_hard_max = UINT_MAX,
+                .activating_concurrency_max = UINT_MAX,
         };
         bool collect_found_properties;
         int r;
