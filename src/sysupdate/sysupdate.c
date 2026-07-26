@@ -2949,15 +2949,13 @@ static int context_list_components(Context *context, char ***ret_component_names
         if (ret_component_names)
                 *ret_component_names = TAKE_PTR(z);
 
-        /* Does the system have at least one transfer file in /etc/sysupdate.d, which can be considered a
-         * TARGET_HOST? See target_get_argument() in sysupdated.c */
+        /* Does the system have at least one transfer file in sysupdate.d, which can be considered the
+         * default component-less installation? */
         if (ret_has_default_component)
                 *ret_has_default_component =
                         !context->definitions &&
                         !context->component &&
-                        !context->root &&
-                        !context->image &&
-                        context->n_transfers > 0;
+                        context->n_transfers + context->n_disabled_transfers > 0;
 
         return 0;
 }
