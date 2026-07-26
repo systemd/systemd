@@ -139,6 +139,7 @@ static void test_encrypt_decrypt_with(sd_id128_t mode, uid_t uid) {
                         /* tpm2_hash_pcr_mask= */ 0,
                         /* tpm2_pubkey_path= */ NULL,
                         /* tpm2_pubkey_pcr_mask= */ 0,
+                        /* tpm2_pcrlock_path= */ NULL,
                         uid,
                         &plaintext,
                         CREDENTIAL_ALLOW_NULL,
@@ -160,6 +161,7 @@ static void test_encrypt_decrypt_with(sd_id128_t mode, uid_t uid) {
                         /* validate_timestamp= */ USEC_INFINITY,
                         /* tpm2_device= */ NULL,
                         /* tpm2_signature_path= */ NULL,
+                        /* tpm2_pcrlock_path= */ NULL,
                         uid,
                         &encrypted,
                         CREDENTIAL_ALLOW_NULL,
@@ -171,6 +173,7 @@ static void test_encrypt_decrypt_with(sd_id128_t mode, uid_t uid) {
                         /* validate_timestamp= */ USEC_INFINITY,
                         /* tpm2_device= */ NULL,
                         /* tpm2_signature_path= */ NULL,
+                        /* tpm2_pcrlock_path= */ NULL,
                         uid,
                         &encrypted,
                         CREDENTIAL_ALLOW_NULL,
@@ -277,6 +280,9 @@ TEST(mime_type_matches) {
                 CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK,
                 CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_PINNED_SRK,
                 CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED_PINNED_SRK,
+                CRED_AES256_GCM_BY_TPM2_HMAC_PINNED_SRK_PCRLOCK,
+                CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK_PCRLOCK,
+                CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK_PCRLOCK,
                 CRED_AES256_GCM_BY_NULL,
         };
 
