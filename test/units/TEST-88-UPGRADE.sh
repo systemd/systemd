@@ -27,6 +27,7 @@ fi
 
 minor=$(systemctl --version | awk '/^systemd/{print$2}')
 networkd=
+resolved=
 unitscmd='systemctl list-units --failed *systemd*'
 
 if [[ $($unitscmd --output json | jq length) -gt 0 ]]; then
@@ -37,6 +38,22 @@ fi
 
 check_sd() {
     local unit fail=0 timer1_new timer2_new
+
+    if ! systemctl daemon-reload; then
+        echo 'System manager reload failed after the test!'
+        fail=1
+    fi
+
+    if ! systemd-run --quiet --wait --collect --service-type=exec true; then
+        echo 'Transient service failed after the test!'
+        fail=1
+    fi
+
+    if command -v udevadm >/dev/null && ! udevadm control --ping --timeout=5; then
+        echo 'Udev failed after the test!'
+        fail=1
+    fi
+
     for unit in $($unitscmd --output json | jq -r '.[].unit'); do
         if ! grep -sxqF "$unit" /tmp/failed-units; then
             fail=1
@@ -51,6 +68,13 @@ check_sd() {
     if [[ -n $networkd ]]; then
         if ! networkctl status; then
             echo 'Networkd failed after the test!'
+            fail=1
+        fi
+    fi
+
+    if [[ -n $resolved ]]; then
+        if ! resolvectl status; then
+            echo 'Resolved failed after the test!'
             fail=1
         fi
     fi
@@ -94,9 +118,12 @@ systemctl stop systemd-networkd-resolve-hook.socket || true
 
 "${downgrade[@]}" "$pkgdir"/distro/*."$package_extension"
 
-# Some distros don't ship networkd, so the test will always fail
+# Some distros don't ship networkd or resolved, so only test them when available
 if command -v networkctl >/dev/null; then
     networkd=1
+fi
+if command -v resolvectl >/dev/null; then
+    resolved=1
 fi
 
 newminor=$(systemctl --version | awk '/^systemd/{print$2}')
