@@ -693,6 +693,39 @@ cmp "$WORKDIR/source/tiny-v1.bin" "$WORKDIR/blobs/tiny-v1.bin"
 "$SYSUPDATE" features |& grep "No features." >/dev/null
 [[ $(varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListFeatures '{"target":{"class":"host"}}' | jq -r '.features') == "[]" ]]
 
+# Test that definitions found through --root= are not prefixed twice.
+rm -rf "$WORKDIR/root-definitions"
+mkdir -p "$WORKDIR/root-definitions/etc/sysupdate.d" \
+         "$WORKDIR/root-definitions/etc" \
+         "$WORKDIR/root-definitions/source" \
+         "$WORKDIR/root-definitions/target"
+printf '%s\n' 'ID=repro' 'VERSION_ID=1' >"$WORKDIR/root-definitions/etc/os-release"
+cat >"$WORKDIR/root-definitions/etc/sysupdate.d/rootfeat.feature" <<EOF
+[Feature]
+Description=Root Feature
+EOF
+cat >"$WORKDIR/root-definitions/etc/sysupdate.d/01-root.transfer" <<EOF
+[Transfer]
+
+[Source]
+Type=regular-file
+Path=/source
+MatchPattern=root-@v.bin
+
+[Target]
+Type=regular-file
+Path=/target
+MatchPattern=root-@v.bin
+InstancesMax=2
+EOF
+"$SYSUPDATE" \
+    --root="$WORKDIR/root-definitions" \
+    --verify=no \
+    --offline \
+    features rootfeat \
+    | grep -F "Root Feature" >/dev/null
+rm -rf "$WORKDIR/root-definitions"
+
 # Cleanup
 rm "$CONFIGDIR/01-tiny-url.transfer"
 rm "$WORKDIR/source/tiny-v1.bin"
