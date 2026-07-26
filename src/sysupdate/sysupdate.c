@@ -1398,7 +1398,7 @@ static int enumerate_image_class(RuntimeScope runtime_scope, TargetClass class, 
                 return r;
 
         HASHMAP_FOREACH(image, images) {
-                _cleanup_(target_identifier_freep) TargetIdentifier *t = NULL;
+                _cleanup_(target_freep) Target *t = NULL;
                 bool have = false;
                 _cleanup_(context_done) Context image_context = CONTEXT_NULL;
 
@@ -1429,7 +1429,7 @@ static int enumerate_image_class(RuntimeScope runtime_scope, TargetClass class, 
                         continue;
                 }
 
-                r = target_identifier_new(class, image->name, &t);
+                r = context_build_target(&image_context, class, image->name, &t);
                 if (r < 0)
                         return r;
 
@@ -1453,9 +1453,9 @@ static int context_enumerate_components(Context *context, Set **targets) {
                 return r;
 
         if (have_default_component) {
-                _cleanup_(target_identifier_freep) TargetIdentifier *t = NULL;
+                _cleanup_(target_freep) Target *t = NULL;
 
-                r = target_identifier_new(TARGET_HOST, "host", &t);
+                r = context_build_target(context, TARGET_HOST, "host", &t);
                 if (r < 0)
                         return r;
 
@@ -1465,9 +1465,9 @@ static int context_enumerate_components(Context *context, Set **targets) {
         }
 
         STRV_FOREACH(component, component_names) {
-                _cleanup_(target_identifier_freep) TargetIdentifier *t = NULL;
+                _cleanup_(target_freep) Target *t = NULL;
 
-                r = target_identifier_new(TARGET_COMPONENT, *component, &t);
+                r = context_build_target(context, TARGET_COMPONENT, *component, &t);
                 if (r < 0)
                         return r;
 
@@ -3217,25 +3217,33 @@ static int vl_method_list_targets(sd_varlink *link, sd_json_variant *parameters,
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *l = NULL;
 
+        r = context_discover_update_sets(&context);
+        if (r < 0)
+                return r;
+
         r = context_enumerate_targets(&context, &targets);
         if (r < 0)
                 return r;
 
         /* Sort to ensure consistent ordering */
         size_t n;
-        _cleanup_free_ TargetIdentifier **sorted = NULL;
+        _cleanup_free_ Target **sorted = NULL;
         r = set_dump_sorted(targets, (void***) &sorted, &n);
         if (r < 0)
                 return log_oom();
 
         FOREACH_ARRAY(p, sorted, n) {
-                TargetIdentifier *target_identifier = *p;
-                const char *name = (target_identifier->class != TARGET_HOST) ? target_identifier->name : NULL;
+                Target *target = *p;
+                const char *name = (target->identifier.class != TARGET_HOST) ? target->identifier.name : NULL;
 
                 r = sd_json_variant_append_arraybo(&l,
                                 SD_JSON_BUILD_PAIR_OBJECT("id",
-                                                JSON_BUILD_PAIR_ENUM("class", target_class_to_string(target_identifier->class)),
-                                                SD_JSON_BUILD_PAIR_STRING("name", name)));
+                                                JSON_BUILD_PAIR_ENUM("class", target_class_to_string(target->identifier.class)),
+                                                SD_JSON_BUILD_PAIR_STRING("name", name)),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("currentVersion", target->current_version),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("currentVersionIsPending", target->current_version_is_pending),
+                                SD_JSON_BUILD_PAIR_STRV("allVersions", target->all_versions),
+                                JSON_BUILD_PAIR_STRV_NON_EMPTY("appstreamUrls", target->appstream_urls));
                 if (r < 0)
                         return r;
         }
