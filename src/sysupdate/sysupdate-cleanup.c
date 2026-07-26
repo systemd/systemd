@@ -112,6 +112,27 @@ static int installdb_make_names(const char *path, const char *pattern, char **re
         return 0;
 }
 
+static const char* context_root_relative_path(const Context *c, const char *path) {
+        const char *p;
+
+        assert(c);
+        assert(path);
+
+        if (!c->root)
+                return path;
+
+        p = path_startswith_full(path, c->root, PATH_STARTSWITH_RETURN_LEADING_SLASH);
+        if (p)
+                return p;
+
+        /* path_startswith_full(..., PATH_STARTSWITH_RETURN_LEADING_SLASH) cannot return a pointer
+         * to a leading slash before the start of the original string when both paths are identical. */
+        if (path_equal(path, c->root))
+                return "/";
+
+        return NULL;
+}
+
 int context_installdb_record(
                 Context *c,
                 const char *path,
@@ -129,7 +150,11 @@ int context_installdb_record(
                 return 0;
 
         /* The provided path comes with c->root prefixed. Strip it here again */
-        const char *p = c->root ? ASSERT_PTR(path_startswith(path, c->root)) : path;
+        const char *p = context_root_relative_path(c, path);
+        if (!p)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Resolved resource path '%s' is not below root '%s'.",
+                                       path, c->root);
 
         r = context_installdb_acquire_fd(c, /* make= */ true);
         if (r < 0)
@@ -170,7 +195,13 @@ static int context_is_path_currently_owned(
                 if (!RESOURCE_IS_FILESYSTEM(t->target.type))
                         continue;
 
-                if (!path_equal(t->target.path, path))
+                const char *target_path = context_root_relative_path(c, t->target.path);
+                if (!target_path)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Resolved target path '%s' is not below root '%s'.",
+                                               t->target.path, c->root);
+
+                if (!path_equal(target_path, path))
                         continue;
 
                 /* OK, so we found a transfer that covers this directory. Now let's see if any of its patterns match */
