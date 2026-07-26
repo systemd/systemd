@@ -12,6 +12,10 @@ CHANGES WITH 263 in spe:
           MAC policy adjustments might be necessary. In particular, it is
           expected that the SELinux policy needs to be updated.
 
+        * The "appStream" key of
+          org.freedesktop.sysupdate1.Target.DescribeFeature() is now an array of
+          strings rather than a single optional string.
+
         Changes in systemd-networkd:
 
         * As mentioned above, systemd-networkd and networkctl have been merged
