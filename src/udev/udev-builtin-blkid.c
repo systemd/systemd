@@ -321,8 +321,6 @@ static int probe_superblocks(blkid_probe pr) {
         struct stat st;
         int rc;
 
-        /* TODO: Return negative errno. */
-
         if (fstat(sym_blkid_probe_get_fd(pr), &st))
                 return -errno;
 
@@ -337,9 +335,10 @@ static int probe_superblocks(blkid_probe pr) {
                  */
                 sym_blkid_probe_enable_superblocks(pr, 0);
 
+                errno = 0;
                 rc = sym_blkid_do_fullprobe(pr);
                 if (rc < 0)
-                        return rc;        /* -1 = error, 1 = nothing, 0 = success */
+                        return -errno_or_else(EIO); /* -1 = error, 1 = nothing, 0 = success */
 
                 if (sym_blkid_probe_lookup_value(pr, "PTTYPE", NULL, NULL) == 0)
                         return 0;        /* partition table detected */
@@ -348,7 +347,12 @@ static int probe_superblocks(blkid_probe pr) {
         sym_blkid_probe_set_partitions_flags(pr, BLKID_PARTS_ENTRY_DETAILS);
         sym_blkid_probe_enable_superblocks(pr, 1);
 
-        return sym_blkid_do_safeprobe(pr);
+        errno = 0;
+        rc = sym_blkid_do_safeprobe(pr);
+        if (rc < 0)
+                return -errno_or_else(EIO);
+
+        return rc; /* 0 = success, 1 = nothing found */
 }
 
 static int read_loopback_backing_inode(
