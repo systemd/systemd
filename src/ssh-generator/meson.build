@@ -15,6 +15,10 @@ executables += [
                 'sources' : files('ssh-issue.c'),
                 'import' : ['systemd-ssh-generator'],
         },
+        test_template + {
+                'sources' : files('test-ssh-util.c'),
+                'import' : ['systemd-ssh-generator'],
+        },
 ]
 
 if conf.get('ENABLE_SSH_PROXY_CONFIG') == 1
