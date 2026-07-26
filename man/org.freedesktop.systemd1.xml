@@ -11469,6 +11469,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly u ConcurrencySoftMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly u ActivatingConcurrencyMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly u NCurrentlyActive = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s Slice = '...';
@@ -11666,6 +11668,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
 
     <!--property ConcurrencySoftMax is not documented!-->
 
+    <!--property ActivatingConcurrencyMax is not documented!-->
+
     <!--property NCurrentlyActive is not documented!-->
 
     <!--property Slice is not documented!-->
@@ -11853,6 +11857,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <variablelist class="dbus-property" generated="True" extra-ref="ConcurrencyHardMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ConcurrencySoftMax"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ActivatingConcurrencyMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="NCurrentlyActive"/>
 
@@ -13265,6 +13271,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>IOPressureWatch</varname>,
       <varname>CPUSetPartition</varname>, and
       <varname>OOMRules</varname> were added in version 261.</para>
+      <para><varname>ActivatingConcurrencyMax</varname> was added in version 262.</para>
     </refsect2>
     <refsect2>
       <title>Scope Unit Objects</title>
