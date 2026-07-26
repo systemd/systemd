@@ -25,6 +25,11 @@ CHANGES WITH 262 in spe:
 
         Feature Removals and Incompatible Changes:
 
+        * The "appStream" key of
+          org.freedesktop.sysupdate1.Target.DescribeFeature() has been renamed
+          to "appStreamUrls" and is now an array of strings rather than a single
+          optional string.
+
         * DNS-SD services registered via systemd-resolved's D-Bus method
           org.freedesktop.resolve1.Manager.RegisterService() are now
           unregistered automatically when the client that registered them

@@ -2007,7 +2007,7 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
                 r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_STRING(current_is_pending ? "current+pending" : "current", current),
                                           SD_JSON_BUILD_PAIR_STRV("all", versions),
-                                          SD_JSON_BUILD_PAIR_STRV("appstreamUrls", appstream_urls));
+                                          SD_JSON_BUILD_PAIR_STRV("appStreamUrls", appstream_urls));
                 if (r < 0)
                         return log_error_errno(r, "Failed to create JSON: %m");
 
@@ -2437,12 +2437,15 @@ static int feature_to_json(Context *context, const Feature *f, sd_json_variant *
                                 "Failed to determine whether feature '%s' is suggested, omitting field: %m",
                                 f->id);
 
+        /* FIXME: Long term we’d like to support an array of AppStream URLs, but currently the D-Bus interface
+         * doesn’t support that and neither do the internals of sysupdate. So just expose 0 or 1 URLs for now. */
+
         r = sd_json_variant_merge_objectbo(
                         &v,
                         SD_JSON_BUILD_PAIR_STRING("id", f->id),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("description", f->description),
                         JSON_BUILD_PAIR_STRV_NON_EMPTY("documentation", f->documentation),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("appStream", f->appstream),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("appStreamUrls", STRV_MAKE(f->appstream)),
                         SD_JSON_BUILD_PAIR_BOOLEAN("enabled", f->enabled),
                         SD_JSON_BUILD_PAIR_CONDITION(suggested >= 0, "suggested", SD_JSON_BUILD_BOOLEAN(suggested > 0)),
                         JSON_BUILD_PAIR_STRV_NON_EMPTY("transfers", transfers));
