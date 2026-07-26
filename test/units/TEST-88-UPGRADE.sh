@@ -12,8 +12,16 @@ if ! [[ -d $pkgdir ]]; then
     exit 77
 fi
 
-if ! command -v dnf >/dev/null; then
-    echo 'dnf not found, skipping test.' >/skipped
+if command -v dnf >/dev/null; then
+    package_extension=rpm
+    downgrade=(dnf downgrade --nogpgcheck -y --allowerasing --disablerepo '*')
+    upgrade=(dnf -y upgrade --nogpgcheck --disablerepo '*')
+elif command -v apt-get >/dev/null; then
+    package_extension=deb
+    downgrade=(apt-get install --allow-downgrades -y)
+    upgrade=(apt-get install -y)
+else
+    echo 'No supported package manager found, skipping test.' >/skipped
     exit 77
 fi
 
@@ -84,7 +92,7 @@ timer2=$(systemctl show -P NextElapseUSecRealtime upgrade_timer_test.timer)
 # FIXME: See https://github.com/systemd/systemd/pull/39293
 systemctl stop systemd-networkd-resolve-hook.socket || true
 
-dnf downgrade --nogpgcheck -y --allowerasing --disablerepo '*' "$pkgdir"/distro/*.rpm
+"${downgrade[@]}" "$pkgdir"/distro/*."$package_extension"
 
 # Some distros don't ship networkd, so the test will always fail
 if command -v networkctl >/dev/null; then
@@ -105,7 +113,7 @@ fi
 check_sd
 
 # Finally test the upgrade
-dnf -y upgrade --nogpgcheck --disablerepo '*' "$pkgdir"/devel/*.rpm
+"${upgrade[@]}" "$pkgdir"/devel/*."$package_extension"
 
 # TODO: sanity checks
 check_sd

@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+
+if [[ "$1" == "build" ]]; then
+    exit 0
+fi
+
+pkgdir=/usr/host-pkgs
+develver=$(dpkg-query --root="$BUILDROOT" --showformat='${Version}' --show systemd)
+distrover=$(
+    apt-cache madison systemd |
+        awk -F '|' '$3 !~ /file:\/+repository/ { gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2; exit }'
+)
+
+if [[ -z $distrover ]]; then
+    echo "Skipping upgrade test, no distro version found"
+    exit 0
+fi
+
+distromajor=$(grep -o '^[0-9]\+' <<<"$distrover")
+develmajor=$(grep -o '^[0-9]\+' <<<"$develver")
+deltaver=$((develmajor - distromajor))
+
+if [[ $deltaver -le 0 ]]; then
+    echo "Skipping upgrade test, distro version is newer or equal: $distrover"
+    exit 0
+fi
+
+DISTRO_PACKAGES=()
+DEVEL_PACKAGES=()
+
+while IFS=$'\t' read -r package source package_architecture; do
+    [[ $source == systemd ]] || continue
+    [[ $package_architecture == "$DISTRIBUTION_ARCHITECTURE" || $package_architecture == all ]] || continue
+    [[ $package != *-dbgsym* ]] || continue
+
+    DEVEL_PACKAGES+=("$package=$(dpkg-query --root="$BUILDROOT" --showformat='${Version}' --show "$package")")
+
+    package_version=$(
+        apt-cache madison "$package" |
+            awk -F '|' -v version="$distrover" '
+                $3 !~ /file:\/+repository/ {
+                    gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2)
+                    if ($2 == version) {
+                        print $2
+                        exit
+                    }
+                }
+            '
+    )
+    [[ -n $package_version ]] || continue
+
+    DISTRO_PACKAGES+=("$package=$package_version")
+done < <(dpkg-query --root="$BUILDROOT" --show --showformat='${binary:Package}\t${source:Package}\t${Architecture}\n')
+
+mkdir -p "$BUILDROOT$pkgdir"/{distro,devel}
+
+# apt-get download writes packages to the current directory
+(
+    cd "$BUILDROOT$pkgdir/distro"
+    apt-get download "${DISTRO_PACKAGES[@]}"
+)
+
+(
+    cd "$BUILDROOT$pkgdir/devel"
+    apt-get download "${DEVEL_PACKAGES[@]}"
+)
