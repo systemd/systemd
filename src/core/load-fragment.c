@@ -6110,7 +6110,7 @@ int config_parse_concurrency_max(
                 return 0;
         }
 
-        return config_parse_unsigned(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
+        return config_parse_unsigned_bounded(unit, filename, line, section, section_line, lvalue, rvalue, /* min= */ 0, UINT_MAX, /* ignoring= */ false, concurrency_max);
 }
 
 int config_parse_bind_network_interface(
