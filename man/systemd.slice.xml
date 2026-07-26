@@ -139,6 +139,36 @@
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>ActivatingConcurrencyMax=</varname></term>
+
+        <listitem><para>Configures a limit on the maximum number of units assigned to this
+        slice (or any descendent slices) that may be in the <emphasis>activating</emphasis> state
+        at the same time. Unlike <varname>ConcurrencySoftMax=</varname> which limits units in the
+        <emphasis>active</emphasis> state, this option limits units while they are starting up.
+        Once a unit transitions from <emphasis>activating</emphasis> to <emphasis>active</emphasis>,
+        it no longer counts toward this limit, allowing the next queued unit to begin starting.</para>
+
+        <para>This is particularly useful for managing the "thundering herd" problem during system
+        boot, where many long-running services (such as container workloads) attempt to start
+        simultaneously. By setting <varname>ActivatingConcurrencyMax=</varname>, you can pace the
+        startup process to limit CPU and I/O pressure, while still allowing all services to
+        eventually reach the <emphasis>active</emphasis> state.</para>
+
+        <para>When the limit is reached, further activation requests are queued and will be
+        dispatched automatically once running activations complete. No error is returned to the
+        caller.</para>
+
+        <para>If the special value <literal>infinity</literal> is specified, no concurrency limit
+        is enforced. This is the default.</para>
+
+        <para>Note that this option has a hierarchical effect: a limit set for a slice unit will
+        apply to both the units immediately within the slice and all units further down the slice
+        tree. Each sub-slice unit counts as one unit during its own activation phase.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
     </variablelist>
 
   </refsect1>

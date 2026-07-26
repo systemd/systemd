@@ -2033,6 +2033,10 @@ int unit_start(Unit *u, ActivationDetails *details) {
                          * the queue */
                         if (slice_concurrency_soft_max_reached(slice, u))
                                 return -EAGAIN; /* Try again, keep in queue */
+
+                        /* Check activating concurrency limit to pace concurrent startups */
+                        if (slice_activating_concurrency_max_reached(slice, u))
+                                return -EAGAIN; /* Try again, keep in queue */
                 }
         }
 
@@ -2715,7 +2719,8 @@ static void unit_check_concurrency_limit(Unit *u) {
 
         /* If a unit was stopped, maybe it has pending siblings (or children thereof) that can be started now */
 
-        if (SLICE(slice)->concurrency_soft_max != UINT_MAX) {
+        if (SLICE(slice)->concurrency_soft_max != UINT_MAX ||
+            SLICE(slice)->activating_concurrency_max != UINT_MAX) {
                 Unit *sibling;
                 UNIT_FOREACH_DEPENDENCY(sibling, slice, UNIT_ATOM_SLICE_OF) {
                         if (sibling == u)
@@ -2882,6 +2887,9 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                  * when something BindsTo= to a Type=oneshot unit, as these units go directly from starting to
                  * inactive, without ever entering started.) */
                 unit_submit_to_stop_when_bound_queue(u);
+
+                /* Maybe the activating concurrency limits now allow dispatching of another start job in this slice? */
+                unit_check_concurrency_limit(u);
         }
 }
 

@@ -117,6 +117,55 @@ systemctl start sleepforever3@a.service
 systemctl stop concurrency1.slice
 systemctl reset-failed
 
+# Test ActivatingConcurrencyMax
+cat >/run/systemd/system/concurrency-activating.slice <<EOF
+[Slice]
+ActivatingConcurrencyMax=2
+EOF
+
+cat >/run/systemd/system/slow-start@.service <<EOF
+[Service]
+Slice=concurrency-activating.slice
+# Simulate slow startup
+ExecStartPre=/usr/bin/sleep 2
+ExecStart=/usr/bin/sleep infinity
+EOF
+
+systemctl daemon-reload
+
+# Start 3 services - only 2 should activate concurrently
+systemctl --no-block start slow-start@a.service
+systemctl --no-block start slow-start@b.service
+systemctl --no-block start slow-start@c.service
+
+# Give them time to enter activating state
+sleep 0.5
+
+# Check that exactly 2 are activating (c should be queued)
+test "$(systemctl list-jobs | grep -c "slow-start@.*start")" -eq 3
+test "$(systemctl show -p ActiveState slow-start@a.service --value)" = "activating"
+test "$(systemctl show -p ActiveState slow-start@b.service --value)" = "activating"
+test "$(systemctl show -p ActiveState slow-start@c.service --value)" = "inactive"
+
+# Wait for a and b to finish starting
+sleep 2.5
+
+# Now all should be active (c started when a/b finished activating)
+systemctl is-active slow-start@a.service
+systemctl is-active slow-start@b.service
+systemctl is-active slow-start@c.service
+
+# Cleanup
+systemctl stop concurrency-activating.slice
+systemctl reset-failed
+rm /run/systemd/system/concurrency-activating.slice
+rm /run/systemd/system/slow-start@.service
+
+systemctl daemon-reload
+
+# Final cleanup of original tests
+systemctl reset-failed
+
 rm /run/systemd/system/concurrency1.slice
 rm /run/systemd/system/concurrency1-concurrency2.slice
 rm /run/systemd/system/concurrency1-concurrency3.slice
