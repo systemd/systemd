@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -14,10 +15,13 @@
 #include "parse-util.h"
 #include "path-lookup.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "proc-cmdline.h"
+#include "process-util.h"
 #include "socket-netlink.h"
 #include "socket-util.h"
 #include "special.h"
+#include "specifier.h"
 #include "ssh-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -33,6 +37,12 @@
  *
  * The first two provide a nice way for hosts to connect to containers and VMs they invoke via the usual SSH
  * logic, but without waiting for networking or suchlike. The third allows the same for local clients. */
+
+/* The effective sshd configuration dump is a couple of KB in size, leave a generous margin */
+#define SSHD_CONFIG_DUMP_MAX (1U*1024U*1024U)
+
+/* sshd's built-in default for AuthorizedKeysFile=, used if we cannot query the effective setting */
+#define SSHD_DEFAULT_AUTHORIZED_KEYS_FILE ".ssh/authorized_keys .ssh/authorized_keys2"
 
 static bool arg_auto = true;
 static char **arg_listen_extra = NULL;
@@ -74,6 +84,64 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         return 0;
 }
 
+static int query_authorized_keys_file(const char *sshd_binary, char **ret) {
+        _cleanup_close_pair_ int pipe_fds[2] = EBADF_PAIR;
+        int r;
+
+        assert(sshd_binary);
+        assert(ret);
+
+        /* Asks sshd for the effective AuthorizedKeysFile= setting, so that we can extend it with our own
+         * file, rather than overriding whatever the user or distribution configured. We use "sshd -G" for
+         * this, which parses the configuration (taking Include= directives and built-in defaults into
+         * account) and dumps it, without requiring the host keys to be present. If the local sshd is too old
+         * to support the switch this will simply fail, and we'll fall back to the built-in default. */
+
+        if (pipe2(pipe_fds, O_CLOEXEC) < 0)
+                return log_debug_errno(errno, "Failed to allocate pipe: %m");
+
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+        r = pidref_safe_fork_full(
+                        "(sshd)",
+                        (int[]) { -EBADF, pipe_fds[1], STDERR_FILENO }, NULL, 0,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_REARRANGE_STDIO|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE,
+                        &pidref);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                /* Child */
+                execl(sshd_binary, sshd_binary, "-G", NULL);
+                _exit(EXIT_FAILURE);
+        }
+
+        pipe_fds[1] = safe_close(pipe_fds[1]);
+
+        _cleanup_fclose_ FILE *f = take_fdopen(&pipe_fds[0], "r");
+        if (!f)
+                return log_debug_errno(errno, "Failed to open pipe for reading: %m");
+
+        _cleanup_free_ char *dump = NULL;
+        r = read_full_stream_full(
+                        f,
+                        /* filename= */ NULL,
+                        /* offset= */ UINT64_MAX,
+                        SSHD_CONFIG_DUMP_MAX,
+                        READ_FULL_FILE_FAIL_WHEN_LARGER,
+                        &dump,
+                        /* ret_size= */ NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read configuration dump of '%s': %m", sshd_binary);
+
+        r = pidref_wait_for_terminate_and_check(sshd_binary, &pidref, /* flags= */ 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to wait for '%s': %m", sshd_binary);
+        if (r != EXIT_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(EPROTO),
+                                       "Invocation of '%s -G' failed with exit status %i.", sshd_binary, r);
+
+        return sshd_config_dump_get_authorized_keys_file(dump, ret);
+}
+
 static int make_sshd_template_unit(
                 const char *dest,
                 const char *template,
@@ -110,6 +178,37 @@ static int make_sshd_template_unit(
                 if (r < 0)
                         return r;
 
+                /* sshd offers no way to append to AuthorizedKeysFile=, hence we have to override the setting
+                 * in full. To not lose any locally configured paths, ask sshd for the currently effective
+                 * setting, and prefix our own file to it. If that doesn't work out, fall back to sshd's
+                 * built-in default. */
+                _cleanup_free_ char *authorized_keys_file = NULL;
+                r = query_authorized_keys_file(sshd_binary, &authorized_keys_file);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to query effective AuthorizedKeysFile= setting from '%s', ignoring: %m",
+                                        sshd_binary);
+
+                const char *akf = r > 0 ? authorized_keys_file : SSHD_DEFAULT_AUTHORIZED_KEYS_FILE;
+
+                /* We put the setting in double quotes in the unit file, hence refuse anything we cannot
+                 * safely embed there, and fall back to the default in that case. */
+                if (strpbrk(akf, "\"\\")) {
+                        log_warning("Effective AuthorizedKeysFile= setting '%s' contains unsupported characters, ignoring.", akf);
+                        akf = SSHD_DEFAULT_AUTHORIZED_KEYS_FILE;
+                }
+
+                /* sshd's own '%' expansions must not be eaten by the service manager */
+                _cleanup_free_ char *akf_escaped = NULL;
+                if (!isempty(akf)) {
+                        _cleanup_free_ char *e = specifier_escape(akf);
+                        if (!e)
+                                return log_oom();
+
+                        akf_escaped = strjoin(" ", e);
+                        if (!akf_escaped)
+                                return log_oom();
+                }
+
                 /* sshd reads AuthorizedKeysFile after dropping to the authenticating user's UID, so the
                  * 0400 credential file under $CREDENTIALS_DIRECTORY is unreadable for non-root users.
                  * Materialize a 0444 copy in a RuntimeDirectory so the ephemeral key works for any user. */
@@ -120,11 +219,12 @@ static int make_sshd_template_unit(
                         "\n"
                         "[Service]\n"
                         "ExecStartPre=systemd-tmpfiles --create --inline 'f^ /run/sshd-generated-%%i/authorized_keys 0444 root root - ssh.ephemeral-authorized_keys-all'\n"
-                        "ExecStart=-%s -i -o \"AuthorizedKeysFile /run/sshd-generated-%%i/authorized_keys .ssh/authorized_keys\"\n"
+                        "ExecStart=-%s -i -o \"AuthorizedKeysFile /run/sshd-generated-%%i/authorized_keys%s\"\n"
                         "StandardInput=socket\n"
                         "ImportCredential=ssh.ephemeral-authorized_keys-all\n"
                         "RuntimeDirectory=sshd-generated-%%i\n",
-                        sshd_binary);
+                        sshd_binary,
+                        strempty(akf_escaped));
 
                 r = fflush_and_check(f);
                 if (r < 0)
