@@ -11469,6 +11469,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly u ConcurrencySoftMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly u ActivatingConcurrencyMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly u NCurrentlyActive = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s Slice = '...';

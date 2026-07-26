@@ -12,6 +12,7 @@ typedef struct Slice {
 
         unsigned concurrency_soft_max;
         unsigned concurrency_hard_max;
+        unsigned activating_concurrency_max;
 
         CGroupContext cgroup_context;
 
@@ -23,6 +24,8 @@ extern const UnitVTable slice_vtable;
 DEFINE_CAST(SLICE, Slice);
 
 unsigned slice_get_currently_active(Slice *slice, Unit *ignore, bool with_pending);
+unsigned slice_get_currently_activating(Slice *slice, Unit *ignore, bool with_pending);
 
 bool slice_concurrency_hard_max_reached(Slice *slice, Unit *ignore);
 bool slice_concurrency_soft_max_reached(Slice *slice, Unit *ignore);
+bool slice_activating_concurrency_max_reached(Slice *slice, Unit *ignore);
