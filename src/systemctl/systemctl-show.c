@@ -273,6 +273,7 @@ typedef struct UnitStatusInfo {
         /* Slice */
         unsigned concurrency_hard_max;
         unsigned concurrency_soft_max;
+        unsigned activating_concurrency_max;
         unsigned n_currently_active;
 
         /* CGroup */
@@ -2259,6 +2260,7 @@ static int show_one(
                 { "What",                           "s",               NULL,           offsetof(UnitStatusInfo, what)                              },
                 { "ConcurrencyHardMax",             "u",               NULL,           offsetof(UnitStatusInfo, concurrency_hard_max)              },
                 { "ConcurrencySoftMax",             "u",               NULL,           offsetof(UnitStatusInfo, concurrency_soft_max)              },
+                { "ActivatingConcurrencyMax",       "u",               NULL,           offsetof(UnitStatusInfo, activating_concurrency_max)        },
                 { "NCurrentlyActive",               "u",               NULL,           offsetof(UnitStatusInfo, n_currently_active)                },
                 { "MemoryCurrent",                  "t",               NULL,           offsetof(UnitStatusInfo, memory_current)                    },
                 { "MemoryPeak",                     "t",               NULL,           offsetof(UnitStatusInfo, memory_peak)                       },

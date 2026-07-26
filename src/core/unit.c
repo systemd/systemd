@@ -2033,6 +2033,10 @@ int unit_start(Unit *u, ActivationDetails *details) {
                          * the queue */
                         if (slice_concurrency_soft_max_reached(slice, u))
                                 return -EAGAIN; /* Try again, keep in queue */
+
+                        /* Check activating concurrency limit to pace concurrent startups */
+                        if (slice_activating_concurrency_max_reached(slice, u))
+                                return -EAGAIN; /* Try again, keep in queue */
                 }
         }
 
@@ -2706,6 +2710,19 @@ static void unit_recursive_add_to_run_queue(Unit *u) {
         }
 }
 
+static bool slice_has_concurrency_limit(Unit *slice) {
+        assert(slice);
+
+        /* Walk up the slice hierarchy to check if any ancestor has a concurrency limit configured */
+        for (Unit *s = slice; s; s = UNIT_GET_SLICE(s))
+                if (s->type == UNIT_SLICE &&
+                    (SLICE(s)->concurrency_soft_max != UINT_MAX ||
+                     SLICE(s)->activating_concurrency_max != UINT_MAX))
+                        return true;
+
+        return false;
+}
+
 static void unit_check_concurrency_limit(Unit *u) {
         assert(u);
 
@@ -2713,20 +2730,24 @@ static void unit_check_concurrency_limit(Unit *u) {
         if (!slice)
                 return;
 
-        /* If a unit was stopped, maybe it has pending siblings (or children thereof) that can be started now */
+        /* If a unit was stopped, maybe it has pending siblings (or children thereof) that can be started now.
+         * Walk up the slice hierarchy and re-dispatch for each ancestor that has a limit configured. */
 
-        if (SLICE(slice)->concurrency_soft_max != UINT_MAX) {
-                Unit *sibling;
-                UNIT_FOREACH_DEPENDENCY(sibling, slice, UNIT_ATOM_SLICE_OF) {
-                        if (sibling == u)
-                                continue;
+        for (Unit *s = slice; s; s = UNIT_GET_SLICE(s)) {
+                if (s->type != UNIT_SLICE)
+                        continue;
 
-                        unit_recursive_add_to_run_queue(sibling);
+                if (SLICE(s)->concurrency_soft_max != UINT_MAX ||
+                    SLICE(s)->activating_concurrency_max != UINT_MAX) {
+                        Unit *member;
+                        UNIT_FOREACH_DEPENDENCY(member, s, UNIT_ATOM_SLICE_OF) {
+                                if (member == u)
+                                        continue;
+
+                                unit_recursive_add_to_run_queue(member);
+                        }
                 }
         }
-
-        /* Also go up the tree. */
-        unit_check_concurrency_limit(slice);
 }
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_success) {
@@ -2882,6 +2903,11 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                  * when something BindsTo= to a Type=oneshot unit, as these units go directly from starting to
                  * inactive, without ever entering started.) */
                 unit_submit_to_stop_when_bound_queue(u);
+
+                /* Maybe the activating concurrency limits now allow dispatching of another start job in this slice? */
+                Unit *slice = UNIT_GET_SLICE(u);
+                if (slice && slice_has_concurrency_limit(slice))
+                        unit_check_concurrency_limit(u);
         }
 }
 
