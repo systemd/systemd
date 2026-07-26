@@ -406,7 +406,7 @@ EOF
 Description=Optional Feature
 Documentation=https://example.com/optional
 Documentation=https://example.com/optional-more
-AppStream=https://example.com/optional.appstream.xml
+AppStream=https://example.com/appstream/optional.appstream-%o.xml
 EOF
 
     cat >"$CONFIGDIR/undocumented.feature" <<EOF
@@ -499,6 +499,8 @@ EOF
     elif [[ "$client" == "varlink" ]]; then
         [[ $(varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListFeatures '{"target":{"class":"host"}}' | jq -r '.features[] | select(.id=="optional") | .description') == "Optional Feature" ]]
         varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListFeatures '{"target":{"class":"host"}}' | jq -r '.features[] | select(.id=="optional") | .transfers' | grep "99-optional"
+        os_release_id="$(. /etc/os-release; echo "$ID")"
+        [[ $(varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListFeatures '{"target":{"class":"host"}}' | jq -rc '.features[] | select(.id=="optional") | .appStream') == "[\"https://example.com/appstream/optional.appstream-${os_release_id}.xml\"]" ]]
     else
         exit 1
     fi
@@ -513,7 +515,8 @@ EOF
     ' <<<"$feature_json" >/dev/null
     jq -e '.enabled == false' <<<"$feature_json" >/dev/null
     jq -e '.suggested == false' <<<"$feature_json" >/dev/null
-    jq -e '.appStream == "https://example.com/optional.appstream.xml"' <<<"$feature_json" >/dev/null
+    os_release_id="$(. /etc/os-release; echo "$ID")"
+    jq -e ".appStream == [\"https://example.com/appstream/optional.appstream-${os_release_id}.xml\"]" <<<"$feature_json" >/dev/null
 
     suggested_json="$("$SYSUPDATE" --json=short features suggested)"
     jq -e '.id == "suggested" and .suggested == true' <<<"$suggested_json" >/dev/null
@@ -586,7 +589,8 @@ EOF
         grep "Optional Feature" <<<"$feature_output" >/dev/null
         grep "Suggested: no" <<<"$feature_output" >/dev/null
         grep "https://example.com/optional-more" <<<"$feature_output" >/dev/null
-        grep "https://example.com/optional.appstream.xml" <<<"$feature_output" >/dev/null
+        os_release_id="$(. /etc/os-release; echo "$ID")"
+        grep "https://example.com/appstream/optional.appstream-${os_release_id}.xml" <<<"$feature_output" >/dev/null
         grep -F "99-optional" <<<"$feature_output" >/dev/null
         grep "malformed" <<<"$features_output" >/dev/null
         verify_object_fields "$features_output"
