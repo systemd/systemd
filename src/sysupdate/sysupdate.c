@@ -1279,6 +1279,117 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(target_identifier_hash_ops,
                                               TargetIdentifier, target_identifier_hash_func, target_identifier_compare_func,
                                               TargetIdentifier, target_identifier_free);
 
+/* This is basically a presentational struct to collect together all the data for the
+ * user-visible Target type in varlink/D-Bus. The data comes from Transfers and UpdateSets. */
+typedef struct Target {
+        TargetIdentifier identifier;
+
+        char *current_version;
+        bool current_version_is_pending;
+        char **all_versions;
+        char **appstream_urls;
+} Target;
+
+static void target_done(Target *t) {
+        assert(t);
+
+        target_identifier_done(&t->identifier);
+        t->current_version = mfree(t->current_version);
+        t->all_versions = strv_free(t->all_versions);
+        t->appstream_urls = strv_free(t->appstream_urls);
+}
+
+static Target *target_free(Target *t) {
+        if (!t)
+                return NULL;
+
+        target_done(t);
+        return mfree(t);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Target*, target_free);
+
+static int target_new(TargetClass class, const char *name, Target **ret) {
+        _cleanup_(target_freep) Target *t = NULL;
+
+        assert(name);
+        assert(ret);
+
+        t = new(Target, 1);
+        if (!t)
+                return -ENOMEM;
+
+        *t = (Target) {
+                .identifier = {
+                        .class = class,
+                        .name = strdup(name),
+                },
+        };
+
+        if (!t->identifier.name)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(t);
+        return 0;
+}
+
+static int context_build_target(Context *context, TargetClass class, const char *name, Target **ret) {
+        _cleanup_(target_freep) Target *t = NULL;
+        _cleanup_strv_free_ char **versions = NULL, **appstream_urls = NULL;
+        const char *current = NULL;
+        bool current_is_pending = false;
+        int r;
+
+        assert(context);
+        assert(class >= 0);
+        assert(name);
+
+        FOREACH_ARRAY(update_set, context->update_sets, context->n_update_sets) {
+                UpdateSet *us = *update_set;
+
+                if (FLAGS_SET(us->flags, UPDATE_INSTALLED) &&
+                    FLAGS_SET(us->flags, UPDATE_NEWEST)) {
+                        current = us->version;
+                        current_is_pending = FLAGS_SET(us->flags, UPDATE_PENDING);
+                }
+
+                r = strv_extend(&versions, us->version);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        r = target_new(class, name, &t);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0)
+                return r;
+
+        if (current) {
+                t->current_version = strdup(current);
+                if (!t->current_version)
+                        return log_oom();
+        }
+
+        t->current_version_is_pending = current_is_pending;
+        t->all_versions = TAKE_PTR(versions);
+
+        FOREACH_ARRAY(tr, context->transfers, context->n_transfers)
+                STRV_FOREACH(appstream_url, (*tr)->appstream) {
+                        /* Avoid duplicates */
+                        if (strv_contains(appstream_urls, *appstream_url))
+                                continue;
+
+                        r = strv_extend(&appstream_urls, *appstream_url);
+                        if (r < 0)
+                                return log_oom();
+                }
+
+        t->appstream_urls = TAKE_PTR(appstream_urls);
+
+        *ret = TAKE_PTR(t);
+        return 0;
+}
+
 static int enumerate_image_class(RuntimeScope runtime_scope, TargetClass class, Set **targets) {
         _cleanup_hashmap_free_ Hashmap *images = NULL;
         Image *image;
@@ -1941,7 +2052,6 @@ VERB(verb_list, "list", "[VERSION]", VERB_ANY, 2, VERB_DEFAULT,
      "Show installed and available versions");
 static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(context_done) Context context = CONTEXT_NULL;
-        _cleanup_strv_free_ char **appstream_urls = NULL;
         const char *version;
         int r;
 
@@ -1971,38 +2081,18 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 return context_show_table(&context);
         else {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
-                _cleanup_strv_free_ char **versions = NULL;
-                const char *current = NULL;
-                bool current_is_pending = false;
+                _cleanup_(target_freep) Target *target = NULL;
 
-                FOREACH_ARRAY(update_set, context.update_sets, context.n_update_sets) {
-                        UpdateSet *us = *update_set;
+                /* We’re just using this to get the versions and appstream URLs, so the class
+                 * and name don’t matter, which means we can avoid trying to rebuild them from
+                 * the command line context. Arbitrarily choose the host. */
+                r = context_build_target(&context, TARGET_HOST, "host", &target);
+                if (r < 0)
+                        return r;
 
-                        if (FLAGS_SET(us->flags, UPDATE_INSTALLED) &&
-                            FLAGS_SET(us->flags, UPDATE_NEWEST)) {
-                                current = us->version;
-                                current_is_pending = FLAGS_SET(us->flags, UPDATE_PENDING);
-                        }
-
-                        r = strv_extend(&versions, us->version);
-                        if (r < 0)
-                                return log_oom();
-                }
-
-                FOREACH_ARRAY(tr, context.transfers, context.n_transfers)
-                        STRV_FOREACH(appstream_url, (*tr)->appstream) {
-                                /* Avoid duplicates */
-                                if (strv_contains(appstream_urls, *appstream_url))
-                                        continue;
-
-                                r = strv_extend(&appstream_urls, *appstream_url);
-                                if (r < 0)
-                                        return log_oom();
-                        }
-
-                r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_STRING(current_is_pending ? "current+pending" : "current", current),
-                                          SD_JSON_BUILD_PAIR_STRV("all", versions),
-                                          SD_JSON_BUILD_PAIR_STRV("appstreamUrls", appstream_urls));
+                r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_STRING(target->current_version_is_pending ? "current+pending" : "current", target->current_version),
+                                          SD_JSON_BUILD_PAIR_STRV("all", target->all_versions),
+                                          SD_JSON_BUILD_PAIR_STRV("appstreamUrls", target->appstream_urls));
                 if (r < 0)
                         return log_error_errno(r, "Failed to create JSON: %m");
 
