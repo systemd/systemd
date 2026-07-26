@@ -907,6 +907,40 @@ test ! -f "$CLEANUP/target/alpha-v2.bin"
 
 rm -rf "$CONFIGDIR" "$INSTALLDB" "$CLEANUP"
 
+# Under --root=, cleanup must compare current transfer target paths in the same
+# root-relative form stored in the install database, and keep still-owned files.
+ROOT_CLEANUP="$WORKDIR/root-cleanup"
+ROOT_CLEANUP_ROOT="$ROOT_CLEANUP/root"
+ROOT_CLEANUP_DB_VALUE="/target/./alpha-@v.bin"
+ROOT_CLEANUP_DB_KEY="$(printf '%s' "$ROOT_CLEANUP_DB_VALUE" | sha256sum | cut -d' ' -f1)"
+rm -rf "$ROOT_CLEANUP"
+mkdir -p "$ROOT_CLEANUP_ROOT/etc/sysupdate.d" \
+         "$ROOT_CLEANUP_ROOT/target" \
+         "$ROOT_CLEANUP_ROOT/var/lib/systemd/sysupdate/installdb"
+
+cat >"$ROOT_CLEANUP_ROOT/etc/sysupdate.d/01-alpha.transfer" <<EOF
+[Source]
+Type=regular-file
+Path=/source
+MatchPattern=alpha-@v.bin
+
+[Target]
+Type=regular-file
+Path=/target
+MatchPattern=alpha-@v.bin
+InstancesMax=2
+EOF
+
+echo "$RANDOM" >"$ROOT_CLEANUP_ROOT/target/alpha-v1.bin"
+ln -s "$ROOT_CLEANUP_DB_VALUE" \
+      "$ROOT_CLEANUP_ROOT/var/lib/systemd/sysupdate/installdb/$ROOT_CLEANUP_DB_KEY"
+
+"$SYSUPDATE" --root="$ROOT_CLEANUP_ROOT" --verify=no cleanup
+test -f "$ROOT_CLEANUP_ROOT/target/alpha-v1.bin"
+test -L "$ROOT_CLEANUP_ROOT/var/lib/systemd/sysupdate/installdb/$ROOT_CLEANUP_DB_KEY"
+
+rm -rf "$ROOT_CLEANUP"
+
 # Briefly check the "--component-all" switch of the "cleanup" verb. Each component
 # keeps its own install database (installdb.<component>), and "cleanup
 # --component-all" must clean up orphaned resources across *all* of them in one
@@ -1798,6 +1832,50 @@ assert_dropin "$(feat_enable_dropin_default feata)" yes
 assert_dropin "$(feat_enable_dropin_default featc)" yes
 test ! -e "$(feat_enable_dropin_default featb)"
 set_machine_tags ""
+
+# --component-all must still include the default component when all of its
+# transfers are currently disabled by features.
+compfeat_reset
+compfeat_source v1
+mkdir -p /run/sysupdate.d
+compfeat_transfer /run/sysupdate.d/50-feata.transfer feata "$CF/target-default" feata
+cat >/run/sysupdate.d/feata.feature <<EOF
+[Feature]
+Description=Feature A
+EOF
+"$SYSUPDATE" --component-all enable-feature --feature-all
+assert_dropin "$(feat_enable_dropin_default feata)" yes
+
+# --component-all must include the default component under --root= too.
+ROOT_FEATURE="$WORKDIR/root-feature"
+ROOT_FEATURE_ROOT="$ROOT_FEATURE/root"
+rm -rf "$ROOT_FEATURE"
+mkdir -p "$ROOT_FEATURE_ROOT/etc/sysupdate.d" \
+         "$ROOT_FEATURE_ROOT/source" \
+         "$ROOT_FEATURE_ROOT/target"
+cat >"$ROOT_FEATURE_ROOT/etc/sysupdate.d/50-feata.transfer" <<EOF
+[Transfer]
+Features=feata
+
+[Source]
+Type=regular-file
+Path=/source
+MatchPattern=feata-@v.bin
+
+[Target]
+Type=regular-file
+Path=/target
+MatchPattern=feata-@v.bin
+InstancesMax=2
+EOF
+cat >"$ROOT_FEATURE_ROOT/etc/sysupdate.d/feata.feature" <<EOF
+[Feature]
+Description=Feature A
+EOF
+"$SYSUPDATE" --root="$ROOT_FEATURE_ROOT" --component-all enable-feature --feature-all
+assert_dropin "$ROOT_FEATURE_ROOT$(feat_enable_dropin_default feata)" yes
+
+rm -rf "$ROOT_FEATURE"
 
 # ---------------------------------------------------------------------------
 # Features scoped to a named component, and across all components at once
