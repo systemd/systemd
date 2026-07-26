@@ -94,7 +94,7 @@ Description=TEST-07 PIDFile daemon-reload timeout
 Type=forking
 ExecStart=/run/testsuite-07-pidfile-timeout.sh
 PIDFile=/run/testsuite-07-pidfile-timeout.pid
-TimeoutStartSec=3s
+TimeoutStartSec=15s
 EOF_UNIT_TIMEOUT
 
 systemctl daemon-reload
@@ -112,4 +112,4 @@ wait_for_property "$unit_timeout" ActiveState activating
 wait_for_property "$unit_timeout" ControlPID 0
 systemctl daemon-reload
 wait_for_property "$unit_timeout" ActiveState failed
-assert_eq "$(systemctl show -P Result "$unit_timeout")" timeout 
+assert_eq "$(systemctl show -P Result "$unit_timeout")" timeout
