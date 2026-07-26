@@ -129,7 +129,9 @@ int context_installdb_record(
                 return 0;
 
         /* The provided path comes with c->root prefixed. Strip it here again */
-        const char *p = c->root ? ASSERT_PTR(path_startswith(path, c->root)) : path;
+        const char *p = path;
+        if (c->root)
+                p = ASSERT_PTR(path_startswith_full(path, c->root, PATH_STARTSWITH_RETURN_LEADING_SLASH));
 
         r = context_installdb_acquire_fd(c, /* make= */ true);
         if (r < 0)
@@ -170,7 +172,10 @@ static int context_is_path_currently_owned(
                 if (!RESOURCE_IS_FILESYSTEM(t->target.type))
                         continue;
 
-                if (!path_equal(t->target.path, path))
+                const char *target_path = t->target.path;
+                if (c->root)
+                        target_path = path_startswith_full(t->target.path, c->root, PATH_STARTSWITH_RETURN_LEADING_SLASH);
+                if (!target_path || !path_equal(target_path, path))
                         continue;
 
                 /* OK, so we found a transfer that covers this directory. Now let's see if any of its patterns match */
