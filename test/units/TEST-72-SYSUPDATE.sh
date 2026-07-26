@@ -1833,6 +1833,50 @@ assert_dropin "$(feat_enable_dropin_default featc)" yes
 test ! -e "$(feat_enable_dropin_default featb)"
 set_machine_tags ""
 
+# --component-all must still include the default component when all of its
+# transfers are currently disabled by features.
+compfeat_reset
+compfeat_source v1
+mkdir -p /run/sysupdate.d
+compfeat_transfer /run/sysupdate.d/50-feata.transfer feata "$CF/target-default" feata
+cat >/run/sysupdate.d/feata.feature <<EOF
+[Feature]
+Description=Feature A
+EOF
+"$SYSUPDATE" --component-all enable-feature --feature-all
+assert_dropin "$(feat_enable_dropin_default feata)" yes
+
+# --component-all must include the default component under --root= too.
+ROOT_FEATURE="$WORKDIR/root-feature"
+ROOT_FEATURE_ROOT="$ROOT_FEATURE/root"
+rm -rf "$ROOT_FEATURE"
+mkdir -p "$ROOT_FEATURE_ROOT/etc/sysupdate.d" \
+         "$ROOT_FEATURE_ROOT/source" \
+         "$ROOT_FEATURE_ROOT/target"
+cat >"$ROOT_FEATURE_ROOT/etc/sysupdate.d/50-feata.transfer" <<EOF
+[Transfer]
+Features=feata
+
+[Source]
+Type=regular-file
+Path=/source
+MatchPattern=feata-@v.bin
+
+[Target]
+Type=regular-file
+Path=/target
+MatchPattern=feata-@v.bin
+InstancesMax=2
+EOF
+cat >"$ROOT_FEATURE_ROOT/etc/sysupdate.d/feata.feature" <<EOF
+[Feature]
+Description=Feature A
+EOF
+"$SYSUPDATE" --root="$ROOT_FEATURE_ROOT" --component-all enable-feature --feature-all
+assert_dropin "$ROOT_FEATURE_ROOT$(feat_enable_dropin_default feata)" yes
+
+rm -rf "$ROOT_FEATURE"
+
 # ---------------------------------------------------------------------------
 # Features scoped to a named component, and across all components at once
 # ---------------------------------------------------------------------------
