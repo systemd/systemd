@@ -2,3 +2,5 @@
 
 int vsock_open_or_warn(int *ret);
 int vsock_get_local_cid_or_warn(unsigned *ret);
+
+int sshd_config_dump_get_authorized_keys_file(const char *dump, char **ret);
