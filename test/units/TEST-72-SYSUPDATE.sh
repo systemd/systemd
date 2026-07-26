@@ -397,6 +397,7 @@ EOF
     cat >"$CONFIGDIR/optional.feature" <<EOF
 [Feature]
 Description=Optional Feature
+AppStream=https://example.com/appstream/appstream-%o.xml
 EOF
 
     cat >"$CONFIGDIR/99-optional.transfer" <<EOF
@@ -472,6 +473,8 @@ EOF
     elif [[ "$client" == "varlink" ]]; then
         [[ $(varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListFeatures '{"target":{"class":"host"}}' | jq -r '.features[] | select(.id=="optional") | .description') == "Optional Feature" ]]
         varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListFeatures '{"target":{"class":"host"}}' | jq -r '.features[] | select(.id=="optional") | .transfers' | grep "99-optional"
+        os_release_id="$(. /etc/os-release; echo "$ID")"
+        [[ $(varlinkctl call "$VARLINK_SOCKET" io.systemd.SysUpdate.ListFeatures '{"target":{"class":"host"}}' | jq -rc '.features[] | select(.id=="optional") | .appstreamUrls') == "[\"https://example.com/appstream/appstream-${os_release_id}.xml\"]" ]]
     else
         exit 1
     fi

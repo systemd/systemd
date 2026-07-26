@@ -2399,7 +2399,6 @@ static int verb_enable_feature(int argc, char *argv[], uintptr_t _data, void *us
 static int feature_to_json(Context *context, const Feature *f, sd_json_variant **ret) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_strv_free_ char **transfers = NULL;
-        const char *documentation_strv[2] = { NULL, };
         int r;
 
         assert(context);
@@ -2411,15 +2410,15 @@ static int feature_to_json(Context *context, const Feature *f, sd_json_variant *
                 return r;
 
         /* FIXME: Long term we’d like to support an array of documentation, but currently the D-Bus interface
-         * doesn’t support that and neither do the internals of sysupdate. So just expose 0 or 1 URLs for now. */
-        documentation_strv[0] = f->documentation;
+         * doesn’t support that and neither do the internals of sysupdate. So just expose 0 or 1 URLs for now.
+         * Same for appstream URLs. */
 
         r = sd_json_variant_merge_objectbo(
                         &v,
                         SD_JSON_BUILD_PAIR_STRING("id", f->id),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("description", f->description),
-                        JSON_BUILD_PAIR_STRV_NON_EMPTY("documentation", (char **) documentation_strv),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("appstream", f->appstream),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("documentation", STRV_MAKE(f->documentation)),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("appstreamUrls", STRV_MAKE(f->appstream)),
                         SD_JSON_BUILD_PAIR_BOOLEAN("isEnabled", f->enabled),
                         JSON_BUILD_PAIR_STRV_NON_EMPTY("transfers", transfers));
         if (r < 0)
