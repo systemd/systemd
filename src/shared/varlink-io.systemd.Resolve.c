@@ -348,6 +348,8 @@ static SD_VARLINK_DEFINE_ERROR(ZoneTransfersNotPermitted);
 static SD_VARLINK_DEFINE_ERROR(ResourceRecordTypeObsolete);
 static SD_VARLINK_DEFINE_ERROR(InconsistentServiceRecords);
 static SD_VARLINK_DEFINE_ERROR(ServiceNotProvided);
+static SD_VARLINK_DEFINE_ERROR(LinkIsManaged);
+static SD_VARLINK_DEFINE_ERROR(LinkIsLoopback);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Resolve,
@@ -420,4 +422,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("The DNS resource records of the specified service are not consistent (e.g. lacks a DNS-SD service type when resolved)."),
                 &vl_error_InconsistentServiceRecords,
                 SD_VARLINK_SYMBOL_COMMENT("The service is explicitly not provided on the queried domain (RFC 2782 root domain SRV record)."),
-                &vl_error_ServiceNotProvided);
+                &vl_error_ServiceNotProvided,
+                SD_VARLINK_SYMBOL_COMMENT("The link settings cannot be changed because the link is managed by networkd."),
+                &vl_error_LinkIsManaged,
+                SD_VARLINK_SYMBOL_COMMENT("The link settings cannot be changed because the link is the loopback interface."),
+                &vl_error_LinkIsLoopback);

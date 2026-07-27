@@ -11,6 +11,8 @@
 #include "networkd-link-varlink.h"
 #include "networkd-manager.h"
 #include "networkd-setlink.h"
+#include "networkd-state-file.h"
+#include "resolve-varlink-util.h"
 
 int dispatch_link(sd_varlink *vlink, sd_json_variant *parameters, Manager *manager, DispatchLinkFlag flags, Link **ret) {
         struct {
@@ -35,13 +37,19 @@ int dispatch_link(sd_varlink *vlink, sd_json_variant *parameters, Manager *manag
         assert(manager);
         assert(ret);
 
-        r = sd_varlink_dispatch(
-                        vlink,
+        const char *bad_field;
+        r = sd_json_dispatch_full(
                         parameters,
                         FLAGS_SET(flags, DISPATCH_LINK_POLKIT) ? dispatch_polkit_table : dispatch_table,
-                        &info);
-        if (r != 0)
+                        /* bad= */ NULL,
+                        FLAGS_SET(flags, DISPATCH_LINK_ALLOW_EXTENSIONS) ? SD_JSON_ALLOW_EXTENSIONS : 0,
+                        &info,
+                        &bad_field);
+        if (r < 0) {
+                if (bad_field)
+                        return sd_varlink_error_invalid_parameter_name(vlink, bad_field);
                 return r;
+        }
 
         if (info.ifindex < 0)
                 return sd_varlink_error_invalid_parameter(vlink, JSON_VARIANT_STRING_CONST("InterfaceIndex"));
@@ -218,6 +226,42 @@ int vl_method_link_reconfigure(sd_varlink *vlink, sd_json_variant *parameters, s
                 return log_link_warning_errno(link, r, "Failed to reconfigure link: %m");
         if (r > 0)
                 return 0; /* Reply will be sent asynchronously via vlink */
+
+        return sd_varlink_reply(vlink, NULL);
+}
+
+int vl_method_link_set_dns(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        int r;
+
+        assert(vlink);
+
+        Link *link;
+        r = dispatch_link(vlink, parameters, manager, DISPATCH_LINK_POLKIT | DISPATCH_LINK_MANDATORY | DISPATCH_LINK_ALLOW_EXTENSIONS, &link);
+        if (r != 0)
+                return r;
+
+        r = varlink_verify_polkit_async(
+                        vlink,
+                        manager->bus,
+                        "org.freedesktop.network1.set-dns-servers",
+                        (const char**) STRV_MAKE("interface", link->ifname),
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        _cleanup_(link_set_dns_parameters_done) LinkSetDNSParameters p = {};
+        r = dispatch_link_set_dns_parameters(NULL, parameters, SD_JSON_LOG, &p);
+        if (r < 0)
+                return r;
+
+        link_set_dns(link, TAKE_PTR(p.servers), p.n_servers);
+        /* The link took ownership of this array. */
+        p.n_servers = 0;
+
+        r = link_save_and_clean_full(link, /* also_save_manager= */ true);
+        if (r < 0)
+                return r;
 
         return sd_varlink_reply(vlink, NULL);
 }
