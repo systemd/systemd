@@ -96,7 +96,7 @@ int dispatch_resolve_service_reply(const char *name, sd_json_variant *variant, s
 typedef struct LinkSetDNSParameters {
         struct in_addr_full **servers;
         size_t n_servers;
-        char *ifname;
+        const char *ifname;
         int ifindex;
 } LinkSetDNSParameters;
 
