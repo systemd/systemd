@@ -389,5 +389,18 @@ kill "$SUBJOBS_PID" 2>/dev/null || true
 wait "$SUBJOBS_PID" 2>/dev/null || true
 rm -f "$SUBJOBS_OUT"
 
+# withRuntime: finished-job notifications carry a unit runtime snapshot
+SUBJOBS_RT_OUT="$(mktemp)"
+varlinkctl call --more "$MANAGER_SOCKET" io.systemd.Unit.SubscribeJobs '{"withRuntime":true}' >"$SUBJOBS_RT_OUT" &
+SUBJOBS_RT_PID=$!
+timeout 10 bash -c "until jq --seq --slurp -e 'any(.[]; .ready == true)' \"$SUBJOBS_RT_OUT\" >/dev/null 2>&1; do sleep 0.2; done"
+defer_transient_cleanup varlink-subjobs-rt-test.service
+varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+    '{"context":{"ID":"varlink-subjobs-rt-test.service","Service":{"Type":"oneshot","ExecStart":[{"path":"/bin/true"}]}}}'
+timeout 30 bash -c "until jq --seq --slurp -e 'any(.[]; .job.Unit == \"varlink-subjobs-rt-test.service\" and .job.State == \"finished\" and .runtime.Service.ExecMain.Status == 0)' \"$SUBJOBS_RT_OUT\" >/dev/null 2>&1; do sleep 0.5; done"
+kill "$SUBJOBS_RT_PID" 2>/dev/null || true
+wait "$SUBJOBS_RT_PID" 2>/dev/null || true
+rm -f "$SUBJOBS_RT_OUT"
+
 transient_cleanup
 trap - EXIT

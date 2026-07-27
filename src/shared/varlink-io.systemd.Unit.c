@@ -1978,10 +1978,14 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 SubscribeJobs,
                 SD_VARLINK_REQUIRES_MORE,
+                SD_VARLINK_FIELD_COMMENT("If true, include the unit's runtime state in finished-job notifications. Defaults to false."),
+                SD_VARLINK_DEFINE_INPUT(withRuntime, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Set once, on the notification concluding the initial snapshot: the subscription is registered and job state changes from before this notification cannot be observed anymore."),
                 SD_VARLINK_DEFINE_OUTPUT(ready, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The job this notification is about; unset on the ready notification. On subscription one notification per currently queued job is sent, then job state changes stream as they happen. A notification with State=finished and Result set is the last one for a job."),
-                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(job, Job, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(job, Job, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Unit runtime snapshot, taken when the job finished. Set on finished-job notifications when withRuntime was true."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(runtime, UnitRuntime, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
                 SetProperties,
