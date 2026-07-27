@@ -493,7 +493,7 @@ typedef struct Manager {
         unsigned notifygen;
 
         sd_varlink_server *varlink_server;
-        Set *varlink_job_subscribers; /* SubscribeJobs streams, one entry per subscribed link */
+        Hashmap *varlink_job_subscribers; /* sd_varlink* => VARLINK_JOB_SUBSCRIBER_* */
         /* When we're a system manager, this object manages the subscription from systemd-oomd to PID1 that's
          * used to report changes in ManagedOOM settings (systemd server - oomd client). When
          * we're a user manager, this object manages the client connection from the user manager to
