@@ -411,6 +411,9 @@ static int dispatch_in_addr_full(const char *name, sd_json_variant *variant, sd_
         if (!dns_server_address_valid(server->family, &server->address))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Invalid DNS server address.");
 
+        if (IN_SET(server->port, 53, 853))
+                server->port = 0;
+
         *ret = TAKE_PTR(server);
         return 0;
 }
