@@ -27,6 +27,7 @@
 #include "systemctl.h"
 #include "systemctl-compat-halt.h"
 #include "systemctl-compat-shutdown.h"
+#include "systemctl-limits.h"
 #include "systemctl-logind.h"
 #include "time-util.h"
 #include "verbs.h"
@@ -974,6 +975,8 @@ VERB_SCOPE(, verb_show,              "show",             "[PATTERN…|JOB…]", 
            "Show properties of one or more units/jobs or the manager");
 VERB_SCOPE(, verb_cat,               "cat",              "PATTERN…",   2,        VERB_ANY, VERB_ONLINE_ONLY,
            "Show files and drop-ins of specified units");
+VERB_SCOPE(, verb_limits,               "limits",              "PATTERN…",   2,        VERB_ANY, VERB_ONLINE_ONLY,
+           "Show cgroup resource limits of one or more units");
 VERB_SCOPE(, verb_show,              "help",             "PATTERN…|PID…", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
            "Show manual for one or more units");
 VERB_SCOPE(, verb_list_dependencies, "list-dependencies", "[UNIT…]",   VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
