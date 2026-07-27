@@ -3174,3 +3174,14 @@ bool link_has_local_lease_domain(Link *link) {
                 link->network->dhcp_server_local_lease_domain &&
                 !dns_name_is_root(link->network->dhcp_server_local_lease_domain);
 }
+
+void link_set_dns(Link *link, struct in_addr_full **dns, size_t n_dns) {
+        assert(link);
+
+        if (link->n_dns != UINT_MAX)
+                FOREACH_ARRAY(d, link->dns, link->n_dns)
+                        in_addr_full_free(*d);
+
+        free_and_replace(link->dns, dns);
+        link->n_dns = n_dns;
+}
