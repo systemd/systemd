@@ -118,9 +118,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   That requires distros to enable CONFIG_ACPI_FPDT, and have kernels v5.12 for
   x86 and v6.2 for arm.
 
-- Remove support for deprecated FactoryReset EFI variable in
-  systemd-repart, replaced by FactoryResetRequest (was planned for v260).
-
 - Consider removing root=gpt-auto, and push people to use root=dissect instead.
 
 - remove any trace of "cpuacct" cgroup controller, it's a cgroupv1 thing.
