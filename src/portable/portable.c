@@ -850,6 +850,25 @@ static int extract_image_and_extensions(
         if (r < 0)
                 return r;
 
+        r = portable_extract_by_path(
+                        scope,
+                        image->path,
+                        /* path_is_extension= */ false,
+                        /* relax_extension_release_check= */ false,
+                        matches,
+                        image_policy,
+                        &os_release,
+                        &unit_files,
+                        &pinned_root_image_policy,
+                        error);
+        if (r < 0)
+                return r;
+
+        /* Read the image's VERSION_ID for "host=" vpick entries of extension images */
+        r = parse_env_file_fd(os_release->fd, os_release->name, "VERSION_ID", &version_id);
+        if (r < 0)
+                return r;
+
         if (!strv_isempty(extension_image_paths)) {
                 extension_images = ordered_hashmap_new(&image_hash_ops);
                 if (!extension_images)
@@ -867,12 +886,20 @@ static int extract_image_and_extensions(
                         const char *path = *p;
 
                         if (path_is_absolute(*p)) {
+                                PickFilter filters[] = {
+                                        pick_filter_image_raw[0],
+                                        pick_filter_image_mstack[0],
+                                        pick_filter_image_dir[0],
+                                };
+                                FOREACH_ELEMENT(f, filters)
+                                        f->host_version = strempty(version_id);
+
                                 r = path_pick(/* root_path= */ NULL,
                                               /* root_fd= */ AT_FDCWD,
                                               /* dir_fd= */ AT_FDCWD,
                                               *p,
-                                              pick_filter_image_any,
-                                              ELEMENTSOF(pick_filter_image_any),
+                                              filters,
+                                              ELEMENTSOF(filters),
                                               PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
                                               &ext_result);
                                 if (r < 0)
@@ -896,20 +923,6 @@ static int extract_image_and_extensions(
                         TAKE_PTR(new);
                 }
         }
-
-        r = portable_extract_by_path(
-                        scope,
-                        image->path,
-                        /* path_is_extension= */ false,
-                        /* relax_extension_release_check= */ false,
-                        matches,
-                        image_policy,
-                        &os_release,
-                        &unit_files,
-                        &pinned_root_image_policy,
-                        error);
-        if (r < 0)
-                return r;
 
         /* If we are layering extension images on top of a runtime image, check that the os-release and
          * extension-release metadata match, otherwise reject it immediately as invalid, or it will fail when
