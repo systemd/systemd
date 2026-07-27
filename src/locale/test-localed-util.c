@@ -231,6 +231,22 @@ TEST(x11_convert_to_vconsole) {
         ASSERT_STREQ(vc.keymap, "ru");
 }
 
+TEST(x11_context_is_safe) {
+        _cleanup_(x11_context_clear) X11Context xc = {};
+
+        /* Since 812aa57d2c, string_is_safe() rejects empty strings unless
+         * STRING_ALLOW_EMPTY is passed. x11_context_is_safe() must accept empty
+         * (non-NULL) fields, as localed's xorg.conf parser produces them for
+         * 'Option "XkbVariant" ""'. See issue #43007. */
+        ASSERT_OK(free_and_strdup(&xc.layout, "gb"));
+        ASSERT_OK(free_and_strdup(&xc.variant, ""));
+        ASSERT_TRUE(x11_context_is_safe(&xc));
+
+        /* Unsafe strings are still rejected. */
+        ASSERT_OK(free_and_strdup(&xc.variant, "bad\\variant"));
+        ASSERT_FALSE(x11_context_is_safe(&xc));
+}
+
 static int intro(void) {
         _cleanup_free_ char *map = NULL;
 
