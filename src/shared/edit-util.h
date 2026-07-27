@@ -29,3 +29,5 @@ int edit_files_add(
                 char * const *comment_paths);
 
 int do_edit_files_and_install(EditFileContext *context);
+
+int run_editor(char * const *paths, unsigned first_line);
