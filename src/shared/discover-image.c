@@ -854,11 +854,12 @@ static char** make_possible_filenames(ImageClass class, const char *image_name) 
         return TAKE_PTR(l);
 }
 
-int image_find(RuntimeScope scope,
-               ImageClass class,
-               const char *name,
-               const char *root,
-               Image **ret) {
+int image_find_full(RuntimeScope scope,
+                    ImageClass class,
+                    const char *name,
+                    const char *root,
+                    const char *host_version,
+                    Image **ret) {
 
         int r;
 
@@ -952,6 +953,7 @@ int image_find(RuntimeScope scope,
                                         .basename = name,
                                         .architecture = _ARCHITECTURE_INVALID,
                                         .suffix = suffix,
+                                        .host_version = host_version,
                                 };
 
                                 _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
@@ -1056,15 +1058,25 @@ int image_from_path(const char *path, Image **ret) {
                         ret);
 }
 
+int image_find(RuntimeScope scope,
+               ImageClass class,
+               const char *name,
+               const char *root,
+               Image **ret) {
+
+        return image_find_full(scope, class, name, root, /* host_version= */ NULL, ret);
+}
+
 int image_find_harder(
                 RuntimeScope scope,
                 ImageClass class,
                 const char *name_or_path,
                 const char *root,
+                const char *host_version,
                 Image **ret) {
 
         if (image_name_is_valid(name_or_path))
-                return image_find(scope, class, name_or_path, root, ret);
+                return image_find_full(scope, class, name_or_path, root, host_version, ret);
 
         return image_from_path(name_or_path, ret);
 }
