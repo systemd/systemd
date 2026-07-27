@@ -18,6 +18,10 @@ typedef struct PickFilter {
         const char *version;
         Architecture architecture;
         const char *suffix;           /* Can be overridden by search pattern */
+        const char *host_version;     /* Version that "host=" entries are matched against. If NULL, the
+                                       * VERSION_ID of the os-release of the tree 'root_fd' refers to is
+                                       * used, hence set this whenever that is not the tree the picked
+                                       * file is applied to. If empty, "host=" entries never match. */
 } PickFilter;
 
 typedef struct PickResult {
