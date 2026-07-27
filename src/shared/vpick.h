@@ -18,6 +18,8 @@ typedef struct PickFilter {
         const char *version;
         Architecture architecture;
         const char *suffix;           /* Can be overridden by search pattern */
+        const char *host_version;     /* If set, "host=" entries match against this instead of the root's
+                                       * os-release VERSION_ID; if set to "" they never match */
 } PickFilter;
 
 typedef struct PickResult {
