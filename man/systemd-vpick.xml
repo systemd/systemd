@@ -72,7 +72,10 @@
 
         <listitem><para>Explicitly configures the version to select. If specified, a filename with the
         specified version string will be looked for, instead of the newest version
-        available.</para>
+        available. This also disables host version matching for entries whose version is prefixed with
+        <literal>host=</literal>, see
+        <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        The specified version is compared against the version with the prefix removed.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>

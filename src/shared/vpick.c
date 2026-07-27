@@ -8,6 +8,7 @@
 #include "chase.h"
 #include "fd-util.h"
 #include "log.h"
+#include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "recurse-dir.h"
@@ -75,6 +76,7 @@ int pick_result_compare(const PickResult *a, const PickResult *b, PickFlags flag
 static int format_fname(
                 const PickFilter *filter,
                 PickFlags flags,
+                bool host_prefix, /* prefix the version with the literal "host=" */
                 char **ret) {
 
         _cleanup_free_ char *fn = NULL;
@@ -118,11 +120,13 @@ static int format_fname(
         }
 
         if (filter->version) {
+                const char *v = host_prefix ? strjoina("host=", filter->version) : filter->version;
+
                 if (isempty(fn)) {
-                        r = free_and_strdup(&fn, filter->version);
+                        r = free_and_strdup(&fn, v);
                         if (r < 0)
                                 return r;
-                } else if (!strextend(&fn, "_", filter->version))
+                } else if (!strextend(&fn, "_", v))
                         return -ENOMEM;
         }
 
@@ -339,7 +343,7 @@ static int make_choice(
 
         /* Maybe the filter is fully specified? Then we can generate the file name directly */
         _cleanup_free_ char *j = NULL;
-        r = format_fname(filter, flags, &j);
+        r = format_fname(filter, flags, /* host_prefix= */ false, &j);
         if (r >= 0) {
                 _cleanup_free_ char *object_path = NULL;
 
@@ -350,6 +354,21 @@ static int make_choice(
 
                 _cleanup_close_ int object_fd = -EBADF;
                 r = chaseat(root_fd, dir_fd, p, /* flags= */ 0, &object_path, &object_fd);
+                if (r == -ENOENT) {
+                        /* Not found under the literal name? Also try the "host=" prefixed spelling of the
+                         * same version. */
+                        _cleanup_free_ char *hj = NULL;
+                        r = format_fname(filter, flags, /* host_prefix= */ true, &hj);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to format file name: %m");
+
+                        free(p);
+                        p = path_join(inode_path, hj);
+                        if (!p)
+                                return log_oom_debug();
+
+                        r = chaseat(root_fd, dir_fd, p, /* flags= */ 0, &object_path, &object_fd);
+                }
                 if (r == -ENOENT) {
                         *ret = PICK_RESULT_NULL;
                         return 0;
@@ -388,6 +407,8 @@ static int make_choice(
                                        empty_to_root(root_path), skip_leading_slash(inode_path));
 
         _cleanup_(pick_result_done) PickResult best = PICK_RESULT_NULL;
+        _cleanup_free_ char *host_version_id = NULL;
+        bool host_version_id_read = false;
 
         FOREACH_ARRAY(entry, de->entries, de->n_entries) {
                 unsigned found_tries_done = UINT_MAX, found_tries_left = UINT_MAX;
@@ -447,14 +468,37 @@ static int make_choice(
                                 *underscore = 0;
                 }
 
+                /* If the version is prefixed with the literal "host=" the entry shall only be considered if
+                 * the version equals the VERSION_ID of the OS we operate on. The prefix is not part of the
+                 * version for any other purposes. */
+                char *hv = startswith(e, "host=");
+                if (hv)
+                        e = hv;
+
                 if (!version_is_valid(e, /* flags= */ 0)) {
                         log_debug("Version string '%s' of entry '%s' is invalid, ignoring entry.", e, (*entry)->d_name);
                         continue;
                 }
 
-                if (filter->version && !streq(filter->version, e)) {
-                        log_debug("Found entry with version string '%s', but was looking for '%s', ignoring entry.", e, filter->version);
-                        continue;
+                if (filter->version) {
+                        /* An explicit version filter disables host version matching */
+                        if (!streq(filter->version, e)) {
+                                log_debug("Found entry with version string '%s', but was looking for '%s', ignoring entry.", e, filter->version);
+                                continue;
+                        }
+                } else if (hv) {
+                        if (!host_version_id_read) {
+                                r = parse_os_release_at(root_fd, "VERSION_ID", &host_version_id);
+                                if (r < 0)
+                                        log_debug_errno(r, "Failed to read VERSION_ID from os-release, ignoring 'host=' entries: %m");
+                                host_version_id_read = true;
+                        }
+
+                        if (!streq(e, strempty(host_version_id))) {
+                                log_debug("Found entry with host version '%s', but host VERSION_ID is '%s', ignoring entry.",
+                                          e, strna(host_version_id));
+                                continue;
+                        }
                 }
 
                 _cleanup_free_ char *p = path_join(inode_path, (*entry)->d_name);
