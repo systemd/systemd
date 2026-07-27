@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/magic.h>
+#include <sys/mount.h>
 #include <unistd.h>
 
 #include "sd-json.h"
@@ -13,29 +14,40 @@
 #include "creds-util.h"
 #include "dirent-util.h"
 #include "dlopen-note.h"
+#include "edit-util.h"
 #include "errno-util.h"
 #include "escape.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
 #include "hashmap.h"
 #include "hexdecoct.h"
+#include "io-util.h"
+#include "iovec-util.h"
 #include "json-util.h"
 #include "libmount-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "memory-util.h"
+#include "mkdir.h"
+#include "mount-util.h"
+#include "namespace-util.h"
 #include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
+#include "path-lookup.h"
+#include "path-util.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
+#include "rm-rf.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "time-util.h"
+#include "tmpfile-util.h"
 #include "tpm2-pcr.h"
 #include "tpm2-util.h"
 #include "user-util.h"
@@ -746,6 +758,281 @@ static int verb_decrypt(int argc, char *argv[], uintptr_t _data, void *userdata)
         if (r < 0)
                 return r;
 
+        return EXIT_SUCCESS;
+}
+
+typedef struct EditScratchDir {
+        char *path;
+        bool mounted;
+} EditScratchDir;
+
+static void edit_scratch_dir_done(EditScratchDir *d) {
+        assert(d);
+
+        if (!d->path)
+                return;
+
+        /* Get rid of the plaintext scratch area again. If we mounted a file system, detaching it releases
+         * the RAM backing it. Otherwise the directory resides on some other RAM-backed file system (we
+         * refuse to operate on anything else), whose backing memory is released on file deletion. */
+
+        if (d->mounted)
+                (void) umount_verbose(LOG_DEBUG, d->path, MNT_DETACH|UMOUNT_NOFOLLOW);
+
+        (void) rm_rf(d->path, REMOVE_ROOT);
+        d->path = mfree(d->path);
+}
+
+static int edit_scratch_dir_acquire(EditScratchDir *ret) {
+        _cleanup_free_ char *base = NULL, *template = NULL;
+        _cleanup_(rm_rf_physical_and_freep) char *d = NULL;
+        int r;
+
+        assert(ret);
+
+        /* Sets up a private scratch directory for editing plaintext credential data, backed by a RAM file
+         * system excluded from swap if we can have it, so that the plaintext never touches persistent
+         * storage. */
+
+        r = runtime_directory_generic(geteuid() == 0 ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER, "systemd", &base);
+        if (r == -ENXIO)
+                return log_error_errno(r, "$XDG_RUNTIME_DIR is not set, refusing to edit plaintext credential data without a RAM-backed scratch directory.");
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine runtime directory: %m");
+
+        r = mkdir_p(base, 0755);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create directory '%s': %m", base);
+
+        template = path_join(base, "creds-edit.XXXXXX");
+        if (!template)
+                return log_oom();
+
+        r = mkdtemp_malloc(template, &d);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create scratch directory below '%s': %m", base);
+
+        /* Try to mount a tmpfs with swapping disabled (or ramfs) over the directory, the same way PID 1
+         * sets up service credential directories. Do so in a detached mount namespace: that keeps the
+         * plaintext invisible to other processes, and, more importantly, ensures the kernel releases the
+         * mount (and thus the memory backing the plaintext) when we die, even if we are killed by a signal
+         * before our cleanup handler runs. This requires privileges, hence fall back to the plain directory
+         * if we lack them, but insist on a RAM-backed file system in that case, too. */
+        r = detach_mount_namespace();
+        if (r >= 0) {
+                r = mount_credentials_fs(d);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to mount credentials file system over '%s': %m", d);
+
+                *ret = (EditScratchDir) {
+                        .path = TAKE_PTR(d),
+                        .mounted = true,
+                };
+                return 0;
+        }
+        if (!ERRNO_IS_NEG_PRIVILEGE(r))
+                return log_error_errno(r, "Failed to detach mount namespace: %m");
+
+        log_debug_errno(r, "Lacking privileges to mount credentials file system over '%s', using plain scratch directory: %m", d);
+
+        _cleanup_close_ int dfd = open(d, O_DIRECTORY|O_CLOEXEC);
+        if (dfd < 0)
+                return log_error_errno(errno, "Failed to open scratch directory '%s': %m", d);
+
+        struct statfs sfs;
+        if (fstatfs(dfd, &sfs) < 0)
+                return log_error_errno(errno, "Failed to determine file system of scratch directory '%s': %m", d);
+
+        if (is_fs_type(&sfs, TMPFS_MAGIC)) {
+                struct stat st;
+
+                if (fstat(dfd, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat scratch directory '%s': %m", d);
+
+                r = is_tmpfs_with_noswap(st.st_dev);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to determine if file system of '%s' has 'noswap' enabled, assuming not: %m", d);
+                if (r <= 0)
+                        log_warning("Scratch directory '%s' is backed by tmpfs without the 'noswap' option, "
+                                    "plaintext credential data may be paged out to swap while editing.", d);
+        } else if (!is_fs_type(&sfs, RAMFS_MAGIC))
+                return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE),
+                                       "Scratch directory '%s' is not located on a RAM-backed file system, refusing to edit plaintext credential data there.", d);
+
+        *ret = (EditScratchDir) {
+                .path = TAKE_PTR(d),
+                .mounted = false,
+        };
+        return 0;
+}
+
+VERB(verb_edit, "edit", "FILE", 2, 2, 0,
+     "Edit encrypted credential file interactively");
+static int verb_edit(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(iovec_done_erase) struct iovec plaintext = {}, new_plaintext = {}, output = {};
+        _cleanup_(iovec_done) struct iovec input = {};
+        _cleanup_(edit_scratch_dir_done) EditScratchDir scratch = {};
+        _cleanup_free_ char *fname = NULL, *scratch_file = NULL, *base64_buf = NULL;
+        const char *target, *name;
+        ssize_t base64_size;
+        usec_t timestamp;
+        int r;
+
+        assert(argc == 2);
+
+        if (!on_tty())
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Cannot edit credentials if not on a TTY.");
+
+        target = argv[1];
+        if (empty_or_dash(target))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Editing standard input/output is not supported, please specify a path to a credential file.");
+
+        if (arg_name_any)
+                name = NULL;
+        else if (arg_name)
+                name = arg_name;
+        else {
+                r = path_extract_filename(target, &fname);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract filename from '%s': %m", target);
+                if (r == O_DIRECTORY)
+                        return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Path '%s' refers to directory, refusing.", target);
+
+                name = fname;
+        }
+
+        /* Validate the name before the interactive editing session, so that we don't throw away the
+         * freshly entered plaintext when encryption then refuses the name. */
+        if (name && !credential_name_valid(name))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid credential name: %s", name);
+
+        timestamp = arg_timestamp != USEC_INFINITY ? arg_timestamp : now(CLOCK_REALTIME);
+
+        if (arg_not_after != USEC_INFINITY && arg_not_after < timestamp)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential is invalidated before it is valid.");
+
+        /* Load and decrypt the existing credential, if there is one. Otherwise, we start with empty
+         * plaintext, i.e. the credential file is created from scratch. */
+        r = read_full_file_full(AT_FDCWD, target, UINT64_MAX, CREDENTIAL_ENCRYPTED_SIZE_MAX, READ_FULL_FILE_UNBASE64|READ_FULL_FILE_FAIL_WHEN_LARGER, NULL, (char**) &input.iov_base, &input.iov_len);
+        if (r == -E2BIG)
+                return log_error_errno(r, "Data too long for encrypted credential (allowed size: %zu).", (size_t) CREDENTIAL_ENCRYPTED_SIZE_MAX);
+        if (r == -ENOENT)
+                log_info("Credential file '%s' does not exist yet, will create it.", target);
+        else if (r < 0)
+                return log_error_errno(r, "Failed to read encrypted credential data: %m");
+
+        bool existing = r >= 0 && input.iov_len > 0;
+
+        if (existing) {
+                if (geteuid() != 0) {
+                        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
+                        r = ipc_decrypt_credential(
+                                        name,
+                                        timestamp,
+                                        arg_uid,
+                                        &input,
+                                        arg_credential_flags,
+                                        &plaintext);
+                } else
+                        r = decrypt_credential_and_warn(
+                                        name,
+                                        timestamp,
+                                        arg_tpm2_device,
+                                        arg_tpm2_signature,
+                                        arg_uid,
+                                        &input,
+                                        arg_credential_flags,
+                                        &plaintext);
+                if (r < 0)
+                        return r;
+        }
+
+        r = edit_scratch_dir_acquire(&scratch);
+        if (r < 0)
+                return r;
+
+        scratch_file = path_join(scratch.path, name ?: "credential");
+        if (!scratch_file)
+                return log_oom();
+
+        _cleanup_close_ int fd = open(scratch_file, O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC, 0600);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to create scratch file '%s': %m", scratch_file);
+
+        r = loop_write(fd, plaintext.iov_base, plaintext.iov_len);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write plaintext credential data to scratch file '%s': %m", scratch_file);
+
+        fd = safe_close(fd);
+
+        r = run_editor(STRV_MAKE(scratch_file), /* first_line= */ 1);
+        if (r < 0)
+                return r;
+
+        r = read_full_file_full(AT_FDCWD, scratch_file, UINT64_MAX, CREDENTIAL_SIZE_MAX, READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER, NULL, (char**) &new_plaintext.iov_base, &new_plaintext.iov_len);
+        if (r == -E2BIG)
+                return log_error_errno(r, "Plaintext too long for credential (allowed size: %zu).", (size_t) CREDENTIAL_SIZE_MAX);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read back edited credential data: %m");
+
+        if (existing && iovec_equal(&plaintext, &new_plaintext)) {
+                log_info("Credential data unchanged, not updating '%s'.", target);
+                return EXIT_SUCCESS;
+        }
+
+        if (new_plaintext.iov_len == 0) {
+                log_notice("Edited credential data is empty, not updating '%s'.", target);
+                return EXIT_SUCCESS;
+        }
+
+        /* Take a fresh timestamp for encryption: the new credential comes into existence now, and the IPC
+         * service only waives interactive authentication for fresh timestamps, which matters if the editing
+         * session took a while. */
+        if (arg_timestamp == USEC_INFINITY) {
+                timestamp = now(CLOCK_REALTIME);
+
+                if (arg_not_after != USEC_INFINITY && arg_not_after < timestamp)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential is invalidated before it is valid.");
+        }
+
+        if (geteuid() != 0 && !sd_id128_equal(arg_with_key, CRED_AES256_GCM_BY_NULL)) {
+                (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
+                r = ipc_encrypt_credential(
+                                name,
+                                timestamp,
+                                arg_not_after,
+                                arg_uid,
+                                &new_plaintext,
+                                arg_credential_flags,
+                                &output);
+        } else
+                r = encrypt_credential_and_warn(
+                                arg_with_key,
+                                name,
+                                timestamp,
+                                arg_not_after,
+                                arg_tpm2_device,
+                                arg_tpm2_pcr_mask,
+                                arg_tpm2_public_key,
+                                arg_tpm2_public_key_pcr_mask,
+                                arg_uid,
+                                &new_plaintext,
+                                arg_credential_flags,
+                                &output);
+        if (r < 0)
+                return r;
+
+        base64_size = base64mem_full(output.iov_base, output.iov_len, 79, &base64_buf);
+        if (base64_size < 0)
+                return base64_size;
+
+        r = write_string_file(target, base64_buf, WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_CREATE);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write '%s': %m", target);
+
+        log_info("Successfully updated encrypted credential file '%s'.", target);
         return EXIT_SUCCESS;
 }
 
