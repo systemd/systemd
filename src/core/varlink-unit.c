@@ -623,8 +623,101 @@ void varlink_unit_send_change_signal(Unit *u) {
                         SD_JSON_BUILD_PAIR_CALLBACK("runtime", unit_runtime_build_json, u));
 }
 
+/* Notify SubscribeJobs subscribers of a job state change. */
+static void varlink_job_broadcast_change(Job *j) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_free_ sd_varlink **dead = NULL;
+        size_t n_dead = 0;
+        Manager *m;
+        sd_varlink *link;
+        int r;
+
+        assert(j);
+        m = ASSERT_PTR(j->manager);
+
+        SET_FOREACH(link, m->varlink_job_subscribers) {
+                if (mac_selinux_unit_access_check_varlink(j->unit, link, "status") < 0)
+                        continue; /* silently skip jobs the subscriber may not see */
+
+                /* Built at most once per event and shared by all subscribers. */
+                if (!v) {
+                        r = sd_json_buildo(&v, SD_JSON_BUILD_PAIR_CALLBACK("job", job_build_json, j));
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to build job notification, ignoring: %m");
+                                continue;
+                        }
+                }
+
+                r = sd_varlink_notify(link, v);
+                if (r < 0) {
+                        /* Overflowed (ENOBUFS) or broken subscriber: drop it rather than
+                         * keep buffering for a client that cannot receive. */
+                        log_debug_errno(r, "Failed to notify job subscriber, disconnecting: %m");
+                        if (GREEDY_REALLOC(dead, n_dead + 1))
+                                dead[n_dead++] = link;
+                        else {
+                                /* Cannot defer the disconnect — drop the subscriber inline (removing
+                                 * the current entry during iteration is safe). */
+                                if (set_remove(m->varlink_job_subscribers, link))
+                                        sd_varlink_unref(link);
+                                sd_varlink_close(link);
+                        }
+                }
+        }
+
+        /* Deregister before closing so vl_disconnect() cannot unref a second time. */
+        FOREACH_ARRAY(d, dead, n_dead) {
+                if (set_remove(m->varlink_job_subscribers, *d))
+                        sd_varlink_unref(*d);
+                sd_varlink_close(*d);
+        }
+}
+
+int vl_method_subscribe_jobs(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        Job *j;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        /* SD_VARLINK_REQUIRES_MORE in the IDL rejects non-streaming callers before we get here */
+        assert(FLAGS_SET(flags, SD_VARLINK_METHOD_MORE));
+
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        /* Snapshot current jobs before registering, so that subscribing before enqueuing
+         * cannot miss a transition. */
+        HASHMAP_FOREACH(j, m->jobs) {
+                if (mac_selinux_unit_access_check_varlink(j->unit, link, "status") < 0)
+                        continue;
+
+                r = sd_varlink_notifybo(link, SD_JSON_BUILD_PAIR_CALLBACK("job", job_build_json, j));
+                if (r < 0)
+                        return r;
+        }
+
+        /* The ready ack concludes the snapshot. Registration below happens in the same
+         * dispatch, before any other connection's message is processed, so a client that
+         * has seen it cannot race a subsequently enqueued job. */
+        r = sd_varlink_notifybo(link, SD_JSON_BUILD_PAIR_BOOLEAN("ready", true));
+        if (r < 0)
+                return r;
+
+        r = set_ensure_put(&m->varlink_job_subscribers, NULL, link);
+        if (r < 0)
+                return r;
+
+        sd_varlink_ref(link);
+        return 1;
+}
+
 void varlink_job_send_change_signal(Job *j) {
         assert(j);
+
+        varlink_job_broadcast_change(j);
 
         if (!j->varlink || !j->varlink_notify_job_changes)
                 return;
@@ -636,6 +729,8 @@ void varlink_job_send_change_signal(Job *j) {
 
 void varlink_job_send_removed_signal(Job *j) {
         assert(j);
+
+        varlink_job_broadcast_change(j);
 
         if (!j->varlink)
                 return;
