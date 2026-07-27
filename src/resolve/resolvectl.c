@@ -1298,7 +1298,7 @@ static int format_dns_server_one(DNSConfiguration *configuration, DNSServer *s, 
 
         r = in_addr_port_ifindex_name_to_string(
                         s->family,
-                        &s->in_addr,
+                        &s->in_addr.address,
                         s->port != 53 ? s->port : 0,
                         s->ifindex,
                         s->server_name,
