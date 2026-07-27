@@ -6,7 +6,7 @@
 #include "sd-device.h"
 
 #include "alloc-util.h"
-#include "argv-util.h"
+#include "build.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "escape.h"
@@ -639,15 +639,42 @@ static int verb_save(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return 0;
 }
 
-static int run(int argc, char *argv[]) {
-        log_setup();
+VERB_COMMON_HELP_HIDDEN(help);
 
-        if (argv_looks_like_help(argc, argv))
-                return help();
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
+        assert(argc >= 0);
+        assert(argv);
+        assert(ret_args);
+
+        OptionParser opts = { argc, argv };
+
+        FOREACH_OPTION_OR_RETURN(c, &opts)
+                switch (c) {
+
+                OPTION_COMMON_HELP:
+                        return help();
+
+                OPTION_COMMON_VERSION:
+                        return version();
+                }
+
+        *ret_args = option_parser_get_args(&opts);
+        return 1;
+}
+
+static int run(int argc, char *argv[]) {
+        int r;
+
+        log_setup();
 
         umask(0022);
 
-        return dispatch_verb(strv_skip(argv, 1), /* userdata= */ NULL);
+        char **args = NULL;
+        r = parse_argv(argc, argv, &args);
+        if (r <= 0)
+                return r;
+
+        return dispatch_verb(args, /* userdata= */ NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);
