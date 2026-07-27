@@ -876,6 +876,10 @@ sensor:modalias:acpi:BOSC0200:*:dmi:bvnAmericanMegatrendsInc.:bvr5.12:bd07/17/20
 sensor:modalias:acpi:BMI0160:*:dmi:*:rnONEXPLAYER:rvrV01:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, -1
 
+# One-Netbook OneXPlayer Super X
+sensor:modalias:acpi:BMI0160:*:dmi:*:svnONE-NETBOOK:pnONEXPLAYERSUPERX:*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, 1
+
 #########################################
 # OrangePi
 #########################################
