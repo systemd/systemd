@@ -623,32 +623,50 @@ void varlink_unit_send_change_signal(Unit *u) {
                         SD_JSON_BUILD_PAIR_CALLBACK("runtime", unit_runtime_build_json, u));
 }
 
-/* Notify SubscribeJobs subscribers of a job state change. */
-static void varlink_job_broadcast_change(Job *j) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+static int job_notification_build(Job *j, bool with_runtime, sd_json_variant **ret) {
+        assert(j);
+        assert(ret);
+
+        if (with_runtime)
+                return sd_json_buildo(
+                                ret,
+                                SD_JSON_BUILD_PAIR_CALLBACK("job", job_build_json, j),
+                                SD_JSON_BUILD_PAIR_CALLBACK("runtime", unit_runtime_build_json, j->unit));
+
+        return sd_json_buildo(ret, SD_JSON_BUILD_PAIR_CALLBACK("job", job_build_json, j));
+}
+
+/* Notify SubscribeJobs subscribers of a job state change. Subscribers that opted into
+ * withRuntime (hashmap value 2) get a unit runtime snapshot on finished notifications. */
+static void varlink_job_broadcast_change(Job *j, bool finished) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *plain = NULL, *enriched = NULL;
         _cleanup_free_ sd_varlink **dead = NULL;
         size_t n_dead = 0;
         Manager *m;
         sd_varlink *link;
+        void *value;
         int r;
 
         assert(j);
         m = ASSERT_PTR(j->manager);
 
-        SET_FOREACH(link, m->varlink_job_subscribers) {
+        HASHMAP_FOREACH_KEY(value, link, m->varlink_job_subscribers) {
                 if (mac_selinux_unit_access_check_varlink(j->unit, link, "status") < 0)
                         continue; /* silently skip jobs the subscriber may not see */
 
-                /* Built at most once per event and shared by all subscribers. */
-                if (!v) {
-                        r = sd_json_buildo(&v, SD_JSON_BUILD_PAIR_CALLBACK("job", job_build_json, j));
+                /* Built at most once per event and shared by all subscribers: the runtime
+                 * build reads cgroupfs/BPF accounting, too costly to redo per subscriber. */
+                bool with_runtime = finished && PTR_TO_UINT(value) == VARLINK_JOB_SUBSCRIBER_WITH_RUNTIME;
+                sd_json_variant **v = with_runtime ? &enriched : &plain;
+                if (!*v) {
+                        r = job_notification_build(j, with_runtime, v);
                         if (r < 0) {
                                 log_debug_errno(r, "Failed to build job notification, ignoring: %m");
                                 continue;
                         }
                 }
 
-                r = sd_varlink_notify(link, v);
+                r = sd_varlink_notify(link, *v);
                 if (r < 0) {
                         /* Overflowed (ENOBUFS) or broken subscriber: drop it rather than
                          * keep buffering for a client that cannot receive. */
@@ -667,14 +685,20 @@ static void varlink_job_broadcast_change(Job *j) {
 
         /* Deregister before closing so vl_disconnect() cannot unref a second time. */
         FOREACH_ARRAY(d, dead, n_dead) {
-                if (set_remove(m->varlink_job_subscribers, *d))
+                if (hashmap_remove(m->varlink_job_subscribers, *d))
                         sd_varlink_unref(*d);
                 sd_varlink_close(*d);
         }
 }
 
 int vl_method_subscribe_jobs(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "withRuntime", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, 0, SD_JSON_NULLABLE },
+                {}
+        };
+
         Manager *m = ASSERT_PTR(userdata);
+        int with_runtime = -1;
         Job *j;
         int r;
 
@@ -684,7 +708,7 @@ int vl_method_subscribe_jobs(sd_varlink *link, sd_json_variant *parameters, sd_v
         /* SD_VARLINK_REQUIRES_MORE in the IDL rejects non-streaming callers before we get here */
         assert(FLAGS_SET(flags, SD_VARLINK_METHOD_MORE));
 
-        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &with_runtime);
         if (r != 0)
                 return r;
 
@@ -706,7 +730,9 @@ int vl_method_subscribe_jobs(sd_varlink *link, sd_json_variant *parameters, sd_v
         if (r < 0)
                 return r;
 
-        r = set_ensure_put(&m->varlink_job_subscribers, NULL, link);
+        VarlinkJobSubscriberKind kind =
+                with_runtime > 0 ? VARLINK_JOB_SUBSCRIBER_WITH_RUNTIME : VARLINK_JOB_SUBSCRIBER_PLAIN;
+        r = hashmap_ensure_put(&m->varlink_job_subscribers, NULL, link, UINT_TO_PTR(kind));
         if (r < 0)
                 return r;
 
@@ -717,7 +743,7 @@ int vl_method_subscribe_jobs(sd_varlink *link, sd_json_variant *parameters, sd_v
 void varlink_job_send_change_signal(Job *j) {
         assert(j);
 
-        varlink_job_broadcast_change(j);
+        varlink_job_broadcast_change(j, /* finished= */ false);
 
         if (!j->varlink || !j->varlink_notify_job_changes)
                 return;
@@ -730,7 +756,7 @@ void varlink_job_send_change_signal(Job *j) {
 void varlink_job_send_removed_signal(Job *j) {
         assert(j);
 
-        varlink_job_broadcast_change(j);
+        varlink_job_broadcast_change(j, /* finished= */ true);
 
         if (!j->varlink)
                 return;

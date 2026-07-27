@@ -788,6 +788,20 @@ Unit* unit_free(Unit *u) {
 
         bus_unit_send_removed_signal(u);
 
+        /* Uninstall jobs before unit_done() tears down the unit's runtime state, since job observers
+         * (e.g. SubscribeJobs withRuntime subscribers) snapshot it from job_uninstall(). */
+        if (u->job) {
+                Job *j = u->job;
+                job_uninstall(j);
+                job_free(j);
+        }
+
+        if (u->nop_job) {
+                Job *j = u->nop_job;
+                job_uninstall(j);
+                job_free(j);
+        }
+
         unit_done(u);
 
         u->match_bus_slot = sd_bus_slot_unref(u->match_bus_slot);
@@ -805,18 +819,6 @@ Unit* unit_free(Unit *u) {
 
         if (!sd_id128_is_null(u->invocation_id))
                 hashmap_remove_value(u->manager->units_by_invocation_id, &u->invocation_id, u);
-
-        if (u->job) {
-                Job *j = u->job;
-                job_uninstall(j);
-                job_free(j);
-        }
-
-        if (u->nop_job) {
-                Job *j = u->nop_job;
-                job_uninstall(j);
-                job_free(j);
-        }
 
         /* A unit is being dropped from the tree, make sure our family is realized properly. Do this after we
          * detach the unit from slice tree in order to eliminate its effect on controller masks. */
