@@ -981,9 +981,17 @@ static int symlink_cache_build(const LookupPaths *lp, SymlinkCache **ret) {
                 }
 
                 FOREACH_DIRENT(de, config_dir, return -errno) {
-                        _cleanup_closedir_ DIR *d = NULL;
-                        _cleanup_free_ char *subdir_path = NULL;
                         const char *suffix;
+
+                        if (!IN_SET(de->d_type, DT_DIR, DT_LNK, DT_UNKNOWN))
+                                continue;
+
+                        if (endswith(de->d_name, ".d")) {
+                                r = set_put_strdup(&cache->dropin_dirs, de->d_name);
+                                if (r < 0)
+                                        return r;
+                                continue;
+                        }
 
                         if (!IN_SET(de->d_type, DT_DIR, DT_UNKNOWN))
                                 continue;
@@ -992,11 +1000,11 @@ static int symlink_cache_build(const LookupPaths *lp, SymlinkCache **ret) {
                         if (!STRPTR_IN_SET(suffix, ".wants", ".requires", ".upholds"))
                                 continue;
 
-                        subdir_path = path_join(lp->search_path[i], de->d_name);
+                        _cleanup_free_ char *subdir_path = path_join(lp->search_path[i], de->d_name);
                         if (!subdir_path)
                                 return -ENOMEM;
 
-                        d = opendir(subdir_path);
+                        _cleanup_closedir_ DIR *d = opendir(subdir_path);
                         if (!d) {
                                 log_debug_errno(errno, "Failed to open \"%s\" for symlink cache: %m", subdir_path);
                                 continue;
@@ -1051,26 +1059,6 @@ static int symlink_cache_build(const LookupPaths *lp, SymlinkCache **ret) {
                                         &csp->n_direct,
                                         de->d_name,
                                         fname);
-                        if (r < 0)
-                                return r;
-                }
-        }
-
-        /* Pre-scan for existing .d (drop-in) directories across all search paths */
-        for (size_t i = 0; i < n_search_paths; i++) {
-                _cleanup_closedir_ DIR *d = NULL;
-
-                d = opendir(lp->search_path[i]);
-                if (!d)
-                        continue;
-
-                FOREACH_DIRENT(de, d, return -errno) {
-                        if (!IN_SET(de->d_type, DT_DIR, DT_LNK, DT_UNKNOWN))
-                                continue;
-                        if (!endswith(de->d_name, ".d"))
-                                continue;
-
-                        r = set_put_strdup(&cache->dropin_dirs, de->d_name);
                         if (r < 0)
                                 return r;
                 }
