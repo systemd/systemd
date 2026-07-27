@@ -19,6 +19,7 @@
 #include "mkdir.h"
 #include "netif-util.h"
 #include "parse-util.h"
+#include "resolved-bus.h"
 #include "resolved-dns-browse-services.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-search-domain.h"
@@ -27,6 +28,7 @@
 #include "resolved-llmnr.h"
 #include "resolved-manager.h"
 #include "resolved-mdns.h"
+#include "resolved-resolv-conf.h"
 #include "set.h"
 #include "socket-netlink.h"
 #include "stat-util.h"
@@ -1507,4 +1509,77 @@ bool link_negative_trust_anchor_lookup(Link *l, const char *name) {
         }
 
         return false;
+}
+
+int link_set_dns_servers(Link *l, struct in_addr_full **dns, size_t n_dns, ResolveConfigSource source) {
+        int r;
+
+        assert(l);
+        assert(IN_SET(source, RESOLVE_CONFIG_SOURCE_DBUS, RESOLVE_CONFIG_SOURCE_VARLINK));
+        assert(dns || n_dns == 0);
+
+        _cleanup_free_ char *dns_list_str = NULL;
+        FOREACH_ARRAY(i, dns, n_dns) {
+                struct in_addr_full *addr = *i;
+
+                const char *pretty = in_addr_full_to_string(addr);
+                if (!pretty)
+                        return log_oom();
+
+                if (!strextend_with_separator(&dns_list_str, ", ", pretty))
+                        return log_oom();
+        }
+
+        dns_server_mark_all(l->dns_servers);
+
+        bool changed = false;
+        FOREACH_ARRAY(i, dns, n_dns) {
+                struct in_addr_full *addr = *i;
+
+                DnsServer *s = dns_server_find(l->dns_servers,
+                                               addr->family,
+                                               &addr->address,
+                                               addr->port,
+                                               /* ifindex= */ 0,
+                                               addr->server_name);
+                if (s)
+                        dns_server_move_back_and_unmark(s);
+                else {
+                        r = dns_server_new(l->manager,
+                                           /* ret= */ NULL,
+                                           DNS_SERVER_LINK,
+                                           l,
+                                           /* delegate= */ NULL,
+                                           addr->family,
+                                           &addr->address,
+                                           addr->port,
+                                           /* ifindex= */ 0,
+                                           addr->server_name,
+                                           source);
+                        if (r < 0) {
+                                dns_server_unlink_all(l->dns_servers);
+                                return r;
+                        }
+
+                        changed = true;
+                }
+        }
+
+        changed = dns_server_unlink_marked(l->dns_servers) || changed;
+        if (changed) {
+                link_allocate_scopes(l);
+
+                (void) link_save_user(l);
+                (void) manager_write_resolv_conf(l->manager);
+                (void) manager_send_changed(l->manager, "DNS");
+                (void) manager_send_dns_configuration_changed(l->manager, l, /* reset= */ true);
+
+                const char *source_str = source == RESOLVE_CONFIG_SOURCE_DBUS ? "Bus" : "Varlink";
+                if (dns_list_str)
+                        log_link_info(l, "%s client set DNS server list to: %s", source_str, dns_list_str);
+                else
+                        log_link_info(l, "%s client reset DNS server list.", source_str);
+        }
+
+        return 0;
 }
