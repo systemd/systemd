@@ -132,6 +132,7 @@ extern DLSYM_PROTOTYPE(ERR_error_string_n);
 extern DLSYM_PROTOTYPE(ERR_get_error);
 extern DLSYM_PROTOTYPE(EVP_CIPHER_CTX_ctrl);
 extern DLSYM_PROTOTYPE(EVP_CIPHER_CTX_free);
+extern DLSYM_PROTOTYPE(EVP_CIPHER_CTX_get_tag_length);
 extern DLSYM_PROTOTYPE(EVP_CIPHER_CTX_new);
 extern DLSYM_PROTOTYPE(EVP_CIPHER_free);
 extern DLSYM_PROTOTYPE(EVP_CIPHER_get_block_size);
