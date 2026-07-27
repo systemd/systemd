@@ -302,7 +302,6 @@ TEST(dns_synthesize_answer_address_local_dns_proxy) {
         ASSERT_TRUE(dns_answer_contains(answer, rr));
 }
 
-
 TEST(dns_synthesize_answer_onion) {
         Manager manager = {};
         _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
@@ -324,6 +323,5 @@ TEST(dns_synthesize_answer_onion) {
         ASSERT_ERROR(dns_synthesize_answer(&manager, question, 0, &answer), ENXIO);
         ASSERT_TRUE(dns_answer_isempty(answer));
 }
-
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

@@ -1372,7 +1372,7 @@ bool dns_name_dont_resolve(const char *name) {
         if (dns_name_endswith(name, "alt") > 0)
                 return true;
 
-        /* RFC 7686: .onion names must return NXDOMAIN to prevent leaks */
+        /* Never respond to the domains listed in RFC7686 */
         if (dns_name_endswith(name, "onion") > 0)
                 return true;
 
