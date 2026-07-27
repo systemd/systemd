@@ -64,6 +64,16 @@ CHANGES WITH 262:
           IPv4ProxyARP=yes but has no effect if IPv4ProxyARP= has been set to
           false. This mirrors the behavior of IPv6ProxyNDPAddress=.
 
+        Changes in systemd-creds:
+
+        * The new "systemd-creds edit" verb may be used to interactively edit
+          an encrypted credential file: the credential is decrypted, opened in
+          the editor configured via $SYSTEMD_EDITOR/$EDITOR/$VISUAL, and
+          re-encrypted once the editor exits. The plaintext is only ever
+          stored in a private directory backed by a RAM file system excluded
+          from swap. If the specified file does not exist yet it is created,
+          making this an easy way to create new encrypted credentials.
+
 CHANGES WITH 261:
 
         Announcements of Future Feature Removals and Incompatible Changes:

@@ -177,6 +177,38 @@
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><command>edit</command> <replaceable>file</replaceable></term>
+
+        <listitem><para>Interactively edit an encrypted credential file: the specified credential file is
+        loaded and decrypted (see the <command>decrypt</command> command above), the plaintext is opened in
+        a text editor, and once the editor exits the (possibly modified) plaintext is encrypted again and
+        used to atomically replace the specified file (see the <command>encrypt</command> command above). If
+        the specified file does not exist yet, it is created, starting from empty plaintext. If the
+        plaintext is unmodified when the editor exits, or if it is saved as a completely empty file, the
+        credential file is not updated.</para>
+
+        <para>The file name part of the specified path is used as the credential name to validate against
+        the name embedded in the credential and to embed when re-encrypting, unless overridden with the
+        <option>--name=</option> switch. The encryption key to use may be configured with the
+        <option>--with-key=</option> switch, and defaults to <literal>auto</literal>, independently of which
+        key the existing credential was encrypted with.</para>
+
+        <para>The plaintext is edited in a scratch file located in a private directory backed by
+        unswappable memory (if supported), the same way service credential directories are set up, ensuring
+        the plaintext credential data does not touch persistent storage. When invoked without the
+        privileges to set up such a directory, the scratch file is placed in a private directory below the
+        user's runtime directory (<varname>$XDG_RUNTIME_DIR</varname>) instead, which is required to reside
+        on a RAM-backed file system, too. Note that the configured editor might maintain temporary or backup copies of the edited
+        data in other, less secure locations, this tool has no control over. Configure your editor
+        accordingly.</para>
+
+        <para>The editor to use is selected via the <varname>$SYSTEMD_EDITOR</varname>,
+        <varname>$EDITOR</varname> and <varname>$VISUAL</varname> environment variables, see below.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="no-ask-password" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
@@ -202,8 +234,8 @@
       <varlistentry>
         <term><option>--user</option></term>
 
-        <listitem><para>When specified with the <command>encrypt</command> and <command>decrypt</command>
-        commands encrypts a user-scoped (rather than a system-scoped) credential. Use <option>--uid=</option>
+        <listitem><para>When specified with the <command>encrypt</command>, <command>decrypt</command> and
+        <command>edit</command> commands encrypts a user-scoped (rather than a system-scoped) credential. Use <option>--uid=</option>
         to select which user the credential is from. Such credentials may only be decrypted from the
         specified user's context, except if privileges can be acquired. Generally, when an encrypted
         credential shall be used in the per-user service manager it should be encrypted with this option set,
@@ -284,6 +316,11 @@
         was used when encrypted) the specified name has no effect as no credential name validation is
         done.</para>
 
+        <para>When specified with the <command>edit</command> command the name is used both ways, i.e. to
+        validate the name embedded in the existing encrypted credential and to embed in the updated
+        encrypted credential. If not specified, the name is chosen automatically from the filename component
+        of the specified path.</para>
+
         <para>Embedding the credential name in the encrypted credential is done in order to protect against
         reuse of credentials for purposes they were not originally intended for, under the assumption the
         credential name is chosen carefully to encode its intended purpose.</para>
@@ -303,14 +340,18 @@
         validate the "not-after" timestamp that was configured with <option>--not-after=</option> during
         encryption. If not specified, defaults to the current system time.</para>
 
+        <para>When specified with the <command>edit</command> command the timestamp is used both ways, i.e.
+        for validation of the existing encrypted credential and for embedding in the updated encrypted
+        credential.</para>
+
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--not-after=<replaceable>timestamp</replaceable></option></term>
 
-        <listitem><para>When specified with the <command>encrypt</command> command controls the time when the
-        credential shall not be used anymore. This embeds the specified timestamp in the encrypted
+        <listitem><para>When specified with the <command>encrypt</command> and <command>edit</command>
+        commands controls the time when the credential shall not be used anymore. This embeds the specified timestamp in the encrypted
         credential. During decryption the timestamp is checked against the current system clock, and if the
         timestamp is in the past the decryption will fail. By default, no such timestamp is set. Takes a
         timestamp specification in the format described in
@@ -324,8 +365,8 @@
         <term><option>-H</option></term>
         <term><option>-T</option></term>
 
-        <listitem><para>When specified with the <command>encrypt</command> command controls the
-        encryption/signature key to use. Takes one of <literal>host</literal>, <literal>tpm2</literal>,
+        <listitem><para>When specified with the <command>encrypt</command> and <command>edit</command>
+        commands controls the encryption/signature key to use. Takes one of <literal>host</literal>, <literal>tpm2</literal>,
         <literal>host+tpm2</literal>, <literal>null</literal>, <literal>auto</literal>,
         <literal>auto-initrd</literal>. See above for details on the key types. If set to
         <literal>auto</literal> (which is the default) the TPM2 key is used if a TPM2 device is found and not
@@ -464,6 +505,29 @@
     <title>Exit status</title>
 
     <para>On success, 0 is returned.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Environment</title>
+
+    <variablelist class='environment-variables'>
+      <varlistentry>
+        <term><varname>$SYSTEMD_EDITOR</varname></term>
+
+        <listitem><para>Editor to use when editing credentials; overrides <varname>$EDITOR</varname> and
+        <varname>$VISUAL</varname>. If neither <varname>$SYSTEMD_EDITOR</varname> nor
+        <varname>$EDITOR</varname> nor <varname>$VISUAL</varname> are present or if it is set to an empty
+        string or if their execution failed, systemd-creds will try to execute well known editors in this
+        order:
+        <citerefentry project='die-net'><refentrytitle>editor</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry project='die-net'><refentrytitle>nano</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry project='die-net'><refentrytitle>vim</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry project='die-net'><refentrytitle>vi</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 
   <refsect1>
