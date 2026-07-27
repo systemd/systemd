@@ -1107,14 +1107,16 @@ int encrypt_credential_and_warn(
                         return log_error_errno(r, "Failed to acquired randomized IV: %m");
         }
 
-        tsz = 16; /* FIXME: On OpenSSL 3 there is EVP_CIPHER_CTX_get_tag_length(), until then let's hardcode this */
-
         context = sym_EVP_CIPHER_CTX_new();
         if (!context)
                 return log_openssl_errors(LOG_ERR, "Failed to allocate encryption object");
 
         if (sym_EVP_EncryptInit_ex(context, cc, NULL, md, iv.iov_base) != 1)
                 return log_openssl_errors(LOG_ERR, "Failed to initialize encryption context");
+
+        tsz = sym_EVP_CIPHER_CTX_get_tag_length(context);
+        if (tsz <= 0 || (size_t) tsz > CREDENTIAL_FIELD_SIZE_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid tag size reported by OpenSSL.");
 
         /* Just an upper estimate */
         output.iov_len =
@@ -1336,8 +1338,9 @@ int decrypt_credential_and_warn(
         struct metadata_credential_header *m;
         uint8_t md[SHA256_DIGEST_LENGTH];
         const EVP_CIPHER *cc;
+        uint32_t tag_size;
         size_t p, hs;
-        int r, added;
+        int r, added, tsz;
 
         assert(iovec_is_valid(input));
         assert(ret);
@@ -1405,7 +1408,9 @@ int decrypt_credential_and_warn(
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Unexpected block size in header.");
         if (le32toh(h->iv_size) > CREDENTIAL_FIELD_SIZE_MAX)
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "IV size too large.");
-        if (le32toh(h->tag_size) != 16) /* FIXME: On OpenSSL 3, let's verify via EVP_CIPHER_CTX_get_tag_length() */
+
+        tag_size = le32toh(h->tag_size);
+        if (tag_size == 0 || tag_size > CREDENTIAL_FIELD_SIZE_MAX)
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Unexpected tag size in header.");
 
         /* Ensure we have space for the full header now (we don't know the size of the name hence this is a
@@ -1417,7 +1422,7 @@ int decrypt_credential_and_warn(
             ALIGN8(CRED_KEY_REQUIRES_TPM2_PINNED_SRK(h->id) ? offsetof(struct tpm2_pinned_srk_credential_header, data) : 0) +
             ALIGN8(CRED_KEY_IS_SCOPED(h->id) ? sizeof(struct scoped_credential_header) : 0) +
             ALIGN8(offsetof(struct metadata_credential_header, name)) +
-            le32toh(h->tag_size))
+            tag_size)
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Encrypted file too short.");
 
         p = ALIGN8(offsetof(struct encrypted_credential_header, iv) + le32toh(h->iv_size));
@@ -1448,7 +1453,7 @@ int decrypt_credential_and_warn(
                     ALIGN8(CRED_KEY_REQUIRES_TPM2_PINNED_SRK(h->id) ? offsetof(struct tpm2_pinned_srk_credential_header, data) : 0) +
                     ALIGN8(CRED_KEY_IS_SCOPED(h->id) ? sizeof(struct scoped_credential_header) : 0) +
                     ALIGN8(offsetof(struct metadata_credential_header, name)) +
-                    le32toh(h->tag_size))
+                    tag_size)
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Encrypted file too short.");
 
                 p += ALIGN8(offsetof(struct tpm2_credential_header, policy_hash_and_blob) +
@@ -1469,7 +1474,7 @@ int decrypt_credential_and_warn(
                             ALIGN8(CRED_KEY_REQUIRES_TPM2_PINNED_SRK(h->id) ? offsetof(struct tpm2_pinned_srk_credential_header, data) : 0) +
                             ALIGN8(CRED_KEY_IS_SCOPED(h->id) ? sizeof(struct scoped_credential_header) : 0) +
                             ALIGN8(offsetof(struct metadata_credential_header, name)) +
-                            le32toh(h->tag_size))
+                            tag_size)
                                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Encrypted file too short.");
 
                         p += ALIGN8(offsetof(struct tpm2_public_key_credential_header, data) +
@@ -1487,7 +1492,7 @@ int decrypt_credential_and_warn(
                             ALIGN8(offsetof(struct tpm2_pinned_srk_credential_header, data) + le32toh(z_srk->size)) +
                             ALIGN8(CRED_KEY_IS_SCOPED(h->id) ? sizeof(struct scoped_credential_header) : 0) +
                             ALIGN8(offsetof(struct metadata_credential_header, name)) +
-                            le32toh(h->tag_size))
+                            tag_size)
                                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Encrypted file too short.");
 
                         p += ALIGN8(offsetof(struct tpm2_pinned_srk_credential_header, data) +
@@ -1538,7 +1543,7 @@ int decrypt_credential_and_warn(
                     p +
                     sizeof(struct scoped_credential_header) +
                     ALIGN8(offsetof(struct metadata_credential_header, name)) +
-                    le32toh(h->tag_size))
+                    tag_size)
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Encrypted file too short.");
 
                 p += sizeof(struct scoped_credential_header);
@@ -1580,6 +1585,12 @@ int decrypt_credential_and_warn(
         if (sym_EVP_DecryptInit_ex(context, cc, NULL, NULL, NULL) != 1)
                 return log_openssl_errors(LOG_ERR, "Failed to initialize decryption context");
 
+        tsz = sym_EVP_CIPHER_CTX_get_tag_length(context);
+        if (tsz <= 0 || (size_t) tsz > CREDENTIAL_FIELD_SIZE_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid tag size reported by OpenSSL.");
+        if (tag_size != (uint32_t) tsz)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Unexpected tag size in header.");
+
         if (sym_EVP_CIPHER_CTX_ctrl(context, EVP_CTRL_GCM_SET_IVLEN, le32toh(h->iv_size), NULL) != 1)
                 return log_openssl_errors(LOG_ERR, "Failed to set IV size on decryption context");
 
@@ -1589,7 +1600,7 @@ int decrypt_credential_and_warn(
         if (sym_EVP_DecryptUpdate(context, NULL, &added, input->iov_base, p) != 1)
                 return log_openssl_errors(LOG_ERR, "Failed to write AAD data");
 
-        plaintext.iov_base = malloc(input->iov_len - p - le32toh(h->tag_size));
+        plaintext.iov_base = malloc(input->iov_len - p - tag_size);
         if (!plaintext.iov_base)
                 return -ENOMEM;
 
@@ -1598,14 +1609,14 @@ int decrypt_credential_and_warn(
                             plaintext.iov_base,
                             &added,
                             (uint8_t*) input->iov_base + p,
-                            input->iov_len - p - le32toh(h->tag_size)) != 1)
+                            input->iov_len - p - tag_size) != 1)
                 return log_openssl_errors(LOG_ERR, "Failed to decrypt data");
 
         assert(added >= 0);
-        assert((size_t) added <= input->iov_len - p - le32toh(h->tag_size));
+        assert((size_t) added <= input->iov_len - p - tag_size);
         plaintext.iov_len = added;
 
-        if (sym_EVP_CIPHER_CTX_ctrl(context, EVP_CTRL_GCM_SET_TAG, le32toh(h->tag_size), (uint8_t*) input->iov_base + input->iov_len - le32toh(h->tag_size)) != 1)
+        if (sym_EVP_CIPHER_CTX_ctrl(context, EVP_CTRL_GCM_SET_TAG, tag_size, (uint8_t*) input->iov_base + input->iov_len - tag_size) != 1)
                 return log_openssl_errors(LOG_ERR, "Failed to set tag");
 
         if (sym_EVP_DecryptFinal_ex(context, (uint8_t*) plaintext.iov_base + plaintext.iov_len, &added) != 1) {

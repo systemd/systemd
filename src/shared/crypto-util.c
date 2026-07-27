@@ -126,6 +126,7 @@ static DLSYM_PROTOTYPE(ERR_peek_last_error) = NULL;
 DLSYM_PROTOTYPE(EVP_CIPHER_CTX_ctrl) = NULL;
 DLSYM_PROTOTYPE(EVP_CIPHER_CTX_free) = NULL;
 static DLSYM_PROTOTYPE(EVP_CIPHER_CTX_get_block_size) = NULL;
+DLSYM_PROTOTYPE(EVP_CIPHER_CTX_get_tag_length) = NULL;
 DLSYM_PROTOTYPE(EVP_CIPHER_CTX_new) = NULL;
 static DLSYM_PROTOTYPE(EVP_CIPHER_fetch) = NULL;
 DLSYM_PROTOTYPE(EVP_CIPHER_free) = NULL;
@@ -450,6 +451,7 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(EVP_CIPHER_CTX_ctrl),
                         DLSYM_ARG(EVP_CIPHER_CTX_free),
                         DLSYM_ARG(EVP_CIPHER_CTX_get_block_size),
+                        DLSYM_ARG(EVP_CIPHER_CTX_get_tag_length),
                         DLSYM_ARG(EVP_CIPHER_CTX_new),
                         DLSYM_ARG(EVP_CIPHER_fetch),
                         DLSYM_ARG(EVP_CIPHER_free),
