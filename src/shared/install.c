@@ -1237,6 +1237,66 @@ static int find_symlinks(
                                           same_name_link);
 }
 
+static int classify_found_symlink(
+                RuntimeScope scope,
+                const LookupPaths *lp,
+                const InstallInfo *info,
+                const char *config_path,
+                bool found,
+                bool same_name_link,
+                bool *ignore_same_name,
+                bool *enabled_in_runtime,
+                bool *enabled_at_all,
+                bool *same_name_link_runtime,
+                bool *same_name_link_config,
+                UnitFileState *state) {
+
+        int r;
+
+        assert(ignore_same_name);
+        assert(enabled_in_runtime);
+        assert(enabled_at_all);
+        assert(same_name_link_runtime);
+        assert(same_name_link_config);
+        assert(state);
+
+        if (found) {
+                if (path_equal(config_path, lp->persistent_config)) {
+                        *state = UNIT_FILE_ENABLED;
+                        return 1;
+                }
+
+                if (scope == RUNTIME_SCOPE_USER && path_is_user_config_dir(config_path)) {
+                        *state = UNIT_FILE_ENABLED;
+                        return 1;
+                }
+
+                r = path_is_runtime(lp, config_path, false);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        *enabled_in_runtime = true;
+                else
+                        *enabled_at_all = true;
+
+        } else if (same_name_link) {
+                if (path_equal(config_path, lp->persistent_config))
+                        *same_name_link_config = true;
+                else {
+                        r = path_is_runtime(lp, config_path, false);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                *same_name_link_runtime = true;
+                }
+        }
+
+        if (!*ignore_same_name && path_startswith(info->path, config_path))
+                *ignore_same_name = true;
+
+        return 0;
+}
+
 static int find_symlinks_in_scope(
                 RuntimeScope scope,
                 const LookupPaths *lp,
@@ -1348,39 +1408,12 @@ static int find_symlinks_in_scope(
                                 }
                         }
 
-                        if (found) {
-                                if (path_equal(csp->config_path, lp->persistent_config)) {
-                                        *state = UNIT_FILE_ENABLED;
-                                        return 1;
-                                }
-
-                                if (scope == RUNTIME_SCOPE_USER && path_is_user_config_dir(csp->config_path)) {
-                                        *state = UNIT_FILE_ENABLED;
-                                        return 1;
-                                }
-
-                                r = path_is_runtime(lp, csp->config_path, false);
-                                if (r < 0)
-                                        return r;
-                                if (r > 0)
-                                        enabled_in_runtime = true;
-                                else
-                                        enabled_at_all = true;
-
-                        } else if (same_name_link) {
-                                if (path_equal(csp->config_path, lp->persistent_config))
-                                        same_name_link_config = true;
-                                else {
-                                        r = path_is_runtime(lp, csp->config_path, false);
-                                        if (r < 0)
-                                                return r;
-                                        if (r > 0)
-                                                same_name_link_runtime = true;
-                                }
-                        }
-
-                        if (!ignore_same_name && path_startswith(info->path, csp->config_path))
-                                ignore_same_name = true;
+                        r = classify_found_symlink(scope, lp, info, csp->config_path,
+                                                   found, same_name_link, &ignore_same_name,
+                                                   &enabled_in_runtime, &enabled_at_all,
+                                                   &same_name_link_runtime, &same_name_link_config, state);
+                        if (r != 0)
+                                return r;
                 }
         } else {
                 STRV_FOREACH(p, lp->search_path)  {
@@ -1389,39 +1422,13 @@ static int find_symlinks_in_scope(
                         r = find_symlinks(lp->root_dir, info, match_name, ignore_same_name, *p, &same_name_link);
                         if (r < 0)
                                 return r;
-                        if (r > 0) {
-                                if (path_equal(*p, lp->persistent_config)) {
-                                        *state = UNIT_FILE_ENABLED;
-                                        return 1;
-                                }
 
-                                if (scope == RUNTIME_SCOPE_USER && path_is_user_config_dir(*p)) {
-                                        *state = UNIT_FILE_ENABLED;
-                                        return 1;
-                                }
-
-                                r = path_is_runtime(lp, *p, false);
-                                if (r < 0)
-                                        return r;
-                                if (r > 0)
-                                        enabled_in_runtime = true;
-                                else
-                                        enabled_at_all = true;
-
-                        } else if (same_name_link) {
-                                if (path_equal(*p, lp->persistent_config))
-                                        same_name_link_config = true;
-                                else {
-                                        r = path_is_runtime(lp, *p, false);
-                                        if (r < 0)
-                                                return r;
-                                        if (r > 0)
-                                                same_name_link_runtime = true;
-                                }
-                        }
-
-                        if (!ignore_same_name && path_startswith(info->path, *p))
-                                ignore_same_name = true;
+                        r = classify_found_symlink(scope, lp, info, *p,
+                                                   /* found= */ r > 0, same_name_link, &ignore_same_name,
+                                                   &enabled_in_runtime, &enabled_at_all,
+                                                   &same_name_link_runtime, &same_name_link_config, state);
+                        if (r != 0)
+                                return r;
                 }
         }
 
