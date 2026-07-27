@@ -11,7 +11,6 @@
 #include "metrics.h"
 #include "path-util.h"
 #include "pidref.h"
-#include "set.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -395,7 +394,8 @@ static void vl_disconnect(sd_varlink_server *s, sd_varlink *link, void *userdata
                         break;
                 }
 
-        if (set_remove(m->varlink_job_subscribers, link))
+        /* Values are nonzero (VARLINK_JOB_SUBSCRIBER_*), so remove() disambiguates membership. */
+        if (hashmap_remove(m->varlink_job_subscribers, link))
                 sd_varlink_unref(link);
 }
 
@@ -639,14 +639,15 @@ void manager_varlink_done(Manager *m) {
         m->pending_reload_message_vl = sd_varlink_unref(m->pending_reload_message_vl);
 
         /* Job subscribers hold a ref taken in vl_method_subscribe_jobs(); take each out of
-         * the set before unreffing so vl_disconnect() cannot unref a second time. */
+         * the map before unreffing so vl_disconnect() cannot unref a second time. */
         for (;;) {
-                sd_varlink *link = set_steal_first(m->varlink_job_subscribers);
-                if (!link)
+                sd_varlink *link;
+                void *value = hashmap_steal_first_key_and_value(m->varlink_job_subscribers, (void**) &link);
+                if (!value)
                         break;
                 sd_varlink_unref(link);
         }
-        m->varlink_job_subscribers = set_free(m->varlink_job_subscribers);
+        m->varlink_job_subscribers = hashmap_free(m->varlink_job_subscribers);
 
         m->varlink_server = sd_varlink_server_unref(m->varlink_server);
         m->managed_oom_varlink = sd_varlink_close_unref(m->managed_oom_varlink);
