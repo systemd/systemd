@@ -4,8 +4,9 @@
 #include "networkd-forward.h"
 
 typedef enum DispatchLinkFlag {
-        DISPATCH_LINK_POLKIT    = 1 << 0,
-        DISPATCH_LINK_MANDATORY = 1 << 1,
+        DISPATCH_LINK_POLKIT           = 1 << 0,
+        DISPATCH_LINK_MANDATORY        = 1 << 1,
+        DISPATCH_LINK_ALLOW_EXTENSIONS = 1 << 2,
 } DispatchLinkFlag;
 
 int dispatch_link(sd_varlink *vlink, sd_json_variant *parameters, Manager *manager, DispatchLinkFlag flags, Link **ret);
