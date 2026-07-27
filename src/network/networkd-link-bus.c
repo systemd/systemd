@@ -134,12 +134,7 @@ static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, voi
                 goto finalize;
         }
 
-        if (l->n_dns != UINT_MAX)
-                for (unsigned i = 0; i < l->n_dns; i++)
-                        in_addr_full_free(l->dns[i]);
-
-        free_and_replace(l->dns, dns);
-        l->n_dns = n;
+        link_set_dns(l, dns, n);
 
         r = link_save_and_clean_full(l, /* also_save_manager= */ true);
         if (r < 0)
