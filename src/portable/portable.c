@@ -846,11 +846,39 @@ static int extract_image_and_extensions(
                 name_or_path = result.path;
         }
 
-        r = image_find_harder(scope, IMAGE_PORTABLE, name_or_path, /* root= */ NULL, &image);
+        /* The root image itself is not applied to another OS tree, hence no host version to pass here */
+        r = image_find_harder(scope, IMAGE_PORTABLE, name_or_path, /* root= */ NULL, /* host_version= */ NULL, &image);
+        if (r < 0)
+                return r;
+
+        r = portable_extract_by_path(
+                        scope,
+                        image->path,
+                        /* path_is_extension= */ false,
+                        /* relax_extension_release_check= */ false,
+                        matches,
+                        image_policy,
+                        &os_release,
+                        &unit_files,
+                        &pinned_root_image_policy,
+                        error);
         if (r < 0)
                 return r;
 
         if (!strv_isempty(extension_image_paths)) {
+                /* Read the image's VERSION_ID, so that "host=" vpick entries of the extension images are
+                 * matched against the image they are applied to, rather than the OS we are running on */
+                _cleanup_free_ char *image_version_id = NULL;
+                r = parse_env_file_fd(os_release->fd, os_release->name, "VERSION_ID", &image_version_id);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to read VERSION_ID from os-release of '%s', ignoring: %m",
+                                        image->path);
+
+                PickFilter filters[ELEMENTSOF(pick_filter_image_any)];
+                memcpy(filters, pick_filter_image_any, sizeof(filters));
+                FOREACH_ELEMENT(f, filters)
+                        f->host_version = strempty(image_version_id);
+
                 extension_images = ordered_hashmap_new(&image_hash_ops);
                 if (!extension_images)
                         return -ENOMEM;
@@ -871,8 +899,8 @@ static int extract_image_and_extensions(
                                               /* root_fd= */ AT_FDCWD,
                                               /* dir_fd= */ AT_FDCWD,
                                               *p,
-                                              pick_filter_image_any,
-                                              ELEMENTSOF(pick_filter_image_any),
+                                              filters,
+                                              ELEMENTSOF(filters),
                                               PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
                                               &ext_result);
                                 if (r < 0)
@@ -886,7 +914,10 @@ static int extract_image_and_extensions(
                                 path = ext_result.path;
                         }
 
-                        r = image_find_harder(scope, IMAGE_PORTABLE, path, NULL, &new);
+                        /* Extension images given by name are resolved through the image search path, which
+                         * does its own .v handling, hence pass the version on there too */
+                        r = image_find_harder(scope, IMAGE_PORTABLE, path, /* root= */ NULL,
+                                              strempty(image_version_id), &new);
                         if (r < 0)
                                 return r;
 
@@ -896,20 +927,6 @@ static int extract_image_and_extensions(
                         TAKE_PTR(new);
                 }
         }
-
-        r = portable_extract_by_path(
-                        scope,
-                        image->path,
-                        /* path_is_extension= */ false,
-                        /* relax_extension_release_check= */ false,
-                        matches,
-                        image_policy,
-                        &os_release,
-                        &unit_files,
-                        &pinned_root_image_policy,
-                        error);
-        if (r < 0)
-                return r;
 
         /* If we are layering extension images on top of a runtime image, check that the os-release and
          * extension-release metadata match, otherwise reject it immediately as invalid, or it will fail when
@@ -2220,7 +2237,22 @@ static int marker_matches_images(const char *marker, const char *name_or_path, c
                         if (r < 0 && r != -ENOENT)
                                 return r;
 
-                        r = path_extract_image_name(*image_name_or_path, &base_image_name_or_path);
+                        /* A .v directory is named after the base name of its entries, hence derive the
+                         * name from the directory itself. Resolving it again would have to pick the very
+                         * same entry that was picked when attaching, which we cannot rely on: "host="
+                         * entries are matched against the image's VERSION_ID, which is not available
+                         * here, and the images might be gone by now. */
+                        _cleanup_free_ char *without_v = strdup(*image_name_or_path);
+                        if (!without_v)
+                                return -ENOMEM;
+
+                        path_simplify(without_v);
+
+                        char *v = endswith(without_v, ".v");
+                        if (v && v > without_v && !IN_SET(v[-1], '/', '.'))
+                                *v = 0;
+
+                        r = path_extract_image_name(without_v, &base_image_name_or_path);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to extract image name from %s, ignoring: %m", *image_name_or_path);
 
