@@ -170,6 +170,44 @@ rm -f /tmp/cred.{enc,dec}
 ts="$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 (! systemd-creds --with-key=null --timestamp="$ts" --not-after="$ts" encrypt /tmp/cred.orig /tmp/cred.enc)
 
+# verb: edit
+echo -n "secret data" >/tmp/edit.orig
+systemd-creds encrypt /tmp/edit.orig /tmp/edit.cred
+cp /tmp/edit.cred /tmp/edit.cred.copy
+# Unmodified plaintext -> the credential file must not be rewritten
+EDITOR='true' script -ec 'systemd-creds edit /tmp/edit.cred' /dev/null
+cmp /tmp/edit.cred /tmp/edit.cred.copy
+# Not on a TTY -> refuse
+(! systemd-creds edit /tmp/edit.cred </dev/null >/dev/null)
+# The plaintext must be decrypted into the scratch file, which must reside in a
+# private directory on a RAM-backed file system, and edits must be re-encrypted
+cat >/tmp/test-54-editor.sh <<'EOF'
+#!/usr/bin/env bash
+set -eux
+[[ "$(stat -f -c %T "$1")" =~ ^(tmpfs|ramfs)$ ]]
+[[ "$(stat -c %a "$(dirname "$1")")" == 700 ]]
+grep "secret data" "$1"
+echo -n "edited data" >"$1"
+EOF
+chmod +x /tmp/test-54-editor.sh
+EDITOR=/tmp/test-54-editor.sh script -ec 'systemd-creds edit /tmp/edit.cred' /dev/null
+systemd-creds decrypt /tmp/edit.cred | grep "edited data"
+# Scratch directories must not be left behind
+(! ls -d /run/systemd/creds-edit.*)
+# The embedded credential name must be validated, same as for decrypt
+cp /tmp/edit.cred /tmp/renamed.cred
+(! EDITOR='true' script -ec 'systemd-creds edit /tmp/renamed.cred' /dev/null)
+EDITOR='true' script -ec 'systemd-creds --name=edit.cred edit /tmp/renamed.cred' /dev/null
+# Creating a new credential from scratch
+rm -f /tmp/new.cred
+EDITOR='cp /tmp/edit.orig' script -ec 'systemd-creds edit /tmp/new.cred' /dev/null
+systemd-creds decrypt /tmp/new.cred | cmp /tmp/edit.orig
+# Saving empty plaintext -> no credential file is created
+rm -f /tmp/empty.cred
+EDITOR='truncate -s 0' script -ec 'systemd-creds edit /tmp/empty.cred' /dev/null
+test ! -e /tmp/empty.cred
+rm -f /tmp/edit.orig /tmp/edit.cred /tmp/edit.cred.copy /tmp/renamed.cred /tmp/new.cred /tmp/test-54-editor.sh
+
 # Null-key credentials and the systemd.credentials_boot_policy= setting.
 #
 # A null-key credential ("--with-key=null") is wrapped in the normal systemd-creds
@@ -597,6 +635,17 @@ dd if=/dev/urandom of=/tmp/brummbaer.data bs=4096 count=1
 run0 -u testuser --pipe mkdir -p /home/testuser/.config/credstore.encrypted
 run0 -u testuser --pipe systemd-creds encrypt --user --name=brummbaer - /home/testuser/.config/credstore.encrypted/brummbaer < /tmp/brummbaer.data
 run0 -u testuser --pipe systemd-run --user --pipe -p ImportCredential=brummbaer systemd-creds cat brummbaer | cmp /tmp/brummbaer.data
+
+# Fully unpriv interactive editing (uses the encryption/decryption IPC service
+# and the plain scratch directory fallback in $XDG_RUNTIME_DIR). Drop privileges
+# via setpriv rather than run0, since nesting a pseudoterminal inside a run0
+# session is prone to hangs here, and no logind session is needed. Suppress the
+# polkit TTY agent, which would keep the pty open after exit and hang script(1);
+# own-scope operations need no authentication anyway.
+run0 -u testuser --pipe bash -xec 'echo -n "brummbaer ist muede" | systemd-creds encrypt --user - /tmp/useredit.cred'
+EDITOR='sed -i s/muede/wach/' script -ec "setpriv --reuid=testuser --regid=testuser --init-groups env XDG_RUNTIME_DIR=/run/user/$(id -u testuser) systemd-creds edit --user --no-ask-password /tmp/useredit.cred" /dev/null
+run0 -u testuser --pipe systemd-creds decrypt --user /tmp/useredit.cred - | grep "brummbaer ist wach"
+rm -f /tmp/useredit.cred
 
 # https://github.com/systemd/systemd/pull/40108
 run0 -u testuser --pipe systemd-run --user --wait -p ImportCredential=brummbaer -p ExecStartPre='ls -l $CREDENTIALS_DIRECTORY' bash -c 'systemd-creds cat brummbaer | cmp /tmp/brummbaer.data'

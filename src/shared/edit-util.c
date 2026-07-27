@@ -239,12 +239,11 @@ static int create_edit_temp_file(EditFile *e, const char *contents, size_t conte
         return 0;
 }
 
-static int run_editor_child(const EditFileContext *context) {
+static int run_editor_child(char * const *paths, unsigned first_line) {
         _cleanup_strv_free_ char **args = NULL, **editor = NULL;
         int r;
 
-        assert(context);
-        assert(context->n_files >= 1);
+        assert(!strv_isempty(paths));
 
         /* SYSTEMD_EDITOR takes precedence over EDITOR which takes precedence over VISUAL.
          * If neither SYSTEMD_EDITOR nor EDITOR nor VISUAL are present, we try to execute
@@ -260,18 +259,16 @@ static int run_editor_child(const EditFileContext *context) {
                 }
         }
 
-        if (context->n_files == 1 && context->files[0].line > 1) {
+        if (strv_length(paths) == 1 && first_line > 1) {
                 /* If editing a single file only, use the +LINE syntax to put cursor on the right line */
-                r = strv_extendf(&args, "+%u", context->files[0].line);
+                r = strv_extendf(&args, "+%u", first_line);
                 if (r < 0)
                         return log_oom();
         }
 
-        FOREACH_ARRAY(i, context->files, context->n_files) {
-                r = strv_extend(&args, i->temp);
-                if (r < 0)
-                        return log_oom();
-        }
+        r = strv_extend_strv(&args, paths, /* filter_duplicates= */ false);
+        if (r < 0)
+                return log_oom();
 
         size_t editor_n = strv_length(editor);
         if (editor_n > 0) {
@@ -314,10 +311,10 @@ static int run_editor_child(const EditFileContext *context) {
                                "Cannot edit files, no editor available. Please set either $SYSTEMD_EDITOR, $EDITOR or $VISUAL.");
 }
 
-static int run_editor(const EditFileContext *context) {
+int run_editor(char * const *paths, unsigned first_line) {
         int r;
 
-        assert(context);
+        assert(!strv_isempty(paths));
 
         r = pidref_safe_fork(
                         "(editor)",
@@ -326,7 +323,7 @@ static int run_editor(const EditFileContext *context) {
         if (r < 0)
                 return r;
         if (r == 0) { /* Child */
-                r = run_editor_child(context);
+                r = run_editor_child(paths, first_line);
                 _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
         }
 
@@ -483,13 +480,19 @@ int do_edit_files_and_install(EditFileContext *context) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to read stdin: %m");
         } else {
+                _cleanup_strv_free_ char **paths = NULL;
+
                 FOREACH_ARRAY(editfile, context->files, context->n_files) {
                         r = create_edit_temp_file(editfile, /* contents= */ NULL, /* contents_size= */ 0);
                         if (r < 0)
                                 return r;
+
+                        r = strv_extend(&paths, editfile->temp);
+                        if (r < 0)
+                                return log_oom();
                 }
 
-                r = run_editor(context);
+                r = run_editor(paths, /* first_line= */ context->n_files == 1 ? context->files[0].line : 1);
                 if (r < 0)
                         return r;
         }
