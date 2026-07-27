@@ -75,12 +75,15 @@ int main(int argc, char *argv[]) {
         if (!can_memlock())
                 return log_tests_skipped("Can't use mlock()");
 
-        if (!bpf_restrict_fs_supported(/* initialize= */ true))
-                return log_tests_skipped("LSM BPF hooks are not supported");
-
         r = enter_cgroup_subroot(NULL);
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
+
+        /* Keep this right before manager_new()/manager_startup() below: a successful probe caches the
+         * loaded BPF object internally until it is consumed by the manager's own bpf_restrict_fs_setup()
+         * call, so nothing here should be able to skip/return in between without leaking it. */
+        if (!bpf_restrict_fs_supported(/* initialize= */ true))
+                return log_tests_skipped("LSM BPF hooks are not supported");
 
         ASSERT_OK(get_testdata_dir("units", &unit_dir));
         ASSERT_OK(setenv_unit_path(unit_dir));

@@ -68,6 +68,14 @@ static int prepare_restrict_fs_bpf(struct restrict_fs_bpf **ret_obj) {
         return 0;
 }
 
+/* Populated by a successful bpf_restrict_fs_supported() probe: preparing the BPF object involves a real
+ * kernel verifier pass (via prepare_restrict_fs_bpf()) plus a trial LSM attach/detach (via
+ * bpf_can_link_lsm_program()), which is the expensive part of this whole dance. bpf_restrict_fs_setup() is
+ * always called right after a successful probe (see manager_setup() in manager.c), so instead of throwing
+ * the already-verified object away and building+loading an identical one from scratch again, we hand it
+ * over to bpf_restrict_fs_setup() for the real, permanent attach. */
+static struct restrict_fs_bpf *cached_restrict_fs_bpf = NULL;
+
 bool bpf_restrict_fs_supported(bool initialize) {
         _cleanup_(restrict_fs_bpf_freep) struct restrict_fs_bpf *obj = NULL;
         static int supported = -1;
@@ -104,6 +112,9 @@ bool bpf_restrict_fs_supported(bool initialize) {
                 return (supported = false);
         }
 
+        assert(!cached_restrict_fs_bpf);
+        cached_restrict_fs_bpf = TAKE_PTR(obj);
+
         return (supported = true);
 }
 
@@ -114,9 +125,15 @@ int bpf_restrict_fs_setup(Manager *m) {
 
         assert(m);
 
-        r = prepare_restrict_fs_bpf(&obj);
-        if (r < 0)
-                return r;
+        if (cached_restrict_fs_bpf)
+                obj = TAKE_PTR(cached_restrict_fs_bpf);
+        else {
+                /* Not preceded by a successful bpf_restrict_fs_supported(true) call in this process
+                 * (shouldn't normally happen given the call site in manager.c, but let's be robust). */
+                r = prepare_restrict_fs_bpf(&obj);
+                if (r < 0)
+                        return r;
+        }
 
         link = sym_bpf_program__attach_lsm(obj->progs.restrict_filesystems);
         r = bpf_get_error_translated(link);
