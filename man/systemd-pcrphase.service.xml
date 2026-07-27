@@ -236,17 +236,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--early</option></term>
-
-        <listitem><para>Selects early-boot mode. Specifically this means that the NvPCR anchor secret is not
-        attempted to be written into <filename>/var/lib/</filename> and the boot loader partition in addition
-        to <filename>/run/</filename>. (Unlike the latter the former are generally not mounted and writable
-        during early boot or in the initrd.)</para>
-
-        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><option>--machine-id</option></term>
 
         <listitem><para>Instead of measuring a word specified on the command line into PCR 11, measure the
