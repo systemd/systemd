@@ -1717,12 +1717,20 @@ EOF
 assert_dropin "$(comp_enable_dropin compx)" yes
 test ! -e "$(comp_enable_dropin compy)"
 
-# 'disable-component --component-suggested' reconciles the other way around: it
-# acts on the components that are *not* suggested (i.e. compy).
+# 'disable-component --component-suggested' acts on the very same set, i.e. it
+# undoes what the enable above did. The non-suggested compy is left untouched.
 "$SYSUPDATE" --component-suggested disable-component
-assert_dropin "$(comp_enable_dropin compy)" no
-# compx must be left as it was (still enabled from above).
+assert_dropin "$(comp_enable_dropin compx)" no
+test ! -e "$(comp_enable_dropin compy)"
+
+# Reconciling the system with the current suggestions is a two step operation:
+# disable all components, then enable the suggested ones. Unlike the single
+# 'disable-component --component-suggested' above this makes the non-suggested
+# compy explicitly disabled.
+"$SYSUPDATE" --component-all disable-component
+"$SYSUPDATE" --component-suggested enable-component
 assert_dropin "$(comp_enable_dropin compx)" yes
+assert_dropin "$(comp_enable_dropin compy)" no
 
 # --component-suggested is not supported for the update verb.
 (! "$SYSUPDATE" --component-suggested --verify=no update) |& grep -F "not supported" >/dev/null
@@ -1816,6 +1824,12 @@ assert_dropin "$(feat_enable_dropin_default feata)" yes
 assert_dropin "$(feat_enable_dropin_default featb)" yes
 assert_dropin "$(feat_enable_dropin_default featc)" yes
 
+# ... and so does 'disable-feature --feature-all', in the other direction.
+"$SYSUPDATE" disable-feature --feature-all
+assert_dropin "$(feat_enable_dropin_default feata)" no
+assert_dropin "$(feat_enable_dropin_default featb)" no
+assert_dropin "$(feat_enable_dropin_default featc)" no
+
 # --feature-suggested (no machine tag): only the Suggest=yes feature is picked.
 rm -rf /etc/sysupdate.d
 set_machine_tags unrelated
@@ -1831,6 +1845,21 @@ set_machine_tags sysupdate-test-tag
 assert_dropin "$(feat_enable_dropin_default feata)" yes
 assert_dropin "$(feat_enable_dropin_default featc)" yes
 test ! -e "$(feat_enable_dropin_default featb)"
+
+# 'disable-feature --feature-suggested' selects the same features as the enable
+# above, i.e. it undoes it and leaves the non-suggested featb untouched.
+"$SYSUPDATE" disable-feature --feature-suggested
+assert_dropin "$(feat_enable_dropin_default feata)" no
+assert_dropin "$(feat_enable_dropin_default featc)" no
+test ! -e "$(feat_enable_dropin_default featb)"
+
+# The same two step reconciliation for features: disable all of them, then
+# enable the suggested ones, leaving the non-suggested featb explicitly off.
+"$SYSUPDATE" disable-feature --feature-all
+"$SYSUPDATE" enable-feature --feature-suggested
+assert_dropin "$(feat_enable_dropin_default feata)" yes
+assert_dropin "$(feat_enable_dropin_default featc)" yes
+assert_dropin "$(feat_enable_dropin_default featb)" no
 set_machine_tags ""
 
 # --component-all must still include the default component when all of its
