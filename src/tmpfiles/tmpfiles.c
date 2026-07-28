@@ -3390,6 +3390,352 @@ static int remove_item_instance(
         }
 }
 
+static bool item_instance_needs_cleanup(
+                Item *i,
+                const char *instance,
+                const struct statx *sx) {
+
+        assert(i);
+        assert(instance);
+        assert(sx);
+
+        if (!i->age_set)
+                return false;
+
+        usec_t n = now(CLOCK_REALTIME);
+        if (n < i->age)
+                return false;
+
+        usec_t cutoff = n - i->age;
+        nsec_t atime_nsec = FLAGS_SET(sx->stx_mask, STATX_ATIME) ? statx_timestamp_load_nsec(&sx->stx_atime) : NSEC_INFINITY;
+        nsec_t mtime_nsec = FLAGS_SET(sx->stx_mask, STATX_MTIME) ? statx_timestamp_load_nsec(&sx->stx_mtime) : NSEC_INFINITY;
+        nsec_t ctime_nsec = FLAGS_SET(sx->stx_mask, STATX_CTIME) ? statx_timestamp_load_nsec(&sx->stx_ctime) : NSEC_INFINITY;
+        nsec_t btime_nsec = FLAGS_SET(sx->stx_mask, STATX_BTIME) ? statx_timestamp_load_nsec(&sx->stx_btime) : NSEC_INFINITY;
+        bool is_dir = S_ISDIR(sx->stx_mode);
+
+        return needs_cleanup(atime_nsec, btime_nsec, ctime_nsec, mtime_nsec,
+                             cutoff * NSEC_PER_USEC, instance,
+                             is_dir ? i->age_by_dir : i->age_by_file, is_dir);
+}
+
+static int item_instance_open_parent(
+                Item *i,
+                const char *instance,
+                char **ret_name,
+                bool *ret_must_be_directory) {
+
+        int r;
+
+        assert(i);
+        assert(instance);
+        assert(ret_name);
+        assert(ret_must_be_directory);
+
+        _cleanup_free_ char *name = NULL;
+        r = path_extract_filename(instance, &name);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract filename from path '%s': %m", instance);
+
+        _cleanup_close_ int parent_fd = path_open_parent_safe(instance, i->allow_failure);
+        if (parent_fd < 0)
+                return parent_fd;
+
+        *ret_name = TAKE_PTR(name);
+        *ret_must_be_directory = r == O_DIRECTORY;
+        return TAKE_FD(parent_fd);
+}
+
+static int item_instance_open_opath(
+                int parent_fd,
+                const char *name,
+                const char *instance,
+                int *ret_fd,
+                struct statx *ret_sx) {
+
+        int r;
+
+        assert(parent_fd >= 0);
+        assert(name);
+        assert(instance);
+        assert(ret_fd);
+        assert(ret_sx);
+
+        _cleanup_close_ int fd = RET_NERRNO(openat(parent_fd, name, O_PATH|O_CLOEXEC|O_NOFOLLOW));
+        if (IN_SET(fd, -ENOENT, -ENOTDIR))
+                return 0;
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to open \"%s\": %m", instance);
+
+        struct statx sx;
+        r = xstatx_full(fd,
+                        /* path= */ NULL,
+                        AT_EMPTY_PATH,
+                        /* xstatx_flags= */ 0,
+                        STATX_TYPE|STATX_MODE,
+                        STATX_ATIME|STATX_MTIME|STATX_CTIME|STATX_BTIME,
+                        /* mandatory_attributes= */ 0,
+                        &sx);
+        if (r < 0)
+                return log_error_errno(r, "statx(%s) failed: %m", instance);
+
+        *ret_fd = TAKE_FD(fd);
+        *ret_sx = sx;
+        return 1;
+}
+
+static int item_instance_still_current(
+                int fd,
+                int parent_fd,
+                const char *name,
+                const char *instance) {
+
+        int r;
+
+        assert(fd >= 0);
+        assert(parent_fd >= 0);
+        assert(name);
+        assert(instance);
+
+        r = inode_same_at(fd, /* filea= */ NULL,
+                          parent_fd, name,
+                          AT_EMPTY_PATH|AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT);
+        if (IN_SET(r, -ENOENT, -ENOTDIR))
+                return 0;
+        if (r < 0) {
+                log_debug_errno(r, "Failed to verify that \"%s\" still refers to the same inode, skipping: %m", instance);
+                return 0;
+        }
+        if (r == 0) {
+                log_debug("Skipping \"%s\": inode changed.", instance);
+                return 0;
+        }
+
+        return 1;
+}
+
+static int item_instance_fd_still_current(
+                int fd,
+                int other_fd,
+                const char *instance) {
+
+        int r;
+
+        assert(fd >= 0);
+        assert(other_fd >= 0);
+        assert(instance);
+
+        r = fd_inode_same(fd, other_fd);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to verify that \"%s\" still refers to the same inode, skipping: %m", instance);
+                return 0;
+        }
+        if (r == 0) {
+                log_debug("Skipping \"%s\": inode changed.", instance);
+                return 0;
+        }
+
+        return 1;
+}
+
+static int item_instance_open_directory_and_lock(
+                int parent_fd,
+                const char *name,
+                int fd,
+                const char *instance,
+                DIR **ret) {
+
+        _cleanup_closedir_ DIR *d = NULL;
+        int r;
+
+        assert(parent_fd >= 0);
+        assert(name);
+        assert(fd >= 0);
+        assert(instance);
+        assert(ret);
+
+        d = xopendirat_nomod(parent_fd, name);
+        if (!d) {
+                if (IN_SET(errno, ENOENT, ENOTDIR, ELOOP))
+                        return 0;
+
+                return log_error_errno(errno, "Failed to open directory \"%s\": %m", instance);
+        }
+
+        r = item_instance_fd_still_current(fd, dirfd(d), instance);
+        if (r <= 0)
+                return r;
+
+        if (!arg_dry_run &&
+            flock(dirfd(d), LOCK_EX|LOCK_NB) < 0) {
+                log_debug_errno(errno, "Couldn't acquire shared BSD lock on directory \"%s\", skipping: %m", instance);
+                return 0;
+        }
+
+        *ret = TAKE_PTR(d);
+        return 1;
+}
+
+static int item_instance_remove_empty_directory(
+                int parent_fd,
+                const char *name,
+                const char *instance) {
+
+        int r;
+
+        assert(parent_fd >= 0);
+        assert(name);
+        assert(instance);
+
+        if (arg_dry_run)
+                return 0;
+
+        r = RET_NERRNO(unlinkat(parent_fd, name, AT_REMOVEDIR));
+        if (r < 0) {
+                bool fatal = !IN_SET(r, -ENOENT, -ENOTEMPTY, -EBUSY);
+
+                log_full_errno(fatal ? LOG_ERR : LOG_DEBUG, r, "Failed to remove %s: %m", instance);
+                if (fatal)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int item_instance_remove_directory_if_empty(
+                int parent_fd,
+                const char *name,
+                DIR *d,
+                const char *instance,
+                bool assume_empty) {
+
+        int r;
+
+        assert(parent_fd >= 0);
+        assert(name);
+        assert(d);
+        assert(instance);
+
+        if (!assume_empty) {
+                r = dir_is_empty_at(dirfd(d), /* path= */ NULL, /* ignore_hidden_or_backup= */ false);
+                if (IN_SET(r, -ENOENT, -ENOTDIR))
+                        return 0;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine whether \"%s\" is empty: %m", instance);
+                if (r == 0)
+                        return 0;
+        }
+
+        r = item_instance_still_current(dirfd(d), parent_fd, name, instance);
+        if (r <= 0)
+                return r;
+
+        log_action("Would remove", "Removing", "%s directory \"%s\".", instance);
+        r = item_instance_remove_empty_directory(parent_fd, name, instance);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int clean_remove_item_instance_at(
+                Item *i,
+                int parent_fd,
+                const char *name,
+                int fd,
+                const char *instance,
+                const struct statx *sx,
+                bool must_be_directory) {
+
+        int r;
+
+        assert(i);
+        assert(parent_fd >= 0);
+        assert(name);
+        assert(fd >= 0);
+        assert(instance);
+        assert(sx);
+
+        if (must_be_directory && !S_ISDIR(sx->stx_mode))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTDIR), "\"%s\" is not a directory.", instance);
+
+        if (!item_instance_needs_cleanup(i, instance, sx))
+                return 0;
+
+        if (S_ISDIR(sx->stx_mode)) {
+                _cleanup_closedir_ DIR *d = NULL;
+
+                r = item_instance_open_directory_and_lock(parent_fd, name, fd, instance, &d);
+                if (r <= 0)
+                        return r;
+
+                return item_instance_remove_directory_if_empty(parent_fd, name, d, instance, /* assume_empty= */ false);
+        }
+
+        _cleanup_close_ int lock_fd = -EBADF;
+        if (!arg_dry_run) {
+                lock_fd = xopenat(parent_fd, name, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME|O_NONBLOCK|O_NOCTTY);
+                if (lock_fd < 0 && !IN_SET(lock_fd, -ENOENT, -ELOOP))
+                        log_warning_errno(lock_fd, "Opening file \"%s\" failed, proceeding without lock: %m", instance);
+
+                if (lock_fd >= 0) {
+                        r = item_instance_fd_still_current(fd, lock_fd, instance);
+                        if (r <= 0)
+                                return r;
+
+                        if (flock(lock_fd, LOCK_EX|LOCK_NB) < 0 && errno == EAGAIN) {
+                                log_debug_errno(errno, "Couldn't acquire shared BSD lock on file \"%s\", skipping: %m", instance);
+                                return 0;
+                        }
+                }
+
+                r = item_instance_still_current(fd, parent_fd, name, instance);
+                if (r <= 0)
+                        return r;
+        }
+
+        if (i->type == RECURSIVE_REMOVE_PATH)
+                log_action("Would remove", "Removing", "%s file \"%s\".", instance);
+        else
+                log_action("Would remove", "Removing", "%s \"%s\".", instance);
+
+        if (!arg_dry_run &&
+            unlinkat(parent_fd, name, 0) < 0 &&
+            errno != ENOENT)
+                log_warning_errno(errno, "Failed to remove \"%s\", ignoring: %m", instance);
+
+        return 0;
+}
+
+static int clean_remove_item_instance(
+                Context *c,
+                Item *i,
+                const char *instance,
+                CreationMode creation) {
+
+        int r;
+
+        assert(c);
+        assert(i);
+        assert(instance);
+
+        if (!i->age_set)
+                return 0;
+
+        _cleanup_free_ char *name = NULL;
+        bool must_be_directory;
+        _cleanup_close_ int parent_fd = item_instance_open_parent(i, instance, &name, &must_be_directory);
+        if (parent_fd < 0)
+                return parent_fd;
+
+        _cleanup_close_ int fd = -EBADF;
+        struct statx sx;
+        r = item_instance_open_opath(parent_fd, name, instance, &fd, &sx);
+        if (r <= 0)
+                return r;
+
+        return clean_remove_item_instance_at(i, parent_fd, name, fd, instance, &sx, must_be_directory);
+}
+
 static int remove_item(Context *c, Item *i) {
         assert(c);
         assert(i);
@@ -3427,13 +3773,19 @@ static char *age_by_to_string(AgeBy ab, bool is_dir) {
         return ret;
 }
 
-static int clean_item_instance(
+static int clean_item_instance_from_dir(
                 Context *c,
                 Item *i,
-                const char* instance,
-                CreationMode creation) {
+                const char *instance,
+                DIR *d,
+                const struct statx *sx,
+                bool mountpoint) {
 
+        assert(c);
         assert(i);
+        assert(instance);
+        assert(d);
+        assert(sx);
 
         if (!i->age_set)
                 return 0;
@@ -3443,19 +3795,8 @@ static int clean_item_instance(
                 return 0;
 
         usec_t cutoff = n - i->age;
-        nsec_t atime_nsec, mtime_nsec;
-
-        _cleanup_closedir_ DIR *d = NULL;
-        struct statx sx;
-        bool mountpoint;
-        int r;
-
-        r = opendir_and_stat(instance, &d, &sx, &mountpoint);
-        if (r <= 0)
-                return r;
-
-        atime_nsec = FLAGS_SET(sx.stx_mask, STATX_ATIME) ? statx_timestamp_load_nsec(&sx.stx_atime) : NSEC_INFINITY;
-        mtime_nsec = FLAGS_SET(sx.stx_mask, STATX_MTIME) ? statx_timestamp_load_nsec(&sx.stx_mtime) : NSEC_INFINITY;
+        nsec_t atime_nsec = FLAGS_SET(sx->stx_mask, STATX_ATIME) ? statx_timestamp_load_nsec(&sx->stx_atime) : NSEC_INFINITY;
+        nsec_t mtime_nsec = FLAGS_SET(sx->stx_mask, STATX_MTIME) ? statx_timestamp_load_nsec(&sx->stx_mtime) : NSEC_INFINITY;
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *ab_f = NULL, *ab_d = NULL;
@@ -3479,10 +3820,94 @@ static int clean_item_instance(
                            atime_nsec,
                            mtime_nsec,
                            cutoff * NSEC_PER_USEC,
-                           sx.stx_dev_major, sx.stx_dev_minor,
+                           sx->stx_dev_major, sx->stx_dev_minor,
                            mountpoint,
                            MAX_DEPTH, i->keep_first_level,
                            i->age_by_file, i->age_by_dir);
+}
+
+static int clean_item_instance(
+                Context *c,
+                Item *i,
+                const char *instance,
+                CreationMode creation) {
+
+        int r;
+
+        assert(c);
+        assert(i);
+        assert(instance);
+
+        _cleanup_closedir_ DIR *d = NULL;
+        struct statx sx;
+        bool mountpoint;
+
+        r = opendir_and_stat(instance, &d, &sx, &mountpoint);
+        if (r <= 0)
+                return r;
+
+        return clean_item_instance_from_dir(c, i, instance, d, &sx, mountpoint);
+}
+
+static int clean_recursive_remove_item_instance(
+                Context *c,
+                Item *i,
+                const char *instance,
+                CreationMode creation) {
+
+        int r;
+
+        assert(c);
+        assert(i);
+        assert(instance);
+
+        if (!i->age_set)
+                return 0;
+
+        _cleanup_free_ char *name = NULL;
+        bool must_be_directory;
+        _cleanup_close_ int parent_fd = item_instance_open_parent(i, instance, &name, &must_be_directory);
+        if (parent_fd < 0)
+                return parent_fd;
+
+        _cleanup_close_ int fd = -EBADF;
+        struct statx sx;
+        r = item_instance_open_opath(parent_fd, name, instance, &fd, &sx);
+        if (r <= 0)
+                return r;
+        if (!S_ISDIR(sx.stx_mode))
+                return clean_remove_item_instance_at(i, parent_fd, name, fd, instance, &sx, must_be_directory);
+
+        _cleanup_closedir_ DIR *d = NULL;
+        r = item_instance_open_directory_and_lock(parent_fd, name, fd, instance, &d);
+        if (r <= 0)
+                return r;
+
+        struct statx dir_sx;
+        r = xstatx_full(dirfd(d),
+                        /* path= */ NULL,
+                        AT_EMPTY_PATH,
+                        /* xstatx_flags= */ 0,
+                        STATX_TYPE|STATX_MODE|STATX_INO,
+                        STATX_ATIME|STATX_MTIME|STATX_CTIME|STATX_BTIME,
+                        STATX_ATTR_MOUNT_ROOT,
+                        &dir_sx);
+        if (r < 0)
+                return log_error_errno(r, "statx(%s) failed: %m", instance);
+
+        bool cleanup_needed = item_instance_needs_cleanup(i, instance, &dir_sx);
+
+        r = clean_item_instance_from_dir(c, i, instance, d, &dir_sx, FLAGS_SET(dir_sx.stx_attributes, STATX_ATTR_MOUNT_ROOT));
+        if (r < 0)
+                return r;
+
+        if (i->keep_first_level)
+                return 0;
+
+        if (!cleanup_needed)
+                return 0;
+
+        return item_instance_remove_directory_if_empty(parent_fd, name, d, instance, /* assume_empty= */ arg_dry_run);
 }
 
 static int clean_item(Context *c, Item *i) {
@@ -3505,6 +3930,12 @@ static int clean_item(Context *c, Item *i) {
         case IGNORE_PATH:
         case IGNORE_DIRECTORY_PATH:
                 return glob_item(c, i, clean_item_instance);
+
+        case REMOVE_PATH:
+                return glob_item(c, i, clean_remove_item_instance);
+
+        case RECURSIVE_REMOVE_PATH:
+                return glob_item(c, i, clean_recursive_remove_item_instance);
 
         default:
                 return 0;
@@ -4378,6 +4809,12 @@ static int parse_line(
                 _cleanup_free_ char *seconds = NULL, *age_by = NULL;
 
                 if (*a == '~') {
+                        if (i.type == REMOVE_PATH) {
+                                *invalid_config = true;
+                                return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG),
+                                                  "Age modifier '~' is not supported for %c lines.", (char) i.type);
+                        }
+
                         i.keep_first_level = true;
                         a++;
                 }

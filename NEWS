@@ -82,8 +82,13 @@ CHANGES WITH 262:
         Changes in systemd-tmpfiles:
 
         * systemd-tmpfiles now rejects non-empty argument fields for tmpfiles.d
-          line types that do not use the argument field. Previously, such
-          fields were silently ignored after a warning.
+          line types that do not use the argument field. This is a compatibility
+          change: fields that were previously ignored after a warning will now
+          cause the tmpfiles.d configuration to be rejected, so downstreams
+          should audit shipped tmpfiles.d snippets before upgrading.
+
+        * The r and R tmpfiles.d line types now honor the age field when
+          systemd-tmpfiles is invoked with --clean.
 
         Changes in the TPM Subsystem:
 
