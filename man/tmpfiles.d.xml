@@ -164,7 +164,9 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
     <para>Fields may contain C-style escapes. With the exception of the seventh field (the "argument") all
     fields may be enclosed in quotes. Note that any whitespace found in the line after the beginning of the
     argument field will be considered part of the argument field. To begin the argument field with a
-    whitespace character, use C-style escapes (e.g. <literal>\x20</literal>).</para>
+    whitespace character, use C-style escapes (e.g. <literal>\x20</literal>). Line types which do not
+    document use of the argument field reject a non-empty argument field; use <literal>-</literal> to leave
+    the argument field empty.</para>
 
     <refsect2>
       <title>Type</title>
@@ -380,7 +382,9 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
           This may not be used to remove non-empty directories, use
           <varname>R</varname> for that.  Lines of this type accept
           shell-style globs in place of normal path
-          names. Does not follow symlinks.</para></listitem>
+          names. Does not follow symlinks. If the age argument is specified, the path itself is only removed
+          during <option>--clean</option> when it has aged enough. Using the age field with this line type
+          was added in version 262.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -388,7 +392,9 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
           <listitem><para>Recursively remove a path and all its
           subdirectories (if it is a directory). Lines of this type
           accept shell-style globs in place of normal path
-          names. Does not follow symlinks.</para></listitem>
+          names. Does not follow symlinks. If the age argument is specified, the path itself is only removed
+          during <option>--clean</option> when it has aged enough. Using the age field with this line type
+          was added in version 262.</para></listitem>
         </varlistentry>
 
         <varlistentry>
