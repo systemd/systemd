@@ -982,7 +982,11 @@ static int find_symlinks(
                 _cleanup_free_ const char *path = NULL;
                 _cleanup_closedir_ DIR *d = NULL;
 
-                if (de->d_type != DT_DIR)
+                /* Some filesystems (e.g. overlayfs, certain network filesystems)
+                 * report DT_UNKNOWN for all entries. opendir() below follows
+                 * symlinks and fails gracefully for non-directory entries, so
+                 * accept DT_UNKNOWN here and let opendir() decide. */
+                if (!IN_SET(de->d_type, DT_DIR, DT_UNKNOWN))
                         continue;
 
                 suffix = strrchr(de->d_name, '.');
