@@ -372,6 +372,52 @@ static void manager_release_userns_by_inode(Manager *m, uint64_t inode) {
         userns_registry_release_by_userns_inode(manager_bpf(m), m->registry_fd, inode);
 }
 
+/* Re-adds a registered, still-alive user namespace to the BPF maps. This is idempotent when the pinned
+ * maps already carry the entry (the common restart case), and load-bearing after an nsresourced upgrade
+ * that had to replace the pinned maps because their schema changed: the new maps come up empty, so
+ * without this the namespaces still alive from before the upgrade would silently lose their write
+ * restriction (and, for "self" allocations, their setgroups() denial). */
+/* Borrows the registry entry if the caller already has it at hand, and loads its own copy otherwise. */
+static void manager_restore_userns_policy(Manager *m, uint64_t inode, UserNamespaceInfo *info) {
+        _cleanup_(userns_info_freep) UserNamespaceInfo *loaded = NULL;
+        struct userns_restrict_bpf *bpf;
+        int r;
+
+        assert(m);
+        assert(inode != 0);
+
+        bpf = manager_bpf(m);
+        if (!bpf) /* BPF disabled at build time or its setup failed — nothing to restore. */
+                return;
+
+        if (!info) {
+                r = userns_registry_load_by_userns_inode(m->registry_fd, inode, &loaded);
+                if (r < 0)
+                        return (void) log_debug_errno(r, "Failed to load registry entry for user namespace %" PRIu64 " while restoring BPF policy, ignoring: %m", inode);
+
+                info = loaded;
+        }
+
+        r = userns_restrict_register_by_inode(bpf, inode);
+        if (r < 0)
+                return (void) log_debug_errno(r, "Failed to restore write restriction for user namespace %" PRIu64 ", ignoring: %m", inode);
+
+        /* Entries written before we recorded this carry no answer, and those are precisely the entries an
+         * upgrade finds. Fall back to what the flag mirrors: a "self" allocation maps the caller's own UID
+         * instead of a transient range, so it is the one whose start UID is its owner and outside the
+         * ranges we hand out. Without that last condition a managed size-1 allocation that happened to be
+         * given its own caller's UID would be mistaken for one, and we would deny setgroups() on a
+         * namespace that never had it denied. */
+        bool deny = info->setgroups_deny >= 0 ? info->setgroups_deny :
+                (info->size == 1 && info->start_uid == info->owner && !uid_is_transient(info->start_uid));
+
+        if (deny) {
+                r = userns_restrict_setgroups_deny_by_inode(bpf, inode);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to restore setgroups() denial for user namespace %" PRIu64 ", ignoring: %m", inode);
+        }
+}
+
 static int manager_scan_registry(Manager *m, Set **registry_inodes) {
         _cleanup_free_ DirectoryEntries *de = NULL;
         int r;
@@ -647,31 +693,46 @@ int manager_startup(Manager *m) {
                 manager_release_userns_by_inode(m, inode);
         }
 
-        /* Look for registry entries whose user namespace has died without us getting a BPF
-         * notification — e.g. because the BPF ring buffer overflowed, the kprobe is missing, or
-         * something else dropped the fd store entry without going through our cleanup path. Each
-         * registry entry stores the kernel's unique namespace identifier; ask the kernel to open
-         * the namespace by that identifier and release the entry if the lookup fails. Entries
-         * written by older versions don't carry the identifier, and old kernels (or running
-         * outside the initial user namespace) don't support lookup by it — in those cases we leave
-         * the entry alone. */
+        /* Walk the registry entries for two purposes: reap the dead ones, and re-establish the
+         * BPF-LSM policy for the live ones.
+         *
+         * A namespace may have died without us getting a BPF notification — e.g. because the BPF ring
+         * buffer overflowed, the kprobe is missing, or something else dropped the fd store entry without
+         * going through our cleanup path. Each registry entry stores the kernel's unique namespace
+         * identifier; ask the kernel to open the namespace by that identifier and release the entry if
+         * the lookup fails. Entries written by older versions don't carry the identifier, and old kernels
+         * (or running outside the initial user namespace) don't support lookup by it — in those cases we
+         * leave the entry alone.
+         *
+         * Everything that isn't reaped is (re-)added to the BPF maps. Normally the pinned maps already
+         * carry these entries and the update is a no-op, but after an upgrade that replaced the pinned
+         * maps with an incompatible schema the new maps start empty, and this is what keeps namespaces
+         * that predate the upgrade protected. */
 
+        bool can_probe = true;
         SET_FOREACH(p, registry_inodes) {
+                _cleanup_(userns_info_freep) UserNamespaceInfo *info = NULL;
                 uint64_t inode = PTR_TO_UINT32(p);
 
-                r = userns_registry_reap_if_dead(manager_bpf(m), m->registry_fd, inode);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to probe liveness of user namespace %" PRIu64 ", ignoring: %m", inode);
-                        continue;
+                if (can_probe) {
+                        r = userns_registry_reap_if_dead(manager_bpf(m), m->registry_fd, inode, &info);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to probe liveness of user namespace %" PRIu64 ", assuming alive: %m", inode);
+                        else if (r == USERNS_REAP_RELEASED)
+                                continue; /* Dead and released — nothing to restore. */
+                        else if (r == USERNS_REAP_UNSUPPORTED) {
+                                /* Can't look namespaces up by id at all here (old kernel, or not in the
+                                 * initial user namespace). Stop probing (and logging) once per entry, but
+                                 * still restore the policy for this and the remaining entries below. */
+                                log_debug("Cannot detect stale registry entries, restoring the rest unconditionally.");
+                                can_probe = false;
+                        }
+                        /* USERNS_REAP_ALIVE or _INDETERMINATE fall through to the restore below. */
                 }
-                if (r == USERNS_REAP_UNSUPPORTED) {
-                        /* Can't look namespaces up by id at all here (old kernel, or not in the
-                         * initial user namespace) — no entry is probeable, so stop rather than
-                         * continuing to probe (and log) once per entry. */
-                        log_debug("Cannot detect stale registry entries, skipping the rest.");
-                        break;
-                }
-                /* USERNS_REAP_RELEASED, _ALIVE, or _INDETERMINATE — nothing more to do for this entry. */
+
+                /* Re-establish the BPF-LSM policy for the still-live namespace. Idempotent when the pinned
+                 * maps already carry it, essential after an upgrade replaced them with empty ones. */
+                manager_restore_userns_policy(m, inode, info);
         }
 
         r = manager_make_listen_socket(m);

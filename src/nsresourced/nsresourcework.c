@@ -405,7 +405,7 @@ static int registry_range_is_available(
         if (r < 0)
                 return r;
 
-        r = userns_registry_reap_if_dead(bpf, registry_dir_fd, owner->userns_inode);
+        r = userns_registry_reap_if_dead(bpf, registry_dir_fd, owner->userns_inode, /* ret_info= */ NULL);
         if (r < 0)
                 return r;
         if (r == USERNS_REAP_RELEASED)
@@ -465,7 +465,7 @@ static int delegation_range_is_available(
                 /* Owned by some other namespace. If that namespace is dead, reclaim it (restoring the
                  * range to its ancestor) and loop to re-evaluate; otherwise the range is genuinely
                  * taken. */
-                r = userns_registry_reap_if_dead(bpf, registry_dir_fd, delegation.userns_inode);
+                r = userns_registry_reap_if_dead(bpf, registry_dir_fd, delegation.userns_inode, /* ret_info= */ NULL);
                 if (r < 0)
                         return r;
                 if (r == USERNS_REAP_RELEASED)
@@ -1457,6 +1457,9 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
         userns_info->size = p.size;
         userns_info->target_uid = p.target;
         userns_info->target_gid = (gid_t) p.target;
+        /* For "self" allocations we deny setgroups() via the BPF-LSM (see below). Record it so the manager
+         * can re-establish the denial after a restart that reset the BPF maps. */
+        userns_info->setgroups_deny = p.type == ALLOCATE_USER_RANGE_SELF;
 
         if (p.type == ALLOCATE_USER_RANGE_SELF) {
                 /* The start UID/GID will be mapped to the parent userns in write_userns(). If a self
@@ -1520,7 +1523,7 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
         if (r < 0)
                 goto fail;
 
-        if (p.type == ALLOCATE_USER_RANGE_SELF) {
+        if (userns_info->setgroups_deny > 0) {
                 /* For "self" allocations we deny setgroups() via the BPF LSM. We can't use
                  * /proc/self/setgroups for this as that is transitive and also applies to child user
                  * namespaces. The BPF LSM hook only applies to the specific user namespace. */
