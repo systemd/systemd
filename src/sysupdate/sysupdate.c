@@ -2244,9 +2244,9 @@ static int context_enable_feature(
                 HASHMAP_FOREACH(f, c->features) {
                         r = feature_is_suggested(f);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to determine if feature '%s' of component '%s' shall be enabled: %m", f->id, context_component_display(c));
-                        if (!!r != !!enable) {
-                                log_debug("Skipping feature '%s' of component '%s'.", f->id, context_component_display(c));
+                                return log_error_errno(r, "Failed to determine if feature '%s' of component '%s' is suggested: %m", f->id, context_component_display(c));
+                        if (r == 0) {
+                                log_debug("Feature '%s' of component '%s' is not suggested, skipping.", f->id, context_component_display(c));
                                 continue;
                         }
 
@@ -3245,15 +3245,11 @@ static int verb_enable_component(int argc, char *argv[], uintptr_t _data, void *
 
                         r = context_component_is_suggested(&cc);
                         if (r < 0) {
-                                log_warning_errno(r, "Failed to determine whether '%s' shall be enabled, skipping: %m", *name);
+                                log_warning_errno(r, "Failed to determine whether '%s' is suggested, skipping: %m", *name);
                                 continue;
                         }
-
-                        /* This reconciles the system with the suggestions: on 'enable-component' we act on
-                         * the components that are suggested, on 'disable-component' we act on the ones that
-                         * are not. Hence pick the components whose suggestion state matches the operation. */
-                        if (!!r != !!enable) {
-                                log_debug("Skipping '%s'.", *name);
+                        if (r == 0) {
+                                log_debug("Component '%s' is not suggested, skipping.", *name);
                                 continue;
                         }
 

@@ -89,7 +89,7 @@
     separately.</para>
 
     <para>The <filename>systemd-sysupdate-auto-enable.service</filename> system service automatically enables all
-    suggested components and all features of the enabled components before each update. It is ordered before and
+    suggested components and all suggested features of all components before each update. It is ordered before and
     pulled in by <filename>systemd-sysupdate-update.service</filename>, and is not enabled by default. Enable it
     if newly suggested components and features shall be picked up automatically as they become available, rather
     than requiring manual <command>enable-component</command>/<command>enable-feature</command> invocations.</para>
@@ -334,9 +334,18 @@
         are currently <emphasis>suggested</emphasis> for this system, as determined by the
         <varname>Suggest=</varname> and <varname>SuggestOn…=</varname> settings in the component definition
         files. This is supported for the <command>enable-component</command> and
-        <command>disable-component</command> commands.</para>
+        <command>disable-component</command> commands. Both commands operate on the same set of components,
+        thus <command>disable-component</command> undoes what <command>enable-component</command> did.</para>
 
         <para>This option may not be combined with <option>--component=</option>.</para>
+
+        <para>In order to reconcile the system according to suggestions, i.e., to also turn off the components
+        that are not (or no longer) suggested, first disable all components with <option>--component-all</option>,
+        then enable the suggested ones with this switch. Note that this has wider consequences than the equivalent
+        reconciliation of optional features because components are enabled by default, and a component counts as not
+        suggested unless <varname>Suggest=</varname> or one of the <varname>SuggestOn…=</varname> settings says otherwise.
+        Reconciling hence explicitly disables every component that is not suggested, including components that ship no
+        <filename>*.component</filename> file at all. The default component is not affected.</para>
 
         <xi:include href="version-info.xml" xpointer="v262"/></listitem>
       </varlistentry>
@@ -360,7 +369,12 @@
         that are currently <emphasis>suggested</emphasis> for this system, as determined by the
         <varname>Suggest=</varname> and <varname>SuggestOn…=</varname> settings in the feature definition
         files. This is supported for the <command>enable-feature</command> and
-        <command>disable-feature</command> commands.</para>
+        <command>disable-feature</command> commands. Both commands operate on the same set of features, thus
+        <command>disable-feature</command> undoes what <command>enable-feature</command> did.</para>
+
+        <para>In order to reconcile the system according to suggestions, i.e., to also turn off the features
+        that are not (or no longer) suggested, first disable all features with <option>--feature-all</option>,
+        then enable the suggested ones with this switch.</para>
 
         <xi:include href="version-info.xml" xpointer="v262"/></listitem>
       </varlistentry>
