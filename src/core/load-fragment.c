@@ -6104,13 +6104,24 @@ int config_parse_concurrency_max(
                 void *userdata) {
 
         unsigned *concurrency_max = ASSERT_PTR(data);
+        int r;
 
         if (isempty(rvalue) || streq(rvalue, "infinity")) {
                 *concurrency_max = UINT_MAX;
                 return 0;
         }
 
-        return config_parse_unsigned(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
+        r = config_parse_unsigned(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
+        if (r < 0)
+                return r;
+
+        if (*concurrency_max == 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "%s= must be positive or 'infinity', ignoring: %s", lvalue, rvalue);
+                *concurrency_max = UINT_MAX;
+        }
+
+        return 0;
 }
 
 int config_parse_bind_network_interface(
