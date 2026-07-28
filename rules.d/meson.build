@@ -24,7 +24,6 @@ rules = [
                '60-persistent-v4l.rules',
                '60-sensor.rules',
                '60-serial.rules',
-               '60-tpm2-id.rules',
                '65-integration.rules',
                '70-camera.rules',
                '70-joystick.rules',
@@ -41,14 +40,17 @@ rules = [
                '90-iocost.rules',
               )],
 
-        [files('80-drivers.rules'),
-         conf.get('HAVE_KMOD') == 1],
+        [files('60-tpm2-id.rules'),
+         conf.get('HAVE_TPM2') == 1],
 
         [files('70-memory.rules'),
          conf.get('HAVE_DMI') == 1],
 
         [files('70-power-switch.rules'),
-         conf.get('ENABLE_LOGIND') == 1]
+         conf.get('ENABLE_LOGIND') == 1],
+
+        [files('80-drivers.rules'),
+         conf.get('HAVE_KMOD') == 1],
 ]
 
 all_rules = []
