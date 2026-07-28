@@ -64,6 +64,12 @@ CHANGES WITH 262:
           IPv4ProxyARP=yes but has no effect if IPv4ProxyARP= has been set to
           false. This mirrors the behavior of IPv6ProxyNDPAddress=.
 
+        Changes in systemd-tmpfiles:
+
+        * systemd-tmpfiles now rejects non-empty argument fields for tmpfiles.d
+          line types that do not use the argument field. Previously, such
+          fields were silently ignored after a warning.
+
         Changes in the TPM Subsystem:
 
         * The way that NvPCRs are anchored has been improved. They are now
