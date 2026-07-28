@@ -2730,7 +2730,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 - **tmpfiles:**
   - allow time-based cleanup in r and R too
-  - instead of ignoring unknown fields, reject them.
   - creating new directories/subvolumes/fifos/device nodes
     should not follow symlinks. None of the other adjustment or creation
     calls follow symlinks.
