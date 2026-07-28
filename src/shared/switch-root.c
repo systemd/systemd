@@ -10,13 +10,72 @@
 #include "chase.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "libmount-util.h"
 #include "log.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
+#include "path-util.h"
 #include "rm-rf.h"
 #include "stat-util.h"
 #include "switch-root.h"
+
+/* Flushes out all file systems that are about to become unreachable as we switch to 'new_root', so that
+ * they are in a good state before they possibly are detached with MNT_DETACH. Explicitly excludes
+ * 'new_root' and any file systems mounted below it, since those remain mounted and reachable after the
+ * transition, and will continue to be written to/synced normally as part of their regular life cycle
+ * afterwards. This deliberately avoids a global sync() (which would also flush out any other, completely
+ * unrelated file systems that happen to be mounted on the system, e.g. any additional data partitions,
+ * network shares, removable media, …), since this code path is very much on the critical path during
+ * boot (as part of initrd-switch-root.service) and soft-reboot. */
+static void sync_reachable_file_systems(const char *new_root) {
+#if HAVE_LIBMOUNT
+        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+        int r;
+
+        r = libmount_parse_mountinfo(/* source= */ NULL, &table, &iter);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to parse /proc/self/mountinfo, falling back to global sync(): %m");
+                sync();
+                return;
+        }
+
+        for (;;) {
+                _cleanup_close_ int fd = -EBADF;
+                struct libmnt_fs *fs;
+                const char *path;
+
+                r = sym_mnt_table_next_fs(table, iter, &fs);
+                if (r == 1) /* EOF */
+                        break;
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to get next entry from /proc/self/mountinfo, ignoring: %m");
+                        break;
+                }
+
+                path = sym_mnt_fs_get_target(fs);
+                if (!path)
+                        continue;
+
+                /* Skip the new root itself, and anything mounted below it: this remains mounted and
+                 * reachable after the switch, hence doesn't need to be synced out defensively here. */
+                if (path_startswith(path, new_root))
+                        continue;
+
+                fd = open(path, O_PATH|O_CLOEXEC|O_NOFOLLOW);
+                if (fd < 0) {
+                        log_debug_errno(errno, "Failed to open '%s', ignoring: %m", path);
+                        continue;
+                }
+
+                if (syncfs(fd) < 0)
+                        log_debug_errno(errno, "Failed to synchronize file system '%s', ignoring: %m", path);
+        }
+#else
+        sync();
+#endif
+}
 
 int switch_root(const char *new_root,
                 const char *old_root_after,   /* path below the new root, where to place the old root after the transition; may be NULL to unmount it */
@@ -100,10 +159,12 @@ int switch_root(const char *new_root,
         /* We are about to unmount various file systems with MNT_DETACH (either explicitly via umount() or
          * indirectly via pivot_root()), and thus do not synchronously wait for them to be fully sync'ed —
          * all while making them invisible/inaccessible in the file system tree for later code. That makes
-         * sync'ing them then difficult. Let's hence issue a manual sync() here, so that we at least can
-         * guarantee all file systems are an a good state before entering this state. */
+         * sync'ing them then difficult. Let's hence issue a manual sync here, so that we at least can
+         * guarantee the file systems that are about to become unreachable are in a good state before
+         * entering this state. See sync_reachable_file_systems() above for why we don't just call the
+         * global sync() here. */
         if (!FLAGS_SET(flags, SWITCH_ROOT_DONT_SYNC))
-                sync();
+                sync_reachable_file_systems(new_root);
 
         /* Work-around for kernel design: the kernel refuses MS_MOVE if any file systems are mounted
          * MS_SHARED. Hence remount them MS_PRIVATE here as a work-around.
