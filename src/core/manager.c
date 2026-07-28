@@ -2892,6 +2892,10 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
 
         assert(m);
 
+        /* If the API bus is connected but not fully set up yet (see bus_init_api()), postpone sending
+         * D-Bus messages, otherwise subscribers restored from a previous reexec would miss them. */
+        bool dbus_ready = !m->api_bus || m->api_bus_ready;
+
         /* When we are reloading, let's not wait with generating signals, since we need to exit the manager as quickly
          * as we can. There's no point in throttling generation of signals in that case. */
         if (MANAGER_IS_RELOADING(m) || m->send_reloading_done || m->pending_reload_message_dbus || m->pending_reload_message_vl)
@@ -2920,36 +2924,38 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
                 budget = MANAGER_BUS_MESSAGE_BUDGET;
         }
 
-        while (budget != 0 && (u = m->dbus_unit_queue)) {
+        if (dbus_ready) {
+                while (budget != 0 && (u = m->dbus_unit_queue)) {
 
-                assert(u->in_dbus_queue);
+                        assert(u->in_dbus_queue);
 
-                bus_unit_send_change_signal(u);
-                varlink_unit_send_change_signal(u);
-                n++;
+                        bus_unit_send_change_signal(u);
+                        varlink_unit_send_change_signal(u);
+                        n++;
 
-                if (budget != UINT_MAX)
-                        budget--;
+                        if (budget != UINT_MAX)
+                                budget--;
+                }
+
+                while (budget != 0 && (j = m->dbus_job_queue)) {
+                        assert(j->in_dbus_queue);
+
+                        bus_job_send_change_signal(j);
+                        varlink_job_send_change_signal(j);
+                        n++;
+
+                        if (budget != UINT_MAX)
+                                budget--;
+                }
         }
 
-        while (budget != 0 && (j = m->dbus_job_queue)) {
-                assert(j->in_dbus_queue);
-
-                bus_job_send_change_signal(j);
-                varlink_job_send_change_signal(j);
-                n++;
-
-                if (budget != UINT_MAX)
-                        budget--;
-        }
-
-        if (m->send_reloading_done) {
+        if (dbus_ready && m->send_reloading_done) {
                 m->send_reloading_done = false;
                 bus_manager_send_reloading(m, false);
                 n++;
         }
 
-        if (m->pending_reload_message_dbus) {
+        if (dbus_ready && m->pending_reload_message_dbus) {
                 bus_send_pending_reload_message(m);
                 n++;
         }
