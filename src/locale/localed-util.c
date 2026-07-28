@@ -288,6 +288,8 @@ int x11_read_data(Context *c, sd_bus_message *m) {
                         in_section = false;
         }
 
+        x11_context_normalize(&c->x11_from_xorg);
+
         if (x11_context_verify(&c->x11_from_xorg) < 0)
                 x11_context_clear(&c->x11_from_xorg);
 

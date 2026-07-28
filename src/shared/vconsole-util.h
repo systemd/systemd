@@ -19,6 +19,7 @@ void x11_context_clear(X11Context *xc);
 void x11_context_replace(X11Context *dest, X11Context *src);
 bool x11_context_isempty(const X11Context *xc);
 void x11_context_empty_to_null(X11Context *xc);
+void x11_context_normalize(X11Context *xc);
 bool x11_context_is_safe(const X11Context *xc);
 bool x11_context_equal(const X11Context *a, const X11Context *b);
 int x11_context_copy(X11Context *dest, const X11Context *src);
