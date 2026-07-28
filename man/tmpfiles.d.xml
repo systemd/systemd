@@ -164,7 +164,9 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
     <para>Fields may contain C-style escapes. With the exception of the seventh field (the "argument") all
     fields may be enclosed in quotes. Note that any whitespace found in the line after the beginning of the
     argument field will be considered part of the argument field. To begin the argument field with a
-    whitespace character, use C-style escapes (e.g. <literal>\x20</literal>).</para>
+    whitespace character, use C-style escapes (e.g. <literal>\x20</literal>). Line types which do not
+    document use of the argument field reject a non-empty argument field; use <literal>-</literal> to leave
+    the argument field empty.</para>
 
     <refsect2>
       <title>Type</title>
@@ -743,7 +745,8 @@ d /tmp/foo/bar - - - bmA:1h -</programlisting></para>
       and <varname>T</varname>, determines extended attributes to be set. For <varname>a</varname> and
       <varname>A</varname>, determines ACL attributes to be set. For <varname>h</varname> and <varname>H</varname>,
       determines the file attributes to set. For <varname>k</varname> and <varname>K</varname>, determines
-      file capabilities to be set. Ignored for all other lines.</para>
+      file capabilities to be set. For line types that do not document use of this field, a non-empty
+      argument is rejected; use <literal>-</literal> to leave it unset.</para>
 
       <para>This field can contain specifiers, see below.</para>
     </refsect2>
