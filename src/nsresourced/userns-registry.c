@@ -83,6 +83,7 @@ UserNamespaceInfo* userns_info_new(void) {
                 .target_uid = UID_INVALID,
                 .start_gid = GID_INVALID,
                 .target_gid = GID_INVALID,
+                .setgroups_deny = -1,
         };
 
         return info;
@@ -241,18 +242,19 @@ static int dispatch_ancestor_userns_array(const char *name, sd_json_variant *var
 static int userns_registry_load(int dir_fd, const char *fn, UserNamespaceInfo **ret) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "owner",     SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,  offsetof(UserNamespaceInfo, owner),        SD_JSON_MANDATORY },
-                { "name",      SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,   offsetof(UserNamespaceInfo, name),         SD_JSON_MANDATORY },
-                { "userns",    SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint64,   offsetof(UserNamespaceInfo, userns_inode), SD_JSON_MANDATORY },
-                { "usernsId",  SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint64,   offsetof(UserNamespaceInfo, userns_id),    0                 },
-                { "size",      SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint32,   offsetof(UserNamespaceInfo, size),         0                 },
-                { "start",     SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,  offsetof(UserNamespaceInfo, start_uid),    0                 },
-                { "target",    SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,  offsetof(UserNamespaceInfo, target_uid),   0                 },
-                { "startGid",  SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,  offsetof(UserNamespaceInfo, start_gid),    0                 },
-                { "targetGid", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,  offsetof(UserNamespaceInfo, target_gid),   0                 },
-                { "cgroups",   SD_JSON_VARIANT_ARRAY,    dispatch_cgroups_array,    0,                                         0                 },
-                { "netifs",    SD_JSON_VARIANT_ARRAY,    sd_json_dispatch_strv,     offsetof(UserNamespaceInfo, netifs),       0                 },
-                { "delegates", SD_JSON_VARIANT_ARRAY,    dispatch_delegates_array,  0,                                         0                 },
+                { "owner",         SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,  offsetof(UserNamespaceInfo, owner),          SD_JSON_MANDATORY },
+                { "name",          SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,   offsetof(UserNamespaceInfo, name),           SD_JSON_MANDATORY },
+                { "userns",        SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint64,   offsetof(UserNamespaceInfo, userns_inode),   SD_JSON_MANDATORY },
+                { "usernsId",      SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint64,   offsetof(UserNamespaceInfo, userns_id),      0                 },
+                { "size",          SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint32,   offsetof(UserNamespaceInfo, size),           0                 },
+                { "start",         SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,  offsetof(UserNamespaceInfo, start_uid),      0                 },
+                { "target",        SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,  offsetof(UserNamespaceInfo, target_uid),     0                 },
+                { "startGid",      SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,  offsetof(UserNamespaceInfo, start_gid),      0                 },
+                { "targetGid",     SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,  offsetof(UserNamespaceInfo, target_gid),     0                 },
+                { "setgroupsDeny", SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_tristate, offsetof(UserNamespaceInfo, setgroups_deny), 0                 },
+                { "cgroups",       SD_JSON_VARIANT_ARRAY,    dispatch_cgroups_array,    0,                                           0                 },
+                { "netifs",        SD_JSON_VARIANT_ARRAY,    sd_json_dispatch_strv,     offsetof(UserNamespaceInfo, netifs),         0                 },
+                { "delegates",     SD_JSON_VARIANT_ARRAY,    dispatch_delegates_array,  0,                                           0                 },
                 {}
         };
 
@@ -539,12 +541,15 @@ void userns_registry_release_by_userns_inode(struct userns_restrict_bpf *bpf, in
         release_userns_inode_resources(bpf, inode);
 }
 
-int userns_registry_reap_if_dead(struct userns_restrict_bpf *bpf, int dir_fd, uint64_t inode) {
+int userns_registry_reap_if_dead(struct userns_restrict_bpf *bpf, int dir_fd, uint64_t inode, UserNamespaceInfo **ret_info) {
         _cleanup_(userns_info_freep) UserNamespaceInfo *info = NULL;
         int r;
 
         assert(dir_fd >= 0);
         assert(inode != 0);
+
+        if (ret_info)
+                *ret_info = NULL;
 
         /* This is the shared engine behind both the runtime allocation hot path and the startup
          * registry sweep: it reclaims ranges blocked by a dead namespace that no BPF death event
@@ -558,19 +563,30 @@ int userns_registry_reap_if_dead(struct userns_restrict_bpf *bpf, int dir_fd, ui
         if (r < 0)
                 return r;
 
-        if (info->userns_id == 0)
-                return USERNS_REAP_INDETERMINATE; /* Entry predates ns id tracking, can't probe authoritatively. */
+        if (info->userns_id == 0) {
+                /* Entry predates ns id tracking, can't probe authoritatively. */
+                if (ret_info)
+                        *ret_info = TAKE_PTR(info);
+                return USERNS_REAP_INDETERMINATE;
+        }
 
         _cleanup_close_ int probe_fd = namespace_open_by_id(info->userns_id);
-        if (probe_fd >= 0)
-                return USERNS_REAP_ALIVE; /* Still alive (or the inode was recycled for a live namespace). */
-        if (ERRNO_IS_NEG_PRIVILEGE(probe_fd) || ERRNO_IS_NEG_NOT_SUPPORTED(probe_fd) || probe_fd == -EINVAL)
+        if (probe_fd >= 0) {
+                /* Still alive (or the inode was recycled for a live namespace). */
+                if (ret_info)
+                        *ret_info = TAKE_PTR(info);
+                return USERNS_REAP_ALIVE;
+        }
+        if (ERRNO_IS_NEG_PRIVILEGE(probe_fd) || ERRNO_IS_NEG_NOT_SUPPORTED(probe_fd) || probe_fd == -EINVAL) {
                 /* EPERM/EACCES (not in the initial user namespace, missing CAP_SYS_ADMIN), or
                  * ENOTSUP/ENOSYS/EINVAL (kernel new enough for NS_GET_ID but too old for
                  * open_by_handle_at() lookup by id on nsfs) — we can't confirm death for this or any
                  * other entry. The userns_id == 0 case is already handled above, so -EINVAL here means
                  * the lookup is unsupported rather than a bad id. */
+                if (ret_info)
+                        *ret_info = TAKE_PTR(info);
                 return USERNS_REAP_UNSUPPORTED;
+        }
         if (probe_fd != -ESTALE)
                 return probe_fd; /* Unexpected probe error. */
 
@@ -693,6 +709,7 @@ int userns_registry_store(int dir_fd, UserNamespaceInfo *info) {
                         SD_JSON_BUILD_PAIR_CONDITION(uid_is_valid(info->target_uid), "target", SD_JSON_BUILD_UNSIGNED(info->target_uid)),
                         SD_JSON_BUILD_PAIR_CONDITION(gid_is_valid(info->start_gid), "startGid", SD_JSON_BUILD_UNSIGNED(info->start_gid)),
                         SD_JSON_BUILD_PAIR_CONDITION(gid_is_valid(info->target_gid), "targetGid", SD_JSON_BUILD_UNSIGNED(info->target_gid)),
+                        SD_JSON_BUILD_PAIR_CONDITION(info->setgroups_deny >= 0, "setgroupsDeny", SD_JSON_BUILD_BOOLEAN(info->setgroups_deny > 0)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!cgroup_array, "cgroups", SD_JSON_BUILD_VARIANT(cgroup_array)),
                         JSON_BUILD_PAIR_STRV_NON_EMPTY("netifs", info->netifs),
                         SD_JSON_BUILD_PAIR_CONDITION(!!delegates_array, "delegates", SD_JSON_BUILD_VARIANT(delegates_array)));

@@ -62,6 +62,8 @@ static int intro(void) {
                 return log_tests_skipped("Lacking privileges");
         ASSERT_OK(r);
 
+        ASSERT_OK(userns_restrict_attach(bpf_obj, /* pin= */ false));
+
         return 0;
 }
 
