@@ -838,6 +838,9 @@ DuplicateAddressDetection=none</programlisting></para>
           Domain name routing has no equivalent in the traditional glibc API, which has no concept of
           domain name servers limited to a specific link.</para>
 
+          <para>This option may be specified more than once. If an empty string is assigned,
+          then the all previous assignments are cleared.</para>
+
           <xi:include href="version-info.xml" xpointer="v216"/>
         </listitem>
       </varlistentry>
