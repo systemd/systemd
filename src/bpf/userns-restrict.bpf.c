@@ -65,6 +65,9 @@ void* bpf_rdonly_cast(const void *, __u32) __ksym;
 /* The kernel's INVALID_UID/INVALID_GID, i.e. what an unmapped translation results in */
 #define UID_GID_INVALID ((uid_t) -1)
 
+/* From include/uapi/linux/magic.h, which vmlinux.h does not provide. */
+#define OVERLAYFS_SUPER_MAGIC 0x794c7630
+
 struct {
         __uint(type, BPF_MAP_TYPE_HASH);
         __uint(max_entries, 1);        /* placeholder, configured otherwise by nsresourced */
@@ -375,6 +378,172 @@ int BPF_PROG(userns_restrict_path_symlink, const struct path *dir, struct dentry
 SEC("lsm/path_link")
 int BPF_PROG(userns_restrict_path_link, struct dentry *old_dentry, const struct path *new_dir, struct dentry *new_dentry, int ret) {
         return validate_mount(new_dir->mnt, ret);
+}
+
+/* overlayfs' struct ovl_fs and struct ovl_layer are private to the module and hence absent from vmlinux.h
+ * whenever overlayfs is built as a module. We declare the two fields we need as CO-RE "type flavors": libbpf
+ * strips the ___local suffix and relocates these against the kernel's real ovl_fs/ovl_layer. This both
+ * avoids clashing with a vmlinux.h that does carry them (built-in overlayfs) and, combined with
+ * bpf_core_type_exists() below, lets the program still load when overlayfs is entirely unavailable.
+ * systemd-nsresourced.service orders itself after modprobe@overlay.service so the module's BTF is present by
+ * the time this program is loaded. @mnt is documented in the kernel to be the first member of ovl_layer. */
+struct ovl_layer___local {
+        struct vfsmount *mnt;
+} __attribute__((preserve_access_index));
+
+struct ovl_fs___local {
+        struct ovl_layer___local *layers;
+} __attribute__((preserve_access_index));
+
+/* True if the inclusive range [a, b] overlaps either transient id range. */
+static bool range_hits_transient(uint64_t a, uint64_t b) {
+        if (a <= DYNAMIC_UID_MAX && DYNAMIC_UID_MIN <= b)
+                return true;
+        if (a <= CONTAINER_UID_MAX && CONTAINER_UID_MIN <= b)
+                return true;
+        return false;
+}
+
+/* Returns true if the map (a mount idmap's uid_map or gid_map) never records a transient id on disk, so
+ * nothing recyclable can reach the disk through it. Read in the "up" direction (i.e. as a mount idmap) an
+ * extent maps input ids [lower_first, lower_first+count) to on-disk ids [first, first+count); we refuse if
+ * any extent's on-disk range is transient, no matter which input reaches it. Ids no extent covers are left
+ * unmapped, which fails the write with EOVERFLOW, so they are fine too. An empty map is the identity
+ * mapping and hence neutralizes nothing. */
+static bool idmap_map_neutralizes_transient(struct uid_gid_map *map) {
+        struct uid_gid_extent *array;
+        unsigned n;
+
+        n = map->nr_extents;
+
+        array = uid_gid_map_extents(map, /* up= */ true);
+        /* NULL means an empty map (identity mapping, neutralizes nothing) or a read failure; refuse either. */
+        if (!array)
+                return false;
+
+        for (unsigned i = 0; i < UID_GID_MAP_MAX_EXTENTS; i++) {
+                struct uid_gid_extent e;
+
+                if (i >= n)
+                        break;
+                if (bpf_probe_read_kernel(&e, sizeof(e), array + i) != 0)
+                        return false;
+
+                if (e.count == 0)
+                        continue;
+
+                /* The on-disk ids this extent can record are [first, first+count). If any is transient,
+                 * some write through this mount is recyclable, so the map does not neutralize. */
+                if (range_hits_transient(e.first, (uint64_t) e.first + e.count - 1))
+                        return false;
+        }
+
+        return true;
+}
+
+/* True if the mount's idmapping maps the whole transient UID and GID ranges away, so a transient client
+ * writing through it leaves nothing recyclable on disk. A non-idmapped mount maps them through unchanged. */
+static bool mount_neutralizes_transient(struct vfsmount *mnt) {
+        struct mnt_idmap *idmap;
+
+        idmap = mnt->mnt_idmap;
+        if (!idmap)
+                return false;
+
+        return idmap_map_neutralizes_transient(&idmap->uid_map) &&
+               idmap_map_neutralizes_transient(&idmap->gid_map);
+}
+
+/* overlayfs would let a managed user namespace sidestep all of the above: a write to an overlay mount
+ * creates the real inode on the upper layer via vfs_create(), which reaches only the inode-based LSM hooks,
+ * not the path-based ones we attach to. The single path hook that does fire sees the overlay mount itself,
+ * whose superblock belongs to the (managed) mounting namespace and so looks like it dies with it, while the
+ * upper may be a persistent file system on which our transient IDs then persist. So we judge the upper
+ * here, at mount time, the only point we can see it. We permit the overlay if its upper dies with the
+ * managed namespace (e.g. a tmpfs the client set up itself), or if the upper is a persistent file system
+ * whose mount idmapping maps the transient ranges away so nothing recyclable reaches its disk (as
+ * mountfsd-style idmapped mounts do); everything else, and any overlay owned by a namespace we do not
+ * manage, is refused.
+ *
+ * We key on whether a writable upper exists (layers[0].mnt), which is fixed for the superblock's lifetime,
+ * not on the mutable SB_RDONLY flag: an overlay mounted read-only but with an upper can be remounted
+ * read-write later without re-entering this hook, so it is judged now. A genuinely read-only overlay has no
+ * upper (layers[0].mnt is NULL) and cannot record anything, so it is left alone. Refusing the mount cannot
+ * undo the work/index dirs overlayfs already stamped onto the upper during ovl_fill_super(), which runs
+ * before this hook; it stops all further writes, but those mount-time dirs remain a residual leak, reachable
+ * only if the client already has writable dirs on a persistent, non-idmapped file system to use as
+ * upperdir.
+ *
+ * We only look at the upper: overlayfs requires the workdir to be under the same mount as the upperdir
+ * (ovl_get_workdir()), and stamps work/index using the upper mount's idmapping (ovl_upper_mnt_idmap() ==
+ * mnt_idmap(layers[0].mnt)), so the upper's superblock and idmapping already govern the workdir too. */
+SEC("lsm/sb_kern_mount")
+int BPF_PROG(userns_restrict_sb_kern_mount, struct super_block *sb, int ret) {
+        struct ovl_layer___local *layers;
+        struct user_namespace *managed, *fs_userns;
+        struct ovl_fs___local *ofs;
+        struct vfsmount *upper;
+        void *upper_addr;
+        int r;
+
+        if (ret != 0) /* propagate earlier error */
+                return ret;
+
+        if (sb->s_magic != OVERLAYFS_SUPER_MAGIC)
+                return 0;
+
+        r = find_managed_userns(sb->s_user_ns, &managed);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 0;
+
+        /* If we cannot read overlayfs' private layout (module not loaded, built without overlayfs at all,
+         * or the fields we need went away), we cannot locate the upper, so refuse conservatively. */
+        if (!bpf_core_type_exists(struct ovl_fs___local) ||
+            !bpf_core_field_exists(struct ovl_fs___local, layers) ||
+            !bpf_core_field_exists(struct ovl_layer___local, mnt))
+                return -EPERM;
+
+        /* Walk to the upper one field at a time: a failed read comes back as NULL just like a genuinely
+         * absent upper does, and only the latter may be allowed. A mounted overlay always has both its
+         * private data and its layer array, so NULL there means we failed to read them. */
+        ofs = (struct ovl_fs___local*) BPF_CORE_READ(sb, s_fs_info);
+        if (!ofs)
+                return -EPERM;
+
+        layers = BPF_CORE_READ(ofs, layers);
+        if (!layers)
+                return -EPERM;
+
+        upper_addr = BPF_CORE_READ(layers, mnt); /* layers[0] is the upper; .mnt is its first member */
+        if (!upper_addr) /* no upper: a genuinely read-only overlay, which can record nothing */
+                return 0;
+
+        /* BPF_CORE_READ() lowers to bpf_probe_read_kernel(), so its result is a raw address the verifier
+         * tracks as a scalar. Re-type it as a BTF pointer, as the retire_userns_sysctls kprobe does with
+         * its argument, so we may walk and dereference it directly below. */
+        upper = bpf_rdonly_cast(upper_addr, bpf_core_type_id_kernel(struct vfsmount));
+        fs_userns = upper->mnt_sb->s_user_ns;
+
+        /* Upper dies together with the managed user namespace? Then nothing it carries can outlive the
+         * transient range. */
+        r = userns_is_below(managed, fs_userns);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return 0;
+
+        /* The upper outlives the namespace. It is still safe if it is a persistent file system in the
+         * initial user namespace whose mount idmapping maps the transient ranges away. We refuse anything
+         * we cannot prove this for, including any non-initial-namespace upper. */
+        if (fs_userns->parent)
+                return -EPERM;
+
+        if (mount_neutralizes_transient(upper))
+                return 0;
+
+        return -EPERM;
 }
 
 SEC("lsm/task_fix_setgroups")
