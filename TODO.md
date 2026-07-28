@@ -2729,7 +2729,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   DHCP/HTTP base EFI boot.
 
 - **tmpfiles:**
-  - allow time-based cleanup in r and R too
   - creating new directories/subvolumes/fifos/device nodes
     should not follow symlinks. None of the other adjustment or creation
     calls follow symlinks.
