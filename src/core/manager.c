@@ -2943,7 +2943,7 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
                         budget--;
         }
 
-        if (m->send_reloading_done) {
+        if (m->send_reloading_done && !m->api_bus_setup_pending) {
                 m->send_reloading_done = false;
                 bus_manager_send_reloading(m, false);
                 n++;
