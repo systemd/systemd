@@ -84,6 +84,25 @@ void x11_context_empty_to_null(X11Context *xc) {
         xc->options = empty_to_null(xc->options);
 }
 
+static char* empty_to_null_and_free(char *p) {
+        return isempty(p) ? mfree(p) : p;
+}
+
+void x11_context_normalize(X11Context *xc) {
+        assert(xc);
+
+        /* Like x11_context_empty_to_null(), but also frees the heap memory
+         * owned by the fields. Use this for contexts whose strings are
+         * heap-allocated (e.g. x11_read_data()), not for borrowed contexts
+         * such as the one built by method_set_x11_keyboard() from a D-Bus
+         * message. */
+
+        xc->layout  = empty_to_null_and_free(xc->layout);
+        xc->model   = empty_to_null_and_free(xc->model);
+        xc->variant = empty_to_null_and_free(xc->variant);
+        xc->options = empty_to_null_and_free(xc->options);
+}
+
 bool x11_context_is_safe(const X11Context *xc) {
         assert(xc);
 
