@@ -8,11 +8,9 @@
 
 #include "bpf-util.h"
 #include "bpf-link.h"
-#include "fd-util.h"
 #include "log.h"
 #include "lsm-util.h"
 #include "mkdir.h"
-#include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
