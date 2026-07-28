@@ -2687,9 +2687,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   automatically support reverting back to older OS version images if newer ones
   fail to boot.
 
-- **test/:**
-  - add unit tests for config_parse_device_allow()
-
 - The bind(AF_UNSPEC) construct (for resetting sockets to their initial state)
   should be blocked in many cases because it punches holes in many sandboxes.
 
