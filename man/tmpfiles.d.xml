@@ -382,7 +382,9 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
           This may not be used to remove non-empty directories, use
           <varname>R</varname> for that.  Lines of this type accept
           shell-style globs in place of normal path
-          names. Does not follow symlinks.</para></listitem>
+          names. Does not follow symlinks. If the age argument is specified, the path itself is only removed
+          during <option>--clean</option> when it has aged enough. Using the age field with this line type
+          was added in version 262.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -390,7 +392,9 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
           <listitem><para>Recursively remove a path and all its
           subdirectories (if it is a directory). Lines of this type
           accept shell-style globs in place of normal path
-          names. Does not follow symlinks.</para></listitem>
+          names. Does not follow symlinks. If the age argument is specified, the path itself is only removed
+          during <option>--clean</option> when it has aged enough. Using the age field with this line type
+          was added in version 262.</para></listitem>
         </varlistentry>
 
         <varlistentry>
