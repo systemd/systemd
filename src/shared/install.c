@@ -1341,10 +1341,8 @@ static int find_symlinks_in_scope(
                                         }
 
                                         q = is_symlink_with_known_name(info, entry->name);
-                                        if (q < 0) {
-                                                log_debug_errno(q, "Failed to check symlink '%s', ignoring: %m", entry->name);
-                                                continue;
-                                        }
+                                        if (q < 0)
+                                                return q;
                                         if (q > 0) {
                                                 found = true;
                                                 break;
@@ -1384,10 +1382,8 @@ static int find_symlinks_in_scope(
                                                 }
 
                                                 q = is_symlink_with_known_name(info, entry->name);
-                                                if (q < 0) {
-                                                        log_debug_errno(q, "Failed to check symlink '%s', ignoring: %m", entry->name);
-                                                        continue;
-                                                }
+                                                if (q < 0)
+                                                        return q;
                                                 if (q > 0) {
                                                         found = true;
                                                         break;
