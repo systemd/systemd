@@ -167,6 +167,104 @@ TEST(userns_restrict) {
         ASSERT_OK(pidref_wait_for_terminate_and_check("(test)", &pidref, WAIT_LOG));
 }
 
+TEST(userns_restrict_overlayfs) {
+        _cleanup_close_ int userns_fd = -EBADF;
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL, *th = NULL;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+        _cleanup_free_ char *idmap = NULL, *hlower = NULL, *hupper = NULL, *hwork = NULL, *hmerged = NULL;
+        int r;
+
+        /* overlay writes land on its upper layer via vfs_create(), which the path-based hooks never see, so
+         * a transient-owned inode could persist there. The policy judges the upper at mount time: a writable
+         * overlay owned by a managed user namespace is permitted only if its upper dies with the namespace.
+         * We exercise both directions: an upper on a tmpfs the client set up itself (which dies with the
+         * namespace) must be allowed, while an upper on the init-owned host file system (which outlives it)
+         * must be refused. */
+
+        ASSERT_OK(mkdtemp_malloc(NULL, &t));
+        ASSERT_OK_ERRNO(chown(t, CONTAINER_UID_MIN, CONTAINER_UID_MIN));
+
+        ASSERT_OK(asprintf(&idmap, "0 "UID_FMT" 1", CONTAINER_UID_MIN));
+        userns_fd = ASSERT_OK(userns_acquire(idmap, idmap, /* setgroups_deny= */ true));
+
+        ASSERT_OK(userns_restrict_register_by_fd(bpf_obj, userns_fd));
+
+        /* Set up the layer dirs for the refuse case on the init-owned file system backing our temporary dir,
+         * i.e. one that outlives the user namespace. This has to happen here as root: the managed client
+         * cannot create these itself, as the path hooks already block a transient-owned inode on a file
+         * system that outlives it. */
+        ASSERT_OK(mkdtemp_malloc(NULL, &th));
+        ASSERT_OK_ERRNO(chown(th, CONTAINER_UID_MIN, CONTAINER_UID_MIN));
+        ASSERT_NOT_NULL(hlower = path_join(th, "lower"));
+        ASSERT_NOT_NULL(hupper = path_join(th, "upper"));
+        ASSERT_NOT_NULL(hwork = path_join(th, "work"));
+        ASSERT_NOT_NULL(hmerged = path_join(th, "merged"));
+        ASSERT_OK_ERRNO(mkdir(hlower, 0755));
+        ASSERT_OK_ERRNO(mkdir(hupper, 0755));
+        ASSERT_OK_ERRNO(mkdir(hwork, 0755));
+        ASSERT_OK_ERRNO(mkdir(hmerged, 0755));
+        ASSERT_OK_ERRNO(chown(hlower, CONTAINER_UID_MIN, CONTAINER_UID_MIN));
+        ASSERT_OK_ERRNO(chown(hupper, CONTAINER_UID_MIN, CONTAINER_UID_MIN));
+        ASSERT_OK_ERRNO(chown(hwork, CONTAINER_UID_MIN, CONTAINER_UID_MIN));
+        ASSERT_OK_ERRNO(chown(hmerged, CONTAINER_UID_MIN, CONTAINER_UID_MIN));
+
+        r = ASSERT_OK(pidref_safe_fork("(test-ovl)", FORK_DEATHSIG_SIGKILL, &pidref));
+        if (r == 0) {
+                ASSERT_OK(namespace_enter(-EBADF, -EBADF, -EBADF, userns_fd, -EBADF));
+                ASSERT_OK_ERRNO(unshare(CLONE_NEWNS));
+                ASSERT_OK_ERRNO(mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL));
+
+                /* Hold the overlay layers on a tmpfs of our own, so nothing touches the host. */
+                ASSERT_OK_ERRNO(mount("tmpfs", t, "tmpfs", 0, NULL));
+
+                _cleanup_free_ char *lower = NULL, *lower2 = NULL, *upper = NULL, *work = NULL,
+                        *merged = NULL;
+                ASSERT_NOT_NULL(lower = path_join(t, "lower"));
+                ASSERT_NOT_NULL(lower2 = path_join(t, "lower2"));
+                ASSERT_NOT_NULL(upper = path_join(t, "upper"));
+                ASSERT_NOT_NULL(work = path_join(t, "work"));
+                ASSERT_NOT_NULL(merged = path_join(t, "merged"));
+                ASSERT_OK_ERRNO(mkdir(lower, 0755));
+                ASSERT_OK_ERRNO(mkdir(lower2, 0755));
+                ASSERT_OK_ERRNO(mkdir(upper, 0755));
+                ASSERT_OK_ERRNO(mkdir(work, 0755));
+                ASSERT_OK_ERRNO(mkdir(merged, 0755));
+
+                /* Control: a read-only overlay (no upper layer) is harmless and must be allowed. The kernel
+                 * rejects a single lowerdir with no upper, so stack two lowers. If even this fails,
+                 * unprivileged overlayfs is unavailable on this kernel — treat as a skip. */
+                _cleanup_free_ char *ro_opts = NULL;
+                ASSERT_NOT_NULL(ro_opts = strjoin("lowerdir=", lower, ":", lower2));
+                if (mount("overlay", merged, "overlay", MS_RDONLY, ro_opts) < 0) {
+                        log_notice_errno(errno, "Unprivileged overlayfs unavailable, skipping: %m");
+                        _exit(EXIT_SUCCESS);
+                }
+                ASSERT_OK_ERRNO(umount(merged));
+
+                /* The writable overlay's upper is on the tmpfs above, which dies with our user namespace, so
+                 * the BPF-LSM must allow the mount. */
+                _cleanup_free_ char *rw_opts = NULL;
+                ASSERT_NOT_NULL(rw_opts = strjoin("lowerdir=", lower, ",upperdir=", upper,
+                                                  ",workdir=", work));
+                ASSERT_OK_ERRNO(mount("overlay", merged, "overlay", 0, rw_opts));
+                ASSERT_OK_ERRNO(umount(merged));
+
+                /* The same writable overlay, but with its upper on the init-owned host file system that
+                 * outlives our user namespace: the policy must refuse it. Overlayfs sets the upper up via
+                 * vfs_mkdir()/vfs_create(), reaching only the inode hooks, so nothing blocks it before
+                 * sb_kern_mount runs, and the kernel itself permits the mount (verified without the BPF-LSM
+                 * loaded) — hence the EPERM here is sb_kern_mount refusing it. */
+                _cleanup_free_ char *bad_opts = NULL;
+                ASSERT_NOT_NULL(bad_opts = strjoin("lowerdir=", hlower, ",upperdir=", hupper,
+                                                   ",workdir=", hwork));
+                ASSERT_ERROR_ERRNO(mount("overlay", hmerged, "overlay", 0, bad_opts), EPERM);
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        ASSERT_OK(pidref_wait_for_terminate_and_check("(test-ovl)", &pidref, WAIT_LOG));
+}
+
 static void write_child_mappings(PidRef *child, int parent_userns_fd) {
         /* The kernel requires uid_map/gid_map to be written from the parent user namespace of the
          * target namespace. Fork a helper that joins the parent userns and writes the mappings from

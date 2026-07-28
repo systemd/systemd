@@ -65,6 +65,10 @@ void* bpf_rdonly_cast(const void *, __u32) __ksym;
 /* The kernel's INVALID_UID/INVALID_GID, i.e. what an unmapped translation results in */
 #define UID_GID_INVALID ((uid_t) -1)
 
+/* From include/uapi/linux/magic.h and include/linux/fs.h, neither of which vmlinux.h provides. */
+#define OVERLAYFS_SUPER_MAGIC 0x794c7630
+#define SB_RDONLY 1
+
 struct {
         __uint(type, BPF_MAP_TYPE_HASH);
         __uint(max_entries, 1);        /* placeholder, configured otherwise by nsresourced */
@@ -332,6 +336,79 @@ int BPF_PROG(userns_restrict_path_symlink, const struct path *dir, struct dentry
 SEC("lsm/path_link")
 int BPF_PROG(userns_restrict_path_link, struct dentry *old_dentry, const struct path *new_dir, struct dentry *new_dentry, int ret) {
         return validate_mount(new_dir->mnt, ret);
+}
+
+/* overlayfs' struct ovl_fs and struct ovl_layer are private to the module and hence absent from vmlinux.h
+ * whenever overlayfs is built as a module. We declare the two fields we need as CO-RE "type flavors": libbpf
+ * strips the ___local suffix and relocates these against the kernel's real ovl_fs/ovl_layer. This both
+ * avoids clashing with a vmlinux.h that does carry them (built-in overlayfs) and, combined with
+ * bpf_core_type_exists() below, lets the program still load when overlayfs is entirely unavailable.
+ * systemd-nsresourced.service orders itself after modprobe@overlay.service so the module's BTF is present by
+ * the time this program is loaded. @mnt is documented in the kernel to be the first member of ovl_layer. */
+struct ovl_layer___local {
+        struct vfsmount *mnt;
+} __attribute__((preserve_access_index));
+
+struct ovl_fs___local {
+        struct ovl_layer___local *layers;
+} __attribute__((preserve_access_index));
+
+/* overlayfs would let a managed user namespace sidestep all of the above: a write to an overlay mount
+ * creates the real inode on the overlay's upper layer via vfs_create(), which reaches only the inode-based
+ * LSM hooks, not the path-based ones we attach to. The single path hook that does fire sees the overlay
+ * mount itself, whose superblock belongs to the (managed) mounting user namespace, and hence looks like it
+ * dies together with it — while the upper may well be a persistent, non-idmapped file system on which our
+ * transient IDs then persist. So we judge the upper layer here: a writable overlay owned by a managed user
+ * namespace is permitted only if its upper dies together with that namespace too. A read-only overlay (one
+ * without an upper layer) is marked SB_RDONLY by the kernel and cannot be written through, hence is left
+ * alone; so are overlays owned by user namespaces we do not manage. */
+SEC("lsm/sb_kern_mount")
+int BPF_PROG(userns_restrict_sb_kern_mount, struct super_block *sb, int ret) {
+        struct user_namespace *managed, *fs_userns;
+        struct ovl_fs___local *ofs;
+        struct vfsmount *upper;
+        int r;
+
+        if (ret != 0) /* propagate earlier error */
+                return ret;
+
+        if (sb->s_magic != OVERLAYFS_SUPER_MAGIC)
+                return 0;
+
+        if (sb->s_flags & SB_RDONLY)
+                return 0;
+
+        r = find_managed_userns(sb->s_user_ns, &managed);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 0;
+
+        /* If we cannot read overlayfs' private layout (module not loaded, or built without overlayfs at
+         * all), we cannot locate the upper, so refuse conservatively. */
+        if (!bpf_core_type_exists(struct ovl_fs___local))
+                return -EPERM;
+
+        ofs = (struct ovl_fs___local*) BPF_CORE_READ(sb, s_fs_info);
+        upper = BPF_CORE_READ(ofs, layers, mnt); /* layers[0] is the upper; .mnt is its first member */
+        if (!upper)
+                return -EPERM;
+
+        /* BPF_CORE_READ() lowers to bpf_probe_read_kernel(), so its result is a raw address the verifier
+         * tracks as a scalar. Re-type it as a BTF pointer, as the retire_userns_sysctls kprobe does with
+         * its argument, so that userns_is_below() may walk its ->parent chain. */
+        fs_userns = bpf_rdonly_cast(BPF_CORE_READ(upper, mnt_sb, s_user_ns),
+                                    bpf_core_type_id_kernel(struct user_namespace));
+
+        /* Permit the overlay only if its upper layer dies together with the managed user namespace (e.g. a
+         * tmpfs the client set up itself). A persistent or foreign-idmapped upper is refused. */
+        r = userns_is_below(managed, fs_userns);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return 0;
+
+        return -EPERM;
 }
 
 SEC("lsm/task_fix_setgroups")

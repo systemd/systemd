@@ -44,7 +44,11 @@
     change ownership of them — that would end up owned by a transient UID/GID on a file system outliving the
     user namespace the range was assigned to. Writes to file systems the user namespace allocated itself are
     hence permitted, as those are torn down together with it, and so are writes through id-mapped mounts that
-    translate the transient range into something else before it reaches the disk.</para>
+    translate the transient range into something else before it reaches the disk. As a stacking file system
+    such as <literal>overlayfs</literal> writes to a separate upper layer that would not be covered by the
+    checks on the overlay mount itself, mounting a writable <literal>overlayfs</literal> instance is refused
+    for these user namespaces unless its upper layer, too, is torn down together with the user
+    namespace.</para>
 
     <para><command>systemd-nsresourced</command> automatically ensures that any registered UID ranges show up
     in the system's NSS database via the <ulink url="https://systemd.io/USER_GROUP_API">User/Group Record
