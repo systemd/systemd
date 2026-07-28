@@ -89,7 +89,7 @@
     separately.</para>
 
     <para>The <filename>systemd-sysupdate-auto-enable.service</filename> system service automatically enables all
-    suggested components and all features of the enabled components before each update. It is ordered before and
+    suggested components and all suggested features of all components before each update. It is ordered before and
     pulled in by <filename>systemd-sysupdate-update.service</filename>, and is not enabled by default. Enable it
     if newly suggested components and features shall be picked up automatically as they become available, rather
     than requiring manual <command>enable-component</command>/<command>enable-feature</command> invocations.</para>
