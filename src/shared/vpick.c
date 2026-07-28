@@ -487,16 +487,21 @@ static int make_choice(
                                 continue;
                         }
                 } else if (hv) {
-                        if (!host_version_id_read) {
-                                r = parse_os_release_at(root_fd, "VERSION_ID", &host_version_id);
-                                if (r < 0)
-                                        log_debug_errno(r, "Failed to read VERSION_ID from os-release, ignoring 'host=' entries: %m");
-                                host_version_id_read = true;
+                        const char *h = filter->host_version;
+                        if (!h) {
+                                if (!host_version_id_read) {
+                                        r = parse_os_release_at(root_fd, "VERSION_ID", &host_version_id);
+                                        if (r < 0)
+                                                log_debug_errno(r, "Failed to read VERSION_ID from os-release, ignoring 'host=' entries: %m");
+                                        host_version_id_read = true;
+                                }
+
+                                h = host_version_id;
                         }
 
-                        if (!streq(e, strempty(host_version_id))) {
+                        if (!streq(e, strempty(h))) {
                                 log_debug("Found entry with host version '%s', but host VERSION_ID is '%s', ignoring entry.",
-                                          e, strna(host_version_id));
+                                          e, strna(h));
                                 continue;
                         }
                 }
@@ -687,6 +692,7 @@ static int path_pick_one(
                                 .version = filter->version,
                                 .architecture = filter->architecture,
                                 .suffix = filter_suffix,
+                                .host_version = filter->host_version,
                         },
                         flags,
                         ret);

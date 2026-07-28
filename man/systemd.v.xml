@@ -110,8 +110,8 @@
       <listitem><para>If the version string is prefixed with the literal <literal>host=</literal>, the file
       is only considered if the version equals the <varname>VERSION_ID=</varname> field of the
       <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> file of
-      the OS the file is picked for. The prefix is not considered part of the version string for any other
-      purpose. This is useful for resources built for one specific OS version, such as system extension
+      the OS tree the file is applied to. The prefix is not considered part of the version string for any
+      other purpose. This is useful for resources built for one specific OS version, such as system extension
       images, where the newest available version is not necessarily the appropriate one for the running OS.
       Note that if a version to search for is explicitly specified (for example via the <option>-V</option>
       switch of
