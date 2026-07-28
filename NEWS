@@ -8,6 +8,10 @@ CHANGES WITH 262:
           the symlink target. Previously, these were only expanded in the
           source.
 
+        * systemd-repart no longer honors the legacy "FactoryReset" EFI
+          variable in the initrd. The newer "FactoryResetRequest" EFI variable
+          remains supported and should be used instead.
+
         * As part of changes to systemd-sysupdate, the existing
           "systemd-sysupdate.service" and "systemd-sysupdate.timer" units –
           which periodically ran "systemd-sysupdate" to update the host system –

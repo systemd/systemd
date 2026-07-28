@@ -32,7 +32,6 @@
 #include "devnum-util.h"
 #include "dirent-util.h"
 #include "dissect-image.h"
-#include "efivars.h"
 #include "errno-util.h"
 #include "extract-word.h"
 #include "factory-reset.h"
@@ -10924,54 +10923,6 @@ static int parse_proc_cmdline_factory_reset(void) {
         return 0;
 }
 
-static int parse_efi_variable_factory_reset(void) {
-        _cleanup_free_ char *value = NULL;
-        int r;
-
-        /* NB: This is legacy, people should move to the newer FactoryResetRequest variable! */
-
-        // FIXME: Remove this in v260
-
-        if (arg_factory_reset >= 0) /* Never override what is specified on the process command line */
-                return 0;
-
-        if (!in_initrd()) /* Never honour EFI variable factory reset request outside of the initrd */
-                return 0;
-
-        r = efi_get_variable_string(EFI_SYSTEMD_VARIABLE_STR("FactoryReset"), &value);
-        if (r == -ENOENT || ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                return 0;
-        if (r < 0)
-                return log_error_errno(r, "Failed to read EFI variable FactoryReset: %m");
-
-        log_warning("Warning, EFI variable FactoryReset is in use, please migrate to use FactoryResetRequest instead, support will be removed in v260!");
-
-        r = parse_boolean(value);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse EFI variable FactoryReset: %m");
-
-        arg_factory_reset = r;
-        if (r)
-                log_notice("Factory reset requested via EFI variable FactoryReset.");
-
-        return 0;
-}
-
-static int remove_efi_variable_factory_reset(void) {
-        int r;
-
-        // FIXME: Remove this in v260, see above
-
-        r = efi_set_variable(EFI_SYSTEMD_VARIABLE_STR("FactoryReset"), NULL, 0);
-        if (r == -ENOENT || ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                return 0;
-        if (r < 0)
-                return log_error_errno(r, "Failed to remove EFI variable FactoryReset: %m");
-
-        log_info("Successfully unset EFI variable FactoryReset.");
-        return 0;
-}
-
 static int acquire_root_devno(
                 const char *p,
                 const char *root,
@@ -11745,10 +11696,6 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        r = parse_efi_variable_factory_reset();
-        if (r < 0)
-                return r;
-
         if (arg_image) {
                 assert(!arg_root);
 
@@ -11883,11 +11830,6 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
         if (r > 0) {
-                /* We actually did a factory reset! */
-                r = remove_efi_variable_factory_reset();
-                if (r < 0)
-                        return r;
-
                 /* Reload the reduced partition table */
                 context_unload_partition_table(context);
                 r = context_load_partition_table(context);
