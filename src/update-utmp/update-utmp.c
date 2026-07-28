@@ -63,7 +63,7 @@ static int verb_on_reboot(int argc, char *argv[], uintptr_t _data, void *userdat
 
 #if HAVE_AUDIT
         if (c->audit_fd >= 0)
-                if (sym_audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_BOOT, "", "systemd-update-utmp", NULL, NULL, NULL, 1) < 0 &&
+                if (sym_audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_BOOT, "", "update-utmp", NULL, NULL, NULL, 1) < 0 &&
                     errno != EPERM)
                         q = log_error_errno(errno, "Failed to send audit message: %m");
 #endif
@@ -93,7 +93,7 @@ static int verb_on_shutdown(int argc, char *argv[], uintptr_t _data, void *userd
         Context *c = ASSERT_PTR(userdata);
 
         if (c->audit_fd >= 0)
-                if (sym_audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_SHUTDOWN, "", "systemd-update-utmp", NULL, NULL, NULL, 1) < 0 &&
+                if (sym_audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_SHUTDOWN, "", "update-utmp", NULL, NULL, NULL, 1) < 0 &&
                     errno != EPERM)
                         q = log_error_errno(errno, "Failed to send audit message: %m");
 #endif
