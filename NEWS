@@ -70,6 +70,9 @@ CHANGES WITH 262:
           line types that do not use the argument field. Previously, such
           fields were silently ignored after a warning.
 
+        * The r and R tmpfiles.d line types now honor the age field when
+          systemd-tmpfiles is invoked with --clean.
+
         Changes in the TPM Subsystem:
 
         * The way that NvPCRs are anchored has been improved. They are now

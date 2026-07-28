@@ -3390,6 +3390,53 @@ static int remove_item_instance(
         }
 }
 
+static int clean_remove_item_instance(
+                Context *c,
+                Item *i,
+                const char *instance,
+                CreationMode creation) {
+
+        int r;
+
+        assert(c);
+        assert(i);
+
+        if (!i->age_set)
+                return 0;
+
+        usec_t n = now(CLOCK_REALTIME);
+        if (n < i->age)
+                return 0;
+
+        usec_t cutoff = n - i->age;
+
+        struct statx sx;
+        r = xstatx_full(AT_FDCWD, instance,
+                        AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT,
+                        /* xstatx_flags= */ 0,
+                        STATX_TYPE|STATX_MODE,
+                        STATX_ATIME|STATX_MTIME|STATX_CTIME|STATX_BTIME,
+                        /* mandatory_attributes= */ 0,
+                        &sx);
+        if (IN_SET(r, -ENOENT, -ENOTDIR))
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "statx(%s) failed: %m", instance);
+
+        nsec_t atime_nsec = FLAGS_SET(sx.stx_mask, STATX_ATIME) ? statx_timestamp_load_nsec(&sx.stx_atime) : NSEC_INFINITY;
+        nsec_t mtime_nsec = FLAGS_SET(sx.stx_mask, STATX_MTIME) ? statx_timestamp_load_nsec(&sx.stx_mtime) : NSEC_INFINITY;
+        nsec_t ctime_nsec = FLAGS_SET(sx.stx_mask, STATX_CTIME) ? statx_timestamp_load_nsec(&sx.stx_ctime) : NSEC_INFINITY;
+        nsec_t btime_nsec = FLAGS_SET(sx.stx_mask, STATX_BTIME) ? statx_timestamp_load_nsec(&sx.stx_btime) : NSEC_INFINITY;
+        bool is_dir = S_ISDIR(sx.stx_mode);
+
+        if (!needs_cleanup(atime_nsec, btime_nsec, ctime_nsec, mtime_nsec,
+                           cutoff * NSEC_PER_USEC, instance,
+                           is_dir ? i->age_by_dir : i->age_by_file, is_dir))
+                return 0;
+
+        return remove_item_instance(c, i, instance, creation);
+}
+
 static int remove_item(Context *c, Item *i) {
         assert(c);
         assert(i);
@@ -3505,6 +3552,10 @@ static int clean_item(Context *c, Item *i) {
         case IGNORE_PATH:
         case IGNORE_DIRECTORY_PATH:
                 return glob_item(c, i, clean_item_instance);
+
+        case REMOVE_PATH:
+        case RECURSIVE_REMOVE_PATH:
+                return glob_item(c, i, clean_remove_item_instance);
 
         default:
                 return 0;
@@ -4378,6 +4429,12 @@ static int parse_line(
                 _cleanup_free_ char *seconds = NULL, *age_by = NULL;
 
                 if (*a == '~') {
+                        if (IN_SET(i.type, REMOVE_PATH, RECURSIVE_REMOVE_PATH)) {
+                                *invalid_config = true;
+                                return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG),
+                                                  "Age modifier '~' is not supported for %c lines.", (char) i.type);
+                        }
+
                         i.keep_first_level = true;
                         a++;
                 }
