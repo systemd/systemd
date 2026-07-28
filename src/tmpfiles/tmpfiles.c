@@ -4043,9 +4043,11 @@ static int parse_line(
         case ADJUST_MODE:
         case RELABEL_PATH:
         case RECURSIVE_RELABEL_PATH:
-                if (i.argument)
-                        log_syntax(NULL, LOG_WARNING, fname, line, 0,
-                                   "%c lines don't take argument fields, ignoring.", (char) i.type);
+                if (i.argument) {
+                        *invalid_config = true;
+                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG),
+                                          "%c lines don't take argument fields.", (char) i.type);
+                }
                 break;
 
         case CREATE_FILE:

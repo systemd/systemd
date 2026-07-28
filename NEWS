@@ -79,6 +79,12 @@ CHANGES WITH 262:
         * bootctl, systemd-oomd, systemd-repart, systemd-sysusers, and
           systemd-tmpfiles now accept -n as a short option for --dry-run.
 
+        Changes in systemd-tmpfiles:
+
+        * systemd-tmpfiles now rejects non-empty argument fields for tmpfiles.d
+          line types that do not use the argument field. Previously, such
+          fields were silently ignored after a warning.
+
         Changes in the TPM Subsystem:
 
         * The way that NvPCRs are anchored has been improved. They are now

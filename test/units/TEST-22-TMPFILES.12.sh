@@ -84,7 +84,7 @@ else
 fi
 
 # Check for an invalid "age" and "age-by" arguments.
-for a in ':' ':1s' '2:1h' 'nope:42h' '"  :7m"' 'm:' '::' '"+r^w-x:2/h"' 'b ar::64'; do
+for a in ':' ':1s' '2:1h' 'nope:42h' '"  :7m"' 'm:' '::' '"+r^w-x:2/h"' '"b ar::64"'; do
     systemd-tmpfiles --clean - <<EOF 2>&1 | grep -F 'Invalid age' >/dev/null
 d /tmp/ageby - - - ${a} -
 EOF
