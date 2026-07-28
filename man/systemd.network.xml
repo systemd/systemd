@@ -808,8 +808,10 @@ DuplicateAddressDetection=none</programlisting></para>
       <varlistentry>
         <term><varname>Domains=</varname></term>
         <listitem>
-          <para>A whitespace-separated list of domains which should be resolved using the DNS servers
-          on this link. Each item in the list should be a domain name, optionally prefixed with a tilde
+          <para>This option may be specified more than once. If an empty string is assigned,
+          then the all previous assignments are cleared. A whitespace-separated list of domains
+          which should be resolved using the DNS servers on this link. Each item in the list
+          should be a domain name, optionally prefixed with a tilde
           (<literal>~</literal>). The domains with the prefix are called "routing-only domains". The
           domains without the prefix are called "search domains" and are first used as search suffixes
           for extending single-label hostnames (hostnames containing no dots) to become fully qualified
