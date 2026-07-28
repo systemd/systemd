@@ -2745,7 +2745,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   - teach tmpfiles.d m/M to move / atomic move + symlink old -> new
   - add new line type for setting btrfs subvolume attributes (i.e. rw/ro)
   - tmpfiles: add new line type for setting fcaps
-  - add -n as shortcut for --dry-run in tmpfiles & sysusers & possibly other places
   - add new line type for moving files from some source dir to some
     target dir. then use that to move sysexts/confexts and stuff from initrd
     tmpfs to /run/, so that host can pick things up.
