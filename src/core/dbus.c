@@ -812,6 +812,8 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
         if (r < 0)
                 log_warning_errno(r, "Failed to register MemoryAllocation1, ignoring: %m");
 
+        m->api_bus_ready = true;
+
         log_debug("Successfully connected to API bus.");
 
         return 0;
@@ -1104,6 +1106,8 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
 
 void bus_done_api(Manager *m) {
         destroy_bus(m, &m->api_bus);
+
+        m->api_bus_ready = false;
 }
 
 void bus_done_system(Manager *m) {
