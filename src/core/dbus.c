@@ -866,6 +866,8 @@ static int api_bus_instance_id_reply(sd_bus_message *reply, void *userdata, sd_b
                 (void) bus_track_coldplug(bus, &m->subscribed, subscribed_as_strv);
 
 setup_api:
+        m->api_bus_setup_pending = false;
+
         r = bus_setup_api(m, bus);
         if (r < 0) {
                 log_error_errno(r, "Failed to set up API bus: %m");
@@ -921,6 +923,7 @@ int bus_init_api(Manager *m) {
          * this connection, hence reset it: only ever populate the live ID from the reply, while any pending
          * validation ID and subscription state remain serializable across a racing reload/reexec. */
         m->bus_id = SD_ID128_NULL;
+        m->api_bus_setup_pending = true;
         r = sd_bus_call_method_async(
                         bus,
                         /* ret_slot= */ NULL,
@@ -937,6 +940,7 @@ int bus_init_api(Manager *m) {
                                m->subscribed_as_strv ? ", not deserializing subscriptions" : ", ignoring");
                 m->subscribed_as_strv = strv_free(m->subscribed_as_strv);
                 m->deserialized_bus_id = SD_ID128_NULL;
+                m->api_bus_setup_pending = false;
 
                 r = bus_setup_api(m, bus);
                 if (r < 0)
@@ -1104,6 +1108,10 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
 
 void bus_done_api(Manager *m) {
         destroy_bus(m, &m->api_bus);
+
+        /* If the connection went away before the instance ID reply was processed, don't wait for it
+         * any longer, bus_init_api() sets this again for a new connection. */
+        m->api_bus_setup_pending = false;
 }
 
 void bus_done_system(Manager *m) {
