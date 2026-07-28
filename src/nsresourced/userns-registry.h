@@ -37,6 +37,10 @@ typedef struct UserNamespaceInfo {
         uid_t target_uid;
         gid_t start_gid;
         gid_t target_gid;
+        int setgroups_deny; /* Whether setgroups() is denied for this namespace via the BPF-LSM, so the
+                             * denial can be re-established after a restart that reset the BPF maps.
+                             * Negative in entries written before we recorded this, and stays that way
+                             * when such an entry is updated, so the answer is never faked. */
         uint64_t *cgroups;
         size_t n_cgroups;
         char **netifs;
