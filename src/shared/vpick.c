@@ -8,6 +8,7 @@
 #include "chase.h"
 #include "fd-util.h"
 #include "log.h"
+#include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "recurse-dir.h"
@@ -388,6 +389,8 @@ static int make_choice(
                                        empty_to_root(root_path), skip_leading_slash(inode_path));
 
         _cleanup_(pick_result_done) PickResult best = PICK_RESULT_NULL;
+        _cleanup_free_ char *host_version_id = NULL;
+        bool host_version_id_read = false;
 
         FOREACH_ARRAY(entry, de->entries, de->n_entries) {
                 unsigned found_tries_done = UINT_MAX, found_tries_left = UINT_MAX;
@@ -447,14 +450,37 @@ static int make_choice(
                                 *underscore = 0;
                 }
 
+                /* If the version is prefixed with the literal "host=" the entry shall only be considered if
+                 * the version equals the VERSION_ID of the OS we operate on. The prefix is not part of the
+                 * version for any other purposes. */
+                char *hv = startswith(e, "host=");
+                if (hv)
+                        e = hv;
+
                 if (!version_is_valid(e, /* flags= */ 0)) {
                         log_debug("Version string '%s' of entry '%s' is invalid, ignoring entry.", e, (*entry)->d_name);
                         continue;
                 }
 
-                if (filter->version && !streq(filter->version, e)) {
-                        log_debug("Found entry with version string '%s', but was looking for '%s', ignoring entry.", e, filter->version);
-                        continue;
+                if (filter->version) {
+                        /* An explicit version filter disables host version matching */
+                        if (!streq(filter->version, e)) {
+                                log_debug("Found entry with version string '%s', but was looking for '%s', ignoring entry.", e, filter->version);
+                                continue;
+                        }
+                } else if (hv) {
+                        if (!host_version_id_read) {
+                                r = parse_os_release_at(root_fd, "VERSION_ID", &host_version_id);
+                                if (r < 0)
+                                        log_debug_errno(r, "Failed to read VERSION_ID from os-release, ignoring 'host=' entries: %m");
+                                host_version_id_read = true;
+                        }
+
+                        if (strverscmp_improved(e, host_version_id) != 0) {
+                                log_debug("Found entry with host version '%s', but host VERSION_ID is '%s', ignoring entry.",
+                                          e, strna(host_version_id));
+                                continue;
+                        }
                 }
 
                 _cleanup_free_ char *p = path_join(inode_path, (*entry)->d_name);

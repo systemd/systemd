@@ -106,6 +106,18 @@
       version comparison.</para></listitem>
 
       <listitem><para>The rest of the variable part is the version string.</para></listitem>
+
+      <listitem><para>If the version string is prefixed with the literal <literal>host=</literal>, the file
+      is only considered if the version equals the <varname>VERSION_ID=</varname> field of the
+      <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> file of
+      the OS the file is picked for. The prefix is not considered part of the version string for any other
+      purpose. This is useful for resources built for one specific OS version, such as system extension
+      images, where the newest available version is not necessarily the appropriate one for the running OS.
+      Note that if a version to search for is explicitly specified (for example via the <option>-V</option>
+      switch of
+      <citerefentry><refentrytitle>systemd-vpick</refentrytitle><manvolnum>1</manvolnum></citerefentry>),
+      host version matching is disabled, and the specified version is compared against the version string
+      with the prefix removed. Available since version v262.</para></listitem>
     </itemizedlist>
 
     <para>Or in other words, the files in the <literal>.v/</literal> directories should follow one of these
@@ -119,6 +131,9 @@
       <listitem><para><filename><replaceable>NAME</replaceable>_<replaceable>VERSION</replaceable>_<replaceable>ARCHITECTURE</replaceable>+<replaceable>LEFT</replaceable><replaceable>.SUFFIX</replaceable></filename></para></listitem>
       <listitem><para><filename><replaceable>NAME</replaceable>_<replaceable>VERSION</replaceable>_<replaceable>ARCHITECTURE</replaceable>+<replaceable>LEFT</replaceable>-<replaceable>DONE</replaceable><replaceable>.SUFFIX</replaceable></filename></para></listitem>
     </itemizedlist>
+
+    <para>In each of these structures, <replaceable>VERSION</replaceable> may be prefixed with the literal
+    <literal>host=</literal> to request host version matching, see above.</para>
   </refsect1>
 
   <refsect1>
