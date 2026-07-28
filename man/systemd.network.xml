@@ -808,10 +808,8 @@ DuplicateAddressDetection=none</programlisting></para>
       <varlistentry>
         <term><varname>Domains=</varname></term>
         <listitem>
-          <para>This option may be specified more than once. If an empty string is assigned,
-          then the all previous assignments are cleared. A whitespace-separated list of domains
-          which should be resolved using the DNS servers on this link. Each item in the list
-          should be a domain name, optionally prefixed with a tilde
+          <para>A whitespace-separated list of domains which should be resolved using the DNS servers
+          on this link. Each item in the list should be a domain name, optionally prefixed with a tilde
           (<literal>~</literal>). The domains with the prefix are called "routing-only domains". The
           domains without the prefix are called "search domains" and are first used as search suffixes
           for extending single-label hostnames (hostnames containing no dots) to become fully qualified
@@ -839,6 +837,9 @@ DuplicateAddressDetection=none</programlisting></para>
           <citerefentry project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
           Domain name routing has no equivalent in the traditional glibc API, which has no concept of
           domain name servers limited to a specific link.</para>
+
+          <para>This option may be specified more than once. If an empty string is assigned,
+          then the all previous assignments are cleared.</para>
 
           <xi:include href="version-info.xml" xpointer="v216"/>
         </listitem>
