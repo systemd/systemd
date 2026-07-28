@@ -8,6 +8,8 @@ at_exit() {
     rm -rf /var/lib/machines/mymachine.raw.v
     rm -rf /var/lib/machines/mytree.v
     rm -rf /var/lib/machines/testroot.v
+    rm -rf /var/lib/machines/myext.raw.v
+    rm -f /tmp/vpick-os-release
     umount -l /tmp/dotvroot
     rmdir /tmp/dotvroot
 }
@@ -114,3 +116,43 @@ test "$(systemd-vpick --resolve=yes /var/lib/machines/testroot.v)" = /var/lib/ma
 rm -rf /var/lib/machines/testroot.v/testroot_32
 (! systemd-vpick /var/lib/machines/testroot.v)
 (! systemd-run --wait -p RootDirectory=/var/lib/machines/testroot.v true)
+
+# Test host version matching via the "host=" version prefix
+test_host_version_matching() {
+    mkdir /var/lib/machines/myext.raw.v
+    touch /var/lib/machines/myext.raw.v/myext_host=38.raw
+    touch /var/lib/machines/myext.raw.v/myext_host=39.raw
+    touch /var/lib/machines/myext.raw.v/myext_host=40.raw
+
+    cat >/tmp/vpick-os-release <<EOF
+ID=test
+VERSION_ID=39
+EOF
+
+    export SYSTEMD_OS_RELEASE=/tmp/vpick-os-release
+
+    # The entry matching the host's VERSION_ID wins, not the newest one
+    test "$(systemd-vpick /var/lib/machines/myext.raw.v --suffix=.raw)" = "/var/lib/machines/myext.raw.v/myext_host=39.raw"
+    test "$(systemd-vpick /var/lib/machines/myext.raw.v --suffix=.raw -p version)" = "39"
+
+    # An explicit version filter disables host version matching
+    test "$(systemd-vpick /var/lib/machines/myext.raw.v --suffix=.raw -V 40)" = "/var/lib/machines/myext.raw.v/myext_host=40.raw"
+
+    # Plain entries compete with matching host= entries by version comparison
+    touch /var/lib/machines/myext.raw.v/myext_100.raw
+    test "$(systemd-vpick /var/lib/machines/myext.raw.v --suffix=.raw)" = "/var/lib/machines/myext.raw.v/myext_100.raw"
+    rm /var/lib/machines/myext.raw.v/myext_100.raw
+
+    # No entry matching the host's VERSION_ID → nothing is picked
+    cat >/tmp/vpick-os-release <<EOF
+ID=test
+VERSION_ID=99
+EOF
+    if systemd-vpick /var/lib/machines/myext.raw.v --suffix=.raw; then
+        echo "Should not find a matching entry" >&2
+        exit 1
+    fi
+
+    unset SYSTEMD_OS_RELEASE
+}
+test_host_version_matching
