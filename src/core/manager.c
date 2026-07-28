@@ -2892,6 +2892,11 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
 
         assert(m);
 
+        /* The API bus is not fully set up yet (see bus_init_api()), postpone sending messages,
+         * otherwise subscribers restored from a previous reexec would miss them. */
+        if (m->api_bus_setup_pending)
+                return 0;
+
         /* When we are reloading, let's not wait with generating signals, since we need to exit the manager as quickly
          * as we can. There's no point in throttling generation of signals in that case. */
         if (MANAGER_IS_RELOADING(m) || m->send_reloading_done || m->pending_reload_message_dbus || m->pending_reload_message_vl)
