@@ -100,10 +100,18 @@ int switch_root(const char *new_root,
         /* We are about to unmount various file systems with MNT_DETACH (either explicitly via umount() or
          * indirectly via pivot_root()), and thus do not synchronously wait for them to be fully sync'ed —
          * all while making them invisible/inaccessible in the file system tree for later code. That makes
-         * sync'ing them then difficult. Let's hence issue a manual sync() here, so that we at least can
-         * guarantee all file systems are an a good state before entering this state. */
-        if (!FLAGS_SET(flags, SWITCH_ROOT_DONT_SYNC))
-                sync();
+         * sync'ing them then difficult. Let's hence issue a manual sync here, so that we at least can
+         * guarantee the old root file system is in a good state before entering this state.
+         *
+         * Note that we deliberately use syncfs() on the old root directory here rather than a global
+         * sync(): the latter would also flush out completely unrelated file systems (e.g. any additional
+         * data partitions, network shares, removable media, …) that are not being unmounted here at all,
+         * which can needlessly delay the switch root operation, in particular during boot, where this
+         * code path is very much on the critical path. We only care about the file system(s) we are about
+         * to detach becoming unreachable for synchronization purposes, i.e. the old root, hence it's
+         * sufficient (and much cheaper) to only sync that one. */
+        if (!FLAGS_SET(flags, SWITCH_ROOT_DONT_SYNC) && syncfs(old_root_fd) < 0)
+                log_debug_errno(errno, "Failed to synchronize old root file system, ignoring: %m");
 
         /* Work-around for kernel design: the kernel refuses MS_MOVE if any file systems are mounted
          * MS_SHARED. Hence remount them MS_PRIVATE here as a work-around.
