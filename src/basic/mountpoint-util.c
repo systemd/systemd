@@ -424,6 +424,14 @@ bool fstype_is_blockdev_backed(const char *fstype) {
         return !STR_IN_SET(fstype, "9p", "overlay") && !fstype_is_network(fstype) && !fstype_is_api_vfs(fstype);
 }
 
+bool fstype_is_fuse(const char *fstype) {
+        assert(fstype);
+
+        /* Plain 'fuse', 'fuseblk' (e.g. ntfs-3g, exfat-fuse — used for file systems backed by an actual
+         * block device), or any 'fuse.<subtype>' (e.g. sshfs, rclone, gvfs, ...). */
+        return STR_IN_SET(fstype, "fuse", "fuseblk") || startswith(fstype, "fuse.");
+}
+
 bool fstype_is_ro(const char *fstype) {
         /* All Linux file systems that are necessarily read-only */
         return STR_IN_SET(fstype,
