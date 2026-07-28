@@ -2553,6 +2553,7 @@ static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, 
         }
 
         (void) sd_event_source_set_description(op->event_source, "list-unit-files-op");
+        (void) sd_event_source_set_priority(op->event_source, SD_EVENT_PRIORITY_NORMAL - 1);
 
         r = sd_event_add_time_relative(
                         m->event,
