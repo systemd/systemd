@@ -164,7 +164,9 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
     <para>Fields may contain C-style escapes. With the exception of the seventh field (the "argument") all
     fields may be enclosed in quotes. Note that any whitespace found in the line after the beginning of the
     argument field will be considered part of the argument field. To begin the argument field with a
-    whitespace character, use C-style escapes (e.g. <literal>\x20</literal>).</para>
+    whitespace character, use C-style escapes (e.g. <literal>\x20</literal>). Line types which do not
+    document use of the argument field reject a non-empty argument field; use <literal>-</literal> to leave
+    the argument field empty.</para>
 
     <refsect2>
       <title>Type</title>
