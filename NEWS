@@ -64,6 +64,11 @@ CHANGES WITH 262:
           IPv4ProxyARP=yes but has no effect if IPv4ProxyARP= has been set to
           false. This mirrors the behavior of IPv6ProxyNDPAddress=.
 
+        Changes in systemd-tmpfiles and systemd-sysusers:
+
+        * systemd-tmpfiles and systemd-sysusers now accept -n as a short
+          option for --dry-run.
+
         Changes in the TPM Subsystem:
 
         * The way that NvPCRs are anchored has been improved. They are now
