@@ -62,8 +62,8 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_COMMON_VERSION:
                         return version();
 
-                OPTION_LONG("dry-run", NULL,
-                            "Only print destructive actions instead of doing them"):
+                OPTION('n', "dry-run", NULL,
+                       "Only print destructive actions instead of doing them"):
                         arg_dry_run = true;
                         break;
 

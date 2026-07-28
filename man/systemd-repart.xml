@@ -171,13 +171,15 @@
 
     <variablelist>
       <varlistentry>
+        <term><option>-n</option></term>
         <term><option>--dry-run=</option></term>
 
         <listitem><para>Takes a boolean. If this switch is not specified, <option>--dry-run=yes</option> is
         the implied default. Controls whether <filename>systemd-repart</filename> executes the requested
         re-partition operations or whether it should only show what it would do. Unless
         <option>--dry-run=no</option> is specified <filename>systemd-repart</filename> will not actually
-        touch the device's partition table.</para>
+        touch the device's partition table. The short option <option>-n</option> is equivalent to
+        <option>--dry-run=yes</option> and was added in version 262.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>

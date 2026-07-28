@@ -10252,6 +10252,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_GROUP("Operation"): {}
 
+                OPTION_SHORT('n', NULL, "Run dry-run operation"):
+                        arg_dry_run = true;
+                        break;
+
                 OPTION_LONG("dry-run", "BOOL",
                             "Whether to run dry-run operation"):
                         r = parse_boolean_argument("--dry-run=", opts.arg, &arg_dry_run);

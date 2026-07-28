@@ -2182,7 +2182,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         arg_replace = opts.arg;
                         break;
 
-                OPTION_LONG("dry-run", NULL, "Just print what would be done"):
+                OPTION('n', "dry-run", NULL, "Just print what would be done"):
                         arg_dry_run = true;
                         break;
 
