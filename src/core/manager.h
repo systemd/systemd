@@ -341,6 +341,10 @@ typedef struct Manager {
         sd_bus_track *subscribed;
         char **subscribed_as_strv;
 
+        /* Set while the API bus instance ID query is in flight and bus setup plus the subscription
+         * coldplug have not happened yet. */
+        bool api_bus_setup_pending;
+
         /* The bus id of API bus acquired through org.freedesktop.DBus.GetId, which before deserializing
          * subscriptions we'd use to verify the bus is still the same instance as before. */
         sd_id128_t bus_id, deserialized_bus_id;
