@@ -71,8 +71,6 @@ int userns_restrict_install(
         if (pin) {
                 struct bpf_map *map;
 
-                (void) rm_rf(OBSOLETE_LINK_PREFIX, REMOVE_PHYSICAL);
-
                 /* libbpf will only create one level of dirs. Let's create the rest. Failing here means the
                  * pinning below fails too, so complain rather than run into that without a clue. */
                 FOREACH_STRING(d, MAP_LINK_PREFIX, PROGRAM_LINK_PREFIX) {
@@ -112,6 +110,30 @@ int userns_restrict_install(
         r = userns_restrict_bpf__load(obj);
         if (r < 0)
                 return log_error_errno(r, "Failed to load BPF object: %m");
+
+        /* Pin the maps already here: the programs are not attached yet, so nothing enforces anything, but
+         * the caller may now seed the maps before userns_restrict_attach() puts the policy in effect. */
+        if (pin) {
+                r = sym_bpf_object__pin_maps(obj->obj, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to pin BPF maps: %m");
+        }
+
+        if (ret)
+                *ret = TAKE_PTR(obj);
+
+        return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "User Namespace Restriction BPF support disabled.");
+#endif
+}
+
+int userns_restrict_attach(struct userns_restrict_bpf *obj, bool pin) {
+
+#if HAVE_VMLINUX_H
+        int r;
+
+        assert(obj);
 
         for (int i = 0; i < obj->skeleton->prog_cnt; i++) {
                 _cleanup_(bpf_link_freep) struct bpf_link *link = NULL;
@@ -160,14 +182,11 @@ int userns_restrict_install(
                 *ps->link = TAKE_PTR(link);
         }
 
-        if (pin) {
-                r = sym_bpf_object__pin_maps(obj->obj, NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to pin BPF maps: %m");
-        }
-
-        if (ret)
-                *ret = TAKE_PTR(obj);
+        /* Only now that our own programs enforce the policy, drop the ones the previous version left
+         * pinned. Removing their links detaches them, so doing this any earlier would hand the namespaces
+         * that predate an upgrade a stretch with no policy attached at all. */
+        if (pin)
+                (void) rm_rf(OBSOLETE_LINK_PREFIX, REMOVE_PHYSICAL);
 
         return 0;
 #else
