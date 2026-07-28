@@ -692,6 +692,19 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>DefaultNotifyRateLimitIntervalSec=</varname></term>
+        <term><varname>DefaultNotifyRateLimitBurst=</varname></term>
+
+        <listitem><para>Configure the default rate limiting for messages sent by services to the notification socket.
+        See <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details on the per-service settings.
+        <varname>DefaultNotifyRateLimitIntervalSec=</varname> defaults to 1s.
+        <varname>DefaultNotifyRateLimitBurst=</varname> defaults to 10.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>ReloadLimitIntervalSec=</varname></term>
         <term><varname>ReloadLimitBurst=</varname></term>
 

@@ -2950,6 +2950,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly s PIDFile = '...';
       readonly s NotifyAccess = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t NotifyRateLimitIntervalUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly u NotifyRateLimitBurst = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t RestartUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u RestartSteps = ...;
@@ -3683,6 +3687,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property NotifyAccess is not documented!-->
 
+    <!--property NotifyRateLimitIntervalUSec is not documented!-->
+
+    <!--property NotifyRateLimitBurst is not documented!-->
+
     <!--property RestartUSec is not documented!-->
 
     <!--property RestartSteps is not documented!-->
@@ -4320,6 +4328,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="PIDFile"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="NotifyAccess"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="NotifyRateLimitIntervalUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="NotifyRateLimitBurst"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestartUSec"/>
 
@@ -13007,6 +13019,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>OOMRules</varname> were added in version 261.</para>
       <para><varname>LUOSession</varname> was added in version 262.</para>
       <para><varname>RestartRandomizedDelayUSec</varname> was added in version 262.</para>
+      <para><varname>NotifyRateLimitIntervalUSec</varname> and
+      <varname>NotifyRateLimitBurst</varname> were added in version 262.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
