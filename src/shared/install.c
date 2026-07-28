@@ -1037,7 +1037,7 @@ static int symlink_cache_build(const LookupPaths *lp, SymlinkCache **ret) {
                         if (r < 0) {
                                 log_debug_errno(r, "Failed to readlink \"%s/%s\" for cache: %m",
                                                 lp->search_path[i], de->d_name);
-                                continue;
+                                return r;
                         }
 
                         if (!path_is_absolute(dest)) {
