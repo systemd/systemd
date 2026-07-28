@@ -106,6 +106,12 @@ bool credential_boot_policy_accepts_null(CredentialBootPolicy policy, bool first
                                               SD_ID128_MAKE(af,bf,ea,ac,eb,6a,4a,37,95,41,9d,13,5c,47,f3,7b)
 #define CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED_PINNED_SRK \
                                               SD_ID128_MAKE(16,e4,92,94,9f,94,40,02,86,75,8f,94,b7,c5,2b,c7)
+#define CRED_AES256_GCM_BY_TPM2_HMAC_PINNED_SRK_PCRLOCK                 \
+                                              SD_ID128_MAKE(b0,36,45,8b,fd,30,40,05,af,a8,61,ef,07,3b,3e,f8)
+#define CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK_PCRLOCK        \
+                                              SD_ID128_MAKE(cf,96,f7,d2,5a,9f,4d,ac,be,f9,30,5b,96,29,3d,40)
+#define CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK_PCRLOCK \
+                                              SD_ID128_MAKE(2e,38,7c,3b,2c,87,4f,4e,a0,06,0e,9e,2e,13,f5,40)
 #define CRED_AES256_GCM_BY_NULL               SD_ID128_MAKE(05,84,69,da,f6,f5,43,24,80,05,49,da,0f,8e,a2,fb)
 
 /* Five special IDs to pick a general automatic mode. These IDs will never be stored on disk, but are useful
@@ -143,6 +149,9 @@ bool credential_boot_policy_accepts_null(CredentialBootPolicy policy, bool first
                         CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK,        \
                         CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_PINNED_SRK,       \
                         CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED_PINNED_SRK,\
+                        CRED_AES256_GCM_BY_TPM2_HMAC_PINNED_SRK_PCRLOCK,                \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK_PCRLOCK,       \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK_PCRLOCK,\
                         CRED_AES256_GCM_BY_NULL)
 #define CRED_KEY_IS_AUTO(key)                                                           \
         sd_id128_in_set((key),                                                          \
@@ -158,7 +167,8 @@ bool credential_boot_policy_accepts_null(CredentialBootPolicy policy, bool first
                         CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED,                   \
                         CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED,           \
                         CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK,        \
-                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED_PINNED_SRK)
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED_PINNED_SRK,\
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK_PCRLOCK)
 #define CRED_KEY_REQUIRES_HOST(key)                                                     \
         sd_id128_in_set((key),                                                          \
                         _CRED_AUTO_HOST_AND_TPM2,                                       \
@@ -171,7 +181,9 @@ bool credential_boot_policy_accepts_null(CredentialBootPolicy policy, bool first
                         CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK,               \
                         CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK,        \
                         CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_PINNED_SRK,       \
-                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED_PINNED_SRK)
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED_PINNED_SRK,\
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK_PCRLOCK,       \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK_PCRLOCK)
 #define CRED_KEY_WANTS_HOST(key)                                        \
         sd_id128_in_set((key),                                          \
                         _CRED_AUTO,                                     \
@@ -191,7 +203,10 @@ bool credential_boot_policy_accepts_null(CredentialBootPolicy policy, bool first
                         CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK,               \
                         CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK,        \
                         CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_PINNED_SRK,       \
-                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED_PINNED_SRK)
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED_PINNED_SRK,\
+                        CRED_AES256_GCM_BY_TPM2_HMAC_PINNED_SRK_PCRLOCK,                \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK_PCRLOCK,       \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK_PCRLOCK)
 #define CRED_KEY_WANTS_TPM2(key)                                        \
         sd_id128_in_set((key),                                          \
                         _CRED_AUTO,                                     \
@@ -219,7 +234,15 @@ bool credential_boot_policy_accepts_null(CredentialBootPolicy policy, bool first
                         CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK,               \
                         CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK,        \
                         CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_PINNED_SRK,       \
-                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED_PINNED_SRK)
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED_PINNED_SRK,\
+                        CRED_AES256_GCM_BY_TPM2_HMAC_PINNED_SRK_PCRLOCK,                \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK_PCRLOCK,       \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK_PCRLOCK)
+#define CRED_KEY_REQUIRES_TPM2_PCRLOCK(key)                                             \
+        sd_id128_in_set((key),                                                          \
+                        CRED_AES256_GCM_BY_TPM2_HMAC_PINNED_SRK_PCRLOCK,                \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK_PCRLOCK,       \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK_PCRLOCK)
 #define CRED_KEY_WANTS_TPM2_PINNED_SRK(key)                             \
         sd_id128_in_set((key),                                          \
                         _CRED_AUTO,                                     \
@@ -228,8 +251,8 @@ bool credential_boot_policy_accepts_null(CredentialBootPolicy policy, bool first
                         _CRED_AUTO_INITRD,                              \
                         _CRED_AUTO_SCOPED)
 
-int encrypt_credential_and_warn(sd_id128_t with_key, const char *name, usec_t timestamp, usec_t not_after, const char *tpm2_device, uint32_t tpm2_hash_pcr_mask, const char *tpm2_pubkey_path, uint32_t tpm2_pubkey_pcr_mask, uid_t uid, const struct iovec *input, CredentialFlags flags, struct iovec *ret);
-int decrypt_credential_and_warn(const char *validate_name, usec_t validate_timestamp, const char *tpm2_device, const char *tpm2_signature_path, uid_t uid, const struct iovec *input, CredentialFlags flags, struct iovec *ret);
+int encrypt_credential_and_warn(sd_id128_t with_key, const char *name, usec_t timestamp, usec_t not_after, const char *tpm2_device, uint32_t tpm2_hash_pcr_mask, const char *tpm2_pubkey_path, uint32_t tpm2_pubkey_pcr_mask, const char *tpm2_pcrlock_path, uid_t uid, const struct iovec *input, CredentialFlags flags, struct iovec *ret);
+int decrypt_credential_and_warn(const char *validate_name, usec_t validate_timestamp, const char *tpm2_device, const char *tpm2_signature_path, const char *tpm2_pcrlock_path, uid_t uid, const struct iovec *input, CredentialFlags flags, struct iovec *ret);
 
 int ipc_encrypt_credential(const char *name, usec_t timestamp, usec_t not_after, uid_t uid, const struct iovec *input, CredentialFlags flags, struct iovec *ret);
 int ipc_decrypt_credential(const char *validate_name, usec_t validate_timestamp, uid_t uid, const struct iovec *input, CredentialFlags flags, struct iovec *ret);
