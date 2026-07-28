@@ -84,7 +84,7 @@ else
 fi
 
 # Check for an invalid "age" and "age-by" arguments.
-for a in ':' ':1s' '2:1h' 'nope:42h' '"  :7m"' 'm:' '::' '"+r^w-x:2/h"' 'b ar::64'; do
+for a in ':' ':1s' '2:1h' 'nope:42h' '"  :7m"' 'm:' '::' '"+r^w-x:2/h"' '"b ar::64"'; do
     systemd-tmpfiles --clean - <<EOF 2>&1 | grep -F 'Invalid age' >/dev/null
 d /tmp/ageby - - - ${a} -
 EOF
@@ -219,6 +219,41 @@ after="$(stat -c %Y /tmp/ageby-mtime)"
 test "$before" = "$after"
 test ! -e /tmp/ageby-mtime/old-child
 rmdir /tmp/ageby-mtime
+
+# r/R entries honor age when cleaning.
+rm -rf /tmp/ageby-remove
+mkdir -p /tmp/ageby-remove/old-dir/child /tmp/ageby-remove/new-dir/child
+touch /tmp/ageby-remove/old-file /tmp/ageby-remove/new-file
+touch --date "3 minutes ago" /tmp/ageby-remove/old-file /tmp/ageby-remove/old-dir
+
+systemd-tmpfiles --dry-run --clean - <<-EOF
+r /tmp/ageby-remove/old-file - - - m:1m -
+r /tmp/ageby-remove/new-file - - - m:1m -
+R /tmp/ageby-remove/old-dir - - - M:1m -
+R /tmp/ageby-remove/new-dir - - - M:1m -
+EOF
+
+test -e /tmp/ageby-remove/old-file
+test -e /tmp/ageby-remove/new-file
+test -d /tmp/ageby-remove/old-dir
+test -d /tmp/ageby-remove/new-dir
+
+systemd-tmpfiles --clean - <<-EOF
+r /tmp/ageby-remove/old-file - - - m:1m -
+r /tmp/ageby-remove/new-file - - - m:1m -
+R /tmp/ageby-remove/old-dir - - - M:1m -
+R /tmp/ageby-remove/new-dir - - - M:1m -
+EOF
+
+test ! -e /tmp/ageby-remove/old-file
+test -e /tmp/ageby-remove/new-file
+test ! -e /tmp/ageby-remove/old-dir
+test -d /tmp/ageby-remove/new-dir
+
+(! systemd-tmpfiles --clean --inline "r /tmp/ageby-remove/new-file - - - ~1m -")
+(! systemd-tmpfiles --clean --inline "R /tmp/ageby-remove/new-dir - - - ~1m -")
+
+rm -rf /tmp/ageby-remove
 
 # X entries inherit the parent cleanup age and its age-by fields.
 rm -rf /tmp/ageby-x-inherit
