@@ -619,7 +619,7 @@ EOF
     test -f "$ESP/$TOKEN/testuki.efi"
 
     # --- Test 5: --dry-run leaves everything in place ---
-    "${BOOTCTL[@]}" --dry-run unlink "${TOKEN}-commit_30.conf"
+    "${BOOTCTL[@]}" -n unlink "${TOKEN}-commit_30.conf"
     test -f "$ESP/loader/entries/${TOKEN}-commit_30.conf"
     test -f "$ESP/$TOKEN/testuki.efi"
 

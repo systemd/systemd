@@ -13,7 +13,7 @@ home='/somewhere'
 dst='/tmp/L/1'
 src="$home"
 HOME="$home" \
-systemd-tmpfiles --dry-run --create - <<EOF
+systemd-tmpfiles -n --create - <<EOF
 L     $dst    - - - - %h
 EOF
 test ! -h "$dst"

@@ -249,7 +249,7 @@ PaddingMinBytes=92M
 EOF
 
     systemd-repart --definitions="$defs" \
-                   --dry-run=yes \
+                   -n \
                    --seed="$seed" \
                    --include-partitions=home,swap \
                    "-"
