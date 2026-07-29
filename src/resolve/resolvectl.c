@@ -97,7 +97,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_set_domain, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_set_nta, strv_freep);
 
 COMMAND(
-        "resolvectl\0systemd-resolve\0",
+        "resolvectl\0",
         "Send control commands to the network name resolution manager, or\n"
         "resolve domain names, IPv4 and IPv6 addresses, DNS records, and services.",
         .man_pages = "resolvectl.1\0",
@@ -3232,6 +3232,13 @@ static void help_dns_classes(void) {
 }
 
 VERB_COMMON_HELP_AUTO_HIDDEN("resolvectl");
+
+COMMAND(
+        "systemd-resolve\0",
+        "This command is deprecated. Use resolvectl.1 instead.",
+        .man_pages = "resolvectl.1\0",
+        .option_namespace = "systemd-resolve",
+);
 
 static int compat_parse_argv(int argc, char *argv[], char ***remaining_args) {
         int r;

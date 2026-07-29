@@ -32,4 +32,4 @@ systemd-id128 --introspect-cli | jq -e \
 
 # resolvectl is a multicall binary, check that both commands are described
 resolvectl --introspect-cli | jq -e \
-    '[.commands[].names[0]] | sort == ["resolvconf", "resolvectl"]'
+    '[.commands[].names[0]] | sort == ["resolvconf", "resolvectl", "systemd-resolve"]'
