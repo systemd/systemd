@@ -130,6 +130,12 @@ TEST_RET(test_image_policy_to_string) {
         assert_se(image_policy_from_string("root=grbl", /* graceful= */ true, NULL) == 0);
         assert_se(image_policy_from_string("wowza=grbl", /* graceful= */ true, NULL) == 0);
 
+        _cleanup_(image_policy_freep) ImagePolicy *a = NULL, *b = NULL;
+        ASSERT_OK(image_policy_from_string("root-vty=verity:usr-vsig=signed", /* graceful= */ false, &a));
+        ASSERT_OK(image_policy_from_string("root-verity=verity:usr-verity-sig=signed", /* graceful= */ false, &b));
+        ASSERT_TRUE(image_policy_equal(a, b));
+        ASSERT_ERROR(image_policy_from_string("root-vty=verity:root-verity=signed", /* graceful= */ false, NULL), ENOTUNIQ);
+
         return 0;
 }
 
