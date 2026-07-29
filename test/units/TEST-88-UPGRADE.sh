@@ -44,18 +44,179 @@ if command -v udevadm >/dev/null && systemctl is-active --quiet systemd-udevd.se
     udev=1
 fi
 
+: >/tmp/failed-units
 if [[ $($unitscmd --output json | jq length) -gt 0 ]]; then
     echo 'Systemd failed units found before the test:'
     $unitscmd
     $unitscmd --output json | jq -r '.[].unit' >/tmp/failed-units
 fi
 
+save_unit_state() {
+    local snapshot_failed="" trigger_list unit
+    local unit_files=/tmp/unit-files-before-package-operation.json
+    local units=/tmp/units-before-package-operation.json
+    local -a state_files=(/tmp/active-units /tmp/preexisting-units /tmp/triggered-units)
+    local -a triggers
+
+    rm -f "${state_files[@]}" "$unit_files" "$units"
+    if ! systemctl list-units --all '*systemd*' --output json >"$units" ||
+        ! systemctl list-unit-files '*systemd*' --output json >"$unit_files" ||
+        ! jq -r '.[].unit' "$units" >/tmp/preexisting-units ||
+        ! jq -r '.[].unit_file' "$unit_files" >>/tmp/preexisting-units ||
+        ! jq -r '
+            .[]
+            | select(.active == "active" or .active == "activating" or .active == "reloading")
+            | .unit
+        ' "$units" >/tmp/active-units; then
+        echo 'Failed to save unit state before package operation, unit retries will be skipped.'
+        snapshot_failed=1
+    fi
+
+    if [[ -z $snapshot_failed ]]; then
+        : >/tmp/triggered-units
+        while read -r unit; do
+            if ! trigger_list=$(systemctl show -P Triggers "$unit"); then
+                echo 'Failed to save unit triggers before package operation, unit retries will be skipped.'
+                snapshot_failed=1
+                break
+            fi
+
+            if [[ -n $trigger_list ]]; then
+                read -ra triggers <<<"$trigger_list"
+                printf '%s\n' "${triggers[@]}" >>/tmp/triggered-units
+            fi
+        done </tmp/active-units
+    fi
+
+    rm -f "$unit_files" "$units"
+
+    if [[ -n $snapshot_failed ]]; then
+        rm -f "${state_files[@]}"
+    fi
+}
+
+save_package_units() {
+    local package_set=$1 package packages_found=
+    local paths="/tmp/$package_set-package-paths"
+    local units="/tmp/$package_set-units"
+
+    rm -f "$paths" "$units"
+    for package in "$pkgdir/$package_set"/*."$package_extension"; do
+        [[ -e $package ]] || continue
+        packages_found=1
+
+        if [[ $package_extension == deb ]]; then
+            if ! dpkg-deb --fsys-tarfile "$package" | tar -tf - >>"$paths"; then
+                echo "Failed to inspect $package_set packages, removed units will be treated as failures."
+                rm -f "$paths"
+                return 0
+            fi
+        elif ! rpm -qlp "$package" >>"$paths"; then
+            echo "Failed to inspect $package_set packages, removed units will be treated as failures."
+            rm -f "$paths"
+            return 0
+        fi
+    done
+
+    if [[ -z $packages_found ]]; then
+        echo "No $package_set packages found, removed units will be treated as failures."
+        return 0
+    fi
+
+    sed -n -E 's#^(\./|/)?(usr/)?lib/systemd/system/([^/]+)$#\3#p' "$paths" |
+        sort -u >"$units"
+    rm -f "$paths"
+}
+
+unit_removal_expected() {
+    local operation=$1 unit=$2
+    local template units
+
+    if [[ $operation == downgrade ]]; then
+        units=/tmp/distro-units
+    else
+        units=/tmp/devel-units
+    fi
+
+    [[ -s $units ]] || return 1
+    grep -sxqF "$unit" "$units" && return 1
+
+    if [[ $unit == *@*.* ]]; then
+        template="${unit%%@*}@.${unit##*.}"
+        grep -sxqF "$template" "$units" && return 1
+    fi
+
+    return 0
+}
+
 check_sd() {
-    local unit fail=0 timer1_new timer2_new
+    local operation=$1 load_state unit fail=0 timer1_new timer2_new
 
     if ! systemctl daemon-reload; then
         echo 'System manager reload failed after the test!'
         fail=1
+    fi
+
+    # Reset units activated during package replacement, then restart only units
+    # that were previously running or are newly introduced.
+    rm -f /tmp/restart-units /tmp/retry-units
+    if [[ -e /tmp/active-units && -e /tmp/preexisting-units && -e /tmp/triggered-units ]]; then
+        : >/tmp/restart-units
+        : >/tmp/retry-units
+        for unit in $($unitscmd --output json | jq -r '.[].unit'); do
+            if grep -sxqF "$unit" /tmp/failed-units; then
+                continue
+            fi
+
+            if ! grep -sxqF "$unit" /tmp/active-units &&
+                ! grep -sxqF "$unit" /tmp/triggered-units &&
+                grep -sxqF "$unit" /tmp/preexisting-units; then
+                continue
+            fi
+
+            if ! load_state=$(systemctl show -P LoadState "$unit"); then
+                fail=1
+                continue
+            fi
+
+            if [[ $load_state == not-found ]]; then
+                if unit_removal_expected "$operation" "$unit"; then
+                    systemctl reset-failed "$unit" || true
+                else
+                    fail=1
+                    systemctl status "$unit" || true
+                fi
+                continue
+            fi
+
+            if ! systemctl reset-failed "$unit"; then
+                fail=1
+                continue
+            fi
+
+            if grep -sxqF "$unit" /tmp/active-units || ! grep -sxqF "$unit" /tmp/preexisting-units; then
+                echo "$unit" >>/tmp/restart-units
+            else
+                echo "$unit" >>/tmp/retry-units
+            fi
+        done
+
+        while read -r unit; do
+            if ! systemctl start "$unit"; then
+                fail=1
+                systemctl status "$unit" || true
+            fi
+        done </tmp/restart-units
+
+        while read -r unit; do
+            if ! systemctl start "$unit"; then
+                fail=1
+                systemctl status "$unit" || true
+            elif ! systemctl stop "$unit"; then
+                fail=1
+                systemctl status "$unit" || true
+            fi
+        done </tmp/retry-units
     fi
 
     if ! systemd-run --quiet --wait --collect --service-type=exec true; then
@@ -69,10 +230,21 @@ check_sd() {
     fi
 
     for unit in $($unitscmd --output json | jq -r '.[].unit'); do
-        if ! grep -sxqF "$unit" /tmp/failed-units; then
-            fail=1
-            systemctl status "$unit"
+        if grep -sxqF "$unit" /tmp/failed-units; then
+            continue
         fi
+
+        if ! load_state=$(systemctl show -P LoadState "$unit"); then
+            fail=1
+            continue
+        fi
+
+        if [[ $load_state == not-found ]] && unit_removal_expected "$operation" "$unit"; then
+            continue
+        fi
+
+        fail=1
+        systemctl status "$unit" || true
     done
 
     if [[ $fail -eq 1 ]]; then
@@ -130,6 +302,9 @@ timer2=$(systemctl show -P NextElapseUSecRealtime upgrade_timer_test.timer)
 # FIXME: See https://github.com/systemd/systemd/pull/39293
 systemctl stop systemd-networkd-resolve-hook.socket || true
 
+save_unit_state
+save_package_units distro
+save_package_units devel
 "${downgrade[@]}" "$pkgdir"/distro/*."$package_extension"
 
 # Some distros don't ship networkd or resolved, so only test them when available
@@ -151,13 +326,14 @@ fi
 
 # TODO: sanity checks
 
-check_sd
+check_sd downgrade
 
 # Finally test the upgrade
+save_unit_state
 "${upgrade[@]}" "$pkgdir"/devel/*."$package_extension"
 
 # TODO: sanity checks
-check_sd
+check_sd upgrade
 
 # Restore post.sh
 mkdir -p /usr/lib/systemd/tests/testdata/units
