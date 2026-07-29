@@ -1054,6 +1054,33 @@ static int link_append_to_master(Link *link) {
         return 0;
 }
 
+static int link_collect_slaves(Link *master) {
+        Link *link;
+        int r;
+
+        assert(master);
+        assert(master->manager);
+
+        /* Slave interfaces enumerated before this link was created could not register themselves in
+         * link_append_to_master(), as the master did not exist yet. Register them now, so that the
+         * slaves set correctly reflects the kernel state. */
+
+        HASHMAP_FOREACH(link, master->manager->links_by_index) {
+                if (link->master_ifindex != master->ifindex)
+                        continue;
+
+                r = set_ensure_put(&master->slaves, &link_hash_ops, link);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                link_ref(link);
+        }
+
+        return 0;
+}
+
 static void link_drop_from_master(Link *link) {
         Link *master;
 
@@ -2901,6 +2928,10 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         r = hashmap_ensure_put(&manager->links_by_name, &string_hash_ops, link->ifname, link);
         if (r < 0)
                 return log_link_debug_errno(link, r, "Failed to manage link by its interface name: %m");
+
+        r = link_collect_slaves(link);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Failed to collect slave interfaces: %m");
 
         log_link_debug(link, "Saved new link: ifindex=%i, iftype=%s(%u), kind=%s",
                        link->ifindex, strna(arphrd_to_name(link->iftype)), link->iftype, strna(link->kind));

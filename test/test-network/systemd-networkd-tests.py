@@ -2135,6 +2135,32 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.check_link_attr('bond97', 'bonding', 'arp_missed_max', '10')
         self.check_link_attr('bond97', 'bonding', 'peer_notif_delay', '300000')
 
+    def test_bond_fail_over_mac_restart(self):
+        # The slave needs a lower ifindex than the bond, so that it is enumerated
+        # first and the race is deterministic. So create it before networkd starts.
+        check_output('ip link add dummy98 type dummy')
+        copy_network_unit(
+            '25-bond-fail-over-mac.netdev',
+            '25-bond-fail-over-mac.network',
+            '25-bond-slave.network',
+        )
+        start_networkd()
+        self.wait_online('dummy98:enslaved', 'bond99:routable')
+
+        output = check_output('ip -d link show bond99')
+        print(output)
+        self.assertIn('fail_over_mac active', output)
+
+        restart_networkd()
+        self.wait_online('dummy98:enslaved', 'bond99:routable')
+
+        log = read_networkd_log()
+        self.assertNotIn('bond99: Failed to create netdev', log)
+
+        output = check_output('ip -d link show bond99')
+        print(output)
+        self.assertIn('fail_over_mac active', output)
+
     def check_vlan(self, id, flags):
         self.wait_online('test1:degraded', 'vlan99:routable')
         self.networkctl_check_unit('vlan99', '21-vlan', '21-vlan')
