@@ -1035,9 +1035,22 @@ static void link_free_bound_by_list(Link *link) {
                 link_dirty(link);
 }
 
+static int link_append_slave(Link *master, Link *slave) {
+        int r;
+
+        assert(master);
+        assert(slave);
+
+        r = set_ensure_put(&master->slaves, &link_hash_ops, slave);
+        if (r <= 0)
+                return r;
+
+        link_ref(slave);
+        return 0;
+}
+
 static int link_append_to_master(Link *link) {
         Link *master;
-        int r;
 
         assert(link);
 
@@ -1046,12 +1059,7 @@ static int link_append_to_master(Link *link) {
         if (link_get_master(link, &master) < 0)
                 return 0;
 
-        r = set_ensure_put(&master->slaves, &link_hash_ops, link);
-        if (r <= 0)
-                return r;
-
-        link_ref(link);
-        return 0;
+        return link_append_slave(master, link);
 }
 
 static void link_drop_from_master(Link *link) {
@@ -1066,6 +1074,34 @@ static void link_drop_from_master(Link *link) {
                 return;
 
         link_unref(set_remove(master->slaves, link));
+}
+
+static int link_append_slaves(Link *master) {
+        Link *link;
+        int r;
+
+        assert(master);
+        assert(master->manager);
+        /* The master must already be registered in links_by_index, otherwise link_get_master() below
+         * cannot resolve any slave to it and all slaves would be silently skipped. */
+        assert(hashmap_get(master->manager->links_by_index, INT_TO_PTR(master->ifindex)) == master);
+
+        /* Slave interfaces enumerated before the master could not register themselves in
+         * link_append_to_master(), as the master Link object did not exist yet. Register them now,
+         * so that the slaves set correctly reflects the kernel state. */
+
+        HASHMAP_FOREACH(link, master->manager->links_by_index) {
+                Link *m;
+
+                if (link_get_master(link, &m) < 0 || m != master)
+                        continue;
+
+                r = link_append_slave(master, link);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 static int link_drop_requests(Link *link) {
@@ -2901,6 +2937,10 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         r = hashmap_ensure_put(&manager->links_by_name, &string_hash_ops, link->ifname, link);
         if (r < 0)
                 return log_link_debug_errno(link, r, "Failed to manage link by its interface name: %m");
+
+        r = link_append_slaves(link);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Failed to register already enslaved interfaces: %m");
 
         log_link_debug(link, "Saved new link: ifindex=%i, iftype=%s(%u), kind=%s",
                        link->ifindex, strna(arphrd_to_name(link->iftype)), link->iftype, strna(link->kind));
