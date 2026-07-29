@@ -77,6 +77,8 @@ int libmount_is_leaf(
                 struct libmnt_table *table,
                 struct libmnt_fs *fs);
 
+int libmount_fs_id_matches_path(struct libmnt_fs *fs, const char *path);
+
 #else
 
 struct libmnt_monitor;
