@@ -141,6 +141,7 @@ static CommandDescription command = {
                "--shift IMAGE UIDBASE\0",
         .man_pages = "systemd-dissect.1\0",
         .option_namespace = "systemd-dissect",
+        .pager_flags = &arg_pager_flags,
 };
 VERB_COMMAND(command);
 

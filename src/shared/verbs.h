@@ -3,6 +3,7 @@
 
 #include "forward.h"
 #include "options.h"
+#include "pager.h"
 
 #define VERB_ANY (UINT_MAX)
 
@@ -17,6 +18,7 @@ typedef struct CommandDescription {
         const char *footer;            /* optional footer to print right above man page links */
         const char *man_pages;         /* nulstr with man page names */
         const char *option_namespace;  /* to be used when the options are in a namespace */
+        const PagerFlags *pager_flags; /* optional pointer to the runtime pager flags variable */
         CommandFlags flags;
 } CommandDescription;
 

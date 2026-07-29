@@ -29,6 +29,7 @@ static CommandDescription command = {
         "systemd-id128\0",
         "Generate and print 128-bit identifiers.",
         .man_pages = "systemd-id128.1\0",
+        .pager_flags = &arg_pager_flags,
 };
 VERB_COMMAND(command);
 

@@ -183,6 +183,7 @@ static CommandDescription command = {
         "timedatectl\0",
         .abstract = "Query or change system time and date settings.",
         .man_pages = "timedatectl.1\0",
+        .pager_flags = &arg_pager_flags,
 };
 VERB_COMMAND(command);
 
