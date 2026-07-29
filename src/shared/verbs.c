@@ -9,6 +9,7 @@
 #include "log.h"
 #include "nulstr-util.h"
 #include "options.h"
+#include "pager.h"
 #include "pretty-print.h"
 #include "string-util.h"
 #include "strv.h"
@@ -443,6 +444,9 @@ int _command_print_help(
                                        "Command %s not known", name);
 
         const CommandDescription *cmd = (const CommandDescription*) ASSERT_PTR(cmdverb->data);
+
+        if (cmd->pager_flags)
+                pager_open(*cmd->pager_flags);
 
         if (cmd->argspec)
                 NULSTR_FOREACH(spec, cmd->argspec) {
