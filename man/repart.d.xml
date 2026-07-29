@@ -141,27 +141,27 @@
               </row>
 
               <row>
-                <entry><constant>root-verity</constant></entry>
+                <entry><constant>root-verity</constant>, <constant>root-vty</constant></entry>
                 <entry>Verity data for the root file system partition for the local architecture</entry>
               </row>
 
               <row>
-                <entry><constant>root-verity-sig</constant></entry>
+                <entry><constant>root-verity-sig</constant>, <constant>root-vsig</constant></entry>
                 <entry>Verity signature data for the root file system partition for the local architecture</entry>
               </row>
 
               <row>
-                <entry><constant>root-secondary</constant></entry>
+                <entry><constant>root-secondary</constant>, <constant>root2</constant></entry>
                 <entry>Root file system partition of the secondary architecture of the local architecture (usually the matching 32-bit architecture for the local 64-bit architecture)</entry>
               </row>
 
               <row>
-                <entry><constant>root-secondary-verity</constant></entry>
+                <entry><constant>root-secondary-verity</constant>, <constant>root-vty2</constant></entry>
                 <entry>Verity data for the root file system partition of the secondary architecture</entry>
               </row>
 
               <row>
-                <entry><constant>root-secondary-verity-sig</constant></entry>
+                <entry><constant>root-secondary-verity-sig</constant>, <constant>root-vsig2</constant></entry>
                 <entry>Verity signature data for the root file system partition of the secondary architecture</entry>
               </row>
 
@@ -171,12 +171,12 @@
               </row>
 
               <row>
-                <entry><constant>root-{arch}-verity</constant></entry>
+                <entry><constant>root-{arch}-verity</constant>, <constant>root-{arch}-vty</constant></entry>
                 <entry>Verity data for the root file system partition of the given architecture</entry>
               </row>
 
               <row>
-                <entry><constant>root-{arch}-verity-sig</constant></entry>
+                <entry><constant>root-{arch}-verity-sig</constant>, <constant>root-{arch}-vsig</constant></entry>
                 <entry>Verity signature data for the root file system partition of the given architecture</entry>
               </row>
 
@@ -186,27 +186,27 @@
               </row>
 
               <row>
-                <entry><constant>usr-verity</constant></entry>
+                <entry><constant>usr-verity</constant>, <constant>usr-vty</constant></entry>
                 <entry>Verity data for the <filename>/usr/</filename> file system partition for the local architecture</entry>
               </row>
 
               <row>
-                <entry><constant>usr-verity-sig</constant></entry>
+                <entry><constant>usr-verity-sig</constant>, <constant>usr-vsig</constant></entry>
                 <entry>Verity signature data for the <filename>/usr/</filename> file system partition for the local architecture</entry>
               </row>
 
               <row>
-                <entry><constant>usr-secondary</constant></entry>
+                <entry><constant>usr-secondary</constant>, <constant>usr2</constant></entry>
                 <entry><filename>/usr/</filename> file system partition of the secondary architecture of the local architecture (usually the matching 32-bit architecture for the local 64-bit architecture)</entry>
               </row>
 
               <row>
-                <entry><constant>usr-secondary-verity</constant></entry>
+                <entry><constant>usr-secondary-verity</constant>, <constant>usr-vty2</constant></entry>
                 <entry>Verity data for the <filename>/usr/</filename> file system partition of the secondary architecture</entry>
               </row>
 
               <row>
-                <entry><constant>usr-secondary-verity-sig</constant></entry>
+                <entry><constant>usr-secondary-verity-sig</constant>, <constant>usr-vsig2</constant></entry>
                 <entry>Verity signature data for the <filename>/usr/</filename> file system partition of the secondary architecture</entry>
               </row>
 
@@ -216,12 +216,12 @@
               </row>
 
               <row>
-                <entry><constant>usr-{arch}-verity</constant></entry>
+                <entry><constant>usr-{arch}-verity</constant>, <constant>usr-{arch}-vty</constant></entry>
                 <entry>Verity data for the <filename>/usr/</filename> file system partition of the given architecture</entry>
               </row>
 
               <row>
-                <entry><constant>usr-{arch}-verity-sig</constant></entry>
+                <entry><constant>usr-{arch}-verity-sig</constant>, <constant>usr-{arch}-vsig</constant></entry>
                 <entry>Verity signature data for the <filename>/usr/</filename> file system partition of the given architecture</entry>
               </row>
             </tbody>
@@ -236,6 +236,23 @@
         <constant>ppc64-le</constant>, <constant>riscv32</constant>, <constant>riscv64</constant>,
         <constant>s390</constant>, <constant>s390x</constant>, <constant>tilegx</constant>,
         <constant>x86</constant> (32-bit, aka i386) and <constant>x86-64</constant> (64-bit, aka amd64).</para>
+
+        <para>In partition type identifiers, <constant>-vty</constant> stands for
+        <constant>-verity</constant>, <constant>-vsig</constant> stands for <constant>-verity-sig</constant>,
+        and a <constant>2</constant> suffix stands for <constant>-secondary</constant>. For example,
+        <constant>usr-vsig2</constant> is the same partition type as
+        <constant>usr-secondary-verity-sig</constant>. The partition identifiers in
+        <citerefentry><refentrytitle>systemd.image-policy</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        and
+        <citerefentry><refentrytitle>systemd.image-filter</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        accept the same abbreviations.</para>
+
+        <para>GPT limits partition labels to 36 characters. Use an abbreviated identifier in
+        <varname>Label=</varname> to leave more room for a version string, for example
+        <literal>usr-x86-64-vsig_1.2.3</literal>. The label that
+        <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        derives from the partition type when <varname>Label=</varname> is not set uses the long spelling.
+        <command>systemd-repart</command> always shows partition types with the long spelling.</para>
 
         <para>Most of the partition type UUIDs listed above are defined in the <ulink
         url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2 Discoverable Partitions

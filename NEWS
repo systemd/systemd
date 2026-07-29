@@ -6,6 +6,17 @@ CHANGES WITH 263 in spe:
 
         Feature Removals and Incompatible Changes:
 
+        Other changes:
+
+        * Partition type identifiers now accept "-vty" and "-vsig" as
+          shorthands for the "-verity" and "-verity-sig" suffixes, and a "2"
+          suffix as shorthand for "-secondary", for example "usr-vsig2" for
+          "usr-secondary-verity-sig". GPT limits partition labels to 36
+          characters, and the shorthands leave more room for a version string
+          in a label set with Label= in repart.d/ files. The partition
+          identifiers in image policies and image filters accept "-vty" and
+          "-vsig" as well.
+
 CHANGES WITH 262:
 
         Announcements of Future Feature Removals and Incompatible Changes:
