@@ -1867,11 +1867,11 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
                 FOREACH_ARRAY(i, c->directories[dt].items, c->directories[dt].n_items) {
                         _cleanup_free_ char *path_escaped = NULL;
 
-                        path_escaped = shell_escape(i->path, ":" WHITESPACE);
+                        path_escaped = shell_escape(i->path, ":\"");
                         if (!path_escaped)
                                 return log_oom_debug();
 
-                        if (!strextend(&value, " ", path_escaped))
+                        if (!strextend(&value, " \"", path_escaped))
                                 return log_oom_debug();
 
                         if (!strextend(&value, ":", yes_no(FLAGS_SET(i->flags, EXEC_DIRECTORY_ONLY_CREATE))))
@@ -1883,13 +1883,16 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
                         STRV_FOREACH(d, i->symlinks) {
                                 _cleanup_free_ char *link_escaped = NULL;
 
-                                link_escaped = shell_escape(*d, ":" WHITESPACE);
+                                link_escaped = shell_escape(*d, ":\"");
                                 if (!link_escaped)
                                         return log_oom_debug();
 
                                 if (!strextend(&value, ":", link_escaped))
                                         return log_oom_debug();
                         }
+
+                        if (!strextend(&value, "\""))
+                                return log_oom_debug();
                 }
 
                 r = serialize_item(f, key, value);
@@ -2830,15 +2833,14 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                 ExecDirectoryFlags exec_directory_flags = 0;
                                 const char *p;
 
-                                /* Use EXTRACT_UNESCAPE_RELAX here, as we unescape the colons in subsequent calls */
-                                r = extract_first_word(&val, &tuple, WHITESPACE, EXTRACT_UNESCAPE_SEPARATORS|EXTRACT_UNESCAPE_RELAX);
+                                r = extract_first_word(&val, &tuple, WHITESPACE, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
                                 if (r < 0)
                                         return r;
                                 if (r == 0)
                                         break;
 
                                 p = tuple;
-                                r = extract_many_words(&p, ":", EXTRACT_UNESCAPE_SEPARATORS, &path, &only_create, &read_only);
+                                r = extract_many_words(&p, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &path, &only_create, &read_only);
                                 if (r < 0)
                                         return r;
                                 if (r < 2)
@@ -2866,7 +2868,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                 for (;;) {
                                         _cleanup_free_ char *link = NULL;
 
-                                        r = extract_first_word(&p, &link, ":", EXTRACT_UNESCAPE_SEPARATORS);
+                                        r = extract_first_word(&p, &link, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS);
                                         if (r < 0)
                                                 return r;
                                         if (r == 0)

@@ -1140,6 +1140,10 @@ static void test_exec_runtimedirectory(Manager *m) {
         test(m, "exec-runtimedirectory.service", 0, CLD_EXITED);
         (void) rm_rf("/run/test-exec_runtimedirectory2", REMOVE_ROOT|REMOVE_PHYSICAL);
 
+        (void) rm_rf("/run/test-exec_runtimedirectory-escape", REMOVE_ROOT|REMOVE_PHYSICAL);
+        test(m, "exec-runtimedirectory@foo\\x2dv1.service", 0, CLD_EXITED);
+        (void) rm_rf("/run/test-exec_runtimedirectory-escape", REMOVE_ROOT|REMOVE_PHYSICAL);
+
         test(m, "exec-runtimedirectory-mode.service", 0, CLD_EXITED);
         test(m, "exec-runtimedirectory-owner.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 
