@@ -44,19 +44,48 @@ if command -v udevadm >/dev/null && systemctl is-active --quiet systemd-udevd.se
     udev=1
 fi
 
+: >/tmp/failed-units
 if [[ $($unitscmd --output json | jq length) -gt 0 ]]; then
     echo 'Systemd failed units found before the test:'
     $unitscmd
     $unitscmd --output json | jq -r '.[].unit' >/tmp/failed-units
 fi
 
+save_active_units() {
+    systemctl list-units --state=active '*systemd*' --output json | jq -r '.[].unit' >/tmp/active-units
+}
+
 check_sd() {
-    local unit fail=0 timer1_new timer2_new
+    local load_state unit fail=0 timer1_new timer2_new
 
     if ! systemctl daemon-reload; then
         echo 'System manager reload failed after the test!'
         fail=1
     fi
+
+    # Retry previously active units that failed while package files were being replaced.
+    for unit in $($unitscmd --output json | jq -r '.[].unit'); do
+        if grep -sxqF "$unit" /tmp/failed-units || ! grep -sxqF "$unit" /tmp/active-units; then
+            continue
+        fi
+
+        if ! load_state=$(systemctl show -P LoadState "$unit"); then
+            fail=1
+            continue
+        fi
+
+        if ! systemctl reset-failed "$unit"; then
+            if [[ $load_state != not-found ]]; then
+                fail=1
+            fi
+            continue
+        fi
+
+        if [[ $load_state != not-found ]] && ! systemctl start "$unit"; then
+            fail=1
+            systemctl status "$unit" || true
+        fi
+    done
 
     if ! systemd-run --quiet --wait --collect --service-type=exec true; then
         echo 'Transient service failed after the test!'
@@ -69,10 +98,16 @@ check_sd() {
     fi
 
     for unit in $($unitscmd --output json | jq -r '.[].unit'); do
-        if ! grep -sxqF "$unit" /tmp/failed-units; then
-            fail=1
-            systemctl status "$unit"
+        if grep -sxqF "$unit" /tmp/failed-units; then
+            continue
         fi
+
+        if [[ $(systemctl show -P LoadState "$unit") == not-found ]]; then
+            continue
+        fi
+
+        fail=1
+        systemctl status "$unit" || true
     done
 
     if [[ $fail -eq 1 ]]; then
@@ -130,6 +165,7 @@ timer2=$(systemctl show -P NextElapseUSecRealtime upgrade_timer_test.timer)
 # FIXME: See https://github.com/systemd/systemd/pull/39293
 systemctl stop systemd-networkd-resolve-hook.socket || true
 
+save_active_units
 "${downgrade[@]}" "$pkgdir"/distro/*."$package_extension"
 
 # Some distros don't ship networkd or resolved, so only test them when available
@@ -154,6 +190,7 @@ fi
 check_sd
 
 # Finally test the upgrade
+save_active_units
 "${upgrade[@]}" "$pkgdir"/devel/*."$package_extension"
 
 # TODO: sanity checks
