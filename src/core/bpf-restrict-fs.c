@@ -69,6 +69,7 @@ static int prepare_restrict_fs_bpf(struct restrict_fs_bpf **ret_obj) {
 }
 
 bool bpf_restrict_fs_supported(bool initialize) {
+        _cleanup_(restrict_fs_bpf_freep) struct restrict_fs_bpf *obj = NULL;
         static int supported = -1;
         int r;
 
@@ -94,13 +95,15 @@ bool bpf_restrict_fs_supported(bool initialize) {
                 return (supported = false);
         }
 
-        /* We don't try to open/load/attach the BPF program here: that's the expensive part (a real kernel
-         * verifier pass plus, on the real attach in bpf_restrict_fs_setup(), an LSM link), and doing it
-         * twice (once here just to throw the result away, once for real in bpf_restrict_fs_setup()) means
-         * paying that cost twice on every boot for no benefit. If BPF_LSM_MAC attach isn't actually usable
-         * (e.g. no BPF trampoline support on this architecture/kernel), bpf_restrict_fs_setup()'s own
-         * attach will fail when it is later called, and that failure is already logged and handled
-         * gracefully by its caller. */
+        r = prepare_restrict_fs_bpf(&obj);
+        if (r < 0)
+                return (supported = false);
+
+        if (!bpf_can_link_lsm_program(obj->progs.restrict_filesystems)) {
+                log_warning("bpf-restrict-fs: Failed to link program; assuming BPF LSM is not available.");
+                return (supported = false);
+        }
+
         return (supported = true);
 }
 
