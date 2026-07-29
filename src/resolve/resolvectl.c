@@ -102,6 +102,7 @@ COMMAND(
         "resolve domain names, IPv4 and IPv6 addresses, DNS records, and services.",
         .man_pages = "resolvectl.1\0",
         .option_namespace = "resolvectl",
+        .pager_flags = &arg_pager_flags,
 );
 
 typedef enum StatusMode {
@@ -3238,6 +3239,7 @@ COMMAND(
         "This command is deprecated. Use resolvectl.1 instead.",
         .man_pages = "resolvectl.1\0",
         .option_namespace = "systemd-resolve",
+        .pager_flags = &arg_pager_flags,
 );
 
 static int compat_parse_argv(int argc, char *argv[], char ***remaining_args) {
