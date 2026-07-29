@@ -8,6 +8,7 @@
 #include <stdio.h>
 
 #include "fstab-util.h"
+#include "mountpoint-util.h"
 
 DLSYM_PROTOTYPE(mnt_free_iter) = NULL;
 DLSYM_PROTOTYPE(mnt_free_table) = NULL;
@@ -110,6 +111,33 @@ int libmount_is_leaf(
                 return r;
 
         return r == 1;
+}
+
+/* Checks whether 'fs' (an entry from a parsed mountinfo table) still refers to the file system currently
+ * reachable at its own target path. This can be false if something else has since been mounted on top of
+ * it, shadowing it: opening 'path' would then resolve to whatever is currently on top, not to 'fs' itself.
+ *
+ * Returns 1 if the mount IDs match (i.e. 'fs' is still the topmost, reachable mount at its path), 0 if
+ * they don't (with a debug log message explaining why), and a negative errno otherwise. */
+int libmount_fs_id_matches_path(struct libmnt_fs *fs, const char *path) {
+        int id1, id2, r;
+
+        assert(fs);
+        assert(path);
+
+        id1 = sym_mnt_fs_get_id(fs);
+
+        r = path_get_mnt_id(path, &id2);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get mount ID of '%s': %m", path);
+
+        if (id1 != id2) {
+                log_debug("The mount IDs of '%s' obtained by libmount and path_get_mnt_id() are different (%i vs %i).",
+                          path, id1, id2);
+                return 0;
+        }
+
+        return 1;
 }
 
 #endif
