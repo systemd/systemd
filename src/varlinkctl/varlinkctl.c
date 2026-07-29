@@ -292,6 +292,7 @@ COMMAND(
         .man_pages = "varlinkctl.1\0",
         .footer = "With --exec, specify the command to invoke:\n"
                   "  varlinkctl --exec call ADDRESS METHOD PARAMS -- CMDLINE…",
+        .pager_flags = &arg_pager_flags,
 );
 
 VERB(verb_info, "info", "ADDRESS", 2, 2, 0, "Show service information");
