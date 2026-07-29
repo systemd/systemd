@@ -96,13 +96,6 @@ int main(int argc, char *argv[]) {
                 return log_tests_skipped_errno(r, "manager_startup");
         ASSERT_OK(r);
 
-        /* bpf_restrict_fs_supported() above only checks that the BPF LSM hook is enabled in the kernel; it
-         * doesn't verify that the LSM BPF program managed to actually attach (e.g. some architectures/older
-         * kernels lack BPF trampoline support). If it didn't, manager_startup() already logged a warning
-         * and continued without enforcement, so skip here rather than hard-failing the assertions below. */
-        if (!m->restrict_fs)
-                return log_tests_skipped("Failed to attach LSM BPF program");
-
         /* We need to enable access to the filesystem where the binary is so we
          * add @common-block and @application */
         ASSERT_FAIL(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/tracing/printk_formats", STRV_MAKE("@common-block", "@application")));
