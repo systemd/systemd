@@ -341,6 +341,11 @@ typedef struct Manager {
         sd_bus_track *subscribed;
         char **subscribed_as_strv;
 
+        /* Set once bus_setup_api() succeeded for the current API bus connection, i.e. after any
+         * subscriptions deserialized from a previous reload/reexec were coldplugged. Unset when the
+         * connection is torn down. */
+        bool api_bus_ready;
+
         /* The bus id of API bus acquired through org.freedesktop.DBus.GetId, which before deserializing
          * subscriptions we'd use to verify the bus is still the same instance as before. */
         sd_id128_t bus_id, deserialized_bus_id;
