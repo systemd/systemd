@@ -4,6 +4,7 @@
 
 #include "build.h"
 #include "env-util.h"
+#include "extract-word.h"
 #include "format-table.h"
 #include "help-util.h"
 #include "log.h"
@@ -429,6 +430,31 @@ static bool verbs_array_has_verbs(const Verb verbs[], const Verb verbs_end[]) {
         return false;
 }
 
+static int print_wrapped(const char *text, size_t width) {
+        assert(text);
+        assert(width > 0);
+
+        /* Print the text wrapped at spaces to the specified width. Newlines embedded in the text
+         * are preserved and each line is wrapped independently, so explicit line breaks (e.g.
+         * before an example command line) can be used where needed. */
+
+        _cleanup_strv_free_ char **lines = NULL, **lines2 = NULL;
+        int r;
+
+        r = strv_split_full(&lines, text, "\n", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r < 0)
+                return r;
+
+        r = strv_rebreak_lines(lines, width, &lines2);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(line, lines2)
+                puts(*line);
+
+        return 0;
+}
+
 int _command_print_help(
                 const Verb verbs[],
                 const Verb verbs_end[],
@@ -463,8 +489,12 @@ int _command_print_help(
         if (r < 0)
                 return log_error_errno(r, "Failed to print verb&option help: %m");
 
-        if (cmd->footer)
-                printf("\n%s\n", cmd->footer);
+        if (cmd->footer) {
+                putchar('\n');
+                r = print_wrapped(cmd->footer, MIN(columns(), 80U));
+                if (r < 0)
+                        return r;
+        }
 
         r = print_man_links(cmd->man_pages);
         if (r < 0)
