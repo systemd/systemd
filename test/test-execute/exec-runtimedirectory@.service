@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for RuntimeDirectory (escape)
+
+[Service]
+ExecStart=bash -x -c 'test -d "%t/test-exec_runtimedirectory-escape/backsl\ash"'
+ExecStart=bash -x -c 'test -d "%t/test-exec_runtimedirectory-escape/foo bar:baz\\quux"'
+ExecStart=bash -x -c 'test -d "%t/test-exec_runtimedirectory-escape/%I"'
+ExecStart=bash -x -c 'test -d "%t/test-exec_runtimedirectory-escape/%i"'
+ExecStart=bash -x -c 'test -d "%t/test-exec_runtimedirectory-escape/hoge ho:ge"'
+ExecStart=bash -x -c 'test -L "%t/test-exec_runtimedirectory-escape/foo:bar"'
+ExecStart=bash -x -c 'test "$(readlink %t/test-exec_runtimedirectory-escape/foo:bar)" = "hoge ho:ge"'
+Type=oneshot
+RuntimeDirectory=test-exec_runtimedirectory-escape/backsl\ash
+RuntimeDirectory="test-exec_runtimedirectory-escape/foo bar\:baz\\quux"
+RuntimeDirectory=test-exec_runtimedirectory-escape/%I
+RuntimeDirectory=test-exec_runtimedirectory-escape/%i
+RuntimeDirectory="test-exec_runtimedirectory-escape/hoge ho\:ge:test-exec_runtimedirectory-escape/foo\:bar"
