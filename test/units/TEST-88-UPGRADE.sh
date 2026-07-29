@@ -44,6 +44,7 @@ if command -v udevadm >/dev/null && systemctl is-active --quiet systemd-udevd.se
     udev=1
 fi
 
+: >/tmp/failed-units
 if [[ $($unitscmd --output json | jq length) -gt 0 ]]; then
     echo 'Systemd failed units found before the test:'
     $unitscmd
@@ -51,12 +52,32 @@ if [[ $($unitscmd --output json | jq length) -gt 0 ]]; then
 fi
 
 check_sd() {
-    local unit fail=0 timer1_new timer2_new
+    local load_state unit fail=0 timer1_new timer2_new
 
     if ! systemctl daemon-reload; then
         echo 'System manager reload failed after the test!'
         fail=1
     fi
+
+    # Retry units that failed while package files were being replaced and forget units removed by the downgrade.
+    for unit in $($unitscmd --output json | jq -r '.[].unit'); do
+        if grep -sxqF "$unit" /tmp/failed-units; then
+            continue
+        fi
+
+        load_state=$(systemctl show --property=LoadState --value "$unit")
+        if ! systemctl reset-failed "$unit"; then
+            if [[ $load_state != not-found ]]; then
+                fail=1
+            fi
+            continue
+        fi
+
+        if [[ $load_state != not-found ]] && ! systemctl start "$unit"; then
+            fail=1
+            systemctl status "$unit" || true
+        fi
+    done
 
     if ! systemd-run --quiet --wait --collect --service-type=exec true; then
         echo 'Transient service failed after the test!'
@@ -71,7 +92,7 @@ check_sd() {
     for unit in $($unitscmd --output json | jq -r '.[].unit'); do
         if ! grep -sxqF "$unit" /tmp/failed-units; then
             fail=1
-            systemctl status "$unit"
+            systemctl status "$unit" || true
         fi
     done
 
