@@ -4269,7 +4269,7 @@ static int format_size_change(uint64_t from, uint64_t to, char **ret) {
         return 1;
 }
 
-static const char *partition_label(const Partition *p) {
+static const char *partition_label(const Partition *p, char buffer[static GPT_PARTITION_TYPE_NAME_MAX]) {
         assert(p);
 
         if (p->new_label)
@@ -4278,8 +4278,10 @@ static const char *partition_label(const Partition *p) {
         if (p->current_label)
                 return p->current_label;
 
-        return gpt_partition_type_uuid_to_string(p->type.uuid);
+        return gpt_partition_type_uuid_to_short_string(p->type.uuid, buffer);
 }
+
+#define PARTITION_LABEL(p) partition_label((p), (char[GPT_PARTITION_TYPE_NAME_MAX]) {})
 
 static int volume_label(const Partition *p, char **ret) {
         assert(p);
@@ -4288,7 +4290,7 @@ static int volume_label(const Partition *p, char **ret) {
         if (p->new_volume_label)
                 return strdup_to(ret, p->new_volume_label);
 
-        const char *e = partition_label(p);
+        const char *e = PARTITION_LABEL(p);
         if (!e)
                 return -ENODATA;
 
@@ -4385,7 +4387,7 @@ static int context_dump_partitions(Context *context) {
                 else if (p->current_size != p->new_size)
                         activity = "resize";
 
-                label = partition_label(p);
+                label = PARTITION_LABEL(p);
                 partname = p->partno != UINT64_MAX ? sym_fdisk_partname(context->node, p->partno+1) : NULL;
 
                 r = format_size_change(p->current_size, p->new_size, &size_change);
@@ -4546,7 +4548,7 @@ static int partition_hint(const Partition *p, const char *node, char **ret) {
         if (p->definition_path)
                 return path_extract_filename(p->definition_path, ret);
 
-        label = partition_label(p);
+        label = PARTITION_LABEL(p);
         if (!isempty(label)) {
                 buf = strdup(label);
                 goto done;
@@ -7740,7 +7742,7 @@ static int partition_acquire_label(Context *context, Partition *p, char **ret) {
         assert(p);
         assert(ret);
 
-        prefix = gpt_partition_type_uuid_to_string(p->type.uuid);
+        prefix = GPT_PARTITION_TYPE_UUID_TO_SHORT_STRING(p->type.uuid);
         if (!prefix)
                 prefix = "linux";
 
