@@ -25,6 +25,99 @@
 #include "tpm2-pcr.h"
 #include "user-record.h"
 
+int pcrextend_pcr_now(unsigned pcr, const char *word, const struct iovec *secret, const char *event) {
+
+#if HAVE_TPM2
+        int r;
+
+        assert(word);
+
+        if (!secret)
+                secret = &iovec_empty;
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.PCRExtend");
+        if (r < 0)
+                return r;
+
+        /* Build the parameters explicitly so that, when they carry the secret we can mark the
+         * variant sensitive: this keeps the secret out of the debug log and ensures its heap
+         * buffer is erased rather than merely freed. */
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        r = sd_json_buildo(
+                        &parameters,
+                        SD_JSON_BUILD_PAIR_INTEGER("pcr", pcr),
+                        SD_JSON_BUILD_PAIR_STRING("text", word),
+                        SD_JSON_BUILD_PAIR_CONDITION(iovec_is_set(secret),
+                                                     "secret",
+                                                     SD_JSON_BUILD_BASE64(secret->iov_base, secret->iov_len)),
+                        SD_JSON_BUILD_PAIR_STRING("eventType", event));
+        if (r < 0)
+                return log_debug_errno(r, "Failed to build io.systemd.PCRExtend.Extend() parameters: %m");
+
+        if (iovec_is_set(secret))
+                sd_json_variant_sensitive(parameters);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+        const char *error_id = NULL;
+        r = sd_varlink_call(vl, "io.systemd.PCRExtend.Extend", parameters, &reply, &error_id);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to issue io.systemd.PCRExtend.Extend() varlink call: %m");
+        if (error_id) {
+                r = sd_varlink_error_to_errno(error_id, reply);
+                if (r != -EBADR)
+                        return log_debug_errno(r, "Failed to issue io.systemd.PCRExtend.Extend() varlink call: %m");
+
+                return log_debug_errno(r, "Failed to issue io.systemd.PCRExtend.Extend() varlink call: %s", error_id);
+        }
+
+        log_debug("Measurement of '%s' into PCR %u completed.", word, pcr);
+        return 1;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 support disabled, not measuring.");
+#endif
+}
+
+int pcrextend_nvpcr_now(const char *nvpcr, const char *word, const char *event) {
+
+#if HAVE_TPM2
+        int r;
+
+        assert(nvpcr);
+        assert(word);
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.PCRExtend");
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+        const char *error_id = NULL;
+        r = sd_varlink_callbo(
+                        vl,
+                        "io.systemd.PCRExtend.Extend",
+                        &reply,
+                        &error_id,
+                        SD_JSON_BUILD_PAIR_STRING("nvpcr", nvpcr),
+                        SD_JSON_BUILD_PAIR_STRING("text", word),
+                        SD_JSON_BUILD_PAIR_STRING("eventType", event));
+        if (r < 0)
+                return log_debug_errno(r, "Failed to issue io.systemd.PCRExtend.Extend() varlink call: %m");
+        if (error_id) {
+                r = sd_varlink_error_to_errno(error_id, reply);
+                if (r != -EBADR)
+                        return log_debug_errno(r, "Failed to issue io.systemd.PCRExtend.Extend() varlink call: %m");
+
+                return log_debug_errno(r, "Failed to issue io.systemd.PCRExtend.Extend() varlink call: %s", error_id);
+        }
+
+        log_debug("Measurement of '%s' into NvPCR '%s' completed.", word, nvpcr);
+        return 1;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 support disabled, not measuring.");
+#endif
+}
+
 static int device_get_file_system_word(
                 sd_device *d,
                 const char *prefix,
@@ -305,7 +398,6 @@ int pcrextend_verity_now(
                 const struct iovec *root_hash,
                 const struct iovec *root_hash_sig) {
 
-#if HAVE_TPM2
         int r;
 
         _cleanup_free_ char *word = NULL;
@@ -317,36 +409,7 @@ int pcrextend_verity_now(
         if (r < 0)
                 return r;
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
-        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.PCRExtend");
-        if (r < 0)
-                return r;
-
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
-        const char *error_id = NULL;
-        r = sd_varlink_callbo(
-                        vl,
-                        "io.systemd.PCRExtend.Extend",
-                        /* ret_reply= */ NULL,
-                        &error_id,
-                        SD_JSON_BUILD_PAIR_STRING("nvpcr", "verity"),
-                        SD_JSON_BUILD_PAIR_STRING("text", word),
-                        SD_JSON_BUILD_PAIR_STRING("eventType", "dm_verity"));
-        if (r < 0)
-                return log_debug_errno(r, "Failed to issue io.systemd.PCRExtend.Extend() varlink call: %m");
-        if (error_id) {
-                r = sd_varlink_error_to_errno(error_id, reply);
-                if (r != -EBADR)
-                        return log_debug_errno(r, "Failed to issue io.systemd.PCRExtend.Extend() varlink call: %m");
-
-                return log_debug_errno(r, "Failed to issue io.systemd.PCRExtend.Extend() varlink call: %s", error_id);
-        }
-
-        log_debug("Measurement of '%s' into 'verity' NvPCR completed.", word);
-        return 1;
-#else
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 support disabled, not measuring Verity root hashes and signatures.");
-#endif
+        return pcrextend_nvpcr_now("verity", word, "dm_verity");
 }
 
 #define IMDS_USERDATA_TRUNCATED_MAX 256U
@@ -375,8 +438,6 @@ int pcrextend_imds_userdata_word(const struct iovec *data, char **ret) {
 }
 
 int pcrextend_imds_userdata_now(const struct iovec *data) {
-
-#if HAVE_TPM2
         int r;
 
         _cleanup_free_ char *word = NULL;
@@ -384,34 +445,5 @@ int pcrextend_imds_userdata_now(const struct iovec *data) {
         if (r < 0)
                 return r;
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
-        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.PCRExtend");
-        if (r < 0)
-                return r;
-
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
-        const char *error_id = NULL;
-        r = sd_varlink_callbo(
-                        vl,
-                        "io.systemd.PCRExtend.Extend",
-                        /* ret_reply= */ NULL,
-                        &error_id,
-                        SD_JSON_BUILD_PAIR_INTEGER("pcr", TPM2_PCR_KERNEL_CONFIG),
-                        SD_JSON_BUILD_PAIR_STRING("text", word),
-                        SD_JSON_BUILD_PAIR_STRING("eventType", "imds_userdata"));
-        if (r < 0)
-                return log_debug_errno(r, "Failed to issue io.systemd.PCRExtend.Extend() varlink call: %m");
-        if (error_id) {
-                r = sd_varlink_error_to_errno(error_id, reply);
-                if (r != -EBADR)
-                        return log_debug_errno(r, "Failed to issue io.systemd.PCRExtend.Extend() varlink call: %m");
-
-                return log_debug_errno(r, "Failed to issue io.systemd.PCRExtend.Extend() varlink call: %s", error_id);
-        }
-
-        log_debug("Measurement of '%s' into PCR 12 completed.", word);
-        return 1;
-#else
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 support disabled, not measuring IMDS userdata.");
-#endif
+        return pcrextend_pcr_now(TPM2_PCR_KERNEL_CONFIG, word, /* secret= */ NULL, "imds_userdata");
 }
