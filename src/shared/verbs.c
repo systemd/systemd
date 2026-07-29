@@ -429,6 +429,37 @@ static bool verbs_array_has_verbs(const Verb verbs[], const Verb verbs_end[]) {
         return false;
 }
 
+static void print_wrapped(const char *text, size_t width) {
+        assert(text);
+        assert(width > 0);
+
+        /* Print the text wrapped at spaces to the specified width. Newlines embedded in the text
+         * are preserved and each line is wrapped independently, so explicit line breaks (e.g.
+         * before an example command line) can be used where needed. */
+
+        while (*text) {
+                const char *nl = strchrnul(text, '\n');
+                size_t len = nl - text;
+
+                while (len > width) {
+                        /* Break at the last space that still fits, or if there is none, at the
+                         * first space after the width, letting the overlong word stick out. */
+                        const char *space = memrchr(text, ' ', width + 1);
+                        if (!space)
+                                space = memchr(text + width, ' ', len - width);
+                        if (!space)
+                                break;
+
+                        printf("%.*s\n", (int) (space - text), text);
+                        len -= space + 1 - text;
+                        text = space + 1;
+                }
+
+                printf("%.*s\n", (int) len, text);
+                text = *nl == '\0' ? nl : nl + 1;
+        }
+}
+
 int _command_print_help(
                 const Verb verbs[],
                 const Verb verbs_end[],
@@ -463,8 +494,10 @@ int _command_print_help(
         if (r < 0)
                 return log_error_errno(r, "Failed to print verb&option help: %m");
 
-        if (cmd->footer)
-                printf("\n%s\n", cmd->footer);
+        if (cmd->footer) {
+                putchar('\n');
+                print_wrapped(cmd->footer, MIN(columns(), 80U));
+        }
 
         r = print_man_links(cmd->man_pages);
         if (r < 0)
