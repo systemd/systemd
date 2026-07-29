@@ -87,6 +87,61 @@ TEST(type_alias_same) {
         }
 }
 
+static void test_shorthand_one(const char *shorthand, const char *canonical) {
+        GptPartitionType x, y;
+
+        /* Some partition types, e.g. root-secondary, only exist on some architectures. */
+        if (gpt_partition_type_from_string(canonical, &x) < 0) {
+                ASSERT_ERROR(gpt_partition_type_from_string(shorthand, NULL), EINVAL);
+                return;
+        }
+
+        ASSERT_OK(gpt_partition_type_from_string(shorthand, &y));
+        ASSERT_EQ_ID128(x.uuid, y.uuid);
+        ASSERT_EQ(x.arch, y.arch);
+        ASSERT_EQ(x.designator, y.designator);
+        ASSERT_STREQ(x.name, y.name);
+}
+
+TEST(shorthands) {
+        FOREACH_STRING(prefix, "root", "usr", "root-x86-64", "usr-arm64", "root-secondary", "usr-aarch64")
+                FOREACH_STRING(suffix, "-verity", "-verity-sig") {
+                        _cleanup_free_ char *canonical = NULL, *shorthand = NULL;
+
+                        ASSERT_NOT_NULL(canonical = strjoin(prefix, suffix));
+                        ASSERT_NOT_NULL(shorthand = strjoin(prefix, streq(suffix, "-verity") ? "-vty" : "-vsig"));
+
+                        test_shorthand_one(shorthand, canonical);
+                }
+
+        test_shorthand_one("root2", "root-secondary");
+        test_shorthand_one("usr2", "usr-secondary");
+        test_shorthand_one("root-vty2", "root-secondary-verity");
+        test_shorthand_one("usr-vsig2", "usr-secondary-verity-sig");
+        test_shorthand_one("usr-verity2", "usr-secondary-verity");
+        test_shorthand_one("root-verity-sig2", "root-secondary-verity-sig");
+
+        FOREACH_STRING(s, "", "2", "-vty", "-vsig", "esp-vty", "esp-vsig", "esp2", "root-sig", "root22",
+                       "root-secondary2", "root-x86-64-vty2", "root-verity-vty", "root-vty-vty",
+                       "root-verity-sig-vsig", "root-vsig-vsig")
+                ASSERT_ERROR(gpt_partition_type_from_string(s, NULL), EINVAL);
+
+        /* "root-riscv32" ends in "2", but it is not "root-riscv3" for the secondary architecture. */
+        GptPartitionType t;
+        ASSERT_OK(gpt_partition_type_from_string("root-riscv32", &t));
+        ASSERT_EQ_ID128(t.uuid, SD_GPT_ROOT_RISCV32);
+        ASSERT_OK(gpt_partition_type_from_string("root-riscv32-vsig", &t));
+        ASSERT_EQ_ID128(t.uuid, SD_GPT_ROOT_RISCV32_VERITY_SIG);
+
+        ASSERT_EQ(partition_designator_from_string("root-vty"), PARTITION_ROOT_VERITY);
+        ASSERT_EQ(partition_designator_from_string("root-vsig"), PARTITION_ROOT_VERITY_SIG);
+        ASSERT_EQ(partition_designator_from_string("usr-vty"), PARTITION_USR_VERITY);
+        ASSERT_EQ(partition_designator_from_string("usr-vsig"), PARTITION_USR_VERITY_SIG);
+        ASSERT_EQ(partition_designator_from_string("usr-verity-sig"), PARTITION_USR_VERITY_SIG);
+        FOREACH_STRING(s, "root2", "usr-vty2", "esp-vty", "root-sig", "-vty")
+                ASSERT_ERROR(partition_designator_from_string(s), EINVAL);
+}
+
 TEST(override_architecture) {
         GptPartitionType x, y;
 
