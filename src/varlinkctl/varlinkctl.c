@@ -292,6 +292,7 @@ static CommandDescription command = {
         .man_pages = "varlinkctl.1\0",
         .footer = "With --exec, specify the command to invoke:\n"
                   "  varlinkctl --exec call ADDRESS METHOD PARAMS -- CMDLINE…",
+        .pager_flags = &arg_pager_flags,
 };
 VERB_COMMAND(command);
 

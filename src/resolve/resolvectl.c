@@ -101,6 +101,7 @@ static CommandDescription command = {
         "resolve domain names, IPv4 and IPv6 addresses, DNS records, and services.",
         .man_pages = "resolvectl.1\0",
         .option_namespace = "resolvectl",
+        .pager_flags = &arg_pager_flags,
 };
 VERB_COMMAND(command);
 
@@ -3175,6 +3176,7 @@ static CommandDescription command_systemd_resolve = {
         "This command is deprecated. Use resolvectl.1 instead.",
         .man_pages = "resolvectl.1\0",
         .option_namespace = "systemd-resolve",
+        .pager_flags = &arg_pager_flags,
 };
 VERB_COMMAND(command_systemd_resolve);
 
