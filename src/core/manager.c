@@ -2892,6 +2892,14 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
 
         assert(m);
 
+        /* If the API bus is connected but not fully set up yet (see bus_init_api()), postpone
+         * dispatching the queue, otherwise subscribers restored from a previous reexec would miss
+         * messages. The pending Varlink reload reply does not depend on the API bus, but it is held
+         * back too, so that the order between D-Bus messages and Varlink replies is preserved for
+         * clients that monitor both. */
+        if (m->api_bus && !m->api_bus_ready)
+                return 0;
+
         /* When we are reloading, let's not wait with generating signals, since we need to exit the manager as quickly
          * as we can. There's no point in throttling generation of signals in that case. */
         if (MANAGER_IS_RELOADING(m) || m->send_reloading_done || m->pending_reload_message_dbus || m->pending_reload_message_vl)
