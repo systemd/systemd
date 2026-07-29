@@ -1411,7 +1411,7 @@ static int context_build_target(Context *context, TargetClass class, const char 
         return 0;
 }
 
-static int enumerate_image_class(RuntimeScope runtime_scope, TargetClass class, Set **targets) {
+static int enumerate_image_class(Context *context, RuntimeScope runtime_scope, TargetClass class, Set **targets) {
         _cleanup_hashmap_free_ Hashmap *images = NULL;
         Image *image;
         int r;
@@ -1434,6 +1434,10 @@ static int enumerate_image_class(RuntimeScope runtime_scope, TargetClass class, 
                 r = context_load_paths_from_image(&image_context, image);
                 if (r < 0)
                         return r;
+
+                image_context.verify = context->verify;
+                image_context.image_policy = context->image_policy;
+                image_context.offline = true;
 
                 /* Load the components in a separate Context specific to the given Image before
                  * committing to loading that state to the main Context. */
@@ -1538,7 +1542,7 @@ static int context_enumerate_targets(Context *context, Set **targets) {
         assert(context);
 
         FOREACH_ARRAY(class, discoverable_classes, ELEMENTSOF(discoverable_classes)) {
-                r = enumerate_image_class(RUNTIME_SCOPE_SYSTEM, *class, targets);
+                r = enumerate_image_class(context, RUNTIME_SCOPE_SYSTEM, *class, targets);
                 if (r < 0)
                         return r;
         }
@@ -1590,6 +1594,10 @@ static int context_load_paths_from_target(Context *context) {
                         r = context_load_paths_from_image(&image_context, image);
                         if (r < 0)
                                 return r;
+
+                        image_context.verify = context->verify;
+                        image_context.image_policy = context->image_policy;
+                        image_context.offline = true;
 
                         /* Load the components in a separate Context specific to the given Image before
                          * committing to loading that state to the main Context. */
