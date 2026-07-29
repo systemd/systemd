@@ -40,6 +40,7 @@ if [[ $deltaver -le 0 ]]; then
     exit 0
 fi
 
+declare -A packages=()
 distro_packages=()
 devel_packages=()
 
@@ -48,7 +49,18 @@ while IFS=$'\t' read -r package source package_architecture; do
     [[ $package_architecture == "$DISTRIBUTION_ARCHITECTURE" || $package_architecture == all ]] || continue
     [[ $package != *-dbgsym* ]] || continue
 
-    devel_packages+=("$package=$(dpkg-query --root="$BUILDROOT" --showformat='${Version}' --show "$package")")
+    packages["$package"]=
+done < <(dpkg-query --root="$BUILDROOT" --show --showformat='${Package}\t${source:Package}\t${Architecture}\n')
+
+# Prepare scripts run before VolatilePackages are installed, so include them explicitly.
+while read -r package; do
+    [[ $package != *-dbgsym* ]] || continue
+
+    packages["$package"]=
+done < <(jq --raw-output '.VolatilePackages[]' <"$MKOSI_CONFIG")
+
+for package in "${!packages[@]}"; do
+    devel_packages+=("$package=$develver")
 
     package_versions=$(apt-cache madison "$package")
     if awk -F '|' -v version="$distrover" '
@@ -63,7 +75,7 @@ while IFS=$'\t' read -r package source package_architecture; do
         ' <<<"$package_versions"; then
         distro_packages+=("$package=$distrover")
     fi
-done < <(dpkg-query --root="$BUILDROOT" --show --showformat='${binary:Package}\t${source:Package}\t${Architecture}\n')
+done
 
 if (( ${#distro_packages[@]} == 0 )); then
     echo "Skipping upgrade test, no distro packages found"
