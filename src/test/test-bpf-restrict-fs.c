@@ -86,8 +86,15 @@ int main(int argc, char *argv[]) {
         ASSERT_OK(setenv_unit_path(unit_dir));
         ASSERT_NOT_NULL((runtime_dir = setup_fake_runtime_dir()));
 
-        ASSERT_OK(manager_new(RUNTIME_SCOPE_SYSTEM, MANAGER_TEST_RUN_BASIC, &m));
-        ASSERT_OK(manager_startup(m, NULL, NULL, NULL, NULL));
+        r = manager_new(RUNTIME_SCOPE_SYSTEM, MANAGER_TEST_RUN_BASIC, &m);
+        if (manager_errno_skip_test(r))
+                return log_tests_skipped_errno(r, "manager_new");
+        ASSERT_OK(r);
+
+        r = manager_startup(m, NULL, NULL, NULL, NULL);
+        if (manager_errno_skip_test(r))
+                return log_tests_skipped_errno(r, "manager_startup");
+        ASSERT_OK(r);
 
         /* bpf_restrict_fs_supported() above only checks that the BPF LSM hook is enabled in the kernel; it
          * doesn't verify that the LSM BPF program managed to actually attach (e.g. some architectures/older
