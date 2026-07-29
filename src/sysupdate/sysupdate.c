@@ -1443,6 +1443,8 @@ static int enumerate_image_class(RuntimeScope runtime_scope, TargetClass class, 
                 if (r < 0)
                         return r;
 
+                image_context.offline = true;
+
                 /* Load the components in a separate Context specific to the given Image before
                  * committing to loading that state to the main Context. */
                 r = context_load_offline(
@@ -1598,6 +1600,8 @@ static int context_load_paths_from_target(Context *context) {
                         r = context_load_paths_from_image(&image_context, image);
                         if (r < 0)
                                 return r;
+
+                        image_context.offline = true;
 
                         /* Load the components in a separate Context specific to the given Image before
                          * committing to loading that state to the main Context. */
