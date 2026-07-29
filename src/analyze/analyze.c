@@ -200,6 +200,7 @@ COMMAND(
         "systemd-analyze\0",
         .abstract = "Profile systemd, show unit dependencies, check unit files.",
         .man_pages = "systemd-analyze.1\0",
+        .pager_flags = &arg_pager_flags,
 );
 
 VERB_COMMON_HELP_AUTO_HIDDEN("systemd-analyze");
