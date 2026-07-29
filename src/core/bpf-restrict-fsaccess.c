@@ -165,7 +165,6 @@ int bpf_restrict_fsaccess_prepare(struct restrict_fsaccess_bpf **ret) {
 }
 
 bool bpf_restrict_fsaccess_supported(void) {
-        _cleanup_(restrict_fsaccess_bpf_freep) struct restrict_fsaccess_bpf *obj = NULL;
         static int supported = -1;
         int r;
 
@@ -188,15 +187,13 @@ bool bpf_restrict_fsaccess_supported(void) {
                 return (supported = false);
         }
 
-        r = bpf_restrict_fsaccess_prepare(&obj);
-        if (r < 0)
-                return (supported = false);
-
-        if (!bpf_can_link_lsm_program(obj->progs.restrict_fsaccess_bprm_check)) {
-                log_warning("bpf-restrict-fsaccess: Failed to link program; assuming BPF LSM is not available.");
-                return (supported = false);
-        }
-
+        /* We don't try to open/load/attach the BPF program here: that's the expensive part (a real kernel
+         * verifier pass plus, on the real attach in bpf_restrict_fsaccess_setup(), an LSM link), and doing
+         * it twice (once here just to throw the result away, once for real in
+         * bpf_restrict_fsaccess_setup()) means paying that cost twice on every boot for no benefit. If
+         * BPF_LSM_MAC attach isn't actually usable (e.g. no BPF trampoline support on this
+         * architecture/kernel), bpf_restrict_fsaccess_setup()'s own attach will fail when it is later
+         * called, and that failure is already logged and handled gracefully by its caller. */
         return (supported = true);
 }
 
