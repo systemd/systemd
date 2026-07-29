@@ -244,11 +244,37 @@ const char* gpt_partition_type_uuid_to_string_harder(
         return sd_id128_to_uuid_string(id, buffer);
 }
 
+/* Shorthands for the verity suffixes, accepted for any partition type that carries them, i.e. "root-v" is
+ * equivalent to "root-verity" and "usr-x86-64-vsig" to "usr-x86-64-verity-sig". These are resolved before the
+ * table lookup below, so that the canonical name is what we store and report back. */
+static const struct {
+        const char *shorthand;
+        const char *suffix;
+} gpt_verity_shorthand_table[] = {
+        { "-v",    "-verity"     },
+        { "-vsig", "-verity-sig" },
+};
+
 int gpt_partition_type_from_string(const char *s, GptPartitionType *ret) {
+        _cleanup_free_ char *expanded = NULL;
         sd_id128_t id = SD_ID128_NULL;
         int r;
 
         assert(s);
+
+        FOREACH_ELEMENT(i, gpt_verity_shorthand_table) {
+                const char *e;
+
+                e = endswith(s, i->shorthand);
+                if (!e)
+                        continue;
+
+                if (!strextendn(&expanded, s, e - s) || !strextend(&expanded, i->suffix))
+                        return -ENOMEM;
+
+                s = expanded;
+                break;
+        }
 
         FOREACH_ARRAY(t, gpt_partition_type_table, ELEMENTSOF(gpt_partition_type_table) - 1)
                 if (streq(s, t->name)) {
