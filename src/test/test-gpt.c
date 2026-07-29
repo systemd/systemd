@@ -87,6 +87,34 @@ TEST(type_alias_same) {
         }
 }
 
+TEST(verity_shorthands) {
+        FOREACH_STRING(prefix, "root", "usr", "root-x86-64", "usr-arm64", "root-secondary", "usr-aarch64")
+                FOREACH_STRING(suffix, "-verity", "-verity-sig") {
+                        _cleanup_free_ char *canonical = NULL, *shorthand = NULL;
+                        GptPartitionType x, y;
+
+                        ASSERT_NOT_NULL(canonical = strjoin(prefix, suffix));
+                        ASSERT_NOT_NULL(shorthand = strjoin(prefix, streq(suffix, "-verity") ? "-vty" : "-sig"));
+
+                        if (gpt_partition_type_from_string(canonical, &x) < 0)
+                                continue;
+
+                        ASSERT_OK(gpt_partition_type_from_string(shorthand, &y));
+                        ASSERT_EQ_ID128(x.uuid, y.uuid);
+                        ASSERT_EQ(x.arch, y.arch);
+                        ASSERT_EQ(x.designator, y.designator);
+                        ASSERT_STREQ(x.name, y.name);
+                }
+
+        FOREACH_STRING(s, "", "-vty", "-sig", "esp-vty", "esp-sig",
+                       "root-verity-vty", "root-vty-vty", "root-verity-sig-sig", "root-sig-sig")
+                ASSERT_ERROR(gpt_partition_type_from_string(s, NULL), EINVAL);
+
+        GptPartitionType t;
+        ASSERT_OK(gpt_partition_type_from_string("root-x86-64-verity-sig", &t));
+        ASSERT_EQ_ID128(t.uuid, SD_GPT_ROOT_X86_64_VERITY_SIG);
+}
+
 TEST(override_architecture) {
         GptPartitionType x, y;
 
