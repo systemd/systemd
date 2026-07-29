@@ -634,6 +634,7 @@ Path.TriggerLimitIntervalSec,                 config_parse_sec,                 
 Path.TriggerLimitBurst,                       config_parse_unsigned,                              0,                                  offsetof(Path, trigger_limit.burst)
 Slice.ConcurrencySoftMax,                     config_parse_concurrency_max,                       0,                                  offsetof(Slice, concurrency_soft_max)
 Slice.ConcurrencyHardMax,                     config_parse_concurrency_max,                       0,                                  offsetof(Slice, concurrency_hard_max)
+Slice.ActivatingConcurrencyMax,               config_parse_concurrency_max,                       0,                                  offsetof(Slice, activating_concurrency_max)
 {{ CGROUP_CONTEXT_CONFIG_ITEMS('Slice') }}
 {{ CGROUP_CONTEXT_CONFIG_ITEMS('Scope') }}
 {{ KILL_CONTEXT_CONFIG_ITEMS('Scope') }}
