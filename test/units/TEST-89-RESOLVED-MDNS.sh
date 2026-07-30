@@ -114,7 +114,7 @@ run_and_check_services() {
     local service_id="${1:?}"
     local check_func="${2:?}"
     local unit_name="varlinkctl-$service_id-$SRANDOM.service"
-    local i out_file parameters service_type svc tmp_file
+    local error_file i out_file parameters service_type svc tmp_file
 
     out_file="$(mktemp)"
     error_file="$(mktemp)"
@@ -122,14 +122,14 @@ run_and_check_services() {
     service_type="_testService$service_id._udp"
     parameters="{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": ${BRIDGE_INDEX:?}, \"flags\": 16785432 }"
 
-    systemd-run --unit="$unit_name" --service-type=exec -p StandardOutput="file:$out_file" -p StandardError="file:$error_file" \
-        varlinkctl call --more /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices "$parameters"
-
     # shellcheck disable=SC2064
     # Note: unregister the trap once it's fired, otherwise it'll get propagated to functions that call this
     #       one, *sigh*
+    # Armed before the unit is started, so a failing systemd-run cannot leak the files.
+    trap "trap - RETURN; rm -f $out_file $error_file $tmp_file; systemctl stop $unit_name 2>/dev/null || :" RETURN
 
-    trap "trap - RETURN; systemctl stop $unit_name" RETURN
+    systemd-run --unit="$unit_name" --service-type=exec -p StandardOutput="file:$out_file" -p StandardError="file:$error_file" \
+        varlinkctl call --more /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices "$parameters"
 
     for _ in {0..14}; do
         # The response format, for reference (it's JSON-SEQ):
@@ -199,7 +199,7 @@ run_and_check_services_with_ifindex() {
     local check_func="${2:?}"
     local ifindex="${3:?}"
     local unit_name="varlinkctl-$service_id-$SRANDOM.service"
-    local i out_file parameters service_type svc tmp_file
+    local error_file i out_file parameters service_type svc tmp_file
 
     out_file="$(mktemp)"
     error_file="$(mktemp)"
@@ -207,12 +207,12 @@ run_and_check_services_with_ifindex() {
     service_type="_testService$service_id._udp"
     parameters="{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": $ifindex, \"flags\": 16785432 }"
 
-    systemd-run --unit="$unit_name" --service-type=exec -p StandardOutput="file:$out_file" -p StandardError="file:$error_file" \
-        varlinkctl call --more /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices "$parameters"
-
     # shellcheck disable=SC2064
     # Note: same as above about unregistering the trap once it's fired
-    trap "trap - RETURN; systemctl stop $unit_name" RETURN
+    trap "trap - RETURN; rm -f $out_file $error_file $tmp_file; systemctl stop $unit_name 2>/dev/null || :" RETURN
+
+    systemd-run --unit="$unit_name" --service-type=exec -p StandardOutput="file:$out_file" -p StandardError="file:$error_file" \
+        varlinkctl call --more /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices "$parameters"
 
     for _ in {0..14}; do
         if [[ -s "$out_file" ]]; then
@@ -264,7 +264,7 @@ testcase_browse_ifindex_zero_no_flap() {
     # leaks into later testcases. The browse unit may not exist yet, hence the
     # best-effort stop.
     # shellcheck disable=SC2064
-    trap "trap - RETURN; systemctl stop $unit_name 2>/dev/null || :; ip link del $dummy 2>/dev/null || :" RETURN
+    trap "trap - RETURN; rm -f $out_file; systemctl stop $unit_name 2>/dev/null || :; ip link del $dummy 2>/dev/null || :" RETURN
     ip link set "$dummy" up multicast on
     ip address add 169.254.171.171/16 dev "$dummy"
     resolvectl mdns "$dummy" yes
