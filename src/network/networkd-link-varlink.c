@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <net/if.h>
+
 #include "sd-dhcp-server.h"
 #include "sd-varlink.h"
 
@@ -66,10 +68,19 @@ int dispatch_link(sd_varlink *vlink, sd_json_variant *parameters, Manager *manag
                 link = link_by_name;
         }
 
-        if (!link && FLAGS_SET(flags, DISPATCH_LINK_MANDATORY))
+        if (!link && (flags & (DISPATCH_LINK_MANDATORY|DISPATCH_LINK_MANAGED)))
                 return sd_varlink_error_invalid_parameter(vlink, JSON_VARIANT_STRING_CONST("InterfaceIndex"));
 
-        /* If the DISPATCH_LINK_MANDATORY flag is not set, this function may return NULL. */
+        if (FLAGS_SET(flags, DISPATCH_LINK_MANAGED)) {
+                if (FLAGS_SET(link->flags, IFF_LOOPBACK))
+                        return sd_varlink_error(vlink, "io.systemd.Network.Link.InterfaceIsLoopback", NULL);
+
+                if (link->state == LINK_STATE_UNMANAGED)
+                        return sd_varlink_error(vlink, "io.systemd.Network.Link.InterfaceUnmanaged", NULL);
+        }
+
+        /* If the DISPATCH_LINK_MANDATORY or DISPATCH_LINK_MANAGED flags are
+         * not set, this function may return NULL. */
         *ret = link;
         return 0;
 }
