@@ -109,58 +109,107 @@ static int get_root_s_dev(uint32_t *ret) {
         return 0;
 }
 
-int bpf_restrict_fsaccess_prepare(struct restrict_fsaccess_bpf **ret) {
+/* On failure sets *reterr_load_failed to true if the verifier rejected the object, which the caller may
+ * retry with resolution off, and to false for setup errors, which are fatal and already logged. */
+static int restrict_fsaccess_load_variant(
+                bool compat,
+                bool have_real_data_inode,
+                struct restrict_fsaccess_bpf **ret,
+                bool *reterr_load_failed) {
+
         _cleanup_(restrict_fsaccess_bpf_freep) struct restrict_fsaccess_bpf *obj = NULL;
         int r;
 
         assert(ret);
+        assert(reterr_load_failed);
 
-        /* Try the preferred version first — it reads the const void *value
-         * argument for defense-in-depth. On kernels before v6.16 (missing
-         * 1271a40eeafa) the verifier rejects loads from const void * context
-         * arguments, so we fall back to the _compat variant that only reads
-         * the size argument via raw ctx access. */
         obj = restrict_fsaccess_bpf__open();
-        if (!obj)
+        if (!obj) {
+                *reterr_load_failed = false;
                 return log_error_errno(errno, "bpf-restrict-fsaccess: Failed to open BPF object: %m");
-
-        r = sym_bpf_map__set_max_entries(obj->maps.verity_devices, DMVERITY_DEVICES_MAX);
-        if (r < 0)
-                return log_error_errno(r, "bpf-restrict-fsaccess: Failed to size hash table: %m");
-
-        r = sym_bpf_program__set_autoload(obj->progs.restrict_fsaccess_bdev_setintegrity_compat, false);
-        if (r < 0)
-                return log_error_errno(r, "bpf-restrict-fsaccess: Failed to disable compat program: %m");
-
-        r = restrict_fsaccess_bpf__load(obj);
-        if (r >= 0) {
-                log_debug("bpf-restrict-fsaccess: Loaded with full const void * access.");
-                *ret = TAKE_PTR(obj);
-                return 0;
         }
 
-        log_debug_errno(r, "bpf-restrict-fsaccess: Full version failed to load (%m), trying compat variant.");
-        obj = restrict_fsaccess_bpf_free(obj);
-
-        obj = restrict_fsaccess_bpf__open();
-        if (!obj)
-                return log_error_errno(errno, "bpf-restrict-fsaccess: Failed to reopen BPF object: %m");
-
         r = sym_bpf_map__set_max_entries(obj->maps.verity_devices, DMVERITY_DEVICES_MAX);
-        if (r < 0)
+        if (r < 0) {
+                *reterr_load_failed = false;
                 return log_error_errno(r, "bpf-restrict-fsaccess: Failed to size hash table: %m");
+        }
 
-        r = sym_bpf_program__set_autoload(obj->progs.restrict_fsaccess_bdev_setintegrity, false);
-        if (r < 0)
-                return log_error_errno(r, "bpf-restrict-fsaccess: Failed to disable full program: %m");
+        r = sym_bpf_program__set_autoload(compat ? obj->progs.restrict_fsaccess_bdev_setintegrity
+                                                 : obj->progs.restrict_fsaccess_bdev_setintegrity_compat, false);
+        if (r < 0) {
+                *reterr_load_failed = false;
+                return log_error_errno(r, "bpf-restrict-fsaccess: Failed to disable %s bdev_setintegrity program: %m",
+                                       compat ? "full" : "compat");
+        }
+
+        /* The .rodata map is read-only and frozen once loaded — unlike the .bss globals, this flag can
+         * only be written between open and load. */
+        obj->rodata->have_real_data_inode = have_real_data_inode;
 
         r = restrict_fsaccess_bpf__load(obj);
-        if (r < 0)
-                return log_error_errno(r, "bpf-restrict-fsaccess: Failed to load BPF object (compat): %m");
+        if (r < 0) {
+                *reterr_load_failed = true;
+                return r;
+        }
 
-        log_debug("bpf-restrict-fsaccess: Loaded with compat bdev_setintegrity.");
         *ret = TAKE_PTR(obj);
         return 0;
+}
+
+int bpf_restrict_fsaccess_prepare(struct restrict_fsaccess_bpf **ret) {
+        static int cached_have_real_data_inode = -1;
+        int r;
+
+        assert(ret);
+
+        /* Whether the kernel provides the kfunc cannot change at runtime, and probing it parses the
+         * whole vmlinux BTF. */
+        if (cached_have_real_data_inode < 0)
+                cached_have_real_data_inode = bpf_kernel_has_kfunc("bpf_real_data_inode");
+
+        bool have_real_data_inode = cached_have_real_data_inode;
+
+        /* Try the preferred bdev_setintegrity variant first — it reads the const void *value argument
+         * for defense-in-depth. On kernels before v6.16 (missing 1271a40eeafa) the verifier rejects
+         * loads from const void * context arguments, so we fall back to the _compat variant that only
+         * reads the size argument via raw ctx access.
+         *
+         * Independently of that, union filesystem resolution is enabled when the kernel BTF advertises
+         * bpf_real_data_inode(). BTF only proves the function exists, not that it is registered as an
+         * LSM kfunc with the expected signature, so if loading with the resolution enabled fails, retry
+         * without it: files on union filesystems are then denied (fail closed) instead of the whole
+         * feature — and with it PID1 startup — failing. */
+        for (;;) {
+                bool load_failed;
+
+                r = restrict_fsaccess_load_variant(/* compat= */ false, have_real_data_inode, ret, &load_failed);
+                if (r >= 0) {
+                        log_debug("bpf-restrict-fsaccess: Loaded with full const void * access%s.",
+                                  have_real_data_inode ? " and union filesystem resolution" : "");
+                        return 0;
+                }
+                if (!load_failed)
+                        return r;
+
+                log_debug_errno(r, "bpf-restrict-fsaccess: Full version failed to load (%m), trying compat variant.");
+
+                r = restrict_fsaccess_load_variant(/* compat= */ true, have_real_data_inode, ret, &load_failed);
+                if (r >= 0) {
+                        log_debug("bpf-restrict-fsaccess: Loaded with compat bdev_setintegrity%s.",
+                                  have_real_data_inode ? " and union filesystem resolution" : "");
+                        return 0;
+                }
+                if (!load_failed)
+                        return r;
+
+                if (!have_real_data_inode)
+                        return log_error_errno(r, "bpf-restrict-fsaccess: Failed to load BPF object (compat): %m");
+
+                log_warning_errno(r, "bpf-restrict-fsaccess: Kernel BTF advertises bpf_real_data_inode() but loading with it failed, "
+                                  "retrying without union filesystem resolution: %m");
+                have_real_data_inode = false;
+        }
 }
 
 /* Partial deserialization (some FDs but not all) is fatal: continuing
@@ -391,6 +440,10 @@ int bpf_restrict_fsaccess_setup(Manager *m) {
         r = bpf_restrict_fsaccess_prepare(&obj);
         if (r < 0)
                 return r;
+
+        if (!obj->rodata->have_real_data_inode)
+                log_info("bpf-restrict-fsaccess: Kernel does not provide the bpf_real_data_inode() kfunc, "
+                         "files on union filesystems are not resolved to their backing device and will be denied.");
 
         /* If we're still in the initramfs, allow execution from it by recording
          * its s_dev. After switch_root, PID1 re-execs and in_initrd() returns
