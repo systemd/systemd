@@ -79,6 +79,11 @@ at_exit() {
     rm -rf /tmp/restrict-fsaccess-test
     umount /tmp/restrict-fsaccess-baseline 2>/dev/null || true
     rm -rf /tmp/restrict-fsaccess-baseline
+    # Clean up overlay test mounts
+    umount /tmp/restrict-fsaccess-overlay/merged 2>/dev/null || true
+    umount /tmp/restrict-fsaccess-overlay/rw 2>/dev/null || true
+    systemd-dissect --umount /tmp/restrict-fsaccess-overlay/lower 2>/dev/null || true
+    rm -rf /tmp/restrict-fsaccess-overlay
     # Clean up background processes
     [[ -n "${SLEEP_PID:-}" ]] && kill "$SLEEP_PID" 2>/dev/null || true
     rm -rf /tmp/restrict-fsaccess-attach.out
@@ -193,6 +198,81 @@ if machine_supports_verity_keyring; then
     echo "Execution from signed dm-verity device: OK"
 else
     echo "Verity keyring trust not available, skipping positive verity test"
+fi
+
+# ------ Test: overlayfs over a signed dm-verity lower layer ------
+# Kernels with the bpf_real_data_inode() kfunc (v7.2+) resolve files on
+# union filesystems to the layer hosting the data: execution through an
+# overlay whose lower layer sits on a signed verity device is permitted,
+# while files created in (or copied up to) an untrusted upper layer are
+# denied. Without the kfunc, everything on the overlay is denied.
+
+if command -v bpftool >/dev/null 2>&1; then
+    KERNEL_HAS_REAL_DATA_INODE=0
+    if bpftool btf dump file /sys/kernel/btf/vmlinux 2>/dev/null | grep "FUNC 'bpf_real_data_inode'" >/dev/null; then
+        KERNEL_HAS_REAL_DATA_INODE=1
+    fi
+
+    # The loader's BTF probe must agree with the kernel BTF
+    HAVE_RDI="$(sed -n 's/^HAVE_REAL_DATA_INODE=//p' /tmp/restrict-fsaccess-attach.out)"
+    if [[ "$HAVE_RDI" != "$KERNEL_HAS_REAL_DATA_INODE" ]]; then
+        echo "ERROR: Loader probed have_real_data_inode=$HAVE_RDI but kernel BTF says $KERNEL_HAS_REAL_DATA_INODE!" >&2
+        exit 1
+    fi
+
+    if machine_supports_verity_keyring; then
+        OVL=/tmp/restrict-fsaccess-overlay
+        mkdir -p "$OVL"/{lower,rw,merged}
+        systemd-dissect --mount "$MINIMAL.raw" "$OVL/lower"
+        mount -t tmpfs tmpfs "$OVL/rw"
+        mkdir -p "$OVL/rw/upper" "$OVL/rw/work"
+        # metacopy=off: a metadata-only copy-up would keep the data — and
+        # hence the verdict — on the lower layer, breaking the copy-up test
+        mount -t overlay overlay \
+            -o "lowerdir=$OVL/lower/usr,upperdir=$OVL/rw/upper,workdir=$OVL/rw/work,metacopy=off" \
+            "$OVL/merged"
+
+        if [[ "$KERNEL_HAS_REAL_DATA_INODE" == 1 ]]; then
+            # Resolution follows the data to the signed verity lower layer
+            "$OVL/merged/bin/bash" -c 'exit 0'
+            echo "Execution through overlay from signed verity lower: OK"
+
+            # A file created in the (tmpfs) upper layer is untrusted.
+            # Basename must stay "true" for multicall coreutils binaries —
+            # see the baseline comment above.
+            cp /usr/bin/true "$OVL/merged/true"
+            if "$OVL/merged/true" 2>/dev/null; then
+                echo "ERROR: Execution of upper-layer file should have been blocked!" >&2
+                exit 1
+            fi
+            echo "Execution from overlay upper layer blocked: OK"
+
+            # Copy-up moves the data to the untrusted upper layer
+            chmod 700 "$OVL/merged/bin/bash"
+            if "$OVL/merged/bin/bash" -c 'exit 0' 2>/dev/null; then
+                echo "ERROR: Execution of copied-up file should have been blocked!" >&2
+                exit 1
+            fi
+            echo "Execution of copied-up file blocked: OK"
+        else
+            # Without the kfunc all the program sees is the overlay's
+            # anonymous device: deny, even though the lower is trusted
+            if "$OVL/merged/bin/bash" -c 'exit 0' 2>/dev/null; then
+                echo "ERROR: Execution through overlay should have been blocked without bpf_real_data_inode!" >&2
+                exit 1
+            fi
+            echo "Execution through overlay blocked (no bpf_real_data_inode): OK"
+        fi
+
+        umount "$OVL/merged"
+        umount "$OVL/rw"
+        systemd-dissect --umount "$OVL/lower"
+        rm -rf "$OVL"
+    else
+        echo "Verity keyring trust not available, skipping overlay tests"
+    fi
+else
+    echo "bpftool not available, skipping overlay tests"
 fi
 
 # ------ Test: Guard blocks non-PID1 from obtaining BPF object FDs by ID ------
