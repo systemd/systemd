@@ -6,11 +6,18 @@
 #if HAVE_LIBBPF
 
 #include <bpf/bpf.h>    /* IWYU pragma: export */
+#include <bpf/btf.h>    /* IWYU pragma: export */
 #include <bpf/libbpf.h> /* IWYU pragma: export */
 
 #include "bpf-compat.h" /* IWYU pragma: export */
 #include "dlfcn-util.h"
 #include "shared-forward.h"
+
+/* Declare this for headers predating libbpf 0.5, where the function was introduced. */
+DISABLE_WARNING_REDUNDANT_DECLS;
+/* NOLINTNEXTLINE(readability-redundant-declaration) */
+extern struct btf* btf__load_vmlinux_btf(void);
+REENABLE_WARNING;
 
 extern DLSYM_PROTOTYPE(bpf_link__destroy);
 extern DLSYM_PROTOTYPE(bpf_link__fd);
@@ -38,6 +45,9 @@ extern DLSYM_PROTOTYPE(bpf_program__attach);
 extern DLSYM_PROTOTYPE(bpf_program__attach_cgroup);
 extern DLSYM_PROTOTYPE(bpf_program__attach_lsm);
 extern DLSYM_PROTOTYPE(bpf_program__name);
+extern DLSYM_PROTOTYPE(btf__find_by_name_kind);
+extern DLSYM_PROTOTYPE(btf__free);
+extern DLSYM_PROTOTYPE(btf__load_vmlinux_btf);
 extern DLSYM_PROTOTYPE(libbpf_set_print);
 extern DLSYM_PROTOTYPE(ring_buffer__epoll_fd);
 extern DLSYM_PROTOTYPE(ring_buffer__free);
@@ -48,6 +58,12 @@ extern DLSYM_PROTOTYPE(ring_buffer__poll);
  * this helper instead of libbpf_get_error() to ensure some of the known ones are translated into errnos
  * we understand. */
 int bpf_get_error_translated(const void *ptr);
+
+/* Probe the kernel's vmlinux BTF for a function of the given name, to check whether a BPF kfunc is
+ * available. This probes vmlinux BTF only, not module BTFs; and BTF advertising the function only proves
+ * it exists, not that it is registered as a kfunc for a given program type — callers must still handle
+ * program load failure. */
+bool bpf_kernel_has_kfunc(const char *name);
 
 #endif
 
