@@ -7,7 +7,7 @@ msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-06-01 11:49+0200\n"
-"PO-Revision-Date: 2026-06-07 13:57+0000\n"
+"PO-Revision-Date: 2026-07-30 03:17+0000\n"
 "Last-Translator: Baurzhan Muftakhidinov <baurthefirst@gmail.com>\n"
 "Language-Team: Kazakh <https://translate.fedoraproject.org/projects/systemd/"
 "main/kk/>\n"
@@ -16,7 +16,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 2026.6.1\n"
+"X-Generator: Weblate 2026.7.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -877,12 +877,14 @@ msgstr ""
 
 #: src/machine/org.freedesktop.machine1.policy:95
 msgid "Inspect local virtual machines and containers"
-msgstr ""
+msgstr "Жергілікті виртуалды машиналар мен контейнерлерді тексеру"
 
 #: src/machine/org.freedesktop.machine1.policy:96
 msgid ""
 "Authentication is required to inspect local virtual machines and containers."
 msgstr ""
+"Жергілікті виртуалды машиналар мен контейнерлерді тексеру үшін "
+"аутентификация қажет."
 
 #: src/machine/org.freedesktop.machine1.policy:105
 msgid "Create a local virtual machine or container"
@@ -919,13 +921,15 @@ msgstr ""
 
 #: src/machine/org.freedesktop.machine1.policy:137
 msgid "Inspect local virtual machine and container images"
-msgstr ""
+msgstr "Жергілікті виртуалды машина мен контейнер бейнелерін тексеру"
 
 #: src/machine/org.freedesktop.machine1.policy:138
 msgid ""
 "Authentication is required to inspect local virtual machine and container "
 "images."
 msgstr ""
+"Жергілікті виртуалды машина мен контейнер бейнелерін тексеру үшін "
+"аутентификация қажет."
 
 #: src/network/org.freedesktop.network1.policy:22
 msgid "Set NTP servers"
@@ -1189,19 +1193,19 @@ msgstr "Статистиканы тастау үшін аутентификац�
 
 #: src/resolve/org.freedesktop.resolve1.policy:209
 msgid "Flush DNS caches"
-msgstr ""
+msgstr "DNS кэштерін тазалау"
 
 #: src/resolve/org.freedesktop.resolve1.policy:210
 msgid "Authentication is required to flush DNS caches."
-msgstr ""
+msgstr "DNS кэштерін тазалау үшін аутентификация қажет."
 
 #: src/resolve/org.freedesktop.resolve1.policy:220
 msgid "Reset server features"
-msgstr ""
+msgstr "Сервер мүмкіндіктерін бастапқы күйіне тастау"
 
 #: src/resolve/org.freedesktop.resolve1.policy:221
 msgid "Authentication is required to reset server features."
-msgstr ""
+msgstr "Сервер мүмкіндіктерін бастапқы күйіне тастау үшін аутентификация қажет."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:38
 msgid "Check for system updates"
@@ -1213,11 +1217,11 @@ msgstr "Жүйелік жаңартуларды тексеру үшін ауте
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:48
 msgid "Cancel checking for system updates"
-msgstr ""
+msgstr "Жүйелік жаңартуларды тексеруді тоқтату"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:49
 msgid "Authentication is required to cancel checking for system updates."
-msgstr ""
+msgstr "Жүйелік жаңартуларды тексеруді тоқтату үшін аутентификация қажет."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:58
 msgid "Install system updates"
@@ -1229,11 +1233,11 @@ msgstr "Жүйелік жаңартуларды орнату үшін аутен
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:68
 msgid "Cancel installing system updates"
-msgstr ""
+msgstr "Жүйелік жаңартуларды орнатуды тоқтату"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:69
 msgid "Authentication is required to cancel installing system updates."
-msgstr ""
+msgstr "Жүйелік жаңартуларды орнату тоқтату үшін аутентификация қажет."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:78
 msgid "Install specific system version"
@@ -1248,29 +1252,32 @@ msgstr ""
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:88
 msgid "Cancel installing specific system version"
-msgstr ""
+msgstr "Арнайы жүйе нұсқасын орнатудан бас тарту"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:89
 msgid ""
 "Authentication is required to cancel updating the system to a specific "
 "(possibly old) version."
 msgstr ""
+"Арнайы жүйе нұсқасын (ескірген болуы мүмкін) орнатудан бас тарту үшін "
+"аутентификация қажет."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:98
 msgid "Clean up old system updates"
-msgstr ""
+msgstr "Ескі жүйелік жаңартуларды тазалау"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:99
 msgid "Authentication is required to clean up old system updates."
-msgstr ""
+msgstr "Ескі жүйелік жаңартуларды тазалау үшін аутентификация қажет."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:108
 msgid "Cancel cleaning up old system updates"
-msgstr ""
+msgstr "Ескі жүйелік жаңартуларды тазалаудан бас тарту"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:109
 msgid "Authentication is required to cancel cleanup of old system updates."
 msgstr ""
+"Ескі жүйелік жаңартуларды тазалаудан бас тарту үшін аутентификация қажет."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:118
 msgid "Manage optional features"
@@ -1376,21 +1383,23 @@ msgstr ""
 
 #: src/shared/libfido2-util.c:500 src/shared/libfido2-util.c:557
 msgid "Please confirm presence on security token to unlock."
-msgstr ""
+msgstr "Құлыпты ашу үшін қауіпсіздік токенінде бар болуыңызды екенін растаңыз."
 
 #: src/shared/libfido2-util.c:516
 msgid "Please verify user on security token to unlock."
-msgstr ""
+msgstr "Құлыпты ашу үшін қауіпсіздік токенінде пайдаланушыны тексеріңіз."
 
 #: src/shared/libfido2-util.c:936
 #, c-format
 msgid ""
 "Please enter security token PIN (remaining attempts before lock-out: %d):"
 msgstr ""
+"Қауіпсіздік токенінің PIN-кодын енгізіңіз (құлыптауға дейінгі қалған "
+"талаптар саны: %d):"
 
 #: src/shared/libfido2-util.c:948
 msgid "Please enter security token PIN:"
-msgstr ""
+msgstr "Қауіпсіздік токенінің PIN-кодын енгізіңіз:"
 
 #~ msgid "Cleanup old system updates"
 #~ msgstr "Ескі жүйелік жаңартуларды тазалау"
