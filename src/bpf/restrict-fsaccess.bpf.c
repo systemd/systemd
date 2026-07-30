@@ -142,10 +142,10 @@ static __always_inline int check_trusted_file(struct file *file)
 SEC("lsm/bprm_check_security")
 int BPF_PROG(restrict_fsaccess_bprm_check, struct linux_binprm *bprm)
 {
-        struct file *file;
-
-        BPF_CORE_READ_INTO(&file, bprm, file);
-        return check_trusted_file(file);
+        /* Direct dereference (CO-RE-relocated via vmlinux.h's
+         * preserve_access_index) instead of bpf_probe_read(): only direct
+         * loads keep the verifier's trusted-pointer tracking. */
+        return check_trusted_file(bprm->file);
 }
 
 SEC("lsm/mmap_file")
@@ -180,8 +180,9 @@ int BPF_PROG(restrict_fsaccess_file_mprotect, struct vm_area_struct *vma,
         if (vm_flags & VM_EXEC)
                 return 0;
 
-        /* Anonymous executable mapping — no file backing, deny */
-        BPF_CORE_READ_INTO(&file, vma, vm_file);
+        /* Anonymous executable mapping — no file backing, deny. Direct
+         * dereference, see restrict_fsaccess_bprm_check(). */
+        file = vma->vm_file;
         if (!file)
                 return -EPERM;
 
