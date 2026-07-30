@@ -42,6 +42,7 @@ static SD_VARLINK_DEFINE_METHOD(
                 VARLINK_DEFINE_POLKIT_INPUT);
 
 static SD_VARLINK_DEFINE_ERROR(InterfaceUnmanaged);
+static SD_VARLINK_DEFINE_ERROR(InterfaceIsLoopback);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Network_Link,
@@ -60,6 +61,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_Describe,
                 SD_VARLINK_SYMBOL_COMMENT("The specified interface is not managed by systemd-networkd."),
                 &vl_error_InterfaceUnmanaged,
+                SD_VARLINK_SYMBOL_COMMENT("The specified interface is a loopback interface."),
+                &vl_error_InterfaceIsLoopback,
                 &vl_type_Address,
                 &vl_type_BitRates,
                 &vl_type_DHCPLease,
