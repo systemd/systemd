@@ -238,6 +238,8 @@ CHANGES WITH 261:
         * A new RestrictFileSystemAccess= setting has been added that uses a
           BPF LSM program to restrict execution to only binaries that are
           stored on a signed and verified dm-verity-protected filesystem.
+          On kernel v7.2 and newer this includes binaries on overlayfs
+          mounts whose data resides on such a filesystem.
 
         * The io.systemd.Unit.StartTransient() Varlink method has been added
           for invoking service units transiently.
