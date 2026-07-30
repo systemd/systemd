@@ -332,11 +332,27 @@ static void _test_service(const char *file, unsigned line, const char *func,
 static void test_exec_bindpaths(Manager *m) {
         ASSERT_OK(mkdir_p("/tmp/test-exec-bindpaths", 0755));
         ASSERT_OK(mkdir_p("/tmp/test-exec-bindreadonlypaths", 0755));
+        ASSERT_OK(mkdir_p("/tmp/test-exec-bindpaths source", 0755));
+        ASSERT_OK(mkdir_p("/tmp/test-exec-bindpaths destination", 0755));
+        ASSERT_OK(mkdir_p("/tmp/test-exec-bindpaths:source", 0755));
+        ASSERT_OK(mkdir_p("/tmp/test-exec-bindpaths:destination", 0755));
+        ASSERT_OK(mkdir_p("/tmp/test-exec-bindreadonlypaths source", 0755));
+        ASSERT_OK(mkdir_p("/tmp/test-exec-bindreadonlypaths destination", 0755));
+        ASSERT_OK(mkdir_p("/tmp/test-exec-bindreadonlypaths:source", 0755));
+        ASSERT_OK(mkdir_p("/tmp/test-exec-bindreadonlypaths:destination", 0755));
 
         test(m, "exec-bindpaths.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
 
         (void) rm_rf("/tmp/test-exec-bindpaths", REMOVE_ROOT|REMOVE_PHYSICAL);
         (void) rm_rf("/tmp/test-exec-bindreadonlypaths", REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf("/tmp/test-exec-bindpaths source", REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf("/tmp/test-exec-bindpaths destination", REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf("/tmp/test-exec-bindpaths:source", REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf("/tmp/test-exec-bindpaths:destination", REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf("/tmp/test-exec-bindreadonlypaths source", REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf("/tmp/test-exec-bindreadonlypaths destination", REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf("/tmp/test-exec-bindreadonlypaths:source", REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf("/tmp/test-exec-bindreadonlypaths:destination", REMOVE_ROOT|REMOVE_PHYSICAL);
 }
 
 static void test_exec_cpuaffinity(Manager *m) {
