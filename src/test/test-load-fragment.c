@@ -92,6 +92,13 @@ static void check_execcommand(ExecCommand *c,
         ASSERT_EQ(FLAGS_SET(c->flags, EXEC_COMMAND_IGNORE_FAILURE), ignore);
 }
 
+static void count_syntax_warnings(_unused_ const char *unit, int level, void *userdata) {
+        unsigned *n_syntax_warnings = ASSERT_PTR(userdata);
+
+        if (level <= LOG_WARNING)
+                (*n_syntax_warnings)++;
+}
+
 TEST(config_parse_exec) {
         /* int config_parse_exec(
                  const char *unit,
@@ -412,6 +419,59 @@ TEST(config_parse_exec) {
         ASSERT_NULL(c);
 
         exec_command_free_list(c);
+}
+
+TEST(config_parse_bind_paths) {
+        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_(unit_freep) Unit *u = NULL;
+        ExecContext c = {};
+        unsigned n_syntax_warnings = 0;
+        int r;
+
+        r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
+        if (manager_errno_skip_test(r)) {
+                log_notice_errno(r, "Skipping test: manager_new: %m");
+                return;
+        }
+
+        ASSERT_OK(r);
+        ASSERT_OK(manager_startup(m, NULL, NULL, NULL, NULL));
+
+        ASSERT_NOT_NULL(u = unit_new(m, sizeof(Service)));
+        ASSERT_OK_ZERO(unit_add_name(u, "foobar.service"));
+
+        {
+                _unused_ _cleanup_(clear_log_syntax_callback) dummy_t dummy;
+
+                set_log_syntax_callback(count_syntax_warnings, &n_syntax_warnings);
+                ASSERT_OK(config_parse_bind_paths(NULL, "fake", 1, "section", 1,
+                                                  "BindReadOnlyPaths", 0,
+                                                  "  /usr/bin  /usr/lib     /lib64   ",
+                                                  &c, u));
+        }
+
+        ASSERT_EQ(n_syntax_warnings, 0U);
+        ASSERT_EQ(c.n_bind_mounts, 3U);
+
+        ASSERT_STREQ(c.bind_mounts[0].source, "/usr/bin");
+        ASSERT_STREQ(c.bind_mounts[0].destination, "/usr/bin");
+        ASSERT_TRUE(c.bind_mounts[0].read_only);
+        ASSERT_TRUE(c.bind_mounts[0].recursive);
+        ASSERT_FALSE(c.bind_mounts[0].ignore_enoent);
+
+        ASSERT_STREQ(c.bind_mounts[1].source, "/usr/lib");
+        ASSERT_STREQ(c.bind_mounts[1].destination, "/usr/lib");
+        ASSERT_TRUE(c.bind_mounts[1].read_only);
+        ASSERT_TRUE(c.bind_mounts[1].recursive);
+        ASSERT_FALSE(c.bind_mounts[1].ignore_enoent);
+
+        ASSERT_STREQ(c.bind_mounts[2].source, "/lib64");
+        ASSERT_STREQ(c.bind_mounts[2].destination, "/lib64");
+        ASSERT_TRUE(c.bind_mounts[2].read_only);
+        ASSERT_TRUE(c.bind_mounts[2].recursive);
+        ASSERT_FALSE(c.bind_mounts[2].ignore_enoent);
+
+        exec_context_done(&c);
 }
 
 TEST(config_parse_log_extra_fields) {
