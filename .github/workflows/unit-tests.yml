@@ -69,6 +69,12 @@ jobs:
       group: ${{ github.workflow }}-musl-${{ github.ref }}
       cancel-in-progress: true
     steps:
+      - name: Debug
+        run: |
+          ls -la /
+          ls -la /etc
+          false
+
       - name: Repository checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:

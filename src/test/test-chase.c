@@ -306,7 +306,7 @@ TEST(chase) {
                 ASSERT_ERROR(chase(q, NULL, CHASE_SAFE, NULL, NULL), ENOLINK);
 
                 ASSERT_OK_ERRNO(chown(p, 0, 0));
-                ASSERT_OK(chase(q, NULL, CHASE_SAFE, NULL, NULL));
+                ASSERT_OK(chase(q, NULL, CHASE_SAFE|CHASE_WARN, NULL, NULL));
         }
 
         p = strjoina(temp, "/machine-id-test");
