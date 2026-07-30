@@ -5213,6 +5213,12 @@ int config_parse_bind_paths(
                 char *s = NULL, *d = NULL;
                 bool rbind = true, ignore_enoent = false;
 
+                if (!p)
+                        break;
+                p += strspn(p, WHITESPACE);
+                if (*p == '\0')
+                        break;
+
                 r = extract_first_word(&p, &source, ":" WHITESPACE, EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS);
                 if (r == -ENOMEM)
                         return log_oom();
