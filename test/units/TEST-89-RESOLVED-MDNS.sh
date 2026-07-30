@@ -64,6 +64,7 @@ EOF
 check_both() {
     local service_id="${1:?}"
     local result_file="${2:?}"
+    local i svc
 
     # We should get 20 services per container, 40 total
     if [[ "$(wc -l <"$result_file")" -ge 40 ]]; then
@@ -86,6 +87,7 @@ check_both() {
 check_first() {
     local service_id="${1:?}"
     local result_file="${2:?}"
+    local i svc
 
     # We should get 20 services per container
     if [[ "$(wc -l <"$result_file")" -ge 20 ]]; then
@@ -114,7 +116,7 @@ run_and_check_services() {
     local service_id="${1:?}"
     local check_func="${2:?}"
     local unit_name="varlinkctl-$service_id-$SRANDOM.service"
-    local i out_file parameters service_type svc tmp_file
+    local error_file out_file parameters service_type tmp_file
 
     out_file="$(mktemp)"
     error_file="$(mktemp)"
@@ -122,14 +124,16 @@ run_and_check_services() {
     service_type="_testService$service_id._udp"
     parameters="{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": ${BRIDGE_INDEX:?}, \"flags\": 16785432 }"
 
-    systemd-run --unit="$unit_name" --service-type=exec -p StandardOutput="file:$out_file" -p StandardError="file:$error_file" \
-        varlinkctl call --more /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices "$parameters"
-
     # shellcheck disable=SC2064
     # Note: unregister the trap once it's fired, otherwise it'll get propagated to functions that call this
     #       one, *sigh*
+    # The stop comes first, so the unit is gone before its output files are
+    # removed, and is best-effort: a unit which already exited on its own must
+    # not make the removal be skipped.
+    trap "trap - RETURN; systemctl stop $unit_name 2>/dev/null || :; rm -f $out_file $error_file $tmp_file" RETURN
 
-    trap "trap - RETURN; systemctl stop $unit_name" RETURN
+    systemd-run --unit="$unit_name" --service-type=exec -p StandardOutput="file:$out_file" -p StandardError="file:$error_file" \
+        varlinkctl call --more /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices "$parameters"
 
     for _ in {0..14}; do
         # The response format, for reference (it's JSON-SEQ):
@@ -199,7 +203,7 @@ run_and_check_services_with_ifindex() {
     local check_func="${2:?}"
     local ifindex="${3:?}"
     local unit_name="varlinkctl-$service_id-$SRANDOM.service"
-    local i out_file parameters service_type svc tmp_file
+    local error_file out_file parameters service_type tmp_file
 
     out_file="$(mktemp)"
     error_file="$(mktemp)"
@@ -207,12 +211,12 @@ run_and_check_services_with_ifindex() {
     service_type="_testService$service_id._udp"
     parameters="{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": $ifindex, \"flags\": 16785432 }"
 
-    systemd-run --unit="$unit_name" --service-type=exec -p StandardOutput="file:$out_file" -p StandardError="file:$error_file" \
-        varlinkctl call --more /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices "$parameters"
-
     # shellcheck disable=SC2064
     # Note: same as above about unregistering the trap once it's fired
-    trap "trap - RETURN; systemctl stop $unit_name" RETURN
+    trap "trap - RETURN; systemctl stop $unit_name 2>/dev/null || :; rm -f $out_file $error_file $tmp_file" RETURN
+
+    systemd-run --unit="$unit_name" --service-type=exec -p StandardOutput="file:$out_file" -p StandardError="file:$error_file" \
+        varlinkctl call --more /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices "$parameters"
 
     for _ in {0..14}; do
         if [[ -s "$out_file" ]]; then
@@ -260,11 +264,13 @@ testcase_browse_ifindex_zero_no_flap() {
     # re-runs self-healing instead of tripping over EEXIST here.
     ip link del "$dummy" 2>/dev/null || :
     ip link add "$dummy" type dummy
-    # Arm the cleanup before anything else can fail, so the fixed-name link never
-    # leaks into later testcases. The browse unit may not exist yet, hence the
-    # best-effort stop.
+    # Arm the cleanup before anything else can fail, so neither the fixed-name
+    # link nor the output file leaks into later testcases: run_testcases runs
+    # each testcase in its own subshell, whose EXIT trap fires however the
+    # testcase ends. The browse unit may not exist yet, hence the best-effort
+    # stop.
     # shellcheck disable=SC2064
-    trap "trap - RETURN; systemctl stop $unit_name 2>/dev/null || :; ip link del $dummy 2>/dev/null || :" RETURN
+    trap "systemctl stop $unit_name 2>/dev/null || :; ip link del $dummy 2>/dev/null || :; rm -f $out_file" EXIT
     ip link set "$dummy" up multicast on
     ip address add 169.254.171.171/16 dev "$dummy"
     resolvectl mdns "$dummy" yes
