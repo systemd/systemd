@@ -12,6 +12,7 @@
 #endif
 
 #include <bpf/bpf.h>    /* IWYU pragma: export */
+#include <bpf/btf.h>    /* IWYU pragma: export */
 #include <bpf/libbpf.h> /* IWYU pragma: export */
 
 #include "dlfcn-util.h"
@@ -21,6 +22,7 @@
  *  - bpf_map_create, bpf_object__next_map: available since libbpf 0.7
  *  - bpf_token_create:                     available since libbpf 1.5
  *  - bpf_create_map:                       removed in libbpf 1.0
+ *  - btf__load_vmlinux_btf:                available since libbpf 0.5
  */
 DISABLE_WARNING_REDUNDANT_DECLS;
 /* NOLINTBEGIN(readability-redundant-declaration) */
@@ -30,6 +32,7 @@ extern int bpf_create_map(enum bpf_map_type, int key_size, int value_size, int m
 extern int bpf_map_create(enum bpf_map_type, const char *, __u32, __u32, __u32, const struct bpf_map_create_opts *);
 extern struct bpf_map* bpf_object__next_map(const struct bpf_object *obj, const struct bpf_map *map);
 extern int bpf_token_create(int bpffs_fd, struct bpf_token_create_opts *opts);
+extern struct btf* btf__load_vmlinux_btf(void);
 /* NOLINTEND(readability-redundant-declaration) */
 REENABLE_WARNING;
 
@@ -65,6 +68,9 @@ extern DLSYM_PROTOTYPE(bpf_program__attach_lsm);
 extern DLSYM_PROTOTYPE(bpf_program__name);
 extern DLSYM_PROTOTYPE(bpf_program__set_autoload);
 extern DLSYM_PROTOTYPE(bpf_token_create);
+extern DLSYM_PROTOTYPE(btf__find_by_name_kind);
+extern DLSYM_PROTOTYPE(btf__free);
+extern DLSYM_PROTOTYPE(btf__load_vmlinux_btf);
 extern DLSYM_PROTOTYPE(libbpf_set_print);
 extern DLSYM_PROTOTYPE(ring_buffer__epoll_fd);
 extern DLSYM_PROTOTYPE(ring_buffer__free);
@@ -92,6 +98,12 @@ static inline int compat_bpf_map_create(
  * this helper instead of libbpf_get_error() to ensure some of the known ones are translated into errnos
  * we understand. */
 int bpf_get_error_translated(const void *ptr);
+
+/* Probe the kernel's vmlinux BTF for a function of the given name, to check whether a BPF kfunc is
+ * available. This probes vmlinux BTF only, not module BTFs; and BTF advertising the function only proves
+ * it exists, not that it is registered as a kfunc for a given program type — callers must still handle
+ * program load failure. */
+bool bpf_kernel_has_kfunc(const char *name);
 #endif
 
 int dlopen_bpf(int log_level) _dlopen_loader_;
