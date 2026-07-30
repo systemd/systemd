@@ -23,6 +23,7 @@ CRED=/var/lib/systemd-tpm2-swtpm-test.cred
 PLAINTEXT="swtpm round-trip"
 # Marker (SWTPM_MANUFACTURED_MARKER) that manufacture_swtpm() indicates completion with.
 MARKER=.manufactured
+TPM2_DEVICE=
 
 if [[ -n "${ASAN_OPTIONS:-}" ]]; then
     # swtpm_setup is not built with sanitizers, but does NSS lookups that pull in the ASan-instrumented
@@ -37,9 +38,28 @@ if [[ ! -x /usr/lib/systemd/systemd-tpm2-swtpm ]] || ! command -v swtpm >/dev/nu
 fi
 
 assert_swtpm_up() {
+    local tpm_device tpm_index tpmrm_device tpmrm_devices
+
     systemctl is-active systemd-tpm2-swtpm.service
-    timeout 30 bash -c 'until [[ -c /dev/tpmrm0 ]]; do sleep 1; done'
-    test -c /dev/tpm0
+    timeout 30 bash -c '
+        until
+            find /sys/class/tpmrm -mindepth 1 -maxdepth 1 -name "tpmrm*" -printf x | grep -x x >/dev/null &&
+            sleep 1 &&
+            find /sys/class/tpmrm -mindepth 1 -maxdepth 1 -name "tpmrm*" -printf x | grep -x x >/dev/null
+        do
+            sleep 1
+        done
+    '
+
+    # The old initrd device number may still be reserved when the host swtpm starts, so do not assume tpm0.
+    tpmrm_devices=(/sys/class/tpmrm/tpmrm*)
+    assert_eq "${#tpmrm_devices[@]}" 1
+    tpmrm_device="${tpmrm_devices[0]##*/}"
+    tpm_index="${tpmrm_device#tpmrm}"
+    TPM2_DEVICE="/dev/$tpmrm_device"
+    tpm_device="/dev/tpm$tpm_index"
+
+    udevadm wait --timeout=30 "$TPM2_DEVICE" "$tpm_device"
     # No firmware TPM here, so has-tpm2 reports "partial"; assert the software driver is present.
     assert_in '\+driver' "$(systemd-analyze has-tpm2 || :)"
 }
@@ -58,8 +78,8 @@ case "$REBOOT_COUNT" in
         assert_swtpm_up
         # Seal a secret to the software TPM and keep the blob for the next boot.
         echo -n "$PLAINTEXT" >/tmp/swtpm-plaintext
-        systemd-creds encrypt --name= --with-key=tpm2 /tmp/swtpm-plaintext "$CRED"
-        systemd-creds decrypt --name= "$CRED" - | cmp /tmp/swtpm-plaintext -
+        systemd-creds --tpm2-device="$TPM2_DEVICE" encrypt --name= --with-key=tpm2 /tmp/swtpm-plaintext "$CRED"
+        systemd-creds --tpm2-device="$TPM2_DEVICE" decrypt --name= "$CRED" - | cmp /tmp/swtpm-plaintext -
         systemctl_final reboot
         exec sleep infinity
         ;;
@@ -67,7 +87,7 @@ case "$REBOOT_COUNT" in
         assert_swtpm_up
         # Persistence: the TPM state survived the reboot on the ESP, so the blob still unseals.
         echo -n "$PLAINTEXT" >/tmp/swtpm-plaintext
-        systemd-creds decrypt --name= "$CRED" - | cmp /tmp/swtpm-plaintext -
+        systemd-creds --tpm2-device="$TPM2_DEVICE" decrypt --name= "$CRED" - | cmp /tmp/swtpm-plaintext -
 
         # Mimic a manufacture interrupted after swtpm began writing TPM state but before the marker: stop
         # swtpm, drop everything except the three config files, then leave a partial/corrupt state file
@@ -91,8 +111,8 @@ case "$REBOOT_COUNT" in
         test -e "$statedir/$MARKER"
         test -e "$statedir/issuer-certificate.pem"
         echo -n "$PLAINTEXT" >/tmp/swtpm-plaintext
-        systemd-creds encrypt --name= --with-key=tpm2 /tmp/swtpm-plaintext /tmp/swtpm-new.cred
-        systemd-creds decrypt --name= /tmp/swtpm-new.cred - | cmp /tmp/swtpm-plaintext -
+        systemd-creds --tpm2-device="$TPM2_DEVICE" encrypt --name= --with-key=tpm2 /tmp/swtpm-plaintext /tmp/swtpm-new.cred
+        systemd-creds --tpm2-device="$TPM2_DEVICE" decrypt --name= /tmp/swtpm-new.cred - | cmp /tmp/swtpm-plaintext -
         touch /testok
         ;;
     *)
