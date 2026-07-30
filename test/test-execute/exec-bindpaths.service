@@ -12,7 +12,19 @@ ExecStart=test -f /tmp/thisisasimpletest
 ExecStart=test -f /tmp/test-exec-bindreadonlypaths/thisisasimpletest
 # The file cannot modify through /tmp/test-exec-bindreadonlypaths
 ExecStart=bash -x -c '! touch /tmp/test-exec-bindreadonlypaths/thisisasimpletest'
+ExecStart=bash -x -c 'touch "/tmp/test-exec-bindpaths destination/space test"'
+ExecStart=bash -x -c 'test -f "/tmp/test-exec-bindpaths source/space test"'
+ExecStart=bash -x -c 'touch "/tmp/test-exec-bindpaths:destination/colon-test"'
+ExecStart=bash -x -c 'test -f "/tmp/test-exec-bindpaths:source/colon-test"'
+ExecStart=bash -x -c 'touch "/tmp/test-exec-bindreadonlypaths source/space test"'
+ExecStart=bash -x -c 'test -f "/tmp/test-exec-bindreadonlypaths destination/space test"'
+ExecStart=bash -x -c '! touch "/tmp/test-exec-bindreadonlypaths destination/space test forbidden"'
+ExecStart=bash -x -c 'touch "/tmp/test-exec-bindreadonlypaths:source/colon-test"'
+ExecStart=bash -x -c 'test -f "/tmp/test-exec-bindreadonlypaths:destination/colon-test"'
+ExecStart=bash -x -c '! touch "/tmp/test-exec-bindreadonlypaths:destination/colon-test-forbidden"'
 # Cleanup
 ExecStart=rm /tmp/thisisasimpletest
 BindPaths=/tmp:/tmp/test-exec-bindpaths
+BindPaths="/tmp/test-exec-bindpaths source:/tmp/test-exec-bindpaths destination"   /tmp/test-exec-bindpaths\:source:/tmp/test-exec-bindpaths\:destination
 BindReadOnlyPaths=/tmp:/tmp/test-exec-bindreadonlypaths
+BindReadOnlyPaths="/tmp/test-exec-bindreadonlypaths source:/tmp/test-exec-bindreadonlypaths destination"   /tmp/test-exec-bindreadonlypaths\:source:/tmp/test-exec-bindreadonlypaths\:destination
