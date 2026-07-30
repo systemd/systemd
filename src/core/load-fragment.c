@@ -5208,12 +5208,12 @@ int config_parse_bind_paths(
         }
 
         for (const char *p = rvalue;;) {
-                _cleanup_free_ char *source = NULL, *destination = NULL;
-                _cleanup_free_ char *sresolved = NULL, *dresolved = NULL;
+                _cleanup_free_ char *tuple = NULL, *source = NULL, *destination = NULL, *options = NULL,
+                                   *extra = NULL, *sresolved = NULL, *dresolved = NULL;
                 char *s = NULL, *d = NULL;
                 bool rbind = true, ignore_enoent = false;
 
-                r = extract_first_word(&p, &source, ":" WHITESPACE, EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS);
+                r = extract_first_word(&p, &tuple, /* separators= */ NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
@@ -5222,6 +5222,21 @@ int config_parse_bind_paths(
                 }
                 if (r == 0)
                         break;
+
+                const char *q = tuple;
+                r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS|EXTRACT_DONT_COALESCE_SEPARATORS,
+                                       &source, &destination, &options, &extra);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r <= 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse %s=, ignoring: %s", lvalue, tuple);
+                        continue;
+                }
+                if (extra) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Too many parameters in %s=, ignoring: %s", lvalue, tuple);
+                        continue;
+                }
+                int n_fields = r;
 
                 r = unit_path_printf(u, source, &sresolved);
                 if (r < 0) {
@@ -5241,19 +5256,7 @@ int config_parse_bind_paths(
                         continue;
 
                 /* Optionally, the destination is specified. */
-                if (p && p[-1] == ':') {
-                        r = extract_first_word(&p, &destination, ":" WHITESPACE, EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS);
-                        if (r == -ENOMEM)
-                                return log_oom();
-                        if (r < 0) {
-                                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse %s, ignoring: %s", lvalue, rvalue);
-                                return 0;
-                        }
-                        if (r == 0) {
-                                log_syntax(unit, LOG_WARNING, filename, line, 0, "Missing argument after ':', ignoring: %s", s);
-                                continue;
-                        }
-
+                if (n_fields >= 2) {
                         r = unit_path_printf(u, destination, &dresolved);
                         if (r < 0) {
                                 log_syntax(unit, LOG_WARNING, filename, line, r,
@@ -5266,30 +5269,20 @@ int config_parse_bind_paths(
                                 continue;
 
                         d = dresolved;
-
-                        /* Optionally, there's also a short option string specified */
-                        if (p && p[-1] == ':') {
-                                _cleanup_free_ char *options = NULL;
-
-                                r = extract_first_word(&p, &options, NULL, EXTRACT_UNQUOTE);
-                                if (r == -ENOMEM)
-                                        return log_oom();
-                                if (r < 0) {
-                                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse %s=, ignoring: %s", lvalue, rvalue);
-                                        return 0;
-                                }
-
-                                if (isempty(options) || streq(options, "rbind"))
-                                        rbind = true;
-                                else if (streq(options, "norbind"))
-                                        rbind = false;
-                                else {
-                                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid option string, ignoring setting: %s", options);
-                                        continue;
-                                }
-                        }
                 } else
                         d = s;
+
+                /* Optionally, there's also a short option string specified */
+                if (n_fields >= 3) {
+                        if (isempty(options) || streq(options, "rbind"))
+                                rbind = true;
+                        else if (streq(options, "norbind"))
+                                rbind = false;
+                        else {
+                                log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid option string, ignoring setting: %s", options);
+                                continue;
+                        }
+                }
 
                 r = bind_mount_add(&c->bind_mounts, &c->n_bind_mounts,
                                    &(BindMount) {
