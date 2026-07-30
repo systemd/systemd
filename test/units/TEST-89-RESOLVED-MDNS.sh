@@ -114,7 +114,7 @@ run_and_check_services() {
     local service_id="${1:?}"
     local check_func="${2:?}"
     local unit_name="varlinkctl-$service_id-$SRANDOM.service"
-    local i out_file parameters service_type svc tmp_file
+    local error_file i out_file parameters service_type svc tmp_file
 
     out_file="$(mktemp)"
     error_file="$(mktemp)"
@@ -129,7 +129,7 @@ run_and_check_services() {
     # Note: unregister the trap once it's fired, otherwise it'll get propagated to functions that call this
     #       one, *sigh*
 
-    trap "trap - RETURN; systemctl stop $unit_name" RETURN
+    trap "trap - RETURN; rm -f $out_file $error_file $tmp_file; systemctl stop $unit_name 2>/dev/null || :" RETURN
 
     for _ in {0..14}; do
         # The response format, for reference (it's JSON-SEQ):
@@ -199,7 +199,7 @@ run_and_check_services_with_ifindex() {
     local check_func="${2:?}"
     local ifindex="${3:?}"
     local unit_name="varlinkctl-$service_id-$SRANDOM.service"
-    local i out_file parameters service_type svc tmp_file
+    local error_file i out_file parameters service_type svc tmp_file
 
     out_file="$(mktemp)"
     error_file="$(mktemp)"
@@ -212,7 +212,7 @@ run_and_check_services_with_ifindex() {
 
     # shellcheck disable=SC2064
     # Note: same as above about unregistering the trap once it's fired
-    trap "trap - RETURN; systemctl stop $unit_name" RETURN
+    trap "trap - RETURN; rm -f $out_file $error_file $tmp_file; systemctl stop $unit_name 2>/dev/null || :" RETURN
 
     for _ in {0..14}; do
         if [[ -s "$out_file" ]]; then
@@ -264,7 +264,7 @@ testcase_browse_ifindex_zero_no_flap() {
     # leaks into later testcases. The browse unit may not exist yet, hence the
     # best-effort stop.
     # shellcheck disable=SC2064
-    trap "trap - RETURN; systemctl stop $unit_name 2>/dev/null || :; ip link del $dummy 2>/dev/null || :" RETURN
+    trap "trap - RETURN; rm -f $out_file; systemctl stop $unit_name 2>/dev/null || :; ip link del $dummy 2>/dev/null || :" RETURN
     ip link set "$dummy" up multicast on
     ip address add 169.254.171.171/16 dev "$dummy"
     resolvectl mdns "$dummy" yes
