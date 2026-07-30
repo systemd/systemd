@@ -47,6 +47,9 @@ DLSYM_PROTOTYPE(bpf_program__attach) = NULL;
 DLSYM_PROTOTYPE(bpf_program__attach_cgroup) = NULL;
 DLSYM_PROTOTYPE(bpf_program__attach_lsm) = NULL;
 DLSYM_PROTOTYPE(bpf_program__name) = NULL;
+DLSYM_PROTOTYPE(btf__find_by_name_kind) = NULL;
+DLSYM_PROTOTYPE(btf__free) = NULL;
+DLSYM_PROTOTYPE(btf__load_vmlinux_btf) = NULL;
 DLSYM_PROTOTYPE(libbpf_set_print) = NULL;
 DLSYM_PROTOTYPE(ring_buffer__epoll_fd) = NULL;
 DLSYM_PROTOTYPE(ring_buffer__free) = NULL;
@@ -178,6 +181,14 @@ int dlopen_bpf_full(int log_level) {
         if (r < 0)
                 return cached = log_full_errno(log_level, r, "Failed to load libbpf symbols, cgroup BPF features disabled: %m");
 
+        /* btf__load_vmlinux_btf() is available since libbpf 0.5. Keep the whole probe optional so
+         * missing symbols disable bpf_kernel_has_kfunc(), not the other BPF features. */
+        (void) dlsym_many_or_warn(
+                        dl, LOG_DEBUG,
+                        DLSYM_ARG(btf__find_by_name_kind),
+                        DLSYM_ARG(btf__free),
+                        DLSYM_ARG(btf__load_vmlinux_btf));
+
         /* We set the print helper unconditionally. Otherwise libbpf will emit not useful log messages. */
         (void) sym_libbpf_set_print(bpf_print_func);
 
@@ -203,6 +214,34 @@ int bpf_get_error_translated(const void *ptr) {
         default:
                 return r;
         }
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct btf *, sym_btf__free, NULL);
+
+bool bpf_kernel_has_kfunc(const char *name) {
+        _cleanup_(sym_btf__freep) struct btf *btf = NULL;
+        int id, r;
+
+        assert(name);
+
+        if (dlopen_bpf() < 0)
+                return false;
+
+        if (!sym_btf__load_vmlinux_btf || !sym_btf__find_by_name_kind || !sym_btf__free) {
+                log_debug("libbpf too old to probe the kernel BTF for functions, assuming %s() is unavailable.", name);
+                return false;
+        }
+
+        btf = sym_btf__load_vmlinux_btf();
+        r = bpf_get_error_translated(btf); /* libbpf < 1.0 returns error pointers, not NULL; btf__free() copes with both */
+        if (r != 0) {
+                log_debug_errno(r, "Failed to load vmlinux BTF, assuming kfunc %s() is unavailable: %m", name);
+                return false;
+        }
+
+        id = sym_btf__find_by_name_kind(btf, name, BTF_KIND_FUNC);
+        log_debug("Kernel BTF %s %s().", id > 0 ? "provides" : "lacks", name);
+        return id > 0;
 }
 
 #else
