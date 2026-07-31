@@ -169,6 +169,10 @@
           already as large or larger than requested. The specified size accepts the usual K, M, G suffixes
           (to the base of 1024). Specified values are rounded up to multiples of 4096.</para>
 
+          <para>If <option>--ephemeral</option> is specified, the original image file is left untouched and
+          the requested size is applied to the ephemeral copy instead. In that case qcow2 images are
+          supported too.</para>
+
           <xi:include href="version-info.xml" xpointer="v258"/></listitem>
         </varlistentry>
       </variablelist>
