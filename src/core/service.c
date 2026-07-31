@@ -6294,22 +6294,26 @@ int service_determine_exec_selinux_label(Service *s, char **ret) {
         else
                 r = chase(c->path, s->exec_context.root_directory, CHASE_PREFIX_ROOT|CHASE_TRIGGER_AUTOFS, &path, NULL);
         if (r < 0) {
-                log_unit_debug_errno(UNIT(s), r, "Failed to resolve service binary '%s', ignoring.", c->path);
+                log_unit_debug_errno(UNIT(s), r, "Failed to resolve service binary '%s', ignoring: %m", c->path);
                 return -ENODATA;
         }
 
         r = mac_selinux_get_create_label_from_exe(path, ret);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
-                log_unit_debug_errno(UNIT(s), r, "Reading SELinux label off binary '%s' is not supported, ignoring.", path);
+                log_unit_debug_errno(UNIT(s), r, "Reading SELinux label off binary '%s' is not supported, ignoring: %m", path);
                 return -ENODATA;
         }
         if (ERRNO_IS_NEG_PRIVILEGE(r)) {
-                log_unit_debug_errno(UNIT(s), r, "Can't read SELinux label off binary '%s', due to privileges, ignoring.", path);
+                log_unit_debug_errno(UNIT(s), r, "Can't read SELinux label off binary '%s', due to privileges, ignoring: %m", path);
                 return -ENODATA;
         }
-        if (r < 0)
-                return log_unit_debug_errno(UNIT(s), r, "Failed to read SELinux label off binary '%s': %m", path);
+        if (r < 0) {
+                if (mac_selinux_enforcing())
+                        return log_unit_debug_errno(UNIT(s), r, "Failed to read SELinux label off binary '%s': %m", path);
 
+                log_unit_debug_errno(UNIT(s), r, "Failed to read SELinux label off binary '%s', SELinux in permissive mode, ignoring: %m", path);
+                return -ENODATA;
+        }
         return 0;
 }
 
