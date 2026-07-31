@@ -2814,18 +2814,77 @@ static int verb_default_route(int argc, char *argv[], uintptr_t _data, void *use
         return varlink_call_link_method("io.systemd.Network.Link.SetDNSDefaultRoute", parameters);
 }
 
+static int verb_set_resolve_support_mode(const char *verb, const char *mode_str) {
+        int r;
+
+        assert(mode_str);
+
+        const char *proto, *method;
+        if (streq(verb, "llmnr")) {
+                proto = "LLMNR";
+                method = "io.systemd.Network.Link.SetLLMNR";
+        } else if (streq(verb, "mdns")) {
+                proto = "mDNS";
+                method = "io.systemd.Network.Link.SetMulticastDNS";
+        } else
+                assert_not_reached();
+
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
+        ResolveSupport mode = resolve_support_from_string(mode_str);
+        if (mode < 0)
+                return log_error_errno(mode, "Invalid %s setting: %s", proto, mode_str);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = varlink_dump_dns_configuration(&v);
+        if (r < 0)
+                return r;
+
+        ResolveSupport global_mode = _RESOLVE_SUPPORT_INVALID;
+        sd_json_variant *w;
+        JSON_VARIANT_ARRAY_FOREACH(w, v) {
+                _cleanup_(dns_configuration_freep) DNSConfiguration *c = NULL;
+                r = dns_configuration_from_json(w, &c);
+                if (r < 0)
+                        return r;
+
+                if (c->ifindex <= 0 && !c->delegate) {
+                        const char *global_mode_str;
+                        if (streq(verb, "llmnr"))
+                                global_mode_str = c->llmnr_mode_str;
+                        else if (streq(verb, "mdns"))
+                                global_mode_str = c->mdns_mode_str;
+                        else
+                                assert_not_reached();
+
+                        global_mode = resolve_support_from_string(global_mode_str);
+                        if (global_mode < 0)
+                                return log_error_errno(global_mode, "Received invalid global %s setting: %s", proto, global_mode_str);
+
+                        if (global_mode < mode)
+                                log_warning("Setting %s support level \"%s\" for \"%s\", but the global support level is \"%s\".",
+                                            proto, mode_str, arg_ifname, global_mode_str);
+
+                        break;
+                }
+        }
+        if (global_mode == _RESOLVE_SUPPORT_INVALID)
+                return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "Failed to get global DNS configuration");
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        r = sd_json_buildo(
+                        &parameters,
+                        SD_JSON_BUILD_PAIR_STRING("Mode", mode_str));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build JSON parameters: %m");
+
+        return varlink_call_link_method(method, parameters);
+}
+
 VERB(verb_llmnr, "llmnr", "[LINK [MODE]]\0", VERB_ANY, 3, 0,
      "Get/set per-interface LLMNR mode");
 static int verb_llmnr(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_free_ char *global_llmnr_support_str = NULL;
-        ResolveSupport global_llmnr_support, llmnr_support;
         int r;
-
-        r = acquire_bus(&bus);
-        if (r < 0)
-                return r;
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2839,53 +2898,13 @@ static int verb_llmnr(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (argc < 3)
                 return status_ifindex(arg_ifindex, STATUS_LLMNR);
 
-        llmnr_support = resolve_support_from_string(argv[2]);
-        if (llmnr_support < 0)
-                return log_error_errno(llmnr_support, "Invalid LLMNR setting: %s", argv[2]);
-
-        r = bus_get_property_string(bus, bus_resolve_mgr, "LLMNR", &error, &global_llmnr_support_str);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get the global LLMNR support state: %s", bus_error_message(&error, r));
-
-        global_llmnr_support = resolve_support_from_string(global_llmnr_support_str);
-        if (global_llmnr_support < 0)
-                return log_error_errno(global_llmnr_support, "Received invalid global LLMNR setting: %s", global_llmnr_support_str);
-
-        if (global_llmnr_support < llmnr_support)
-                log_warning("Setting LLMNR support level \"%s\" for \"%s\", but the global support level is \"%s\".",
-                            argv[2], arg_ifname, global_llmnr_support_str);
-
-        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
-
-        r = bus_call_method(bus, bus_resolve_mgr, "SetLinkLLMNR", &error, NULL, "is", arg_ifindex, argv[2]);
-        if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
-                sd_bus_error_free(&error);
-
-                r = bus_call_method(bus, bus_network_mgr, "SetLinkLLMNR", &error, NULL, "is", arg_ifindex, argv[2]);
-        }
-        if (r < 0) {
-                if (arg_ifindex_permissive &&
-                    sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
-                        return 0;
-
-                return log_error_errno(r, "Failed to set LLMNR configuration: %s", bus_error_message(&error, r));
-        }
-
-        return 0;
+        return verb_set_resolve_support_mode("llmnr", argv[2]);
 }
 
 VERB(verb_mdns, "mdns", "[LINK [MODE]]\0", VERB_ANY, 3, 0,
      "Get/set per-interface MulticastDNS mode");
 static int verb_mdns(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_free_ char *global_mdns_support_str = NULL;
-        ResolveSupport global_mdns_support, mdns_support;
         int r;
-
-        r = acquire_bus(&bus);
-        if (r < 0)
-                return r;
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2899,45 +2918,7 @@ static int verb_mdns(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (argc < 3)
                 return status_ifindex(arg_ifindex, STATUS_MDNS);
 
-        mdns_support = resolve_support_from_string(argv[2]);
-        if (mdns_support < 0)
-                return log_error_errno(mdns_support, "Invalid mDNS setting: %s", argv[2]);
-
-        r = bus_get_property_string(bus, bus_resolve_mgr, "MulticastDNS", &error, &global_mdns_support_str);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get the global mDNS support state: %s", bus_error_message(&error, r));
-
-        global_mdns_support = resolve_support_from_string(global_mdns_support_str);
-        if (global_mdns_support < 0)
-                return log_error_errno(global_mdns_support, "Received invalid global mDNS setting: %s", global_mdns_support_str);
-
-        if (global_mdns_support < mdns_support)
-                log_warning("Setting mDNS support level \"%s\" for \"%s\", but the global support level is \"%s\".",
-                            argv[2], arg_ifname, global_mdns_support_str);
-
-        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
-
-        r = bus_call_method(bus, bus_resolve_mgr, "SetLinkMulticastDNS", &error, NULL, "is", arg_ifindex, argv[2]);
-        if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
-                sd_bus_error_free(&error);
-
-                r = bus_call_method(
-                                bus,
-                                bus_network_mgr,
-                                "SetLinkMulticastDNS",
-                                &error,
-                                NULL,
-                                "is", arg_ifindex, argv[2]);
-        }
-        if (r < 0) {
-                if (arg_ifindex_permissive &&
-                    sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
-                        return 0;
-
-                return log_error_errno(r, "Failed to set MulticastDNS configuration: %s", bus_error_message(&error, r));
-        }
-
-        return 0;
+        return verb_set_resolve_support_mode("mdns", argv[2]);
 }
 
 VERB(verb_dns_over_tls, "dnsovertls", "[LINK [MODE]]\0", VERB_ANY, 3, 0,
