@@ -748,10 +748,17 @@ static int query_device(QueryType query, sd_device* device) {
                 FOREACH_DEVICE_DEVLINK(device, devlink) {
                         if (!arg_root)
                                 assert_se(devlink = path_startswith(devlink, "/dev/"));
-                        printf("%s%s", prefix, devlink);
-                        prefix = " ";
+
+                        if (arg_value)
+                                printf("%s\n", devlink);
+                        else {
+                                printf("%s%s", prefix, devlink);
+                                prefix = " ";
+                        }
                 }
-                puts("");
+
+                if (!arg_value)
+                        puts("");
                 return 0;
         }
 
@@ -1025,7 +1032,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG("value", NULL,
-                            "When showing properties, print only their values"):
+                            "Print only values; in symlink query, print one path per line"):
                         arg_value = true;
                         break;
 
@@ -1201,6 +1208,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int verb_info_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        PagerFlags pager_flags;
         int r;
 
         r = parse_argv(argc, argv);
@@ -1213,7 +1221,11 @@ int verb_info_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (arg_action_type == ACTION_DEVICE_ID_FILE)
                 return stat_device();
 
-        pager_open(arg_pager_flags);
+        pager_flags = arg_pager_flags;
+        if (arg_action_type == ACTION_QUERY && arg_query == QUERY_SYMLINK)
+                pager_flags |= PAGER_DISABLE;
+
+        pager_open(pager_flags);
 
         if (arg_action_type == ACTION_EXPORT)
                 return export_devices();

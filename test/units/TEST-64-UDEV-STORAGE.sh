@@ -10,7 +10,8 @@ set -o pipefail
 helper_check_device_symlinks() {(
     set +x
 
-    local dev link path paths target
+    local dev link path target
+    local -a links links_by_value paths
 
     [[ $# -gt 0 ]] && paths=("$@") || paths=("/dev/disk" "/dev/mapper")
 
@@ -111,6 +112,12 @@ check_device_unit() {(
     fi
 
     read -r -a links < <(udevadm info -q symlink "$syspath" 2>/dev/null)
+    mapfile -t links_by_value < <(udevadm info -q symlink --value "$syspath" 2>/dev/null)
+    if [[ "${links[*]}" != "${links_by_value[*]}" ]]; then
+        [[ "$log_level" == 1 ]] && echo >&2 "ERROR: udevadm info -q symlink --value disagrees with default output."
+        return 1
+    fi
+
     for link in "${links[@]}"; do
         if [[ "/dev/$link" == "$path" ]]; then # DEVLINKS= given by -q symlink are relative to /dev
             return 0
