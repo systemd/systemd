@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "bpf-restrict-fs.h"
 #include "load-fragment.h"
 #include "manager.h"
 #include "process-util.h"
@@ -75,9 +74,6 @@ int main(int argc, char *argv[]) {
         if (!can_memlock())
                 return log_tests_skipped("Can't use mlock()");
 
-        if (!bpf_restrict_fs_supported(/* initialize= */ true))
-                return log_tests_skipped("LSM BPF hooks are not supported");
-
         r = enter_cgroup_subroot(NULL);
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
@@ -96,12 +92,8 @@ int main(int argc, char *argv[]) {
                 return log_tests_skipped_errno(r, "manager_startup");
         ASSERT_OK(r);
 
-        /* bpf_restrict_fs_supported() above only checks that the BPF LSM hook is enabled in the kernel; it
-         * doesn't verify that the LSM BPF program managed to actually attach (e.g. some architectures/older
-         * kernels lack BPF trampoline support). If it didn't, manager_startup() already logged a warning
-         * and continued without enforcement, so skip here rather than hard-failing the assertions below. */
         if (!m->restrict_fs)
-                return log_tests_skipped("Failed to attach LSM BPF program");
+                return log_tests_skipped("LSM BPF hooks are not supported");
 
         /* We need to enable access to the filesystem where the binary is so we
          * add @common-block and @application */
