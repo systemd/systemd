@@ -162,6 +162,10 @@ static bool check_size_t_truncation(uint64_t t) {
         return (size_t) t == t;
 }
 
+static bool check_long_truncation(int64_t t) {
+        return (int64_t) (long) t == t;
+}
+
 static const char* socket_protocol_to_string(int32_t i) {
         if (i == IPPROTO_IP)
                 return "";
@@ -173,7 +177,7 @@ static const char* socket_protocol_to_string(int32_t i) {
 }
 
 static BUS_DEFINE_SET_TRANSIENT(int, "i", int32_t, int, "%" PRIi32);
-static BUS_DEFINE_SET_TRANSIENT(message_queue, "x", int64_t, long, "%" PRIi64);
+static BUS_DEFINE_SET_TRANSIENT_IS_VALID(message_queue, "x", int64_t, long, "%" PRIi64, check_long_truncation);
 static BUS_DEFINE_SET_TRANSIENT_IS_VALID(size_t_check_truncation, "t", uint64_t, size_t, "%" PRIu64, check_size_t_truncation);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(bind_ipv6_only, SocketAddressBindIPv6Only, socket_address_bind_ipv6_only_or_bool_from_string);
 static BUS_DEFINE_SET_TRANSIENT_STRING_WITH_CHECK(fdname, fdname_is_valid);
