@@ -119,3 +119,4 @@ bool link_negative_trust_anchor_lookup(Link *l, const char *name);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_free);
 
 int link_set_dns_servers(Link *l, struct in_addr_full **dns, size_t n_dns, ResolveConfigSource source);
+int link_set_search_domains(Link *l, DomainParameters *domains, size_t n_domains, ResolveConfigSource source);
