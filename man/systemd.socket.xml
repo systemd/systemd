@@ -742,10 +742,12 @@
       <varlistentry>
         <term><varname>MessageQueueMaxMessages=</varname>,
         <varname>MessageQueueMessageSize=</varname></term>
-        <listitem><para>These two settings take integer values and
-        control the mq_maxmsg field or the mq_msgsize field,
-        respectively, when creating the message queue. Note that
-        either none or both of these variables need to be set. See
+        <listitem><para>These two settings control the mq_maxmsg field or
+        the mq_msgsize field, respectively, when creating the message queue.
+        <varname>MessageQueueMaxMessages=</varname> takes an integer value.
+        <varname>MessageQueueMessageSize=</varname> takes a size in bytes, and
+        the usual suffixes K, M, G are supported and understood to the base of
+        1024. Note that either none or both of these variables need to be set. See
         <citerefentry project='die-net'><refentrytitle>mq_setattr</refentrytitle><manvolnum>3</manvolnum></citerefentry>
         for details.</para></listitem>
       </varlistentry>
