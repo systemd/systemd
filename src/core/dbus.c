@@ -1095,9 +1095,14 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
         if (m->pending_reload_message_dbus && sd_bus_message_get_bus(m->pending_reload_message_dbus) == *bus)
                 m->pending_reload_message_dbus = sd_bus_message_unref(m->pending_reload_message_dbus);
 
-        /* Possibly flush unwritten data, but only if we are
-         * unprivileged, since we don't want to sync here */
-        if (!MANAGER_IS_SYSTEM(m))
+        /* Possibly flush unwritten data, but only if we are unprivileged, since we don't want to sync
+         * here, and only if the connection is currently RUNNING: sd_bus_flush() first drives the
+         * connection to completion via bus_ensure_running(), which blocks us synchronously for up to
+         * BUS_AUTH_TIMEOUT if the peer accepted the connection but never answers authentication (e.g. a
+         * socket-activated D-Bus service that is hung or already gone during session teardown).
+         * sd_bus_flush() only touches the write queue once that step succeeds, so anything queued on a
+         * connection that does not reach RUNNING is discarded either way - not worth blocking for. */
+        if (!MANAGER_IS_SYSTEM(m) && sd_bus_is_ready(*bus) > 0)
                 sd_bus_flush(*bus);
 
         /* And destroy the object */
