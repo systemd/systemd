@@ -13,6 +13,7 @@
 #include "errno-util.h"
 #include "ether-addr-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "hashmap.h"
 #include "json-util.h"
 #include "log.h"
@@ -492,6 +493,13 @@ static int qmp_setup_ephemeral_drive(VmspawnQmpBridge *bridge, QmpClient *qmp, D
         r = get_image_virtual_size(drive->fd, drive->format, FLAGS_SET(drive->flags, QMP_DRIVE_BLOCK_DEVICE), &virtual_size);
         if (r < 0)
                 return r;
+
+        /* Growing the overlay leaves the base image untouched, which is the whole point of ephemeral mode. */
+        if (drive->grow_to > virtual_size) {
+                log_debug("Growing ephemeral overlay of '%s' from %s to %s.",
+                          drive->path, FORMAT_BYTES(virtual_size), FORMAT_BYTES(drive->grow_to));
+                virtual_size = drive->grow_to;
+        }
 
         /* Step 1-2: Pass both fds to QEMU */
         _cleanup_free_ char *base_path = NULL;

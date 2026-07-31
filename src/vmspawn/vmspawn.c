@@ -423,6 +423,11 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_size(opts.arg, 1024, &arg_grow_image);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --grow-image= parameter: %s", opts.arg);
+
+                        if (arg_grow_image > UINT64_MAX - 4095)
+                                return log_error_errno(SYNTHETIC_ERRNO(ERANGE),
+                                                       "Specified --grow-image= size too large: %s", opts.arg);
+                        arg_grow_image = ROUND_UP(arg_grow_image, 4096);
                         break;
 
                 OPTION_GROUP("Host Configuration"): {}
@@ -2088,12 +2093,6 @@ static int grow_image(const char *path, uint64_t size) {
         if (size == 0)
                 return 0;
 
-        /* Round up to multiple of 4K */
-        size = DIV_ROUND_UP(size, 4096);
-        if (size > UINT64_MAX / 4096)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specified file size too large, refusing.");
-        size *= 4096;
-
         _cleanup_close_ int fd = xopenat_full(AT_FDCWD, path, O_RDWR|O_CLOEXEC, XO_REGULAR, /* mode= */ 0);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open image file '%s': %m", path);
@@ -2418,6 +2417,7 @@ static int prepare_primary_drive(const char *runtime_dir, DriveInfos *drives) {
                 }
                 d->overlay_fd = TAKE_FD(overlay_fd);
                 d->flags |= QMP_DRIVE_NO_FLUSH;
+                d->grow_to = arg_grow_image;
         }
 
         drives->drives[drives->n_drives++] = TAKE_PTR(d);
@@ -3249,14 +3249,18 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                                        arg_image);
                 }
 
-                if (arg_image_disk_type != DISK_TYPE_VIRTIO_SCSI_CDROM) {
+                if (arg_image_disk_type == DISK_TYPE_VIRTIO_SCSI_CDROM) {
+                        /* CD-ROMs are read-only, so override any "rw" on the kernel command line. */
+                        if (strv_contains(arg_kernel_cmdline_extra, "rw") &&
+                            strv_extend(&arg_kernel_cmdline_extra, "ro") < 0)
+                                return log_oom();
+                } else if (!arg_ephemeral) {
+                        /* In ephemeral mode the original image is never written to, the requested size is
+                         * applied to the qcow2 overlay instead, see prepare_primary_drive(). */
                         r = grow_image(arg_image, arg_grow_image);
                         if (r < 0)
                                 return r;
-                /* CD-ROMs are read-only, so override any "rw" on the kernel command line. */
-                } else if (strv_contains(arg_kernel_cmdline_extra, "rw") &&
-                           strv_extend(&arg_kernel_cmdline_extra, "ro") < 0)
-                        return log_oom();
+                }
         }
 
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -4225,7 +4229,9 @@ static int verify_arguments(void) {
                         log_warning("--grow-image has no effect with --image-disk-type=scsi-cd (CD-ROMs are read-only).");
         }
 
-        if (arg_grow_image && arg_image_format == IMAGE_FORMAT_QCOW2)
+        /* In ephemeral mode the size is picked when creating the qcow2 overlay, so the base image format
+         * doesn't matter. */
+        if (arg_grow_image && arg_image_format == IMAGE_FORMAT_QCOW2 && !arg_ephemeral)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--grow-image is not supported for qcow2 images, use 'qemu-img resize FILE SIZE'.");
 
