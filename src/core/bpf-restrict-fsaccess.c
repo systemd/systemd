@@ -41,7 +41,7 @@ const char* const restrict_fsaccess_link_names[_RESTRICT_FILESYSTEM_ACCESS_LINK_
 #include "bpf-util.h"
 #include "restrict-fsaccess-skel.h"
 
-static struct restrict_fsaccess_bpf *restrict_fsaccess_bpf_free(struct restrict_fsaccess_bpf *obj) {
+static struct restrict_fsaccess_bpf* restrict_fsaccess_bpf_free(struct restrict_fsaccess_bpf *obj) {
         restrict_fsaccess_bpf__destroy(obj);
         return NULL;
 }
