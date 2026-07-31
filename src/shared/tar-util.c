@@ -1083,7 +1083,7 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
         return 0;
 }
 
-static int make_tmpfs(void) {
+int tar_hardlink_db_new(void) {
         /* Creates a tmpfs superblock to store our hardlink db in. We can do this if we run in our own
          * userns, or if we are privileged. This is preferable, since it means the db is cleaned up
          * automatically once we are done. Moreover, since this is a new superblock owned by us, we do not
@@ -1199,7 +1199,7 @@ static int hardlink_lookup(
 
                 /* We first try to create our own superblock, which works if we are in a userns, and which
                  * doesn't require explicit clean-up */
-                d->hardlink_db_fd = make_tmpfs();
+                d->hardlink_db_fd = tar_hardlink_db_new();
                 if (d->hardlink_db_fd < 0) {
                         log_debug_errno(d->hardlink_db_fd, "Failed to allocate tmpfs superblock for hardlink db, falling back to temporary directory: %m");
 
@@ -1591,7 +1591,8 @@ static void make_archive_data_done(struct make_archive_data *d) {
         unlink_and_free(d->hardlink_db_path);
 }
 
-int tar_c(int tree_fd, int output_fd, const char *filename, TarFlags flags) {
+/* The hardlink db fd is borrowed, not consumed: whoever passed it in stays responsible for closing it. */
+int tar_c(int tree_fd, int output_fd, const char *filename, int hardlink_db_fd, TarFlags flags) {
         int r;
 
         assert(tree_fd >= 0);
@@ -1617,7 +1618,7 @@ int tar_c(int tree_fd, int output_fd, const char *filename, TarFlags flags) {
         _cleanup_(make_archive_data_done) struct make_archive_data data = {
                 .archive = a,
                 .flags = flags,
-                .hardlink_db_fd = -EBADF,
+                .hardlink_db_fd = hardlink_db_fd,
                 .have_unique_mount_id = -1,
         };
 
@@ -1648,11 +1649,15 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libarchive support not available.");
 }
 
-int tar_c(int tree_fd, int output_fd, const char *filename, TarFlags flags) {
+int tar_c(int tree_fd, int output_fd, const char *filename, int hardlink_db_fd, TarFlags flags) {
         assert(tree_fd >= 0);
         assert(output_fd >= 0);
 
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libarchive support not available.");
+}
+
+int tar_hardlink_db_new(void) {
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libarchive support not available.");
 }
 
 #endif
