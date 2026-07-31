@@ -774,7 +774,7 @@ static int dir_cleanup(
 
                                 if (!arg_dry_run &&
                                     flock(dirfd(sub_dir), LOCK_EX|LOCK_NB) < 0) {
-                                        log_debug_errno(errno, "Couldn't acquire shared BSD lock on directory \"%s\", skipping: %m", sub_path);
+                                        log_debug_errno(errno, "Couldn't acquire exclusive BSD lock on directory \"%s\", skipping: %m", sub_path);
                                         continue;
                                 }
 
@@ -867,7 +867,7 @@ static int dir_cleanup(
                                 if (fd < 0 && !IN_SET(fd, -ENOENT, -ELOOP))
                                         log_warning_errno(fd, "Opening file \"%s\" failed, proceeding without lock: %m", sub_path);
                                 if (fd >= 0 && flock(fd, LOCK_EX|LOCK_NB) < 0 && errno == EAGAIN) {
-                                        log_debug_errno(errno, "Couldn't acquire shared BSD lock on file \"%s\", skipping: %m", sub_path);
+                                        log_debug_errno(errno, "Couldn't acquire exclusive BSD lock on file \"%s\", skipping: %m", sub_path);
                                         continue;
                                 }
                         }
@@ -3567,7 +3567,7 @@ static int item_instance_open_directory_and_lock(
 
         if (!arg_dry_run &&
             flock(dirfd(d), LOCK_EX|LOCK_NB) < 0) {
-                log_debug_errno(errno, "Couldn't acquire shared BSD lock on directory \"%s\", skipping: %m", instance);
+                log_debug_errno(errno, "Couldn't acquire exclusive BSD lock on directory \"%s\", skipping: %m", instance);
                 return 0;
         }
 
