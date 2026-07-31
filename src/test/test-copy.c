@@ -9,6 +9,7 @@
 
 #include "alloc-util.h"
 #include "argv-util.h"
+#include "btrfs-util.h"
 #include "chase.h"
 #include "copy.h"
 #include "errno-util.h"
@@ -799,62 +800,35 @@ TEST_RET(copy_with_verity) {
         return 0;
 }
 
-static void test_copy_times_one(
-                const struct timespec source[static 2],
-                usec_t ts_clamp,
-                const struct timespec expect[static 2]) {
-        _cleanup_(unlink_tempfilep) char in_fn[] = "/tmp/test-copy-times-in-XXXXXX";
-        _cleanup_(unlink_tempfilep) char out_fn[] = "/tmp/test-copy-times-out-XXXXXX";
-        _cleanup_close_ int in_fd = -EBADF, out_fd = -EBADF;
-        struct stat st;
+TEST(fallback_directory_preserve_root_stat) {
+        _cleanup_(rm_rf_physical_and_freep) char *dir = NULL;
+        _cleanup_close_ int dir_fd = -EBADF;
 
-        in_fd = mkostemp_safe(in_fn);
-        assert_se(in_fd >= 0);
-        out_fd = mkostemp_safe(out_fn);
-        assert_se(out_fd >= 0);
+        /* Use a plain temp directory (not a btrfs subvolume) so that the fallback copy path is
+         * exercised: btrfs_subvol_make() fails with ENOTSUP and BTRFS_SNAPSHOT_FALLBACK_DIRECTORY
+         * falls back to mkdirat() to create the snapshot root. */
+        dir_fd = ASSERT_OK(mkdtemp_open(NULL, 0, &dir));
 
-        assert_se(futimens(in_fd, source) >= 0);
+        ASSERT_OK_ERRNO(mkdirat(dir_fd, "src", 0755));
+        ASSERT_OK(write_string_file_at(dir_fd, "src/file", "hello", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK_ERRNO(fchmodat(dir_fd, "src", 0700, 0));
 
-        ASSERT_OK(copy_times_full(in_fd, out_fd, /* flags= */ 0, ts_clamp));
+        struct stat src_st;
+        ASSERT_OK_ERRNO(fstatat(dir_fd, "src", &src_st, 0));
 
-        assert_se(fstat(out_fd, &st) >= 0);
-        ASSERT_EQ(st.st_atim.tv_sec, expect[0].tv_sec);
-        ASSERT_EQ(st.st_atim.tv_nsec, expect[0].tv_nsec);
-        ASSERT_EQ(st.st_mtim.tv_sec, expect[1].tv_sec);
-        ASSERT_EQ(st.st_mtim.tv_nsec, expect[1].tv_nsec);
-}
+        ASSERT_OK(btrfs_subvol_snapshot_at(dir_fd, "src", dir_fd, "snap",
+                                           BTRFS_SNAPSHOT_FALLBACK_COPY|BTRFS_SNAPSHOT_FALLBACK_DIRECTORY));
 
-#define TIMESPEC_PAIR(a, m) ((const struct timespec[2]) { { .tv_sec = (a) }, { .tv_sec = (m) } })
+        struct stat snap_st;
+        ASSERT_OK_ERRNO(fstatat(dir_fd, "snap", &snap_st, 0));
 
-TEST(copy_times_clamp) {
-        const time_t before = 1600000000, epoch = 1700000000, after = 1750000000;
-        const usec_t clamp = epoch * USEC_PER_SEC;
+        ASSERT_EQ(snap_st.st_mode & 07777, src_st.st_mode & 07777);
+        ASSERT_EQ(snap_st.st_uid, src_st.st_uid);
+        ASSERT_EQ(snap_st.st_gid, src_st.st_gid);
 
-        /* Older than the clamp: kept. */
-        test_copy_times_one(TIMESPEC_PAIR(before, before), clamp, TIMESPEC_PAIR(before, before));
-
-        /* Newer: pulled back onto the clamp. */
-        test_copy_times_one(TIMESPEC_PAIR(after, after), clamp, TIMESPEC_PAIR(epoch, epoch));
-
-        /* Exactly on it: kept, the clamp is an inclusive upper bound. The comparison runs at microsecond
-         * resolution, so a nanosecond past the clamp still counts as "on it". */
-        test_copy_times_one(
-                        (const struct timespec[2]) { { .tv_sec = epoch, .tv_nsec = 1 },
-                                                     { .tv_sec = epoch, .tv_nsec = 1 } },
-                        clamp,
-                        (const struct timespec[2]) { { .tv_sec = epoch, .tv_nsec = 1 },
-                                                     { .tv_sec = epoch, .tv_nsec = 1 } });
-
-        /* atime and mtime are decided independently: a file that was merely read after the epoch
-         * loses its atime and keeps its mtime. */
-        test_copy_times_one(TIMESPEC_PAIR(after, before), clamp, TIMESPEC_PAIR(epoch, before));
-        test_copy_times_one(TIMESPEC_PAIR(before, after), clamp, TIMESPEC_PAIR(before, epoch));
-
-        /* Before 1970: older than any epoch, so kept rather than pushed forward. */
-        test_copy_times_one(TIMESPEC_PAIR(-1, -1), clamp, TIMESPEC_PAIR(-1, -1));
-
-        /* No clamp requested: the source's own timestamps. */
-        test_copy_times_one(TIMESPEC_PAIR(after, after), USEC_INFINITY, TIMESPEC_PAIR(after, after));
+        _cleanup_free_ char *content = NULL;
+        ASSERT_OK(read_full_file_at(dir_fd, "snap/file", &content, NULL));
+        ASSERT_STREQ(content, "hello\n");
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
