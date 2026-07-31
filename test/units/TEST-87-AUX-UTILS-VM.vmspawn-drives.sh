@@ -53,7 +53,7 @@ WORKDIR="$(mktemp -d)"
 
 at_exit() {
     set +e
-    for m in "${MACHINE_MULTI:-}" "${MACHINE_EPHEMERAL:-}"; do
+    for m in "${MACHINE_MULTI:-}" "${MACHINE_EPHEMERAL:-}" "${MACHINE_GROW:-}"; do
         [[ -n "$m" ]] || continue
         if machinectl status "$m" &>/dev/null; then
             machinectl terminate "$m" 2>/dev/null
@@ -62,6 +62,7 @@ at_exit() {
     done
     [[ -n "${VMSPAWN_MULTI_PID:-}" ]] && kill "$VMSPAWN_MULTI_PID" 2>/dev/null && wait "$VMSPAWN_MULTI_PID" 2>/dev/null
     [[ -n "${VMSPAWN_EPHEMERAL_PID:-}" ]] && kill "$VMSPAWN_EPHEMERAL_PID" 2>/dev/null && wait "$VMSPAWN_EPHEMERAL_PID" 2>/dev/null
+    [[ -n "${VMSPAWN_GROW_PID:-}" ]] && kill "$VMSPAWN_GROW_PID" 2>/dev/null && wait "$VMSPAWN_GROW_PID" 2>/dev/null
     rm -rf "$WORKDIR"
 }
 trap at_exit EXIT
@@ -184,5 +185,60 @@ machinectl terminate "$MACHINE_EPHEMERAL"
 timeout 10 bash -c "while machinectl status '$MACHINE_EPHEMERAL' &>/dev/null; do sleep .5; done"
 timeout 10 bash -c "while kill -0 '$VMSPAWN_EPHEMERAL_PID' 2>/dev/null; do sleep .5; done"
 echo "Ephemeral VM terminated cleanly"
+
+# --- Test 3: Ephemeral overlay grown with --grow-image= ---
+# In ephemeral mode the requested size has to land on the qcow2 overlay. The
+# image passed to --image= is opened read-only and has to come out of the run
+# at its original size.
+
+MACHINE_GROW="test-vmspawn-grow-$$"
+GROW_SIZE=$((512 * 1024 * 1024))
+IMAGE_SIZE="$(stat -c %s "$WORKDIR/root.raw")"
+
+systemd-vmspawn \
+    --machine="$MACHINE_GROW" \
+    --ram=256M \
+    --image="$WORKDIR/root.raw" \
+    --ephemeral \
+    --grow-image="$GROW_SIZE" \
+    --linux="$KERNEL" \
+    --tpm=no \
+    --console=headless \
+    root=/dev/vda rw \
+    &>"$WORKDIR/vmspawn-grow.log" &
+VMSPAWN_GROW_PID=$!
+
+wait_for_machine "$MACHINE_GROW" "$VMSPAWN_GROW_PID" "$WORKDIR/vmspawn-grow.log"
+echo "Grown ephemeral machine '$MACHINE_GROW' registered with machined"
+
+assert_eq "$(stat -c %s "$WORKDIR/root.raw")" "$IMAGE_SIZE"
+echo "Image passed to --image= was left at its original size"
+
+# The overlay is unlinked, so QEMU's fd is the only way to reach it. vmspawn
+# registers QEMU itself as the machine leader, so machined knows its PID.
+QEMU_PID="$(varlinkctl call /run/systemd/machine/io.systemd.Machine \
+    io.systemd.Machine.List "{\"name\":\"$MACHINE_GROW\"}" | jq -r '.leader.pid')"
+
+OVERLAY=""
+for fd in /proc/"$QEMU_PID"/fd/*; do
+    target="$(readlink "$fd" 2>/dev/null)" || continue
+    # O_TMPFILE in the runtime directory, or the memfd fallback.
+    [[ "$target" == */vmspawn/"$MACHINE_GROW"/#* || "$target" == /memfd:vmspawn-overlay* ]] || continue
+    OVERLAY="$fd"
+    break
+done
+assert_neq "$OVERLAY" ""
+echo "Ephemeral overlay is QEMU fd ${OVERLAY##*/}"
+
+# qcow2 header: the magic, followed by the virtual size as a big endian u64 at
+# offset 24. Read it out of the header directly, qemu-img may not be installed.
+assert_eq "$(od -An -tx1 -N4 "$OVERLAY" | tr -d ' ')" "514649fb"
+assert_eq "$(od -An -tu8 -j24 -N8 --endian=big "$OVERLAY" | tr -d ' ')" "$GROW_SIZE"
+echo "Ephemeral overlay was created at the requested size"
+
+machinectl terminate "$MACHINE_GROW"
+timeout 10 bash -c "while machinectl status '$MACHINE_GROW' &>/dev/null; do sleep .5; done"
+timeout 10 bash -c "while kill -0 '$VMSPAWN_GROW_PID' 2>/dev/null; do sleep .5; done"
+echo "Grown ephemeral VM terminated cleanly"
 
 echo "All vmspawn drive setup tests passed"
