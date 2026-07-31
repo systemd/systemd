@@ -757,8 +757,7 @@ static int query_device(QueryType query, sd_device* device) {
                         }
                 }
 
-                if (!arg_value)
-                        puts("");
+                puts("");
                 return 0;
         }
 
@@ -1222,7 +1221,7 @@ int verb_info_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 return stat_device();
 
         pager_flags = arg_pager_flags;
-        if (arg_action_type == ACTION_QUERY && arg_query == QUERY_SYMLINK)
+        if (arg_action_type == ACTION_QUERY && arg_query == QUERY_SYMLINK && !arg_value)
                 pager_flags |= PAGER_DISABLE;
 
         pager_open(pager_flags);
