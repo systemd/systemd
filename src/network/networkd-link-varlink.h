@@ -23,3 +23,4 @@ int vl_method_link_set_domains(sd_varlink *vlink, sd_json_variant *parameters, s
 int vl_method_link_set_dns_default_route(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
 int vl_method_link_set_llmnr(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
 int vl_method_link_set_mdns(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
+int vl_method_link_set_dns_over_tls(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
