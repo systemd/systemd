@@ -21,14 +21,8 @@
 
 #define CGROUP_HASH_SIZE_MAX 2048
 
-static struct restrict_fs_bpf *restrict_fs_bpf_free(struct restrict_fs_bpf *obj) {
-        /* restrict_fs_bpf__destroy handles object == NULL case */
-        restrict_fs_bpf__destroy(obj);
-
-        return NULL;
-}
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct restrict_fs_bpf *, restrict_fs_bpf_free);
+/* restrict_fs_bpf__destroy handles object == NULL case */
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct restrict_fs_bpf *, restrict_fs_bpf__destroy, restrict_fs_bpf_freep, NULL);
 
 int bpf_restrict_fs_setup(Manager *m) {
         int r;
