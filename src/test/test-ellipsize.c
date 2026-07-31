@@ -162,6 +162,21 @@ TEST(ellipsize_ansi_cats) {
         ASSERT_STREQ(h, "🐱…" ANSI_NORMAL "🐱" ANSI_NORMAL);
 }
 
+TEST(ellipsize_ansi_two_byte) {
+        _cleanup_free_ char *e = NULL, *f = NULL;
+
+        /* Fe escape sequences are just two bytes long (ESC followed by 0x40…0x5F). Make sure they are
+         * skipped over like the longer CSI sequences are, in particular when one terminates the string. */
+
+        e = ellipsize("🐱🐱" "\x1bM" "🐱🐱" "\x1bM", 5, 0);
+        puts(e);
+        ASSERT_STREQ(e, "…" "\x1bM" "🐱🐱" "\x1bM");
+
+        f = ellipsize("ab" "\x1bM" "cd" "\x1bM", 4, 90);
+        puts(f);
+        ASSERT_STREQ(f, "ab" "\x1bM" "cd" "\x1bM");
+}
+
 TEST(ellipsize_esc_infinite_loop) {
         /* Make sure we don't infinite loop on an ESC in the first half */
         static const char s[] = { 'A', 'B', 0x1B, ' ', 'D', '\0' };
