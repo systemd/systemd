@@ -2253,17 +2253,17 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         FOREACH_ARRAY(mount, c->bind_mounts, c->n_bind_mounts) {
                 _cleanup_free_ char *src_escaped = NULL, *dst_escaped = NULL;
 
-                src_escaped = shell_escape(mount->source, ":" WHITESPACE);
+                src_escaped = shell_escape(mount->source, ":\"");
                 if (!src_escaped)
                         return log_oom_debug();
 
-                dst_escaped = shell_escape(mount->destination, ":" WHITESPACE);
+                dst_escaped = shell_escape(mount->destination, ":\"");
                 if (!dst_escaped)
                         return log_oom_debug();
 
                 r = serialize_item_format(f,
                                           mount->read_only ? "exec-context-bind-read-only-path" : "exec-context-bind-path",
-                                          "%s%s:%s:%s",
+                                          "\"%s%s:%s:%s\"",
                                           mount->ignore_enoent ? "-" : "",
                                           src_escaped,
                                           dst_escaped,
@@ -2535,6 +2535,72 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         fputc('\n', f); /* End marker */
 
         return 0;
+}
+
+static int exec_context_deserialize_bind_mount(ExecContext *c, const char *value, bool read_only) {
+        bool have_entry = false;
+        int r;
+
+        assert(c);
+        assert(value);
+
+        for (const char *p = value;;) {
+                _cleanup_free_ char *tuple = NULL, *source = NULL, *destination = NULL, *options = NULL,
+                                   *extra = NULL;
+                bool rbind = true, ignore_enoent = false;
+                char *s, *d;
+                int n_fields;
+
+                r = extract_first_word(&p, &tuple, /* separators= */ NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return have_entry ? 0 : -EINVAL;
+                have_entry = true;
+
+                const char *q = tuple;
+                r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS|EXTRACT_DONT_COALESCE_SEPARATORS,
+                                       &source, &destination, &options, &extra);
+                if (r < 0)
+                        return r;
+                if (r == 0 || extra)
+                        continue;
+                n_fields = r;
+
+                s = source;
+                if (s[0] == '-') {
+                        ignore_enoent = true;
+                        s++;
+                }
+
+                if (n_fields >= 2) {
+                        if (isempty(destination))
+                                continue;
+
+                        d = destination;
+                } else
+                        d = s;
+
+                if (n_fields >= 3) {
+                        if (isempty(options) || streq(options, "rbind"))
+                                rbind = true;
+                        else if (streq(options, "norbind"))
+                                rbind = false;
+                        else
+                                continue;
+                }
+
+                r = bind_mount_add(&c->bind_mounts, &c->n_bind_mounts,
+                                   &(BindMount) {
+                                           .source = s,
+                                           .destination = d,
+                                           .read_only = read_only,
+                                           .recursive = rbind,
+                                           .ignore_enoent = ignore_enoent,
+                                   });
+                if (r < 0)
+                        return log_oom_debug();
+        }
 }
 
 static int exec_context_deserialize(ExecContext *c, FILE *f) {
@@ -3244,123 +3310,13 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-bind-read-only-path="))) {
-                        _cleanup_free_ char *source = NULL, *destination = NULL;
-                        bool rbind = true, ignore_enoent = false;
-                        char *s = NULL, *d = NULL;
-
-                        r = extract_first_word(&val,
-                                               &source,
-                                               ":" WHITESPACE,
-                                               EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS|EXTRACT_UNESCAPE_SEPARATORS);
+                        r = exec_context_deserialize_bind_mount(c, val, /* read_only= */ true);
                         if (r < 0)
                                 return r;
-                        if (r == 0)
-                                return -EINVAL;
-
-                        s = source;
-                        if (s[0] == '-') {
-                                ignore_enoent = true;
-                                s++;
-                        }
-
-                        if (val && val[-1] == ':') {
-                                r = extract_first_word(&val,
-                                                       &destination,
-                                                       ":" WHITESPACE,
-                                                       EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS|EXTRACT_UNESCAPE_SEPARATORS);
-                                if (r < 0)
-                                        return r;
-                                if (r == 0)
-                                        continue;
-
-                                d = destination;
-
-                                if (val && val[-1] == ':') {
-                                        _cleanup_free_ char *options = NULL;
-
-                                        r = extract_first_word(&val, &options, NULL, EXTRACT_UNQUOTE);
-                                        if (r < 0)
-                                                return r;
-
-                                        if (isempty(options) || streq(options, "rbind"))
-                                                rbind = true;
-                                        else if (streq(options, "norbind"))
-                                                rbind = false;
-                                        else
-                                                continue;
-                                }
-                        } else
-                                d = s;
-
-                        r = bind_mount_add(&c->bind_mounts, &c->n_bind_mounts,
-                                        &(BindMount) {
-                                                .source = s,
-                                                .destination = d,
-                                                .read_only = true,
-                                                .recursive = rbind,
-                                                .ignore_enoent = ignore_enoent,
-                                        });
-                        if (r < 0)
-                                return log_oom_debug();
                 } else if ((val = startswith(l, "exec-context-bind-path="))) {
-                        _cleanup_free_ char *source = NULL, *destination = NULL;
-                        bool rbind = true, ignore_enoent = false;
-                        char *s = NULL, *d = NULL;
-
-                        r = extract_first_word(&val,
-                                               &source,
-                                               ":" WHITESPACE,
-                                               EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS|EXTRACT_UNESCAPE_SEPARATORS);
+                        r = exec_context_deserialize_bind_mount(c, val, /* read_only= */ false);
                         if (r < 0)
                                 return r;
-                        if (r == 0)
-                                return -EINVAL;
-
-                        s = source;
-                        if (s[0] == '-') {
-                                ignore_enoent = true;
-                                s++;
-                        }
-
-                        if (val && val[-1] == ':') {
-                                r = extract_first_word(&val,
-                                                       &destination,
-                                                       ":" WHITESPACE,
-                                                       EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS|EXTRACT_UNESCAPE_SEPARATORS);
-                                if (r < 0)
-                                        return r;
-                                if (r == 0)
-                                        continue;
-
-                                d = destination;
-
-                                if (val && val[-1] == ':') {
-                                        _cleanup_free_ char *options = NULL;
-
-                                        r = extract_first_word(&val, &options, NULL, EXTRACT_UNQUOTE);
-                                        if (r < 0)
-                                                return r;
-
-                                        if (isempty(options) || streq(options, "rbind"))
-                                                rbind = true;
-                                        else if (streq(options, "norbind"))
-                                                rbind = false;
-                                        else
-                                                continue;
-                                }
-                        } else
-                                d = s;
-
-                        r = bind_mount_add(&c->bind_mounts, &c->n_bind_mounts,
-                                        &(BindMount) {
-                                                .source = s,
-                                                .destination = d,
-                                                .read_only = false,
-                                                .recursive = rbind,
-                                                .ignore_enoent = ignore_enoent,
-                                        });
-                        if (r < 0)
-                                return log_oom_debug();
                 } else if ((val = startswith(l, "exec-context-temporary-filesystems="))) {
                         _cleanup_free_ char *path = NULL, *options = NULL;
 
