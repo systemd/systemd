@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "bus-polkit.h"
+#include "dns-domain.h"
 #include "dns-packet.h"
 #include "iovec-util.h"
 #include "json-util.h"
@@ -597,6 +598,50 @@ int dispatch_link_set_domains_parameters(const char *name, sd_json_variant *vari
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to verify interface index: %m");
         p.ifindex = ifindex;
+
+        *ret = TAKE_STRUCT(p);
+        return 0;
+}
+
+void link_set_nta_parameters_done(LinkSetNTAParameters *p) {
+        if (!p)
+                return;
+
+        p->ntas = strv_free(p->ntas);
+}
+
+int dispatch_link_set_nta_parameters(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "NegativeTrustAnchors", SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,         offsetof(LinkSetNTAParameters, ntas),    SD_JSON_MANDATORY },
+                { "InterfaceIndex",       _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,         offsetof(LinkSetNTAParameters, ifindex), SD_JSON_RELAX     },
+                { "InterfaceName",        SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LinkSetNTAParameters, ifname),  SD_JSON_NULLABLE  },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {},
+        };
+        LinkSetNTAParameters *ret = ASSERT_PTR(userdata);
+        int r;
+
+        _cleanup_(link_set_nta_parameters_done) LinkSetNTAParameters p = {};
+        r = sd_json_dispatch(variant, dispatch_table, flags, &p);
+        if (r < 0)
+                return r;
+
+        int ifindex;
+        r = ensure_ifindex(p.ifindex, p.ifname, &ifindex);
+        if (r < 0)
+                return json_log(variant, flags, r, "Failed to verify interface index: %m");
+        p.ifindex = ifindex;
+
+        if (strv_length(p.ntas) > LINK_NEGATIVE_TRUST_ANCHORS_MAX)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(E2BIG), "Too many negative trust anchors for one link.");
+
+        STRV_FOREACH(i, p.ntas) {
+                r = dns_name_is_valid(*i);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Invalid negative trust anchor domain: %s", *i);
+        }
 
         *ret = TAKE_STRUCT(p);
         return 0;
