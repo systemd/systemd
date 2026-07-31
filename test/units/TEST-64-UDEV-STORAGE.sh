@@ -10,7 +10,8 @@ set -o pipefail
 helper_check_device_symlinks() {(
     set +x
 
-    local dev link path paths target
+    local dev link path target
+    local -a paths
 
     [[ $# -gt 0 ]] && paths=("$@") || paths=("/dev/disk" "/dev/mapper")
 
@@ -83,7 +84,9 @@ helper_check_udev_watch() {(
 check_device_unit() {(
     set +x
 
-    local log_level link links path syspath unit
+    local count last_link_index log_level link path syspath unit
+    local -a links links_by_value
+    local -A link_count
 
     log_level="${1?}"
     path="${2?}"
@@ -111,6 +114,30 @@ check_device_unit() {(
     fi
 
     read -r -a links < <(udevadm info -q symlink "$syspath" 2>/dev/null)
+    mapfile -t links_by_value < <(udevadm info -q symlink --value "$syspath" 2>/dev/null)
+    last_link_index=$((${#links_by_value[@]} - 1))
+    if (( ${#links_by_value[@]} == 0 )) || [[ -n "${links_by_value[$last_link_index]}" ]]; then
+        [[ "$log_level" == 1 ]] && echo >&2 "ERROR: udevadm info -q symlink --value output is not terminated by an empty separator line."
+        return 1
+    fi
+    unset "links_by_value[$last_link_index]"
+
+    if (( ${#links[@]} != ${#links_by_value[@]} )); then
+        [[ "$log_level" == 1 ]] && echo >&2 "ERROR: udevadm info -q symlink --value disagrees with default output."
+        return 1
+    fi
+    for link in "${links[@]}"; do
+        link_count["$link"]=$(( ${link_count["$link"]:-0} + 1 ))
+    done
+    for link in "${links_by_value[@]}"; do
+        count="${link_count["$link"]:-0}"
+        if (( count == 0 )); then
+            [[ "$log_level" == 1 ]] && echo >&2 "ERROR: udevadm info -q symlink --value disagrees with default output."
+            return 1
+        fi
+        link_count["$link"]=$(( count - 1 ))
+    done
+
     for link in "${links[@]}"; do
         if [[ "/dev/$link" == "$path" ]]; then # DEVLINKS= given by -q symlink are relative to /dev
             return 0
