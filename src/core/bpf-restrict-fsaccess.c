@@ -164,42 +164,6 @@ int bpf_restrict_fsaccess_prepare(struct restrict_fsaccess_bpf **ret) {
         return 0;
 }
 
-bool bpf_restrict_fsaccess_supported(void) {
-        _cleanup_(restrict_fsaccess_bpf_freep) struct restrict_fsaccess_bpf *obj = NULL;
-        static int supported = -1;
-        int r;
-
-        if (supported >= 0)
-                return supported;
-        if (dlopen_bpf(LOG_WARNING) < 0)
-                return (supported = false);
-
-        r = lsm_supported("bpf");
-        if (r == -ENOPKG) {
-                log_debug_errno(r, "bpf-restrict-fsaccess: securityfs not mounted, BPF LSM not available.");
-                return (supported = false);
-        }
-        if (r < 0) {
-                log_warning_errno(r, "bpf-restrict-fsaccess: Can't determine whether the BPF LSM module is used: %m");
-                return (supported = false);
-        }
-        if (r == 0) {
-                log_info("bpf-restrict-fsaccess: BPF LSM hook not enabled in the kernel, not supported.");
-                return (supported = false);
-        }
-
-        r = bpf_restrict_fsaccess_prepare(&obj);
-        if (r < 0)
-                return (supported = false);
-
-        if (!bpf_can_link_lsm_program(obj->progs.restrict_fsaccess_bprm_check)) {
-                log_warning("bpf-restrict-fsaccess: Failed to link program; assuming BPF LSM is not available.");
-                return (supported = false);
-        }
-
-        return (supported = true);
-}
-
 /* Partial deserialization (some FDs but not all) is fatal: continuing
  * would leave enforcement incomplete. */
 static int restrict_fsaccess_have_deserialized_fds(Manager *m) {
@@ -405,9 +369,18 @@ int bpf_restrict_fsaccess_setup(Manager *m) {
         }
 
         /* Fresh setup: verify BPF LSM is available */
-        if (!bpf_restrict_fsaccess_supported())
+        r = dlopen_bpf(LOG_WARNING);
+        if (r < 0)
+                return r;
+
+        r = lsm_supported("bpf");
+        if (r == -ENOPKG)
+                return log_warning_errno(r, "bpf-restrict-fsaccess: securityfs not mounted, BPF LSM not available.");
+        if (r < 0)
+                return log_warning_errno(r, "bpf-restrict-fsaccess: Can't determine whether the BPF LSM module is used: %m");
+        if (r == 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                         "bpf-restrict-fsaccess: BPF LSM is not available.");
+                                         "bpf-restrict-fsaccess: BPF LSM hook not enabled in the kernel, not supported.");
 
         /* Require dm-verity signature enforcement */
         if (!dm_verity_require_signatures())
@@ -530,10 +503,6 @@ int bpf_restrict_fsaccess_serialize(Manager *m, FILE *f, FDSet *fds) {
 #else /* ! BPF_FRAMEWORK || ! HAVE_LSM_INTEGRITY_TYPE */
 
 bool dm_verity_require_signatures(void) {
-        return false;
-}
-
-bool bpf_restrict_fsaccess_supported(void) {
         return false;
 }
 
