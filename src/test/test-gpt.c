@@ -87,6 +87,29 @@ TEST(type_alias_same) {
         }
 }
 
+TEST(verity_shorthands) {
+        FOREACH_STRING(prefix, "root", "usr", "root-x86-64", "usr-arm64", "root-secondary", "usr-aarch64")
+                FOREACH_STRING(suffix, "-verity", "-verity-sig") {
+                        _cleanup_free_ char *canonical = NULL, *shorthand = NULL;
+                        GptPartitionType x, y;
+
+                        ASSERT_NOT_NULL(canonical = strjoin(prefix, suffix));
+                        ASSERT_NOT_NULL(shorthand = strjoin(prefix, streq(suffix, "-verity") ? "-v" : "-vsig"));
+
+                        if (gpt_partition_type_from_string(canonical, &x) < 0)
+                                continue;
+
+                        ASSERT_OK(gpt_partition_type_from_string(shorthand, &y));
+                        ASSERT_EQ_ID128(x.uuid, y.uuid);
+                        ASSERT_EQ(x.arch, y.arch);
+                        ASSERT_EQ(x.designator, y.designator);
+                        ASSERT_STREQ(x.name, y.name);
+                }
+
+        ASSERT_ERROR(gpt_partition_type_from_string("esp-v", NULL), EINVAL);
+        ASSERT_ERROR(gpt_partition_type_from_string("-vsig", NULL), EINVAL);
+}
+
 TEST(override_architecture) {
         GptPartitionType x, y;
 
