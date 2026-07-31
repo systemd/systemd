@@ -7,6 +7,7 @@
 #include "list.h"
 #include "network-util.h"
 #include "resolve-util.h"
+#include "resolve-varlink-util.h"
 #include "resolved-forward.h"
 
 typedef struct LinkAddress {
