@@ -24,10 +24,12 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "bpf-link.h"
 #include "bpf-restrict-fsaccess.h"
 #include "devnum-util.h"
 #include "fd-util.h"
 #include "log.h"
+#include "lsm-util.h"
 #include "string-util.h"
 #include "tests.h"
 
@@ -161,16 +163,28 @@ static int do_attach(void) {
 }
 
 static int do_check(void) {
-        if (!bpf_restrict_fsaccess_supported()) {
-                log_error("BPF LSM is not available");
-                return -EOPNOTSUPP;
-        }
+        int r;
+
+        r = dlopen_bpf(LOG_WARNING);
+        if (r < 0)
+                return r;
+
+        r = lsm_supported("bpf");
+        if (r <= 0)
+                return log_error_errno(r < 0 ? r : EOPNOTSUPP, "BPF LSM is not available: %m");
         log_info("BPF LSM: supported");
 
-        if (!dm_verity_require_signatures()) {
-                log_error("dm-verity require_signatures is not enabled");
-                return -ENOKEY;
-        }
+        _cleanup_(restrict_fsaccess_bpf_freep) struct restrict_fsaccess_bpf *obj = NULL;
+        r = bpf_restrict_fsaccess_prepare(&obj);
+        if (r < 0)
+                return r;
+
+        if (!bpf_can_link_lsm_program(obj->progs.restrict_fsaccess_bprm_check))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "bpf-restrict-fsaccess: Failed to link program.");
+
+        if (!dm_verity_require_signatures())
+                return log_error_errno(SYNTHETIC_ERRNO(ENOKEY), "dm-verity require_signatures is not enabled.");
         log_info("dm-verity require_signatures: enabled");
 
         return 0;
