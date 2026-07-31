@@ -460,7 +460,7 @@ int dispatch_link_set_dns_parameters(const char *name, sd_json_variant *variant,
         return 0;
 }
 
-static void domain_paramaters_done(DomainParameters *p) {
+static void domain_parameters_done(DomainParameters *p) {
         if (!p)
                 return;
 
@@ -469,14 +469,14 @@ static void domain_paramaters_done(DomainParameters *p) {
 
 static int dispatch_domain(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "Domain",    SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(Domain, name),       SD_JSON_MANDATORY },
-                { "RouteOnly", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(Domain, route_only), SD_JSON_MANDATORY },
+                { "Domain",    SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(DomainParameters, name),       SD_JSON_MANDATORY },
+                { "RouteOnly", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DomainParameters, route_only), SD_JSON_MANDATORY },
                 {},
         };
         DomainParameters *ret = ASSERT_PTR(userdata);
         int r;
 
-        _cleanup_(domain_done) DomainParameters p = {};
+        _cleanup_(domain_parameters_done) DomainParameters p = {};
         r = sd_json_dispatch(variant, dispatch_table, flags, &p);
         if (r < 0)
                 return r;
@@ -507,7 +507,7 @@ void link_set_domains_parameters_done(LinkSetDomainsParameters *p) {
                 return;
 
         FOREACH_ARRAY(d, p->domains, p->n_domains)
-                domain_done(d);
+                domain_parameters_done(d);
         p->domains = mfree(p->domains);
         p->n_domains = 0;
 }
