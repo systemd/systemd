@@ -2719,62 +2719,52 @@ static int verb_dns(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return call_set_dns(strv_skip(argv, 2));
 }
 
-static int call_domain(sd_bus *bus, char **domain, const BusLocator *locator, sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL;
+static int call_set_domains(char **domain) {
         int r;
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
-        r = bus_message_new_method_call(bus, &req, locator, "SetLinkDomains");
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *domains = NULL;
+        r = sd_json_variant_new_array(&domains, /* array= */ NULL, /* n= */ 0);
         if (r < 0)
-                return bus_log_create_error(r);
+                return log_error_errno(r, "Failed to add domains to JSON parameters: %m");
 
-        r = sd_bus_message_append(req, "i", arg_ifindex);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_open_container(req, 'a', "(sb)");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        /* If only argument is the empty string, then call SetLinkDomains() with an
-         * empty list, which will clear the list of domains for an interface. */
-        if (!strv_equal(domain, STRV_MAKE("")))
+        /* If only argument is the empty string, then call io.systemd.Network.Link.SetDomains
+         * with an empty list, which will clear the list of domains for an interface. */
+        if (!strv_equal(domain, STRV_MAKE(""))) {
                 STRV_FOREACH(p, domain) {
-                        const char *n;
-
-                        n = **p == '~' ? *p + 1 : *p;
+                        bool route_only = **p == '~';
+                        const char *n = route_only ? *p + 1 : *p;
 
                         r = dns_name_is_valid(n);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to validate specified domain %s: %m", n);
                         if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Domain not valid: %s",
-                                                       n);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Domain not valid: %s", n);
 
-                        r = sd_bus_message_append(req, "(sb)", n, **p == '~');
+                        r = sd_json_variant_append_arraybo(
+                                        &domains,
+                                        SD_JSON_BUILD_PAIR_STRING("Domain", n),
+                                        SD_JSON_BUILD_PAIR_BOOLEAN("RouteOnly", route_only));
                         if (r < 0)
-                                return bus_log_create_error(r);
+                                return log_error_errno(r, "Failed to add domain to JSON parameters: %m");
                 }
+        }
 
-        r = sd_bus_message_close_container(req);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        r = sd_json_buildo(
+                        &parameters,
+                        SD_JSON_BUILD_PAIR_VARIANT("Domains", domains));
         if (r < 0)
-                return bus_log_create_error(r);
+                return log_error_errno(r, "Failed to build JSON parameters: %m");
 
-        return sd_bus_call(bus, req, 0, error, NULL);
+        return varlink_call_link_method("io.systemd.Network.Link.SetDomains", parameters);
 }
 
 VERB(verb_domain, "domain", "[LINK [DOMAIN…]]\0", VERB_ANY, VERB_ANY, 0,
      "Get/set per-interface search domain");
 static int verb_domain(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
-
-        r = acquire_bus(&bus);
-        if (r < 0)
-                return r;
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2788,22 +2778,7 @@ static int verb_domain(int argc, char *argv[], uintptr_t _data, void *userdata) 
         if (argc < 3)
                 return status_ifindex(arg_ifindex, STATUS_DOMAIN);
 
-        char **args = strv_skip(argv, 2);
-        r = call_domain(bus, args, bus_resolve_mgr, &error);
-        if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
-                sd_bus_error_free(&error);
-
-                r = call_domain(bus, args, bus_network_mgr, &error);
-        }
-        if (r < 0) {
-                if (arg_ifindex_permissive &&
-                    sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
-                        return 0;
-
-                return log_error_errno(r, "Failed to set domain configuration: %s", bus_error_message(&error, r));
-        }
-
-        return 0;
+        return call_set_domains(strv_skip(argv, 2));
 }
 
 VERB(verb_default_route, "default-route", "[LINK [BOOL]]\0", VERB_ANY, 3, 0,
