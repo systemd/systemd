@@ -748,9 +748,15 @@ static int query_device(QueryType query, sd_device* device) {
                 FOREACH_DEVICE_DEVLINK(device, devlink) {
                         if (!arg_root)
                                 assert_se(devlink = path_startswith(devlink, "/dev/"));
-                        printf("%s%s", prefix, devlink);
-                        prefix = " ";
+
+                        if (arg_value)
+                                printf("%s\n", devlink);
+                        else {
+                                printf("%s%s", prefix, devlink);
+                                prefix = " ";
+                        }
                 }
+
                 puts("");
                 return 0;
         }
@@ -1024,8 +1030,7 @@ static int parse_argv(int argc, char *argv[]) {
                         }
                         break;
 
-                OPTION_LONG("value", NULL,
-                            "When showing properties, print only their values"):
+                OPTION_LONG("value", NULL, "Print only values"):
                         arg_value = true;
                         break;
 
@@ -1213,7 +1218,11 @@ int verb_info_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (arg_action_type == ACTION_DEVICE_ID_FILE)
                 return stat_device();
 
-        pager_open(arg_pager_flags);
+        PagerFlags pager_flags = arg_pager_flags;
+        if (arg_action_type == ACTION_QUERY && arg_query == QUERY_SYMLINK && !arg_value)
+                pager_flags |= PAGER_DISABLE;
+
+        pager_open(pager_flags);
 
         if (arg_action_type == ACTION_EXPORT)
                 return export_devices();
