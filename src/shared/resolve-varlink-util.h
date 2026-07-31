@@ -103,3 +103,19 @@ typedef struct LinkSetDNSParameters {
 void link_set_dns_parameters_done(LinkSetDNSParameters *p);
 
 int dispatch_link_set_dns_parameters(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
+
+typedef struct DomainParameters {
+        char *name;
+        bool route_only;
+} DomainParameters;
+
+typedef struct LinkSetDomainsParameters {
+        DomainParameters *domains;
+        size_t n_domains;
+        const char *ifname;
+        int ifindex;
+} LinkSetDomainsParameters;
+
+void link_set_domains_parameters_done(LinkSetDomainsParameters *p);
+
+int dispatch_link_set_domains_parameters(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
