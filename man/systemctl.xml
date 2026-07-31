@@ -514,6 +514,12 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <literal>needs-*</literal> markers set. When a unit marked for reload does not support reload,
           restart will be queued. Those properties can be set using <command>set-property Markers=…</command>.</para>
 
+          <para>Note that <literal>needs-restart</literal> and <literal>needs-reload</literal> use
+          <command>try-restart</command>/<literal>try-reload</literal> semantics: inactive units are not started.
+          This differs from <command>reload-or-restart</command> without <option>--marked</option>, which
+          starts units that are not yet running. Markers such as <literal>needs-start</literal> still
+          enqueue an unconditional start job.</para>
+
           <para>Unless <option>--no-block</option> is used, <command>systemctl</command> will wait for the
           queued jobs to finish.</para>
 
