@@ -98,6 +98,7 @@ typedef struct DriveInfo {
         char *pcie_port;           /* pcie-root-port id for device_add bus (NULL on non-PCIe) */
         int fd;                    /* pre-opened image fd (-EBADF if unused) */
         int overlay_fd;            /* pre-opened anonymous overlay fd for ephemeral (-EBADF if unused) */
+        uint64_t grow_to;          /* ephemeral: minimum virtual size of the overlay (0 if unset) */
         QmpDriveFlags flags;
 
         /* Per-add-op state (populated by the add flow; zeroed at CLI-parse time) */
