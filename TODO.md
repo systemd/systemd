@@ -1262,8 +1262,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - in pid1: include ExecStart= cmdlines (and other Exec*= cmdlines) in polkit
   request, so that policies can match against command lines.
 
-- in sd-id128: also parse UUIDs in RFC4122 URN syntax (i.e. chop off urn:uuid: prefix)
-
 - in sd-stub: optionally add support for a new PE section .keyring or so that
   contains additional certificates to include in the Mok keyring, extending
   what shim might have placed there. why? let's say I use "ukify" to build +
