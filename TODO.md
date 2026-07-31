@@ -2804,10 +2804,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   - re-enable ProtectClock= once only cgroupsv2 is supported.
     See f562abe2963bad241d34e0b308e48cf114672c84.
 
-- **udevadm: to make symlink querying with udevadm nicer:**
-  - do not enable the pager for queries like 'udevadm info -q symlink -r'
-  - add mode with newlines instead of spaces (for grep)?
-
 - udevd: extend memory pressure logic: also kill any idle worker processes
 
 - unify how blockdev_get_root() and sysupdate find the default root block device
