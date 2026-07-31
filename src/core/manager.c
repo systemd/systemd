@@ -1056,13 +1056,7 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                                 return r;
                 }
 
-#if HAVE_LIBBPF
-                if (MANAGER_IS_SYSTEM(m) && bpf_restrict_fs_supported(/* initialize= */ true)) {
-                        r = bpf_restrict_fs_setup(m);
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to setup LSM BPF, ignoring: %m");
-                }
-#endif
+                (void) bpf_restrict_fs_setup(m);
         }
 
         if (test_run_flags == 0) {
