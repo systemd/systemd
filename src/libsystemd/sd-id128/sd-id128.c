@@ -16,6 +16,7 @@
 #include "path-util.h"
 #include "random-util.h"
 #include "stat-util.h"
+#include "string-util.h"
 #include "user-util.h"
 
 _public_ char *sd_id128_to_string(sd_id128_t id, char s[static SD_ID128_STRING_MAX]) {
@@ -57,11 +58,18 @@ _public_ char *sd_id128_to_uuid_string(sd_id128_t id, char s[static SD_ID128_UUI
 }
 
 _public_ int sd_id128_from_string(const char *s, sd_id128_t *ret) {
+        const char *p;
         size_t n, i;
         sd_id128_t t;
         bool is_guid = false;
 
         assert_return(s, -EINVAL);
+
+        p = startswith_no_case(s, "urn:uuid:");
+        if (p) {
+                s = p;
+                is_guid = true;
+        }
 
         for (n = 0, i = 0; n < sizeof(sd_id128_t);) {
                 int a, b;
