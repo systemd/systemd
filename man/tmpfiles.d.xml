@@ -164,7 +164,9 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
     <para>Fields may contain C-style escapes. With the exception of the seventh field (the "argument") all
     fields may be enclosed in quotes. Note that any whitespace found in the line after the beginning of the
     argument field will be considered part of the argument field. To begin the argument field with a
-    whitespace character, use C-style escapes (e.g. <literal>\x20</literal>).</para>
+    whitespace character, use C-style escapes (e.g. <literal>\x20</literal>). Line types which do not
+    document use of the argument field reject a non-empty argument field; use <literal>-</literal> to leave
+    the argument field empty.</para>
 
     <refsect2>
       <title>Type</title>
@@ -380,7 +382,8 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
           This may not be used to remove non-empty directories, use
           <varname>R</varname> for that.  Lines of this type accept
           shell-style globs in place of normal path
-          names. Does not follow symlinks.</para></listitem>
+          names. Does not follow symlinks. When <option>--clean</option> is used, the file or directory is subject
+          to time-based cleanup if the age argument is specified. This age handling was added in v262.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -388,7 +391,8 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
           <listitem><para>Recursively remove a path and all its
           subdirectories (if it is a directory). Lines of this type
           accept shell-style globs in place of normal path
-          names. Does not follow symlinks.</para></listitem>
+          names. Does not follow symlinks. When <option>--clean</option> is used, the path is subject to
+          time-based cleanup if the age argument is specified. This age handling was added in v262.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -674,13 +678,14 @@ w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
       <para>The age field only applies to lines starting with
       <varname>d</varname>, <varname>D</varname>, <varname>e</varname>,
       <varname>v</varname>, <varname>q</varname>,
-      <varname>Q</varname>, <varname>C</varname>, <varname>x</varname>
-      and <varname>X</varname>. If omitted or set to
-      <literal>-</literal>, no automatic clean-up is done.</para>
+      <varname>Q</varname>, <varname>C</varname>, <varname>r</varname>,
+      <varname>R</varname>, <varname>x</varname> and <varname>X</varname>.
+      If omitted or set to <literal>-</literal>, no automatic clean-up is done.</para>
 
       <para>If the age field starts with a tilde character <literal>~</literal>, clean-up is only applied to
       files and directories one level inside the directory specified, but not the files and directories
-      immediately inside it.</para>
+      immediately inside it. For <varname>R</varname> lines, this also skips removing the specified
+      top-level directory itself. This modifier is not supported by <varname>r</varname> lines.</para>
 
       <para>The age of a file system entry is determined from its last
       modification timestamp (mtime), its last access timestamp (atime),
@@ -743,7 +748,8 @@ d /tmp/foo/bar - - - bmA:1h -</programlisting></para>
       and <varname>T</varname>, determines extended attributes to be set. For <varname>a</varname> and
       <varname>A</varname>, determines ACL attributes to be set. For <varname>h</varname> and <varname>H</varname>,
       determines the file attributes to set. For <varname>k</varname> and <varname>K</varname>, determines
-      file capabilities to be set. Ignored for all other lines.</para>
+      file capabilities to be set. For line types that do not document use of this field, a non-empty
+      argument is rejected; use <literal>-</literal> to leave it unset.</para>
 
       <para>This field can contain specifiers, see below.</para>
     </refsect2>
