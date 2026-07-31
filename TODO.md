@@ -1775,8 +1775,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 - merge unit_kill_common() and unit_kill_context()
 
-- MessageQueueMessageSize= (and suchlike) should use parse_iec_size().
-
 - mount /tmp/ and /var/tmp with a uidmap applied that blocks out "nobody" user
   among other things such as dynamic uid ranges for containers and so on. That
   way no one can create files there with these uids and we enforce they are only
