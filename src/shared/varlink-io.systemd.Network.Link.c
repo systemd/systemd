@@ -75,6 +75,13 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("DNS search or route domains to configure on the link"),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(Domains, DomainParameters, SD_VARLINK_ARRAY));
 
+static SD_VARLINK_DEFINE_METHOD(
+                SetDNSDefaultRoute,
+                VARLINK_NETWORK_INTERFACE_INPUTS,
+                VARLINK_DEFINE_POLKIT_INPUT,
+                SD_VARLINK_FIELD_COMMENT("Whether this link can be used as a default route for DNS lookups"),
+                SD_VARLINK_DEFINE_INPUT(DefaultRoute, SD_VARLINK_BOOL, 0));
+
 static SD_VARLINK_DEFINE_ERROR(InterfaceUnmanaged);
 static SD_VARLINK_DEFINE_ERROR(InterfaceIsLoopback);
 
@@ -97,6 +104,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_SetDNS,
                 SD_VARLINK_SYMBOL_COMMENT("Set the DNS search or route domains on the specified link."),
                 &vl_method_SetDomains,
+                SD_VARLINK_SYMBOL_COMMENT("Set the DNSDefaultRoute mode on the specified link."),
+                &vl_method_SetDNSDefaultRoute,
                 SD_VARLINK_SYMBOL_COMMENT("The specified interface is not managed by systemd-networkd."),
                 &vl_error_InterfaceUnmanaged,
                 SD_VARLINK_SYMBOL_COMMENT("The specified interface is a loopback interface."),
