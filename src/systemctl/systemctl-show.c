@@ -2337,6 +2337,7 @@ static int show_one(
                 .io_read_bytes = UINT64_MAX,
                 .io_write_bytes = UINT64_MAX,
         };
+        bool collect_found_properties;
         int r;
 
         assert(path);
@@ -2388,13 +2389,18 @@ static int show_one(
         if (r < 0)
                 return log_error_errno(r, "Failed to rewind: %s", bus_error_message(&error, r));
 
-        r = bus_message_print_all_properties(reply, print_property, arg_properties, arg_print_flags, &found_properties);
+        /* The found properties set is expensive and only used for debug logging, so collect it only when needed. */
+        collect_found_properties = DEBUG_LOGGING && !strv_isempty(arg_properties);
+
+        r = bus_message_print_all_properties(reply, print_property, arg_properties, arg_print_flags,
+                                             collect_found_properties ? &found_properties : NULL);
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        STRV_FOREACH(pp, arg_properties)
-                if (!set_contains(found_properties, *pp))
-                        log_debug("Property %s does not exist.", *pp);
+        if (collect_found_properties)
+                STRV_FOREACH(pp, arg_properties)
+                        if (!set_contains(found_properties, *pp))
+                                log_debug("Property %s does not exist.", *pp);
 
         return 0;
 }
