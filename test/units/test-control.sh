@@ -9,6 +9,7 @@ fi
 declare -i _CHILD_PID=0
 _PASSED_TESTS=()
 _SKIPPED_TESTS=()
+_FILTERED_TESTS=()
 
 # A subtest may exit with this code to report that it skipped itself,
 # matching the skip code used by the integration test harness.
@@ -115,12 +116,14 @@ run_subtests_with_signals() {
     for subtest in "${subtests[@]}"; do
         if [[ -n "${TEST_MATCH_SUBTEST:-}" ]] && ! [[ "$subtest" =~ $TEST_MATCH_SUBTEST ]]; then
             echo "Skipping $subtest (not matching '$TEST_MATCH_SUBTEST')"
+            _FILTERED_TESTS+=("$subtest")
             continue
         fi
 
         for skip in ${TEST_SKIP_SUBTESTS:-}; do
             if [[ "$subtest" =~ $skip ]]; then
                 echo "Skipping $subtest (matching '$skip')"
+                _SKIPPED_TESTS+=("$subtest")
                 continue 2
             fi
         done
@@ -151,12 +154,14 @@ run_subtests() {
     for subtest in "${subtests[@]}"; do
         if [[ -n "${TEST_MATCH_SUBTEST:-}" ]] && ! [[ "$subtest" =~ $TEST_MATCH_SUBTEST ]]; then
             echo "Skipping $subtest (not matching '$TEST_MATCH_SUBTEST')"
+            _FILTERED_TESTS+=("$subtest")
             continue
         fi
 
         for skip in ${TEST_SKIP_SUBTESTS:-}; do
             if [[ "$subtest" =~ $skip ]]; then
                 echo "Skipping $subtest (matching '$skip')"
+                _SKIPPED_TESTS+=("$subtest")
                 continue 2
             fi
         done
@@ -173,6 +178,14 @@ run_subtests() {
 }
 
 _finalize_subtests() {
+    # A filter that matched nothing at all is a mistake in the caller, not a run with nothing to
+    # do: TEST_MATCH_SUBTEST is an unanchored regex and bash treats an invalid one as simply not
+    # matching, so a typo would otherwise report a clean skip forever.
+    if [[ ${#_PASSED_TESTS[@]} -eq 0 && ${#_SKIPPED_TESTS[@]} -eq 0 && ${#_FILTERED_TESTS[@]} -gt 0 ]]; then
+        echo >&2 "TEST_MATCH_SUBTEST='${TEST_MATCH_SUBTEST:-}' matched no subtest of $0"
+        exit 1
+    fi
+
     if [[ ${#_PASSED_TESTS[@]} -eq 0 && ${#_SKIPPED_TESTS[@]} -gt 0 ]]; then
         echo "All subtests skipped" | tee --append /skipped
         exit "$_SUBTEST_SKIP_RC"
