@@ -38,7 +38,7 @@ create_container() {
 [Service]
 Name=Test Service $svc on %H
 Type=_testService$stype._udp
-Port=98010
+Port=8010
 TxtText=DC=Device PN=123456 SN=1234567890
 EOF
         done
