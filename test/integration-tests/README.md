@@ -138,9 +138,13 @@ that make use of `run_testcases`.
 
 `TEST_SKIP`: takes a space separated list of tests to skip.
 
-`TEST_SKIP_SUBTEST=subtest`: takes a space separated list of subtests to skip.
+`TEST_SKIP_SUBTESTS=subtest`: takes a space separated list of POSIX extended regexes (matched unanchored, like `$TEST_MATCH_SUBTEST`) naming subtests to skip.
 
-`TEST_SKIP_TESTCASE=testcase`: takes a space separated list of testcases to skip.
+`TEST_SKIP_TESTCASES=testcase`: takes a space separated list of POSIX extended regexes (matched unanchored) naming testcases to skip.
+
+`TEST_MATCH_SCENARIO=scenario`: run only conformance-scorecard scenarios (TEST-89) matching this POSIX extended regex (matched unanchored).
+
+`TEST_SKIP_SCENARIOS=scenario`: takes a space separated list of POSIX extended regexes (matched unanchored) naming conformance-scorecard scenarios to skip.
 
 `TEST_SAVE_JOURNAL=0|1|fail`: When `0`, journal file will be removed on exit.
 When `1`, journal file will be saved at `$BUILD_DIR/test/journal`. When `fail`,
