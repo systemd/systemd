@@ -62,7 +62,7 @@ static EFI_STATUS devicetree_fixup(struct devicetree_state *state, size_t len) {
         return err;
 }
 
-EFI_STATUS devicetree_install(struct devicetree_state *state, EFI_FILE *root_dir, char16_t *name) {
+EFI_STATUS devicetree_load(struct devicetree_state *state, EFI_FILE *root_dir, char16_t *name) {
         _cleanup_file_close_ EFI_FILE *handle = NULL;
         _cleanup_free_ EFI_FILE_INFO *info = NULL;
         size_t len;
@@ -94,16 +94,7 @@ EFI_STATUS devicetree_install(struct devicetree_state *state, EFI_FILE *root_dir
         if (err != EFI_SUCCESS)
                 return err;
 
-        err = handle->Read(handle, &len, PHYSICAL_ADDRESS_TO_POINTER(state->addr));
-        if (err != EFI_SUCCESS)
-                return err;
-
-        err = devicetree_fixup(state, len);
-        if (err != EFI_SUCCESS)
-                return err;
-
-        return BS->InstallConfigurationTable(
-                        MAKE_GUID_PTR(EFI_DTB_TABLE), PHYSICAL_ADDRESS_TO_POINTER(state->addr));
+        return handle->Read(handle, &len, PHYSICAL_ADDRESS_TO_POINTER(state->addr));
 }
 
 static const char* devicetree_get_compatible(const void *dtb) {
@@ -250,6 +241,21 @@ EFI_STATUS devicetree_install_from_memory(
         memcpy(PHYSICAL_ADDRESS_TO_POINTER(state->addr), dtb_buffer, dtb_length);
 
         err = devicetree_fixup(state, dtb_length);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        return BS->InstallConfigurationTable(
+                        MAKE_GUID_PTR(EFI_DTB_TABLE), PHYSICAL_ADDRESS_TO_POINTER(state->addr));
+}
+
+EFI_STATUS devicetree_install(struct devicetree_state *state) {
+        assert(state);
+        assert(state->pages);
+
+        void *dtb = PHYSICAL_ADDRESS_TO_POINTER(state->addr);
+        size_t len = be32toh(((FdtHeader *) dtb)->total_size);
+
+        EFI_STATUS err = devicetree_fixup(state, len);
         if (err != EFI_SUCCESS)
                 return err;
 
