@@ -30,7 +30,6 @@
 #include "format-ifname.h"
 #include "format-table.h"
 #include "glyph-util.h"
-#include "help-util.h"
 #include "hostname-util.h"
 #include "json-util.h"
 #include "main-func.h"
@@ -95,6 +94,15 @@ STATIC_DESTRUCTOR_REGISTER(arg_ifname, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_set_dns, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_set_domain, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_set_nta, strv_freep);
+
+COMMAND(
+        "resolvectl\0",
+        "Send control commands to the network name resolution manager, or\n"
+        "resolve domain names, IPv4 and IPv6 addresses, DNS records, and services.",
+        .man_pages = "resolvectl.1\0",
+        .option_namespace = "resolvectl",
+        .pager_flags = &arg_pager_flags,
+);
 
 typedef enum StatusMode {
         STATUS_ALL,
@@ -3157,67 +3165,18 @@ static void help_dns_classes(void) {
         DUMP_STRING_TABLE(dns_class, int, _DNS_CLASS_MAX);
 }
 
-static int compat_help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
+VERB_COMMON_HELP_AUTO_HIDDEN("resolvectl");
 
-        r = option_parser_get_help_table_ns("systemd-resolve", &options);
-        if (r < 0)
-                return r;
-
-        pager_open(arg_pager_flags);
-
-        help_cmdline("[OPTIONS…] HOSTNAME|ADDRESS…");
-        help_cmdline("[OPTIONS…] --service [[NAME] TYPE] DOMAIN");
-        help_cmdline("[OPTIONS…] --openpgp EMAIL@DOMAIN…");
-        help_cmdline("[OPTIONS…] --statistics");
-        help_cmdline("[OPTIONS…] --reset-statistics");
-        help_abstract("Resolve domain names, IPv4 and IPv6 addresses, DNS records, and services.");
-
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("resolvectl", "1");
-        return 0;
-}
-
-static int native_help(void) {
-        _cleanup_(table_unrefp) Table *verbs = NULL, *options = NULL;
-        int r;
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table_ns("resolvectl", &options);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, verbs, options);
-
-        pager_open(arg_pager_flags);
-
-        help_cmdline("[OPTIONS…] COMMAND …");
-        help_abstract("Send control commands to the network name resolution manager, or\n"
-                      "resolve domain names, IPv4 and IPv6 addresses, DNS records, and services.");
-
-        help_section("Commands");
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("resolvectl", "1");
-        return 0;
-}
-
-VERB_COMMON_HELP_HIDDEN(native_help);
+COMMAND(
+        "systemd-resolve\0",
+        "Send control commands to the network name resolution manager, or\n"
+        "resolve domain names, IPv4 and IPv6 addresses, DNS records, and services.\n"
+        "\n"
+        "This command is deprecated. Use resolvectl.1 instead.",
+        .man_pages = "resolvectl.1\0",
+        .option_namespace = "systemd-resolve",
+        .pager_flags = &arg_pager_flags,
+);
 
 static int compat_parse_argv(int argc, char *argv[], char ***remaining_args) {
         int r;
@@ -3234,7 +3193,8 @@ static int compat_parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_NAMESPACE("systemd-resolve"): {}
 
                 OPTION_COMMON_HELP:
-                        return compat_help();
+                        printf("systemd-resolve is deprecated. Call resolvectl instead.\n");
+                        return 0;
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -3431,6 +3391,9 @@ static int compat_parse_argv(int argc, char *argv[], char ***remaining_args) {
                         if (r < 0)
                                 return r;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
                 }
 
         if (arg_type == 0 && arg_class != 0)
@@ -3473,7 +3436,7 @@ static int native_parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_NAMESPACE("resolvectl"): {}
 
                 OPTION_COMMON_HELP:
-                        return native_help();
+                        return command_print_help("resolvectl");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -3657,6 +3620,9 @@ static int native_parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_COMMON_LOWERCASE_J:
                         arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
                 }
 
         if (arg_type == 0 && arg_class != 0)
