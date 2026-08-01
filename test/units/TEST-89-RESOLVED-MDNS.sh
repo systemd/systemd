@@ -38,7 +38,7 @@ create_container() {
 [Service]
 Name=Test Service $svc on %H
 Type=_testService$stype._udp
-Port=98010
+Port=8010
 TxtText=DC=Device PN=123456 SN=1234567890
 EOF
         done
@@ -378,5 +378,9 @@ resolvectl status
 
 # Run the actual test cases (functions prefixed by testcase_)
 run_testcases
+
+# ... and the subtests, which browse the same containers over the same bridge
+export CONTAINER_ZONE CONTAINER_1 BRIDGE_INDEX
+run_subtests
 
 touch /testok
