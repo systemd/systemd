@@ -487,6 +487,29 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>Firmware=<replaceable>PATH</replaceable>...</varname></term>
+          <term><option>--efifw=<replaceable>PATH</replaceable></option></term>
+
+          <listitem><para>Zero or more directories, each containing exactly one firmware binary. Each
+          directory is packed into a separate <literal>.efifw</literal> section, using the directory name as
+          the firmware identifier (<literal>fwid</literal>). In the configuration file, items are separated
+          by whitespace. See
+          <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+          for how the matching <literal>.efifw</literal> section is selected at boot.</para>
+
+          <para>A directory may additionally contain a file named <literal>hwid</literal> holding a single
+          CHID (a UUID). This marks that directory's payload as a UEFI capsule that updates the firmware to
+          the given target CHID. When present,
+          <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+          compares the target CHID against the running system's CHIDs and applies the capsule when none of
+          the running system's CHIDs match the target CHID. Without it, the payload is treated as a plain
+          firmware blob and no capsule update is attempted. Because each directory carries its own
+          <literal>hwid</literal>, several capsule-carrying firmware variants can be shipped in a single UKI.</para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>Uname=<replaceable>VERSION</replaceable></varname></term>
           <term><option>--uname=<replaceable>VERSION</replaceable></option></term>
 
