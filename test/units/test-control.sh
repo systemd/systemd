@@ -62,6 +62,12 @@ _show_summary() {(
     set +x
 
     if [[ ${#_PASSED_TESTS[@]} -eq 0 && ${#_SKIPPED_TESTS[@]} -eq 0 ]]; then
+        # An empty run is expected when the subtest filters excluded everything --
+        # for a test with a single subtest that is the only way to skip it.
+        if [[ -n "${TEST_MATCH_SUBTEST:-}" || -n "${TEST_SKIP_SUBTESTS:-}" ]]; then
+            echo "No subtests were executed (all excluded by the subtest filters)"
+            exit 0
+        fi
         echo >&2 "No tests were executed, this is most likely an error"
         exit 1
     fi
