@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "boot-secret.h"
+#include "chid.h"
 #include "console.h"
 #include "cpio.h"
 #include "device-path-util.h"
 #include "devicetree.h"
 #include "efi-efivars.h"
+#include "efi-firmware.h"
 #include "efi-log.h"
 #include "efi-string.h"
 #include "export-vars.h"
@@ -695,6 +697,41 @@ static EFI_STATUS load_addons(
         return EFI_SUCCESS;
 }
 
+static EFI_STATUS apply_efifw_capsule(
+                EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
+                const PeSectionVector sections[static _UNIFIED_SECTION_MAX]) {
+        /* If the .efifw section carries a firmware capsule (a non-zero target chid), apply it when the
+         * running firmware isn't already at that version. */
+        if (PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_EFIFW)) {
+                const void *blob = (const uint8_t *) loaded_image->ImageBase +
+                                sections[UNIFIED_SECTION_EFIFW].memory_offset;
+                size_t blob_len = sections[UNIFIED_SECTION_EFIFW].memory_size;
+
+                const EFI_GUID *chid = NULL;
+                const void *payload = NULL;
+                size_t payload_len = 0;
+
+                EFI_STATUS err = efi_firmware_get_capsule(blob, blob_len, &chid, &payload, &payload_len);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Invalid .efifw section: %m");
+
+                if (chid) { /* non-zero chid => capsule update in play */
+                        bool matched = false;
+                        err = chid_match_current_system(chid, &matched);
+                        if (err != EFI_SUCCESS) /* can't tell fw state -> don't risk booting stale fw */
+                                return log_error_status(err, "Failed to compute system CHIDs: %m");
+                        if (!matched) { /* not at target version -> apply (does not return on success) */
+                                err = efi_firmware_apply_capsule(payload, payload_len);
+                                return log_error_status(err, "Firmware capsule update failed: %m");
+                        }
+                        /* matched: already at target firmware -> fall through and boot */
+                }
+                /* chid == NULL: not a capsule -> existing behavior, payload unused */
+        }
+
+        return EFI_SUCCESS;
+}
+
 static void refresh_random_seed(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
         EFI_STATUS err;
 
@@ -1222,6 +1259,10 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         measure_profile(profile, &parameters_measured);
         measure_sections(loaded_image, sections, &sections_measured);
+
+        err = apply_efifw_capsule(loaded_image, sections);
+        if (err != EFI_SUCCESS)
+                return err;
 
         /* Show splash screen as early as possible, but after measuring it */
         display_splash(loaded_image, sections);
