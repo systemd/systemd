@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <libfdt.h>
+
 #include "devicetree.h"
+#include "efi-log.h"
 #include "proto/dt-fixup.h"
 #include "util.h"
-
-#define FDT_V1_SIZE (7*4)
-
 static EFI_STATUS devicetree_allocate(struct devicetree_state *state, size_t size) {
         size_t pages = DIV_ROUND_UP(size, EFI_PAGE_SIZE);
         EFI_STATUS err;
@@ -98,15 +98,15 @@ EFI_STATUS devicetree_load(struct devicetree_state *state, EFI_FILE *root_dir, c
 }
 
 static const char* devicetree_get_compatible(const void *dtb) {
-        if ((uintptr_t) dtb % alignof(FdtHeader) != 0)
+        if ((uintptr_t) dtb % alignof(struct fdt_header) != 0)
                 return NULL;
 
-        const FdtHeader *dt_header = ASSERT_PTR(dtb);
+        const struct fdt_header *dt_header = ASSERT_PTR(dtb);
 
         if (be32toh(dt_header->magic) != UINT32_C(0xd00dfeed))
                 return NULL;
 
-        uint32_t dt_size = be32toh(dt_header->total_size);
+        uint32_t dt_size = be32toh(dt_header->totalsize);
         uint32_t struct_off = be32toh(dt_header->off_dt_struct);
         uint32_t struct_size = be32toh(dt_header->size_dt_struct);
         uint32_t strings_off = be32toh(dt_header->off_dt_strings);
@@ -201,13 +201,13 @@ EFI_STATUS devicetree_match(const void *uki_dtb, size_t uki_dtb_length) {
 }
 
 EFI_STATUS devicetree_match_by_compatible(const void *uki_dtb, size_t uki_dtb_length, const char *compat) {
-        if ((uintptr_t) uki_dtb % alignof(FdtHeader) != 0)
+        if ((uintptr_t) uki_dtb % alignof(struct fdt_header) != 0)
                 return EFI_INVALID_PARAMETER;
 
-        const FdtHeader *dt_header = ASSERT_PTR(uki_dtb);
+        const struct fdt_header *dt_header = ASSERT_PTR(uki_dtb);
 
-        if (uki_dtb_length < sizeof(FdtHeader) ||
-            uki_dtb_length < be32toh(dt_header->total_size))
+        if (uki_dtb_length < sizeof(struct fdt_header) ||
+            uki_dtb_length < be32toh(dt_header->totalsize))
                 return EFI_INVALID_PARAMETER;
 
         if (!compat)
@@ -253,7 +253,7 @@ EFI_STATUS devicetree_install(struct devicetree_state *state) {
         assert(state->pages);
 
         void *dtb = PHYSICAL_ADDRESS_TO_POINTER(state->addr);
-        size_t len = be32toh(((FdtHeader *) dtb)->total_size);
+        size_t len = be32toh(((struct fdt_header *) dtb)->totalsize);
 
         EFI_STATUS err = devicetree_fixup(state, len);
         if (err != EFI_SUCCESS)
