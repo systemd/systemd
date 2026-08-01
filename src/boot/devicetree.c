@@ -219,6 +219,98 @@ EFI_STATUS devicetree_install_from_memory(
                         MAKE_GUID_PTR(EFI_DTB_TABLE), PHYSICAL_ADDRESS_TO_POINTER(state->addr));
 }
 
+EFI_STATUS devicetree_apply_overlay(
+                struct devicetree_state *state,
+                EFI_FILE *root_dir,
+                char16_t *name) {
+
+#if HAVE_LIBFDT
+        _cleanup_free_ char *overlay = NULL;
+        size_t overlay_len;
+        EFI_STATUS err;
+        int fdterr;
+
+        assert(state);
+        assert(root_dir);
+        assert(name);
+
+        /* If no base devicetree has been installed yet, use the firmware-provided one */
+        if (!state->pages) {
+                void *fw_dtb = find_configuration_table(MAKE_GUID_PTR(EFI_DTB_TABLE));
+                if (!fw_dtb)
+                        return log_error_status(EFI_NOT_FOUND,
+                                        "No base devicetree available for overlay %ls", name);
+
+                const struct fdt_header *h = fw_dtb;
+                size_t fw_size = be32toh(h->totalsize);
+
+                state->orig = fw_dtb;
+
+                err = devicetree_allocate(state, fw_size + EFI_PAGE_SIZE);
+                if (err != EFI_SUCCESS)
+                        return err;
+
+                memcpy(PHYSICAL_ADDRESS_TO_POINTER(state->addr), fw_dtb, fw_size);
+
+                fdterr = fdt_open_into(PHYSICAL_ADDRESS_TO_POINTER(state->addr),
+                                       PHYSICAL_ADDRESS_TO_POINTER(state->addr),
+                                       devicetree_allocated(state));
+                if (fdterr < 0)
+                        return log_error_status(EFI_LOAD_ERROR,
+                                        "Failed to open firmware devicetree for overlay: fdt error %d", fdterr);
+
+                err = BS->InstallConfigurationTable(
+                                MAKE_GUID_PTR(EFI_DTB_TABLE),
+                                PHYSICAL_ADDRESS_TO_POINTER(state->addr));
+                if (err != EFI_SUCCESS)
+                        return err;
+        }
+
+        err = file_read(root_dir, name, 0, 1 * 1024 * 1024, &overlay, &overlay_len);
+        if (err != EFI_SUCCESS)
+                return err;
+        if (overlay_len < FDT_V1_SIZE)
+                return EFI_INVALID_PARAMETER;
+
+        /* Ensure the base DTB has enough space for the overlay.
+         * We need to potentially reallocate with more headroom. */
+        void *base = PHYSICAL_ADDRESS_TO_POINTER(state->addr);
+        const struct fdt_header *base_hdr = base;
+        size_t current_size = be32toh(base_hdr->totalsize);
+        size_t needed = current_size + overlay_len + 4 * EFI_PAGE_SIZE;
+        size_t allocated = devicetree_allocated(state);
+
+        if (needed > allocated) {
+                EFI_PHYSICAL_ADDRESS oldaddr = state->addr;
+                size_t oldpages = state->pages;
+
+                err = devicetree_allocate(state, needed);
+                if (err != EFI_SUCCESS)
+                        return err;
+
+                memcpy(PHYSICAL_ADDRESS_TO_POINTER(state->addr),
+                       PHYSICAL_ADDRESS_TO_POINTER(oldaddr), current_size);
+                BS->FreePages(oldaddr, oldpages);
+
+                base = PHYSICAL_ADDRESS_TO_POINTER(state->addr);
+        }
+
+        fdterr = fdt_open_into(base, base, devicetree_allocated(state));
+        if (fdterr < 0)
+                return log_error_status(EFI_LOAD_ERROR,
+                                "Failed to prepare devicetree for overlay: fdt error %d", fdterr);
+
+        fdterr = fdt_overlay_apply(base, overlay);
+        if (fdterr < 0)
+                return log_error_status(EFI_LOAD_ERROR,
+                                "Failed to apply devicetree overlay %ls: fdt error %d", name, fdterr);
+
+        return EFI_SUCCESS;
+#else
+        return EFI_UNSUPPORTED;
+#endif
+}
+
 EFI_STATUS devicetree_install(struct devicetree_state *state) {
         assert(state);
         assert(state->pages);
