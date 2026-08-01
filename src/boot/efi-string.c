@@ -118,6 +118,39 @@ DEFINE_STRCPY(char16_t, strcpy16);
                 return c ? NULL : (type *) s;      \
         }
 
+#define DEFINE_STRRCHR(type, name)                 \
+        type *name(const type *s, type c) {        \
+                assert(s);                         \
+                const type *last = NULL;           \
+                while (*s != '\0') {               \
+                        if (*s == c)               \
+                                last = s;          \
+                        s++;                       \
+                }                                  \
+                if (c == '\0')                     \
+                        return (type *)s;          \
+                return (type *)last;               \
+        }
+
+DEFINE_STRRCHR(char, strrchr8);
+DEFINE_STRRCHR(char16_t, strrchr16);
+
+#define DEFINE_STRTOUL(type, name)                                      \
+        unsigned long name(const type *nptr, type **endptr, int base) { \
+                unsigned long result = 0;                               \
+                const type *p = nptr;                                   \
+                while (*p >= '0' && *p <= '9') {                        \
+                        result = result * 10 + (*p - '0');              \
+                        p++;                                            \
+                }                                                       \
+                if (endptr)                                             \
+                        *endptr = (type *)p;                            \
+                return result;                                          \
+        }
+
+DEFINE_STRTOUL(char, strtoul8);
+DEFINE_STRTOUL(char16_t, strtoul16);
+
 DEFINE_STRCHR(char, strchr8);
 DEFINE_STRCHR(char16_t, strchr16);
 
@@ -1051,11 +1084,13 @@ char16_t *xvasprintf_status(EFI_STATUS status, const char *format, va_list ap) {
 #  undef memchr
 #  undef memcmp
 #  undef memcpy
+#  undef memmove
 #  undef memset
 // NOLINTBEGIN(misc-use-internal-linkage)
 _used_ void *memchr(const void *p, int c, size_t n);
 _used_ int memcmp(const void *p1, const void *p2, size_t n);
 _used_ void *memcpy(void * restrict dest, const void * restrict src, size_t n);
+_used_ void *memmove(void *dest, const void *src, size_t n);
 _used_ void *memset(void *p, int c, size_t n);
 // NOLINTEND(misc-use-internal-linkage)
 #else
@@ -1064,6 +1099,7 @@ _used_ void *memset(void *p, int c, size_t n);
 #  define memchr efi_memchr
 #  define memcmp efi_memcmp
 #  define memcpy efi_memcpy
+#  define memmove efi_memmove
 #  define memset efi_memset
 #endif
 
@@ -1124,6 +1160,12 @@ void *memcpy(void * restrict dest, const void * restrict src, size_t n) {
         }
 
         return dest;
+}
+
+void *memmove(void *dest, const void *src, size_t n) {
+        /* Our memcpy delegates to the firmware's CopyMem, which the UEFI spec
+         * guarantees handles overlapping regions correctly. */
+        return memcpy(dest, src, n);
 }
 
 void *memset(void *p, int c, size_t n) {
