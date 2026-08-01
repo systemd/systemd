@@ -165,6 +165,7 @@ configure_file(
 
 efi_includes = [
         include_directories('.'),
+        include_directories('libfdt'),
         fundamental_include,
         version_include,
 ]
@@ -309,6 +310,14 @@ endif
 
 ############################################################
 
+libfdt_sources = files(
+        'libfdt/fdt.c',
+        'libfdt/fdt_overlay.c',
+        'libfdt/fdt_ro.c',
+        'libfdt/fdt_rw.c',
+        'libfdt/fdt_wip.c',
+)
+
 libefi_sources = files(
         'chid.c',
         'console.c',
@@ -370,6 +379,7 @@ if host_machine.cpu_family() in ['aarch64', 'arm', 'x86_64', 'x86']
 endif
 
 sources += libefi_sources
+sources += libfdt_sources
 sources += systemd_boot_sources
 sources += stub_sources
 sources += addon_sources
@@ -410,6 +420,7 @@ foreach archspec : efi_archspecs
                 'efi' + archspec['arch'],
                 fundamental_sources,
                 libefi_sources,
+                libfdt_sources,
                 version_h,
                 include_directories : efi_includes,
                 implicit_include_directories : false,
