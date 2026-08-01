@@ -379,4 +379,8 @@ resolvectl status
 # Run the actual test cases (functions prefixed by testcase_)
 run_testcases
 
+# ... and the subtests, which browse the same containers over the same bridge
+export CONTAINER_ZONE CONTAINER_1 BRIDGE_INDEX
+run_subtests
+
 touch /testok
