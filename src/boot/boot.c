@@ -3030,9 +3030,13 @@ static EFI_STATUS call_image_start(
                  * assign arbitrary memory ranges, so skip them when secure boot is enabled as the DTB here
                  * is unverified. */
                 if (entry->devicetree && !secure_boot_enabled()) {
-                        err = devicetree_install(&dtstate, image_root, entry->devicetree);
+                        err = devicetree_load(&dtstate, image_root, entry->devicetree);
                         if (err != EFI_SUCCESS)
                                 return log_error_status(err, "Error loading %ls: %m", entry->devicetree);
+
+                        err = devicetree_install(&dtstate);
+                        if (err != EFI_SUCCESS)
+                                return log_error_status(err, "Error installing devicetree: %m");
                 }
 
                 switch (entry->type) {
