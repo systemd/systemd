@@ -249,6 +249,86 @@ TEST(strchr16) {
         ASSERT_PTR_EQ(strchr16(str, 0), str + strlen16(str));
 }
 
+TEST(strrchr8) {
+        ASSERT_NULL(strrchr8(NULL, 'a'));
+        ASSERT_NULL(strrchr8("", 'a'));
+        ASSERT_NULL(strrchr8("123", 'a'));
+
+        const char str[] = "abcaBc";
+        ASSERT_PTR_EQ(strrchr8(str, 'a'), &str[3]);
+        ASSERT_PTR_EQ(strrchr8(str, 'c'), &str[5]);
+        ASSERT_PTR_EQ(strrchr8(str, 'B'), &str[4]);
+
+        ASSERT_PTR_EQ(strrchr8(str, 0), str + strlen8(str));
+}
+
+TEST(strrchr16) {
+        ASSERT_NULL(strrchr16(NULL, 'a'));
+        ASSERT_NULL(strrchr16(u"", 'a'));
+        ASSERT_NULL(strrchr16(u"123", 'a'));
+
+        const char16_t str[] = u"abcaBc";
+        ASSERT_PTR_EQ(strrchr16(str, 'a'), &str[3]);
+        ASSERT_PTR_EQ(strrchr16(str, 'c'), &str[5]);
+        ASSERT_PTR_EQ(strrchr16(str, 'B'), &str[4]);
+
+        ASSERT_PTR_EQ(strrchr16(str, 0), str + strlen16(str));
+}
+
+TEST(strtoul8) {
+        char *end = NULL;
+
+        /* Basic decimal (base 10) */
+        ASSERT_EQ(strtoul8("0", &end, 10), 0UL);
+        ASSERT_EQ(*end, '\0');
+        ASSERT_EQ(strtoul8("123", &end, 10), 123UL);
+        ASSERT_EQ(*end, '\0');
+        ASSERT_EQ(strtoul8("456xyz", &end, 10), 456UL);
+        ASSERT_EQ(*end, 'x');
+
+        /* Hex (base 16) */
+        ASSERT_EQ(strtoul8("ff", &end, 16), 255UL);
+        ASSERT_EQ(*end, '\0');
+        ASSERT_EQ(strtoul8("0xFF", &end, 16), 255UL);
+        ASSERT_EQ(*end, '\0');
+        ASSERT_EQ(strtoul8("0XAB", &end, 16), 171UL);
+        ASSERT_EQ(*end, '\0');
+        ASSERT_EQ(strtoul8("1a2b", &end, 16), 0x1a2bUL);
+        ASSERT_EQ(*end, '\0');
+
+        /* Auto-detect (base 0) */
+        ASSERT_EQ(strtoul8("123", &end, 0), 123UL);
+        ASSERT_EQ(*end, '\0');
+        ASSERT_EQ(strtoul8("0xff", &end, 0), 255UL);
+        ASSERT_EQ(*end, '\0');
+        ASSERT_EQ(strtoul8("010", &end, 0), 8UL);
+        ASSERT_EQ(*end, '\0');
+        ASSERT_EQ(strtoul8("0", &end, 0), 0UL);
+        ASSERT_EQ(*end, '\0');
+
+        /* No valid digits */
+        ASSERT_EQ(strtoul8("abc", &end, 10), 0UL);
+        ASSERT_EQ(*end, 'a');
+
+        /* NULL endptr */
+        ASSERT_EQ(strtoul8("42", NULL, 10), 42UL);
+}
+
+TEST(strtoul16) {
+        char16_t *end = NULL;
+
+        ASSERT_EQ(strtoul16(u"0", &end, 10), 0UL);
+        ASSERT_EQ(*end, u'\0');
+        ASSERT_EQ(strtoul16(u"123", &end, 10), 123UL);
+        ASSERT_EQ(*end, u'\0');
+        ASSERT_EQ(strtoul16(u"0xff", &end, 16), 255UL);
+        ASSERT_EQ(*end, u'\0');
+        ASSERT_EQ(strtoul16(u"0xff", &end, 0), 255UL);
+        ASSERT_EQ(*end, u'\0');
+        ASSERT_EQ(strtoul16(u"010", &end, 0), 8UL);
+        ASSERT_EQ(*end, u'\0');
+}
+
 TEST(xstrndup8) {
         char *s = NULL;
 

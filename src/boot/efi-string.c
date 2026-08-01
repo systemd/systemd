@@ -118,6 +118,86 @@ DEFINE_STRCPY(char16_t, strcpy16);
                 return c ? NULL : (type *) s;      \
         }
 
+#define DEFINE_STRRCHR(type, name)                 \
+        type *name(const type *s, type c) {        \
+                if (!s)                            \
+                        return NULL;               \
+                                                   \
+                const type *last = NULL;           \
+                while (*s != '\0') {               \
+                        if (*s == c)               \
+                                last = s;          \
+                        s++;                       \
+                }                                  \
+                if (c == '\0')                     \
+                        return (type *) s;          \
+                return (type *) last;               \
+        }
+
+DEFINE_STRRCHR(char, strrchr8);
+DEFINE_STRRCHR(char16_t, strrchr16);
+
+#define DEFINE_STRTOUL(type, name)                                              \
+        unsigned long name(const type *nptr, type **endptr, int base) {         \
+                assert(nptr);                                                   \
+                assert(base == 0 || (base >= 2 && base <= 16));                 \
+                                                                                \
+                const type *p = nptr;                                           \
+                unsigned long result = 0;                                       \
+                int any = 0;                                                    \
+                                                                                \
+                while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r') {   \
+                        p++;                                                    \
+                }                                                               \
+                                                                                \
+                if ((base == 0 || base == 16) &&                                \
+                    *p == '0' && (*(p + 1) == 'x' || *(p + 1) == 'X')) {        \
+                        base = 16;                                              \
+                        p += 2;                                                 \
+                } else if (base == 0) {                                         \
+                        base = (*p == '0') ? 8 : 10;                            \
+                }                                                               \
+                                                                                \
+                unsigned long max_val = ~0UL;                                   \
+                unsigned long cutoff = max_val / base;                          \
+                unsigned long cutlim = max_val % base;                          \
+                                                                                \
+                for (;; p++) {                                                  \
+                        unsigned long digit;                                    \
+                        if (*p >= '0' && *p <= '9')                             \
+                                digit = *p - '0';                               \
+                        else if (*p >= 'a' && *p <= 'f')                        \
+                                digit = *p - 'a' + 10;                          \
+                        else if (*p >= 'A' && *p <= 'F')                        \
+                                digit = *p - 'A' + 10;                          \
+                        else                                                    \
+                                break;                                          \
+                                                                                \
+                        if (digit >= (unsigned long)base)                       \
+                                break;                                          \
+                                                                                \
+                        if (any < 0 || result > cutoff ||                       \
+                           (result == cutoff && digit > cutlim)) {              \
+                                any = -1;                                       \
+                        } else {                                                \
+                                any = 1;                                        \
+                                result = result * base + digit;                 \
+                        }                                                       \
+                }                                                               \
+                                                                                \
+                if (any < 0) {                                                  \
+                        result = max_val;                                       \
+                }                                                               \
+                                                                                \
+                if (endptr)                                                     \
+                        *endptr = (type *)(any ? p : nptr);                     \
+                                                                                \
+                return result;                                                  \
+        }
+
+DEFINE_STRTOUL(char, strtoul8);
+DEFINE_STRTOUL(char16_t, strtoul16);
+
 DEFINE_STRCHR(char, strchr8);
 DEFINE_STRCHR(char16_t, strchr16);
 
@@ -1051,11 +1131,13 @@ char16_t *xvasprintf_status(EFI_STATUS status, const char *format, va_list ap) {
 #  undef memchr
 #  undef memcmp
 #  undef memcpy
+#  undef memmove
 #  undef memset
 // NOLINTBEGIN(misc-use-internal-linkage)
 _used_ void *memchr(const void *p, int c, size_t n);
 _used_ int memcmp(const void *p1, const void *p2, size_t n);
 _used_ void *memcpy(void * restrict dest, const void * restrict src, size_t n);
+_used_ void *memmove(void *dest, const void *src, size_t n);
 _used_ void *memset(void *p, int c, size_t n);
 // NOLINTEND(misc-use-internal-linkage)
 #else
@@ -1064,6 +1146,7 @@ _used_ void *memset(void *p, int c, size_t n);
 #  define memchr efi_memchr
 #  define memcmp efi_memcmp
 #  define memcpy efi_memcpy
+#  define memmove efi_memmove
 #  define memset efi_memset
 #endif
 
@@ -1124,6 +1207,12 @@ void *memcpy(void * restrict dest, const void * restrict src, size_t n) {
         }
 
         return dest;
+}
+
+void *memmove(void *dest, const void *src, size_t n) {
+        /* Our memcpy delegates to the firmware's CopyMem, which the UEFI spec
+         * guarantees handles overlapping regions correctly. */
+        return memcpy(dest, src, n);
 }
 
 void *memset(void *p, int c, size_t n) {
