@@ -17,6 +17,19 @@ SERVICE_COUNT=20
 CONTAINER_ZONE="test-$RANDOM"
 CONTAINER_1="test-mdns-1"
 CONTAINER_2="test-mdns-2"
+# The conformance subtest resolves one of the generated services end to end, so
+# the values the .dnssd files are built from are part of the export contract
+# below -- one source of truth for both files.
+FIXTURE_SERVICE_NAME_PREFIX="Test Service"
+FIXTURE_SERVICE_TYPE_PREFIX="_testService"
+FIXTURE_SERVICE_PORT=8010
+# One assembled instance of the fixture, for subtests that resolve it by name: assembling it there
+# from the prefixes would silently go stale the moment the .dnssd generation below is reshaped.
+FIXTURE_SERVICE_INSTANCE="$FIXTURE_SERVICE_NAME_PREFIX 0 on $CONTAINER_1"
+FIXTURE_SERVICE_TYPE="${FIXTURE_SERVICE_TYPE_PREFIX}0._udp"
+# SD_RESOLVED_MDNS_IPV4|SD_RESOLVED_MDNS_IPV6|SD_RESOLVED_NO_ZONE|SD_RESOLVED_NO_STALE: what every
+# browse call asks with, here and in the conformance subtest -- exported so there is one value.
+BROWSE_SERVICE_FLAGS=16785432
 
 # Prepare containers
 create_container() {
@@ -36,9 +49,9 @@ create_container() {
 
             cat >"/var/lib/machines/$container/etc/systemd/dnssd/test-service-$container-$svc.dnssd" <<EOF
 [Service]
-Name=Test Service $svc on %H
-Type=_testService$stype._udp
-Port=8010
+Name=$FIXTURE_SERVICE_NAME_PREFIX $svc on %H
+Type=$FIXTURE_SERVICE_TYPE_PREFIX$stype._udp
+Port=$FIXTURE_SERVICE_PORT
 TxtText=DC=Device PN=123456 SN=1234567890
 EOF
         done
@@ -122,7 +135,7 @@ run_and_check_services() {
     error_file="$(mktemp)"
     tmp_file="$(mktemp)"
     service_type="_testService$service_id._udp"
-    parameters="{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": ${BRIDGE_INDEX:?}, \"flags\": 16785432 }"
+    parameters="{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": ${BRIDGE_INDEX:?}, \"flags\": $BROWSE_SERVICE_FLAGS }"
 
     # shellcheck disable=SC2064
     # Note: unregister the trap once it's fired, otherwise it'll get propagated to functions that call this
@@ -209,7 +222,7 @@ run_and_check_services_with_ifindex() {
     error_file="$(mktemp)"
     tmp_file="$(mktemp)"
     service_type="_testService$service_id._udp"
-    parameters="{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": $ifindex, \"flags\": 16785432 }"
+    parameters="{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": $ifindex, \"flags\": $BROWSE_SERVICE_FLAGS }"
 
     # shellcheck disable=SC2064
     # Note: same as above about unregistering the trap once it's fired
@@ -284,7 +297,7 @@ testcase_browse_ifindex_zero_no_flap() {
     # would sever it (and the assertion) mid-observation.
     systemd-run --unit="$unit_name" --service-type=exec -p StandardOutput="file:$out_file" \
         varlinkctl call --more --timeout=infinity /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices \
-        "{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": 0, \"flags\": 16785432 }"
+        "{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": 0, \"flags\": $BROWSE_SERVICE_FLAGS }"
 
     # Wait until both containers' services (20 each, 40 total) have been
     # discovered. Count occurrences, not lines: varlinkctl --more emits compact
@@ -378,5 +391,9 @@ resolvectl status
 
 # Run the actual test cases (functions prefixed by testcase_)
 run_testcases
+
+# ... and the subtests, which browse the same containers over the same bridge
+export CONTAINER_ZONE CONTAINER_1 BRIDGE_INDEX BROWSE_SERVICE_FLAGS FIXTURE_SERVICE_NAME_PREFIX FIXTURE_SERVICE_TYPE_PREFIX FIXTURE_SERVICE_PORT FIXTURE_SERVICE_INSTANCE FIXTURE_SERVICE_TYPE
+run_subtests
 
 touch /testok

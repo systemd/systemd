@@ -543,6 +543,24 @@ def main() -> None:
             '''
         )
 
+    if os.getenv('TEST_SKIP_SUBTESTS'):
+        # Quoted, unlike the TEST_MATCH_* values above: this one is a space-separated list.
+        dropin += textwrap.dedent(
+            f'''
+            [Service]
+            Environment="TEST_SKIP_SUBTESTS={os.environ['TEST_SKIP_SUBTESTS']}"
+            '''
+        )
+
+    if os.getenv('TEST_SKIP_TESTCASES'):
+        # A space-separated list as well.
+        dropin += textwrap.dedent(
+            f'''
+            [Service]
+            Environment="TEST_SKIP_TESTCASES={os.environ['TEST_SKIP_TESTCASES']}"
+            '''
+        )
+
     if os.getenv('TEST_RUN_DFUZZER'):
         dropin += textwrap.dedent(
             f'''
