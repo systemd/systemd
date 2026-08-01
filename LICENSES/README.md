@@ -72,6 +72,15 @@ The following exceptions apply:
  * the following files are licensed under **BSD-3-Clause** license:
    - src/boot/chid.c
    - src/boot/chid.h
+ * the following sources are copied from the dtc project (libfdt) and are licensed under either **BSD-2-Clause** or **GPL-2.0-or-later**, and thus are included in the systemd build under the **BSD-2-Clause** license:
+   - src/boot/libfdt/fdt.c
+   - src/boot/libfdt/fdt_overlay.c
+   - src/boot/libfdt/fdt_ro.c
+   - src/boot/libfdt/fdt_rw.c
+   - src/boot/libfdt/fdt_wip.c
+   - src/boot/libfdt/fdt.h
+   - src/boot/libfdt/libfdt.h
+   - src/boot/libfdt/libfdt_internal.h
  * Heebo fonts under docs/fonts/ are licensed under the **SIL Open Font License 1.1**,
  * any files under test/ without an explicit license we assume non-copyrightable
    (eg: computer-generated fuzzer data)
