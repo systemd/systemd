@@ -14,8 +14,8 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-06-01 11:49+0200\n"
-"PO-Revision-Date: 2026-06-21 11:10+0000\n"
-"Last-Translator: \"Sergey A.\" <Ser82-png@yandex.ru>\n"
+"PO-Revision-Date: 2026-08-01 15:17+0000\n"
+"Last-Translator: Andrei Stepanov <adem4ik@gmail.com>\n"
 "Language-Team: Russian <https://translate.fedoraproject.org/projects/systemd/"
 "main/ru/>\n"
 "Language: ru\n"
@@ -24,7 +24,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 2026.6.1\n"
+"X-Generator: Weblate 2026.7.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -37,27 +37,27 @@ msgstr "Чтобы отправить пароль системе, необхо�
 
 #: src/core/org.freedesktop.systemd1.policy.in:33
 msgid "Manage system services or other units"
-msgstr "Управление системными службами и юнитами"
+msgstr "Управление системными службами и другими юнитами"
 
 #: src/core/org.freedesktop.systemd1.policy.in:34
 msgid "Authentication is required to manage system services or other units."
 msgstr ""
-"Для управления системными службами и юнитами, необходимо пройти "
+"Для управления системными службами и другими юнитами необходимо пройти "
 "аутентификацию."
 
 #: src/core/org.freedesktop.systemd1.policy.in:43
 msgid "Manage system service or unit files"
-msgstr "Управление файлами конфигурации системных служб и юнитов"
+msgstr "Управление файлами системных служб и юнитов"
 
 #: src/core/org.freedesktop.systemd1.policy.in:44
 msgid "Authentication is required to manage system service or unit files."
 msgstr ""
-"Для управления файлами конфигурации системных служб и юнитов, необходимо "
-"пройти аутентификацию."
+"Для управления файлами системных служб и юнитов необходимо пройти "
+"аутентификацию."
 
 #: src/core/org.freedesktop.systemd1.policy.in:54
 msgid "Set or unset system and service manager environment variables"
-msgstr "Настроить переменные окружения для системного менеджера"
+msgstr "Установить или удалить переменные окружения для системного менеджера"
 
 #: src/core/org.freedesktop.systemd1.policy.in:55
 msgid ""
@@ -79,13 +79,13 @@ msgstr ""
 
 #: src/core/org.freedesktop.systemd1.policy.in:74
 msgid "Dump the systemd state without rate limits"
-msgstr "Создавать дампы состояния systemd без ограничений частоты"
+msgstr "Создавать дамп состояния systemd без ограничений по частоте"
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
 msgid ""
 "Authentication is required to dump the systemd state without rate limits."
 msgstr ""
-"Для создания дампов состояния systemd без ограничения частоты необходимо "
+"Для создания дампов состояния systemd без ограничения по частоте необходимо "
 "пройти аутентификацию."
 
 #: src/home/org.freedesktop.home1.policy:13
@@ -191,9 +191,7 @@ msgstr ""
 #: src/home/pam_systemd_home.c:332
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
-msgstr ""
-"Слишком частые попытки войти в систему со стороны пользователя %s, повторите "
-"попытку позже."
+msgstr "Слишком частые попытки входа для пользователя %s, повторите позже."
 
 #: src/home/pam_systemd_home.c:344
 msgid "Password: "
@@ -202,9 +200,7 @@ msgstr "Пароль: "
 #: src/home/pam_systemd_home.c:346
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
-msgstr ""
-"Неверно указан пароль или его недостаточно для аутентификации пользователя "
-"%s."
+msgstr "Пароль неверен или его недостаточно для аутентификации пользователя %s."
 
 #: src/home/pam_systemd_home.c:347
 msgid "Sorry, try again: "
@@ -271,8 +267,8 @@ msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
 msgstr ""
-"PIN-код токена безопасности заблокирован. Пожалуйста, сначала снимите его "
-"блокировку. (Подсказка: иногда достаточно вынуть и снова вставить токен.)"
+"PIN-код токена безопасности заблокирован. Пожалуйста, сначала разблокируйте "
+"его. (Подсказка: иногда достаточно извлечь и снова вставить токен.)"
 
 #: src/home/pam_systemd_home.c:471
 #, c-format
@@ -368,14 +364,14 @@ msgstr "Чтобы настроить имя компьютера, необхо�
 
 #: src/hostname/org.freedesktop.hostname1.policy:30
 msgid "Set static hostname"
-msgstr "Настроить статическое имя компьютера"
+msgstr "Задать статическое имя компьютера"
 
 #: src/hostname/org.freedesktop.hostname1.policy:31
 msgid ""
 "Authentication is required to set the statically configured local hostname, "
 "as well as the pretty hostname."
 msgstr ""
-"Чтобы настроить статическое имя компьютера, а также его «красивое» имя, "
+"Чтобы задать статическое имя компьютера, а также его «красивое» имя, "
 "необходимо пройти аутентификацию."
 
 #: src/hostname/org.freedesktop.hostname1.policy:41
@@ -521,8 +517,8 @@ msgstr ""
 #: src/login/org.freedesktop.login1.policy:75
 msgid "Allow applications to inhibit system handling of the power key"
 msgstr ""
-"Разрешить приложениям устанавливать блокировку обработки нажатий на кнопку "
-"выключения"
+"Разрешить приложениям блокировать обработку системой нажатий на кнопку "
+"питания"
 
 #: src/login/org.freedesktop.login1.policy:76
 msgid ""
@@ -590,7 +586,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:128
 msgid "Allow non-logged-in user to run programs"
-msgstr "Разрешить работу программ в фоновом режиме после завершения сеанса"
+msgstr "Разрешить запуск программ не вошедшим в систему пользователем"
 
 #: src/login/org.freedesktop.login1.policy:129
 msgid "Explicit request is required to run programs as a non-logged-in user."
@@ -600,9 +596,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:138
 msgid "Allow non-logged-in users to run programs"
-msgstr ""
-"Разрешить пользователям оставлять программы в фоновом режиме после "
-"завершения сеанса"
+msgstr "Разрешить запуск программ пользователями, не вошедшими в систему"
 
 #: src/login/org.freedesktop.login1.policy:139
 msgid "Authentication is required to run programs as a non-logged-in user."
@@ -612,7 +606,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:148
 msgid "Allow attaching devices to seats"
-msgstr "Разрешить подключение устройств к рабочим местам"
+msgstr "Разрешить привязку устройств к рабочим местам"
 
 #: src/login/org.freedesktop.login1.policy:149
 msgid "Authentication is required to attach a device to a seat."
@@ -840,8 +834,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:363
 msgid "Indicate to the firmware to boot to setup interface"
-msgstr ""
-"Запустить режим настройки прошивки материнской платы при следующей загрузке"
+msgstr "Указать прошивке загрузиться в интерфейс настройки"
 
 #: src/login/org.freedesktop.login1.policy:364
 msgid ""
@@ -877,12 +870,13 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:396
 msgid "Set a wall message"
-msgstr "Отправить сообщение на все терминалы"
+msgstr "Отправить широковещательное сообщение"
 
 #: src/login/org.freedesktop.login1.policy:397
 msgid "Authentication is required to set a wall message."
 msgstr ""
-"Чтобы отправить сообщение на все терминалы, необходимо пройти аутентификацию."
+"Чтобы отправить широковещательное сообщение, необходимо пройти "
+"аутентификацию."
 
 #: src/login/org.freedesktop.login1.policy:406
 msgid "Change Session"
@@ -968,7 +962,8 @@ msgstr "Проверка локальных виртуальных машин и
 msgid ""
 "Authentication is required to inspect local virtual machines and containers."
 msgstr ""
-"Требуется авторизация для проверки локальных виртуальных машин и контейнеров."
+"Для проверки локальных виртуальных машин и контейнеров необходимо пройти "
+"аутентификацию."
 
 #: src/machine/org.freedesktop.machine1.policy:105
 msgid "Create a local virtual machine or container"
