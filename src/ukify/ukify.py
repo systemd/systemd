@@ -1203,8 +1203,9 @@ DEVICE_TYPE_DEVICETREE = 1
 DEVICE_TYPE_UEFI_FW = 2
 
 # Keep in sync with efifirmware.h
-FWHEADERMAGIC = 'feeddead'
+FWHEADERMAGIC = 0xFEEDDEAD
 EFIFW_HEADER_SIZE = 4 + 4 + 4 + 4
+EFIFW_HEADER_SIZE_WITH_CHID = EFIFW_HEADER_SIZE + 16
 
 
 def device_make_descriptor(device_type: int, size: int) -> int:
@@ -1300,31 +1301,40 @@ def parse_efifw_dir(path: Path) -> bytes:
     if not path.is_dir():
         raise ValueError(f'{path} is not a directory or it does not exist')
 
-    # only one firmware image must be present in the directory
-    # to uniquely identify that firmware with its ID.
-    if len(list(path.glob('*'))) != 1:
+    # Exactly one or two files should exist in the directory:
+    # the firmware blob itself
+    # (optional) file named "hwid" containing the target CHID marking the payload as a UEFI capsule
+    hwid_path = path / 'hwid'
+    images = [p for p in path.iterdir() if p != hwid_path]
+    if len(images) != 1:
         raise ValueError(f'{path} must contain exactly one firmware image file')
 
-    payload_blob = b''
-    for fw in path.iterdir():
-        payload_blob += fw.read_bytes()
-
+    payload_blob = images[0].read_bytes()
     payload_len = len(payload_blob)
     if payload_len == 0:
-        raise ValueError(f'{fw} is a zero byte file!')
+        raise ValueError(f'{images[0]} is a zero byte file!')
 
     dirname = path.parts[-1]
     # firmware id is the name of the directory the firmware bundle is in,
     # terminated by NULL.
     fwid = b'' + dirname.encode() + b'\0'
     fwid_len = len(fwid)
-    magic = bytes.fromhex(FWHEADERMAGIC)
+
+    if hwid_path.is_file():
+        chid = uuid.UUID(hwid_path.read_text().strip())
+        if chid.int == 0:
+            raise ValueError(f'{hwid_path} contains an all-zero CHID, which the stub treats as "no capsule"')
+        chid_blob = chid.bytes_le
+    else:
+        chid_blob = b''
+    header_len = EFIFW_HEADER_SIZE_WITH_CHID if chid_blob else EFIFW_HEADER_SIZE
 
     efifw_header_blob = b''
-    efifw_header_blob += struct.pack('<p', magic)
-    efifw_header_blob += struct.pack('<I', EFIFW_HEADER_SIZE)
+    efifw_header_blob += struct.pack('<I', FWHEADERMAGIC)
+    efifw_header_blob += struct.pack('<I', header_len)
     efifw_header_blob += struct.pack('<I', fwid_len)
     efifw_header_blob += struct.pack('<I', payload_len)
+    efifw_header_blob += chid_blob
 
     efifw_blob = b''
     efifw_blob += efifw_header_blob + fwid + payload_blob
