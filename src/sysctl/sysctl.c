@@ -25,6 +25,7 @@
 static char **arg_prefixes = NULL;
 static CatFlags arg_cat_flags = CAT_CONFIG_OFF;
 static bool arg_strict = false;
+static bool arg_verify = false;
 static bool arg_inline = false;
 static PagerFlags arg_pager_flags = 0;
 
@@ -89,7 +90,10 @@ static SysctlOption* sysctl_option_new(
 static int sysctl_write_or_warn(const char *key, const char *value, bool ignore_failure, bool ignore_enoent) {
         int r;
 
-        r = sysctl_write(key, value);
+        if (arg_verify)
+                r = sysctl_write_verify(key, value);
+        else
+                r = sysctl_write(key, value);
         if (r < 0) {
                 /* Proceed without failing if ignore_failure is true.
                  * If the sysctl is not available in the kernel or we are running with reduced privileges and
@@ -409,6 +413,11 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         arg_strict = true;
                         break;
 
+                OPTION_LONG("verify", NULL,
+                            "Verify sysctl values after write"):
+                        arg_verify = true;
+                        break;
+
                 OPTION_LONG("inline", NULL,
                             "Treat arguments as configuration lines"):
                         arg_inline = true;
@@ -425,18 +434,18 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_ordered_hashmap_free_ OrderedHashmap *sysctl_options = NULL;
         int r;
+
+        log_setup();
 
         char **args = NULL;
         r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
-        log_setup();
-
         umask(0022);
 
+        _cleanup_ordered_hashmap_free_ OrderedHashmap *sysctl_options = NULL;
         if (!strv_isempty(args)) {
                 unsigned pos = 0;
 
