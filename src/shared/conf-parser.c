@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <limits.h>
 #include <linux/ipv6.h>
 #include <stdio.h>
 
@@ -998,6 +999,36 @@ int config_parse_iec_size(
                 return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         *sz = (size_t) v;
+        return 1;
+}
+
+int config_parse_iec_size_long(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        long *sz = ASSERT_PTR(data);
+        uint64_t v;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        r = parse_size(rvalue, 1024, &v);
+        if (r >= 0 && v > LONG_MAX)
+                r = -ERANGE;
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+
+        *sz = (long) v;
         return 1;
 }
 
