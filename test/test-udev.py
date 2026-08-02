@@ -2072,6 +2072,17 @@ SUBSYSTEMS=="scsi", PROGRAM=="/bin/bash -c \"printf %%s 'foo1 foo2' | grep 'foo1
         ''',
     ),
     Rules.new(
+        'builtin path_id for PNP device with ACPI firmware node',
+        Device(
+            '/devices/pnp0/00:07/rtc/rtc0',
+            exp_links=['rtc/by-path/acpi-PNP0B00:00'],
+        ),
+        rules=r'''
+        KERNEL=="rtc0", IMPORT{builtin}="path_id"
+        KERNEL=="rtc0", ENV{ID_PATH}=="?*", SYMLINK+="rtc/by-path/$env{ID_PATH}"
+        ''',
+    ),
+    Rules.new(
         'add and match tag',
         Device(
             '/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda',
