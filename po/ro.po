@@ -12,8 +12,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-06-01 11:49+0200\n"
 "PO-Revision-Date: 2026-08-02 00:17+0000\n"
-"Last-Translator: Fedora Weblate user 1831 "
-"<atony076@users.noreply.translate.fedoraproject.org>\n"
+"Last-Translator: Vlad <milovlad@outlook.com>\n"
 "Language-Team: Romanian <https://translate.fedoraproject.org/projects/"
 "systemd/main/ro/>\n"
 "Language: ro\n"
@@ -894,8 +893,7 @@ msgstr "Conectare la un container local"
 
 #: src/machine/org.freedesktop.machine1.policy:23
 msgid "Authentication is required to log into a local container."
-msgstr ""
-"Autentificarea este necesară pentru a vă conecta la un container local."
+msgstr "Autentificarea este necesară pentru a vă conecta la un container local."
 
 #: src/machine/org.freedesktop.machine1.policy:32
 msgid "Log into the local host"
@@ -1490,8 +1488,7 @@ msgstr ""
 
 #: src/core/dbus-unit.c:679
 msgid "Authentication is required to set properties on '$(unit)'."
-msgstr ""
-"Autentificarea este necesară pentru a seta proprietățile lui „$(unit)”."
+msgstr "Autentificarea este necesară pentru a seta proprietățile lui „$(unit)”."
 
 #: src/core/dbus-unit.c:776
 msgid ""
