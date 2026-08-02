@@ -6,7 +6,7 @@ msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-06-01 11:49+0200\n"
-"PO-Revision-Date: 2026-06-07 13:59+0000\n"
+"PO-Revision-Date: 2026-08-02 00:10+0000\n"
 "Last-Translator: Scrambled 777 <weblate.scrambled777@simplelogin.com>\n"
 "Language-Team: Hindi <https://translate.fedoraproject.org/projects/systemd/"
 "main/hi/>\n"
@@ -15,7 +15,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: Weblate 2026.6.1\n"
+"X-Generator: Weblate 2026.7.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -24,7 +24,8 @@ msgstr "पासफ्रेज़ को सिस्टम पर वाप�
 #: src/core/org.freedesktop.systemd1.policy.in:23
 msgid ""
 "Authentication is required to send the entered passphrase back to the system."
-msgstr "दर्ज किए गए पासफ्रेज़ को सिस्टम में वापस भेजने के लिए प्रमाणीकरण आवश्यक है।"
+msgstr ""
+"दर्ज किए गए पासफ्रेज़ को सिस्टम में वापस भेजने के लिए प्रमाणीकरण आवश्यक है।"
 
 #: src/core/org.freedesktop.systemd1.policy.in:33
 msgid "Manage system services or other units"
@@ -32,7 +33,8 @@ msgstr "सिस्टम सेवाएं और अन्य यूनि�
 
 #: src/core/org.freedesktop.systemd1.policy.in:34
 msgid "Authentication is required to manage system services or other units."
-msgstr "सिस्टम सेवाओं या अन्य यूनिटों को प्रबंधित करने के लिए प्रमाणीकरण आवश्यक है।"
+msgstr ""
+"सिस्टम सेवाओं या अन्य यूनिटों को प्रबंधित करने के लिए प्रमाणीकरण आवश्यक है।"
 
 #: src/core/org.freedesktop.systemd1.policy.in:43
 msgid "Manage system service or unit files"
@@ -40,7 +42,8 @@ msgstr "सिस्टम सेवा या यूनिट फाइले�
 
 #: src/core/org.freedesktop.systemd1.policy.in:44
 msgid "Authentication is required to manage system service or unit files."
-msgstr "सिस्टम सेवा या यूनिट फाइलों को प्रबंधित करने के लिए प्रमाणीकरण आवश्यक है।"
+msgstr ""
+"सिस्टम सेवा या यूनिट फाइलों को प्रबंधित करने के लिए प्रमाणीकरण आवश्यक है।"
 
 #: src/core/org.freedesktop.systemd1.policy.in:54
 msgid "Set or unset system and service manager environment variables"
@@ -147,7 +150,8 @@ msgstr ""
 #: src/home/org.freedesktop.home1.policy:94
 #, fuzzy
 msgid "Authentication is required to manage signing keys for home directories."
-msgstr "सिस्टम सेवाओं या अन्य यूनिटों को प्रबंधित करने के लिए प्रमाणीकरण आवश्यक है।"
+msgstr ""
+"सिस्टम सेवाओं या अन्य यूनिटों को प्रबंधित करने के लिए प्रमाणीकरण आवश्यक है।"
 
 #: src/home/pam_systemd_home.c:327
 #, c-format
@@ -260,7 +264,8 @@ msgstr "उपयोक्ता %s का सुरक्षा टोकन PI
 #: src/home/pam_systemd_home.c:676
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
-msgstr "उपयोक्ता %s का होम वर्तमान में सक्रिय नहीं है, कृपया पहले स्थानीय रूप से लॉगिन करें।"
+msgstr ""
+"उपयोक्ता %s का होम वर्तमान में सक्रिय नहीं है, कृपया पहले स्थानीय रूप से लॉगिन करें।"
 
 #: src/home/pam_systemd_home.c:678
 #, c-format
@@ -303,7 +308,8 @@ msgstr "पासवर्ड समाप्त हो गया, परिव�
 
 #: src/home/pam_systemd_home.c:1065
 msgid "Password is expired, but can't change, refusing login."
-msgstr "पासवर्ड समाप्त हो गया है, लेकिन बदल नहीं सकता, लॉगिन करने से इंकार कर रहा है।"
+msgstr ""
+"पासवर्ड समाप्त हो गया है, लेकिन बदल नहीं सकता, लॉगिन करने से इंकार कर रहा है।"
 
 #: src/home/pam_systemd_home.c:1069
 msgid "Password will expire soon, please change."
@@ -421,7 +427,8 @@ msgstr "अनुप्रयोग को सिस्टम शटडाउन
 #: src/login/org.freedesktop.login1.policy:23
 msgid ""
 "Authentication is required for an application to inhibit system shutdown."
-msgstr "सिस्टम शटडाउन को बाधित करने के लिए किसी अनुप्रयोग के लिए प्रमाणीकरण आवश्यक है।"
+msgstr ""
+"सिस्टम शटडाउन को बाधित करने के लिए किसी अनुप्रयोग के लिए प्रमाणीकरण आवश्यक है।"
 
 #: src/login/org.freedesktop.login1.policy:33
 msgid "Allow applications to delay system shutdown"
@@ -429,7 +436,8 @@ msgstr "अनुप्रयोग को सिस्टम शटडाउन
 
 #: src/login/org.freedesktop.login1.policy:34
 msgid "Authentication is required for an application to delay system shutdown."
-msgstr "सिस्टम शटडाउन में देरी के लिए किसी अनुप्रयोग के लिए प्रमाणीकरण आवश्यक है।"
+msgstr ""
+"सिस्टम शटडाउन में देरी के लिए किसी अनुप्रयोग के लिए प्रमाणीकरण आवश्यक है।"
 
 #: src/login/org.freedesktop.login1.policy:44
 msgid "Allow applications to inhibit system sleep"
@@ -437,7 +445,8 @@ msgstr "अनुप्रयोग को सिस्टम निद्रा
 
 #: src/login/org.freedesktop.login1.policy:45
 msgid "Authentication is required for an application to inhibit system sleep."
-msgstr "सिस्टम निद्रा को बाधित करने के लिए किसी अनुप्रयोग के लिए प्रमाणीकरण आवश्यक है।"
+msgstr ""
+"सिस्टम निद्रा को बाधित करने के लिए किसी अनुप्रयोग के लिए प्रमाणीकरण आवश्यक है।"
 
 #: src/login/org.freedesktop.login1.policy:55
 msgid "Allow applications to delay system sleep"
@@ -445,7 +454,8 @@ msgstr "अनुप्रयोग को सिस्टम निद्रा
 
 #: src/login/org.freedesktop.login1.policy:56
 msgid "Authentication is required for an application to delay system sleep."
-msgstr "सिस्टम निद्रा में देरी के लिए किसी अनुप्रयोग के लिए प्रमाणीकरण आवश्यक है।"
+msgstr ""
+"सिस्टम निद्रा में देरी के लिए किसी अनुप्रयोग के लिए प्रमाणीकरण आवश्यक है।"
 
 #: src/login/org.freedesktop.login1.policy:65
 msgid "Allow applications to inhibit automatic system suspend"
@@ -484,7 +494,8 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:97
 msgid "Allow applications to inhibit system handling of the hibernate key"
-msgstr "अनुप्रयोग को हाइबरनेट कुंजी के सिस्टम संचालन को बाधित करने की अनुमति दें"
+msgstr ""
+"अनुप्रयोग को हाइबरनेट कुंजी के सिस्टम संचालन को बाधित करने की अनुमति दें"
 
 #: src/login/org.freedesktop.login1.policy:98
 msgid ""
@@ -496,7 +507,8 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:107
 msgid "Allow applications to inhibit system handling of the lid switch"
-msgstr "अनुप्रयोग को नोटबुक के ढक्कन स्विच के सिस्टम संचालन को बाधित करने की अनुमति दें"
+msgstr ""
+"अनुप्रयोग को नोटबुक के ढक्कन स्विच के सिस्टम संचालन को बाधित करने की अनुमति दें"
 
 #: src/login/org.freedesktop.login1.policy:108
 msgid ""
@@ -524,7 +536,8 @@ msgstr "गैर-लॉगिन उपयोक्ता को प्रो�
 
 #: src/login/org.freedesktop.login1.policy:129
 msgid "Explicit request is required to run programs as a non-logged-in user."
-msgstr "गैर-लॉगिन उपयोक्ता के रूप में प्रोग्राम चलाने के लिए स्पष्ट अनुरोध आवश्यक है।"
+msgstr ""
+"गैर-लॉगिन उपयोक्ता के रूप में प्रोग्राम चलाने के लिए स्पष्ट अनुरोध आवश्यक है।"
 
 #: src/login/org.freedesktop.login1.policy:138
 msgid "Allow non-logged-in users to run programs"
@@ -532,7 +545,8 @@ msgstr "गैर-लॉगिन उपयोक्ताओं को प्�
 
 #: src/login/org.freedesktop.login1.policy:139
 msgid "Authentication is required to run programs as a non-logged-in user."
-msgstr "गैर-लॉगिन उपयोक्ता के रूप में प्रोग्राम चलाने के लिए प्रमाणीकरण आवश्यक है।"
+msgstr ""
+"गैर-लॉगिन उपयोक्ता के रूप में प्रोग्राम चलाने के लिए प्रमाणीकरण आवश्यक है।"
 
 #: src/login/org.freedesktop.login1.policy:148
 msgid "Allow attaching devices to seats"
@@ -548,7 +562,8 @@ msgstr "सीट से जुड़े उपकरण को रीसेट 
 
 #: src/login/org.freedesktop.login1.policy:160
 msgid "Authentication is required to reset how devices are attached to seats."
-msgstr "उपकरण सीटों से कैसे जुड़े हैं, इसे रीसेट करने के लिए प्रमाणीकरण आवश्यक है।"
+msgstr ""
+"उपकरण सीटों से कैसे जुड़े हैं, इसे रीसेट करने के लिए प्रमाणीकरण आवश्यक है।"
 
 #: src/login/org.freedesktop.login1.policy:169
 msgid "Power off the system"
@@ -714,7 +729,8 @@ msgstr "सक्रिय सत्र, उपयोक्ता और सी�
 
 #: src/login/org.freedesktop.login1.policy:333
 msgid "Authentication is required to manage active sessions, users and seats."
-msgstr "सक्रिय सत्रों, उपयोक्ताओं और सीटों को प्रबंधित करने के लिए प्रमाणीकरण आवश्यक है।"
+msgstr ""
+"सक्रिय सत्रों, उपयोक्ताओं और सीटों को प्रबंधित करने के लिए प्रमाणीकरण आवश्यक है।"
 
 #: src/login/org.freedesktop.login1.policy:342
 msgid "Lock or unlock active sessions"
@@ -839,7 +855,8 @@ msgstr "स्थानीय आभासी मशीन और कंटे�
 #: src/machine/org.freedesktop.machine1.policy:85
 msgid ""
 "Authentication is required to manage local virtual machines and containers."
-msgstr "स्थानीय आभासी मशीनों और कंटेनरों को प्रबंधित करने के लिए प्रमाणीकरण आवश्यक है।"
+msgstr ""
+"स्थानीय आभासी मशीनों और कंटेनरों को प्रबंधित करने के लिए प्रमाणीकरण आवश्यक है।"
 
 #: src/machine/org.freedesktop.machine1.policy:95
 msgid "Inspect local virtual machines and containers"
@@ -859,7 +876,8 @@ msgstr "स्थानीय आभासी मशीन और कंटे�
 #, fuzzy
 msgid ""
 "Authentication is required to create a local virtual machine or container."
-msgstr "स्थानीय आभासी मशीनों और कंटेनरों को प्रबंधित करने के लिए प्रमाणीकरण आवश्यक है।"
+msgstr ""
+"स्थानीय आभासी मशीनों और कंटेनरों को प्रबंधित करने के लिए प्रमाणीकरण आवश्यक है।"
 
 #: src/machine/org.freedesktop.machine1.policy:116
 #, fuzzy
@@ -870,7 +888,8 @@ msgstr "स्थानीय आभासी मशीन और कंटे�
 #, fuzzy
 msgid ""
 "Authentication is required to register a local virtual machine or container."
-msgstr "स्थानीय आभासी मशीनों और कंटेनरों को प्रबंधित करने के लिए प्रमाणीकरण आवश्यक है।"
+msgstr ""
+"स्थानीय आभासी मशीनों और कंटेनरों को प्रबंधित करने के लिए प्रमाणीकरण आवश्यक है।"
 
 #: src/machine/org.freedesktop.machine1.policy:126
 msgid "Manage local virtual machine and container images"
@@ -880,7 +899,8 @@ msgstr "स्थानीय आभासी मशीन और कंटे�
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
-msgstr "स्थानीय आभासी मशीन और कंटेनर छवियों को प्रबंधित करने के लिए प्रमाणीकरण आवश्यक है।"
+msgstr ""
+"स्थानीय आभासी मशीन और कंटेनर छवियों को प्रबंधित करने के लिए प्रमाणीकरण आवश्यक है।"
 
 #: src/machine/org.freedesktop.machine1.policy:137
 msgid "Inspect local virtual machine and container images"
@@ -978,7 +998,8 @@ msgstr "DNSSEC नकारात्मक ट्रस्ट एंकर न�
 #: src/network/org.freedesktop.network1.policy:111
 #: src/resolve/org.freedesktop.resolve1.policy:122
 msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
-msgstr "DNSSEC नकारात्मक ट्रस्ट एंकर निर्धारित करने के लिए प्रमाणीकरण आवश्यक है।"
+msgstr ""
+"DNSSEC नकारात्मक ट्रस्ट एंकर निर्धारित करने के लिए प्रमाणीकरण आवश्यक है।"
 
 #: src/network/org.freedesktop.network1.policy:121
 msgid "Revert NTP settings"
@@ -1066,7 +1087,8 @@ msgstr "वहनीय सेवा छवि संलग्न या अल�
 #: src/portable/org.freedesktop.portable1.policy:24
 msgid ""
 "Authentication is required to attach or detach a portable service image."
-msgstr "वहनीय सेवा छवि को संलग्न या अलग करने के लिए प्रमाणीकरण की आवश्यकता होती है।"
+msgstr ""
+"वहनीय सेवा छवि को संलग्न या अलग करने के लिए प्रमाणीकरण की आवश्यकता होती है।"
 
 #: src/portable/org.freedesktop.portable1.policy:34
 msgid "Delete or modify portable service image"
@@ -1251,7 +1273,8 @@ msgstr ""
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:119
 #, fuzzy
 msgid "Authentication is required to manage optional features."
-msgstr "सक्रिय सत्रों, उपयोक्ताओं और सीटों को प्रबंधित करने के लिए प्रमाणीकरण आवश्यक है।"
+msgstr ""
+"सक्रिय सत्रों, उपयोक्ताओं और सीटों को प्रबंधित करने के लिए प्रमाणीकरण आवश्यक है।"
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
@@ -1313,14 +1336,16 @@ msgstr "'$(unit)' को पुनः आरंभ करने के लिए
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
-msgstr "'$(unit)' की प्रक्रियाओं में UNIX सिग्नल भेजने के लिए प्रमाणीकरण आवश्यक है।"
+msgstr ""
+"'$(unit)' की प्रक्रियाओं में UNIX सिग्नल भेजने के लिए प्रमाणीकरण आवश्यक है।"
 
 #: src/core/dbus-unit.c:621
 #, fuzzy
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
-msgstr "'$(unit)' की प्रक्रियाओं में UNIX सिग्नल भेजने के लिए प्रमाणीकरण आवश्यक है।"
+msgstr ""
+"'$(unit)' की प्रक्रियाओं में UNIX सिग्नल भेजने के लिए प्रमाणीकरण आवश्यक है।"
 
 #: src/core/dbus-unit.c:649
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
@@ -1334,12 +1359,14 @@ msgstr "'$(unit)' पर गुण निर्धारित करने क�
 msgid ""
 "Authentication is required to delete files and directories associated with '$"
 "(unit)'."
-msgstr "'$(unit)' से जुड़ी फाइलों और निर्देशिकाओं को हटाने के लिए प्रमाणीकरण आवश्यक है।"
+msgstr ""
+"'$(unit)' से जुड़ी फाइलों और निर्देशिकाओं को हटाने के लिए प्रमाणीकरण आवश्यक है।"
 
 #: src/core/dbus-unit.c:813
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
-msgstr "'$(unit)' यूनिट की प्रक्रियाओं को जमाने या पिघलाने के लिए प्रमाणीकरण आवश्यक है।"
+msgstr ""
+"'$(unit)' यूनिट की प्रक्रियाओं को जमाने या पिघलाने के लिए प्रमाणीकरण आवश्यक है।"
 
 #: src/shared/libfido2-util.c:500 src/shared/libfido2-util.c:557
 msgid "Please confirm presence on security token to unlock."
