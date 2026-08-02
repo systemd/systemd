@@ -19,7 +19,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-06-01 11:49+0200\n"
 "PO-Revision-Date: 2026-08-02 00:11+0000\n"
-"Last-Translator: Charles Lee <lchopn@gmail.com>\n"
+"Last-Translator: Luke Na <narukeu@outlook.com>\n"
 "Language-Team: Chinese (Simplified) <https://translate.fedoraproject.org/"
 "projects/systemd/main/zh_CN/>\n"
 "Language: zh_CN\n"
@@ -166,8 +166,7 @@ msgstr "管理主目录区域的签名密钥需要认证。"
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
 "device or backing file system."
-msgstr ""
-"用户 %s 的主目录区域当前不可用，请插入必要的存储设备或挂载底层文件系统。"
+msgstr "用户 %s 的主目录区域当前不可用，请插入必要的存储设备或挂载底层文件系统。"
 
 #: src/home/pam_systemd_home.c:332
 #, c-format
