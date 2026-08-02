@@ -9,7 +9,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-06-01 11:49+0200\n"
 "PO-Revision-Date: 2026-08-02 00:16+0000\n"
-"Last-Translator: Américo Monteiro <a_monteiro@gmx.com>\n"
+"Last-Translator: Hugo Carvalho <hugokarvalho@hotmail.com>\n"
 "Language-Team: Portuguese <https://translate.fedoraproject.org/projects/"
 "systemd/main/pt/>\n"
 "Language: pt\n"
@@ -525,8 +525,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:97
 msgid "Allow applications to inhibit system handling of the hibernate key"
-msgstr ""
-"Permitir que aplicações inibam o sistema de gerir o botão de hibernação"
+msgstr "Permitir que aplicações inibam o sistema de gerir o botão de hibernação"
 
 #: src/login/org.freedesktop.login1.policy:98
 msgid ""
@@ -873,8 +872,7 @@ msgstr "Adquirir uma shell na máquina local"
 
 #: src/machine/org.freedesktop.machine1.policy:54
 msgid "Authentication is required to acquire a shell on the local host."
-msgstr ""
-"É necessária autenticação para adquirir uma shell em uma máquina local."
+msgstr "É necessária autenticação para adquirir uma shell em uma máquina local."
 
 #: src/machine/org.freedesktop.machine1.policy:64
 msgid "Acquire a pseudo TTY in a local container"
