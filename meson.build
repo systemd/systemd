@@ -2901,11 +2901,16 @@ if spatch.found()
 
         foreach dir : coccinelle_src_dirs
                 if dir not in coccinelle_exclude
+                        # src/boot/libfdt is vendored code, so ignore it
+                        extra_args = []
+                        if fs.name(dir.strip('/')) == 'boot'
+                                extra_args = ['--exclude', meson.project_source_root() / 'src/boot/libfdt']
+                        endif
                         test(
                                 'coccinelle-@0@'.format(fs.name(dir.strip('/'))),
                                 check_coccinelle_sh,
                                 args : [meson.project_source_root() / dir,
-                                        meson.project_source_root() / 'coccinelle'],
+                                        meson.project_source_root() / 'coccinelle'] + extra_args,
                                 suite : 'coccinelle',
                                 timeout : 120,
                         )
