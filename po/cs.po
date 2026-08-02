@@ -12,7 +12,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-06-01 11:49+0200\n"
 "PO-Revision-Date: 2026-08-02 00:14+0000\n"
-"Last-Translator: Anonymous <noreply@weblate.org>\n"
+"Last-Translator: Daniel Rusek <mail@asciiwolf.com>\n"
 "Language-Team: Czech <https://translate.fedoraproject.org/projects/systemd/"
 "main/cs/>\n"
 "Language: cs\n"
@@ -171,8 +171,7 @@ msgstr ""
 #: src/home/pam_systemd_home.c:332
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
-msgstr ""
-"Příliš časté pokusy o přihlášení uživatele %s, zkuste to znovu později."
+msgstr "Příliš časté pokusy o přihlášení uživatele %s, zkuste to znovu později."
 
 #: src/home/pam_systemd_home.c:344
 msgid "Password: "
