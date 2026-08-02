@@ -12,6 +12,7 @@
 #include "format-table.h"
 #include "glob-util.h"
 #include "hashmap.h"
+#include "json-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "options.h"
@@ -21,11 +22,14 @@
 #include "string-util.h"
 #include "strv.h"
 #include "sysctl-util.h"
+#include "varlink-io.systemd.Sysctl.h"
+#include "varlink-util.h"
 
 static char **arg_prefixes = NULL;
 static CatFlags arg_cat_flags = CAT_CONFIG_OFF;
 static bool arg_strict = false;
 static bool arg_inline = false;
+static bool arg_varlink = false;
 static PagerFlags arg_pager_flags = 0;
 
 STATIC_DESTRUCTOR_REGISTER(arg_prefixes, strv_freep);
@@ -321,6 +325,111 @@ static int read_credential_lines(OrderedHashmap **sysctl_options) {
         return parse_file(sysctl_options, j, /* ignore_enoent= */ true);
 }
 
+static int dispatch_setting(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        OrderedHashmap **sysctl_options = ASSERT_PTR(userdata);
+        int r;
+
+        _cleanup_(sysctl_option_freep) SysctlOption *option = new0(SysctlOption, 1);
+        if (!option)
+                return log_oom();
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "key",           SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(SysctlOption, key),            SD_JSON_MANDATORY },
+                { "value",         SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(SysctlOption, value),          0                 },
+                { "ignoreFailure", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(SysctlOption, ignore_failure), 0                 },
+                { "verify",        SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(SysctlOption, verify),         0                 },
+                {},
+        };
+
+        r = sd_json_dispatch(variant, dispatch_table, flags, option);
+        if (r < 0)
+                return r;
+
+        sysctl_normalize(option->key);
+
+        SysctlOption *existing = ordered_hashmap_get(*sysctl_options, option->key);
+        if (existing) {
+                if (streq_ptr(option->value, existing->value)) {
+                        existing->ignore_failure = existing->ignore_failure || option->ignore_failure;
+                        return 0;
+                }
+
+                log_debug("Overwriting earlier assignment of '%s'.", option->key);
+                sysctl_option_free(ordered_hashmap_remove(*sysctl_options, option->key));
+        }
+
+        r = ordered_hashmap_ensure_put(sysctl_options, &sysctl_option_hash_ops, option->key, option);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add sysctl variable '%s' to hashmap: %m", option->key);
+
+        TAKE_PTR(option);
+        return 0;
+}
+
+static int dispatch_settings(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        int r;
+
+        sd_json_variant *v;
+        JSON_VARIANT_ARRAY_FOREACH(v, variant) {
+                r = dispatch_setting(name, v, flags, userdata);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int vl_method_apply(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        int r;
+
+        assert(link);
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "settings", SD_JSON_VARIANT_ARRAY, dispatch_settings, 0, SD_JSON_MANDATORY},
+                {}
+        };
+
+        _cleanup_ordered_hashmap_free_ OrderedHashmap *sysctl_options = NULL;
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &sysctl_options);
+        if (r != 0)
+                return r;
+
+        return apply_all(sysctl_options);
+}
+
+static int vl_server(void) {
+        int r;
+
+        /* Invocation as Varlink service */
+
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
+        r = varlink_server_new(
+                        &varlink_server,
+                        SD_VARLINK_SERVER_ROOT_ONLY |
+                        SD_VARLINK_SERVER_MYSELF_ONLY,
+                        /* userdata= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate Varlink server: %m");
+
+        r = sd_varlink_server_add_interface_many(
+                        varlink_server,
+                        &vl_interface_io_systemd_Sysctl);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add Varlink interfaces: %m");
+
+        r = sd_varlink_server_bind_method_many(
+                        varlink_server,
+                        "io.systemd.Sysctl.Apply", vl_method_apply);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind Varlink methods: %m");
+
+        r = sd_varlink_server_loop_auto(varlink_server);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run Varlink event loop: %m");
+
+        return 0;
+}
+
 static int cat_config(char **files) {
         pager_open(arg_pager_flags);
 
@@ -370,6 +479,8 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[], char ***remaining_args) {
+        int r;
+
         assert(argc >= 0);
         assert(argv);
         assert(remaining_args);
@@ -435,6 +546,26 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Positional arguments are not allowed with --cat-config/--tldr.");
 
+        r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
+        if (r > 0) {
+                if (arg_cat_flags != CAT_CONFIG_OFF)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--cat-config/--tldr cannot be used on Varlink mode.");
+                if (!strv_isempty(arg_prefixes))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--prefix= cannot be used on Varlink mode.");
+                if (arg_inline)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--inline cannot be used on Varlink mode.");
+                if (!strv_isempty(*remaining_args))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Positional arguments are not allowed on Varlink mode.");
+
+                arg_varlink = true;
+        }
+
         return 1;
 }
 
@@ -449,6 +580,9 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         umask(0022);
+
+        if (arg_varlink)
+                return vl_server();
 
         _cleanup_ordered_hashmap_free_ OrderedHashmap *sysctl_options = NULL;
         if (!strv_isempty(args)) {
