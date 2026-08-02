@@ -98,72 +98,20 @@ EFI_STATUS devicetree_load(struct devicetree_state *state, EFI_FILE *root_dir, c
 }
 
 static const char* devicetree_get_compatible(const void *dtb) {
+        assert(dtb);
+
         if ((uintptr_t) dtb % alignof(struct fdt_header) != 0)
                 return NULL;
 
-        const struct fdt_header *dt_header = ASSERT_PTR(dtb);
-
-        if (be32toh(dt_header->magic) != UINT32_C(0xd00dfeed))
+        if (fdt_check_header(dtb) != 0)
                 return NULL;
 
-        uint32_t dt_size = be32toh(dt_header->totalsize);
-        uint32_t struct_off = be32toh(dt_header->off_dt_struct);
-        uint32_t struct_size = be32toh(dt_header->size_dt_struct);
-        uint32_t strings_off = be32toh(dt_header->off_dt_strings);
-        uint32_t strings_size = be32toh(dt_header->size_dt_strings);
-        uint32_t end;
-
-        if (PTR_TO_SIZE(dtb) > SIZE_MAX - dt_size)
+        int len;
+        const char *c = fdt_getprop(dtb, 0, "compatible", &len);
+        if (!c || len == 0 || c[len - 1] != '\0')
                 return NULL;
 
-        if (!ADD_SAFE(&end, strings_off, strings_size) || end > dt_size)
-                return NULL;
-        const char *strings_block = (const char *) ((const uint8_t *) dt_header + strings_off);
-
-        if (struct_off % sizeof(uint32_t) != 0)
-                return NULL;
-
-        if (struct_size % sizeof(uint32_t) != 0 ||
-            !ADD_SAFE(&end, struct_off, struct_size) ||
-            end > strings_off)
-                return NULL;
-        const uint32_t *cursor = (const uint32_t *) ((const uint8_t *) dt_header + struct_off);
-
-        size_t size_words = struct_size / sizeof(uint32_t);
-        size_t len, name_off, len_words, s;
-
-        for (size_t i = 0; i < size_words; i++) {
-                switch (be32toh(cursor[i])) {
-                case FDT_BEGIN_NODE:
-                        if (i + 1 >= size_words || cursor[++i] != 0)
-                                return NULL;
-                        break;
-                case FDT_NOP:
-                        break;
-                case FDT_PROP:
-                        /* At least 3 words should present: len, name_off, c (nul-terminated string always has non-zero length) */
-                        if (i + 3 >= size_words)
-                                return NULL;
-                        len = be32toh(cursor[++i]);
-                        name_off = be32toh(cursor[++i]);
-                        len_words = DIV_ROUND_UP(len, sizeof(uint32_t));
-
-                        if (ADD_SAFE(&s, name_off, STRLEN("compatible")) &&
-                            s < strings_size && streq8(strings_block + name_off, "compatible")) {
-                                const char *c = (const char *) &cursor[++i];
-                                if (len == 0 || i + len_words > size_words || c[len - 1] != '\0')
-                                        c = NULL;
-
-                                return c;
-                        }
-                        i += len_words;
-                        break;
-                default:
-                        return NULL;
-                }
-        }
-
-        return NULL;
+        return c;
 }
 
 bool firmware_devicetree_exists(void) {
