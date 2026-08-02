@@ -5,6 +5,7 @@
 
 #include "sd-bus.h"
 #include "sd-id128.h"
+#include "sd-json.h"
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
@@ -780,13 +781,31 @@ static int process_hostname(int rfd, sd_varlink **mute_console_link) {
                         log_warning("Resolved hostname '%s' is invalid, writing template '%s' verbatim instead.", resolved, arg_hostname);
                 else
                         hostname = resolved;
-        }
 
-        r = write_string_file_full_label(pfd, f, hostname,
-                                   WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL,
-                                   /* ts= */ NULL, /* label_fn= */ NULL, arg_label_context);
-        if (r < 0)
-                return log_error_errno(r, "Failed to write /etc/hostname: %m");
+                _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+                r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.Hostname");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to connect to systemd-hostnamed: %m");
+
+                const char *error_id = NULL;
+                r = sd_varlink_callbo(
+                                vl,
+                                "io.systemd.Hostname.SetStaticHostname",
+                                /* ret_reply= */ NULL,
+                                &error_id,
+                                SD_JSON_BUILD_PAIR_STRING("newValue", hostname));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to call SetStaticHostname: %m");
+                if (error_id)
+                        return log_error_errno(sd_varlink_error_to_errno(error_id, /* parameters= */ NULL),
+                                               "SetStaticHostname failed: %s", error_id);
+        } else {
+                r = write_string_file_full_label(pfd, f, hostname,
+                                           WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL,
+                                           /* ts= */ NULL, /* label_fn= */ NULL, arg_label_context);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write /etc/hostname: %m");
+        }
 
         log_info("/etc/hostname written.");
         return 0;
