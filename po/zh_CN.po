@@ -19,7 +19,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-06-01 11:49+0200\n"
 "PO-Revision-Date: 2026-08-02 00:11+0000\n"
-"Last-Translator: Poesty Li <poesty7450@gmail.com>\n"
+"Last-Translator: Charles Lee <lchopn@gmail.com>\n"
 "Language-Team: Chinese (Simplified) <https://translate.fedoraproject.org/"
 "projects/systemd/main/zh_CN/>\n"
 "Language: zh_CN\n"
@@ -241,8 +241,7 @@ msgstr "请在用户 %s 的安全令牌上验证用户身份。"
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
-msgstr ""
-"安全令牌 PIN 已经锁定，请先将其解锁。（提示：移除并重新插入可能就行。）"
+msgstr "安全令牌 PIN 已经锁定，请先将其解锁。（提示：移除并重新插入可能就行。）"
 
 #: src/home/pam_systemd_home.c:471
 #, c-format
