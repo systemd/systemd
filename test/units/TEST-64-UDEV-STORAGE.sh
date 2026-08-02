@@ -10,7 +10,8 @@ set -o pipefail
 helper_check_device_symlinks() {(
     set +x
 
-    local dev link path paths target
+    local dev link path target
+    local -a paths
 
     [[ $# -gt 0 ]] && paths=("$@") || paths=("/dev/disk" "/dev/mapper")
 
@@ -83,7 +84,8 @@ helper_check_udev_watch() {(
 check_device_unit() {(
     set +x
 
-    local log_level link links path syspath unit
+    local log_level link path syspath unit
+    local -a links
 
     log_level="${1?}"
     path="${2?}"
