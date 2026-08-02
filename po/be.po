@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-06-01 11:49+0200\n"
-"PO-Revision-Date: 2026-06-07 13:59+0000\n"
+"PO-Revision-Date: 2026-08-02 00:08+0000\n"
 "Last-Translator: Fedora Weblate user 1008 "
 "<kopatych@users.noreply.translate.fedoraproject.org>\n"
 "Language-Team: Belarusian <https://translate.fedoraproject.org/projects/"
@@ -22,7 +22,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 2026.6.1\n"
+"X-Generator: Weblate 2026.7.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -106,8 +106,7 @@ msgstr "Праверыць уліковыя даныя хатняй прасто
 #: src/home/org.freedesktop.home1.policy:34
 msgid ""
 "Authentication is required to check credentials against a user's home area."
-msgstr ""
-"Для праверкі ўліковых даных хатняй прасторы патрабуецца аўтэнтыфікацыя."
+msgstr "Для праверкі ўліковых даных хатняй прасторы патрабуецца аўтэнтыфікацыя."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
@@ -538,8 +537,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:117
 msgid "Allow applications to inhibit system handling of the reboot key"
-msgstr ""
-"Дазволіць праграмам перашкаджаць сістэме апрацоўваць кнопку перазапуску"
+msgstr "Дазволіць праграмам перашкаджаць сістэме апрацоўваць кнопку перазапуску"
 
 #: src/login/org.freedesktop.login1.policy:118
 msgid ""
@@ -1090,8 +1088,7 @@ msgstr "Змяніць канфігурацыю сеткавага інтэрф�
 
 #: src/network/org.freedesktop.network1.policy:177
 msgid "Authentication is required to reconfigure network interface."
-msgstr ""
-"Для змены канфігурацыі сеткавага інтэрфейсу патрабуецца аўтэнтыфікацыя."
+msgstr "Для змены канфігурацыі сеткавага інтэрфейсу патрабуецца аўтэнтыфікацыя."
 
 #: src/network/org.freedesktop.network1.policy:187
 msgid "Specify whether persistent storage for systemd-networkd is available"

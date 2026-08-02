@@ -9,8 +9,8 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-06-01 11:49+0200\n"
-"PO-Revision-Date: 2026-06-22 17:44+0000\n"
-"Last-Translator: 김인수 <simmon@nplob.com>\n"
+"PO-Revision-Date: 2026-08-02 00:13+0000\n"
+"Last-Translator: Anonymous <noreply@weblate.org>\n"
 "Language-Team: Korean <https://translate.fedoraproject.org/projects/systemd/"
 "main/ko/>\n"
 "Language: ko\n"
@@ -18,7 +18,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 2026.6.1\n"
+"X-Generator: Weblate 2026.7.1\n"
 "X-Poedit-SourceCharset: UTF-8\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
@@ -55,8 +55,8 @@ msgid ""
 "Authentication is required to set or unset system and service manager "
 "environment variables."
 msgstr ""
-"시스템 및 서비스 관리자 환경 변수를 설정하거나 설정 또는 해제하려면 인증이 필"
-"요합니다."
+"시스템 및 서비스 관리자 환경 변수를 설정하거나 설정 또는 해제하려면 인증이 "
+"필요합니다."
 
 #: src/core/org.freedesktop.systemd1.policy.in:64
 msgid "Reload the systemd state"
@@ -161,8 +161,7 @@ msgstr ""
 #: src/home/pam_systemd_home.c:332
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
-msgstr ""
-"사용자 %s를 위해 너무나 많은 로그인 시도가 있었으며, 다음에 다시 시도하세요."
+msgstr "사용자 %s를 위해 너무나 많은 로그인 시도가 있었으며, 다음에 다시 시도하세요."
 
 #: src/home/pam_systemd_home.c:344
 msgid "Password: "
@@ -186,8 +185,7 @@ msgstr "복원 키: "
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
 "%s."
-msgstr ""
-"비밀번호/복구 키가 올바르지 않거나 사용자 %s의 인증에 충분하지 않습니다."
+msgstr "비밀번호/복구 키가 올바르지 않거나 사용자 %s의 인증에 충분하지 않습니다."
 
 #: src/home/pam_systemd_home.c:372
 msgid "Sorry, reenter recovery key: "
@@ -261,8 +259,7 @@ msgstr "사용자 %s의 보안 토큰 PIN이 잘못됨 (한 번만 남았습니�
 #: src/home/pam_systemd_home.c:676
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
-msgstr ""
-"사용자 %s의 홈은 현재 활성화되어 있지 않으며, 우선 로컬에서 로그인 해주세요."
+msgstr "사용자 %s의 홈은 현재 활성화되어 있지 않으며, 우선 로컬에서 로그인 해주세요."
 
 #: src/home/pam_systemd_home.c:678
 #, c-format
@@ -328,8 +325,8 @@ msgid ""
 "Authentication is required to set the statically configured local hostname, "
 "as well as the pretty hostname."
 msgstr ""
-"로컬 호스트 이름을 지정 호스트 이름처럼 정적으로 설정하려면 인증이 필요합니"
-"다."
+"로컬 호스트 이름을 지정 호스트 이름처럼 정적으로 설정하려면 인증이 "
+"필요합니다."
 
 #: src/hostname/org.freedesktop.hostname1.policy:41
 msgid "Set machine information"
@@ -435,8 +432,7 @@ msgstr "프로그램의 시스템 대기 상태 진입 방지 요청 허용"
 
 #: src/login/org.freedesktop.login1.policy:45
 msgid "Authentication is required for an application to inhibit system sleep."
-msgstr ""
-"프로그램의 시스템 대기 상태 진입 방지 요청을 허용하려면 인증이 필요합니다."
+msgstr "프로그램의 시스템 대기 상태 진입 방지 요청을 허용하려면 인증이 필요합니다."
 
 #: src/login/org.freedesktop.login1.policy:55
 msgid "Allow applications to delay system sleep"
@@ -444,8 +440,7 @@ msgstr "프로그램의 시스템 대기 상태 진입 지연 허용"
 
 #: src/login/org.freedesktop.login1.policy:56
 msgid "Authentication is required for an application to delay system sleep."
-msgstr ""
-"프로그램의 시스템 대기 상태 진입 지연 동작을 허용하려면 인증이 필요합니다."
+msgstr "프로그램의 시스템 대기 상태 진입 지연 동작을 허용하려면 인증이 필요합니다."
 
 #: src/login/org.freedesktop.login1.policy:65
 msgid "Allow applications to inhibit automatic system suspend"
@@ -456,8 +451,8 @@ msgid ""
 "Authentication is required for an application to inhibit automatic system "
 "suspend."
 msgstr ""
-"프로그램의 시스템 자동 절전 상태 진입 방지 요청을 허용하려면 인증이 필요합니"
-"다."
+"프로그램의 시스템 자동 절전 상태 진입 방지 요청을 허용하려면 인증이 "
+"필요합니다."
 
 #: src/login/org.freedesktop.login1.policy:75
 msgid "Allow applications to inhibit system handling of the power key"
@@ -467,8 +462,7 @@ msgstr "프로그램의 시스템 전원 키 처리 방지 요청 허용"
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the power key."
-msgstr ""
-"프로그램의 시스템 전원 키 처리 방지 요청을 허용하려면 인증이 필요합니다."
+msgstr "프로그램의 시스템 전원 키 처리 방지 요청을 허용하려면 인증이 필요합니다."
 
 #: src/login/org.freedesktop.login1.policy:86
 msgid "Allow applications to inhibit system handling of the suspend key"
@@ -478,8 +472,7 @@ msgstr "프로그램의 시스템 절전 키 처리 방지 요청 허용"
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the suspend key."
-msgstr ""
-"프로그램의 시스템 절전 키 처리 방지 요청을 허용하려면 인증이 필요합니다."
+msgstr "프로그램의 시스템 절전 키 처리 방지 요청을 허용하려면 인증이 필요합니다."
 
 #: src/login/org.freedesktop.login1.policy:97
 msgid "Allow applications to inhibit system handling of the hibernate key"
@@ -489,8 +482,7 @@ msgstr "프로그램의 시스템 최대 절전 키 처리 방지 요청 허용"
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the hibernate key."
-msgstr ""
-"프로그램의 시스템 최대 절전 키 처리 방지 요청을 허용하려면 인증이 필요합니다."
+msgstr "프로그램의 시스템 최대 절전 키 처리 방지 요청을 허용하려면 인증이 필요합니다."
 
 #: src/login/org.freedesktop.login1.policy:107
 msgid "Allow applications to inhibit system handling of the lid switch"
@@ -501,8 +493,8 @@ msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the lid switch."
 msgstr ""
-"프로그램의 시스템 랩톱 덮개 스위치 처리 방지 요청을 허용하려면 인증이 필요합"
-"니다."
+"프로그램의 시스템 랩톱 덮개 스위치 처리 방지 요청을 허용하려면 인증이 "
+"필요합니다."
 
 #: src/login/org.freedesktop.login1.policy:117
 msgid "Allow applications to inhibit system handling of the reboot key"
@@ -573,8 +565,8 @@ msgid ""
 "Authentication is required to power off the system while an application is "
 "inhibiting this."
 msgstr ""
-"프로그램이 시스템을 끄지 못하게 요청할 때 시스템 전원을 끄려면 인증이 필요합"
-"니다."
+"프로그램이 시스템을 끄지 못하게 요청할 때 시스템 전원을 끄려면 인증이 "
+"필요합니다."
 
 #: src/login/org.freedesktop.login1.policy:202
 msgid "Reboot the system"
@@ -592,8 +584,7 @@ msgstr "다른 사용자가 로그인 했을 때 시스템 다시 시작"
 msgid ""
 "Authentication is required to reboot the system while other users are logged "
 "in."
-msgstr ""
-"다른 사용자가 로그인 했을 때 시스템을 다시 시작하려면 인증이 필요합니다."
+msgstr "다른 사용자가 로그인 했을 때 시스템을 다시 시작하려면 인증이 필요합니다."
 
 #: src/login/org.freedesktop.login1.policy:224
 msgid "Reboot the system while an application is inhibiting this"
@@ -623,8 +614,7 @@ msgstr "다른 사용자가 로그인 했을 때 시스템이 정지 상태진�
 msgid ""
 "Authentication is required to halt the system while other users are logged "
 "in."
-msgstr ""
-"다른 사용자가 로그인 했을 때 시스템을 정지 상태로 놓으려면 인증이 필요합니다."
+msgstr "다른 사용자가 로그인 했을 때 시스템을 정지 상태로 놓으려면 인증이 필요합니다."
 
 #: src/login/org.freedesktop.login1.policy:257
 msgid "Halt the system while an application is inhibiting this"
@@ -634,8 +624,7 @@ msgstr "프로그램에서 전원 끄기를 막을 때 시스템 전원 끄기"
 msgid ""
 "Authentication is required to halt the system while an application is "
 "inhibiting this."
-msgstr ""
-"프로그램에서 전원 끄기를 막을 때 시스템 전원을 끄려면 인증이 필요합니다."
+msgstr "프로그램에서 전원 끄기를 막을 때 시스템 전원을 끄려면 인증이 필요합니다."
 
 #: src/login/org.freedesktop.login1.policy:268
 msgid "Suspend the system"
@@ -653,8 +642,7 @@ msgstr "다른 사용자가 로그인 했을 때 시스템 절전 상태 진입"
 msgid ""
 "Authentication is required to suspend the system while other users are "
 "logged in."
-msgstr ""
-"다른 사용자가 로그인 했을 때 시스템을 절전 상태로 놓으려면 인증이 필요합니다."
+msgstr "다른 사용자가 로그인 했을 때 시스템을 절전 상태로 놓으려면 인증이 필요합니다."
 
 #: src/login/org.freedesktop.login1.policy:289
 msgid "Suspend the system while an application is inhibiting this"
@@ -685,21 +673,20 @@ msgid ""
 "Authentication is required to hibernate the system while other users are "
 "logged in."
 msgstr ""
-"다른 사용자가 로그인 했을 때 시스템을 최대 절전 상태로 설정하려면 인증이 필요"
-"합니다."
+"다른 사용자가 로그인 했을 때 시스템을 최대 절전 상태로 설정하려면 인증이 "
+"필요합니다."
 
 #: src/login/org.freedesktop.login1.policy:321
 msgid "Hibernate the system while an application is inhibiting this"
-msgstr ""
-"프로그램에서 최대 절전 모드로의 진입을 막을 때 시스템 최대 절전 상태 진입"
+msgstr "프로그램에서 최대 절전 모드로의 진입을 막을 때 시스템 최대 절전 상태 진입"
 
 #: src/login/org.freedesktop.login1.policy:322
 msgid ""
 "Authentication is required to hibernate the system while an application is "
 "inhibiting this."
 msgstr ""
-"프로그램에서 최대 절전 모드로의 진입을 막을 때 시스템을 최대 절전 상태로 설정"
-"하려면 인증이 필요합니다."
+"프로그램에서 최대 절전 모드로의 진입을 막을 때 시스템을 최대 절전 상태로 "
+"설정하려면 인증이 필요합니다."
 
 #: src/login/org.freedesktop.login1.policy:332
 msgid "Manage active sessions, users and seats"
@@ -1188,8 +1175,7 @@ msgstr "지정된 시스템 버전 설치"
 msgid ""
 "Authentication is required to update the system to a specific (possibly old) "
 "version."
-msgstr ""
-"지정된 (아마도 오래된) 버전으로 시스템을 최신화하려면 인증이 필요합니다."
+msgstr "지정된 (아마도 오래된) 버전으로 시스템을 최신화하려면 인증이 필요합니다."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:88
 msgid "Cancel installing specific system version"
@@ -1200,8 +1186,8 @@ msgid ""
 "Authentication is required to cancel updating the system to a specific "
 "(possibly old) version."
 msgstr ""
-"시스템을 지정된 (아마도 오래된) 버전으로 최신화하기를 취소하려면 인증이 필요"
-"합니다."
+"시스템을 지정된 (아마도 오래된) 버전으로 최신화하기를 취소하려면 인증이 "
+"필요합니다."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:98
 msgid "Clean up old system updates"
@@ -1252,8 +1238,8 @@ msgid ""
 "Authentication is required to control whether the RTC stores the local or "
 "UTC time."
 msgstr ""
-"RTC를 로컬 시간 또는 UTC 시간으로 저장할 지 여부를 제어하려면 인증이 필요합니"
-"다."
+"RTC를 로컬 시간 또는 UTC 시간으로 저장할 지 여부를 제어하려면 인증이 "
+"필요합니다."
 
 #: src/timedate/org.freedesktop.timedate1.policy:53
 msgid "Turn network time synchronization on or off"
@@ -1291,8 +1277,7 @@ msgstr "'$(unit)'의 처리에 유닉스 신호를 전송하려면 인증이 필
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
-msgstr ""
-"'$(unit)'의 하위그룹 처리로 유닉스 신호를 전송하려면 인증이 필요합니다."
+msgstr "'$(unit)'의 하위그룹 처리로 유닉스 신호를 전송하려면 인증이 필요합니다."
 
 #: src/core/dbus-unit.c:649
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."

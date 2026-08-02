@@ -7,7 +7,7 @@ msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-06-01 11:49+0200\n"
-"PO-Revision-Date: 2026-06-07 14:01+0000\n"
+"PO-Revision-Date: 2026-08-02 00:14+0000\n"
 "Last-Translator: Bone NI <bounkirdni@gmail.com>\n"
 "Language-Team: Lao <https://translate.fedoraproject.org/projects/systemd/"
 "main/lo/>\n"
@@ -16,7 +16,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 2026.6.1\n"
+"X-Generator: Weblate 2026.7.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -150,12 +150,14 @@ msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
 "device or backing file system."
-msgstr "ພື້ນທີ່ໂຮມຂອງຜູ້ໃຊ້ %s ບໍ່ມີຢູ່ໃນຕອນນີ້, ກະລຸນາສຽບອຸປະກອນເກັບຂໍ້ມູນທີ່ຈຳເປັນ ຫຼື ລະບົບໄຟລ໌ສຳຮອງ."
+msgstr ""
+"ພື້ນທີ່ໂຮມຂອງຜູ້ໃຊ້ %s ບໍ່ມີຢູ່ໃນຕອນນີ້, ກະລຸນາສຽບອຸປະກອນເກັບຂໍ້ມູນທີ່ຈຳເປັນ ຫຼື ລະບົບໄຟລ໌ສຳຮອງ."
 
 #: src/home/pam_systemd_home.c:332
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
-msgstr "ມີການພະຍາຍາມເຂົ້າສູ່ລະບົບສຳລັບຜູ້ໃຊ້ %s ຫຼາຍເກີນໄປ, ກະລຸນາລອງໃໝ່ພາຍຫຼັງ."
+msgstr ""
+"ມີການພະຍາຍາມເຂົ້າສູ່ລະບົບສຳລັບຜູ້ໃຊ້ %s ຫຼາຍເກີນໄປ, ກະລຸນາລອງໃໝ່ພາຍຫຼັງ."
 
 #: src/home/pam_systemd_home.c:344
 msgid "Password: "
@@ -179,7 +181,8 @@ msgstr "ລະຫັດກູ້ຄືນ: "
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
 "%s."
-msgstr "ລະຫັດຜ່ານ/ລະຫັດກູ້ຄືນ ບໍ່ຖືກຕ້ອງ ຫຼື ບໍ່ພຽງພໍສຳລັບການຢືນຢັນຕົວຕົນຂອງຜູ້ໃຊ້ %s."
+msgstr ""
+"ລະຫັດຜ່ານ/ລະຫັດກູ້ຄືນ ບໍ່ຖືກຕ້ອງ ຫຼື ບໍ່ພຽງພໍສຳລັບການຢືນຢັນຕົວຕົນຂອງຜູ້ໃຊ້ %s."
 
 #: src/home/pam_systemd_home.c:372
 msgid "Sorry, reenter recovery key: "
@@ -199,7 +202,8 @@ msgstr "ລອງໃໝ່ດ້ວຍລະຫັດຜ່ານ: "
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
 "%s not inserted."
-msgstr "ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ ຫຼື ບໍ່ພຽງພໍ, ແລະ ບໍ່ໄດ້ສຽບໂທເຄັນຄວາມປອດໄພທີ່ຕັ້ງຄ່າໄວ້ຂອງຜູ້ໃຊ້ %s."
+msgstr ""
+"ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ ຫຼື ບໍ່ພຽງພໍ, ແລະ ບໍ່ໄດ້ສຽບໂທເຄັນຄວາມປອດໄພທີ່ຕັ້ງຄ່າໄວ້ຂອງຜູ້ໃຊ້ %s."
 
 #: src/home/pam_systemd_home.c:415
 msgid "Security token PIN: "
@@ -225,8 +229,8 @@ msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
 msgstr ""
-"ລະຫັດ PIN ຂອງໂທເຄັນຄວາມປອດໄພຖືກລັອກ, ກະລຸນາປົດລັອກກ່ອນ. (ຄຳແນະນຳ: "
-"ການຖອດອອກແລ້ວສຽບເຂົ້າໃໝ່ອາດຊ່ວຍໄດ້.)"
+"ລະຫັດ PIN ຂອງໂທເຄັນຄວາມປອດໄພຖືກລັອກ, ກະລຸນາປົດລັອກກ່ອນ. (ຄຳແນະນຳ: ການຖອດອອກແລ້ວສຽບເຂົ້າໃ"
+"ໝ່ອາດຊ່ວຍໄດ້.)"
 
 #: src/home/pam_systemd_home.c:471
 #, c-format
@@ -241,17 +245,20 @@ msgstr "ຂໍອະໄພ, ລອງປ້ອນ PIN ຂອງໂທເຄັ�
 #: src/home/pam_systemd_home.c:490
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
-msgstr "ລະຫັດ PIN ຂອງໂທເຄັນຄວາມປອດໄພຂອງຜູ້ໃຊ້ %s ບໍ່ຖືກຕ້ອງ (ເຫຼືອການພະຍາຍາມອີກບໍ່ເທົ່າໃດຄັ້ງ!)"
+msgstr ""
+"ລະຫັດ PIN ຂອງໂທເຄັນຄວາມປອດໄພຂອງຜູ້ໃຊ້ %s ບໍ່ຖືກຕ້ອງ (ເຫຼືອການພະຍາຍາມອີກບໍ່ເທົ່າໃດຄັ້ງ!)"
 
 #: src/home/pam_systemd_home.c:509
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
-msgstr "ລະຫັດ PIN ຂອງໂທເຄັນຄວາມປອດໄພຂອງຜູ້ໃຊ້ %s ບໍ່ຖືກຕ້ອງ (ເຫຼືອການພະຍາຍາມອີກພຽງຄັ້ງດຽວ!)"
+msgstr ""
+"ລະຫັດ PIN ຂອງໂທເຄັນຄວາມປອດໄພຂອງຜູ້ໃຊ້ %s ບໍ່ຖືກຕ້ອງ (ເຫຼືອການພະຍາຍາມອີກພຽງຄັ້ງດຽວ!)"
 
 #: src/home/pam_systemd_home.c:676
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
-msgstr "ພື້ນທີ່ໂຮມຂອງຜູ້ໃຊ້ %s ຍັງບໍ່ທັນເປີດໃຊ້ງານ, ກະລຸນາເຂົ້າສູ່ລະບົບໂດຍກົງຢູ່ເຄື່ອງກ່ອນ."
+msgstr ""
+"ພື້ນທີ່ໂຮມຂອງຜູ້ໃຊ້ %s ຍັງບໍ່ທັນເປີດໃຊ້ງານ, ກະລຸນາເຂົ້າສູ່ລະບົບໂດຍກົງຢູ່ເຄື່ອງກ່ອນ."
 
 #: src/home/pam_systemd_home.c:678
 #, c-format
@@ -316,7 +323,8 @@ msgstr "ຕັ້ງຊື່ໂຮສແບບຄົງທີ່"
 msgid ""
 "Authentication is required to set the statically configured local hostname, "
 "as well as the pretty hostname."
-msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຕັ້ງຊື່ໂຮສແບບຄົງທີ່ ແລະ ຊື່ໂຮສແບບອ່ານງ່າຍ (pretty hostname)."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຕັ້ງຊື່ໂຮສແບບຄົງທີ່ ແລະ ຊື່ໂຮສແບບອ່ານງ່າຍ (pretty hostname)."
 
 #: src/hostname/org.freedesktop.hostname1.policy:41
 msgid "Set machine information"
@@ -381,7 +389,8 @@ msgstr "ຍົກເລີກການໂອນຖ່າຍອິເມຈຂອ
 #: src/import/org.freedesktop.import1.policy:53
 msgid ""
 "Authentication is required to cancel the ongoing transfer of a disk image."
-msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຍົກເລີກການໂອນຖ່າຍອິເມຈຂອງດິສກ໌ທີ່ກຳລັງດຳເນີນການຢູ່."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຍົກເລີກການໂອນຖ່າຍອິເມຈຂອງດິສກ໌ທີ່ກຳລັງດຳເນີນການຢູ່."
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
@@ -450,17 +459,20 @@ msgstr "ອະນຸຍາດໃຫ້ແອັບພລິເຄຊັນລະ
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the power key."
-msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອໃຫ້ແອັບພລິເຄຊັນລະງັບການຈັດການປຸ່ມເປີດປິດຂອງລະບົບ."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອໃຫ້ແອັບພລິເຄຊັນລະງັບການຈັດການປຸ່ມເປີດປິດຂອງລະບົບ."
 
 #: src/login/org.freedesktop.login1.policy:86
 msgid "Allow applications to inhibit system handling of the suspend key"
-msgstr "ອະນຸຍາດໃຫ້ແອັບພລິເຄຊັນລະງັບການຈັດການປຸ່ມພັກເຄື່ອງ (suspend key) ຂອງລະບົບ"
+msgstr ""
+"ອະນຸຍາດໃຫ້ແອັບພລິເຄຊັນລະງັບການຈັດການປຸ່ມພັກເຄື່ອງ (suspend key) ຂອງລະບົບ"
 
 #: src/login/org.freedesktop.login1.policy:87
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the suspend key."
-msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອໃຫ້ແອັບພລິເຄຊັນລະງັບການຈັດການປຸ່ມພັກເຄື່ອງຂອງລະບົບ."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອໃຫ້ແອັບພລິເຄຊັນລະງັບການຈັດການປຸ່ມພັກເຄື່ອງຂອງລະບົບ."
 
 #: src/login/org.freedesktop.login1.policy:97
 msgid "Allow applications to inhibit system handling of the hibernate key"
@@ -470,7 +482,8 @@ msgstr "ອະນຸຍາດໃຫ້ແອັບພລິເຄຊັນລະ
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the hibernate key."
-msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອໃຫ້ແອັບພລິເຄຊັນລະງັບການຈັດການປຸ່ມຈຳສີນຂອງລະບົບ."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອໃຫ້ແອັບພລິເຄຊັນລະງັບການຈັດການປຸ່ມຈຳສີນຂອງລະບົບ."
 
 #: src/login/org.freedesktop.login1.policy:107
 msgid "Allow applications to inhibit system handling of the lid switch"
@@ -480,7 +493,8 @@ msgstr "ອະນຸຍາດໃຫ້ແອັບພລິເຄຊັນລະ
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the lid switch."
-msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອໃຫ້ແອັບພລິເຄຊັນລະງັບການຈັດການສະວິດຝາປິດຂອງລະບົບ."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອໃຫ້ແອັບພລິເຄຊັນລະງັບການຈັດການສະວິດຝາປິດຂອງລະບົບ."
 
 #: src/login/org.freedesktop.login1.policy:117
 msgid "Allow applications to inhibit system handling of the reboot key"
@@ -490,7 +504,8 @@ msgstr "ອະນຸຍາດໃຫ້ແອັບພລິເຄຊັນລະ
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the reboot key."
-msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອໃຫ້ແອັບພລິເຄຊັນລະງັບການຈັດການປຸ່ມຣີບູດຂອງລະບົບ."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອໃຫ້ແອັບພລິເຄຊັນລະງັບການຈັດການປຸ່ມຣີບູດຂອງລະບົບ."
 
 #: src/login/org.freedesktop.login1.policy:128
 msgid "Allow non-logged-in user to run programs"
@@ -498,7 +513,8 @@ msgstr "ອະນຸຍາດໃຫ້ຜູ້ໃຊ້ທີ່ບໍ່ໄດ
 
 #: src/login/org.freedesktop.login1.policy:129
 msgid "Explicit request is required to run programs as a non-logged-in user."
-msgstr "ຕ້ອງມີການຮ້ອງຂໍຢ່າງຊັດເຈນເພື່ອຮັນໂປຣແກຣມໃນນາມຜູ້ໃຊ້ທີ່ບໍ່ໄດ້ເຂົ້າສູ່ລະບົບ."
+msgstr ""
+"ຕ້ອງມີການຮ້ອງຂໍຢ່າງຊັດເຈນເພື່ອຮັນໂປຣແກຣມໃນນາມຜູ້ໃຊ້ທີ່ບໍ່ໄດ້ເຂົ້າສູ່ລະບົບ."
 
 #: src/login/org.freedesktop.login1.policy:138
 msgid "Allow non-logged-in users to run programs"
@@ -540,7 +556,8 @@ msgstr "ປິດລະບົບໃນຂະນະທີ່ມີຜູ້ໃຊ
 msgid ""
 "Authentication is required to power off the system while other users are "
 "logged in."
-msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອປິດລະບົບໃນຂະນະທີ່ມີຜູ້ໃຊ້ອື່ນເຂົ້າສູ່ລະບົບຢູ່."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອປິດລະບົບໃນຂະນະທີ່ມີຜູ້ໃຊ້ອື່ນເຂົ້າສູ່ລະບົບຢູ່."
 
 #: src/login/org.freedesktop.login1.policy:191
 msgid "Power off the system while an application is inhibiting this"
@@ -550,7 +567,8 @@ msgstr "ປິດລະບົບໃນຂະນະທີ່ມີແອັບພ
 msgid ""
 "Authentication is required to power off the system while an application is "
 "inhibiting this."
-msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອປິດລະບົບໃນຂະນະທີ່ມີແອັບພລິເຄຊັນລະງັບການປິດໄວ້."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອປິດລະບົບໃນຂະນະທີ່ມີແອັບພລິເຄຊັນລະງັບການປິດໄວ້."
 
 #: src/login/org.freedesktop.login1.policy:202
 msgid "Reboot the system"
@@ -568,7 +586,8 @@ msgstr "ຣີບູດລະບົບໃນຂະນະທີ່ມີຜູ້
 msgid ""
 "Authentication is required to reboot the system while other users are logged "
 "in."
-msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຣີບູດລະບົບໃນຂະນະທີ່ມີຜູ້ໃຊ້ອື່ນເຂົ້າສູ່ລະບົບຢູ່."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຣີບູດລະບົບໃນຂະນະທີ່ມີຜູ້ໃຊ້ອື່ນເຂົ້າສູ່ລະບົບຢູ່."
 
 #: src/login/org.freedesktop.login1.policy:224
 msgid "Reboot the system while an application is inhibiting this"
@@ -578,7 +597,8 @@ msgstr "ຣີບູດລະບົບໃນຂະນະທີ່ມີແອັ
 msgid ""
 "Authentication is required to reboot the system while an application is "
 "inhibiting this."
-msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຣີບູດລະບົບໃນຂະນະທີ່ມີແອັບພລິເຄຊັນລະງັບການຣີບູດໄວ້."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຣີບູດລະບົບໃນຂະນະທີ່ມີແອັບພລິເຄຊັນລະງັບການຣີບູດໄວ້."
 
 #: src/login/org.freedesktop.login1.policy:235
 msgid "Halt the system"
@@ -596,7 +616,8 @@ msgstr "ຢຸດລະບົບໃນຂະນະທີ່ມີຜູ້ໃຊ
 msgid ""
 "Authentication is required to halt the system while other users are logged "
 "in."
-msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຢຸດລະບົບໃນຂະນະທີ່ມີຜູ້ໃຊ້ອື່ນເຂົ້າສູ່ລະບົບຢູ່."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຢຸດລະບົບໃນຂະນະທີ່ມີຜູ້ໃຊ້ອື່ນເຂົ້າສູ່ລະບົບຢູ່."
 
 #: src/login/org.freedesktop.login1.policy:257
 msgid "Halt the system while an application is inhibiting this"
@@ -606,7 +627,8 @@ msgstr "ຢຸດລະບົບໃນຂະນະທີ່ມີແອັບພ
 msgid ""
 "Authentication is required to halt the system while an application is "
 "inhibiting this."
-msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຢຸດລະບົບໃນຂະນະທີ່ມີແອັບພລິເຄຊັນລະງັບການຢຸດໄວ້."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຢຸດລະບົບໃນຂະນະທີ່ມີແອັບພລິເຄຊັນລະງັບການຢຸດໄວ້."
 
 #: src/login/org.freedesktop.login1.policy:268
 msgid "Suspend the system"
@@ -624,7 +646,8 @@ msgstr "ພັກລະບົບໃນຂະນະທີ່ມີຜູ້ໃຊ
 msgid ""
 "Authentication is required to suspend the system while other users are "
 "logged in."
-msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອພັກລະບົບໃນຂະນະທີ່ມີຜູ້ໃຊ້ອື່ນເຂົ້າສູ່ລະບົບຢູ່."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອພັກລະບົບໃນຂະນະທີ່ມີຜູ້ໃຊ້ອື່ນເຂົ້າສູ່ລະບົບຢູ່."
 
 #: src/login/org.freedesktop.login1.policy:289
 msgid "Suspend the system while an application is inhibiting this"
@@ -634,7 +657,8 @@ msgstr "ພັກລະບົບໃນຂະນະທີ່ມີແອັບພ
 msgid ""
 "Authentication is required to suspend the system while an application is "
 "inhibiting this."
-msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອພັກລະບົບໃນຂະນະທີ່ມີແອັບພລິເຄຊັນລະງັບການພັກໄວ້."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອພັກລະບົບໃນຂະນະທີ່ມີແອັບພລິເຄຊັນລະງັບການພັກໄວ້."
 
 #: src/login/org.freedesktop.login1.policy:300
 msgid "Hibernate the system"
@@ -652,7 +676,8 @@ msgstr "ຈຳສີນລະບົບໃນຂະນະທີ່ມີຜູ້
 msgid ""
 "Authentication is required to hibernate the system while other users are "
 "logged in."
-msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຈຳສີນລະບົບໃນຂະນະທີ່ມີຜູ້ໃຊ້ອື່ນເຂົ້າສູ່ລະບົບຢູ່."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຈຳສີນລະບົບໃນຂະນະທີ່ມີຜູ້ໃຊ້ອື່ນເຂົ້າສູ່ລະບົບຢູ່."
 
 #: src/login/org.freedesktop.login1.policy:321
 msgid "Hibernate the system while an application is inhibiting this"
@@ -662,7 +687,8 @@ msgstr "ຈຳສີນລະບົບໃນຂະນະທີ່ມີແອັ
 msgid ""
 "Authentication is required to hibernate the system while an application is "
 "inhibiting this."
-msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຈຳສີນລະບົບໃນຂະນະທີ່ມີແອັບພລິເຄຊັນລະງັບການຈຳສີນໄວ້."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຈຳສີນລະບົບໃນຂະນະທີ່ມີແອັບພລິເຄຊັນລະງັບການຈຳສີນໄວ້."
 
 #: src/login/org.freedesktop.login1.policy:332
 msgid "Manage active sessions, users and seats"
@@ -706,7 +732,8 @@ msgstr "ແຈ້ງໃຫ້ບູດໂຫລດເດີບູດເຂົ້
 msgid ""
 "Authentication is required to indicate to the boot loader to boot to the "
 "boot loader menu."
-msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອແຈ້ງໃຫ້ບູດໂຫລດເດີບູດເຂົ້າສູ່ເມນູຂອງບູດໂຫລດເດີ."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອແຈ້ງໃຫ້ບູດໂຫລດເດີບູດເຂົ້າສູ່ເມນູຂອງບູດໂຫລດເດີ."
 
 #: src/login/org.freedesktop.login1.policy:385
 msgid "Indicate to the boot loader to boot a specific entry"
@@ -716,7 +743,8 @@ msgstr "ແຈ້ງໃຫ້ບູດໂຫລດເດີບູດເຂົ້
 msgid ""
 "Authentication is required to indicate to the boot loader to boot into a "
 "specific boot loader entry."
-msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອແຈ້ງໃຫ້ບູດໂຫລດເດີບູດເຂົ້າສູ່ລາຍການຂອງບູດໂຫລດເດີທີ່ກຳນົດໄວ້."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອແຈ້ງໃຫ້ບູດໂຫລດເດີບູດເຂົ້າສູ່ລາຍການຂອງບູດໂຫລດເດີທີ່ກຳນົດໄວ້."
 
 #: src/login/org.freedesktop.login1.policy:396
 msgid "Set a wall message"
@@ -817,7 +845,8 @@ msgstr "ລົງທະບຽນເຄື່ອງສະເໝືອນ ຫຼ�
 #: src/machine/org.freedesktop.machine1.policy:117
 msgid ""
 "Authentication is required to register a local virtual machine or container."
-msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອລົງທະບຽນເຄື່ອງສະເໝືອນ ຫຼື ຄອນເທນເນີພາຍໃນເຄື່ອງ."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອລົງທະບຽນເຄື່ອງສະເໝືອນ ຫຼື ຄອນເທນເນີພາຍໃນເຄື່ອງ."
 
 #: src/machine/org.freedesktop.machine1.policy:126
 msgid "Manage local virtual machine and container images"
@@ -827,7 +856,8 @@ msgstr "ຈັດການອິເມຈຂອງເຄື່ອງສະເໝ
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
-msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຈັດການອິເມຈຂອງເຄື່ອງສະເໝືອນ ແລະ ຄອນເທນເນີພາຍໃນເຄື່ອງ."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຈັດການອິເມຈຂອງເຄື່ອງສະເໝືອນ ແລະ ຄອນເທນເນີພາຍໃນເຄື່ອງ."
 
 #: src/machine/org.freedesktop.machine1.policy:137
 msgid "Inspect local virtual machine and container images"
@@ -1011,7 +1041,8 @@ msgstr "ເຊື່ອມຕໍ່ ຫຼື ຕັດການເຊື່ອ�
 #: src/portable/org.freedesktop.portable1.policy:24
 msgid ""
 "Authentication is required to attach or detach a portable service image."
-msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອເຊື່ອມຕໍ່ ຫຼື ຕັດການເຊື່ອມຕໍ່ອິເມຈບໍລິການແບບພົກພາ."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອເຊື່ອມຕໍ່ ຫຼື ຕັດການເຊື່ອມຕໍ່ອິເມຈບໍລິການແບບພົກພາ."
 
 #: src/portable/org.freedesktop.portable1.policy:34
 msgid "Delete or modify portable service image"
@@ -1150,7 +1181,8 @@ msgstr "ຕິດຕັ້ງລະບົບເວີຊັນສະເພາະ
 msgid ""
 "Authentication is required to update the system to a specific (possibly old) "
 "version."
-msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອອັບເດດລະບົບເປັນເວີຊັນສະເພາະ (ເຊິ່ງອາດຈະເປັນເວີຊັນເກົ່າ)."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອອັບເດດລະບົບເປັນເວີຊັນສະເພາະ (ເຊິ່ງອາດຈະເປັນເວີຊັນເກົ່າ)."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:88
 msgid "Cancel installing specific system version"
@@ -1210,7 +1242,8 @@ msgstr "ຕັ້ງ RTC ເປັນເຂດເວລາທ້ອງຖິ່�
 msgid ""
 "Authentication is required to control whether the RTC stores the local or "
 "UTC time."
-msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຄວບຄຸມວ່າຈະໃຫ້ RTC ເກັບເວລາທ້ອງຖິ່ນ ຫຼື ເວລາ UTC."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຄວບຄຸມວ່າຈະໃຫ້ RTC ເກັບເວລາທ້ອງຖິ່ນ ຫຼື ເວລາ UTC."
 
 #: src/timedate/org.freedesktop.timedate1.policy:53
 msgid "Turn network time synchronization on or off"
@@ -1220,7 +1253,8 @@ msgstr "ເປີດ ຫຼື ປິດການຊິງໂຄຣໄນເວ�
 msgid ""
 "Authentication is required to control whether network time synchronization "
 "shall be enabled."
-msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຄວບຄຸມວ່າຈະໃຫ້ເປີດໃຊ້ການຊິງໂຄຣໄນເວລາຜ່ານເຄືອຂ່າຍຫຼືບໍ່."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຄວບຄຸມວ່າຈະໃຫ້ເປີດໃຊ້ການຊິງໂຄຣໄນເວລາຜ່ານເຄືອຂ່າຍຫຼືບໍ່."
 
 #: src/core/dbus-unit.c:372
 msgid "Authentication is required to start '$(unit)'."
@@ -1248,11 +1282,13 @@ msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
-msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອສົ່ງສັນຍານ UNIX ໄປຫາໂພຣເຊສຂອງກຸ່ມຍ່ອຍຂອງ '$(unit)'."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອສົ່ງສັນຍານ UNIX ໄປຫາໂພຣເຊສຂອງກຸ່ມຍ່ອຍຂອງ '$(unit)'."
 
 #: src/core/dbus-unit.c:649
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
-msgstr "ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຕັ້ງສະຖານະ \"ຫຼົ້ມເຫຼວ\" (failed) ຂອງ '$(unit)' ຄືນໃໝ່."
+msgstr ""
+"ຕ້ອງມີການຢືນຢັນຕົວຕົນເພື່ອຕັ້ງສະຖານະ \"ຫຼົ້ມເຫຼວ\" (failed) ຂອງ '$(unit)' ຄືນໃໝ່."
 
 #: src/core/dbus-unit.c:679
 msgid "Authentication is required to set properties on '$(unit)'."
