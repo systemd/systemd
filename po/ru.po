@@ -14,8 +14,8 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-06-01 11:49+0200\n"
-"PO-Revision-Date: 2026-08-01 15:17+0000\n"
-"Last-Translator: Andrei Stepanov <adem4ik@gmail.com>\n"
+"PO-Revision-Date: 2026-08-02 00:09+0000\n"
+"Last-Translator: Olga Smirnova <mistresssilvara@hotmail.com>\n"
 "Language-Team: Russian <https://translate.fedoraproject.org/projects/systemd/"
 "main/ru/>\n"
 "Language: ru\n"
@@ -57,7 +57,8 @@ msgstr ""
 
 #: src/core/org.freedesktop.systemd1.policy.in:54
 msgid "Set or unset system and service manager environment variables"
-msgstr "Установить или удалить переменные окружения для системного менеджера"
+msgstr ""
+"Установить или удалить переменные окружения системного и менеджера служб"
 
 #: src/core/org.freedesktop.systemd1.policy.in:55
 msgid ""
@@ -385,11 +386,11 @@ msgstr ""
 
 #: src/hostname/org.freedesktop.hostname1.policy:51
 msgid "Get product UUID"
-msgstr "Получить UUID продукта"
+msgstr "Получить UUID устройства"
 
 #: src/hostname/org.freedesktop.hostname1.policy:52
 msgid "Authentication is required to get product UUID."
-msgstr "Чтобы получить UUID продукта, необходимо пройти аутентификацию."
+msgstr "Чтобы получить UUID устройства, необходимо пройти аутентификацию."
 
 #: src/hostname/org.freedesktop.hostname1.policy:61
 msgid "Get hardware serial number"
@@ -456,8 +457,7 @@ msgstr "Настроить параметры клавиатуры"
 
 #: src/locale/org.freedesktop.locale1.policy:34
 msgid "Authentication is required to set the system keyboard settings."
-msgstr ""
-"Чтобы настроить параметры клавиатуры, необходимо пройти аутентификацию."
+msgstr "Чтобы настроить параметры клавиатуры, необходимо пройти аутентификацию."
 
 #: src/login/org.freedesktop.login1.policy:22
 msgid "Allow applications to inhibit system shutdown"
@@ -1270,8 +1270,7 @@ msgstr "Дамп состояние сервера"
 
 #: src/resolve/org.freedesktop.resolve1.policy:177
 msgid "Authentication is required to dump server state."
-msgstr ""
-"Чтобы создать дамп состояние сервера, необходимо пройти аутентификацию."
+msgstr "Чтобы создать дамп состояние сервера, необходимо пройти аутентификацию."
 
 #: src/resolve/org.freedesktop.resolve1.policy:187
 msgid "Dump statistics"
