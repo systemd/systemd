@@ -15,7 +15,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-06-01 11:49+0200\n"
 "PO-Revision-Date: 2026-08-02 00:13+0000\n"
-"Last-Translator: Anonymous <noreply@weblate.org>\n"
+"Last-Translator: Luna Jernberg <bittin@reimu.nl>\n"
 "Language-Team: Swedish <https://translate.fedoraproject.org/projects/systemd/"
 "main/sv/>\n"
 "Language: sv\n"
@@ -156,8 +156,7 @@ msgstr "Hantera nycklar för signering av hemkatalog"
 
 #: src/home/org.freedesktop.home1.policy:94
 msgid "Authentication is required to manage signing keys for home directories."
-msgstr ""
-"Autentisering krävs för att hantera signeringsnycklar för hemkataloger."
+msgstr "Autentisering krävs för att hantera signeringsnycklar för hemkataloger."
 
 #: src/home/pam_systemd_home.c:327
 #, c-format
