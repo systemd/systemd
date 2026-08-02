@@ -1042,7 +1042,7 @@ static int verb_openpgp(int argc, char *argv[], uintptr_t _data, void *userdata)
 #if HAVE_OPENSSL
         int ret = 0;
 
-        if (sd_json_format_enabled(arg_json_format_flags))
+        if (sd_json_format_enabled(arg_json_format_flags) && arg_type == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Use --json=pretty with --type= to acquire resource record information in JSON format.");
 
         STRV_FOREACH(p, strv_skip(argv, 1))
@@ -1098,7 +1098,7 @@ static int verb_tlsa(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         assert(argc >= 2);
 
-        if (sd_json_format_enabled(arg_json_format_flags))
+        if (sd_json_format_enabled(arg_json_format_flags) && arg_type == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Use --json=pretty with --type= to acquire resource record information in JSON format.");
 
         if (service_family_is_valid(argv[1])) {
