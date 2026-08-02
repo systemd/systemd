@@ -373,6 +373,7 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
 
 static int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userdata) {
         DnsScope *scope = userdata;
+        usec_t until;
         int r;
 
         assert(s);
@@ -386,12 +387,18 @@ static int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userda
         if (r < 0)
                 log_warning_errno(r, "mDNS: Failed to notify service subscribers of goodbyes, ignoring: %m");
 
-        if (dns_cache_expiry_in_one_second(&scope->cache, usec)) {
-                r = sd_event_add_time_relative(
+        /* Keep going for as long as something expires within the goodbye window, re-arming right at
+         * that expiry rather than a flat second out, so the prune that drops the record (and tells the
+         * browsers) runs when the record actually expires. Measure against the current time: 'usec' is
+         * the deadline this firing was scheduled for, and it lags the clock by up to the timer's
+         * accuracy window. */
+        until = dns_cache_next_expiry(&scope->cache);
+        if (until <= usec_add(now(CLOCK_BOOTTIME), MDNS_GOODBYE_DELAY)) {
+                r = sd_event_add_time(
                                 scope->manager->event,
                                 &scope->mdns_goodbye_event_source,
                                 CLOCK_BOOTTIME,
-                                USEC_PER_SEC,
+                                until,
                                 /* accuracy= */ 0,
                                 mdns_goodbye_callback,
                                 scope);
@@ -484,7 +491,7 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                                                         scope->manager->event,
                                                         &scope->mdns_goodbye_event_source,
                                                         CLOCK_BOOTTIME,
-                                                        USEC_PER_SEC,
+                                                        MDNS_GOODBYE_DELAY,
                                                         /* accuracy= */ 0,
                                                         mdns_goodbye_callback,
                                                         scope);
