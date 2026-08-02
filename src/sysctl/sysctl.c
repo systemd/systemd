@@ -34,6 +34,7 @@ typedef struct SysctlOption {
         char *key;
         char *value;
         bool ignore_failure;
+        bool verify;
 } SysctlOption;
 
 static SysctlOption* sysctl_option_free(SysctlOption *o) {
@@ -91,7 +92,10 @@ static int sysctl_write_or_warn(const SysctlOption *option, bool ignore_enoent) 
 
         assert(option);
 
-        r = sysctl_write(option->key, option->value);
+        if (option->verify)
+                r = sysctl_write_verify(option->key, option->value);
+        else
+                r = sysctl_write(option->key, option->value);
         if (r < 0) {
                 /* Proceed without failing if ignore_failure is true.
                  * If the sysctl is not available in the kernel or we are running with reduced privileges and
@@ -145,6 +149,7 @@ static int apply_glob_option_with_prefix(OrderedHashmap *sysctl_options, SysctlO
                                                 .key = key,
                                                 .value = option->value,
                                                 .ignore_failure = option->ignore_failure,
+                                                .verify = option->verify,
                                         },
                                         /* ignore_enoent= */ true);
                 }
@@ -183,6 +188,7 @@ static int apply_glob_option_with_prefix(OrderedHashmap *sysctl_options, SysctlO
                                                 .key = (char*) key,
                                                 .value = option->value,
                                                 .ignore_failure = option->ignore_failure,
+                                                .verify = option->verify,
                                         },
                                         /* ignore_enoent= */ !arg_strict));
         }
