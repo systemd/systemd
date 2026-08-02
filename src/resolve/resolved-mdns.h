@@ -5,6 +5,12 @@
 
 #define MDNS_PORT 5353
 #define MDNS_ANNOUNCE_DELAY (1 * USEC_PER_SEC)
+/* RFC 6762 section 10.1: the records of a goodbye expire one second after receipt. Bounds how
+ * far ahead the goodbye timer looks, on receipt and on re-arm. */
+#define MDNS_GOODBYE_DELAY (1 * USEC_PER_SEC)
+/* Lower bound on the interval between two goodbye passes, so a burst of goodbyes cannot drive one
+ * prune-and-reconcile pass per record. Delays a removal by at most this much. */
+#define MDNS_GOODBYE_MIN_INTERVAL (MDNS_GOODBYE_DELAY / 4)
 
 /* RFC 6762 section 17: "Even when fragmentation is used, a Multicast DNS packet, including IP and UDP
  * headers, MUST NOT exceed 9000 bytes." */
