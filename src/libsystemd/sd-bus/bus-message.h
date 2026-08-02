@@ -126,9 +126,6 @@ typedef struct sd_bus_message {
 
         usec_t timeout;
 
-        size_t header_offsets[_BUS_MESSAGE_HEADER_MAX];
-        unsigned n_header_offsets;
-
         uint64_t read_counter;
 } sd_bus_message;
 
