@@ -14,7 +14,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-06-01 11:49+0200\n"
-"PO-Revision-Date: 2026-08-01 15:17+0000\n"
+"PO-Revision-Date: 2026-08-02 00:09+0000\n"
 "Last-Translator: Andrei Stepanov <adem4ik@gmail.com>\n"
 "Language-Team: Russian <https://translate.fedoraproject.org/projects/systemd/"
 "main/ru/>\n"
@@ -57,7 +57,8 @@ msgstr ""
 
 #: src/core/org.freedesktop.systemd1.policy.in:54
 msgid "Set or unset system and service manager environment variables"
-msgstr "Установить или удалить переменные окружения для системного менеджера"
+msgstr ""
+"Установить или удалить переменные окружения системного и менеджера служб"
 
 #: src/core/org.freedesktop.systemd1.policy.in:55
 msgid ""
@@ -385,11 +386,11 @@ msgstr ""
 
 #: src/hostname/org.freedesktop.hostname1.policy:51
 msgid "Get product UUID"
-msgstr "Получить UUID продукта"
+msgstr "Получить UUID устройства"
 
 #: src/hostname/org.freedesktop.hostname1.policy:52
 msgid "Authentication is required to get product UUID."
-msgstr "Чтобы получить UUID продукта, необходимо пройти аутентификацию."
+msgstr "Чтобы получить UUID устройства, необходимо пройти аутентификацию."
 
 #: src/hostname/org.freedesktop.hostname1.policy:61
 msgid "Get hardware serial number"
