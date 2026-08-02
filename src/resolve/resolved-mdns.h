@@ -5,6 +5,15 @@
 
 #define MDNS_PORT 5353
 #define MDNS_ANNOUNCE_DELAY (1 * USEC_PER_SEC)
+/* RFC 6762 section 10.1: the records of a goodbye packet expire one second after it was received.
+ * This bounds how far ahead the goodbye timer looks: both the arm on receipt and the callback's
+ * re-arm only take on an expiry that falls within it. */
+#define MDNS_GOODBYE_DELAY (1 * USEC_PER_SEC)
+/* And the shortest interval between two goodbye passes. Each pass prunes the cache and reconciles
+ * every browse subscriber against it, and the records driving it arrive as unauthenticated
+ * multicast: without a floor, goodbyes for records expiring microseconds apart would buy a pass
+ * each. Costs a removal at most this much beyond the window above. */
+#define MDNS_GOODBYE_MIN_INTERVAL (MDNS_GOODBYE_DELAY / 4)
 
 int manager_mdns_ipv4_fd(Manager *m);
 int manager_mdns_ipv6_fd(Manager *m);
