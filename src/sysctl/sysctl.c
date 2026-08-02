@@ -86,24 +86,26 @@ static SysctlOption* sysctl_option_new(
         return TAKE_PTR(o);
 }
 
-static int sysctl_write_or_warn(const char *key, const char *value, bool ignore_failure, bool ignore_enoent) {
+static int sysctl_write_or_warn(const SysctlOption *option, bool ignore_enoent) {
         int r;
 
-        r = sysctl_write(key, value);
+        assert(option);
+
+        r = sysctl_write(option->key, option->value);
         if (r < 0) {
                 /* Proceed without failing if ignore_failure is true.
                  * If the sysctl is not available in the kernel or we are running with reduced privileges and
                  * cannot write it, then log about the issue, and proceed without failing. Unless strict mode
-                 * (arg_strict = true) is enabled, in which case we should fail. (EROFS is treated as a
+                 * is enabled (ignore_enoent == false), in which case we should fail. (EROFS is treated as a
                  * permission problem here, since that's how container managers usually protected their
                  * sysctls.)
                  * In all other cases log an error and make the tool fail. */
-                if (ignore_failure || (!arg_strict && ERRNO_IS_NEG_FS_WRITE_REFUSED(r)))
-                        log_debug_errno(r, "Couldn't write '%s' to '%s', ignoring: %m", value, key);
+                if (option->ignore_failure || (ignore_enoent && ERRNO_IS_NEG_FS_WRITE_REFUSED(r)))
+                        log_debug_errno(r, "Couldn't write '%s' to '%s', ignoring: %m", option->value, option->key);
                 else if (ignore_enoent && r == -ENOENT)
-                        log_warning_errno(r, "Couldn't write '%s' to '%s', ignoring: %m", value, key);
+                        log_warning_errno(r, "Couldn't write '%s' to '%s', ignoring: %m", option->value, option->key);
                 else
-                        return log_error_errno(r, "Couldn't write '%s' to '%s': %m", value, key);
+                        return log_error_errno(r, "Couldn't write '%s' to '%s': %m", option->value, option->key);
         }
 
         return 0;
@@ -138,9 +140,13 @@ static int apply_glob_option_with_prefix(OrderedHashmap *sysctl_options, SysctlO
                                 return 0;
                         }
 
-                        return sysctl_write_or_warn(key, option->value,
-                                                    /* ignore_failure= */ option->ignore_failure,
-                                                    /* ignore_enoent= */ true);
+                        return sysctl_write_or_warn(
+                                        &(const SysctlOption) {
+                                                .key = key,
+                                                .value = option->value,
+                                                .ignore_failure = option->ignore_failure,
+                                        },
+                                        /* ignore_enoent= */ true);
                 }
 
                 pattern = path_join("/proc/sys", key);
@@ -172,9 +178,13 @@ static int apply_glob_option_with_prefix(OrderedHashmap *sysctl_options, SysctlO
                 }
 
                 RET_GATHER(r,
-                           sysctl_write_or_warn(key, option->value,
-                                                /* ignore_failure= */ option->ignore_failure,
-                                                /* ignore_enoent= */ !arg_strict));
+                           sysctl_write_or_warn(
+                                        &(const SysctlOption) {
+                                                .key = (char*) key,
+                                                .value = option->value,
+                                                .ignore_failure = option->ignore_failure,
+                                        },
+                                        /* ignore_enoent= */ !arg_strict));
         }
 
         return r;
@@ -205,9 +215,7 @@ static int apply_all(OrderedHashmap *sysctl_options) {
                 if (string_is_glob(option->key))
                         k = apply_glob_option(sysctl_options, option);
                 else
-                        k = sysctl_write_or_warn(option->key, option->value,
-                                                 /* ignore_failure= */ option->ignore_failure,
-                                                 /* ignore_enoent= */ !arg_strict);
+                        k = sysctl_write_or_warn(option, /* ignore_enoent= */ !arg_strict);
                 RET_GATHER(r, k);
         }
 
