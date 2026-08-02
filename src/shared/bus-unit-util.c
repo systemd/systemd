@@ -347,6 +347,23 @@ static int bus_append_parse_size(sd_bus_message *m, const char *field, const cha
         return 1;
 }
 
+static int bus_append_parse_size_i64(sd_bus_message *m, const char *field, const char *eq) {
+        uint64_t v;
+        int r;
+
+        r = parse_size(eq, /* base= */ 1024, &v);
+        if (r < 0)
+                return parse_log_error(r, field, eq);
+        if (v > INT64_MAX)
+                return parse_log_error(SYNTHETIC_ERRNO(ERANGE), field, eq);
+
+        r = sd_bus_message_append(m, "(sv)", field, "x", (int64_t) v);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 static int bus_append_parse_permyriad(sd_bus_message *m, const char *field, const char *eq) {
         int r;
 
@@ -2811,7 +2828,6 @@ static const BusProperty socket_properties[] = {
         { "SocketMode",                            bus_append_parse_mode                         },
         { "DirectoryMode",                         bus_append_parse_mode                         },
         { "MessageQueueMaxMessages",               bus_append_safe_atoi64                        },
-        { "MessageQueueMessageSize",               bus_append_safe_atoi64                        },
         { "TimeoutSec",                            bus_append_parse_sec_rename                   },
         { "KeepAliveTimeSec",                      bus_append_parse_sec_rename                   },
         { "KeepAliveIntervalSec",                  bus_append_parse_sec_rename                   },
@@ -2822,6 +2838,7 @@ static const BusProperty socket_properties[] = {
         { "ReceiveBuffer",                         bus_append_parse_size                         },
         { "SendBuffer",                            bus_append_parse_size                         },
         { "PipeSize",                              bus_append_parse_size                         },
+        { "MessageQueueMessageSize",               bus_append_parse_size_i64                     },
         { "ExecStartPre",                          bus_append_exec_command                       },
         { "ExecStartPost",                         bus_append_exec_command                       },
         { "ExecReload",                            bus_append_exec_command                       },
