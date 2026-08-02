@@ -425,18 +425,18 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_ordered_hashmap_free_ OrderedHashmap *sysctl_options = NULL;
         int r;
+
+        log_setup();
 
         char **args = NULL;
         r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
-        log_setup();
-
         umask(0022);
 
+        _cleanup_ordered_hashmap_free_ OrderedHashmap *sysctl_options = NULL;
         if (!strv_isempty(args)) {
                 unsigned pos = 0;
 
