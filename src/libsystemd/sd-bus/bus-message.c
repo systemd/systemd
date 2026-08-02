@@ -142,7 +142,7 @@ static sd_bus_message* message_free(sd_bus_message *m) {
         return mfree(m);
 }
 
-static void* message_extend_fields(sd_bus_message *m, size_t sz, bool add_offset) {
+static void* message_extend_fields(sd_bus_message *m, size_t sz) {
         void *op, *np;
         size_t old_size, new_size, start;
 
@@ -195,13 +195,6 @@ static void* message_extend_fields(sd_bus_message *m, size_t sz, bool add_offset
 
         m->free_header = true;
 
-        if (add_offset) {
-                if (m->n_header_offsets >= ELEMENTSOF(m->header_offsets))
-                        goto poison;
-
-                m->header_offsets[m->n_header_offsets++] = new_size - sizeof(BusMessageHeader);
-        }
-
         return (uint8_t*) np + start;
 
 poison:
@@ -233,7 +226,7 @@ static int message_append_field_string(
         /* Signature "(yv)" where the variant contains "s" */
 
         /* (field id byte + (signature length + signature 's' + NUL) + (string length + string + NUL)) */
-        p = message_extend_fields(m, 4 + 4 + l + 1, false);
+        p = message_extend_fields(m, 4 + 4 + l + 1);
         if (!p)
                 return -ENOMEM;
 
@@ -274,7 +267,7 @@ static int message_append_field_signature(
         /* Signature "(yv)" where the variant contains "g" */
 
         /* (field id byte + (signature length + signature 'g' + NUL) + (string length + string + NUL)) */
-        p = message_extend_fields(m, 4 + 1 + l + 1, false);
+        p = message_extend_fields(m, 4 + 1 + l + 1);
         if (!p)
                 return -ENOMEM;
 
@@ -301,7 +294,7 @@ static int message_append_field_uint32(sd_bus_message *m, uint64_t h, uint32_t x
                 return -EINVAL;
 
         /* (field id byte + (signature length + signature 'u' + NUL) + value) */
-        p = message_extend_fields(m, 4 + 4, false);
+        p = message_extend_fields(m, 4 + 4);
         if (!p)
                 return -ENOMEM;
 
