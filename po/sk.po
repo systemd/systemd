@@ -8,7 +8,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-06-01 11:49+0200\n"
 "PO-Revision-Date: 2026-08-02 00:14+0000\n"
-"Last-Translator: Anonymous <noreply@weblate.org>\n"
+"Last-Translator: Frantisek Sumsal <frantisek@sumsal.cz>\n"
 "Language-Team: Slovak <https://translate.fedoraproject.org/projects/systemd/"
 "main/sk/>\n"
 "Language: sk\n"
@@ -459,8 +459,7 @@ msgstr "Umožnenie aplikáciám odložiť spánok systému"
 
 #: src/login/org.freedesktop.login1.policy:45
 msgid "Authentication is required for an application to inhibit system sleep."
-msgstr ""
-"Vyžaduje sa overenie totožnosti na odloženie spánku systému aplikáciou."
+msgstr "Vyžaduje sa overenie totožnosti na odloženie spánku systému aplikáciou."
 
 #: src/login/org.freedesktop.login1.policy:55
 msgid "Allow applications to delay system sleep"
