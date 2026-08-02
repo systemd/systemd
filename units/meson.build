@@ -829,6 +829,11 @@ units = [
           'symlinks' : ['sysinit.target.wants/'],
         },
         {
+          'file' : 'systemd-sysctl.socket',
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        { 'file' : 'systemd-sysctl@.service.in' },
+        {
           'file' : 'systemd-sysext.service',
           'conditions' : ['ENABLE_SYSEXT'],
         },

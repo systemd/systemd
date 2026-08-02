@@ -78,3 +78,11 @@ EOF
 assert_eq "$(cat /proc/sys/net/ipv4/conf/hoge/drop_gratuitous_arp)" "1"
 assert_eq "$(cat /proc/sys/net/ipv4/conf/hoge/bootp_relay)" "1"
 assert_eq "$(cat /proc/sys/net/ipv4/conf/hoge/disable_policy)" "0"
+
+echo 0 >/proc/sys/net/ipv4/conf/hoge/drop_gratuitous_arp
+
+varlinkctl call /run/systemd/io.systemd.Sysctl io.systemd.Sysctl.Apply '{"settings":[{"key":"net.ipv4.conf.hoge.drop_gratuitous_arp","value":"1","verify":true}]}'
+assert_eq "$(cat /proc/sys/net/ipv4/conf/hoge/drop_gratuitous_arp)" "1"
+
+(! varlinkctl call /run/systemd/io.systemd.Sysctl io.systemd.Sysctl.Apply '{"settings":[{"key":"net.ipv4.conf.hoge.should_not_exist_xxx","value":"1"}]}')
+varlinkctl call /run/systemd/io.systemd.Sysctl io.systemd.Sysctl.Apply '{"settings":[{"key":"net.ipv4.conf.hoge.should_not_exist_xxx","value":"1","ignoreFailure":true}]}'
