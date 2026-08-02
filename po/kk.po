@@ -7,7 +7,7 @@ msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-06-01 11:49+0200\n"
-"PO-Revision-Date: 2026-07-30 03:17+0000\n"
+"PO-Revision-Date: 2026-08-02 00:06+0000\n"
 "Last-Translator: Baurzhan Muftakhidinov <baurthefirst@gmail.com>\n"
 "Language-Team: Kazakh <https://translate.fedoraproject.org/projects/systemd/"
 "main/kk/>\n"
@@ -43,8 +43,7 @@ msgstr "Жүйелік қызмет немесе юнит файлдарын б�
 
 #: src/core/org.freedesktop.systemd1.policy.in:44
 msgid "Authentication is required to manage system service or unit files."
-msgstr ""
-"Жүйелік қызмет немесе юнит файлдарын басқару үшін аутентификация қажет."
+msgstr "Жүйелік қызмет немесе юнит файлдарын басқару үшін аутентификация қажет."
 
 #: src/core/org.freedesktop.systemd1.policy.in:54
 msgid "Set or unset system and service manager environment variables"
@@ -491,8 +490,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:86
 msgid "Allow applications to inhibit system handling of the suspend key"
-msgstr ""
-"Қолданбаларға жүйенің тоқтату пернесін өңдеуіне тыйым салуға рұқсат ету"
+msgstr "Қолданбаларға жүйенің тоқтату пернесін өңдеуіне тыйым салуға рұқсат ету"
 
 #: src/login/org.freedesktop.login1.policy:87
 msgid ""
@@ -553,8 +551,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:138
 msgid "Allow non-logged-in users to run programs"
-msgstr ""
-"Жүйеге кірмеген пайдаланушыларға бағдарламаларды іске қосуға рұқсат ету"
+msgstr "Жүйеге кірмеген пайдаланушыларға бағдарламаларды іске қосуға рұқсат ету"
 
 #: src/login/org.freedesktop.login1.policy:139
 msgid "Authentication is required to run programs as a non-logged-in user."
@@ -784,8 +781,7 @@ msgstr "Жүктеуішке жүктеу мәзіріне жүктелуді к
 msgid ""
 "Authentication is required to indicate to the boot loader to boot to the "
 "boot loader menu."
-msgstr ""
-"Жүктеуішке жүктеу мәзіріне жүктелуді көрсету үшін аутентификация қажет."
+msgstr "Жүктеуішке жүктеу мәзіріне жүктелуді көрсету үшін аутентификация қажет."
 
 #: src/login/org.freedesktop.login1.policy:385
 msgid "Indicate to the boot loader to boot a specific entry"
