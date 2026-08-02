@@ -12,7 +12,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-06-01 11:49+0200\n"
 "PO-Revision-Date: 2026-08-02 00:08+0000\n"
-"Last-Translator: Anonymous <noreply@weblate.org>\n"
+"Last-Translator: Zmicer Turok <nashtlumach@gmail.com>\n"
 "Language-Team: Belarusian <https://translate.fedoraproject.org/projects/"
 "systemd/main/be/>\n"
 "Language: be\n"
@@ -105,8 +105,7 @@ msgstr "Праверыць уліковыя даныя хатняй прасто
 #: src/home/org.freedesktop.home1.policy:34
 msgid ""
 "Authentication is required to check credentials against a user's home area."
-msgstr ""
-"Для праверкі ўліковых даных хатняй прасторы патрабуецца аўтэнтыфікацыя."
+msgstr "Для праверкі ўліковых даных хатняй прасторы патрабуецца аўтэнтыфікацыя."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
@@ -537,8 +536,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:117
 msgid "Allow applications to inhibit system handling of the reboot key"
-msgstr ""
-"Дазволіць праграмам перашкаджаць сістэме апрацоўваць кнопку перазапуску"
+msgstr "Дазволіць праграмам перашкаджаць сістэме апрацоўваць кнопку перазапуску"
 
 #: src/login/org.freedesktop.login1.policy:118
 msgid ""
@@ -1089,8 +1087,7 @@ msgstr "Змяніць канфігурацыю сеткавага інтэрф�
 
 #: src/network/org.freedesktop.network1.policy:177
 msgid "Authentication is required to reconfigure network interface."
-msgstr ""
-"Для змены канфігурацыі сеткавага інтэрфейсу патрабуецца аўтэнтыфікацыя."
+msgstr "Для змены канфігурацыі сеткавага інтэрфейсу патрабуецца аўтэнтыфікацыя."
 
 #: src/network/org.freedesktop.network1.policy:187
 msgid "Specify whether persistent storage for systemd-networkd is available"
