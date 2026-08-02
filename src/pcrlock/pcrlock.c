@@ -3089,7 +3089,7 @@ static int unlink_pcrlock(const char *default_pcrlock_path) {
 
 static int event_log_reduce_to_safe_pcrs(EventLog *el, uint32_t *pcrs) {
         _cleanup_free_ char *dropped = NULL, *kept = NULL;
-        uint32_t dropped_relevant_pcr = 0;
+        uint32_t dropped_pcr_mask = 0;
 
         assert(el);
         assert(pcrs);
@@ -3133,7 +3133,7 @@ static int event_log_reduce_to_safe_pcrs(EventLog *el, uint32_t *pcrs) {
 
         drop:
                 if (arg_strict)
-                        dropped_relevant_pcr |= pcr;
+                        dropped_pcr_mask |= UINT32_C(1) << pcr;
 
                 *pcrs &= ~(UINT32_C(1) << pcr);
 
@@ -3142,7 +3142,7 @@ static int event_log_reduce_to_safe_pcrs(EventLog *el, uint32_t *pcrs) {
         }
 
         if (dropped)
-                log_full(dropped_relevant_pcr != 0 ? LOG_ERR : LOG_NOTICE, "PCRs dropped from protection mask: %s", dropped);
+                log_full(dropped_pcr_mask != 0 ? LOG_ERR : LOG_NOTICE, "PCRs dropped from protection mask: %s", dropped);
         else
                 log_debug("No PCRs dropped from protection mask.");
 
@@ -3151,7 +3151,7 @@ static int event_log_reduce_to_safe_pcrs(EventLog *el, uint32_t *pcrs) {
         else
                 log_notice("No PCRs kept in protection mask.");
 
-        return arg_strict && dropped_relevant_pcr != 0 ? -ENOEXEC : 0;
+        return arg_strict && dropped_pcr_mask != 0 ? -ENOEXEC : 0;
 }
 
 static int pcr_prediction_add_result(
