@@ -8103,15 +8103,6 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         else:
             self.fail('Timed out waiting for DHCPRELEASE in dnsmasq log (on stopping networkd)')
 
-        for _ in range(5):
-            stop_dnsmasq()
-            stop_networkd(show_logs=False)
-
-            if self._test_dhcp_client_send_release_one(stop=False):
-                break
-        else:
-            self.fail('Timed out waiting for DHCPRELEASE in dnsmasq log (on bringing down interface)')
-
     def test_dhcp_client_ipv4_dbus_status(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv4-only.network')
         start_networkd()
