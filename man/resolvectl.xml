@@ -103,6 +103,9 @@
         are converted to the corresponding DNS domain name, and any <constant class='dns'>OPENPGPKEY</constant>
         keys are printed.</para>
 
+        <para>If combined with <option>--json=</option>, specify
+        <option>--type=OPENPGPKEY</option> to output the resource record data in JSON format.</para>
+
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
@@ -118,6 +121,9 @@
         The port number may be specified after a colon (<literal>:</literal>), otherwise
         <constant>443</constant> will be used by default. The family may be specified as the first argument,
         otherwise <constant>tcp</constant> will be used.</para>
+
+        <para>If combined with <option>--json=</option>, specify <option>--type=TLSA</option> to output the
+        resource record data in JSON format.</para>
 
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
@@ -316,7 +322,8 @@
         <term><option>-c</option> <replaceable>CLASS</replaceable></term>
         <term><option>--class=<replaceable>CLASS</replaceable></option></term>
 
-        <listitem><para>When used in conjunction with the <command>query</command> command, specifies the DNS
+        <listitem><para>When used in conjunction with the <command>query</command> command, or with
+        <command>openpgp</command> or <command>tlsa</command> for JSON output, specifies the DNS
         resource record type (e.g. <constant class='dns'>A</constant>, <constant class='dns'>AAAA</constant>,
         <constant class='dns'>MX</constant>, …) and class (e.g. <constant>IN</constant>,
         <constant>ANY</constant>, …) to look up. If these options are used a DNS resource record set matching
