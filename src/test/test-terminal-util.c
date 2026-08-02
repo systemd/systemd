@@ -406,7 +406,7 @@ static void show_menu_capture(
                         (int[]) { -EBADF, mfd, STDERR_FILENO },
                         /* except_fds= */ NULL, /* n_except_fds= */ 0,
                         FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_WAIT|FORK_REARRANGE_STDIO|FORK_FLUSH_STDIO,
-                        /* ret= */ NULL);
+                        /* ret_pid= */ NULL);
         ASSERT_OK(r);
         if (r == 0) {
                 /* Child: stdout is now the memfd. */
