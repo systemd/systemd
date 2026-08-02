@@ -607,6 +607,20 @@ testcase_08_resolved() {
     run resolvectl openpgp mr.smith@signed.test
     grep -qF "5a786cdc59c161cdafd818143705026636962198c66ed4c5b3da321e._openpgpkey.signed.test" "$RUN_OUT"
     grep -qF "authenticated: yes" "$RUN_OUT"
+    run resolvectl openpgp mr.smith@signed.test --json=short
+    grep -qF '"key":{"class":1,"type":61,"name":"5a786cdc59c161cdafd818143705026636962198c66ed4c5b3da321e._openpgpkey.signed.test"}' "$RUN_OUT"
+    grep -qF '"data":"' "$RUN_OUT"
+    (! run resolvectl openpgp mr.smith@untrusted.test --json=short)
+    grep -qF "Refusing to output unauthenticated DNS records that require authentication in JSON format." "$RUN_OUT"
+    run resolvectl openpgp mr.smith@signed.test --json=short --type=OPENPGPKEY
+    grep -qF '"key":{"class":1,"type":61,"name":"5a786cdc59c161cdafd818143705026636962198c66ed4c5b3da321e._openpgpkey.signed.test"}' "$RUN_OUT"
+    grep -qF '"data":"' "$RUN_OUT"
+    (! run resolvectl openpgp mr.smith@signed.test --json=short --type=A)
+    grep -qF -- "The openpgp command may only be combined with --type=OPENPGPKEY." "$RUN_OUT"
+    (! run resolvectl tlsa signed.test:invalid --json=short)
+    grep -qF 'Invalid port "invalid".' "$RUN_OUT"
+    (! run resolvectl tlsa signed.test --json=short --type=A)
+    grep -qF -- "The tlsa command may only be combined with --type=TLSA." "$RUN_OUT"
     # Check zone transfers (AXFR/IXFR)
     # Note: since resolved doesn't support zone transfers, let's just make sure it
     #       simply refuses such requests without choking on them

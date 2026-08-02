@@ -103,6 +103,12 @@
         are converted to the corresponding DNS domain name, and any <constant class='dns'>OPENPGPKEY</constant>
         keys are printed.</para>
 
+        <para>The resource record type is implied by this command. If <option>--type=</option> is specified,
+        it must be <constant class='dns'>OPENPGPKEY</constant>.</para>
+
+        <para>If combined with <option>--json=</option>, outputs the resource record data in JSON format.
+        Unauthenticated key data is refused in JSON format.</para>
+
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
@@ -118,6 +124,12 @@
         The port number may be specified after a colon (<literal>:</literal>), otherwise
         <constant>443</constant> will be used by default. The family may be specified as the first argument,
         otherwise <constant>tcp</constant> will be used.</para>
+
+        <para>The resource record type is implied by this command. If <option>--type=</option> is specified,
+        it must be <constant class='dns'>TLSA</constant>.</para>
+
+        <para>If combined with <option>--json=</option>, outputs the resource record data in JSON format.
+        Unauthenticated key data is refused in JSON format.</para>
 
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
