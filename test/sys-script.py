@@ -10584,6 +10584,7 @@ f('sys/devices/pnp0/00:07/rtc/rtc0/name', 0o644, b'rtc_cmos\n')
 f('sys/devices/pnp0/00:07/rtc/rtc0/time', 0o644, b'02:30:51\n')
 f('sys/devices/pnp0/00:07/rtc/rtc0/uevent', 0o644, b'''MAJOR=253
 MINOR=0
+DEVNAME=rtc0
 ''')
 d('sys/devices/pnp0/00:07/rtc/rtc0/power', 0o755)
 f('sys/devices/pnp0/00:07/rtc/rtc0/power/wakeup', 0o644, b'\n')
