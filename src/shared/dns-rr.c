@@ -2487,6 +2487,12 @@ int dns_resource_record_to_json(DnsResourceRecord *rr, sd_json_variant **ret) {
                                 SD_JSON_BUILD_PAIR_UNSIGNED("matchingType", rr->tlsa.matching_type),
                                 SD_JSON_BUILD_PAIR_HEX("data", rr->tlsa.data, rr->tlsa.data_size));
 
+        case DNS_TYPE_OPENPGPKEY:
+                return sd_json_buildo(
+                                ret,
+                                SD_JSON_BUILD_PAIR_VARIANT("key", k),
+                                SD_JSON_BUILD_PAIR_BASE64("data", rr->generic.data, rr->generic.data_size));
+
         case DNS_TYPE_SVCB:
         case DNS_TYPE_HTTPS: {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *p = NULL;

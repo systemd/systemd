@@ -567,6 +567,8 @@ static int output_rr_packet(DnsResourceRecord *rr, int ifindex) {
         return 0;
 }
 
+static DEFINE_POINTER_ARRAY_FREE_FUNC(DnsResourceRecord*, dns_resource_record_unref);
+
 static int idna_candidate(const char *name, char **ret) {
         _cleanup_free_ char *idnafied = NULL;
         int r;
@@ -668,12 +670,39 @@ static int resolve_record(const char *name, uint16_t class, uint16_t type, bool 
         if (r < 0)
                 return r;
 
+        if (reply.n_records == 0) {
+                if (warn_missing)
+                        log_error("%s: no records found", name);
+                return -ESRCH;
+        }
+
+        DnsResourceRecord **rrs = new0(DnsResourceRecord*, reply.n_records);
+        size_t n_rrs = reply.n_records;
+        if (!rrs)
+                return log_oom();
+        CLEANUP_ARRAY(rrs, n_rrs, dns_resource_record_unref_array);
+
+        bool json = sd_json_format_enabled(arg_json_format_flags);
         bool needs_authentication = false;
         FOREACH_ARRAY(record, reply.records, reply.n_records) {
-                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
-                r = dns_resource_record_new_from_raw(&rr, record->raw.iov_base, record->raw.iov_len);
+                size_t i = record - reply.records;
+
+                r = dns_resource_record_new_from_raw(&rrs[i], record->raw.iov_base, record->raw.iov_len);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse RR: %m");
+
+                if (dns_type_needs_authentication(rrs[i]->key->type)) {
+                        needs_authentication = true;
+
+                        if (json && !FLAGS_SET(reply.flags, SD_RESOLVED_AUTHENTICATED))
+                                return log_error_errno(SYNTHETIC_ERRNO(EKEYREJECTED),
+                                                       "Refusing to output unauthenticated DNS records that require "
+                                                       "authentication in JSON format.");
+                }
+        }
+
+        FOREACH_ARRAY(record, reply.records, reply.n_records) {
+                size_t i = record - reply.records;
 
                 if (arg_raw == RAW_PACKET) {
                         uint64_t u64 = htole64(record->raw.iov_len);
@@ -681,19 +710,10 @@ static int resolve_record(const char *name, uint16_t class, uint16_t type, bool 
                         fwrite(&u64, sizeof(u64), 1, stdout);
                         fwrite(record->raw.iov_base, 1, record->raw.iov_len, stdout);
                 } else {
-                        r = output_rr_packet(rr, record->ifindex);
+                        r = output_rr_packet(rrs[i], record->ifindex);
                         if (r < 0)
                                 return r;
                 }
-
-                if (dns_type_needs_authentication(rr->key->type))
-                        needs_authentication = true;
-        }
-
-        if (reply.n_records == 0) {
-                if (warn_missing)
-                        log_error("%s: no records found", name);
-                return -ESRCH;
         }
 
         print_source(reply.flags, ts);
@@ -1042,8 +1062,8 @@ static int verb_openpgp(int argc, char *argv[], uintptr_t _data, void *userdata)
 #if HAVE_OPENSSL
         int ret = 0;
 
-        if (sd_json_format_enabled(arg_json_format_flags))
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Use --json=pretty with --type= to acquire resource record information in JSON format.");
+        if (!IN_SET(arg_type, 0, DNS_TYPE_OPENPGPKEY))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The openpgp command may only be combined with --type=OPENPGPKEY.");
 
         STRV_FOREACH(p, strv_skip(argv, 1))
                 RET_GATHER(ret, resolve_openpgp(*p));
@@ -1098,8 +1118,8 @@ static int verb_tlsa(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         assert(argc >= 2);
 
-        if (sd_json_format_enabled(arg_json_format_flags))
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Use --json=pretty with --type= to acquire resource record information in JSON format.");
+        if (!IN_SET(arg_type, 0, DNS_TYPE_TLSA))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The tlsa command may only be combined with --type=TLSA.");
 
         if (service_family_is_valid(argv[1])) {
                 family = argv[1];
@@ -3658,6 +3678,9 @@ static int native_parse_argv(int argc, char *argv[], char ***remaining_args) {
                         arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
                         break;
                 }
+
+        if (arg_raw != RAW_NONE && sd_json_format_enabled(arg_json_format_flags))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--raw and --json= may not be combined.");
 
         if (arg_type == 0 && arg_class != 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
