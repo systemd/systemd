@@ -371,7 +371,7 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
         return 0;
 }
 
-static int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userdata) {
+int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userdata) {
         DnsScope *scope = userdata;
         int r;
 
