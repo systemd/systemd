@@ -677,6 +677,30 @@ static void add_id_tag(UdevEvent *event, const char *path) {
         (void) udev_builtin_add_property(event, "ID_PATH_TAG", tag);
 }
 
+static int handle_pnp(sd_device *parent, char **path) {
+        _cleanup_(sd_device_unrefp) sd_device *firmware_node = NULL;
+        const char *sysname;
+        int r;
+
+        assert(parent);
+        assert(path);
+
+        r = sd_device_new_child(&firmware_node, parent, "firmware_node");
+        if (r < 0)
+                return r;
+
+        if (device_in_subsystem(firmware_node, "acpi") <= 0)
+                return -ENODEV;
+
+        r = sd_device_get_sysname(firmware_node, &sysname);
+        if (r < 0)
+                return r;
+
+        path_prepend(path, "acpi-%s", sysname);
+
+        return 0;
+}
+
 static int builtin_path_id(UdevEvent *event, int argc, char *argv[]) {
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         _cleanup_(sd_device_unrefp) sd_device *dev_other_branch = NULL;
@@ -749,6 +773,10 @@ static int builtin_path_id(UdevEvent *event, int argc, char *argv[]) {
                                 path_prepend(&compat_path, "acpi-%s", sysname);
                         parent = skip_subsystem(parent, "acpi");
                         supported_parent = true;
+                } else if (device_in_subsystem(parent, "pnp") > 0) {
+                        if (handle_pnp(parent, &path) >= 0)
+                                supported_parent = true;
+                        parent = skip_subsystem(parent, "pnp");
                 } else if (device_in_subsystem(parent, "xen") > 0) {
                         path_prepend(&path, "xen-%s", sysname);
                         if (compat_path)
