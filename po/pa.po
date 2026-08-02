@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-06-01 11:49+0200\n"
-"PO-Revision-Date: 2026-06-07 14:05+0000\n"
+"PO-Revision-Date: 2026-08-02 00:12+0000\n"
 "Last-Translator: A S Alam <aalam@users.noreply.translate.fedoraproject.org>\n"
 "Language-Team: Punjabi <https://translate.fedoraproject.org/projects/systemd/"
 "main/pa/>\n"
@@ -15,7 +15,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: Weblate 2026.6.1\n"
+"X-Generator: Weblate 2026.7.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -141,7 +141,8 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:94
 msgid "Authentication is required to manage signing keys for home directories."
-msgstr "ਘਰ ਡਾਇਰੈਕਟਰੀਆਂ ਲਈ ਸਾਈਨ ਕਰਨ ਵਾਲੀਆਂ ਕੁੰਜੀਆਂ ਦੇ ਇੰਤਜ਼ਾਮ ਲਈ ਪਰਮਾਣਕਿਤਾ ਚਾਹੀਦੀ ਹੈ।"
+msgstr ""
+"ਘਰ ਡਾਇਰੈਕਟਰੀਆਂ ਲਈ ਸਾਈਨ ਕਰਨ ਵਾਲੀਆਂ ਕੁੰਜੀਆਂ ਦੇ ਇੰਤਜ਼ਾਮ ਲਈ ਪਰਮਾਣਕਿਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
 #: src/home/pam_systemd_home.c:327
 #, c-format
@@ -153,7 +154,8 @@ msgstr ""
 #: src/home/pam_systemd_home.c:332
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
-msgstr "ਵਰਤੋਂਕਾਰ %s ਲਈ ਬਹੁਤ ਛੇਤੀ ਛੇਤੀ ਲਾਗਇਨ ਕੋਸ਼ਿਸ਼ਾਂ ਕੀਤੀਆਂ, ਬਾਅਦ ਵਿੱਚ ਕੋਸ਼ਿਸ਼ ਕਰਿਓ।"
+msgstr ""
+"ਵਰਤੋਂਕਾਰ %s ਲਈ ਬਹੁਤ ਛੇਤੀ ਛੇਤੀ ਲਾਗਇਨ ਕੋਸ਼ਿਸ਼ਾਂ ਕੀਤੀਆਂ, ਬਾਅਦ ਵਿੱਚ ਕੋਸ਼ਿਸ਼ ਕਰਿਓ।"
 
 #: src/home/pam_systemd_home.c:344
 msgid "Password: "
@@ -177,7 +179,8 @@ msgstr "ਰਿਕਵਰੀ ਕੁੰਜੀ: "
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
 "%s."
-msgstr "ਵਰਤੋਂਕਾਰ %s ਦੀ ਪਰਮਾਣਿਕਤਾ ਲਈ ਪਾਸਵਰਡ/ਰਿਕਵਰੀ ਕੁੰਜੀ ਗਲਤ ਹੈ ਜਾਂ ਕਾਫ਼ੀ ਨਹੀਂ ਹੈ।"
+msgstr ""
+"ਵਰਤੋਂਕਾਰ %s ਦੀ ਪਰਮਾਣਿਕਤਾ ਲਈ ਪਾਸਵਰਡ/ਰਿਕਵਰੀ ਕੁੰਜੀ ਗਲਤ ਹੈ ਜਾਂ ਕਾਫ਼ੀ ਨਹੀਂ ਹੈ।"
 
 #: src/home/pam_systemd_home.c:372
 msgid "Sorry, reenter recovery key: "
@@ -252,7 +255,8 @@ msgstr ""
 #: src/home/pam_systemd_home.c:678
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
-msgstr "%s ਵਰਤੋਂਕਾਰ ਦਾ ਹੋਮ ਇਸ ਵੇਲੇ ਲਾਕ ਹੈ, ਪਹਿਲਾਂ ਇਸ ਨੂੰ ਲੋਕਲ ਰੂਪ ਵਿੱਚ ਅਣ-ਲਾਕ ਕਰੋ।"
+msgstr ""
+"%s ਵਰਤੋਂਕਾਰ ਦਾ ਹੋਮ ਇਸ ਵੇਲੇ ਲਾਕ ਹੈ, ਪਹਿਲਾਂ ਇਸ ਨੂੰ ਲੋਕਲ ਰੂਪ ਵਿੱਚ ਅਣ-ਲਾਕ ਕਰੋ।"
 
 #: src/home/pam_systemd_home.c:712
 #, c-format
@@ -566,7 +570,8 @@ msgstr "ਜਦੋਂ ਹੋਰ ਵਰਤੋਂਕਾਰ ਲਾਗਇਨ ਕੀ�
 msgid ""
 "Authentication is required to reboot the system while other users are logged "
 "in."
-msgstr "ਜਦੋਂ ਹੋਰ ਵਰਤੋਂਕਾਰ ਲਾਗਇਨ ਕੀਤੇ ਹੋਣ ਤਾਂ ਸਿਸਟਮ ਨੂੰ ਮੁੜ-ਚਾਲੂ ਕਰਨ ਲਈ ਪਰਮਾਣਕਿਤਾ ਚਾਹੀਦੀ ਹੈ।"
+msgstr ""
+"ਜਦੋਂ ਹੋਰ ਵਰਤੋਂਕਾਰ ਲਾਗਇਨ ਕੀਤੇ ਹੋਣ ਤਾਂ ਸਿਸਟਮ ਨੂੰ ਮੁੜ-ਚਾਲੂ ਕਰਨ ਲਈ ਪਰਮਾਣਕਿਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
 #: src/login/org.freedesktop.login1.policy:224
 msgid "Reboot the system while an application is inhibiting this"

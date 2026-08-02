@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-06-01 11:49+0200\n"
-"PO-Revision-Date: 2026-06-07 13:59+0000\n"
+"PO-Revision-Date: 2026-08-02 00:07+0000\n"
 "Last-Translator: Anonymous <noreply@weblate.org>\n"
 "Language-Team: Tibetan <https://translate.fedoraproject.org/projects/systemd/"
 "main/bo/>\n"
@@ -15,7 +15,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 2026.6.1\n"
+"X-Generator: Weblate 2026.7.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -50,7 +50,8 @@ msgstr "རྒྱུད་ལམ་དང་ཞབས་ཞུ་དོ་དམ
 msgid ""
 "Authentication is required to set or unset system and service manager "
 "environment variables."
-msgstr "རྒྱུད་ལམ་དང་ཞབས་ཞུ་དོ་དམ་པའི་ཁོར་ཡུག་འགྱུར་ཚད་སྒྲིག་པའམ་སུབ་པར་ར་སྤྲོད་དགོས།"
+msgstr ""
+"རྒྱུད་ལམ་དང་ཞབས་ཞུ་དོ་དམ་པའི་ཁོར་ཡུག་འགྱུར་ཚད་སྒྲིག་པའམ་སུབ་པར་ར་སྤྲོད་དགོས།"
 
 #: src/core/org.freedesktop.systemd1.policy.in:64
 msgid "Reload the systemd state"
@@ -92,7 +93,8 @@ msgstr "ཁྱིམ་ཁོངས་ཀྱི་དཔང་ཡིག་ཞི
 #: src/home/org.freedesktop.home1.policy:34
 msgid ""
 "Authentication is required to check credentials against a user's home area."
-msgstr "སྤྱོད་མཁན་གྱི་ཁྱིམ་ཁོངས་ལ་བསྟུན་ནས་དཔང་ཡིག་ཞིབ་བཤེར་བྱེད་པར་ར་སྤྲོད་དགོས།"
+msgstr ""
+"སྤྱོད་མཁན་གྱི་ཁྱིམ་ཁོངས་ལ་བསྟུན་ནས་དཔང་ཡིག་ཞིབ་བཤེར་བྱེད་པར་ར་སྤྲོད་དགོས།"
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
@@ -179,7 +181,8 @@ msgstr "སླར་གསོ་ལྡེ་མིག: "
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
 "%s."
-msgstr "སྤྱོད་མཁན %s ཡི་གསང་ཚིག/སླར་གསོ་ལྡེ་མིག་ནོར་འཁྲུལ་ཡིན་པའམ་ར་སྤྲོད་ལ་མི་འདང་།"
+msgstr ""
+"སྤྱོད་མཁན %s ཡི་གསང་ཚིག/སླར་གསོ་ལྡེ་མིག་ནོར་འཁྲུལ་ཡིན་པའམ་ར་སྤྲོད་ལ་མི་འདང་།"
 
 #: src/home/pam_systemd_home.c:372
 msgid "Sorry, reenter recovery key: "
@@ -199,7 +202,8 @@ msgstr "གསང་ཚིག་སྤྱད་ནས་ཡང་བསྐྱར
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
 "%s not inserted."
-msgstr "གསང་ཚིག་ནོར་འཁྲུལ་ཡིན་པའམ་མི་འདང་། སྤྱོད་མཁན %s ཡི་སྒྲིག་བཀོད་བདེ་འཇགས་རྟགས་ཀྱང་མ་བཙུགས།"
+msgstr ""
+"གསང་ཚིག་ནོར་འཁྲུལ་ཡིན་པའམ་མི་འདང་། སྤྱོད་མཁན %s ཡི་སྒྲིག་བཀོད་བདེ་འཇགས་རྟགས་ཀྱང་མ་བཙུགས།"
 
 #: src/home/pam_systemd_home.c:415
 msgid "Security token PIN: "
@@ -225,8 +229,8 @@ msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
 msgstr ""
-"བདེ་འཇགས་རྟགས PIN སྒོ་ལྕགས་བཀག་ཟིན། སྔོན་ལ་སྒྲོལ་རོགས། (ཁ་སྣོན: ཕྱིར་བཏོན་ནས་ཡང་བསྐྱར་བཙུགས་ན་"
-"འགྲིག་སྲིད།)"
+"བདེ་འཇགས་རྟགས PIN སྒོ་ལྕགས་བཀག་ཟིན། སྔོན་ལ་སྒྲོལ་རོགས། (ཁ་སྣོན: ཕྱིར་བཏོན་ནས་ཡང་བསྐྱར་བཙུགས་ན་འགྲིག"
+"་སྲིད།)"
 
 #: src/home/pam_systemd_home.c:471
 #, c-format
@@ -241,7 +245,8 @@ msgstr "དགོངས་དག བདེ་འཇགས་རྟགས PIN ཡ
 #: src/home/pam_systemd_home.c:490
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
-msgstr "སྤྱོད་མཁན %s ཡི་བདེ་འཇགས་རྟགས PIN ནོར་འཁྲུལ། (ཚོད་ལྟ་ཆེས་ཉུང་ཙམ་ལས་མེད!)"
+msgstr ""
+"སྤྱོད་མཁན %s ཡི་བདེ་འཇགས་རྟགས PIN ནོར་འཁྲུལ། (ཚོད་ལྟ་ཆེས་ཉུང་ཙམ་ལས་མེད!)"
 
 #: src/home/pam_systemd_home.c:509
 #, c-format
@@ -251,12 +256,14 @@ msgstr "སྤྱོད་མཁན %s ཡི་བདེ་འཇགས་ར�
 #: src/home/pam_systemd_home.c:676
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
-msgstr "སྤྱོད་མཁན %s ཡི་ཁྱིམ་དཀར་ཆག་ད་ལྟ་སྐུལ་སློང་མེད། སྔོན་ལ་ས་གནས་ནས་ནང་འཛུལ་གནང་རོགས།"
+msgstr ""
+"སྤྱོད་མཁན %s ཡི་ཁྱིམ་དཀར་ཆག་ད་ལྟ་སྐུལ་སློང་མེད། སྔོན་ལ་ས་གནས་ནས་ནང་འཛུལ་གནང་རོགས།"
 
 #: src/home/pam_systemd_home.c:678
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
-msgstr "སྤྱོད་མཁན %s ཡི་ཁྱིམ་དཀར་ཆག་ད་ལྟ་སྒོ་ལྕགས་བཀག་ཡོད། སྔོན་ལ་ས་གནས་ནས་སྒྲོལ་རོགས།"
+msgstr ""
+"སྤྱོད་མཁན %s ཡི་ཁྱིམ་དཀར་ཆག་ད་ལྟ་སྒོ་ལྕགས་བཀག་ཡོད། སྔོན་ལ་ས་གནས་ནས་སྒྲོལ་རོགས།"
 
 #: src/home/pam_systemd_home.c:712
 #, c-format
@@ -316,7 +323,8 @@ msgstr "བརྟན་པོའི་གཙོ་འཁོར་མིང་ས
 msgid ""
 "Authentication is required to set the statically configured local hostname, "
 "as well as the pretty hostname."
-msgstr "བརྟན་པོར་སྒྲིག་པའི་ས་གནས་གཙོ་འཁོར་མིང་དང pretty hostname སྒྲིག་པར་ར་སྤྲོད་དགོས།"
+msgstr ""
+"བརྟན་པོར་སྒྲིག་པའི་ས་གནས་གཙོ་འཁོར་མིང་དང pretty hostname སྒྲིག་པར་ར་སྤྲོད་དགོས།"
 
 #: src/hostname/org.freedesktop.hostname1.policy:41
 msgid "Set machine information"
@@ -381,7 +389,8 @@ msgstr "ཌིསྐ་མཚོན་རིས་བརྒྱུད་སྐྱ
 #: src/import/org.freedesktop.import1.policy:53
 msgid ""
 "Authentication is required to cancel the ongoing transfer of a disk image."
-msgstr "ད་ལྟ་བྱེད་བཞིན་པའི་ཌིསྐ་མཚོན་རིས་བརྒྱུད་སྐྱེལ་མེད་པར་བཟོ་བར་ར་སྤྲོད་དགོས།"
+msgstr ""
+"ད་ལྟ་བྱེད་བཞིན་པའི་ཌིསྐ་མཚོན་རིས་བརྒྱུད་སྐྱེལ་མེད་པར་བཟོ་བར་ར་སྤྲོད་དགོས།"
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
@@ -450,7 +459,8 @@ msgstr "མཉེན་ཆས་ཀྱིས་རྒྱུད་ལམ་གླ
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the power key."
-msgstr "མཉེན་ཆས་ཀྱིས་རྒྱུད་ལམ་གློག་སྒོ་མཐེབ་ལ་ལག་ལེན་བྱེད་པ་འགོག་པར་ར་སྤྲོད་དགོས།"
+msgstr ""
+"མཉེན་ཆས་ཀྱིས་རྒྱུད་ལམ་གློག་སྒོ་མཐེབ་ལ་ལག་ལེན་བྱེད་པ་འགོག་པར་ར་སྤྲོད་དགོས།"
 
 #: src/login/org.freedesktop.login1.policy:86
 msgid "Allow applications to inhibit system handling of the suspend key"
@@ -460,7 +470,8 @@ msgstr "མཉེན་ཆས་ཀྱིས་རྒྱུད་ལམ་འག
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the suspend key."
-msgstr "མཉེན་ཆས་ཀྱིས་རྒྱུད་ལམ་འགེལ་འཇོག་མཐེབ་ལ་ལག་ལེན་བྱེད་པ་འགོག་པར་ར་སྤྲོད་དགོས།"
+msgstr ""
+"མཉེན་ཆས་ཀྱིས་རྒྱུད་ལམ་འགེལ་འཇོག་མཐེབ་ལ་ལག་ལེན་བྱེད་པ་འགོག་པར་ར་སྤྲོད་དགོས།"
 
 #: src/login/org.freedesktop.login1.policy:97
 msgid "Allow applications to inhibit system handling of the hibernate key"
@@ -474,13 +485,15 @@ msgstr "མཉེན་ཆས་ཀྱིས་རྒྱུད་ལམ་ཉལ
 
 #: src/login/org.freedesktop.login1.policy:107
 msgid "Allow applications to inhibit system handling of the lid switch"
-msgstr "མཉེན་ཆས་ཀྱིས་རྒྱུད་ལམ་ལཔ་ཊོཔ་ཁ་ལེབ་སྒྱུར་མཐེབ་ལ་ལག་ལེན་བྱེད་པ་འགོག་པར་ཆོག"
+msgstr ""
+"མཉེན་ཆས་ཀྱིས་རྒྱུད་ལམ་ལཔ་ཊོཔ་ཁ་ལེབ་སྒྱུར་མཐེབ་ལ་ལག་ལེན་བྱེད་པ་འགོག་པར་ཆོག"
 
 #: src/login/org.freedesktop.login1.policy:108
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the lid switch."
-msgstr "མཉེན་ཆས་ཀྱིས་རྒྱུད་ལམ་ལཔ་ཊོཔ་ཁ་ལེབ་སྒྱུར་མཐེབ་ལ་ལག་ལེན་བྱེད་པ་འགོག་པར་ར་སྤྲོད་དགོས།"
+msgstr ""
+"མཉེན་ཆས་ཀྱིས་རྒྱུད་ལམ་ལཔ་ཊོཔ་ཁ་ལེབ་སྒྱུར་མཐེབ་ལ་ལག་ལེན་བྱེད་པ་འགོག་པར་ར་སྤྲོད་དགོས།"
 
 #: src/login/org.freedesktop.login1.policy:117
 msgid "Allow applications to inhibit system handling of the reboot key"
@@ -490,7 +503,8 @@ msgstr "མཉེན་ཆས་ཀྱིས་རྒྱུད་ལམ་བས
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the reboot key."
-msgstr "མཉེན་ཆས་ཀྱིས་རྒྱུད་ལམ་བསྐྱར་འགོ་མཐེབ་ལ་ལག་ལེན་བྱེད་པ་འགོག་པར་ར་སྤྲོད་དགོས།"
+msgstr ""
+"མཉེན་ཆས་ཀྱིས་རྒྱུད་ལམ་བསྐྱར་འགོ་མཐེབ་ལ་ལག་ལེན་བྱེད་པ་འགོག་པར་ར་སྤྲོད་དགོས།"
 
 #: src/login/org.freedesktop.login1.policy:128
 msgid "Allow non-logged-in user to run programs"
@@ -498,7 +512,8 @@ msgstr "ནང་འཛུལ་མ་བྱས་པའི་སྤྱོད་
 
 #: src/login/org.freedesktop.login1.policy:129
 msgid "Explicit request is required to run programs as a non-logged-in user."
-msgstr "ནང་འཛུལ་མ་བྱས་པའི་སྤྱོད་མཁན་དབང་གིས་ལས་རིམ་འགྲོ་བར་གསལ་བཤད་ཀྱི་ཞུ་བ་དགོས།"
+msgstr ""
+"ནང་འཛུལ་མ་བྱས་པའི་སྤྱོད་མཁན་དབང་གིས་ལས་རིམ་འགྲོ་བར་གསལ་བཤད་ཀྱི་ཞུ་བ་དགོས།"
 
 #: src/login/org.freedesktop.login1.policy:138
 msgid "Allow non-logged-in users to run programs"
@@ -655,7 +670,8 @@ msgstr "སྤྱོད་མཁན་གཞན་ནང་འཛུལ་ཡོ
 msgid ""
 "Authentication is required to hibernate the system while other users are "
 "logged in."
-msgstr "སྤྱོད་མཁན་གཞན་ནང་འཛུལ་ཡོད་སྐབས་རྒྱུད་ལམ་རྨི་གཉིད་གནས་ཚུལ་དུ་འཇུག་པར་ར་སྤྲོད་དགོས།"
+msgstr ""
+"སྤྱོད་མཁན་གཞན་ནང་འཛུལ་ཡོད་སྐབས་རྒྱུད་ལམ་རྨི་གཉིད་གནས་ཚུལ་དུ་འཇུག་པར་ར་སྤྲོད་དགོས།"
 
 #: src/login/org.freedesktop.login1.policy:321
 msgid "Hibernate the system while an application is inhibiting this"
@@ -665,7 +681,8 @@ msgstr "མཉེན་ཆས་ཀྱིས་འགོག་བཞིན་ས
 msgid ""
 "Authentication is required to hibernate the system while an application is "
 "inhibiting this."
-msgstr "མཉེན་ཆས་ཀྱིས་འགོག་བཞིན་སྐབས་རྒྱུད་ལམ་རྨི་གཉིད་གནས་ཚུལ་དུ་འཇུག་པར་ར་སྤྲོད་དགོས།"
+msgstr ""
+"མཉེན་ཆས་ཀྱིས་འགོག་བཞིན་སྐབས་རྒྱུད་ལམ་རྨི་གཉིད་གནས་ཚུལ་དུ་འཇུག་པར་ར་སྤྲོད་དགོས།"
 
 #: src/login/org.freedesktop.login1.policy:332
 msgid "Manage active sessions, users and seats"
@@ -699,7 +716,8 @@ msgstr "firmware ལ་སྒྲིག་འགོད་འཆར་ངོས་
 msgid ""
 "Authentication is required to indicate to the firmware to boot to setup "
 "interface."
-msgstr "firmware ལ་སྒྲིག་འགོད་འཆར་ངོས་སུ་འགོ་ཚུགས་དགོས་ཞེས་བརྡ་སྟོན་པར་ར་སྤྲོད་དགོས།"
+msgstr ""
+"firmware ལ་སྒྲིག་འགོད་འཆར་ངོས་སུ་འགོ་ཚུགས་དགོས་ཞེས་བརྡ་སྟོན་པར་ར་སྤྲོད་དགོས།"
 
 #: src/login/org.freedesktop.login1.policy:374
 msgid "Indicate to the boot loader to boot to the boot loader menu"
@@ -709,7 +727,8 @@ msgstr "boot loader ལ་ boot loader དཀར་ཆག་ཏུ་འགོ�
 msgid ""
 "Authentication is required to indicate to the boot loader to boot to the "
 "boot loader menu."
-msgstr "boot loader ལ་ boot loader དཀར་ཆག་ཏུ་འགོ་ཚུགས་དགོས་ཞེས་བརྡ་སྟོན་པར་ར་སྤྲོད་དགོས།"
+msgstr ""
+"boot loader ལ་ boot loader དཀར་ཆག་ཏུ་འགོ་ཚུགས་དགོས་ཞེས་བརྡ་སྟོན་པར་ར་སྤྲོད་དགོས།"
 
 #: src/login/org.freedesktop.login1.policy:385
 msgid "Indicate to the boot loader to boot a specific entry"
@@ -720,8 +739,8 @@ msgid ""
 "Authentication is required to indicate to the boot loader to boot into a "
 "specific boot loader entry."
 msgstr ""
-"boot loader ལ་དམིགས་བསལ་གྱི boot loader འཇུག་ཚན་ཏུ་འགོ་ཚུགས་དགོས་ཞེས་བརྡ་སྟོན་པར་ར་སྤྲོད་"
-"དགོས།"
+"boot loader ལ་དམིགས་བསལ་གྱི boot loader འཇུག་ཚན་ཏུ་འགོ་ཚུགས་དགོས་ཞེས་བརྡ་སྟོན་པར་ར་སྤྲོད་དགོས"
+"།"
 
 #: src/login/org.freedesktop.login1.policy:396
 msgid "Set a wall message"
@@ -990,7 +1009,8 @@ msgstr "systemd-networkd ཡི་བརྟན་པོའི་གསོག་�
 msgid ""
 "Authentication is required to specify whether persistent storage for systemd-"
 "networkd is available."
-msgstr "systemd-networkd ཡི་བརྟན་པོའི་གསོག་ཉར་སྤྱོད་ཆོག་མིན་སྟོན་པར་ར་སྤྲོད་དགོས།"
+msgstr ""
+"systemd-networkd ཡི་བརྟན་པོའི་གསོག་ཉར་སྤྱོད་ཆོག་མིན་སྟོན་པར་ར་སྤྲོད་དགོས།"
 
 #: src/network/org.freedesktop.network1.policy:198
 msgid "Manage network links"
@@ -1154,7 +1174,8 @@ msgstr "དམིགས་བསལ་རྒྱུད་ལམ་པར་གཞ
 msgid ""
 "Authentication is required to update the system to a specific (possibly old) "
 "version."
-msgstr "རྒྱུད་ལམ་དེ་དམིགས་བསལ་(རྙིང་པ་ཡིན་སྲིད་པའི) པར་གཞིར་གསར་སྒྱུར་བྱེད་པར་ར་སྤྲོད་དགོས།"
+msgstr ""
+"རྒྱུད་ལམ་དེ་དམིགས་བསལ་(རྙིང་པ་ཡིན་སྲིད་པའི) པར་གཞིར་གསར་སྒྱུར་བྱེད་པར་ར་སྤྲོད་དགོས།"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:88
 msgid "Cancel installing specific system version"
@@ -1252,7 +1273,8 @@ msgstr "UNIX འཕྲིན་རྟགས་དེ '$(unit)' གི་བར�
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
-msgstr "UNIX འཕྲིན་རྟགས་དེ '$(unit)' གི subgroup བརྒྱུད་རིམ་ལ་གཏོང་བར་ར་སྤྲོད་དགོས།"
+msgstr ""
+"UNIX འཕྲིན་རྟགས་དེ '$(unit)' གི subgroup བརྒྱུད་རིམ་ལ་གཏོང་བར་ར་སྤྲོད་དགོས།"
 
 #: src/core/dbus-unit.c:649
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
