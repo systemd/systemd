@@ -9,6 +9,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "log.h"
+#include "memory-util.h"
 #include "mkfs-util.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -671,6 +672,12 @@ int make_filesystem(
                         if (strv_extend(&argv, c) < 0)
                                 return log_oom();
                 }
+
+                /* mkfs.erofs defaults to the page size and rejects block sizes larger than
+                 * that, so only pass an explicit block size when it is actually smaller. */
+                if (sector_size > 0 && sector_size < (uint64_t) page_size() &&
+                    strv_extendf(&argv, "-b%"PRIu64, sector_size) < 0)
+                        return log_oom();
 
                 if (strv_extend_many(&argv, node, root) < 0)
                         return log_oom();
