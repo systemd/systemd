@@ -9,7 +9,6 @@ typedef enum FilesystemParseFlags {
         FILESYSTEM_PARSE_LOG        = 1 << 2,
 } FilesystemParseFlags;
 
-bool bpf_restrict_fs_supported(bool initialize);
 int bpf_restrict_fs_setup(Manager *m);
 int bpf_restrict_fs_update(const Set *filesystems, uint64_t cgroup_id, int outer_map_fd, bool allow_list);
 int bpf_restrict_fs_cleanup(Unit *u);
