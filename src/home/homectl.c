@@ -797,7 +797,11 @@ static int apply_identity_changes(sd_json_variant **_v) {
         if (r < 0)
                 return log_error_errno(r, "Failed to merge identities: %m");
 
-        if (arg_identity_extra_this_machine || arg_identity_extra_other_machines || !strv_isempty(arg_identity_filter)) {
+        if (arg_identity_extra_this_machine ||
+            arg_identity_extra_other_machines ||
+            arg_identity_extra_rlimits ||
+            arg_identity_filter_rlimits ||
+            !strv_isempty(arg_identity_filter)) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *per_machine = NULL, *mmid = NULL;
                 sd_id128_t mid;
 
