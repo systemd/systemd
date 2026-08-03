@@ -62,7 +62,7 @@
 
   <refsect1><title>Options</title>
     <variablelist>
-      <varlistentry id='prefix'>
+      <varlistentry>
         <term><option>--prefix=</option></term>
         <listitem>
           <para>Only apply rules with the specified prefix.</para>
@@ -70,14 +70,23 @@
         <xi:include href="version-info.xml" xpointer="v230"/>
         </listitem>
       </varlistentry>
-      <varlistentry id='strict'>
-        <term><option>--strict=</option></term>
+      <varlistentry>
+        <term><option>--strict</option></term>
         <listitem>
           <para>Always return non-zero exit code on failure (including invalid sysctl variable
           name and insufficient permissions), unless the sysctl variable name is prefixed with a "-"
           character.</para>
 
           <xi:include href="version-info.xml" xpointer="v252"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--verify</option></term>
+        <listitem>
+          <para>Verify sysctl values after write.</para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/>
         </listitem>
       </varlistentry>
 
