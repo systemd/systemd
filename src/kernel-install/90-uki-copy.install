@@ -28,6 +28,7 @@ KERNEL_IMAGE="$4"
 
 ENTRY_TOKEN="$KERNEL_INSTALL_ENTRY_TOKEN"
 BOOT_ROOT="$KERNEL_INSTALL_BOOT_ROOT"
+ENTRY_NAME="${KERNEL_INSTALL_ENTRY_NAME:-$ENTRY_TOKEN-$KERNEL_VERSION}"
 
 UKI_DIR="$BOOT_ROOT/EFI/Linux"
 
@@ -39,11 +40,11 @@ case "$COMMAND" in
             exit 0
         fi
         [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
-            echo "Removing $UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION*.efi and extras"
+            echo "Removing $UKI_DIR/$ENTRY_NAME*.efi and extras"
         exec rm -rf \
-            "$UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION.efi" \
-            "$UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION.efi.extra.d/" \
-            "$UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION+"*".efi"
+            "$UKI_DIR/$ENTRY_NAME.efi" \
+            "$UKI_DIR/$ENTRY_NAME.efi.extra.d/" \
+            "$UKI_DIR/$ENTRY_NAME+"*".efi"
         ;;
     add)
         ;;
@@ -67,24 +68,24 @@ if [ -f "$TRIES_FILE" ]; then
         echo "$TRIES_FILE does not contain an integer." >&2
         exit 1
     fi
-    if [ -f "$UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION.efi" ]; then
+    if [ -f "$UKI_DIR/$ENTRY_NAME.efi" ]; then
         [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
-            echo "Removing previous UKI '$UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION.efi' without boot counting." >&2
-        rm -f "$UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION.efi"
+            echo "Removing previous UKI '$UKI_DIR/$ENTRY_NAME.efi' without boot counting." >&2
+        rm -f "$UKI_DIR/$ENTRY_NAME.efi"
     fi
-    for uki in "$UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION+"*.efi; do
-        [ "$uki" = "$UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION+*.efi" ] && break
+    for uki in "$UKI_DIR/$ENTRY_NAME+"*.efi; do
+        [ "$uki" = "$UKI_DIR/$ENTRY_NAME+*.efi" ] && break
         [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
             echo "Removing previous UKI '$uki' that has not yet booted successfully." >&2
         rm -f "$uki"
     done
 
-    UKI_FILE="$UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION+$TRIES.efi"
+    UKI_FILE="$UKI_DIR/$ENTRY_NAME+$TRIES.efi"
 else
-    UKI_FILE="$UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION.efi"
+    UKI_FILE="$UKI_DIR/$ENTRY_NAME.efi"
 fi
 
-EXTRA_DIR="$UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION.efi.extra.d"
+EXTRA_DIR="$UKI_DIR/$ENTRY_NAME.efi.extra.d"
 
 # If there is a UKI named uki.efi on the staging area use that, if not use what
 # was passed in as $KERNEL_IMAGE but insist it has a .efi extension
