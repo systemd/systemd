@@ -6,6 +6,7 @@
 
 #include "escape.h"
 #include "log.h"
+#include "memory-util.h"
 #include "mkfs-util.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -619,6 +620,12 @@ int make_filesystem(
                         if (strv_extend(&argv, c) < 0)
                                 return log_oom();
                 }
+
+                /* mkfs.erofs requires the block size to be no larger than the system page
+                 * size, which is also its default. Clamp the requested sector size to
+                 * avoid rejecting configurations that are valid for other file systems. */
+                if (sector_size > 0 && strv_extendf(&argv, "-b%"PRIu64, MIN(sector_size, (uint64_t) page_size())) < 0)
+                        return log_oom();
 
                 if (strv_extend_many(&argv, node, root) < 0)
                         return log_oom();
