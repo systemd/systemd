@@ -11,10 +11,18 @@ fi
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
+TRANSIENT_USER="test-74-userdb-transient"
+TRANSIENT_UID=23456
+TRANSIENT_HOME="/home/$TRANSIENT_USER"
+CREDENTIALS_DIR=""
+
 cleanup() {
     set +e
     userdel -r test-74-userdbctl
     groupdel test-74-userdbctl
+    rm -rf "$TRANSIENT_HOME"
+    rm -f "/run/userdb/$TRANSIENT_USER.user" "/run/userdb/$TRANSIENT_UID.user"
+    [[ -z "$CREDENTIALS_DIR" ]] || rm -rf "$CREDENTIALS_DIR"
 }
 
 trap cleanup EXIT
@@ -86,6 +94,23 @@ userdbctl group "$DISK_GID" | grep -F 'io.systemd.NameServiceSwitch' >/dev/null
 (! busctl call org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager LookupDynamicUserByName "s" disk)
 (! busctl call org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager LookupDynamicUserByUID "u" "$DISK_GID")
 systemctl stop "$UNIT"
+
+CREDENTIALS_DIR="$(mktemp -d)"
+rm -rf "$TRANSIENT_HOME"
+rm -f "/run/userdb/$TRANSIENT_USER.user" "/run/userdb/$TRANSIENT_UID.user"
+cat >"$CREDENTIALS_DIR/userdb.transient.user.$TRANSIENT_USER" <<EOF
+{
+    "userName": "$TRANSIENT_USER",
+    "uid": $TRANSIENT_UID,
+    "gid": $TRANSIENT_UID,
+    "homeDirectory": "$TRANSIENT_HOME",
+    "disposition": "regular"
+}
+EOF
+CREDENTIALS_DIRECTORY="$CREDENTIALS_DIR" userdbctl load-credentials
+test -e "/run/userdb/$TRANSIENT_USER.user"
+test -L "/run/userdb/$TRANSIENT_UID.user"
+test ! -e "$TRANSIENT_HOME"
 
 # Probe specific user records
 echo '{"userName":"weightmin","cpuWeight":1,"ioWeight":1}' | userdbctl -F -
