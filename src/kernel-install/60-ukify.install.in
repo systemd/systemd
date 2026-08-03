@@ -22,6 +22,7 @@
 import argparse
 import os
 import shlex
+import subprocess
 import types
 from shutil import which
 from pathlib import Path
@@ -194,6 +195,18 @@ def kernel_cmdline_base() -> list[str]:
 
     if os.getenv('KERNEL_INSTALL_CONF_ROOT'):
         return []
+
+    # Don't read /proc/cmdline in containers it belongs to the host and would
+    # leak the host's root= (or a faked value) into the UKI. Mirrors
+    # the same guard in 90-loaderentry.install.
+    try:
+        result = subprocess.run(
+            ['systemd-detect-virt', '--container', '--quiet'],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if result.returncode == 0:
+            return []
+    except FileNotFoundError:
+        pass
 
     # If we read /proc/cmdline, we need to do some additional filtering.
     options = Path('/proc/cmdline').read_text().split()
