@@ -1257,6 +1257,7 @@ EOF
 testcase_match() {
     # Test positive and negative matching
     NEWPASSWORD=test homectl create --storage=directory --nice=5 -P matchtest
+    PASSWORD=test homectl update -N --disk-size=64M matchtest
     homectl inspect matchtest
     homectl inspect matchtest | grep "Nice: 5"
     PASSWORD=test homectl update -N --nice=7 -T --nice=3 matchtest
