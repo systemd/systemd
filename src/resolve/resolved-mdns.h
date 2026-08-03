@@ -16,3 +16,7 @@ int manager_mdns_ipv6_fd(Manager *m);
 void manager_mdns_stop(Manager *m);
 void manager_mdns_maybe_stop(Manager *m);
 int manager_mdns_start(Manager *m);
+
+/* Exposed for testing only. */
+void mdns_goodbye_arm_on_receipt(DnsScope *scope);
+int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userdata);
