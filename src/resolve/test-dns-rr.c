@@ -2264,6 +2264,22 @@ TEST(dns_resource_record_to_json_soa) {
         ASSERT_EQ(sd_json_variant_unsigned(sd_json_variant_by_key(j, "minimum")), UINT64_C(3600));
 }
 
+TEST(dns_resource_record_to_json_openpgpkey) {
+        static const uint8_t data[] = { 0, 1, 2, 3 };
+
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr =
+                ASSERT_NOT_NULL(dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_OPENPGPKEY, "www.example.com"));
+        ASSERT_NOT_NULL(rr->generic.data = memdup(data, sizeof(data)));
+        rr->generic.data_size = sizeof(data);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        ASSERT_OK(dns_resource_record_to_json(rr, &j));
+
+        sd_json_variant *key = ASSERT_NOT_NULL(sd_json_variant_by_key(j, "key"));
+        ASSERT_EQ(sd_json_variant_unsigned(sd_json_variant_by_key(key, "type")), (uint64_t) DNS_TYPE_OPENPGPKEY);
+        ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(j, "data")), "AAECAw==");
+}
+
 TEST(dns_resource_record_to_string_ptr) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
         const char *str;
