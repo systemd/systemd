@@ -620,6 +620,9 @@ int make_filesystem(
                                 return log_oom();
                 }
 
+                if (sector_size > 0 && strv_extendf(&argv, "-b%"PRIu64, sector_size) < 0)
+                        return log_oom();
+
                 if (strv_extend_many(&argv, node, root) < 0)
                         return log_oom();
 
