@@ -1484,7 +1484,7 @@ static int load_credential_one(
                                 return r;
                 }
 
-        if (ur && user_record_disposition(ur) == USER_REGULAR) {
+        if (ur && !transient && user_record_disposition(ur) == USER_REGULAR) {
                 const char *hd = user_record_home_directory(ur);
 
                 r = RET_NERRNO(access(hd, F_OK));

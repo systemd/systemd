@@ -953,8 +953,14 @@ EOF
 }
 
 testcase_match() {
+    local DRY_RUN_JSON
+
+    DRY_RUN_JSON="$(SYSTEMD_HOME_DRY_RUN=1 NEWPASSWORD=test homectl create dryrun-rlimit --rlimit=NOFILE=42:42 -P 2>&1)"
+    jq -e '.perMachine[] | select(.resourceLimits.RLIMIT_NOFILE.cur == 42 and .resourceLimits.RLIMIT_NOFILE.max == 42)' <<<"$DRY_RUN_JSON"
+
     # Test positive and negative matching
     NEWPASSWORD=test homectl create --storage=directory --nice=5 -P matchtest
+    PASSWORD=test homectl update -N --disk-size=64M matchtest
     homectl inspect matchtest
     homectl inspect matchtest | grep "Nice: 5"
     PASSWORD=test homectl update -N --nice=7 -T --nice=3 matchtest
