@@ -386,9 +386,6 @@ static usec_t mdns_goodbye_next_deadline(DnsScope *scope) {
         return until > usec_add(now(CLOCK_BOOTTIME), MDNS_GOODBYE_DELAY) ? USEC_INFINITY : until;
 }
 
-/* Defined below, where the re-arm it performs can read as the tail of the arming it belongs to. */
-static int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userdata);
-
 /* force_reset picks whether an already armed timer keeps its deadline (the receipt path: an earlier
  * pass covers this goodbye too) or takes the new one (the callback: it has just fired and is
  * re-arming itself). */
@@ -414,7 +411,7 @@ static int mdns_goodbye_arm(DnsScope *scope, usec_t until, bool force_reset) {
         return 0;
 }
 
-static int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userdata) {
+int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userdata) {
         DnsScope *scope = userdata;
         usec_t until;
         int r;
@@ -464,7 +461,7 @@ static int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userda
  * not by the number of packets, with sd-event's default accuracy coalescing those onto a 250ms grid:
  * a few passes per second at worst, each walking every matching scope's cache and the whole
  * discovered-service list. */
-static void mdns_goodbye_arm_on_receipt(DnsScope *scope) {
+void mdns_goodbye_arm_on_receipt(DnsScope *scope) {
         usec_t until;
 
         assert(scope);
