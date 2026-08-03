@@ -932,10 +932,13 @@ static int write_temporary_gshadow(
                 while ((r = fgetsgent_sane(original, &sg)) > 0) {
 
                         i = ordered_hashmap_get(c->groups, sg->sg_namp);
-                        if (i && i->todo_group)
-                                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
-                                                       "%s: Group \"%s\" already exists.",
-                                                       gshadow_path, sg->sg_namp);
+                        if (i && i->todo_group) {
+                                /* The group already exists in /etc/gshadow. Only the
+                                 * /etc/gshadow stage is left, so we can safely remove
+                                 * the item from the todo set. */
+                                i->todo_group = false;
+                                ordered_hashmap_remove(c->todo_gids, GID_TO_PTR(i->gid));
+                        }
 
                         r = putsgent_with_members(c, sg, gshadow);
                         if (r < 0)
