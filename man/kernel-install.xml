@@ -562,6 +562,17 @@
       on the file name and extension: Files named <filename>initrd*</filename> will be installed as <replaceable>INITRD-FILE</replaceable>s,
       and files named <filename>microcode*</filename> will be prepended before <replaceable>INITRD-FILE</replaceable>s.</para>
 
+      <para><varname>$KERNEL_INSTALL_ENTRY_NAME_FORMAT</varname> is set for the plugins to the entry name
+      format string, as configured via <varname>entry_name_format=</varname> in
+      <filename>install.conf</filename>. If not configured, this is empty.</para>
+
+      <para><varname>$KERNEL_INSTALL_ENTRY_NAME</varname> is set for the plugins to the resolved entry name,
+      derived by expanding specifiers in the entry name format string. This is the base name (without file
+      extension) used for UKI files, loader entry configuration files, and similar. By default this is
+      <literal><replaceable>ENTRY-TOKEN</replaceable>-<replaceable>KERNEL-VERSION</replaceable></literal>,
+      matching the traditional naming. See <varname>entry_name_format=</varname> below for details on the
+      available specifiers.</para>
+
     </refsect2>
 
     <refsect2>
@@ -726,8 +737,57 @@
           <varname>BOOT_ROOT=</varname>,
           <varname>layout=</varname>,
           <varname>initrd_generator=</varname>,
-          <varname>uki_generator=</varname>.
+          <varname>uki_generator=</varname>,
+          <varname>entry_name_format=</varname>.
           See the Environment variables section above for details.</para>
+
+          <para><varname>entry_name_format=</varname> configures the format string used to derive the entry
+          name for boot loader entries and UKI files. The format string is expanded using specifier expansion.
+          The following specifiers are understood:</para>
+
+          <variablelist>
+            <varlistentry>
+              <term><literal>%e</literal></term>
+              <listitem><para>The entry token (same as <varname>$KERNEL_INSTALL_ENTRY_TOKEN</varname>).
+              </para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><literal>%k</literal></term>
+              <listitem><para>The kernel version being installed.</para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><literal>%a</literal></term>
+              <listitem><para>The short system architecture identifier of the current system, e.g.
+              <literal>x86-64</literal>, <literal>arm64</literal>.</para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><literal>%A</literal></term>
+              <listitem><para>The value of the <varname>IMAGE_VERSION=</varname> field of the installed
+              <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+              file.</para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><literal>%M</literal></term>
+              <listitem><para>The value of the <varname>IMAGE_ID=</varname> field of the installed
+              <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+              file.</para></listitem>
+            </varlistentry>
+          </variablelist>
+
+          <para>Additionally, all common system specifiers as documented in
+          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          are available (such as <literal>%o</literal> for the OS ID, <literal>%H</literal> for the
+          hostname, etc.).</para>
+
+          <para>The resolved entry name must be a valid filename (no path separators). Defaults to
+          <literal>%e-%k</literal>, which produces the traditional
+          <literal><replaceable>ENTRY-TOKEN</replaceable>-<replaceable>KERNEL-VERSION</replaceable></literal>
+          naming.</para>
+
+          <para>For example, setting <varname>entry_name_format=%M_%A_%a</varname> on a system with
+          <varname>IMAGE_ID=myos</varname>, <varname>IMAGE_VERSION=20250830</varname>, and architecture
+          <literal>x86-64</literal> would produce entry names like
+          <literal>myos_20250830_x86-64</literal>.</para>
 
           <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
