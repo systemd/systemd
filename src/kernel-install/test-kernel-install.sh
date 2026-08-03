@@ -295,6 +295,25 @@ test -d "$BOOT_ROOT/hoge"
 rmdir "$BOOT_ROOT/hoge"
 
 ###########################################
+# tests for entry_name_format=
+###########################################
+cat >>"$D/sources/install.conf" <<EOF
+entry_name_format=%e_%k
+EOF
+
+output="$("$kernel_install" -v --json=pretty inspect 1.1.1 "$D/sources/linux")"
+echo "$output" | grep -qE '"EntryNameFormat" : "%e_%k"'
+echo "$output" | grep -qE '"EntryName" : "the-token_1.1.1"'
+
+# Restore install.conf without entry_name_format
+cat >"$D/sources/install.conf" <<EOF
+initrd_generator=none
+# those are overridden by envvars
+BOOT_ROOT="$D/badboot"
+MACHINE_ID=badbadbadbadbadbad6abadbadbadbad
+EOF
+
+###########################################
 # tests for --json=
 ###########################################
 output="$("$kernel_install" -v --json=pretty inspect 1.1.1 "$D/sources/linux")"
@@ -307,6 +326,8 @@ diff -u <(echo "$output") - >&2 <<EOF
 	"BootRoot" : "$BOOT_ROOT",
 	"EntryTokenType" : "literal",
 	"EntryToken" : "the-token",
+	"EntryNameFormat" : "%e-%k",
+	"EntryName" : "the-token-1.1.1",
 	"EntryDirectory" : "$BOOT_ROOT/the-token/1.1.1",
 	"KernelVersion" : "1.1.1",
 	"Kernel" : "$D/sources/linux",
@@ -326,7 +347,9 @@ diff -u <(echo "$output") - >&2 <<EOF
 		"KERNEL_INSTALL_LAYOUT=other",
 		"KERNEL_INSTALL_INITRD_GENERATOR=none",
 		"KERNEL_INSTALL_UKI_GENERATOR=",
-		"KERNEL_INSTALL_STAGING_AREA=${TMPDIR:-/var/tmp}/kernel-install.staging.XXXXXX"
+		"KERNEL_INSTALL_STAGING_AREA=${TMPDIR:-/var/tmp}/kernel-install.staging.XXXXXX",
+		"KERNEL_INSTALL_ENTRY_NAME_FORMAT=",
+		"KERNEL_INSTALL_ENTRY_NAME=the-token-1.1.1"
 	]
 }
 EOF
