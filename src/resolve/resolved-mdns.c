@@ -387,9 +387,6 @@ static usec_t mdns_goodbye_next_deadline(DnsScope *scope, usec_t t) {
         return until > usec_add(t, MDNS_GOODBYE_DELAY) ? USEC_INFINITY : until;
 }
 
-/* Defined below, where the re-arm it performs reads as the tail of the arming it belongs to. */
-static int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userdata);
-
 /* force_reset=false leaves an armed timer's deadline alone, whatever 'until' says:
  * event_reset_time() only checks whether the source is enabled. That is safe because every armed
  * deadline is at most now + MDNS_GOODBYE_DELAY, which is by when a goodbye received now needs
@@ -423,7 +420,7 @@ static void mdns_goodbye_arm(DnsScope *scope, usec_t until, bool force_reset) {
         }
 }
 
-static int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userdata) {
+int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userdata) {
         DnsScope *scope = userdata;
         usec_t t, until;
         int r;
@@ -460,7 +457,7 @@ static int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userda
 /* RFC 6762 section 10.1: goodbye records carry TTL 0 and expire a second after receipt, so they
  * go into the cache with TTL 1. Returns whether the answer carried any, i.e. whether a goodbye
  * pass has to be armed once the put has stamped them. */
-static bool mdns_answer_rewrite_goodbye_ttls(DnsAnswer *answer) {
+bool mdns_answer_rewrite_goodbye_ttls(DnsAnswer *answer) {
         DnsResourceRecord *rr;
         bool goodbye = false;
 
@@ -479,7 +476,7 @@ static bool mdns_answer_rewrite_goodbye_ttls(DnsAnswer *answer) {
  * record, caching may be off, and an unrelated record hours out is rejected by
  * mdns_goodbye_next_deadline(). The subscribers still have to hear about it, so fall back to the
  * far end of the window. An already armed timer keeps its deadline, see mdns_goodbye_arm(). */
-static void mdns_goodbye_arm_on_receipt(DnsScope *scope) {
+void mdns_goodbye_arm_on_receipt(DnsScope *scope) {
         usec_t t, until;
 
         assert(scope);
