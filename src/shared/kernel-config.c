@@ -21,12 +21,12 @@ int load_kernel_install_conf_at(
                             *initrd_generator = NULL, *uki_generator = NULL,
                             *entry_name_format = NULL;
         const ConfigTableItem items[] = {
-                { NULL, "MACHINE_ID",       config_parse_string, 0, &machine_id       },
-                { NULL, "BOOT_ROOT",        config_parse_string, 0, &boot_root        },
-                { NULL, "layout",           config_parse_string, 0, &layout           },
-                { NULL, "initrd_generator", config_parse_string, 0, &initrd_generator },
-                { NULL, "uki_generator",    config_parse_string, 0, &uki_generator    },
-                { NULL, "entry_name_format",     config_parse_string, 0, &entry_name_format     },
+                { NULL, "MACHINE_ID",        config_parse_string, 0, &machine_id        },
+                { NULL, "BOOT_ROOT",         config_parse_string, 0, &boot_root         },
+                { NULL, "layout",            config_parse_string, 0, &layout            },
+                { NULL, "initrd_generator",  config_parse_string, 0, &initrd_generator  },
+                { NULL, "uki_generator",     config_parse_string, 0, &uki_generator     },
+                { NULL, "entry_name_format", config_parse_string, 0, &entry_name_format },
                 {}
         };
         int r;
