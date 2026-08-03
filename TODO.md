@@ -2725,9 +2725,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   DHCP/HTTP base EFI boot.
 
 - **tmpfiles:**
-  - creating new directories/subvolumes/fifos/device nodes
-    should not follow symlinks. None of the other adjustment or creation
-    calls follow symlinks.
   - teach tmpfiles.d q/Q logic something sensible in the context of XFS/ext4
     project quota
   - teach tmpfiles.d m/M to move / atomic move + symlink old -> new
