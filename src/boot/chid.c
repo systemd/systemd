@@ -21,6 +21,7 @@
 #endif
 #include "efi-string.h"
 #include "smbios.h"
+#include "string-util.h"
 #include "util.h"
 
 /* Validate the descriptor macros a bit that they match our expectations */
@@ -62,6 +63,16 @@ typedef struct SmbiosInfo {
         char16_t *smbios_fields[_CHID_SMBIOS_FIELDS_MAX];
 } SmbiosInfo;
 
+/* Format a raw SMBIOS BIOS release byte as a zero-padded two-digit hex string, matching fwupd and
+ * systemd-analyze's "%02x". Note this deliberately does NOT go through smbios_to_hashable_string(), which
+ * strips leading zeroes — that would turn "05" into "5" and break the CHID. */
+static char16_t *bios_release_to_hashable_string(uint8_t v) {
+        char16_t *s = xnew0(char16_t, 3);
+        s[0] = (char16_t)LOWERCASE_HEXDIGITS[v >> 4];
+        s[1] = (char16_t)LOWERCASE_HEXDIGITS[v & 0xf];
+        return s;
+}
+
 static void smbios_info_populate(SmbiosInfo *ret_info) {
         assert(ret_info);
 
@@ -74,6 +85,13 @@ static void smbios_info_populate(SmbiosInfo *ret_info) {
         ret_info->smbios_fields[CHID_SMBIOS_FAMILY] = smbios_to_hashable_string(raw.family);
         ret_info->smbios_fields[CHID_SMBIOS_BASEBOARD_PRODUCT] = smbios_to_hashable_string(raw.baseboard_product);
         ret_info->smbios_fields[CHID_SMBIOS_BASEBOARD_MANUFACTURER] = smbios_to_hashable_string(raw.baseboard_manufacturer);
+        ret_info->smbios_fields[CHID_SMBIOS_BIOS_VENDOR] = smbios_to_hashable_string(raw.bios_vendor);
+        ret_info->smbios_fields[CHID_SMBIOS_BIOS_VERSION] = smbios_to_hashable_string(raw.bios_version);
+
+        if (raw.bios_release_valid) {
+                ret_info->smbios_fields[CHID_SMBIOS_BIOS_MAJOR] = bios_release_to_hashable_string(raw.bios_major);
+                ret_info->smbios_fields[CHID_SMBIOS_BIOS_MINOR] = bios_release_to_hashable_string(raw.bios_minor);
+        }
 
         edid_get_discovered_panel_id(&ret_info->smbios_fields[CHID_EDID_PANEL]);
 }
@@ -92,6 +110,29 @@ static EFI_STATUS populate_board_chids(EFI_GUID ret_chids[static CHID_TYPES_MAX]
         smbios_info_populate(&info);
         chid_calculate((const char16_t *const *) info.smbios_fields, ret_chids);
 
+        return EFI_SUCCESS;
+}
+
+EFI_STATUS chid_match_current_system(const EFI_GUID *target, bool *ret_matched) {
+        EFI_STATUS status;
+
+        assert(target);
+        assert(ret_matched);
+
+        EFI_GUID chids[CHID_TYPES_MAX] = {};
+        status = populate_board_chids(chids);
+        if (EFI_STATUS_IS_ERROR(status))
+                return status;
+
+        /* Membership test against all computed CHIDs, not the priority subset chid_match() uses for
+         * most-specific-wins selection. */
+        FOREACH_ELEMENT(chid, chids)
+                if (!efi_guid_is_zero(chid) && efi_guid_equal(chid, target)) {
+                        *ret_matched = true;
+                        return EFI_SUCCESS;
+                }
+
+        *ret_matched = false;
         return EFI_SUCCESS;
 }
 
