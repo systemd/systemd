@@ -1067,8 +1067,21 @@ shortcut:
         return label_fix_full(fd, /* inode_path= */ NULL, /* label_path= */ path, /* flags= */ 0, arg_label_context);
 }
 
-static int path_open_parent_safe(const char *path, bool allow_failure) {
+static bool item_type_prohibits_symlink_parents(ItemType t) {
+        return IN_SET(t,
+                      CREATE_DIRECTORY,
+                      TRUNCATE_DIRECTORY,
+                      CREATE_SUBVOLUME,
+                      CREATE_SUBVOLUME_INHERIT_QUOTA,
+                      CREATE_SUBVOLUME_NEW_QUOTA,
+                      CREATE_FIFO,
+                      CREATE_CHAR_DEVICE,
+                      CREATE_BLOCK_DEVICE);
+}
+
+static int path_open_parent_safe_full(const char *path, bool allow_failure, ChaseFlags extra_flags) {
         _cleanup_free_ char *dn = NULL;
+        ChaseFlags flags = CHASE_SAFE|extra_flags;
         int r, fd;
 
         if (!path_is_normalized(path))
@@ -1086,7 +1099,10 @@ static int path_open_parent_safe(const char *path, bool allow_failure) {
                                       path,
                                       allow_failure ? ", ignoring" : "");
 
-        r = chase(dn, arg_root, allow_failure ? CHASE_SAFE : CHASE_SAFE|CHASE_WARN, NULL, &fd);
+        if (!allow_failure)
+                flags |= CHASE_WARN;
+
+        r = chase(dn, arg_root, flags, NULL, &fd);
         if (r == -ENOLINK) /* Unsafe symlink: already covered by CHASE_WARN */
                 return r;
         if (r < 0)
@@ -1097,6 +1113,14 @@ static int path_open_parent_safe(const char *path, bool allow_failure) {
                                       allow_failure ? ", ignoring" : "");
 
         return fd;
+}
+
+static int path_open_parent_safe(const char *path, bool allow_failure) {
+        return path_open_parent_safe_full(path, allow_failure, /* extra_flags= */ 0);
+}
+
+static int path_open_parent_safe_no_follow(const char *path, bool allow_failure) {
+        return path_open_parent_safe_full(path, allow_failure, CHASE_PROHIBIT_SYMLINKS);
 }
 
 static int path_open_safe(const char *path) {
@@ -2282,7 +2306,7 @@ static int create_directory_or_subvolume(
         if (r < 0)
                 return log_error_errno(r, "Failed to extract filename from path '%s': %m", path);
 
-        pfd = path_open_parent_safe(path, allow_failure);
+        pfd = path_open_parent_safe_no_follow(path, allow_failure);
         if (pfd < 0)
                 return pfd;
 
@@ -2498,7 +2522,7 @@ static int create_device(
 
         /* Validate the path and use the returned directory fd for copying the target so we're sure that the
          * path can't be changed behind our back. */
-        dfd = path_open_parent_safe(i->path, i->allow_failure);
+        dfd = path_open_parent_safe_no_follow(i->path, i->allow_failure);
         if (dfd < 0)
                 return dfd;
 
@@ -2608,7 +2632,7 @@ static int create_fifo(Context *c, Item *i) {
                 return 0;
         }
 
-        pfd = path_open_parent_safe(i->path, i->allow_failure);
+        pfd = path_open_parent_safe_no_follow(i->path, i->allow_failure);
         if (pfd < 0)
                 return pfd;
 
@@ -3009,9 +3033,72 @@ static int rm_if_wrong_type_safe(
         return -ENOENT;
 }
 
-/* If child_mode is non-zero, rm_if_wrong_type_safe will be executed for the last path component. */
-static int mkdir_parents_rm_if_wrong_type(mode_t child_mode, const char *path) {
+static int tmpfiles_open_root(const char *path, int flags, const char **ret_path) {
+        _cleanup_free_ char *root_abs = NULL;
+        const char *root = arg_root;
+        int r;
+
+        assert(path);
+        assert((flags & ~O_PATH) == 0);
+        assert(ret_path);
+
+        r = empty_or_root_harder_to_null(&root);
+        if (r < 0)
+                return r;
+
+        if (root) {
+                r = path_make_absolute_cwd(root, &root_abs);
+                if (r < 0)
+                        return r;
+
+                root = path_simplify(root_abs);
+                *ret_path = path_startswith_full(path, root, PATH_STARTSWITH_REFUSE_DOT_DOT);
+                if (!*ret_path)
+                        return -ECHRNG;
+        } else {
+                root = "/";
+                *ret_path = path;
+        }
+
+        return RET_NERRNO(open(root, O_NOCTTY|O_CLOEXEC|O_DIRECTORY|flags));
+}
+
+static int log_mkdir_parent_failure(const char *path, bool allow_failure, int r) {
+        assert(path);
+
+        return log_full_errno(allow_failure ? LOG_INFO : LOG_ERR,
+                              r,
+                              "Failed to create parent directories of \"%s\"%s: %m",
+                              path,
+                              allow_failure ? ", ignoring" : "");
+}
+
+static int log_mkdir_parent_open_root_failure(const char *path, bool allow_failure, int r) {
+        assert(path);
+
+        if (r == -ECHRNG)
+                return log_full_errno(allow_failure ? LOG_INFO : LOG_ERR,
+                                      r,
+                                      "Path \"%s\" is outside the configured root directory%s.",
+                                      path,
+                                      allow_failure ? ", ignoring" : "");
+
+        return log_full_errno(allow_failure ? LOG_INFO : LOG_ERR,
+                              r,
+                              "Failed to open root for \"%s\"%s: %m",
+                              path,
+                              allow_failure ? ", ignoring" : "");
+}
+
+/* If remove_wrong_type is true, rm_if_wrong_type_safe() is used for parent components and the final node. */
+static int mkdir_parents_for_item_internal(
+                mode_t child_mode,
+                const char *path,
+                bool allow_failure,
+                bool remove_wrong_type,
+                bool prohibit_symlinks) {
         _cleanup_close_ int parent_fd = -EBADF;
+        const char *todo = path;
         struct stat parent_st;
         size_t path_len;
         int r;
@@ -3019,26 +3106,37 @@ static int mkdir_parents_rm_if_wrong_type(mode_t child_mode, const char *path) {
         assert(path);
         assert((child_mode & ~S_IFMT) == 0);
 
-        path_len = strlen(path);
+        if (arg_dry_run && !remove_wrong_type)
+                return 0;
 
-        if (!is_path(path))
-                /* rm_if_wrong_type_safe already logs errors. */
+        if (!is_path(path)) {
+                if (!remove_wrong_type)
+                        return 0;
+
                 return rm_if_wrong_type_safe(child_mode, AT_FDCWD, NULL, path, AT_SYMLINK_NOFOLLOW);
+        }
 
         if (child_mode != 0 && endswith(path, "/"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                 "Trailing path separators are only allowed if child_mode is not set; got \"%s\"", path);
 
-        /* Get the parent_fd and stat. */
-        parent_fd = openat(AT_FDCWD, path_is_absolute(path) ? "/" : ".", O_NOCTTY | O_CLOEXEC | O_DIRECTORY);
-        if (parent_fd < 0)
-                return log_error_errno(errno, "Failed to open root: %m");
+        if (prohibit_symlinks) {
+                parent_fd = tmpfiles_open_root(path, remove_wrong_type ? 0 : O_PATH, &todo);
+                if (parent_fd < 0)
+                        return log_mkdir_parent_open_root_failure(path, allow_failure, parent_fd);
+        } else {
+                parent_fd = openat(AT_FDCWD, path_is_absolute(path) ? "/" : ".", O_NOCTTY | O_CLOEXEC | O_DIRECTORY);
+                if (parent_fd < 0)
+                        return log_error_errno(errno, "Failed to open root: %m");
+        }
 
         if (fstat(parent_fd, &parent_st) < 0)
                 return log_error_errno(errno, "Failed to stat root: %m");
 
+        path_len = strlen(todo);
+
         /* Check every parent directory in the path, except the last component */
-        for (const char *e = path;;) {
+        for (const char *e = todo;;) {
                 _cleanup_close_ int next_fd = -EBADF;
                 char t[path_len + 1];
                 const char *s;
@@ -3052,13 +3150,22 @@ static int mkdir_parents_rm_if_wrong_type(mode_t child_mode, const char *path) {
                 *mempcpy_typesafe(t, s, e - s) = 0;
 
                 /* Is this the last component? If so, then check the type */
-                if (*e == 0)
-                        return rm_if_wrong_type_safe(child_mode, parent_fd, &parent_st, t, AT_SYMLINK_NOFOLLOW);
+                if (*e == 0) {
+                        if (!remove_wrong_type)
+                                return 0;
 
-                r = rm_if_wrong_type_safe(S_IFDIR, parent_fd, &parent_st, t, 0);
-                /* Remove dangling symlinks. */
-                if (r == -ENOENT)
-                        r = rm_if_wrong_type_safe(S_IFDIR, parent_fd, &parent_st, t, AT_SYMLINK_NOFOLLOW);
+                        return rm_if_wrong_type_safe(child_mode, parent_fd, &parent_st, t, AT_SYMLINK_NOFOLLOW);
+                }
+
+                if (remove_wrong_type) {
+                        r = rm_if_wrong_type_safe(S_IFDIR, parent_fd, &parent_st, t,
+                                                  prohibit_symlinks ? AT_SYMLINK_NOFOLLOW : 0);
+                        /* Remove dangling symlinks. */
+                        if (r == -ENOENT && !prohibit_symlinks)
+                                r = rm_if_wrong_type_safe(S_IFDIR, parent_fd, &parent_st, t, AT_SYMLINK_NOFOLLOW);
+                } else
+                        r = 0;
+
                 if (r == -ENOENT) {
                         if (!arg_dry_run) {
                                 WITH_UMASK(0000)
@@ -3074,9 +3181,24 @@ static int mkdir_parents_rm_if_wrong_type(mode_t child_mode, const char *path) {
                         /* rm_if_wrong_type_safe already logs errors. */
                         return r;
 
-                next_fd = RET_NERRNO(openat(parent_fd, t, O_NOCTTY | O_CLOEXEC | O_DIRECTORY));
+                next_fd = RET_NERRNO(openat(parent_fd, t,
+                                            O_NOCTTY|O_CLOEXEC|O_DIRECTORY|
+                                            (!remove_wrong_type ? O_PATH : 0)|
+                                            (prohibit_symlinks ? O_NOFOLLOW : 0)));
+                if (next_fd == -ENOENT && !remove_wrong_type) {
+                        WITH_UMASK(0000)
+                                r = mkdirat_label(parent_fd, t, 0755, arg_label_context);
+                        if (r < 0 && r != -EEXIST)
+                                return log_mkdir_parent_failure(path, allow_failure, r);
+
+                        next_fd = RET_NERRNO(openat(parent_fd, t,
+                                                    O_NOCTTY|O_CLOEXEC|O_DIRECTORY|O_PATH|O_NOFOLLOW));
+                }
                 if (next_fd < 0) {
                         _cleanup_free_ char *parent_name = NULL;
+
+                        if (!remove_wrong_type)
+                                return log_mkdir_parent_failure(path, allow_failure, next_fd);
 
                         (void) fd_get_path(parent_fd, &parent_name);
                         return log_error_errno(next_fd, "Failed to open \"%s\" at \"%s\": %m", t, strnull(parent_name));
@@ -3094,11 +3216,26 @@ static int mkdir_parents_rm_if_wrong_type(mode_t child_mode, const char *path) {
 }
 
 static int mkdir_parents_item(Item *i, mode_t child_mode) {
+        bool prohibit_symlinks = item_type_prohibits_symlink_parents(i->type);
         int r;
 
         if (i->try_replace) {
-                r = mkdir_parents_rm_if_wrong_type(child_mode, i->path);
+                r = mkdir_parents_for_item_internal(
+                                child_mode,
+                                i->path,
+                                i->allow_failure,
+                                /* remove_wrong_type= */ true,
+                                prohibit_symlinks);
                 if (r < 0 && r != -ENOENT)
+                        return r;
+        } else if (prohibit_symlinks) {
+                r = mkdir_parents_for_item_internal(
+                                /* child_mode= */ 0,
+                                i->path,
+                                i->allow_failure,
+                                /* remove_wrong_type= */ false,
+                                /* prohibit_symlinks= */ true);
+                if (r < 0)
                         return r;
         } else
                 WITH_UMASK(0000)
