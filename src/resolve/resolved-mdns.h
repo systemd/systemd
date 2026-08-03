@@ -41,3 +41,10 @@ int mdns_announcement_packetize(
                 size_t fragmented_max,
                 DnsPacket ***ret_packets,
                 size_t *ret_n_packets);
+
+/* Exposed for testing only. */
+bool mdns_answer_rewrite_goodbye_ttls(DnsAnswer *answer);
+void mdns_goodbye_arm_on_receipt(DnsScope *scope);
+/* 's' must be the scope's own goodbye source: the handler may release it, so a direct caller has to
+ * hold a reference of its own to keep it alive across the call. */
+int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userdata);
