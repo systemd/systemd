@@ -668,6 +668,19 @@ static int resolve_record(const char *name, uint16_t class, uint16_t type, bool 
         if (r < 0)
                 return r;
 
+        if (reply.n_records == 0) {
+                if (warn_missing)
+                        log_error("%s: no records found", name);
+                return -ESRCH;
+        }
+
+        if (sd_json_format_enabled(arg_json_format_flags) &&
+            dns_type_needs_authentication(type) &&
+            !FLAGS_SET(reply.flags, SD_RESOLVED_AUTHENTICATED))
+                return log_error_errno(SYNTHETIC_ERRNO(EKEYREJECTED),
+                                       "Refusing to output unauthenticated %s records in JSON format.",
+                                       dns_type_to_string(type));
+
         bool needs_authentication = false;
         FOREACH_ARRAY(record, reply.records, reply.n_records) {
                 _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
@@ -688,12 +701,6 @@ static int resolve_record(const char *name, uint16_t class, uint16_t type, bool 
 
                 if (dns_type_needs_authentication(rr->key->type))
                         needs_authentication = true;
-        }
-
-        if (reply.n_records == 0) {
-                if (warn_missing)
-                        log_error("%s: no records found", name);
-                return -ESRCH;
         }
 
         print_source(reply.flags, ts);
@@ -1042,8 +1049,8 @@ static int verb_openpgp(int argc, char *argv[], uintptr_t _data, void *userdata)
 #if HAVE_OPENSSL
         int ret = 0;
 
-        if (sd_json_format_enabled(arg_json_format_flags))
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Use --json=pretty with --type= to acquire resource record information in JSON format.");
+        if (sd_json_format_enabled(arg_json_format_flags) && arg_type != 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--type= may not be combined with openpgp when --json= is specified.");
 
         STRV_FOREACH(p, strv_skip(argv, 1))
                 RET_GATHER(ret, resolve_openpgp(*p));
@@ -1098,8 +1105,8 @@ static int verb_tlsa(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         assert(argc >= 2);
 
-        if (sd_json_format_enabled(arg_json_format_flags))
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Use --json=pretty with --type= to acquire resource record information in JSON format.");
+        if (sd_json_format_enabled(arg_json_format_flags) && arg_type != 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--type= may not be combined with tlsa when --json= is specified.");
 
         if (service_family_is_valid(argv[1])) {
                 family = argv[1];
