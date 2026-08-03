@@ -566,6 +566,16 @@ evdev:name:SYNA3602:00 093A:35ED Touchpad:dmi:*svnInfinix:*pnY3Max**
 # Lenovo
 #########################################
 
+# Lenovo B570e
+# Fixes wrong touchpad edge-scroll area: without this override the
+# kernel reports wider ABS ranges, making edge scrolling trigger across the
+# right half of the touchpad.
+evdev:name:ETPS/2 Elantech Touchpad:dmi:*svnLENOVO*:pvrLenovoB570e:*
+ EVDEV_ABS_00=0:2934:29
+ EVDEV_ABS_01=-652:652:26
+ EVDEV_ABS_35=0:2934:29
+ EVDEV_ABS_36=-652:652:26
+
 # Lenovo B590
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pvrLenovoB590:*
  EVDEV_ABS_00=1243:5759:48
