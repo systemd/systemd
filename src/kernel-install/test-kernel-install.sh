@@ -297,21 +297,73 @@ rmdir "$BOOT_ROOT/hoge"
 ###########################################
 # tests for entry_name_format=
 ###########################################
+
+# Test inspect with custom entry_name_format
 cat >>"$D/sources/install.conf" <<EOF
 entry_name_format=%e_%k
 EOF
 
 output="$("$kernel_install" -v --json=pretty inspect 1.1.1 "$D/sources/linux")"
-echo "$output" | grep -qE '"EntryNameFormat" : "%e_%k"'
-echo "$output" | grep -qE '"EntryName" : "the-token_1.1.1"'
+echo "$output" | grep -E '"EntryNameFormat" : "%e_%k"' >/dev/null
+echo "$output" | grep -E '"EntryName" : "the-token_1.1.1"' >/dev/null
 
-# Restore install.conf without entry_name_format
+# Test type#1 BLS entry with custom entry_name_format
+rm -f "$D/sources/tries"
+cat >"$D/sources/install.conf" <<EOF
+layout=bls
+initrd_generator=none
+entry_name_format=%e_%k
+EOF
+
+KERNEL_INSTALL_PLUGINS="'${loaderentry_install}' '${uki_copy_install}'" \
+    "$kernel_install" -v add 1.1.4 "$D/sources/linux" "$D/sources/initrd"
+entry="$BOOT_ROOT/loader/entries/the-token_1.1.4.conf"
+test -f "$entry"
+grep -qE '^version +1.1.4' "$entry"
+KERNEL_INSTALL_PLUGINS="'${loaderentry_install}' '${uki_copy_install}'" \
+    "$kernel_install" -v remove 1.1.4
+test ! -e "$entry"
+rm -rf "$BOOT_ROOT/the-token"
+
+# Test UKI with custom entry_name_format
+if [ -f "$ukify" ]; then
+    cat >"$D/sources/install.conf" <<EOF
+layout=uki
+uki_generator=ukify
+initrd_generator=none
+entry_name_format=%e_%k
+EOF
+    rm -f "$D/sources/tries"
+
+    KERNEL_INSTALL_PLUGINS="'${ukify_install}' '${loaderentry_install}' '${uki_copy_install}'" \
+        "$kernel_install" -v add 1.1.5 "$D/sources/linux" "$D/sources/initrd"
+    uki="${BOOT_ROOT}/EFI/Linux/the-token_1.1.5.efi"
+    test -f "$uki"
+    KERNEL_INSTALL_PLUGINS="'${ukify_install}' '${loaderentry_install}' '${uki_copy_install}'" \
+        "$kernel_install" -v remove 1.1.5
+    test ! -e "$uki"
+
+    # Test boot counting with custom entry_name_format
+    echo '56' >"$D/sources/tries"
+    KERNEL_INSTALL_PLUGINS="'${ukify_install}' '${loaderentry_install}' '${uki_copy_install}'" \
+        "$kernel_install" -v add 1.1.5 "$D/sources/linux" "$D/sources/initrd"
+    uki="${BOOT_ROOT}/EFI/Linux/the-token_1.1.5+56.efi"
+    test -f "$uki"
+    KERNEL_INSTALL_PLUGINS="'${ukify_install}' '${loaderentry_install}' '${uki_copy_install}'" \
+        "$kernel_install" -v remove 1.1.5
+    test ! -e "$uki"
+
+    rm -f "$D/sources/tries"
+fi
+
+# Restore install.conf and plugins
 cat >"$D/sources/install.conf" <<EOF
 initrd_generator=none
 # those are overridden by envvars
 BOOT_ROOT="$D/badboot"
 MACHINE_ID=badbadbadbadbadbad6abadbadbadbad
 EOF
+export KERNEL_INSTALL_PLUGINS="$D/00-skip.install"
 
 ###########################################
 # tests for --json=
