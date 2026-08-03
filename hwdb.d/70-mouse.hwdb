@@ -183,6 +183,14 @@ mouse:bluetooth:v256fpc63a:name:*
  ID_INPUT_3D_MOUSE=1
 
 ##########################################
+# Adesso
+##########################################
+
+# Adesso Wireless keyboard with integrated trackball (MosArt 062a:4101)
+mouse:usb:v062ap4101:*
+ ID_INPUT_TRACKBALL=1
+
+##########################################
 # Apple
 ##########################################
 
