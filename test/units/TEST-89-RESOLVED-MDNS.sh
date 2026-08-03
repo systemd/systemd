@@ -315,6 +315,92 @@ testcase_browse_ifindex_zero_no_flap() {
     echo testcase_end
 }
 
+testcase_mdns_goodbye_reaches_browsers() {
+    : "A withdrawn service must be reported removed, driven by the goodbye's own deadline"
+    resolvectl flush-caches
+
+    local out_file error_file unit_name service_type off removed
+    out_file="$(mktemp)"
+    error_file="$(mktemp)"
+    unit_name="varlinkctl-goodbye-$SRANDOM.service"
+    service_type="_goodbyeDeadline._udp"
+
+    # An EXIT trap, not RETURN: set -e aborts skipped RETURN traps, and this subshell's EXIT trap
+    # fires however the testcase ends, so the --timeout=infinity browse unit never outlives it.
+    # shellcheck disable=SC2064
+    trap "systemctl stop $unit_name 2>/dev/null || :; \
+          systemd-run -M $CONTAINER_2 --wait --pipe -- rm -f /etc/systemd/dnssd/goodbyedeadline.dnssd 2>/dev/null || :; \
+          rm -f $out_file $error_file" EXIT
+
+    # A canary in the second container, published from a .dnssd file so a reload picks it up
+    # without restarting resolved (which would drop the runtime per-link mDNS switches).
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- tee /etc/systemd/dnssd/goodbyedeadline.dnssd <<EOF
+[Service]
+Name=Goodbye Deadline Canary
+Type=$service_type
+Port=8010
+TxtText=DC=Device PN=123456 SN=1234567890
+EOF
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- systemctl reload systemd-resolved.service
+
+    # --timeout=infinity: the subscription idles between discovery and the withdrawal below,
+    # longer than varlinkctl's default 45s method-call timeout.
+    systemd-run --unit="$unit_name" --service-type=exec -p StandardOutput="file:$out_file" -p StandardError="file:$error_file" \
+        varlinkctl call --more --timeout=infinity /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices \
+        "{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": ${BRIDGE_INDEX:?}, \"flags\": 16785432 }"
+
+    local ok=0
+    for _ in {0..14}; do
+        if grep "Goodbye Deadline Canary" "$out_file" >/dev/null; then
+            ok=1
+            break
+        fi
+        sleep 2
+    done
+    if [[ "$ok" -ne 1 ]]; then
+        echo >&2 "Never discovered the canary"
+        cat "$out_file" "$error_file" >&2
+        return 1
+    fi
+
+    # Only events after this point count, so a match below is provably the goodbye's doing.
+    off="$(wc -c <"$out_file")"
+
+    # Withdraw it. The goodbye rewrites the record to a one-second TTL on this host, and the
+    # removal is reported once that expires -- which is the deadline arithmetic under test: the
+    # pass that prunes has to be scheduled against the record's own expiry, and the timer has to
+    # keep re-arming until nothing is due. A record left unpruned is reported by nothing else
+    # until the browse question's own schedule comes around, minutes later.
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- rm /etc/systemd/dnssd/goodbyedeadline.dnssd
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- \
+        busctl call org.freedesktop.resolve1 /org/freedesktop/resolve1 org.freedesktop.resolve1.Manager \
+        UnregisterService o /org/freedesktop/resolve1/dnssd/goodbyedeadline
+
+    removed=0
+    for _ in {0..14}; do
+        if tail -c "+$((off + 1))" "$out_file" |
+               { grep -oE '"updateFlag":"removed"[^}]*"name":"[^"]*"' || :; } |
+               grep "Goodbye Deadline Canary" >/dev/null; then
+            removed=1
+            break
+        fi
+        sleep 1
+    done
+    if [[ "$removed" -ne 1 ]]; then
+        echo >&2 "The withdrawn canary was not reported removed"
+        cat "$out_file" "$error_file" >&2
+        return 1
+    fi
+
+    # UnregisterService goodbyes the container's whole zone, not just the canary: every one of its
+    # published services (and its address records) has just been flushed from this host's cache.
+    # Reload so the container announces them again, rather than leaving the testcases that follow
+    # to rediscover 200 services from a cold cache.
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- systemctl reload systemd-resolved.service || :
+
+    echo testcase_end
+}
+
 testcase_second_unreachable() {
     : "Test each service type while the second container is unreachable"
     systemd-run -M "$CONTAINER_2" --wait --pipe -- networkctl down host0

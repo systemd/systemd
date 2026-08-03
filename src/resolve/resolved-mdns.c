@@ -378,7 +378,7 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
  * new one (the callback: it has just fired and is re-arming itself). */
 static bool mdns_goodbye_arm(DnsScope *scope, bool force_reset);
 
-static int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userdata) {
+int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userdata) {
         DnsScope *scope = userdata;
         int r;
 
