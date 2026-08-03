@@ -589,6 +589,7 @@ testcase_07_22229() {
         "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa"
         "hello.invalid"
         "hello.alt"
+        "hello.onion"
     )
 
     for name in "${FILTERED_NAMES[@]}"; do
