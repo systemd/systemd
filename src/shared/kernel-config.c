@@ -14,16 +14,19 @@ int load_kernel_install_conf_at(
                 char **ret_boot_root,
                 char **ret_layout,
                 char **ret_initrd_generator,
-                char **ret_uki_generator) {
+                char **ret_uki_generator,
+                char **ret_entry_name_format) {
 
         _cleanup_free_ char *machine_id = NULL, *boot_root = NULL, *layout = NULL,
-                            *initrd_generator = NULL, *uki_generator = NULL;
+                            *initrd_generator = NULL, *uki_generator = NULL,
+                            *entry_name_format = NULL;
         const ConfigTableItem items[] = {
-                { NULL, "MACHINE_ID",       config_parse_string, 0, &machine_id       },
-                { NULL, "BOOT_ROOT",        config_parse_string, 0, &boot_root        },
-                { NULL, "layout",           config_parse_string, 0, &layout           },
-                { NULL, "initrd_generator", config_parse_string, 0, &initrd_generator },
-                { NULL, "uki_generator",    config_parse_string, 0, &uki_generator    },
+                { NULL, "MACHINE_ID",        config_parse_string, 0, &machine_id        },
+                { NULL, "BOOT_ROOT",         config_parse_string, 0, &boot_root         },
+                { NULL, "layout",            config_parse_string, 0, &layout            },
+                { NULL, "initrd_generator",  config_parse_string, 0, &initrd_generator  },
+                { NULL, "uki_generator",     config_parse_string, 0, &uki_generator     },
+                { NULL, "entry_name_format", config_parse_string, 0, &entry_name_format },
                 {}
         };
         int r;
@@ -71,5 +74,7 @@ int load_kernel_install_conf_at(
                 *ret_initrd_generator = TAKE_PTR(initrd_generator);
         if (ret_uki_generator)
                 *ret_uki_generator = TAKE_PTR(uki_generator);
+        if (ret_entry_name_format)
+                *ret_entry_name_format = TAKE_PTR(entry_name_format);
         return r >= 0;  /* Return 0 if we got -ENOENT above, 1 otherwise. */
 }
