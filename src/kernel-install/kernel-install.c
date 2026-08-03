@@ -467,7 +467,8 @@ static int context_load_install_conf(Context *c) {
                         &boot_root,
                         &layout,
                         &initrd_generator,
-                        &uki_generator);
+                        &uki_generator,
+                        /* ret_entry_name_format= */ NULL);
         if (r <= 0)
                 return r;
 
