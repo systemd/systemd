@@ -11,7 +11,8 @@ loaderentry_install="${2:?}"
 uki_copy_install="${3:?}"
 ukify="${4:-}"
 ukify_install="${5:-}"
-boot_stub="${6:-}"
+test_ukify_install="${6:-}"
+boot_stub="${7:-}"
 if [[ -d "${PROJECT_BUILD_ROOT:-}" ]]; then
     bootctl="${PROJECT_BUILD_ROOT}/bootctl"
 else
@@ -143,53 +144,7 @@ grep -qE 'initrd' "$BOOT_ROOT/the-token/1.1.1/initrd"
 
 # Install UKI
 if [ -f "$ukify" ]; then
-    python3 - "$ukify_install" <<'PY'
-import os
-import runpy
-import subprocess
-import sys
-import unittest.mock
-
-ns = runpy.run_path(sys.argv[1], run_name='not_main')
-
-class FakePath:
-    files = {
-        '/conf-root/cmdline': 'root=conf\n# ignored\nquiet splash\n',
-        '/proc/cmdline': 'BOOT_IMAGE=/vmlinuz initrd=/initrd root=fake quiet\n',
-    }
-
-    def __init__(self, path):
-        self.path = os.fspath(path)
-
-    def __truediv__(self, name):
-        return type(self)(os.path.join(self.path, name))
-
-    def exists(self):
-        return self.path in self.files
-
-    def read_text(self):
-        return self.files[self.path]
-
-module_globals = ns['kernel_cmdline_base'].__globals__
-module_globals['Path'] = FakePath
-
-# Mock subprocess.run to simulate not being in a container, so the test
-# works regardless of the environment (including container-based CI).
-os.environ.pop('KERNEL_INSTALL_CONF_ROOT', None)
-with unittest.mock.patch.object(subprocess, 'run', return_value=subprocess.CompletedProcess([], 1)):
-    assert ns['kernel_cmdline_base']() == ['root=fake', 'quiet']
-
-os.environ['KERNEL_INSTALL_CONF_ROOT'] = '/conf-root'
-assert ns['kernel_cmdline_base']() == ['root=conf', 'quiet', 'splash']
-
-os.environ['KERNEL_INSTALL_CONF_ROOT'] = '/empty-conf-root'
-assert ns['kernel_cmdline_base']() == []
-
-# Test that /proc/cmdline is skipped in containers
-os.environ.pop('KERNEL_INSTALL_CONF_ROOT', None)
-with unittest.mock.patch.object(subprocess, 'run', return_value=subprocess.CompletedProcess([], 0)):
-    assert ns['kernel_cmdline_base']() == [], 'should return empty in container'
-PY
+    "$test_ukify_install" "$ukify_install"
 
     mkdir "$D/sources/install.conf.d"
     cat >>"$D/sources/install.conf.d/override.conf" <<EOF
