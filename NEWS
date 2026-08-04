@@ -4,6 +4,12 @@ CHANGES WITH 262:
 
         Feature Removals and Incompatible Changes:
 
+        * Services of Type=notify-reload are now required to catch or block
+          ReloadSignal= when they send READY=1. If they do neither at that
+          point, the service fails to start with a protocol error. Previously,
+          such services were allowed to start even though a later reload could
+          invoke the signal's default action and terminate the service.
+
         * systemd-repart's MakeSymlinks= option now expands "%" specifiers in
           the symlink target. Previously, these were only expanded in the
           source.
