@@ -81,6 +81,10 @@ TEST(fstab_filter_options) {
         do_fstab_filter_options("opt,other,x-opt\\,part", "opt\0x-opt\0", 1, 0, "opt", NULL, "", "other,x-opt\\,part");
         do_fstab_filter_options("opt,other,part\\,x-opt", "x-opt\0opt\0", 1, 0, "opt", NULL, "", "other,part\\,x-opt");
         do_fstab_filter_options("opt,other\\,\\,\\,opt,x-part", "opt\0x-opt\0", 1, 0, "opt", NULL, "", "other\\,\\,\\,opt,x-part");
+        /* Escaped backslash must round-trip through the filter (see #42787). */
+        do_fstab_filter_options("foo\\\\,bar", "x-notpresent\0", 0, 0, NULL, NULL, "", "foo\\\\,bar");
+        do_fstab_filter_options("opt,foo\\\\,bar", "opt\0x-opt\0", 1, 0, "opt", NULL, "", "foo\\\\,bar");
+        do_fstab_filter_options("opt,foo\\\\", "opt\0x-opt\0", 1, 0, "opt", NULL, "", "foo\\\\");
 
         do_fstab_filter_options("opto=0,other", "opt\0x-opt\0", 0, 0, NULL, NULL, "", NULL);
         do_fstab_filter_options("opto,other", "opt\0x-opt\0", 0, 0, NULL, NULL, "", NULL);
@@ -124,8 +128,16 @@ TEST(fstab_filter_options) {
         do_fstab_filter_options(",,,opt=x,,,,", "opt\0", 1, 1, "opt", "x", "x", "");
 
         /* escaped characters */
-        do_fstab_filter_options("opt1=\\\\,opt2=\\xff", "opt1\0", 1, 1, "opt1", "\\", "\\", "opt2=\\xff");
-        do_fstab_filter_options("opt1=\\\\,opt2=\\xff", "opt2\0", 1, 1, "opt2", "\\xff", "\\xff", "opt1=\\");
+        do_fstab_filter_options("opt1=\\\\,opt2=\\xff", "opt1\0", 1, 1, "opt1", "\\", "\\", "opt2=\\\\xff");
+        do_fstab_filter_options(
+                        "opt1=\\\\,opt2=\\xff",
+                        "opt2\0",
+                        1,
+                        1,
+                        "opt2",
+                        "\\xff",
+                        "\\xff",
+                        "opt1=\\\\");
 }
 
 TEST(fstab_find_pri) {

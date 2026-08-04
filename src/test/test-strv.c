@@ -175,6 +175,10 @@ TEST(strv_join_full) {
         assert_se(s);
         ASSERT_STREQ(s, "a;a\\;b;a\\;\\;c;\\;;\\;x");
 
+        _cleanup_free_ char *bs = strv_join_full(STRV_MAKE("a", "a\\b"), ";", NULL, true);
+        assert_se(bs);
+        ASSERT_STREQ(bs, "a;a\\\\b");
+
         _cleanup_free_ char *t = strv_join_full(STRV_MAKE("a", "a;b", "a:c", ";"), ";", "=", true);
         assert_se(t);
         ASSERT_STREQ(t, "=a;=a\\;b;=a:c;=\\;");
