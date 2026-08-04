@@ -454,6 +454,9 @@ static int verb_display_user(int argc, char *argv[], uintptr_t _data, void *user
                 if (r < 0)
                         return r;
 
+                if (userdb_match_is_set(&match) && !user_record_match(ur, &match))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOEXEC), "User record does not match specified filter.");
+
                 r = show_user(ur, table);
                 if (r < 0)
                         return r;
@@ -797,6 +800,9 @@ static int verb_display_group(int argc, char *argv[], uintptr_t _data, void *use
                 r = group_record_load(gr, arg_from_file, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_LOG);
                 if (r < 0)
                         return r;
+
+                if (userdb_match_is_set(&match) && !group_record_match(gr, &match))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOEXEC), "Group record does not match specified filter.");
 
                 r = show_group(gr, table);
                 if (r < 0)
