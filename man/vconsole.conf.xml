@@ -49,7 +49,8 @@
     <varname>vconsole.keymap_toggle=</varname>,
     <varname>vconsole.font=</varname>,
     <varname>vconsole.font_map=</varname>,
-    <varname>vconsole.font_unimap=</varname> may be used
+    <varname>vconsole.font_unimap=</varname>, and
+    <varname>vconsole.font_scale=</varname> may be used
     to override the console settings at boot.</para>
 
     <para>Depending on the operating system other configuration files
@@ -98,6 +99,18 @@
         and the unicode font map.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>FONT_SCALE=</varname></term>
+
+        <listitem>
+          <para>Specifies a font scaling factor. Takes one of <literal>1</literal>, <literal>100%</literal>,
+          <literal>2</literal>, or <literal>200%</literal>. If unspecified, or set to <literal>1</literal> or
+          <literal>100%</literal>, the default font size is used. If set to <literal>2</literal> or
+          <literal>200%</literal>, the font size is doubled. This may be useful on high-DPI displays.</para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -118,15 +131,18 @@
         <xi:include href="version-info.xml" xpointer="v232"/></listitem>
       </varlistentry>
       <varlistentry>
-
         <term><varname>vconsole.font=</varname></term>
         <term><varname>vconsole.font_map=</varname></term>
         <term><varname>vconsole.font_unimap=</varname></term>
+        <term><varname>vconsole.font_scale=</varname></term>
 
-        <listitem><para>Overrides <varname>FONT=</varname>, <varname>FONT_MAP=</varname>, and
-        <varname>FONT_UNIMAP=</varname>.</para>
+        <listitem>
+          <para>Overrides <varname>FONT=</varname>, <varname>FONT_MAP=</varname>,
+          <varname>FONT_UNIMAP=</varname>, and <varname>FONT_SCALE=</varname>.</para>
 
-        <xi:include href="version-info.xml" xpointer="v232"/></listitem>
+          <para><varname>vconsole.font_scale=</varname> was added in version 262.</para>
+          <xi:include href="version-info.xml" xpointer="v232"/>
+        </listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
