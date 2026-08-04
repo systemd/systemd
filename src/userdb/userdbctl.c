@@ -454,6 +454,9 @@ static int verb_display_user(int argc, char *argv[], uintptr_t _data, void *user
                 if (r < 0)
                         return r;
 
+                if (!user_record_match(ur, &match))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOEXEC), "User record does not match specified filter.");
+
                 r = show_user(ur, table);
                 if (r < 0)
                         return r;
@@ -797,6 +800,9 @@ static int verb_display_group(int argc, char *argv[], uintptr_t _data, void *use
                 r = group_record_load(gr, arg_from_file, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_LOG);
                 if (r < 0)
                         return r;
+
+                if (!group_record_match(gr, &match))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOEXEC), "Group record does not match specified filter.");
 
                 r = show_group(gr, table);
                 if (r < 0)
@@ -1484,7 +1490,7 @@ static int load_credential_one(
                                 return r;
                 }
 
-        if (ur && user_record_disposition(ur) == USER_REGULAR) {
+        if (ur && !transient && user_record_disposition(ur) == USER_REGULAR) {
                 const char *hd = user_record_home_directory(ur);
 
                 r = RET_NERRNO(access(hd, F_OK));

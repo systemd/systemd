@@ -363,13 +363,25 @@ bool group_record_match(GroupRecord *h, const UserDBMatch *match) {
         if (!match)
                 return true;
 
-        if (!gid_is_valid(h->gid))
-                return false;
+        if (match->gid_min > 0 || match->gid_max < GID_INVALID-1) {
+                if (!gid_is_valid(h->gid))
+                        return false;
 
-        if (h->gid < match->gid_min || h->gid > match->gid_max)
-                return false;
+                if (h->gid < match->gid_min || h->gid > match->gid_max)
+                        return false;
+        }
 
-        if (!BIT_SET(match->disposition_mask, group_record_disposition(h)))
+        if (!FLAGS_SET(match->disposition_mask, USER_DISPOSITION_MASK_ALL)) {
+                UserDisposition d = group_record_disposition(h);
+
+                if (d < 0)
+                        return false;
+
+                if (!BIT_SET(match->disposition_mask, d))
+                        return false;
+        }
+
+        if (!sd_id128_is_null(match->uuid) && !sd_id128_equal(match->uuid, h->uuid))
                 return false;
 
         if (!strv_isempty(match->fuzzy_names)) {
