@@ -64,7 +64,7 @@ static int partial_match_error(
 
         assert(strv_length(s) == n_partial_matches);
 
-        _cleanup_free_ char *p = strv_join_full(s, ", ", /* prefix= */ NULL, /* escape_separator= */ false);
+        _cleanup_free_ char *p = strv_join(s, ", ");
         return log_full_errno(LOG_ERR + state->log_level_shift,
                               SYNTHETIC_ERRNO(EINVAL),
                               "%s: option '%s' is ambiguous; possibilities: %s",
