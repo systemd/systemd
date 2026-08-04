@@ -547,9 +547,7 @@ char* strv_join_full(char * const *l, const char *separator, const char *prefix,
                 if (s != l)
                         n += k;
 
-                bool needs_escaping = escape_separator && strchr(*s, *separator);
-
-                n += m + strlen(*s) * (1 + needs_escaping);
+                n += m + strlen(*s) * (escape_separator ? 2 : 1);
         }
 
         r = new(char, n+1);
@@ -564,11 +562,11 @@ char* strv_join_full(char * const *l, const char *separator, const char *prefix,
                 if (prefix)
                         e = stpcpy(e, prefix);
 
-                bool needs_escaping = escape_separator && strchr(*s, *separator);
-
-                if (needs_escaping)
+                /* Escape both the separator and the escape character ('\\'), so that the
+                 * result round-trips through strv_split_full(..., EXTRACT_UNESCAPE_SEPARATORS). */
+                if (escape_separator)
                         for (size_t i = 0; (*s)[i]; i++) {
-                                if ((*s)[i] == *separator)
+                                if ((*s)[i] == *separator || (*s)[i] == '\\')
                                         *(e++) = '\\';
                                 *(e++) = (*s)[i];
                         }
