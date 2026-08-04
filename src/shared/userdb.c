@@ -192,6 +192,7 @@ static int userdb_maybe_restart_query(
         static const char *const fields[] = {
                 "fuzzyNames",
                 "dispositionMask",
+                "uuid",
                 "uidMin",
                 "uidMax",
                 "gidMin",
