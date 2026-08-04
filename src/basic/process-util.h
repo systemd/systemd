@@ -53,6 +53,8 @@ int pidref_get_ppid_as_pidref(const PidRef *pidref, PidRef *ret);
 int pid_get_start_time(pid_t pid, usec_t *ret);
 int pidref_get_start_time(const PidRef *pid, usec_t *ret);
 int get_process_umask(pid_t pid, mode_t *ret);
+int pidref_has_sigcgt(const PidRef *pidref, int sig);
+int pidref_has_sigblk(const PidRef *pidref, int sig);
 
 static inline bool SIGINFO_CODE_IS_DEAD(int code) {
         return IN_SET(code, CLD_EXITED, CLD_KILLED, CLD_DUMPED);
