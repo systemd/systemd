@@ -8,13 +8,15 @@
 # Ali Ciloglu <ali.ciloqlu@murena.io>, 2026.
 # Milo Casagrande <milo@milo.name>, 2026.
 # Emanuele Petriglia <inbox@emanuelepetriglia.com>, 2026.
+# Weblate Translation Memory <noreply-mt-weblate-translation-memory@weblate.org>, 2026.
 msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-06-01 11:49+0200\n"
 "PO-Revision-Date: 2026-08-04 16:18+0000\n"
-"Last-Translator: Emanuele Petriglia <inbox@emanuelepetriglia.com>\n"
+"Last-Translator: Weblate Translation Memory <noreply-mt-weblate-translation-"
+"memory@weblate.org>\n"
 "Language-Team: Italian <https://translate.fedoraproject.org/projects/systemd/"
 "main/it/>\n"
 "Language: it\n"
@@ -1319,7 +1321,7 @@ msgstr ""
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:98
 msgid "Clean up old system updates"
-msgstr ""
+msgstr "Pulisci i vecchi aggiornamenti di sistema"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:99
 msgid "Authentication is required to clean up old system updates."
