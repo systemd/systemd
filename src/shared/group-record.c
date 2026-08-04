@@ -372,6 +372,9 @@ bool group_record_match(GroupRecord *h, const UserDBMatch *match) {
         if (!BIT_SET(match->disposition_mask, group_record_disposition(h)))
                 return false;
 
+        if (!sd_id128_is_null(match->uuid) && !sd_id128_equal(match->uuid, h->uuid))
+                return false;
+
         if (!strv_isempty(match->fuzzy_names)) {
                 const char* names[] = {
                         h->group_name,
