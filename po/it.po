@@ -7,13 +7,16 @@
 # Nathan <nathan95@live.it>, 2025, 2026.
 # Ali Ciloglu <ali.ciloqlu@murena.io>, 2026.
 # Milo Casagrande <milo@milo.name>, 2026.
+# Emanuele Petriglia <inbox@emanuelepetriglia.com>, 2026.
+# Weblate Translation Memory <noreply-mt-weblate-translation-memory@weblate.org>, 2026.
 msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-06-01 11:49+0200\n"
-"PO-Revision-Date: 2026-08-02 00:13+0000\n"
-"Last-Translator: Ali Ciloglu <ali.ciloqlu@murena.io>\n"
+"PO-Revision-Date: 2026-08-04 16:18+0000\n"
+"Last-Translator: Weblate Translation Memory <noreply-mt-weblate-translation-"
+"memory@weblate.org>\n"
 "Language-Team: Italian <https://translate.fedoraproject.org/projects/systemd/"
 "main/it/>\n"
 "Language: it\n"
@@ -21,7 +24,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 2026.7.1\n"
+"X-Generator: Weblate 2026.8\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -1238,19 +1241,20 @@ msgstr "Per reimpostare le statistiche è necessaria l'autenticazione."
 
 #: src/resolve/org.freedesktop.resolve1.policy:209
 msgid "Flush DNS caches"
-msgstr ""
+msgstr "Svuota la cache DNS"
 
 #: src/resolve/org.freedesktop.resolve1.policy:210
 msgid "Authentication is required to flush DNS caches."
-msgstr ""
+msgstr "È richiesta l'autenticazione per svuotare la cache DNS."
 
 #: src/resolve/org.freedesktop.resolve1.policy:220
 msgid "Reset server features"
-msgstr ""
+msgstr "Reimposta le funzionalità del server"
 
 #: src/resolve/org.freedesktop.resolve1.policy:221
 msgid "Authentication is required to reset server features."
 msgstr ""
+"È richiesta l'autenticazione per reimpostare le funzionalità del server."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:38
 msgid "Check for system updates"
@@ -1264,11 +1268,13 @@ msgstr ""
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:48
 msgid "Cancel checking for system updates"
-msgstr ""
+msgstr "Annulla il controllo degli aggiornamenti del sistema"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:49
 msgid "Authentication is required to cancel checking for system updates."
 msgstr ""
+"È richiesta l'autenticazione per annullare il controllo degli aggiornamenti "
+"del sistema."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:58
 msgid "Install system updates"
@@ -1281,11 +1287,13 @@ msgstr ""
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:68
 msgid "Cancel installing system updates"
-msgstr ""
+msgstr "Annulla l'installazione degli aggiornamenti del sistema"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:69
 msgid "Authentication is required to cancel installing system updates."
 msgstr ""
+"È richiesta l'autenticazione per annullare l'installazione degli "
+"aggiornamenti del sistema."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:78
 msgid "Install specific system version"
@@ -1301,29 +1309,35 @@ msgstr ""
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:88
 msgid "Cancel installing specific system version"
-msgstr ""
+msgstr "Annulla l'installazione di una versione specifica del sistema"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:89
 msgid ""
 "Authentication is required to cancel updating the system to a specific "
 "(possibly old) version."
 msgstr ""
+"È richiesta l'autenticazione per annullare l'aggiornamento del sistema a una "
+"versione specifica (eventualmente precedente)."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:98
 msgid "Clean up old system updates"
-msgstr ""
+msgstr "Pulisci i vecchi aggiornamenti di sistema"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:99
 msgid "Authentication is required to clean up old system updates."
 msgstr ""
+"È richiesta l'autenticazione per rimuovere i vecchi aggiornamenti del "
+"sistema."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:108
 msgid "Cancel cleaning up old system updates"
-msgstr ""
+msgstr "Annulla la rimozione dei vecchi aggiornamenti del sistema"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:109
 msgid "Authentication is required to cancel cleanup of old system updates."
 msgstr ""
+"È richiesta l'autenticazione per annullare la rimozione dei vecchi "
+"aggiornamenti del sistema."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:118
 msgid "Manage optional features"
@@ -1433,21 +1447,23 @@ msgstr ""
 
 #: src/shared/libfido2-util.c:500 src/shared/libfido2-util.c:557
 msgid "Please confirm presence on security token to unlock."
-msgstr ""
+msgstr "Confermare la presenza sul token di sicurezza per sbloccare."
 
 #: src/shared/libfido2-util.c:516
 msgid "Please verify user on security token to unlock."
-msgstr ""
+msgstr "Verificare l'utente sul token di sicurezza per sbloccare."
 
 #: src/shared/libfido2-util.c:936
 #, c-format
 msgid ""
 "Please enter security token PIN (remaining attempts before lock-out: %d):"
 msgstr ""
+"Inserire il PIN del token di sicurezza (tentativi rimasti prima del blocco: "
+"%d):"
 
 #: src/shared/libfido2-util.c:948
 msgid "Please enter security token PIN:"
-msgstr ""
+msgstr "Inserire il PIN del token di sicurezza:"
 
 #~ msgid "Cleanup old system updates"
 #~ msgstr "Pulisci i vecchi aggiornamenti di sistema"

@@ -7,7 +7,7 @@ msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-06-01 11:49+0200\n"
-"PO-Revision-Date: 2026-08-02 00:10+0000\n"
+"PO-Revision-Date: 2026-08-04 16:18+0000\n"
 "Last-Translator: Emilio Sepulveda <emism.translations@gmail.com>\n"
 "Language-Team: Interlingua <https://translate.fedoraproject.org/projects/"
 "systemd/main/ia/>\n"
@@ -16,7 +16,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 2026.7.1\n"
+"X-Generator: Weblate 2026.8\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -58,11 +58,11 @@ msgstr ""
 
 #: src/core/org.freedesktop.systemd1.policy.in:64
 msgid "Reload the systemd state"
-msgstr ""
+msgstr "Recargar le stato de systemd"
 
 #: src/core/org.freedesktop.systemd1.policy.in:65
 msgid "Authentication is required to reload the systemd state."
-msgstr ""
+msgstr "Authentication es requirite pro recargar le stato de systemd."
 
 #: src/core/org.freedesktop.systemd1.policy.in:74
 msgid "Dump the systemd state without rate limits"
@@ -75,77 +75,85 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
-msgstr ""
+msgstr "Crear un area de initio"
 
 #: src/home/org.freedesktop.home1.policy:14
 msgid "Authentication is required to create a user's home area."
-msgstr ""
+msgstr "Authentication es requirite pro crear le area de initio de un usator."
 
 #: src/home/org.freedesktop.home1.policy:23
 msgid "Remove a home area"
-msgstr ""
+msgstr "Remover un area de initio"
 
 #: src/home/org.freedesktop.home1.policy:24
 msgid "Authentication is required to remove a user's home area."
-msgstr ""
+msgstr "Authentication es requirite pro remover le area de initio de un usator."
 
 #: src/home/org.freedesktop.home1.policy:33
 msgid "Check credentials of a home area"
-msgstr ""
+msgstr "Verificar credentiales de un area de initio"
 
 #: src/home/org.freedesktop.home1.policy:34
 msgid ""
 "Authentication is required to check credentials against a user's home area."
 msgstr ""
+"Authentication es requirite pro verificar credentiales del area de initio de "
+"un usator."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
-msgstr ""
+msgstr "Actualisar un area de initio"
 
 #: src/home/org.freedesktop.home1.policy:44
 msgid "Authentication is required to update a user's home area."
 msgstr ""
+"Authentication es requirite pro actualisar le area de initio de un usator."
 
 #: src/home/org.freedesktop.home1.policy:53
 msgid "Update your home area"
-msgstr ""
+msgstr "Actualisar tu area de initio"
 
 #: src/home/org.freedesktop.home1.policy:54
 msgid "Authentication is required to update your home area."
-msgstr ""
+msgstr "Authentication es requirite pro actualisar tu area de initio."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
-msgstr ""
+msgstr "Redimensionar un area de initio"
 
 #: src/home/org.freedesktop.home1.policy:64
 msgid "Authentication is required to resize a user's home area."
 msgstr ""
+"Authentication es requirite pro redimensionar le area de initio de un usator."
 
 #: src/home/org.freedesktop.home1.policy:73
 msgid "Change password of a home area"
-msgstr ""
+msgstr "Cambiar contrasigno de un area de initio"
 
 #: src/home/org.freedesktop.home1.policy:74
 msgid ""
 "Authentication is required to change the password of a user's home area."
 msgstr ""
+"Authentication es requirite pro cambiar le contrasigno del area de initio de "
+"un usator."
 
 #: src/home/org.freedesktop.home1.policy:83
 msgid "Activate a home area"
-msgstr ""
+msgstr "Activar un area de initio"
 
 #: src/home/org.freedesktop.home1.policy:84
 msgid "Authentication is required to activate a user's home area."
-msgstr ""
+msgstr "Authentication es requirite pro activar le area de initio de un usator."
 
 #: src/home/org.freedesktop.home1.policy:93
 msgid "Manage Home Directory Signing Keys"
-msgstr ""
+msgstr "Gerer le claves de signatura del directorio de initio"
 
 #: src/home/org.freedesktop.home1.policy:94
 msgid "Authentication is required to manage signing keys for home directories."
 msgstr ""
+"Authentication es requirite pro gerer le claves de signatura del directorios "
+"de initio."
 
 #: src/home/pam_systemd_home.c:327
 #, c-format
@@ -161,7 +169,7 @@ msgstr ""
 
 #: src/home/pam_systemd_home.c:344
 msgid "Password: "
-msgstr ""
+msgstr "Contrasigno: "
 
 #: src/home/pam_systemd_home.c:346
 #, c-format
@@ -170,7 +178,7 @@ msgstr ""
 
 #: src/home/pam_systemd_home.c:347
 msgid "Sorry, try again: "
-msgstr ""
+msgstr "Pardono, tenta de novo: "
 
 #: src/home/pam_systemd_home.c:369
 msgid "Recovery key: "
@@ -194,7 +202,7 @@ msgstr ""
 
 #: src/home/pam_systemd_home.c:393 src/home/pam_systemd_home.c:396
 msgid "Try again with password: "
-msgstr ""
+msgstr "Tenta de novo con le contrasigno: "
 
 #: src/home/pam_systemd_home.c:395
 #, c-format
@@ -205,12 +213,12 @@ msgstr ""
 
 #: src/home/pam_systemd_home.c:415
 msgid "Security token PIN: "
-msgstr ""
+msgstr "PIN de token de securitate: "
 
 #: src/home/pam_systemd_home.c:432
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
-msgstr ""
+msgstr "Authentica te physicamente sur le token de securitate del usator %s."
 
 #: src/home/pam_systemd_home.c:443
 #, c-format
@@ -286,7 +294,7 @@ msgstr ""
 
 #: src/home/pam_systemd_home.c:1055
 msgid "Password change required."
-msgstr ""
+msgstr "Le cambiamento de contrasigno es requirite."
 
 #: src/home/pam_systemd_home.c:1059
 msgid "Password expired, change required."
@@ -306,11 +314,11 @@ msgstr "Definir nomine de hospite"
 
 #: src/hostname/org.freedesktop.hostname1.policy:21
 msgid "Authentication is required to set the local hostname."
-msgstr ""
+msgstr "Authentication es requirite pro definir le nomine de hospite local."
 
 #: src/hostname/org.freedesktop.hostname1.policy:30
 msgid "Set static hostname"
-msgstr ""
+msgstr "Definir nomine static de hospite"
 
 #: src/hostname/org.freedesktop.hostname1.policy:31
 msgid ""
@@ -325,10 +333,11 @@ msgstr "Definir information del machina"
 #: src/hostname/org.freedesktop.hostname1.policy:42
 msgid "Authentication is required to set local machine information."
 msgstr ""
+"Authentication es requirite pro definir le information de machina local."
 
 #: src/hostname/org.freedesktop.hostname1.policy:51
 msgid "Get product UUID"
-msgstr ""
+msgstr "Obtener UUID de producto"
 
 #: src/hostname/org.freedesktop.hostname1.policy:52
 msgid "Authentication is required to get product UUID."
@@ -344,11 +353,11 @@ msgstr ""
 
 #: src/hostname/org.freedesktop.hostname1.policy:71
 msgid "Get system description"
-msgstr ""
+msgstr "Obtener description de systema"
 
 #: src/hostname/org.freedesktop.hostname1.policy:72
 msgid "Authentication is required to get system description."
-msgstr ""
+msgstr "Authentication es requirite pro obtener le description de systema."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a disk image"
@@ -360,7 +369,7 @@ msgstr ""
 
 #: src/import/org.freedesktop.import1.policy:32
 msgid "Export a disk image"
-msgstr ""
+msgstr "Exportar un imagine de disco"
 
 #: src/import/org.freedesktop.import1.policy:33
 msgid "Authentication is required to export disk image."
@@ -368,11 +377,11 @@ msgstr ""
 
 #: src/import/org.freedesktop.import1.policy:42
 msgid "Download a disk image"
-msgstr ""
+msgstr "Discargar un imagine de disco"
 
 #: src/import/org.freedesktop.import1.policy:43
 msgid "Authentication is required to download a disk image."
-msgstr ""
+msgstr "Authentication es requerite pro discargar un imagine de disco."
 
 #: src/import/org.freedesktop.import1.policy:52
 msgid "Cancel transfer of a disk image"
@@ -554,7 +563,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:202
 msgid "Reboot the system"
-msgstr ""
+msgstr "Reinitiar le systema"
 
 #: src/login/org.freedesktop.login1.policy:203
 msgid "Authentication is required to reboot the system."
@@ -963,7 +972,7 @@ msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:165
 msgid "Reload network settings"
-msgstr ""
+msgstr "Recargar parametros de rete"
 
 #: src/network/org.freedesktop.network1.policy:166
 msgid "Authentication is required to reload network settings."
@@ -1014,7 +1023,7 @@ msgstr ""
 
 #: src/portable/org.freedesktop.portable1.policy:34
 msgid "Delete or modify portable service image"
-msgstr ""
+msgstr "Deler o modificar imagine de servicio portabile"
 
 #: src/portable/org.freedesktop.portable1.policy:35
 msgid ""
@@ -1055,7 +1064,7 @@ msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
 msgid "Subscribe to DNS configuration"
-msgstr ""
+msgstr "Subscriber al configuration DNS"
 
 #: src/resolve/org.freedesktop.resolve1.policy:155
 msgid "Authentication is required to subscribe to DNS configuration."
@@ -1091,15 +1100,15 @@ msgstr "Reinitialisar statisticas"
 
 #: src/resolve/org.freedesktop.resolve1.policy:199
 msgid "Authentication is required to reset statistics."
-msgstr ""
+msgstr "Authentication es requirite pro reinitialisar statisticas."
 
 #: src/resolve/org.freedesktop.resolve1.policy:209
 msgid "Flush DNS caches"
-msgstr ""
+msgstr "Vacuar le caches DNS"
 
 #: src/resolve/org.freedesktop.resolve1.policy:210
 msgid "Authentication is required to flush DNS caches."
-msgstr ""
+msgstr "Authentication es requirite pro vacuar le caches DNS."
 
 #: src/resolve/org.freedesktop.resolve1.policy:220
 msgid "Reset server features"
@@ -1108,6 +1117,7 @@ msgstr "Reinitialisar functionalitates del servitor"
 #: src/resolve/org.freedesktop.resolve1.policy:221
 msgid "Authentication is required to reset server features."
 msgstr ""
+"Authentication es requirite pro reinitialisar functionalitates de servitor."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:38
 msgid "Check for system updates"
@@ -1115,7 +1125,7 @@ msgstr "Verificar actualisationes de systema"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:39
 msgid "Authentication is required to check for system updates."
-msgstr ""
+msgstr "Authentication es requirite pro verificar actualisationes de systema."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:48
 msgid "Cancel checking for system updates"
@@ -1127,15 +1137,15 @@ msgstr ""
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:58
 msgid "Install system updates"
-msgstr ""
+msgstr "Installar actualisationes de systema"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:59
 msgid "Authentication is required to install system updates."
-msgstr ""
+msgstr "Authentication es requirite pro installar actualisationes de systema."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:68
 msgid "Cancel installing system updates"
-msgstr ""
+msgstr "Cancellar le installation de actualisationes de systema"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:69
 msgid "Authentication is required to cancel installing system updates."
@@ -1163,7 +1173,7 @@ msgstr ""
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:98
 msgid "Clean up old system updates"
-msgstr "Rader actualisationes ancian del systema"
+msgstr "Nettar actualisationes ancian del systema"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:99
 msgid "Authentication is required to clean up old system updates."
@@ -1171,7 +1181,7 @@ msgstr ""
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:108
 msgid "Cancel cleaning up old system updates"
-msgstr ""
+msgstr "Cancellar nettage del actualisationes ancian de systema"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:109
 msgid "Authentication is required to cancel cleanup of old system updates."
