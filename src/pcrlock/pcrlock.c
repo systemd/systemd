@@ -3130,7 +3130,7 @@ static int event_log_reduce_to_safe_pcrs(EventLog *el, uint32_t *pcrs) {
                 continue;
 
         drop:
-                if (arg_strict && FLAGS_SET(*pcrs, UINT32_C(1) << pcr))
+                if (arg_strict)
                         dropped_relevant_pcr |= UINT32_C(1) << pcr;
 
                 *pcrs &= ~(UINT32_C(1) << pcr);
