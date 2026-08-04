@@ -523,6 +523,10 @@ typedef struct UserDBMatch {
         sd_id128_t uuid;
 } UserDBMatch;
 
+typedef enum UserDBMatchFlags {
+        USERDB_MATCH_ALLOW_SPARSE = 1 << 0,
+} UserDBMatchFlags;
+
 #define USER_DISPOSITION_MASK_ALL ((UINT64_C(1) << _USER_DISPOSITION_MAX) - UINT64_C(1))
 
 #define USERDB_MATCH_NULL                                       \
@@ -549,6 +553,7 @@ void userdb_match_done(UserDBMatch *match);
 bool record_name_matches_alias_realm(const char *name, char * const *aliases, const char *realm);
 bool user_name_fuzzy_match(const char *names[], size_t n_names, char **matches);
 bool user_record_match(UserRecord *u, const UserDBMatch *match);
+bool user_record_match_full(UserRecord *u, const UserDBMatch *match, UserDBMatchFlags flags);
 
 bool user_record_matches_user_name(const UserRecord *u, const char *username);
 

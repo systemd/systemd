@@ -2856,20 +2856,32 @@ bool user_name_fuzzy_match(const char *names[], size_t n_names, char **matches) 
         return false;
 }
 
-bool user_record_match(UserRecord *u, const UserDBMatch *match) {
+bool user_record_match_full(UserRecord *u, const UserDBMatch *match, UserDBMatchFlags flags) {
         assert(u);
 
         if (!match)
                 return true;
 
-        if (!uid_is_valid(u->uid))
+        if (!FLAGS_SET(flags, USERDB_MATCH_ALLOW_SPARSE) && !uid_is_valid(u->uid))
                 return false;
 
-        if (u->uid < match->uid_min || u->uid > match->uid_max)
-                return false;
+        if (match->uid_min > 0 || match->uid_max < UID_INVALID-1) {
+                if (!uid_is_valid(u->uid))
+                        return false;
 
-        if (!BIT_SET(match->disposition_mask, user_record_disposition(u)))
-                return false;
+                if (u->uid < match->uid_min || u->uid > match->uid_max)
+                        return false;
+        }
+
+        if (!FLAGS_SET(match->disposition_mask, USER_DISPOSITION_MASK_ALL)) {
+                UserDisposition d = user_record_disposition(u);
+
+                if (d < 0)
+                        return false;
+
+                if (!BIT_SET(match->disposition_mask, d))
+                        return false;
+        }
 
         if (!sd_id128_is_null(match->uuid) && !sd_id128_equal(match->uuid, u->uuid))
                 return false;
@@ -2893,6 +2905,10 @@ bool user_record_match(UserRecord *u, const UserDBMatch *match) {
         }
 
         return true;
+}
+
+bool user_record_match(UserRecord *u, const UserDBMatch *match) {
+        return user_record_match_full(u, match, /* flags= */ 0);
 }
 
 int json_dispatch_dispositions_mask(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
