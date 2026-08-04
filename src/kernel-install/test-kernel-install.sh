@@ -146,7 +146,9 @@ if [ -f "$ukify" ]; then
     python3 - "$ukify_install" <<'PY'
 import os
 import runpy
+import subprocess
 import sys
+import unittest.mock
 
 ns = runpy.run_path(sys.argv[1], run_name='not_main')
 
@@ -171,14 +173,22 @@ class FakePath:
 module_globals = ns['kernel_cmdline_base'].__globals__
 module_globals['Path'] = FakePath
 
+# Mock subprocess.run to simulate not being in a container, so the test
+# works regardless of the environment (including container-based CI).
 os.environ.pop('KERNEL_INSTALL_CONF_ROOT', None)
-assert ns['kernel_cmdline_base']() == ['root=fake', 'quiet']
+with unittest.mock.patch.object(subprocess, 'run', return_value=subprocess.CompletedProcess([], 1)):
+    assert ns['kernel_cmdline_base']() == ['root=fake', 'quiet']
 
 os.environ['KERNEL_INSTALL_CONF_ROOT'] = '/conf-root'
 assert ns['kernel_cmdline_base']() == ['root=conf', 'quiet', 'splash']
 
 os.environ['KERNEL_INSTALL_CONF_ROOT'] = '/empty-conf-root'
 assert ns['kernel_cmdline_base']() == []
+
+# Test that /proc/cmdline is skipped in containers
+os.environ.pop('KERNEL_INSTALL_CONF_ROOT', None)
+with unittest.mock.patch.object(subprocess, 'run', return_value=subprocess.CompletedProcess([], 0)):
+    assert ns['kernel_cmdline_base']() == [], 'should return empty in container'
 PY
 
     mkdir "$D/sources/install.conf.d"
