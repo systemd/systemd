@@ -46,6 +46,7 @@ int group_record_build(GroupRecord **ret, ...);
 int group_record_clone(GroupRecord *h, UserRecordLoadFlags flags, GroupRecord **ret);
 
 bool group_record_match(GroupRecord *h, const UserDBMatch *match);
+bool group_record_match_with_flags(GroupRecord *h, const UserDBMatch *match, UserDBMatchFlags flags);
 
 const char* group_record_group_name_and_realm(GroupRecord *h);
 UserDisposition group_record_disposition(GroupRecord *h);
