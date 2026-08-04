@@ -67,6 +67,15 @@ userdbctl group root -j | userdbctl -F- group | cmp - <(userdbctl group root)
 userdbctl group test-74-userdbctl -j | userdbctl -F- group | cmp - <(userdbctl group test-74-userdbctl)
 userdbctl group 65534 -j | userdbctl -F- group | cmp - <(userdbctl group 65534)
 
+echo '{"userName":"filtered-user","uid":1000,"gid":1000}' | (! userdbctl --uid-min=2000 -F- user)
+echo '{"userName":"filtered-user","uid":1000,"gid":1000,"uuid":"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"}' | (! userdbctl --uuid=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa -F- user)
+echo '{"userName":"filtered-user","uuid":"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"}' | userdbctl -j --uuid=bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb -F- user >/dev/null
+echo '{"userName":"filtered-user","disposition":"regular"}' | userdbctl -j --disposition=regular -F- user >/dev/null
+echo '{"groupName":"filtered-group","gid":1000}' | (! userdbctl --uid-min=2000 -F- group)
+echo '{"groupName":"filtered-group","gid":1000,"uuid":"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"}' | (! userdbctl --uuid=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa -F- group)
+echo '{"groupName":"filtered-group","uuid":"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"}' | userdbctl -j --uuid=bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb -F- group >/dev/null
+echo '{"groupName":"filtered-group","disposition":"regular"}' | userdbctl -j --disposition=regular -F- group >/dev/null
+
 # Ensure NSS doesn't try to automount via open_tree
 if [[ ! -v ASAN_OPTIONS ]]; then
     systemctl stop systemd-userdbd.socket systemd-userdbd.service
