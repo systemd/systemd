@@ -2393,7 +2393,6 @@ static int show_pcr_table(EventLog *el, sd_json_variant **ret_variant) {
         (void) table_set_json_field_name(table, 7, "noMissingComponents");
 
         for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
-
                 if (arg_pcr_mask != 0 && !FLAGS_SET(arg_pcr_mask, UINT32_C(1) << pcr))
                         continue;
 
@@ -2407,7 +2406,7 @@ static int show_pcr_table(EventLog *el, sd_json_variant **ret_variant) {
 
                 /* Whether any unmatched components touch this PCR */
                 bool missing_components = BIT_SET(el->missing_component_pcrs, pcr);
-                bool has_components = FLAGS_SET(el->has_component_pcrs, UINT32_C(1) << pcr);
+                bool has_components = BIT_SET(el->has_component_pcrs, pcr);
 
                 const char *emoji = "";
                 if (seen || has_components) {
