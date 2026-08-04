@@ -353,11 +353,16 @@
             <varlistentry>
               <term><varname>userdb.user.*</varname></term>
               <term><varname>userdb.group.*</varname></term>
+              <term><varname>userdb.transient.user.*</varname></term>
+              <term><varname>userdb.transient.group.*</varname></term>
               <listitem>
                 <para>These credentials should contain valid <ulink url="https://systemd.io/USER_RECORD">JSON
                 User</ulink> and <ulink url="https://systemd.io/GROUP_RECORD">JSON Group</ulink> records. For
-                each matching credential, various files are created in <filename>/etc/userdb/</filename>,
-                implementing the interface described in
+                <varname>userdb.user.*</varname> and <varname>userdb.group.*</varname> credentials, records
+                are placed in <filename>/etc/userdb/</filename>, while for
+                <varname>userdb.transient.user.*</varname> and <varname>userdb.transient.group.*</varname>
+                credentials they are placed in <filename>/run/userdb/</filename>. These records implement the
+                interface described in
                 <citerefentry><refentrytitle>nss-systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
                 Any passed user records must contain valid UID and GID fields. Any passed group records must
                 contain a GID field (i.e. automatic UID/GID allocation is not supported). For both user and
