@@ -509,6 +509,23 @@
         <para>Note that when <varname>CopyFiles=</varname> is used with <varname>Format=xfs</varname>,
         <command>xfsprogs</command> 6.17 or newer is required.</para>
 
+        <para>Note that <command>systemd-repart</command> always excludes the contents of a number of API
+        file systems and temporary directories, namely <filename>/proc/</filename>, <filename>/sys/</filename>,
+        <filename>/dev/</filename>, <filename>/tmp/</filename>, <filename>/run/</filename>, and
+        <filename>/var/tmp/</filename>, as their contents are not expected to be part of a disk image. The
+        directories themselves are still created (empty) in the new file system.</para>
+
+        <para>When a root partition is populated, the contents below the mount points of any other
+        partitions that are part of the same image are excluded too, so that data belonging to a separate
+        partition is not duplicated into the root file system. For example, if an <constant>esp</constant>
+        partition is part of the image, the contents of <filename>/boot/</filename> and
+        <filename>/efi/</filename> are not copied into the root partition.</para>
+
+        <para>To copy a directory that is excluded by the mount-point rule above, add an explicit
+        <varname>CopyFiles=</varname> entry for it. For example, <literal>CopyFiles=/boot:/boot</literal>
+        overrides the implicit exclusion and copies <filename>/boot/</filename> into the root
+        partition.</para>
+
         <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
 
