@@ -49,7 +49,8 @@
     <varname>vconsole.keymap_toggle=</varname>,
     <varname>vconsole.font=</varname>,
     <varname>vconsole.font_map=</varname>,
-    <varname>vconsole.font_unimap=</varname> may be used
+    <varname>vconsole.font_unimap=</varname>, and
+    <varname>vconsole.hidpi[=BOOL]</varname> may be used
     to override the console settings at boot.</para>
 
     <para>Depending on the operating system other configuration files
@@ -98,6 +99,16 @@
         and the unicode font map.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>HIDPI=</varname></term>
+
+        <listitem>
+          <para>Takes a boolean value. If enabled, the font size will be doubled.</para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
@@ -127,6 +138,16 @@
         <varname>FONT_UNIMAP=</varname>.</para>
 
         <xi:include href="version-info.xml" xpointer="v232"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>vconsole.hidpi[=BOOL]</varname></term>
+
+        <listitem>
+          <para>When enabled, the console font size will be doubled.</para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/>
+        </listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
