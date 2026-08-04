@@ -11,10 +11,18 @@ fi
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
+TRANSIENT_USER="test-74-userdb-transient"
+TRANSIENT_UID=23456
+TRANSIENT_HOME="/home/$TRANSIENT_USER"
+CREDENTIALS_DIR=""
+
 cleanup() {
     set +e
     userdel -r test-74-userdbctl
     groupdel test-74-userdbctl
+    rm -rf "$TRANSIENT_HOME"
+    rm -f "/run/userdb/$TRANSIENT_USER.user" "/run/userdb/$TRANSIENT_UID.user"
+    [[ -z "$CREDENTIALS_DIR" ]] || rm -rf "$CREDENTIALS_DIR"
 }
 
 trap cleanup EXIT
@@ -55,6 +63,8 @@ assert_eq "$(userdbctl user 2147352576 -j | jq -r .userName)" foreign-0
 assert_eq "$(userdbctl user 2147352577 -j | jq -r .userName)" foreign-1
 assert_eq "$(userdbctl user 2147418110 -j | jq -r .userName)" foreign-65534
 
+(! userdbctl --uuid=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa group root)
+
 # Make sure that -F shows same data as if we'd ask directly
 userdbctl user root -j | userdbctl -F- user | cmp - <(userdbctl user root)
 userdbctl user test-74-userdbctl -j | userdbctl -F- user | cmp - <(userdbctl user test-74-userdbctl)
@@ -63,6 +73,15 @@ userdbctl user 65534 -j | userdbctl -F- user | cmp - <(userdbctl user 65534)
 userdbctl group root -j | userdbctl -F- group | cmp - <(userdbctl group root)
 userdbctl group test-74-userdbctl -j | userdbctl -F- group | cmp - <(userdbctl group test-74-userdbctl)
 userdbctl group 65534 -j | userdbctl -F- group | cmp - <(userdbctl group 65534)
+
+echo '{"userName":"filtered-user","uid":1000,"gid":1000}' | (! userdbctl --uid-min=2000 -F- user)
+echo '{"userName":"filtered-user","uid":1000,"gid":1000,"uuid":"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"}' | (! userdbctl --uuid=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa -F- user)
+echo '{"userName":"filtered-user","uuid":"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"}' | userdbctl -j --uuid=bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb -F- user >/dev/null
+echo '{"userName":"filtered-user","disposition":"regular"}' | userdbctl -j --disposition=regular -F- user >/dev/null
+echo '{"groupName":"filtered-group","gid":1000}' | (! userdbctl --uid-min=2000 -F- group)
+echo '{"groupName":"filtered-group","gid":1000,"uuid":"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"}' | (! userdbctl --uuid=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa -F- group)
+echo '{"groupName":"filtered-group","uuid":"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"}' | userdbctl -j --uuid=bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb -F- group >/dev/null
+echo '{"groupName":"filtered-group","disposition":"regular"}' | userdbctl -j --disposition=regular -F- group >/dev/null
 
 # Ensure NSS doesn't try to automount via open_tree
 if [[ ! -v ASAN_OPTIONS ]]; then
@@ -86,6 +105,23 @@ userdbctl group "$DISK_GID" | grep -F 'io.systemd.NameServiceSwitch' >/dev/null
 (! busctl call org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager LookupDynamicUserByName "s" disk)
 (! busctl call org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager LookupDynamicUserByUID "u" "$DISK_GID")
 systemctl stop "$UNIT"
+
+CREDENTIALS_DIR="$(mktemp -d)"
+rm -rf "$TRANSIENT_HOME"
+rm -f "/run/userdb/$TRANSIENT_USER.user" "/run/userdb/$TRANSIENT_UID.user"
+cat >"$CREDENTIALS_DIR/userdb.transient.user.$TRANSIENT_USER" <<EOF
+{
+    "userName": "$TRANSIENT_USER",
+    "uid": $TRANSIENT_UID,
+    "gid": $TRANSIENT_UID,
+    "homeDirectory": "$TRANSIENT_HOME",
+    "disposition": "regular"
+}
+EOF
+CREDENTIALS_DIRECTORY="$CREDENTIALS_DIR" userdbctl load-credentials
+test -e "/run/userdb/$TRANSIENT_USER.user"
+test -L "/run/userdb/$TRANSIENT_UID.user"
+test ! -e "$TRANSIENT_HOME"
 
 # Probe specific user records
 echo '{"userName":"weightmin","cpuWeight":1,"ioWeight":1}' | userdbctl -F -
