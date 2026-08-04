@@ -7,6 +7,7 @@
 #include "alloc-util.h"
 #include "dlfcn-util.h"
 #include "errno-list.h"
+#include "escape.h"
 #include "format-util.h"
 #include "log.h"
 #include "main-func.h"
@@ -30,30 +31,31 @@ static void print_struct_passwd(const struct passwd *pwd) {
 }
 
 static void print_struct_group(const struct group *gr) {
-        _cleanup_free_ char *members = NULL;
+        _cleanup_free_ char *members = NULL, *quoted = NULL;
 
         log_info("        \"%s\" / "GID_FMT,
                  gr->gr_name, gr->gr_gid);
         log_info("        passwd=\"%s\"", gr->gr_passwd);
 
         assert_se(members = strv_join(ASSERT_PTR(gr->gr_mem), ", "));
-        // FIXME: use shell_maybe_quote(SHELL_ESCAPE_EMPTY) when it becomes available
-        log_info("        members=%s", members);
+        assert_se(quoted = shell_maybe_quote(members, SHELL_ESCAPE_EMPTY));
+        log_info("        members=%s", quoted);
 }
 
 static void print_struct_sgrp(const struct sgrp *sg) {
         _cleanup_free_ char *administrators = NULL, *members = NULL;
+        _cleanup_free_ char *quoted_administrators = NULL, *quoted_members = NULL;
 
         log_info("        \"%s\"", sg->sg_namp);
         log_info("        passwd=\"%s\"", sg->sg_passwd);
 
         assert_se(administrators = strv_join(ASSERT_PTR(sg->sg_adm), ", "));
-        // FIXME: use shell_maybe_quote(SHELL_ESCAPE_EMPTY) when it becomes available
-        log_info("        administrators=%s", administrators);
+        assert_se(quoted_administrators = shell_maybe_quote(administrators, SHELL_ESCAPE_EMPTY));
+        log_info("        administrators=%s", quoted_administrators);
 
         assert_se(members = strv_join(ASSERT_PTR(sg->sg_mem), ", "));
-        // FIXME: use shell_maybe_quote(SHELL_ESCAPE_EMPTY) when it becomes available
-        log_info("        members=%s", members);
+        assert_se(quoted_members = shell_maybe_quote(members, SHELL_ESCAPE_EMPTY));
+        log_info("        members=%s", quoted_members);
 }
 
 static void test_getpwnam_r(void *handle, const char *module, const char *name) {
