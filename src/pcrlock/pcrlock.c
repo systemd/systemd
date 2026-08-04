@@ -2122,11 +2122,10 @@ static double map_pcr_to_hue(uint32_t pcr) {
         double exclude_red_range = 60.0;
         double exclude_green_range = 60.0;
         double h = (360.0 - exclude_red_range - exclude_green_range) / (TPM2_PCRS_MAX - 1) * pcr;
-        h += exclude_red_range/2;
-        if (h > 120-exclude_green_range/2)
+        h += exclude_red_range / 2;
+        if (h > 120 - exclude_green_range / 2)
                 h += exclude_green_range;
-        assert(h <= 360-exclude_red_range/2);
-        return h;
+        return MIN(h, 360 - exclude_red_range / 2);
 }
 
 static char *color_for_pcr(EventLog *el, uint32_t pcr) {
