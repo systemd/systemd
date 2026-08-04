@@ -2438,13 +2438,19 @@ static int show_pcr_table(EventLog *el, sd_json_variant **ret_variant) {
                 if (r < 0)
                         return table_log_add_error(r);
 
-                r = table_add_many(table,
-                                   TABLE_STRING, seen ? glyph_check_mark(hash_match) : " ",
-                                   TABLE_SET_COLOR, ansi_highlight_green_red(hash_match),
-                                   TABLE_STRING, seen ? glyph_check_mark(fully_recognized) : " ",
-                                   TABLE_SET_COLOR, ansi_highlight_green_red(fully_recognized),
-                                   TABLE_STRING, has_components ? glyph_check_mark(!missing_components) : " ",
-                                   TABLE_SET_COLOR, ansi_highlight_green_red(!missing_components));
+                if (sd_json_format_enabled(arg_json_format_flags))
+                        r = table_add_many(table,
+                                           TABLE_BOOLEAN_CHECKMARK, hash_match,
+                                           TABLE_BOOLEAN_CHECKMARK, fully_recognized,
+                                           TABLE_BOOLEAN_CHECKMARK, !missing_components);
+                else
+                        r = table_add_many(table,
+                                           TABLE_STRING, seen ? glyph_check_mark(hash_match) : " ",
+                                           TABLE_SET_COLOR, ansi_highlight_green_red(hash_match),
+                                           TABLE_STRING, seen ? glyph_check_mark(fully_recognized) : " ",
+                                           TABLE_SET_COLOR, ansi_highlight_green_red(fully_recognized),
+                                           TABLE_STRING, has_components ? glyph_check_mark(!missing_components) : " ",
+                                           TABLE_SET_COLOR, ansi_highlight_green_red(!missing_components));
                 if (r < 0)
                         return table_log_add_error(r);
 
