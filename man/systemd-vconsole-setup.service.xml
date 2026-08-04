@@ -85,12 +85,18 @@
         <term><varname>vconsole.font</varname></term>
         <term><varname>vconsole.font_map</varname></term>
         <term><varname>vconsole.font_unimap</varname></term>
+        <term><varname>vconsole.font_scale</varname></term>
 
         <listitem><para>The console font settings to apply. The matching options in
         <filename>vconsole.conf</filename> and on the kernel command line take precedence over these
         credentials.</para>
 
-        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+        <para>
+          <varname>vconsole.font</varname>,
+          <varname>vconsole.font_map</varname>, and
+          <varname>vconsole.font_unimap</varname> were added in version 253.
+          <varname>vconsole.font_scale</varname> was added in version 262.
+        </para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
