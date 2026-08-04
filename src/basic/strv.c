@@ -547,9 +547,7 @@ char* strv_join_full(char * const *l, const char *separator, const char *prefix,
                 if (s != l)
                         n += k;
 
-                bool needs_escaping = escape_separator && (strchr(*s, *separator) || strchr(*s, '\\'));
-
-                n += m + strlen(*s) * (1 + needs_escaping);
+                n += m + strlen(*s) * (escape_separator ? 2 : 1);
         }
 
         r = new(char, n+1);
