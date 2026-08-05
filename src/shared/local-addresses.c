@@ -1,14 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/netlink.h>
+#include <linux/rtnetlink.h>
+#include <poll.h>
+
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "io-util.h"
+#include "iovec-util.h"
 #include "local-addresses.h"
 #include "log.h"
 #include "netlink-util.h"
 #include "socket-util.h"
 #include "sort-util.h"
+#include "time-util.h"
 
 static int address_compare(const struct local_address *a, const struct local_address *b) {
         int r;
@@ -363,23 +370,135 @@ static int parse_nexthops(
         return 0;
 }
 
-int local_gateways(
-                sd_netlink *context,
+static int local_gateway_from_message(
+                sd_netlink_message *m,
                 int ifindex,
+                bool allow_via,
+                struct local_address **list,
+                size_t *n_list) {
+
+        union in_addr_union prefsrc = IN_ADDR_NULL;
+        uint16_t type;
+        unsigned char dst_len, src_len, table;
+        uint32_t ifi = 0, priority = 0;
+        int r, family;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_get_type(m, &type);
+        if (r < 0)
+                return r;
+        if (type != RTM_NEWROUTE)
+                return 0;
+
+        /* We only care for default routes */
+        r = sd_rtnl_message_route_get_dst_prefixlen(m, &dst_len);
+        if (r < 0)
+                return r;
+        if (dst_len != 0)
+                return 0;
+
+        r = sd_rtnl_message_route_get_src_prefixlen(m, &src_len);
+        if (r < 0)
+                return r;
+        if (src_len != 0)
+                return 0;
+
+        r = sd_rtnl_message_route_get_table(m, &table);
+        if (r < 0)
+                return r;
+        if (table != RT_TABLE_MAIN)
+                return 0;
+
+        r = sd_netlink_message_read_u32(m, RTA_PRIORITY, &priority);
+        if (r < 0 && r != -ENODATA)
+                return r;
+
+        r = sd_rtnl_message_route_get_family(m, &family);
+        if (r < 0)
+                return r;
+        if (!IN_SET(family, AF_INET, AF_INET6))
+                return 0;
+
+        r = netlink_message_read_in_addr_union(m, RTA_PREFSRC, family, &prefsrc);
+        if (r < 0 && r != -ENODATA)
+                return r;
+
+        r = sd_netlink_message_read_u32(m, RTA_OIF, &ifi);
+        if (r < 0 && r != -ENODATA)
+                return r;
+        if (r >= 0) {
+                if (ifi <= 0)
+                        return -EINVAL;
+                if (ifindex > 0 && (int) ifi != ifindex)
+                        return 0;
+
+                union in_addr_union gateway;
+                r = netlink_message_read_in_addr_union(m, RTA_GATEWAY, family, &gateway);
+                if (r < 0 && r != -ENODATA)
+                        return r;
+                if (r >= 0) {
+                        r = add_local_gateway(list, n_list, ifi, priority, 0, family, &gateway, &prefsrc);
+                        if (r < 0)
+                                return r;
+
+                        return 0;
+                }
+
+                if (!allow_via)
+                        return 0;
+
+                if (family != AF_INET)
+                        return 0;
+
+                RouteVia via;
+                r = sd_netlink_message_read(m, RTA_VIA, sizeof(via), &via);
+                if (r < 0 && r != -ENODATA)
+                        return r;
+                if (r >= 0) {
+                        if (via.family != AF_INET6)
+                                return -EBADMSG;
+
+                        /* Ignore prefsrc, and let's take the source address by socket command, if necessary. */
+                        r = add_local_gateway(list, n_list, ifi, priority, 0, via.family,
+                                              &(union in_addr_union) { .in6 = via.address.in6 },
+                                              /* prefsrc= */ NULL);
+                        if (r < 0)
+                                return r;
+                }
+
+                /* If the route has RTA_OIF, it does not have RTA_MULTIPATH. */
+                return 0;
+        }
+
+        size_t rta_len;
+        _cleanup_free_ void *rta_multipath = NULL;
+        r = sd_netlink_message_read_data(m, RTA_MULTIPATH, &rta_len, &rta_multipath);
+        if (r < 0 && r != -ENODATA)
+                return r;
+        if (r >= 0) {
+                r = parse_nexthops(list, n_list, ifindex, allow_via, family, priority, &prefsrc,
+                                   rta_multipath, rta_len);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int local_gateways_full_dump(
+                sd_netlink *context,
                 int af,
-                struct local_address **ret) {
+                int ifindex,
+                bool allow_via,
+                struct local_address **list,
+                size_t *n_list) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        _cleanup_free_ struct local_address *list = NULL;
-        size_t n_list = 0;
         int r;
-
-        /* The RTA_VIA attribute is used only for IPv4 routes with an IPv6 gateway. If IPv4 gateways are
-         * requested (af == AF_INET), then we do not return IPv6 gateway addresses. Similarly, if IPv6
-         * gateways are requested (af == AF_INET6), then we do not return gateway addresses for IPv4 routes.
-         * So, the RTA_VIA attribute is only parsed when af == AF_UNSPEC. */
-        bool allow_via = af == AF_UNSPEC;
 
         if (context)
                 rtnl = sd_netlink_ref(context);
@@ -410,114 +529,331 @@ int local_gateways(
                 return r;
 
         for (sd_netlink_message *m = reply; m; m = sd_netlink_message_next(m)) {
-                union in_addr_union prefsrc = IN_ADDR_NULL;
-                uint16_t type;
-                unsigned char dst_len, src_len, table;
-                uint32_t ifi = 0, priority = 0;
-                int family;
-
-                r = sd_netlink_message_get_errno(m);
+                r = local_gateway_from_message(m, ifindex, allow_via, list, n_list);
                 if (r < 0)
                         return r;
+        }
 
-                r = sd_netlink_message_get_type(m, &type);
-                if (r < 0)
-                        return r;
-                if (type != RTM_NEWROUTE)
-                        continue;
+        return 0;
+}
 
-                /* We only care for default routes */
-                r = sd_rtnl_message_route_get_dst_prefixlen(m, &dst_len);
-                if (r < 0)
-                        return r;
-                if (dst_len != 0)
-                        continue;
+static int local_gateway_from_raw_message(
+                const struct nlmsghdr *hdr,
+                int ifindex,
+                bool allow_via,
+                struct local_address **list,
+                size_t *n_list) {
 
-                r = sd_rtnl_message_route_get_src_prefixlen(m, &src_len);
-                if (r < 0)
-                        return r;
-                if (src_len != 0)
-                        continue;
+        const struct rtmsg *rtm;
+        size_t rta_len, multipath_size = 0;
+        bool has_oif = false, has_gateway = false, has_via = false;
+        uint32_t oif = 0, priority = 0;
+        union in_addr_union prefsrc = IN_ADDR_NULL, gateway = IN_ADDR_NULL;
+        RouteVia via = {};
+        const struct rtnexthop *multipath = NULL;
+        int r;
 
-                r = sd_rtnl_message_route_get_table(m, &table);
-                if (r < 0)
-                        return r;
-                if (table != RT_TABLE_MAIN)
-                        continue;
+        assert(hdr);
 
-                r = sd_netlink_message_read_u32(m, RTA_PRIORITY, &priority);
-                if (r < 0 && r != -ENODATA)
-                        return r;
+        rtm = NLMSG_DATA(hdr);
 
-                r = sd_rtnl_message_route_get_family(m, &family);
-                if (r < 0)
-                        return r;
-                if (!IN_SET(family, AF_INET, AF_INET6))
-                        continue;
-                if (af != AF_UNSPEC && af != family)
-                        continue;
+        /* We only care for default routes. The kernel dumps the IPv4 routes in order of their keys, and all
+         * default routes are the first ones in that order, hence as soon as we have seen a route with a
+         * non-zero destination prefix length, no more default routes can follow. */
+        if (rtm->rtm_dst_len != 0)
+                return 1;
 
-                r = netlink_message_read_in_addr_union(m, RTA_PREFSRC, family, &prefsrc);
-                if (r < 0 && r != -ENODATA)
-                        return r;
+        if (rtm->rtm_src_len != 0)
+                return 0;
 
-                r = sd_netlink_message_read_u32(m, RTA_OIF, &ifi);
-                if (r < 0 && r != -ENODATA)
-                        return r;
-                if (r >= 0) {
-                        if (ifi <= 0)
-                                return -EINVAL;
-                        if (ifindex > 0 && (int) ifi != ifindex)
-                                continue;
+        if (rtm->rtm_table != RT_TABLE_MAIN)
+                return 0;
 
-                        union in_addr_union gateway;
-                        r = netlink_message_read_in_addr_union(m, RTA_GATEWAY, family, &gateway);
-                        if (r < 0 && r != -ENODATA)
-                                return r;
-                        if (r >= 0) {
-                                r = add_local_gateway(&list, &n_list, ifi, priority, 0, family, &gateway, &prefsrc);
-                                if (r < 0)
-                                        return r;
+        if (rtm->rtm_family != AF_INET)
+                return 0;
 
-                                continue;
-                        }
+        rta_len = hdr->nlmsg_len - NLMSG_LENGTH(sizeof(struct rtmsg));
+        for (struct rtattr *attr = RTM_RTA(rtm); RTA_OK(attr, rta_len); attr = RTA_NEXT(attr, rta_len))
+                switch (attr->rta_type & NLA_TYPE_MASK) {
+                case RTA_PRIORITY: {
+                        uint32_t v;
 
-                        if (!allow_via)
-                                continue;
+                        if (RTA_PAYLOAD(attr) != sizeof(uint32_t))
+                                return -EIO;
 
-                        if (family != AF_INET)
-                                continue;
-
-                        RouteVia via;
-                        r = sd_netlink_message_read(m, RTA_VIA, sizeof(via), &via);
-                        if (r < 0 && r != -ENODATA)
-                                return r;
-                        if (r >= 0) {
-                                if (via.family != AF_INET6)
-                                        return -EBADMSG;
-
-                                /* Ignore prefsrc, and let's take the source address by socket command, if necessary. */
-                                r = add_local_gateway(&list, &n_list, ifi, priority, 0, via.family,
-                                                      &(union in_addr_union) { .in6 = via.address.in6 },
-                                                      /* prefsrc= */ NULL);
-                                if (r < 0)
-                                        return r;
-                        }
-
-                        /* If the route has RTA_OIF, it does not have RTA_MULTIPATH. */
-                        continue;
+                        memcpy(&v, RTA_DATA(attr), sizeof(v));
+                        priority = FLAGS_SET(attr->rta_type, NLA_F_NET_BYTEORDER) ? be32toh(v) : v;
+                        break;
                 }
 
-                size_t rta_len;
-                _cleanup_free_ void *rta_multipath = NULL;
-                r = sd_netlink_message_read_data(m, RTA_MULTIPATH, &rta_len, &rta_multipath);
-                if (r < 0 && r != -ENODATA)
-                        return r;
-                if (r >= 0) {
-                        r = parse_nexthops(&list, &n_list, ifindex, allow_via, family, priority, &prefsrc, rta_multipath, rta_len);
+                case RTA_PREFSRC:
+                        if (RTA_PAYLOAD(attr) != sizeof(struct in_addr))
+                                return -EIO;
+
+                        memcpy(&prefsrc.in, RTA_DATA(attr), sizeof(struct in_addr));
+                        break;
+
+                case RTA_OIF: {
+                        uint32_t v;
+
+                        if (RTA_PAYLOAD(attr) != sizeof(uint32_t))
+                                return -EIO;
+
+                        memcpy(&v, RTA_DATA(attr), sizeof(v));
+                        oif = FLAGS_SET(attr->rta_type, NLA_F_NET_BYTEORDER) ? be32toh(v) : v;
+                        has_oif = true;
+                        break;
+                }
+
+                case RTA_GATEWAY:
+                        if (RTA_PAYLOAD(attr) != sizeof(struct in_addr))
+                                return -EIO;
+
+                        memcpy(&gateway.in, RTA_DATA(attr), sizeof(struct in_addr));
+                        has_gateway = true;
+                        break;
+
+                case RTA_VIA:
+                        if (RTA_PAYLOAD(attr) != sizeof(RouteVia))
+                                return -EIO;
+
+                        memcpy(&via, RTA_DATA(attr), sizeof(RouteVia));
+                        has_via = true;
+                        break;
+
+                case RTA_MULTIPATH:
+                        multipath = RTA_DATA(attr);
+                        multipath_size = RTA_PAYLOAD(attr);
+                        break;
+                }
+
+        if (has_oif) {
+                if (oif <= 0)
+                        return -EINVAL;
+                if (ifindex > 0 && (int) oif != ifindex)
+                        return 0;
+
+                if (has_gateway) {
+                        r = add_local_gateway(list, n_list, oif, priority, /* weight= */ 0, AF_INET,
+                                              &gateway, &prefsrc);
                         if (r < 0)
                                 return r;
+
+                        return 0;
                 }
+
+                if (!allow_via || !has_via)
+                        return 0;
+
+                if (via.family != AF_INET6)
+                        return -EBADMSG;
+
+                /* Ignore prefsrc, and let's take the source address by socket command, if necessary. */
+                r = add_local_gateway(list, n_list, oif, priority, /* weight= */ 0, AF_INET6,
+                                      &(union in_addr_union) { .in6 = via.address.in6 },
+                                      /* prefsrc= */ NULL);
+                if (r < 0)
+                        return r;
+
+                /* If the route has RTA_OIF, it does not have RTA_MULTIPATH. */
+                return 0;
+        }
+
+        if (multipath) {
+                r = parse_nexthops(list, n_list, ifindex, allow_via, AF_INET, priority, &prefsrc,
+                                   multipath, multipath_size);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int local_gateways_ipv4_dump(
+                int fd,
+                int ifindex,
+                bool allow_via,
+                struct local_address **list,
+                size_t *n_list) {
+
+        _cleanup_free_ void *buf = NULL;
+        size_t buf_size = 0;
+        int r;
+
+        struct {
+                struct nlmsghdr nlh;
+                struct rtmsg rtm;
+        } request = {
+                .nlh = {
+                        .nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg)),
+                        .nlmsg_type = RTM_GETROUTE,
+                        .nlmsg_flags = NLM_F_REQUEST|NLM_F_DUMP,
+                        .nlmsg_seq = 1,
+                },
+                .rtm = {
+                        .rtm_family = AF_INET,
+                        .rtm_protocol = RTPROT_UNSPEC,
+                        .rtm_type = RTN_UNICAST,
+                        .rtm_table = RT_TABLE_MAIN,
+                },
+        };
+
+        union sockaddr_union sa = {
+                .nl = {
+                        .nl_family = AF_NETLINK,
+                },
+        };
+
+        r = bind(fd, &sa.sa, sizeof(sa.nl));
+        if (r < 0)
+                return -errno;
+
+        r = sendto(fd, &request, sizeof(request), 0, &sa.sa, sizeof(sa.nl));
+        if (r < 0)
+                return -errno;
+
+        for (;;) {
+                struct iovec iov = IOVEC_MAKE(buf, buf_size);
+                struct msghdr msg = {
+                        .msg_iov = &iov,
+                        .msg_iovlen = 1,
+                };
+                ssize_t k;
+
+                /* The kernel generates the messages of the dump on demand, i.e. only as we read them.
+                 * Hence, wait for each message with a timeout, so that we cannot block indefinitely. */
+                r = fd_wait_for_event(fd, POLLIN, 25 * USEC_PER_SEC); /* same default timeout as for sd_netlink_call() */
+                if (r == -EINTR)
+                        continue;
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -ETIMEDOUT;
+                if (!FLAGS_SET(r, POLLIN))
+                        return -EIO;
+
+                k = recvmsg_safe(fd, &msg, MSG_PEEK|MSG_TRUNC);
+                if (k == -EINTR)
+                        continue;
+                if (k < 0)
+                        return (int) k;
+                if (k == 0)
+                        continue;
+
+                if ((size_t) k > buf_size) {
+                        if (!greedy_realloc(&buf, k, sizeof(uint8_t)))
+                                return -ENOMEM;
+                        buf_size = k;
+                        continue;
+                }
+
+                iov = IOVEC_MAKE(buf, buf_size);
+                msg = (struct msghdr) {
+                        .msg_iov = &iov,
+                        .msg_iovlen = 1,
+                };
+
+                k = recvmsg_safe(fd, &msg, 0);
+                if (k < 0)
+                        return (int) k;
+                if (k == 0)
+                        continue;
+
+                size_t len = (size_t) k;
+                for (struct nlmsghdr *hdr = buf; NLMSG_OK(hdr, len); hdr = NLMSG_NEXT(hdr, len)) {
+
+                        if (hdr->nlmsg_type == NLMSG_DONE)
+                                return 0;
+
+                        if (hdr->nlmsg_type == NLMSG_ERROR) {
+                                const struct nlmsgerr *err = NLMSG_DATA(hdr);
+
+                                if (err->error != 0)
+                                        return err->error;
+
+                                continue;
+                        }
+
+                        if (hdr->nlmsg_type != RTM_NEWROUTE)
+                                continue;
+
+                        r = local_gateway_from_raw_message(hdr, ifindex, allow_via, list, n_list);
+                        if (r < 0)
+                                return r;
+                        if (r > 0) /* First non-default route, hence no more default routes follow. */
+                                return 0;
+                }
+        }
+}
+
+static int local_gateways_ipv4(
+                sd_netlink *context,
+                int ifindex,
+                bool allow_via,
+                struct local_address **list,
+                size_t *n_list) {
+
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        /* For IPv4, the kernel stores the default routes in the single trie node with key 0, and dumps the
+         * routes of the trie in order of the keys, starting with key 0. Hence, the default routes are the
+         * first messages of the dump, and all of them are emitted before any other route. This means we can
+         * stop reading the dump as soon as we have seen the first non-default route. For IPv6, the kernel
+         * walks its route trie in post-order, and the default routes are stored at the root of the trie,
+         * hence they are the last messages of the dump, and we have to read the whole dump.
+         *
+         * Stopping the dump early would leave the remaining messages pending in the kernel, which would
+         * then disturb the next request on the same socket. Hence, we use a socket of our own, and simply
+         * close it once we are done, which also makes the kernel cancel the rest of the dump. This is only
+         * possible when the kernel supports strict dump filtering, as otherwise it would not only dump the
+         * main table, and the default routes of other tables would be interleaved with the non-default
+         * routes of the main table. If strict dump filtering is not available, we fall back to the full
+         * dump below. */
+        fd = socket(AF_NETLINK, SOCK_RAW|SOCK_CLOEXEC, NETLINK_ROUTE);
+        if (fd < 0)
+                return -errno;
+
+        r = setsockopt_int(fd, SOL_NETLINK, NETLINK_GET_STRICT_CHK, true);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to enable strict netlink route dump checks, "
+                                   "falling back to full dump: %m");
+
+                // FIXME: This compatibility code path shall be removed once kernel 4.20
+                //        becomes the new minimal baseline
+                return local_gateways_full_dump(context, AF_INET, ifindex, allow_via, list, n_list);
+        }
+
+        return local_gateways_ipv4_dump(fd, ifindex, allow_via, list, n_list);
+}
+
+int local_gateways(
+                sd_netlink *context,
+                int ifindex,
+                int af,
+                struct local_address **ret) {
+
+        _cleanup_free_ struct local_address *list = NULL;
+        size_t n_list = 0;
+        int r;
+
+        /* The RTA_VIA attribute is used only for IPv4 routes with an IPv6 gateway. If IPv4 gateways are
+         * requested (af == AF_INET), then we do not return IPv6 gateway addresses. Similarly, if IPv6
+         * gateways are requested (af == AF_INET6), then we do not return gateway addresses for IPv4 routes.
+         * So, the RTA_VIA attribute is only parsed when af == AF_UNSPEC. */
+        bool allow_via = af == AF_UNSPEC;
+
+        if (IN_SET(af, AF_UNSPEC, AF_INET)) {
+                r = local_gateways_ipv4(context, ifindex, allow_via, &list, &n_list);
+                if (r < 0)
+                        return r;
+        }
+
+        if (IN_SET(af, AF_UNSPEC, AF_INET6)) {
+                r = local_gateways_full_dump(context, AF_INET6, ifindex, /* allow_via= */ false,
+                                             &list, &n_list);
+                if (r < 0)
+                        return r;
         }
 
         typesafe_qsort(list, n_list, address_compare);
