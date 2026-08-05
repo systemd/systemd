@@ -471,7 +471,7 @@ static int config_parse_partition_flags(
 
         assert(rvalue);
 
-        r = safe_atou64(rvalue, &t->partition_flags);
+        r = safe_atoux64(rvalue, &t->partition_flags);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse partition flags, ignoring: %s", rvalue);
