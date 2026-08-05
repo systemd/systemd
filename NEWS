@@ -120,6 +120,14 @@ CHANGES WITH 262:
           report is emitted as a JSON-SEQ stream: the report object followed by
           one signature object per acquired signature.
 
+        Changes in systemd-resolved:
+
+        * Lookups of the "_gateway" hostname no longer time out on systems
+          with very large routing tables (e.g. when a full BGP route table
+          is loaded). The IPv4 routing table is now read only up to the
+          first non-default route instead of being scanned in full; the
+          IPv6 dump is unchanged.
+
 CHANGES WITH 261:
 
         Announcements of Future Feature Removals and Incompatible Changes:
