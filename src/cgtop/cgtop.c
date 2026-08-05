@@ -581,7 +581,7 @@ static void display(Hashmap *a) {
         Group *g;
         Group **array;
         signed path_columns;
-        unsigned rows, n = 0, maxtcpu = 0, maxtpath = 3; /* 3 for ellipsize() to work properly */
+        unsigned rows, n = 0, maxtcpu = 0, maxtpath = 3, maxcpu = 6; /* 3 for ellipsize() to work properly, 6 minimum for "%CPU" header */
 
         assert(a);
 
@@ -602,6 +602,10 @@ static void display(Hashmap *a) {
                               strlen(MAYBE_FORMAT_TIMESPAN((usec_t) (array[j]->cpu_usage / NSEC_PER_USEC), 0)));
                 maxtpath = MAX(maxtpath,
                                strlen(array[j]->path));
+
+                if (arg_cpu_type == CPU_PERCENTAGE && array[j]->cpu_valid)
+                        maxcpu = MAX(maxcpu,
+                                      (unsigned) snprintf(NULL, 0, "%.1f", array[j]->cpu_fraction * 100));
         }
 
         rows = lines();
@@ -610,7 +614,7 @@ static void display(Hashmap *a) {
 
         if (on_tty()) {
                 const char *on, *off;
-                int cpu_len = arg_cpu_type == CPU_PERCENTAGE ? 6 : maxtcpu;
+                int cpu_len = arg_cpu_type == CPU_PERCENTAGE ? (int) maxcpu : (int) maxtcpu;
 
                 path_columns = columns() - 36 - cpu_len;
                 if (path_columns < 10)
@@ -660,9 +664,9 @@ static void display(Hashmap *a) {
 
                 if (arg_cpu_type == CPU_PERCENTAGE) {
                         if (g->cpu_valid)
-                                printf(" %6.1f", g->cpu_fraction*100);
+                                printf(" %*.1f", (int) maxcpu, g->cpu_fraction*100);
                         else
-                                fputs("      -", stdout);
+                                printf(" %*s", (int) maxcpu, "-");
                 } else
                         printf(" %*s",
                                (int) maxtcpu,
