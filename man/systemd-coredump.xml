@@ -107,7 +107,7 @@
         which ensures that coredumps of a container are attempted to be forwarded to
         <filename>systemd-coredump@.service</filename> running inside the container, i.e the container gets
         to process and store its own core dumps. Note that
-        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         defaults to this mode if invoked with the <option>--boot</option> switch. This mode of operation is
         generally recommended for security reasons: the security-sensitive processing of the core dump is
         done within the confinements of the container itself, by the container's own code, backed by the

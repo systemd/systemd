@@ -832,7 +832,7 @@ systemd-repart -C \
 systemd-confext refresh</programlisting>
 
       <para>The DDI generated that way may be applied to the system with
-      <citerefentry><refentrytitle>systemd-confext</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+      <citerefentry><refentrytitle>systemd-confext</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
     </example>
 
     <example>
