@@ -134,6 +134,11 @@ static int config_parse_protect_version(
 
         assert(rvalue);
 
+        if (isempty(rvalue)) {
+                *protected_versions = strv_free(*protected_versions);
+                return 0;
+        }
+
         r = specifier_printf(rvalue, NAME_MAX, system_and_tmp_specifier_table, t->context->root, NULL, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
@@ -172,6 +177,11 @@ static int config_parse_min_version(
         int r;
 
         assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *version = mfree(*version);
+                return 0;
+        }
 
         r = specifier_printf(rvalue, NAME_MAX, system_and_tmp_specifier_table, t->context->root, NULL, &resolved);
         if (r < 0) {
@@ -415,6 +425,12 @@ static int config_parse_resource_ptype(
 
         assert(rvalue);
 
+        if (isempty(rvalue)) {
+                rr->partition_type = (GptPartitionType) {};
+                rr->partition_type_set = false;
+                return 0;
+        }
+
         r = gpt_partition_type_from_string(rvalue, &rr->partition_type);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
@@ -443,6 +459,12 @@ static int config_parse_partition_uuid(
 
         assert(rvalue);
 
+        if (isempty(rvalue)) {
+                t->partition_uuid = SD_ID128_NULL;
+                t->partition_uuid_set = false;
+                return 0;
+        }
+
         r = sd_id128_from_string(rvalue, &t->partition_uuid);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
@@ -470,6 +492,12 @@ static int config_parse_partition_flags(
         int r;
 
         assert(rvalue);
+
+        if (isempty(rvalue)) {
+                t->partition_flags = 0;
+                t->partition_flags_set = false;
+                return 0;
+        }
 
         r = safe_atoux64(rvalue, &t->partition_flags);
         if (r < 0) {
