@@ -176,9 +176,11 @@ cat >/etc/crypttab <<EOF
 empty_key            $IMAGE_EMPTY    $IMAGE_EMPTY_KEYFILE            headless,x-systemd.device-timeout=1m
 empty_key_erase      $IMAGE_EMPTY    $IMAGE_EMPTY_KEYFILE_ERASE      headless=1,keyfile-erase=1
 empty_key_erase_fail $IMAGE_EMPTY    $IMAGE_EMPTY_KEYFILE_ERASE_FAIL headless=1,keyfile-erase=1,keyfile-offset=4
-# Empty passphrase without try-empty-password(=yes) shouldn't work
+# empty passphrase without try-empty-password(=yes) shouldn't work
+# with both headless and with headless-recovery
 empty_fail0          $IMAGE_EMPTY    -                               headless=1
 empty_fail1          $IMAGE_EMPTY    -                               headless=1,try-empty-password=0
+empty_fail2          $IMAGE_EMPTY    -                               headless-recovery
 empty0               $IMAGE_EMPTY    -                               headless=1,try-empty-password
 empty1               $IMAGE_EMPTY    -                               headless=1,try-empty-password=1
 # This one expects the key to be under /{etc,run}/cryptsetup-keys.d/empty_nokey.key
@@ -219,7 +221,7 @@ test ! -e "$IMAGE_EMPTY_KEYFILE_ERASE"
 test -e "$IMAGE_EMPTY_KEYFILE_ERASE_FAIL"
 cryptsetup_start_and_check -f empty_key_erase_fail
 test ! -e "$IMAGE_EMPTY_KEYFILE_ERASE_FAIL"
-cryptsetup_start_and_check -f empty_fail{0..1}
+cryptsetup_start_and_check -f empty_fail{0..2}
 cryptsetup_start_and_check empty{0..1}
 # First, check if we correctly fail without any key
 cryptsetup_start_and_check -f empty_nokey
