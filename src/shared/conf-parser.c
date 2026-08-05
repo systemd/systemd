@@ -291,6 +291,7 @@ int config_parse(
                 struct stat *ret_stat) {
 
         _cleanup_free_ char *section = NULL, *continuation = NULL;
+        size_t continuation_len = 0;
         _cleanup_fclose_ FILE *ours = NULL;
         unsigned line = 0, section_line = 0;
         bool section_ignored = false, bom_seen = false;
@@ -369,18 +370,27 @@ int config_parse(
                         }
                 }
 
+                size_t l_len = strlen(l);
+
                 if (continuation) {
-                        if (strlen(continuation) + strlen(l) > LONG_LINE_MAX) {
+                        char *c;
+
+                        if (continuation_len + l_len > LONG_LINE_MAX) {
                                 if (flags & CONFIG_PARSE_WARN)
                                         log_error("%s:%u: Continuation line too long", filename, line);
                                 return -ENOBUFS;
                         }
 
-                        if (!strextend(&continuation, l)) {
+                        c = realloc(continuation, continuation_len + l_len + 1);
+                        if (!c) {
                                 if (flags & CONFIG_PARSE_WARN)
                                         log_oom();
                                 return -ENOMEM;
                         }
+
+                        continuation = c;
+                        memcpy(continuation + continuation_len, l, l_len + 1);
+                        continuation_len += l_len;
 
                         p = continuation;
                 } else
@@ -403,6 +413,8 @@ int config_parse(
                                                 log_oom();
                                         return -ENOMEM;
                                 }
+
+                                continuation_len = l_len;
                         }
 
                         continue;
@@ -427,6 +439,7 @@ int config_parse(
                 }
 
                 continuation = mfree(continuation);
+                continuation_len = 0;
         }
 
         if (continuation) {
