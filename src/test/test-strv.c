@@ -199,6 +199,12 @@ TEST(strv_join_full) {
         _cleanup_free_ char *y = strv_join_full((char **)input_table_one_empty, ", ", "foo", false);
         assert_se(y);
         ASSERT_STREQ(y, "foo");
+
+        /* When escape_separator is true, backslashes in option values must be escaped too,
+         * otherwise the re-parsed string would be misinterpreted. See issue #42787. */
+        _cleanup_free_ char *z = strv_join_full(STRV_MAKE("val1\\", "val2"), ",", NULL, true);
+        assert_se(z);
+        ASSERT_STREQ(z, "val1\\\\,val2");
 }
 
 static void test_strv_unquote_one(const char *quoted, char **list) {

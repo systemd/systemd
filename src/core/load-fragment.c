@@ -5222,6 +5222,8 @@ int config_parse_bind_paths(
                 }
                 if (r == 0)
                         break;
+                if (isempty(source))
+                        continue;
 
                 r = unit_path_printf(u, source, &sresolved);
                 if (r < 0) {

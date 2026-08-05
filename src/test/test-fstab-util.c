@@ -124,8 +124,13 @@ TEST(fstab_filter_options) {
         do_fstab_filter_options(",,,opt=x,,,,", "opt\0", 1, 1, "opt", "x", "x", "");
 
         /* escaped characters */
-        do_fstab_filter_options("opt1=\\\\,opt2=\\xff", "opt1\0", 1, 1, "opt1", "\\", "\\", "opt2=\\xff");
-        do_fstab_filter_options("opt1=\\\\,opt2=\\xff", "opt2\0", 1, 1, "opt2", "\\xff", "\\xff", "opt1=\\");
+        do_fstab_filter_options("opt1=\\\\,opt2=\\xff", "opt1\0", 1, 1, "opt1", "\\", "\\", "opt2=\\\\xff");
+        do_fstab_filter_options("opt1=\\\\,opt2=\\xff", "opt2\0", 1, 1, "opt2", "\\xff", "\\xff", "opt1=\\\\");
+
+        /* options with literal backslash should be preserved through filter round-trip.
+         * See issue #42787: strv_join_full must escape backslashes, not just the separator. */
+        do_fstab_filter_options("val1\\\\,val2", "noopt\0", 1, 0, NULL, NULL, "", "val1\\\\,val2");
+        do_fstab_filter_options("other,val1\\\\,val2", "other\0", 1, 0, "other", NULL, "", "val1\\\\,val2");
 }
 
 TEST(fstab_find_pri) {
