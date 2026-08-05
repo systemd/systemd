@@ -7,6 +7,7 @@
 #include "build.h"
 #include "cgroup-show.h"
 #include "cgroup-util.h"
+#include "cpu-set-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
@@ -582,6 +583,7 @@ static void display(Hashmap *a) {
         Group **array;
         signed path_columns;
         unsigned rows, n = 0, maxtcpu = 0, maxtpath = 3; /* 3 for ellipsize() to work properly */
+        unsigned maxpcpu = 6; /* minimum width for "%CPU" header */
 
         assert(a);
 
@@ -597,6 +599,12 @@ static void display(Hashmap *a) {
         typesafe_qsort(array, n, group_compare);
 
         /* Find the longest names in one run */
+        if (arg_cpu_type == CPU_PERCENTAGE) {
+                unsigned n_cpus;
+                if (cpus_online(&n_cpus) >= 0)
+                        maxpcpu = MAX(maxpcpu, DECIMAL_STR_WIDTH(n_cpus) + STRLEN("00.0"));
+        }
+
         for (unsigned j = 0; j < n; j++) {
                 maxtcpu = MAX(maxtcpu,
                               strlen(MAYBE_FORMAT_TIMESPAN((usec_t) (array[j]->cpu_usage / NSEC_PER_USEC), 0)));
@@ -610,7 +618,7 @@ static void display(Hashmap *a) {
 
         if (on_tty()) {
                 const char *on, *off;
-                int cpu_len = arg_cpu_type == CPU_PERCENTAGE ? 6 : maxtcpu;
+                int cpu_len = arg_cpu_type == CPU_PERCENTAGE ? (int) maxpcpu : (int) maxtcpu;
 
                 path_columns = columns() - 36 - cpu_len;
                 if (path_columns < 10)
@@ -660,9 +668,9 @@ static void display(Hashmap *a) {
 
                 if (arg_cpu_type == CPU_PERCENTAGE) {
                         if (g->cpu_valid)
-                                printf(" %6.1f", g->cpu_fraction*100);
+                                printf(" %*.1f", (int) maxpcpu, g->cpu_fraction*100);
                         else
-                                fputs("      -", stdout);
+                                printf(" %*s", (int) maxpcpu, "-");
                 } else
                         printf(" %*s",
                                (int) maxtcpu,
