@@ -6492,12 +6492,13 @@ static int shallow_join_strv(char ***ret, char **a, char **b) {
 
         STRV_FOREACH(i, a)
                 *(iter++) = *i;
+        *iter = NULL;
 
         STRV_FOREACH(i, b)
-                if (!strv_contains(joined, *i))
+                if (!strv_contains(joined, *i)) {
                         *(iter++) = *i;
-
-        *iter = NULL;
+                        *iter = NULL;
+                }
 
         *ret = TAKE_PTR(joined);
         return 0;
