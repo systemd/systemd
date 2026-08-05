@@ -238,7 +238,12 @@ static int config_parse_current_symlink(
 
         assert(rvalue);
 
-        r = specifier_printf(rvalue, NAME_MAX, system_and_tmp_specifier_table, t->context->root, NULL, &resolved);
+        if (isempty(rvalue)) {
+                *current_symlink = mfree(*current_symlink);
+                return 0;
+        }
+
+        r = specifier_printf(rvalue, PATH_MAX-1, system_and_tmp_specifier_table, t->context->root, NULL, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to expand specifiers in CurrentSymlink=, ignoring: %s", rvalue);
