@@ -134,6 +134,11 @@ static int config_parse_protect_version(
 
         assert(rvalue);
 
+        if (isempty(rvalue)) {
+                *protected_versions = strv_free(*protected_versions);
+                return 0;
+        }
+
         r = specifier_printf(rvalue, NAME_MAX, system_and_tmp_specifier_table, t->context->root, NULL, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
@@ -172,6 +177,11 @@ static int config_parse_min_version(
         int r;
 
         assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *version = mfree(*version);
+                return 0;
+        }
 
         r = specifier_printf(rvalue, NAME_MAX, system_and_tmp_specifier_table, t->context->root, NULL, &resolved);
         if (r < 0) {
