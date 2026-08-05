@@ -787,7 +787,10 @@
           <para>Additionally, all common system specifiers as documented in
           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           are available (such as <literal>%o</literal> for the OS ID, <literal>%H</literal> for the
-          hostname, etc.).</para>
+          hostname, etc.). Note that the common specifier <literal>%v</literal> expands to the
+          currently running kernel version (i.e. <command>uname -r</command>), which is not necessarily
+          the same as the kernel version being installed. Use <literal>%k</literal> to refer to the
+          kernel version being installed.</para>
 
           <para>The resolved entry name must be a valid filename (no path separators). Defaults to
           <literal>%e-%k</literal>, which produces the traditional
