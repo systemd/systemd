@@ -1165,6 +1165,31 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
                         new_file = f;
         }
 
+        /* After a cursor seek, compare_locations() might've picked up an entry from a file whose seqnum_id
+         * differs from the cursor's. This can happen on systems with an unreliable or missing RTC, so the
+         * early boot messages end up with earlier realtime timestamps than the previous boot's tail realtime
+         * timestamp. In that case, we end up preferring an entry from an earlier boot at a nearby realtime
+         * position over the exact cursor entry, due to the realtime ordering in compare_boot_ids().
+         *
+         * If the cursor's exact entry was found in another file with matching seqnum_id and seqnum, prefer
+         * it. */
+        if (new_file &&
+            j->current_location.type == LOCATION_SEEK &&
+            j->current_location.seqnum_set &&
+            !sd_id128_equal(new_file->header->seqnum_id, j->current_location.seqnum_id)) {
+
+                FOREACH_ARRAY(_f, files, n_files) {
+                        JournalFile *f = (JournalFile*) *_f;
+
+                        if (f->location_type == LOCATION_SEEK &&
+                            sd_id128_equal(f->header->seqnum_id, j->current_location.seqnum_id) &&
+                            f->current_seqnum == j->current_location.seqnum) {
+                                new_file = f;
+                                break;
+                        }
+                }
+        }
+
         if (!new_file)
                 return 0;
 
