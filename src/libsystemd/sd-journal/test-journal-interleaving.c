@@ -1328,6 +1328,84 @@ TEST(seek_time) {
         }
 }
 
+static void append_number_at(
+                JournalFile *f,
+                unsigned n,
+                const sd_id128_t *boot_id,
+                uint64_t realtime,
+                uint64_t monotonic) {
+
+        _cleanup_free_ char *p = NULL, *q = NULL;
+        dual_timestamp ts = { .realtime = realtime, .monotonic = monotonic };
+        struct iovec iovec[2];
+        size_t n_iov = 0;
+
+        ASSERT_OK(asprintf(&p, "NUMBER=%u", n));
+        iovec[n_iov++] = IOVEC_MAKE_STRING(p);
+
+        if (boot_id) {
+                ASSERT_NOT_NULL((q = strjoin("_BOOT_ID=", SD_ID128_TO_STRING(*boot_id))));
+                iovec[n_iov++] = IOVEC_MAKE_STRING(q);
+        }
+
+        ASSERT_OK(journal_file_append_entry(f, &ts, boot_id, iovec, n_iov, NULL, NULL, NULL, NULL));
+}
+
+TEST(cursor_broken_rtc) {
+        /* Reproducer for https://github.com/systemd/systemd/issues/31516.
+         *
+         * On systems without a reliable (or missing) RTC, the realtime clock can go backwards across
+         * reboots. This creates journal files where a later boot's first entries have lower realtime
+         * timestamps than the previous boot's last entries.
+         *
+         * compare_boot_ids() orders boots by their newest realtime timestamp, so it considers boot 1
+         * "earlier" than boot 2 (since boot 2 eventually catches up). But when seeking to a cursor pointing
+         * at boot 2's first entry (which has low realtime), the realtime-based positioning in boot 1's file
+         * finds a nearby entry, and compare_locations() (via compare_boot_ids()) incorrectly picks that
+         * entry because boot 1 is globally "earlier".
+         *
+         * A minimal setup for such scenario - 2 files with 3 entries:
+         *
+         *   one.journal (boot 1): entry at realtime=2s
+         *   two.journal (boot 2): entry at realtime=1s (earlier than boot 1), then entry at realtime=3s */
+        _cleanup_(test_donep) char *t = NULL;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+
+        mkdtemp_chdir_chattr("/var/tmp/journal-cursor-rtc-XXXXXX", &t);
+
+        {
+                _cleanup_(journal_file_offline_closep) JournalFile *f1 = NULL, *f2 = NULL;
+                sd_id128_t boot1, boot2;
+
+                f1 = test_open("one.journal");
+                f2 = test_open("two.journal");
+
+                ASSERT_OK(sd_id128_randomize(&boot1));
+                ASSERT_OK(sd_id128_randomize(&boot2));
+
+                log_info("boot1: %s, boot2: %s",
+                         SD_ID128_TO_STRING(boot1), SD_ID128_TO_STRING(boot2));
+
+                append_number_at(f1, 1, &boot1, 2 * USEC_PER_SEC, 100 * USEC_PER_MSEC);
+                append_number_at(f2, 2, &boot2, 1 * USEC_PER_SEC, 100 * USEC_PER_MSEC);
+                append_number_at(f2, 3, &boot2, 3 * USEC_PER_SEC, 200 * USEC_PER_MSEC);
+        }
+
+        ASSERT_OK(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
+
+        /* Test cursor seeking */
+        test_cursor(j);
+
+        /* Also verify forward and backward iterations */
+        ASSERT_OK(sd_journal_seek_head(j));
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+        test_check_numbers_down(j, 3);
+
+        ASSERT_OK(sd_journal_seek_tail(j));
+        ASSERT_OK_POSITIVE(sd_journal_previous(j));
+        test_check_numbers_up(j, 3);
+}
+
 static int intro(void) {
         /* journal_file_open() requires a valid machine id */
         if (access("/etc/machine-id", F_OK) != 0)

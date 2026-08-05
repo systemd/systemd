@@ -1127,7 +1127,7 @@ static int compare_locations(sd_journal *j, JournalFile *af, JournalFile *bf) {
 }
 
 static int real_journal_next(sd_journal *j, direction_t direction) {
-        JournalFile *new_file = NULL;
+        JournalFile *new_file = NULL, *exact_match = NULL;
         unsigned n_files;
         const void **files;
         Object *o;
@@ -1163,7 +1163,22 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
 
                 if (found)
                         new_file = f;
+
+                /* Track the file that holds the cursor's exact entry (matching seqnum_id and seqnum). On
+                 * systems without a reliable (or missing) RTC, compare_boot_ids() can produce incorrect
+                 * cross-boot ordering causing compare_locations() above to prefer a wrong file. We detect
+                 * this after the loop and override the choice if needed.
+                 *
+                 * See https://github.com/systemd/systemd/issues/31516 */
+                if (j->current_location.type == LOCATION_SEEK &&
+                    j->current_location.seqnum_set &&
+                    sd_id128_equal(f->header->seqnum_id, j->current_location.seqnum_id) &&
+                    f->current_seqnum == j->current_location.seqnum)
+                        exact_match = f;
         }
+
+        if (exact_match)
+                new_file = exact_match;
 
         if (!new_file)
                 return 0;
