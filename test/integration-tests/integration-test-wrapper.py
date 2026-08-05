@@ -406,6 +406,7 @@ def main() -> None:
     parser.add_argument('--sanitizer-exclude-regex', required=True)
     parser.add_argument('--rtc', action=argparse.BooleanOptionalAction)
     parser.add_argument('--tpm', action=argparse.BooleanOptionalAction)
+    parser.add_argument('--vm-images', action=argparse.BooleanOptionalAction)
     parser.add_argument('--skip', action=argparse.BooleanOptionalAction)
     parser.add_argument('--suppress-sync', action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument('mkosi_args', nargs='*')
@@ -581,6 +582,21 @@ def main() -> None:
 
     vm = args.vm or os.getuid() != 0 or os.getenv('TEST_PREFER_QEMU', '0') == '1'
 
+    # Tests that launch nested VMs need the mkosi-built images, which are build outputs rather than
+    # installed test artifacts. Bind the output directory read-only into the boot-mode container at
+    # /work/vm-images on request, instead of mounting the whole build tree via RuntimeBuildSources.
+    vm_images_args: list[str] = []
+    if args.vm_images and not vm:
+        output_dir = args.meson_build_dir / 'mkosi.output'
+        if output_dir.exists():
+            vm_images_args = [f'--bind-ro={os.fspath(output_dir)}:/work/vm-images']
+        else:
+            print(
+                f'--vm-images requested but {output_dir} does not exist (images not built?); '
+                f'/work/vm-images will be unavailable and tests depending on it will skip',
+                file=sys.stderr,
+            )
+
     cmd = [
         args.mkosi,
         '--directory', os.fspath(args.mkosi_dir),
@@ -626,7 +642,7 @@ def main() -> None:
         *(['--runtime-build-sources=no', '--register=no'] if not sys.stdin.isatty() else []),
         'vm' if vm else 'boot',
         *(
-            ['--', '--capability=CAP_BPF', f'--suppress-sync={"yes" if args.suppress_sync else "no"}']
+            ['--', '--capability=CAP_BPF', f'--suppress-sync={"yes" if args.suppress_sync else "no"}', *vm_images_args]
             if not vm
             else []
         ),

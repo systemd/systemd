@@ -31,6 +31,9 @@ integration_test_template = {
         'sanitizer-exclude-regex' : '',
         'rtc' : false,
         'tpm' : false,
+        # Bind the mkosi output (built images) read-only into the boot-mode container at /work/vm-images, for
+        # tests that boot a nested VM from a full image.
+        'vm-images' : false,
         'suppress-sync' : true,
 }
 
@@ -133,6 +136,10 @@ foreach integration_test : integration_tests
 
         if integration_test['tpm']
                 integration_test_args += ['--tpm']
+        endif
+
+        if integration_test['vm-images']
+                integration_test_args += ['--vm-images']
         endif
 
         if not integration_test['enabled']
