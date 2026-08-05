@@ -3137,6 +3137,53 @@ static void service_enter_reload_post(Service *s) {
                 service_reload_finish(s, SERVICE_SUCCESS);
 }
 
+static int service_check_reload_signal_handler(Service *s, const char *missing_suffix, const char *error_suffix) {
+        int r;
+
+        assert(s);
+
+        if (!pidref_is_set(&s->main_pid) || IN_SET(s->reload_signal, SIGKILL, SIGSTOP))
+                return 0;
+
+        /* Check if the process has a traditional signal handler (SigCgt) */
+        r = pidref_has_sigcgt(&s->main_pid, s->reload_signal);
+        if (r < 0) {
+                if (r != -ESRCH)
+                        log_unit_warning_errno(
+                                        UNIT(s), r,
+                                        "Failed to check for reload signal handler%s: %m",
+                                        strempty(error_suffix));
+                return r;
+        }
+
+        if (r == 0) {
+                /* No traditional handler, check if the signal is blocked (SigBlk). A blocked signal is
+                 * typically handled via signalfd, which is a valid way to handle signals (e.g., via
+                 * sd_event_add_signal() with SD_EVENT_SIGNAL_PROCMASK). */
+                r = pidref_has_sigblk(&s->main_pid, s->reload_signal);
+                if (r < 0) {
+                        if (r != -ESRCH)
+                                log_unit_warning_errno(
+                                                UNIT(s), r,
+                                                "Failed to check for blocked reload signal%s: %m",
+                                                strempty(error_suffix));
+                        return r;
+                }
+        }
+
+        if (r == 0) {
+                log_unit_warning(
+                                UNIT(s),
+                                "Main process " PID_FMT " lacks handler for reload signal %s%s.",
+                                s->main_pid.pid,
+                                signal_to_string(s->reload_signal),
+                                strempty(missing_suffix));
+                return -EOPNOTSUPP;
+        }
+
+        return 0;
+}
+
 static void service_enter_reload_signal(Service *s) {
         int r;
 
@@ -3160,6 +3207,14 @@ static void service_enter_reload_signal(Service *s) {
                         log_unit_warning_errno(UNIT(s), r, "Failed to install timer: %m");
                         goto fail;
                 }
+
+                /* This is naturally racy, but that's fine. The issue we're looking for is almost always a
+                 * static programming error (handler not yet installed), but if a user wants to shoot
+                 * themself in the foot intentionally by racing with us, who are we to stop them :-) */
+                (void) service_check_reload_signal_handler(
+                                s,
+                                ", sending reload signal anyway",
+                                ", sending reload signal anyway");
 
                 r = pidref_kill_and_sigcont(&s->main_pid, s->reload_signal);
                 if (r < 0) {
@@ -5398,6 +5453,14 @@ static void service_notify_message_process_state(Service *s, char * const *tags)
                 return;
 
         if (strv_contains(tags, "READY=1")) {
+
+                if (s->type == SERVICE_NOTIFY_RELOAD && s->state == SERVICE_START) {
+                        r = service_check_reload_signal_handler(s, ", refusing service startup", ", ignoring");
+                        if (r == -EOPNOTSUPP) {
+                                service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_PROTOCOL);
+                                return;
+                        }
+                }
 
                 if (s->notify_state == NOTIFY_RELOADING)
                         s->notify_state = NOTIFY_RELOAD_READY;
