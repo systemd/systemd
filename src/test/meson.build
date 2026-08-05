@@ -171,6 +171,7 @@ simple_tests += files(
         'test-path-lookup.c',
         'test-path-util.c',
         'test-percent-util.c',
+        'test-pidfd-util.c',
         'test-pidref.c',
         'test-plymouth-util.c',
         'test-pressure.c',
