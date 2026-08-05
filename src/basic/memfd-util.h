@@ -20,5 +20,8 @@ static inline int memfd_new_and_seal_string(const char *name, const char *s) {
 int memfd_set_sealed(int fd);
 int memfd_get_sealed(int fd);
 
+int memfd_set_fixed_size(int fd);
+int memfd_get_fixed_size(int fd);
+
 int memfd_get_size(int fd, uint64_t *ret);
 int memfd_set_size(int fd, uint64_t sz);
