@@ -47,9 +47,6 @@ jobs:
     env:
       CROSS_ARCH: ${{ matrix.cross_arch || '' }}
     steps:
-      # FIXME: revert this once https://github.com/actions/runner-images/issues/14477 is resolved
-      - name: Fix /etc and /usr ownership
-        run: sudo chown -v root:root /etc /usr
       - name: Repository checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
