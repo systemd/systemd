@@ -262,6 +262,18 @@ static void test_cursor(sd_journal *j) {
                 ASSERT_OK(sd_journal_next(j));
                 ASSERT_OK_POSITIVE(sd_journal_test_cursor(j, *c));
         }
+
+        STRV_FOREACH(c, cursors) {
+                ASSERT_OK(sd_journal_seek_cursor(j, *c));
+                ASSERT_OK(sd_journal_previous(j));
+                ASSERT_OK_POSITIVE(sd_journal_test_cursor(j, *c));
+        }
+
+        ASSERT_OK(sd_journal_seek_tail(j));
+        STRV_FOREACH_BACKWARDS(c, cursors) {
+                ASSERT_OK(sd_journal_previous(j));
+                ASSERT_OK_POSITIVE(sd_journal_test_cursor(j, *c));
+        }
 }
 
 static void test_skip_one(void (*setup)(void)) {
