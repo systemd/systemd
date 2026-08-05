@@ -429,6 +429,41 @@ GCOV_PREFIX=/tmp systemd-analyze verify --generators /tmp/testfile.service
 
 rm /tmp/testfile.service
 
+# Extra whitespace between paths in BindPaths=/BindReadOnlyPaths= should not produce spurious
+# "path is not absolute" warnings, see https://github.com/systemd/systemd/issues/43214
+cat <<EOF >/tmp/bindpaths-whitespace.service
+[Service]
+ExecStart = echo hello
+BindReadOnlyPaths=/usr/bin  /usr/lib  /lib  /lib64
+EOF
+
+# verify must succeed and produce no warnings on stderr
+out="$(systemd-analyze verify /tmp/bindpaths-whitespace.service 2>&1)"
+if [[ -n "$out" ]]; then
+    echo "Unexpected verify output:" >&2
+    echo "$out" >&2
+    exit 1
+fi
+
+# Same with line continuations that preserve leading whitespace
+rm /tmp/bindpaths-whitespace.service 2>/dev/null || true
+cat <<'EOF' >/tmp/bindpaths-whitespace.service
+[Service]
+ExecStart = echo hello
+BindReadOnlyPaths=/usr/bin \
+    /usr/lib \
+    /lib  /lib64
+EOF
+
+out="$(systemd-analyze verify /tmp/bindpaths-whitespace.service 2>&1)"
+if [[ -n "$out" ]]; then
+    echo "Unexpected verify output with line continuations:" >&2
+    echo "$out" >&2
+    exit 1
+fi
+
+rm /tmp/bindpaths-whitespace.service
+
 cat <<EOF >/tmp/img/usr/lib/systemd/system/testfile.service
 [Service]
 ExecStart = echo hello
