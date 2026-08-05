@@ -128,6 +128,7 @@ typedef struct sd_netlink_message {
         bool sealed:1;
 
         sd_netlink_message *next; /* next in a chain of multi-part messages */
+        sd_netlink_message *tail; /* last message in a multi-part chain */
 } sd_netlink_message;
 
 int message_new_empty(sd_netlink *nl, sd_netlink_message **ret);

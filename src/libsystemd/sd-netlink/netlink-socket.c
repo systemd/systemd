@@ -411,9 +411,11 @@ int socket_read_message(sd_netlink *nl) {
                                 if (existing) {
                                         /* This is the continuation of the previously read messages.
                                          * Let's append this message at the end. */
-                                        while (existing->next)
-                                                existing = existing->next;
-                                        existing->next = TAKE_PTR(m);
+                                        if (existing->tail)
+                                                existing->tail->next = m;
+                                        else
+                                                existing->next = m;
+                                        existing->tail = TAKE_PTR(m);
                                 } else {
                                         /* This is the first message. Put it into the queue for partially
                                          * received messages. */
