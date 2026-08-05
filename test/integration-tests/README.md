@@ -141,6 +141,24 @@ journal file will be saved only when the test is failed. Defaults to `fail`.
 progress and only move the journal to its final location in the build directory
 (`$BUILD_DIR/test/journal`) when the test is finished.
 
+## Confidential computing (coco) tests
+
+Tests that exercise systemd inside a confidential VM (currently `TEST-94-COCO`)
+launch a real Intel TDX or AMD SEV-SNP guest with `systemd-vmspawn --coco=`. They
+only run on a coco-capable host and skip everywhere else. A confidential VM cannot
+be nested, so these tests run in boot (nspawn) mode on a bare-metal coco host,
+as root. The host must have coco enabled in firmware and in the kernel (for SEV-SNP
+e.g. `kvm_amd.sev_snp=1`, with `/dev/sev` accessible). On a host without the requested
+technology, or when running in `mkosi vm` mode, the tests are skipped.
+
+```
+meson test
+  └─ integration-test-wrapper.py
+      └─ mkosi boot  ──►  systemd-nspawn container
+          └─ TEST-94-COCO.sh
+              └─ systemd-vmspawn --coco=<type>  ──►  confidential VM
+```
+
 ## Running the integration tests without building systemd from source
 
 If you want to run the integration tests against prebuilt systemd packages,

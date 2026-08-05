@@ -34,6 +34,7 @@ integration_test_template = {
         # Bind the mkosi output (built images) read-only into the boot-mode container at /work/vm-images, for
         # tests that boot a nested VM from a full image.
         'vm-images' : false,
+        'coco' : '',
         'suppress-sync' : true,
 }
 
@@ -109,6 +110,7 @@ foreach dirname : [
         'TEST-91-LIVEUPDATE',
         'TEST-92-TPM2-SWTPM',
         'TEST-93-CLONESETUP',
+        'TEST-94-COCO',
 ]
         subdir(dirname)
 endforeach
@@ -140,6 +142,10 @@ foreach integration_test : integration_tests
 
         if integration_test['vm-images']
                 integration_test_args += ['--vm-images']
+        endif
+
+        if integration_test['coco'] != ''
+                integration_test_args += ['--coco', integration_test['coco']]
         endif
 
         if not integration_test['enabled']
