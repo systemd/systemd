@@ -648,7 +648,7 @@
 
         <listitem><para>Takes a boolean argument or the special value <literal>headless</literal>, defaults to
         on. If off,
-        <citerefentry><refentrytitle>systemd-firstboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        <citerefentry><refentrytitle>systemd-firstboot.service</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         and
         <citerefentry><refentrytitle>systemd-homed-firstboot.service</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         will not query the user for basic system settings, even if the system boots up for the first time and
@@ -913,7 +913,7 @@
         <member><citerefentry><refentrytitle>systemd-backlight@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
         <member><citerefentry><refentrytitle>systemd-rfkill.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
         <member><citerefentry><refentrytitle>systemd-hibernate-resume-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
-        <member><citerefentry><refentrytitle>systemd-firstboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-firstboot.service</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
         <member><citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       </simplelist></para>
   </refsect1>

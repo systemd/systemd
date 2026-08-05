@@ -1047,7 +1047,7 @@ WantedBy=sleep.target</programlisting>
           <listitem><para>This template unit is used to order mount units and other consumers of block
           devices after services that synthesize these block devices. In particular, this is intended to be
           used with storage services (such as
-          <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>/
+          <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>/
           <citerefentry><refentrytitle>systemd-veritysetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>)
           that allocate and manage a virtual block device. Storage services are ordered before an instance of
           <filename>blockdev@.target</filename>, and the consumer units after it. The ordering is
