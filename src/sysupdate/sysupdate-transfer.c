@@ -736,7 +736,8 @@ static void transfer_remove_temporary(Transfer *t) {
         if (!IN_SET(t->target.type, RESOURCE_REGULAR_FILE, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME))
                 return;
 
-        /* Removes all temporary files/dirs from previous runs in the target directory, i.e. all those starting with '.#' */
+        /* Removes all temporary files/dirs from previous runs in the target directory. Clean both the
+         * current sysupdate prefixes and the legacy '.#' prefix. */
 
         d = opendir(t->target.path);
         if (!d) {
@@ -758,7 +759,9 @@ static void transfer_remove_temporary(Transfer *t) {
                         break;
                 }
 
-                if (!startswith(de->d_name, ".#"))
+                if (!startswith(de->d_name, ".#") &&
+                    !startswith(de->d_name, ".sysupdate.partial.") &&
+                    !startswith(de->d_name, ".sysupdate.pending."))
                         continue;
 
                 r = rm_rf_child(dirfd(d), de->d_name, REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_CHMOD);
