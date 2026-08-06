@@ -353,6 +353,8 @@ int verb_enable(int argc, char *argv[], uintptr_t data, void *userdata) {
                         return log_error_errno(SYNTHETIC_ERRNO(EREMOTE), "--now cannot be used with --root=.");
                 case INSTALL_CLIENT_SIDE_GLOBAL_SCOPE:
                         return log_error_errno(SYNTHETIC_ERRNO(EREMOTE), "--now cannot be used with --global.");
+                case INSTALL_CLIENT_SIDE_VENDOR:
+                        return log_error_errno(SYNTHETIC_ERRNO(EREMOTE), "--now cannot be used with --vendor.");
                 }
 
                 assert(bus);
