@@ -65,6 +65,32 @@ CHANGES WITH 262:
           selects all suitable TPM2 PCR banks; the banks can no longer be
           restricted per volume.
 
+        * Units that the vendor enabled with a .wants/, .requires/ or .upholds/
+          symlink below /usr/ are now reported as "enabled" by "systemctl
+          is-enabled" and "systemctl status". Previously such units were
+          reported as "disabled" (or "static" for instances) even though the
+          service manager acts on those symlinks and starts the units at boot,
+          which means "systemctl is-enabled" now exits 0 where it used to exit
+          1 for them. Distributions ship such symlinks for a number of units,
+          so this may be visible in packaging scripts.
+
+          "systemctl disable" can now turn such units off, which it previously
+          could not. It cannot remove the symlink, as /usr/ is frequently
+          read-only and the change would be undone by the next image update, so
+          it shadows it with a symlink to /dev/null in /etc/ instead, which
+          "systemctl enable" removes again.
+
+          A preset policy of "disable" deliberately does not do this and leaves
+          the vendor's enablement alone, so that "systemctl preset-all" keeps
+          behaving as before on existing systems: masking what a vendor wired
+          up would take units out of the boot everywhere the preset files do
+          not name what is shipped pre-wired, which they never had to.
+
+          Units without WantedBy=, RequiredBy= or UpheldBy= in their [Install]
+          section are unaffected: a dependency symlink pointing at such a unit
+          wires it up statically rather than enabling it, so it is not reported
+          as enabled and nothing takes it out of the boot.
+
         * The legacy socket for controlling systemd-udevd has been removed, and
           udevadm now unconditionally uses Varlink IPC. The legacy UNIX socket
           /run/udev/control, which is sometimes used to check whether udevd is
@@ -222,6 +248,24 @@ CHANGES WITH 262:
           byte-identical duplicate arguments are removed, keeping the last
           occurrence. These options are rejected if a kexec kernel is already
           loaded.
+
+        * "systemctl enable", "disable", "reenable", "preset" and "preset-all"
+          gained a new "--vendor" switch, which makes them operate on
+          /usr/lib/systemd/system/ instead of /etc/systemd/system/. This is
+          intended for image builds: "systemctl preset-all --vendor --root=…"
+          bakes the preset policy into the image and leaves /etc/ empty, so
+          that it remains available for the administrator and stays a
+          meaningful indicator of what was configured locally. Units enabled
+          this way remain overridable from /etc/ as usual. Only the names an
+          [Install] section asks for are touched there, so the compatibility
+          and slot names distributions ship below /usr/, such as default.target
+          or the runlevel*.target symlinks, are left where they are.
+
+          Unlike a preset into /etc/, presetting the vendor directories does
+          turn off what the vendor wired up, by removing the symlink. Anything
+          shipped pre-wired below /usr/ therefore has to be named by a preset
+          file to survive it: systemd's own 90-systemd.preset gained six such
+          entries for units it installs into sockets.target.wants/.
 
         Changes in systemd-firstboot:
 

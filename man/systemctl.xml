@@ -1088,7 +1088,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
                 <tbody>
                   <row>
                     <entry><literal>enabled</literal></entry>
-                    <entry morerows='1'>Enabled via <filename>.wants/</filename>, <filename>.requires/</filename> or <varname>Alias=</varname> symlinks (permanently in <filename>/etc/systemd/system/</filename>, or transiently in <filename>/run/systemd/system/</filename>).</entry>
+                    <entry morerows='1'>Enabled via <filename>.wants/</filename>, <filename>.requires/</filename> or <varname>Alias=</varname> symlinks (permanently in <filename>/etc/systemd/system/</filename>, or transiently in <filename>/run/systemd/system/</filename>). Units the vendor enabled with a <filename>.wants/</filename>, <filename>.requires/</filename> or <filename>.upholds/</filename> symlink below <filename>/usr/</filename> are reported as <literal>enabled</literal> too: the service manager acts on those the same way. Such enablement can be turned off from <filename>/etc/</filename>, see <option>--vendor</option> below.</entry>
                     <entry morerows='1'>0</entry>
                   </row>
                   <row>
@@ -2704,6 +2704,65 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <command>set-property</command>, make changes only
           temporarily, so that they are lost on the next
           reboot.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--vendor</option></term>
+
+        <listitem>
+          <para>When used with <command>enable</command>, <command>disable</command>,
+          <command>reenable</command>, <command>preset</command> or <command>preset-all</command>, operate on
+          the vendor unit directory <filename>/usr/lib/systemd/system/</filename> instead of
+          <filename>/etc/systemd/system/</filename> (with <option>--global</option>,
+          <filename>/usr/lib/systemd/user/</filename> instead of
+          <filename>/etc/systemd/user/</filename>). The service manager acts on the enablement symlinks
+          found there exactly like on the ones in <filename>/etc/</filename>, so units enabled this way are
+          reported as <literal>enabled</literal> and start at boot as usual.</para>
+
+          <para>This is intended for building OS images: applying the preset policy to
+          <filename>/usr/</filename> at build time leaves <filename>/etc/</filename> empty, so that it
+          remains available for the administrator, survives as the only thing a factory reset has to remove,
+          and stays a meaningful indicator of what was configured locally. It is normally used together with
+          <option>--root=</option>, though it also works without it where <filename>/usr/</filename> is
+          writable, such as inside an image build container.</para>
+
+          <para>Enablement in <filename>/usr/</filename> stays overridable: the service manager ignores a
+          dependency entry that resolves to <filename>/dev/null</filename>, so
+          <command>systemctl disable</command> turns such a unit off by placing one with the same name in
+          <filename>/etc/</filename>, and <command>systemctl enable</command> removes it again. Note that
+          <command>disable --vendor</command> deletes the symlink outright instead, since there is no higher
+          priority vendor directory to mask it from.</para>
+
+          <para>A preset policy of <literal>disable</literal> deliberately does not mask this way and leaves
+          the vendor's enablement where it is. Masking it would take units out of the boot on every system
+          whose preset files do not name what is shipped pre-wired below <filename>/usr/</filename>, which
+          they never had to. Presetting the vendor directories does take it away, by removing the symlink,
+          so anything shipped pre-wired there has to be named by a preset file to survive
+          <command>preset-all --vendor</command>.</para>
+
+          <para>Units whose [Install] section has no <varname>WantedBy=</varname>,
+          <varname>RequiredBy=</varname> or <varname>UpheldBy=</varname> are not affected by any of this: a
+          dependency symlink pointing at such a unit wires it up statically rather than enabling it, so it is
+          not reported as enabled, and neither <command>disable</command> nor a preset policy will take it
+          out of the boot.</para>
+
+          <para><varname>Alias=</varname> symlinks are treated as names rather than as switches, since
+          removing one takes the name away from everything that refers to the unit by it instead of merely
+          turning the unit off. In the vendor unit directories only the names that an <literal>[Install]</literal>
+          section asks for are considered to belong to <command>systemctl</command> at all, so the
+          compatibility and slot names distributions ship there, such as
+          <filename>default.target</filename> or the <filename>runlevel*.target</filename> symlinks, are left
+          alone. Of those, only an explicit <command>disable --vendor</command> removes any; a preset policy
+          never does, just like a preset into <filename>/etc/</filename> never does. For the same reason an
+          <varname>Alias=</varname> symlink below <filename>/usr/</filename> does not by itself make a unit
+          report as <literal>enabled</literal>.</para>
+
+          <para>This option may not be combined with <option>--runtime</option>, and it is not available for
+          <option>--user</option>. Changes are always made directly by
+          <command>systemctl</command> rather than by the service manager.</para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/>
         </listitem>
       </varlistentry>
 
