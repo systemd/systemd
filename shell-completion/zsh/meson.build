@@ -48,6 +48,7 @@ foreach item : [
         ['_systemd-sysupdate',        'ENABLE_SYSUPDATE'],
         ['_systemd-tmpfiles',         'ENABLE_TMPFILES'],
         ['_timedatectl',              'ENABLE_TIMEDATED'],
+        ['_updatectl',                'ENABLE_SYSUPDATED'],
         ['_udevadm',                  ''],
         ['_userdbctl',                ''],
         ['_varlinkctl',               ''],
