@@ -55,6 +55,7 @@ static const char *const preset_action_past_tense_table[_PRESET_ACTION_MAX] = {
         [PRESET_ENABLE]  = "enabled",
         [PRESET_DISABLE] = "disabled",
         [PRESET_IGNORE]  = "ignored",
+        [PRESET_MASK]    = "masked",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(preset_action_past_tense, PresetAction);
@@ -3441,6 +3442,18 @@ static int read_presets(RuntimeScope scope, const char *root_dir, UnitFilePreset
                                         .pattern = pattern,
                                         .action = PRESET_IGNORE,
                                 };
+
+                        } else if ((parameter = first_word(line, "mask"))) {
+                                char *pattern;
+
+                                pattern = strdup(parameter);
+                                if (!pattern)
+                                        return -ENOMEM;
+
+                                rule = (UnitFilePresetRule) {
+                                        .pattern = pattern,
+                                        .action = PRESET_MASK,
+                                };
                         }
 
                         if (rule.action != 0) {
@@ -3553,6 +3566,10 @@ static int query_presets(const char *name, const UnitFilePresets *presets, char 
                 log_debug("Preset files say ignore %s.", name);
                 return PRESET_IGNORE;
 
+        case PRESET_MASK:
+                log_debug("Preset files say mask %s.", name);
+                return PRESET_MASK;
+
         default:
                 assert_not_reached();
         }
@@ -3577,6 +3594,7 @@ static int execute_preset(
                 UnitFileFlags file_flags,
                 InstallContext *plus,
                 InstallContext *minus,
+                char **masked,
                 const LookupPaths *lp,
                 const char *config_path,
                 char * const *files,
@@ -3618,6 +3636,18 @@ static int execute_preset(
                 }
         }
 
+        if (mode == UNIT_FILE_PRESET_FULL) {
+                STRV_FOREACH(name, masked) {
+                        _cleanup_free_ char *path = path_make_absolute(*name, config_path);
+                        if (!path)
+                                return -ENOMEM;
+
+                        int q = create_symlink(lp, "/dev/null", path, false, changes, n_changes);
+                        if (r >= 0 && q < 0)
+                                r = q;
+                }
+        }
+
         return r;
 }
 
@@ -3626,6 +3656,7 @@ static int preset_prepare_one(
                 InstallContext *plus,
                 InstallContext *minus,
                 LookupPaths *lp,
+                char ***masked,
                 const char *name,
                 const UnitFilePresets *presets,
                 InstallChange **changes,
@@ -3672,6 +3703,12 @@ static int preset_prepare_one(
                 r = install_info_discover(minus, lp, name, SEARCH_FOLLOW_CONFIG_SYMLINKS,
                                           &info, changes, n_changes);
 
+        else if (r == PRESET_MASK) {
+                r = strv_extend(masked, name);
+                if (r < 0)
+                        return r;
+        }
+
         return r;
 }
 
@@ -3687,6 +3724,7 @@ int unit_file_preset(
         _cleanup_(install_context_done) InstallContext plus = {}, minus = {};
         _cleanup_(lookup_paths_done) LookupPaths lp = {};
         _cleanup_(unit_file_presets_done) UnitFilePresets presets = {};
+        _cleanup_strv_free_ char **masked = NULL;
         const char *config_path;
         int r;
 
@@ -3707,12 +3745,12 @@ int unit_file_preset(
                 return r;
 
         STRV_FOREACH(name, names) {
-                r = preset_prepare_one(scope, &plus, &minus, &lp, *name, &presets, changes, n_changes);
+                r = preset_prepare_one(scope, &plus, &minus, &lp, &masked, *name, &presets, changes, n_changes);
                 if (r < 0 && !ERRNO_IS_NEG_UNIT_ISSUE(r))
                         return r;
         }
 
-        return execute_preset(file_flags, &plus, &minus, &lp, config_path, names, mode, changes, n_changes);
+        return execute_preset(file_flags, &plus, &minus, masked, &lp, config_path, names, mode, changes, n_changes);
 }
 
 int unit_file_preset_all(
@@ -3726,6 +3764,7 @@ int unit_file_preset_all(
         _cleanup_(install_context_done) InstallContext plus = {}, minus = {};
         _cleanup_(lookup_paths_done) LookupPaths lp = {};
         _cleanup_(unit_file_presets_done) UnitFilePresets presets = {};
+        _cleanup_strv_free_ char **masked = NULL;
         const char *config_path = NULL;
         int r;
 
@@ -3765,13 +3804,13 @@ int unit_file_preset_all(
                         if (!IN_SET(de->d_type, DT_LNK, DT_REG))
                                 continue;
 
-                        r = preset_prepare_one(scope, &plus, &minus, &lp, de->d_name, &presets, changes, n_changes);
+                        r = preset_prepare_one(scope, &plus, &minus, &lp, &masked, de->d_name, &presets, changes, n_changes);
                         if (r < 0 && !ERRNO_IS_NEG_UNIT_ISSUE(r))
                                 return r;
                 }
         }
 
-        return execute_preset(file_flags, &plus, &minus, &lp, config_path, NULL, mode, changes, n_changes);
+        return execute_preset(file_flags, &plus, &minus, masked, &lp, config_path, NULL, mode, changes, n_changes);
 }
 
 static UnitFileList* unit_file_list_free(UnitFileList *f) {
