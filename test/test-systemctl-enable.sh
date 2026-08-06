@@ -846,3 +846,22 @@ ln -s ../vendor-wants.service "$root/usr/lib/systemd/system/multi-user.target.wa
 
 "$systemctl" --root="$root" is-enabled --full vendor-wants.service |
     grep "^  $root/usr/lib/systemd/system/multi-user.target.wants/vendor-wants.service\$" >/dev/null
+
+: '-------vendor user socket presets-----------------------------'
+srcdir="$(dirname "${BASH_SOURCE[0]}")/.."
+mkdir -p "$root/usr/lib/systemd/user/sockets.target.wants" "$root/usr/lib/systemd/user-preset"
+cp "$srcdir/presets/90-systemd-user.preset" "$root/usr/lib/systemd/user-preset/90-systemd.preset"
+cat >"$root/usr/lib/systemd/user-preset/99-default.preset" <<EOF
+disable *
+EOF
+
+for unit in systemd-ptybrokerd.socket systemd-storage-fs.socket; do
+    cp "$srcdir/units/user/$unit" "$root/usr/lib/systemd/user/$unit"
+    ln -s "../$unit" "$root/usr/lib/systemd/user/sockets.target.wants/$unit"
+done
+
+"$systemctl" --root="$root" --global --vendor preset-all
+
+for unit in systemd-ptybrokerd.socket systemd-storage-fs.socket; do
+    islink "$root/usr/lib/systemd/user/sockets.target.wants/$unit" "../$unit"
+done
