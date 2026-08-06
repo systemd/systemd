@@ -473,10 +473,8 @@ static int produce_plot_as_text(UnitTimes *times, const BootTimes *boot) {
 }
 
 int verb_plot(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(free_host_infop) HostInfo *host = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(unit_times_free_arrayp) UnitTimes *times = NULL;
-        _cleanup_free_ char *pretty_times = NULL;
         bool use_full_bus = arg_runtime_scope == RUNTIME_SCOPE_SYSTEM;
         BootTimes *boot;
         int n, r;
@@ -489,16 +487,6 @@ int verb_plot(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (n < 0)
                 return n;
 
-        n = pretty_boot_time(bus, &pretty_times);
-        if (n < 0)
-                return n;
-
-        if (use_full_bus || arg_runtime_scope != RUNTIME_SCOPE_SYSTEM) {
-                n = acquire_host_info(bus, &host);
-                if (n < 0)
-                        return n;
-        }
-
         n = acquire_time_data(bus, /* require_finished= */ true, &times);
         if (n <= 0)
                 return n;
@@ -507,8 +495,22 @@ int verb_plot(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         if (sd_json_format_enabled(arg_json_format_flags) || arg_table)
                 r = produce_plot_as_text(times, boot);
-        else
+        else {
+                _cleanup_(free_host_infop) HostInfo *host = NULL;
+                _cleanup_free_ char *pretty_times = NULL;
+
+                r = pretty_boot_time(bus, &pretty_times);
+                if (r < 0)
+                        return r;
+
+                if (use_full_bus || arg_runtime_scope != RUNTIME_SCOPE_SYSTEM) {
+                        r = acquire_host_info(bus, &host);
+                        if (r < 0)
+                                return r;
+                }
+
                 r = produce_plot_as_svg(times, host, boot, pretty_times);
+        }
         if (r < 0)
                 return r;
 
