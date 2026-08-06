@@ -26,6 +26,10 @@ typedef struct LookupPaths {
         char *persistent_attached;
         char *runtime_attached;
 
+        /* Where the vendor ships its units, and where "systemctl preset --vendor" places the enablement
+         * symlinks that are meant to travel with the image rather than with /etc/. */
+        char *vendor_config;
+
         /* Where to place generated unit files (i.e. those a "generator" tool generated). Note the special semantics of
          * this directory: the generators are flushed each time a "systemctl daemon-reload" is issued. The user should
          * not alter these directories directly. */
