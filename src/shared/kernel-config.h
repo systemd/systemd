@@ -12,7 +12,8 @@ int load_kernel_install_conf_at(
                 char **ret_boot_root,
                 char **ret_layout,
                 char **ret_initrd_generator,
-                char **ret_uki_generator);
+                char **ret_uki_generator,
+                char **ret_entry_name_format);
 
 static inline int load_kernel_install_conf(
                 const char *root,
@@ -21,7 +22,8 @@ static inline int load_kernel_install_conf(
                 char **ret_boot_root,
                 char **ret_layout,
                 char **ret_initrd_generator,
-                char **ret_uki_generator) {
+                char **ret_uki_generator,
+                char **ret_entry_name_format) {
 
-        return load_kernel_install_conf_at(root, XAT_FDROOT, conf_root, ret_machine_id, ret_boot_root, ret_layout, ret_initrd_generator, ret_uki_generator);
+        return load_kernel_install_conf_at(root, XAT_FDROOT, conf_root, ret_machine_id, ret_boot_root, ret_layout, ret_initrd_generator, ret_uki_generator, ret_entry_name_format);
 }
