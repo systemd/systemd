@@ -562,6 +562,13 @@
       on the file name and extension: Files named <filename>initrd*</filename> will be installed as <replaceable>INITRD-FILE</replaceable>s,
       and files named <filename>microcode*</filename> will be prepended before <replaceable>INITRD-FILE</replaceable>s.</para>
 
+      <para><varname>$KERNEL_INSTALL_ENTRY_NAME</varname> is set for the plugins to the resolved entry name,
+      derived by expanding specifiers in the entry name format string. This is the base name (without file
+      extension) used for UKI files, loader entry configuration files, and similar. By default this is
+      <literal><replaceable>ENTRY-TOKEN</replaceable>-<replaceable>KERNEL-VERSION</replaceable></literal>,
+      matching the traditional naming. See <varname>$KERNEL_INSTALL_ENTRY_NAME_FORMAT</varname> below for
+      details on the available specifiers.</para>
+
     </refsect2>
 
     <refsect2>
@@ -589,6 +596,73 @@
 
       <para>The last two variables may also be set in <filename>install.conf</filename>. Variables set in the
       environment take precedence over the values specified in the config file.</para>
+
+      <para><varname>$KERNEL_INSTALL_ENTRY_NAME_FORMAT</varname> can be set to configure the format string
+      used to derive the entry name for boot loader entries and UKI files. The format string is expanded
+      using specifier expansion. May also be configured as <varname>entry_name_format=</varname> in
+      <filename>install.conf</filename>. The following specifiers are understood:</para>
+
+      <table class='specifiers'>
+        <title>Specifiers available in <varname>$KERNEL_INSTALL_ENTRY_NAME_FORMAT</varname></title>
+        <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+          <colspec colname="spec" />
+          <colspec colname="mean" />
+          <colspec colname="detail" />
+          <thead>
+            <row>
+              <entry>Specifier</entry>
+              <entry>Meaning</entry>
+              <entry>Details</entry>
+            </row>
+          </thead>
+          <tbody>
+            <xi:include href="standard-specifiers.xml" xpointer="a"/>
+            <xi:include href="standard-specifiers.xml" xpointer="A"/>
+            <xi:include href="standard-specifiers.xml" xpointer="B"/>
+            <row>
+              <entry><literal>%e</literal></entry>
+              <entry>Entry token</entry>
+              <entry>The entry token, same as <varname>$KERNEL_INSTALL_ENTRY_TOKEN</varname>.</entry>
+            </row>
+            <xi:include href="standard-specifiers.xml" xpointer="H"/>
+            <xi:include href="standard-specifiers.xml" xpointer="l"/>
+            <xi:include href="standard-specifiers.xml" xpointer="m"/>
+            <xi:include href="standard-specifiers.xml" xpointer="M"/>
+            <xi:include href="standard-specifiers.xml" xpointer="o"/>
+            <xi:include href="standard-specifiers.xml" xpointer="q"/>
+            <row>
+              <entry><literal>%v</literal></entry>
+              <entry>Kernel version</entry>
+              <entry>The kernel version being installed. Note that unlike the common specifier <literal>%v</literal> which expands to the currently running kernel version (i.e. <command>uname -r</command>), here it refers to the target kernel version passed to <command>kernel-install</command>.</entry>
+            </row>
+            <xi:include href="standard-specifiers.xml" xpointer="w"/>
+            <xi:include href="standard-specifiers.xml" xpointer="W"/>
+            <xi:include href="standard-specifiers.xml" xpointer="percent"/>
+          </tbody>
+        </tgroup>
+      </table>
+
+      <para>The resolved entry name must be a valid filename (no path separators). Defaults to
+      <literal>%e-%v</literal>, which produces the traditional
+      <literal><replaceable>ENTRY-TOKEN</replaceable>-<replaceable>KERNEL-VERSION</replaceable></literal>
+      naming.</para>
+
+      <para>For example, setting <varname>entry_name_format=%M_%A_%a</varname> on a system with
+      <varname>IMAGE_ID=myos</varname>, <varname>IMAGE_VERSION=20250830</varname>, and architecture
+      <literal>x86-64</literal> would produce entry names like
+      <literal>myos_20250830_x86-64</literal>.</para>
+
+      <para>Note that the entry name is resolved at the time of each
+      <command>kernel-install</command> invocation. If the format string uses specifiers that
+      depend on mutable system state (e.g. <literal>%M</literal>, <literal>%A</literal>,
+      <literal>%H</literal>), and that state changes between installing and removing a kernel,
+      the <command>remove</command> operation may compute a different entry name than
+      <command>add</command> did, leaving stale files on the boot partition. The
+      <varname>entry_name_format=</varname> setting should therefore remain stable across a
+      kernel's install/remove lifecycle. Additionally, the format should produce a unique name
+      for each installed kernel, e.g. by including <literal>%v</literal> (kernel version) or
+      <literal>%A</literal> (<varname>IMAGE_VERSION</varname>); otherwise installing multiple
+      kernels will overwrite each other's boot entries.</para>
     </refsect2>
   </refsect1>
 
@@ -726,7 +800,8 @@
           <varname>BOOT_ROOT=</varname>,
           <varname>layout=</varname>,
           <varname>initrd_generator=</varname>,
-          <varname>uki_generator=</varname>.
+          <varname>uki_generator=</varname>,
+          <varname>entry_name_format=</varname>.
           See the Environment variables section above for details.</para>
 
           <xi:include href="version-info.xml" xpointer="v250"/>
