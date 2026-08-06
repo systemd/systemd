@@ -34,7 +34,7 @@ int config_parse_url_specifiers(
         }
 
         _cleanup_free_ char *resolved = NULL;
-        r = specifier_printf(rvalue, NAME_MAX, system_and_tmp_specifier_table, root, NULL, &resolved);
+        r = specifier_printf(rvalue, SIZE_MAX, system_and_tmp_specifier_table, root, NULL, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to expand specifiers in %s=, ignoring: %s", lvalue, rvalue);
@@ -90,7 +90,7 @@ int config_parse_url_specifiers_many(
         }
 
         _cleanup_free_ char *resolved = NULL;
-        r = specifier_printf(rvalue, NAME_MAX, system_and_tmp_specifier_table, root, NULL, &resolved);
+        r = specifier_printf(rvalue, SIZE_MAX, system_and_tmp_specifier_table, root, NULL, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to expand specifiers in %s=, ignoring: %s", lvalue, rvalue);
