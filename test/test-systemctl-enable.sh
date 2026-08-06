@@ -8,9 +8,10 @@ export SYSTEMD_IN_CHROOT=0
 systemctl=${1:-systemctl}
 systemd_id128=${2:-systemd-id128}
 
-unset root
+unset root vroot
 cleanup() {
     [ -n "$root" ] && rm -rf "$root"
+    [ -n "$vroot" ] && rm -rf "$vroot"
 }
 trap cleanup exit
 root=$(mktemp -d --tmpdir systemctl-test.XXXXXX)
@@ -766,3 +767,294 @@ EOF2
 # Without --root= being passed on this inspects the host, which knows nothing about this unit.
 "$systemctl" --root="$root" is-enabled --full rooted.service |
     grep "^  $root/etc/systemd/system/multi-user.target.wants/rooted.service\$" >/dev/null
+
+: '-------vendor enablement---------------------------------------'
+mkdir -p "$root/usr/lib/systemd/system"
+cat >"$root/usr/lib/systemd/system/vendor1.service" <<EOF2
+[Install]
+WantedBy=multi-user.target
+EOF2
+
+# "preset --vendor" installs into /usr/, leaving /etc/ untouched.
+mkdir -p "$root/usr/lib/systemd/system-preset"
+cat >"$root/usr/lib/systemd/system-preset/50-vendor.preset" <<EOF2
+enable vendor1.service
+EOF2
+
+"$systemctl" --root="$root" --vendor preset vendor1.service
+test -h "$root/usr/lib/systemd/system/multi-user.target.wants/vendor1.service"
+test ! -h "$root/etc/systemd/system/multi-user.target.wants/vendor1.service"
+test "$("$systemctl" --root="$root" is-enabled vendor1.service)" = "enabled"
+
+# The administrator can still turn it off, which shadows the vendor symlink from /etc/.
+"$systemctl" --root="$root" disable vendor1.service
+islink "$root/etc/systemd/system/multi-user.target.wants/vendor1.service" /dev/null
+test -h "$root/usr/lib/systemd/system/multi-user.target.wants/vendor1.service"
+test "$("$systemctl" --root="$root" is-enabled vendor1.service)" = "disabled"
+
+# Disabling twice must not undo the mask.
+"$systemctl" --root="$root" disable vendor1.service
+islink "$root/etc/systemd/system/multi-user.target.wants/vendor1.service" /dev/null
+
+# Enabling drops the mask again, leaving a real enablement symlink behind.
+"$systemctl" --root="$root" enable vendor1.service
+test -h "$root/etc/systemd/system/multi-user.target.wants/vendor1.service"
+test "$(readlink "$root/etc/systemd/system/multi-user.target.wants/vendor1.service")" != /dev/null
+test "$("$systemctl" --root="$root" is-enabled vendor1.service)" = "enabled"
+
+# "disable --vendor" removes the symlink outright: there is nothing above /usr/ to mask it from.
+"$systemctl" --root="$root" disable vendor1.service
+"$systemctl" --root="$root" --vendor disable vendor1.service
+test ! -h "$root/usr/lib/systemd/system/multi-user.target.wants/vendor1.service"
+rm -f "$root/usr/lib/systemd/system-preset/50-vendor.preset"
+
+: '-------vendor enablement of a static unit----------------------'
+# A unit without [Install] is wired up statically by its vendor symlink, not enabled by it, so it must
+# neither be reported as enabled nor be maskable.
+cat >"$root/usr/lib/systemd/system/vendor2.service" <<EOF2
+[Unit]
+Description=no Install section
+EOF2
+mkdir -p "$root/usr/lib/systemd/system/sysinit.target.wants"
+ln -s ../vendor2.service "$root/usr/lib/systemd/system/sysinit.target.wants/vendor2.service"
+
+test "$("$systemctl" --root="$root" is-enabled vendor2.service)" = "static"
+"$systemctl" --root="$root" disable vendor2.service
+test ! -h "$root/etc/systemd/system/sysinit.target.wants/vendor2.service"
+
+: '-------vendor symlinks nobody asked for------------------------'
+# Distributions ship default.target, the runlevel targets and various compatibility names below /usr/.
+# Presetting into the vendor directories must leave every one of them where it is.
+cat >"$root/usr/lib/systemd/system/vendor4.service" <<EOF2
+[Install]
+Alias=vendor4-slot.service
+WantedBy=multi-user.target
+EOF2
+mkdir -p "$root/usr/lib/systemd/system/multi-user.target.wants"
+ln -s vendor4.service "$root/usr/lib/systemd/system/vendor4-compat.service"
+ln -s vendor4.service "$root/usr/lib/systemd/system/vendor4-slot.service"
+ln -s ../vendor4.service "$root/usr/lib/systemd/system/multi-user.target.wants/vendor4.service"
+
+cat >"$root/usr/lib/systemd/system-preset/50-vendor.preset" <<EOF2
+disable vendor4.service
+EOF2
+
+"$systemctl" --root="$root" --vendor preset vendor4.service
+test ! -h "$root/usr/lib/systemd/system/multi-user.target.wants/vendor4.service"
+test -h "$root/usr/lib/systemd/system/vendor4-compat.service"
+test -h "$root/usr/lib/systemd/system/vendor4-slot.service"
+
+# An explicit disable may take back what enabling would have created, and only that.
+"$systemctl" --root="$root" --vendor disable vendor4.service
+test -h "$root/usr/lib/systemd/system/vendor4-compat.service"
+test ! -h "$root/usr/lib/systemd/system/vendor4-slot.service"
+rm -f "$root/usr/lib/systemd/system-preset/50-vendor.preset" \
+      "$root/usr/lib/systemd/system/vendor4-compat.service"
+
+: '-------vendor switch rejections--------------------------------'
+( ! "$systemctl" --root="$root" --vendor --runtime enable vendor1.service )
+( ! "$systemctl" --root="$root" --vendor --user enable vendor1.service )
+( ! "$systemctl" --root="$root" --vendor mask vendor1.service )
+( ! "$systemctl" --root="$root" --vendor is-enabled vendor1.service )
+
+: '-------is-enabled --full reports the vendor symlink--------------'
+mkdir -p "$root/usr/lib/systemd/system/multi-user.target.wants"
+cat >"$root/usr/lib/systemd/system/vendor3.service" <<EOF2
+[Install]
+WantedBy=multi-user.target
+EOF2
+ln -s ../vendor3.service "$root/usr/lib/systemd/system/multi-user.target.wants/vendor3.service"
+
+"$systemctl" --root="$root" is-enabled --full vendor3.service |
+    grep "^  $root/usr/lib/systemd/system/multi-user.target.wants/vendor3.service\$" >/dev/null
+
+: '-------vendor mode leaves static wiring alone------------------'
+# A "disable *" policy applied to /usr/ must not take statically wired units out of the boot, and
+# --vendor disable must still remove the Alias= symlink it created for such a unit.
+vroot=$(mktemp -d --tmpdir systemctl-vendor.XXXXXX)
+mkdir -p "$vroot/usr/lib/systemd/system/sysinit.target.wants" "$vroot/usr/lib/systemd/system-preset" "$vroot/etc/systemd/system"
+cat >"$vroot/usr/lib/systemd/system/vstatic.service" <<EOF2
+[Unit]
+Description=statically wired
+[Install]
+Alias=vstatic-alias.service
+EOF2
+cat >"$vroot/usr/lib/systemd/system/venabled.service" <<EOF2
+[Install]
+WantedBy=sysinit.target
+EOF2
+ln -s ../vstatic.service "$vroot/usr/lib/systemd/system/sysinit.target.wants/vstatic.service"
+ln -s ../venabled.service "$vroot/usr/lib/systemd/system/sysinit.target.wants/venabled.service"
+echo 'disable *' >"$vroot/usr/lib/systemd/system-preset/99-off.preset"
+
+"$systemctl" --root="$vroot" --vendor preset-all
+test -h "$vroot/usr/lib/systemd/system/sysinit.target.wants/vstatic.service"
+test ! -h "$vroot/usr/lib/systemd/system/sysinit.target.wants/venabled.service"
+test ! -h "$vroot/etc/systemd/system/sysinit.target.wants/vstatic.service"
+
+# --vendor enable/disable must round-trip an Alias= symlink even though the unit is statically wired:
+# only the dependency directories are off limits.
+"$systemctl" --root="$vroot" --vendor enable vstatic.service
+test -h "$vroot/usr/lib/systemd/system/vstatic-alias.service"
+"$systemctl" --root="$vroot" --vendor disable vstatic.service
+test ! -h "$vroot/usr/lib/systemd/system/vstatic-alias.service"
+test -h "$vroot/usr/lib/systemd/system/sysinit.target.wants/vstatic.service"
+
+# The protection has to match the same way removal does, or an instance of a statically wired template,
+# or an entry carrying the unit's Alias= name, slips through it.
+cat >"$vroot/usr/lib/systemd/system/vtmpl@.service" <<EOF2
+[Unit]
+Description=statically wired template
+EOF2
+ln -s ../vtmpl@.service "$vroot/usr/lib/systemd/system/sysinit.target.wants/vtmpl@one.service"
+ln -s ../vstatic.service "$vroot/usr/lib/systemd/system/sysinit.target.wants/vstatic-alias.service"
+
+"$systemctl" --root="$vroot" --vendor preset-all
+test -h "$vroot/usr/lib/systemd/system/sysinit.target.wants/vtmpl@one.service"
+test -h "$vroot/usr/lib/systemd/system/sysinit.target.wants/vstatic-alias.service"
+
+# A leftover pointing at a unit that no longer exists is not static wiring, it is rubbish to clean up.
+ln -s ../vgone.service "$vroot/usr/lib/systemd/system/sysinit.target.wants/vgone.service"
+"$systemctl" --root="$vroot" --vendor disable vgone.service || true
+test ! -h "$vroot/usr/lib/systemd/system/sysinit.target.wants/vgone.service"
+rm -f "$vroot/usr/lib/systemd/system/sysinit.target.wants/vstatic-alias.service"
+
+: '-------enable keeps an administrator mask of a static unit-----'
+mkdir -p "$vroot/etc/systemd/system/sysinit.target.wants"
+ln -s /dev/null "$vroot/etc/systemd/system/sysinit.target.wants/vstatic.service"
+"$systemctl" --root="$vroot" enable vstatic.service || true
+islink "$vroot/etc/systemd/system/sysinit.target.wants/vstatic.service" /dev/null
+"$systemctl" --root="$vroot" preset-all
+islink "$vroot/etc/systemd/system/sysinit.target.wants/vstatic.service" /dev/null
+rm -f "$vroot/etc/systemd/system/sysinit.target.wants/vstatic.service"
+
+: '-------Also= does not override a sibling preset policy---------'
+cat >"$vroot/usr/lib/systemd/system/vmain.service" <<EOF2
+[Install]
+WantedBy=sysinit.target
+Also=vaux.socket
+EOF2
+cat >"$vroot/usr/lib/systemd/system/vaux.socket" <<EOF2
+[Install]
+WantedBy=sockets.target
+EOF2
+cat >"$vroot/usr/lib/systemd/system-preset/50-mixed.preset" <<EOF2
+disable vmain.service
+enable vaux.socket
+EOF2
+# Presetting the main unit must not drag the Also= unit into the removal set: it has a preset policy of its
+# own, and by the time Also= would be expanded that policy has already been applied or is yet to be.
+"$systemctl" --root="$vroot" enable vaux.socket
+test "$("$systemctl" --root="$vroot" is-enabled vaux.socket)" = "enabled"
+"$systemctl" --root="$vroot" preset vmain.service
+test "$("$systemctl" --root="$vroot" is-enabled vmain.service)" = "disabled"
+test "$("$systemctl" --root="$vroot" is-enabled vaux.socket)" = "enabled"
+
+"$systemctl" --root="$vroot" preset-all
+test "$("$systemctl" --root="$vroot" is-enabled vaux.socket)" = "enabled"
+test "$("$systemctl" --root="$vroot" is-enabled vmain.service)" = "disabled"
+rm -rf "$vroot"
+
+: '-------querying must never write-------------------------------'
+# is-enabled --full drives a dry run through the masking code; a regression there would disable
+# units from a read-only query.
+qroot=$(mktemp -d --tmpdir systemctl-query.XXXXXX)
+mkdir -p "$qroot/usr/lib/systemd/system/multi-user.target.wants" "$qroot/etc/systemd/system"
+cat >"$qroot/usr/lib/systemd/system/q1.service" <<EOF
+[Install]
+WantedBy=multi-user.target
+EOF
+ln -s ../q1.service "$qroot/usr/lib/systemd/system/multi-user.target.wants/q1.service"
+before=$(find "$qroot/etc" | sort)
+"$systemctl" --root="$qroot" is-enabled --full q1.service >/dev/null
+"$systemctl" --root="$qroot" is-enabled q1.service >/dev/null
+test "$(find "$qroot/etc" | sort)" = "$before"
+rm -rf "$qroot"
+
+: '-------empty file masks a dependency like /dev/null does-------'
+# PID 1 treats a dependency symlink resolving to an empty file as a mask, so we must not offer to
+# mask it a second time.
+eroot=$(mktemp -d --tmpdir systemctl-empty.XXXXXX)
+mkdir -p "$eroot/usr/lib/systemd/system/multi-user.target.wants" "$eroot/etc/systemd/system/multi-user.target.wants"
+cat >"$eroot/usr/lib/systemd/system/e1.service" <<EOF
+[Install]
+WantedBy=multi-user.target
+EOF
+ln -s ../e1.service "$eroot/usr/lib/systemd/system/multi-user.target.wants/e1.service"
+: >"$eroot/etc/empty"
+ln -s /etc/empty "$eroot/etc/systemd/system/multi-user.target.wants/e1.service"
+test "$("$systemctl" --root="$eroot" is-enabled e1.service)" = "disabled"
+
+# The same, but as a plain empty file rather than a symlink to one: PID 1 honours both.
+mkdir -p "$eroot/etc/systemd/system/sockets.target.wants"
+cat >"$eroot/usr/lib/systemd/system/e2.service" <<EOF
+[Install]
+WantedBy=sockets.target
+EOF
+mkdir -p "$eroot/usr/lib/systemd/system/sockets.target.wants"
+ln -s ../e2.service "$eroot/usr/lib/systemd/system/sockets.target.wants/e2.service"
+: >"$eroot/etc/systemd/system/sockets.target.wants/e2.service"
+test "$("$systemctl" --root="$eroot" is-enabled e2.service)" = "disabled"
+
+# A non-empty regular file is not a mask, but it still shadows the vendor symlink, and PID 1 then
+# ignores it for not being a symlink. Either way the unit is not pulled in.
+printf 'junk\n' >"$eroot/etc/systemd/system/sockets.target.wants/e2.service"
+test "$("$systemctl" --root="$eroot" is-enabled e2.service)" = "disabled"
+rm -f "$eroot/etc/systemd/system/sockets.target.wants/e2.service"
+# log_info() writes to stderr, so redirect or this captures nothing either way
+test -z "$("$systemctl" --root="$eroot" disable e1.service 2>&1)"
+rm -rf "$eroot"
+
+: '-------no pointless mask inside the vendor directory-----------'
+# --vendor writes to /usr/lib/systemd/system/, which is LOWER priority than /usr/local/lib/. A mask
+# placed there would shadow nothing, so it must not be written at all.
+lroot=$(mktemp -d --tmpdir systemctl-local.XXXXXX)
+mkdir -p "$lroot/usr/local/lib/systemd/system/multi-user.target.wants" "$lroot/usr/lib/systemd/system" "$lroot/etc/systemd/system"
+cat >"$lroot/usr/lib/systemd/system/l1.service" <<EOF
+[Install]
+WantedBy=multi-user.target
+EOF
+ln -s /usr/lib/systemd/system/l1.service "$lroot/usr/local/lib/systemd/system/multi-user.target.wants/l1.service"
+"$systemctl" --root="$lroot" --vendor disable l1.service
+test ! -h "$lroot/usr/lib/systemd/system/multi-user.target.wants/l1.service"
+rm -rf "$lroot"
+
+: '-------any entry shadows the vendor symlink below it------------'
+# conf_files_list_strv() lets whatever sits in the higher priority dependency directory win, and
+# PID 1 then ignores anything that is not a symlink. Our verdict has to agree.
+sroot=$(mktemp -d --tmpdir systemctl-shadow.XXXXXX)
+mkdir -p "$sroot/usr/lib/systemd/system/multi-user.target.wants" "$sroot/etc/systemd/system/multi-user.target.wants"
+cat >"$sroot/usr/lib/systemd/system/s1.service" <<EOF
+[Install]
+WantedBy=multi-user.target
+EOF
+ln -s ../s1.service "$sroot/usr/lib/systemd/system/multi-user.target.wants/s1.service"
+entry="$sroot/etc/systemd/system/multi-user.target.wants/s1.service"
+
+test "$("$systemctl" --root="$sroot" is-enabled s1.service)" = "enabled"
+
+printf 'junk\n' >"$entry"
+test "$("$systemctl" --root="$sroot" is-enabled s1.service)" = "disabled"
+rm -f "$entry"
+
+mkdir "$entry"
+test "$("$systemctl" --root="$sroot" is-enabled s1.service)" = "disabled"
+rmdir "$entry"
+
+# A dangling symlink is still a dependency as far as PID 1 is concerned.
+ln -s ../nope.service "$entry"
+test "$("$systemctl" --root="$sroot" is-enabled s1.service)" = "enabled"
+rm -f "$entry"
+
+# Since a non-symlink already shadows the vendor symlink, disable has nothing left to do there, and
+# must not try to replace it: that would either fail or destroy whatever is sitting there.
+mkdir "$entry"
+"$systemctl" --root="$sroot" disable s1.service
+test -d "$entry"
+rmdir "$entry"
+
+printf 'junk\n' >"$entry"
+"$systemctl" --root="$sroot" disable s1.service
+test "$(cat "$entry")" = "junk"
+rm -f "$entry"
+rm -rf "$sroot"

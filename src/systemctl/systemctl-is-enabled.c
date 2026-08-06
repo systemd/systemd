@@ -34,6 +34,10 @@ static int show_installation_targets_client_side(const char *name) {
         FOREACH_ARRAY(c, changes, n_changes)
                 if (c->type == INSTALL_CHANGE_UNLINK)
                         printf("  %s\n", c->path);
+                else if (c->type == INSTALL_CHANGE_MASK_DEPENDENCY)
+                        /* Enabled by the vendor: report the symlink that does it, not the mask that would
+                         * be created to shadow it. */
+                        printf("  %s\n", c->source);
 
         return 0;
 }
