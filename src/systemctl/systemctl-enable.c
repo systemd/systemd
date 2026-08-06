@@ -260,6 +260,15 @@ int verb_enable(int argc, char *argv[], uintptr_t data, void *userdata) {
                 r = install_changes_dump(r, verb, changes, n_changes, arg_quiet);
                 if (r < 0)
                         return r;
+
+                /* We wrote below /usr/ on a system whose manager is running, so it has not seen any of this
+                 * yet. Every other reason to end up here leaves no manager to tell. Graceful: the files are
+                 * already in place, and failing to reach the manager must not turn that into an error. */
+                if (install_client_side() == INSTALL_CLIENT_SIDE_VENDOR && !arg_no_reload) {
+                        r = daemon_reload(ACTION_RELOAD, /* graceful= */ true);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         if (carries_install_info == 0 && !ignore_carries_install_info)
@@ -353,6 +362,8 @@ int verb_enable(int argc, char *argv[], uintptr_t data, void *userdata) {
                         return log_error_errno(SYNTHETIC_ERRNO(EREMOTE), "--now cannot be used with --root=.");
                 case INSTALL_CLIENT_SIDE_GLOBAL_SCOPE:
                         return log_error_errno(SYNTHETIC_ERRNO(EREMOTE), "--now cannot be used with --global.");
+                case INSTALL_CLIENT_SIDE_VENDOR:
+                        return log_error_errno(SYNTHETIC_ERRNO(EREMOTE), "--now cannot be used with --vendor.");
                 }
 
                 assert(bus);

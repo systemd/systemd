@@ -76,6 +76,7 @@ typedef enum InstallClientSide {
         INSTALL_CLIENT_SIDE_OFFLINE,
         INSTALL_CLIENT_SIDE_NOT_BOOTED,
         INSTALL_CLIENT_SIDE_GLOBAL_SCOPE,
+        INSTALL_CLIENT_SIDE_VENDOR,
 } InstallClientSide;
 
 InstallClientSide install_client_side(void);
