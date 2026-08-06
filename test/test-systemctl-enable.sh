@@ -8,7 +8,7 @@ export SYSTEMD_IN_CHROOT=0
 systemctl=${1:-systemctl}
 systemd_id128=${2:-systemd-id128}
 
-unset root
+unset root vroot
 cleanup() {
     [ -n "$root" ] && rm -rf "$root"
 }
@@ -766,3 +766,56 @@ EOF2
 # Without --root= being passed on this inspects the host, which knows nothing about this unit.
 "$systemctl" --root="$root" is-enabled --full rooted.service |
     grep "^  $root/etc/systemd/system/multi-user.target.wants/rooted.service\$" >/dev/null
+
+: '-------vendor enablement---------------------------------------'
+# The install layer behaviour is covered by test-install-root; this is the command line on top of it.
+# WantedBy=, RequiredBy= and UpheldBy= go through the same code but land in different directories,
+# so walk all three.
+mkdir -p "$root/usr/lib/systemd/system" "$root/usr/lib/systemd/system-preset"
+
+for pair in WantedBy:wants RequiredBy:requires UpheldBy:upholds; do
+    key="${pair%%:*}"
+    dir="multi-user.target.${pair##*:}"
+    unit="vendor-${pair##*:}.service"
+
+    cat >"$root/usr/lib/systemd/system/$unit" <<EOF2
+[Install]
+$key=multi-user.target
+EOF2
+    cat >"$root/usr/lib/systemd/system-preset/50-vendor.preset" <<EOF2
+enable $unit
+EOF2
+
+    "$systemctl" --root="$root" --vendor preset "$unit"
+    test -h "$root/usr/lib/systemd/system/$dir/$unit"
+    test ! -h "$root/etc/systemd/system/$dir/$unit"
+    test "$("$systemctl" --root="$root" is-enabled "$unit")" = "enabled"
+
+    # The administrator can still turn it off, which shadows the vendor symlink from /etc/.
+    "$systemctl" --root="$root" disable "$unit"
+    islink "$root/etc/systemd/system/$dir/$unit" /dev/null
+    test "$("$systemctl" --root="$root" is-enabled "$unit")" = "disabled"
+
+    "$systemctl" --root="$root" enable "$unit"
+    test "$("$systemctl" --root="$root" is-enabled "$unit")" = "enabled"
+
+    # "disable --vendor" removes the symlink outright: there is nothing above /usr/ to mask it from.
+    "$systemctl" --root="$root" disable "$unit"
+    "$systemctl" --root="$root" --vendor disable "$unit"
+    test ! -h "$root/usr/lib/systemd/system/$dir/$unit"
+    rm -f "$root/usr/lib/systemd/system-preset/50-vendor.preset" \
+          "$root/etc/systemd/system/$dir/$unit"
+done
+
+: '-------vendor switch rejections--------------------------------'
+( ! "$systemctl" --root="$root" --vendor --runtime enable vendor-wants.service )
+( ! "$systemctl" --root="$root" --vendor --user enable vendor-wants.service )
+( ! "$systemctl" --root="$root" --vendor mask vendor-wants.service )
+( ! "$systemctl" --root="$root" --vendor is-enabled vendor-wants.service )
+
+: '-------is-enabled --full reports the vendor symlink------------'
+mkdir -p "$root/usr/lib/systemd/system/multi-user.target.wants"
+ln -s ../vendor-wants.service "$root/usr/lib/systemd/system/multi-user.target.wants/vendor-wants.service"
+
+"$systemctl" --root="$root" is-enabled --full vendor-wants.service |
+    grep "^  $root/usr/lib/systemd/system/multi-user.target.wants/vendor-wants.service\$" >/dev/null

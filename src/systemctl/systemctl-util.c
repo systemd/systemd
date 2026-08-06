@@ -903,6 +903,11 @@ InstallClientSide install_client_side(void) {
         if (!isempty(arg_root))
                 return INSTALL_CLIENT_SIDE_ARG_ROOT;
 
+        /* The bus API has no flag for this, and populating the vendor unit directory is a job for whoever
+         * builds the image, not for the running manager. */
+        if (arg_vendor)
+                return INSTALL_CLIENT_SIDE_VENDOR;
+
         if (running_in_chroot_or_offline())
                 return INSTALL_CLIENT_SIDE_OFFLINE;
 
@@ -941,7 +946,8 @@ bool show_preset_for_state(UnitFileState state) {
 
 UnitFileFlags unit_file_flags_from_args(void) {
         return (arg_runtime ? UNIT_FILE_RUNTIME : 0) |
-               (arg_force   ? UNIT_FILE_FORCE   : 0);
+               (arg_force   ? UNIT_FILE_FORCE   : 0) |
+               (arg_vendor  ? UNIT_FILE_VENDOR  : 0);
 }
 
 int mangle_names(const char *operation, char * const *original_names, char ***ret) {
