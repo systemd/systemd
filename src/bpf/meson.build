@@ -297,14 +297,14 @@ if use_provided_vmlinux_h
         bpf_o_unstripped_cmd += ['-I' + fs.parent(provided_vmlinux_h_path)]
         message(f'Using provided @provided_vmlinux_h_path@')
 elif use_generated_vmlinux_h
-        vmlinux_h_dependency = custom_target(
+        vmlinux_h_path = meson.current_build_dir() / 'vmlinux.h'
+        configure_file(
                 output: 'vmlinux.h',
                 command : [ bpftool, 'btf', 'dump', 'file', '/sys/kernel/btf/vmlinux', 'format', 'c' ],
                 capture : true)
 
-        bpf_o_unstripped_cmd += ['-I' + fs.parent(vmlinux_h_dependency.full_path())]
-        generated_sources += vmlinux_h_dependency
-        message('Using generated @0@'.format(vmlinux_h_dependency.full_path()))
+        bpf_o_unstripped_cmd += ['-I' + fs.parent(vmlinux_h_path)]
+        message('Using generated @0@'.format(vmlinux_h_path))
 else
         message('Using neither provided nor generated vmlinux.h, some features will not be available.')
 endif
@@ -313,14 +313,18 @@ conf.set10('HAVE_VMLINUX_H', use_provided_vmlinux_h or use_generated_vmlinux_h)
 
 # 'enum lsm_integrity_type' was added together with the bdev_setintegrity LSM
 # hook in kernel commit 2deeb6c333e5 (v6.5). The generated vmlinux.h reflects
-# the running kernel's BTF; a provided vmlinux.h can be older, so probe.
+# the running kernel's BTF, which may lack the type if the relevant LSM support
+# is disabled in the kernel config; a provided vmlinux.h can be older, so probe.
 have_lsm_integrity_type = false
-if use_generated_vmlinux_h
-        have_lsm_integrity_type = true
-elif use_provided_vmlinux_h
+if use_generated_vmlinux_h or use_provided_vmlinux_h
+        lsm_integrity_vmlinux_h_path = provided_vmlinux_h_path
+        if use_generated_vmlinux_h
+                lsm_integrity_vmlinux_h_path = vmlinux_h_path
+        endif
+
         have_lsm_integrity_type = cc.compiles(
-                '#include "@0@"\nenum lsm_integrity_type _t;\n'.format(provided_vmlinux_h_path),
-                name : 'enum lsm_integrity_type in vmlinux.h')
+                '#include "@0@"\nenum lsm_integrity_type _t = LSM_INT_DMVERITY_SIG_VALID;\n'.format(lsm_integrity_vmlinux_h_path),
+                name : 'bdev_setintegrity LSM types in vmlinux.h')
 endif
 conf.set10('HAVE_LSM_INTEGRITY_TYPE', have_lsm_integrity_type)
 
