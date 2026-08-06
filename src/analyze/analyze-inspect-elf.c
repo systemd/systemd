@@ -55,7 +55,7 @@ static int analyze_elf(char **filenames, sd_json_format_flags_t json_flags) {
 
                         JSON_VARIANT_OBJECT_FOREACH(module_name, module_json, package_metadata) {
                                 const char *field_name;
-                                sd_json_variant *field;
+                                sd_json_variant *field, *contains, *component;
 
                                 /* The ELF type and architecture are added as top-level objects,
                                  * since they are only parsed for the file itself, but the packaging
@@ -94,6 +94,9 @@ static int analyze_elf(char **filenames, sd_json_format_flags_t json_flags) {
                                                 return table_log_add_error(r);
                                 }
 
+                                /* The module object holds the "main" package's fields (and the build-id)
+                                 * directly. Print them; the "contains" array (additional packages) is not a
+                                 * string, so it is skipped here and handled separately below. */
                                 JSON_VARIANT_OBJECT_FOREACH(field_name, field, module_json)
                                         if (sd_json_variant_is_string(field)) {
                                                 r = table_add_many(
@@ -103,6 +106,24 @@ static int analyze_elf(char **filenames, sd_json_format_flags_t json_flags) {
                                                 if (r < 0)
                                                         return table_log_add_error(r);
                                         }
+
+                                /* Then print each additional contained package as its own paragraph. */
+                                contains = sd_json_variant_by_key(module_json, "contains");
+                                JSON_VARIANT_ARRAY_FOREACH(component, contains) {
+                                        r = table_add_many(t, TABLE_EMPTY, TABLE_EMPTY);
+                                        if (r < 0)
+                                                return table_log_add_error(r);
+
+                                        JSON_VARIANT_OBJECT_FOREACH(field_name, field, component)
+                                                if (sd_json_variant_is_string(field)) {
+                                                        r = table_add_many(
+                                                                        t,
+                                                                        TABLE_FIELD, field_name,
+                                                                        TABLE_STRING, sd_json_variant_string(field));
+                                                        if (r < 0)
+                                                                return table_log_add_error(r);
+                                                }
+                                }
                         }
                 }
 
