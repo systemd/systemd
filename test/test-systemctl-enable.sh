@@ -8,7 +8,7 @@ export SYSTEMD_IN_CHROOT=0
 systemctl=${1:-systemctl}
 systemd_id128=${2:-systemd-id128}
 
-unset root
+unset root vroot
 cleanup() {
     [ -n "$root" ] && rm -rf "$root"
 }
@@ -766,3 +766,47 @@ EOF2
 # Without --root= being passed on this inspects the host, which knows nothing about this unit.
 "$systemctl" --root="$root" is-enabled --full rooted.service |
     grep "^  $root/etc/systemd/system/multi-user.target.wants/rooted.service\$" >/dev/null
+
+: '-------vendor enablement---------------------------------------'
+# The install layer behaviour is covered by test-install-root; this is the command line on top of it.
+mkdir -p "$root/usr/lib/systemd/system" "$root/usr/lib/systemd/system-preset"
+cat >"$root/usr/lib/systemd/system/vendor1.service" <<EOF2
+[Install]
+WantedBy=multi-user.target
+EOF2
+cat >"$root/usr/lib/systemd/system-preset/50-vendor.preset" <<EOF2
+enable vendor1.service
+EOF2
+
+"$systemctl" --root="$root" --vendor preset vendor1.service
+test -h "$root/usr/lib/systemd/system/multi-user.target.wants/vendor1.service"
+test ! -h "$root/etc/systemd/system/multi-user.target.wants/vendor1.service"
+test "$("$systemctl" --root="$root" is-enabled vendor1.service)" = "enabled"
+
+# The administrator can still turn it off, which shadows the vendor symlink from /etc/.
+"$systemctl" --root="$root" disable vendor1.service
+islink "$root/etc/systemd/system/multi-user.target.wants/vendor1.service" /dev/null
+test "$("$systemctl" --root="$root" is-enabled vendor1.service)" = "disabled"
+
+"$systemctl" --root="$root" enable vendor1.service
+test "$("$systemctl" --root="$root" is-enabled vendor1.service)" = "enabled"
+
+# "disable --vendor" removes the symlink outright: there is nothing above /usr/ to mask it from.
+"$systemctl" --root="$root" disable vendor1.service
+"$systemctl" --root="$root" --vendor disable vendor1.service
+test ! -h "$root/usr/lib/systemd/system/multi-user.target.wants/vendor1.service"
+rm -f "$root/usr/lib/systemd/system-preset/50-vendor.preset" \
+      "$root/etc/systemd/system/multi-user.target.wants/vendor1.service"
+
+: '-------vendor switch rejections--------------------------------'
+( ! "$systemctl" --root="$root" --vendor --runtime enable vendor1.service )
+( ! "$systemctl" --root="$root" --vendor --user enable vendor1.service )
+( ! "$systemctl" --root="$root" --vendor mask vendor1.service )
+( ! "$systemctl" --root="$root" --vendor is-enabled vendor1.service )
+
+: '-------is-enabled --full reports the vendor symlink------------'
+mkdir -p "$root/usr/lib/systemd/system/multi-user.target.wants"
+ln -s ../vendor1.service "$root/usr/lib/systemd/system/multi-user.target.wants/vendor1.service"
+
+"$systemctl" --root="$root" is-enabled --full vendor1.service |
+    grep "^  $root/usr/lib/systemd/system/multi-user.target.wants/vendor1.service\$" >/dev/null
