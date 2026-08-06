@@ -2890,12 +2890,22 @@ static int method_get_unit_file_links(sd_bus_message *message, void *userdata, s
         if (r < 0)
                 return log_error_errno(r, "Failed to get file links for %s: %m", name);
 
-        for (i = 0; i < n_changes; i++)
-                if (changes[i].type == INSTALL_CHANGE_UNLINK) {
-                        r = sd_bus_message_append(reply, "s", changes[i].path);
-                        if (r < 0)
-                                return r;
-                }
+        for (i = 0; i < n_changes; i++) {
+                const char *link;
+
+                /* For units enabled by the vendor the dry run reports the mask that would shadow the vendor
+                 * symlink. Report the vendor symlink itself, that's the one that enables the unit. */
+                if (changes[i].type == INSTALL_CHANGE_UNLINK)
+                        link = changes[i].path;
+                else if (changes[i].type == INSTALL_CHANGE_MASK_DEPENDENCY)
+                        link = changes[i].source;
+                else
+                        continue;
+
+                r = sd_bus_message_append(reply, "s", link);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_bus_message_close_container(reply);
         if (r < 0)
