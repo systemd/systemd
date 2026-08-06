@@ -60,6 +60,7 @@ foreach item : [
         ['systemd-vpick',       ''],
         ['timedatectl',         'ENABLE_TIMEDATED'],
         ['udevadm',             ''],
+        ['updatectl',           'ENABLE_SYSUPDATED'],
         ['userdbctl',           'ENABLE_USERDB'],
         ['varlinkctl',          ''],
 ]
