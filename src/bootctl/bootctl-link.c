@@ -859,7 +859,14 @@ static int run_link_now(LinkContext *c) {
 
         for (unsigned p = 0; p < UNIFIED_PROFILES_MAX; p++) {
                 _cleanup_free_ char *osrelease = NULL, *profile = NULL;
-                r = pe_find_uki_sections(c->kernel_fd, j, p, &osrelease, &profile, /* ret_cmdline= */ NULL);
+                r = pe_find_uki_sections(
+                                c->kernel_fd,
+                                j,
+                                p,
+                                &osrelease,
+                                &profile,
+                                /* ret_cmdline= */ NULL,
+                                /* ret_uname= */ NULL);
                 if (r < 0)
                         return r;
                 if (r == 0) /* this profile does not exist, we are done */
