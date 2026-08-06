@@ -59,6 +59,7 @@ foreach item : [
         ['systemd-vmspawn',     'ENABLE_VMSPAWN'],
         ['systemd-vpick',       ''],
         ['timedatectl',         'ENABLE_TIMEDATED'],
+        ['updatectl',           'ENABLE_SYSUPDATED'],
         ['udevadm',             ''],
         ['userdbctl',           'ENABLE_USERDB'],
         ['varlinkctl',          ''],
