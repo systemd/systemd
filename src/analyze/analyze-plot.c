@@ -489,16 +489,6 @@ int verb_plot(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (n < 0)
                 return n;
 
-        n = pretty_boot_time(bus, &pretty_times);
-        if (n < 0)
-                return n;
-
-        if (use_full_bus || arg_runtime_scope != RUNTIME_SCOPE_SYSTEM) {
-                n = acquire_host_info(bus, &host);
-                if (n < 0)
-                        return n;
-        }
-
         n = acquire_time_data(bus, /* require_finished= */ true, &times);
         if (n <= 0)
                 return n;
@@ -507,8 +497,19 @@ int verb_plot(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         if (sd_json_format_enabled(arg_json_format_flags) || arg_table)
                 r = produce_plot_as_text(times, boot);
-        else
+        else {
+                n = pretty_boot_time(bus, &pretty_times);
+                if (n < 0)
+                        return n;
+
+                if (use_full_bus || arg_runtime_scope != RUNTIME_SCOPE_SYSTEM) {
+                        n = acquire_host_info(bus, &host);
+                        if (n < 0)
+                                return n;
+                }
+
                 r = produce_plot_as_svg(times, host, boot, pretty_times);
+        }
         if (r < 0)
                 return r;
 
