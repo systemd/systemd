@@ -140,11 +140,11 @@
               </row>
               <row>
                 <entry><varname>OnUnitActiveSec=</varname></entry>
-                <entry>Defines a timer relative to when the unit the timer unit is activating was last activated.</entry>
+                <entry>Defines a timer relative to when the unit — that the timer unit is activating — was last activated.</entry>
               </row>
               <row>
                 <entry><varname>OnUnitInactiveSec=</varname></entry>
-                <entry>Defines a timer relative to when the unit the timer unit is activating was last deactivated.</entry>
+                <entry>Defines a timer relative to when the unit — that the timer unit is activating — was last deactivated.</entry>
               </row>
             </tbody>
           </tgroup>
