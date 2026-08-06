@@ -180,8 +180,13 @@ int terminal_urlify_path(const char *path, const char *text, char **ret) {
 int terminal_urlify_man_full(const char *page, const char *section, const char *suffix, char **ret) {
         const char *url, *text;
 
-        url = strjoina("man:", page, "(", section, ")");
-        text = strjoina(page, "(", section, ")", suffix);
+        if (section) {
+                url = strjoina("man:", page, "(", section, ")");
+                text = strjoina(page, "(", section, ")", suffix);
+        } else {
+                url = strjoina("man:", page);
+                text = strjoina(page, suffix);
+        }
 
         return terminal_urlify(url, text, ret);
 }

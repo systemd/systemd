@@ -14,7 +14,6 @@
 #include "main-func.h"
 #include "options.h"
 #include "parse-argument.h"
-#include "pretty-print.h"
 #include "string-util.h"
 #include "strv.h"
 #include "verbs.h"
@@ -25,6 +24,13 @@ static bool arg_value = false;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
+
+COMMAND(
+        "systemd-id128\0",
+        "Generate and print 128-bit identifiers.",
+        .man_pages = "systemd-id128.1\0",
+        .pager_flags = &arg_pager_flags,
+);
 
 static int print_id(sd_id128_t id) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
@@ -228,46 +234,7 @@ static int verb_show(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return 0;
 }
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-id128", "1", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        /* Make the 1st column same width in both tables */
-        (void) table_sync_column_widths(0, options, verbs);
-
-        printf("%s [OPTIONS...] COMMAND\n\n"
-               "%sGenerate and print 128-bit identifiers.%s\n"
-               "\nCommands:\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        printf("\nOptions:\n");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
-
-VERB_COMMON_HELP(help);
+VERB_COMMON_HELP_AUTO("systemd-id128");
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         int r;
@@ -280,7 +247,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-id128");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -326,6 +293,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION('u', "uuid", NULL, "Output in UUID format"):
                         arg_mode = ID128_PRINT_UUID;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
                 }
 
         if (arg_mode == ID128_PRINT_PRETTY && sd_json_format_enabled(arg_json_format_flags))
