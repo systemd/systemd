@@ -20,7 +20,7 @@ static int property_get_where(
                 void *userdata,
                 sd_bus_error *reterr_error) {
 
-        Mount *m = ASSERT_PTR(userdata);
+        Mount *m = ASSERT_PTR(MOUNT(userdata));
 
         assert(bus);
         assert(reply);
@@ -42,7 +42,7 @@ static int property_get_what(
                 sd_bus_error *reterr_error) {
 
         _cleanup_free_ char *escaped = NULL;
-        Mount *m = ASSERT_PTR(userdata);
+        Mount *m = ASSERT_PTR(MOUNT(userdata));
 
         assert(bus);
         assert(reply);
@@ -64,7 +64,7 @@ static int property_get_options(
                 sd_bus_error *reterr_error) {
 
         _cleanup_free_ char *escaped = NULL;
-        Mount *m = ASSERT_PTR(userdata);
+        Mount *m = ASSERT_PTR(MOUNT(userdata));
 
         assert(bus);
         assert(reply);
