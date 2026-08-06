@@ -139,6 +139,7 @@ static void boot_entry_free(BootEntry *entry) {
         free(entry->show_title);
         free(entry->sort_key);
         free(entry->version);
+        free(entry->uname);
         free(entry->machine_id);
         free(entry->architecture);
         strv_free(entry->options);
@@ -924,6 +925,7 @@ static int boot_entry_load_unified(
                 const char *osrelease_text,
                 const char *profile_text,
                 const char *cmdline_text,
+                const char *uname_text,
                 BootEntry *ret) {
 
         int r;
@@ -1009,6 +1011,12 @@ static int boot_entry_load_unified(
         tmp.options = strv_new(cmdline_text);
         if (!tmp.options)
                 return log_oom();
+
+        if (uname_text) {
+                tmp.uname = strdup(uname_text);
+                if (!tmp.uname)
+                        return log_oom();
+        }
 
         if (profile_title)
                 tmp.title = strjoin(good_name, " (", profile_title, ")");
@@ -1158,9 +1166,10 @@ int pe_find_uki_sections(
                 unsigned profile,
                 char **ret_osrelease,
                 char **ret_profile,
-                char **ret_cmdline) {
+                char **ret_cmdline,
+                char **ret_uname) {
 
-        _cleanup_free_ char *osrelease_text = NULL, *profile_text = NULL, *cmdline_text = NULL;
+        _cleanup_free_ char *osrelease_text = NULL, *profile_text = NULL, *cmdline_text = NULL, *uname_text = NULL;
         _cleanup_free_ IMAGE_SECTION_HEADER *sections = NULL;
         _cleanup_free_ PeHeader *pe_header = NULL;
         int r;
@@ -1196,6 +1205,7 @@ int pe_find_uki_sections(
                 { ".osrel",   &osrelease_text },
                 { ".profile", &profile_text   },
                 { ".cmdline", &cmdline_text   },
+                { ".uname",   &uname_text     },
         };
 
         FOREACH_ELEMENT(t, table) {
@@ -1230,6 +1240,8 @@ int pe_find_uki_sections(
                 *ret_profile = TAKE_PTR(profile_text);
         if (ret_cmdline)
                 *ret_cmdline = TAKE_PTR(cmdline_text);
+        if (ret_uname)
+                *ret_uname = TAKE_PTR(uname_text);
         return 1;
 
 nothing:
@@ -1239,6 +1251,8 @@ nothing:
                 *ret_profile = NULL;
         if (ret_cmdline)
                 *ret_cmdline = NULL;
+        if (ret_uname)
+                *ret_uname = NULL;
 
         return 0;
 }
@@ -1467,9 +1481,9 @@ static int boot_entries_find_unified(
                         return log_oom();
 
                 for (unsigned p = 0; p < UNIFIED_PROFILES_MAX; p++) {
-                        _cleanup_free_ char *osrelease = NULL, *profile = NULL, *cmdline = NULL;
+                        _cleanup_free_ char *osrelease = NULL, *profile = NULL, *cmdline = NULL, *uname = NULL;
 
-                        r = pe_find_uki_sections(fd, j, p, &osrelease, &profile, &cmdline);
+                        r = pe_find_uki_sections(fd, j, p, &osrelease, &profile, &cmdline, &uname);
                         if (r == 0) /* this profile does not exist, we are done */
                                 break;
                         if (r < 0)
@@ -1480,7 +1494,7 @@ static int boot_entries_find_unified(
 
                         BootEntry *entry = config->entries + config->n_entries;
 
-                        if (boot_entry_load_unified(root, source, j, p, osrelease, profile, cmdline, entry) < 0)
+                        if (boot_entry_load_unified(root, source, j, p, osrelease, profile, cmdline, uname, entry) < 0)
                                 continue;
 
                         /* Look for .efi.extra.d/ */
@@ -2204,6 +2218,8 @@ int show_boot_entry(
                 printf("     sort-key: %s\n", e->sort_key);
         if (e->version)
                 printf("      version: %s\n", e->version);
+        if (e->uname)
+                printf("        uname: %s\n", e->uname);
         if (e->machine_id)
                 printf("   machine-id: %s\n", e->machine_id);
         if (e->architecture)
@@ -2274,6 +2290,7 @@ int boot_entry_to_json(const BootConfig *c, size_t i, sd_json_variant **ret) {
                         SD_JSON_BUILD_PAIR_CONDITION(!!boot_entry_title(e), "showTitle", SD_JSON_BUILD_STRING(boot_entry_title(e))),
                         SD_JSON_BUILD_PAIR_CONDITION(!!e->sort_key, "sortKey", SD_JSON_BUILD_STRING(e->sort_key)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!e->version, "version", SD_JSON_BUILD_STRING(e->version)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!e->uname, "uname", SD_JSON_BUILD_STRING(e->uname)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!e->machine_id, "machineId", SD_JSON_BUILD_STRING(e->machine_id)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!e->architecture, "architecture", SD_JSON_BUILD_STRING(e->architecture)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!opts, "options", SD_JSON_BUILD_STRING(opts)),
