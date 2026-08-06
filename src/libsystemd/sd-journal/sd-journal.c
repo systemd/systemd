@@ -2598,6 +2598,44 @@ _public_ void sd_journal_close(sd_journal *j) {
         free(j);
 }
 
+static int journal_file_entry_get_machine_id(JournalFile *f, Object *o, sd_id128_t *ret) {
+        assert(f);
+        assert(o);
+        assert(o->object.type == OBJECT_ENTRY);
+        assert(ret);
+
+        uint64_t n = journal_file_entry_n_items(f, o);
+        for (uint64_t i = 0; i < n; i++) {
+                uint64_t p;
+                void *d;
+                size_t l;
+                int r;
+
+                p = journal_file_entry_item_object_offset(f, o, i);
+                r = journal_file_data_payload(f, /* o= */ NULL, p, "_MACHINE_ID", STRLEN("_MACHINE_ID"),
+                                              SIZE_MAX, &d, &l);
+                if (r == 0)
+                        continue;
+                if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
+                        log_debug_errno(r, "Entry item %"PRIu64" data object is bad, skipping over it: %m", i);
+                        continue;
+                }
+                if (r < 0)
+                        return r;
+
+                if (l != STRLEN("_MACHINE_ID=") + SD_ID128_STRING_MAX - 1)
+                        return -EBADMSG;
+
+                /* The data payload is not null-terminated, copy the hex ID to a local buffer. */
+                char id_string[SD_ID128_STRING_MAX] = {};
+                memcpy(id_string, (const char*) d + STRLEN("_MACHINE_ID="), SD_ID128_STRING_MAX - 1);
+
+                return id128_from_string_nonzero(id_string, ret);
+        }
+
+        return -ENOENT;
+}
+
 static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
         uint64_t offset, mo, rt;
         sd_id128_t id;
@@ -2676,9 +2714,27 @@ static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
         if (mo > rt) /* monotonic clock is further ahead than realtime? that's weird, refuse to use the data */
                 return -ENODATA;
 
+        /* Try to get the machine ID from the tail entry's _MACHINE_ID= field rather than from the file
+         * header, as the header always reflects the machine that *wrote* the file, not necessarily the
+         * machine that *originated* the entries. This distinction matters for journal files created by
+         * systemd-journal-remote, which stamps all files with the receiving machine's ID while the entries
+         * inside carry the source machine's _MACHINE_ID=. Without this, compare_boot_ids() would
+         * incorrectly consider boot IDs from different source machines as comparable (since they'd all
+         * share the receiver's machine ID), leading to boot-grouped rather than realtime-interleaved
+         * iteration order when merging cross-machine journals.
+         *
+         * If we don't have an entry object (header-only fallback for archived files) or the entry lacks
+         * the _MACHINE_ID= field (older journals), fall back to the header's machine_id. */
+        sd_id128_t mid = f->header->machine_id;
+        if (o && o->object.type == OBJECT_ENTRY) {
+                r = journal_file_entry_get_machine_id(f, o, &mid);
+                if (r < 0 && r != -ENOENT)
+                        log_debug_errno(r, "Failed to read _MACHINE_ID from tail entry, using header value: %m");
+        }
+
         if (offset == f->newest_entry_offset) {
                 /* Cached data and the current one should be equivalent. */
-                if (!sd_id128_equal(f->newest_machine_id, f->header->machine_id) ||
+                if (!sd_id128_equal(f->newest_machine_id, mid) ||
                     !sd_id128_equal(f->newest_boot_id, id) ||
                     f->newest_monotonic_usec != mo ||
                     f->newest_realtime_usec != rt)
@@ -2693,7 +2749,7 @@ static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
         f->newest_boot_id = id;
         f->newest_monotonic_usec = mo;
         f->newest_realtime_usec = rt;
-        f->newest_machine_id = f->header->machine_id;
+        f->newest_machine_id = mid;
         f->newest_entry_offset = offset;
         f->newest_state = f->header->state;
 
