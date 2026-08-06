@@ -869,9 +869,7 @@ static int install_binaries(
 
                 if (endswith_no_case(de->d_name, suffix)) {
                         /* skip the .efi file, if there's a .signed version of it */
-                        _cleanup_free_ const char *s = strjoin(de->d_name, ".signed");
-                        if (!s)
-                                return log_oom();
+                        const char *s = strjoina(de->d_name, ".signed");
                         if (faccessat(dirfd(d), s, F_OK, 0) >= 0)
                                 continue;
                 } else if (!endswith_no_case(de->d_name, suffix_signed))
