@@ -1344,12 +1344,13 @@ static void append_number_at(
                 JournalFile *f,
                 unsigned n,
                 const sd_id128_t *boot_id,
+                const sd_id128_t *machine_id,
                 uint64_t realtime,
                 uint64_t monotonic) {
 
-        _cleanup_free_ char *p = NULL, *q = NULL;
+        _cleanup_free_ char *p = NULL, *q = NULL, *m = NULL;
         dual_timestamp ts = { .realtime = realtime, .monotonic = monotonic };
-        struct iovec iovec[2];
+        struct iovec iovec[3];
         size_t n_iov = 0;
 
         ASSERT_OK(asprintf(&p, "NUMBER=%u", n));
@@ -1358,6 +1359,11 @@ static void append_number_at(
         if (boot_id) {
                 ASSERT_NOT_NULL((q = strjoin("_BOOT_ID=", SD_ID128_TO_STRING(*boot_id))));
                 iovec[n_iov++] = IOVEC_MAKE_STRING(q);
+        }
+
+        if (machine_id) {
+                ASSERT_NOT_NULL((m = strjoin("_MACHINE_ID=", SD_ID128_TO_STRING(*machine_id))));
+                iovec[n_iov++] = IOVEC_MAKE_STRING(m);
         }
 
         ASSERT_OK(journal_file_append_entry(f, &ts, boot_id, iovec, n_iov, NULL, NULL, NULL, NULL));
@@ -1398,9 +1404,9 @@ TEST(cursor_broken_rtc) {
                 log_info("boot1: %s, boot2: %s",
                          SD_ID128_TO_STRING(boot1), SD_ID128_TO_STRING(boot2));
 
-                append_number_at(f1, 1, &boot1, 2 * USEC_PER_SEC, 100 * USEC_PER_MSEC);
-                append_number_at(f2, 2, &boot2, 1 * USEC_PER_SEC, 100 * USEC_PER_MSEC);
-                append_number_at(f2, 3, &boot2, 3 * USEC_PER_SEC, 200 * USEC_PER_MSEC);
+                append_number_at(f1, 1, &boot1, NULL, 2 * USEC_PER_SEC, 100 * USEC_PER_MSEC);
+                append_number_at(f2, 2, &boot2, NULL, 1 * USEC_PER_SEC, 100 * USEC_PER_MSEC);
+                append_number_at(f2, 3, &boot2, NULL, 3 * USEC_PER_SEC, 200 * USEC_PER_MSEC);
         }
 
         ASSERT_OK(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
@@ -1416,6 +1422,68 @@ TEST(cursor_broken_rtc) {
         ASSERT_OK(sd_journal_seek_tail(j));
         ASSERT_OK_POSITIVE(sd_journal_previous(j));
         test_check_numbers_up(j, 3);
+}
+
+TEST(merge_interleaving) {
+        /* Reproducer for https://github.com/systemd/systemd/issues/34169.
+         *
+         * Simulate journals received via systemd-journal-remote from two different source
+         * machines. journal-remote stamps all files with the receiving machine's machine_id
+         * (per the journal file format spec), so all files share the same header machine_id
+         * even though the entries originate from different machines with different boot IDs.
+         *
+         * This defeats the machine_id guard in compare_boot_ids(), which then orders entries
+         * by boot rather than interleaving them by realtime. The expected behavior is that
+         * forward iteration produces entries in realtime order regardless of boot ID.
+         *
+         * Setup: 2 files with different boot IDs, entries interleaved by realtime. Each
+         * entry carries a _MACHINE_ID= field identifying the source machine (as journal-remote
+         * preserves from the source):
+         *
+         *   machine-a.journal (boot A, machine A): entries at realtime = 1s, 3s, 5s (NUMBER = 1, 3, 5)
+         *   machine-b.journal (boot B, machine B): entries at realtime = 2s, 4s, 6s (NUMBER = 2, 4, 6) */
+        _cleanup_(test_donep) char *t = NULL;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+
+        mkdtemp_chdir_chattr("/var/tmp/journal-merge-XXXXXX", &t);
+
+        {
+                _cleanup_(journal_file_offline_closep) JournalFile *f1 = NULL, *f2 = NULL;
+                sd_id128_t bootA, bootB, machineA, machineB;
+
+                f1 = test_open("machine-a.journal");
+                f2 = test_open("machine-b.journal");
+
+                ASSERT_OK(sd_id128_randomize(&bootA));
+                ASSERT_OK(sd_id128_randomize(&bootB));
+                ASSERT_OK(sd_id128_randomize(&machineA));
+                ASSERT_OK(sd_id128_randomize(&machineB));
+
+                log_info("bootA: %s, bootB: %s, machineA: %s, machineB: %s",
+                         SD_ID128_TO_STRING(bootA), SD_ID128_TO_STRING(bootB),
+                         SD_ID128_TO_STRING(machineA), SD_ID128_TO_STRING(machineB));
+
+                append_number_at(f1, 1, &bootA, &machineA, 1 * USEC_PER_SEC, 100 * USEC_PER_MSEC);
+                append_number_at(f2, 2, &bootB, &machineB, 2 * USEC_PER_SEC, 100 * USEC_PER_MSEC);
+                append_number_at(f1, 3, &bootA, &machineA, 3 * USEC_PER_SEC, 200 * USEC_PER_MSEC);
+                append_number_at(f2, 4, &bootB, &machineB, 4 * USEC_PER_SEC, 200 * USEC_PER_MSEC);
+                append_number_at(f1, 5, &bootA, &machineA, 5 * USEC_PER_SEC, 300 * USEC_PER_MSEC);
+                append_number_at(f2, 6, &bootB, &machineB, 6 * USEC_PER_SEC, 300 * USEC_PER_MSEC);
+        }
+
+        ASSERT_OK(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
+
+        /* Test cursor seeking */
+        test_cursor(j);
+
+        /* Verify forward and backward iterations */
+        ASSERT_OK(sd_journal_seek_head(j));
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+        test_check_numbers_down(j, 6);
+
+        ASSERT_OK(sd_journal_seek_tail(j));
+        ASSERT_OK_POSITIVE(sd_journal_previous(j));
+        test_check_numbers_up(j, 6);
 }
 
 static int intro(void) {
