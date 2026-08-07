@@ -31,7 +31,8 @@ removesshid() {
 
 ssh-keygen -N '' -C '' -t rsa -f "$ROOTID"
 
-mkdir -p 0700 /root/.ssh
+# shellcheck disable=SC2174
+mkdir -p -m 0700 /root/.ssh
 # Add a newline in case authorized_keys wasn't terminated correctly.
 echo >>/root/.ssh/authorized_keys
 cat "$ROOTID".pub >>/root/.ssh/authorized_keys
