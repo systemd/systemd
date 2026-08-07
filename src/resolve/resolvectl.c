@@ -278,6 +278,52 @@ static void print_ifindex_comment(int printed_so_far, int ifindex) {
                ansi_grey(), ifname, ansi_normal());
 }
 
+static int dump_resolve_error_json(const char *name, const char *error_id, sd_json_variant *parameters) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        int r;
+
+        assert(name);
+        assert(!isempty(error_id));
+
+        r = sd_json_buildo(
+                        &j,
+                        SD_JSON_BUILD_PAIR_STRING("name", name),
+                        SD_JSON_BUILD_PAIR_STRING("error", error_id));
+        if (r < 0)
+                return r;
+
+        if (parameters) {
+                r = sd_json_variant_merge_object(&j, parameters);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_json_variant_set_field_string(&j, "name", name);
+        if (r < 0)
+                return r;
+
+        r = sd_json_variant_set_field_string(&j, "error", error_id);
+        if (r < 0)
+                return r;
+
+        return sd_json_variant_dump(j, arg_json_format_flags, /* f= */ NULL, /* prefix= */ NULL);
+}
+
+static int dump_resolve_error_json_and_return(
+                const char *name,
+                const char *error_id,
+                sd_json_variant *parameters,
+                int ret) {
+
+        int r;
+
+        r = dump_resolve_error_json(name, error_id, parameters);
+        if (r < 0)
+                return r;
+
+        return ret;
+}
+
 static int varlink_log_resolve_error(const char *name, const char *error_id, sd_json_variant *reply, bool warn_missing) {
         int r;
 
@@ -303,20 +349,45 @@ static int varlink_log_resolve_error(const char *name, const char *error_id, sd_
                 { "io.systemd.Resolve.ZoneTransfersNotPermitted",     "Zone transfers not permitted via this programming interface" },
         };
         FOREACH_ELEMENT(em, error_message_table)
-                if (streq(em->error_id, error_id))
+                if (streq(em->error_id, error_id)) {
+                        if (sd_json_format_enabled(arg_json_format_flags))
+                                return dump_resolve_error_json_and_return(
+                                                name, error_id, /* parameters= */ NULL, ret);
+
                         return log_error_errno(ret, "%s: resolve call failed: %s", name, em->msg);
+                }
 
-        if (streq(error_id, "io.systemd.Resolve.NoSuchResourceRecord"))
+        if (streq(error_id, "io.systemd.Resolve.NoSuchResourceRecord")) {
+                if (sd_json_format_enabled(arg_json_format_flags))
+                        return dump_resolve_error_json_and_return(
+                                        name, error_id, /* parameters= */ NULL, ret);
+
                 return log_error_errno(ret, "%s: resolve call failed: '%s' does not have any RR of the requested type", name, name);
+        }
 
-        if (streq(error_id, "io.systemd.Resolve.CNAMELoop"))
+        if (streq(error_id, "io.systemd.Resolve.CNAMELoop")) {
+                if (sd_json_format_enabled(arg_json_format_flags))
+                        return dump_resolve_error_json_and_return(
+                                        name, error_id, /* parameters= */ NULL, ret);
+
                 return log_error_errno(ret, "%s: resolve call failed: CNAME loop detected, or CNAME resolving disabled on '%s'", name, name);
+        }
 
-        if (streq(error_id, "io.systemd.Resolve.ServiceNotProvided"))
+        if (streq(error_id, "io.systemd.Resolve.ServiceNotProvided")) {
+                if (sd_json_format_enabled(arg_json_format_flags))
+                        return dump_resolve_error_json_and_return(
+                                        name, error_id, /* parameters= */ NULL, ret);
+
                 return log_error_errno(ret, "%s: resolve call failed: '%s' does not provide the requested service", name, name);
+        }
 
-        if (streq(error_id, "io.systemd.Resolve.InconsistentServiceRecords"))
+        if (streq(error_id, "io.systemd.Resolve.InconsistentServiceRecords")) {
+                if (sd_json_format_enabled(arg_json_format_flags))
+                        return dump_resolve_error_json_and_return(
+                                        name, error_id, /* parameters= */ NULL, ret);
+
                 return log_error_errno(ret, "%s: resolve call failed: '%s' does not provide a consistent set of service resource records", name, name);
+        }
 
         _cleanup_(resolve_error_done) ResolveError error = {
                 .rcode = _DNS_RCODE_INVALID,
@@ -337,21 +408,34 @@ static int varlink_log_resolve_error(const char *name, const char *error_id, sd_
                         return log_oom();
         }
 
-        if (streq(error_id, "io.systemd.Resolve.DNSSECValidationFailed"))
+        if (streq(error_id, "io.systemd.Resolve.DNSSECValidationFailed")) {
+                if (sd_json_format_enabled(arg_json_format_flags))
+                        return dump_resolve_error_json_and_return(name, error_id, reply, ret);
+
                 return log_error_errno(ret, "%s: resolve call failed: DNSSEC validation failed: %s%s", name, error.result, strempty(msg_extended));
+        }
 
         if (error.rcode != _DNS_RCODE_INVALID) {
                 if (error.rcode == DNS_RCODE_NXDOMAIN) {
                         if (!warn_missing)
                                 return -ENXIO;
 
+                        if (sd_json_format_enabled(arg_json_format_flags))
+                                return dump_resolve_error_json_and_return(name, error_id, reply, -ENXIO);
+
                         return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "%s: resolve call failed: Name '%s' not found%s%s",
                                                name, error.query_string ?: name, error.ede_rcode >= 0 ? ":" : "", strempty(msg_extended));
                 }
 
+                if (sd_json_format_enabled(arg_json_format_flags))
+                        return dump_resolve_error_json_and_return(name, error_id, reply, ret);
+
                 return log_error_errno(ret, "%s: resolve call failed: Could not resolve '%s', server or network returned error: %s%s",
                                        name, error.query_string ?: name, FORMAT_DNS_RCODE(error.rcode), strempty(msg_extended));
         }
+
+        if (sd_json_format_enabled(arg_json_format_flags))
+                return dump_resolve_error_json_and_return(name, error_id, reply, ret);
 
         return log_error_errno(ret, "%s: resolve call failed: %s", name, error_id);
 }
