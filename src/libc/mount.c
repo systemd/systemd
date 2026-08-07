@@ -45,3 +45,15 @@ DEFINE_SYSCALL_SHIM(open_tree_attr, int,
                     unsigned int, flags,
                     struct mount_attr *, attr,
                     size_t, size)
+
+DEFINE_SYSCALL_SHIM(statmount, int,
+                    const struct mnt_id_req *, req,
+                    struct statmount *, buf,
+                    size_t, bufsize,
+                    unsigned int, flags)
+
+DEFINE_SYSCALL_SHIM(listmount, ssize_t,
+                    const struct mnt_id_req *, req,
+                    uint64_t *, mnt_ids,
+                    size_t, nr_mnt_ids,
+                    unsigned int, flags)
