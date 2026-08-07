@@ -2814,6 +2814,12 @@ RestrictNamespaces=~cgroup net</programlisting>
         meaning than for files, see documentation). This option is implied if <varname>DynamicUser=</varname>
         is enabled.</para>
 
+        <para>This setting is implemented using seccomp filtering. For system calls where the mode bits are
+        passed directly as arguments, the call is denied only when the SUID or SGID bits are set. For system
+        calls where those bits are passed indirectly and cannot be inspected by the filter, such as
+        <function>openat2()</function>, the call may be made unavailable entirely, even if a particular
+        invocation would not set either bit.</para>
+
         <para>In other cases, this setting defaults to the value set with <varname>DefaultRestrictSUIDSGID=</varname> in
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, which
         defaults to off.</para>
