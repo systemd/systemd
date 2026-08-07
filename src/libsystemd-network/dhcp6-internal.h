@@ -68,6 +68,13 @@ struct sd_dhcp6_client {
         OrderedHashmap *extra_options;
         OrderedSet *vendor_options;
         bool rapid_commit;
+        bool register_addresses;
+
+        /* RFC 9686 DHCPv6 address registration. */
+        Hashmap *addr_registrations; /* struct in6_addr* -> DHCP6AddrRegistration* */
+        double addr_reg_desync_multiplier;
+        int addr_reg_fd;
+        sd_event_source *addr_reg_receive;
 
         struct sd_dhcp6_lease *lease;
 
