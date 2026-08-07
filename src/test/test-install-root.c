@@ -777,6 +777,25 @@ TEST(revert) {
         ASSERT_STREQ(changes[1].path, p);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
+
+        /* A unit a generator produced counts as having a vendor version too, so its override goes as well.
+         * The generator directories are root prefixed, so this only works if we look for them as such. */
+        p = strjoina(root, "/run/systemd/generator/zz.service");
+        assert_se(write_string_file(p, "# Empty\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
+
+        p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/zz.service");
+        assert_se(write_string_file(p, "# Empty override\n", WRITE_STRING_FILE_CREATE) >= 0);
+
+        assert_se(unit_file_revert(RUNTIME_SCOPE_SYSTEM, root, STRV_MAKE("zz.service"), &changes, &n_changes) >= 0);
+        assert_se(n_changes == 1);
+        assert_se(changes[0].type == INSTALL_CHANGE_UNLINK);
+        ASSERT_STREQ(changes[0].path, p);
+        install_changes_free(changes, n_changes);
+        changes = NULL; n_changes = 0;
+
+        /* The other tests share this root and the order they run in is up to the linker, so do not leave a
+         * generated unit lying around for them to trip over. */
+        ASSERT_OK_ERRNO(unlink(strjoina(root, "/run/systemd/generator/zz.service")));
 }
 
 TEST(preset_order) {
