@@ -98,6 +98,42 @@
         <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--install=FILENAME</option></term>
+        <listitem>
+          <para>Before applying the loaded sysctl settings, write them to <filename>/run/sysctl.d/</filename>
+          using the specified filename. If the filename does not end with <filename>.conf</filename>, the
+          suffix is appended. This option requires one or more positional arguments. May be combined with
+          <option>--inline</option>. This may be useful for creating runtime sysctl configuration files or
+          overriding existing sysctl configuration files.</para>
+
+          <para>Examples.
+          <programlisting># /usr/lib/systemd/systemd-sysctl --install=99-disable-ipv6-foo - &lt;&lt;EOF
+net.ipv6.conf.foo.disable_ipv6=1
+EOF</programlisting>
+          This disables IPv6 on the network interface <filename>foo</filename>, and creates
+          <filename>/run/sysctl.d/99-disable-ipv6-foo.conf</filename>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--revert=FILENAME</option></term>
+        <listitem>
+          <para>Removes the specified sysctl configuration file under <filename>/run/sysctl.d/</filename>. If
+          the filename does not end with <filename>.conf</filename>, the suffix is appended. This may be
+          useful for removing configuration files created by <option>--install=</option>. When this option is
+          specified, no sysctl settings are loaded or applied.</para>
+
+          <para>Examples.
+          <programlisting># /usr/lib/systemd/systemd-sysctl --revert=99-disable-ipv6-foo</programlisting>
+          This removes <filename>/run/sysctl.d/99-disable-ipv6-foo.conf</filename>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/>
+        </listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="cat-config" />
       <xi:include href="standard-options.xml" xpointer="tldr" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
