@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd.v">
+<refentry id="systemd.v" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd.v</title>
@@ -106,6 +106,28 @@
       version comparison.</para></listitem>
 
       <listitem><para>The rest of the variable part is the version string.</para></listitem>
+
+      <listitem><para>If the version string is prefixed with the literal <literal>host=</literal>, the file
+      is only considered if the version equals the <varname>VERSION_ID=</varname> field of the
+      <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> file of
+      the OS tree the file is applied to. The prefix is not considered part of the version string for any
+      other purpose. This is useful for resources built for one specific OS version, such as system extension
+      images, where the newest available version is not necessarily the appropriate one for the running OS.
+      For system/configuration extensions applied via
+      <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry> the
+      version is matched against the host (or the tree specified with <option>--root=</option>), for the
+      <varname>ExtensionImages=</varname>/<varname>ExtensionDirectories=</varname> settings of service units
+      against the unit's root file system, and for extension images of portable services against the
+      portable image. For files that are not applied to another OS tree, such as rootfs images, the version
+      is matched against the OS performing the lookup. Note that while file whose host version entry does
+      not match are filtered out, the remaining ones take part in the regular version comparison, hence a
+      file without the host prefix but newer version wins over one with a matching host prefix. Also note
+      that if a version to search for is explicitly specified (e.g., via the <option>-V</option> switch of
+      <citerefentry><refentrytitle>systemd-vpick</refentrytitle><manvolnum>1</manvolnum></citerefentry>),
+      host version matching is disabled, and the specified version is compared against the version string
+      with the prefix removed.</para>
+
+      <xi:include href="version-info.xml" xpointer="v262"/></listitem>
     </itemizedlist>
 
     <para>Or in other words, the files in the <literal>.v/</literal> directories should follow one of these
@@ -119,6 +141,9 @@
       <listitem><para><filename><replaceable>NAME</replaceable>_<replaceable>VERSION</replaceable>_<replaceable>ARCHITECTURE</replaceable>+<replaceable>LEFT</replaceable><replaceable>.SUFFIX</replaceable></filename></para></listitem>
       <listitem><para><filename><replaceable>NAME</replaceable>_<replaceable>VERSION</replaceable>_<replaceable>ARCHITECTURE</replaceable>+<replaceable>LEFT</replaceable>-<replaceable>DONE</replaceable><replaceable>.SUFFIX</replaceable></filename></para></listitem>
     </itemizedlist>
+
+    <para>In each of these structures, <replaceable>VERSION</replaceable> may be prefixed with the literal
+    <literal>host=</literal> to request host version matching, see above.</para>
   </refsect1>
 
   <refsect1>

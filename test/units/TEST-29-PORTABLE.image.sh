@@ -176,6 +176,31 @@ status="$(portablectl is-attached --extension app1_1.0.raw minimal_1)"
 portablectl detach --now --runtime --extension /tmp/app1.v/ /usr/share/minimal_0.raw app1
 rm -f /tmp/app1.v/app1_1.0.raw
 
+# Ensure "host=" vpick entries of extension images are matched against the VERSION_ID of the portable image
+# they are applied to, and that attaching and detaching such an entry works. Note that the images are built
+# from the same distribution as the host, hence this cannot tell the image's VERSION_ID apart from the
+# host's, but it does cover the pick and the marker comparison on detach.
+IMAGE_VERSION_ID="$(systemd-dissect --copy-from /usr/share/minimal_1.raw /usr/lib/os-release |
+                        sed -n 's/^VERSION_ID=//p' | tr -d '"')"
+
+if [ "$IMAGE_VERSION_ID" != "" ]; then
+    cp /tmp/app1.raw "/tmp/app1.v/app1_host=$IMAGE_VERSION_ID.raw"
+    # A newer entry for a different OS version must not be picked
+    cp /tmp/app1_2.raw /tmp/app1.v/app1_host=99999999-neververtest.raw
+    portablectl "${ARGS[@]}" attach --now --runtime --extension /tmp/app1.v/ /usr/share/minimal_1.raw app1
+
+    systemctl is-active app1.service
+    status="$(portablectl is-attached --extension "app1_host=$IMAGE_VERSION_ID.raw" minimal_1)"
+    [[ "${status}" == "running-runtime" ]]
+    # The drop-in records the resolved path, so this is what tells the entries apart
+    grep -F "app1_host=$IMAGE_VERSION_ID.raw" /run/systemd/system.attached/app1.service.d/20-portable.conf >/dev/null
+
+    # Detaching resolves the .v directory again, which has to still find what was attached
+    portablectl detach --now --runtime --extension /tmp/app1.v/ /usr/share/minimal_1.raw app1
+    (! systemctl is-active app1.service)
+    rm -f "/tmp/app1.v/app1_host=$IMAGE_VERSION_ID.raw" /tmp/app1.v/app1_host=99999999-neververtest.raw
+fi
+
 # Ensure that the combination of read-only images, state directory and dynamic user works, and that
 # state is retained. Check after detaching, as on slow systems (eg: sanitizers) it might take a while
 # after the service is attached before the file appears.
