@@ -1974,6 +1974,72 @@ TEST(vendor_disable_removes_linked_unit) {
         ASSERT_FALSE(symlink_exists(alias));
 }
 
+TEST(vendor_preset_leaves_etc_alone) {
+        const char *vendor_link, *etc_link;
+
+        /* Presetting re-asserts a policy, it is not the administrator saying they want this unit on, so
+         * there is nothing to record when the vendor already enables it. An explicit enable does record
+         * itself, so that it survives the vendor dropping the symlink later. */
+
+        write_vendor_file("system/vendor-redundant.service", WANTED_BY_MULTI_USER);
+        write_vendor_symlink("multi-user.target.wants/vendor-redundant.service", "../vendor-redundant.service");
+        write_vendor_file("system-preset/15-vendor-redundant.preset", "enable vendor-redundant.service\n");
+
+        vendor_link = strjoina(vendor_root, VENDOR_WANTS"vendor-redundant.service");
+        etc_link = strjoina(vendor_root, ETC_WANTS"vendor-redundant.service");
+
+        do_preset(0, STRV_MAKE("vendor-redundant.service"));
+        ASSERT_FALSE(symlink_exists(etc_link));
+        assert_state("vendor-redundant.service", UNIT_FILE_ENABLED);
+
+        /* An explicit enable writes it out even though it changes nothing right now, and that is what makes
+         * it survive the vendor changing its mind. */
+        do_enable(0, STRV_MAKE("vendor-redundant.service"));
+        ASSERT_TRUE(symlink_exists(etc_link));
+
+        ASSERT_OK_ERRNO(unlink(vendor_link));
+        assert_state("vendor-redundant.service", UNIT_FILE_ENABLED);
+}
+
+TEST(vendor_preset_still_writes_what_is_needed) {
+        /* The skip only applies where the vendor already provides the very same dependency. A target the
+         * vendor does not wire up still has to be written, and so does one whose vendor entry is transient
+         * or masked: an entry in /run/ is gone after a reboot and a masked one establishes nothing. */
+
+        write_vendor_file("system/vendor-partial.service",
+                          "[Install]\n"
+                          "WantedBy=multi-user.target\n"
+                          "WantedBy=graphical.target\n"
+                          "WantedBy=sockets.target\n"
+                          "WantedBy=timers.target\n");
+
+        /* Wired up by the vendor, so nothing to record. */
+        write_vendor_symlink("multi-user.target.wants/vendor-partial.service", "../vendor-partial.service");
+
+        /* Wired up in /run/ instead. */
+        const char *runtime_link = strjoina(vendor_root, "/run/systemd/system/sockets.target.wants/vendor-partial.service");
+        ASSERT_OK(mkdir_parents(runtime_link, 0755));
+        ASSERT_OK_ERRNO(symlink("/usr/lib/systemd/system/vendor-partial.service", runtime_link));
+
+        /* Wired up by the vendor, but masked by a higher priority vendor directory. */
+        write_vendor_symlink("timers.target.wants/vendor-partial.service", "../vendor-partial.service");
+        const char *vendor_mask = strjoina(vendor_root, "/usr/local/lib/systemd/system/timers.target.wants/vendor-partial.service");
+        ASSERT_OK(mkdir_parents(vendor_mask, 0755));
+        ASSERT_OK_ERRNO(symlink("/dev/null", vendor_mask));
+
+        write_vendor_file("system-preset/16-vendor-partial.preset", "enable vendor-partial.service\n");
+        do_preset(0, STRV_MAKE("vendor-partial.service"));
+
+        ASSERT_FALSE(symlink_exists(strjoina(vendor_root, ETC_WANTS"vendor-partial.service")));
+
+        FOREACH_STRING(target, "graphical.target", "sockets.target", "timers.target") {
+                const char *p = strjoina(vendor_root, SYSTEM_CONFIG_UNIT_DIR"/", target, ".wants/vendor-partial.service");
+
+                ASSERT_TRUE(symlink_exists(p));
+                ASSERT_FALSE(is_dependency_mask(p));
+        }
+}
+
 static int intro(void) {
         make_root(&root);
         make_root(&vendor_root);
