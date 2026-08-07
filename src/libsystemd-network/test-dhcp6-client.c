@@ -91,6 +91,11 @@ static int test_ifindex = 42;
 static unsigned test_client_sent_message_count = 0;
 static sd_dhcp6_client *client_ref = NULL;
 
+/* When set, the send stub only checks the ORO against test_oro_expected. */
+static const be16_t *test_oro_expected = NULL;
+static size_t test_oro_expected_len = 0;
+static bool test_oro_sent = false;
+
 TEST(client_basic) {
         _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;
         int v;
@@ -1170,6 +1175,22 @@ static void test_client_callback(sd_dhcp6_client *client, int event, void *userd
         }
 }
 
+static void test_client_verify_oro(const DHCP6Message *msg, size_t len) {
+        const uint8_t *optval;
+        uint16_t optcode;
+        size_t optlen, offset = 0;
+
+        log_debug("/* %s */", __func__);
+
+        len -= offsetof(DHCP6Message, options);
+        do
+                assert_se(dhcp6_option_parse(msg->options, len, &offset, &optcode, &optlen, &optval) >= 0);
+        while (optcode != SD_DHCP6_OPTION_ORO);
+
+        assert_se(optlen == test_oro_expected_len);
+        assert_se(memcmp(optval, test_oro_expected, optlen) == 0);
+}
+
 int dhcp6_network_send_udp_socket(int s, const struct in6_addr *a, const void *packet, size_t len) {
         log_debug("/* %s(count=%u) */", __func__, test_client_sent_message_count);
 
@@ -1177,6 +1198,12 @@ int dhcp6_network_send_udp_socket(int s, const struct in6_addr *a, const void *p
         ASSERT_TRUE(in6_addr_equal(a, &mcast_address));
         ASSERT_NOT_NULL(packet);
         ASSERT_GE(len, sizeof(DHCP6Message));
+
+        if (test_oro_expected) {
+                test_client_verify_oro(packet, len);
+                test_oro_sent = true;
+                return len;
+        }
 
         switch (test_client_sent_message_count) {
         case 0:
@@ -1276,6 +1303,60 @@ TEST(dhcp6_client) {
 
         ASSERT_NULL(sd_dhcp6_client_unref(client_ref));
         test_fd[1] = safe_close(test_fd[1]);
+}
+
+static void test_oro_run(
+                sd_dhcp6_client *client,
+                bool information_request,
+                const be16_t *expected,
+                size_t len) {
+
+        test_oro_expected = expected;
+        test_oro_expected_len = len;
+        test_oro_sent = false;
+
+        assert_se(sd_dhcp6_client_set_information_request(client, information_request) >= 0);
+        assert_se(sd_dhcp6_client_start(client) >= 0);
+        /* Fails with -ESTALE if the timeout source below exits the loop first. */
+        while (!test_oro_sent)
+                assert_se(sd_event_run(sd_dhcp6_client_get_event(client), UINT64_MAX) >= 0);
+        assert_se(sd_dhcp6_client_stop(client) >= 0);
+        test_fd[1] = safe_close(test_fd[1]);
+
+        test_oro_expected = NULL;
+}
+
+TEST(client_oro_register_addresses) {
+        _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        assert_se(sd_event_new(&e) >= 0);
+        assert_se(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,
+                                             30 * USEC_PER_SEC, 0,
+                                             NULL, INT_TO_PTR(-ETIMEDOUT)) >= 0);
+
+        assert_se(sd_dhcp6_client_new(&client) >= 0);
+        assert_se(sd_dhcp6_client_attach_event(client, e, 0) >= 0);
+        assert_se(sd_dhcp6_client_set_ifindex(client, test_ifindex) == 0);
+        assert_se(sd_dhcp6_client_set_local_address(client, &local_address) >= 0);
+        assert_se(sd_dhcp6_client_set_register_addresses(client, true) >= 0);
+
+        /* OPTION_ADDR_REG_ENABLE is not requestable, it is added by RegisterAddresses=. */
+        assert_se(sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_ADDR_REG_ENABLE) == -EINVAL);
+
+        /* Information-request mode adds two options, plus the address registration: fills extra[]. */
+        test_oro_run(client, true,
+                     (const be16_t[]) {
+                             htobe16(SD_DHCP6_OPTION_INFORMATION_REFRESH_TIME),
+                             htobe16(SD_DHCP6_OPTION_INF_MAX_RT),
+                             htobe16(SD_DHCP6_OPTION_ADDR_REG_ENABLE),
+                     }, 3 * sizeof(be16_t));
+
+        test_oro_run(client, false,
+                     (const be16_t[]) {
+                             htobe16(SD_DHCP6_OPTION_SOL_MAX_RT),
+                             htobe16(SD_DHCP6_OPTION_ADDR_REG_ENABLE),
+                     }, 2 * sizeof(be16_t));
 }
 
 static int intro(void) {
