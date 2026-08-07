@@ -2673,6 +2673,67 @@ int unit_file_verify_alias(
         return 0;
 }
 
+/* Would this symlink already be there if we didn't create it? Ours only ever competes with the directories
+ * below config_path, anything above it wins either way. Only a vendor supplied entry counts: one in /run/ or
+ * from a generator is gone again after a reboot. 'unit' is the unit the entry has to point at, for the
+ * symlinks whose own name does not say which unit they belong to. */
+static int symlink_provided_below(
+                const LookupPaths *lp,
+                const char *config_path,
+                const char *rel,
+                const char *unit) {
+
+        bool below = false;
+        int r;
+
+        assert(lp);
+        assert(config_path);
+        assert(rel);
+
+        STRV_FOREACH(p, lp->search_path) {
+                _cleanup_free_ char *path = NULL, *dest = NULL;
+                struct stat st;
+
+                if (!below) {
+                        below = path_equal(*p, config_path);
+                        continue;
+                }
+
+                path = path_join(*p, rel);
+                if (!path)
+                        return -ENOMEM;
+
+                if (lstat(path, &st) < 0) {
+                        if (errno == ENOENT)
+                                continue;
+                        return -errno;
+                }
+
+                /* The first entry we find decides, the ones below it are shadowed. */
+                r = dependency_is_masked(lp, path);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return false;
+
+                if (!S_ISLNK(st.st_mode) || !path_is_vendor(lp, *p))
+                        return false;
+
+                if (!unit)
+                        return true;
+
+                /* Compare the way find_symlinks_in_directory() does, or we would skip writing a symlink that
+                 * the state lookup then does not recognise as this unit's. */
+                r = readlink_malloc(path, &dest);
+                if (r < 0)
+                        return r;
+
+                return path_equal_filename(dest, unit);
+        }
+
+        return false;
+}
+
 static int install_info_symlink_alias(
                 RuntimeScope scope,
                 UnitFileFlags file_flags,
@@ -2703,6 +2764,27 @@ static int install_info_symlink_alias(
                         if (r != -ELOOP)
                                 RET_GATHER(ret, r);
                         continue;
+                }
+
+                /* Same as in install_info_symlink_wants(): a preset re-asserts a policy rather than
+                 * recording a decision, so there is nothing to record where the vendor already carries this
+                 * very name for this very unit. */
+                if (FLAGS_SET(file_flags, UNIT_FILE_APPLYING_PRESET)) {
+                        r = symlink_provided_below(lp, config_path, dst_updated ?: dst, info->name);
+                        if (r < 0)
+                                return r;
+                        if (r > 0) {
+                                log_debug("Alias %s already provided below %s, not creating it.",
+                                          dst_updated ?: dst, config_path);
+
+                                /* Still counts towards the number of symlinks that were supposed to be
+                                 * created, or a fully redundant unit would look like it had no [Install]
+                                 * section at all. */
+                                if (ret >= 0)
+                                        ret = 1;
+
+                                continue;
+                        }
                 }
 
                 alias_path = path_make_absolute(dst_updated ?: dst, config_path);
@@ -2739,53 +2821,6 @@ static int install_info_symlink_alias(
         }
 
         return ret;
-}
-
-/* Would this dependency symlink already be there if we didn't create it? Our symlink only ever competes
- * with the directories below config_path, anything above it wins either way. Only a vendor supplied entry
- * counts: one in /run/ or from a generator is gone again after a reboot. */
-static int dependency_provided_below(
-                const LookupPaths *lp,
-                const char *config_path,
-                const char *rel) {
-
-        bool below = false;
-        int r;
-
-        assert(lp);
-        assert(config_path);
-        assert(rel);
-
-        STRV_FOREACH(p, lp->search_path) {
-                _cleanup_free_ char *path = NULL;
-                struct stat st;
-
-                if (!below) {
-                        below = path_equal(*p, config_path);
-                        continue;
-                }
-
-                path = path_join(*p, rel);
-                if (!path)
-                        return -ENOMEM;
-
-                if (lstat(path, &st) < 0) {
-                        if (errno == ENOENT)
-                                continue;
-                        return -errno;
-                }
-
-                /* The first entry we find decides, the ones below it are shadowed. */
-                r = dependency_is_masked(lp, path);
-                if (r < 0)
-                        return r;
-                if (r > 0)
-                        return false;
-
-                return S_ISLNK(st.st_mode) && path_is_vendor(lp, *p);
-        }
-
-        return false;
 }
 
 static int install_info_symlink_wants(
@@ -2881,7 +2916,7 @@ static int install_info_symlink_wants(
                  * decisions. An explicit "systemctl enable" still records itself, so that it survives the
                  * vendor dropping the symlink later. */
                 if (FLAGS_SET(file_flags, UNIT_FILE_APPLYING_PRESET)) {
-                        q = dependency_provided_below(lp, config_path, rel);
+                        q = symlink_provided_below(lp, config_path, rel, /* unit= */ NULL);
                         if (q < 0)
                                 return q;
                         if (q > 0) {

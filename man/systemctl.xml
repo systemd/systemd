@@ -1037,8 +1037,10 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             by this command. <replaceable>UNIT</replaceable> must be the real unit name,
             any alias names are ignored silently.</para>
 
-            <para>Where the vendor already establishes the very same dependency below
-            <filename>/usr/</filename>, no symlink is written to
+            <para>Where the vendor already carries the very same symlink below
+            <filename>/usr/</filename>, be it a <filename>.wants/</filename>,
+            <filename>.requires/</filename> or <filename>.upholds/</filename> entry or an
+            <varname>Alias=</varname> name pointing at this unit, none is written to
             <filename>/etc/systemd/system/</filename>: presetting re-asserts a policy rather than
             recording a decision of the administrator, so there is nothing to record. This keeps
             <filename>/etc/</filename> empty on images built with <option>--vendor</option>. Note that
@@ -2764,7 +2766,10 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           alone. Of those, only an explicit <command>disable --vendor</command> removes any; a preset policy
           never does, just like a preset into <filename>/etc/</filename> never does. For the same reason an
           <varname>Alias=</varname> symlink below <filename>/usr/</filename> does not by itself make a unit
-          report as <literal>enabled</literal>.</para>
+          report as <literal>enabled</literal>. A unit whose <literal>[Install]</literal> section carries
+          nothing but <varname>Alias=</varname> is therefore reported as <literal>disabled</literal> once its
+          alias lives below <filename>/usr/</filename>, even though the alias is in effect and the unit is
+          reachable under it.</para>
 
           <para>This option may not be combined with <option>--runtime</option>, and it is not available for
           <option>--user</option>. Changes are always made directly by

@@ -2040,6 +2040,38 @@ TEST(vendor_preset_still_writes_what_is_needed) {
         }
 }
 
+TEST(vendor_preset_skips_redundant_alias) {
+        /* An Alias= symlink the vendor already carries for this very unit is as redundant as a dependency
+         * symlink would be, so presetting has nothing to record there either. The name has to point at this
+         * unit though: one the vendor carries for somebody else does not satisfy the policy. */
+
+        write_vendor_file("system/vendor-aliased.service",
+                          "[Install]\n"
+                          "Alias=vendor-aliased-name.service\n"
+                          "Alias=vendor-aliased-taken.service\n"
+                          "Alias=vendor-aliased-transient.service\n");
+        write_vendor_file("system/vendor-aliased-other.service", "[Install]\n");
+        write_vendor_symlink("vendor-aliased-name.service", "vendor-aliased.service");
+        write_vendor_symlink("vendor-aliased-taken.service", "vendor-aliased-other.service");
+
+        /* And as for dependencies, only a vendor supplied name counts: one in /run/ is gone after a
+         * reboot. */
+        const char *runtime_alias = strjoina(vendor_root, "/run/systemd/system/vendor-aliased-transient.service");
+        ASSERT_OK(mkdir_parents(runtime_alias, 0755));
+        ASSERT_OK_ERRNO(symlink("/usr/lib/systemd/system/vendor-aliased.service", runtime_alias));
+
+        write_vendor_file("system-preset/21-vendor-aliased.preset", "enable vendor-aliased.service\n");
+        do_preset(0, STRV_MAKE("vendor-aliased.service"));
+
+        ASSERT_FALSE(symlink_exists(strjoina(vendor_root, SYSTEM_CONFIG_UNIT_DIR"/vendor-aliased-name.service")));
+        ASSERT_TRUE(symlink_exists(strjoina(vendor_root, SYSTEM_CONFIG_UNIT_DIR"/vendor-aliased-taken.service")));
+        ASSERT_TRUE(symlink_exists(strjoina(vendor_root, SYSTEM_CONFIG_UNIT_DIR"/vendor-aliased-transient.service")));
+
+        /* An explicit enable records itself as always. */
+        do_enable(0, STRV_MAKE("vendor-aliased.service"));
+        ASSERT_TRUE(symlink_exists(strjoina(vendor_root, SYSTEM_CONFIG_UNIT_DIR"/vendor-aliased-name.service")));
+}
+
 static int intro(void) {
         make_root(&root);
         make_root(&vendor_root);

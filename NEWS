@@ -250,15 +250,16 @@ CHANGES WITH 262:
           loaded.
 
         * "systemctl preset" and "systemctl preset-all" no longer write an
-          enablement symlink into /etc/ when the vendor already establishes the
-          very same dependency below /usr/. Presetting re-asserts a policy
-          rather than recording an administrator's decision, so there is
-          nothing to record in that case, and on an image built with
-          "preset-all --vendor" a later "preset-all" now leaves /etc/ almost
-          untouched instead of filling it with copies of the vendor's own
-          decisions. "systemctl enable" is unaffected and still records itself,
-          so that an explicitly enabled unit stays enabled even if a later
-          image drops the vendor symlink.
+          enablement symlink into /etc/ where the vendor already carries the
+          very same one below /usr/, be it a .wants/, .requires/ or .upholds/
+          entry or an Alias= name pointing at the unit: presetting re-asserts a
+          policy rather than recording an administrator's decision, so there is
+          nothing to record. An image built with "preset-all --vendor" now
+          comes up with an empty /etc/ after a later "preset-all". "systemctl
+          enable" is unaffected and still records itself. As a consequence a
+          unit whose [Install] section carries nothing but Alias= is reported
+          as disabled once its alias is provided below /usr/, since an Alias=
+          symlink there does not by itself count as enablement.
 
         * "systemctl enable", "disable", "reenable", "preset" and "preset-all"
           gained a new "--vendor" switch, which makes them operate on
