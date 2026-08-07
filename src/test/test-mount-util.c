@@ -11,6 +11,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "hashmap.h"
 #include "libmount-util.h"
 #include "mkdir.h"
 #include "mount-util.h"
@@ -19,6 +20,7 @@
 #include "process-util.h"
 #include "random-util.h"
 #include "rm-rf.h"
+#include "set.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -377,6 +379,140 @@ TEST(umount_recursive) {
                         _exit(EXIT_SUCCESS);
                 }
         }
+}
+
+TEST(statmount_libmount_parity) {
+        int n_compared = 0, n_mismatch = -1;
+
+        /* The statmount() enumeration in mount-util.c must agree with the libmount mountinfo parse
+         * it falls back to: same mount points, same filesystem types, and mount_attr_to_ms_flags()
+         * matching what mnt_optstr_get_flags() reports for the same mount. On kernels that have the
+         * syscalls the libmount path is otherwise dead code, so this is the check that keeps the
+         * two backends interchangeable.
+         *
+         * The two snapshots cannot be taken atomically, so a mount table changing underneath can
+         * produce a spurious mismatch. A genuine backend divergence is deterministic, hence the
+         * retry loop: only a mismatch that persists across fresh snapshot pairs counts. */
+
+        for (unsigned attempt = 0; attempt < 3 && n_mismatch != 0; attempt++) {
+                _cleanup_hashmap_free_ Hashmap *parity = NULL;
+                _cleanup_set_free_ Set *seen = NULL;
+                _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+                _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+                _cleanup_free_ uint64_t *mnt_ids = NULL;
+                _cleanup_free_ char *buf = NULL;
+                size_t cap = 4096;
+                const size_t bufsz = 64 * 1024;
+                ssize_t n_ids;
+                int r;
+
+                n_compared = n_mismatch = 0;
+
+                for (;;) {
+                        struct mnt_id_req req = {
+                                .size = sizeof(req),
+                                .mnt_id = LSMT_ROOT,
+                        };
+
+                        assert_se(GREEDY_REALLOC(mnt_ids, cap));
+
+                        n_ids = listmount(&req, mnt_ids, cap, 0);
+                        if (n_ids < 0) {
+                                if (ERRNO_IS_NOT_SUPPORTED(errno) || ERRNO_IS_PRIVILEGE(errno))
+                                        return (void) log_tests_skipped("listmount() is not available");
+                                assert_se(n_ids >= 0);
+                        }
+
+                        if ((size_t) n_ids < cap)
+                                break;
+
+                        cap *= 2;
+                }
+
+                assert_se(buf = new(char, bufsz));
+
+                /* Walk the ids in descending order, so that the entry stored for a path is the
+                 * topmost mount on it, matching the MNT_ITER_BACKWARD walk of the libmount snapshot
+                 * below. */
+                for (ssize_t i = n_ids - 1; i >= 0; i--) {
+                        _cleanup_free_ char *p = NULL, *t = NULL, *v = NULL;
+                        struct statmount *sm = (struct statmount *) buf;
+                        struct mnt_id_req req = {
+                                .size = sizeof(req),
+                                .mnt_id = mnt_ids[i],
+                                .param = STATMOUNT_MNT_BASIC|STATMOUNT_MNT_POINT|STATMOUNT_FS_TYPE|STATMOUNT_FS_SUBTYPE,
+                        };
+
+                        r = RET_NERRNO(statmount(&req, sm, bufsz, 0));
+                        if (r == -ENOENT) /* Raced with an unmount */
+                                continue;
+                        if (ERRNO_IS_NEG_NOT_SUPPORTED(r) || ERRNO_IS_NEG_PRIVILEGE(r))
+                                /* A sandbox can filter statmount() while leaving listmount() alone */
+                                return (void) log_tests_skipped("statmount() is not available");
+                        assert_se(r >= 0);
+                        assert_se(FLAGS_SET(sm->mask, STATMOUNT_MNT_BASIC|STATMOUNT_MNT_POINT|STATMOUNT_FS_TYPE));
+
+                        assert_se(p = strdup(sm->str + sm->mnt_point));
+                        assert_se(statmount_fstype(sm, &t) >= 0);
+                        assert_se(asprintf(&v, "%s %lx", t, mount_attr_to_ms_flags(sm->mnt_attr)) >= 0);
+
+                        r = hashmap_ensure_put(&parity, &string_hash_ops_free_free, p, v);
+                        if (r == -EEXIST) /* An overmounted path; the topmost mount is already stored */
+                                continue;
+                        assert_se(r >= 0);
+                        TAKE_PTR(p);
+                        TAKE_PTR(v);
+                }
+
+                r = libmount_parse_full("/proc/self/mountinfo", NULL, MNT_ITER_BACKWARD, &table, &iter);
+                if (r < 0)
+                        return (void) log_tests_skipped_errno(r, "Failed to parse /proc/self/mountinfo");
+
+                for (;;) {
+                        struct libmnt_fs *fs;
+                        const char *path, *type, *opts, *sm_v;
+                        unsigned long fl = 0;
+                        _cleanup_free_ char *expected = NULL;
+
+                        r = sym_mnt_table_next_fs(table, iter, &fs);
+                        if (r == 1)
+                                break;
+                        assert_se(r == 0);
+
+                        path = sym_mnt_fs_get_target(fs);
+                        type = sym_mnt_fs_get_fstype(fs);
+                        if (!path || !type)
+                                continue;
+
+                        r = set_put_strdup(&seen, path);
+                        assert_se(r >= 0);
+                        if (r == 0) /* The topmost mount on this path was already compared */
+                                continue;
+
+                        opts = sym_mnt_fs_get_vfs_options(fs);
+                        if (opts)
+                                assert_se(sym_mnt_optstr_get_flags(opts, &fl, sym_mnt_get_builtin_optmap(MNT_LINUX_MAP)) >= 0);
+
+                        sm_v = hashmap_get(parity, path);
+                        if (!sm_v) /* Mounted or unmounted between the two snapshots */
+                                continue;
+
+                        assert_se(asprintf(&expected, "%s %lx", type, fl) >= 0);
+                        if (!streq(sm_v, expected)) {
+                                log_warning("mount '%s': statmount snapshot says '%s', libmount says '%s'",
+                                            path, sm_v, expected);
+                                n_mismatch++;
+                        }
+                        n_compared++;
+                }
+
+                if (n_mismatch > 0)
+                        log_info("retrying after %i mismatches, in case the mount table changed", n_mismatch);
+        }
+
+        log_info("compared %i mounts between the statmount() and libmount snapshots", n_compared);
+        assert_se(n_mismatch == 0);
+        assert_se(n_compared > 0);
 }
 
 TEST(fd_make_mount_point) {
