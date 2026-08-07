@@ -200,6 +200,35 @@ int fstab_is_mount_point_full(const char *where, const char *path) {
 #endif
 }
 
+static char *fstab_unescape_option(const char *s) {
+        /* Undo the fstab option escaping: "\," -> ",", "\\" -> "\", and keep any
+         * other "\x" verbatim (matches EXTRACT_UNESCAPE_SEPARATORS|EXTRACT_UNESCAPE_RELAX). */
+        char *r, *e;
+        const char *p;
+
+        assert(s);
+
+        r = new(char, strlen(s) + 1);
+        if (!r)
+                return NULL;
+
+        e = r;
+        for (p = s; *p; p++) {
+                if (*p == '\\' && p[1] != '\0') {
+                        if (IN_SET(p[1], ',', '\\')) {
+                                *e++ = p[1];
+                                p++;
+                                continue;
+                        }
+                        /* Keep the backslash and the following character verbatim. */
+                        *e++ = *p++;
+                }
+                *e++ = *p;
+        }
+        *e = '\0';
+        return r;
+}
+
 int fstab_filter_options(
                 const char *opts,
                 const char *names,
@@ -234,8 +263,10 @@ int fstab_filter_options(
                 _cleanup_free_ char **filtered_strv = NULL; /* strings are owned by 'opts_split' */
 
                 /* For backwards compatibility, we need to pass-through escape characters.
-                 * The only ones we "consume" are the ones used as "\," or "\\". */
-                r = strv_split_full(&opts_split, opts, ",", EXTRACT_UNESCAPE_SEPARATORS|EXTRACT_UNESCAPE_RELAX);
+                 * The only ones we "consume" are the ones used as "\," or "\\". The option
+                 * values are not unescaped by strv_split_full() here; matching option values are
+                 * unescaped manually below so that callers keep getting the unescaped form. */
+                r = strv_split_full(&opts_split, opts, ",", EXTRACT_UNESCAPE_RELAX);
                 if (r < 0)
                         return r;
 
@@ -257,11 +288,23 @@ int fstab_filter_options(
                         }
 
                         if (found) {
-                                if (ret_value)
-                                        r = free_and_strdup(&value, *x == '=' ? x + 1 : NULL);
-                                else if (ret_values)
-                                        r = strv_extend(&values, x + 1);
-                                else
+                                if (ret_value) {
+                                        char *unescaped = NULL;
+
+                                        if (*x == '=') {
+                                                unescaped = fstab_unescape_option(x + 1);
+                                                if (!unescaped)
+                                                        return -ENOMEM;
+                                        }
+
+                                        r = free_and_replace(value, unescaped);
+                                } else if (ret_values) {
+                                        char *unescaped = fstab_unescape_option(x + 1);
+                                        if (!unescaped)
+                                                return -ENOMEM;
+
+                                        r = strv_consume(&values, unescaped);
+                                } else
                                         r = 0;
                         } else
                                 r = strv_push(&filtered_strv, *opt);
@@ -270,7 +313,7 @@ int fstab_filter_options(
                 }
 
                 if (ret_filtered) {
-                        filtered = strv_join_full(filtered_strv, ",", NULL, /* escape_separator= */ true);
+                        filtered = strv_join(filtered_strv, ",");
                         if (!filtered)
                                 return -ENOMEM;
                 }
