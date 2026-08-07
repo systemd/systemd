@@ -297,8 +297,7 @@ int fstab_filter_options(
                                                         return -ENOMEM;
                                         }
 
-                                        free_and_replace(value, unescaped);
-                                        r = 0;
+                                        r = free_and_replace(value, unescaped);
                                 } else if (ret_values) {
                                         char *unescaped = fstab_unescape_option(x + 1);
                                         if (!unescaped)
