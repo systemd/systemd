@@ -7,8 +7,16 @@
 
 #include <stdio.h>
 
+#include "errno-util.h"
 #include "fstab-util.h"
 #include "mountpoint-util.h"
+
+DLSYM_PROTOTYPE(mnt_new_statmnt) = NULL;
+DLSYM_PROTOTYPE(mnt_unref_statmnt) = NULL;
+DLSYM_PROTOTYPE(mnt_statmnt_set_mask) = NULL;
+DLSYM_PROTOTYPE(mnt_table_refer_statmnt) = NULL;
+DLSYM_PROTOTYPE(mnt_table_listmount_set_id) = NULL;
+DLSYM_PROTOTYPE(mnt_table_fetch_listmount) = NULL;
 
 DLSYM_PROTOTYPE(mnt_free_iter) = NULL;
 DLSYM_PROTOTYPE(mnt_free_table) = NULL;
@@ -92,6 +100,81 @@ int libmount_parse_fstab(
         return libmount_parse_full(fstab_path(), NULL, MNT_ITER_FORWARD, ret_table, ret_iter);
 }
 
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct libmnt_statmnt*, sym_mnt_unref_statmnt, mnt_unref_statmntp, NULL);
+
+/* libmount reports "this kernel cannot do it" as ENOSYS, which callers of libmount_parse_kernel()
+ * must not tell apart from an older libmount: both mean use /proc/self/mountinfo instead. Normalize
+ * so that -EOPNOTSUPP is the single "fall back" answer and anything else is a real failure. */
+static int statmount_unsupported(int r) {
+        return ERRNO_IS_NEG_NOT_SUPPORTED(r) ? -EOPNOTSUPP : r;
+}
+
+int libmount_parse_kernel(
+                uint64_t mask,
+                int direction,
+                struct libmnt_table **ret_table,
+                struct libmnt_iter **ret_iter) {
+
+        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+        _cleanup_(mnt_unref_statmntp) struct libmnt_statmnt *sm = NULL;
+        int r;
+
+        assert(mask != 0);
+        assert(IN_SET(direction, MNT_ITER_FORWARD, MNT_ITER_BACKWARD));
+        assert(ret_table);
+        assert(ret_iter);
+
+        r = dlopen_libmount(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        /* Older libmount: no statmount() support to speak of. All six are checked before any is
+         * used, including the unref we only reach through the cleanup handler below. */
+        if (!sym_mnt_new_statmnt || !sym_mnt_unref_statmnt || !sym_mnt_statmnt_set_mask ||
+            !sym_mnt_table_refer_statmnt || !sym_mnt_table_listmount_set_id ||
+            !sym_mnt_table_fetch_listmount)
+                return -EOPNOTSUPP;
+
+        table = sym_mnt_new_table();
+        iter = sym_mnt_new_iter(direction);
+        if (!table || !iter)
+                return -ENOMEM;
+
+        sm = sym_mnt_new_statmnt();
+        if (!sm) {
+                /* libmount probes the syscall here and returns NULL with ENOSYS on a kernel older
+                 * than 6.8, which is a fall-back-to-mountinfo answer rather than an error. */
+                if (errno == ENOSYS)
+                        return -EOPNOTSUPP;
+
+                return -ENOMEM;
+        }
+
+        /* The mask is the whole point: asking for propagation info makes the kernel walk each
+         * mount's peer group, which is what makes reading /proc/self/mountinfo expensive in the
+         * first place. Callers name only the fields they use. */
+        r = sym_mnt_statmnt_set_mask(sm, mask);
+        if (r < 0)
+                return r;
+
+        r = sym_mnt_table_refer_statmnt(table, sm);
+        if (r < 0)
+                return r;
+
+        r = sym_mnt_table_listmount_set_id(table, LSMT_ROOT);
+        if (r < 0)
+                return statmount_unsupported(r);
+
+        r = sym_mnt_table_fetch_listmount(table);
+        if (r < 0)
+                return statmount_unsupported(r);
+
+        *ret_table = TAKE_PTR(table);
+        *ret_iter = TAKE_PTR(iter);
+        return 0;
+}
+
 int libmount_is_leaf(
                 struct libmnt_table *table,
                 struct libmnt_fs *fs) {
@@ -145,10 +228,11 @@ int libmount_fs_id_matches_path(struct libmnt_fs *fs, const char *path) {
 int dlopen_libmount(int log_level) {
 #if HAVE_LIBMOUNT
         static void *libmount_dl = NULL;
+        int r;
 
         LIBMOUNT_NOTE(suggested);
 
-        return dlopen_many_sym_or_warn(
+        r = dlopen_many_sym_or_warn(
                         &libmount_dl,
                         "libmount.so.1",
                         log_level,
@@ -183,6 +267,19 @@ int dlopen_libmount(int log_level) {
                         DLSYM_ARG(mnt_table_parse_stream),
                         DLSYM_ARG(mnt_table_parse_swaps),
                         DLSYM_ARG(mnt_unref_monitor));
+        if (r < 0)
+                return r;
+
+        /* Available since util-linux 2.41; libmount_parse_kernel() checks for them and falls back to
+         * the mountinfo parse when an older libmount left them NULL. */
+        DLSYM_OPTIONAL(libmount_dl, mnt_new_statmnt);
+        DLSYM_OPTIONAL(libmount_dl, mnt_unref_statmnt);
+        DLSYM_OPTIONAL(libmount_dl, mnt_statmnt_set_mask);
+        DLSYM_OPTIONAL(libmount_dl, mnt_table_refer_statmnt);
+        DLSYM_OPTIONAL(libmount_dl, mnt_table_listmount_set_id);
+        DLSYM_OPTIONAL(libmount_dl, mnt_table_fetch_listmount);
+
+        return r;
 #else
         return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
                               "libmount support is not compiled in.");
