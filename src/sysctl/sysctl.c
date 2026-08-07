@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "build.h"
@@ -32,9 +33,11 @@ static bool arg_verify = false;
 static bool arg_inline = false;
 static PagerFlags arg_pager_flags = 0;
 static char *arg_install_file = NULL;
+static char *arg_revert_file = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_prefixes, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_install_file, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_revert_file, freep);
 
 typedef struct SysctlOption {
         char *key;
@@ -514,6 +517,13 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         if (r < 0)
                                 return r;
                         break;
+
+                OPTION_LONG("revert", "FILENAME",
+                            "Remove the specified file from /run/sysctl.d/"):
+                        r = parse_conf_filename(opts.arg, "--revert=", &arg_revert_file);
+                        if (r < 0)
+                                return r;
+                        break;
                 }
 
         *remaining_args = option_parser_get_args(&opts);
@@ -544,6 +554,18 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         umask(0022);
+
+        if (arg_revert_file) {
+                _cleanup_free_ char *path = path_join("/run/sysctl.d/", arg_revert_file);
+                if (!path)
+                        return log_oom();
+
+                r = RET_NERRNO(unlink(path));
+                if (r < 0 && r != -ENOENT)
+                        return log_error_errno(r, "Failed to remove '%s': %m", path);
+
+                return 0;
+        }
 
         _cleanup_ordered_hashmap_free_ OrderedHashmap *sysctl_options = NULL;
         if (!strv_isempty(args)) {
