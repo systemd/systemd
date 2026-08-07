@@ -27,8 +27,17 @@ static inline int bind_remount_recursive(const char *prefix, unsigned long new_f
         return bind_remount_recursive_with_mountinfo(prefix, new_flags, flags_mask, deny_list, NULL);
 }
 
+/* Opens /proc/self/mountinfo for the functions above, or returns NULL with a debug log: the
+ * listmount()/statmount() enumeration they prefer needs no /proc, and they treat a NULL file as
+ * "no fallback available". */
+FILE* mount_open_proc_self_mountinfo(void);
+
 int bind_remount_one_with_mountinfo(const char *path, unsigned long new_flags, unsigned long flags_mask, FILE *proc_self_mountinfo);
 int bind_remount_one(const char *path, unsigned long new_flags, unsigned long flags_mask);
+
+/* Orders a mount point before any of its ancestors, which is the order umount_recursive_full()
+ * unmounts in. Exposed so the test suite can check that ordering directly. */
+int mount_path_compare_deepest_first(const char *a, const char *b);
 
 int mount_switch_root_full(const char *path, unsigned long mount_propagation_flag, bool force_ms_move);
 static inline int mount_switch_root(const char *path, unsigned long mount_propagation_flag) {
