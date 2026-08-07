@@ -8,10 +8,12 @@ import sys
 SYSCALLS = [
     'fchmodat2',     # defined in glibc header since glibc-2.39
     'kexec_file_load',
+    'listmount',
     'open_tree_attr',
     'quotactl_fd',   # defined in glibc header since glibc-2.35
     'removexattrat',
     'setxattrat',
+    'statmount',
 ]  # fmt: skip
 
 
