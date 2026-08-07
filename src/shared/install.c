@@ -262,7 +262,8 @@ static int path_is_vendor_or_generator(const LookupPaths *lp, const char *path) 
         if (path_startswith(rpath, "/usr"))
                 return true;
 
-        if (path_is_generator(lp, rpath))
+        /* The lookup paths are root prefixed, so we have to pass in a root prefixed path. */
+        if (path_is_generator(lp, path))
                 return true;
 
         return path_equal(rpath, SYSTEM_DATA_UNIT_DIR);
