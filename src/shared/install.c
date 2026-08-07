@@ -277,6 +277,22 @@ static bool path_is_vendor(const LookupPaths *lp, const char *path) {
         return PATH_IN_SET(rpath, SYSTEM_DATA_UNIT_DIR, USER_DATA_UNIT_DIR);
 }
 
+/* /usr/local/ is in the search path and below /usr/, so PID 1 honours what is in it and we do not write
+ * there, but it belongs to the administrator rather than to the vendor, see file-hierarchy(7). No package
+ * ships into it and "--vendor" never targets it. */
+static bool path_is_usr_local(const LookupPaths *lp, const char *path) {
+        const char *rpath;
+
+        assert(lp);
+        assert(path);
+
+        rpath = skip_root(lp->root_dir, path);
+        if (!rpath)
+                return false;
+
+        return path_startswith(rpath, "/usr/local");
+}
+
 static int path_is_vendor_or_generator(const LookupPaths *lp, const char *path) {
         assert(lp);
         assert(path);
@@ -2687,6 +2703,90 @@ static int install_info_symlink_alias(
         return ret;
 }
 
+/* This function checks whether the vendor already provides the dependency symlink rel, in which case
+ * presetting does not need to create it in config_path. A symlink in config_path only takes precedence over
+ * the directories below config_path. Only a vendor supplied entry is accepted. An entry in /run/ or from a
+ * generator is removed again on reboot. An entry below /usr/local/ belongs to the administrator. */
+static int dependency_provided_below(
+                const LookupPaths *lp,
+                const char *config_path,
+                const char *rel) {
+
+        _cleanup_free_ char *dir = NULL, *entry = NULL, *unit = NULL, *winner = NULL, *winner_dir = NULL,
+                *search_path = NULL;
+        _cleanup_strv_free_ char **below = NULL;
+        DependencyEntryType type;
+        const char *suffix;
+        bool found = false;
+        int r;
+
+        assert(lp);
+        assert(config_path);
+        assert(rel);
+
+        STRV_FOREACH(p, lp->search_path) {
+                if (!found) {
+                        found = path_equal(*p, config_path);
+                        continue;
+                }
+
+                r = strv_extend(&below, *p);
+                if (r < 0)
+                        return r;
+        }
+
+        r = path_extract_directory(rel, &dir);
+        if (r < 0)
+                return r;
+
+        r = path_extract_filename(rel, &entry);
+        if (r < 0)
+                return r;
+
+        suffix = dependency_dir_suffix(dir);
+        if (!suffix)
+                return false;
+
+        unit = strndup(dir, suffix - dir);
+        if (!unit)
+                return -ENOMEM;
+
+        /* If a lookup fails, presetting writes its own symlink. A redundant symlink is harmless. Wrongly
+         * skipping the symlink would leave the unit disabled. Returning the error would stop the preset
+         * after only some of the units were changed. */
+        r = unit_file_find_dropin_entry(lp->root_dir, below, suffix, unit, /* aliases= */ NULL, entry, &winner);
+        if (r == -ENOMEM)
+                return r;
+        if (r < 0) {
+                log_debug_errno(r, "Failed to look up '%s' below '%s', not skipping the symlink: %m",
+                                rel, config_path);
+                return false;
+        }
+        if (r == 0)
+                return false;
+
+        r = unit_file_classify_dependency_entry(winner, lp->root_dir, &type, /* ret_name= */ NULL);
+        if (r == -ENOMEM)
+                return r;
+        if (r < 0) {
+                log_debug_errno(r, "Failed to look at '%s', not skipping the symlink: %m", winner);
+                return false;
+        }
+        if (type != DEPENDENCY_ENTRY_SYMLINK)
+                return false;
+
+        r = path_extract_directory(winner, &winner_dir);
+        if (r < 0)
+                return r;
+
+        r = path_extract_directory(winner_dir, &search_path);
+        if (r < 0)
+                return r;
+
+        /* Only what the vendor provides counts, not what an administrator put below /usr/local/. */
+        return path_is_vendor(lp, search_path) && !path_is_usr_local(lp, search_path);
+}
+
 static int install_info_symlink_wants(
                 RuntimeScope scope,
                 UnitFileFlags file_flags,
@@ -2770,7 +2870,34 @@ static int install_info_symlink_wants(
                         continue;
                 }
 
-                path = strjoin(config_path, "/", dst, suffix, n);
+                _cleanup_free_ char *rel = strjoin(dst, suffix, n);
+                if (!rel)
+                        return -ENOMEM;
+
+                /* Applying a preset policy re-asserts what the policy says, it is not the administrator
+                 * saying they want this unit on. So if the vendor already enables it, leave the
+                 * configuration directory alone rather than filling it with copies of the vendor's own
+                 * decisions. An explicit "systemctl enable" still records itself, so that it survives the
+                 * vendor dropping the symlink later. */
+                if (FLAGS_SET(file_flags, UNIT_FILE_APPLYING_PRESET)) {
+                        q = dependency_provided_below(lp, config_path, rel);
+                        if (q < 0)
+                                return q;
+                        if (q > 0) {
+                                log_debug("Dependency %s already provided below %s, not creating it.",
+                                          rel, config_path);
+
+                                /* Still counts towards the number of symlinks that were supposed to be
+                                 * created, or a fully redundant unit would look like it had no [Install]
+                                 * section at all. */
+                                if (r >= 0)
+                                        r = 1;
+
+                                continue;
+                        }
+                }
+
+                path = path_join(config_path, rel);
                 if (!path)
                         return -ENOMEM;
 
@@ -4343,7 +4470,7 @@ static int execute_preset(
 
                 /* Returns number of symlinks that where supposed to be installed. */
                 q = install_context_apply(plus, lp,
-                                          file_flags | UNIT_FILE_IGNORE_AUXILIARY_FAILURE,
+                                          file_flags | UNIT_FILE_IGNORE_AUXILIARY_FAILURE | UNIT_FILE_APPLYING_PRESET,
                                           config_path,
                                           SEARCH_LOAD, changes, n_changes);
                 if (r >= 0) {
