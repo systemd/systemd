@@ -754,3 +754,15 @@ ID='the-id2'
 EOF
 
 SYSTEMD_OS_RELEASE="/etc/os-release2" check_alias o 'the-id2'
+
+: '-------is-enabled --full is relative to --root=-----------------'
+mkdir -p "$root/usr/lib/systemd/system"
+cat >"$root/usr/lib/systemd/system/rooted.service" <<EOF2
+[Install]
+WantedBy=multi-user.target
+EOF2
+"$systemctl" --root="$root" enable rooted.service
+
+# Without --root= being passed on this inspects the host, which knows nothing about this unit.
+"$systemctl" --root="$root" is-enabled --full rooted.service |
+    grep "^  $root/etc/systemd/system/multi-user.target.wants/rooted.service\$" >/dev/null
