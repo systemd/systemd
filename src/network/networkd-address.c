@@ -834,6 +834,14 @@ static int address_update(Address *address) {
                         return r;
         }
 
+        r = dhcp6_register_address(link, address);
+        if (r < 0)
+                log_link_warning_errno(
+                                link,
+                                r,
+                                "Could not start the registration of %s via DHCPv6, ignoring: %m",
+                                IN6_ADDR_TO_STRING(&address->in_addr.in6));
+
         link_update_operstate(link, /* also_update_master= */ true);
         link_check_ready(link);
         return 0;
@@ -942,6 +950,14 @@ static int address_drop(Address *in, bool removed_by_us) {
                         return r;
                 }
         }
+
+        r = dhcp6_unregister_address(link, address);
+        if (r < 0)
+                log_link_warning_errno(
+                                link,
+                                r,
+                                "Could not start the unregistration of %s via DHCPv6, ignoring: %m",
+                                IN6_ADDR_TO_STRING(&address->in_addr.in6));
 
         link_update_operstate(link, /* also_update_master= */ true);
         link_check_ready(link);
