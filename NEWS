@@ -249,6 +249,17 @@ CHANGES WITH 262:
           occurrence. These options are rejected if a kexec kernel is already
           loaded.
 
+        * "systemctl preset" and "systemctl preset-all" no longer write an
+          enablement symlink into /etc/ when the vendor already establishes the
+          very same dependency below /usr/. Presetting re-asserts a policy
+          rather than recording an administrator's decision, so there is
+          nothing to record in that case, and on an image built with
+          "preset-all --vendor" a later "preset-all" now leaves /etc/ almost
+          untouched instead of filling it with copies of the vendor's own
+          decisions. "systemctl enable" is unaffected and still records itself,
+          so that an explicitly enabled unit stays enabled even if a later
+          image drops the vendor symlink.
+
         * "systemctl enable", "disable", "reenable", "preset" and "preset-all"
           gained a new "--vendor" switch, which makes them operate on
           /usr/lib/systemd/system/ instead of /etc/systemd/system/. This is

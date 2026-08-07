@@ -2741,6 +2741,53 @@ static int install_info_symlink_alias(
         return ret;
 }
 
+/* Would this dependency symlink already be there if we didn't create it? Our symlink only ever competes
+ * with the directories below config_path, anything above it wins either way. Only a vendor supplied entry
+ * counts: one in /run/ or from a generator is gone again after a reboot. */
+static int dependency_provided_below(
+                const LookupPaths *lp,
+                const char *config_path,
+                const char *rel) {
+
+        bool below = false;
+        int r;
+
+        assert(lp);
+        assert(config_path);
+        assert(rel);
+
+        STRV_FOREACH(p, lp->search_path) {
+                _cleanup_free_ char *path = NULL;
+                struct stat st;
+
+                if (!below) {
+                        below = path_equal(*p, config_path);
+                        continue;
+                }
+
+                path = path_join(*p, rel);
+                if (!path)
+                        return -ENOMEM;
+
+                if (lstat(path, &st) < 0) {
+                        if (errno == ENOENT)
+                                continue;
+                        return -errno;
+                }
+
+                /* The first entry we find decides, the ones below it are shadowed. */
+                r = dependency_is_masked(lp, path);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return false;
+
+                return S_ISLNK(st.st_mode) && path_is_vendor(lp, *p);
+        }
+
+        return false;
+}
+
 static int install_info_symlink_wants(
                 RuntimeScope scope,
                 UnitFileFlags file_flags,
@@ -2824,7 +2871,34 @@ static int install_info_symlink_wants(
                         continue;
                 }
 
-                path = strjoin(config_path, "/", dst, suffix, n);
+                _cleanup_free_ char *rel = strjoin(dst, suffix, n);
+                if (!rel)
+                        return -ENOMEM;
+
+                /* Applying a preset policy re-asserts what the policy says, it is not the administrator
+                 * saying they want this unit on. So if the vendor already enables it, leave the
+                 * configuration directory alone rather than filling it with copies of the vendor's own
+                 * decisions. An explicit "systemctl enable" still records itself, so that it survives the
+                 * vendor dropping the symlink later. */
+                if (FLAGS_SET(file_flags, UNIT_FILE_APPLYING_PRESET)) {
+                        q = dependency_provided_below(lp, config_path, rel);
+                        if (q < 0)
+                                return q;
+                        if (q > 0) {
+                                log_debug("Dependency %s already provided below %s, not creating it.",
+                                          rel, config_path);
+
+                                /* Still counts towards the number of symlinks that were supposed to be
+                                 * created, or a fully redundant unit would look like it had no [Install]
+                                 * section at all. */
+                                if (r >= 0)
+                                        r = 1;
+
+                                continue;
+                        }
+                }
+
+                path = path_join(config_path, rel);
                 if (!path)
                         return -ENOMEM;
 
@@ -4368,7 +4442,7 @@ static int execute_preset(
 
                 /* Returns number of symlinks that where supposed to be installed. */
                 q = install_context_apply(plus, lp,
-                                          file_flags | UNIT_FILE_IGNORE_AUXILIARY_FAILURE,
+                                          file_flags | UNIT_FILE_IGNORE_AUXILIARY_FAILURE | UNIT_FILE_APPLYING_PRESET,
                                           config_path,
                                           SEARCH_LOAD, changes, n_changes);
                 if (r >= 0) {
