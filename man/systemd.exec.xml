@@ -2818,6 +2818,11 @@ RestrictNamespaces=~cgroup net</programlisting>
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, which
         defaults to off.</para>
 
+        <para>This setting is implemented using seccomp filtering. For system calls where the mode bits are
+        passed directly as arguments, the call is denied only when the SUID or SGID bits are set. For system
+        calls where those bits are passed indirectly and cannot be inspected by the filter, such as
+        <function>openat2()</function>, the call is blocked entirely, regardless of the requested mode.</para>
+
         <xi:include href="version-info.xml" xpointer="v242"/></listitem>
       </varlistentry>
 
