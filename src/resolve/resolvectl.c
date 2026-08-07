@@ -278,6 +278,31 @@ static void print_ifindex_comment(int printed_so_far, int ifindex) {
                ansi_grey(), ifname, ansi_normal());
 }
 
+static int dump_resolve_error_json(const char *name, const char *error_id, sd_json_variant *parameters, int ret) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        int r;
+
+        assert(name);
+        assert(!isempty(error_id));
+
+        if (parameters)
+                j = sd_json_variant_ref(parameters);
+
+        r = sd_json_variant_set_field_string(&j, "name", name);
+        if (r < 0)
+                return r;
+
+        r = sd_json_variant_set_field_string(&j, "error", error_id);
+        if (r < 0)
+                return r;
+
+        r = sd_json_variant_dump(j, arg_json_format_flags, /* f= */ NULL, /* prefix= */ NULL);
+        if (r < 0)
+                return r;
+
+        return ret;
+}
+
 static int varlink_log_resolve_error(const char *name, const char *error_id, sd_json_variant *reply, bool warn_missing) {
         int r;
 
@@ -285,6 +310,26 @@ static int varlink_log_resolve_error(const char *name, const char *error_id, sd_
         assert(!isempty(error_id));
 
         int ret = sd_varlink_error_to_errno(error_id, reply);
+        _cleanup_(resolve_error_done) ResolveError error = {
+                .rcode = _DNS_RCODE_INVALID,
+                .ede_rcode = _DNS_EDE_RCODE_INVALID,
+        };
+        if (reply) {
+                r = dispatch_resolve_error(/* name = */ NULL, reply, SD_JSON_LOG, &error);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to dispatch error JSON, ignoring: %m");
+        }
+
+        if (error.rcode == DNS_RCODE_NXDOMAIN && !warn_missing)
+                return -ENXIO;
+
+        if (sd_json_format_enabled(arg_json_format_flags))
+                return dump_resolve_error_json(
+                                name,
+                                error_id,
+                                reply,
+                                error.rcode == DNS_RCODE_NXDOMAIN ? -ENXIO : ret);
+
         static const struct {
                 const char *error_id;
                 const char *msg;
@@ -318,14 +363,6 @@ static int varlink_log_resolve_error(const char *name, const char *error_id, sd_
         if (streq(error_id, "io.systemd.Resolve.InconsistentServiceRecords"))
                 return log_error_errno(ret, "%s: resolve call failed: '%s' does not provide a consistent set of service resource records", name, name);
 
-        _cleanup_(resolve_error_done) ResolveError error = {
-                .rcode = _DNS_RCODE_INVALID,
-                .ede_rcode = _DNS_EDE_RCODE_INVALID,
-        };
-        r = dispatch_resolve_error(/* name = */ NULL, reply, SD_JSON_LOG, &error);
-        if (r < 0)
-                log_debug_errno(r, "Failed to dispatch error JSON, ignoring: %m");
-
         _cleanup_free_ char *msg_extended = NULL;
         if (error.ede_rcode >= 0) {
                 msg_extended = strjoin(" (",
@@ -342,9 +379,6 @@ static int varlink_log_resolve_error(const char *name, const char *error_id, sd_
 
         if (error.rcode != _DNS_RCODE_INVALID) {
                 if (error.rcode == DNS_RCODE_NXDOMAIN) {
-                        if (!warn_missing)
-                                return -ENXIO;
-
                         return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "%s: resolve call failed: Name '%s' not found%s%s",
                                                name, error.query_string ?: name, error.ede_rcode >= 0 ? ":" : "", strempty(msg_extended));
                 }
