@@ -87,6 +87,11 @@ int dhcp6_client_update_address_registration_at(
                 usec_t lifetime_valid_usec,
                 usec_t now_usec);
 
+int dhcp6_client_withdraw_address_registration_at(
+                sd_dhcp6_client *client,
+                const struct in6_addr *address,
+                usec_t now_usec);
+
 int dhcp6_client_address_registration_retransmit_at(
                 sd_dhcp6_client *client,
                 const struct in6_addr *address,

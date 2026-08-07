@@ -121,8 +121,13 @@ static int address_registration_ensure_socket(sd_dhcp6_client *client) {
         return r;
 }
 
-static int address_registration_send_message(DHCP6AddressRegistration *registration, usec_t now_usec) {
+static int address_registration_send_message(
+                DHCP6AddressRegistration *registration,
+                usec_t now_usec,
+                bool withdraw) {
+
         _cleanup_free_ uint8_t *buf = NULL;
+        usec_t valid_usec, preferred_usec;
         sd_dhcp6_client *client;
         struct iaaddr iaaddr;
         struct sockaddr_in6 destination;
@@ -143,9 +148,16 @@ static int address_registration_send_message(DHCP6AddressRegistration *registrat
                 .sin6_scope_id = client->ifindex,
         };
 
-        usec_t valid_usec = usec_sub_unsigned(registration->lifetime_valid_usec, now_usec);
-        if (valid_usec == 0)
-                return -EADDRNOTAVAIL;
+        if (withdraw)
+                /* RFC 9686 section 4.6.3: zero lifetimes withdraw an address. */
+                valid_usec = preferred_usec = 0;
+        else {
+                valid_usec = usec_sub_unsigned(registration->lifetime_valid_usec, now_usec);
+                if (valid_usec == 0)
+                        return -EADDRNOTAVAIL;
+
+                preferred_usec = usec_sub_unsigned(registration->lifetime_preferred_usec, now_usec);
+        }
 
         r = address_registration_ensure_socket(client);
         if (r < 0)
@@ -171,8 +183,7 @@ static int address_registration_send_message(DHCP6AddressRegistration *registrat
 
         iaaddr = (struct iaaddr) {
                 .address = registration->address,
-                .lifetime_preferred = usec_to_be32_sec(usec_sub_unsigned(
-                                registration->lifetime_preferred_usec, now_usec)),
+                .lifetime_preferred = usec_to_be32_sec(preferred_usec),
                 .lifetime_valid = usec_to_be32_sec(valid_usec),
         };
         r = dhcp6_option_append(&buf, &offset, SD_DHCP6_OPTION_IAADDR, sizeof(iaaddr), &iaaddr);
@@ -191,8 +202,9 @@ static int address_registration_send_message(DHCP6AddressRegistration *registrat
                 return r;
         }
 
-        log_dhcp6_client(client, "Sent Address Registration Inform for %s",
-                         IN6_ADDR_TO_STRING(&registration->address));
+        log_dhcp6_client(client, "Sent Address Registration Inform for %s%s",
+                         IN6_ADDR_TO_STRING(&registration->address),
+                         withdraw ? " (no longer in use)" : "");
         return 0;
 }
 
@@ -388,7 +400,7 @@ static int address_registration_transmit(
 
         registration->transmission_count++;
 
-        r = address_registration_send_message(registration, now_usec);
+        r = address_registration_send_message(registration, now_usec, /* withdraw= */ false);
         if (r >= 0) {
                 registration->registration_attempted = true;
                 if (registration->next_refresh_usec == USEC_INFINITY)
@@ -401,13 +413,27 @@ static int address_registration_transmit(
         return r < 0 ? r : retransmission;
 }
 
+/* RFC 9686 section 4.6.3 requires a new transaction ID for every refresh. */
+static void address_registration_new_transaction_id(DHCP6AddressRegistration *registration) {
+        be32_t previous_transaction_id;
+        uint32_t transaction_id;
+
+        assert(registration);
+
+        previous_transaction_id = registration->transaction_id;
+
+        transaction_id = dhcp6_address_registration_random_u32() & 0x00ffffffU;
+        if (registration->registration_attempted && htobe32(transaction_id) == previous_transaction_id)
+                transaction_id = (transaction_id + 1) & 0x00ffffffU;
+
+        registration->transaction_id = htobe32(transaction_id);
+}
+
 static int address_registration_start_transaction(
                 DHCP6AddressRegistration *registration,
                 usec_t now_usec) {
 
         sd_dhcp6_client *client;
-        be32_t previous_transaction_id;
-        uint32_t transaction_id;
 
         assert(registration);
 
@@ -415,15 +441,11 @@ static int address_registration_start_transaction(
         if (usec_sub_unsigned(registration->lifetime_valid_usec, now_usec) == 0)
                 return -EADDRNOTAVAIL;
 
-        previous_transaction_id = registration->transaction_id;
         address_registration_cancel_transaction(registration);
         address_registration_cancel_refresh(registration);
         registration->next_refresh_usec = USEC_INFINITY;
 
-        transaction_id = dhcp6_address_registration_random_u32() & 0x00ffffffU;
-        if (registration->registration_attempted && htobe32(transaction_id) == previous_transaction_id)
-                transaction_id = (transaction_id + 1) & 0x00ffffffU;
-        registration->transaction_id = htobe32(transaction_id);
+        address_registration_new_transaction_id(registration);
         registration->transmission_count = 0;
         registration->retransmit_time_usec = address_registration_randomized_retransmission_time(
                         client->address_registration.initial_retransmission_time_usec,
@@ -544,6 +566,39 @@ int dhcp6_client_update_address_registration(
                         lifetime_preferred_usec,
                         lifetime_valid_usec,
                         now(CLOCK_BOOTTIME));
+}
+
+int dhcp6_client_withdraw_address_registration_at(
+                sd_dhcp6_client *client,
+                const struct in6_addr *address,
+                usec_t now_usec) {
+
+        DHCP6AddressRegistration *registration;
+
+        assert(client);
+        assert(address);
+
+        registration = hashmap_get(client->address_registration.registrations, address);
+        if (!registration)
+                return 0;
+
+        /* Finite registrations expire on the server; infinite ones require explicit withdrawal. */
+        if (!client->address_registration.enabled ||
+            !client->address_registration.supported ||
+            !registration->registration_attempted ||
+            registration->lifetime_valid_usec != USEC_INFINITY)
+                return 0;
+
+        address_registration_new_transaction_id(registration);
+
+        return address_registration_send_message(registration, now_usec, /* withdraw= */ true);
+}
+
+int dhcp6_client_withdraw_address_registration(
+                sd_dhcp6_client *client,
+                const struct in6_addr *address) {
+
+        return dhcp6_client_withdraw_address_registration_at(client, address, now(CLOCK_BOOTTIME));
 }
 
 void dhcp6_client_remove_address_registration(

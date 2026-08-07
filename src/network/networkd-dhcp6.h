@@ -19,6 +19,7 @@ typedef enum AddressRegistrationTime {
 bool link_dhcp6_with_address_enabled(Link *link);
 bool dhcp6_address_is_eligible_for_registration(const Address *address);
 void dhcp6_sync_address_registration(Link *link, const Address *address);
+void dhcp6_withdraw_address_registration(Link *link, const Address *address);
 void dhcp6_remove_address_registration(Link *link, const Address *address);
 void dhcp6_reset_address_registration(Link *link);
 int dhcp6_check_ready(Link *link);

@@ -1291,6 +1291,8 @@ int address_remove(Address *address, Link *link) {
 
         log_address_debug(address, "Removing", link);
 
+        dhcp6_withdraw_address_registration(link, address);
+
         r = sd_rtnl_message_new_addr(link->manager->rtnl, &m, RTM_DELADDR,
                                      link->ifindex, address->family);
         if (r < 0)

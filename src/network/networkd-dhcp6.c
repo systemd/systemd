@@ -133,6 +133,25 @@ void dhcp6_sync_address_registration(Link *link, const Address *address) {
                                        "Failed to synchronize DHCPv6 address registration, ignoring: %m");
 }
 
+void dhcp6_withdraw_address_registration(Link *link, const Address *address) {
+        int r;
+
+        assert(link);
+        assert(address);
+
+        if (address->family != AF_INET6)
+                return;
+
+        if (!link->dhcp6_client)
+                return;
+
+        /* RFC 9686 section 4.2 requires the registered address as the packet source. */
+        r = dhcp6_client_withdraw_address_registration(link->dhcp6_client, &address->in_addr.in6);
+        if (r < 0)
+                log_link_warning_errno(link, r,
+                                       "Failed to withdraw DHCPv6 address registration, ignoring: %m");
+}
+
 void dhcp6_remove_address_registration(Link *link, const Address *address) {
         assert(link);
         assert(address);

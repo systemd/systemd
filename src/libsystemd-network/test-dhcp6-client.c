@@ -2045,6 +2045,58 @@ TEST(address_registration_unupdated_finite_lifetime) {
         ASSERT_FALSE(registration->transaction_active);
 }
 
+TEST(address_registration_withdraw) {
+        AddressRegistrationTest test = {
+                .next_transaction_id = 0x123456,
+        };
+        _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client =
+                test_address_registration_client_new(&test);
+        const usec_t now_usec = 100 * USEC_PER_SEC;
+        DHCP6AddressRegistration *registration;
+
+        ASSERT_EQ(dhcp6_client_address_registration_discover_at(
+                          client, DHCP6_MESSAGE_REPLY, /* advertised= */ true, now_usec), 1);
+
+        ASSERT_EQ(dhcp6_client_withdraw_address_registration_at(client, &ia_na_address1, now_usec), 0);
+        ASSERT_EQ(test.n_sent, 0U);
+
+        ASSERT_EQ(dhcp6_client_update_address_registration_at(
+                          client,
+                          &ia_na_address2,
+                          now_usec + 10 * USEC_PER_SEC,
+                          now_usec + 20 * USEC_PER_SEC,
+                          now_usec), 1);
+        ASSERT_EQ(test.n_sent, 1U);
+        ASSERT_EQ(dhcp6_client_withdraw_address_registration_at(client, &ia_na_address2, now_usec), 0);
+        ASSERT_EQ(test.n_sent, 1U);
+
+        ASSERT_EQ(dhcp6_client_update_address_registration_at(
+                          client, &ia_na_address1, USEC_INFINITY, USEC_INFINITY, now_usec), 1);
+        ASSERT_EQ(test.n_sent, 2U);
+        registration = ASSERT_PTR(test_address_registration_get(client, &ia_na_address1));
+        be32_t registered_transaction_id = registration->transaction_id;
+
+        ASSERT_OK(dhcp6_client_withdraw_address_registration_at(client, &ia_na_address1, now_usec));
+        ASSERT_EQ(test.n_sent, 3U);
+
+        AddressRegistrationSentPacket *sent = &test.sent[2];
+        ASSERT_EQ(sent->message_type, DHCP6_MESSAGE_ADDR_REG_INFORM);
+        ASSERT_NE(sent->transaction_id, registered_transaction_id);
+        ASSERT_EQ(sent->n_client_id, 1U);
+        ASSERT_EQ(sent->n_iaaddr, 1U);
+        ASSERT_EQ(sent->n_server_id, 0U);
+        ASSERT_EQ(sent->n_oro, 0U);
+        struct in6_addr sent_address;
+        memcpy(&sent_address, &sent->iaaddr.address, sizeof(sent_address));
+        ASSERT_TRUE(in6_addr_equal(&sent_address, &ia_na_address1));
+        ASSERT_EQ(be32toh(sent->iaaddr.lifetime_preferred), 0U);
+        ASSERT_EQ(be32toh(sent->iaaddr.lifetime_valid), 0U);
+
+        dhcp6_client_address_registration_reset(client);
+        ASSERT_EQ(dhcp6_client_withdraw_address_registration_at(client, &ia_na_address1, now_usec), 0);
+        ASSERT_EQ(test.n_sent, 3U);
+}
+
 TEST(address_registration_static_refresh_and_parameters) {
         AddressRegistrationTest test = {
                 .next_transaction_id = 0x654321,
