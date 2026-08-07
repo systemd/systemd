@@ -1281,6 +1281,38 @@ TEST(strv_rebreak_lines) {
          * the whitespace we broke at. */
         ASSERT_ERROR(strv_rebreak_lines(STRV_MAKE("a \xF0" "b"), 3, &l), EINVAL);
         ASSERT_NULL(l);
+
+        /* Newlines embedded in the input are hard line breaks. Previously everything before such a newline
+         * was silently dropped if nothing but whitespace followed it. */
+        ASSERT_OK(strv_rebreak_lines(STRV_MAKE("foo\n"), 10, &l));
+        ASSERT_TRUE(strv_equal(l, STRV_MAKE("foo")));
+        l = strv_free(l);
+
+        ASSERT_OK(strv_rebreak_lines(STRV_MAKE("foo\n   "), 10, &l));
+        ASSERT_TRUE(strv_equal(l, STRV_MAKE("foo")));
+        l = strv_free(l);
+
+        ASSERT_OK(strv_rebreak_lines(STRV_MAKE("foo\nbar"), 10, &l));
+        ASSERT_TRUE(strv_equal(l, STRV_MAKE("foo", "bar")));
+        l = strv_free(l);
+
+        ASSERT_OK(strv_rebreak_lines(STRV_MAKE("foo   \n   bar   \n"), 10, &l));
+        ASSERT_TRUE(strv_equal(l, STRV_MAKE("foo", "   bar")));
+        l = strv_free(l);
+
+        ASSERT_OK(strv_rebreak_lines(STRV_MAKE("foo\n\nbar"), 10, &l));
+        ASSERT_TRUE(strv_equal(l, STRV_MAKE("foo", "", "bar")));
+        l = strv_free(l);
+
+        ASSERT_OK(strv_rebreak_lines(STRV_MAKE("foo\r\nbar\r\n"), 10, &l));
+        ASSERT_TRUE(strv_equal(l, STRV_MAKE("foo", "bar")));
+        l = strv_free(l);
+
+        /* And the resulting lines are properly broken to the requested width, rather than staying glued
+         * together in a single, over-long entry. */
+        ASSERT_OK(strv_rebreak_lines(STRV_MAKE("hello world\nfoo bar baz quux waldo"), 10, &l));
+        ASSERT_TRUE(strv_equal(l, STRV_MAKE("hello", "world", "foo bar", "baz quux", "waldo")));
+        l = strv_free(l);
 }
 
 TEST(strv_find_closest) {
