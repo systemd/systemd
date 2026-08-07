@@ -529,7 +529,8 @@ static int append_extensions(
                 char **hierarchies,
                 const MountImage *mount_images,
                 size_t n_mount_images,
-                char **extension_directories) {
+                char **extension_directories,
+                const char *host_version) {
 
         char ***overlays = NULL;
         size_t n_overlays = 0;
@@ -564,12 +565,15 @@ static int append_extensions(
                 _cleanup_free_ char *mount_point = NULL;
                 const MountImage *m = mount_images + i;
 
+                PickFilter filter = pick_filter_image_raw[0];
+                filter.host_version = host_version;
+
                 r = path_pick(/* root_path= */ NULL,
                               /* root_fd= */ AT_FDCWD,
                               /* dir_fd= */ AT_FDCWD,
                               m->source,
-                              pick_filter_image_raw,
-                              ELEMENTSOF(pick_filter_image_raw),
+                              &filter,
+                              /* n_filters= */ 1,
                               PICK_ARCHITECTURE|PICK_TRIES,
                               &result);
                 if (r == -ENOENT && m->ignore_enoent)
@@ -637,12 +641,15 @@ static int append_extensions(
                 if (startswith(e, "+"))
                         e++;
 
+                PickFilter filter = pick_filter_image_dir[0];
+                filter.host_version = host_version;
+
                 r = path_pick(/* root_path= */ NULL,
                               /* root_fd= */ AT_FDCWD,
                               /* dir_fd= */ AT_FDCWD,
                               e,
-                              pick_filter_image_dir,
-                              ELEMENTSOF(pick_filter_image_dir),
+                              &filter,
+                              /* n_filters= */ 1,
                               PICK_ARCHITECTURE|PICK_TRIES,
                               &result);
                 if (r == -ENOENT && ignore_enoent)
@@ -2847,10 +2854,6 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         if (r < 0)
                 return r;
 
-        r = append_extensions(&ml, root, p->private_namespace_dir, hierarchies, p->extension_images, p->n_extension_images, p->extension_directories);
-        if (r < 0)
-                return r;
-
         if (p->private_dev) {
                 MountEntry *me = mount_list_extend(&ml);
                 if (!me)
@@ -3195,6 +3198,28 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         /* Try to set up the new root directory before mounting anything else there. */
         if (pinned_resource_is_set(p->rootfs))
                 (void) base_filesystem_create(root, UID_INVALID, GID_INVALID);
+
+        /* Resolve the extensions now that the unit's root is mounted and can read the VERSION_ID for
+         * "host=" vpick entries. */
+        _cleanup_free_ char *extension_host_version = NULL;
+        if (pinned_resource_is_set(p->rootfs)) {
+                r = parse_os_release(root, "VERSION_ID", &extension_host_version);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to read os-release data of the unit's root, ignoring: %m");
+
+                /* If it cannot be determined, don't let "host=" entries match the manager's os-release */
+                if (!extension_host_version) {
+                        extension_host_version = strdup("");
+                        if (!extension_host_version)
+                                return -ENOMEM;
+                }
+        }
+
+        r = append_extensions(&ml, root, p->private_namespace_dir, hierarchies, p->extension_images, p->n_extension_images, p->extension_directories, extension_host_version);
+        if (r < 0)
+                return r;
+
+        sort_and_drop_unused_mounts(&ml, root);
 
         /* Now make the magic happen */
         r = apply_mounts(&ml, root, p, reterr_path);
@@ -4018,6 +4043,17 @@ int refresh_extensions_in_namespace(
         if (r < 0)
                 return r;
 
+        /* Match "host=" vpick entries against the os-release of the unit's root, like sysext does */
+        _cleanup_free_ char *host_version = NULL;
+        r = parse_os_release_at(root_fd, "VERSION_ID", &host_version);
+        if (r < 0)
+                log_debug_errno(r, "Failed to read os-release data of unit root, ignoring: %m");
+        if (!host_version) {
+                host_version = strdup("");
+                if (!host_version)
+                        return log_oom_debug();
+        }
+
         r = append_extensions(
                         &ml,
                         overlay_prefix,
@@ -4025,7 +4061,8 @@ int refresh_extensions_in_namespace(
                         hierarchies,
                         p->extension_images,
                         p->n_extension_images,
-                        p->extension_directories);
+                        p->extension_directories,
+                        host_version);
         if (r < 0)
                 return r;
 

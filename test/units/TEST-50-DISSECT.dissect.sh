@@ -666,6 +666,58 @@ rm -rf "$VDIR" "$EMPTY_VDIR"
 systemd-dissect --umount "$IMAGE_DIR/app0"
 systemd-dissect --umount "$IMAGE_DIR/app1"
 
+# Check that "host=" vpick entries in ExtensionDirectories= are matched against the os-release data of the
+# unit's root, not the manager's
+VBASE="vtest$RANDOM"
+VDIR="/tmp/${VBASE}.v"
+FAKE_ROOT="/tmp/${VBASE}-root"
+# shellcheck source=/dev/null
+HOST_VERSION_ID="$(. /etc/os-release && echo "${VERSION_ID:-5-decoyvertest}")"
+
+# One entry for the fake root's version, one decoy entry for the manager's actual version, and one decoy
+# entry with the highest version that matches no os-release, to also catch a wrong newest-wins pick
+mkdir "$VDIR"
+for v in 1-hostvertest 99999999-neververtest "$HOST_VERSION_ID"; do
+    mkdir -p "$VDIR/${VBASE}_host=$v/usr/lib/extension-release.d"
+    echo "ID=_any" >"$VDIR/${VBASE}_host=$v/usr/lib/extension-release.d/extension-release.${VBASE}_host=$v"
+    echo "$v" >"$VDIR/${VBASE}_host=$v/usr/${VBASE}.marker"
+done
+
+# Fake root: bind of /, with /etc overlayed so os-release can be replaced
+mkdir -p "$FAKE_ROOT" "/tmp/${VBASE}-upper" "/tmp/${VBASE}-work"
+mount --bind / "$FAKE_ROOT"
+# The bind shares /'s peer group, the overlay mount would propagate back onto the real /etc
+mount --make-private "$FAKE_ROOT"
+mount -t overlay overlay -o "lowerdir=/etc,upperdir=/tmp/${VBASE}-upper,workdir=/tmp/${VBASE}-work" "$FAKE_ROOT/etc"
+rm -f "$FAKE_ROOT/etc/os-release"
+{ grep -v "^VERSION_ID=" /etc/os-release; echo "VERSION_ID=1-hostvertest"; } >"$FAKE_ROOT/etc/os-release"
+
+# The entry matching the unit root's VERSION_ID is picked, not the manager's, and not the highest one
+MARKER="$(systemd-run -P \
+            --property RootDirectory="$FAKE_ROOT" \
+            --property MountAPIVFS=yes \
+            --property ExtensionDirectories="$VDIR" \
+            cat "/usr/${VBASE}.marker")"
+if ! echo "$MARKER" | grep -x 1-hostvertest >/dev/null; then
+    echo >&2 "Wrong extension applied for unit root VERSION_ID=1-hostvertest, marker says: $MARKER"
+    exit 1
+fi
+
+# No entry matches the unit root's VERSION_ID → the extension is not applied
+{ grep -v "^VERSION_ID=" /etc/os-release; echo "VERSION_ID=2-nomatchvertest"; } >"$FAKE_ROOT/etc/os-release"
+if systemd-run -P \
+            --property RootDirectory="$FAKE_ROOT" \
+            --property MountAPIVFS=yes \
+            --property ExtensionDirectories="$VDIR" \
+            cat "/usr/${VBASE}.marker"; then
+    echo >&2 "Extension unexpectedly applied for unit root VERSION_ID=2-nomatchvertest without matching entry"
+    exit 1
+fi
+
+umount "$FAKE_ROOT/etc"
+umount "$FAKE_ROOT"
+rm -rf "$VDIR" "$FAKE_ROOT" "/tmp/${VBASE}-upper" "/tmp/${VBASE}-work"
+
 # Check reloading refreshes vpick extensions
 VBASE="vtest$RANDOM"
 VDIR="/tmp/${VBASE}.v"
