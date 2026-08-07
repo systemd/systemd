@@ -768,10 +768,14 @@ testcase_08_resolved() {
     (! run resolvectl query nope.forwarded.test)
     grep -qF "nope.forwarded.test" "$RUN_OUT"
     grep -qF "not found" "$RUN_OUT"
+    (! run resolvectl --json=short query -t A nope.forwarded.test)
+    jq -e '.name == "nope.forwarded.test" and .error == "io.systemd.Resolve.DNSError" and .rcode == 3 and .queryString == "nope.forwarded.test"' "$RUN_OUT"
 
     # SERVFAIL + EDE code 6: DNSSEC Bogus
     (! run resolvectl query edns-bogus-dnssec.forwarded.test)
     grep -qE "^edns-bogus-dnssec.forwarded.test:.+: upstream-failure \(DNSSEC Bogus\)" "$RUN_OUT"
+    (! run resolvectl --json=short query -t A edns-bogus-dnssec.forwarded.test)
+    jq -e '.name == "edns-bogus-dnssec.forwarded.test" and .error == "io.systemd.Resolve.DNSSECValidationFailed" and .result == "upstream-failure" and .extendedDNSErrorCode == 6' "$RUN_OUT"
     # Same thing, but over Varlink
     (! run varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveHostname '{"name" : "edns-bogus-dnssec.forwarded.test"}')
     grep -qF "io.systemd.Resolve.DNSSECValidationFailed" "$RUN_OUT"
@@ -782,6 +786,8 @@ testcase_08_resolved() {
     # SERVFAIL + EDE code 16: Censored + extra text
     (! run resolvectl query edns-extra-text.forwarded.test)
     grep -qE "^edns-extra-text.forwarded.test.+: SERVFAIL \(Censored: Nothing to see here!\)" "$RUN_OUT"
+    (! run resolvectl --json=short query -t A edns-extra-text.forwarded.test)
+    jq -e '.name == "edns-extra-text.forwarded.test" and .error == "io.systemd.Resolve.DNSError" and .rcode == 2 and .extendedDNSErrorCode == 16 and .extendedDNSErrorMessage == "Nothing to see here!" and .queryString == "edns-extra-text.forwarded.test"' "$RUN_OUT"
     (! run varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveHostname '{"name" : "edns-extra-text.forwarded.test"}')
     grep -qF "io.systemd.Resolve.DNSError" "$RUN_OUT"
     grep -qF '{"rcode":2,"extendedDNSErrorCode":16,"extendedDNSErrorMessage":"Nothing to see here!","queryString":"edns-extra-text.forwarded.test"}' "$RUN_OUT"
