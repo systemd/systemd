@@ -834,6 +834,8 @@ static int address_update(Address *address) {
                         return r;
         }
 
+        dhcp6_register_address(link, address);
+
         link_update_operstate(link, /* also_update_master= */ true);
         link_check_ready(link);
         return 0;
