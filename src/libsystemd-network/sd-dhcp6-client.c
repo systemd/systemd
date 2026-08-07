@@ -12,6 +12,7 @@
 #include "alloc-util.h"
 #include "device-util.h"
 #include "dhcp-duid-internal.h"
+#include "dhcp6-addr-reg.h"
 #include "dhcp6-client-internal.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
@@ -1464,6 +1465,8 @@ int sd_dhcp6_client_stop(sd_dhcp6_client *client) {
         client->receive_message = sd_event_source_unref(client->receive_message);
         client->fd = safe_close(client->fd);
 
+        dhcp6_client_addr_reg_flush(client);
+
         return 0;
 }
 
@@ -1588,6 +1591,8 @@ static sd_dhcp6_client *dhcp6_client_free(sd_dhcp6_client *client) {
 
         sd_dhcp6_lease_unref(client->lease);
 
+        dhcp6_client_addr_reg_flush(client);
+
         sd_event_source_disable_unref(client->receive_message);
         sd_event_source_disable_unref(client->timeout_resend);
         sd_event_source_disable_unref(client->timeout_expire);
@@ -1631,6 +1636,7 @@ int sd_dhcp6_client_new(sd_dhcp6_client **ret) {
                 .request_ia = DHCP6_REQUEST_IA_NA | DHCP6_REQUEST_IA_PD,
                 .fd = -EBADF,
                 .rapid_commit = true,
+                .addr_reg_fd = -EBADF,
         };
 
         *ret = TAKE_PTR(client);
