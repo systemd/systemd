@@ -9,7 +9,6 @@
 #include "dropin.h"
 #include "escape.h"
 #include "fileio.h"
-#include "fs-util.h"
 #include "log.h"
 #include "path-util.h"
 #include "set.h"
@@ -116,6 +115,7 @@ int write_drop_in_format(
 static int unit_file_add_dir(
                 const char *original_root,
                 const char *path,
+                bool resolve,
                 char ***dirs) {
 
         _cleanup_free_ char *chased = NULL;
@@ -137,7 +137,8 @@ static int unit_file_add_dir(
         if (r < 0)
                 return log_warning_errno(r, "Failed to canonicalize path '%s': %m", path);
 
-        if (strv_consume(dirs, TAKE_PTR(chased)) < 0)
+        r = resolve ? strv_consume(dirs, TAKE_PTR(chased)) : strv_extend(dirs, path);
+        if (r < 0)
                 return log_oom();
 
         return 0;
@@ -246,6 +247,7 @@ static int unit_file_add_dir_if_exists(
                 const char *unit_path,
                 const char *name,
                 const char *suffix,
+                bool resolve,
                 char ***dirs) {
 
         _cleanup_free_ char *path = NULL;
@@ -264,7 +266,7 @@ static int unit_file_add_dir_if_exists(
         if (unit_path_cache && !set_contains(unit_path_cache, path))
                 return 0;
 
-        return unit_file_add_dir(original_root, path, dirs);
+        return unit_file_add_dir(original_root, path, resolve, dirs);
 }
 
 static int unit_file_find_dirs(
@@ -273,6 +275,7 @@ static int unit_file_find_dirs(
                 char **lookup_path,
                 const char *name,
                 const char *suffix,
+                bool resolve,
                 char ***dirs) {
 
         _cleanup_strv_free_ char **candidates = NULL;
@@ -297,7 +300,7 @@ static int unit_file_find_dirs(
          * handling. Other lookup directories are still tried independently. */
         STRV_FOREACH(p, lookup_path)
                 STRV_FOREACH(c, candidates)
-                        if (unit_file_add_dir_if_exists(original_root, unit_path_cache, *p, *c, suffix, dirs) < 0)
+                        if (unit_file_add_dir_if_exists(original_root, unit_path_cache, *p, *c, suffix, resolve, dirs) < 0)
                                 break;
 
         return 0;
@@ -351,6 +354,7 @@ static int unit_file_find_dropin_dirs(
                 const char *dir_suffix,
                 const char *name,
                 const Set *aliases,
+                bool resolve,
                 char ***ret) {
 
         _cleanup_strv_free_ char **dirs = NULL;
@@ -359,10 +363,10 @@ static int unit_file_find_dropin_dirs(
         assert(ret);
 
         if (name)
-                (void) unit_file_find_dirs(original_root, unit_path_cache, lookup_path, name, dir_suffix, &dirs);
+                (void) unit_file_find_dirs(original_root, unit_path_cache, lookup_path, name, dir_suffix, resolve, &dirs);
 
         SET_FOREACH(n, aliases)
-                (void) unit_file_find_dirs(original_root, unit_path_cache, lookup_path, n, dir_suffix, &dirs);
+                (void) unit_file_find_dirs(original_root, unit_path_cache, lookup_path, n, dir_suffix, resolve, &dirs);
 
         /* All the names in the unit are of the same type so just grab one. */
         n = name ?: (const char*) set_first(aliases);
@@ -381,6 +385,7 @@ static int unit_file_find_dropin_dirs(
                                            lookup_path,
                                            unit_type_to_string(type),
                                            dir_suffix,
+                                           resolve,
                                            &dirs);
         }
 
@@ -403,7 +408,8 @@ int unit_file_find_dropin_paths(
 
         assert(ret);
 
-        r = unit_file_find_dropin_dirs(original_root, lookup_path, unit_path_cache, dir_suffix, name, aliases, &dirs);
+        r = unit_file_find_dropin_dirs(original_root, lookup_path, unit_path_cache, dir_suffix, name, aliases,
+                                       /* resolve= */ true, &dirs);
         if (r < 0)
                 return r;
 
@@ -426,6 +432,7 @@ int unit_file_find_dropin_entry(
                 const char *name,
                 const Set *aliases,
                 const char *entry,
+                char **ret_lookup_path,
                 char **ret) {
 
         _cleanup_strv_free_ char **dirs = NULL;
@@ -438,6 +445,7 @@ int unit_file_find_dropin_entry(
          * does not list the other files in the drop-in directories, so a lookup of a single name stays
          * fast. */
 
+        /* Resolving a directory symlink must not turn an administrator entry into a vendor entry. */
         r = unit_file_find_dropin_dirs(
                         original_root,
                         lookup_path,
@@ -445,13 +453,14 @@ int unit_file_find_dropin_entry(
                         dir_suffix,
                         name,
                         aliases,
+                        /* resolve= */ false,
                         &dirs);
         if (r < 0)
                 return r;
 
         STRV_FOREACH(d, dirs) {
                 _cleanup_(conf_file_freep) ConfFile *c = NULL;
-                _cleanup_free_ char *p = NULL;
+                _cleanup_free_ char *p = NULL, *lookup_dir = NULL;
                 const char *rel;
 
                 p = path_join(*d, entry);
@@ -461,7 +470,7 @@ int unit_file_find_dropin_entry(
                 /* conf_files_list_strv() skips a directory that it can't open, for example a regular file
                  * named like a .wants/ directory. It skips an entry that fails the checks of conf_file_new()
                  * too. It returns the file with the same name in a later directory instead. */
-                if (access_nofollow(p, F_OK) < 0)
+                if (chase(p, original_root, CHASE_NOFOLLOW, /* ret_path= */ NULL, /* ret_fd= */ NULL) < 0)
                         continue;
 
                 /* The directories in dirs start with original_root. conf_file_new() needs the path below
@@ -477,9 +486,22 @@ int unit_file_find_dropin_entry(
                 if (r < 0)
                         continue;
 
-                return strdup_to_full(ret, c->result);
+                if (ret_lookup_path) {
+                        r = path_extract_directory(*d, &lookup_dir);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = strdup_to_full(ret, c->result);
+                if (r < 0)
+                        return r;
+                if (ret_lookup_path)
+                        *ret_lookup_path = TAKE_PTR(lookup_dir);
+                return r;
         }
 
         *ret = NULL;
+        if (ret_lookup_path)
+                *ret_lookup_path = NULL;
         return 0;
 }

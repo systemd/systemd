@@ -2607,6 +2607,151 @@ TEST(vendor_disable_removes_linked_unit) {
         ASSERT_FALSE(symlink_exists(alias));
 }
 
+TEST(vendor_preset_leaves_etc_alone) {
+        const char *vendor_link, *etc_link;
+
+        /* Presetting re-asserts a policy, it is not the administrator saying they want this unit on, so
+         * there is nothing to record when the vendor already enables it. An explicit enable does record
+         * itself, so that it survives the vendor dropping the symlink later. */
+
+        write_vendor_file("system/vendor-redundant.service", WANTED_BY_MULTI_USER);
+        write_vendor_symlink("multi-user.target.wants/vendor-redundant.service", "../vendor-redundant.service");
+        write_vendor_file("system-preset/15-vendor-redundant.preset", "enable vendor-redundant.service\n");
+
+        vendor_link = strjoina(vendor_root, VENDOR_WANTS"vendor-redundant.service");
+        etc_link = strjoina(vendor_root, ETC_WANTS"vendor-redundant.service");
+
+        do_preset(0, STRV_MAKE("vendor-redundant.service"));
+        ASSERT_FALSE(symlink_exists(etc_link));
+        assert_state("vendor-redundant.service", UNIT_FILE_ENABLED);
+
+        /* An explicit enable writes it out even though it changes nothing right now, and that is what makes
+         * it survive the vendor changing its mind. */
+        do_enable(0, STRV_MAKE("vendor-redundant.service"));
+        ASSERT_TRUE(symlink_exists(etc_link));
+
+        ASSERT_OK_ERRNO(unlink(vendor_link));
+        assert_state("vendor-redundant.service", UNIT_FILE_ENABLED);
+}
+
+TEST(vendor_preset_relocated_directory) {
+        _cleanup_(rm_rf_physical_and_freep) char *image = NULL;
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+
+        ASSERT_OK(mkdtemp_malloc("/var/tmp/vendor-relocated-XXXXXX", &image));
+
+        const char *unit = strjoina(image, "/opt/units/relocated.service");
+        ASSERT_OK(mkdir_parents(unit, 0755));
+        ASSERT_OK(write_string_file(unit, WANTED_BY_MULTI_USER, WRITE_STRING_FILE_CREATE));
+        const char *vendor = strjoina(image, SYSTEM_DATA_UNIT_DIR);
+        ASSERT_OK(mkdir_parents(vendor, 0755));
+        ASSERT_OK_ERRNO(symlink("../../../opt/units", vendor));
+        const char *preset = strjoina(image, "/usr/lib/systemd/system-preset/00-relocated.preset");
+        ASSERT_OK(mkdir_parents(preset, 0755));
+        ASSERT_OK(write_string_file(preset, "enable relocated.service\n", WRITE_STRING_FILE_CREATE));
+
+        ASSERT_OK(unit_file_preset(RUNTIME_SCOPE_SYSTEM, UNIT_FILE_VENDOR, image,
+                                   STRV_MAKE("relocated.service"), UNIT_FILE_PRESET_FULL,
+                                   &changes, &n_changes));
+        ASSERT_TRUE(symlink_exists(strjoina(image, "/opt/units/multi-user.target.wants/relocated.service")));
+
+        const char *entry = strjoina(image, ETC_WANTS"relocated.service");
+        ASSERT_OK(unit_file_preset(RUNTIME_SCOPE_SYSTEM, 0, image,
+                                   STRV_MAKE("relocated.service"), UNIT_FILE_PRESET_FULL,
+                                   &changes, &n_changes));
+        ASSERT_FALSE(symlink_exists(entry));
+
+        const char *local = strjoina(image, "/usr/local/lib/systemd/system/multi-user.target.wants");
+        ASSERT_OK(mkdir_parents(local, 0755));
+        ASSERT_OK_ERRNO(symlink("/opt/units/multi-user.target.wants", local));
+        ASSERT_OK(unit_file_preset(RUNTIME_SCOPE_SYSTEM, 0, image,
+                                   STRV_MAKE("relocated.service"), UNIT_FILE_PRESET_FULL,
+                                   &changes, &n_changes));
+        ASSERT_TRUE(symlink_exists(entry));
+}
+
+TEST(vendor_preset_still_writes_what_is_needed) {
+        /* The skip only applies where the vendor already provides the very same dependency. A target the
+         * vendor does not wire up still has to be written, and so does one whose vendor entry is transient,
+         * masked, or the administrator's: an entry in /run/ is gone after a reboot, a masked one establishes
+         * nothing, and one below /usr/local/ is not the vendor having decided. */
+
+        write_vendor_file("system/vendor-partial.service",
+                          "[Install]\n"
+                          "WantedBy=multi-user.target\n"
+                          "WantedBy=graphical.target\n"
+                          "WantedBy=sockets.target\n"
+                          "WantedBy=timers.target\n"
+                          "WantedBy=paths.target\n");
+
+        /* Wired up by the vendor, so nothing to record. */
+        write_vendor_symlink("multi-user.target.wants/vendor-partial.service", "../vendor-partial.service");
+
+        /* Wired up in /run/ instead. */
+        const char *runtime_link = strjoina(vendor_root, "/run/systemd/system/sockets.target.wants/vendor-partial.service");
+        ASSERT_OK(mkdir_parents(runtime_link, 0755));
+        ASSERT_OK_ERRNO(symlink("/usr/lib/systemd/system/vendor-partial.service", runtime_link));
+
+        /* Wired up by the vendor, but masked by a higher priority vendor directory. */
+        write_vendor_symlink("timers.target.wants/vendor-partial.service", "../vendor-partial.service");
+        const char *vendor_mask = strjoina(vendor_root, "/usr/local/lib/systemd/system/timers.target.wants/vendor-partial.service");
+        ASSERT_OK(mkdir_parents(vendor_mask, 0755));
+        ASSERT_OK_ERRNO(symlink("/dev/null", vendor_mask));
+
+        /* Wired up by the administrator below /usr/local/, which is in the search path but is not the
+         * vendor's, see file-hierarchy(7). */
+        const char *local_link = strjoina(vendor_root, "/usr/local/lib/systemd/system/paths.target.wants/vendor-partial.service");
+        ASSERT_OK(mkdir_parents(local_link, 0755));
+        ASSERT_OK_ERRNO(symlink("/usr/lib/systemd/system/vendor-partial.service", local_link));
+
+        write_vendor_file("system-preset/16-vendor-partial.preset", "enable vendor-partial.service\n");
+        do_preset(0, STRV_MAKE("vendor-partial.service"));
+
+        ASSERT_FALSE(symlink_exists(strjoina(vendor_root, ETC_WANTS"vendor-partial.service")));
+
+        FOREACH_STRING(target, "graphical.target", "sockets.target", "timers.target", "paths.target") {
+                const char *p = strjoina(vendor_root, SYSTEM_CONFIG_UNIT_DIR"/", target, ".wants/vendor-partial.service");
+
+                ASSERT_TRUE(symlink_exists(p));
+                ASSERT_FALSE(is_dependency_mask(p));
+        }
+}
+
+TEST(vendor_preset_rejects_local_obstruction) {
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+        const char *entry;
+
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+
+        write_vendor_file("system/vendor-obstructed.service", WANTED_BY_MULTI_USER);
+        write_vendor_symlink("multi-user.target.wants/vendor-obstructed.service", "../vendor-obstructed.service");
+        write_vendor_file("system-preset/23-vendor-obstructed.preset", "enable vendor-obstructed.service\n");
+        entry = strjoina(vendor_root, ETC_WANTS"vendor-obstructed.service");
+        ASSERT_OK(mkdir_parents(entry, 0755));
+        ASSERT_OK(write_string_file(entry, "not a mask\n", WRITE_STRING_FILE_CREATE));
+
+        ASSERT_ERROR(unit_file_preset(RUNTIME_SCOPE_SYSTEM, UNIT_FILE_FORCE, vendor_root,
+                                      STRV_MAKE("vendor-obstructed.service"), UNIT_FILE_PRESET_FULL,
+                                      &changes, &n_changes), EEXIST);
+        assert_state("vendor-obstructed.service", UNIT_FILE_DISABLED);
+        ASSERT_OK_ERRNO(unlink(entry));
+
+        ASSERT_OK_ERRNO(mkdir(entry, 0755));
+        ASSERT_ERROR(unit_file_preset(RUNTIME_SCOPE_SYSTEM, UNIT_FILE_FORCE, vendor_root,
+                                      STRV_MAKE("vendor-obstructed.service"), UNIT_FILE_PRESET_FULL,
+                                      &changes, &n_changes), EEXIST);
+        ASSERT_OK_ERRNO(rmdir(entry));
+
+        ASSERT_OK(write_string_file(entry, "", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_AVOID_NEWLINE));
+        do_preset(0, STRV_MAKE("vendor-obstructed.service"));
+        ASSERT_ERROR(access_nofollow(entry, F_OK), ENOENT);
+        assert_state("vendor-obstructed.service", UNIT_FILE_ENABLED);
+}
+
 static int intro(void) {
         make_root(&root);
         make_root(&vendor_root);

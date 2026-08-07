@@ -58,4 +58,5 @@ int unit_file_find_dropin_entry(
                 const char *name,
                 const Set *aliases,
                 const char *entry,
+                char **ret_lookup_path,
                 char **ret);
