@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "sd-json.h"
 
@@ -33,9 +34,11 @@ static bool arg_verify = false;
 static bool arg_inline = false;
 static PagerFlags arg_pager_flags = 0;
 static char *arg_save_file = NULL;
+static char *arg_revert_file = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_prefixes, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_save_file, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_revert_file, freep);
 
 COMMAND(
         "systemd-sysctl\0",
@@ -496,6 +499,13 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                                 return r;
                         break;
 
+                OPTION_LONG("revert", "FILENAME",
+                            "Remove the specified file from /run/sysctl.d/"):
+                        r = parse_conf_filename(opts.arg, "--revert=", &arg_revert_file);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 OPTION_COMMON_INTROSPECT_CLI:
                         return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
@@ -528,6 +538,15 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         umask(0022);
+
+        if (arg_revert_file) {
+                _cleanup_free_ char *path = path_join("/run/sysctl.d/", arg_revert_file);
+                if (!path)
+                        return log_oom();
+
+                if (unlink(path) < 0 && errno != ENOENT)
+                        return log_error_errno(errno, "Failed to remove '%s': %m", path);
+        }
 
         _cleanup_ordered_hashmap_free_ OrderedHashmap *sysctl_options = NULL;
         if (!strv_isempty(args)) {
