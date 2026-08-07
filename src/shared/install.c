@@ -3684,7 +3684,7 @@ int unit_file_preset(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_(install_context_done) InstallContext plus = {}, minus = {};
+        _cleanup_(install_context_done) InstallContext plus = { .scope = scope }, minus = { .scope = scope };
         _cleanup_(lookup_paths_done) LookupPaths lp = {};
         _cleanup_(unit_file_presets_done) UnitFilePresets presets = {};
         const char *config_path;
@@ -3723,7 +3723,7 @@ int unit_file_preset_all(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_(install_context_done) InstallContext plus = {}, minus = {};
+        _cleanup_(install_context_done) InstallContext plus = { .scope = scope }, minus = { .scope = scope };
         _cleanup_(lookup_paths_done) LookupPaths lp = {};
         _cleanup_(unit_file_presets_done) UnitFilePresets presets = {};
         const char *config_path = NULL;
