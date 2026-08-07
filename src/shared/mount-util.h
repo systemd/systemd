@@ -30,6 +30,14 @@ static inline int bind_remount_recursive(const char *prefix, unsigned long new_f
 int bind_remount_one_with_mountinfo(const char *path, unsigned long new_flags, unsigned long flags_mask, FILE *proc_self_mountinfo);
 int bind_remount_one(const char *path, unsigned long new_flags, unsigned long flags_mask);
 
+/* Converts statmount() mount attributes into the MS_* set libmount reports for the same mount, and
+ * composes a statmount() result's filesystem type the way mountinfo spells it ("type.subtype").
+ * Non-static so that the test suite can check the statmount() enumeration against the libmount
+ * fallback it replaces. */
+unsigned long mount_attr_to_ms_flags(uint64_t a);
+struct statmount;
+int statmount_fstype(const struct statmount *sm, char **ret);
+
 int mount_switch_root_full(const char *path, unsigned long mount_propagation_flag, bool force_ms_move);
 static inline int mount_switch_root(const char *path, unsigned long mount_propagation_flag) {
         return mount_switch_root_full(path, mount_propagation_flag, false);
