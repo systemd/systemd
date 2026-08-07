@@ -162,6 +162,75 @@ TEST(path_pick) {
         ASSERT_EQ(result.architecture, ARCHITECTURE_S390);
 }
 
+TEST(path_pick_host_version) {
+        _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
+        _cleanup_close_ int dfd = -EBADF, sub_dfd = -EBADF;
+
+        dfd = ASSERT_OK(mkdtemp_open(NULL, O_DIRECTORY|O_CLOEXEC, &p));
+        sub_dfd = ASSERT_OK(open_mkdir_at(dfd, "foo.v", O_CLOEXEC, 0777));
+
+        ASSERT_OK(write_string_file_at(sub_dfd, "foo_host=38.raw", "38", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(write_string_file_at(sub_dfd, "foo_host=39.raw", "39", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(write_string_file_at(sub_dfd, "foo_host=40.raw", "40", WRITE_STRING_FILE_CREATE));
+
+        _cleanup_free_ char *pp = ASSERT_NOT_NULL(path_join(p, "foo.v"));
+
+        PickFilter filter = {
+                .type_mask = UINT32_C(1) << DT_REG,
+                .architecture = _ARCHITECTURE_INVALID,
+                .suffix = ".raw",
+                .host_version = "39",
+        };
+
+        _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+
+        /* The entry for the given host version wins, not the newest one */
+        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, PICK_ARCHITECTURE|PICK_TRIES, &result));
+        ASSERT_STREQ(result.version, "39");
+        ASSERT_TRUE(endswith(result.path, "/foo_host=39.raw"));
+        pick_result_done(&result);
+
+        /* An unknown host version never matches */
+        filter.host_version = "";
+        ASSERT_OK_ZERO(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, PICK_ARCHITECTURE|PICK_TRIES, &result));
+        ASSERT_NULL(result.path);
+
+        /* Without PICK_TRIES and with an explicit version the fully specified fast path is taken, which has
+         * to find the "host=" spelling as well, and report the version without the prefix */
+        filter.host_version = NULL;
+        filter.version = "40";
+        filter.basename = "foo";
+        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, /* flags= */ 0, &result));
+        ASSERT_STREQ(result.version, "40");
+        ASSERT_TRUE(endswith(result.path, "/foo_host=40.raw"));
+        pick_result_done(&result);
+
+        /* The plain spelling is found by the fast path too */
+        ASSERT_OK(write_string_file_at(sub_dfd, "foo_41.raw", "41", WRITE_STRING_FILE_CREATE));
+        filter.version = "41";
+        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, /* flags= */ 0, &result));
+        ASSERT_STREQ(result.version, "41");
+        ASSERT_TRUE(endswith(result.path, "/foo_41.raw"));
+        pick_result_done(&result);
+
+        /* Neither spelling exists */
+        filter.version = "99";
+        ASSERT_OK_ZERO(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, /* flags= */ 0, &result));
+        ASSERT_NULL(result.path);
+
+        /* With PICK_ARCHITECTURE but no architecture to look for the name is not fully specified, hence the
+         * enumeration has to be used, which accepts the native architecture as well */
+        _cleanup_free_ char *native_entry = ASSERT_NOT_NULL(
+                        strjoin("foo_host=42_", architecture_to_string(native_architecture()), ".raw"));
+        ASSERT_OK(write_string_file_at(sub_dfd, native_entry, "42", WRITE_STRING_FILE_CREATE));
+
+        filter.version = "42";
+        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, PICK_ARCHITECTURE, &result));
+        ASSERT_STREQ(result.version, "42");
+        ASSERT_EQ(result.architecture, native_architecture());
+        pick_result_done(&result);
+}
+
 TEST(path_uses_vpick) {
         ASSERT_OK_POSITIVE(path_uses_vpick("foo.v"));
         ASSERT_OK_POSITIVE(path_uses_vpick("path/to/foo.v"));
