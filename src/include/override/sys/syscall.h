@@ -194,6 +194,76 @@ static_assert(__NR_kexec_file_load == systemd_NR_kexec_file_load, "");
 #  endif
 #endif
 
+#ifndef __IGNORE_listmount
+#  if defined(__aarch64__)
+#    define systemd_NR_listmount 458
+#  elif defined(__alpha__)
+#    define systemd_NR_listmount 568
+#  elif defined(__arc__) || defined(__tilegx__)
+#    define systemd_NR_listmount 458
+#  elif defined(__arm__)
+#    define systemd_NR_listmount 458
+#  elif defined(__i386__)
+#    define systemd_NR_listmount 458
+#  elif defined(__ia64__)
+#    define systemd_NR_listmount -1
+#  elif defined(__loongarch_lp64)
+#    define systemd_NR_listmount 458
+#  elif defined(__m68k__)
+#    define systemd_NR_listmount 458
+#  elif defined(_MIPS_SIM)
+#    if _MIPS_SIM == _MIPS_SIM_ABI32
+#      define systemd_NR_listmount 4458
+#    elif _MIPS_SIM == _MIPS_SIM_NABI32
+#      define systemd_NR_listmount 6458
+#    elif _MIPS_SIM == _MIPS_SIM_ABI64
+#      define systemd_NR_listmount 5458
+#    else
+#      error "Unknown MIPS ABI"
+#    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_listmount 458
+#  elif defined(__powerpc__)
+#    define systemd_NR_listmount 458
+#  elif defined(__riscv)
+#    if __riscv_xlen == 32
+#      define systemd_NR_listmount 458
+#    elif __riscv_xlen == 64
+#      define systemd_NR_listmount 458
+#    else
+#      error "Unknown RISC-V ABI"
+#    endif
+#  elif defined(__s390__)
+#    define systemd_NR_listmount 458
+#  elif defined(__sh__)
+#    define systemd_NR_listmount 458
+#  elif defined(__sparc__)
+#    define systemd_NR_listmount 458
+#  elif defined(__x86_64__)
+#    if defined(__ILP32__)
+#      define systemd_NR_listmount (458 | /* __X32_SYSCALL_BIT */ 0x40000000)
+#    else
+#      define systemd_NR_listmount 458
+#    endif
+#  elif !defined(missing_arch_template)
+#    warning "listmount() syscall number is unknown for your architecture"
+#  endif
+
+/* may be an (invalid) negative number due to libseccomp, see PR 13319 */
+#  if defined __NR_listmount && __NR_listmount >= 0
+#    if defined systemd_NR_listmount
+static_assert(__NR_listmount == systemd_NR_listmount, "");
+#    endif
+#  else
+#    if defined __NR_listmount
+#      undef __NR_listmount
+#    endif
+#    if defined systemd_NR_listmount && systemd_NR_listmount >= 0
+#      define __NR_listmount systemd_NR_listmount
+#    endif
+#  endif
+#endif
+
 #ifndef __IGNORE_open_tree_attr
 #  if defined(__aarch64__)
 #    define systemd_NR_open_tree_attr 467
@@ -470,6 +540,76 @@ static_assert(__NR_setxattrat == systemd_NR_setxattrat, "");
 #    endif
 #    if defined systemd_NR_setxattrat && systemd_NR_setxattrat >= 0
 #      define __NR_setxattrat systemd_NR_setxattrat
+#    endif
+#  endif
+#endif
+
+#ifndef __IGNORE_statmount
+#  if defined(__aarch64__)
+#    define systemd_NR_statmount 457
+#  elif defined(__alpha__)
+#    define systemd_NR_statmount 567
+#  elif defined(__arc__) || defined(__tilegx__)
+#    define systemd_NR_statmount 457
+#  elif defined(__arm__)
+#    define systemd_NR_statmount 457
+#  elif defined(__i386__)
+#    define systemd_NR_statmount 457
+#  elif defined(__ia64__)
+#    define systemd_NR_statmount -1
+#  elif defined(__loongarch_lp64)
+#    define systemd_NR_statmount 457
+#  elif defined(__m68k__)
+#    define systemd_NR_statmount 457
+#  elif defined(_MIPS_SIM)
+#    if _MIPS_SIM == _MIPS_SIM_ABI32
+#      define systemd_NR_statmount 4457
+#    elif _MIPS_SIM == _MIPS_SIM_NABI32
+#      define systemd_NR_statmount 6457
+#    elif _MIPS_SIM == _MIPS_SIM_ABI64
+#      define systemd_NR_statmount 5457
+#    else
+#      error "Unknown MIPS ABI"
+#    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_statmount 457
+#  elif defined(__powerpc__)
+#    define systemd_NR_statmount 457
+#  elif defined(__riscv)
+#    if __riscv_xlen == 32
+#      define systemd_NR_statmount 457
+#    elif __riscv_xlen == 64
+#      define systemd_NR_statmount 457
+#    else
+#      error "Unknown RISC-V ABI"
+#    endif
+#  elif defined(__s390__)
+#    define systemd_NR_statmount 457
+#  elif defined(__sh__)
+#    define systemd_NR_statmount 457
+#  elif defined(__sparc__)
+#    define systemd_NR_statmount 457
+#  elif defined(__x86_64__)
+#    if defined(__ILP32__)
+#      define systemd_NR_statmount (457 | /* __X32_SYSCALL_BIT */ 0x40000000)
+#    else
+#      define systemd_NR_statmount 457
+#    endif
+#  elif !defined(missing_arch_template)
+#    warning "statmount() syscall number is unknown for your architecture"
+#  endif
+
+/* may be an (invalid) negative number due to libseccomp, see PR 13319 */
+#  if defined __NR_statmount && __NR_statmount >= 0
+#    if defined systemd_NR_statmount
+static_assert(__NR_statmount == systemd_NR_statmount, "");
+#    endif
+#  else
+#    if defined __NR_statmount
+#      undef __NR_statmount
+#    endif
+#    if defined systemd_NR_statmount && systemd_NR_statmount >= 0
+#      define __NR_statmount systemd_NR_statmount
 #    endif
 #  endif
 #endif
