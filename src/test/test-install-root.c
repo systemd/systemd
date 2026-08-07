@@ -777,6 +777,23 @@ TEST(revert) {
         ASSERT_STREQ(changes[1].path, p);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
+
+        /* Reverting only removes a unit file in /etc/ if there's another copy to fall back to, either below
+         * /usr/ or written by a generator. Check that a generated copy counts too, when --root= is specified. */
+        p = strjoina(root, "/run/systemd/generator/zz.service");
+        ASSERT_OK(write_string_file(p, "# Empty\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755));
+
+        p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/zz.service");
+        ASSERT_OK(write_string_file(p, "# Empty override\n", WRITE_STRING_FILE_CREATE));
+
+        ASSERT_OK(unit_file_revert(RUNTIME_SCOPE_SYSTEM, root, STRV_MAKE("zz.service"), &changes, &n_changes));
+        ASSERT_EQ(n_changes, 1u);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_UNLINK);
+        ASSERT_STREQ(changes[0].path, p);
+        install_changes_free(changes, n_changes);
+        changes = NULL; n_changes = 0;
+
+        ASSERT_OK_ERRNO(unlink(strjoina(root, "/run/systemd/generator/zz.service")));
 }
 
 TEST(preset_order) {
