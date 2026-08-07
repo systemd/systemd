@@ -30,6 +30,19 @@ static inline int bind_remount_recursive(const char *prefix, unsigned long new_f
 int bind_remount_one_with_mountinfo(const char *path, unsigned long new_flags, unsigned long flags_mask, FILE *proc_self_mountinfo);
 int bind_remount_one(const char *path, unsigned long new_flags, unsigned long flags_mask);
 
+/* The statmount() fields mount_snapshot_from_table() reads. Shared with the test that checks the
+ * kernel and mountinfo tables against each other, so the two cannot drift. */
+#define MOUNT_SNAPSHOT_STATMOUNT_MASK \
+        (STATMOUNT_MNT_BASIC|STATMOUNT_MNT_POINT|STATMOUNT_FS_TYPE|STATMOUNT_FS_SUBTYPE)
+
+/* Orders a mount point before any of its ancestors, which is the order umount_recursive_full()
+ * unmounts in. Exposed so the test suite can check that ordering directly. */
+int mount_path_compare_deepest_first(const char *a, const char *b);
+
+/* The narrower set mount_flags_by_path() needs, which reads no filesystem type. */
+#define MOUNT_FLAGS_STATMOUNT_MASK \
+        (STATMOUNT_MNT_BASIC|STATMOUNT_MNT_POINT)
+
 int mount_switch_root_full(const char *path, unsigned long mount_propagation_flag, bool force_ms_move);
 static inline int mount_switch_root(const char *path, unsigned long mount_propagation_flag) {
         return mount_switch_root_full(path, mount_propagation_flag, false);
