@@ -359,6 +359,20 @@ static bool path_is_vendor(const LookupPaths *lp, const char *path) {
         return PATH_IN_SET(rpath, SYSTEM_DATA_UNIT_DIR, USER_DATA_UNIT_DIR);
 }
 
+/* file-hierarchy(7) reserves /usr/local/ for software installed by the administrator. */
+static bool path_is_usr_local(const LookupPaths *lp, const char *path) {
+        const char *rpath;
+
+        assert(lp);
+        assert(path);
+
+        rpath = skip_root(lp->root_dir, path);
+        if (!rpath)
+                return false;
+
+        return path_startswith(rpath, "/usr/local");
+}
+
 static int path_is_vendor_or_generator(const LookupPaths *lp, const char *path) {
         assert(lp);
         assert(path);
@@ -1180,7 +1194,7 @@ static int dependency_entry_is_used(
          * directory name contains no unit name to look up, so only the entry itself is checked. */
         if (unit_name_is_valid(unit, UNIT_NAME_ANY)) {
                 r = unit_file_find_dropin_entry(lp->root_dir, search_path, suffix, unit,
-                                                /* aliases= */ NULL, name, &winner);
+                                                /* aliases= */ NULL, name, /* ret_lookup_path= */ NULL, &winner);
                 if (r <= 0)
                         return r;
 
@@ -1215,7 +1229,12 @@ static int dependency_name_matches(const InstallInfo *info, const char *name) {
         return streq(template, info->name);
 }
 
-static int dependency_symlinks_list(const char *path, char ***ret) {
+static int dependency_symlinks_list(
+                const char *path,
+                const char *root,
+                bool follow_symlinks,
+                char ***ret) {
+
         _cleanup_strv_free_ char **l = NULL;
         _cleanup_closedir_ DIR *dir = NULL;
         int r;
@@ -1223,34 +1242,38 @@ static int dependency_symlinks_list(const char *path, char ***ret) {
         assert(path);
         assert(ret);
 
-        dir = opendir(path);
-        if (!dir) {
-                if (IN_SET(errno, ENOENT, ENOTDIR, EACCES)) {
+        r = chase_and_opendir(path, root, /* chase_flags= */ 0, /* ret_path= */ NULL, &dir);
+        if (r < 0) {
+                if (IN_SET(r, -ENOENT, -ENOTDIR, -EACCES)) {
                         *ret = NULL;
                         return 0;
                 }
-                return -errno;
+                return r;
         }
 
         FOREACH_DIRENT(de, dir, return -errno) {
                 _cleanup_closedir_ DIR *sub = NULL;
                 _cleanup_free_ char *dir_path = NULL;
 
-                /* A dependency directory that is a symlink could point outside of --root=. Skip it, as
-                 * find_symlinks() does. */
-                if (de->d_type != DT_DIR || !dependency_dir_suffix(de->d_name))
+                if (!dependency_dir_suffix(de->d_name) ||
+                    (de->d_type != DT_DIR && !(follow_symlinks && de->d_type == DT_LNK)))
                         continue;
-
-                sub = xopendirat(dirfd(dir), de->d_name, O_NOFOLLOW);
-                if (!sub) {
-                        if (IN_SET(errno, ENOENT, ENOTDIR, ELOOP, EACCES))
-                                continue;
-                        return -errno;
-                }
 
                 dir_path = path_join(path, de->d_name);
                 if (!dir_path)
                         return -ENOMEM;
+
+                if (follow_symlinks)
+                        r = chase_and_opendir(dir_path, root, /* chase_flags= */ 0, /* ret_path= */ NULL, &sub);
+                else {
+                        sub = xopendirat(dirfd(dir), de->d_name, O_NOFOLLOW);
+                        r = sub ? 0 : -errno;
+                }
+                if (r < 0) {
+                        if (IN_SET(r, -ENOENT, -ENOTDIR, -ELOOP, -EACCES))
+                                continue;
+                        return r;
+                }
 
                 FOREACH_DIRENT(sde, sub, return -errno) {
                         _cleanup_free_ char *p = NULL;
@@ -1304,7 +1327,7 @@ static int install_info_mask_dependencies(
         STRV_FOREACH(p, vendor_search_path) {
                 _cleanup_strv_free_ char **l = NULL;
 
-                r = dependency_symlinks_list(*p, &l);
+                r = dependency_symlinks_list(*p, lp->root_dir, /* follow_symlinks= */ false, &l);
                 if (r < 0)
                         return r;
 
@@ -2558,7 +2581,7 @@ static int install_context_unmask_dependencies(
         if (ordered_hashmap_isempty(ctx->have_processed))
                 return 0;
 
-        r = dependency_symlinks_list(config_path, &symlinks);
+        r = dependency_symlinks_list(config_path, lp->root_dir, /* follow_symlinks= */ true, &symlinks);
         if (r < 0)
                 return r;
 
@@ -2567,7 +2590,7 @@ static int install_context_unmask_dependencies(
                         continue;
 
                 STRV_FOREACH(symlink, symlinks) {
-                        _cleanup_free_ char *dir_path = NULL, *dir = NULL, *entry = NULL;
+                        _cleanup_free_ char *dir_path = NULL, *dir = NULL, *entry = NULL, *resolved = NULL;
 
                         r = path_extract_filename(*symlink, &entry);
                         if (r < 0)
@@ -2601,15 +2624,22 @@ static int install_context_unmask_dependencies(
                         if (r == 0)
                                 continue;
 
-                        if (unlink(*symlink) < 0 && errno != ENOENT) {
-                                RET_GATHER(ret, install_changes_add(changes, n_changes, -errno, *symlink, /* source= */ NULL));
+                        r = chase(*symlink, lp->root_dir, CHASE_NOFOLLOW, &resolved, /* ret_fd= */ NULL);
+                        if (r == -ENOENT)
+                                continue;
+                        if (r < 0)
+                                return r;
+
+                        if (unlink(resolved) < 0 && errno != ENOENT) {
+                                RET_GATHER(ret, install_changes_add(changes, n_changes, -errno, resolved, /* source= */ NULL));
                                 continue;
                         }
 
-                        (void) rmdir_parents(*symlink, config_path);
+                        if (path_startswith(resolved, config_path))
+                                (void) rmdir_parents(resolved, config_path);
 
                         RET_GATHER(ret, install_changes_add(changes, n_changes,
-                                                            INSTALL_CHANGE_UNMASK_DEPENDENCY, *symlink, /* source= */ NULL));
+                                                            INSTALL_CHANGE_UNMASK_DEPENDENCY, resolved, /* source= */ NULL));
                 }
         }
 
@@ -2815,6 +2845,79 @@ static int install_info_symlink_alias(
         return ret;
 }
 
+/* This function checks whether the vendor already provides the dependency symlink rel, in which case
+ * presetting does not need to create it in config_path. A symlink in config_path only takes precedence over
+ * the directories below config_path. Only a vendor supplied entry is accepted. An entry in /run/ or from a
+ * generator is removed again on reboot. An entry below /usr/local/ belongs to the administrator. */
+static int dependency_provided_below(
+                const LookupPaths *lp,
+                const char *config_path,
+                const char *rel) {
+
+        _cleanup_free_ char *dir = NULL, *entry = NULL, *unit = NULL, *winner = NULL,
+                *search_path = NULL, *path = NULL, *resolved = NULL;
+        char **below = NULL;
+        const char *suffix;
+        int r;
+
+        assert(lp);
+        assert(config_path);
+        assert(rel);
+
+        path = path_join(config_path, rel);
+        if (!path)
+                return -ENOMEM;
+        r = chase(path, lp->root_dir, CHASE_NOFOLLOW, &resolved, /* ret_fd= */ NULL);
+        if (r == -ENOMEM)
+                return r;
+        if (r >= 0) {
+                r = path_is_mask(lp, resolved);
+                if (r <= 0)
+                        return r;
+        } else if (r != -ENOENT)
+                return false;
+
+        STRV_FOREACH(p, lp->search_path)
+                if (path_equal(*p, config_path)) {
+                        below = p + 1;
+                        break;
+                }
+
+        r = path_split_prefix_filename(rel, &dir, &entry);
+        if (r < 0)
+                return r;
+
+        suffix = dependency_dir_suffix(dir);
+        if (!suffix)
+                return false;
+
+        unit = strndup(dir, suffix - dir);
+        if (!unit)
+                return -ENOMEM;
+
+        /* If a lookup fails, presetting writes its own symlink. A redundant symlink is harmless. Wrongly
+         * skipping the symlink would leave the unit disabled. Returning the error would stop the preset
+         * after only some of the units were changed. */
+        r = unit_file_find_dropin_entry(lp->root_dir, below, suffix, unit, /* aliases= */ NULL, entry,
+                                        &search_path, &winner);
+        if (r == -ENOMEM)
+                return r;
+        if (r < 0) {
+                log_debug_errno(r, "Failed to look up '%s' below '%s', not skipping the symlink: %m",
+                                rel, config_path);
+                return false;
+        }
+        if (r == 0)
+                return false;
+
+        r = dependency_entry_is_symlink(lp, winner);
+        if (r <= 0)
+                return r;
+
+        /* Only what the vendor provides counts, not what an administrator put below /usr/local/. */
+        return path_is_vendor(lp, search_path) && !path_is_usr_local(lp, search_path);
+}
+
 static int install_info_symlink_wants(
                 RuntimeScope scope,
                 UnitFileFlags file_flags,
@@ -2898,7 +3001,29 @@ static int install_info_symlink_wants(
                         continue;
                 }
 
-                path = strjoin(config_path, "/", dst, suffix, n);
+                _cleanup_free_ char *rel = strjoin(dst, suffix, n);
+                if (!rel)
+                        return -ENOMEM;
+
+                /* Presets do not record an administrator override when vendor enablement already matches
+                 * the policy. Explicit enablement must remain recorded if a later image removes the link. */
+                if (FLAGS_SET(file_flags, UNIT_FILE_APPLYING_PRESET)) {
+                        q = dependency_provided_below(lp, config_path, rel);
+                        if (q < 0)
+                                return q;
+                        if (q > 0) {
+                                log_debug("Dependency %s already provided below %s, not creating it.",
+                                          rel, config_path);
+
+                                /* A skipped symlink still counts as install information for the caller. */
+                                if (r >= 0)
+                                        r = 1;
+
+                                continue;
+                        }
+                }
+
+                path = path_join(config_path, rel);
                 if (!path)
                         return -ENOMEM;
 
@@ -4455,7 +4580,7 @@ static int execute_preset(
 
                 /* Returns number of symlinks that where supposed to be installed. */
                 q = install_context_apply(plus, lp,
-                                          file_flags | UNIT_FILE_IGNORE_AUXILIARY_FAILURE,
+                                          file_flags | UNIT_FILE_IGNORE_AUXILIARY_FAILURE | UNIT_FILE_APPLYING_PRESET,
                                           config_path,
                                           SEARCH_LOAD, changes, n_changes);
                 if (r >= 0) {

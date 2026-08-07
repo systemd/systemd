@@ -2562,6 +2562,198 @@ TEST(vendor_disable_removes_linked_unit) {
         ASSERT_FALSE(symlink_exists(alias));
 }
 
+TEST(vendor_preset_leaves_etc_alone) {
+        const char *vendor_link, *etc_link;
+
+        write_vendor_file("system/vendor-redundant.service", WANTED_BY_MULTI_USER);
+        write_vendor_symlink("multi-user.target.wants/vendor-redundant.service", "../vendor-redundant.service");
+        write_vendor_file("system-preset/15-vendor-redundant.preset", "enable vendor-redundant.service\n");
+
+        vendor_link = strjoina(vendor_root, VENDOR_WANTS"vendor-redundant.service");
+        etc_link = strjoina(vendor_root, ETC_WANTS"vendor-redundant.service");
+
+        do_preset(/* flags= */ 0, STRV_MAKE("vendor-redundant.service"));
+        ASSERT_FALSE(symlink_exists(etc_link));
+        assert_state("vendor-redundant.service", UNIT_FILE_ENABLED);
+
+        do_enable(/* flags= */ 0, STRV_MAKE("vendor-redundant.service"));
+        ASSERT_TRUE(symlink_exists(etc_link));
+
+        ASSERT_OK_ERRNO(unlink(vendor_link));
+        assert_state("vendor-redundant.service", UNIT_FILE_ENABLED);
+}
+
+TEST(vendor_preset_relocated_directory) {
+        _cleanup_(rm_rf_physical_and_freep) char *image = NULL;
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+
+        ASSERT_OK(mkdtemp_malloc("/var/tmp/vendor-relocated-XXXXXX", &image));
+
+        const char *unit = strjoina(image, "/opt/units/relocated.service");
+        ASSERT_OK(mkdir_parents(unit, 0755));
+        ASSERT_OK(write_string_file(unit, WANTED_BY_MULTI_USER, WRITE_STRING_FILE_CREATE));
+        const char *vendor = strjoina(image, SYSTEM_DATA_UNIT_DIR);
+        ASSERT_OK(mkdir_parents(vendor, 0755));
+        ASSERT_OK_ERRNO(symlink("../../../opt/units", vendor));
+        const char *preset = strjoina(image, "/usr/lib/systemd/system-preset/00-relocated.preset");
+        ASSERT_OK(mkdir_parents(preset, 0755));
+        ASSERT_OK(write_string_file(preset, "enable relocated.service\n", WRITE_STRING_FILE_CREATE));
+
+        ASSERT_OK(unit_file_preset(RUNTIME_SCOPE_SYSTEM, UNIT_FILE_VENDOR, image,
+                                   STRV_MAKE("relocated.service"), UNIT_FILE_PRESET_FULL,
+                                   &changes, &n_changes));
+        ASSERT_TRUE(symlink_exists(strjoina(image, "/opt/units/multi-user.target.wants/relocated.service")));
+
+        const char *entry = strjoina(image, ETC_WANTS"relocated.service");
+        ASSERT_OK(unit_file_preset(RUNTIME_SCOPE_SYSTEM, /* file_flags= */ 0, image,
+                                   STRV_MAKE("relocated.service"), UNIT_FILE_PRESET_FULL,
+                                   &changes, &n_changes));
+        ASSERT_FALSE(symlink_exists(entry));
+
+        const char *local = strjoina(image, "/usr/local/lib/systemd/system/multi-user.target.wants");
+        ASSERT_OK(mkdir_parents(local, 0755));
+        ASSERT_OK_ERRNO(symlink("/opt/units/multi-user.target.wants", local));
+        ASSERT_OK(unit_file_preset(RUNTIME_SCOPE_SYSTEM, /* file_flags= */ 0, image,
+                                   STRV_MAKE("relocated.service"), UNIT_FILE_PRESET_FULL,
+                                   &changes, &n_changes));
+        ASSERT_TRUE(symlink_exists(entry));
+}
+
+TEST(vendor_preset_relocated_dependency_directory) {
+        FOREACH_STRING(suffix, "wants", "requires", "upholds")
+                FOREACH_STRING(link_type, "absolute", "relative") {
+                        _cleanup_(rm_rf_physical_and_freep) char *image = NULL, *outside = NULL;
+                        InstallChange *changes = NULL;
+                        size_t n_changes = 0;
+                        UnitFileState state;
+
+                        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+
+                        ASSERT_OK(mkdtemp_malloc("/var/tmp/vendor-preset-image-XXXXXX", &image));
+                        ASSERT_OK(mkdtemp_malloc("/var/tmp/vendor-preset-outside-XXXXXX", &outside));
+
+                        const char *key = streq(suffix, "wants") ? "WantedBy" :
+                                          streq(suffix, "requires") ? "RequiredBy" : "UpheldBy";
+                        const char *unit = strjoina(image, SYSTEM_DATA_UNIT_DIR"/relocated.service");
+                        ASSERT_OK(mkdir_parents(unit, 0755));
+                        ASSERT_OK(write_string_file(unit, strjoina("[Install]\n", key, "=multi-user.target\n"),
+                                                    WRITE_STRING_FILE_CREATE));
+                        const char *preset = strjoina(image, "/usr/lib/systemd/system-preset/00-relocated.preset");
+                        ASSERT_OK(mkdir_parents(preset, 0755));
+                        ASSERT_OK(write_string_file(preset, "enable relocated.service\n", WRITE_STRING_FILE_CREATE));
+
+                        const char *vendor_entry = strjoina(image, SYSTEM_DATA_UNIT_DIR"/multi-user.target.",
+                                                           suffix, "/relocated.service");
+                        ASSERT_OK(mkdir_parents(vendor_entry, 0755));
+                        ASSERT_OK_ERRNO(symlink("../relocated.service", vendor_entry));
+
+                        const char *directory = strjoina(image, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.", suffix);
+                        ASSERT_OK(mkdir_parents(directory, 0755));
+                        ASSERT_OK_ERRNO(symlink(streq(link_type, "absolute") ? outside : strjoina("../../..", outside),
+                                               directory));
+                        const char *entry = strjoina(image, outside, "/relocated.service");
+                        ASSERT_OK(mkdir_parents(entry, 0755));
+                        ASSERT_OK(write_string_file(entry, "not a mask\n", WRITE_STRING_FILE_CREATE));
+                        ASSERT_ERROR(unit_file_preset(RUNTIME_SCOPE_SYSTEM, UNIT_FILE_FORCE, image,
+                                                      STRV_MAKE("relocated.service"), UNIT_FILE_PRESET_FULL,
+                                                      &changes, &n_changes), EEXIST);
+                        ASSERT_OK_ERRNO(unlink(entry));
+
+                        const char *host_entry = strjoina(outside, "/relocated.service");
+                        const char *unrelated = strjoina(image, outside, "/unrelated.service");
+                        ASSERT_OK_ERRNO(symlink("/dev/null", host_entry));
+                        ASSERT_OK_ERRNO(symlink("/dev/null", unrelated));
+
+                        FOREACH_STRING(mask_type, "symlink", "empty-file") {
+                                if (streq(mask_type, "symlink"))
+                                        ASSERT_OK_ERRNO(symlink("/dev/null", entry));
+                                else
+                                        ASSERT_OK(write_string_file(entry, "", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_AVOID_NEWLINE));
+
+                                ASSERT_OK(unit_file_preset(RUNTIME_SCOPE_SYSTEM, /* file_flags= */ 0, image,
+                                                           STRV_MAKE("relocated.service"), UNIT_FILE_PRESET_FULL,
+                                                           &changes, &n_changes));
+                                ASSERT_ERROR(access_nofollow(entry, F_OK), ENOENT);
+                                ASSERT_TRUE(symlink_exists(host_entry));
+                                ASSERT_TRUE(symlink_exists(unrelated));
+                                ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, image, "relocated.service", &state));
+                                ASSERT_EQ(state, UNIT_FILE_ENABLED);
+                        }
+                }
+}
+
+TEST(vendor_preset_still_writes_what_is_needed) {
+        write_vendor_file("system/vendor-partial.service",
+                          "[Install]\n"
+                          "WantedBy=multi-user.target\n"
+                          "WantedBy=graphical.target\n"
+                          "WantedBy=sockets.target\n"
+                          "WantedBy=timers.target\n"
+                          "WantedBy=paths.target\n");
+
+        write_vendor_symlink("multi-user.target.wants/vendor-partial.service", "../vendor-partial.service");
+
+        const char *runtime_link = strjoina(vendor_root, "/run/systemd/system/sockets.target.wants/vendor-partial.service");
+        ASSERT_OK(mkdir_parents(runtime_link, 0755));
+        ASSERT_OK_ERRNO(symlink("/usr/lib/systemd/system/vendor-partial.service", runtime_link));
+
+        write_vendor_symlink("timers.target.wants/vendor-partial.service", "../vendor-partial.service");
+        const char *vendor_mask = strjoina(vendor_root, "/usr/local/lib/systemd/system/timers.target.wants/vendor-partial.service");
+        ASSERT_OK(mkdir_parents(vendor_mask, 0755));
+        ASSERT_OK_ERRNO(symlink("/dev/null", vendor_mask));
+
+        const char *local_link = strjoina(vendor_root, "/usr/local/lib/systemd/system/paths.target.wants/vendor-partial.service");
+        ASSERT_OK(mkdir_parents(local_link, 0755));
+        ASSERT_OK_ERRNO(symlink("/usr/lib/systemd/system/vendor-partial.service", local_link));
+
+        write_vendor_file("system-preset/16-vendor-partial.preset", "enable vendor-partial.service\n");
+        do_preset(/* flags= */ 0, STRV_MAKE("vendor-partial.service"));
+
+        ASSERT_FALSE(symlink_exists(strjoina(vendor_root, ETC_WANTS"vendor-partial.service")));
+
+        FOREACH_STRING(target, "graphical.target", "sockets.target", "timers.target", "paths.target") {
+                const char *p = strjoina(vendor_root, SYSTEM_CONFIG_UNIT_DIR"/", target, ".wants/vendor-partial.service");
+
+                ASSERT_TRUE(symlink_exists(p));
+                ASSERT_FALSE(is_dependency_mask(p));
+        }
+}
+
+TEST(vendor_preset_rejects_local_obstruction) {
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+        const char *entry;
+
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+
+        write_vendor_file("system/vendor-obstructed.service", WANTED_BY_MULTI_USER);
+        write_vendor_symlink("multi-user.target.wants/vendor-obstructed.service", "../vendor-obstructed.service");
+        write_vendor_file("system-preset/23-vendor-obstructed.preset", "enable vendor-obstructed.service\n");
+        entry = strjoina(vendor_root, ETC_WANTS"vendor-obstructed.service");
+        ASSERT_OK(mkdir_parents(entry, 0755));
+        ASSERT_OK(write_string_file(entry, "not a mask\n", WRITE_STRING_FILE_CREATE));
+
+        ASSERT_ERROR(unit_file_preset(RUNTIME_SCOPE_SYSTEM, UNIT_FILE_FORCE, vendor_root,
+                                      STRV_MAKE("vendor-obstructed.service"), UNIT_FILE_PRESET_FULL,
+                                      &changes, &n_changes), EEXIST);
+        assert_state("vendor-obstructed.service", UNIT_FILE_DISABLED);
+        ASSERT_OK_ERRNO(unlink(entry));
+
+        ASSERT_OK_ERRNO(mkdir(entry, 0755));
+        ASSERT_ERROR(unit_file_preset(RUNTIME_SCOPE_SYSTEM, UNIT_FILE_FORCE, vendor_root,
+                                      STRV_MAKE("vendor-obstructed.service"), UNIT_FILE_PRESET_FULL,
+                                      &changes, &n_changes), EEXIST);
+        ASSERT_OK_ERRNO(rmdir(entry));
+
+        ASSERT_OK(write_string_file(entry, "", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_AVOID_NEWLINE));
+        do_preset(/* flags= */ 0, STRV_MAKE("vendor-obstructed.service"));
+        ASSERT_ERROR(access_nofollow(entry, F_OK), ENOENT);
+        assert_state("vendor-obstructed.service", UNIT_FILE_ENABLED);
+}
+
 static int intro(void) {
         make_root(&root);
         make_root(&vendor_root);
