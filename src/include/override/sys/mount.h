@@ -7,6 +7,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/ioctl.h>
+#include <sys/types.h>
 
 /* Since glibc-2.37 (774058d72942249f71d74e7f2b639f77184160a6), sys/mount.h includes linux/mount.h, and
  * we can safely include both headers in the same source file. However, we cannot do that with older glibc.
@@ -84,3 +85,19 @@ int mount_setattr_shim(int dfd, const char *path, unsigned flags, struct mount_a
  * Supported since kernel v6.15 (c4a16820d90199409c9bf01c4f794e1e9e8d8fd8). */
 int open_tree_attr_shim(int dfd, const char *filename, unsigned int flags, struct mount_attr *attr, size_t size);
 #define open_tree_attr open_tree_attr_shim
+
+/* Query attributes of the mount identified by REQ, filling in the parts of BUF
+   requested by REQ's param mask.  */
+/* Not defined in glibc yet as of glibc-2.42.
+ * Supported since kernel v6.8 (46eae99ef73302f9fb3dddcd67c374b3dffe8fd6).
+ * The define is function-like so that it only rewrites calls and leaves the
+ * "struct statmount" tag of the same name alone. */
+int statmount_shim(const struct mnt_id_req *req, struct statmount *buf, size_t bufsize, unsigned int flags);
+#define statmount(req, buf, bufsize, flags) statmount_shim(req, buf, bufsize, flags)
+
+/* List the mount IDs under the mount identified by REQ into MNT_IDS, returning
+   how many were written.  */
+/* Not defined in glibc yet as of glibc-2.42.
+ * Supported since kernel v6.8 (b4c2bea8ceaa50cd42a8f73667389d801a3ecf2d). */
+ssize_t listmount_shim(const struct mnt_id_req *req, uint64_t *mnt_ids, size_t nr_mnt_ids, unsigned int flags);
+#define listmount listmount_shim
