@@ -529,7 +529,8 @@ static int append_extensions(
                 char **hierarchies,
                 const MountImage *mount_images,
                 size_t n_mount_images,
-                char **extension_directories) {
+                char **extension_directories,
+                const char *host_version) {
 
         char ***overlays = NULL;
         size_t n_overlays = 0;
@@ -564,12 +565,15 @@ static int append_extensions(
                 _cleanup_free_ char *mount_point = NULL;
                 const MountImage *m = mount_images + i;
 
+                PickFilter filter = pick_filter_image_raw[0];
+                filter.host_version = host_version;
+
                 r = path_pick(/* root_path= */ NULL,
                               /* root_fd= */ AT_FDCWD,
                               /* dir_fd= */ AT_FDCWD,
                               m->source,
-                              pick_filter_image_raw,
-                              ELEMENTSOF(pick_filter_image_raw),
+                              &filter,
+                              /* n_filters= */ 1,
                               PICK_ARCHITECTURE|PICK_TRIES,
                               &result);
                 if (r == -ENOENT && m->ignore_enoent)
@@ -637,12 +641,15 @@ static int append_extensions(
                 if (startswith(e, "+"))
                         e++;
 
+                PickFilter filter = pick_filter_image_dir[0];
+                filter.host_version = host_version;
+
                 r = path_pick(/* root_path= */ NULL,
                               /* root_fd= */ AT_FDCWD,
                               /* dir_fd= */ AT_FDCWD,
                               e,
-                              pick_filter_image_dir,
-                              ELEMENTSOF(pick_filter_image_dir),
+                              &filter,
+                              /* n_filters= */ 1,
                               PICK_ARCHITECTURE|PICK_TRIES,
                               &result);
                 if (r == -ENOENT && ignore_enoent)
@@ -2587,6 +2594,35 @@ static bool namespace_read_only(const NamespaceParameters *p) {
                 strv_isempty(p->read_write_paths);
 }
 
+static int determine_extension_host_version(const char *root_path, int root_fd, char **ret) {
+        _cleanup_free_ char *v = NULL;
+        int r;
+
+        assert(root_path || root_fd >= 0);
+        assert(ret);
+
+        /* Reads the VERSION_ID of the OS tree the unit's extensions are applied to, so that "host=" vpick
+         * entries are matched against it, like sysext does. If it cannot be determined we return the empty
+         * string, so that "host=" entries never match, rather than falling back to the os-release of the OS
+         * the manager runs on. */
+
+        if (root_fd >= 0)
+                r = parse_os_release_at(root_fd, "VERSION_ID", &v);
+        else
+                r = parse_os_release(root_path, "VERSION_ID", &v);
+        if (r < 0)
+                log_debug_errno(r, "Failed to read os-release data of the unit's root, ignoring: %m");
+
+        if (!v) {
+                v = strdup("");
+                if (!v)
+                        return log_oom_debug();
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
 int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
 
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
@@ -2847,10 +2883,6 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         if (r < 0)
                 return r;
 
-        r = append_extensions(&ml, root, p->private_namespace_dir, hierarchies, p->extension_images, p->n_extension_images, p->extension_directories);
-        if (r < 0)
-                return r;
-
         if (p->private_dev) {
                 MountEntry *me = mount_list_extend(&ml);
                 if (!me)
@@ -3086,13 +3118,6 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                 };
         }
 
-        /* Prepend the root directory where that's necessary */
-        r = prefix_where_needed(&ml, root);
-        if (r < 0)
-                return r;
-
-        sort_and_drop_unused_mounts(&ml, root);
-
         /* All above is just preparation, figuring out what to do. Let's now actually start doing something. */
 
         if (unshare(CLONE_NEWNS) < 0) {
@@ -3195,6 +3220,35 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         /* Try to set up the new root directory before mounting anything else there. */
         if (pinned_resource_is_set(p->rootfs))
                 (void) base_filesystem_create(root, UID_INVALID, GID_INVALID);
+
+        /* Resolve the extensions only now that the unit's root is mounted, so that its VERSION_ID is
+         * available for "host=" vpick entries */
+        _cleanup_free_ char *extension_host_version = NULL;
+        if (pinned_resource_is_set(p->rootfs) &&
+            (p->n_extension_images > 0 || !strv_isempty(p->extension_directories))) {
+                r = determine_extension_host_version(root, /* root_fd= */ -EBADF, &extension_host_version);
+                if (r < 0)
+                        return r;
+        }
+
+        r = append_extensions(
+                        &ml,
+                        root,
+                        p->private_namespace_dir,
+                        hierarchies,
+                        p->extension_images,
+                        p->n_extension_images,
+                        p->extension_directories,
+                        extension_host_version);
+        if (r < 0)
+                return r;
+
+        /* Prepend the root directory where that's necessary */
+        r = prefix_where_needed(&ml, root);
+        if (r < 0)
+                return r;
+
+        sort_and_drop_unused_mounts(&ml, root);
 
         /* Now make the magic happen */
         r = apply_mounts(&ml, root, p, reterr_path);
@@ -4018,6 +4072,13 @@ int refresh_extensions_in_namespace(
         if (r < 0)
                 return r;
 
+        /* Note that p->rootfs is not populated for this call, but the root fd of the target process refers
+         * to the unit's root in any case */
+        _cleanup_free_ char *host_version = NULL;
+        r = determine_extension_host_version(/* root_path= */ NULL, root_fd, &host_version);
+        if (r < 0)
+                return r;
+
         r = append_extensions(
                         &ml,
                         overlay_prefix,
@@ -4025,7 +4086,8 @@ int refresh_extensions_in_namespace(
                         hierarchies,
                         p->extension_images,
                         p->n_extension_images,
-                        p->extension_directories);
+                        p->extension_directories,
+                        host_version);
         if (r < 0)
                 return r;
 

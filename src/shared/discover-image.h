@@ -54,9 +54,12 @@ typedef struct Image {
 DECLARE_TRIVIAL_REF_UNREF_FUNC(Image, image);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Image*, image_unref);
 
+/* host_version is what "host=" vpick entries are matched against, see PickFilter. Leave it NULL unless the
+ * images are applied to another OS tree than the one 'root' refers to. */
+int image_find_full(RuntimeScope scope, ImageClass class, const char *name, const char *root, const char *host_version, Image **ret);
 int image_find(RuntimeScope scope, ImageClass class, const char *name, const char *root, Image **ret);
 int image_from_path(const char *path, Image **ret);
-int image_find_harder(RuntimeScope scope, ImageClass class, const char *name_or_path, const char *root, Image **ret);
+int image_find_harder(RuntimeScope scope, ImageClass class, const char *name_or_path, const char *root, const char *host_version, Image **ret);
 int image_discover(RuntimeScope scope, ImageClass class, const char *root, Hashmap **images);
 
 int image_remove(Image *i, RuntimeScope scope);
