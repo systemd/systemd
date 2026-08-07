@@ -11,6 +11,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "hashmap.h"
 #include "libmount-util.h"
 #include "mkdir.h"
 #include "mount-util.h"
@@ -19,6 +20,7 @@
 #include "process-util.h"
 #include "random-util.h"
 #include "rm-rf.h"
+#include "set.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -377,6 +379,160 @@ TEST(umount_recursive) {
                         _exit(EXIT_SUCCESS);
                 }
         }
+}
+
+TEST(mount_table_kernel_mountinfo_parity) {
+        _cleanup_set_free_ Set *only_one_table_every_time = NULL;
+        int n_compared = 0, n_mismatch = -1, r;
+        const char *value;
+        char *lonely;
+
+        /* The two tables libmount can build for us must agree: the one from listmount()/statmount()
+         * that mount-util.c prefers, and the /proc/self/mountinfo parse it falls back to. Same mount
+         * points, same filesystem types, same flags. On a 6.8+ kernel with libmount 2.41+ the
+         * mountinfo path is otherwise dead code, so this is what keeps the two interchangeable.
+         *
+         * The two snapshots cannot be taken atomically, so a mount table changing underneath can
+         * produce a spurious mismatch, or make a path show up in one and not the other. A genuine
+         * divergence is deterministic, hence the retry loop: only a mismatch, or a path the kernel
+         * table never reports, that survives every fresh snapshot pair counts. */
+
+        for (unsigned attempt = 0; attempt < 3; attempt++) {
+                if (attempt > 0 && n_mismatch == 0 && set_isempty(only_one_table_every_time))
+                        break; /* Everything agreed last time round, nothing to re-check */
+
+                _cleanup_(mnt_free_tablep) struct libmnt_table *kernel_table = NULL, *mountinfo_table = NULL;
+                _cleanup_(mnt_free_iterp) struct libmnt_iter *kernel_iter = NULL, *mountinfo_iter = NULL;
+                _cleanup_hashmap_free_ Hashmap *parity = NULL;
+                _cleanup_set_free_ Set *seen = NULL, *only_one_table_this_time = NULL;
+
+                n_compared = n_mismatch = 0;
+
+                r = libmount_parse_kernel(
+                                STATMOUNT_MNT_BASIC|STATMOUNT_MNT_POINT|STATMOUNT_FS_TYPE|STATMOUNT_FS_SUBTYPE,
+                                MNT_ITER_BACKWARD, &kernel_table, &kernel_iter);
+                if (r == -EOPNOTSUPP)
+                        return (void) log_tests_skipped("listmount()/statmount() are not available");
+                assert_se(r >= 0);
+
+                /* Walk backwards so the entry kept for a path is the topmost mount on it, matching
+                 * the MNT_ITER_BACKWARD walk of the mountinfo table below. */
+                for (;;) {
+                        _cleanup_free_ char *p = NULL, *v = NULL;
+                        const char *path, *type, *opts;
+                        unsigned long fl = 0;
+                        struct libmnt_fs *fs;
+
+                        r = sym_mnt_table_next_fs(kernel_table, kernel_iter, &fs);
+                        if (r == 1)
+                                break;
+                        assert_se(r == 0);
+
+                        path = sym_mnt_fs_get_target(fs);
+                        type = sym_mnt_fs_get_fstype(fs);
+                        if (!path || !type)
+                                continue;
+
+                        opts = sym_mnt_fs_get_vfs_options(fs);
+                        if (opts)
+                                assert_se(sym_mnt_optstr_get_flags(opts, &fl, sym_mnt_get_builtin_optmap(MNT_LINUX_MAP)) >= 0);
+
+                        assert_se(p = strdup(path));
+                        assert_se(asprintf(&v, "%s %lx", type, fl) >= 0);
+
+                        r = hashmap_ensure_put(&parity, &string_hash_ops_free_free, p, v);
+                        if (r == -EEXIST) /* An overmounted path; the topmost mount is already stored */
+                                continue;
+                        assert_se(r >= 0);
+                        TAKE_PTR(p);
+                        TAKE_PTR(v);
+                }
+
+                r = libmount_parse_full("/proc/self/mountinfo", NULL, MNT_ITER_BACKWARD,
+                                        &mountinfo_table, &mountinfo_iter);
+                if (r < 0)
+                        return (void) log_tests_skipped_errno(r, "Failed to parse /proc/self/mountinfo");
+
+                for (;;) {
+                        _cleanup_free_ char *expected = NULL;
+                        const char *path, *type, *opts, *kernel_v;
+                        unsigned long fl = 0;
+                        struct libmnt_fs *fs;
+
+                        r = sym_mnt_table_next_fs(mountinfo_table, mountinfo_iter, &fs);
+                        if (r == 1)
+                                break;
+                        assert_se(r == 0);
+
+                        path = sym_mnt_fs_get_target(fs);
+                        type = sym_mnt_fs_get_fstype(fs);
+                        if (!path || !type)
+                                continue;
+
+                        r = set_put_strdup(&seen, path);
+                        assert_se(r >= 0);
+                        if (r == 0) /* The topmost mount on this path was already compared */
+                                continue;
+
+                        opts = sym_mnt_fs_get_vfs_options(fs);
+                        if (opts)
+                                assert_se(sym_mnt_optstr_get_flags(opts, &fl, sym_mnt_get_builtin_optmap(MNT_LINUX_MAP)) >= 0);
+
+                        kernel_v = hashmap_get(parity, path);
+                        if (!kernel_v) {
+                                /* Either the mount table changed between the two snapshots, or the
+                                 * kernel table systematically does not report this mount. Only the
+                                 * latter repeats, so record it and decide after the last attempt:
+                                 * an enumeration that silently drops mounts would make
+                                 * umount_recursive_full() skip them. */
+                                assert_se(set_put_strdup(&only_one_table_this_time, path) >= 0);
+                                continue;
+                        }
+
+                        assert_se(asprintf(&expected, "%s %lx", type, fl) >= 0);
+                        if (!streq(kernel_v, expected)) {
+                                log_warning("mount '%s': kernel table says '%s', mountinfo says '%s'",
+                                            path, kernel_v, expected);
+                                n_mismatch++;
+                        }
+                        n_compared++;
+                }
+
+                /* And the other direction, so that a mount the kernel table reports and mountinfo
+                 * does not is caught too, rather than only the reverse. */
+                const char *kernel_only;
+                HASHMAP_FOREACH_KEY(value, kernel_only, parity)
+                        if (!set_contains(seen, kernel_only))
+                                assert_se(set_put_strdup(&only_one_table_this_time, kernel_only) >= 0);
+
+                if (attempt == 0)
+                        only_one_table_every_time = TAKE_PTR(only_one_table_this_time);
+                else {
+                        _cleanup_set_free_ Set *both = NULL;
+
+                        /* Keep only the paths that were missing on every attempt so far. Built as a
+                         * new set rather than removing in place, since that would mutate the set
+                         * being iterated. */
+                        SET_FOREACH(lonely, only_one_table_every_time)
+                                if (set_contains(only_one_table_this_time, lonely))
+                                        assert_se(set_put_strdup(&both, lonely) >= 0);
+
+                        set_free(only_one_table_every_time);
+                        only_one_table_every_time = TAKE_PTR(both);
+                }
+
+                if (n_mismatch > 0)
+                        log_info("retrying after %i mismatches, in case the mount table changed", n_mismatch);
+        }
+
+        log_info("compared %i mounts between the kernel and mountinfo tables", n_compared);
+
+        SET_FOREACH(lonely, only_one_table_every_time)
+                log_error("mount '%s' appears in only one of the two tables, on every attempt", lonely);
+
+        assert_se(n_mismatch == 0);
+        assert_se(set_isempty(only_one_table_every_time));
+        assert_se(n_compared > 0);
 }
 
 TEST(fd_make_mount_point) {
