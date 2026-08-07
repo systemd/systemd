@@ -2783,6 +2783,86 @@ int unit_file_verify_alias(
         return 0;
 }
 
+/* This function checks whether the vendor already provides the Alias= symlink rel, in which case presetting
+ * does not need to create it in config_path. Unit files are looked up by name in search path order. A
+ * symlink in config_path therefore only takes precedence over the directories below config_path, and there
+ * the first entry found is used. Only a vendor supplied entry is accepted. An entry in /run/ or from a
+ * generator is removed again on reboot. An entry below /usr/local/ belongs to the administrator. The name
+ * of an alias does not identify its unit, so the entry also has to point at unit. */
+static int alias_provided_below(
+                const LookupPaths *lp,
+                const char *config_path,
+                const char *rel,
+                const InstallInfo *info) {
+
+        bool below = false;
+        int r;
+
+        assert(lp);
+        assert(config_path);
+        assert(rel);
+        assert(info);
+
+        STRV_FOREACH(p, lp->search_path) {
+                _cleanup_free_ char *path = NULL, *dest = NULL, *resolved = NULL;
+                struct stat st;
+
+                if (!below) {
+                        below = path_equal(*p, config_path);
+                        if (!below)
+                                continue;
+                }
+
+                path = path_join(*p, rel);
+                if (!path)
+                        return -ENOMEM;
+
+                if (lstat(path, &st) < 0) {
+                        if (IN_SET(errno, ENOENT, ENOTDIR))
+                                continue;
+
+                        /* Anything we cannot look at falls back on writing our own symlink. A redundant one
+                         * is harmless, while wrongly skipping it would leave the unit off, and aborting here
+                         * would leave the preset applied by halves. */
+                        log_debug_errno(errno, "Failed to look at '%s', not skipping the symlink: %m", path);
+                        return false;
+                }
+
+                if (path_equal(*p, config_path))
+                        return false;
+
+                /* The first entry we find decides, the ones below it are shadowed. */
+                r = path_is_mask(lp, path);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return false;
+
+                /* Only what the vendor provides counts, not what an administrator put below /usr/local/. */
+                if (!S_ISLNK(st.st_mode) || !path_is_vendor(lp, *p) || path_is_usr_local(lp, *p))
+                        return false;
+
+                r = readlink_malloc(path, &dest);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to read '%s', not skipping the symlink: %m", path);
+                        return false;
+                }
+
+                if (!path_equal_filename(dest, info->name))
+                        return false;
+
+                r = chase(path, lp->root_dir, /* flags= */ 0, &resolved, /* ret_fd= */ NULL);
+                if (r == -ENOMEM)
+                        return r;
+                if (r < 0)
+                        return false;
+
+                return path_equal_or_inode_same(resolved, info->path, /* flags= */ 0);
+        }
+
+        return false;
+}
+
 static int install_info_symlink_alias(
                 RuntimeScope scope,
                 UnitFileFlags file_flags,
@@ -2813,6 +2893,27 @@ static int install_info_symlink_alias(
                         if (r != -ELOOP)
                                 RET_GATHER(ret, r);
                         continue;
+                }
+
+                /* Same as in install_info_symlink_wants(): a preset re-asserts a policy rather than
+                 * recording a decision, so there is nothing to record where the vendor already carries this
+                 * very name for this very unit. */
+                if (FLAGS_SET(file_flags, UNIT_FILE_APPLYING_PRESET)) {
+                        r = alias_provided_below(lp, config_path, dst_updated ?: dst, info);
+                        if (r < 0)
+                                return r;
+                        if (r > 0) {
+                                log_debug("Alias %s already provided below %s, not creating it.",
+                                          dst_updated ?: dst, config_path);
+
+                                /* Still counts towards the number of symlinks that were supposed to be
+                                 * created, or a fully redundant unit would look like it had no [Install]
+                                 * section at all. */
+                                if (ret >= 0)
+                                        ret = 1;
+
+                                continue;
+                        }
                 }
 
                 alias_path = path_make_absolute(dst_updated ?: dst, config_path);

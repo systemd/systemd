@@ -2720,6 +2720,61 @@ TEST(vendor_preset_still_writes_what_is_needed) {
         }
 }
 
+TEST(vendor_preset_skips_redundant_alias) {
+        /* An Alias= symlink the vendor already carries for this very unit is as redundant as a dependency
+         * symlink would be, so presetting has nothing to record there either. The name has to point at this
+         * unit though: one the vendor carries for somebody else does not satisfy the policy. */
+
+        write_vendor_file("system/vendor-aliased.service",
+                          "[Install]\n"
+                          "Alias=vendor-aliased-name.service\n"
+                          "Alias=vendor-aliased-taken.service\n"
+                          "Alias=vendor-aliased-transient.service\n");
+        write_vendor_file("system/vendor-aliased-other.service", "[Install]\n");
+        write_vendor_symlink("vendor-aliased-name.service", "vendor-aliased.service");
+        write_vendor_symlink("vendor-aliased-taken.service", "vendor-aliased-other.service");
+
+        /* And as for dependencies, only a vendor supplied name counts: one in /run/ is gone after a
+         * reboot. */
+        const char *runtime_alias = strjoina(vendor_root, "/run/systemd/system/vendor-aliased-transient.service");
+        ASSERT_OK(mkdir_parents(runtime_alias, 0755));
+        ASSERT_OK_ERRNO(symlink("/usr/lib/systemd/system/vendor-aliased.service", runtime_alias));
+
+        write_vendor_file("system-preset/21-vendor-aliased.preset", "enable vendor-aliased.service\n");
+        do_preset(0, STRV_MAKE("vendor-aliased.service"));
+
+        ASSERT_FALSE(symlink_exists(strjoina(vendor_root, SYSTEM_CONFIG_UNIT_DIR"/vendor-aliased-name.service")));
+        ASSERT_TRUE(symlink_exists(strjoina(vendor_root, SYSTEM_CONFIG_UNIT_DIR"/vendor-aliased-taken.service")));
+        ASSERT_TRUE(symlink_exists(strjoina(vendor_root, SYSTEM_CONFIG_UNIT_DIR"/vendor-aliased-transient.service")));
+
+        /* An explicit enable records itself as always. */
+        do_enable(0, STRV_MAKE("vendor-aliased.service"));
+        ASSERT_TRUE(symlink_exists(strjoina(vendor_root, SYSTEM_CONFIG_UNIT_DIR"/vendor-aliased-name.service")));
+}
+
+TEST(vendor_preset_updates_shadowed_alias) {
+        const char *alias;
+
+        write_vendor_file("system/vendor-shadowed-alias.service",
+                          "[Install]\n"
+                          "Alias=vendor-shadowed-name.service\n");
+        write_vendor_file("system/vendor-shadowed-other.service", "[Install]\n");
+        write_vendor_symlink("vendor-shadowed-name.service", "vendor-shadowed-alias.service");
+        write_vendor_file("system-preset/22-vendor-shadowed-alias.preset", "enable vendor-shadowed-alias.service\n");
+
+        alias = strjoina(vendor_root, SYSTEM_CONFIG_UNIT_DIR"/vendor-shadowed-name.service");
+        FOREACH_STRING(target, "missing.service", "/usr/lib/systemd/system/vendor-shadowed-other.service") {
+                _cleanup_free_ char *dest = NULL;
+
+                ASSERT_OK_ERRNO(symlink(target, alias));
+                do_preset(streq(target, "missing.service") ? 0 : UNIT_FILE_FORCE,
+                          STRV_MAKE("vendor-shadowed-alias.service"));
+                ASSERT_OK(readlink_malloc(alias, &dest));
+                ASSERT_STREQ(dest, "/usr/lib/systemd/system/vendor-shadowed-alias.service");
+                ASSERT_OK_ERRNO(unlink(alias));
+        }
+}
+
 TEST(vendor_preset_rejects_local_obstruction) {
         InstallChange *changes = NULL;
         size_t n_changes = 0;
@@ -2750,6 +2805,29 @@ TEST(vendor_preset_rejects_local_obstruction) {
         do_preset(0, STRV_MAKE("vendor-obstructed.service"));
         ASSERT_ERROR(access_nofollow(entry, F_OK), ENOENT);
         assert_state("vendor-obstructed.service", UNIT_FILE_ENABLED);
+}
+
+TEST(vendor_preset_replaces_external_alias) {
+        const char *vendor_alias, *config_alias, *external;
+
+        write_vendor_file("system/vendor-external-alias.service",
+                          "[Install]\nAlias=vendor-external-name.service\n");
+        write_vendor_file("system-preset/24-vendor-external-alias.preset", "enable vendor-external-alias.service\n");
+        vendor_alias = strjoina(vendor_root, SYSTEM_DATA_UNIT_DIR"/vendor-external-name.service");
+        config_alias = strjoina(vendor_root, SYSTEM_CONFIG_UNIT_DIR"/vendor-external-name.service");
+        external = strjoina(vendor_root, "/opt/vendor-external-alias.service");
+        ASSERT_OK(write_string_file(external, "[Service]\nExecStart=/bin/false\n", WRITE_STRING_FILE_CREATE));
+
+        FOREACH_STRING(target, "/missing/vendor-external-alias.service", "/opt/vendor-external-alias.service") {
+                _cleanup_free_ char *dest = NULL;
+
+                ASSERT_OK_ERRNO(symlink(target, vendor_alias));
+                do_preset(0, STRV_MAKE("vendor-external-alias.service"));
+                ASSERT_OK(readlink_malloc(config_alias, &dest));
+                ASSERT_STREQ(dest, SYSTEM_DATA_UNIT_DIR"/vendor-external-alias.service");
+                ASSERT_OK_ERRNO(unlink(config_alias));
+                ASSERT_OK_ERRNO(unlink(vendor_alias));
+        }
 }
 
 static int intro(void) {
