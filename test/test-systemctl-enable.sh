@@ -822,6 +822,33 @@ test "$("$systemctl" --root="$root" is-enabled vendor2.service)" = "static"
 "$systemctl" --root="$root" disable vendor2.service
 test ! -h "$root/etc/systemd/system/sysinit.target.wants/vendor2.service"
 
+: '-------preset skips an alias the vendor already carries--------'
+cat >"$root/usr/lib/systemd/system/vendor5.service" <<EOF2
+[Install]
+Alias=vendor5-name.service
+Alias=vendor5-taken.service
+EOF2
+cat >"$root/usr/lib/systemd/system/vendor5-other.service" <<EOF2
+[Install]
+EOF2
+ln -s vendor5.service "$root/usr/lib/systemd/system/vendor5-name.service"
+ln -s vendor5-other.service "$root/usr/lib/systemd/system/vendor5-taken.service"
+
+cat >"$root/usr/lib/systemd/system-preset/50-vendor.preset" <<EOF2
+enable vendor5.service
+EOF2
+
+"$systemctl" --root="$root" preset vendor5.service
+test ! -h "$root/etc/systemd/system/vendor5-name.service"
+# The vendor carries that name for somebody else, so the policy still has to be applied.
+test -h "$root/etc/systemd/system/vendor5-taken.service"
+
+# An explicit enable records itself as always.
+"$systemctl" --root="$root" enable vendor5.service
+test -h "$root/etc/systemd/system/vendor5-name.service"
+"$systemctl" --root="$root" disable vendor5.service
+rm -f "$root/usr/lib/systemd/system-preset/50-vendor.preset"
+
 : '-------vendor symlinks nobody asked for------------------------'
 # Distributions ship default.target, the runlevel targets and various compatibility names below /usr/.
 # Presetting into the vendor directories must leave every one of them where it is.

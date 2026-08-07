@@ -2194,6 +2194,92 @@ TEST(vendor_preset_writes_over_transient_and_masked) {
         ASSERT_FALSE(is_dependency_mask(etc_link));
 }
 
+TEST(vendor_preset_skips_redundant_alias) {
+        const char *unit, *other, *preset, *vendor_alias, *etc_alias;
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+
+        /* An Alias= symlink the vendor already carries for this very unit is as redundant as a dependency
+         * symlink would be, so presetting has nothing to record there either. */
+
+        unit = strjoina(root, "/usr/lib/systemd/system/vendor-aliased.service");
+        ASSERT_OK(write_string_file(unit,
+                                    "[Install]\n"
+                                    "Alias=vendor-aliased-name.service\n"
+                                    "Alias=vendor-aliased-taken.service\n", WRITE_STRING_FILE_CREATE));
+
+        vendor_alias = strjoina(root, "/usr/lib/systemd/system/vendor-aliased-name.service");
+        ASSERT_OK_ERRNO(symlink("vendor-aliased.service", vendor_alias));
+
+        /* The vendor carries this name too, but for somebody else, so the policy still has to be applied. */
+        other = strjoina(root, "/usr/lib/systemd/system/vendor-aliased-other.service");
+        ASSERT_OK(write_string_file(other, "[Install]\n", WRITE_STRING_FILE_CREATE));
+
+        const char *taken = strjoina(root, "/usr/lib/systemd/system/vendor-aliased-taken.service");
+        ASSERT_OK_ERRNO(symlink("vendor-aliased-other.service", taken));
+
+        preset = strjoina(root, "/usr/lib/systemd/system-preset/20-vendor-aliased.preset");
+        ASSERT_OK(write_string_file(preset, "enable vendor-aliased.service\n", WRITE_STRING_FILE_CREATE));
+
+        ASSERT_OK(unit_file_preset(RUNTIME_SCOPE_SYSTEM, 0, root,
+                                   STRV_MAKE("vendor-aliased.service"), UNIT_FILE_PRESET_FULL,
+                                   &changes, &n_changes));
+        install_changes_free(changes, n_changes);
+        changes = NULL; n_changes = 0;
+
+        etc_alias = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/vendor-aliased-name.service");
+        ASSERT_FALSE(symlink_exists(etc_alias));
+
+        etc_alias = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/vendor-aliased-taken.service");
+        ASSERT_TRUE(symlink_exists(etc_alias));
+
+        /* An explicit enable records itself as always. */
+        ASSERT_OK(unit_file_enable(RUNTIME_SCOPE_SYSTEM, 0, root,
+                                   STRV_MAKE("vendor-aliased.service"), &changes, &n_changes));
+        install_changes_free(changes, n_changes);
+        changes = NULL; n_changes = 0;
+
+        etc_alias = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/vendor-aliased-name.service");
+        ASSERT_TRUE(symlink_exists(etc_alias));
+}
+
+TEST(vendor_preset_writes_alias_over_transient_and_masked) {
+        const char *unit, *preset, *etc_alias;
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+
+        /* And as for dependencies, only a vendor supplied name counts: one in /run/ is gone after a reboot
+         * and a masked one carries nothing at all. */
+
+        unit = strjoina(root, "/usr/lib/systemd/system/vendor-alias-transient.service");
+        ASSERT_OK(write_string_file(unit,
+                                    "[Install]\n"
+                                    "Alias=vendor-alias-transient-name.service\n"
+                                    "Alias=vendor-alias-masked-name.service\n", WRITE_STRING_FILE_CREATE));
+
+        const char *runtime_alias = strjoina(root, "/run/systemd/system/vendor-alias-transient-name.service");
+        ASSERT_OK(mkdir_parents(runtime_alias, 0755));
+        ASSERT_OK_ERRNO(symlink("/usr/lib/systemd/system/vendor-alias-transient.service", runtime_alias));
+
+        const char *vendor_mask = strjoina(root, "/usr/lib/systemd/system/vendor-alias-masked-name.service");
+        ASSERT_OK_ERRNO(symlink("/dev/null", vendor_mask));
+
+        preset = strjoina(root, "/usr/lib/systemd/system-preset/21-vendor-alias-transient.preset");
+        ASSERT_OK(write_string_file(preset, "enable vendor-alias-transient.service\n", WRITE_STRING_FILE_CREATE));
+
+        ASSERT_OK(unit_file_preset(RUNTIME_SCOPE_SYSTEM, 0, root,
+                                   STRV_MAKE("vendor-alias-transient.service"), UNIT_FILE_PRESET_FULL,
+                                   &changes, &n_changes));
+        install_changes_free(changes, n_changes);
+        changes = NULL; n_changes = 0;
+
+        etc_alias = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/vendor-alias-transient-name.service");
+        ASSERT_TRUE(symlink_exists(etc_alias));
+
+        etc_alias = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/vendor-alias-masked-name.service");
+        ASSERT_TRUE(symlink_exists(etc_alias));
+}
+
 static int intro(void) {
         const char *p;
 
