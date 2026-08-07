@@ -2051,6 +2051,149 @@ TEST(vendor_disable_removes_linked_unit) {
         ASSERT_FALSE(symlink_exists(alias));
 }
 
+TEST(vendor_preset_leaves_etc_alone) {
+        const char *unit, *preset, *vendor_link, *etc_link;
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+        UnitFileState state;
+
+        /* Presetting re-asserts a policy, it is not the administrator saying they want this unit on, so
+         * there is nothing to record when the vendor already enables it. An explicit enable does record
+         * itself, so that it survives the vendor dropping the symlink later. */
+
+        unit = strjoina(root, "/usr/lib/systemd/system/vendor-redundant.service");
+        ASSERT_OK(write_string_file(unit,
+                                    "[Install]\n"
+                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE));
+
+        vendor_link = strjoina(root, "/usr/lib/systemd/system/multi-user.target.wants/vendor-redundant.service");
+        ASSERT_OK(mkdir_parents(vendor_link, 0755));
+        ASSERT_OK_ERRNO(symlink("../vendor-redundant.service", vendor_link));
+
+        preset = strjoina(root, "/usr/lib/systemd/system-preset/15-vendor-redundant.preset");
+        ASSERT_OK(write_string_file(preset, "enable vendor-redundant.service\n", WRITE_STRING_FILE_CREATE));
+
+        etc_link = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/vendor-redundant.service");
+
+        ASSERT_OK(unit_file_preset(RUNTIME_SCOPE_SYSTEM, 0, root,
+                                   STRV_MAKE("vendor-redundant.service"), UNIT_FILE_PRESET_FULL,
+                                   &changes, &n_changes));
+        install_changes_free(changes, n_changes);
+        changes = NULL; n_changes = 0;
+
+        ASSERT_FALSE(symlink_exists(etc_link));
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "vendor-redundant.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
+
+        /* An explicit enable writes it out even though it changes nothing right now. */
+        ASSERT_OK(unit_file_enable(RUNTIME_SCOPE_SYSTEM, 0, root,
+                                   STRV_MAKE("vendor-redundant.service"), &changes, &n_changes));
+        install_changes_free(changes, n_changes);
+        changes = NULL; n_changes = 0;
+
+        ASSERT_TRUE(symlink_exists(etc_link));
+
+        /* And that is what makes it survive the vendor changing its mind. */
+        ASSERT_OK_ERRNO(unlink(vendor_link));
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "vendor-redundant.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
+}
+
+TEST(vendor_preset_still_writes_what_is_needed) {
+        const char *unit, *preset, *etc_link;
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+
+        /* The skip only applies where the vendor already provides the very same dependency. A target the
+         * vendor does not wire up, and a vendor entry that is masked, both still have to be written. */
+
+        unit = strjoina(root, "/usr/lib/systemd/system/vendor-partial.service");
+        ASSERT_OK(write_string_file(unit,
+                                    "[Install]\n"
+                                    "WantedBy=multi-user.target\n"
+                                    "WantedBy=graphical.target\n", WRITE_STRING_FILE_CREATE));
+
+        /* The vendor only wires up one of the two targets. */
+        const char *vendor_link = strjoina(root, "/usr/lib/systemd/system/multi-user.target.wants/vendor-partial.service");
+        ASSERT_OK(mkdir_parents(vendor_link, 0755));
+        ASSERT_OK_ERRNO(symlink("../vendor-partial.service", vendor_link));
+
+        preset = strjoina(root, "/usr/lib/systemd/system-preset/16-vendor-partial.preset");
+        ASSERT_OK(write_string_file(preset, "enable vendor-partial.service\n", WRITE_STRING_FILE_CREATE));
+
+        ASSERT_OK(unit_file_preset(RUNTIME_SCOPE_SYSTEM, 0, root,
+                                   STRV_MAKE("vendor-partial.service"), UNIT_FILE_PRESET_FULL,
+                                   &changes, &n_changes));
+        install_changes_free(changes, n_changes);
+        changes = NULL; n_changes = 0;
+
+        etc_link = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/vendor-partial.service");
+        ASSERT_FALSE(symlink_exists(etc_link));
+
+        etc_link = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/graphical.target.wants/vendor-partial.service");
+        ASSERT_TRUE(symlink_exists(etc_link));
+        ASSERT_FALSE(is_dependency_mask(etc_link));
+}
+
+TEST(vendor_preset_writes_over_transient_and_masked) {
+        const char *unit, *preset, *etc_link;
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+
+        /* Only a vendor supplied dependency lets presetting skip the write. An entry in /run/ is gone
+         * after a reboot, and a masked one does not establish anything at all, so both still need the
+         * persistent symlink. */
+
+        unit = strjoina(root, "/usr/lib/systemd/system/vendor-transient.service");
+        ASSERT_OK(write_string_file(unit,
+                                    "[Install]\n"
+                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE));
+
+        const char *runtime_link = strjoina(root, "/run/systemd/system/multi-user.target.wants/vendor-transient.service");
+        ASSERT_OK(mkdir_parents(runtime_link, 0755));
+        ASSERT_OK_ERRNO(symlink("/usr/lib/systemd/system/vendor-transient.service", runtime_link));
+
+        preset = strjoina(root, "/usr/lib/systemd/system-preset/17-vendor-transient.preset");
+        ASSERT_OK(write_string_file(preset, "enable vendor-transient.service\n", WRITE_STRING_FILE_CREATE));
+
+        ASSERT_OK(unit_file_preset(RUNTIME_SCOPE_SYSTEM, 0, root,
+                                   STRV_MAKE("vendor-transient.service"), UNIT_FILE_PRESET_FULL,
+                                   &changes, &n_changes));
+        install_changes_free(changes, n_changes);
+        changes = NULL; n_changes = 0;
+
+        etc_link = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/vendor-transient.service");
+        ASSERT_TRUE(symlink_exists(etc_link));
+        ASSERT_FALSE(is_dependency_mask(etc_link));
+
+        /* Now the masked case: the vendor wires it up, but a higher priority vendor directory masks it. */
+        unit = strjoina(root, "/usr/lib/systemd/system/vendor-selfmasked.service");
+        ASSERT_OK(write_string_file(unit,
+                                    "[Install]\n"
+                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE));
+
+        const char *vendor_link = strjoina(root, "/usr/lib/systemd/system/multi-user.target.wants/vendor-selfmasked.service");
+        ASSERT_OK(mkdir_parents(vendor_link, 0755));
+        ASSERT_OK_ERRNO(symlink("../vendor-selfmasked.service", vendor_link));
+
+        const char *vendor_mask = strjoina(root, "/usr/local/lib/systemd/system/multi-user.target.wants/vendor-selfmasked.service");
+        ASSERT_OK(mkdir_parents(vendor_mask, 0755));
+        ASSERT_OK_ERRNO(symlink("/dev/null", vendor_mask));
+
+        preset = strjoina(root, "/usr/lib/systemd/system-preset/18-vendor-selfmasked.preset");
+        ASSERT_OK(write_string_file(preset, "enable vendor-selfmasked.service\n", WRITE_STRING_FILE_CREATE));
+
+        ASSERT_OK(unit_file_preset(RUNTIME_SCOPE_SYSTEM, 0, root,
+                                   STRV_MAKE("vendor-selfmasked.service"), UNIT_FILE_PRESET_FULL,
+                                   &changes, &n_changes));
+        install_changes_free(changes, n_changes);
+        changes = NULL; n_changes = 0;
+
+        etc_link = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/vendor-selfmasked.service");
+        ASSERT_TRUE(symlink_exists(etc_link));
+        ASSERT_FALSE(is_dependency_mask(etc_link));
+}
+
 static int intro(void) {
         const char *p;
 
