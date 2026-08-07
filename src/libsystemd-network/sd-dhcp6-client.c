@@ -12,6 +12,7 @@
 #include "alloc-util.h"
 #include "device-util.h"
 #include "dhcp-duid-internal.h"
+#include "dhcp6-addr-reg.h"
 #include "dhcp6-client-internal.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
@@ -867,7 +868,7 @@ int dhcp6_client_send_message(sd_dhcp6_client *client) {
         return 0;
 }
 
-static usec_t client_timeout_compute_random(usec_t val) {
+usec_t dhcp6_client_timeout_compute_random(usec_t val) {
         return usec_sub_unsigned(val, random_u64_range(val / 10));
 }
 
@@ -934,15 +935,15 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
                 client->retransmit_count++;
 
         if (client->retransmit_time == 0) {
-                client->retransmit_time = client_timeout_compute_random(init_retransmit_time);
+                client->retransmit_time = dhcp6_client_timeout_compute_random(init_retransmit_time);
 
                 if (client->state == DHCP6_STATE_SOLICITATION)
                         client->retransmit_time += init_retransmit_time / 10;
 
         } else if (client->retransmit_time > max_retransmit_time / 2)
-                client->retransmit_time = client_timeout_compute_random(max_retransmit_time);
+                client->retransmit_time = dhcp6_client_timeout_compute_random(max_retransmit_time);
         else
-                client->retransmit_time += client_timeout_compute_random(client->retransmit_time);
+                client->retransmit_time += dhcp6_client_timeout_compute_random(client->retransmit_time);
 
         log_dhcp6_client(client, "Next retransmission in %s",
                          FORMAT_TIMESPAN(client->retransmit_time, USEC_PER_SEC));
@@ -1087,8 +1088,8 @@ static int client_enter_bound_state(sd_dhcp6_client *client) {
         if (r < 0)
                 goto error;
 
-        lifetime_t2 = client_timeout_compute_random(lifetime_t2);
-        lifetime_t1 = client_timeout_compute_random(MIN(lifetime_t1, lifetime_t2));
+        lifetime_t2 = dhcp6_client_timeout_compute_random(lifetime_t2);
+        lifetime_t1 = dhcp6_client_timeout_compute_random(MIN(lifetime_t1, lifetime_t2));
 
         if (lifetime_t1 == USEC_INFINITY) {
                 log_dhcp6_client(client, "Infinite T1");
@@ -1433,6 +1434,10 @@ int sd_dhcp6_client_stop(sd_dhcp6_client *client) {
         client->receive_message = sd_event_source_unref(client->receive_message);
         client->fd = safe_close(client->fd);
 
+        /* Address registrations are kept: the client may be restarted while the link stays up, and
+         * RFC 9686 section 4.4 requires to keep registering until we disconnect from the link. The
+         * caller drops them with dhcp6_client_addr_reg_flush(). */
+
         return 0;
 }
 
@@ -1580,6 +1585,8 @@ static sd_dhcp6_client *dhcp6_client_free(sd_dhcp6_client *client) {
 
         sd_dhcp6_lease_unref(client->lease);
 
+        dhcp6_client_addr_reg_flush(client);
+
         sd_event_source_disable_unref(client->receive_message);
         sd_event_source_disable_unref(client->timeout_resend);
         sd_event_source_disable_unref(client->timeout_expire);
@@ -1623,6 +1630,7 @@ int sd_dhcp6_client_new(sd_dhcp6_client **ret) {
                 .request_ia = DHCP6_REQUEST_IA_NA | DHCP6_REQUEST_IA_PD,
                 .fd = -EBADF,
                 .rapid_commit = true,
+                .addr_reg_fd = -EBADF,
         };
 
         *ret = TAKE_PTR(client);
