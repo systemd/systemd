@@ -72,6 +72,14 @@
         <para>If combined with <option>--json=</option> (only supported in combination with
         <option>--type=</option>) will output the resource record data in a JSON object.</para>
 
+        <para>If <command>systemd-resolved</command> returns a resolution error while
+        <option>--json=</option> is enabled, the error is output as a JSON object. It contains the queried
+        <varname>name</varname>, the resolved varlink <varname>error</varname>, and any error fields
+        supplied by <command>systemd-resolved</command>, such as <varname>rcode</varname>,
+        <varname>queryString</varname>, <varname>extendedDNSErrorCode</varname>,
+        <varname>extendedDNSErrorMessage</varname>, and <varname>result</varname>. Local invocation or
+        connection errors are still reported as regular errors.</para>
+
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
