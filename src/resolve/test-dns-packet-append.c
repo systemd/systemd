@@ -284,7 +284,16 @@ TEST(packet_append_opt_basic) {
         DNS_PACKET_ID(packet) = htobe16(42);
         DNS_PACKET_HEADER(packet)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0, 0, 0, 0, 1, 0, 0, 0, DNS_RCODE_SUCCESS));
 
-        ASSERT_OK(dns_packet_append_opt(packet, 512, false, false, NULL, 0, NULL));
+        ASSERT_OK(dns_packet_append_opt(
+                        packet,
+                        512,
+                        false,
+                        false,
+                        /* nsid= */ NULL,
+                        0,
+                        _DNS_EDE_RCODE_INVALID,
+                        /* ede_msg= */ NULL,
+                        /* ret_start= */ NULL));
 
         const uint8_t data[] = {
                         0x00, 0x2a,     BIT_RD, DNS_RCODE_SUCCESS,
@@ -312,7 +321,16 @@ TEST(packet_append_opt_change_max_udp) {
         DNS_PACKET_ID(packet) = htobe16(42);
         DNS_PACKET_HEADER(packet)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0, 0, 0, 0, 1, 0, 0, 0, DNS_RCODE_SUCCESS));
 
-        ASSERT_OK(dns_packet_append_opt(packet, 4100, false, false, NULL, 0, NULL));
+        ASSERT_OK(dns_packet_append_opt(
+                        packet,
+                        4100,
+                        false,
+                        false,
+                        /* nsid= */ NULL,
+                        0,
+                        _DNS_EDE_RCODE_INVALID,
+                        /* ede_msg= */ NULL,
+                        /* ret_start= */ NULL));
 
         const uint8_t data[] = {
                         0x00, 0x2a,     BIT_RD, DNS_RCODE_SUCCESS,
@@ -340,7 +358,16 @@ TEST(packet_append_opt_dnssec_ok) {
         DNS_PACKET_ID(packet) = htobe16(42);
         DNS_PACKET_HEADER(packet)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0, 0, 0, 0, 1, 0, 0, 0, DNS_RCODE_SUCCESS));
 
-        ASSERT_OK(dns_packet_append_opt(packet, 512, true, false, NULL, 0, NULL));
+        ASSERT_OK(dns_packet_append_opt(
+                        packet,
+                        512,
+                        true,
+                        false,
+                        /* nsid= */ NULL,
+                        0,
+                        _DNS_EDE_RCODE_INVALID,
+                        /* ede_msg= */ NULL,
+                        /* ret_start= */ NULL));
 
         const uint8_t data[] = {
                         0x00, 0x2a,     BIT_RD, DNS_RCODE_SUCCESS,
@@ -368,7 +395,16 @@ TEST(packet_append_opt_rcode) {
         DNS_PACKET_ID(packet) = htobe16(42);
         DNS_PACKET_HEADER(packet)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0, 0, 0, 0, 1, 0, 0, 0, DNS_RCODE_SUCCESS));
 
-        ASSERT_OK(dns_packet_append_opt(packet, 512, false, false, NULL, 0x97a, NULL));
+        ASSERT_OK(dns_packet_append_opt(
+                        packet,
+                        512,
+                        false,
+                        false,
+                        /* nsid= */ NULL,
+                        0x97a,
+                        _DNS_EDE_RCODE_INVALID,
+                        /* ede_msg= */ NULL,
+                        /* ret_start= */ NULL));
 
         const uint8_t data[] = {
                         0x00, 0x2a,     BIT_RD, DNS_RCODE_SUCCESS,
@@ -396,7 +432,16 @@ TEST(packet_append_opt_nsid) {
         DNS_PACKET_ID(packet) = htobe16(42);
         DNS_PACKET_HEADER(packet)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0, 0, 0, 0, 1, 0, 0, 0, DNS_RCODE_SUCCESS));
 
-        ASSERT_OK(dns_packet_append_opt(packet, 512, false, false, "nsid.example.com", 0, NULL));
+        ASSERT_OK(dns_packet_append_opt(
+                        packet,
+                        512,
+                        false,
+                        false,
+                        "nsid.example.com",
+                        0,
+                        _DNS_EDE_RCODE_INVALID,
+                        /* ede_msg= */ NULL,
+                        /* ret_start= */ NULL));
 
         const uint8_t data[] = {
                         0x00, 0x2a,     BIT_RD, DNS_RCODE_SUCCESS,
@@ -419,6 +464,56 @@ TEST(packet_append_opt_nsid) {
         ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
 }
 
+TEST(packet_append_opt_ede) {
+        _cleanup_free_ char *ede_msg = NULL;
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        int ede_rcode;
+
+        ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
+        ASSERT_NOT_NULL(packet);
+
+        DNS_PACKET_ID(packet) = htobe16(42);
+        DNS_PACKET_HEADER(packet)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0, 0, 0, 0, 1, 0, 0, 0, DNS_RCODE_SUCCESS));
+
+        ASSERT_OK(dns_packet_append_opt(
+                        packet,
+                        512,
+                        false,
+                        false,
+                        /* nsid= */ NULL,
+                        0,
+                        DNS_EDE_RCODE_FILTERED,
+                        "Filtered by policy",
+                        /* ret_start= */ NULL));
+
+        const uint8_t data[] = {
+                        0x00, 0x2a,     BIT_RD, DNS_RCODE_SUCCESS,
+                        0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x01,
+
+        /* root */      0x00,
+        /* OPT */       0x00, 0x29,
+        /* udp max */   0x02, 0x00,
+        /* rcode */     0x00,
+        /* version */   0x00,
+        /* flags */     0x00, 0x00,
+        /* rdata */     0x00, 0x18,
+        /* EDE */       0x00, 0x0f,
+                        0x00, 0x14,
+                        0x00, 0x11,
+                        'F', 'i', 'l', 't', 'e', 'r', 'e', 'd',
+                        ' ', 'b', 'y', ' ', 'p', 'o', 'l', 'i',
+                        'c', 'y'
+        };
+
+        ASSERT_EQ(packet->size, sizeof(data));
+        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+
+        ASSERT_OK(dns_packet_extract(packet));
+        ASSERT_OK(dns_packet_ede_rcode(packet, &ede_rcode, &ede_msg));
+        ASSERT_EQ(ede_rcode, DNS_EDE_RCODE_FILTERED);
+        ASSERT_STREQ(ede_msg, "Filtered by policy");
+}
+
 TEST(packet_append_key_and_opt) {
         _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
@@ -434,7 +529,16 @@ TEST(packet_append_key_and_opt) {
         ASSERT_NOT_NULL(key);
         ASSERT_OK(dns_packet_append_key(packet, key, 0, NULL));
 
-        ASSERT_OK(dns_packet_append_opt(packet, 512, false, false, NULL, 0, NULL));
+        ASSERT_OK(dns_packet_append_opt(
+                        packet,
+                        512,
+                        false,
+                        false,
+                        /* nsid= */ NULL,
+                        0,
+                        _DNS_EDE_RCODE_INVALID,
+                        /* ede_msg= */ NULL,
+                        /* ret_start= */ NULL));
 
         const uint8_t data[] = {
                         0x00, 0x2a,     BIT_RD, DNS_RCODE_SUCCESS,
@@ -474,7 +578,16 @@ TEST(packet_truncate_opt) {
         ASSERT_NOT_NULL(key);
         ASSERT_OK(dns_packet_append_key(packet, key, 0, NULL));
 
-        ASSERT_OK(dns_packet_append_opt(packet, 512, false, false, NULL, 0, NULL));
+        ASSERT_OK(dns_packet_append_opt(
+                        packet,
+                        512,
+                        false,
+                        false,
+                        /* nsid= */ NULL,
+                        0,
+                        _DNS_EDE_RCODE_INVALID,
+                        /* ede_msg= */ NULL,
+                        /* ret_start= */ NULL));
 
         ASSERT_TRUE(dns_packet_truncate_opt(packet));
 
@@ -506,7 +619,16 @@ TEST(packet_patch_max_udp_size) {
         DNS_PACKET_ID(packet) = htobe16(42);
         DNS_PACKET_HEADER(packet)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0, 0, 0, 0, 1, 0, 0, 0, DNS_RCODE_SUCCESS));
 
-        ASSERT_OK(dns_packet_append_opt(packet, 512, false, false, NULL, 0, NULL));
+        ASSERT_OK(dns_packet_append_opt(
+                        packet,
+                        512,
+                        false,
+                        false,
+                        /* nsid= */ NULL,
+                        0,
+                        _DNS_EDE_RCODE_INVALID,
+                        /* ede_msg= */ NULL,
+                        /* ret_start= */ NULL));
 
         ASSERT_TRUE(dns_packet_patch_max_udp_size(packet, 4097));
 
