@@ -276,6 +276,22 @@ static bool path_is_vendor(const LookupPaths *lp, const char *path) {
         return PATH_IN_SET(rpath, SYSTEM_DATA_UNIT_DIR, USER_DATA_UNIT_DIR);
 }
 
+/* /usr/local/ is in the search path and below /usr/, so PID 1 honours what is in it and we do not write
+ * there, but it belongs to the administrator rather than to the vendor, see file-hierarchy(7). No package
+ * ships into it and "--vendor" never targets it. */
+static bool path_is_usr_local(const LookupPaths *lp, const char *path) {
+        const char *rpath;
+
+        assert(lp);
+        assert(path);
+
+        rpath = skip_root(lp->root_dir, path);
+        if (!rpath)
+                return false;
+
+        return path_startswith(rpath, "/usr/local");
+}
+
 static int path_is_vendor_or_generator(const LookupPaths *lp, const char *path) {
         assert(lp);
         assert(path);
@@ -2770,6 +2786,63 @@ static int install_info_symlink_alias(
         return ret;
 }
 
+/* Would this dependency symlink already be there if we didn't create it? Our symlink only ever competes
+ * with the directories below config_path, anything above it wins either way. Only a vendor supplied entry
+ * counts: one in /run/ or from a generator is gone again after a reboot, and one below /usr/local/ is the
+ * administrator's rather than the vendor's. */
+static int dependency_provided_below(
+                const LookupPaths *lp,
+                const char *config_path,
+                const char *rel) {
+
+        bool below = false;
+        int r;
+
+        assert(lp);
+        assert(config_path);
+        assert(rel);
+
+        STRV_FOREACH(p, lp->search_path) {
+                _cleanup_free_ char *path = NULL;
+                struct stat st;
+
+                if (!below) {
+                        below = path_equal(*p, config_path);
+                        continue;
+                }
+
+                path = path_join(*p, rel);
+                if (!path)
+                        return -ENOMEM;
+
+                if (lstat(path, &st) < 0) {
+                        if (IN_SET(errno, ENOENT, ENOTDIR))
+                                continue;
+
+                        /* Anything we cannot look at falls back on writing our own symlink. A redundant one
+                         * is harmless, while wrongly skipping it would leave the unit off, and aborting here
+                         * would leave the preset applied by halves. */
+                        log_debug_errno(errno, "Failed to look at '%s', not skipping the symlink: %m", path);
+                        return false;
+                }
+
+                /* The first entry we find decides, the ones below it are shadowed. */
+                r = dependency_is_masked(lp, path);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to check if '%s' masks a dependency, not skipping the "
+                                        "symlink: %m", path);
+                        return false;
+                }
+                if (r > 0)
+                        return false;
+
+                /* Only what the vendor provides counts, not what an administrator put below /usr/local/. */
+                return S_ISLNK(st.st_mode) && path_is_vendor(lp, *p) && !path_is_usr_local(lp, *p);
+        }
+
+        return false;
+}
+
 static int install_info_symlink_wants(
                 RuntimeScope scope,
                 UnitFileFlags file_flags,
@@ -2853,7 +2926,34 @@ static int install_info_symlink_wants(
                         continue;
                 }
 
-                path = strjoin(config_path, "/", dst, suffix, n);
+                _cleanup_free_ char *rel = strjoin(dst, suffix, n);
+                if (!rel)
+                        return -ENOMEM;
+
+                /* Applying a preset policy re-asserts what the policy says, it is not the administrator
+                 * saying they want this unit on. So if the vendor already enables it, leave the
+                 * configuration directory alone rather than filling it with copies of the vendor's own
+                 * decisions. An explicit "systemctl enable" still records itself, so that it survives the
+                 * vendor dropping the symlink later. */
+                if (FLAGS_SET(file_flags, UNIT_FILE_APPLYING_PRESET)) {
+                        q = dependency_provided_below(lp, config_path, rel);
+                        if (q < 0)
+                                return q;
+                        if (q > 0) {
+                                log_debug("Dependency %s already provided below %s, not creating it.",
+                                          rel, config_path);
+
+                                /* Still counts towards the number of symlinks that were supposed to be
+                                 * created, or a fully redundant unit would look like it had no [Install]
+                                 * section at all. */
+                                if (r >= 0)
+                                        r = 1;
+
+                                continue;
+                        }
+                }
+
+                path = path_join(config_path, rel);
                 if (!path)
                         return -ENOMEM;
 
@@ -4426,7 +4526,7 @@ static int execute_preset(
 
                 /* Returns number of symlinks that where supposed to be installed. */
                 q = install_context_apply(plus, lp,
-                                          file_flags | UNIT_FILE_IGNORE_AUXILIARY_FAILURE,
+                                          file_flags | UNIT_FILE_IGNORE_AUXILIARY_FAILURE | UNIT_FILE_APPLYING_PRESET,
                                           config_path,
                                           SEARCH_LOAD, changes, n_changes);
                 if (r >= 0) {
