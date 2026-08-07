@@ -1715,7 +1715,7 @@ int decrypt_credential_and_warn(const char *validate_name, usec_t validate_times
 
 #endif
 
-int ipc_encrypt_credential(const char *name, usec_t timestamp, usec_t not_after, uid_t uid, const struct iovec *input, CredentialFlags flags, struct iovec *ret) {
+int ipc_encrypt_credential(const char *with_key, const char *name, usec_t timestamp, usec_t not_after, uid_t uid, const struct iovec *input, CredentialFlags flags, struct iovec *ret) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r;
 
@@ -1751,6 +1751,7 @@ int ipc_encrypt_credential(const char *name, usec_t timestamp, usec_t not_after,
                         SD_JSON_BUILD_PAIR_CONDITION(timestamp != USEC_INFINITY, "timestamp", SD_JSON_BUILD_UNSIGNED(timestamp)),
                         SD_JSON_BUILD_PAIR_CONDITION(not_after != USEC_INFINITY, "notAfter",  SD_JSON_BUILD_UNSIGNED(not_after)),
                         SD_JSON_BUILD_PAIR_CONDITION(!FLAGS_SET(flags, CREDENTIAL_ANY_SCOPE), "scope", SD_JSON_BUILD_STRING(uid_is_valid(uid) ? "user" : "system")),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!with_key, "withKey", SD_JSON_BUILD_STRING(with_key)),
                         SD_JSON_BUILD_PAIR_CONDITION(uid_is_valid(uid), "uid", SD_JSON_BUILD_UNSIGNED(uid)),
                         SD_JSON_BUILD_PAIR_CONDITION((flags & (CREDENTIAL_ALLOW_NULL|CREDENTIAL_REFUSE_NULL)) != 0, "allowNull", SD_JSON_BUILD_BOOLEAN(flags & CREDENTIAL_ALLOW_NULL)),
                         SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", FLAGS_SET(flags, CREDENTIAL_IPC_ALLOW_INTERACTIVE)));
