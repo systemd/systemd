@@ -19,6 +19,8 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
+#include <stdbool.h>
+
 #include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
@@ -113,6 +115,13 @@ int sd_dhcp6_client_add_vendor_option(sd_dhcp6_client *client,
                                       sd_dhcp6_option *v);
 int sd_dhcp6_client_set_rapid_commit(sd_dhcp6_client *client, int enable);
 int sd_dhcp6_client_set_send_release(sd_dhcp6_client *client, int enable);
+int sd_dhcp6_client_set_register_addresses(sd_dhcp6_client *client, int enable);
+int sd_dhcp6_client_get_register_addresses(sd_dhcp6_client *client, bool *ret);
+int sd_dhcp6_client_register_address(
+                sd_dhcp6_client *client,
+                const struct in6_addr *address,
+                uint64_t lifetime_valid_usec,
+                uint64_t lifetime_preferred_usec);
 
 int sd_dhcp6_client_get_lease(
                 sd_dhcp6_client *client,

@@ -208,6 +208,7 @@ typedef struct Network {
         NFTSetContext dhcp6_nft_set_context;
         uint32_t dhcp6_route_table;
         bool dhcp6_route_table_set;
+        bool dhcp6_register_addresses;
 
         /* DHCP Relay Agent Support */
         DHCPRelayInterfaceMode dhcp_relay_interface_mode;
