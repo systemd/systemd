@@ -10,6 +10,7 @@
 #include "path-util.h"
 #include "rm-rf.h"
 #include "special.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
@@ -1129,6 +1130,34 @@ TEST(preset_multiple_instances) {
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "foo@bartest.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
 
         install_changes_free(changes, n_changes);
+}
+
+TEST(preset_scope) {
+        const char *unit, *preset, *link;
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+
+        /* The specifiers in the names an [Install] section asks for are resolved in the scope the caller
+         * asked for. %U has no meaning in the global scope, so presetting a unit that uses it has to fail
+         * rather than quietly expand it as if this were the system scope. */
+
+        unit = strjoina(root, "/usr/lib/systemd/user/scoped.service");
+        ASSERT_OK(mkdir_parents(unit, 0755));
+        ASSERT_OK(write_string_file(unit,
+                                    "[Install]\n"
+                                    "WantedBy=target-%U.target\n", WRITE_STRING_FILE_CREATE));
+
+        preset = strjoina(root, "/usr/lib/systemd/user-preset/50-scoped.preset");
+        ASSERT_OK(mkdir_parents(preset, 0755));
+        ASSERT_OK(write_string_file(preset, "enable scoped.service\n", WRITE_STRING_FILE_CREATE));
+
+        ASSERT_ERROR(unit_file_preset(RUNTIME_SCOPE_GLOBAL, 0, root, STRV_MAKE("scoped.service"),
+                                      UNIT_FILE_PRESET_FULL, &changes, &n_changes), EINVAL);
+        install_changes_free(changes, n_changes);
+        changes = NULL; n_changes = 0;
+
+        link = strjoina(root, USER_CONFIG_UNIT_DIR"/target-0.target.wants/scoped.service");
+        ASSERT_ERROR(is_symlink(link), ENOENT);
 }
 
 static void verify_one(
