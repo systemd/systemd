@@ -1214,6 +1214,31 @@ int string_strv_ordered_hashmap_put(OrderedHashmap **h, const char *key, const c
         return string_strv_hashmap_put_internal(PLAIN_HASHMAP(*h), key, value);
 }
 
+static int rebreak_flush_line(
+                char ***broken,
+                const char *start,
+                const char *end,
+                bool in_prefix,
+                const char *whitespace_begin,
+                const char *whitespace_end) {
+
+        assert(broken);
+        assert(start);
+        assert(end >= start);
+
+        if (in_prefix) /* Never seen anything non-whitespace? Generate empty line! */
+                return strv_extend(broken, "");
+
+        if (whitespace_begin && !whitespace_end) /* Ends in whitespace? Chop it off! */
+                end = whitespace_begin;
+
+        _cleanup_free_ char *truncated = strndup(start, end - start);
+        if (!truncated)
+                return -ENOMEM;
+
+        return strv_consume(broken, TAKE_PTR(truncated));
+}
+
 int strv_rebreak_lines(char **l, size_t width, char ***ret) {
         _cleanup_strv_free_ char **broken = NULL;
         int r;
@@ -1224,7 +1249,8 @@ int strv_rebreak_lines(char **l, size_t width, char ***ret) {
          *
          * Goes through all entries in *l, and line-breaks each line that is longer than the specified
          * character width. Breaks at the end of words/beginning of whitespace. Lines that do not contain whitespace are not
-         * broken. Retains whitespace at beginning of lines, removes it at end of lines. */
+         * broken. Retains whitespace at beginning of lines, removes it at end of lines. Newlines embedded
+         * in an entry are hard line breaks, i.e. result in a separate output entry each. */
 
         if (width == SIZE_MAX) { /* NOP? */
                 broken = strv_copy(l);
@@ -1238,13 +1264,25 @@ int strv_rebreak_lines(char **l, size_t width, char ***ret) {
         STRV_FOREACH(i, l) {
                 const char *start = *i, *whitespace_begin = NULL, *whitespace_end = NULL;
                 bool in_prefix = true; /* still in the whitespace in the beginning of the line? */
+                bool after_newline = false; /* did we just break at a newline embedded in the input? */
                 size_t w = 0;
 
                 for (const char *p = start; *p != 0; ) {
                         if (strchr(NEWLINE, *p)) {
+                                /* A newline embedded in the input is a hard line break: flush out what we
+                                 * collected so far as its own line, and continue with a new one right after
+                                 * it. */
+                                r = rebreak_flush_line(&broken, start, p, in_prefix, whitespace_begin, whitespace_end);
+                                if (r < 0)
+                                        return r;
+
+                                p += p[0] == '\r' && p[1] == '\n' ? 2 : 1; /* Treat CRLF as a single break */
+                                start = p;
                                 in_prefix = true;
+                                after_newline = true;
                                 whitespace_begin = whitespace_end = NULL;
                                 w = 0;
+                                continue;
                         } else if (strchr(WHITESPACE, *p)) {
                                 if (!in_prefix && (!whitespace_begin || whitespace_end)) {
                                         whitespace_begin = p;
@@ -1282,6 +1320,7 @@ int strv_rebreak_lines(char **l, size_t width, char ***ret) {
                                  * whitespace we broke at. Note, that character has not been measured for
                                  * the new line yet, hence reset the width and reprocess it. */
                                 p = start = whitespace_end;
+                                after_newline = false;
                                 whitespace_begin = whitespace_end = NULL;
                                 w = 0;
                                 continue;
@@ -1290,18 +1329,14 @@ int strv_rebreak_lines(char **l, size_t width, char ***ret) {
                         p += n;
                 }
 
-                /* Process rest of the line */
+                /* Process rest of the line, except if all that's left after the last newline we already
+                 * flushed out above is whitespace (possibly nothing): a trailing newline terminates the
+                 * last line, it doesn't add a new, empty one. */
                 assert(start);
-                if (in_prefix) /* Never seen anything non-whitespace? Generate empty line! */
-                        r = strv_extend(&broken, "");
-                else if (whitespace_begin && !whitespace_end) { /* Ends in whitespace? Chop it off! */
-                        _cleanup_free_ char *truncated = strndup(start, whitespace_begin - start);
-                        if (!truncated)
-                                return -ENOMEM;
+                if (after_newline && in_prefix)
+                        continue;
 
-                        r = strv_consume(&broken, TAKE_PTR(truncated));
-                } else /* Otherwise use line as is */
-                        r = strv_extend(&broken, start);
+                r = rebreak_flush_line(&broken, start, start + strlen(start), in_prefix, whitespace_begin, whitespace_end);
                 if (r < 0)
                         return r;
         }
