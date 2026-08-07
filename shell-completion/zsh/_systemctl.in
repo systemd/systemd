@@ -534,6 +534,7 @@ _arguments -s \
     '(-f --force)'{-f,--force}'[When enabling unit files, override existing symlinks. When shutting down, execute action immediately]' \
     '--root=[Enable/disable/mask unit files in the specified root directory]:directory:_directories' \
     '--runtime[Enable/disable/mask unit files only temporarily until next reboot]' \
+    '--vendor[Enable/disable/preset unit files in the vendor unit directory below /usr]' \
     '(-H --host)'{-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
     '(-P --privileged)'{-P,--privileged}'[Acquire privileges before execution]' \
     '(-n --lines)'{-n+,--lines=}'[Journal entries to show]:number of entries' \
