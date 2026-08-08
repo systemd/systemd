@@ -5,12 +5,14 @@
 #include "coredump-backtrace.h"
 #include "coredump-kernel-helper.h"
 #include "coredump-receive.h"
+#include "coredump-socket.h"
 #include "coredump-util.h"
 #include "dlopen-note.h"
 #include "log.h"
 #include "main-func.h"
 #include "pidfd-util.h"
 #include "string-util.h"
+#include "strv.h"
 
 static int run(int argc, char *argv[]) {
         int r;
@@ -57,7 +59,8 @@ static int run(int argc, char *argv[]) {
         /* Make sure we never enter a loop. */
         (void) set_dumpable(SUID_DUMP_DISABLE);
 
-        r = sd_listen_fds(false);
+        _cleanup_strv_free_ char **names = NULL;
+        r = sd_listen_fds_with_names(/* unset_environment= */ false, &names);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine the number of file descriptors: %m");
 
@@ -65,8 +68,12 @@ static int run(int argc, char *argv[]) {
          * kernel as coredump handler. */
         if (r == 0)
                 return coredump_kernel_helper(argc, argv);
-        if (r == 1)
+        if (r == 1) {
+                if (streq(names[0], "coredump-kernel-socket"))
+                        return coredump_socket_worker(SD_LISTEN_FDS_START);
+
                 return coredump_receive(SD_LISTEN_FDS_START);
+        }
 
         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                "Received unexpected number of file descriptors.");
