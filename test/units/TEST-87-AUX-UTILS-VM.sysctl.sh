@@ -16,6 +16,7 @@ echo "-foo.foo=42" >/tmp/foo.conf
 assert_rc 0 /usr/lib/systemd/systemd-sysctl /tmp/foo.conf
 assert_rc 0 /usr/lib/systemd/systemd-sysctl --strict /tmp/foo.conf
 
+assert_rc 1 /usr/lib/systemd/systemd-sysctl --inline
 assert_rc 0 /usr/lib/systemd/systemd-sysctl --inline "foo.bar=42"
 assert_rc 1 /usr/lib/systemd/systemd-sysctl --inline --strict "foo.bar=42"
 assert_rc 0 /usr/lib/systemd/systemd-sysctl --inline -- "-foo.bar=42"
