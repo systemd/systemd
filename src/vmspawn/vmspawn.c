@@ -344,7 +344,11 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser opts = { argc, argv, OPTION_PARSER_STOP_AT_FIRST_NONOPTION };
+        /* Our positional arguments are kernel command line arguments rather than a command to
+         * execute, and those never begin with a dash, so there's no reason to stop looking for
+         * options at the first of them. "--" still ends option parsing, for the rare argument that
+         * does look like an option. */
+        OptionParser opts = { argc, argv };
 
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
