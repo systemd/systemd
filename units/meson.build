@@ -334,6 +334,14 @@ units = [
           'conditions' : ['ENABLE_INITRD', 'ENABLE_SYSEXT'],
         },
         {
+          'file' : 'systemd-coredump-kernel.socket.in',
+          'conditions' : ['ENABLE_COREDUMP'],
+        },
+        {
+          'file' : 'systemd-coredump-kernel@.service.in',
+          'conditions' : ['ENABLE_COREDUMP'],
+        },
+        {
           'file' : 'systemd-coredump.socket',
           'conditions' : ['ENABLE_COREDUMP'],
           'symlinks' : ['sockets.target.wants/', 'system-update-pre.target.wants/'],
