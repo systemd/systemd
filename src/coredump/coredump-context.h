@@ -57,7 +57,7 @@ struct CoredumpContext {
         uint64_t rlimit;   /* META_ARGV_RLIMIT */
         char *hostname;    /* META_ARGV_HOSTNAME */
         unsigned dumpable; /* META_ARGV_DUMPABLE */
-        pid_t tid;         /* META_ARGV_TID */
+        PidRef tidref;     /* META_ARGV_TID */
         char *comm;        /* META_COMM */
         char *exe;         /* META_EXE */
         char *unit;        /* META_UNIT */
@@ -78,6 +78,7 @@ struct CoredumpContext {
                 .pidref = PIDREF_NULL,          \
                 .uid = UID_INVALID,             \
                 .gid = GID_INVALID,             \
+                .tidref = PIDREF_NULL,          \
                 .mount_tree_fd = -EBADF,        \
                 .input_fd = -EBADF,             \
         }

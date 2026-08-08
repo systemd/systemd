@@ -48,6 +48,7 @@ void coredump_context_done(CoredumpContext *context) {
         assert(context);
 
         pidref_done(&context->pidref);
+        pidref_done(&context->tidref);
         free(context->hostname);
         free(context->comm);
         free(context->exe);
@@ -266,8 +267,8 @@ int coredump_context_build_iovw(CoredumpContext *context) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add COREDUMP_COMM= field: %m");
 
-        if (context->tid > 0)
-                (void) iovw_put_string_fieldf(&context->iovw, "COREDUMP_TID=", PID_FMT, context->tid);
+        if (pidref_is_set(&context->tidref))
+                (void) iovw_put_string_fieldf(&context->iovw, "COREDUMP_TID=", PID_FMT, context->tidref.pid);
 
         if (context->thread_name)
                 (void) iovw_put_string_field(&context->iovw, "COREDUMP_THREAD_NAME=", context->thread_name);
@@ -383,10 +384,10 @@ static int coredump_context_parse_from_procfs(CoredumpContext *context) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get COMM: %m");
 
-        if (context->tid > 0) {
-                r = pid_get_comm(context->tid, &context->thread_name);
+        if (pidref_is_set(&context->tidref)) {
+                r = pidref_get_comm(&context->tidref, &context->thread_name);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to get comm for thread "PID_FMT", ignoring: %m", context->tid);
+                        log_warning_errno(r, "Failed to get comm for thread "PID_FMT", ignoring: %m", context->tidref.pid);
         }
 
         r = get_process_exe(pid, &context->exe);
@@ -518,7 +519,7 @@ static int context_parse_one(CoredumpContext *context, MetadataField meta, bool 
                 return 0;
         }
         case META_ARGV_TID:
-                r = parse_pid(s, &context->tid);
+                r = pidref_set_pidstr_full(&context->tidref, s, PIDFD_THREAD);
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse TID \"%s\", ignoring: %m", s);
                 return 0;
