@@ -762,10 +762,12 @@ int journal_file_fstat(JournalFile *f) {
         if (r < 0)
                 return r;
 
-        /* Refuse appending to files that are already deleted */
-        r = stat_verify_linked(&f->last_stat);
-        if (r < 0)
-                return r;
+        if (!f->allow_unlinked) {
+                /* Refuse appending to files that are already deleted */
+                r = stat_verify_linked(&f->last_stat);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
@@ -4170,6 +4172,7 @@ int journal_file_open(
                                             DEFAULT_COMPRESS_THRESHOLD :
                                             MAX(MIN_COMPRESS_THRESHOLD, compress_threshold_bytes),
                 .strict_order = FLAGS_SET(file_flags, JOURNAL_STRICT_ORDER),
+                .allow_unlinked = FLAGS_SET(file_flags, JOURNAL_ALLOW_UNLINKED),
                 .newest_boot_id_prioq_idx = PRIOQ_IDX_NULL,
                 .last_direction = _DIRECTION_INVALID,
                 .tail_timestamp_ratelimit = { .interval = USEC_PER_SEC, .burst = 1 },
