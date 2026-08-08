@@ -425,10 +425,16 @@ static int run(int argc, char *argv[]) {
                 unsigned pos = 0;
 
                 STRV_FOREACH(arg, args) {
-                        if (arg_inline)
+                        if (arg_inline) {
+                                pos++;
+
+                                const char *s = skip_leading_chars(*arg, /* bad= */ NULL);
+                                if (IN_SET(*s, '\0', '#'))
+                                        continue;
+
                                 /* Use (argument):n, where n==1 for the first positional arg */
-                                RET_GATHER(r, parse_line("(argument)", ++pos, *arg, /* invalid_config= */ NULL, &sysctl_options));
-                        else
+                                RET_GATHER(r, parse_line("(argument)", pos, s, /* invalid_config= */ NULL, &sysctl_options));
+                        } else
                                 RET_GATHER(r, parse_file(&sysctl_options, *arg, false));
                 }
         } else {
