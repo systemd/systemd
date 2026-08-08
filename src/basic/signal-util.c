@@ -260,8 +260,12 @@ static const char *const sigsegv_code_table[] = {
         [SEGV_ACCADI]  = "SEGV_ACCADI",
         [SEGV_ADIDERR] = "SEGV_ADIDERR",
         [SEGV_ADIPERR] = "SEGV_ADIPERR",
+#ifdef SEGV_MTEAERR
         [SEGV_MTEAERR] = "SEGV_MTEAERR",
+#endif
+#ifdef SEGV_MTESERR
         [SEGV_MTESERR] = "SEGV_MTESERR",
+#endif
         [SEGV_CPERR]   = "SEGV_CPERR",
 };
 
