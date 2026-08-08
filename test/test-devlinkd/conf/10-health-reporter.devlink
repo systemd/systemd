@@ -1,0 +1,9 @@
+[Match]
+Kind=health_reporter
+Handle=netdevsim/netdevsim99
+Name=dummy
+
+[HealthReporter]
+GracePeriod=40000
+AutoRecover=false
+AutoDump=false
