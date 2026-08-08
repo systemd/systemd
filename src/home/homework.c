@@ -1685,7 +1685,7 @@ static int home_update(UserRecord *h, Hashmap *blobs, UserRecord **ret) {
                 return user_record_clone(h, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_PERMISSIVE, ret);
         }
 
-        r = home_setup(h, flags, &setup, &cache, &header_home);
+        r = home_setup(h, flags | HOME_SETUP_DONT_FALLOCATE, &setup, &cache, &header_home);
         if (r < 0)
                 return r;
 
@@ -1787,7 +1787,7 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
-        r = home_setup(h, flags, &setup, &cache, &header_home);
+        r = home_setup(h, flags | HOME_SETUP_DONT_FALLOCATE, &setup, &cache, &header_home);
         if (r < 0)
                 return r;
 
@@ -1865,7 +1865,7 @@ static int home_inspect(UserRecord *h, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
-        r = home_setup(h, flags, &setup, &cache, &header_home);
+        r = home_setup(h, flags | HOME_SETUP_DONT_FALLOCATE, &setup, &cache, &header_home);
         if (r < 0)
                 return r;
 
