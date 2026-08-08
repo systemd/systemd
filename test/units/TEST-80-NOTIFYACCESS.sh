@@ -191,6 +191,23 @@ cleanup_notify_reload() {
         /tmp/reload-wellbehaved-in /tmp/reload-wellbehaved-out
 }
 
+assert_reload_signal_warning() {
+    local unit="${1:?}"
+    local cursor_file="${2:?}"
+    local cursor
+
+    # Insist on a cursor. Without one the search starts at the head of the journal and can match a
+    # warning left by an earlier subtest.
+    cursor="$(cat "$cursor_file")"
+    test -n "$cursor"
+
+    # A single read is not enough: journalctl can transiently open no journal file at all, which is
+    # indistinguishable from the message being absent. Pass the cursor by value, because a read
+    # rewrites --cursor-file even when it matched nothing, which would move a later attempt past
+    # the message it is waiting for.
+    timeout 30 bash -xec "until journalctl --sync && journalctl -u '$unit' --after-cursor='$cursor' --grep 'lacks handler for reload signal' >/dev/null; do sleep 1; done"
+}
+
 trap cleanup_notify_reload EXIT
 cleanup_notify_reload
 
@@ -201,9 +218,7 @@ journalctl -q -n 0 --cursor-file=/tmp/reload-nohandler-cursor
 assert_eq "$(systemctl show notify-reload-no-handler.service -P SubState)" "failed"
 assert_eq "$(systemctl show notify-reload-no-handler.service -P Result)" "protocol"
 # Verify error was logged about missing signal handler
-journalctl --sync
-journalctl -u notify-reload-no-handler.service --cursor-file=/tmp/reload-nohandler-cursor \
-    --grep "lacks handler for reload signal" >/dev/null
+assert_reload_signal_warning notify-reload-no-handler.service /tmp/reload-nohandler-cursor
 systemctl reset-failed notify-reload-no-handler.service
 rm -f /tmp/reload-nohandler-in /tmp/reload-nohandler-out
 
@@ -231,9 +246,7 @@ systemctl reload --no-block notify-reload-toggle-handler.service
 # The service will die from SIGHUP since the handler is removed
 timeout 10 bash -c 'while systemctl is-active --quiet notify-reload-toggle-handler.service; do sleep .5; done'
 # Verify warning was logged
-journalctl --sync
-journalctl -u notify-reload-toggle-handler.service --cursor-file=/tmp/reload-toggle-cursor \
-    --grep "lacks handler for reload signal" >/dev/null
+assert_reload_signal_warning notify-reload-toggle-handler.service /tmp/reload-toggle-cursor
 rm -f /tmp/reload-toggle-in /tmp/reload-toggle-out
 
 # Test 4: Well-behaved service with handler should work correctly
