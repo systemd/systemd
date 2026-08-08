@@ -149,7 +149,8 @@
         mountpoint. This takes a comma-separated list of options. This setting
         is optional. Note that the usual specifier expansion is applied to this
         setting, literal percent characters should hence be written as
-        <literal class='specifiers'>%%</literal>.</para>
+        <literal class='specifiers'>%%</literal>. Literal backslashes should be
+        written as <literal>\\</literal>.</para>
 
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
