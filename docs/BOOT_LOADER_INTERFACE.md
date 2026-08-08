@@ -49,8 +49,6 @@ Variables will be listed below using the Linux efivarfs naming,
   It is removed automatically after being read by the boot loader,
   to ensure it only takes effect a single time.
   This value is formatted the same way as `LoaderConfigTimeout`.
-  If set to `0` the boot menu timeout is turned off,
-  and the menu is shown indefinitely.
 
 * The EFI variable `LoaderEntries-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`
   may contain a series of boot loader entry identifiers,
