@@ -1145,8 +1145,36 @@ static const NLAPolicy rtnl_tca_option_data_qfq_policies[] = {
         [TCA_QFQ_LMAX]   = BUILD_POLICY(U32),
 };
 
+static const NLAPolicy rtnl_tca_option_data_cbs_policies[] = {
+        [TCA_CBS_PARMS] = BUILD_POLICY_WITH_SIZE(BINARY, sizeof(struct tc_cbs_qopt)),
+};
+
 static const NLAPolicy rtnl_tca_option_data_sfb_policies[] = {
         [TCA_SFB_PARMS] = BUILD_POLICY_WITH_SIZE(BINARY, sizeof(struct tc_sfb_qopt)),
+};
+
+static const NLAPolicy rtnl_tca_option_data_taprio_sched_entry_policies[] = {
+        [TCA_TAPRIO_SCHED_ENTRY_CMD]       = BUILD_POLICY(U32),
+        [TCA_TAPRIO_SCHED_ENTRY_GATE_MASK] = BUILD_POLICY(U32),
+        [TCA_TAPRIO_SCHED_ENTRY_INTERVAL]  = BUILD_POLICY(U32),
+};
+
+DEFINE_POLICY_SET(rtnl_tca_option_data_taprio_sched_entry);
+
+static const NLAPolicy rtnl_tca_option_data_taprio_sched_entry_list_policies[] = {
+        [TCA_TAPRIO_SCHED_ENTRY] = BUILD_POLICY_NESTED(rtnl_tca_option_data_taprio_sched_entry),
+};
+
+DEFINE_POLICY_SET(rtnl_tca_option_data_taprio_sched_entry_list);
+
+static const NLAPolicy rtnl_tca_option_data_taprio_policies[] = {
+        [TCA_TAPRIO_ATTR_PRIOMAP]                    = BUILD_POLICY_WITH_SIZE(BINARY, sizeof(struct tc_mqprio_qopt)),
+        [TCA_TAPRIO_ATTR_SCHED_ENTRY_LIST]           = BUILD_POLICY_NESTED(rtnl_tca_option_data_taprio_sched_entry_list),
+        [TCA_TAPRIO_ATTR_SCHED_BASE_TIME]            = BUILD_POLICY(S64),
+        [TCA_TAPRIO_ATTR_SCHED_CLOCKID]              = BUILD_POLICY(S32),
+        [TCA_TAPRIO_ATTR_SCHED_CYCLE_TIME]           = BUILD_POLICY(S64),
+        [TCA_TAPRIO_ATTR_SCHED_CYCLE_TIME_EXTENSION] = BUILD_POLICY(S64),
+        [TCA_TAPRIO_ATTR_FLAGS]                      = BUILD_POLICY(U32),
 };
 
 static const NLAPolicy rtnl_tca_option_data_tbf_policies[] = {
@@ -1161,6 +1189,7 @@ static const NLAPolicy rtnl_tca_option_data_tbf_policies[] = {
 
 static const NLAPolicySetUnionElement rtnl_tca_option_data_policy_set_union_elements[] = {
         BUILD_UNION_ELEMENT_BY_STRING("cake",     rtnl_tca_option_data_cake),
+        BUILD_UNION_ELEMENT_BY_STRING("cbs",      rtnl_tca_option_data_cbs),
         BUILD_UNION_ELEMENT_BY_STRING("codel",    rtnl_tca_option_data_codel),
         BUILD_UNION_ELEMENT_BY_STRING("drr",      rtnl_tca_option_data_drr),
         BUILD_UNION_ELEMENT_BY_STRING("ets",      rtnl_tca_option_data_ets),
@@ -1173,6 +1202,7 @@ static const NLAPolicySetUnionElement rtnl_tca_option_data_policy_set_union_elem
         BUILD_UNION_ELEMENT_BY_STRING("pie",      rtnl_tca_option_data_pie),
         BUILD_UNION_ELEMENT_BY_STRING("qfq",      rtnl_tca_option_data_qfq),
         BUILD_UNION_ELEMENT_BY_STRING("sfb",      rtnl_tca_option_data_sfb),
+        BUILD_UNION_ELEMENT_BY_STRING("taprio",   rtnl_tca_option_data_taprio),
         BUILD_UNION_ELEMENT_BY_STRING("tbf",      rtnl_tca_option_data_tbf),
 };
 
