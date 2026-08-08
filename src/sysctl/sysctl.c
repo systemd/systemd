@@ -401,6 +401,10 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Positional arguments are not allowed with --cat-config/--tldr.");
 
+        if (arg_inline && strv_isempty(*remaining_args))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--inline requires positional arguments.");
+
         return 1;
 }
 
