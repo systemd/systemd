@@ -55,6 +55,12 @@ executables += [
                 'conditions' : ['ENABLE_BOOTLOADER'],
         },
         efi_test_template + {
+                'sources' : files('test-pe.c'),
+                'include_directories' : includes +
+                                        include_directories('.'),
+                'conditions' : ['ENABLE_BOOTLOADER'],
+        },
+        efi_test_template + {
                 'sources' : files('test-chid-match.c') +
                             test_hwids_section_c,
                 'conditions' : ['ENABLE_BOOTLOADER', 'ENABLE_UKIFY'],
