@@ -18,6 +18,7 @@
 #include "hhf.h"
 #include "htb.h"
 #include "mq.h"
+#include "mqprio.h"
 #include "multiq.h"
 #include "netem.h"
 #include "networkd-link.h"
@@ -52,6 +53,7 @@ const QDiscVTable * const qdisc_vtable[_QDISC_KIND_MAX] = {
         [QDISC_KIND_HHF]             = &hhf_vtable,
         [QDISC_KIND_HTB]             = &htb_vtable,
         [QDISC_KIND_MQ]              = &mq_vtable,
+        [QDISC_KIND_MQPRIO]          = &mqprio_vtable,
         [QDISC_KIND_MULTIQ]          = &multiq_vtable,
         [QDISC_KIND_NETEM]           = &netem_vtable,
         [QDISC_KIND_PIE]             = &pie_vtable,
