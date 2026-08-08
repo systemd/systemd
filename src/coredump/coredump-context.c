@@ -181,7 +181,7 @@ static int get_process_container_parent_cmdline(PidRef *pid, char** ret_cmdline)
 
 /* The kernel passes si_signo through core_pattern (%s). Starting with v7.1,
  * si_code is reported as well via pidfd. */
-static int coredump_context_read_pidfd_info(CoredumpContext *context) {
+static int coredump_context_read_code(CoredumpContext *context) {
         struct pidfd_info info = {
                 .mask = PIDFD_INFO_COREDUMP,
         };
@@ -190,19 +190,23 @@ static int coredump_context_read_pidfd_info(CoredumpContext *context) {
         assert(context);
         assert(pidref_is_set(&context->pidref));
 
-        if (!context->got_pidfd || context->pidref.fd < 0)
+        if (!context->got_pidfd || context->pidref.fd < 0 || context->got_code >= 0)
                 return 0;
 
         r = pidfd_get_info(context->pidref.fd, &info);
-        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                return log_debug_errno(r, "PIDFD_INFO_COREDUMP not supported, ignoring: %m");
-        if (r < 0)
+        if (r < 0) {
+                context->got_code = false;
+
+                if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                        return log_debug_errno(r, "PIDFD_INFO_COREDUMP not supported, ignoring: %m");
                 return log_debug_errno(r, "Failed to get pidfd coredump info, ignoring: %m");
+        }
 
         if (FLAGS_SET(info.mask, PIDFD_INFO_COREDUMP_CODE)) {
                 context->code = (int) info.coredump_code;
                 context->got_code = true;
-        }
+        } else
+                context->got_code = false;
 
         return 0;
 }
@@ -246,7 +250,7 @@ int coredump_context_build_iovw(CoredumpContext *context) {
                 (void) iovw_put_string_field(&context->iovw, "COREDUMP_SIGNAL_NAME=SIG", signal_to_string(context->signo));
 
                 /* Emit si_code if we learned it from pidfd_info */
-                if (context->got_code)
+                if (context->got_code > 0)
                         (void) iovw_put_string_fieldf(&context->iovw, "COREDUMP_CODE=", "%i", context->code);
         }
 
@@ -402,7 +406,7 @@ static int coredump_context_parse_from_procfs(CoredumpContext *context) {
         if (r < 0)
                 log_warning_errno(r, "Failed to get auxv, ignoring: %m");
 
-        (void) coredump_context_read_pidfd_info(context);
+        (void) coredump_context_read_code(context);
 
         r = pidref_verify(&context->pidref);
         if (r < 0)
