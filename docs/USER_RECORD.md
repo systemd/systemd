@@ -620,6 +620,16 @@ The salt to pass to the FIDO2 device is found in `fido2HmacSalt`.
 The only supported recovery key type at the moment is `modhex64`, for details see the description of `recoveryKey` below.
 An account may have any number of recovery keys defined, and the array should have one entry for each.
 
+`capabilityBoundingSet` → An array of strings, each specifying a POSIX capability to add to the bounding set for this user.
+The bounding set limits the capabilities that can be acquired by the user's processes.
+These strings should specify capability names as defined in the kernel (e.g., `CAP_KILL`, `CAP_NET_BIND_SERVICE`).
+If not specified, the system's default capability bounding set is used.
+
+`capabilityAmbientSet` → An array of strings, each specifying a POSIX capability to add to the ambient set for this user.
+Ambient capabilities are automatically inherited by child processes and can provide capabilities to programs without requiring them to be explicitly granted via file capabilities.
+These strings should specify capability names as defined in the kernel (e.g., `CAP_NET_BIND_SERVICE`).
+If not specified, the user's processes have no ambient capabilities.
+
 `selfModifiableFields` → An array of strings, each corresponding to a field name that can appear
 in the `regular` or `perMachine` sections. The user may be allowed to edit any field in this list
 without authenticating as an administrator. Note that the user will only be allowed to edit fields
@@ -812,7 +822,7 @@ may be used in this section are identical to the equally named ones in the
 `tasksMax`, `memoryHigh`, `memoryMax`, `cpuWeight`, `ioWeight`,
 `mountNoDevices`, `mountNoSuid`, `mountNoExecute`, `cifsDomain`,
 `cifsUserName`, `cifsService`, `cifsExtraMountOptions`, `imagePath`, `uid`,
-`gid`, `memberOf`, `fileSystemType`, `partitionUuid`, `luksUuid`,
+`gid`, `memberOf`, `capabilityBoundingSet`, `capabilityAmbientSet`, `fileSystemType`, `partitionUuid`, `luksUuid`,
 `fileSystemUuid`, `luksDiscard`, `luksOfflineDiscard`, `luksCipher`,
 `luksCipherMode`, `luksVolumeKeySize`, `luksPbkdfHashAlgorithm`,
 `luksPbkdfType`, `luksPbkdfForceIterations`, `luksPbkdfTimeCostUSec`,
