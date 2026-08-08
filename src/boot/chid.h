@@ -104,3 +104,5 @@ EFI_STATUS chid_match(
                 size_t hwid_length,
                 uint32_t match_type,
                 const Device **ret_device);
+
+EFI_STATUS chid_match_current_system(const EFI_GUID *target, bool *ret_matched);
