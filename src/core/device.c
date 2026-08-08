@@ -337,8 +337,7 @@ static void device_catchup(Unit *u) {
         /* If Device.found (set from Device.deserialized_found) does not have DEVICE_FOUND_UDEV, and the
          * device has not been processed by udevd while enumeration, it indicates the unit was never active
          * before reexecution, hence we can safely drop the flag from Device.enumerated_found. The device
-         * will be set up later when udev finishes processing (see also comment in
-         * device_setup_devlink_unit_one()).
+         * will be set up later when udev finishes processing.
          *
          * NB: 💣💣💣 If Device.found already contains udev, i.e. the unit was fully ready before
          * reexecution, do not unset the flag. Otherwise, e.g. if systemd-udev-trigger.service is started
@@ -793,13 +792,23 @@ static int device_setup_devlink_unit_one(Manager *m, const char *devlink, Set **
         assert(not_ready_units);
 
         if (sd_device_new_from_devname(&dev, devlink) >= 0 && device_is_ready(dev)) {
-                if (MANAGER_IS_RUNNING(m) && device_is_processed(dev) <= 0)
-                        /* The device is being processed by udevd. We will receive relevant uevent for the
-                         * device later when completed. Let's ignore the device now. */
-                        return 0;
-
-                /* Note, even if the device is being processed by udevd, setup the unit on enumerate.
-                 * See also the comments in device_catchup(). */
+                /* Note, we intentionally do not check device_is_processed() here. The devlink may
+                 * resolve to a different physical device than the one whose uevent we are currently
+                 * processing (e.g. multi-device btrfs where multiple devices share the same
+                 * filesystem UUID). That other device may be mid-processing due to a retrigger
+                 * (ID_PROCESSING=1), but the devlink itself should still be considered usable.
+                 * Gating on ID_PROCESSING here could cause the devlink unit to never be activated
+                 * if the symlink keeps resolving to the still-processing device. See issue #41552.
+                 *
+                 * The device_is_ready() check above is a sufficient gate: it verifies the device is
+                 * tagged with "systemd", not being renamed, and has not explicitly set
+                 * SYSTEMD_READY=0. During mid-processing of a retrigger, the on-disk udev database
+                 * reflects properties from the last completed processing cycle, so reading them here
+                 * is safe. For a device being processed for the very first time (ADD event), the
+                 * devlink won't exist on disk until udevd creates it, so sd_device_new_from_devname()
+                 * above would not resolve to such a device in the first place. In either case, if the
+                 * final processing changes readiness, the subsequent uevent will correct the unit
+                 * state. */
                 return device_setup_unit(m, dev, devlink, /* main= */ false, ready_units);
         }
 
