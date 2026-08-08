@@ -1,0 +1,27 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Core Dump Kernel Socket
+Documentation=man:systemd-coredump(8)
+DefaultDependencies=no
+Before=sockets.target
+Before=shutdown.target
+Conflicts=shutdown.target
+
+[Socket]
+ExecStartPre={{LIBEXECDIR}}/systemd-coredump --check-pidfd-features
+ExecStartPost={{LIBEXECDIR}}/systemd-sysctl --strict --verify --install=60-coredump --inline "kernel.core_pattern=@@/run/systemd/coredump-kernel"
+ExecStopPre={{LIBEXECDIR}}/systemd-sysctl --revert=60-coredump
+ExecStopPre={{LIBEXECDIR}}/systemd-sysctl --prefix=/kernel/core_pattern
+ListenStream=/run/systemd/coredump-kernel
+FileDescriptorName=coredump-kernel-socket
+SocketMode=0600
+Accept=yes
+MaxConnections=16
