@@ -114,6 +114,7 @@ typedef struct Link {
         Set *neighbors;
         Set *qdiscs;
         Set *tclasses;
+        Set *tfilters;
 
         sd_dhcp_client *dhcp_client;
         sd_dhcp_lease *dhcp_lease;

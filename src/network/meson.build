@@ -100,6 +100,7 @@ systemd_networkd_export_sources = files(
         'tc/fq-codel.c',
         'tc/fq-pie.c',
         'tc/fq.c',
+        'tc/fw.c',
         'tc/gred.c',
         'tc/hhf.c',
         'tc/htb.c',
@@ -116,6 +117,7 @@ systemd_networkd_export_sources = files(
         'tc/tc.c',
         'tc/tclass.c',
         'tc/teql.c',
+        'tc/tfilter.c',
 )
 
 systemd_networkd_wait_online_sources = files(
