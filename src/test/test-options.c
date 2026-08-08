@@ -197,6 +197,20 @@ TEST(option_parse) {
                               NULL);
 
         test_option_parse_one(STRV_MAKE("arg0",
+                                        "string1",
+                                        "--help",
+                                        "string2"),
+                              options,
+                              (Entry[]) {
+                                      { "help" },
+                                      {}
+                              },
+                              STRV_MAKE("string1",
+                                        "string2"),
+                              OPTION_PARSER_NORMAL,
+                              NULL);
+
+        test_option_parse_one(STRV_MAKE("arg0",
                                         "-h"),
                               options,
                               (Entry[]) {
