@@ -60,6 +60,13 @@ CHANGES WITH 262:
           allows a container to be started with systemd as PID1 without
           installing any unit files.
 
+        Changes in systemd-creds:
+
+        * systemd-creds gained a new --tpm2-pcrlock= option to bind encrypted
+          credentials to a systemd-pcrlock policy. A pcrlock policy found in
+          /run/systemd/pcrlock.json or /var/lib/systemd/pcrlock.json is
+          automatically used.
+
         Changes in systemd-firstboot:
 
         * The "systemd.firstboot=" kernel command line option now accepts the
