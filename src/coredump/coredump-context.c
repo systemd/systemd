@@ -181,7 +181,7 @@ static int get_process_container_parent_cmdline(PidRef *pid, char** ret_cmdline)
 
 /* The kernel passes si_signo through core_pattern (%s). Starting with v7.1,
  * si_code is reported as well via pidfd. */
-static int coredump_context_read_pidfd_info(CoredumpContext *context) {
+static int coredump_context_get_code(CoredumpContext *context) {
         struct pidfd_info info = {
                 .mask = PIDFD_INFO_COREDUMP,
         };
@@ -190,7 +190,7 @@ static int coredump_context_read_pidfd_info(CoredumpContext *context) {
         assert(context);
         assert(pidref_is_set(&context->pidref));
 
-        if (!context->got_pidfd || context->pidref.fd < 0)
+        if (!context->got_pidfd || context->pidref.fd < 0 || context->got_code)
                 return 0;
 
         r = pidfd_get_info(context->pidref.fd, &info);
@@ -402,7 +402,7 @@ static int coredump_context_parse_from_procfs(CoredumpContext *context) {
         if (r < 0)
                 log_warning_errno(r, "Failed to get auxv, ignoring: %m");
 
-        (void) coredump_context_read_pidfd_info(context);
+        (void) coredump_context_get_code(context);
 
         r = pidref_verify(&context->pidref);
         if (r < 0)
