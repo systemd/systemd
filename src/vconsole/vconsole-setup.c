@@ -23,6 +23,7 @@
 #include "locale-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "parse-util.h"
 #include "pidref.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
@@ -38,7 +39,13 @@ typedef struct Context {
         char *font;
         char *font_map;
         char *font_unimap;
+        int hidpi; /* tristate */
 } Context;
+
+#define CONTEXT_NULL                            \
+        (Context) {                             \
+                .hidpi = -1,                    \
+        }
 
 static void context_done(Context *c) {
         assert(c);
@@ -71,10 +78,13 @@ static void context_merge_config(
         context_merge(dst, src, src_compat, font);
         context_merge(dst, src, src_compat, font_map);
         context_merge(dst, src, src_compat, font_unimap);
+
+        if (src->hidpi >= 0)
+                dst->hidpi = src->hidpi;
 }
 
 static int context_read_efi(Context *c) {
-        _cleanup_(context_done) Context v = {};
+        _cleanup_(context_done) Context v = CONTEXT_NULL;
         int r;
 
         assert(c);
@@ -92,7 +102,8 @@ static int context_read_efi(Context *c) {
 }
 
 static int context_read_creds(Context *c) {
-        _cleanup_(context_done) Context v = {};
+        _cleanup_(context_done) Context v = CONTEXT_NULL;
+        _cleanup_free_ char *hidpi = NULL;
         int r;
 
         assert(c);
@@ -102,16 +113,22 @@ static int context_read_creds(Context *c) {
                         "vconsole.keymap_toggle", &v.keymap_toggle,
                         "vconsole.font",          &v.font,
                         "vconsole.font_map",      &v.font_map,
-                        "vconsole.font_unimap",   &v.font_unimap);
+                        "vconsole.font_unimap",   &v.font_unimap,
+                        "vconsole.hidpi",         &hidpi);
         if (r < 0)
                 log_warning_errno(r, "Failed to import credentials, ignoring: %m");
+
+        r = parse_tristate(hidpi, &v.hidpi);
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse vconsole.hidpi=%s in credential, ignoring: %m", hidpi);
 
         context_merge_config(c, &v, NULL);
         return 0;
 }
 
 static int context_read_env(Context *c) {
-        _cleanup_(context_done) Context v = {};
+        _cleanup_(context_done) Context v = CONTEXT_NULL;
+        _cleanup_free_ char *hidpi = NULL;
         int r;
 
         assert(c);
@@ -122,19 +139,24 @@ static int context_read_env(Context *c) {
                         "KEYMAP_TOGGLE", &v.keymap_toggle,
                         "FONT",          &v.font,
                         "FONT_MAP",      &v.font_map,
-                        "FONT_UNIMAP",   &v.font_unimap);
+                        "FONT_UNIMAP",   &v.font_unimap,
+                        "HIDPI",         &hidpi);
         if (r < 0) {
                 if (r != -ENOENT)
                         log_warning_errno(r, "Failed to read /etc/vconsole.conf, ignoring: %m");
                 return r;
         }
 
+        r = parse_tristate(hidpi, &v.hidpi);
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse HIDPI=%s in /etc/vconsole.conf, ignoring: %m", hidpi);
+
         context_merge_config(c, &v, NULL);
         return 0;
 }
 
 static int context_read_proc_cmdline(Context *c) {
-        _cleanup_(context_done) Context v = {}, w = {};
+        _cleanup_(context_done) Context v = CONTEXT_NULL, w = CONTEXT_NULL;
         int r;
 
         assert(c);
@@ -155,6 +177,13 @@ static int context_read_proc_cmdline(Context *c) {
                         log_warning_errno(r, "Failed to read /proc/cmdline, ignoring: %m");
                 return r;
         }
+
+        bool b;
+        r = proc_cmdline_get_bool("vconsole.hidpi", PROC_CMDLINE_VALUE_OPTIONAL, &b);
+        if (r < 0)
+                log_warning_errno(r, "Failed to read and parse vconsole.hidpi from /proc/cmdline, ignoring: %m");
+        else if (r > 0)
+                v.hidpi = b;
 
         context_merge_config(c, &v, &w);
         return 0;
@@ -354,7 +383,7 @@ static int keyboard_load_and_wait(const char *vc, Context *c, bool utf8) {
 }
 
 static int font_load_and_wait(int fd, const char *vc, Context *c) {
-        const char* args[9];
+        const char* args[10];
         unsigned i = 0;
         int r;
 
@@ -367,7 +396,7 @@ static int font_load_and_wait(int fd, const char *vc, Context *c) {
                 *font_unimap = empty_to_null(c->font_unimap);
 
         /* Any part can be set independently */
-        if (!font && !font_map && !font_unimap)
+        if (!font && !font_map && !font_unimap && c->hidpi <= 0)
                 return 0;
 
         if (access(KBD_SETFONT, X_OK) < 0) {
@@ -391,6 +420,8 @@ static int font_load_and_wait(int fd, const char *vc, Context *c) {
         args[i++] = KBD_SETFONT;
         args[i++] = "-C";
         args[i++] = vc;
+        if (c->hidpi > 0)
+                args[i++] = "-d";
         if (font_map) {
                 args[i++] = "-m";
                 args[i++] = font_map;
@@ -653,7 +684,7 @@ static int verify_source_vc(char **ret_path, const char *src_vc) {
 }
 
 static int run(int argc, char **argv) {
-        _cleanup_(context_done) Context c = {};
+        _cleanup_(context_done) Context c = CONTEXT_NULL;
         _cleanup_free_ char *vc = NULL;
         _cleanup_close_ int fd = -EBADF, lock_fd = -EBADF;
         bool utf8;
