@@ -371,7 +371,7 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
         return 0;
 }
 
-static int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userdata) {
+int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userdata) {
         DnsScope *scope = userdata;
         int r;
 
@@ -386,7 +386,7 @@ static int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userda
         if (r < 0)
                 log_warning_errno(r, "mDNS: Failed to notify service subscribers of goodbyes, ignoring: %m");
 
-        if (dns_cache_expiry_in_one_second(&scope->cache, usec)) {
+        if (dns_cache_expiry_in_one_second(&scope->cache, now(CLOCK_BOOTTIME))) {
                 r = sd_event_add_time_relative(
                                 scope->manager->event,
                                 &scope->mdns_goodbye_event_source,
