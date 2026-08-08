@@ -325,6 +325,7 @@ static int manager_deserialize_route(Manager *manager, sd_json_variant *v) {
                 /* config */
                 { "ConfigSource",                  SD_JSON_VARIANT_STRING,        json_dispatch_network_config_source, offsetof(RouteParam, route.source),                             SD_JSON_MANDATORY                 },
                 { "ConfigProvider",                SD_JSON_VARIANT_ARRAY,         json_dispatch_byte_array_iovec,      offsetof(RouteParam, provider),                                 0                                 },
+                { "LifetimeUSec",                  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,             offsetof(RouteParam, route.lifetime_usec),                      0                                 },
                 {},
         };
 
@@ -333,7 +334,9 @@ static int manager_deserialize_route(Manager *manager, sd_json_variant *v) {
         assert(manager);
         assert(v);
 
-        _cleanup_(route_param_done) RouteParam p = {};
+        _cleanup_(route_param_done) RouteParam p = {
+                .route.lifetime_usec = USEC_INFINITY,
+        };
         r = sd_json_dispatch(v, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
         if (r < 0)
                 return log_debug_errno(r, "Failed to dispatch route from json variant: %m");
@@ -383,6 +386,8 @@ static int manager_deserialize_route(Manager *manager, sd_json_variant *v) {
         memcpy_safe(&p.route.src, p.src.iov_base, p.src.iov_len);
         memcpy_safe(&p.route.prefsrc, p.prefsrc.iov_base, p.prefsrc.iov_len);
         memcpy_safe(&p.route.nexthop.gw, p.gw.iov_base, p.gw.iov_len);
+        /* The route may be duplicated below, so first assemble all serialized fields into p.route. */
+        memcpy_safe(&p.route.provider, p.provider.iov_base, p.provider.iov_len);
 
         p.route.metric.n_metrics = p.metrics.iov_len / sizeof(uint32_t);
         p.route.metric.metrics = new(uint32_t, p.route.metric.n_metrics);
@@ -394,15 +399,38 @@ static int manager_deserialize_route(Manager *manager, sd_json_variant *v) {
         Route *route;
         r = route_get(manager, &p.route, &route);
         if (r < 0) {
-                log_route_debug(&p.route, "Cannot find deserialized", manager);
-                return 0; /* Already removed? */
+                _cleanup_(route_unrefp) Route *dup = NULL;
+
+                if (manager->manage_foreign_routes || p.route.source != NETWORK_CONFIG_SOURCE_NDISC) {
+                        log_route_debug(&p.route, "Cannot find deserialized", manager);
+                        return 0; /* Already removed? */
+                }
+
+                /* With ManageForeignRoutes=no, NDisc routes are not enumerated on restart. Still remember
+                 * deserialized NDisc routes, as they are needed to keep their nexthop in use. */
+                r = route_dup(&p.route, NULL, &dup);
+                if (r < 0)
+                        return r;
+
+                r = route_attach(manager, dup);
+                if (r < 0)
+                        return r;
+
+                route_enter_configured(dup);
+                route_attach_to_nexthop(dup);
+                log_route_debug(dup, "Deserialized", manager);
+
+                TAKE_PTR(dup);
+                return 0;
         }
 
         if (route->source != NETWORK_CONFIG_SOURCE_FOREIGN)
                 return 0; /* Huh?? Already deserialized?? */
 
+        /* Restore networkd-only metadata that cannot be recovered from route enumeration. */
         route->source = p.route.source;
-        memcpy_safe(&route->provider, p.provider.iov_base, p.provider.iov_len);
+        route->provider = p.route.provider;
+        route->lifetime_usec = p.route.lifetime_usec;
 
         log_route_debug(route, "Deserialized", manager);
         return 0;

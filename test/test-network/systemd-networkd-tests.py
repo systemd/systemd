@@ -8051,6 +8051,63 @@ LifetimeSec=0
         networkctl_reload()
         self.check_router_preference('01', 100, 'high', 300, 'low')
 
+    @unittest.skipUnless(
+        radvd_check_config('solicited-only.conf'),
+        "radvd doesn't support solicited-only RA config",
+    )
+    def test_ndisc_restart_with_manage_foreign_routes_no(self):
+        ndisc_default_route_regex = (
+            r'default (nhid [0-9]+ )?via fe80::1034:56ff:fe78:9abd proto ra\b'
+        )
+
+        copy_networkd_conf_dropin('networkd-manage-foreign-routes-no.conf')
+        copy_network_unit('25-veth.netdev',
+                          '25-veth-peer-radvd.network',
+                          '25-ipv6-prefix-veth-keep-configuration.network')
+        start_networkd()
+        self.wait_online('veth-peer:degraded')
+
+        results = []
+        start_radvd(config_file='solicited-only.conf')
+        networkctl_reconfigure('veth99')
+        self.wait_route('veth99', ndisc_default_route_regex, ipv='-6', timeout_sec=10)
+        self.wait_online('veth99:routable', 'veth-peer:degraded', timeout='10s', setup_timeout=10)
+
+        for i in range(6):
+            print(f'### Restart systemd-networkd.service ({i + 1}/6)')
+            restart_networkd()
+            is_configured = self.wait_operstate('veth99',
+                                                operstate='routable',
+                                                setup_state='configured',
+                                                setup_timeout=10,
+                                                fail_assert=False)
+            routes = check_output('ip -6 route show dev veth99')
+            has_default_route = re.search(
+                f'^{ndisc_default_route_regex}',
+                routes,
+                re.MULTILINE,
+            ) is not None
+            status = networkctl_status('veth99')
+            state = re.search(r'^\s*State:\s*(.*)$', status, re.MULTILINE).group(1)
+
+            print(
+                f'### NDisc restart {i + 1}: '
+                f'default_route={has_default_route}, configured={is_configured}, state={state}'
+            )
+            if not (has_default_route and is_configured):
+                print('### ip -6 route show dev veth99')
+                print(routes)
+                print('### networkctl status veth99')
+                print(status)
+
+            results.append((has_default_route, is_configured, state))
+
+        print(f'### NDisc restart results: {results}')
+        self.assertTrue(
+            all(has_default_route and is_configured for has_default_route, is_configured, _state in results),
+            results,
+        )
+
     def _test_ndisc_vs_static_route(self, manage_foreign_nexthops):
         if not manage_foreign_nexthops:
             copy_networkd_conf_dropin('networkd-manage-foreign-nexthops-no.conf')
