@@ -223,6 +223,14 @@ static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, voi
         if (r < 0)
                 return r;
 
+        for (size_t i = 0; i < n; i++)
+                if (dns_server_name_classify(dns[i]->server_name) != DNS_SERVER_NAME) {
+                        r = sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                              "DNS server URI specifications are not supported for per-link configuration: %s",
+                                              dns[i]->server_name);
+                        goto finalize;
+                }
+
         r = bus_verify_polkit_async(
                         message,
                         "org.freedesktop.resolve1.set-dns-servers",

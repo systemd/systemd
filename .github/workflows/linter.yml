@@ -86,9 +86,11 @@ jobs:
         run: mkosi box -- meson test -C build --suite=clang-tidy --print-errorlogs --no-stdsplit --quiet
 
       - name: Run coccinelle checks
+        if: ${{ !cancelled() }}
         run: mkosi box -- meson test -C build --suite=coccinelle --print-errorlogs --no-stdsplit
 
       - name: Run man-rules checks
+        if: ${{ !cancelled() }}
         run: |
           mkosi box -- ninja -C build update-man-rules
           git diff --exit-code -- man/rules/meson.build

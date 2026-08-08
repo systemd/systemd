@@ -524,7 +524,7 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
 
                                 unsolicited_packet = false;
                                 /* This packet matches the transaction, let's pass it on as reply */
-                                dns_transaction_process_reply(t, p, false);
+                                dns_transaction_process_reply(t, p, DNS_TRANSACTION_TRANSPORT_UDP);
 
                                 /* The dns_transaction_process_reply() -> dns_transaction_complete() ->
                                  * dns_query_candidate_stop() may free multiple transactions. Hence, restart
