@@ -1,0 +1,27 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Kernel Core Pattern Register
+Documentation=man:systemd-coredump(8)
+DefaultDependencies=no
+After=systemd-coredumpd.service
+BindsTo=systemd-coredumpd.service
+Before=sysinit.target systemd-sysctl.service shutdown.target
+Conflicts=shutdown.target
+ConditionVirtualization=!container
+RefuseManualStart=yes
+RefuseManualStop=yes
+
+[Service]
+Type=oneshot
+ExecCondition={{LIBEXECDIR}}/systemd-coredump --check-requirements
+ExecStart={{LIBEXECDIR}}/systemd-sysctl --strict --verify --save=60-coredump --inline "kernel.core_pattern=@@/run/systemd/coredumpd/kernel"
+ExecStop={{LIBEXECDIR}}/systemd-sysctl --revert=60-coredump --prefix=/kernel/core_pattern
+RemainAfterExit=yes
