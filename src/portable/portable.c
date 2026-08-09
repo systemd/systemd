@@ -811,7 +811,8 @@ static int extract_image_and_extensions(
                 ImagePolicy **ret_pinned_ext_image_policy,
                 sd_bus_error *error) {
 
-        _cleanup_free_ char *id = NULL, *id_like = NULL, *version_id = NULL, *sysext_level = NULL, *confext_level = NULL;
+        _cleanup_free_ char *id = NULL, *id_like = NULL, *version_id = NULL, *sysext_level = NULL, *confext_level = NULL,
+                        *image_id = NULL, *image_version = NULL;
         _cleanup_(image_policy_freep) ImagePolicy *pinned_root_image_policy = NULL, *pinned_ext_image_policy = NULL;
         _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
         _cleanup_ordered_hashmap_free_ OrderedHashmap *extension_images = NULL, *extension_releases = NULL;
@@ -924,6 +925,8 @@ static int extract_image_and_extensions(
                                 "VERSION_ID", &version_id,
                                 "SYSEXT_LEVEL", &sysext_level,
                                 "CONFEXT_LEVEL", &confext_level,
+                                "IMAGE_ID", &image_id,
+                                "IMAGE_VERSION", &image_version,
                                 "PORTABLE_PREFIXES", &prefixes,
                                 "PORTABLE_SCOPE", &portable_scope_str);
                 if (r < 0)
@@ -1009,9 +1012,9 @@ static int extract_image_and_extensions(
                         return r;
 
                 if (validate_extension) {
-                        r = extension_release_validate(ext->path, id, id_like, version_id, sysext_level, "portable", extension_release, IMAGE_SYSEXT);
+                        r = extension_release_validate(ext->path, id, id_like, version_id, sysext_level, image_id, image_version, "portable", extension_release, IMAGE_SYSEXT);
                         if (r < 0)
-                                r = extension_release_validate(ext->path, id, id_like, version_id, confext_level, "portable", extension_release, IMAGE_CONFEXT);
+                                r = extension_release_validate(ext->path, id, id_like, version_id, confext_level, image_id, image_version, "portable", extension_release, IMAGE_CONFEXT);
 
                         if (r == 0)
                                 return sd_bus_error_set_errnof(error, ESTALE, "Image %s extension-release metadata does not match the root's", ext->path);
