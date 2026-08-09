@@ -47,6 +47,18 @@
     and
     <citerefentry project='man-pages'><refentrytitle>core</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     pages for the details.</para>
+
+    <para>On systems where core dumps are processed by the long-running
+    <filename>systemd-coredumpd.service</filename> (rather than a fresh
+    <filename>systemd-coredump@.service</filename> instance started for every crash, see
+    <citerefentry><refentrytitle>systemd-coredump</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
+    details on when each applies), these configuration files are only read once, when the service starts.
+    If <filename>systemd-coredumpd.service</filename> is running, changes to
+    <filename>coredump.conf</filename> or its drop-ins will <emphasis>not</emphasis> take effect until the
+    service is reloaded:
+    <programlisting>systemctl reload systemd-coredumpd.service</programlisting>
+    This causes the running service to reparse its configuration without restarting or interrupting any core
+    dump currently being processed.</para>
   </refsect1>
 
   <xi:include href="standard-conf.xml" xpointer="main-conf" />
@@ -168,9 +180,9 @@
         <option>MaxUse=</option> makes
         sure that old core dumps are removed as soon as the total disk
         space taken up by core dumps grows beyond this limit (defaults
-        to 10% of the total disk size, capped at 4GiB, minimum 1MiB). 
+        to 10% of the total disk size, capped at 4GiB, minimum 1MiB).
         <option>KeepFree=</option> controls how much disk space to keep
-        free at least (defaults to 15% of the total disk size, limited 
+        free at least (defaults to 15% of the total disk size, limited
         to a maximum of 4GiB). Note that the disk space used
         by core dumps might temporarily exceed these limits while
         core dumps are processed. <option>MaxUse=</option> takes precedence.
