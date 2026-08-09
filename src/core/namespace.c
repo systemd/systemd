@@ -1698,12 +1698,16 @@ static int mount_image(
                 return 0;
         if (r == -ESTALE && rdata.os_release_id)
                 return log_error_errno(r, // FIXME: this should not be logged ad LOG_ERR, as it will result in duplicate logging.
-                                       "Failed to mount image %s, extension-release metadata does not match the lower layer's: ID=%s ID_LIKE='%s'%s%s%s%s%s%s",
+                                       "Failed to mount image %s, extension-release metadata does not match the lower layer's: ID=%s ID_LIKE='%s'%s%s%s%s%s%s%s%s%s%s",
                                        mount_entry_source(m),
                                        rdata.os_release_id,
                                        strempty(rdata.os_release_id_like),
                                        rdata.os_release_version_id ? " VERSION_ID=" : "",
                                        strempty(rdata.os_release_version_id),
+                                       rdata.os_release_image_id ? " IMAGE_ID=" : "",
+                                       strempty(rdata.os_release_image_id),
+                                       rdata.os_release_image_version ? " IMAGE_VERSION=" : "",
+                                       strempty(rdata.os_release_image_version),
                                        rdata.os_release_sysext_level ? image_class_info[IMAGE_SYSEXT].level_env_print : "",
                                        strempty(rdata.os_release_sysext_level),
                                        rdata.os_release_confext_level ? image_class_info[IMAGE_CONFEXT].level_env_print : "",
