@@ -223,6 +223,16 @@ int option_parse(
                                 /* argument (if any) is separate */
                                 optname = state->argv[state->optind];
 
+                        /* An empty name, i.e. "--=…", would be a prefix of every option, so reject it
+                         * right away rather than let it match. */
+                        if (isempty(optname + 2)) {
+                                r = log_full_errno(LOG_ERR + state->log_level_shift,
+                                                   SYNTHETIC_ERRNO(EINVAL),
+                                                   "%s: unrecognized option '%s'",
+                                                   program_invocation_short_name, optname);
+                                goto fail;
+                        }
+
                         const Option *last_partial = NULL;
                         unsigned n_partial_matches = 0;  /* The commandline option matches a defined prefix. */
 
