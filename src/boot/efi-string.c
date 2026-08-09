@@ -1086,7 +1086,15 @@ char16_t *xvasprintf_status(EFI_STATUS status, const char *format, va_list ap) {
 #  undef memcpy
 #  undef memmove
 #  undef memset
+#  undef strlen
 // NOLINTBEGIN(misc-use-internal-linkage)
+_used_ char *strchr(const char *s, int c);
+_used_ char *strrchr(const char *s, int c);
+_used_ size_t strlen(const char *s);
+_used_ size_t strnlen(const char *s, size_t n);
+_used_ unsigned long strtoul(const char * restrict nptr, char ** restrict endptr, int base);
+/* needed to link with static libfdt.a */
+_used_ unsigned long __isoc23_strtoul(const char * restrict nptr, char ** restrict endptr, int base);
 _used_ void *memchr(const void *p, int c, size_t n);
 _used_ int memcmp(const void *p1, const void *p2, size_t n);
 _used_ void *memcpy(void * restrict dest, const void * restrict src, size_t n);
@@ -1189,6 +1197,32 @@ void *memset(void *p, int c, size_t n) {
 
         return p;
 }
+
+#if SD_BOOT
+char *strchr(const char *s, int c) {
+        return strchr8(s, c);
+}
+
+char *strrchr(const char *s, int c) {
+        return strrchr8(s, c);
+}
+
+size_t strlen(const char *s) {
+        return strlen8(s);
+}
+
+size_t strnlen(const char *s, size_t n) {
+        return strnlen8(s, n);
+}
+
+unsigned long strtoul(const char * restrict nptr, char ** restrict endptr, int base) {
+        return strtoul8(nptr, endptr, base);
+}
+
+unsigned long __isoc23_strtoul(const char * restrict nptr, char ** restrict endptr, int base) {
+        return strtoul(nptr, endptr, base);
+}
+#endif
 
 size_t strspn16(const char16_t *p, const char16_t *good) {
         assert(p);
