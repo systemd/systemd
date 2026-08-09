@@ -10,9 +10,11 @@ systemd_coredump_sources = files(
         'coredump-config.c',
         'coredump-context.c',
         'coredump-kernel-helper.c',
+        'coredump-manager.c',
         'coredump-receive.c',
         'coredump-send.c',
         'coredump-submit.c',
+        'coredump-worker.c',
 )
 systemd_coredump_export_sources = files(
         'coredump-vacuum.c',
