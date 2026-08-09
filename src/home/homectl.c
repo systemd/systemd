@@ -4272,23 +4272,6 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                                 return r;
                         break;
 
-                OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "birth-date", "DATE",
-                                  "Set user birth date (YYYY-MM-DD)"):
-                        if (isempty(opts.arg)) {
-                                r = drop_from_identity("birthDate");
-                                if (r < 0)
-                                        return r;
-                        } else {
-                                r = parse_birth_date(opts.arg, /* ret= */ NULL);
-                                if (r < 0)
-                                        return log_error_errno(r, "Invalid birth date (expected YYYY-MM-DD): %s", opts.arg);
-
-                                r = parse_string_field(&arg_identity_extra, "birthDate", opts.arg);
-                                if (r < 0)
-                                        return r;
-                        }
-                        break;
-
                 OPTION_LONG("icon-name", "NAME", "Icon name for user"):
                         r = parse_string_field(match_identity ?: &arg_identity_extra, "iconName", opts.arg);
                         if (r < 0)

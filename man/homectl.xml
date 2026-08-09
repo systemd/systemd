@@ -367,16 +367,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--birth-date=<optional><replaceable>DATE</replaceable></optional></option></term>
-
-        <listitem><para>Takes a birth date for the user in ISO 8601 calendar date format
-        (<literal>YYYY-MM-DD</literal>). The earliest representable year is 1900. If an empty string is
-        passed the birth date is reset to unset.</para>
-
-        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><option>--icon-name=<replaceable>ICON</replaceable></option></term>
 
         <listitem><para>Takes an icon name to associate with the user, following the scheme defined by the <ulink
