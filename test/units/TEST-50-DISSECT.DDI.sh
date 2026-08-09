@@ -17,6 +17,13 @@ fi
 openssl req -config "$OPENSSL_CONFIG" -subj="/CN=waldo" \
             -x509 -sha256 -nodes -days 365 -newkey rsa:4096 \
             -keyout /tmp/test-50-privkey.key -out /tmp/test-50-cert.crt
+
+# Add IMAGE_ID and IMAGE_VERSION to host os-release so extensions declaring
+# these fields pass validation.
+cp /usr/lib/os-release /usr/lib/os-release.bak
+trap "mv /usr/lib/os-release.bak /usr/lib/os-release" EXIT
+echo -e "IMAGE_ID=waldo\nIMAGE_VERSION=7" >>/usr/lib/os-release
+
 mkdir -p /tmp/test-50-confext/etc/extension-release.d/
 echo "foobar50" >/tmp/test-50-confext/etc/waldo
 {
