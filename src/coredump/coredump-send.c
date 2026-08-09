@@ -301,6 +301,10 @@ int coredump_send_to_container(CoredumpContext *context) {
                 context->uid = ucred.uid;
                 context->gid = ucred.gid;
 
+                /* Do not leak the TID and thread name. */
+                pidref_done(&context->tidref);
+                context->thread_name = mfree(context->thread_name);
+
                 r = coredump_context_build_iovw(context);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
