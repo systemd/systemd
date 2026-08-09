@@ -21,8 +21,8 @@ mkdir -p /tmp/test-50-confext/etc/extension-release.d/
 echo "foobar50" >/tmp/test-50-confext/etc/waldo
 {
     grep -e '^\(ID\|VERSION_ID\)=' /etc/os-release
-    echo IMAGE_ID=waldo
-    echo IMAGE_VERSION=7
+    echo WALDO_EXTRA=hello
+    echo WALDO_VERSION=7
 } >/tmp/test-50-confext/etc/extension-release.d/extension-release.waldo
 mkdir -p /run/confexts
 
@@ -50,8 +50,8 @@ mkdir -p /tmp/test-50-sysext/usr/lib/extension-release.d/
 truncate --size=50M /tmp/test-50-sysext/usr/waldo
 {
     grep -e '^\(ID\|VERSION_ID\)=' /etc/os-release
-    echo IMAGE_ID=waldo
-    echo IMAGE_VERSION=7
+    echo WALDO_EXTRA=hello
+    echo WALDO_VERSION=7
 } >/tmp/test-50-sysext/usr/lib/extension-release.d/extension-release.waldo
 mkdir -p /run/extensions
 
