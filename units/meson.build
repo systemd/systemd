@@ -343,6 +343,16 @@ units = [
           'conditions' : ['ENABLE_COREDUMP'],
         },
         {
+          'file' : 'systemd-coredump-register.service.in',
+          'conditions' : ['ENABLE_COREDUMP'],
+          'symlinks' : ['sysinit.target.wants/'],
+        },
+        {
+          'file' : 'systemd-coredumpd.service.in',
+          'conditions' : ['ENABLE_COREDUMP'],
+          'symlinks' : ['sysinit.target.wants/'],
+        },
+        {
           'file' : 'systemd-creds.socket',
           'symlinks' : ['sockets.target.wants/'],
         },
