@@ -145,6 +145,8 @@ typedef struct ExtensionReleaseData {
         char *os_release_version_id;
         char *os_release_sysext_level;
         char *os_release_confext_level;
+        char *os_release_image_id;
+        char *os_release_image_version;
         char *os_release_extension_scope;
 } ExtensionReleaseData;
 
