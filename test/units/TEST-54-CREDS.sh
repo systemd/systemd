@@ -22,6 +22,12 @@ run_with_cred_compare() (
     diff "$log_file" <(echo -ne "$exp")
 )
 
+credential_id() {
+    local credential="${1:?}"
+
+    base64 --decode "$credential" | od -An -tx1 -N16 | tr -d '[:space:]'
+}
+
 test_mount_with_credential() {
     local credfile tmpdir unit mount_path mount_test
     credfile="/tmp/mount-cred"
@@ -549,6 +555,25 @@ varlinkctl call /run/systemd/io.systemd.Credentials io.systemd.Credentials.Encry
 cmp /tmp/vlcredsdata /tmp/vlcredsdata2
 rm /tmp/vlcredsdata2
 
+# Scope and key type are independent. An explicit compatible key type must still
+# produce a user-scoped credential.
+varlinkctl call --json=short /run/systemd/io.systemd.Credentials io.systemd.Credentials.Encrypt \
+    "{\"data\":\"$DATA\",\"scope\":\"user\",\"withKey\":\"host\"}" >/tmp/vlcredsreply
+jq -r .blob /tmp/vlcredsreply >/tmp/vlcred
+assert_eq "$(credential_id /tmp/vlcred)" "55b9ed1d38594d43a8319d2ebb332ac6"
+jq '. + {"scope":"user"}' /tmp/vlcredsreply | \
+    varlinkctl call --json=short /run/systemd/io.systemd.Credentials io.systemd.Credentials.Decrypt >/tmp/vlcredsdata2
+cmp /tmp/vlcredsdata /tmp/vlcredsdata2
+(! jq '. + {"scope":"system"}' /tmp/vlcredsreply | \
+    varlinkctl call --json=short /run/systemd/io.systemd.Credentials io.systemd.Credentials.Decrypt)
+rm /tmp/vlcred /tmp/vlcredsdata2 /tmp/vlcredsreply
+
+# Key types that cannot be user-scoped must be rejected before encryption.
+(! varlinkctl call /run/systemd/io.systemd.Credentials io.systemd.Credentials.Encrypt \
+    "{\"data\":\"$DATA\",\"scope\":\"user\",\"withKey\":\"tpm2\"}")
+(! varlinkctl call /run/systemd/io.systemd.Credentials io.systemd.Credentials.Encrypt \
+    "{\"data\":\"$DATA\",\"scope\":\"user\",\"withKey\":\"null\"}")
+
 varlinkctl call /run/systemd/io.systemd.Credentials io.systemd.Credentials.Encrypt "{\"data\":\"$DATA\",\"withKey\":\"null\"}" | \
     jq '.["allowNull"] = true' |
     varlinkctl call --json=short /run/systemd/io.systemd.Credentials io.systemd.Credentials.Decrypt >/tmp/vlcredsdata2
@@ -595,7 +620,27 @@ test_mount_with_credential
 # Fully unpriv operation
 dd if=/dev/urandom of=/tmp/brummbaer.data bs=4096 count=1
 run0 -u testuser --pipe mkdir -p /home/testuser/.config/credstore.encrypted
-run0 -u testuser --pipe systemd-creds encrypt --user --name=brummbaer - /home/testuser/.config/credstore.encrypted/brummbaer < /tmp/brummbaer.data
+run0 -u testuser --pipe \
+    systemd-creds encrypt --user --name=brummbaer \
+    - /home/testuser/.config/credstore.encrypted/brummbaer </tmp/brummbaer.data
+
+run0 -u testuser --pipe \
+    systemd-creds encrypt --user --with-key=host --name=brummbaer-host \
+    - /home/testuser/.config/credstore.encrypted/brummbaer-host </tmp/brummbaer.data
+assert_eq \
+    "$(credential_id /home/testuser/.config/credstore.encrypted/brummbaer-host)" \
+    "55b9ed1d38594d43a8319d2ebb332ac6"
+
+if [[ ! -e /dev/tpmrm0 ]]; then
+    (! run0 -u testuser --pipe \
+        systemd-creds encrypt --user --with-key=host+tpm2 --name=brummbaer-tpm2 \
+        - /home/testuser/.config/credstore.encrypted/brummbaer-tpm2 \
+        </tmp/brummbaer.data 2>/tmp/brummbaer-tpm2.err)
+    cat /tmp/brummbaer-tpm2.err
+    (! grep -Fq InvalidParameter /tmp/brummbaer-tpm2.err)
+    rm -f /tmp/brummbaer-tpm2.err
+fi
+
 run0 -u testuser --pipe systemd-run --user --pipe -p ImportCredential=brummbaer systemd-creds cat brummbaer | cmp /tmp/brummbaer.data
 
 # https://github.com/systemd/systemd/pull/40108
