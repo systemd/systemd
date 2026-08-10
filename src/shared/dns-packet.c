@@ -816,9 +816,40 @@ int dns_packet_append_opt(
                 bool include_rfc6975,
                 const char *nsid,
                 int rcode,
+                int ede_rcode,
+                const char *ede_msg,
                 size_t *ret_start) {
 
-        size_t saved_size;
+        static const uint8_t rfc6975[] = {
+
+                0, DNS_EDNS_OPT_DAU, /* OPTION_CODE */
+#if HAVE_OPENSSL
+                0, 7, /* LIST_LENGTH */
+#else
+                0, 6, /* LIST_LENGTH */
+#endif
+                DNSSEC_ALGORITHM_RSASHA1,
+                DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1,
+                DNSSEC_ALGORITHM_RSASHA256,
+                DNSSEC_ALGORITHM_RSASHA512,
+                DNSSEC_ALGORITHM_ECDSAP256SHA256,
+                DNSSEC_ALGORITHM_ECDSAP384SHA384,
+#if HAVE_OPENSSL
+                DNSSEC_ALGORITHM_ED25519,
+#endif
+
+                0, DNS_EDNS_OPT_DHU, /* OPTION_CODE */
+                0, 3, /* LIST_LENGTH */
+                DNSSEC_DIGEST_SHA1,
+                DNSSEC_DIGEST_SHA256,
+                DNSSEC_DIGEST_SHA384,
+
+                0, DNS_EDNS_OPT_N3U, /* OPTION_CODE */
+                0, 1, /* LIST_LENGTH */
+                NSEC3_ALGORITHM_SHA1,
+        };
+        size_t ede_msg_len = isempty(ede_msg) ? 0 : strlen(ede_msg), nsid_len = isempty(nsid) ? 0 : strlen(nsid),
+               rdlength = 0, saved_size;
         int r;
 
         assert(p);
@@ -826,11 +857,32 @@ int dns_packet_append_opt(
         assert(max_udp_size >= DNS_PACKET_UNICAST_SIZE_MAX);
         assert(rcode >= 0);
         assert(rcode <= _DNS_RCODE_MAX);
+        assert(ede_rcode < 0 || ede_rcode <= UINT16_MAX);
 
         if (p->opt_start != SIZE_MAX)
                 return -EBUSY;
 
         assert(p->opt_size == SIZE_MAX);
+
+        if (edns0_do && include_rfc6975)
+                rdlength += sizeof(rfc6975);
+
+        if (nsid) {
+                if (nsid_len > UINT16_MAX - 4)
+                        return -E2BIG;
+
+                rdlength += 4 + nsid_len;
+        }
+
+        if (ede_rcode >= 0) {
+                if (ede_msg_len > UINT16_MAX - 2)
+                        return -E2BIG;
+
+                rdlength += 4 + 2 + ede_msg_len;
+        }
+
+        if (rdlength > UINT16_MAX)
+                return -E2BIG;
 
         saved_size = p->size;
 
@@ -859,70 +911,51 @@ int dns_packet_append_opt(
         if (r < 0)
                 goto fail;
 
-        if (edns0_do && include_rfc6975) {
-                /* If DO is on and this is requested, also append RFC6975 Algorithm data. This is supposed to
-                 * be done on queries, not on replies, hencer callers should turn this off when finishing off
-                 * replies. */
-
-                static const uint8_t rfc6975[] = {
-
-                        0, DNS_EDNS_OPT_DAU, /* OPTION_CODE */
-#if HAVE_OPENSSL
-                        0, 7, /* LIST_LENGTH */
-#else
-                        0, 6, /* LIST_LENGTH */
-#endif
-                        DNSSEC_ALGORITHM_RSASHA1,
-                        DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1,
-                        DNSSEC_ALGORITHM_RSASHA256,
-                        DNSSEC_ALGORITHM_RSASHA512,
-                        DNSSEC_ALGORITHM_ECDSAP256SHA256,
-                        DNSSEC_ALGORITHM_ECDSAP384SHA384,
-#if HAVE_OPENSSL
-                        DNSSEC_ALGORITHM_ED25519,
-#endif
-
-                        0, DNS_EDNS_OPT_DHU, /* OPTION_CODE */
-                        0, 3, /* LIST_LENGTH */
-                        DNSSEC_DIGEST_SHA1,
-                        DNSSEC_DIGEST_SHA256,
-                        DNSSEC_DIGEST_SHA384,
-
-                        0, DNS_EDNS_OPT_N3U, /* OPTION_CODE */
-                        0, 1, /* LIST_LENGTH */
-                        NSEC3_ALGORITHM_SHA1,
-                };
-
-                r = dns_packet_append_uint16(p, sizeof(rfc6975), NULL); /* RDLENGTH */
-                if (r < 0)
-                        goto fail;
-
-                r = dns_packet_append_blob(p, rfc6975, sizeof(rfc6975), NULL); /* the payload, as defined above */
-
-        } else if (nsid) {
-
-                if (strlen(nsid) > UINT16_MAX - 4) {
-                        r = -E2BIG;
-                        goto fail;
-                }
-
-                r = dns_packet_append_uint16(p, 4 + strlen(nsid), NULL); /* RDLENGTH */
-                if (r < 0)
-                        goto fail;
-
-                r = dns_packet_append_uint16(p, 3, NULL); /* OPTION-CODE: NSID */
-                if (r < 0)
-                        goto fail;
-
-                r = dns_packet_append_uint16(p, strlen(nsid), NULL); /* OPTION-LENGTH */
-                if (r < 0)
-                        goto fail;
-
-                r = dns_packet_append_blob(p, nsid, strlen(nsid), NULL);
-        } else
-                r = dns_packet_append_uint16(p, 0, NULL);
+        r = dns_packet_append_uint16(p, rdlength, NULL); /* RDLENGTH */
         if (r < 0)
                 goto fail;
+
+        if (edns0_do && include_rfc6975) {
+                /* If DO is on and this is requested, also append RFC6975 Algorithm data. This is supposed to
+                 * be done on queries, not on replies, hence callers should turn this off when finishing off
+                 * replies. */
+
+                r = dns_packet_append_blob(p, rfc6975, sizeof(rfc6975), NULL); /* the payload, as defined above */
+                if (r < 0)
+                        goto fail;
+        }
+
+        if (nsid) {
+                r = dns_packet_append_uint16(p, DNS_EDNS_OPT_NSID, NULL); /* OPTION-CODE */
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint16(p, nsid_len, NULL); /* OPTION-LENGTH */
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_blob(p, nsid, nsid_len, NULL);
+                if (r < 0)
+                        goto fail;
+        }
+
+        if (ede_rcode >= 0) {
+                r = dns_packet_append_uint16(p, DNS_EDNS_OPT_EXT_ERROR, NULL); /* OPTION-CODE */
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint16(p, 2 + ede_msg_len, NULL); /* OPTION-LENGTH */
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint16(p, ede_rcode, NULL); /* INFO-CODE */
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_blob(p, strempty(ede_msg), ede_msg_len, NULL); /* EXTRA-TEXT */
+                if (r < 0)
+                        goto fail;
+        }
 
         DNS_PACKET_HEADER(p)->arcount = htobe16(DNS_PACKET_ARCOUNT(p) + 1);
 
