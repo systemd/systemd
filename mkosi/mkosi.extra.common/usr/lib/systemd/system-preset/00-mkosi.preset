@@ -8,6 +8,15 @@ disable sshd.service
 disable dnsmasq.service
 disable isc-dhcp-server.service
 disable isc-dhcp-server6.service
+# Package/service names differ between distributions (Fedora ships kea-dhcp*.service,
+# Debian/Ubuntu ship kea-dhcp*-server.service), so disable both variants.
+disable kea-dhcp4.service
+disable kea-dhcp6.service
+disable kea-dhcp-ddns.service
+disable kea-ctrl-agent.service
+disable kea-dhcp4-server.service
+disable kea-dhcp6-server.service
+disable kea-dhcp-ddns-server.service
 
 # Make sure dbus-broker is started by default on Debian/Ubuntu.
 enable dbus-broker.service
