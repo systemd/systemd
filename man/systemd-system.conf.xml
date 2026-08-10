@@ -553,10 +553,12 @@
         shared libraries (<literal>mmap_file</literal>), and write-to-execute transitions such as JIT
         compilation (<literal>file_mprotect</literal>).</para>
 
-        <para>Note that execution from overlayfs mounts is blocked even if the underlying layers reside on
-        signed dm-verity devices, because the BPF program sees the overlay filesystem's anonymous device
-        number rather than the underlying block device. Multi-device filesystems such as btrfs are similarly
-        unsupported.</para>
+        <para>Since v262, files on overlayfs mounts are resolved to the layer that hosts their data, so
+        execution from an overlay whose data resides on a signed dm-verity device is permitted, while files
+        in a writable upper layer are denied. This requires kernel v7.2 or newer; on older kernels execution from
+        overlayfs mounts is denied entirely. Note that only the file data is checked, so an untrusted upper
+        layer may still control a binary's ownership and setuid bits. Multi-device filesystems such as
+        btrfs are unsupported.</para>
 
         <para>Note that, without further measures to secure the system, kexec can be used to circumvent this.</para>
 

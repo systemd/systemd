@@ -60,6 +60,12 @@ CHANGES WITH 262:
           allows a container to be started with systemd as PID1 without
           installing any unit files.
 
+        * RestrictFileSystemAccess= now permits execution from overlayfs
+          mounts whose file data resides on a signed and verified
+          dm-verity-protected filesystem, while still denying files in a
+          writable upper layer. This requires kernel v7.2 or newer; on older
+          kernels execution from overlayfs mounts remains denied entirely.
+
         Changes in systemd-firstboot:
 
         * The "systemd.firstboot=" kernel command line option now accepts the

@@ -18,6 +18,11 @@
  *   - bprm_check_security:    blocks execve() from untrusted sources
  *   - mmap_file:              blocks PROT_EXEC mmap from untrusted sources
  *   - file_mprotect:          blocks W->X transitions from untrusted sources
+ *
+ * On kernels providing the bpf_real_data_inode() kfunc (v7.2+), files on
+ * union filesystems (overlayfs) are resolved to the layer hosting their
+ * data, so execution from overlays stacked on signed dm-verity devices
+ * works. Without the kfunc such files are denied, as before.
  */
 
 /* If offsetof() is implemented via __builtin_offset() then it doesn't work on current compilers, since the
@@ -116,39 +121,100 @@ void BPF_PROG(restrict_fsaccess_bdev_free, struct block_device *bdev)
 
 /* ---- Enforcement helpers ---- */
 
-/* Check whether a file is from a trusted source.
- * Returns 0 (allow) or -EPERM (deny). */
-static __always_inline int check_trusted_file(struct file *file)
+/* Set by PID1 between skeleton open and load (.rodata is read-only and
+ * frozen after load): true when the kernel provides the
+ * bpf_real_data_inode() kfunc (v7.2+). The verifier constant-folds the flag
+ * and removes the (then unresolvable) kfunc call on kernels without it. */
+const volatile bool have_real_data_inode = false;
+
+/* Returns the inode hosting a regular file's data: on union filesystems
+ * (overlayfs) the backing layer's inode rather than the union inode.
+ * Sleepable, hence only callable from lsm.s/ programs. Weak so that the
+ * object still loads on kernels that lack the kfunc. */
+extern struct inode *bpf_real_data_inode(struct file *file) __weak __ksym;
+
+/* Check whether a file's data lives on a trusted device.
+ * Returns 0 (allow) or -EPERM (deny).
+ *
+ * mnt_dev is the device of the filesystem the file was opened on, data_dev
+ * the device of the filesystem hosting its data; they differ only on union
+ * filesystems. The initramfs window compares mnt_dev: whether a file is on
+ * the initramfs is a question about the mounted filesystem — userspace
+ * recorded the mount's s_dev, which for a union-mount initrd is the union's
+ * anonymous device, not any backing device. The verity map is keyed by
+ * block device, so it is compared against data_dev. */
+static __always_inline int check_trusted_dev(__u32 mnt_dev, __u32 data_dev)
 {
-        __u32 s_dev;
         __u8 *sig_valid;
 
-        BPF_CORE_READ_INTO(&s_dev, file, f_inode, i_sb, s_dev);
-
         /* Check initramfs trust (active only during early boot) */
-        if (initramfs_s_dev != 0 && s_dev == initramfs_s_dev)
+        if (initramfs_s_dev != 0 && mnt_dev == initramfs_s_dev)
                 return 0;
 
         /* Check verity device map */
-        sig_valid = bpf_map_lookup_elem(&verity_devices, &s_dev);
+        sig_valid = bpf_map_lookup_elem(&verity_devices, &data_dev);
         if (sig_valid && *sig_valid)
                 return 0;
 
         return -EPERM;
 }
 
-/* ---- Enforcement hooks ---- */
-
-SEC("lsm/bprm_check_security")
-int BPF_PROG(restrict_fsaccess_bprm_check, struct linux_binprm *bprm)
+/* Check a file as the user sees it, resolving union filesystems to the
+ * layer hosting the data. May sleep — lsm.s/ programs only.
+ *
+ * The kfunc follows the data: a metacopy upper on an untrusted layer can
+ * still own the metadata (mode, ownership, setuid) of a binary whose data —
+ * and hence verdict — comes from the trusted lower device. */
+static __always_inline int check_trusted_file(struct file *file)
 {
-        struct file *file;
+        struct inode *inode;
+        __u32 mnt_dev, data_dev;
 
-        BPF_CORE_READ_INTO(&file, bprm, file);
-        return check_trusted_file(file);
+        BPF_CORE_READ_INTO(&mnt_dev, file, f_inode, i_sb, s_dev);
+
+        /* No kfunc: the mount device stands in, denying union filesystems. */
+        data_dev = mnt_dev;
+
+        if (have_real_data_inode) {
+                inode = bpf_real_data_inode(file);
+                if (!inode)
+                        return -EPERM;
+
+                BPF_CORE_READ_INTO(&data_dev, inode, i_sb, s_dev);
+        }
+
+        return check_trusted_dev(mnt_dev, data_dev);
 }
 
-SEC("lsm/mmap_file")
+/* Check vma->vm_file. By the time a vma exists, stacking filesystems have
+ * already installed the backing file into it (ovl_mmap() →
+ * backing_file_mmap() → vma_set_file()), so no union resolution is needed —
+ * and unlike re-resolving, vm_file names the file the pages actually come
+ * from even after a later copy-up. */
+static __always_inline int check_trusted_vm_file(struct file *file)
+{
+        __u32 s_dev;
+
+        BPF_CORE_READ_INTO(&s_dev, file, f_inode, i_sb, s_dev);
+
+        return check_trusted_dev(s_dev, s_dev);
+}
+
+/* ---- Enforcement hooks ---- */
+
+SEC("lsm.s/bprm_check_security")
+int BPF_PROG(restrict_fsaccess_bprm_check, struct linux_binprm *bprm)
+{
+        /* Direct dereference (CO-RE-relocated via vmlinux.h's
+         * preserve_access_index) instead of bpf_probe_read(): only direct
+         * loads keep the verifier's trusted-pointer tracking. */
+        return check_trusted_file(bprm->file);
+}
+
+/* Covers more than plain mmap(): binfmt_elf maps the PT_INTERP interpreter
+ * via vm_mmap(), so ld.so is only ever checked here, not by
+ * bprm_check_security. */
+SEC("lsm.s/mmap_file")
 int BPF_PROG(restrict_fsaccess_mmap_file, struct file *file, unsigned long reqprot,
              unsigned long prot, unsigned long flags)
 {
@@ -156,13 +222,23 @@ int BPF_PROG(restrict_fsaccess_mmap_file, struct file *file, unsigned long reqpr
         if (!(prot & PROT_EXEC))
                 return 0;
 
-        /* Anonymous executable mapping — no file backing, deny */
+        /* Anonymous executable mapping — no file backing, deny. The hook's
+         * file argument is __nullable since kernel v7.0 (94e948b7e684), so the
+         * verifier types it trusted-or-NULL and this check is mandatory:
+         * without it, handing file to bpf_real_data_inode() fails to load.
+         * Older kernels lack the annotation and drop the branch, but they lack
+         * the kfunc too, so it never sees a NULL file. */
         if (!file)
                 return -EPERM;
 
         return check_trusted_file(file);
 }
 
+/* Deliberately not sleepable: this hook runs under mmap_write_lock, where
+ * sleeping in d_real()/verity I/O could invert the documented i_rwsem →
+ * mmap_lock order (and bpf_lsm_file_mprotect is not in the kernel's
+ * sleepable_lsm_hooks set anyway). No resolution is needed here, see
+ * check_trusted_vm_file(). */
 SEC("lsm/file_mprotect")
 int BPF_PROG(restrict_fsaccess_file_mprotect, struct vm_area_struct *vma,
              unsigned long reqprot, unsigned long prot)
@@ -180,12 +256,15 @@ int BPF_PROG(restrict_fsaccess_file_mprotect, struct vm_area_struct *vma,
         if (vm_flags & VM_EXEC)
                 return 0;
 
-        /* Anonymous executable mapping — no file backing, deny */
-        BPF_CORE_READ_INTO(&file, vma, vm_file);
+        /* Anonymous executable mapping — no file backing, deny. Direct
+         * dereference, see restrict_fsaccess_bprm_check(). vm_file is in the
+         * verifier's BTF_TYPE_SAFE_TRUSTED_OR_NULL list, so this check is live
+         * and required. */
+        file = vma->vm_file;
         if (!file)
                 return -EPERM;
 
-        return check_trusted_file(file);
+        return check_trusted_vm_file(file);
 }
 
 /* ---- PID1 ptrace protection ----
