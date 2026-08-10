@@ -2,6 +2,7 @@
 
 #include "alloc-util.h"
 #include "crypto-util.h"
+#include "iovec-util.h"
 #include "pkcs7-util.h"
 #include "log.h"
 
@@ -72,13 +73,19 @@ int pkcs7_extract_signers(
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to get signer information.");
 
                 _cleanup_(signer_done) Signer signer = {};
+                _cleanup_(OPENSSL_freep) void *issuer = NULL, *serial = NULL;
 
-                _cleanup_free_ unsigned char *p = NULL;
-                int len = sym_i2d_X509_NAME(si->issuer_and_serial->issuer, &p);
-                signer.issuer = IOVEC_MAKE(TAKE_PTR(p), len);
+                int len = sym_i2d_X509_NAME(si->issuer_and_serial->issuer, (unsigned char**) &issuer);
+                if (len < 0)
+                        return log_openssl_errors(LOG_DEBUG, "Failed to convert issuer name to DER format");
+                if (!iovec_memdup(&IOVEC_MAKE(issuer, len), &signer.issuer))
+                        return log_oom_debug();
 
-                len = sym_i2d_ASN1_INTEGER(si->issuer_and_serial->serial, &p);
-                signer.serial = IOVEC_MAKE(TAKE_PTR(p), len);
+                len = sym_i2d_ASN1_INTEGER(si->issuer_and_serial->serial, (unsigned char**) &serial);
+                if (len < 0)
+                        return log_openssl_errors(LOG_DEBUG, "Failed to convert serial number to DER format");
+                if (!iovec_memdup(&IOVEC_MAKE(serial, len), &signer.serial))
+                        return log_oom_debug();
 
                 signers[n_signers++] = TAKE_STRUCT(signer);
         }
