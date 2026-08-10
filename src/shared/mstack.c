@@ -17,6 +17,7 @@
 #include "macro.h"
 #include "mount-util.h"
 #include "mstack.h"
+#include "os-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "recurse-dir.h"
@@ -132,10 +133,19 @@ static int mstack_load_one(MStack *mstack, const char *dir, int dir_fd, const ch
                 if (dotv) {
                         const char *dotrawv = endswith(fname, ".raw.v");
 
+                        /* The layers make up an OS tree rather than being applied to one, hence match
+                         * "host=" entries against the OS we run on. We have to determine it ourselves, as
+                         * the root fd we pass to vpick is the .mstack directory, not an OS tree. */
+                        _cleanup_free_ char *host_version_id = NULL;
+                        r = parse_os_release(/* root= */ NULL, "VERSION_ID", &host_version_id);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to read VERSION_ID from os-release, ignoring: %m");
+
                         PickFilter filter = {
                                 .type_mask = dotrawv ? (1U << DT_REG) : ((1U << DT_DIR) | (1U << DT_BLK)),
                                 .suffix = dotrawv ? ".raw" : NULL,
                                 .architecture = _ARCHITECTURE_INVALID,
+                                .host_version = strempty(host_version_id),
                         };
 
                         _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;

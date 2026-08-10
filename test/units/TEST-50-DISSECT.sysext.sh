@@ -97,6 +97,19 @@ prepare_root() {
     prepend_trap "cleanup_os_release ${root@Q}"
 }
 
+add_version_id() {
+    local root=${1:-}
+    local version_id=${2:?}
+    local f
+
+    # prepare_root() writes no VERSION_ID, which is what "host=" vpick entries are matched against
+    for f in "$root/usr/lib/os-release" "$root/etc/os-release"; do
+        if [[ -f $f ]] && [[ ! -L $f ]]; then
+            echo "VERSION_ID=$version_id" >>"$f"
+        fi
+    done
+}
+
 cleanup_os_release() {
     # shellcheck disable=SC2317 # It is not unreachable, used in a trap couple lines above.
     local root=${1:-}
@@ -1466,6 +1479,75 @@ extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
 run_systemd_sysext "$fake_root" unmerge
 extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
 rm -rf "$fake_root/var/lib/extensions/test-extension.raw.v"
+)
+
+( init_trap
+: "Check if vpick host= entries are matched against the root's VERSION_ID"
+fake_root=${roots_dir:+"$roots_dir/vpick-host-version"}
+hierarchy=/opt
+
+prepare_root "$fake_root" "$hierarchy"
+add_version_id "$fake_root" "1-sysextvertest"
+prepare_extension_image "$fake_root" "$hierarchy"
+mkdir -p "$fake_root/var/lib/extensions/test-extension.v"
+mv -T "$fake_root/var/lib/extensions/test-extension" "$fake_root/var/lib/extensions/test-extension.v/test-extension_host=1-sysextvertest"
+# The newest entry is for a different OS version, hence it must lose against the matching one
+cp -a "$fake_root/var/lib/extensions/test-extension.v/test-extension_host=1-sysextvertest" \
+      "$fake_root/var/lib/extensions/test-extension.v/test-extension_host=99999999-neververtest"
+touch "$fake_root/var/lib/extensions/test-extension.v/test-extension_host=99999999-neververtest$hierarchy/file-from-wrong-extension"
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+
+run_systemd_sysext "$fake_root" merge
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+if [[ -e "$fake_root$hierarchy/file-from-wrong-extension" ]]; then
+    echo >&2 "Extension for a different OS version was merged"
+    exit 1
+fi
+
+run_systemd_sysext "$fake_root" unmerge
+extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+rm -rf "$fake_root/var/lib/extensions/test-extension.v"
+)
+
+( init_trap
+: "Check if vpick host= entries are ignored if the root's VERSION_ID differs"
+fake_root=${roots_dir:+"$roots_dir/vpick-host-version-nomatch"}
+hierarchy=/opt
+
+prepare_root "$fake_root" "$hierarchy"
+add_version_id "$fake_root" "2-nomatchvertest"
+prepare_extension_image "$fake_root" "$hierarchy"
+mkdir -p "$fake_root/var/lib/extensions/test-extension.v"
+mv -T "$fake_root/var/lib/extensions/test-extension" "$fake_root/var/lib/extensions/test-extension.v/test-extension_host=1-sysextvertest"
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+
+run_systemd_sysext "$fake_root" merge
+# No entry matches, hence nothing may be merged
+extension_verify_after_merge "$fake_root" "$hierarchy" -h
+
+run_systemd_sysext "$fake_root" unmerge
+extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+rm -rf "$fake_root/var/lib/extensions/test-extension.v"
+)
+
+( init_trap
+: "Check if vpick host= entries are ignored if the root has no VERSION_ID"
+fake_root=${roots_dir:+"$roots_dir/vpick-host-version-unset"}
+hierarchy=/opt
+
+# Note that prepare_root() writes no VERSION_ID, hence none is added here
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image "$fake_root" "$hierarchy"
+mkdir -p "$fake_root/var/lib/extensions/test-extension.v"
+mv -T "$fake_root/var/lib/extensions/test-extension" "$fake_root/var/lib/extensions/test-extension.v/test-extension_host=1-sysextvertest"
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+
+run_systemd_sysext "$fake_root" merge
+extension_verify_after_merge "$fake_root" "$hierarchy" -h
+
+run_systemd_sysext "$fake_root" unmerge
+extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+rm -rf "$fake_root/var/lib/extensions/test-extension.v"
 )
 
 ( init_trap
