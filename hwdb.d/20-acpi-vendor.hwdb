@@ -276,6 +276,9 @@ acpi:MCHP*:
 acpi:MCRY*:
  ID_VENDOR_FROM_DATABASE=Micro Crystal AG
 
+acpi:MEIK*:
+ ID_VENDOR_FROM_DATABASE=Meiko Electronics Co.,Ltd.
+
 acpi:MIPI*:
  ID_VENDOR_FROM_DATABASE=MIPI Alliance
 
