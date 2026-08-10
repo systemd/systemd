@@ -61,6 +61,188 @@
  */
 #define COMM_MAX_LEN 128
 
+int proc_pid_stat_parse_exit_signal(const char *stat, int *ret_signo) {
+        _cleanup_free_ char *word = NULL;
+        const char *p;
+        size_t n;
+        int status, r;
+
+        assert(stat);
+
+        /* The second field, comm, is enclosed in parentheses but may itself contain parentheses or spaces.
+         * None of the fields following it can contain a closing parenthesis, so find the last one. */
+        p = strrchr(stat, ')');
+        if (!p)
+                return -EIO;
+        p++;
+
+        /* Skip fields 3 through 51. Field 52 is exit_code, encoded like a waitpid() status. */
+        for (unsigned field = 3; field < 52; field++) {
+                n = strspn(p, WHITESPACE);
+                if (n == 0)
+                        return -EIO;
+                p += n;
+
+                n = strcspn(p, WHITESPACE);
+                if (n == 0)
+                        return -EIO;
+                p += n;
+        }
+
+        n = strspn(p, WHITESPACE);
+        if (n == 0)
+                return -EIO;
+        p += n;
+
+        n = strcspn(p, WHITESPACE);
+        if (n == 0)
+                return -EIO;
+
+        word = strndup(p, n);
+        if (!word)
+                return -ENOMEM;
+
+        r = safe_atoi(word, &status);
+        if (r < 0)
+                return r;
+
+        /* While a coredump is in progress, the kernel has not set WCOREDUMP() yet. The caller separately
+         * verifies CoreDumping, so only extract and validate the terminating signal here. */
+        if (status < 0 || !WIFSIGNALED(status))
+                return -ENODATA;
+
+        int signo = WTERMSIG(status);
+        if (!SIGNAL_VALID(signo))
+                return -ENODATA;
+
+        if (ret_signo)
+                *ret_signo = signo;
+        return 0;
+}
+
+static int pidref_verify_exact(const PidRef *pidref) {
+        int r;
+
+        r = pidref_verify(pidref);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EOPNOTSUPP;
+
+        return 0;
+}
+
+int pidref_get_coredump_signal(const PidRef *pidref, int *ret_signo) {
+        _cleanup_free_ char *coredumping = NULL, *stat = NULL;
+        int pidfd_signo = 0, r;
+
+        /* Returns positive only when the exact, still-live process is known to be dumping core and the
+         * signal that caused the dump is available. Zero means it was positively observed not dumping;
+         * errors include inaccessible, unsupported, malformed, and identity-ambiguous observations. */
+
+        if (!pidref_is_set(pidref))
+                return -ESRCH;
+        if (pidref_is_remote(pidref))
+                return -EREMOTE;
+
+        if (pidref->fd >= 0) {
+                struct pidfd_info info = {
+                        .mask = PIDFD_INFO_PID | PIDFD_INFO_EXIT | PIDFD_INFO_COREDUMP,
+                };
+
+                r = pidfd_get_info(pidref->fd, &info);
+                if (r >= 0) {
+                        if (FLAGS_SET(info.mask, PIDFD_INFO_EXIT)) {
+                                if (ret_signo)
+                                        *ret_signo = 0;
+                                return 0;
+                        }
+
+                        /* PIDFD_COREDUMPED records that a dump happened; it does not say the dump is still
+                         * in progress. Only use it to obtain the signal, and confirm live state via procfs. */
+                        if (FLAGS_SET(info.mask, PIDFD_INFO_PID) &&
+                            info.pid == (uint32_t) pidref->pid &&
+                            FLAGS_SET(info.mask, PIDFD_INFO_COREDUMP) &&
+                            FLAGS_SET(info.coredump_mask, PIDFD_COREDUMPED) &&
+                            FLAGS_SET(info.mask, PIDFD_INFO_COREDUMP_SIGNAL) &&
+                            SIGNAL_VALID(info.coredump_signal))
+                                pidfd_signo = (int) info.coredump_signal;
+                }
+        }
+
+        /* PIDFD_COREDUMPED is historical, so always confirm live state through procfs. Only do so when a
+         * pidfd (or non-recyclable PID 1) proves that all reads refer to the requested process. */
+        r = pidref_verify_exact(pidref);
+        if (r < 0)
+                return r;
+
+        r = procfs_file_get_field(pidref->pid, "status", "CoreDumping", &coredumping);
+        if (r < 0) {
+                int q = pidref_verify_exact(pidref);
+                if (q < 0)
+                        return q;
+
+                return r == -ENODATA ? -EOPNOTSUPP : r;
+        }
+
+        unsigned dumping;
+        r = safe_atou(coredumping, &dumping);
+        if (r < 0 || dumping > 1) {
+                int parse_error = r < 0 ? r : -EIO;
+                int q = pidref_verify_exact(pidref);
+                if (q < 0)
+                        return q;
+
+                return parse_error;
+        }
+
+        if (dumping == 0) {
+                r = pidref_verify_exact(pidref);
+                if (r < 0)
+                        return r;
+
+                if (ret_signo)
+                        *ret_signo = 0;
+                return 0;
+        }
+
+        if (pidfd_signo > 0) {
+                r = pidref_verify_exact(pidref);
+                if (r < 0)
+                        return r;
+
+                if (ret_signo)
+                        *ret_signo = pidfd_signo;
+                return 1;
+        }
+
+        r = pidref_verify_exact(pidref);
+        if (r < 0)
+                return r;
+
+        r = read_full_virtual_file(procfs_file_alloca(pidref->pid, "stat"), &stat, /* ret_size= */ NULL);
+        if (r < 0) {
+                int q = pidref_verify_exact(pidref);
+                if (q < 0)
+                        return q;
+
+                return r;
+        }
+
+        r = pidref_verify_exact(pidref);
+        if (r < 0)
+                return r;
+
+        int signo;
+        r = proc_pid_stat_parse_exit_signal(stat, &signo);
+        if (r < 0)
+                return r;
+
+        if (ret_signo)
+                *ret_signo = signo;
+        return 1;
+}
+
 static int get_process_state(pid_t pid) {
         _cleanup_free_ char *line = NULL;
         const char *p;

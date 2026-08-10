@@ -27,6 +27,8 @@ static inline int procfs_file_get_field(pid_t pid, const char *name, const char 
         return get_proc_field(procfs_file_alloca(pid, name), key, ret);
 }
 
+int proc_pid_stat_parse_exit_signal(const char *stat, int *ret_signo);
+
 typedef enum ProcessCmdlineFlags {
         PROCESS_CMDLINE_COMM_FALLBACK = 1 << 0,
         PROCESS_CMDLINE_USE_LOCALE    = 1 << 1,
@@ -55,6 +57,7 @@ int pidref_get_start_time(const PidRef *pid, usec_t *ret);
 int get_process_umask(pid_t pid, mode_t *ret);
 int pidref_has_sigcgt(const PidRef *pidref, int sig);
 int pidref_has_sigblk(const PidRef *pidref, int sig);
+int pidref_get_coredump_signal(const PidRef *pidref, int *ret_signo);
 
 static inline bool SIGINFO_CODE_IS_DEAD(int code) {
         return IN_SET(code, CLD_EXITED, CLD_KILLED, CLD_DUMPED);

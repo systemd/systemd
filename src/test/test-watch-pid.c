@@ -36,8 +36,9 @@ TEST(watch_pid) {
         ASSERT_TRUE(set_isempty(c->pids));
 
         /* Fork off a child so that we have a PID to watch */
-        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL, pidref2 = PIDREF_NULL;
         ASSERT_OK_POSITIVE(pidref_safe_fork("(child)", FORK_FREEZE, &pidref));
+        ASSERT_OK_POSITIVE(pidref_safe_fork("(child2)", FORK_FREEZE, &pidref2));
 
         ASSERT_TRUE(hashmap_isempty(m->watch_pids));
         ASSERT_NULL(manager_get_unit_by_pidref(m, &pidref));
@@ -83,6 +84,34 @@ TEST(watch_pid) {
 
         unit_unwatch_pidref(c, &pidref);
         ASSERT_NULL(manager_get_unit_by_pidref(m, &pidref));
+
+        ASSERT_OK(unit_watch_pidref(a, &pidref, false));
+        ASSERT_OK(unit_watch_pidref(a, &pidref2, false));
+        ASSERT_EQ(set_size(a->pids), 2U);
+
+        unit_unwatch_all_pids_except(a, &pidref, &pidref2);
+        ASSERT_EQ(set_size(a->pids), 2U);
+
+        unit_unwatch_all_pids_except(a, &pidref, /* except2= */ NULL);
+        ASSERT_EQ(set_size(a->pids), 1U);
+        ASSERT_TRUE(set_contains(a->pids, &pidref));
+        ASSERT_PTR_EQ(manager_get_unit_by_pidref(m, &pidref), a);
+        ASSERT_NULL(manager_get_unit_by_pidref(m, &pidref2));
+
+        ASSERT_OK(unit_watch_pidref(a, &pidref2, false));
+        unit_unwatch_all_pids_except(a, &pidref, &pidref2);
+        ASSERT_EQ(set_size(a->pids), 2U);
+        ASSERT_PTR_EQ(manager_get_unit_by_pidref(m, &pidref), a);
+        ASSERT_PTR_EQ(manager_get_unit_by_pidref(m, &pidref2), a);
+
+        unit_unwatch_all_pids_except(a, &pidref2, /* except2= */ NULL);
+        ASSERT_EQ(set_size(a->pids), 1U);
+        ASSERT_NULL(manager_get_unit_by_pidref(m, &pidref));
+        ASSERT_PTR_EQ(manager_get_unit_by_pidref(m, &pidref2), a);
+
+        unit_unwatch_all_pids(a);
+        ASSERT_TRUE(set_isempty(a->pids));
+        ASSERT_NULL(manager_get_unit_by_pidref(m, &pidref2));
 }
 
 static int intro(void) {

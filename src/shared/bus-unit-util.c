@@ -2762,6 +2762,7 @@ static const BusProperty service_properties[] = {
         { "RootDirectoryStartOnly",                bus_append_parse_boolean                      },
         { "RemainAfterExit",                       bus_append_parse_boolean                      },
         { "GuessMainPID",                          bus_append_parse_boolean                      },
+        { "RestartDuringCoredump",                 bus_append_parse_boolean                      },
         { "RestartSec",                            bus_append_parse_sec_rename                   },
         { "RestartMaxDelaySec",                    bus_append_parse_sec_rename                   },
         { "RestartRandomizedDelaySec",             bus_append_parse_sec_rename                   },

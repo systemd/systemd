@@ -50,6 +50,7 @@ service_id=$(varlinkctl call --collect /run/systemd/io.systemd.Manager io.system
 test -n "$service_id"
 service_params=$(jq -cn --arg name "$service_id" '{name: $name}')
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "$service_params" | jq -e '.context.Service'
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "$service_params" | jq -e '.context.Service.RestartDuringCoredump | type == "boolean"'
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "$service_params" | jq -e '.runtime.Service'
 # test for ScopeContext/Runtime (skip volatile session-*.scope to avoid GC race)
 scope_id=$(varlinkctl call --collect /run/systemd/io.systemd.Manager io.systemd.Unit.List '{}' | jq -r '.[] | select(.context.Type == "scope" and .runtime.LoadState == "loaded" and (.context.ID | startswith("session-") | not)) .context.ID // empty' | tail -n 1)

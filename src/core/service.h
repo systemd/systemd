@@ -137,6 +137,12 @@ typedef struct ServiceExtraFD {
         char *fdname;
 } ServiceExtraFD;
 
+typedef struct ServiceRetiredCoredump {
+        PidRef pidref;
+        sd_id128_t invocation_id;
+        ExecStatus exec_status;
+} ServiceRetiredCoredump;
+
 typedef struct Service {
         Unit meta;
 
@@ -144,6 +150,7 @@ typedef struct Service {
         ServiceExitType exit_type;
         ServiceRestart restart;
         ServiceRestartMode restart_mode;
+        bool restart_during_coredump;
         ExitStatusSet restart_prevent_status;
         ExitStatusSet restart_force_status;
         ExitStatusSet success_status;
@@ -200,6 +207,12 @@ typedef struct Service {
         CGroupRuntime *cgroup_runtime;
 
         PidRef main_pid, control_pid;
+
+        /* A main process whose coredump is still being written after its replacement was scheduled. */
+        ServiceRetiredCoredump retired_coredump;
+
+        /* A current main process for which early handling was conclusively rejected. */
+        PidRef coredump_suppressed_pid;
 
         /* if we are a socket activated service instance, store information of the connection/peer/socket */
         int socket_fd;
@@ -302,6 +315,10 @@ void service_release_socket_fd(Service *s);
 int service_add_fd_store(Service *s, int fd_in, const char *name, bool do_poll, bool propagate_upstream);
 
 int service_propagate_fd_store_mapping_upstream(Manager *m);
+
+bool service_restart_during_coredump_matches(Service *s, PidRef *pidref);
+void service_restart_during_coredump_suppress(Service *s, PidRef *pidref, const char *reason);
+void service_restart_during_coredump(Service *s, PidRef *pidref, int signo);
 
 ServiceExtraFD* service_extra_fd_free(ServiceExtraFD *fd);
 

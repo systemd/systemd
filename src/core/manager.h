@@ -15,6 +15,7 @@
 #include "unit.h"
 
 struct libmnt_monitor;
+typedef struct ManagerCoredump ManagerCoredump;
 
 /* Enforce upper limit on how many names we allow */
 #define MANAGER_MAX_NAMES 131072 /* 128K */
@@ -271,6 +272,9 @@ typedef struct Manager {
         char *notify_socket;
         int notify_fd;
         sd_event_source *notify_event_source;
+
+        LIST_HEAD(ManagerCoredump, coredump_queue);
+        sd_event_source *coredump_event_source;
 
         int signal_fd;
         sd_event_source *signal_event_source;

@@ -709,6 +709,9 @@ typedef struct UnitVTable {
         /* Returns the control PID if there is any defined, or NULL. */
         PidRef* (*control_pid)(Unit *u);
 
+        /* Returns a PID that automatic lifecycle cleanup should leave alone, or NULL. */
+        PidRef* (*lifecycle_exclude_pid)(Unit *u);
+
         /* Returns true if the unit currently needs access to the console */
         bool (*needs_console)(Unit *u);
 
@@ -912,6 +915,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
 int unit_watch_pidref(Unit *u, const PidRef *pid, bool exclusive);
 void unit_unwatch_pidref(Unit *u, const PidRef *pid);
+void unit_unwatch_all_pids_except(Unit *u, const PidRef *except1, const PidRef *except2);
 void unit_unwatch_all_pids(Unit *u);
 void unit_unwatch_pidref_done(Unit *u, PidRef *pidref);
 
@@ -985,7 +989,10 @@ char* unit_concat_strv(char **l, UnitWriteFlags flags);
 int unit_write_setting(Unit *u, UnitWriteFlags flags, const char *name, const char *data);
 int unit_write_settingf(Unit *u, UnitWriteFlags flags, const char *name, const char *format, ...) _printf_(4,5);
 
-int unit_kill_context(Unit *u, KillOperation k);
+int unit_kill_context_full(Unit *u, KillOperation k, bool exclude_lifecycle_pid);
+static inline int unit_kill_context(Unit *u, KillOperation k) {
+        return unit_kill_context_full(u, k, /* exclude_lifecycle_pid= */ true);
+}
 
 int unit_make_transient(Unit *u);
 int manager_setup_transient_unit(Manager *m, const char *name, Unit **ret, sd_bus_error *reterr_error);
@@ -1005,6 +1012,7 @@ PidRef* unit_main_pid_full(Unit *u, bool *ret_is_alien);
 static inline PidRef* unit_main_pid(Unit *u) {
         return unit_main_pid_full(u, NULL);
 }
+PidRef* unit_lifecycle_exclude_pid(Unit *u);
 
 void unit_warn_if_dir_nonempty(Unit *u, const char* where);
 int unit_log_noncanonical_mount_path(Unit *u, const char *where);

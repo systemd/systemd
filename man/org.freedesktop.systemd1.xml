@@ -2947,6 +2947,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s RestartMode = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b RestartDuringCoredump = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s PIDFile = '...';
       readonly s NotifyAccess = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -3679,6 +3681,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property RestartMode is not documented!-->
 
+    <!--property RestartDuringCoredump is not documented!-->
+
     <!--property PIDFile is not documented!-->
 
     <!--property NotifyAccess is not documented!-->
@@ -4316,6 +4320,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="Restart"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestartMode"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RestartDuringCoredump"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PIDFile"/>
 
@@ -13012,7 +13018,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>CPUSetPartition</varname>, and
       <varname>OOMRules</varname> were added in version 261.</para>
       <para><varname>LUOSession</varname> was added in version 262.</para>
-      <para><varname>RestartRandomizedDelayUSec</varname> was added in version 262.</para>
+      <para><varname>RestartRandomizedDelayUSec</varname> and
+      <varname>RestartDuringCoredump</varname> were added in version 262.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>

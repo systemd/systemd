@@ -114,6 +114,7 @@ int service_context_build_json(sd_json_variant **ret, const char *name, void *us
                         JSON_BUILD_PAIR_ENUM("ExitType", service_exit_type_to_string(s->exit_type)),
                         JSON_BUILD_PAIR_ENUM("Restart", service_restart_to_string(s->restart)),
                         JSON_BUILD_PAIR_ENUM("RestartMode", service_restart_mode_to_string(s->restart_mode)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("RestartDuringCoredump", s->restart_during_coredump),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("PIDFile", s->pid_file),
                         JSON_BUILD_PAIR_FINITE_USEC("RestartUSec", s->restart_usec),
                         JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("RestartSteps", s->restart_steps),

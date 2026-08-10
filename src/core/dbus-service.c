@@ -353,6 +353,7 @@ const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_PROPERTY("ExitType", "s", property_get_exit_type, offsetof(Service, exit_type), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Restart", "s", property_get_restart, offsetof(Service, restart), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RestartMode", "s", property_get_restart_mode, offsetof(Service, restart_mode), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RestartDuringCoredump", "b", bus_property_get_bool, offsetof(Service, restart_during_coredump), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PIDFile", "s", NULL, offsetof(Service, pid_file), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NotifyAccess", "s", property_get_notify_access, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("RestartUSec", "t", bus_property_get_usec, offsetof(Service, restart_usec), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -593,6 +594,9 @@ static int bus_service_set_transient_property(
 
         if (streq(name, "GuessMainPID"))
                 return bus_set_transient_bool(u, name, &s->guess_main_pid, message, flags, reterr_error);
+
+        if (streq(name, "RestartDuringCoredump"))
+                return bus_set_transient_bool(u, name, &s->restart_during_coredump, message, flags, reterr_error);
 
         if (streq(name, "Type"))
                 return bus_set_transient_service_type(u, name, &s->type, message, flags, reterr_error);
