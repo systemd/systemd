@@ -38,6 +38,7 @@ FUNCTION_FILTER = {
     'dlopen_many_sym_or_warn_sentinel': [],
     'dlopen_dw_has_dwfl_set_sysroot': [],
     'dlopen_libcrypto_has_argon2id': [],
+    'dlopen_default_compression': [],
     # Mapped to multiple functions (expands generic wrappers into specific sub-layers)
     'dlopen_tpm2': [
         'dlopen_tpm2_esys',
