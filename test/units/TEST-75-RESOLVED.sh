@@ -794,6 +794,12 @@ testcase_08_resolved() {
     journalctl --sync
     journalctl -u systemd-resolved.service --cursor-file="$JOURNAL_CURSOR" --grep "Server returned error: SERVFAIL \(Censored: Nothing to see here!\)"
 
+    # Same error, forwarded through the DNS stub.
+    run dig +noall +comments +additional edns-extra-text.forwarded.test A
+    grep -qF "status: SERVFAIL" "$RUN_OUT"
+    grep -qF "EDE: 16 (Censored" "$RUN_OUT"
+    grep -qF "Nothing to see here!" "$RUN_OUT"
+
     # SERVFAIL + EDE code 0: Other + extra text
     (! run resolvectl query edns-code-zero.forwarded.test)
     grep -qE "^edns-code-zero.forwarded.test:.+: SERVFAIL \(Other: 🐱\)" "$RUN_OUT"
@@ -820,6 +826,18 @@ testcase_08_resolved() {
     grep -qE '{"rcode":2,"extendedDNSErrorCode":[0-9]+,"extendedDNSErrorMessage":"Hello \[#\]\$%~ World","queryString":"edns-invalid-code-with-extra-text.forwarded.test"}' "$RUN_OUT"
     journalctl --sync
     journalctl -u systemd-resolved.service --cursor-file="$JOURNAL_CURSOR" --grep "Server returned error: SERVFAIL \(\d+: Hello \[\#\]\\$%~ World\)"
+
+    # NOERROR + EDE code 17: Filtered, forwarded through the DNS stub
+    run dig +noall +comments +answer +additional edns-filtered.forwarded.test A
+    grep -qF "status: NOERROR" "$RUN_OUT"
+    grep -qF "EDE: 17 (Filtered)" "$RUN_OUT"
+    grep -qE '^edns-filtered\.forwarded\.test\.[[:space:]]+[0-9]+[[:space:]]+IN[[:space:]]+A[[:space:]]+0\.0\.0\.0' "$RUN_OUT"
+
+    # Same response from cache should retain the EDE option.
+    run dig +noall +comments +answer +additional edns-filtered.forwarded.test A
+    grep -qF "status: NOERROR" "$RUN_OUT"
+    grep -qF "EDE: 17 (Filtered)" "$RUN_OUT"
+    grep -qE '^edns-filtered\.forwarded\.test\.[[:space:]]+[0-9]+[[:space:]]+IN[[:space:]]+A[[:space:]]+0\.0\.0\.0' "$RUN_OUT"
 }
 
 testcase_09_resolvectl_showcache() {
