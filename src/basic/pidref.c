@@ -91,7 +91,7 @@ bool pidref_equal(PidRef *a, PidRef *b) {
         return a->fd_id == b->fd_id;
 }
 
-int pidref_set_pid(PidRef *pidref, pid_t pid) {
+int pidref_set_pid_full(PidRef *pidref, pid_t pid, unsigned flags) {
         uint64_t pidfdid = 0;
         int fd;
 
@@ -104,10 +104,11 @@ int pidref_set_pid(PidRef *pidref, pid_t pid) {
                 (void) pidfd_get_inode_id_self_cached(&pidfdid);
         }
 
-        fd = pidfd_open(pid, 0);
+        fd = pidfd_open(pid, flags);
         if (fd < 0) {
-                /* Graceful fallback in case the kernel is out of fds */
-                if (!ERRNO_IS_RESOURCE(errno))
+                /* Graceful fallback in case the kernel is out of fds.
+                 * The PIDFD_THREAD flag is supported since kernel v6.9 (64bef697d33b75fc06c5789b3f8108680271529f). */
+                if (!(ERRNO_IS_RESOURCE(errno) || (errno == EINVAL && FLAGS_SET(flags, PIDFD_THREAD))))
                         return log_debug_errno(errno, "Failed to open pidfd for pid " PID_FMT ": %m", pid);
 
                 fd = -EBADF;
@@ -149,7 +150,7 @@ int pidref_set_pid_and_pidfd_id(
         return 0;
 }
 
-int pidref_set_pidstr(PidRef *pidref, const char *pid) {
+int pidref_set_pidstr_full(PidRef *pidref, const char *pid, unsigned flags) {
         pid_t nr;
         int r;
 
@@ -159,7 +160,7 @@ int pidref_set_pidstr(PidRef *pidref, const char *pid) {
         if (r < 0)
                 return r;
 
-        return pidref_set_pid(pidref, nr);
+        return pidref_set_pid_full(pidref, nr, flags);
 }
 
 int pidref_set_pidfd(PidRef *pidref, int fd) {

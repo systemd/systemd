@@ -70,8 +70,14 @@ bool pidref_equal(PidRef *a, PidRef *b);
 
 /* This turns a pid_t into a PidRef structure, and acquires a pidfd for it, if possible. (As opposed to
  * PIDREF_MAKE_FROM_PID() above, which does not acquire a pidfd.) */
-int pidref_set_pid(PidRef *pidref, pid_t pid);
-int pidref_set_pidstr(PidRef *pidref, const char *pid);
+int pidref_set_pid_full(PidRef *pidref, pid_t pid, unsigned flags);
+static inline int pidref_set_pid(PidRef *pidref, pid_t pid) {
+        return pidref_set_pid_full(pidref, pid, /* flags= */ 0);
+}
+int pidref_set_pidstr_full(PidRef *pidref, const char *pid, unsigned flags);
+static inline int pidref_set_pidstr(PidRef *pidref, const char *pid) {
+        return pidref_set_pidstr_full(pidref, pid, /* flags= */ 0);
+}
 int pidref_set_pid_and_pidfd_id(PidRef *pidref, pid_t pid, uint64_t pidfd_id);
 int pidref_set_pidfd(PidRef *pidref, int fd);
 int pidref_set_pidfd_take(PidRef *pidref, int fd); /* takes ownership of the passed pidfd on success */
