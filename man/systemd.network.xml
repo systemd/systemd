@@ -3354,6 +3354,17 @@ MultiPathRoute=2001:db8::1@eth0</programlisting>
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>RegisterAddresses=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If set to true, the DHCPv6 client sends an ADDR-REG-INFORM for each
+          self-generated address with global scope, to inform the DHCPv6 server that the address is in use,
+          as defined in <ulink url="https://tools.ietf.org/html/rfc9686">RFC 9686</ulink>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/>
+        </listitem>
+      </varlistentry>
+
       <!-- How to communicate with the server -->
 
       <varlistentry>
