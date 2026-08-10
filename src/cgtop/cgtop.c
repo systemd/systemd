@@ -598,21 +598,21 @@ static void display(Hashmap *a) {
 
         typesafe_qsort(array, n, group_compare);
 
-/* Find the longest names in one run */
-for (unsigned j = 0; j < n; j++) {
-        maxtcpu = MAX(maxtcpu,
-                      strlen(MAYBE_FORMAT_TIMESPAN((usec_t) (array[j]->cpu_usage / NSEC_PER_USEC), 0)));
-        maxtpath = MAX(maxtpath,
-                       strlen(array[j]->path));
-}
+        /* Find the longest names in one run */
+        for (unsigned j = 0; j < n; j++) {
+                maxtcpu = MAX(maxtcpu,
+                              strlen(MAYBE_FORMAT_TIMESPAN((usec_t) (array[j]->cpu_usage / NSEC_PER_USEC), 0)));
+                maxtpath = MAX(maxtpath,
+                               strlen(array[j]->path));
+        }
 
-if (arg_cpu_type == CPU_PERCENTAGE) {
-        unsigned n_cpus;
-        if (cpus_online(&n_cpus) >= 0)
+        if (arg_cpu_type == CPU_PERCENTAGE) {
+                unsigned n_cpus;
+                if (cpus_online(&n_cpus) >= 0)
                         maxpcpu = MAX(maxpcpu, DECIMAL_STR_WIDTH(n_cpus) + STRLEN("00.0"));
-}
+        }
 
-rows = lines();
+        rows = lines();
         if (rows <= 10)
                 rows = 10;
 
