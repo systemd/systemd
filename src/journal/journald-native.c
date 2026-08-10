@@ -377,7 +377,9 @@ static size_t entry_size_max_by_ucred(Manager *m, const struct ucred *ucred, con
                         log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
                                                     "Failed to retrieve credentials for PID " PID_FMT ", ignoring: %m",
                                                     ucred->pid);
-                else if (context->unit && startswith(context->unit, "systemd-coredump@"))
+                else if (context->unit &&
+                         (startswith(context->unit, "systemd-coredump@") ||
+                          streq(context->unit, "systemd-coredumpd.service")))
                         return ENTRY_SIZE_MAX;
         }
 
