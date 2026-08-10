@@ -44,9 +44,13 @@ FSTYPE="$(stat --file-system --format "%T" /)"
 
 systemctl start systemd-homed.service systemd-userdbd.socket
 
-# Create a tmpfs to use as backing store for the home dir. That way we can enforce a size limit nicely.
+# Create a tmpfs to use as backing store for the normal test.  The persistent
+# wrapped-key lane keeps /home on the root image so its identity record survives
+# all three QEMU processes.
 mkdir -p /home
-mount -t tmpfs tmpfs /home -o size=290M
+if [[ -z "${SYSTEMD_TEST_HW_WRAPPED_PHASE:-}" ]]; then
+    mount -t tmpfs tmpfs /home -o size=290M
+fi
 
 # Make sure systemd-homed takes notice of the overmounted /home/
 systemctl kill -sUSR1 systemd-homed
@@ -1175,6 +1179,424 @@ EOF
     homectl deactivate idgrouptest2 ||:
     wait_for_state idgrouptest2 inactive
     homectl remove idgrouptest2
+}
+
+testcase_thin_volume() {
+    local backing="/var/tmp/homed-thin-test-$$.img"
+    local config=/run/systemd/homed.conf.d/90-test-thin.conf
+    local loopdev="" vg="homedtest$$"
+    local pvdev="${SYSTEMD_TEST_HW_WRAPPED_DEVICE:-}"
+    local pool="$vg/pool"
+    local default_user=thin-default-user password=thin-test-password user=thin-user second=thin-user-2 thin_size=800M
+
+    for command in awk cryptsetup dmsetup findmnt fstrim losetup lvchange lvcreate lvremove lvs modprobe pvcreate pvremove truncate vgcreate vgremove; do
+        if ! command -v "$command" >/dev/null; then
+            echo "Skipping thin-volume test: $command is not installed"
+            return 0
+        fi
+    done
+    modprobe dm-thin-pool ||:
+    if ! dmsetup targets | awk '$1 == "thin-pool" { found = 1 } END { exit !found }'; then
+        echo "Skipping thin-volume test: dm-thin-pool is unavailable"
+        return 0
+    fi
+
+    thin_cleanup() {
+        set +e
+        homectl deactivate wrapped-thin-user
+        homectl remove wrapped-thin-user
+        homectl deactivate "$second"
+        homectl remove "$second"
+        homectl deactivate "$default_user"
+        homectl remove "$default_user"
+        homectl deactivate "$user"
+        homectl remove "$user"
+        homectl remove thin-policy-test
+        rm -f "$config"
+        systemctl restart systemd-homed.service
+        lvremove --force --yes "$pool"
+        vgremove --force --yes "$vg"
+        if [[ -n "$pvdev" ]]; then
+            pvremove --force --yes "$pvdev"
+        fi
+        if [[ -n "$loopdev" ]]; then
+            losetup --detach "$loopdev"
+        fi
+        rm -f "$backing"
+    }
+    trap thin_cleanup EXIT
+
+    if [[ -n "$pvdev" ]]; then
+        pvdev="$(realpath -e "$pvdev")"
+        [[ -b "$pvdev" ]]
+    else
+        truncate --size=768M "$backing"
+        loopdev="$(losetup --find --show "$backing")"
+        pvdev="$loopdev"
+    fi
+    pvcreate --yes "$pvdev"
+    vgcreate "$vg" "$pvdev"
+    lvcreate --yes --type thin-pool --name pool --size 640M --poolmetadatasize 16M "$vg"
+
+    mkdir -p "$(dirname "$config")"
+    cat >"$config" <<EOF
+[Home]
+DefaultStorage=luks
+ThinPool=$pool
+HardwareWrappedKeys=no
+EOF
+    systemctl restart systemd-homed.service
+
+    # Queuing I/O on pool exhaustion is unsafe for provisioning filesystems. The
+    # create must fail before a per-user thin LV is retained.
+    lvchange --errorwhenfull n "$pool" ||:
+    [[ "$(lvs --noheadings --unquoted -o lv_when_full "$pool" | xargs)" == queue ]]
+    (! NEWPASSWORD="$password" homectl create thin-policy-test \
+        --storage=luks --fs-type=ext4 --disk-size=300M \
+        --luks-pbkdf-type=pbkdf2 --luks-pbkdf-time-cost=1ms)
+    (! homectl inspect thin-policy-test)
+    lvchange --errorwhenfull y "$pool"
+    [[ "$(lvs --noheadings --unquoted -o lv_when_full "$pool" | xargs)" == error ]]
+
+    local default_backing default_record default_size default_thin_volume pool_free pool_size
+    pool_size="$(lvs --noheadings --units b --nosuffix -o lv_size "$pool" | xargs)"
+    pool_free="$(lvs --noheadings --units b --nosuffix -o vg_free "$pool" | xargs)"
+    default_backing=$((pool_size + pool_free))
+    default_size=$((default_backing / 1048576 * 1048576))
+    if ((default_size > 5 * 1024 * 1024 * 1024 * 1024)); then
+        default_size=$((5 * 1024 * 1024 * 1024 * 1024))
+    fi
+
+    NEWPASSWORD="$password" homectl create "$default_user" \
+        --luks-pbkdf-type=pbkdf2 --luks-pbkdf-time-cost=1ms
+
+    local machine_id
+    machine_id="$(cat /etc/machine-id)"
+    default_record="$(homectl inspect --json=short "$default_user")"
+    [[ "$(jq -er --arg m "$machine_id" '.perMachine[] | select(.matchMachineId == $m) | .diskSize' <<<"$default_record")" == "$default_size" ]]
+    default_thin_volume="$(jq -er --arg m "$machine_id" '.binding[$m].thinVolume' <<<"$default_record")"
+    [[ "$(lvs --noheadings --units b --nosuffix -o lv_size "$vg/$default_thin_volume" | xargs)" == "$default_size" ]]
+    PASSWORD="$password" homectl activate "$default_user"
+    homectl deactivate "$default_user"
+    homectl remove "$default_user"
+
+    NEWPASSWORD="$password" homectl create "$user" \
+        --storage=luks --fs-type=ext4 --disk-size="$thin_size" \
+        --luks-pbkdf-type=pbkdf2 --luks-pbkdf-time-cost=1ms
+
+    local record record_uuid thin_volume thin_uuid lvm_uuid image_path thin_bytes pool_bytes
+    record="$(homectl inspect --json=short "$user")"
+    [[ "$(jq -er --arg m "$machine_id" '.perMachine[] | select(.matchMachineId == $m) | .diskSize' <<<"$record")" == 838860800 ]]
+    record_uuid="$(jq -er '.uuid' <<<"$record")"
+    thin_volume="$(jq -er --arg m "$machine_id" '.binding[$m].thinVolume' <<<"$record")"
+    thin_uuid="$(jq -er --arg m "$machine_id" '.binding[$m].thinVolumeUuid' <<<"$record")"
+    image_path="$(jq -er --arg m "$machine_id" '.binding[$m].imagePath' <<<"$record")"
+    [[ "$(jq -er --arg m "$machine_id" '.binding[$m].thinPool' <<<"$record")" == "$pool" ]]
+    [[ "$(jq -er --arg m "$machine_id" '.binding[$m].storage' <<<"$record")" == luks ]]
+    [[ "$(jq -er --arg m "$machine_id" '.binding[$m].luksKeyType' <<<"$record")" == raw ]]
+    [[ "$thin_volume" == "homed-${record_uuid//-/}" ]]
+    lvm_uuid="$(lvs --noheadings --unquoted -o lv_uuid "$vg/$thin_volume" | xargs)"
+    [[ "$lvm_uuid" == "$thin_uuid" ]]
+    [[ "$(lvs --noheadings --unquoted -o pool_lv "$vg/$thin_volume" | xargs)" == pool ]]
+    thin_bytes="$(lvs --noheadings --units b --nosuffix -o lv_size "$vg/$thin_volume" | xargs)"
+    pool_bytes="$(lvs --noheadings --units b --nosuffix -o lv_size "$pool" | xargs)"
+    awk -v thin="$thin_bytes" -v physical="$pool_bytes" 'BEGIN { exit !(thin > physical) }'
+    lvs --noheadings --unquoted -o lv_tags "$vg/$thin_volume" | grep -F systemd-homed
+
+    PASSWORD="$password" homectl activate "$user"
+    dd if=/dev/zero of="/home/$user/discard-me" bs=1M count=64 conv=fsync
+    echo persistent >"/home/$user/persistent"
+    sync
+
+    local usage_before usage_after
+    usage_before="$(lvs --noheadings --unquoted -o data_percent "$pool" | xargs)"
+    rm "/home/$user/discard-me"
+    usage_after="$usage_before"
+    for _ in {1..10}; do
+        fstrim "/home/$user"
+        sync
+        usage_after="$(lvs --noheadings --unquoted -o data_percent "$pool" | xargs)"
+        if awk -v before="$usage_before" -v after="$usage_after" 'BEGIN { exit !(after < before) }'; then
+            break
+        fi
+        sleep 0.2
+    done
+    awk -v before="$usage_before" -v after="$usage_after" 'BEGIN { exit !(after < before) }'
+
+    homectl deactivate "$user"
+    systemctl restart systemd-homed.service
+    PASSWORD="$password" homectl activate "$user"
+    grep -Fx persistent "/home/$user/persistent"
+
+    NEWPASSWORD="$password" homectl create "$second" \
+        --storage=luks --fs-type=ext4 --disk-size=300M \
+        --luks-pbkdf-type=pbkdf2 --luks-pbkdf-time-cost=1ms
+    PASSWORD="$password" homectl activate "$second"
+    dd if=/dev/zero of="/home/$user/concurrent" bs=1M count=32 conv=fsync
+    dd if=/dev/zero of="/home/$second/concurrent" bs=1M count=32 conv=fsync
+    sync
+    findmnt --noheadings --output OPTIONS --target "/home/$user" | grep -w provision
+    findmnt --noheadings --output OPTIONS --target "/home/$second" | grep -w provision
+
+    homectl deactivate "$second"
+    homectl remove "$second"
+    homectl deactivate "$user"
+    homectl remove "$user"
+    (! lvs "$vg/$thin_volume")
+
+    if [[ "${SYSTEMD_TEST_HW_WRAPPED_KEYS:-0}" == 1 ]]; then
+        cat >"$config" <<EOF
+[Home]
+ThinPool=$pool
+HardwareWrappedKeys=yes
+EOF
+        systemctl restart systemd-homed.service
+
+        NEWPASSWORD="$password" homectl create wrapped-thin-user \
+            --storage=luks --fs-type=ext4 --disk-size=300M \
+            --luks-pbkdf-type=pbkdf2 --luks-pbkdf-time-cost=1ms
+        record="$(homectl inspect --json=short wrapped-thin-user)"
+        [[ "$(jq -er --arg m "$machine_id" '.binding[$m].luksKeyType' <<<"$record")" == hw-wrapped ]]
+        [[ "$(jq -er --arg m "$machine_id" '.binding[$m].luksIntegrity' <<<"$record")" == 'hmac(sha256)' ]]
+        image_path="$(jq -er --arg m "$machine_id" '.binding[$m].imagePath' <<<"$record")"
+        PASSWORD="$password" homectl activate wrapped-thin-user
+        cryptsetup luksDump "$image_path" | grep -F hw-wrapped
+
+        local source top_name lower_name top_target lower_target
+        source="$(findmnt --noheadings --output SOURCE --target /home/wrapped-thin-user | xargs)"
+        top_name="$(dmsetup info --columns --noheadings --options name "$source" | xargs)"
+        top_target="$(dmsetup table "$top_name" | awk 'NR == 1 { print $3 }')"
+        [[ "$top_target" == integrity ]]
+        lower_name="$(dmsetup deps --options devname --noheadings "$top_name" | awk -F '[()]' 'NF >= 2 { print $2 }')"
+        [[ -n "$lower_name" ]]
+        lower_target="$(dmsetup table "$lower_name" | awk 'NR == 1 { print $3 }')"
+        [[ "$lower_target" == inlinecrypt ]]
+
+        homectl lock wrapped-thin-user
+        dmsetup info "$top_name" | grep -w SUSPENDED
+        dmsetup info "$lower_name" | grep -w SUSPENDED
+        PASSWORD="$password" homectl unlock wrapped-thin-user
+        PASSWORD="$password" NEWPASSWORD=rotated-wrapped-password homectl passwd wrapped-thin-user
+        homectl deactivate wrapped-thin-user
+        PASSWORD=rotated-wrapped-password homectl activate wrapped-thin-user
+        homectl deactivate wrapped-thin-user
+        homectl remove wrapped-thin-user
+    fi
+
+    trap - EXIT
+    thin_cleanup
+}
+
+testcase_hw_wrapped_multiboot() {
+    local phase="${SYSTEMD_TEST_HW_WRAPPED_PHASE:?set SYSTEMD_TEST_HW_WRAPPED_PHASE to 1, 2, or 3}"
+    local device="${SYSTEMD_TEST_HW_WRAPPED_DEVICE:?set SYSTEMD_TEST_HW_WRAPPED_DEVICE to the dedicated UFS block device}"
+    local config=/run/systemd/homed.conf.d/90-test-hw-wrapped.conf
+    local state_dir=/var/lib/systemd/tests/homed-hw-wrapped
+    local state_file="$state_dir/state"
+    local vg=homedhwtest pool=homedhwtest/pool user=wrapped-persistent-user luks_uuid
+    local image_path=
+    local password=wrapped-initial-password rotated=wrapped-rotated-password
+
+    for command in awk cryptsetup dd dmsetup findmnt fstrim jq lvchange lvcreate lvs pvcreate sfdisk sha256sum udevadm vgcreate; do
+        command -v "$command" >/dev/null
+    done
+    device="$(realpath -e "$device")"
+    [[ -b "$device" ]]
+    [[ "$phase" =~ ^[123]$ ]]
+
+    mkdir -p "$(dirname "$config")" "$state_dir"
+    cat >"$config" <<EOF
+[Home]
+ThinPool=$pool
+HardwareWrappedKeys=yes
+EOF
+
+    hw_open_image() {
+        local thin_device partition partition_node start sector_size count
+
+        thin_device="/dev/dm-$(lvs --noheadings --unquoted -o lv_kernel_minor "$vg/$thin_volume" | xargs)"
+        [[ -b "$thin_device" ]]
+        partition="$(sfdisk --json "$thin_device")"
+        start="$(jq -er '.partitiontable.partitions[0].start' <<<"$partition")"
+        partition_node="$(jq -er '.partitiontable.partitions[0].node' <<<"$partition")"
+        sector_size="$(jq -er '.partitiontable.sectorsize' <<<"$partition")"
+        (( sector_size > 0 && 32 * 1024 * 1024 % sector_size == 0 ))
+        count=$((32 * 1024 * 1024 / sector_size))
+        image_path=/run/homed-hw-wrapped-header.raw
+        dd if="$thin_device" of="$image_path" bs="$sector_size" skip="$start" count="$count" iflag=fullblock status=none
+        udevadm settle
+        if [[ -b "$partition_node" ]]; then
+            dmsetup remove --retry "$partition_node"
+        fi
+        lvchange --activate n "$vg/$thin_volume"
+        [[ -f "$image_path" ]]
+        [[ "$(cryptsetup luksUUID "$image_path")" == "$luks_uuid" ]]
+    }
+
+    hw_close_image() {
+        rm -f "$image_path"
+        image_path=
+    }
+
+    if [[ "$phase" == 1 ]]; then
+        if vgs "$vg" >/dev/null 2>&1; then
+            echo "Refusing to overwrite pre-existing test VG $vg" >&2
+            return 1
+        fi
+        pvcreate --force --force --yes "$device"
+        vgcreate "$vg" "$device"
+        lvcreate --yes --type thin-pool --name pool --size 1536M --poolmetadatasize 32M "$vg"
+        lvchange --errorwhenfull y "$pool"
+    else
+        vgs "$vg"
+        lvs "$pool"
+        [[ -s "$state_file" ]]
+        # shellcheck source=/dev/null
+        source "$state_file"
+        lvchange --activate y --ignoreactivationskip "$vg/$thin_volume"
+    fi
+
+    systemctl restart systemd-homed.service
+
+    hw_dm_child() {
+        dmsetup deps --options devname --noheadings "$1" |
+            sed -n 's/.*(\([^()]\+\)).*/\1/p'
+    }
+
+    hw_assert_metadata() {
+        local image_path="$1" metadata
+
+        metadata="$(cryptsetup luksDump --dump-json-metadata "$image_path")"
+        [[ "$(jq -r '.segments."0".key_type' <<<"$metadata")" == hw-wrapped ]]
+        jq -e '.config.requirements.mandatory | index("hw-wrapped-key")' <<<"$metadata"
+        jq -e '.config.requirements.mandatory | index("hw-wrapped-key-integrity")' <<<"$metadata"
+    }
+
+    hw_assert_topology() {
+        local source top inline linear thin table mount_options
+
+        source="$(findmnt --noheadings --output SOURCE --target "/home/$user" | xargs)"
+        source="${source%%\[*}"
+        top="$(dmsetup info --columns --noheadings --options name "$source" | xargs)"
+        [[ "$(dmsetup table "$top" | awk 'NR == 1 { print $3 }')" == integrity ]]
+        inline="$(hw_dm_child "$top")"
+        [[ -n "$inline" ]]
+        [[ "$(dmsetup table "$inline" | awk 'NR == 1 { print $3 }')" == inlinecrypt ]]
+        table="$(dmsetup table "$inline")"
+        grep -w 'keytype:hw-wrapped' <<<"$table"
+        ! grep -Eq '(^|[[:space:]])[[:xdigit:]]{64,}([[:space:]]|$)' <<<"$table"
+        linear="$(hw_dm_child "$inline")"
+        [[ "$(dmsetup table "$linear" | awk 'NR == 1 { print $3 }')" == linear ]]
+        thin="$(hw_dm_child "$linear")"
+        [[ "$(dmsetup table "$thin" | awk 'NR == 1 { print $3 }')" == thin ]]
+        mount_options="$(findmnt --noheadings --output OPTIONS --target "/home/$user")"
+        grep -w provision <<<"${mount_options//,/ }"
+        grep -w nodelalloc <<<"${mount_options//,/ }"
+    }
+
+    hw_assert_allocation_and_trim() {
+        local before allocated trimmed
+
+        before="$(lvs --noheadings --units b --nosuffix -o data_percent "$pool" | xargs)"
+        dd if=/dev/zero of="/home/$user/discard-me" bs=1M count=16 conv=fsync
+        allocated="$(lvs --noheadings --units b --nosuffix -o data_percent "$pool" | xargs)"
+        awk -v before="$before" -v after="$allocated" 'BEGIN { exit !(after > before) }'
+        rm "/home/$user/discard-me"
+        trimmed="$allocated"
+        for _ in {1..20}; do
+            fstrim "/home/$user"
+            sync
+            trimmed="$(lvs --noheadings --units b --nosuffix -o data_percent "$pool" | xargs)"
+            if awk -v before="$allocated" -v after="$trimmed" 'BEGIN { exit !(after < before) }'; then
+                break
+            fi
+            sleep 0.2
+        done
+        awk -v before="$allocated" -v after="$trimmed" 'BEGIN { exit !(after < before) }'
+    }
+
+    hw_header_hash() {
+        dd if="$1" bs=1M count=32 status=none | sha256sum | awk '{ print $1 }'
+    }
+
+    case "$phase" in
+        1)
+            local machine_id record thin_volume header_hash
+
+            NEWPASSWORD="$password" homectl create "$user" \
+                --storage=luks --fs-type=ext4 --disk-size=2G \
+                --luks-pbkdf-type=pbkdf2 --luks-pbkdf-time-cost=1ms
+            machine_id="$(cat /etc/machine-id)"
+            record="$(homectl inspect --json=short "$user")"
+            [[ "$(jq -er --arg m "$machine_id" '.binding[$m].luksKeyType' <<<"$record")" == hw-wrapped ]]
+            [[ "$(jq -er --arg m "$machine_id" '.binding[$m].luksIntegrity' <<<"$record")" == 'hmac(sha256)' ]]
+            thin_volume="$(jq -er --arg m "$machine_id" '.binding[$m].thinVolume' <<<"$record")"
+            luks_uuid="$(jq -er --arg m "$machine_id" '.binding[$m].luksUuid' <<<"$record")"
+            lvchange --activate y --ignoreactivationskip "$vg/$thin_volume"
+            hw_open_image
+            hw_assert_metadata "$image_path"
+            hw_close_image
+
+            PASSWORD="$password" homectl activate "$user"
+            hw_assert_topology
+            printf '%s\n' 'persistent-wrapped-home-marker-7bcce8ef' >"/home/$user/persistent"
+            sync
+            hw_assert_allocation_and_trim
+            homectl lock "$user"
+            dmsetup info "home-$user" | grep -w SUSPENDED
+            # The private lower mapping may lose its userspace name while a
+            # deferred removal is pending. Unlock must still find it through
+            # the upper mapping's device dependency.
+            if ! PASSWORD="$password" homectl unlock "$user"; then
+                journalctl --boot --no-pager --unit systemd-homed.service
+                return 1
+            fi
+            PASSWORD="$password" NEWPASSWORD="$rotated" homectl passwd "$user"
+            homectl deactivate "$user"
+            lvchange --activate y --ignoreactivationskip "$vg/$thin_volume"
+            hw_open_image
+            header_hash="$(hw_header_hash "$image_path")"
+            hw_close_image
+            printf 'thin_volume=%q\nluks_uuid=%q\nheader_hash=%q\n' \
+                "$thin_volume" "$luks_uuid" "$header_hash" >"$state_file"
+            printf 'HOMED_HW_WRAPPED_PHASE_1_PASS thin_volume=%s\n' "$thin_volume"
+            ;;
+        2)
+            hw_open_image
+            [[ "$(hw_header_hash "$image_path")" == "$header_hash" ]]
+            hw_close_image
+            if PASSWORD="$rotated" homectl activate "$user"; then
+                echo "Wrapped home activated under the wrong hardware identity" >&2
+                return 1
+            fi
+            lvchange --activate y --ignoreactivationskip "$vg/$thin_volume"
+            hw_open_image
+            [[ "$(hw_header_hash "$image_path")" == "$header_hash" ]]
+            hw_close_image
+            homectl inspect "$user" | grep -w inactive
+            [[ ! -e "/home/$user/persistent" ]]
+            lvs "$vg/$thin_volume"
+            printf 'HOMED_HW_WRAPPED_PHASE_2_PASS thin_volume=%s\n' "$thin_volume"
+            ;;
+        3)
+            hw_open_image
+            hw_assert_metadata "$image_path"
+            hw_close_image
+            if PASSWORD=definitely-wrong homectl --no-ask-password activate "$user"; then
+                echo "Wrapped home activated with the wrong password" >&2
+                return 1
+            fi
+            PASSWORD="$rotated" homectl activate "$user"
+            grep -Fx 'persistent-wrapped-home-marker-7bcce8ef' "/home/$user/persistent"
+            hw_assert_topology
+            hw_assert_allocation_and_trim
+            homectl deactivate "$user"
+            homectl remove "$user"
+            ! lvs "$vg/$thin_volume"
+            rm -f "$state_file"
+            printf 'HOMED_HW_WRAPPED_PHASE_3_PASS thin_volume=%s\n' "$thin_volume"
+            ;;
+    esac
 }
 
 run_testcases
