@@ -109,6 +109,35 @@ TEST(shell_validation) {
         ASSERT_STREQ(user_record_shell(u), "/bin/zsh");
 }
 
+TEST(thin_pool_binding) {
+        _cleanup_(user_record_unrefp) UserRecord *u = NULL;
+        sd_id128_t mid;
+        int r;
+
+        r = sd_id128_get_machine(&mid);
+        if (ERRNO_IS_NEG_MACHINE_ID_UNSET(r))
+                return (void) log_tests_skipped("/etc/machine-id missing");
+        ASSERT_OK(r);
+
+        USER(&u,
+             SD_JSON_BUILD_PAIR_STRING("userName", "test"),
+             SD_JSON_BUILD_PAIR_OBJECT(
+                             "binding",
+                             SD_JSON_BUILD_PAIR_OBJECT(
+                                             SD_ID128_TO_STRING(mid),
+                                             SD_JSON_BUILD_PAIR_STRING("storage", "luks"),
+                                             SD_JSON_BUILD_PAIR_STRING("imagePath", "/dev/homes/homed-test"),
+                                             SD_JSON_BUILD_PAIR_STRING("thinPool", "homes/pool"),
+                                             SD_JSON_BUILD_PAIR_STRING("thinVolume", "homed-test"),
+                                             SD_JSON_BUILD_PAIR_STRING("thinVolumeUuid", "LvmThinVolumeUuid"))));
+
+        ASSERT_STREQ(u->thin_pool, "homes/pool");
+        ASSERT_STREQ(u->thin_volume, "homed-test");
+        ASSERT_STREQ(u->thin_volume_uuid, "LvmThinVolumeUuid");
+        ASSERT_EQ(user_record_auto_resize_mode(u), AUTO_RESIZE_OFF);
+        ASSERT_EQ(user_record_rebalance_weight(u), REBALANCE_WEIGHT_OFF);
+}
+
 TEST(self_changes) {
         _cleanup_(user_record_unrefp) UserRecord *curr = NULL, *new = NULL;
 

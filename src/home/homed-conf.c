@@ -3,6 +3,7 @@
 #include "conf-parser.h"
 #include "home-util.h"
 #include "homed-conf.h"
+#include "path-util.h"
 #include "string-util.h"
 #include "user-record.h"
 
@@ -19,6 +20,49 @@ int manager_parse_config_file(Manager *m) {
 }
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_default_storage, user_storage, UserStorage);
+
+int config_parse_thin_pool(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *vg = NULL;
+        char **pool = ASSERT_PTR(data);
+        const char *slash;
+
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *pool = mfree(*pool);
+                return 0;
+        }
+
+        slash = strchr(rvalue, '/');
+        if (!slash || slash == rvalue || isempty(slash + 1) || strchr(slash + 1, '/')) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Thin pool must be specified as VG/POOL, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        vg = strndup(rvalue, slash - rvalue);
+        if (!vg)
+                return log_oom();
+
+        if (!filename_is_valid(vg) || !filename_is_valid(slash + 1)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Thin pool contains an invalid VG or pool name, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        return free_and_strdup_warn(pool, rvalue);
+}
 
 int config_parse_default_file_system_type(
                 const char *unit,

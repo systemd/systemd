@@ -342,10 +342,17 @@ typedef struct UserRecord {
         sd_id128_t luks_uuid;
         sd_id128_t file_system_uuid;
 
+        /* LVM thin volume backing, recorded in the machine-specific binding. */
+        char *thin_pool;
+        char *thin_volume;
+        char *thin_volume_uuid;
+
         int luks_discard;
         int luks_offline_discard;
         char *luks_cipher;
         char *luks_cipher_mode;
+        char *luks_key_type;
+        char *luks_integrity;
         uint64_t luks_volume_key_size;
         char *luks_pbkdf_hash_algorithm;
         char *luks_pbkdf_type;
