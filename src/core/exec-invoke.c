@@ -5722,7 +5722,12 @@ int exec_invoke(
         }
 #endif
 
-        if (uid_is_valid(uid)) {
+        /* Only adjust ownership for TTYs we acquired via StandardInput=tty*. If stdin is passed
+         * as an fd, its ownership is managed by the provider of the fd, see exec_context_revert_tty(). */
+        if (uid_is_valid(uid) &&
+            params->stdin_fd < 0 &&
+            exec_input_is_terminal(context->std_input) &&
+            exec_context_tty_path(context)) {
                 r = chown_terminal(STDIN_FILENO, uid);
                 if (r < 0) {
                         *exit_status = EXIT_STDIN;
