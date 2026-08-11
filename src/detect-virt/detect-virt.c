@@ -88,7 +88,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("cvm", NULL, "Only detect whether we are run in a confidential VM"):
                         arg_mode = ONLY_CVM;
-                        return 1;
+                        break;
 
                 OPTION_LONG("list-cvm", NULL, "List all known and detectable types of confidential virtualization"):
                         return DUMP_STRING_TABLE(confidential_virtualization, ConfidentialVirtualization, _CONFIDENTIAL_VIRTUALIZATION_MAX);
