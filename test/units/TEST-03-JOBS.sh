@@ -126,6 +126,7 @@ done
 IDS_FILE="/tmp/TEST-03-JOBS-CYCLE-IDS-$RANDOM"
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Describe '{}' | jq '.runtime.TransactionsWithOrderingCycle' >"$IDS_FILE"
 [[ "$(jq length "$IDS_FILE")" -ge 20 ]]
+journalctl --sync
 for i in {0..19}; do
     journalctl -b TRANSACTION_ID="$(jq -r ".[$i]" "$IDS_FILE")" --grep "cycle starting with"
 done
