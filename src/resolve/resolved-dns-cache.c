@@ -580,7 +580,8 @@ static int dns_cache_put_negative(
                 usec_t timestamp,
                 DnsResourceRecord *soa,
                 int owner_family,
-                const union in_addr_union *owner_address) {
+                const union in_addr_union *owner_address,
+                usec_t stale_retention_usec) {
 
         _cleanup_(dns_cache_item_freep) DnsCacheItem *i = NULL;
         char key_str[DNS_RESOURCE_KEY_STRING_MAX];
@@ -640,9 +641,12 @@ static int dns_cache_put_negative(
         /* Determine how long to cache this entry. In case we have some RRs in the answer use the lowest TTL
          * of any of them. Typically that's the SOA's TTL, which is OK, but could possibly be lower because
          * of some other RR. Let's better take the lowest option here than a needlessly high one */
-        i->until = i->until_valid =
+        i->until_valid =
                 i->type == DNS_CACHE_RCODE ? timestamp + CACHE_TTL_STRANGE_RCODE_USEC :
                 calculate_until_valid(soa, dns_answer_min_ttl(answer), nsec_ttl, timestamp, true);
+        i->until =
+                i->type == DNS_CACHE_RCODE ? i->until_valid :
+                calculate_until(i->until_valid, stale_retention_usec);
 
         if (i->type == DNS_CACHE_NXDOMAIN) {
                 /* NXDOMAIN entries should apply equally to all types, so we use ANY as
@@ -897,7 +901,8 @@ int dns_cache_put(
                         timestamp,
                         soa,
                         owner_family,
-                        owner_address);
+                        owner_address,
+                        stale_retention_usec);
         if (r < 0)
                 goto fail;
 
