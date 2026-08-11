@@ -70,6 +70,34 @@ static int dnssec_result_to_ede_rcode(DnssecResult result) {
         }
 }
 
+static bool dns_ede_rcode_is_cacheable(int ede_rcode) {
+        return dns_ede_rcode_is_dnssec(ede_rcode) ||
+                IN_SET(ede_rcode,
+                       DNS_EDE_RCODE_FORGED_ANSWER,
+                       DNS_EDE_RCODE_BLOCKED,
+                       DNS_EDE_RCODE_CENSORED,
+                       DNS_EDE_RCODE_FILTERED,
+                       DNS_EDE_RCODE_PROHIBITED);
+}
+
+static int dns_transaction_copy_cacheable_ede(DnsTransaction *t, DnsPacket *p) {
+        _cleanup_free_ char *ede_msg = NULL;
+        int ede_rcode, r;
+
+        assert(t);
+        assert(p);
+
+        r = dns_packet_ede_rcode(p, &ede_rcode, &ede_msg);
+        if (r < 0)
+                return r == -ENOENT ? 0 : r;
+
+        if (!dns_ede_rcode_is_cacheable(ede_rcode))
+                return 0;
+
+        t->answer_ede_rcode = ede_rcode;
+        return free_and_strdup(&t->answer_ede_msg, ede_msg);
+}
+
 static void dns_transaction_reset_answer(DnsTransaction *t) {
         assert(t);
 
@@ -899,8 +927,8 @@ static void dns_transaction_cache_answer(DnsTransaction *t) {
                       dns_transaction_key(t),
                       t->answer_rcode,
                       t->answer,
-                      /* If neither DO nor EDE is set, the full packet isn't useful to cache */
-                      dns_packet_do(t->received) || t->answer_ede_rcode > 0 || t->answer_ede_msg ? t->received : NULL,
+                      /* If neither DO nor a cacheable EDE is set, the full packet isn't useful to cache */
+                      dns_packet_do(t->received) || dns_ede_rcode_is_cacheable(t->answer_ede_rcode) ? t->received : NULL,
                       t->answer_query_flags,
                       t->answer_dnssec_result,
                       t->answer_nsec_ttl,
@@ -1891,14 +1919,13 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                                 }
 
                                 t->answer_source = DNS_TRANSACTION_CACHE;
+                                if (t->received)
+                                        (void) dns_transaction_copy_cacheable_ede(t, t->received);
+
                                 if (t->answer_rcode == DNS_RCODE_SUCCESS)
                                         dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
-                                else {
-                                        if (t->received)
-                                                (void) dns_packet_ede_rcode(t->received, &t->answer_ede_rcode, &t->answer_ede_msg);
-
+                                else
                                         dns_transaction_complete(t, DNS_TRANSACTION_RCODE_FAILURE);
-                                }
                                 return 0;
                         }
                 }
