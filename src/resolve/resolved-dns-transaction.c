@@ -98,6 +98,19 @@ static int dns_transaction_copy_cacheable_ede(DnsTransaction *t, DnsPacket *p) {
         return free_and_strdup(&t->answer_ede_msg, ede_msg);
 }
 
+static void dns_transaction_set_stale_ede(DnsTransaction *t) {
+        assert(t);
+
+        if (t->answer_rcode == DNS_RCODE_SUCCESS)
+                t->answer_ede_rcode = DNS_EDE_RCODE_STALE_ANSWER;
+        else if (t->answer_rcode == DNS_RCODE_NXDOMAIN)
+                t->answer_ede_rcode = DNS_EDE_RCODE_STALE_NXDOMAIN_ANSWER;
+        else
+                return;
+
+        t->answer_ede_msg = mfree(t->answer_ede_msg);
+}
+
 static void dns_transaction_reset_answer(DnsTransaction *t) {
         assert(t);
 
@@ -1903,7 +1916,9 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                                  * packet. */
                                 dns_transaction_reset_answer(t);
                         else {
-                                if (t->n_attempts > 1 && !FLAGS_SET(query_flags, SD_RESOLVED_NO_STALE)) {
+                                bool serve_stale = t->n_attempts > 1 && !FLAGS_SET(query_flags, SD_RESOLVED_NO_STALE);
+
+                                if (serve_stale) {
 
                                         if (t->answer_rcode == DNS_RCODE_SUCCESS) {
                                                 if (t->seen_timeout)
@@ -1921,6 +1936,8 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                                 t->answer_source = DNS_TRANSACTION_CACHE;
                                 if (t->received)
                                         (void) dns_transaction_copy_cacheable_ede(t, t->received);
+                                if (serve_stale)
+                                        dns_transaction_set_stale_ede(t);
 
                                 if (t->answer_rcode == DNS_RCODE_SUCCESS)
                                         dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
