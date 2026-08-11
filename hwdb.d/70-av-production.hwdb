@@ -57,6 +57,13 @@ usb:v33AEp0004*
 usb:v33AEp0007*
  ID_AV_PRODUCTION_CONTROLLER=1
 
+###################
+# Blue Microphones
+###################
+# Yeti X
+usb:v046Dp0AAF*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
 ################
 # Contour
 ################
