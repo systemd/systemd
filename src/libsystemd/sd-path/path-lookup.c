@@ -413,7 +413,8 @@ static int get_paths_from_environ(const char *var, char ***ret) {
         bool append = endswith(e, ":"); /* Whether to append the normal search paths after what's obtained
                                            from envvar */
 
-        /* FIXME: empty components in other places should be rejected. */
+        if ((e[0] == ':' && e[1] != '\0') || strstr(e, "::"))
+                return -EINVAL;
 
         r = path_split_and_make_absolute(e, ret);
         if (r < 0)
