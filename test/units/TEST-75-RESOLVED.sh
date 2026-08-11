@@ -825,6 +825,34 @@ testcase_08_resolved() {
     grep -qE '{"rcode":2,"extendedDNSErrorCode":[0-9]+,"extendedDNSErrorMessage":"Hello \[#\]\$%~ World","queryString":"edns-invalid-code-with-extra-text.forwarded.test"}' "$RUN_OUT"
     journalctl --sync
     journalctl -u systemd-resolved.service --cursor-file="$JOURNAL_CURSOR" --grep "Server returned error: SERVFAIL \(\d+: Hello \[\#\]\\$%~ World\)"
+
+    # NOERROR + EDE code 4: Forged Answer, forwarded through the DNS stub
+    run dig +noall +comments +answer +additional edns-forged.forwarded.test A
+    grep -qF "status: NOERROR" "$RUN_OUT"
+    grep -qF "EDE: 4 (Forged Answer)" "$RUN_OUT"
+    grep -qE '^edns-forged\.forwarded\.test\.[[:space:]]+[0-9]+[[:space:]]+IN[[:space:]]+A[[:space:]]+0\.0\.0\.0' "$RUN_OUT"
+
+    # Same response from cache should retain the EDE option.
+    run dig +noall +comments +answer +additional edns-forged.forwarded.test A
+    grep -qF "status: NOERROR" "$RUN_OUT"
+    grep -qF "EDE: 4 (Forged Answer)" "$RUN_OUT"
+    grep -qE '^edns-forged\.forwarded\.test\.[[:space:]]+[0-9]+[[:space:]]+IN[[:space:]]+A[[:space:]]+0\.0\.0\.0' "$RUN_OUT"
+
+    # A non-cacheable EDE should be forwarded live, but not restored from cache.
+    run dig +noall +comments +answer +additional edns-net-error.forwarded.test A
+    grep -qF "status: NOERROR" "$RUN_OUT"
+    grep -qF "EDE: 23 (Network Error)" "$RUN_OUT"
+    grep -qE '^edns-net-error\.forwarded\.test\.[[:space:]]+[0-9]+[[:space:]]+IN[[:space:]]+A[[:space:]]+0\.0\.0\.0' "$RUN_OUT"
+
+    run dig +noall +comments +answer +additional edns-net-error.forwarded.test A
+    grep -qF "status: NOERROR" "$RUN_OUT"
+    (! grep -qF "EDE: 23 (Network Error)" "$RUN_OUT")
+    grep -qE '^edns-net-error\.forwarded\.test\.[[:space:]]+[0-9]+[[:space:]]+IN[[:space:]]+A[[:space:]]+0\.0\.0\.0' "$RUN_OUT"
+
+    # NXDOMAIN + EDE code 17: Filtered, forwarded through the DNS stub.
+    run dig +noall +comments +additional edns-filtered-nxdomain.forwarded.test A
+    grep -qF "status: NXDOMAIN" "$RUN_OUT"
+    grep -qF "EDE: 17 (Filtered)" "$RUN_OUT"
 }
 
 testcase_09_resolvectl_showcache() {
