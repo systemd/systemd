@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <errno.h>
 #include <stdlib.h>
 
 #include "log.h"
@@ -36,6 +37,37 @@ TEST(paths) {
         test_paths_one(RUNTIME_SCOPE_SYSTEM);
         test_paths_one(RUNTIME_SCOPE_USER);
         test_paths_one(RUNTIME_SCOPE_GLOBAL);
+}
+
+static void test_paths_empty_components_one(RuntimeScope scope) {
+        _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
+        _cleanup_(lookup_paths_done) LookupPaths lp_with_leading_empty = {};
+        _cleanup_(lookup_paths_done) LookupPaths lp_with_middle_empty = {};
+        _cleanup_(lookup_paths_done) LookupPaths lp_with_trailing_empty = {};
+        char *systemd_unit_path;
+
+        assert_se(mkdtemp_malloc("/tmp/test-path-lookup.XXXXXXX", &tmp) >= 0);
+
+        systemd_unit_path = strjoina(tmp, "/systemd-unit-path");
+
+        assert_se(setenv("SYSTEMD_UNIT_PATH", strjoina(":", systemd_unit_path), 1) == 0);
+        ASSERT_ERROR(lookup_paths_init(&lp_with_leading_empty, scope, 0, NULL), EINVAL);
+
+        assert_se(setenv("SYSTEMD_UNIT_PATH", strjoina(systemd_unit_path, "::/run"), 1) == 0);
+        ASSERT_ERROR(lookup_paths_init(&lp_with_middle_empty, scope, 0, NULL), EINVAL);
+
+        assert_se(setenv("SYSTEMD_UNIT_PATH", strjoina(systemd_unit_path, ":"), 1) == 0);
+        ASSERT_OK(lookup_paths_init(&lp_with_trailing_empty, scope, 0, NULL));
+        ASSERT_STREQ(lp_with_trailing_empty.search_path[0], systemd_unit_path);
+        assert_se(strv_length(lp_with_trailing_empty.search_path) > 1);
+
+        assert_se(unsetenv("SYSTEMD_UNIT_PATH") == 0);
+}
+
+TEST(paths_empty_components) {
+        test_paths_empty_components_one(RUNTIME_SCOPE_SYSTEM);
+        test_paths_empty_components_one(RUNTIME_SCOPE_USER);
+        test_paths_empty_components_one(RUNTIME_SCOPE_GLOBAL);
 }
 
 TEST(user_and_global_paths) {
