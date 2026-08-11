@@ -1065,24 +1065,31 @@ testcase_11_nft() {
     sleep 2
     drop_dns_outbound_traffic
     # Make sure we give sd-resolved enough time to timeout (5-10s) and serve the stale data (see above)
-    run dig +tries=1 +timeout=15 stale1.unsigned.test -t A
+    run dig +tries=1 +timeout=15 +comments +answer +additional stale1.unsigned.test -t A
     grep -qE "NOERROR" "$RUN_OUT"
+    grep -qF "EDE: 3 (Stale Answer)" "$RUN_OUT"
     grep -qE "10.0.0.112" "$RUN_OUT"
 
     nft flush ruleset
 
     ### Test NXDOMAIN with serve stale feature ###
-    # NXDOMAIN response should replace the cache with NXDOMAIN response
-    run dig stale1.unsigned.test -t A
-    grep -qE "NOERROR" "$RUN_OUT"
-    # Delete stale1 record from zone
+    local stale_nxdomain="stale-nxdomain.unsigned.test"
+
+    resolvectl flush-caches
     knotc zone-begin unsigned.test
-    knotc zone-unset unsigned.test stale1 A
+    knotc zone-unset unsigned.test @ SOA
+    # Keep the negative TTL short so the next NXDOMAIN lookup can be served stale.
+    knotc zone-set unsigned.test @ 1 SOA ns1.unsigned.test. root.unsigned.test. 43 10800 900 604800 1
     knotc zone-commit unsigned.test
     knotc reload
     sleep 2
-    run dig stale1.unsigned.test -t A
+    run dig "$stale_nxdomain" -t A
     grep -qE "NXDOMAIN" "$RUN_OUT"
+    sleep 2
+    drop_dns_outbound_traffic
+    run dig +tries=1 +timeout=15 +comments +additional "$stale_nxdomain" -t A
+    grep -qE "NXDOMAIN" "$RUN_OUT"
+    grep -qF "EDE: 19 (Stale NXDOMAIN Answer)" "$RUN_OUT"
 
     nft flush ruleset
 }

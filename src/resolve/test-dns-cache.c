@@ -824,6 +824,56 @@ TEST(dns_cache_lookup_nxdomain) {
         ASSERT_TRUE(dns_answer_contains(ret_answer, rr));
 }
 
+TEST(dns_cache_lookup_stale_nxdomain) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+        _cleanup_(dns_answer_unrefp) DnsAnswer *ret_answer = NULL, *ret_answer_no_stale = NULL;
+        _cleanup_(dns_packet_unrefp) DnsPacket *ret_full_packet = NULL, *ret_full_packet_no_stale = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        int ret_rcode, ret_rcode_no_stale;
+        uint64_t ret_query_flags, ret_query_flags_no_stale;
+
+        put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(put_args.key);
+        put_args.rcode = DNS_RCODE_NXDOMAIN;
+        put_args.stale_retention_usec = USEC_PER_MINUTE;
+        ASSERT_OK_POSITIVE(dns_answer_add_soa(put_args.answer, "example.com", 1, 0));
+        ASSERT_OK(cache_put(&cache, &put_args));
+
+        sleep(2);
+        dns_cache_prune(&cache);
+        ASSERT_EQ(dns_cache_size(&cache), 1u);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_OK_ZERO(dns_cache_lookup(
+                        &cache,
+                        key,
+                        SD_RESOLVED_NO_STALE,
+                        &ret_rcode_no_stale,
+                        &ret_answer_no_stale,
+                        &ret_full_packet_no_stale,
+                        &ret_query_flags_no_stale,
+                        NULL));
+        ASSERT_EQ(ret_rcode_no_stale, DNS_RCODE_SUCCESS);
+        ASSERT_EQ(ret_query_flags_no_stale, 0u);
+        ASSERT_NULL(ret_answer_no_stale);
+        ASSERT_NULL(ret_full_packet_no_stale);
+
+        ASSERT_OK_POSITIVE(dns_cache_lookup(
+                        &cache,
+                        key,
+                        0,
+                        &ret_rcode,
+                        &ret_answer,
+                        &ret_full_packet,
+                        &ret_query_flags,
+                        NULL));
+        ASSERT_EQ(ret_rcode, DNS_RCODE_NXDOMAIN);
+        ASSERT_EQ(ret_query_flags, (SD_RESOLVED_AUTHENTICATED | SD_RESOLVED_CONFIDENTIAL));
+        ASSERT_EQ(dns_answer_size(ret_answer), 1u);
+}
+
 TEST(dns_cache_lookup_any_always_misses) {
         _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
         _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
