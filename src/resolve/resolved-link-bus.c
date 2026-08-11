@@ -398,7 +398,10 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
                         changed = true;
                 }
 
-                d->route_only = route_only;
+                if (d->route_only != route_only) {
+                        d->route_only = route_only;
+                        changed = true;
+                }
         }
 
         r = sd_bus_message_exit_container(message);

@@ -280,6 +280,16 @@ manual_testcase_01_resolvectl() {
     resolvectl domain hoge "hoge.example.com"
     assert_in 'hoge.example.com' "$(resolvectl domain hoge)"
     assert_not_in '~.' "$(resolvectl domain hoge)"
+
+    local hoge_state
+    hoge_state="/run/systemd/resolve/netif/$(cat /sys/class/net/hoge/ifindex)"
+    resolvectl domain hoge "route-only-change.example.com"
+    assert_in "DOMAINS=route-only-change.example.com" "$(cat "$hoge_state")"
+    assert_in "route-only-change.example.com" "$(cat /run/systemd/resolve/resolv.conf /run/systemd/resolve/stub-resolv.conf)"
+    resolvectl domain hoge "~route-only-change.example.com"
+    assert_in "DOMAINS=~route-only-change.example.com" "$(cat "$hoge_state")"
+    assert_not_in "route-only-change.example.com" "$(cat /run/systemd/resolve/resolv.conf /run/systemd/resolve/stub-resolv.conf)"
+
     echo -e "nameserver 10.0.2.1\ndomain test-domain.example.com" | SYSTEMD_INVOKED_AS=resolvconf resolvectl -x -a hoge
     assert_in 'test-domain.example.com' "$(resolvectl domain hoge)"
     assert_in '~.' "$(resolvectl domain hoge)"
