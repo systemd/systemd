@@ -98,14 +98,11 @@ ELAPSED=$((END_SEC-START_SEC))
 
 # Test time-limited scopes
 START_SEC=$(date -u '+%s')
-set +e
-systemd-run --scope --property=RuntimeMaxSec=3s sleep 30
-RESULT=$?
+(! systemd-run --scope --property=RuntimeMaxSec=3s sleep 30)
 END_SEC=$(date -u '+%s')
 ELAPSED=$((END_SEC-START_SEC))
 [[ "$ELAPSED" -ge 3 ]]
 [[ "$ELAPSED" -le 10 ]]
-[[ "$RESULT" -ne 0 ]]
 
 # Test transactions with cycles
 # Provides coverage for issues like https://github.com/systemd/systemd/issues/26872
@@ -121,7 +118,9 @@ EOF
 done
 systemctl daemon-reload
 for i in {0..19}; do
-    systemctl start "transaction-cycle$i.service"
+    # This intentionally fails with:
+    #   Failed to start transaction-cycle0.service: Transaction order is cyclic. See system logs for details.
+    systemctl start "transaction-cycle$i.service" || :
 done
 
 IDS_FILE="/tmp/TEST-03-JOBS-CYCLE-IDS-$RANDOM"
@@ -167,6 +166,8 @@ assert_rc 3 systemctl --quiet is-active succeeds-on-restart.target
 
 systemctl start fails-on-restart.target || :
 assert_rc 3 systemctl --quiet is-active fails-on-restart.target
+
+systemctl stop fails-on-restart.service
 
 COUNTER_FILE=/tmp/test-03-restart-counter
 export FAILURE_FLAG_FILE=/tmp/test-03-restart-failure-flag
