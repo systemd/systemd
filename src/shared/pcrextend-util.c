@@ -58,7 +58,8 @@ int pcrextend_pcr_now(unsigned pcr, const char *word, const struct iovec *secret
         if (iovec_is_set(secret))
                 sd_json_variant_sensitive(parameters);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+        /* Both the reply and the error id are borrowed from the connection, don't unref/free them. */
+        sd_json_variant *reply = NULL;
         const char *error_id = NULL;
         r = sd_varlink_call(vl, "io.systemd.PCRExtend.Extend", parameters, &reply, &error_id);
         if (r < 0)
@@ -91,7 +92,8 @@ int pcrextend_nvpcr_now(const char *nvpcr, const char *word, const char *event) 
         if (r < 0)
                 return r;
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+        /* Both the reply and the error id are borrowed from the connection, don't unref/free them. */
+        sd_json_variant *reply = NULL;
         const char *error_id = NULL;
         r = sd_varlink_callbo(
                         vl,
