@@ -137,6 +137,7 @@ static int do_attach(void) {
 
         printf("VERITY_MAP_ID=%u\n", (unsigned) obj->bss->protected_map_id_verity);
         printf("BSS_MAP_ID=%u\n", (unsigned) obj->bss->protected_map_id_bss);
+        printf("HAVE_REAL_DATA_INODE=%u\n", (unsigned) obj->rodata->have_real_data_inode);
 
         /* Print comma-separated prog and link IDs for guard tests */
         printf("PROG_IDS=\"");
