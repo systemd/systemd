@@ -301,7 +301,7 @@ static int run(int argc, char *argv[]) {
                         if (result.tries_left == UINT_MAX)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No tries left/tries done information discovered.");
 
-                        printf("+%u-%u", result.tries_left, result.tries_done);
+                        printf("+%u-%u\n", result.tries_left, result.tries_done);
                         break;
 
                 case PRINT_ALL: {
