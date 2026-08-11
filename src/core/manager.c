@@ -4297,9 +4297,9 @@ static int manager_run_environment_generators(Manager *m) {
         if (MANAGER_IS_TEST_RUN(m) && !(m->test_run_flags & MANAGER_TEST_RUN_ENV_GENERATORS))
                 return 0;
 
-        paths = env_generator_binary_paths(m->runtime_scope);
-        if (!paths)
-                return log_oom();
+        r = env_generator_binary_paths(m->runtime_scope, &paths);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize environment generator search paths: %m");
 
         if (!generator_path_any(paths))
                 return 0;
@@ -4450,9 +4450,9 @@ static int manager_run_generators(Manager *m) {
         if (MANAGER_IS_TEST_RUN(m) && !(m->test_run_flags & MANAGER_TEST_RUN_GENERATORS))
                 return 0;
 
-        paths = generator_binary_paths(m->runtime_scope);
-        if (!paths)
-                return log_oom();
+        r = generator_binary_paths(m->runtime_scope, &paths);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize generator search paths: %m");
 
         if (!generator_path_any(paths))
                 return 0;

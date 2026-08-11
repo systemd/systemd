@@ -397,6 +397,12 @@ static int patch_root_prefix_strv(char **l, const char *root_dir) {
         return 0;
 }
 
+bool path_is_valid_search_path(const char *path) {
+        return isempty(path) ||
+                (isempty(startswith(path, ":")) &&
+                 !strstr(path, "::"));
+}
+
 static int get_paths_from_environ(const char *var, char ***ret) {
         const char *e;
         int r;
@@ -410,10 +416,11 @@ static int get_paths_from_environ(const char *var, char ***ret) {
                 return 0;
         }
 
+        if (!path_is_valid_search_path(e))
+                return -EINVAL;
+
         bool append = endswith(e, ":"); /* Whether to append the normal search paths after what's obtained
                                            from envvar */
-
-        /* FIXME: empty components in other places should be rejected. */
 
         r = path_split_and_make_absolute(e, ret);
         if (r < 0)
@@ -796,7 +803,7 @@ static const char* const user_env_generator_paths[] = {
         NULL,
 };
 
-char** generator_binary_paths_internal(RuntimeScope scope, bool env_generator) {
+int generator_binary_paths_internal(RuntimeScope scope, bool env_generator, char ***ret) {
         static const struct {
                 const char *env_name;
                 const char * const *paths[_RUNTIME_SCOPE_MAX];
@@ -818,6 +825,7 @@ char** generator_binary_paths_internal(RuntimeScope scope, bool env_generator) {
         int r;
 
         assert(IN_SET(scope, RUNTIME_SCOPE_SYSTEM, RUNTIME_SCOPE_USER));
+        assert(ret);
 
         const char *env_name = ASSERT_PTR((env_generator ? environment_generator : unit_generator).env_name);
         const char * const *generator_paths = ASSERT_PTR((env_generator ? environment_generator : unit_generator).paths[scope]);
@@ -825,13 +833,14 @@ char** generator_binary_paths_internal(RuntimeScope scope, bool env_generator) {
         /* First priority is whatever has been passed to us via env vars */
         r = get_paths_from_environ(env_name, &paths);
         if (r < 0)
-                return NULL;
+                return r;
 
         if (!paths || r > 0) {
                 r = strv_extend_strv(&paths, (char* const*) generator_paths, /* filter_duplicates= */ true);
                 if (r < 0)
-                        return NULL;
+                        return r;
         }
 
-        return TAKE_PTR(paths);
+        *ret = TAKE_PTR(paths);
+        return 0;
 }
