@@ -788,30 +788,41 @@ testcase_08_resolved() {
     journalctl --sync
     journalctl -u systemd-resolved.service --cursor-file="$JOURNAL_CURSOR" --grep "Server returned error: SERVFAIL \(Censored: Nothing to see here!\)"
 
+    # Same error, forwarded through the DNS stub.
+    run dig +noall +comments +additional edns-extra-text.forwarded.test A
+    grep -qF "status: SERVFAIL" "$RUN_OUT"
+    grep -qF "EDE: 16 (Censored)" "$RUN_OUT"
+    grep -qF "Nothing to see here!" "$RUN_OUT"
+
+    # The stub should only include an EDE option when the client request included EDNS.
+    run dig +noedns +noall +comments +additional edns-extra-text.forwarded.test A
+    grep -qF "status: SERVFAIL" "$RUN_OUT"
+    (! grep -qF "EDE:" "$RUN_OUT")
+
     # SERVFAIL + EDE code 0: Other + extra text
     (! run resolvectl query edns-code-zero.forwarded.test)
     grep -qE "^edns-code-zero.forwarded.test:.+: SERVFAIL \(Other: 🐱\)" "$RUN_OUT"
-    (! run varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveHostname '{"name" : "edns-code-zero.forwarded.test"}')
+    (! run varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveHostname '{"name" : "edns-code-zero-varlink.forwarded.test"}')
     grep -qF "io.systemd.Resolve.DNSError" "$RUN_OUT"
-    grep -qF '{"rcode":2,"extendedDNSErrorCode":0,"extendedDNSErrorMessage":"🐱","queryString":"edns-code-zero.forwarded.test"}' "$RUN_OUT"
+    grep -qF '{"rcode":2,"extendedDNSErrorCode":0,"extendedDNSErrorMessage":"🐱","queryString":"edns-code-zero-varlink.forwarded.test"}' "$RUN_OUT"
     journalctl --sync
     journalctl -u systemd-resolved.service --cursor-file="$JOURNAL_CURSOR" --grep "Server returned error: SERVFAIL \(Other: 🐱\)"
 
     # SERVFAIL + invalid EDE code
     (! run resolvectl query edns-invalid-code.forwarded.test)
     grep -qE "^edns-invalid-code.forwarded.test:.+: SERVFAIL \([0-9]+\)" "$RUN_OUT"
-    (! run varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveHostname '{"name" : "edns-invalid-code.forwarded.test"}')
+    (! run varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveHostname '{"name" : "edns-invalid-code-varlink.forwarded.test"}')
     grep -qF "io.systemd.Resolve.DNSError" "$RUN_OUT"
-    grep -qE '{"rcode":2,"extendedDNSErrorCode":[0-9]+,"queryString":"edns-invalid-code.forwarded.test"}' "$RUN_OUT"
+    grep -qE '{"rcode":2,"extendedDNSErrorCode":[0-9]+,"queryString":"edns-invalid-code-varlink.forwarded.test"}' "$RUN_OUT"
     journalctl --sync
     journalctl -u systemd-resolved.service --cursor-file="$JOURNAL_CURSOR" --grep "Server returned error: SERVFAIL \(\d+\)"
 
     # SERVFAIL + invalid EDE code + extra text
     (! run resolvectl query edns-invalid-code-with-extra-text.forwarded.test)
     grep -qE '^edns-invalid-code-with-extra-text.forwarded.test:.+: SERVFAIL \([0-9]+: Hello \[#\]\$%~ World\)' "$RUN_OUT"
-    (! run varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveHostname '{"name" : "edns-invalid-code-with-extra-text.forwarded.test"}')
+    (! run varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveHostname '{"name" : "edns-invalid-code-with-extra-text-varlink.forwarded.test"}')
     grep -qF "io.systemd.Resolve.DNSError" "$RUN_OUT"
-    grep -qE '{"rcode":2,"extendedDNSErrorCode":[0-9]+,"extendedDNSErrorMessage":"Hello \[#\]\$%~ World","queryString":"edns-invalid-code-with-extra-text.forwarded.test"}' "$RUN_OUT"
+    grep -qE '{"rcode":2,"extendedDNSErrorCode":[0-9]+,"extendedDNSErrorMessage":"Hello \[#\]\$%~ World","queryString":"edns-invalid-code-with-extra-text-varlink.forwarded.test"}' "$RUN_OUT"
     journalctl --sync
     journalctl -u systemd-resolved.service --cursor-file="$JOURNAL_CURSOR" --grep "Server returned error: SERVFAIL \(\d+: Hello \[\#\]\\$%~ World\)"
 }
