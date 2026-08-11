@@ -685,7 +685,7 @@ int dns_server_adjust_opt(DnsServer *server, DnsPacket *packet, DnsServerFeature
 
         log_debug("Announcing packet size %zu in egress EDNS(0) packet.", packet_size);
 
-        return dns_packet_append_opt(packet, packet_size, edns_do, /* include_rfc6975= */ true, NULL, 0, NULL);
+        return dns_packet_append_opt(packet, packet_size, edns_do, /* include_rfc6975= */ true, /* nsid= */ NULL, 0, _DNS_EDE_RCODE_INVALID, /* ede_msg= */ NULL, /* ret_start= */ NULL);
 }
 
 int dns_server_ifindex(const DnsServer *s) {
