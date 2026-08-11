@@ -157,8 +157,11 @@ int verify_set_unit_path(char **filenames) {
          * otherwise use the defaults. Any duplicates will be filtered out in path-lookup.c.
          * Treat explicit empty path to mean that nothing should be appended. */
         old = getenv("SYSTEMD_UNIT_PATH");
+        if (!path_is_valid_search_path(old))
+                return -EINVAL;
+
         if (!streq_ptr(old, "") &&
-            !strextend_with_separator(&joined, ":", strempty(old)))
+            !strextend_with_separator(&joined, ":", streq_ptr(old, ":") ? "" : strempty(old)))
                 return -ENOMEM;
 
         assert_se(setenv_unit_path(joined) >= 0);
