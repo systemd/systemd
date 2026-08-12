@@ -351,6 +351,25 @@ static int mount_flags_by_path(FILE *proc_self_mountinfo, const char *path, unsi
 
 #endif /* HAVE_LIBMOUNT */
 
+FILE* mount_open_proc_self_mountinfo(void) {
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        /* Opens /proc/self/mountinfo for the mount table functions in this file. Returns NULL if it
+         * cannot be opened, which is not fatal on its own: those functions enumerate through
+         * listmount()/statmount() where that is available, and only their fallback reads the file.
+         * Callers pin it early because /proc can be masked or unmounted by the very operation they
+         * are about to perform. */
+
+        r = fopen_unlocked("/proc/self/mountinfo", "re", &f);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to open /proc/self/mountinfo, relying on listmount(): %m");
+                return NULL;
+        }
+
+        return TAKE_PTR(f);
+}
+
 int umount_recursive_full(const char *prefix, int flags, char **keep) {
 #if HAVE_LIBMOUNT
         _cleanup_fclose_ FILE *f = NULL;
@@ -359,9 +378,7 @@ int umount_recursive_full(const char *prefix, int flags, char **keep) {
         /* Try to umount everything recursively below a directory. Also, take care of stacked mounts, and
          * keep unmounting them until they are gone. */
 
-        f = fopen("/proc/self/mountinfo", "re"); /* Pin the file, in case we unmount /proc/ as part of the logic here */
-        if (!f)
-                return log_debug_errno(errno, "Failed to open %s: %m", "/proc/self/mountinfo");
+        f = mount_open_proc_self_mountinfo(); /* Pin the file, in case we unmount /proc/ as part of the logic here */
 
         for (;;) {
                 _cleanup_(mount_snapshot_done) MountSnapshot snapshot = {};
@@ -517,10 +534,7 @@ int bind_remount_recursive_with_mountinfo(
         int r;
 
         if (!proc_self_mountinfo) {
-                r = fopen_unlocked("/proc/self/mountinfo", "re", &proc_self_mountinfo_opened);
-                if (r < 0)
-                        return r;
-
+                proc_self_mountinfo_opened = mount_open_proc_self_mountinfo();
                 proc_self_mountinfo = proc_self_mountinfo_opened;
         }
 
@@ -720,7 +734,6 @@ int bind_remount_one_with_mountinfo(
                 FILE *proc_self_mountinfo) {
 
         assert(path);
-        assert(proc_self_mountinfo);
 
         if ((flags_mask & ~MS_CONVERTIBLE_FLAGS) == 0 && !skip_mount_set_attr) {
                 /* Let's take a shortcut for all the flags we know how to convert into mount_setattr() flags */
@@ -768,9 +781,7 @@ int bind_remount_one_with_mountinfo(
 int bind_remount_one(const char *path, unsigned long new_flags, unsigned long flags_mask) {
         _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
 
-        proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
-        if (!proc_self_mountinfo)
-                return log_debug_errno(errno, "Failed to open %s: %m", "/proc/self/mountinfo");
+        proc_self_mountinfo = mount_open_proc_self_mountinfo();
 
         return bind_remount_one_with_mountinfo(path, new_flags, flags_mask, proc_self_mountinfo);
 }
