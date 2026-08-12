@@ -27,6 +27,10 @@ static inline int bind_remount_recursive(const char *prefix, unsigned long new_f
         return bind_remount_recursive_with_mountinfo(prefix, new_flags, flags_mask, deny_list, NULL);
 }
 
+/* Orders a mount point before any of its ancestors, which is the order umount_recursive_full()
+ * unmounts in. Exposed so the test suite can check that ordering directly. */
+int mount_path_compare_deepest_first(const char *a, const char *b);
+
 int bind_remount_one_with_mountinfo(const char *path, unsigned long new_flags, unsigned long flags_mask, FILE *proc_self_mountinfo);
 int bind_remount_one(const char *path, unsigned long new_flags, unsigned long flags_mask);
 
