@@ -302,7 +302,7 @@ _public_ int sd_varlink_connect_exec(sd_varlink **ret, const char *_command, cha
 
         server_fd = safe_close(server_fd);
 
-        sd_varlink *v;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *v = NULL;
         r = varlink_new(&v);
         if (r < 0)
                 return log_debug_errno(r, "Failed to create varlink object: %m");
@@ -315,7 +315,7 @@ _public_ int sd_varlink_connect_exec(sd_varlink **ret, const char *_command, cha
         v->exec_pidref = TAKE_PIDREF(pidref);
         varlink_set_state(v, VARLINK_IDLE_CLIENT);
 
-        *ret = v;
+        *ret = TAKE_PTR(v);
         return 0;
 }
 
@@ -390,7 +390,7 @@ static int varlink_connect_ssh_unix(sd_varlink **ret, const char *where) {
 
         server_fd = safe_close(server_fd);
 
-        sd_varlink *v;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *v = NULL;
         r = varlink_new(&v);
         if (r < 0)
                 return log_debug_errno(r, "Failed to create varlink object: %m");
@@ -403,7 +403,7 @@ static int varlink_connect_ssh_unix(sd_varlink **ret, const char *where) {
         v->exec_pidref = TAKE_PIDREF(pidref);
         varlink_set_state(v, VARLINK_IDLE_CLIENT);
 
-        *ret = v;
+        *ret = TAKE_PTR(v);
         return 0;
 }
 
@@ -485,7 +485,7 @@ static int varlink_connect_ssh_exec(sd_varlink **ret, const char *where) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to make output pipe non-blocking: %m");
 
-        sd_varlink *v;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *v = NULL;
         r = varlink_new(&v);
         if (r < 0)
                 return log_debug_errno(r, "Failed to create varlink object: %m");
@@ -497,7 +497,7 @@ static int varlink_connect_ssh_exec(sd_varlink **ret, const char *where) {
         v->exec_pidref = TAKE_PIDREF(pidref);
         varlink_set_state(v, VARLINK_IDLE_CLIENT);
 
-        *ret = v;
+        *ret = TAKE_PTR(v);
         return 0;
 }
 
