@@ -220,6 +220,12 @@ int json_stream_attach_fds(JsonStream *s, int input_fd, int output_fd) {
         struct stat st;
 
         assert(s);
+        assert(input_fd >= 0);
+        assert(input_fd != s->input_fd);
+        assert(input_fd != s->output_fd);
+        assert(output_fd >= 0);
+        assert(output_fd != s->input_fd);
+        assert(output_fd != s->output_fd);
 
         /* NB: input_fd and output_fd are donated to the JsonStream instance! */
 
