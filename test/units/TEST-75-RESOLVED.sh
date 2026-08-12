@@ -1493,7 +1493,7 @@ testcase_delegate() {
     mkdir -p /run/systemd/dns-delegate.d/
     cat >/run/systemd/dns-delegate.d/testcase.dns-delegate <<EOF
 [Delegate]
-DNS=192.168.77.78
+DNS=192.168.77.78 192.168.77.78 192.168.77.79
 Domains=exercise.test
 FirewallMark=42
 EOF
@@ -1501,6 +1501,7 @@ EOF
     resolvectl status
 
     assert_eq "$(resolvectl --json=short | jq -rc '.[] | select(.delegate == "testcase") | .servers | .[0].addressString')" '192.168.77.78'
+    assert_eq "$(resolvectl --json=short | jq -rc '.[] | select(.delegate == "testcase") | .servers | .[1].addressString')" '192.168.77.79'
     assert_eq "$(resolvectl --json=short | jq -rc '.[] | select(.delegate == "testcase") | .searchDomains | .[0].name')" 'exercise.test'
 
     # Now that we installed the delegation the resolution should fail, because nothing is listening on that IP address
