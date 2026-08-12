@@ -287,7 +287,7 @@ int fstab_filter_options(
                         }
 
                         if (found) {
-                                _cleanup_free_ char *unescaped = NULL;
+                                char *unescaped = NULL;
 
                                 if ((ret_value && *x == '=') || ret_values) {
                                         unescaped = fstab_unescape_option(x + 1);
@@ -299,6 +299,7 @@ int fstab_filter_options(
                                         r = free_and_strdup(&value, unescaped);
                                 else if (ret_values) {
                                         r = strv_extend(&values, unescaped);
+                                        unescaped = mfree(unescaped);
                                 } else
                                         r = 0;
                         } else
