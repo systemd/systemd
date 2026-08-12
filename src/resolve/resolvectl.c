@@ -1161,6 +1161,9 @@ static int verb_tlsa(int argc, char *argv[], uintptr_t _data, void *userdata) {
         } else
                 args = strv_skip(argv, 1);
 
+        if (strv_isempty(args))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The tlsa command requires at least one domain.");
+
         STRV_FOREACH(p, args)
                 RET_GATHER(ret, resolve_tlsa(family, *p));
 
