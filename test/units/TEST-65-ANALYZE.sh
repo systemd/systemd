@@ -18,6 +18,7 @@ systemd-analyze time || :
 systemd-analyze critical-chain || :
 # blame
 systemd-analyze blame
+systemd-analyze blame --json=pretty
 systemd-run --wait --user --pipe -M testuser@.host systemd-analyze blame --no-pager
 (! systemd-analyze blame --global)
 # plot
@@ -1139,6 +1140,8 @@ systemd-analyze security --instance=tmp systemd-growfs@.service
 systemd-analyze has-tpm2 ||:
 if systemd-analyze has-tpm2 -q ; then
     echo "have tpm2"
+    systemd-analyze identify-tpm2
+    systemd-analyze identify-tpm2 --json=pretty
 else
     echo "have no tpm2"
 fi
