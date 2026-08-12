@@ -3380,6 +3380,7 @@ static int count_connection(sd_varlink_server *server, const struct ucred *ucred
         return 0;
 }
 
+
 _public_ int sd_varlink_server_add_connection_pair(
                 sd_varlink_server *server,
                 int input_fd,
@@ -3433,9 +3434,16 @@ _public_ int sd_varlink_server_add_connection_pair(
         v->server = sd_varlink_server_ref(server);
         sd_varlink_ref(v);
 
+        if (ucred_acquired)
+                json_stream_set_peer_ucred(&v->stream, &ucred);
+
         r = json_stream_attach_fds(&v->stream, input_fd, output_fd);
-        if (r < 0)
+        if (r < 0) {
+                TAKE_FD(v->stream.input_fd);
+                TAKE_FD(v->stream.output_fd);
+                sd_varlink_close(v);
                 return r;
+        }
 
         if (server->flags & SD_VARLINK_SERVER_INHERIT_USERDATA)
                 v->userdata = server->userdata;
@@ -3444,9 +3452,6 @@ _public_ int sd_varlink_server_add_connection_pair(
          * byte-bounded reads so we don't accidentally consume post-upgrade bytes. */
         if (FLAGS_SET(server->flags, SD_VARLINK_SERVER_UPGRADABLE))
                 json_stream_set_flags(&v->stream, JSON_STREAM_BOUNDED_READS, true);
-
-        if (ucred_acquired)
-                json_stream_set_peer_ucred(&v->stream, &ucred);
 
         _cleanup_free_ char *desc = NULL;
         if (asprintf(&desc, "%s-%i-%i", varlink_server_description(server), input_fd, output_fd) >= 0)
