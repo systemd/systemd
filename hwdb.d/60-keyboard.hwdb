@@ -2445,7 +2445,7 @@ evdev:name:AT Translated Set 2 keyboard:dmi:bvn*bvr*:svnMultilaserIndustrial:pn*
 # PATEN/Labtec
 ###########################################################
 # Labtec USB Number Pad for Notebooks (y-UE70)
-evdev:input:b0003v00001020p00000501*
+evdev:input:b0003v1020p0501*
  KEYBOARD_KEY_c004f=numlock                             # Numlock key
  KEYBOARD_LED_NUMLOCK=0
 
