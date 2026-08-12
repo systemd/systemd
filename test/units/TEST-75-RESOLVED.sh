@@ -290,6 +290,21 @@ manual_testcase_01_resolvectl() {
     assert_in "DOMAINS=~route-only-change.example.com" "$(cat "$hoge_state")"
     assert_not_in "route-only-change.example.com" "$(cat /run/systemd/resolve/resolv.conf /run/systemd/resolve/stub-resolv.conf)"
 
+    resolvectl domain hoge "old.example.com"
+    local domains=()
+    for i in {1..1025}; do
+        domains+=("too-many-$i.example.com")
+    done
+    (! resolvectl domain hoge "${domains[@]}")
+    assert_in 'old.example.com' "$(resolvectl domain hoge)"
+
+    domains=()
+    for i in {1..1024}; do
+        domains+=("replacement-$i.example.com")
+    done
+    resolvectl domain hoge "${domains[@]}"
+    assert_not_in 'old.example.com' "$(resolvectl domain hoge)"
+    assert_in 'replacement-1024.example.com' "$(resolvectl domain hoge)"
     echo -e "nameserver 10.0.2.1\ndomain test-domain.example.com" | SYSTEMD_INVOKED_AS=resolvconf resolvectl -x -a hoge
     assert_in 'test-domain.example.com' "$(resolvectl domain hoge)"
     assert_in '~.' "$(resolvectl domain hoge)"
