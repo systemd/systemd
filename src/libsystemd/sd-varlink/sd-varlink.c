@@ -1622,7 +1622,7 @@ _public_ int sd_varlink_flush(sd_varlink *v) {
         return json_stream_flush(&v->stream);
 }
 
-static void varlink_detach_server(sd_varlink *v) {
+static void varlink_detach_server(sd_varlink *v, bool connected) {
         sd_varlink_server *saved_server;
 
         assert(v);
@@ -1657,7 +1657,7 @@ static void varlink_detach_server(sd_varlink *v) {
 
         saved_server = TAKE_PTR(v->server);
 
-        if (saved_server->disconnect_callback)
+        if (saved_server->disconnect_callback && connected)
                 saved_server->disconnect_callback(saved_server, v, saved_server->userdata);
 
         varlink_server_test_exit_on_idle(saved_server);
@@ -1671,12 +1671,14 @@ _public_ int sd_varlink_close(sd_varlink *v) {
         if (v->state == VARLINK_DISCONNECTED)
                 return 0;
 
+        bool connected = v->state >= 0;
+
         varlink_set_state(v, VARLINK_DISCONNECTED);
 
         /* Let's take a reference first, since varlink_detach_server() might drop the final (dangling) ref
          * which would destroy us before we can call varlink_clear() */
         sd_varlink_ref(v);
-        varlink_detach_server(v);
+        varlink_detach_server(v, connected);
         varlink_clear(v);
         sd_varlink_unref(v);
 
@@ -3273,8 +3275,6 @@ _public_ int sd_varlink_server_add_connection_pair(
         (void) sd_varlink_set_allow_fd_passing_input(v, FLAGS_SET(server->flags, SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT));
         (void) sd_varlink_set_allow_fd_passing_output(v, FLAGS_SET(server->flags, SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT));
 
-        varlink_set_state(v, VARLINK_IDLE_SERVER);
-
         if (server->event) {
                 r = sd_varlink_attach_event(v, server->event, server->event_priority);
                 if (r < 0) {
@@ -3289,6 +3289,8 @@ _public_ int sd_varlink_server_add_connection_pair(
                         return r;
                 }
         }
+
+        varlink_set_state(v, VARLINK_IDLE_SERVER);
 
         if (ret)
                 *ret = v;
