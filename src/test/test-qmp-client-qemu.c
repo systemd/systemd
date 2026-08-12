@@ -123,12 +123,11 @@ TEST(qmp_client_qemu_handshake_and_schema) {
         ASSERT_OK(start_qemu(qemu, qmp_fds[1], &pidref));
         qmp_fds[1] = safe_close(qmp_fds[1]);
 
-        r = qmp_client_connect_fd(&client, qmp_fds[0]);
+        r = qmp_client_connect_fd(&client, TAKE_FD(qmp_fds[0]));
         if (r < 0) {
                 log_tests_skipped_errno(r, "QMP connect failed (QEMU may not support -machine none)");
                 return;
         }
-        TAKE_FD(qmp_fds[0]);
 
         ASSERT_OK(qmp_client_attach_event(client, event, SD_EVENT_PRIORITY_NORMAL));
 
@@ -187,12 +186,11 @@ TEST(qmp_client_qemu_query_status) {
         ASSERT_OK(start_qemu(qemu, qmp_fds[1], &pidref));
         qmp_fds[1] = safe_close(qmp_fds[1]);
 
-        r = qmp_client_connect_fd(&client, qmp_fds[0]);
+        r = qmp_client_connect_fd(&client, TAKE_FD(qmp_fds[0]));
         if (r < 0) {
                 log_tests_skipped_errno(r, "QMP connect failed");
                 return;
         }
-        TAKE_FD(qmp_fds[0]);
 
         ASSERT_OK(qmp_client_attach_event(client, event, SD_EVENT_PRIORITY_NORMAL));
 
@@ -277,12 +275,11 @@ TEST(qmp_client_qemu_add_fd) {
         ASSERT_OK(start_qemu(qemu, qmp_fds[1], &pidref));
         qmp_fds[1] = safe_close(qmp_fds[1]);
 
-        r = qmp_client_connect_fd(&client, qmp_fds[0]);
+        r = qmp_client_connect_fd(&client, TAKE_FD(qmp_fds[0]));
         if (r < 0) {
                 log_tests_skipped_errno(r, "QMP connect failed");
                 return;
         }
-        TAKE_FD(qmp_fds[0]);
 
         ASSERT_OK(qmp_client_attach_event(client, event, SD_EVENT_PRIORITY_NORMAL));
 

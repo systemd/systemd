@@ -307,10 +307,11 @@ _public_ int sd_varlink_connect_exec(sd_varlink **ret, const char *_command, cha
         if (r < 0)
                 return log_debug_errno(r, "Failed to create varlink object: %m");
 
-        int conn_fd = TAKE_FD(client_fd);
-        r = json_stream_attach_fds(&v->stream, conn_fd, conn_fd);
+        r = json_stream_attach_fds(&v->stream, client_fd, client_fd);
         if (r < 0)
                 return r;
+
+        TAKE_FD(client_fd);
 
         v->exec_pidref = TAKE_PIDREF(pidref);
         varlink_set_state(v, VARLINK_IDLE_CLIENT);
@@ -395,10 +396,11 @@ static int varlink_connect_ssh_unix(sd_varlink **ret, const char *where) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to create varlink object: %m");
 
-        int conn_fd = TAKE_FD(client_fd);
-        r = json_stream_attach_fds(&v->stream, conn_fd, conn_fd);
+        r = json_stream_attach_fds(&v->stream, client_fd, client_fd);
         if (r < 0)
                 return r;
+
+        TAKE_FD(client_fd);
 
         v->exec_pidref = TAKE_PIDREF(pidref);
         varlink_set_state(v, VARLINK_IDLE_CLIENT);
@@ -490,9 +492,12 @@ static int varlink_connect_ssh_exec(sd_varlink **ret, const char *where) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to create varlink object: %m");
 
-        r = json_stream_attach_fds(&v->stream, TAKE_FD(output_pipe[0]), TAKE_FD(input_pipe[1]));
+        r = json_stream_attach_fds(&v->stream, output_pipe[0], input_pipe[1]);
         if (r < 0)
                 return r;
+
+        TAKE_FD(output_pipe[0]);
+        TAKE_FD(input_pipe[1]);
 
         v->exec_pidref = TAKE_PIDREF(pidref);
         varlink_set_state(v, VARLINK_IDLE_CLIENT);

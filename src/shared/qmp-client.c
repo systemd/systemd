@@ -655,10 +655,12 @@ static int qmp_client_capabilities_reply(
 
 int qmp_client_connect_fd(QmpClient **ret, int fd) {
         _cleanup_(qmp_client_unrefp) QmpClient *c = NULL;
+        _cleanup_close_ int fd_close = ASSERT_FD(TAKE_FD(fd));
         int r;
 
         assert(ret);
-        assert(fd >= 0);
+
+        /* This function always takes ownership of the passed fd. */
 
         c = new(QmpClient, 1);
         if (!c)
@@ -681,9 +683,11 @@ int qmp_client_connect_fd(QmpClient **ret, int fd) {
         if (r < 0)
                 return r;
 
-        r = json_stream_connect_fd_pair(&c->stream, fd, fd);
+        r = json_stream_connect_fd_pair(&c->stream, fd_close, fd_close);
         if (r < 0)
                 return r;
+
+        TAKE_FD(fd_close);
 
         /* Eagerly queue qmp_capabilities. QEMU accepts commands as soon as the socket opens
          * — its greeting is informational and doesn't gate writes on our side. FIFO ordering
