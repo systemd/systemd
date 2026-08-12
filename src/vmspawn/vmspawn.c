@@ -3865,11 +3865,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         /* Connect to VMM backend */
         _cleanup_(vmspawn_qmp_bridge_freep) VmspawnQmpBridge *bridge = NULL;
-        r = vmspawn_qmp_init(&bridge, bridge_fds[0], event);
+        r = vmspawn_qmp_init(&bridge, TAKE_FD(bridge_fds[0]), event);
         if (r < 0)
                 return r;
-
-        TAKE_FD(bridge_fds[0]);
 
         /* Probe QEMU feature availability synchronously before device setup consumes the flags. */
         r = vmspawn_qmp_probe_features(bridge);
