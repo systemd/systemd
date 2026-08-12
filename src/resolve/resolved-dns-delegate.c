@@ -281,7 +281,7 @@ int config_parse_delegate_dns_servers(
                         /* Drop the marker. This is used to find the servers that ceased to exist, see
                          * manager_mark_dns_servers() and manager_flush_marked_dns_servers(). */
                         dns_server_move_back_and_unmark(s);
-                        return 0;
+                        continue;
                 }
 
                 r = dns_server_new(
