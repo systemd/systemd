@@ -22,6 +22,7 @@
 #include "resolved-dns-server.h"
 #include "resolved-dns-stream.h"
 #include "resolved-dns-transaction.h"
+#include "resolved-doh.h"
 #include "resolved-dnstls.h"
 #include "resolved-link.h"
 #include "resolved-llmnr.h"
@@ -33,6 +34,16 @@
 #include "string-util.h"
 
 #define TRANSACTIONS_MAX 4096
+
+static bool dns_transaction_has_doh_request(const DnsTransaction *t) {
+        assert(t);
+
+#if HAVE_LIBCURL_HEADER && HAVE_LIBCURL_URL
+        return t->doh_request;
+#else
+        return false;
+#endif
+}
 
 static void dns_transaction_reset_answer(DnsTransaction *t) {
         assert(t);
@@ -70,6 +81,10 @@ static void dns_transaction_close_connection(
         int r;
 
         assert(t);
+
+#if HAVE_LIBCURL_HEADER && HAVE_LIBCURL_URL
+        t->doh_request = dns_http_request_free(t->doh_request);
+#endif
 
         if (t->stream) {
                 /* Let's detach the stream from our transaction, in case something else keeps a reference to it. */
@@ -306,8 +321,9 @@ int dns_transaction_new(
                 .key = dns_resource_key_ref(key),
                 .query_flags = query_flags,
                 .bypass = dns_packet_ref(bypass),
-                .current_feature_level = _DNS_SERVER_FEATURE_LEVEL_INVALID,
-                .clamp_feature_level_servfail = _DNS_SERVER_FEATURE_LEVEL_INVALID,
+                .current_transport = _DNS_SERVER_TRANSPORT_INVALID,
+                .current_capability_level = _DNS_SERVER_CAPABILITY_LEVEL_INVALID,
+                .clamp_capability_level_servfail = _DNS_SERVER_CAPABILITY_LEVEL_INVALID,
                 .id = pick_new_id(s->manager),
         };
 
@@ -424,7 +440,7 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
                            LOG_ITEM("DNS_QUESTION=%s", key_str),
                            LOG_ITEM("DNSSEC_RESULT=%s", dnssec_result_to_string(t->answer_dnssec_result)),
                            LOG_ITEM("DNS_SERVER=%s", strna(dns_server_string_full(t->server))),
-                           LOG_ITEM("DNS_SERVER_FEATURE_LEVEL=%s", dns_server_feature_level_to_string(t->server->possible_feature_level)));
+                           LOG_ITEM("DNS_SERVER_TRANSPORT=%s", strna(dns_server_transport_to_string(t->server->possible_transport))));
         }
 
         /* Note that this call might invalidate the query. Callers
@@ -485,25 +501,26 @@ static int dns_transaction_pick_server(DnsTransaction *t) {
         assert(t);
         assert(t->scope->protocol == DNS_PROTOCOL_DNS);
 
-        /* Pick a DNS server and a feature level for it. */
+        /* Pick a DNS server, transport, and DNS message capabilities to use with it. */
 
         server = dns_scope_get_dns_server(t->scope);
         if (!server)
                 return -ESRCH;
 
-        /* If we changed the server invalidate the feature level clamping, as the new server might have completely
-         * different properties. */
+        /* If we changed the server invalidate capability clamping, as the new server might have completely different
+         * properties. */
         if (server != t->server)
-                t->clamp_feature_level_servfail = _DNS_SERVER_FEATURE_LEVEL_INVALID;
+                t->clamp_capability_level_servfail = _DNS_SERVER_CAPABILITY_LEVEL_INVALID;
 
-        t->current_feature_level = dns_server_possible_feature_level(server);
+        t->current_capability_level = dns_server_possible_capability_level(server);
+        t->current_transport = dns_server_is_doh(server) ? _DNS_SERVER_TRANSPORT_INVALID : dns_server_possible_transport(server);
 
-        /* Clamp the feature level if that is requested. */
-        if (t->clamp_feature_level_servfail != _DNS_SERVER_FEATURE_LEVEL_INVALID &&
-            t->current_feature_level > t->clamp_feature_level_servfail)
-                t->current_feature_level = t->clamp_feature_level_servfail;
+        if (t->clamp_capability_level_servfail != _DNS_SERVER_CAPABILITY_LEVEL_INVALID &&
+            t->current_capability_level > t->clamp_capability_level_servfail)
+                t->current_capability_level = t->clamp_capability_level_servfail;
 
-        log_debug("Using feature level %s for transaction %u.", dns_server_feature_level_to_string(t->current_feature_level), t->id);
+        log_debug("Using DNS transport %s for transaction %u.", strna(dns_server_transport_to_string(t->current_transport)), t->id);
+        log_debug("Using DNS message capability level %s for transaction %u.", dns_server_capability_level_to_string(t->current_capability_level), t->id);
 
         if (server == t->server)
                 return 0;
@@ -551,27 +568,51 @@ static bool dns_transaction_limited_retry(DnsTransaction *t) {
         return true;
 }
 
+#if HAVE_LIBCURL_HEADER && HAVE_LIBCURL_URL
+static bool dns_transaction_retry_doh_failure(DnsTransaction *t, DnsOverHttpsFailureAction failure_action) {
+        assert(t);
+        assert(dns_server_is_doh(t->server));
+        assert(IN_SET(failure_action, DNS_OVER_HTTPS_FAILURE_RETRY_SAME_SERVER, DNS_OVER_HTTPS_FAILURE_RETRY_NEXT_SERVER));
+
+        if (failure_action == DNS_OVER_HTTPS_FAILURE_RETRY_SAME_SERVER) {
+                if (!t->doh_same_server_retry_used) {
+                        t->doh_same_server_retry_used = true;
+                        t->doh_fresh_connect_next = true;
+                        log_debug("Retrying DNS-over-HTTPS transaction %" PRIu16 " once on the same server with a fresh connection.", t->id);
+                        dns_transaction_retry(t, /* next_server= */ false);
+                        return true;
+                }
+
+                log_debug("Same-server DNS-over-HTTPS retry already used for transaction %" PRIu16 ".", t->id);
+        } else
+                assert(failure_action == DNS_OVER_HTTPS_FAILURE_RETRY_NEXT_SERVER);
+
+        return dns_transaction_limited_retry(t);
+}
+#endif
+
 static int dns_transaction_maybe_restart(DnsTransaction *t) {
         int r;
 
         assert(t);
 
-        /* Restarts the transaction, under a new ID if the feature level of the server changed since we first
-         * tried, without changing DNS server. Returns > 0 if the transaction was restarted, 0 if not. */
+        /* Restart under a new ID if the selected transport or DNS message capabilities changed while waiting for the
+         * response. Returns > 0 if the transaction was restarted. */
 
         if (!t->server)
                 return 0;
 
-        if (t->current_feature_level <= dns_server_possible_feature_level(t->server))
+        if (t->current_capability_level <= dns_server_possible_capability_level(t->server) &&
+            (dns_server_is_doh(t->server) || t->current_transport <= dns_server_possible_transport(t->server)))
                 return 0;
 
-        /* The server's current feature level is lower than when we sent the original query. We learnt something from
-           the response or possibly an auxiliary DNSSEC response that we didn't know before.  We take that as reason to
-           restart the whole transaction. This is a good idea to deal with servers that respond rubbish if we include
-           OPT RR or DO bit. One of these cases is documented here, for example:
-           https://open.nlnetlabs.nl/pipermail/dnssec-trigger/2014-November/000376.html */
+        /* The server's current transport or DNS message capabilities are lower than when we sent the original query.
+         * We learnt something from the response or possibly an auxiliary DNSSEC response that we didn't know before.
+         * Restart the transaction to handle servers that respond with rubbish when we include OPT RR or the DO bit.
+         * One of these cases is documented here, for example:
+         * https://open.nlnetlabs.nl/pipermail/dnssec-trigger/2014-November/000376.html */
 
-        log_debug("Server feature level is now lower than when we began our transaction. Restarting with new ID.");
+        log_debug("Server transport or DNS message capabilities are now lower than when we began our transaction. Restarting with new ID.");
         dns_transaction_shuffle_id(t);
 
         r = dns_transaction_go(t);
@@ -601,14 +642,17 @@ static void on_transaction_stream_error(DnsTransaction *t, int error) {
                 dns_transaction_complete_errno(t, error);
 }
 
+static DnsTransactionTransport dns_stream_transport(const DnsStream *s) {
+        assert(s);
+
+        return s->encrypted ? DNS_TRANSACTION_TRANSPORT_TLS : DNS_TRANSACTION_TRANSPORT_TCP;
+}
+
 static int dns_transaction_on_stream_packet(DnsTransaction *t, DnsStream *s, DnsPacket *p) {
-        bool encrypted;
 
         assert(t);
         assert(s);
         assert(p);
-
-        encrypted = s->encrypted;
 
         dns_transaction_close_connection(t, true);
 
@@ -621,12 +665,11 @@ static int dns_transaction_on_stream_packet(DnsTransaction *t, DnsStream *s, Dns
         dns_scope_check_conflicts(t->scope, p);
 
         t->block_gc++;
-        dns_transaction_process_reply(t, p, encrypted);
+        dns_transaction_process_reply(t, p, dns_stream_transport(s));
         t->block_gc--;
 
-        /* If the response wasn't useful, then complete the transition
-         * now. After all, we are the worst feature set now with TCP
-         * sockets, and there's really no point in retrying. */
+        /* If the response wasn't useful, then complete the transaction now. After a TCP reply, there is no useful
+         * transport fallback left. */
         if (t->state == DNS_TRANSACTION_PENDING)
                 dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
         else
@@ -645,7 +688,7 @@ static int on_stream_complete(DnsStream *s, int error) {
                         DnsTransaction *t;
 
                         t = s->transactions;
-                        dns_server_packet_lost(t->server, IPPROTO_TCP, t->current_feature_level);
+                        dns_server_packet_lost(t->server, dns_stream_transport(s), t->current_transport);
                 }
         }
 
@@ -690,7 +733,7 @@ static uint16_t dns_transaction_port(DnsTransaction *t) {
         if (t->server->port > 0)
                 return t->server->port;
 
-        return DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level) ? 853 : 53;
+        return t->current_transport == DNS_SERVER_TRANSPORT_TLS ? 853 : 53;
 }
 
 static int dns_transaction_emit_tcp(DnsTransaction *t) {
@@ -709,9 +752,8 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
         switch (t->scope->protocol) {
 
         case DNS_PROTOCOL_DNS:
-                r = dns_transaction_pick_server(t);
-                if (r < 0)
-                        return r;
+                assert(t->server);
+                assert(!dns_server_is_doh(t->server));
 
                 if (manager_server_is_stub(t->scope->manager, t->server))
                         return -ELOOP;
@@ -720,12 +762,12 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                         if (!dns_server_dnssec_supported(t->server) && dns_type_is_dnssec(dns_transaction_key(t)->type))
                                 return -EOPNOTSUPP;
 
-                        r = dns_server_adjust_opt(t->server, t->sent, t->current_feature_level);
+                        r = dns_server_adjust_opt(t->server, t->sent, t->current_capability_level);
                         if (r < 0)
                                 return r;
                 }
 
-                if (t->server->stream && (DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level) == t->server->stream->encrypted))
+                if (t->server->stream && ((t->current_transport == DNS_SERVER_TRANSPORT_TLS) == t->server->stream->encrypted))
                         s = dns_stream_ref(t->server->stream);
                 else
                         fd = dns_scope_socket_tcp(t->scope, AF_UNSPEC, NULL, t->server, dns_transaction_port(t), &sa);
@@ -734,7 +776,7 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                  * without ICMP response overly long delays when contacting DoT servers are nasty, in
                  * particular if multiple DNS servers are defined which we try in turn and all are
                  * blocked. Hence, substantially lower the timeout in that case. */
-                if (DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level) &&
+                if (t->current_transport == DNS_SERVER_TRANSPORT_TLS &&
                     dns_server_get_dns_over_tls_mode(t->server) == DNS_OVER_TLS_OPPORTUNISTIC)
                         stream_timeout_usec = DNS_STREAM_OPPORTUNISTIC_TLS_TIMEOUT_USEC;
 
@@ -784,20 +826,18 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
 
 #if ENABLE_DNS_OVER_TLS
                 if (t->scope->protocol == DNS_PROTOCOL_DNS &&
-                    DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level)) {
-
-                        assert(t->server);
+                    t->current_transport == DNS_SERVER_TRANSPORT_TLS) {
                         r = dnstls_stream_connect_tls(s, t->server);
                         if (r < 0) {
                                 /* If libcrypto is not available treat this like a TLS connection loss, so
                                  * that opportunistic DNS-over-TLS downgrades to plaintext instead of
-                                 * re-selecting a TLS feature level and failing on every attempt. */
+                                 * re-selecting a TLS transport and failing on every attempt. */
                                 if (r == -EOPNOTSUPP) {
                                         log_struct_once(LOG_WARNING,
                                                         LOG_MESSAGE_ID(SD_MESSAGE_MISSING_DEPENDENCY_STR),
                                                         LOG_ITEM("FEATURE=DNS-over-TLS"),
                                                         LOG_MESSAGE("DNS-over-TLS has been requested but the required TLS libraries (libssl/libcrypto) are not installed."));
-                                        dns_server_packet_lost(t->server, IPPROTO_TCP, t->current_feature_level);
+                                        dns_server_packet_lost(t->server, DNS_TRANSACTION_TRANSPORT_TLS, t->current_transport);
                                         return -ECONNREFUSED;
                                 }
                                 return r;
@@ -832,6 +872,75 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
 
         return 0;
 }
+
+static int dns_transaction_emit_doh(DnsTransaction *t) {
+#if HAVE_LIBCURL_HEADER && HAVE_LIBCURL_URL
+        _cleanup_(dns_http_request_freep) DnsHttpRequest *request = NULL;
+        bool fresh_connection;
+        int r;
+
+        assert(t);
+        assert(t->scope->protocol == DNS_PROTOCOL_DNS);
+        assert(t->server);
+        assert(dns_server_is_doh(t->server));
+        assert(t->sent);
+
+        dns_transaction_close_connection(t, true);
+
+        if (!t->bypass) {
+                if (!dns_server_dnssec_supported(t->server) && dns_type_is_dnssec(dns_transaction_key(t)->type))
+                        return -EOPNOTSUPP;
+
+                r = dns_server_adjust_opt(t->server, t->sent, t->current_capability_level);
+                if (r < 0)
+                        return r;
+        }
+
+        fresh_connection = t->doh_fresh_connect_next;
+        r = dns_http_request_new(t, t->server, t->sent, fresh_connection, &request);
+        if (r < 0)
+                return r;
+
+        t->doh_fresh_connect_next = false;
+        t->doh_request = TAKE_PTR(request);
+        dns_transaction_reset_answer(t);
+        return 0;
+#else
+        return -EPROTONOSUPPORT;
+#endif
+}
+
+#if HAVE_LIBCURL_HEADER && HAVE_LIBCURL_URL
+void dns_transaction_on_doh_complete(DnsTransaction *t, DnsHttpRequest *request, DnsPacket *p, int error, DnsOverHttpsFailureAction failure_action) {
+        assert(t);
+        assert(request);
+        assert(t->doh_request == request);
+
+        t->doh_request = NULL;
+
+        if (error < 0) {
+                log_debug_errno(error, "DNS-over-HTTPS request failed: %m");
+
+                if (failure_action != DNS_OVER_HTTPS_FAILURE_ABORT && dns_transaction_retry_doh_failure(t, failure_action))
+                        return;
+
+                dns_transaction_complete_errno(t, error);
+                return;
+        }
+
+        assert(p);
+        dns_scope_check_conflicts(t->scope, p);
+
+        t->block_gc++;
+        dns_transaction_process_reply(t, p, DNS_TRANSACTION_TRANSPORT_HTTPS);
+        t->block_gc--;
+
+        if (t->state == DNS_TRANSACTION_PENDING && !t->doh_request && !t->stream && t->dns_udp_fd < 0)
+                dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
+        else
+                dns_transaction_gc(t);
+}
+#endif
 
 static void dns_transaction_cache_answer(DnsTransaction *t) {
         assert(t);
@@ -953,8 +1062,8 @@ static int dns_transaction_dnssec_ready(DnsTransaction *t) {
 
 fail:
         /* Some auxiliary DNSSEC transaction failed for some reason. Maybe we learned something about the
-         * server due to this failure, and the feature level is now different? Let's see and restart the
-         * transaction if so. If not, let's propagate the auxiliary failure.
+         * server due to this failure, and the selected transport or message capabilities are now different? Let's see
+         * and restart the transaction if so. If not, let's propagate the auxiliary failure.
          *
          * This is particularly relevant if an auxiliary request figured out that DNSSEC doesn't work, and we
          * are in permissive DNSSEC mode, and thus should restart things without DNSSEC magic. */
@@ -1087,7 +1196,7 @@ static int dns_transaction_fix_rcode(DnsTransaction *t) {
         return 0;
 }
 
-void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypted) {
+void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, DnsTransactionTransport transport) {
         bool retry_with_tcp = false;
         int r;
 
@@ -1095,6 +1204,8 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
         assert(p);
         assert(t->scope);
         assert(t->scope->manager);
+        assert(transport >= 0);
+        assert(transport < _DNS_TRANSACTION_TRANSPORT_MAX);
 
         if (t->state != DNS_TRANSACTION_PENDING)
                 return;
@@ -1163,7 +1274,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
 
         t->answer_source = DNS_TRANSACTION_NETWORK;
 
-        if (p->ipproto == IPPROTO_TCP) {
+        if (IN_SET(transport, DNS_TRANSACTION_TRANSPORT_TCP, DNS_TRANSACTION_TRANSPORT_TLS)) {
                 if (DNS_PACKET_TC(p)) {
                         /* Truncated via TCP? Somebody must be fucking with us */
                         dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
@@ -1175,9 +1286,14 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                         dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
                         return;
                 }
+        } else if (transport == DNS_TRANSACTION_TRANSPORT_HTTPS && (DNS_PACKET_TC(p) || DNS_PACKET_ID(p) != 0)) {
+                dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
+                return;
         }
 
         if (DNS_PACKET_TC(p)) {
+                if (t->server)
+                        dns_server_packet_truncated(t->server, t->current_transport);
 
                 /* Truncated packets for mDNS are not allowed. Give up immediately. */
                 if (t->scope->protocol == DNS_PROTOCOL_MDNS) {
@@ -1189,18 +1305,18 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                 log_debug("Reply truncated, retrying via TCP.");
                 retry_with_tcp = true;
 
-        } else if (t->scope->protocol == DNS_PROTOCOL_DNS &&
+        } else if (transport == DNS_TRANSACTION_TRANSPORT_UDP &&
+                   t->scope->protocol == DNS_PROTOCOL_DNS &&
                    DNS_PACKET_IS_FRAGMENTED(p)) {
 
                 /* Report the fragment size, so that we downgrade from LARGE to regular EDNS0 if needed */
                 if (t->server)
                         dns_server_packet_udp_fragmented(t->server, dns_packet_size_unfragmented(p));
 
-                if (t->current_feature_level > DNS_SERVER_FEATURE_LEVEL_UDP) {
-                        /* Packet was fragmented. Let's retry with TCP to avoid fragmentation attack
-                         * issues. (We don't do that on the lowest feature level however, since crappy DNS
-                         * servers often do not implement TCP, hence falling back to TCP on fragmentation is
-                         * counter-productive there.) */
+                if (t->current_capability_level > DNS_SERVER_CAPABILITY_LEVEL_PLAIN) {
+                        /* Packet was fragmented. Let's retry with TCP to avoid fragmentation attack issues. We do not
+                         * do that with plain DNS messages, since crappy DNS servers often do not implement TCP and
+                         * falling back to TCP on fragmentation is counter-productive in that case. */
 
                         log_debug("Reply fragmented, retrying via TCP. (Largest fragment size: %zu; Datagram size: %zu)",
                                   p->fragsize, p->size);
@@ -1241,7 +1357,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
         r = dns_packet_extract(p);
         if (r < 0) {
                 if (t->server) {
-                        dns_server_packet_invalid(t->server, t->current_feature_level);
+                        dns_server_packet_invalid(t->server, t->current_capability_level);
 
                         r = dns_transaction_maybe_restart(t);
                         if (r < 0)
@@ -1263,9 +1379,8 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
 
                 if (!t->bypass &&
                     IN_SET(dns_packet_rcode(p), DNS_RCODE_FORMERR, DNS_RCODE_SERVFAIL, DNS_RCODE_NOTIMP)) {
-                        /* If the server has replied with detailed error data, using a degraded feature set
-                         * will likely not help anyone. Examine the detailed error to determine the best
-                         * course of action. */
+                        /* If the server replied with detailed error data, reducing DNS message capabilities will
+                         * likely not help. Examine the detailed error to determine the best course of action. */
                         if (t->answer_ede_rcode >= 0 && dns_packet_rcode(p) == DNS_RCODE_SERVFAIL) {
                                 /* These codes are related to DNSSEC configuration errors. If accurate,
                                  * this is the domain operator's problem, and retrying won't help. */
@@ -1292,8 +1407,8 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                                         return;
                                 }
 
-                                /* OK, the query failed, but we still shouldn't degrade the feature set for
-                                 * this server. */
+                                /* OK, the query failed, but we still shouldn't degrade the DNS message capabilities
+                                 * for this server. */
                                 log_debug("Server returned error: %s (%s%s%s)",
                                           FORMAT_DNS_RCODE(dns_packet_rcode(p)),
                                           FORMAT_DNS_EDE_RCODE(t->answer_ede_rcode),
@@ -1302,16 +1417,12 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                                 break;
                         }
 
-                        /* Request failed, immediately try again with reduced features */
+                        /* Request failed, immediately try again with reduced DNS message capabilities. */
 
-                        if (t->current_feature_level <= DNS_SERVER_FEATURE_LEVEL_UDP) {
+                        if (t->current_capability_level <= DNS_SERVER_CAPABILITY_LEVEL_PLAIN) {
 
-                                /* This was already at UDP feature level? If so, it doesn't make sense to downgrade
-                                 * this transaction anymore, but let's see if it might make sense to send the request
-                                 * to a different DNS server instead. If not let's process the response, and accept the
-                                 * rcode. Note that we don't retry on TCP, since that's a suitable way to mitigate
-                                 * packet loss, but is not going to give us better rcodes should we actually have
-                                 * managed to get them already at UDP level. */
+                                /* This request already used plain DNS message capabilities. It doesn't make sense to
+                                 * reduce them further, but another DNS server might handle the request. */
 
                                 if (dns_transaction_limited_retry(t))
                                         return;
@@ -1323,32 +1434,19 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
 
                         /* SERVFAIL can happen for many reasons and may be transient.
                          * To avoid unnecessary downgrades retry once with the initial level.
-                         * Check for clamp_feature_level_servfail having an invalid value as a sign that this is the
-                         * first attempt to downgrade. If so, clamp to the current value so that the transaction
-                         * is retried without actually downgrading. If the next try also fails we will downgrade by
-                         * hitting the else branch below. */
+                         * An invalid clamp marks the first attempt. Retry once at the current capability level before
+                         * reducing it, since SERVFAIL is often transient. */
                         if (dns_packet_rcode(p) == DNS_RCODE_SERVFAIL &&
-                            t->clamp_feature_level_servfail < 0) {
-                                t->clamp_feature_level_servfail = t->current_feature_level;
+                            t->clamp_capability_level_servfail < 0) {
+                                t->clamp_capability_level_servfail = t->current_capability_level;
                                 log_debug("Server returned error %s, retrying transaction.",
                                           FORMAT_DNS_RCODE(dns_packet_rcode(p)));
                         } else {
-                                /* Reduce this feature level by one and try again. */
-                                switch (t->current_feature_level) {
-                                case DNS_SERVER_FEATURE_LEVEL_TLS_DO:
-                                        t->clamp_feature_level_servfail = DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN;
-                                        break;
-                                case DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN + 1:
-                                        /* Skip plain TLS when TLS is not supported */
-                                        t->clamp_feature_level_servfail = DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN - 1;
-                                        break;
-                                default:
-                                        t->clamp_feature_level_servfail = t->current_feature_level - 1;
-                                }
+                                t->clamp_capability_level_servfail = t->current_capability_level - 1;
 
-                                log_debug("Server returned error %s, retrying transaction with reduced feature level %s.",
+                                log_debug("Server returned error %s, retrying transaction with reduced DNS message capability level %s.",
                                           FORMAT_DNS_RCODE(dns_packet_rcode(p)),
-                                          dns_server_feature_level_to_string(t->clamp_feature_level_servfail));
+                                          dns_server_capability_level_to_string(t->clamp_capability_level_servfail));
                         }
 
                         dns_transaction_retry(t, false /* use the same server */);
@@ -1369,8 +1467,6 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                         break;
                 }
 
-                if (DNS_PACKET_TC(p))
-                        dns_server_packet_truncated(t->server, t->current_feature_level);
 
                 break;
         }
@@ -1385,25 +1481,28 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
         }
 
         if (t->server) {
-                /* Report that we successfully received a valid packet with a good rcode after we initially got a bad
-                 * rcode and subsequently downgraded the protocol */
+                /* Report that we successfully received a valid packet with a good rcode after reducing the DNS message
+                 * capabilities used by this transaction. */
 
                 if (IN_SET(dns_packet_rcode(p), DNS_RCODE_SUCCESS, DNS_RCODE_NXDOMAIN) &&
-                    t->clamp_feature_level_servfail != _DNS_SERVER_FEATURE_LEVEL_INVALID)
-                        dns_server_packet_rcode_downgrade(t->server, t->clamp_feature_level_servfail);
+                    t->clamp_capability_level_servfail != _DNS_SERVER_CAPABILITY_LEVEL_INVALID)
+                        dns_server_packet_rcode_downgrade(t->server, t->clamp_capability_level_servfail);
 
                 /* Report that the OPT RR was missing */
                 if (!p->opt)
-                        dns_server_packet_bad_opt(t->server, t->current_feature_level);
+                        dns_server_packet_bad_opt(t->server, t->current_capability_level);
 
                 /* Report that the server didn't copy our query DO bit from request to response */
                 if (dns_packet_do(t->sent) && !dns_packet_do(t->received))
-                        dns_server_packet_do_off(t->server, t->current_feature_level);
+                        dns_server_packet_do_off(t->server, t->current_capability_level);
+
+                dns_server_capability_received(t->server, t->current_capability_level);
 
                 /* Report that we successfully received a packet. We keep track of the largest packet
                  * size/fragment size we got. Which is useful for announcing the EDNS(0) packet size we can
                  * receive to our server. */
-                dns_server_packet_received(t->server, p->ipproto, t->current_feature_level, dns_packet_size_unfragmented(p));
+                if (transport != DNS_TRANSACTION_TRANSPORT_HTTPS)
+                        dns_server_packet_received(t->server, transport, t->current_transport, dns_packet_size_unfragmented(p));
         }
 
         /* See if we know things we didn't know before that indicate we better restart the lookup immediately. */
@@ -1434,7 +1533,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
         t->answer_rcode = dns_packet_rcode(p);
         t->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
         SET_FLAG(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED, false);
-        SET_FLAG(t->answer_query_flags, SD_RESOLVED_CONFIDENTIAL, encrypted);
+        SET_FLAG(t->answer_query_flags, SD_RESOLVED_CONFIDENTIAL, IN_SET(transport, DNS_TRANSACTION_TRANSPORT_TLS, DNS_TRANSACTION_TRANSPORT_HTTPS));
 
         r = dns_transaction_fix_rcode(t);
         if (r < 0)
@@ -1488,7 +1587,7 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
 
                         log_debug_errno(r, "Connection failure for DNS UDP packet: %m");
                         assert_se(sd_event_now(t->scope->manager->event, CLOCK_BOOTTIME, &usec) >= 0);
-                        dns_server_packet_lost(t->server, IPPROTO_UDP, t->current_feature_level);
+                        dns_server_packet_lost(t->server, DNS_TRANSACTION_TRANSPORT_UDP, t->current_transport);
 
                         dns_transaction_close_connection(t, /* use_graveyard= */ false);
 
@@ -1517,31 +1616,28 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
                 return 0;
         }
 
-        dns_transaction_process_reply(t, p, false);
+        dns_transaction_process_reply(t, p, DNS_TRANSACTION_TRANSPORT_UDP);
         return 0;
 }
 
-static int dns_transaction_emit_udp(DnsTransaction *t) {
+static int dns_transaction_emit_udp(DnsTransaction *t, bool server_changed) {
         int r;
 
         assert(t);
 
         if (t->scope->protocol == DNS_PROTOCOL_DNS) {
-
-                r = dns_transaction_pick_server(t);
-                if (r < 0)
-                        return r;
+                assert(t->server);
+                assert(!dns_server_is_doh(t->server));
 
                 if (manager_server_is_stub(t->scope->manager, t->server))
                         return -ELOOP;
 
-                if (t->current_feature_level < DNS_SERVER_FEATURE_LEVEL_UDP || DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level))
+                if (t->current_transport != DNS_SERVER_TRANSPORT_UDP)
                         return -EAGAIN; /* Sorry, can't do UDP, try TCP! */
 
                 if (!t->bypass && !dns_server_dnssec_supported(t->server) && dns_type_is_dnssec(dns_transaction_key(t)->type))
                         return -EOPNOTSUPP;
-
-                if (r > 0 || t->dns_udp_fd < 0) { /* Server changed, or no connection yet. */
+                if (server_changed || t->dns_udp_fd < 0) { /* Server changed, or no connection yet. */
                         int fd;
 
                         dns_transaction_close_connection(t, true);
@@ -1564,7 +1660,7 @@ static int dns_transaction_emit_udp(DnsTransaction *t) {
                 }
 
                 if (!t->bypass) {
-                        r = dns_server_adjust_opt(t->server, t->sent, t->current_feature_level);
+                        r = dns_server_adjust_opt(t->server, t->sent, t->current_capability_level);
                         if (r < 0)
                                 return r;
                 }
@@ -1596,7 +1692,8 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
 
                 case DNS_PROTOCOL_DNS:
                         assert(t->server);
-                        dns_server_packet_lost(t->server, t->stream ? IPPROTO_TCP : IPPROTO_UDP, t->current_feature_level);
+                        if (!dns_transaction_has_doh_request(t))
+                                dns_server_packet_lost(t->server, t->stream ? dns_stream_transport(t->stream) : DNS_TRANSACTION_TRANSPORT_UDP, t->current_transport);
                         break;
 
                 case DNS_PROTOCOL_LLMNR:
@@ -1610,6 +1707,16 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
 
                 log_debug("Timeout reached on transaction %" PRIu16 ".", t->id);
         }
+
+#if HAVE_LIBCURL_HEADER && HAVE_LIBCURL_URL
+        if (t->doh_request) {
+                if (dns_transaction_retry_doh_failure(t, DNS_OVER_HTTPS_FAILURE_RETRY_SAME_SERVER))
+                        return 0;
+
+                dns_transaction_complete(t, DNS_TRANSACTION_TIMEOUT);
+                return 0;
+        }
+#endif
 
         dns_transaction_retry(t, /* next_server= */ true); /* try a different server, but given this means
                                                             * packet loss, let's do so even if we already
@@ -1652,7 +1759,7 @@ static usec_t transaction_get_resend_timeout(DnsTransaction *t) {
 
         case DNS_PROTOCOL_DNS:
 
-                if (t->stream)
+                if (t->stream || dns_transaction_has_doh_request(t))
                         return TRANSACTION_TCP_TIMEOUT_USEC;
 
                 return TRANSACTION_UDP_TIMEOUT_USEC;
@@ -2176,6 +2283,19 @@ int dns_transaction_go(DnsTransaction *t) {
         if (r < 0)
                 return r;
 
+        bool server_changed = false;
+        if (t->scope->protocol == DNS_PROTOCOL_DNS) {
+                r = dns_transaction_pick_server(t);
+                if (r < 0)
+                        goto emit_done;
+                if (dns_server_is_doh(t->server)) {
+                        r = dns_transaction_emit_doh(t);
+                        goto emit_done;
+                }
+
+                server_changed = r > 0;
+        }
+
         if (t->scope->protocol == DNS_PROTOCOL_LLMNR &&
             (dns_name_endswith(dns_resource_key_name(dns_transaction_key(t)), "in-addr.arpa") > 0 ||
              dns_name_endswith(dns_resource_key_name(dns_transaction_key(t)), "ip6.arpa") > 0)) {
@@ -2186,7 +2306,7 @@ int dns_transaction_go(DnsTransaction *t) {
         } else {
                 /* Try via UDP, and if that fails due to large size or lack of
                  * support try via TCP */
-                r = dns_transaction_emit_udp(t);
+                r = dns_transaction_emit_udp(t, server_changed);
                 if (r == -EMSGSIZE)
                         log_debug("Sending query via TCP since it is too large.");
                 else if (r == -EAGAIN)
@@ -2196,6 +2316,8 @@ int dns_transaction_go(DnsTransaction *t) {
                 if (IN_SET(r, -EMSGSIZE, -EAGAIN, -EPERM))
                         r = dns_transaction_emit_tcp(t);
         }
+
+emit_done:
         if (r == -ELOOP) {
                 if (t->scope->protocol != DNS_PROTOCOL_DNS)
                         return r;
@@ -2441,10 +2563,9 @@ static bool dns_transaction_dnssec_supported(DnsTransaction *t) {
         if (!t->server)
                 return true;
 
-        /* Note that we do not check the feature level actually used for the transaction but instead the feature level
-         * the server is known to support currently, as the transaction feature level might be lower than what the
-         * server actually supports, since we might have downgraded this transaction's feature level because we got a
-         * SERVFAIL earlier and wanted to check whether downgrading fixes it. */
+        /* Note that we do not check the DNS message capabilities actually used for the transaction but instead the
+         * capabilities the server is known to support currently, as a transaction may have reduced its capabilities
+         * after a SERVFAIL to check whether that fixes the query. */
 
         return dns_server_dnssec_supported(t->server);
 }
@@ -3466,7 +3587,7 @@ static int dnssec_validate_records(
                                 /* This is an RR we know has to be signed. If it isn't this means
                                  * the server is not attaching RRSIGs, hence complain. */
 
-                                dns_server_packet_rrsig_missing(t->server, t->current_feature_level);
+                                dns_server_packet_rrsig_missing(t->server, t->current_capability_level);
 
                                 if (t->scope->dnssec_mode == DNSSEC_ALLOW_DOWNGRADE) {
 
@@ -3634,7 +3755,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
         if (!dns_transaction_dnssec_supported_full(t)) {
                 /* The server does not support DNSSEC, or doesn't augment responses with RRSIGs. */
                 t->answer_dnssec_result = DNSSEC_INCOMPATIBLE_SERVER;
-                log_debug("Not validating response for %" PRIu16 ", used server feature level does not support DNSSEC.", t->id);
+                log_debug("Not validating response for %" PRIu16 ", the selected DNS message capabilities do not support DNSSEC.", t->id);
                 return 0;
         }
 

@@ -293,6 +293,22 @@ TEST(base64mem) {
         free(b64);
 }
 
+static void test_base64urlmem_one(const void *input, size_t size, const char *expected) {
+        _cleanup_free_ char *encoded = NULL;
+
+        ASSERT_EQ(base64urlmem(input, size, &encoded), (ssize_t) strlen(expected));
+        ASSERT_STREQ(encoded, expected);
+}
+
+TEST(base64urlmem) {
+        /* These inputs produce '+', '/', and '=' respectively in standard base64. */
+        test_base64urlmem_one(NULL, 0, "");
+        test_base64urlmem_one((const uint8_t[]) { 0xfb }, 1, "-w");
+        test_base64urlmem_one((const uint8_t[]) { 0xff }, 1, "_w");
+        test_base64urlmem_one((const uint8_t[]) { 0xfb, 0xff }, 2, "-_8");
+        test_base64urlmem_one((const uint8_t[]) { 0xfb, 0xff, 0xff }, 3, "-___");
+}
+
 TEST(base64mem_linebreak) {
         uint8_t data[4096];
 

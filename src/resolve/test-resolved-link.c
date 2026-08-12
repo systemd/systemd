@@ -197,15 +197,19 @@ TEST(link_allocate_scopes_resets_manager_dns_server) {
         link_alloc_env_setup(&env, AF_INET, DNS_SERVER_SYSTEM);
 
         env.link->unicast_relevant = false;
-        env.manager.dns_servers->verified_feature_level = DNS_SERVER_FEATURE_LEVEL_EDNS0;
-        env.manager.dns_servers->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_DO;
+        env.manager.dns_servers->verified_transport = DNS_SERVER_TRANSPORT_UDP;
+        env.manager.dns_servers->possible_transport = DNS_SERVER_TRANSPORT_TLS;
+        env.manager.dns_servers->verified_capability_level = DNS_SERVER_CAPABILITY_LEVEL_EDNS0;
+        env.manager.dns_servers->possible_capability_level = DNS_SERVER_CAPABILITY_LEVEL_DO;
         env.manager.dns_servers->received_udp_fragment_max = 1024u;
 
         link_allocate_scopes(env.link);
 
         ASSERT_TRUE(env.link->unicast_relevant);
-        ASSERT_EQ(env.manager.dns_servers->verified_feature_level, _DNS_SERVER_FEATURE_LEVEL_INVALID);
-        ASSERT_EQ(env.manager.dns_servers->possible_feature_level, DNS_SERVER_FEATURE_LEVEL_BEST);
+        ASSERT_EQ(env.manager.dns_servers->verified_transport, _DNS_SERVER_TRANSPORT_INVALID);
+        ASSERT_EQ(env.manager.dns_servers->possible_transport, DNS_SERVER_TRANSPORT_BEST);
+        ASSERT_EQ(env.manager.dns_servers->verified_capability_level, _DNS_SERVER_CAPABILITY_LEVEL_INVALID);
+        ASSERT_EQ(env.manager.dns_servers->possible_capability_level, DNS_SERVER_CAPABILITY_LEVEL_BEST);
         ASSERT_EQ(env.manager.dns_servers->received_udp_fragment_max, DNS_PACKET_UNICAST_SIZE_MAX);
 
         ASSERT_FALSE(env.manager.dns_servers->packet_bad_opt);
@@ -220,21 +224,51 @@ TEST(link_allocate_scopes_resets_manager_dns_server) {
         ASSERT_NULL(env.link->mdns_ipv6_scope);
 }
 
+TEST(dns_server_transport_and_capabilities_are_independent) {
+        _cleanup_(link_alloc_env_teardown) LinkAllocEnv env = {};
+        DnsServer *server;
+
+        link_alloc_env_setup(&env, AF_INET, DNS_SERVER_SYSTEM);
+
+        env.manager.dnssec_mode = DNSSEC_ALLOW_DOWNGRADE;
+        env.manager.dns_over_tls_mode = DNS_OVER_TLS_NO;
+
+        server = env.manager.dns_servers;
+        server->verified_transport = _DNS_SERVER_TRANSPORT_INVALID;
+        server->possible_transport = DNS_SERVER_TRANSPORT_UDP;
+        server->verified_capability_level = DNS_SERVER_CAPABILITY_LEVEL_DO;
+        server->possible_capability_level = DNS_SERVER_CAPABILITY_LEVEL_DO;
+
+        for (unsigned i = 0; i < 3; i++)
+                dns_server_packet_lost(server, DNS_TRANSACTION_TRANSPORT_UDP, DNS_SERVER_TRANSPORT_UDP);
+
+        ASSERT_EQ(dns_server_possible_transport(server), DNS_SERVER_TRANSPORT_TCP);
+        ASSERT_EQ(dns_server_possible_capability_level(server), DNS_SERVER_CAPABILITY_LEVEL_DO);
+
+        dns_server_packet_bad_opt(server, DNS_SERVER_CAPABILITY_LEVEL_DO);
+        ASSERT_EQ(dns_server_possible_capability_level(server), DNS_SERVER_CAPABILITY_LEVEL_PLAIN);
+        ASSERT_EQ(dns_server_possible_transport(server), DNS_SERVER_TRANSPORT_TCP);
+}
+
 TEST(link_allocate_scopes_unicast) {
         _cleanup_(link_alloc_env_teardown) LinkAllocEnv env = {};
 
         link_alloc_env_setup(&env, AF_INET, DNS_SERVER_LINK);
 
         env.link->unicast_relevant = true;
-        env.link->dns_servers->verified_feature_level = DNS_SERVER_FEATURE_LEVEL_EDNS0;
-        env.link->dns_servers->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_DO;
+        env.link->dns_servers->verified_transport = DNS_SERVER_TRANSPORT_UDP;
+        env.link->dns_servers->possible_transport = DNS_SERVER_TRANSPORT_TLS;
+        env.link->dns_servers->verified_capability_level = DNS_SERVER_CAPABILITY_LEVEL_EDNS0;
+        env.link->dns_servers->possible_capability_level = DNS_SERVER_CAPABILITY_LEVEL_DO;
         env.link->dns_servers->received_udp_fragment_max = 1024u;
 
         link_allocate_scopes(env.link);
 
         ASSERT_TRUE(env.link->unicast_relevant);
-        ASSERT_EQ(env.link->dns_servers->verified_feature_level, _DNS_SERVER_FEATURE_LEVEL_INVALID);
-        ASSERT_EQ(env.link->dns_servers->possible_feature_level, DNS_SERVER_FEATURE_LEVEL_BEST);
+        ASSERT_EQ(env.link->dns_servers->verified_transport, _DNS_SERVER_TRANSPORT_INVALID);
+        ASSERT_EQ(env.link->dns_servers->possible_transport, DNS_SERVER_TRANSPORT_BEST);
+        ASSERT_EQ(env.link->dns_servers->verified_capability_level, _DNS_SERVER_CAPABILITY_LEVEL_INVALID);
+        ASSERT_EQ(env.link->dns_servers->possible_capability_level, DNS_SERVER_CAPABILITY_LEVEL_BEST);
         ASSERT_EQ(env.link->dns_servers->received_udp_fragment_max, DNS_PACKET_UNICAST_SIZE_MAX);
 
         ASSERT_FALSE(env.link->dns_servers->packet_bad_opt);
