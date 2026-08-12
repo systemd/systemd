@@ -405,7 +405,7 @@ static int registry_range_is_available(
         if (r < 0)
                 return r;
 
-        r = userns_registry_reap_if_dead(bpf, registry_dir_fd, owner->userns_inode);
+        r = userns_registry_reap_if_dead(bpf, registry_dir_fd, owner->userns_inode, /* ret_info= */ NULL);
         if (r < 0)
                 return r;
         if (r == USERNS_REAP_RELEASED)
@@ -465,7 +465,7 @@ static int delegation_range_is_available(
                 /* Owned by some other namespace. If that namespace is dead, reclaim it (restoring the
                  * range to its ancestor) and loop to re-evaluate; otherwise the range is genuinely
                  * taken. */
-                r = userns_registry_reap_if_dead(bpf, registry_dir_fd, delegation.userns_inode);
+                r = userns_registry_reap_if_dead(bpf, registry_dir_fd, delegation.userns_inode, /* ret_info= */ NULL);
                 if (r < 0)
                         return r;
                 if (r == USERNS_REAP_RELEASED)
@@ -1457,6 +1457,9 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
         userns_info->size = p.size;
         userns_info->target_uid = p.target;
         userns_info->target_gid = (gid_t) p.target;
+        /* For "self" allocations we deny setgroups() via the BPF-LSM (see below). Record it so the manager
+         * can re-establish the denial after a restart that reset the BPF maps. */
+        userns_info->setgroups_deny = p.type == ALLOCATE_USER_RANGE_SELF;
 
         if (p.type == ALLOCATE_USER_RANGE_SELF) {
                 /* The start UID/GID will be mapped to the parent userns in write_userns(). If a self
@@ -1515,17 +1518,12 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
         if (r < 0)
                 return r;
 
-        /* Register the userns in the BPF map with an empty allowlist */
-        r = userns_restrict_put_by_fd(
-                        c->bpf,
-                        userns_fd,
-                        /* replace= */ true,
-                        /* mount_fds= */ NULL,
-                        /* n_mount_fds= */ 0);
+        /* Subject the userns to the BPF-LSM policy that keeps its transient range off persistent file systems */
+        r = userns_restrict_register_by_fd(c->bpf, userns_fd);
         if (r < 0)
                 goto fail;
 
-        if (p.type == ALLOCATE_USER_RANGE_SELF) {
+        if (userns_info->setgroups_deny > 0) {
                 /* For "self" allocations we deny setgroups() via the BPF LSM. We can't use
                  * /proc/self/setgroups for this as that is transitive and also applies to child user
                  * namespaces. The BPF LSM hook only applies to the specific user namespace. */
@@ -1742,13 +1740,8 @@ static int vl_method_register_user_namespace(sd_varlink *link, sd_json_variant *
         if (r < 0)
                 return log_debug_errno(r, "Failed to update userns registry: %m");
 
-        /* Register the userns in the BPF map with an empty allowlist */
-        r = userns_restrict_put_by_fd(
-                        c->bpf,
-                        userns_fd,
-                        /* replace= */ true,
-                        /* mount_fds= */ NULL,
-                        /* n_mount_fds= */ 0);
+        /* Subject the userns to the BPF-LSM policy that keeps its transient range off persistent file systems */
+        r = userns_restrict_register_by_fd(c->bpf, userns_fd);
         if (r < 0)
                 goto fail;
 
@@ -1887,22 +1880,17 @@ static int vl_method_add_mount_to_user_namespace(sd_varlink *link, sd_json_varia
         if (r < 0)
                 return r;
 
-        /* Add this mount to the user namespace's BPF map allowlist entry. */
-        r = userns_restrict_put_by_fd(
-                        c->bpf,
-                        userns_fd,
-                        /* replace= */ false,
-                        &mount_fd,
-                        1);
-        if (r < 0)
-                return r;
+        /* There's no mount allowlist anymore: the BPF-LSM policy decides per operation whether the ID that
+         * would be recorded on disk is a transient one, which needs no per-mount knowledge. We keep
+         * accepting and validating the call for the sake of older clients, and keep the mount pinned as
+         * before, but there is nothing left to allowlist. */
 
         if (DEBUG_LOGGING) {
                 if (userns_info->size > 0)
-                        log_debug("Granting access to mount %i to user namespace " INO_FMT " ('%s' @ UID " UID_FMT ")",
+                        log_debug("Delegated mount %i to user namespace " INO_FMT " ('%s' @ UID " UID_FMT ")",
                                   mnt_id, userns_st.st_ino, userns_info->name, userns_info->start_uid);
                 else
-                        log_debug("Granting access to mount %i to user namespace " INO_FMT " ('%s')",
+                        log_debug("Delegated mount %i to user namespace " INO_FMT " ('%s')",
                                   mnt_id, userns_st.st_ino, userns_info->name);
         }
 
