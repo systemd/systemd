@@ -125,7 +125,7 @@ TEST(fstab_filter_options) {
 
         /* escaped characters */
         do_fstab_filter_options("opt1=\\\\,opt2=\\xff", "opt1\0", 1, 1, "opt1", "\\", "\\", "opt2=\\xff");
-        do_fstab_filter_options("opt1=\\\\,opt2=\\xff", "opt2\0", 1, 1, "opt2", "\\xff", "\\xff", "opt1=\\");
+        do_fstab_filter_options("opt1=\\\\,opt2=\\xff", "opt2\0", 1, 1, "opt2", "\\xff", "\\xff", "opt1=\\\\");
 }
 
 TEST(fstab_find_pri) {
