@@ -280,6 +280,21 @@ manual_testcase_01_resolvectl() {
     resolvectl domain hoge "hoge.example.com"
     assert_in 'hoge.example.com' "$(resolvectl domain hoge)"
     assert_not_in '~.' "$(resolvectl domain hoge)"
+    resolvectl domain hoge "old.example.com"
+    local domains=()
+    for i in {1..1025}; do
+        domains+=("too-many-$i.example.com")
+    done
+    (! resolvectl domain hoge "${domains[@]}")
+    assert_in 'old.example.com' "$(resolvectl domain hoge)"
+
+    domains=()
+    for i in {1..1024}; do
+        domains+=("replacement-$i.example.com")
+    done
+    resolvectl domain hoge "${domains[@]}"
+    assert_not_in 'old.example.com' "$(resolvectl domain hoge)"
+    assert_in 'replacement-1024.example.com' "$(resolvectl domain hoge)"
     echo -e "nameserver 10.0.2.1\ndomain test-domain.example.com" | SYSTEMD_INVOKED_AS=resolvconf resolvectl -x -a hoge
     assert_in 'test-domain.example.com' "$(resolvectl domain hoge)"
     assert_in '~.' "$(resolvectl domain hoge)"
