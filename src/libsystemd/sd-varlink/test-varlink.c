@@ -1504,4 +1504,33 @@ TEST(ctrunc) {
         ASSERT_OK(r);
 }
 
+TEST(add_connection_failure_cleanup) {
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_close_pair_ int fds[2] = EBADF_PAIR;
+        const struct ucred ucred = {
+                .pid = getpid(),
+                .uid = getuid(),
+                .gid = getgid(),
+        };
+
+        ASSERT_OK(sd_varlink_server_new(&s, SD_VARLINK_SERVER_ACCOUNT_UID));
+        ASSERT_OK(sd_varlink_server_set_connections_per_uid_max(s, 1));
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, fds));
+
+        int bad_fd = ASSERT_OK(memfd_new("closed-fd"));
+        ASSERT_OK_ERRNO(close(bad_fd));
+
+        ASSERT_ERROR(sd_varlink_server_add_connection_pair(s, fds[0], bad_fd, &ucred, /* ret= */ NULL), EBADF);
+        ASSERT_EQ(sd_varlink_server_current_connections(s), 0U);
+
+        sd_varlink *v = NULL;
+        ASSERT_OK(sd_varlink_server_add_connection(s, fds[0], &v));
+        TAKE_FD(fds[0]);
+        ASSERT_NOT_NULL(v);
+        ASSERT_EQ(sd_varlink_server_current_connections(s), 1U);
+
+        ASSERT_OK_POSITIVE(sd_varlink_close(v));
+        ASSERT_EQ(sd_varlink_server_current_connections(s), 0U);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
