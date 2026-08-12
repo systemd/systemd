@@ -1620,6 +1620,42 @@ testcase_dot_strict_per_link_verify() {
         --grep "Failed to invoke SSL_do_handshake.*(certificate verify failed|self[- ]signed certificate|unable to get local issuer)"
 }
 
+testcase_dot_opportunistic_admin_prohibited() {
+    if ! command -v nft >/dev/null; then
+        echo "nftables not found, skipping opportunistic DoT admin-prohibited test"
+        return 0
+    fi
+
+    local table_name="dot_admin_prohibited"
+
+    # shellcheck disable=SC2317,SC2329
+    cleanup() {
+        nft delete table ip6 "$table_name" 2>/dev/null || :
+        resolvectl revert dns0 || :
+    }
+
+    trap cleanup RETURN ERR
+
+    resolvectl dns dns0 fd00:dead:beef:cafe::1
+    resolvectl domain dns0 '~unsigned.test'
+    resolvectl dnssec dns0 no
+    resolvectl default-route dns0 yes
+
+    resolvectl dnsovertls dns0 no
+    resolvectl flush-caches
+    run resolvectl query -i dns0 unsigned.test
+    grep -qF "fd00:dead:beef:cafe::101" "$RUN_OUT"
+
+    nft add table ip6 "$table_name"
+    nft add chain ip6 "$table_name" output \{ type filter hook output priority 0 \; \}
+    nft add rule ip6 "$table_name" output ip6 daddr fd00:dead:beef:cafe::1 tcp dport 853 reject with icmpv6 type admin-prohibited
+
+    resolvectl dnsovertls dns0 opportunistic
+    resolvectl flush-caches
+    run resolvectl query -i dns0 unsigned.test
+    grep -qF "fd00:dead:beef:cafe::101" "$RUN_OUT"
+}
+
 testcase_static_record() {
     mkdir -p /run/systemd/resolve/static.d/
     cat >/run/systemd/resolve/static.d/statictest.rr <<EOF

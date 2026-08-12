@@ -581,12 +581,18 @@ static int dns_transaction_maybe_restart(DnsTransaction *t) {
         return 1;
 }
 
+static bool dns_transaction_stream_error_is_connection_failure(int error) {
+        /* ICMP admin-prohibited errors may be surfaced as EACCES/EPERM. For DNS streams this means the
+         * server is not reachable with the selected transport, and opportunistic DoT should degrade. */
+        return ERRNO_IS_DISCONNECT(error) || IN_SET(error, EACCES, EPERM, -EACCES, -EPERM);
+}
+
 static void on_transaction_stream_error(DnsTransaction *t, int error) {
         assert(t);
 
         dns_transaction_close_connection(t, true);
 
-        if (ERRNO_IS_DISCONNECT(error)) {
+        if (dns_transaction_stream_error_is_connection_failure(error)) {
                 if (t->scope->protocol == DNS_PROTOCOL_LLMNR) {
                         /* If the LLMNR/TCP connection failed, the host doesn't support LLMNR, and we cannot answer the
                          * question on this scope. */
@@ -638,7 +644,7 @@ static int dns_transaction_on_stream_packet(DnsTransaction *t, DnsStream *s, Dns
 static int on_stream_complete(DnsStream *s, int error) {
         assert(s);
 
-        if (ERRNO_IS_DISCONNECT(error) && s->protocol != DNS_PROTOCOL_LLMNR) {
+        if (dns_transaction_stream_error_is_connection_failure(error) && s->protocol != DNS_PROTOCOL_LLMNR) {
                 log_debug_errno(error, "Connection failure for DNS TCP stream: %m");
 
                 if (error != ECONNRESET && s->transactions) {
@@ -822,6 +828,9 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
 
         r = dns_stream_write_packet(t->stream, t->sent);
         if (r < 0) {
+                if (t->scope->protocol == DNS_PROTOCOL_DNS && dns_transaction_stream_error_is_connection_failure(r))
+                        dns_server_packet_lost(t->server, IPPROTO_TCP, t->current_feature_level);
+
                 dns_transaction_close_connection(t, /* use_graveyard= */ false);
                 return r;
         }
