@@ -240,18 +240,22 @@ static int mount_snapshot_acquire_one(
  * setup, and an enumeration that could only be read in part (-ENODATA) must not be handed on as if
  * it were whole.
  *
- */
+ * 'proc_self_mountinfo' may be NULL, since the kernel path has no use for /proc at all, e.g.
+ * because /proc is masked or already unmounted; then there is nothing to fall back to and the
+ * kernel path's error is returned. */
 static int mount_snapshot_acquire(FILE *proc_self_mountinfo, uint64_t mask, MountSnapshot *ret) {
         int r;
 
-        assert(proc_self_mountinfo);
         assert(ret);
 
         r = mount_snapshot_acquire_one(/* from_kernel= */ true, NULL, mask, ret);
         if (r >= 0)
                 return 0;
         if (r != -EOPNOTSUPP)
-                log_debug_errno(r, "listmount() enumeration failed, falling back to mountinfo: %m");
+                log_debug_errno(r, "listmount() enumeration failed%s: %m",
+                                proc_self_mountinfo ? ", falling back to mountinfo" : "");
+        if (!proc_self_mountinfo)
+                return r;
 
         r = mount_snapshot_acquire_one(/* from_kernel= */ false, proc_self_mountinfo, mask, ret);
         if (r < 0)
@@ -320,9 +324,8 @@ static int mount_flags_by_path_one(
  * table may conclude that, because a mount missing from the kernel table, or carrying no readable
  * options, is a mount whose statmount() failed rather than a path that is not mounted. */
 static int mount_flags_by_path(FILE *proc_self_mountinfo, const char *path, unsigned long *ret) {
-        int r;
+        int q, r;
 
-        assert(proc_self_mountinfo);
         assert(path);
         assert(ret);
 
@@ -330,20 +333,50 @@ static int mount_flags_by_path(FILE *proc_self_mountinfo, const char *path, unsi
         if (r >= 0)
                 return 0;
         if (!IN_SET(r, -EOPNOTSUPP, -ESRCH, -ENODATA))
-                log_debug_errno(r, "listmount() lookup of '%s' failed, falling back to mountinfo: %m", path);
+                log_debug_errno(r, "listmount() lookup of '%s' failed%s: %m",
+                                path, proc_self_mountinfo ? ", falling back to mountinfo" : "");
 
-        r = mount_flags_by_path_one(/* from_kernel= */ false, proc_self_mountinfo, path, ret);
+        if (proc_self_mountinfo) {
+                r = mount_flags_by_path_one(/* from_kernel= */ false, proc_self_mountinfo, path, ret);
+                if (r >= 0)
+                        return 0;
+        }
+
+        /* Neither lookup succeeded. A missing path is -ENOENT to the caller no matter which
+         * backend failed or why, including when none was available at all (a libmount without
+         * statmount() support and no mountinfo stream): namespace.c drops a mount marked
+         * ignorable on -ENOENT and fails namespace setup on anything else. A path that does
+         * exist propagates the backend's own error, and -EINVAL is reserved for one that exists
+         * while no table lists it. */
+        q = access_nofollow(path, F_OK);
+        if (q < 0)
+                return q;
         if (r != -ESRCH)
                 return r;
 
-        r = access_nofollow(path, F_OK); /* Hmm, it's not in the mount table, but does it exist at all? */
-        if (r < 0)
-                return r;
-
-        return -EINVAL; /* Not a mount point we recognize */
+        return -EINVAL; /* Exists, and not a mount point we recognize */
 }
 
 #endif /* HAVE_LIBMOUNT */
+
+FILE* mount_open_proc_self_mountinfo(void) {
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        /* Opens /proc/self/mountinfo for the mount table functions in this file. Returns NULL if it
+         * cannot be opened, which is not fatal on its own: those functions enumerate through
+         * listmount()/statmount() where that is available, and only their fallback reads the file.
+         * Callers pin it early because /proc can be masked or unmounted by the very operation they
+         * are about to perform. */
+
+        r = fopen_unlocked("/proc/self/mountinfo", "re", &f);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to open /proc/self/mountinfo, relying on listmount(): %m");
+                return NULL;
+        }
+
+        return TAKE_PTR(f);
+}
 
 int umount_recursive_full(const char *prefix, int flags, char **keep) {
 #if HAVE_LIBMOUNT
@@ -353,9 +386,7 @@ int umount_recursive_full(const char *prefix, int flags, char **keep) {
         /* Try to umount everything recursively below a directory. Also, take care of stacked mounts, and
          * keep unmounting them until they are gone. */
 
-        f = fopen("/proc/self/mountinfo", "re"); /* Pin the file, in case we unmount /proc/ as part of the logic here */
-        if (!f)
-                return log_debug_errno(errno, "Failed to open %s: %m", "/proc/self/mountinfo");
+        f = mount_open_proc_self_mountinfo(); /* Pin the file, in case we unmount /proc/ as part of the logic here */
 
         _cleanup_(mount_snapshot_done) MountSnapshot snapshot = {};
 
@@ -514,10 +545,7 @@ int bind_remount_recursive_with_mountinfo(
         int r;
 
         if (!proc_self_mountinfo) {
-                r = fopen_unlocked("/proc/self/mountinfo", "re", &proc_self_mountinfo_opened);
-                if (r < 0)
-                        return r;
-
+                proc_self_mountinfo_opened = mount_open_proc_self_mountinfo();
                 proc_self_mountinfo = proc_self_mountinfo_opened;
         }
 
@@ -767,9 +795,7 @@ int bind_remount_one_with_mountinfo(
 int bind_remount_one(const char *path, unsigned long new_flags, unsigned long flags_mask) {
         _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
 
-        proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
-        if (!proc_self_mountinfo)
-                return log_debug_errno(errno, "Failed to open %s: %m", "/proc/self/mountinfo");
+        proc_self_mountinfo = mount_open_proc_self_mountinfo();
 
         return bind_remount_one_with_mountinfo(path, new_flags, flags_mask, proc_self_mountinfo);
 }
