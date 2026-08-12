@@ -35,6 +35,7 @@
 #include "path-util.h"
 #include "recurse-dir.h"
 #include "rm-rf.h"
+#include "specifier.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -108,11 +109,18 @@ typedef struct Context {
         char **initrds;
         char *initrd_generator;
         char *uki_generator;
+        char *entry_name_format;
+        char *entry_name;
         char *staging_area;
         char **plugins;
         char **argv;
         char **envp;
 } Context;
+
+/* Longest filename suffix plugins append to the entry name (from 90-uki-copy.install) */
+#define ENTRY_NAME_SUFFIX_MAX STRLEN(".efi.extra.d")
+
+#define DEFAULT_ENTRY_NAME_FORMAT "%e-%v"
 
 #define CONTEXT_NULL                                                    \
         (Context) {                                                     \
@@ -137,6 +145,8 @@ static void context_done(Context *c) {
         strv_free(c->initrds);
         free(c->initrd_generator);
         free(c->uki_generator);
+        free(c->entry_name_format);
+        free(c->entry_name);
         if (c->action == ACTION_INSPECT)
                 free(c->staging_area);
         else
@@ -199,6 +209,9 @@ static int context_copy(const Context *source, Context *ret) {
         if (r < 0)
                 return r;
         r = strdup_to(&copy.uki_generator, source->uki_generator);
+        if (r < 0)
+                return r;
+        r = strdup_to(&copy.entry_name_format, source->entry_name_format);
         if (r < 0)
                 return r;
         r = strdup_to(&copy.staging_area, source->staging_area);
@@ -327,6 +340,63 @@ static int context_set_uki_generator(Context *c, const char *s, const char *sour
         return context_set_string(s, source, "UKI_GENERATOR", &c->uki_generator);
 }
 
+static int context_set_entry_name_format(Context *c, const char *s, const char *source) {
+        assert(c);
+        return context_set_string(s, source, "ENTRY_NAME_FORMAT", &c->entry_name_format);
+}
+
+static int context_resolve_entry_name(Context *c) {
+        assert(c);
+
+        if (c->entry_name)
+                return 0;
+
+        const Specifier table[] = {
+                { 'e', specifier_string,           c->entry_token },
+                { 'm', specifier_id128,            &c->machine_id },
+                { 'v', specifier_string,           c->version ?: "KERNEL_VERSION" },
+                { 'a', specifier_architecture,     NULL },
+                { 'A', specifier_os_image_version, NULL },
+                { 'B', specifier_os_build_id,      NULL },
+                { 'H', specifier_hostname,         NULL },
+                { 'l', specifier_short_hostname,   NULL },
+                { 'q', specifier_pretty_hostname,  NULL },
+                { 'M', specifier_os_image_id,      NULL },
+                { 'o', specifier_os_id,            NULL },
+                { 'w', specifier_os_version_id,    NULL },
+                { 'W', specifier_os_variant_id,    NULL },
+                {}
+        };
+
+        _cleanup_free_ char *resolved = NULL;
+        int r;
+
+        r = specifier_printf(
+                        c->entry_name_format ?: DEFAULT_ENTRY_NAME_FORMAT,
+                        NAME_MAX - ENTRY_NAME_SUFFIX_MAX,
+                        table,
+                        arg_root,
+                        /* userdata= */ c,
+                        &resolved);
+        if (r < 0)
+                return log_error_errno(r, "Failed to expand entry name format '%s': %m",
+                                       c->entry_name_format ?: DEFAULT_ENTRY_NAME_FORMAT);
+
+        if (isempty(resolved))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Entry name format '%s' resolved to empty string.",
+                                       c->entry_name_format ?: DEFAULT_ENTRY_NAME_FORMAT);
+
+        if (!filename_is_valid(resolved))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Entry name format '%s' resolved to invalid filename: %s",
+                                       c->entry_name_format ?: DEFAULT_ENTRY_NAME_FORMAT, resolved);
+
+        c->entry_name = TAKE_PTR(resolved);
+        log_debug("Using entry name: %s", c->entry_name);
+        return 0;
+}
+
 static int context_set_version(Context *c, const char *s) {
         assert(c);
 
@@ -449,12 +519,14 @@ static int context_load_environment(Context *c) {
         (void) context_set_boot_root(c, getenv("BOOT_ROOT"), "environment");
         (void) context_set_conf_root(c, getenv("KERNEL_INSTALL_CONF_ROOT"), "environment");
         (void) context_set_plugins(c, getenv("KERNEL_INSTALL_PLUGINS"), "environment");
+        (void) context_set_entry_name_format(c, getenv("KERNEL_INSTALL_ENTRY_NAME_FORMAT"), "environment");
         return 0;
 }
 
 static int context_load_install_conf(Context *c) {
         _cleanup_free_ char *machine_id = NULL, *boot_root = NULL, *layout = NULL,
-                            *initrd_generator = NULL, *uki_generator = NULL;
+                            *initrd_generator = NULL, *uki_generator = NULL,
+                            *entry_name_format = NULL;
         int r;
 
         assert(c);
@@ -467,7 +539,8 @@ static int context_load_install_conf(Context *c) {
                         &boot_root,
                         &layout,
                         &initrd_generator,
-                        &uki_generator);
+                        &uki_generator,
+                        &entry_name_format);
         if (r <= 0)
                 return r;
 
@@ -476,6 +549,7 @@ static int context_load_install_conf(Context *c) {
         (void) context_set_layout(c, layout, "config");
         (void) context_set_initrd_generator(c, initrd_generator, "config");
         (void) context_set_uki_generator(c, uki_generator, "config");
+        (void) context_set_entry_name_format(c, entry_name_format, "config");
 
         log_debug("Loaded config.");
         return 0;
@@ -1032,6 +1106,10 @@ static int context_build_environment(Context *c) {
         if (c->envp)
                 return 0;
 
+        r = context_resolve_entry_name(c);
+        if (r < 0)
+                return r;
+
         r = strv_env_assign_many(&e,
                                  "LC_COLLATE",                      SYSTEMD_DEFAULT_LOCALE,
                                  "KERNEL_INSTALL_VERBOSE",          one_zero(arg_verbose),
@@ -1043,7 +1121,8 @@ static int context_build_environment(Context *c) {
                                  "KERNEL_INSTALL_INITRD_GENERATOR", strempty(c->initrd_generator),
                                  "KERNEL_INSTALL_UKI_GENERATOR",    strempty(c->uki_generator),
                                  "KERNEL_INSTALL_BOOT_ENTRY_TYPE",  boot_entry_type_to_string(c->entry_type),
-                                 "KERNEL_INSTALL_STAGING_AREA",     c->staging_area);
+                                 "KERNEL_INSTALL_STAGING_AREA",     c->staging_area,
+                                 "KERNEL_INSTALL_ENTRY_NAME",       c->entry_name);
         if (r < 0)
                 return log_error_errno(r, "Failed to build environment variables for plugins: %m");
 
@@ -1093,10 +1172,10 @@ static int context_execute(Context *c) {
                 return r;
 
         if (DEBUG_LOGGING) {
-                _cleanup_free_ char *x = strv_join_full(c->plugins, "", "\n  ", /* escape_separator= */ false);
+                _cleanup_free_ char *x = strv_join_full(c->plugins, "", "\n  ");
                 log_debug("Using plugins: %s", strna(x));
 
-                _cleanup_free_ char *y = strv_join_full(c->envp, "", "\n  ", /* escape_separator= */ false);
+                _cleanup_free_ char *y = strv_join_full(c->envp, "", "\n  ");
                 log_debug("Plugin environment: %s", strna(y));
 
                 _cleanup_free_ char *z = strv_join(strv_skip(c->argv, 1), " ");
@@ -1413,6 +1492,10 @@ static int verb_inspect(int argc, char *argv[], uintptr_t _data, void *userdata)
                            TABLE_STRING, boot_entry_token_type_to_string(c.entry_token_type),
                            TABLE_FIELD, "Entry Token",
                            TABLE_STRING, c.entry_token,
+                           TABLE_FIELD, "Entry Name Format",
+                           TABLE_STRING, c.entry_name_format ?: DEFAULT_ENTRY_NAME_FORMAT,
+                           TABLE_FIELD, "Entry Name",
+                           TABLE_STRING, c.entry_name,
                            TABLE_FIELD, "Entry Directory",
                            TABLE_STRING, c.entry_dir,
                            TABLE_FIELD, "Kernel Version",
