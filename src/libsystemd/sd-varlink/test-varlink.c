@@ -348,6 +348,7 @@ static int block_fd_handler(sd_event_source *s, int fd, uint32_t revents, void *
 
 TEST(add_connection_failure_cleanup) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *v = NULL;
         _cleanup_close_pair_ int fds[2] = EBADF_PAIR;
         const struct ucred ucred = {
                 .pid = getpid(),
@@ -365,7 +366,10 @@ TEST(add_connection_failure_cleanup) {
         ASSERT_ERROR(sd_varlink_server_add_connection_pair(s, fds[0], bad_fd, &ucred, /* ret= */ NULL), EBADF);
         ASSERT_EQ(sd_varlink_server_current_connections(s), 0U);
 
-        ASSERT_OK(sd_varlink_server_add_connection(s, TAKE_FD(fds[0]), /* ret= */ NULL));
+        ASSERT_OK(sd_varlink_server_add_connection(s, TAKE_FD(fds[0]), &v));
+        v = sd_varlink_ref(v);
+        sd_varlink_close(v);
+        ASSERT_EQ(sd_varlink_server_current_connections(s), 0U);
 }
 
 TEST(chat) {
