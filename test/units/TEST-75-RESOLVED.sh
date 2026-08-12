@@ -621,6 +621,8 @@ testcase_08_resolved() {
     run resolvectl openpgp mr.smith@signed.test
     grep -qF "5a786cdc59c161cdafd818143705026636962198c66ed4c5b3da321e._openpgpkey.signed.test" "$RUN_OUT"
     grep -qF "authenticated: yes" "$RUN_OUT"
+    (! run resolvectl tlsa tcp)
+    grep -qF -- "The tlsa command requires at least one domain." "$RUN_OUT"
     # Check zone transfers (AXFR/IXFR)
     # Note: since resolved doesn't support zone transfers, let's just make sure it
     #       simply refuses such requests without choking on them
