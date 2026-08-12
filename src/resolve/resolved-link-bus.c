@@ -391,6 +391,9 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
                 if (r > 0)
                         dns_search_domain_move_back_and_unmark(d);
                 else {
+                        if (l->n_search_domains >= LINK_SEARCH_DOMAINS_MAX)
+                                changed = dns_search_domain_unlink_marked(l->search_domains) || changed;
+
                         r = dns_search_domain_new(l->manager, &d, DNS_SEARCH_DOMAIN_LINK, l, /* delegate= */ NULL, name);
                         if (r < 0)
                                 goto clear;
