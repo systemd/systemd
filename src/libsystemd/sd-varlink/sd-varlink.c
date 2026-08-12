@@ -302,20 +302,21 @@ _public_ int sd_varlink_connect_exec(sd_varlink **ret, const char *_command, cha
 
         server_fd = safe_close(server_fd);
 
-        sd_varlink *v;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *v = NULL;
         r = varlink_new(&v);
         if (r < 0)
                 return log_debug_errno(r, "Failed to create varlink object: %m");
 
-        int conn_fd = TAKE_FD(client_fd);
-        r = json_stream_attach_fds(&v->stream, conn_fd, conn_fd);
+        r = json_stream_attach_fds(&v->stream, client_fd, client_fd);
         if (r < 0)
                 return r;
+
+        TAKE_FD(client_fd);
 
         v->exec_pidref = TAKE_PIDREF(pidref);
         varlink_set_state(v, VARLINK_IDLE_CLIENT);
 
-        *ret = v;
+        *ret = TAKE_PTR(v);
         return 0;
 }
 
@@ -390,20 +391,21 @@ static int varlink_connect_ssh_unix(sd_varlink **ret, const char *where) {
 
         server_fd = safe_close(server_fd);
 
-        sd_varlink *v;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *v = NULL;
         r = varlink_new(&v);
         if (r < 0)
                 return log_debug_errno(r, "Failed to create varlink object: %m");
 
-        int conn_fd = TAKE_FD(client_fd);
-        r = json_stream_attach_fds(&v->stream, conn_fd, conn_fd);
+        r = json_stream_attach_fds(&v->stream, client_fd, client_fd);
         if (r < 0)
                 return r;
+
+        TAKE_FD(client_fd);
 
         v->exec_pidref = TAKE_PIDREF(pidref);
         varlink_set_state(v, VARLINK_IDLE_CLIENT);
 
-        *ret = v;
+        *ret = TAKE_PTR(v);
         return 0;
 }
 
@@ -485,19 +487,22 @@ static int varlink_connect_ssh_exec(sd_varlink **ret, const char *where) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to make output pipe non-blocking: %m");
 
-        sd_varlink *v;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *v = NULL;
         r = varlink_new(&v);
         if (r < 0)
                 return log_debug_errno(r, "Failed to create varlink object: %m");
 
-        r = json_stream_attach_fds(&v->stream, TAKE_FD(output_pipe[0]), TAKE_FD(input_pipe[1]));
+        r = json_stream_attach_fds(&v->stream, output_pipe[0], input_pipe[1]);
         if (r < 0)
                 return r;
+
+        TAKE_FD(output_pipe[0]);
+        TAKE_FD(input_pipe[1]);
 
         v->exec_pidref = TAKE_PIDREF(pidref);
         varlink_set_state(v, VARLINK_IDLE_CLIENT);
 
-        *ret = v;
+        *ret = TAKE_PTR(v);
         return 0;
 }
 
@@ -3433,9 +3438,14 @@ _public_ int sd_varlink_server_add_connection_pair(
         v->server = sd_varlink_server_ref(server);
         sd_varlink_ref(v);
 
+        if (ucred_acquired)
+                json_stream_set_peer_ucred(&v->stream, &ucred);
+
         r = json_stream_attach_fds(&v->stream, input_fd, output_fd);
-        if (r < 0)
+        if (r < 0) {
+                sd_varlink_close(v);
                 return r;
+        }
 
         if (server->flags & SD_VARLINK_SERVER_INHERIT_USERDATA)
                 v->userdata = server->userdata;
@@ -3444,9 +3454,6 @@ _public_ int sd_varlink_server_add_connection_pair(
          * byte-bounded reads so we don't accidentally consume post-upgrade bytes. */
         if (FLAGS_SET(server->flags, SD_VARLINK_SERVER_UPGRADABLE))
                 json_stream_set_flags(&v->stream, JSON_STREAM_BOUNDED_READS, true);
-
-        if (ucred_acquired)
-                json_stream_set_peer_ucred(&v->stream, &ucred);
 
         _cleanup_free_ char *desc = NULL;
         if (asprintf(&desc, "%s-%i-%i", varlink_server_description(server), input_fd, output_fd) >= 0)
