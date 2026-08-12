@@ -90,6 +90,7 @@ at_exit() {
     rm -f /run/systemd/system/varlink-test-enqueue-2.service
     rm -f /run/systemd/system/varlink-test-slow.service
     rm -f /tmp/enqueue-result.json
+    rm -f /tmp/enqueue-notifications.json
     for u in "${TRANSIENT_UNITS[@]}"; do
         systemctl stop "$u" 2>/dev/null || true
         systemctl reset-failed "$u" 2>/dev/null || true
@@ -215,6 +216,40 @@ set +o pipefail
 varlinkctl call --more /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob \
     '{"names": ["varlink-test-slow.service"], "jobType": "start", "notifyJobChanges": true}' |& grep "io.systemd.Unit.JobAlreadyBeingWatched"
 set -o pipefail
+
+systemctl stop varlink-test-slow.service
+wait "$watcher_pid" 2>/dev/null || true
+
+# A unit can carry two jobs at the same time, the regular one and a NOP one, and each of them may be
+# watched by a different connection. The job finishing first must not tear down the unit change
+# subscription of the other one.
+varlinkctl --json=short call --more /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob \
+    '{"names": ["varlink-test-slow.service"], "jobType": "start", "notifyUnitChanges": true}' >/tmp/enqueue-notifications.json &
+watcher_pid=$!
+
+for _ in {1..50}; do
+    [[ "$(systemctl show -P ActiveState varlink-test-slow.service 2>/dev/null)" == "activating" ]] && break
+    sleep 0.1
+done
+[[ "$(systemctl show -P ActiveState varlink-test-slow.service)" == "activating" ]]
+
+# One message per line, and while the start job is still running all of them are unit change
+# notifications, i.e. the final reply cannot be among them yet.
+sleep 1
+notifications=$(wc -l </tmp/enqueue-notifications.json)
+
+# The NOP job goes into the unit's separate nop_job slot, so it is watchable even though the start job
+# above is already watched, and it completes right away.
+varlinkctl call --more /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob \
+    '{"names": ["varlink-test-slow.service"], "jobType": "nop", "notifyJobChanges": true}' >/dev/null
+
+# Removing the NOP job changes the Job property of the unit, hence the still subscribed connection must
+# receive another notification for it.
+for _ in {1..20}; do
+    [[ "$(wc -l </tmp/enqueue-notifications.json)" -gt "$notifications" ]] && break
+    sleep 0.1
+done
+[[ "$(wc -l </tmp/enqueue-notifications.json)" -gt "$notifications" ]]
 
 systemctl stop varlink-test-slow.service
 wait "$watcher_pid" 2>/dev/null || true
