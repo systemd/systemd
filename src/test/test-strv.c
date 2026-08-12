@@ -159,44 +159,31 @@ TEST(strv_join) {
 }
 
 TEST(strv_join_full) {
-        _cleanup_free_ char *p = strv_join_full((char **)input_table_multiple, ", ", "foo", false);
+        _cleanup_free_ char *p = strv_join_full((char **)input_table_multiple, ", ", "foo");
         assert_se(p);
         ASSERT_STREQ(p, "fooone, footwo, foothree");
 
-        _cleanup_free_ char *q = strv_join_full((char **)input_table_multiple, ";", "foo", false);
+        _cleanup_free_ char *q = strv_join_full((char **)input_table_multiple, ";", "foo");
         assert_se(q);
         ASSERT_STREQ(q, "fooone;footwo;foothree");
 
-        _cleanup_free_ char *r = strv_join_full(STRV_MAKE("a", "a;b", "a:c"), ";", NULL, true);
-        assert_se(r);
-        ASSERT_STREQ(r, "a;a\\;b;a:c");
-
-        _cleanup_free_ char *s = strv_join_full(STRV_MAKE("a", "a;b", "a;;c", ";", ";x"), ";", NULL, true);
-        assert_se(s);
-        ASSERT_STREQ(s, "a;a\\;b;a\\;\\;c;\\;;\\;x");
-
-        _cleanup_free_ char *t = strv_join_full(STRV_MAKE("a", "a;b", "a:c", ";"), ";", "=", true);
-        assert_se(t);
-        ASSERT_STREQ(t, "=a;=a\\;b;=a:c;=\\;");
-        t = mfree(t);
-
-        _cleanup_free_ char *u = strv_join_full((char **)input_table_multiple, NULL, "foo", false);
+        _cleanup_free_ char *u = strv_join_full((char **)input_table_multiple, NULL, "foo");
         assert_se(u);
         ASSERT_STREQ(u, "fooone footwo foothree");
 
-        _cleanup_free_ char *v = strv_join_full((char **)input_table_one, ", ", "foo", false);
+        _cleanup_free_ char *v = strv_join_full((char **)input_table_one, ", ", "foo");
         assert_se(v);
         ASSERT_STREQ(v, "fooone");
 
-        _cleanup_free_ char *w = strv_join_full((char **)input_table_none, ", ", "foo", false);
+        _cleanup_free_ char *w = strv_join_full((char **)input_table_none, ", ", "foo");
         assert_se(w);
         ASSERT_STREQ(w, "");
 
-        _cleanup_free_ char *x = strv_join_full((char **)input_table_two_empties, ", ", "foo", false);
+        _cleanup_free_ char *x = strv_join_full((char **)input_table_two_empties, ", ", "foo");
         assert_se(x);
         ASSERT_STREQ(x, "foo, foo");
 
-        _cleanup_free_ char *y = strv_join_full((char **)input_table_one_empty, ", ", "foo", false);
+        _cleanup_free_ char *y = strv_join_full((char **)input_table_one_empty, ", ", "foo");
         assert_se(y);
         ASSERT_STREQ(y, "foo");
 }
