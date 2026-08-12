@@ -1863,11 +1863,13 @@ static int probe_schema(QmpClient *c, VmspawnQmpBridge *bridge) {
 
 int vmspawn_qmp_init(VmspawnQmpBridge **ret, int fd, sd_event *event) {
         _cleanup_(vmspawn_qmp_bridge_freep) VmspawnQmpBridge *bridge = NULL;
+        _cleanup_close_ int fd_close = ASSERT_FD(TAKE_FD(fd));
         int r;
 
         assert(ret);
-        assert(fd >= 0);
         assert(event);
+
+        /* This function always takes ownership of the passed fd. */
 
         bridge = new0(VmspawnQmpBridge, 1);
         if (!bridge)
@@ -1875,7 +1877,7 @@ int vmspawn_qmp_init(VmspawnQmpBridge **ret, int fd, sd_event *event) {
 
         bridge->scsi_controller_port_idx = -1;
 
-        r = qmp_client_connect_fd(&bridge->qmp, fd);
+        r = qmp_client_connect_fd(&bridge->qmp, TAKE_FD(fd_close));
         if (r < 0)
                 return log_error_errno(r, "Failed to create QMP client: %m");
 
