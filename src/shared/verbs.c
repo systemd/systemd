@@ -431,7 +431,7 @@ static bool verbs_array_has_verbs(const Verb verbs[], const Verb verbs_end[]) {
         return false;
 }
 
-static int print_wrapped(const char *text) {
+static int print_wrapped(const char *text, bool abstract) {
 
         /* Print the text wrapped at spaces to the specified width. Newlines embedded in the text
          * are preserved and each line is wrapped independently, so explicit line breaks (e.g.
@@ -457,7 +457,14 @@ static int print_wrapped(const char *text) {
         putchar('\n');
 
         STRV_FOREACH(line, lines2)
-                puts(*line);
+                if (abstract)
+                        printf("%s%s%s%s\n",
+                               ansi_highlight(),
+                               ansi_add_italics(),
+                               *line,
+                               ansi_normal());
+                else
+                        puts(*line);
 
         return 0;
 }
@@ -492,14 +499,15 @@ int _command_print_help(
                 help_cmdline(have_verbs ? "[OPTION…] COMMAND …" : "[OPTION…]");
         }
 
-        if (cmd->abstract)
-                help_abstract(cmd->abstract);
+        r = print_wrapped(cmd->abstract, /* abstract= */ true);
+        if (r < 0)
+                return r;
 
         r = print_verb_option_help(cmd, cmdverb + 1, verbs_end, options, options_end);
         if (r < 0)
                 return log_error_errno(r, "Failed to print verb&option help: %m");
 
-        r = print_wrapped(cmd->footer);
+        r = print_wrapped(cmd->footer, /* abstract= */ false);
         if (r < 0)
                 return r;
 
