@@ -9,6 +9,7 @@ int procfs_get_threads_max(uint64_t *ret);
 int procfs_tasks_set_limit(uint64_t limit);
 int procfs_tasks_get_current(uint64_t *ret);
 
+nsec_t procfs_ticks_to_nsec(uint64_t ticks);
 int procfs_cpu_get_usage(nsec_t *ret);
 
 typedef struct ProcfsCpuTicks {
