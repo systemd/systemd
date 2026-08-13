@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
-# Test vmspawn QMP-varlink bridge and machinectl VM control verbs.
+# Test vmspawn: QMP-varlink bridge, machinectl VM control verbs, and error reporting.
 set -eux
 set -o pipefail
 
@@ -291,5 +291,57 @@ echo "Parallel terminate succeeded, both VMs gone"
 timeout 10 bash -c "while kill -0 '$VMSPAWN_PID' 2>/dev/null; do sleep .5; done"
 timeout 10 bash -c "while kill -0 '$VMSPAWN2_PID' 2>/dev/null; do sleep .5; done"
 echo "Both vmspawn processes exited"
+
+# --- Regression test: early qemu failure ---
+# qemu dies before the QMP handshake; vmspawn must log qemu's stderr (in the PTY modes
+# it previously vanished into the never-forwarded PTY), report qemu's exit status, and
+# propagate that status as its own exit code.
+for console in headless read-only; do
+    OUT="$WORKDIR/early-fail-$console.log"
+    rc=0
+    SYSTEMD_VMSPAWN_QEMU_EXTRA=-bogus timeout 60 systemd-vmspawn \
+        --machine="${MACHINE}-fail" \
+        --register=no \
+        --console="$console" \
+        --directory="$WORKDIR/root" \
+        --linux="$KERNEL" \
+        --tpm=no \
+        &>"$OUT" || rc=$?
+    cat "$OUT"
+
+    [[ $rc -eq 1 ]]
+    grep -E '(invalid|unknown) option' "$OUT" >/dev/null
+    grep -F 'died with a failure exit status' "$OUT" >/dev/null
+done
+echo "Regression test: early qemu failure passed"
+
+# --- Regression test: qemu's exit status is propagated verbatim ---
+# find_qemu_binary() looks for "qemu" in $PATH first, so an imposter exiting with a distinctive
+# status tells a propagated status apart from a generic failure, which an exit status of 1 cannot.
+mkdir -p "$WORKDIR/imposter"
+cat >"$WORKDIR/imposter/qemu" <<'EOF'
+#!/bin/sh
+echo "imposter qemu: not starting a VM today" >&2
+exit 42
+EOF
+chmod +x "$WORKDIR/imposter/qemu"
+
+OUT="$WORKDIR/imposter.log"
+rc=0
+PATH="$WORKDIR/imposter:$PATH" timeout 60 systemd-vmspawn \
+    --machine="${MACHINE}-imposter" \
+    --register=no \
+    --console=headless \
+    --directory="$WORKDIR/root" \
+    --linux="$KERNEL" \
+    --tpm=no \
+    &>"$OUT" || rc=$?
+cat "$OUT"
+
+[[ $rc -eq 42 ]]
+grep -F 'imposter qemu: not starting a VM today' "$OUT" >/dev/null
+
+rm -rf "$WORKDIR/imposter"
+echo "Regression test: qemu exit status propagation passed"
 
 echo "All vmspawn QMP-varlink bridge tests passed"
