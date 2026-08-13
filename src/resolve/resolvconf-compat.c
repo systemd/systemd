@@ -28,12 +28,12 @@ COMMAND(
         .argspec = "-a INTERFACE <FILE\0"
                    "-d INTERFACE\0",
         .footer =
-               "This is a compatibility alias for the resolvectl(1) tool, providing native\n"
-               "command line compatibility with the resolvconf(8) tool of various Linux\n"
-               "distributions and BSD systems. Some options supported by other implementations\n"
-               "are not supported and are ignored: -m, -u. Various options supported by other\n"
-               "implementations are not supported and will cause the invocation to fail:\n"
-               "-I, -i, -l, -R, -r, -v, -V, --enable-updates, --disable-updates,\n"
+               "This is a compatibility alias for the resolvectl(1) tool, providing native "
+               "command line compatibility with the resolvconf(8) tool of various Linux "
+               "distributions and BSD systems. Some options supported by other implementations "
+               "are not supported and are ignored: -m, -u. Various options supported by other "
+               "implementations are not supported and will cause the invocation to fail: "
+               "-I, -i, -l, -R, -r, -v, -V, --enable-updates, --disable-updates, "
                "--updates-are-enabled.",
         .option_namespace = "resolvconf",
 );
