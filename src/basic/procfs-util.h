@@ -11,6 +11,19 @@ int procfs_tasks_get_current(uint64_t *ret);
 
 int procfs_cpu_get_usage(nsec_t *ret);
 
+typedef struct ProcfsCpuTicks {
+        uint64_t user;
+        uint64_t nice;
+        uint64_t system;
+        uint64_t idle;
+        uint64_t iowait;
+        uint64_t irq;
+        uint64_t softirq;
+        uint64_t steal;
+} ProcfsCpuTicks;
+
+int procfs_cpu_get_ticks(ProcfsCpuTicks *ret);
+
 int procfs_memory_get(uint64_t *ret_total, uint64_t *ret_used);
 static inline int procfs_memory_get_used(uint64_t *ret) {
         return procfs_memory_get(NULL, ret);
