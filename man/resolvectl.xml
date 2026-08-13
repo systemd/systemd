@@ -564,7 +564,8 @@
         DNS configuration data from its standard input. Relevant fields are <literal>nameserver</literal> and
         <literal>domain</literal>/<literal>search</literal>. This command is mostly identical to invoking
         <command>resolvectl</command> with a combination of <option>dns</option> and <option>domain</option>
-        commands.</para>
+        commands. If a relevant input line has invalid syntax, the command fails and leaves the existing
+        per-interface configuration unchanged.</para>
 
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>

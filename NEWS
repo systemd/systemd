@@ -454,6 +454,9 @@ CHANGES WITH 261:
 
         Changes in systemd-resolved:
 
+        * The resolvconf compatibility mode now rejects malformed stdin input
+          and leaves the existing per-link DNS configuration unchanged.
+
         * systemd-resolved will now read additional DNS resource record
           definitions to resolve locally from JSON drop-in files in
           {/etc,/run,/usr/local/lib,/usr/lib}/systemd/resolve/static.d/. This

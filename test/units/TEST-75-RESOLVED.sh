@@ -273,6 +273,9 @@ manual_testcase_01_resolvectl() {
     assert_in 'test-domain1.example.com' "$(resolvectl domain hoge)"
     assert_in 'test-domain2.example.com' "$(resolvectl domain hoge)"
     assert_in 'test-search-domain.example.com' "$(resolvectl domain hoge)"
+    resolvectl domain hoge keep.example
+    (! echo -e "nameserver 10.0.2.1\nsearch \"unterminated" | SYSTEMD_INVOKED_AS=resolvconf resolvectl -a hoge)
+    assert_in 'keep.example' "$(resolvectl domain hoge)"
 
     # Tests for 'resolvconf -x'
     echo nameserver 10.0.2.1 | SYSTEMD_INVOKED_AS=resolvconf resolvectl -x -a hoge
