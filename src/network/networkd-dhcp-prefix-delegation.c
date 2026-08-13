@@ -215,6 +215,74 @@ static void dhcp_pd_route_modify_nft_set(Route *route, Link *link, bool add) {
         }
 }
 
+static bool dhcp_pd_prefix_is_unused(Link *link, const struct in6_addr *prefix) {
+        Address *address;
+
+        assert(link);
+        assert(prefix);
+
+        SET_FOREACH(address, link->addresses) {
+                if (!address_exists(address))
+                        continue;
+                if (address->family != AF_INET6)
+                        continue;
+                if (in6_addr_prefix_covers(prefix, 64, &address->in_addr.in6) <= 0)
+                        continue;
+                if (address->source == NETWORK_CONFIG_SOURCE_FOREIGN && FLAGS_SET(address->flags, IFA_F_SECONDARY))
+                        continue;
+
+                return false;
+        }
+
+        return true;
+}
+
+static int dhcp_pd_remove_temporary_addresses(Link *link, const struct in6_addr *prefix) {
+        Address *address;
+        int ret = 0;
+
+        assert(link);
+        assert(prefix);
+
+        SET_FOREACH(address, link->addresses) {
+                if (address->source == NETWORK_CONFIG_SOURCE_FOREIGN &&
+                    address->family == AF_INET6 &&
+                    FLAGS_SET(address->flags, IFA_F_SECONDARY) &&
+                    in6_addr_prefix_covers(prefix, 64, &address->in_addr.in6) > 0)
+                        RET_GATHER(ret, address_remove_and_cancel(address, link));
+        }
+
+        return ret;
+}
+
+static int dhcp_pd_remove_kernel_prefix_route(Link *link, const struct in6_addr *prefix) {
+        Route *route;
+        int ret = 0;
+
+        assert(link);
+        assert(link->manager);
+        assert(prefix);
+
+        SET_FOREACH(route, link->manager->routes) {
+                if (route->source != NETWORK_CONFIG_SOURCE_FOREIGN)
+                        continue;
+                if (route->family != AF_INET6)
+                        continue;
+                if (route->protocol != RTPROT_KERNEL)
+                        continue;
+                if (route->nexthop.ifindex != link->ifindex)
+                        continue;
+                if (route->dst_prefixlen != 64)
+                        continue;
+                if (!in6_addr_equal(&route->dst.in6, prefix))
+                        continue;
+
+                RET_GATHER(ret, route_remove_and_cancel(route, link->manager));
+        }
+
+        return ret;
+}
+
 int dhcp_pd_remove(Link *link, bool only_marked) {
         int ret = 0;
 
@@ -268,6 +336,11 @@ int dhcp_pd_remove(Link *link, bool only_marked) {
                         link_remove_dhcp_pd_subnet_prefix(link, &prefix);
 
                         RET_GATHER(ret, address_remove_and_cancel(address, link));
+
+                        if (dhcp_pd_prefix_is_unused(link, &prefix)) {
+                                RET_GATHER(ret, dhcp_pd_remove_temporary_addresses(link, &prefix));
+                                RET_GATHER(ret, dhcp_pd_remove_kernel_prefix_route(link, &prefix));
+                        }
                 }
         }
 
