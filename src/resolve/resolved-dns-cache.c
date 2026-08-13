@@ -30,6 +30,11 @@
 
 #define CACHEABLE_QUERY_FLAGS (SD_RESOLVED_AUTHENTICATED|SD_RESOLVED_CONFIDENTIAL)
 
+#define MDNS_CACHE_FLUSH_GRACE_USEC USEC_PER_SEC
+/* Keep the grace-period allowance comfortably above ordinary multi-address hosts, while bounding how much of
+ * the global cache a single owner name can occupy during a cache-flush burst. */
+#define MDNS_CACHE_FLUSH_GRACE_RR_MAX 64U
+
 typedef enum DnsCacheItemType DnsCacheItemType;
 typedef struct DnsCacheItem DnsCacheItem;
 
@@ -50,6 +55,7 @@ struct DnsCacheItem {
 
         usec_t until;            /* If StaleRetentionSec is greater than zero, until is set to a duration of StaleRetentionSec from the time of TTL expiry. If StaleRetentionSec is zero, both until and until_valid will be set to ttl. */
         usec_t until_valid;      /* The key is for storing the time when the TTL set to expire. */
+        usec_t received;         /* When this record was received. Used for mDNS cache-flush grace handling. */
         uint64_t query_flags;    /* SD_RESOLVED_AUTHENTICATED and/or SD_RESOLVED_CONFIDENTIAL */
         DnssecResult dnssec_result;
 
@@ -422,6 +428,7 @@ static void dns_cache_item_update_positive(
 
         i->until_valid = calculate_until_valid(rr, min_ttl, UINT32_MAX, timestamp, false);
         i->until = calculate_until(i->until_valid, stale_retention_usec);
+        i->received = timestamp;
         i->query_flags = query_flags & CACHEABLE_QUERY_FLAGS;
         i->shared_owner = shared_owner;
         i->dnssec_result = dnssec_result;
@@ -527,6 +534,7 @@ static int dns_cache_put_positive(
                 .full_packet = dns_packet_ref(full_packet),
                 .until = calculate_until(until_valid, stale_retention_usec),
                 .until_valid = until_valid,
+                .received = timestamp,
                 .query_flags = query_flags & CACHEABLE_QUERY_FLAGS,
                 .shared_owner = shared_owner,
                 .dnssec_result = dnssec_result,
@@ -674,10 +682,48 @@ static int dns_cache_put_negative(
         return 0;
 }
 
-static void dns_cache_remove_previous(
+static void dns_cache_remove_by_key_with_mdns_grace(
                 DnsCache *c,
                 DnsResourceKey *key,
-                DnsAnswer *answer) {
+                usec_t timestamp) {
+
+        DnsCacheItem *first;
+
+        assert(c);
+        assert(key);
+
+        first = hashmap_get(c->by_key, key);
+        if (!first)
+                return;
+
+        LIST_FOREACH(by_key, i, first) {
+                if (usec_sub_unsigned(timestamp, i->received) >= MDNS_CACHE_FLUSH_GRACE_USEC)
+                        dns_cache_item_unlink_and_free(c, i);
+        }
+}
+
+static void dns_cache_trim_key(DnsCache *c, DnsResourceKey *key, unsigned max) {
+        DnsCacheItem *first;
+        unsigned n = 0;
+
+        assert(c);
+        assert(key);
+
+        first = hashmap_get(c->by_key, key);
+        if (!first)
+                return;
+
+        LIST_FOREACH(by_key, i, first)
+                if (++n > max)
+                        dns_cache_item_unlink_and_free(c, i);
+}
+
+static void dns_cache_remove_previous(
+                DnsCache *c,
+                DnsProtocol protocol,
+                DnsResourceKey *key,
+                DnsAnswer *answer,
+                usec_t timestamp) {
 
         DnsResourceRecord *rr;
         DnsAnswerFlags flags;
@@ -690,9 +736,12 @@ static void dns_cache_remove_previous(
         if (key)
                 dns_cache_remove_by_key(c, key);
 
-        /* Second, flush all entries matching the answer, unless this
-         * is an RR that is explicitly marked to be "shared" between
-         * peers (i.e. mDNS RRs without the flush-cache bit set). */
+        /* Second, flush all entries matching the answer, unless this is an RR that is explicitly marked to be
+         * "shared" between peers (i.e. mDNS RRs without the flush-cache bit set).
+         *
+         * RFC 6762, Section 10.2, says receivers that see a cache-flush record should not flush records
+         * received in the last second. Without this grace period, two interfaces connected to the same link
+         * can keep evicting each other's unique records when a multicast reply is observed on both links. */
         DNS_ANSWER_FOREACH_FLAGS(rr, flags, answer) {
                 if ((flags & DNS_ANSWER_CACHEABLE) == 0)
                         continue;
@@ -700,7 +749,10 @@ static void dns_cache_remove_previous(
                 if (flags & DNS_ANSWER_SHARED_OWNER)
                         continue;
 
-                dns_cache_remove_by_key(c, rr->key);
+                if (protocol == DNS_PROTOCOL_MDNS)
+                        dns_cache_remove_by_key_with_mdns_grace(c, rr->key, timestamp);
+                else
+                        dns_cache_remove_by_key(c, rr->key);
         }
 }
 
@@ -756,7 +808,9 @@ int dns_cache_put(
         if (cache_mode == DNS_CACHE_MODE_NO || c->cache_max == 0)
                 return 0;
 
-        dns_cache_remove_previous(c, key, answer);
+        timestamp = now(CLOCK_BOOTTIME);
+
+        dns_cache_remove_previous(c, protocol, key, answer, timestamp);
 
         /* We only care for positive replies and NXDOMAINs, on all other replies we will simply flush the respective
          * entries, and that's it. (Well, with one further exception: since some DNS zones (akamai!) return SERVFAIL
@@ -790,8 +844,6 @@ int dns_cache_put(
 
         /* Make some space for our new entries */
         dns_cache_make_space(c, cache_keys);
-
-        timestamp = now(CLOCK_BOOTTIME);
 
         /* Second, add in positive entries for all contained RRs */
         DNS_ANSWER_FOREACH_ITEM(item, answer) {
@@ -843,6 +895,9 @@ int dns_cache_put(
                                 stale_retention_usec);
                 if (r < 0)
                         goto fail;
+
+                if (protocol == DNS_PROTOCOL_MDNS && !FLAGS_SET(item->flags, DNS_ANSWER_SHARED_OWNER))
+                        dns_cache_trim_key(c, item->rr->key, MDNS_CACHE_FLUSH_GRACE_RR_MAX);
         }
 
         if (!key) /* mDNS doesn't know negative caching, really */

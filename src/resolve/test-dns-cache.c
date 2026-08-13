@@ -911,7 +911,7 @@ TEST(dns_cache_lookup_mdns_multiple_shared_responses_are_cached) {
         dns_resource_record_unref(rr);
 }
 
-TEST(dns_cache_lookup_mdns_multiple_unshared_responses_are_not_cached) {
+TEST(dns_cache_lookup_mdns_multiple_unshared_responses_received_close_together_are_cached) {
         _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
         _cleanup_(put_args_unrefp) PutArgs args1 = mk_put_args(), args2 = mk_put_args();
         _cleanup_(dns_answer_unrefp) DnsAnswer *ret_answer = NULL;
@@ -928,6 +928,115 @@ TEST(dns_cache_lookup_mdns_multiple_unshared_responses_are_not_cached) {
         answer_add_a(&args1, key, 0xc0a8017f, 3600, DNS_ANSWER_CACHEABLE);
         ASSERT_OK(cache_put(&cache, &args1));
         dns_resource_key_unref(key);
+
+        args2.protocol = DNS_PROTOCOL_MDNS;
+        args2.rcode = DNS_RCODE_SUCCESS;
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "example.com");
+        ASSERT_NOT_NULL(key);
+        answer_add_a(&args2, key, 0x7f01a8cc, 3600, DNS_ANSWER_CACHEABLE);
+        ASSERT_OK(cache_put(&cache, &args2));
+        dns_resource_key_unref(key);
+
+        ASSERT_FALSE(dns_cache_is_empty(&cache));
+        ASSERT_EQ(dns_cache_size(&cache), 1u);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "example.com");
+        ASSERT_NOT_NULL(key);
+        query_flags = 0;
+        ASSERT_OK_POSITIVE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, NULL));
+        dns_resource_key_unref(key);
+
+        ASSERT_EQ(cache.n_hit, 1u);
+        ASSERT_EQ(cache.n_miss, 0u);
+
+        ASSERT_EQ(ret_rcode, DNS_RCODE_SUCCESS);
+        ASSERT_EQ(ret_query_flags, SD_RESOLVED_CONFIDENTIAL);
+
+        ASSERT_EQ(dns_answer_size(ret_answer), 2u);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->a.in_addr.s_addr = htobe32(0xc0a8017f);
+        ASSERT_TRUE(dns_answer_contains(ret_answer, rr));
+        dns_resource_record_unref(rr);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->a.in_addr.s_addr = htobe32(0x7f01a8cc);
+        ASSERT_TRUE(dns_answer_contains(ret_answer, rr));
+        dns_resource_record_unref(rr);
+}
+
+TEST(dns_cache_lookup_mdns_unshared_responses_are_capped_per_key) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(dns_answer_unrefp) DnsAnswer *ret_answer = NULL;
+        _cleanup_(dns_packet_unrefp) DnsPacket *ret_full_packet = NULL;
+        DnsResourceKey *key = NULL;
+        DnsResourceRecord *rr = NULL;
+        int query_flags, ret_rcode;
+        uint64_t ret_query_flags;
+
+        for (unsigned i = 0; i < 70; i++) {
+                _cleanup_(put_args_unrefp) PutArgs args = mk_put_args();
+
+                args.protocol = DNS_PROTOCOL_MDNS;
+                args.rcode = DNS_RCODE_SUCCESS;
+                key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "example.com");
+                ASSERT_NOT_NULL(key);
+                answer_add_a(&args, key, 0xc0a80001 + i, 3600, DNS_ANSWER_CACHEABLE);
+                ASSERT_OK(cache_put(&cache, &args));
+                dns_resource_key_unref(key);
+        }
+
+        ASSERT_FALSE(dns_cache_is_empty(&cache));
+        ASSERT_EQ(dns_cache_size(&cache), 1u);
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "example.com");
+        ASSERT_NOT_NULL(key);
+        query_flags = 0;
+        ASSERT_OK_POSITIVE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, NULL));
+        dns_resource_key_unref(key);
+
+        ASSERT_EQ(cache.n_hit, 1u);
+        ASSERT_EQ(cache.n_miss, 0u);
+
+        ASSERT_EQ(ret_rcode, DNS_RCODE_SUCCESS);
+        ASSERT_EQ(ret_query_flags, SD_RESOLVED_CONFIDENTIAL);
+
+        ASSERT_EQ(dns_answer_size(ret_answer), 64u);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->a.in_addr.s_addr = htobe32(0xc0a80001);
+        ASSERT_FALSE(dns_answer_contains(ret_answer, rr));
+        dns_resource_record_unref(rr);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "example.com");
+        ASSERT_NOT_NULL(rr);
+        rr->a.in_addr.s_addr = htobe32(0xc0a80046);
+        ASSERT_TRUE(dns_answer_contains(ret_answer, rr));
+        dns_resource_record_unref(rr);
+}
+
+TEST(dns_cache_lookup_mdns_multiple_unshared_responses_after_grace_are_not_cached) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(put_args_unrefp) PutArgs args1 = mk_put_args(), args2 = mk_put_args();
+        _cleanup_(dns_answer_unrefp) DnsAnswer *ret_answer = NULL;
+        _cleanup_(dns_packet_unrefp) DnsPacket *ret_full_packet = NULL;
+        DnsResourceKey *key = NULL;
+        DnsResourceRecord *rr = NULL;
+        int query_flags, ret_rcode;
+        uint64_t ret_query_flags;
+
+        args1.protocol = DNS_PROTOCOL_MDNS;
+        args1.rcode = DNS_RCODE_SUCCESS;
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "example.com");
+        ASSERT_NOT_NULL(key);
+        answer_add_a(&args1, key, 0xc0a8017f, 3600, DNS_ANSWER_CACHEABLE);
+        ASSERT_OK(cache_put(&cache, &args1));
+        dns_resource_key_unref(key);
+
+        sleep(2);
 
         args2.protocol = DNS_PROTOCOL_MDNS;
         args2.rcode = DNS_RCODE_SUCCESS;
