@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -eux
 set -o pipefail
+shopt -s nullglob
 
 # Unset $PAGER so we don't have to use --no-pager everywhere
 export PAGER=
@@ -77,19 +78,86 @@ id2="$(. /etc/os-release; echo "$ID")"
 basic_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.Basic io.systemd.Metrics.List {})"
 # NB: '| tostring' turns the numeric value into a raw string, so 'jq -r' prints it cleanly
 # (numbers, unlike strings, are otherwise still emitted with the json-seq record separator).
-basic_value() { echo "$basic_metrics" | jq --seq -r "select(.name == \"$1\") | .value | tostring"; }
+basic_value() { echo "$basic_metrics" | jq --seq -r "select(.name == \"io.systemd.Basic.$1\") | .value | tostring"; }
+# Like basic_value, but the value must be a JSON number (jq's 'numbers' filter emits the value
+# only if it is one, so a non-empty result confirms both presence and type), and an optional
+# second argument gives a jq condition further restricting the match, e.g. on .object or .fields.
+basic_number() { echo "$basic_metrics" | jq --seq -r "select(.name == \"io.systemd.Basic.$1\" and ${2:-true}) | .value | numbers | tostring"; }
 
-# The three classic load average fields must be present and numeric (jq's 'numbers' filter
-# emits the value only if it is a JSON number, so a non-empty result confirms both).
+# The three classic load average fields must be present and numeric.
 for field in LoadAverage1Min LoadAverage5Min LoadAverage15Min; do
-    loadavg="$(echo "$basic_metrics" | jq --seq -r "select(.name == \"io.systemd.Basic.$field\") | .value | numbers | tostring")"
-    test -n "$loadavg"
+    test -n "$(basic_number "$field")"
 done
 
 # SwapBytes must match the total the kernel reports in /proc/meminfo (which is in kB).
-swap_reported="$(basic_value io.systemd.Basic.SwapBytes)"
+swap_reported="$(basic_value SwapBytes)"
 swap_expected=$(( $(awk '/^SwapTotal:/ { print $2; found=1 } END { if (!found) print 0 }' /proc/meminfo) * 1024 ))
 [ "$swap_reported" = "$swap_expected" ]
+
+# SwapUsedBytes must be numeric and cannot exceed the configured total.
+swap_used="$(basic_number SwapUsedBytes)"
+test -n "$swap_used"
+[ "$swap_used" -le "$swap_reported" ]
+
+# Those fields must be reported with a numeric nanoseconds value.
+for type in user system; do
+    test -n "$(basic_number CPUUsage ".fields.type == \"$type\"")"
+done
+
+# MemoryUsedBytes is MemTotal − MemAvailable, so it cannot exceed the MemTotal reported by the
+# same file. (PhysicalMemoryBytes is not a valid bound here: it is capped by the root cgroup's
+# memory limit, so it can legitimately be smaller than the value computed from /proc/meminfo.)
+mem_used="$(basic_number MemoryUsedBytes)"
+mem_total=$(( $(awk '/^MemTotal:/ { print $2 }' /proc/meminfo) * 1024 ))
+test -n "$mem_used"
+[ "$mem_used" -le "$mem_total" ]
+
+# Pressure metrics are only reported if the kernel supports PSI.
+if cat /proc/pressure/cpu >/dev/null 2>&1; then
+    for family in PressureAvg10 PressureStallSeconds; do
+        for resource in cpu memory io; do
+            test -n "$(basic_number "$family" ".fields.resource == \"$resource\" and .fields.type == \"some\"")"
+            # "full" is deliberately not emitted for cpu, where the kernel always reports 0.
+            full="$(basic_number "$family" ".fields.resource == \"$resource\" and .fields.type == \"full\"")"
+            if [ "$resource" = cpu ]; then
+                test -z "$full"
+            else
+                test -n "$full"
+            fi
+        done
+    done
+
+    # The avg10 values are percentages, so they must lie in the 0…100 range. This would catch a
+    # wrong fixed-point conversion, which would inflate the value 2048x.
+    echo "$basic_metrics" | jq --seq -r 'select(.name == "io.systemd.Basic.PressureAvg10") | .value | tostring' |
+        awk '{ if ($1 < 0 || $1 > 100) exit 1 }'
+fi
+
+# Every whole physical block device (not partitions, not virtual or stacked devices) must be
+# reported, with byte values derived from the 512-byte sector counters in sysfs. Those counters
+# only grow, so the values sampled above cannot exceed what sysfs shows now.
+for dev in /sys/block/*; do
+    devpath="$(udevadm info --query=property --property=DEVPATH "$dev" || :)"
+    devname="$(udevadm info --query=property --property=DEVNAME "$dev" || :)"
+    [[ -n "$devpath" && -n "$devname" ]] || continue
+
+    [[ "$devpath" =~ "DEVPATH=/devices/virtual/" ]] && continue
+
+    read_bytes="$(basic_number DiskReadBytes ".object == \"${devname%DEVNAME=}\"")"
+    write_bytes="$(basic_number DiskWriteBytes ".object == \"${devname%DEVNAME=}\"")"
+    test -n "$read_bytes"
+    test -n "$write_bytes"
+
+    read -r _ _ read_sectors _ _ _ write_sectors _ <"$dev/stat"
+    [ "$read_bytes" -le "$(( read_sectors * 512 ))" ]
+    [ "$write_bytes" -le "$(( write_sectors * 512 ))" ]
+done
+
+# Every new metric family must be described, even those whose values depend on the environment.
+basic_describe="$(varlinkctl call --more /run/systemd/report/io.systemd.Basic io.systemd.Metrics.Describe {})"
+for name in CPUUsage DiskReadBytes DiskWriteBytes MemoryUsedBytes PressureAvg10 PressureStallSeconds SwapUsedBytes; do
+    echo "$basic_describe" | grep -F "io.systemd.Basic.$name" >/dev/null
+done
 
 # io.systemd.Manager.Version should be non-empty and match what `systemctl --version` reports
 metrics_version="$(varlinkctl call --more /run/systemd/report/io.systemd.Manager io.systemd.Metrics.List {} | jq --seq -r 'select(.name == "io.systemd.Manager.Version") | .value')"
