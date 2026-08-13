@@ -27,6 +27,7 @@ extern int mnt_statmnt_set_mask(struct libmnt_statmnt *sm, uint64_t mask);
 extern int mnt_table_refer_statmnt(struct libmnt_table *tb, struct libmnt_statmnt *sm);
 extern int mnt_table_listmount_set_id(struct libmnt_table *tb, uint64_t id);
 extern int mnt_table_fetch_listmount(struct libmnt_table *tb);
+extern uint64_t mnt_fs_get_uniq_id(struct libmnt_fs *fs);
 /* NOLINTEND(readability-redundant-declaration) */
 REENABLE_WARNING;
 
@@ -62,6 +63,7 @@ extern DLSYM_PROTOTYPE(mnt_table_parse_stream);
 extern DLSYM_PROTOTYPE(mnt_table_parse_swaps);
 extern DLSYM_PROTOTYPE(mnt_unref_monitor);
 
+extern DLSYM_PROTOTYPE(mnt_fs_get_uniq_id);
 extern DLSYM_PROTOTYPE(mnt_new_statmnt);
 extern DLSYM_PROTOTYPE(mnt_statmnt_set_mask);
 extern DLSYM_PROTOTYPE(mnt_table_fetch_listmount);
