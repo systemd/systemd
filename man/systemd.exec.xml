@@ -953,11 +953,15 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
 
         <listitem><para>Controls the secure bits set for the executed process. Takes a space-separated combination of
         options from the following list: <option>keep-caps</option>, <option>keep-caps-locked</option>,
-        <option>no-setuid-fixup</option>, <option>no-setuid-fixup-locked</option>, <option>noroot</option>, and
-        <option>noroot-locked</option>. This option may appear more than once, in which case the secure bits are
+        <option>no-setuid-fixup</option>, <option>no-setuid-fixup-locked</option>, <option>noroot</option>,
+        <option>noroot-locked</option>, <option>no-cap-ambient-raise</option>, <option>no-cap-ambient-raise-locked</option>,
+        <option>exec-restrict-file</option>, <option>exec-restrict-file-locked</option>,
+        <option>exec-deny-interactive</option>, and <option>exec-deny-interactive-locked</option>.
+        This option may appear more than once, in which case the secure bits are
         ORed. If the empty string is assigned to this option, the bits are reset to 0. This does not affect commands
         prefixed with <literal>+</literal>. See <citerefentry
-        project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        and <ulink url="https://docs.kernel.org/userspace-api/check_exec.html">Executability check</ulink> for
         details.</para></listitem>
       </varlistentry>
 

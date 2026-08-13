@@ -22,6 +22,18 @@ static inline const char* secure_bit_to_string(int i) {
                         return "noroot";
                 case SECURE_NOROOT_LOCKED:
                         return "noroot-locked";
+                case SECURE_NO_CAP_AMBIENT_RAISE:
+                        return "no-cap-ambient-raise";
+                case SECURE_NO_CAP_AMBIENT_RAISE_LOCKED:
+                        return "no-cap-ambient-raise-locked";
+                case SECURE_EXEC_RESTRICT_FILE:
+                        return "exec-restrict-file";
+                case SECURE_EXEC_RESTRICT_FILE_LOCKED:
+                        return "exec-restrict-file-locked";
+                case SECURE_EXEC_DENY_INTERACTIVE:
+                        return "exec-deny-interactive";
+                case SECURE_EXEC_DENY_INTERACTIVE_LOCKED:
+                        return "exec-deny-interactive-locked";
                 default:
                         assert_not_reached();
         }
@@ -55,6 +67,12 @@ int secure_bits_to_strv(int i, char ***ret) {
                 SECURE_NO_SETUID_FIXUP_LOCKED,
                 SECURE_NOROOT,
                 SECURE_NOROOT_LOCKED,
+                SECURE_NO_CAP_AMBIENT_RAISE,
+                SECURE_NO_CAP_AMBIENT_RAISE_LOCKED,
+                SECURE_EXEC_RESTRICT_FILE,
+                SECURE_EXEC_RESTRICT_FILE_LOCKED,
+                SECURE_EXEC_DENY_INTERACTIVE,
+                SECURE_EXEC_DENY_INTERACTIVE_LOCKED,
         };
         int r;
 
@@ -98,6 +116,18 @@ int secure_bits_from_string(const char *s) {
                         secure_bits |= 1 << SECURE_NOROOT;
                 else if (streq(word, "noroot-locked"))
                         secure_bits |= 1 << SECURE_NOROOT_LOCKED;
+                else if (streq(word, "no-cap-ambient-raise"))
+                        secure_bits |= 1 << SECURE_NO_CAP_AMBIENT_RAISE;
+                else if (streq(word, "no-cap-ambient-raise-locked"))
+                        secure_bits |= 1 << SECURE_NO_CAP_AMBIENT_RAISE_LOCKED;
+                else if (streq(word, "exec-restrict-file"))
+                        secure_bits |= 1 << SECURE_EXEC_RESTRICT_FILE;
+                else if (streq(word, "exec-restrict-file-locked"))
+                        secure_bits |= 1 << SECURE_EXEC_RESTRICT_FILE_LOCKED;
+                else if (streq(word, "exec-deny-interactive"))
+                        secure_bits |= 1 << SECURE_EXEC_DENY_INTERACTIVE;
+                else if (streq(word, "exec-deny-interactive-locked"))
+                        secure_bits |= 1 << SECURE_EXEC_DENY_INTERACTIVE_LOCKED;
         }
 
         return secure_bits;
