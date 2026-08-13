@@ -529,7 +529,7 @@ int strv_split_colon_pairs(char ***t, const char *s) {
         return (int) n;
 }
 
-char* strv_join_full(char * const *l, const char *separator, const char *prefix, bool escape_separator) {
+char* strv_join_full(char * const *l, const char *separator, const char *prefix) {
         char *r, *e;
         size_t n, k, m;
 
@@ -539,17 +539,12 @@ char* strv_join_full(char * const *l, const char *separator, const char *prefix,
         k = strlen(separator);
         m = strlen_ptr(prefix);
 
-        if (escape_separator) /* If the separator was multi-char, we wouldn't know how to escape it. */
-                assert(k == 1);
-
         n = 0;
         STRV_FOREACH(s, l) {
                 if (s != l)
                         n += k;
 
-                bool needs_escaping = escape_separator && strchr(*s, *separator);
-
-                n += m + strlen(*s) * (1 + needs_escaping);
+                n += m + strlen(*s);
         }
 
         r = new(char, n+1);
@@ -564,16 +559,7 @@ char* strv_join_full(char * const *l, const char *separator, const char *prefix,
                 if (prefix)
                         e = stpcpy(e, prefix);
 
-                bool needs_escaping = escape_separator && strchr(*s, *separator);
-
-                if (needs_escaping)
-                        for (size_t i = 0; (*s)[i]; i++) {
-                                if ((*s)[i] == *separator)
-                                        *(e++) = '\\';
-                                *(e++) = (*s)[i];
-                        }
-                else
-                        e = stpcpy(e, *s);
+                e = stpcpy(e, *s);
         }
 
         *e = 0;
