@@ -18,6 +18,14 @@ int main(int argc, char *argv[]) {
         ASSERT_OK(procfs_cpu_get_usage(&nsec));
         log_info("Current system CPU time: %s", FORMAT_TIMESPAN(nsec/NSEC_PER_USEC, 1));
 
+        ProcfsCpuTicks ticks;
+        ASSERT_OK(procfs_cpu_get_ticks(&ticks));
+        log_info("Current CPU ticks: user=%" PRIu64 " nice=%" PRIu64 " system=%" PRIu64 " idle=%" PRIu64
+                 " iowait=%" PRIu64 " irq=%" PRIu64 " softirq=%" PRIu64 " steal=%" PRIu64,
+                 ticks.user, ticks.nice, ticks.system, ticks.idle,
+                 ticks.iowait, ticks.irq, ticks.softirq, ticks.steal);
+        ASSERT_GT(ticks.idle, 0U);
+
         ASSERT_OK(procfs_memory_get_used(&v));
         log_info("Current memory usage: %s", FORMAT_BYTES(v));
 
