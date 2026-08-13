@@ -127,18 +127,8 @@ static uint64_t calc_gcd64(uint64_t a, uint64_t b) {
         return a;
 }
 
-int procfs_cpu_get_usage(nsec_t *ret) {
-        ProcfsCpuTicks ticks;
-        int r;
-
-        assert(ret);
-
-        r = procfs_cpu_get_ticks(&ticks);
-        if (r < 0)
-                return r;
-
+nsec_t procfs_ticks_to_nsec(uint64_t ticks) {
         uint64_t ticks_per_second = sysconf_clock_ticks_cached(),
-                sum = ticks.user + ticks.nice + ticks.system + ticks.irq + ticks.softirq,
                 gcd = calc_gcd64(NSEC_PER_SEC, ticks_per_second);
 
         /* Reduce NSEC_PER_SEC/ticks_per_second first to avoid overflow of ticks * NSEC_PER_SEC, and split
@@ -148,7 +138,20 @@ int procfs_cpu_get_usage(nsec_t *ret) {
         uint64_t a = NSEC_PER_SEC / gcd,
                  b = ticks_per_second / gcd;
 
-        *ret = (nsec_t) (sum / b * a + DIV_ROUND_UP(sum % b * a, b));
+        return ticks / b * a + DIV_ROUND_UP(ticks % b * a, b);
+}
+
+int procfs_cpu_get_usage(nsec_t *ret) {
+        int r;
+
+        assert(ret);
+
+        ProcfsCpuTicks ticks;
+        r = procfs_cpu_get_ticks(&ticks);
+        if (r < 0)
+                return r;
+
+        *ret = procfs_ticks_to_nsec(ticks.user + ticks.nice + ticks.system + ticks.irq + ticks.softirq);
         return 0;
 }
 
