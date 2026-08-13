@@ -4,15 +4,14 @@
 #include <unistd.h>
 
 #include "sd-device.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
-#include "argv-util.h"
+#include "build.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "escape.h"
 #include "fileio.h"
-#include "format-table.h"
-#include "help-util.h"
 #include "main-func.h"
 #include "parse-util.h"
 #include "percent-util.h"
@@ -23,25 +22,12 @@
 
 #define PCI_CLASS_GRAPHICS_CARD 0x30000
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *verbs = NULL;
-        int r;
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        help_cmdline("COMMAND [backlight|leds]:DEVICE");
-        help_abstract("Save and restore backlight brightness at shutdown and boot.");
-
-        help_section("Commands");
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("systemd-backlight", "8");
-        return 0;
-}
+COMMAND(
+        "systemd-backlight\0",
+        "Save and restore backlight brightness at shutdown and boot.",
+        .argspec = "COMMAND [backlight|leds]:DEVICE\0",
+        .man_pages = "systemd-backlight.8\0",
+);
 
 static int has_multiple_graphics_cards(void) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
@@ -639,15 +625,45 @@ static int verb_save(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return 0;
 }
 
-static int run(int argc, char *argv[]) {
-        log_setup();
+VERB_COMMON_HELP_AUTO_HIDDEN("systemd-backlight");
 
-        if (argv_looks_like_help(argc, argv))
-                return help();
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
+        assert(argc >= 0);
+        assert(argv);
+        assert(ret_args);
+
+        OptionParser opts = { argc, argv };
+
+        FOREACH_OPTION_OR_RETURN(c, &opts)
+                switch (c) {
+
+                OPTION_COMMON_HELP:
+                        return command_print_help("systemd-backlight");
+
+                OPTION_COMMON_VERSION:
+                        return version();
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
+                }
+
+        *ret_args = option_parser_get_args(&opts);
+        return 1;
+}
+
+static int run(int argc, char *argv[]) {
+        int r;
+
+        log_setup();
 
         umask(0022);
 
-        return dispatch_verb(strv_skip(argv, 1), /* userdata= */ NULL);
+        char **args = NULL;
+        r = parse_argv(argc, argv, &args);
+        if (r <= 0)
+                return r;
+
+        return dispatch_verb(args, /* userdata= */ NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);
