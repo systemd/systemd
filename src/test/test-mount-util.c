@@ -11,6 +11,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "hashmap.h"
 #include "libmount-util.h"
 #include "mkdir.h"
 #include "mount-util.h"
@@ -159,36 +160,41 @@ TEST(bind_remount_recursive) {
         assert_se(subdir);
         assert_se(mkdir(subdir, 0755) >= 0);
 
-        FOREACH_STRING(p, "/usr", "/sys", "/", tmp) {
-                r = ASSERT_OK(pidref_safe_fork("(bind-remount-recursive)", FORK_COMMON_FLAGS, NULL));
-                if (r == 0) { /* child */
-                        struct statvfs svfs;
+        /* Each child runs once through listmount()/statmount() where the kernel has them, and once
+         * forced onto the mountinfo fallback; the variable only ever reaches the forked child. */
+        FOREACH_STRING(backend, "1", "0")
+                FOREACH_STRING(p, "/usr", "/sys", "/", tmp) {
+                        r = ASSERT_OK(pidref_safe_fork("(bind-remount-recursive)", FORK_COMMON_FLAGS, NULL));
+                        if (r == 0) { /* child */
+                                struct statvfs svfs;
 
-                        /* Check that the subdir is writable (it must be because it's in /tmp) */
-                        assert_se(statvfs(subdir, &svfs) >= 0);
-                        assert_se(!FLAGS_SET(svfs.f_flag, ST_RDONLY));
+                                ASSERT_OK_ERRNO(setenv("SYSTEMD_LISTMOUNT", backend, /* overwrite= */ true));
 
-                        /* Make the subdir a bind mount */
-                        assert_se(mount_nofollow(subdir, subdir, NULL, MS_BIND|MS_REC, NULL) >= 0);
+                                /* Check that the subdir is writable (it must be because it's in /tmp) */
+                                assert_se(statvfs(subdir, &svfs) >= 0);
+                                assert_se(!FLAGS_SET(svfs.f_flag, ST_RDONLY));
 
-                        /* Ensure it's still writable */
-                        assert_se(statvfs(subdir, &svfs) >= 0);
-                        assert_se(!FLAGS_SET(svfs.f_flag, ST_RDONLY));
+                                /* Make the subdir a bind mount */
+                                assert_se(mount_nofollow(subdir, subdir, NULL, MS_BIND|MS_REC, NULL) >= 0);
 
-                        /* Now mark the path we currently run for read-only */
-                        assert_se(bind_remount_recursive(p, MS_RDONLY, MS_RDONLY, path_equal(p, "/sys") ? STRV_MAKE("/sys/kernel") : NULL) >= 0);
+                                /* Ensure it's still writable */
+                                assert_se(statvfs(subdir, &svfs) >= 0);
+                                assert_se(!FLAGS_SET(svfs.f_flag, ST_RDONLY));
 
-                        /* Ensure that this worked on the top-level */
-                        assert_se(statvfs(p, &svfs) >= 0);
-                        assert_se(FLAGS_SET(svfs.f_flag, ST_RDONLY));
+                                /* Now mark the path we currently run for read-only */
+                                assert_se(bind_remount_recursive(p, MS_RDONLY, MS_RDONLY, path_equal(p, "/sys") ? STRV_MAKE("/sys/kernel") : NULL) >= 0);
 
-                        /* And ensure this had an effect on the subdir exactly if we are talking about a path above the subdir */
-                        assert_se(statvfs(subdir, &svfs) >= 0);
-                        assert_se(FLAGS_SET(svfs.f_flag, ST_RDONLY) == !!path_startswith(subdir, p));
+                                /* Ensure that this worked on the top-level */
+                                assert_se(statvfs(p, &svfs) >= 0);
+                                assert_se(FLAGS_SET(svfs.f_flag, ST_RDONLY));
 
-                        _exit(EXIT_SUCCESS);
+                                /* And ensure this had an effect on the subdir exactly if we are talking about a path above the subdir */
+                                assert_se(statvfs(subdir, &svfs) >= 0);
+                                assert_se(FLAGS_SET(svfs.f_flag, ST_RDONLY) == !!path_startswith(subdir, p));
+
+                                _exit(EXIT_SUCCESS);
+                        }
                 }
-        }
 }
 
 TEST(bind_remount_one) {
@@ -196,31 +202,60 @@ TEST(bind_remount_one) {
 
         CHECK_PRIV;
 
-        r = ASSERT_OK(pidref_safe_fork("(remount-one-with-mountinfo)", FORK_COMMON_FLAGS, NULL));
-        if (r == 0) { /* child */
-                _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
+        /* As above: one pass per backend, decided in the forked child. */
+        FOREACH_STRING(backend, "1", "0") {
+                r = ASSERT_OK(pidref_safe_fork("(remount-one-with-mountinfo)", FORK_COMMON_FLAGS, NULL));
+                if (r == 0) { /* child */
+                        _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
 
-                assert_se(fopen_unlocked("/proc/self/mountinfo", "re", &proc_self_mountinfo) >= 0);
+                        ASSERT_OK_ERRNO(setenv("SYSTEMD_LISTMOUNT", backend, /* overwrite= */ true));
 
-                assert_se(bind_remount_one_with_mountinfo("/run", MS_RDONLY, MS_RDONLY, proc_self_mountinfo) >= 0);
-                assert_se(bind_remount_one_with_mountinfo("/run", MS_NOEXEC, MS_RDONLY|MS_NOEXEC, proc_self_mountinfo) >= 0);
-                assert_se(bind_remount_one_with_mountinfo("/proc/idontexist", MS_RDONLY, MS_RDONLY, proc_self_mountinfo) == -ENOENT);
-                assert_se(bind_remount_one_with_mountinfo("/proc/self", MS_RDONLY, MS_RDONLY, proc_self_mountinfo) == -EINVAL);
-                assert_se(bind_remount_one_with_mountinfo("/", MS_RDONLY, MS_RDONLY, proc_self_mountinfo) >= 0);
+                        assert_se(fopen_unlocked("/proc/self/mountinfo", "re", &proc_self_mountinfo) >= 0);
 
-                _exit(EXIT_SUCCESS);
+                        assert_se(bind_remount_one_with_mountinfo("/run", MS_RDONLY, MS_RDONLY, proc_self_mountinfo) >= 0);
+                        assert_se(bind_remount_one_with_mountinfo("/run", MS_NOEXEC, MS_RDONLY|MS_NOEXEC, proc_self_mountinfo) >= 0);
+                        assert_se(bind_remount_one_with_mountinfo("/proc/idontexist", MS_RDONLY, MS_RDONLY, proc_self_mountinfo) == -ENOENT);
+                        assert_se(bind_remount_one_with_mountinfo("/proc/self", MS_RDONLY, MS_RDONLY, proc_self_mountinfo) == -EINVAL);
+                        assert_se(bind_remount_one_with_mountinfo("/", MS_RDONLY, MS_RDONLY, proc_self_mountinfo) >= 0);
+
+                        _exit(EXIT_SUCCESS);
+                }
+
+                r = ASSERT_OK(pidref_safe_fork("(remount-one)", FORK_COMMON_FLAGS, NULL));
+                if (r == 0) { /* child */
+                        ASSERT_OK_ERRNO(setenv("SYSTEMD_LISTMOUNT", backend, /* overwrite= */ true));
+
+                        assert_se(bind_remount_one("/run", MS_RDONLY, MS_RDONLY) >= 0);
+                        assert_se(bind_remount_one("/run", MS_NOEXEC, MS_RDONLY|MS_NOEXEC) >= 0);
+                        assert_se(bind_remount_one("/proc/idontexist", MS_RDONLY, MS_RDONLY) == -ENOENT);
+                        assert_se(bind_remount_one("/proc/self", MS_RDONLY, MS_RDONLY) == -EINVAL);
+                        assert_se(bind_remount_one("/", MS_RDONLY, MS_RDONLY) >= 0);
+
+                        _exit(EXIT_SUCCESS);
+                }
         }
+}
 
-        r = ASSERT_OK(pidref_safe_fork("(remount-one)", FORK_COMMON_FLAGS, NULL));
-        if (r == 0) { /* child */
-                assert_se(bind_remount_one("/run", MS_RDONLY, MS_RDONLY) >= 0);
-                assert_se(bind_remount_one("/run", MS_NOEXEC, MS_RDONLY|MS_NOEXEC) >= 0);
-                assert_se(bind_remount_one("/proc/idontexist", MS_RDONLY, MS_RDONLY) == -ENOENT);
-                assert_se(bind_remount_one("/proc/self", MS_RDONLY, MS_RDONLY) == -EINVAL);
-                assert_se(bind_remount_one("/", MS_RDONLY, MS_RDONLY) >= 0);
+TEST(bind_remount_one_nonexistent) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        int r;
 
-                _exit(EXIT_SUCCESS);
-        }
+        /* A path that is not there at all must report -ENOENT rather than -EINVAL, which is
+         * reserved for "exists but is not a mount point". namespace.c drops an entry marked
+         * ignorable on the first and fails namespace setup on the second. Passing no mountinfo
+         * stream also covers the kernel-only enumeration path, where the mount table lookup and
+         * the existence check come from different places. */
+
+        ASSERT_ERROR(bind_remount_one_with_mountinfo("/run/test-mount-util-does-not-exist", MS_RDONLY, MS_RDONLY, NULL), ENOENT);
+
+        /* The -EINVAL half needs a backend that can say no table lists the path: the kernel
+         * table concludes it here, and without one the kernel path's -EOPNOTSUPP comes through
+         * instead, since there is nothing to consult. */
+        ASSERT_OK(mkdtemp_malloc("/tmp/test-mount-util.XXXXXX", &t));
+        r = bind_remount_one_with_mountinfo(t, MS_RDONLY, MS_RDONLY, NULL);
+        if (r == -EOPNOTSUPP)
+                return (void) log_tests_skipped("listmount()/statmount() are not available");
+        ASSERT_ERROR(r, EINVAL);
 }
 
 TEST(make_mount_point_inode) {
@@ -334,48 +369,191 @@ TEST(umount_recursive) {
 
         CHECK_PRIV;
 
-        FOREACH_ELEMENT(t, test_table) {
-                r = ASSERT_OK(pidref_safe_fork("(umount-rec)", FORK_COMMON_FLAGS, NULL));
-                if (r == 0) { /* child */
-                        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
-                        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
-                        _cleanup_fclose_ FILE *f = NULL;
-                        _cleanup_free_ char *k = NULL;
+        /* As above: one pass per backend, decided in the forked child. */
+        FOREACH_STRING(backend, "1", "0")
+                FOREACH_ELEMENT(t, test_table) {
+                        r = ASSERT_OK(pidref_safe_fork("(umount-rec)", FORK_COMMON_FLAGS, NULL));
+                        if (r == 0) { /* child */
+                                _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+                                _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+                                _cleanup_fclose_ FILE *f = NULL;
+                                _cleanup_free_ char *k = NULL;
 
-                        /* Open /p/s/m file before we unmount everything (which might include /proc/) */
-                        f = fopen("/proc/self/mountinfo", "re");
-                        if (!f) {
-                                log_error_errno(errno, "Failed to open %s: %m", "/proc/self/mountinfo");
-                                _exit(EXIT_FAILURE);
-                        }
+                                ASSERT_OK_ERRNO(setenv("SYSTEMD_LISTMOUNT", backend, /* overwrite= */ true));
 
-                        assert_se(k = strv_join((char**) t->keep, " "));
-                        log_info("detaching just %s (keep: %s)", strna(t->prefix), strna(empty_to_null(k)));
-
-                        assert_se(umount_recursive_full(t->prefix, MNT_DETACH, (char**) t->keep) >= 0);
-
-                        r = libmount_parse_mountinfo(f, &table, &iter);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to parse /proc/self/mountinfo: %m");
-                                _exit(EXIT_FAILURE);
-                        }
-
-                        for (;;) {
-                                struct libmnt_fs *fs;
-
-                                r = sym_mnt_table_next_fs(table, iter, &fs);
-                                if (r == 1)
-                                        break;
-                                if (r < 0) {
-                                        log_error_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
+                                /* Open /p/s/m file before we unmount everything (which might include /proc/) */
+                                f = fopen("/proc/self/mountinfo", "re");
+                                if (!f) {
+                                        log_error_errno(errno, "Failed to open %s: %m", "/proc/self/mountinfo");
                                         _exit(EXIT_FAILURE);
                                 }
 
-                                log_debug("left after complete umount: %s", sym_mnt_fs_get_target(fs));
-                        }
+                                assert_se(k = strv_join((char**) t->keep, " "));
+                                log_info("detaching just %s (keep: %s)", strna(t->prefix), strna(empty_to_null(k)));
 
-                        _exit(EXIT_SUCCESS);
+                                assert_se(umount_recursive_full(t->prefix, MNT_DETACH, (char**) t->keep) >= 0);
+
+                                r = libmount_parse_mountinfo(f, &table, &iter);
+                                if (r < 0) {
+                                        log_error_errno(r, "Failed to parse /proc/self/mountinfo: %m");
+                                        _exit(EXIT_FAILURE);
+                                }
+
+                                for (;;) {
+                                        struct libmnt_fs *fs;
+
+                                        r = sym_mnt_table_next_fs(table, iter, &fs);
+                                        if (r == 1)
+                                                break;
+                                        if (r < 0) {
+                                                log_error_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
+                                                _exit(EXIT_FAILURE);
+                                        }
+
+                                        log_debug("left after complete umount: %s", sym_mnt_fs_get_target(fs));
+                                }
+
+                                _exit(EXIT_SUCCESS);
+                        }
                 }
+}
+
+/* The fields the comparison below reads, which is also the union of everything mount-util.c's
+ * snapshot collectors set in their statmount() masks. */
+#define PARITY_STATMOUNT_MASK \
+        (STATMOUNT_MNT_BASIC|STATMOUNT_MNT_POINT|STATMOUNT_FS_TYPE|STATMOUNT_FS_SUBTYPE)
+
+/* "<fstype> <flags>" for one entry, as mount_snapshot_from_table() would record it, or NULL when
+ * the entry cannot be read in full. */
+static char* mount_parity_value(struct libmnt_fs *fs) {
+        unsigned long fl = 0;
+        const char *opts;
+        char *v;
+
+        ASSERT_NOT_NULL(fs);
+
+        opts = sym_mnt_fs_get_vfs_options(fs);
+        if (!opts) /* The mount vanished between listmount() and statmount() */
+                return NULL;
+
+        ASSERT_OK(sym_mnt_optstr_get_flags(opts, &fl, sym_mnt_get_builtin_optmap(MNT_LINUX_MAP)));
+        fl &= ~MS_STRICTATIME; /* As mount_fs_flags() does */
+
+        ASSERT_OK(asprintf(&v, "%s %lx", strempty(sym_mnt_fs_get_fstype(fs)), fl));
+        return v;
+}
+
+TEST(mount_table_kernel_dedup_direction) {
+        _cleanup_(mnt_free_tablep) struct libmnt_table *probe_table = NULL;
+        _cleanup_(mnt_free_iterp) struct libmnt_iter *probe_iter = NULL;
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        int r;
+
+        /* bind_remount_recursive_with_mountinfo() walks the kernel table forwards and lets the
+         * last entry for a path win; the umount path walks backwards and acts on the top of an
+         * overmount stack first. Both orders must find the same mount for every overmounted
+         * path. One snapshot, walked both ways, so there is no second table to race against.
+         * The child stacks two tmpfs mounts on a directory of its own first, so at least one
+         * overmounted path exists whatever the host's table looks like, and the winner there is
+         * known: the top mount, the one carrying MS_NOSUID. */
+
+        r = libmount_parse_kernel(STATMOUNT_MNT_POINT, MNT_ITER_FORWARD, &probe_table, &probe_iter);
+        if (r == -EOPNOTSUPP)
+                return (void) log_tests_skipped("listmount()/statmount() are not available");
+        ASSERT_OK(r);
+
+        CHECK_PRIV;
+
+        ASSERT_OK(mkdtemp_malloc(NULL, &t));
+
+        r = ASSERT_OK(pidref_safe_fork("(dedup-direction)", FORK_COMMON_FLAGS, NULL));
+        if (r == 0) { /* child */
+                _cleanup_(mnt_free_tablep) struct libmnt_table *kernel_table = NULL;
+                _cleanup_(mnt_free_iterp) struct libmnt_iter *kernel_iter = NULL, *forward_iter = NULL;
+                _cleanup_hashmap_free_ Hashmap *backward = NULL, *forward = NULL;
+                const char *fw_path;
+                char *backward_v;
+
+                ASSERT_OK(mount_nofollow_verbose(LOG_ERR, "tmpfs", t, "tmpfs", 0, NULL));
+                ASSERT_OK(mount_nofollow_verbose(LOG_ERR, "tmpfs", t, "tmpfs", MS_NOSUID, NULL));
+
+                ASSERT_OK(libmount_parse_kernel(PARITY_STATMOUNT_MASK, MNT_ITER_BACKWARD,
+                                                &kernel_table, &kernel_iter));
+
+                for (;;) {
+                        _cleanup_free_ char *p = NULL, *v = NULL;
+                        const char *path;
+                        struct libmnt_fs *fs;
+
+                        r = sym_mnt_table_next_fs(kernel_table, kernel_iter, &fs);
+                        if (r == 1)
+                                break;
+                        ASSERT_OK_ZERO(r);
+
+                        path = sym_mnt_fs_get_target(fs);
+                        if (isempty(path))
+                                continue;
+
+                        v = mount_parity_value(fs);
+                        if (!v)
+                                continue;
+
+                        ASSERT_NOT_NULL(p = strdup(path));
+
+                        r = hashmap_ensure_put(&backward, &string_hash_ops_free_free, p, v);
+                        if (r == -EEXIST) /* An overmounted path; the topmost mount is already stored */
+                                continue;
+                        ASSERT_OK(r);
+                        TAKE_PTR(p);
+                        TAKE_PTR(v);
+                }
+
+                ASSERT_NOT_NULL(forward_iter = sym_mnt_new_iter(MNT_ITER_FORWARD));
+                for (;;) {
+                        _cleanup_free_ char *p = NULL, *v = NULL, *old_key = NULL;
+                        const char *path;
+                        struct libmnt_fs *fs;
+
+                        r = sym_mnt_table_next_fs(kernel_table, forward_iter, &fs);
+                        if (r == 1)
+                                break;
+                        ASSERT_OK_ZERO(r);
+
+                        path = sym_mnt_fs_get_target(fs);
+                        if (isempty(path))
+                                continue;
+
+                        v = mount_parity_value(fs);
+                        if (!v)
+                                continue;
+
+                        /* hashmap_remove2() hands back the removed key and returns the removed
+                         * value, which has no owner anymore and is freed right here. */
+                        free(hashmap_remove2(forward, path, (void**) &old_key));
+
+                        ASSERT_NOT_NULL(p = strdup(path));
+                        ASSERT_OK(hashmap_ensure_put(&forward, &string_hash_ops_free_free, p, v));
+                        TAKE_PTR(p);
+                        TAKE_PTR(v);
+                }
+
+                ASSERT_EQ(hashmap_size(forward), hashmap_size(backward));
+                HASHMAP_FOREACH_KEY(backward_v, fw_path, backward) {
+                        const char *fw_v = hashmap_get(forward, fw_path);
+                        if (!streq_ptr(fw_v, backward_v))
+                                log_error("Iteration direction changed the winner at '%s': forward '%s', backward '%s'",
+                                          fw_path, strnull(fw_v), backward_v);
+                        ASSERT_STREQ(fw_v, backward_v);
+                }
+
+                /* The stacked pair above guarantees the dedup branches ran, and pins the winner:
+                 * both directions must have kept the top mount. */
+                const char *stacked_v = ASSERT_NOT_NULL(hashmap_get(forward, t));
+                unsigned long stacked_flags = 0;
+                ASSERT_EQ(sscanf(stacked_v, "tmpfs %lx", &stacked_flags), 1);
+                ASSERT_TRUE(FLAGS_SET(stacked_flags, MS_NOSUID));
+
+                _exit(EXIT_SUCCESS);
         }
 }
 
