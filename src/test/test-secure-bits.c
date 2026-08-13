@@ -11,6 +11,14 @@ static const char * const string_bits[] = {
         "no-setuid-fixup-locked",
         "noroot",
         "noroot-locked",
+        "no-cap-ambient-raise",
+        "no-cap-ambient-raise-locked",
+#ifdef SECURE_EXEC_RESTRICT_FILE
+        "exec-restrict-file",
+        "exec-restrict-file-locked",
+        "exec-deny-interactive",
+        "exec-deny-interactive-locked",
+#endif
         NULL
 };
 
