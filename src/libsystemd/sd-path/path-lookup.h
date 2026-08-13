@@ -83,13 +83,14 @@ static inline int xdg_user_state_dir(const char *suffix, char **ret) {
 
 bool path_is_user_data_dir(const char *path);
 bool path_is_user_config_dir(const char *path);
+bool path_is_valid_search_path(const char *path) _pure_;
 
-char** generator_binary_paths_internal(RuntimeScope scope, bool env_generator);
-static inline char** generator_binary_paths(RuntimeScope runtime_scope) {
-        return generator_binary_paths_internal(runtime_scope, false);
+int generator_binary_paths_internal(RuntimeScope scope, bool env_generator, char ***ret);
+static inline int generator_binary_paths(RuntimeScope runtime_scope, char ***ret) {
+        return generator_binary_paths_internal(runtime_scope, false, ret);
 }
-static inline char** env_generator_binary_paths(RuntimeScope runtime_scope) {
-        return generator_binary_paths_internal(runtime_scope, true);
+static inline int env_generator_binary_paths(RuntimeScope runtime_scope, char ***ret) {
+        return generator_binary_paths_internal(runtime_scope, true, ret);
 }
 
 static inline int credential_store_path(RuntimeScope runtime_scope, char ***ret) {
