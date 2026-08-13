@@ -2637,6 +2637,81 @@ static int discover_ovmf_config(OvmfConfig **ret, sd_json_variant **ret_firmware
         return 0;
 }
 
+typedef struct QemuStderrContext {
+        int fd;
+        LineBuffer buffer;
+} QemuStderrContext;
+
+static void qemu_stderr_context_done(QemuStderrContext *c) {
+        assert(c);
+        line_buffer_done(&c->buffer);
+}
+
+static void log_qemu_stderr_line(const char *line, void *userdata) {
+        /* qemu prefixes its messages with its binary name, no additional attribution needed. */
+        if (isempty(line))
+                return;
+
+        log_warning("%s", line);
+}
+
+static int qemu_stderr_fiber(void *userdata) {
+        QemuStderrContext *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(c->fd >= 0);
+
+        for (;;) {
+                char buf[4096];
+
+                ssize_t n = sd_fiber_read(c->fd, buf, sizeof(buf));
+                if (n == -EINTR || n == -EAGAIN) /* spurious wake-up: sd_fiber_read() retries only once */
+                        continue;
+                if (n == -ECANCELED)
+                        return (int) n;
+                if (n < 0)
+                        return log_warning_errno((int) n, "Failed to read qemu stderr, ignoring: %m");
+                if (n == 0) /* EOF, qemu closed its stderr */
+                        break;
+
+                r = line_buffer_feed(&c->buffer, buf, (size_t) n, log_qemu_stderr_line, /* userdata= */ NULL);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        line_buffer_flush(&c->buffer, log_qemu_stderr_line, /* userdata= */ NULL);
+        return 0;
+}
+
+static void qemu_stderr_drain(QemuStderrContext *c) {
+        assert(c);
+
+        if (c->fd < 0)
+                return;
+
+        for (;;) {
+                char buf[4096];
+
+                ssize_t n = read(c->fd, buf, sizeof(buf));
+                if (n < 0) {
+                        if (errno == EINTR)
+                                continue;
+                        if (errno != EAGAIN)
+                                log_debug_errno(errno, "Failed to drain qemu stderr, ignoring: %m");
+                        break;
+                }
+                if (n == 0)
+                        break;
+
+                if (line_buffer_feed(&c->buffer, buf, (size_t) n, log_qemu_stderr_line, /* userdata= */ NULL) < 0) {
+                        log_oom();
+                        break;
+                }
+        }
+
+        line_buffer_flush(&c->buffer, log_qemu_stderr_line, /* userdata= */ NULL);
+}
+
 typedef struct VmStartupContext {
         sd_event *event;
         const char *runtime_dir;
@@ -4069,6 +4144,16 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 log_debug("Executing: %s", joined);
         }
 
+        /* Capture qemu's stderr via a pipe, so it doesn't interleave with the guest console on the PTY,
+         * and so that early startup failures are visible in all console modes. */
+        _cleanup_close_pair_ int qemu_stderr_pipe[2] = EBADF_PAIR;
+        if (pipe2(qemu_stderr_pipe, O_CLOEXEC) < 0)
+                return log_error_errno(errno, "Failed to allocate qemu stderr pipe: %m");
+
+        r = fd_nonblock(qemu_stderr_pipe[0], true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to make qemu stderr pipe non-blocking: %m");
+
         _cleanup_close_ int child_pty = -EBADF;
         if (master >= 0) {
                 child_pty = pty_open_peer(master, O_RDWR|O_CLOEXEC|O_NOCTTY);
@@ -4080,10 +4165,13 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(pidref_done_sigterm_wait) PidRef child_pidref = PIDREF_NULL;
         r = pidref_safe_fork_full(
                         qemu_binary,
-                        child_pty >= 0 ? (const int[]) { child_pty, child_pty, child_pty } : NULL,
+                        (const int[]) {
+                                child_pty >= 0 ? child_pty : STDIN_FILENO,
+                                child_pty >= 0 ? child_pty : STDOUT_FILENO,
+                                qemu_stderr_pipe[1],
+                        },
                         pass_fds, n_pass_fds,
-                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_CLOEXEC_OFF|FORK_RLIMIT_NOFILE_SAFE|
-                        (child_pty >= 0 ? FORK_REARRANGE_STDIO : 0),
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_CLOEXEC_OFF|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO,
                         &child_pidref);
         if (r < 0)
                 return r;
@@ -4099,9 +4187,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 _exit(EXIT_FAILURE);
         }
 
-        /* Close QEMU's end of the QMP socketpair in the parent. We don't need it anymore. */
+        /* Close QEMU's end of the PTY, the QMP socketpair and the stderr pipe in the parent.
+         * We don't need them anymore. */
         child_pty = safe_close(child_pty);
         bridge_fds[1] = safe_close(bridge_fds[1]);
+        qemu_stderr_pipe[1] = safe_close(qemu_stderr_pipe[1]);
 
         if (system_bus) {
                 r = sd_bus_attach_event(system_bus, event, 0);
@@ -4153,6 +4243,19 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         (void) sd_event_source_set_priority(child_source, SD_EVENT_PRIORITY_NORMAL - 10);
         (void) sd_event_source_set_description(child_source, "vmspawn-qemu-exit");
 
+        _cleanup_(qemu_stderr_context_done) QemuStderrContext qemu_stderr = {
+                .fd = qemu_stderr_pipe[0],
+        };
+
+        _cleanup_(sd_future_unrefp) sd_future *stderr_future = NULL;
+        r = sd_fiber_new(event, "qemu-stderr", qemu_stderr_fiber, &qemu_stderr, /* destroy= */ NULL, &stderr_future);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate qemu stderr fiber: %m");
+
+        r = sd_future_set_priority(stderr_future, SD_EVENT_PRIORITY_NORMAL - 20);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set qemu stderr fiber priority: %m");
+
         /* State created or filled in by the startup fiber. */
         _cleanup_(vmspawn_varlink_context_freep) VmspawnVarlinkContext *varlink_ctx = NULL;
         _cleanup_(osc_context_closep) sd_id128_t osc_context_id = SD_ID128_NULL;
@@ -4196,6 +4299,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 return log_error_errno(r, "Failed to set VM startup fiber callback: %m");
 
         r = sd_event_loop(event);
+        /* Drain qemu stderr fiber's buffer to get final qemu output. */
+        qemu_stderr_drain(&qemu_stderr);
         if (r < 0)
                 return log_error_errno(r, "Failed to run event loop: %m");
 

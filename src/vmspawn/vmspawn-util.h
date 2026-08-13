@@ -153,3 +153,14 @@ int find_qemu_binary(char **ret_qemu_binary);
 int vsock_fix_child_cid(int vhost_device_fd, unsigned *machine_cid, const char *machine);
 
 char* escape_qemu_value(const char *s);
+
+typedef void (*line_buffer_emit_t)(const char *line, void *userdata);
+
+typedef struct LineBuffer {
+        char *buf;      /* partial line accumulation across feeds, NUL-terminated */
+        size_t len;
+} LineBuffer;
+
+int line_buffer_feed(LineBuffer *b, const char *p, size_t n, line_buffer_emit_t emit, void *userdata);
+void line_buffer_flush(LineBuffer *b, line_buffer_emit_t emit, void *userdata);
+void line_buffer_done(LineBuffer *b);
