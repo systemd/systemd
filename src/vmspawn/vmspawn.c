@@ -12,6 +12,7 @@
 #include "sd-bus.h"
 #include "sd-daemon.h"
 #include "sd-event.h"
+#include "sd-future.h"
 #include "sd-id128.h"
 #include "sd-varlink.h"
 
@@ -1353,6 +1354,23 @@ static int on_child_exit(sd_event_source *s, const siginfo_t *si, void *userdata
         return 0;
 }
 
+static int on_startup_done(sd_future *f) {
+        int r;
+
+        assert(f);
+
+        r = sd_future_result(f);
+        if (r >= 0)
+                return 0;
+
+        /* -ECANCELED means the event loop is already exiting. The fiber was cancelled
+         * and the real error has been reported already. */
+        if (r == -ECANCELED)
+                return 0;
+
+        return sd_event_exit(ASSERT_PTR(sd_future_get_userdata(f)), r);
+}
+
 static bool smbios_supported(void) {
         /* SMBIOS is always available on x86 (via SeaBIOS fallback), but on
          * other architectures it requires UEFI firmware to be loaded. */
@@ -2592,6 +2610,209 @@ static int discover_ovmf_config(OvmfConfig **ret, sd_json_variant **ret_firmware
                                        confidential_computing_to_string(arg_confidential_computing), coco_feature);
         if (r < 0)
                 return log_error_errno(r, "Failed to find OVMF config: %m");
+
+        return 0;
+}
+
+typedef struct VmStartupContext {
+        sd_event *event;
+        const char *runtime_dir;
+        MachineConfig *config;
+        int *bridge_fd;
+        sd_bus *runtime_bus;
+        PidRef *child_pidref;
+        sd_event_source **children;
+        size_t n_children;
+        char **unit;
+        unsigned child_cid;
+        const char *ssh_private_key_path;
+        int master;
+        PTYForwardFlags ptyfwd_flags;
+
+        VmspawnVarlinkContext **varlink_ctx;
+        MachineRegistrationContext *machine_ctx;
+        bool *scope_allocated;
+        PTYForward **forward;
+        sd_id128_t *osc_context_id;
+} VmStartupContext;
+
+static int vm_startup_fiber(void *userdata) {
+        VmStartupContext *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(c->event);
+        assert(c->runtime_dir);
+        assert(c->config);
+        assert(c->bridge_fd);
+        assert(*c->bridge_fd >= 0);
+        assert(pidref_is_set(c->child_pidref));
+        assert(c->unit);
+        assert(c->varlink_ctx);
+        assert(c->machine_ctx);
+        assert(c->scope_allocated);
+        assert(c->forward);
+        assert(c->osc_context_id);
+
+        r = prepare_device_info(c->runtime_dir, c->config);
+        if (r < 0)
+                return r;
+
+        /* Connect to VMM backend */
+        _cleanup_(vmspawn_qmp_bridge_freep) VmspawnQmpBridge *bridge = NULL;
+        r = vmspawn_qmp_init(&bridge, *c->bridge_fd, c->event);
+        if (r < 0)
+                return r;
+
+        TAKE_FD(*c->bridge_fd);
+
+        /* Probe QEMU feature availability synchronously before device setup consumes the flags. */
+        r = vmspawn_qmp_probe_features(bridge);
+        if (r < 0)
+                return r;
+
+        /* Device setup — all before resuming vCPUs */
+        r = vmspawn_qmp_setup_drives(bridge, &c->config->drives);
+        if (r < 0)
+                return r;
+
+        if (c->config->network.type) {
+                r = vmspawn_qmp_setup_network(bridge, &c->config->network);
+                if (r < 0)
+                        return r;
+        }
+
+        r = vmspawn_qmp_setup_virtiofs(bridge, &c->config->virtiofs);
+        if (r < 0)
+                return r;
+
+        r = vmspawn_qmp_setup_vsock(bridge, &c->config->vsock);
+        if (r < 0)
+                return r;
+
+        /* Resume vCPUs and switch to async event processing */
+        r = vmspawn_qmp_start(bridge);
+        if (r < 0)
+                return r;
+
+        /* Varlink server for VM control */
+        _cleanup_free_ char *control_address = NULL;
+        r = vmspawn_varlink_setup(c->varlink_ctx, bridge, c->runtime_dir, &control_address);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(bridge);
+
+        if (!arg_keep_unit) {
+                /* When a new scope is created for this container, then we'll be registered as its controller, in which
+                 * case PID 1 will send us a friendly RequestStop signal, when it is asked to terminate the
+                 * scope. Let's hook into that, and cleanly shut down the container, and print a friendly message. */
+
+                r = sd_bus_match_signal_async(
+                                c->runtime_bus,
+                                /* ret= */ NULL,
+                                "org.freedesktop.systemd1",
+                                /* path= */ NULL,
+                                "org.freedesktop.systemd1.Scope",
+                                "RequestStop",
+                                on_request_stop,
+                                /* install_callback= */ NULL,
+                                /* userdata= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to request RequestStop match: %m");
+        }
+
+        if (!arg_keep_unit && (arg_register == 0 || arg_runtime_scope != RUNTIME_SCOPE_SYSTEM)) {
+                r = allocate_scope(
+                                c->runtime_bus,
+                                arg_machine,
+                                c->child_pidref,
+                                c->children,
+                                c->n_children,
+                                *c->unit,
+                                arg_slice,
+                                arg_property,
+                                /* allow_pidfd= */ true);
+                if (r < 0)
+                        return r;
+
+                *c->scope_allocated = true;
+        } else {
+                if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM)
+                        r = cg_pid_get_unit(0, c->unit);
+                else
+                        r = cg_pid_get_user_unit(0, c->unit);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get our own unit: %m");
+        }
+
+        if (arg_register != 0) {
+                char vm_address[STRLEN("vsock/") + DECIMAL_STR_MAX(unsigned)];
+                xsprintf(vm_address, "vsock/%u", c->child_cid);
+
+                const MachineRegistration reg = {
+                        .name                 = arg_machine,
+                        .id                   = arg_uuid,
+                        .service              = "systemd-vmspawn",
+                        .class                = "vm",
+                        .pidref               = c->child_pidref,
+                        .root_directory       = arg_directory,
+                        .vsock_cid            = c->child_cid,
+                        .ssh_address          = c->child_cid != VMADDR_CID_ANY ? vm_address : NULL,
+                        .ssh_private_key_path = c->ssh_private_key_path,
+                        .control_address      = control_address,
+                        .allocate_unit        = !arg_keep_unit,
+                };
+
+                r = register_machine_with_fallback_and_log(
+                                c->machine_ctx,
+                                &reg,
+                                /* graceful= */ arg_register < 0);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Report that the VM is now set up */
+        (void) sd_notifyf(/* unset_environment= */ false,
+                          "STATUS=VM started.\n"
+                          "X_VMSPAWN_LEADER_PID=" PID_FMT, c->child_pidref->pid);
+        if (!arg_notify_ready) {
+                r = sd_notify(/* unset_environment= */ false, "READY=1\n");
+                if (r < 0)
+                        log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
+        }
+
+        /* All operations that might need Polkit authorizations (i.e. machine registration, netif
+         * acquisition, …) are complete now, get rid of the agent again, so that we retain exclusive control
+         * of the TTY from now on. */
+        polkit_agent_close();
+
+        if (c->master >= 0) {
+                r = pty_forward_new(c->event, c->master, c->ptyfwd_flags, c->forward);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create PTY forwarder: %m");
+
+                if (!FLAGS_SET(c->ptyfwd_flags, PTY_FORWARD_DUMB_TERMINAL)) {
+                        if (!terminal_is_dumb()) {
+                                r = osc_context_open_vm(arg_machine, /* ret_seq= */ NULL, c->osc_context_id);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        if (!arg_background) {
+                                _cleanup_free_ char *bg = NULL;
+
+                                r = terminal_tint_color(130 /* green */, &bg);
+                                if (r < 0)
+                                        log_debug_errno(r, "Failed to determine terminal background color, not tinting.");
+                                else
+                                        (void) pty_forward_set_background_color(*c->forward, bg);
+                        } else if (!isempty(arg_background))
+                                (void) pty_forward_set_background_color(*c->forward, arg_background);
+
+                        (void) pty_forward_set_window_title(*c->forward, GLYPH_GREEN_CIRCLE, /* hostname= */ NULL,
+                                                            STRV_MAKE("Virtual Machine", arg_machine));
+                }
+        }
 
         return 0;
 }
@@ -3859,148 +4080,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         child_pty = safe_close(child_pty);
         bridge_fds[1] = safe_close(bridge_fds[1]);
 
-        r = prepare_device_info(runtime_dir, &config);
-        if (r < 0)
-                return r;
-
-        /* Connect to VMM backend */
-        _cleanup_(vmspawn_qmp_bridge_freep) VmspawnQmpBridge *bridge = NULL;
-        r = vmspawn_qmp_init(&bridge, bridge_fds[0], event);
-        if (r < 0)
-                return r;
-
-        TAKE_FD(bridge_fds[0]);
-
-        /* Probe QEMU feature availability synchronously before device setup consumes the flags. */
-        r = vmspawn_qmp_probe_features(bridge);
-        if (r < 0)
-                return r;
-
-        /* Device setup — all before resuming vCPUs */
-        r = vmspawn_qmp_setup_drives(bridge, &config.drives);
-        if (r < 0)
-                return r;
-
-        if (config.network.type) {
-                r = vmspawn_qmp_setup_network(bridge, &config.network);
-                if (r < 0)
-                        return r;
-        }
-
-        r = vmspawn_qmp_setup_virtiofs(bridge, &config.virtiofs);
-        if (r < 0)
-                return r;
-
-        r = vmspawn_qmp_setup_vsock(bridge, &config.vsock);
-        if (r < 0)
-                return r;
-
-        /* Resume vCPUs and switch to async event processing */
-        r = vmspawn_qmp_start(bridge);
-        if (r < 0)
-                return r;
-
-        /* Varlink server for VM control */
-        _cleanup_(vmspawn_varlink_context_freep) VmspawnVarlinkContext *varlink_ctx = NULL;
-        _cleanup_free_ char *control_address = NULL;
-        r = vmspawn_varlink_setup(&varlink_ctx, bridge, runtime_dir, &control_address);
-        if (r < 0)
-                return r;
-
-        TAKE_PTR(bridge);
-
-        if (!arg_keep_unit) {
-                /* When a new scope is created for this container, then we'll be registered as its controller, in which
-                 * case PID 1 will send us a friendly RequestStop signal, when it is asked to terminate the
-                 * scope. Let's hook into that, and cleanly shut down the container, and print a friendly message. */
-
-                r = sd_bus_match_signal_async(
-                                runtime_bus,
-                                /* ret= */ NULL,
-                                "org.freedesktop.systemd1",
-                                /* path= */ NULL,
-                                "org.freedesktop.systemd1.Scope",
-                                "RequestStop",
-                                on_request_stop,
-                                /* install_callback= */ NULL,
-                                /* userdata= */ NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to request RequestStop match: %m");
-        }
-
-        bool scope_allocated = false;
-        if (!arg_keep_unit && (arg_register == 0 || arg_runtime_scope != RUNTIME_SCOPE_SYSTEM)) {
-                r = allocate_scope(
-                                runtime_bus,
-                                arg_machine,
-                                &child_pidref,
-                                children,
-                                n_children,
-                                unit,
-                                arg_slice,
-                                arg_property,
-                                /* allow_pidfd= */ true);
-                if (r < 0)
-                        return r;
-
-                scope_allocated = true;
-        } else {
-                if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM)
-                        r = cg_pid_get_unit(0, &unit);
-                else
-                        r = cg_pid_get_user_unit(0, &unit);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get our own unit: %m");
-        }
-
-        MachineRegistrationContext machine_ctx = {
-                .scope      = arg_runtime_scope == RUNTIME_SCOPE_SYSTEM ? RUNTIME_SCOPE_SYSTEM : _RUNTIME_SCOPE_INVALID,
-                .system_bus = system_bus,
-                .user_bus   = runtime_bus,
-        };
-        if (arg_register != 0) {
-                char vm_address[STRLEN("vsock/") + DECIMAL_STR_MAX(unsigned)];
-                xsprintf(vm_address, "vsock/%u", child_cid);
-
-                const MachineRegistration reg = {
-                        .name                 = arg_machine,
-                        .id                   = arg_uuid,
-                        .service              = "systemd-vmspawn",
-                        .class                = "vm",
-                        .pidref               = &child_pidref,
-                        .root_directory       = arg_directory,
-                        .vsock_cid            = child_cid,
-                        .ssh_address          = child_cid != VMADDR_CID_ANY ? vm_address : NULL,
-                        .ssh_private_key_path = ssh_private_key_path,
-                        .control_address      = control_address,
-                        .allocate_unit        = !arg_keep_unit,
-                };
-
-                r = register_machine_with_fallback_and_log(
-                                &machine_ctx,
-                                &reg,
-                                /* graceful= */ arg_register < 0);
-                if (r < 0)
-                        return r;
-        }
-
-        /* Report that the VM is now set up */
-        (void) sd_notifyf(/* unset_environment= */ false,
-                          "STATUS=VM started.\n"
-                          "X_VMSPAWN_LEADER_PID=" PID_FMT, child_pidref.pid);
-        if (!arg_notify_ready) {
-                r = sd_notify(/* unset_environment= */ false, "READY=1\n");
-                if (r < 0)
-                        log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
-        }
-
-        /* All operations that might need Polkit authorizations (i.e. machine registration, netif
-         * acquisition, …) are complete now, get rid of the agent again, so that we retain exclusive control
-         * of the TTY from now on. */
-        polkit_agent_close();
-
-        _cleanup_(sd_event_source_unrefp) sd_event_source *notify_event_source = NULL;
-
         if (system_bus) {
                 r = sd_bus_attach_event(system_bus, event, 0);
                 if (r < 0)
@@ -4013,6 +4092,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_error_errno(r, "Failed to attach user bus to event loop: %m");
         }
 
+        _cleanup_(sd_event_source_unrefp) sd_event_source *notify_event_source = NULL;
         int exit_status = INT_MAX;
         if (use_vsock) {
                 r = setup_notify_parent(event, notify_sock_fd, &exit_status, &notify_event_source);
@@ -4042,39 +4122,55 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 log_debug_errno(r, "Failed to allocate memory pressure event source, ignoring: %m");
 
         /* Exit when the child exits */
-        r = event_add_child_pidref(event, /* ret= */ NULL, &child_pidref, WEXITED, on_child_exit, /* userdata= */ NULL);
+        _cleanup_(sd_event_source_unrefp) sd_event_source *child_source = NULL;
+        r = event_add_child_pidref(event, &child_source, &child_pidref, WEXITED, on_child_exit, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to watch qemu process: %m");
 
+        (void) sd_event_source_set_priority(child_source, SD_EVENT_PRIORITY_NORMAL - 10);
+        (void) sd_event_source_set_description(child_source, "vmspawn-qemu-exit");
+
+        /* State created or filled in by the startup fiber. */
+        _cleanup_(vmspawn_varlink_context_freep) VmspawnVarlinkContext *varlink_ctx = NULL;
         _cleanup_(osc_context_closep) sd_id128_t osc_context_id = SD_ID128_NULL;
         _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
-        if (master >= 0) {
-                r = pty_forward_new(event, master, ptyfwd_flags, &forward);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to create PTY forwarder: %m");
+        bool scope_allocated = false;
 
-                if (!FLAGS_SET(ptyfwd_flags, PTY_FORWARD_DUMB_TERMINAL)) {
-                        if (!terminal_is_dumb()) {
-                                r = osc_context_open_vm(arg_machine, /* ret_seq= */ NULL, &osc_context_id);
-                                if (r < 0)
-                                        return r;
-                        }
+        MachineRegistrationContext machine_ctx = {
+                .scope      = arg_runtime_scope == RUNTIME_SCOPE_SYSTEM ? RUNTIME_SCOPE_SYSTEM : _RUNTIME_SCOPE_INVALID,
+                .system_bus = system_bus,
+                .user_bus   = runtime_bus,
+        };
 
-                        if (!arg_background) {
-                                _cleanup_free_ char *bg = NULL;
+        VmStartupContext startup_ctx = {
+                .event                = event,
+                .runtime_dir          = runtime_dir,
+                .config               = &config,
+                .bridge_fd            = &bridge_fds[0],
+                .runtime_bus          = runtime_bus,
+                .child_pidref         = &child_pidref,
+                .children             = children,
+                .n_children           = n_children,
+                .unit                 = &unit,
+                .child_cid            = child_cid,
+                .ssh_private_key_path = ssh_private_key_path,
+                .master               = master,
+                .ptyfwd_flags         = ptyfwd_flags,
+                .varlink_ctx          = &varlink_ctx,
+                .machine_ctx          = &machine_ctx,
+                .scope_allocated      = &scope_allocated,
+                .forward              = &forward,
+                .osc_context_id       = &osc_context_id,
+        };
 
-                                r = terminal_tint_color(130 /* green */, &bg);
-                                if (r < 0)
-                                        log_debug_errno(r, "Failed to determine terminal background color, not tinting.");
-                                else
-                                        (void) pty_forward_set_background_color(forward, bg);
-                        } else if (!isempty(arg_background))
-                                (void) pty_forward_set_background_color(forward, arg_background);
+        _cleanup_(sd_future_unrefp) sd_future *startup_future = NULL;
+        r = sd_fiber_new(event, "vm-startup", vm_startup_fiber, &startup_ctx, /* destroy= */ NULL, &startup_future);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate VM startup fiber: %m");
 
-                        (void) pty_forward_set_window_title(forward, GLYPH_GREEN_CIRCLE, /* hostname= */ NULL,
-                                                            STRV_MAKE("Virtual Machine", arg_machine));
-                }
-        }
+        r = sd_future_set_callback(startup_future, on_startup_done, event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set VM startup fiber callback: %m");
 
         r = sd_event_loop(event);
         if (r < 0)
