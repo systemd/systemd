@@ -11,6 +11,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "hashmap.h"
 #include "libmount-util.h"
 #include "mkdir.h"
 #include "mount-util.h"
@@ -223,6 +224,29 @@ TEST(bind_remount_one) {
         }
 }
 
+TEST(bind_remount_one_nonexistent) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        int r;
+
+        /* A path that is not there at all must report -ENOENT rather than -EINVAL, which is
+         * reserved for "exists but is not a mount point". namespace.c drops an entry marked
+         * ignorable on the first and fails namespace setup on the second. Passing no mountinfo
+         * stream also covers the kernel-only enumeration path, where the mount table lookup and
+         * the existence check come from different places. */
+
+        ASSERT_ERROR(bind_remount_one_with_mountinfo("/run/test-mount-util-does-not-exist", MS_RDONLY, MS_RDONLY, NULL), ENOENT);
+
+        /* The -EINVAL half needs a backend that can say no table lists the path: the kernel
+         * table concludes it here, and without one the kernel path's -EOPNOTSUPP comes through
+         * instead, since there is nothing to consult. */
+        ASSERT_OK(mkdtemp_malloc("/tmp/test-mount-util.XXXXXX", &t));
+        r = bind_remount_one_with_mountinfo(t, MS_RDONLY, MS_RDONLY, NULL);
+        if (r == -EOPNOTSUPP)
+                log_notice("listmount()/statmount() are not available, skipping the -EINVAL check");
+        else
+                ASSERT_ERROR(r, EINVAL);
+}
+
 TEST(make_mount_point_inode) {
         _cleanup_(rm_rf_physical_and_freep) char *d = NULL;
         const char *src_file, *src_dir, *dst_file, *dst_dir;
@@ -376,6 +400,115 @@ TEST(umount_recursive) {
 
                         _exit(EXIT_SUCCESS);
                 }
+        }
+}
+
+/* The fields the comparison below reads, which is also the union of everything mount-util.c's
+ * snapshot collectors set in their statmount() masks. */
+#define PARITY_STATMOUNT_MASK \
+        (STATMOUNT_MNT_BASIC|STATMOUNT_MNT_POINT|STATMOUNT_FS_TYPE|STATMOUNT_FS_SUBTYPE)
+
+/* "<fstype> <flags>" for one entry, as mount_snapshot_from_table() would record it, or NULL when
+ * the entry cannot be read in full. */
+static char* mount_parity_value(struct libmnt_fs *fs) {
+        unsigned long fl = 0;
+        const char *opts;
+        char *v;
+
+        ASSERT_NOT_NULL(fs);
+
+        opts = sym_mnt_fs_get_vfs_options(fs);
+        if (!opts) /* The mount vanished between listmount() and statmount() */
+                return NULL;
+
+        ASSERT_OK(sym_mnt_optstr_get_flags(opts, &fl, sym_mnt_get_builtin_optmap(MNT_LINUX_MAP)));
+        fl &= ~MS_STRICTATIME; /* As mount_fs_flags() does */
+
+        ASSERT_OK(asprintf(&v, "%s %lx", strempty(sym_mnt_fs_get_fstype(fs)), fl));
+        return v;
+}
+
+TEST(mount_table_kernel_dedup_direction) {
+        _cleanup_(mnt_free_tablep) struct libmnt_table *kernel_table = NULL;
+        _cleanup_(mnt_free_iterp) struct libmnt_iter *kernel_iter = NULL, *forward_iter = NULL;
+        _cleanup_hashmap_free_ Hashmap *backward = NULL, *forward = NULL;
+        const char *fw_path;
+        char *backward_v;
+        int r;
+
+        /* bind_remount_recursive_with_mountinfo() walks the kernel table forwards and lets the
+         * last entry for a path win; the umount path walks backwards and acts on the top of an
+         * overmount stack first. Both orders must find the same mount for every overmounted
+         * path. One snapshot, walked both ways, so there is no second table to race against. */
+
+        r = libmount_parse_kernel(PARITY_STATMOUNT_MASK, MNT_ITER_BACKWARD,
+                                  &kernel_table, &kernel_iter);
+        if (r == -EOPNOTSUPP)
+                return (void) log_tests_skipped("listmount()/statmount() are not available");
+        ASSERT_OK(r);
+
+        for (;;) {
+                _cleanup_free_ char *p = NULL, *v = NULL;
+                const char *path;
+                struct libmnt_fs *fs;
+
+                r = sym_mnt_table_next_fs(kernel_table, kernel_iter, &fs);
+                if (r == 1)
+                        break;
+                ASSERT_OK_ZERO(r);
+
+                path = sym_mnt_fs_get_target(fs);
+                if (isempty(path))
+                        continue;
+
+                v = mount_parity_value(fs);
+                if (!v)
+                        continue;
+
+                ASSERT_NOT_NULL(p = strdup(path));
+
+                r = hashmap_ensure_put(&backward, &string_hash_ops_free_free, p, v);
+                if (r == -EEXIST) /* An overmounted path; the topmost mount is already stored */
+                        continue;
+                ASSERT_OK(r);
+                TAKE_PTR(p);
+                TAKE_PTR(v);
+        }
+
+        ASSERT_NOT_NULL(forward_iter = sym_mnt_new_iter(MNT_ITER_FORWARD));
+        for (;;) {
+                _cleanup_free_ char *p = NULL, *v = NULL, *old_v = NULL;
+                const char *path;
+                struct libmnt_fs *fs;
+
+                r = sym_mnt_table_next_fs(kernel_table, forward_iter, &fs);
+                if (r == 1)
+                        break;
+                ASSERT_OK_ZERO(r);
+
+                path = sym_mnt_fs_get_target(fs);
+                if (isempty(path))
+                        continue;
+
+                v = mount_parity_value(fs);
+                if (!v)
+                        continue;
+
+                free(hashmap_remove2(forward, path, (void**) &old_v));
+
+                ASSERT_NOT_NULL(p = strdup(path));
+                ASSERT_OK(hashmap_ensure_put(&forward, &string_hash_ops_free_free, p, v));
+                TAKE_PTR(p);
+                TAKE_PTR(v);
+        }
+
+        ASSERT_EQ(hashmap_size(forward), hashmap_size(backward));
+        HASHMAP_FOREACH_KEY(backward_v, fw_path, backward) {
+                const char *fw_v = hashmap_get(forward, fw_path);
+                if (!streq_ptr(fw_v, backward_v))
+                        log_error("Iteration direction changed the winner at '%s': forward '%s', backward '%s'",
+                                  fw_path, strnull(fw_v), backward_v);
+                ASSERT_STREQ(fw_v, backward_v);
         }
 }
 
