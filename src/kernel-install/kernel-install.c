@@ -1172,10 +1172,10 @@ static int context_execute(Context *c) {
                 return r;
 
         if (DEBUG_LOGGING) {
-                _cleanup_free_ char *x = strv_join_full(c->plugins, "", "\n  ", /* escape_separator= */ false);
+                _cleanup_free_ char *x = strv_join_full(c->plugins, "", "\n  ");
                 log_debug("Using plugins: %s", strna(x));
 
-                _cleanup_free_ char *y = strv_join_full(c->envp, "", "\n  ", /* escape_separator= */ false);
+                _cleanup_free_ char *y = strv_join_full(c->envp, "", "\n  ");
                 log_debug("Plugin environment: %s", strna(y));
 
                 _cleanup_free_ char *z = strv_join(strv_skip(c->argv, 1), " ");
