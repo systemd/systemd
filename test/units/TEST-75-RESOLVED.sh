@@ -580,6 +580,10 @@ testcase_08_resolved() {
     run resolvectl query signed.test
     grep -qF "signed.test: 10.0.0.10" "$RUN_OUT"
     grep -qF "authenticated: yes" "$RUN_OUT"
+    (! run resolvectl --raw query localhost)
+    grep -qF -- "--raw may only be combined with --type= or dns: URIs." "$RUN_OUT"
+    resolvectl --raw=packet query --type=A signed.test >"$RUN_OUT"
+    test -s "$RUN_OUT"
     run dig @ns1.unsigned.test +short MX signed.test
     grep -qF "10 mail.signed.test." "$RUN_OUT"
     run resolvectl query --legend=no -t MX signed.test

@@ -894,6 +894,10 @@ static int verb_query(int argc, char *argv[], uintptr_t _data, void *userdata) {
                                 int family, ifindex;
                                 union in_addr_union a;
 
+                                if (arg_raw != RAW_NONE)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "--raw may only be combined with --type= or dns: URIs.");
+
                                 r = in_addr_ifindex_from_string_auto(*p, &family, &a, &ifindex);
                                 if (r >= 0)
                                         RET_GATHER(ret, resolve_address(family, &a, ifindex));

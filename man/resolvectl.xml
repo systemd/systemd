@@ -482,6 +482,10 @@
         types: SSHFP, TLSA, OPENPGPKEY where this dumps the key material only; and A, AAAA where
         this dumps the address data.</para>
 
+        <para>This option may only be used with <option>--type=</option> or an RFC 4501
+        <literal>dns:</literal> URI, which both perform DNS resource record lookups. It may not be combined
+        with regular hostname or address lookups.</para>
+
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
