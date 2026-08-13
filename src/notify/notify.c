@@ -6,6 +6,7 @@
 
 #include "sd-daemon.h"
 #include "sd-event.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "build.h"
@@ -15,13 +16,10 @@
 #include "exit-status.h"
 #include "fd-util.h"
 #include "fdset.h"
-#include "format-table.h"
 #include "format-util.h"
-#include "help-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "notify-recv.h"
-#include "options.h"
 #include "parse-util.h"
 #include "pidref.h"
 #include "process-util.h"
@@ -30,6 +28,7 @@
 #include "strv.h"
 #include "time-util.h"
 #include "user-util.h"
+#include "verbs.h"
 
 static enum {
         ACTION_NOTIFY,
@@ -56,27 +55,15 @@ STATIC_DESTRUCTOR_REGISTER(arg_exec, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fds, fdset_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fdname, freep);
 
-static int help(void) {
-        int r;
-
-        _cleanup_(table_unrefp) Table *options = NULL;
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        help_cmdline("[OPTIONS...] [VARIABLE=VALUE...]");
-        help_cmdline("[OPTIONS...] --exec [VARIABLE=VALUE...] ; -- CMDLINE...");
-        help_cmdline("[OPTIONS...] --fork -- CMDLINE...");
-        help_abstract("Notify the service manager about service status updates.");
-
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("systemd-notify", "1");
-        return 0;
-}
+COMMAND(
+        "systemd-notify\0",
+        "Notify the service manager about service status updates.",
+        .argspec =
+                "[VARIABLE=VALUE…]\0"
+                "--exec [VARIABLE=VALUE…] ; -- CMDLINE…\0"
+                "--fork -- CMDLINE…\0",
+        .man_pages = "systemd-notify.1\0",
+);
 
 static int get_manager_pid(PidRef *ret) {
         int r;
@@ -159,7 +146,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-notify");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -273,6 +260,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION('q', "quiet", NULL, "Do not show PID of child when forking"):
                         arg_quiet = true;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         bool have_env = arg_ready || arg_stopping || arg_reloading || arg_status || pidref_is_set(&arg_pid) || !fdset_isempty(arg_fds);
@@ -283,7 +273,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
         case ACTION_NOTIFY: {
                 if (arg_fdname && fdset_isempty(arg_fds))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No file descriptors passed, but --fdname= set, refusing.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No file descriptors passed, but --fdname= used, refusing.");
 
                 size_t n_arg_env;
 
@@ -308,14 +298,10 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         n_arg_env = strv_length(args);
 
                 have_env = have_env || n_arg_env > 0;
-                if (!have_env) {
-                        if (do_exec)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No notify message specified while --exec, refusing.");
-
-                        /* No argument at all? */
-                        help();
-                        return -EINVAL;
-                }
+                if (!have_env)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               do_exec ? "No notify message specified with --exec, refusing." :
+                                                         "Nothing to notify about was specified.");
 
                 if (n_arg_env > 0) {
                         arg_env = strv_copy_n(args, n_arg_env);
@@ -417,7 +403,6 @@ static int on_child(sd_event_source *s, const siginfo_t *si, void *userdata) {
 }
 
 static int action_fork(char *const *_command) {
-
         static const int forward_signals[] = {
                 SIGHUP,
                 SIGTERM,
