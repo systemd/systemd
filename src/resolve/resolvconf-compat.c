@@ -116,7 +116,9 @@ static int parse_stdin(LookupType lookup_type) {
 
                 a = first_word(line, "nameserver");
                 if (a) {
-                        (void) parse_nameserver(a);
+                        r = parse_nameserver(a);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse resolv.conf nameserver line: %m");
                         continue;
                 }
 
@@ -124,7 +126,9 @@ static int parse_stdin(LookupType lookup_type) {
                 if (!a)
                         a = first_word(line, "search");
                 if (a) {
-                        (void) parse_search_domain(a);
+                        r = parse_search_domain(a);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse resolv.conf domain/search line: %m");
                         continue;
                 }
 
