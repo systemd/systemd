@@ -47,6 +47,7 @@ DLSYM_PROTOTYPE(mnt_table_parse_swaps) = NULL;
 DLSYM_PROTOTYPE(mnt_unref_monitor) = NULL;
 
 /* Since util-linux 2.41 */
+DLSYM_PROTOTYPE(mnt_fs_get_uniq_id) = NULL;
 DLSYM_PROTOTYPE(mnt_new_statmnt) = NULL;
 DLSYM_PROTOTYPE(mnt_statmnt_set_mask) = NULL;
 DLSYM_PROTOTYPE(mnt_table_fetch_listmount) = NULL;
@@ -302,6 +303,7 @@ int dlopen_libmount(int log_level) {
          * purpose: it is idempotent, and it guarantees the pointers are in place by the time any
          * call returns, rather than only after the call that happened to load the library
          * finishes. */
+        DLSYM_OPTIONAL(libmount_dl, mnt_fs_get_uniq_id);
         DLSYM_OPTIONAL(libmount_dl, mnt_new_statmnt);
         DLSYM_OPTIONAL(libmount_dl, mnt_statmnt_set_mask);
         DLSYM_OPTIONAL(libmount_dl, mnt_table_fetch_listmount);
