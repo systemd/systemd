@@ -1354,6 +1354,12 @@ static int on_child_exit(sd_event_source *s, const siginfo_t *si, void *userdata
         return 0;
 }
 
+static int on_startup_exit_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
+        assert(s);
+
+        return sd_event_exit(sd_event_source_get_event(s), PTR_TO_INT(userdata));
+}
+
 static int on_startup_done(sd_future *f) {
         int r;
 
@@ -1368,7 +1374,24 @@ static int on_startup_done(sd_future *f) {
         if (r == -ECANCELED)
                 return 0;
 
-        return sd_event_exit(ASSERT_PTR(sd_future_get_userdata(f)), r);
+        sd_event *event = ASSERT_PTR(sd_future_get_userdata(f));
+
+        /* If startup failed because the QMP connection dropped, qemu itself has most likely died
+         * and the disconnect is only a symptom. Don't exit immediately: the child-exit handler
+         * will fire and report qemu's exit status, which is the more useful verdict.
+         * Arm a fallback timer so we still exit with the original error if qemu is in fact alive. */
+        if (ERRNO_IS_NEG_DISCONNECT(r)) {
+                int q = sd_event_add_time_relative(
+                                event, /* ret= */ NULL, CLOCK_MONOTONIC,
+                                5 * USEC_PER_SEC, /* accuracy= */ 0,
+                                on_startup_exit_timeout, INT_TO_PTR(r));
+                if (q >= 0)
+                        return 0;
+
+                log_debug_errno(q, "Failed to allocate startup failure exit timer, exiting immediately: %m");
+        }
+
+        return sd_event_exit(event, r);
 }
 
 static bool smbios_supported(void) {
