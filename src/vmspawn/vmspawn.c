@@ -4086,6 +4086,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         unregister_machine_with_fallback_and_log(&machine_ctx, arg_machine);
 
+        /* qemu died with a failure exit status, propagate it */
+        if (r > 0)
+                return r;
+
         if (use_vsock) {
                 if (exit_status == INT_MAX) {
                         log_debug("Couldn't retrieve inner EXIT_STATUS from VSOCK");
