@@ -41,6 +41,7 @@ typedef struct Manager {
 
         /* peer */
         sd_resolve_query *resolve_query;
+        sd_varlink *resolve_varlink;
         sd_event_source *event_receive;
         ServerName *current_server_name;
         ServerAddress *current_server_address;

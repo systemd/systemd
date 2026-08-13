@@ -10,8 +10,10 @@
 
 #include "sd-bus.h"
 #include "sd-daemon.h"
+#include "sd-json.h"
 #include "sd-messages.h"
 #include "sd-network.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "clock-util.h"
@@ -30,6 +32,8 @@
 #include "random-util.h"
 #include "ratelimit.h"
 #include "resolve-private.h"
+#include "resolve-varlink-util.h"
+#include "resolved-def.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -789,6 +793,104 @@ static int manager_resolve_handler(sd_resolve_query *q, int ret, const struct ad
         return manager_resolve_complete(m);
 }
 
+static int manager_resolve_varlink_reply(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                const char *error_id,
+                sd_varlink_reply_flags_t flags,
+                void *userdata) {
+
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        assert(m->current_server_name);
+
+        /* Reply is here so there's nothing left to flush here. manager_disconnect has to since the request
+         * might still be in flight when it runs. */
+        m->resolve_varlink = sd_varlink_unref(m->resolve_varlink);
+
+        if (!isempty(error_id)) {
+                log_debug("Failed to resolve %s: %s", m->current_server_name->string, error_id);
+
+                /* Try next one */
+                return manager_connect(m);
+        }
+
+        _cleanup_(resolve_hostname_reply_done) ResolveHostnameReply reply = {};
+        r = dispatch_resolve_hostname_reply(/* name = */ NULL, parameters, SD_JSON_LOG, &reply);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to parse reply for %s, ignoring: %m", m->current_server_name->string);
+
+                return manager_connect(m);
+        }
+
+        FOREACH_ARRAY(entry, reply.addresses, reply.n_addresses) {
+                _cleanup_free_ char *pretty = NULL;
+                union sockaddr_union sa = {};
+                ServerAddress *a;
+
+                if (!IN_SET(entry->family, AF_INET, AF_INET6)) {
+                        log_debug("Ignoring unsuitable address protocol for %s.", m->current_server_name->string);
+                        continue;
+                }
+
+                r = sockaddr_set_in_addr(&sa, entry->family, &entry->in_addr.address, 123);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to convert address for %s: %m", m->current_server_name->string);
+
+                r = server_address_new(m->current_server_name, &a, &sa, sockaddr_len(&sa));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add server address: %m");
+
+                server_address_pretty(a, &pretty);
+                log_debug("Resolved address %s for %s.", pretty, m->current_server_name->string);
+        }
+
+        return manager_resolve_complete(m);
+}
+
+/* Resolve the current server name through resolved's Varlink interface. This returns 0 if resolved is
+ * unavailable */
+static int manager_resolve_varlink(Manager *m) {
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *link = NULL;
+        int r;
+
+        assert(m);
+        assert(m->current_server_name);
+
+        r = sd_varlink_connect_address(&link, "/run/systemd/resolve/io.systemd.Resolve");
+        if (r < 0) {
+                log_debug_errno(r, "Failed to connect to systemd-resolved, using getaddrinfo(): %m");
+                return 0;
+        }
+
+        (void) sd_varlink_set_description(link, "timesyncd-resolve");
+        (void) sd_varlink_set_relative_timeout(link, SD_RESOLVED_QUERY_TIMEOUT_USEC);
+
+        r = sd_varlink_attach_event(link, m->event, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach Varlink connection to event loop: %m");
+
+        r = sd_varlink_bind_reply(link, manager_resolve_varlink_reply);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind Varlink reply callback: %m");
+
+        sd_varlink_set_userdata(link, m);
+
+        /* Ask resolved to skip DNSSEC validation as long as our clock is not synchronized yet. */
+        r = sd_varlink_invokebo(
+                        link,
+                        "io.systemd.Resolve.ResolveHostname",
+                        SD_JSON_BUILD_PAIR_STRING("name", m->current_server_name->string),
+                        SD_JSON_BUILD_PAIR_CONDITION(!socket_ipv6_is_supported(), "family", SD_JSON_BUILD_INTEGER(AF_INET)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("flags", m->synchronized ? 0 : SD_RESOLVED_NO_VALIDATE));
+        if (r < 0)
+                return log_error_errno(r, "Failed to call ResolveHostname(): %m");
+
+        m->resolve_varlink = TAKE_PTR(link);
+        return 1;
+}
+
 static int manager_retry_connect(sd_event_source *source, usec_t usec, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
 
@@ -886,6 +988,12 @@ int manager_connect(Manager *m) {
 
                 log_debug("Resolving %s...", m->current_server_name->string);
 
+                r = manager_resolve_varlink(m);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return 1;
+
                 struct addrinfo hints = {
                         .ai_flags = AI_NUMERICSERV|AI_ADDRCONFIG,
                         .ai_socktype = SOCK_DGRAM,
@@ -910,6 +1018,7 @@ void manager_disconnect(Manager *m) {
         assert(m);
 
         m->resolve_query = sd_resolve_query_unref(m->resolve_query);
+        m->resolve_varlink = sd_varlink_flush_close_unref(m->resolve_varlink);
 
         m->event_timer = sd_event_source_unref(m->event_timer);
 
