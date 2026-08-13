@@ -402,8 +402,12 @@ ExecStart=/bin/true
 EOF
 systemctl daemon-reload
 
-systemctl start issue8102-nop-main.service
+# Stopping the dependency while ExecStart is still running will fail the unit
+# rather than making it inactive, so we wait here explicitly for the dependency
+# too to prevent a race on the status after stop.
+systemctl start issue8102-nop-main.service issue8102-nop-dep.service
 [[ "$(systemctl show -P ActiveState issue8102-nop-main.service)" == active ]]
+[[ "$(systemctl show -P ActiveState issue8102-nop-dep.service)" == active ]]
 
 # Stop just the dependency. Wants= is a weak dependency, so the main unit stays
 # active while the dependency goes inactive.
