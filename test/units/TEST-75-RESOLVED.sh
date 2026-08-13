@@ -290,6 +290,21 @@ manual_testcase_01_resolvectl() {
     assert_in "DOMAINS=~route-only-change.example.com" "$(cat "$hoge_state")"
     assert_not_in "route-only-change.example.com" "$(cat /run/systemd/resolve/resolv.conf /run/systemd/resolve/stub-resolv.conf)"
 
+    resolvectl domain hoge "old.example.com"
+    local domains=()
+    for i in {1..1025}; do
+        domains+=("too-many-$i.example.com")
+    done
+    (! resolvectl domain hoge "${domains[@]}")
+    assert_in 'old.example.com' "$(resolvectl domain hoge)"
+
+    domains=()
+    for i in {1..1024}; do
+        domains+=("replacement-$i.example.com")
+    done
+    resolvectl domain hoge "${domains[@]}"
+    assert_not_in 'old.example.com' "$(resolvectl domain hoge)"
+    assert_in 'replacement-1024.example.com' "$(resolvectl domain hoge)"
     echo -e "nameserver 10.0.2.1\ndomain test-domain.example.com" | SYSTEMD_INVOKED_AS=resolvconf resolvectl -x -a hoge
     assert_in 'test-domain.example.com' "$(resolvectl domain hoge)"
     assert_in '~.' "$(resolvectl domain hoge)"
@@ -627,6 +642,8 @@ testcase_08_resolved() {
     grep -qF '"data":"' "$RUN_OUT"
     (! run resolvectl openpgp mr.smith@signed.test --json=short --type=A)
     grep -qF -- "The openpgp command may only be combined with --type=OPENPGPKEY." "$RUN_OUT"
+    (! run resolvectl tlsa tcp)
+    grep -qF -- "The tlsa command requires at least one domain." "$RUN_OUT"
     (! run resolvectl tlsa signed.test:invalid --json=short)
     grep -qF 'Invalid port "invalid".' "$RUN_OUT"
     (! run resolvectl tlsa signed.test --json=short --type=A)
@@ -1491,7 +1508,7 @@ testcase_delegate() {
     mkdir -p /run/systemd/dns-delegate.d/
     cat >/run/systemd/dns-delegate.d/testcase.dns-delegate <<EOF
 [Delegate]
-DNS=192.168.77.78
+DNS=192.168.77.78 192.168.77.78 192.168.77.79
 Domains=exercise.test
 FirewallMark=42
 EOF
@@ -1499,6 +1516,7 @@ EOF
     resolvectl status
 
     assert_eq "$(resolvectl --json=short | jq -rc '.[] | select(.delegate == "testcase") | .servers | .[0].addressString')" '192.168.77.78'
+    assert_eq "$(resolvectl --json=short | jq -rc '.[] | select(.delegate == "testcase") | .servers | .[1].addressString')" '192.168.77.79'
     assert_eq "$(resolvectl --json=short | jq -rc '.[] | select(.delegate == "testcase") | .searchDomains | .[0].name')" 'exercise.test'
 
     # Now that we installed the delegation the resolution should fail, because nothing is listening on that IP address
