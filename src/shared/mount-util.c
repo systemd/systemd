@@ -195,6 +195,38 @@ static int mount_snapshot_acquire(FILE *proc_self_mountinfo, uint64_t mask, int 
         return mount_snapshot_from_table(table, iter, mask, ret);
 }
 
+/* Looks one mount point's flags up in /proc/self/mountinfo.
+ *
+ * Returns -ENOENT if 'path' does not exist and -EINVAL if it exists but is not a mount point, which
+ * is what bind_remount_one_with_mountinfo() has always returned for those two cases. */
+static int mount_flags_by_path(FILE *proc_self_mountinfo, const char *path, unsigned long *ret) {
+        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+        struct libmnt_fs *fs;
+        int r;
+
+        assert(proc_self_mountinfo);
+        assert(path);
+        assert(ret);
+
+        rewind(proc_self_mountinfo);
+
+        r = libmount_parse_mountinfo(proc_self_mountinfo, &table, &iter);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse /proc/self/mountinfo: %m");
+
+        fs = sym_mnt_table_find_target(table, path, MNT_ITER_FORWARD);
+        if (!fs) {
+                r = access_nofollow(path, F_OK); /* Hmm, it's not in the mount table, but does it exist at all? */
+                if (r < 0)
+                        return r;
+
+                return -EINVAL; /* Not a mount point we recognize */
+        }
+
+        return mount_fs_flags(fs, ret);
+}
+
 #endif /* HAVE_LIBMOUNT */
 
 int umount_recursive_full(const char *prefix, int flags, char **keep) {
@@ -574,41 +606,12 @@ int bind_remount_one_with_mountinfo(
         }
 
 #if HAVE_LIBMOUNT
-        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         unsigned long flags = 0;
-        struct libmnt_fs *fs;
-        const char *opts;
         int r;
 
-        rewind(proc_self_mountinfo);
-
-        r = dlopen_libmount(LOG_DEBUG);
+        r = mount_flags_by_path(proc_self_mountinfo, path, &flags);
         if (r < 0)
                 return r;
-
-        table = sym_mnt_new_table();
-        if (!table)
-                return -ENOMEM;
-
-        r = sym_mnt_table_parse_stream(table, proc_self_mountinfo, "/proc/self/mountinfo");
-        if (r < 0)
-                return r;
-
-        fs = sym_mnt_table_find_target(table, path, MNT_ITER_FORWARD);
-        if (!fs) {
-                r = access_nofollow(path, F_OK); /* Hmm, it's not in the mount table, but does it exist at all? */
-                if (r < 0)
-                        return r;
-
-                return -EINVAL; /* Not a mount point we recognize */
-        }
-
-        opts = sym_mnt_fs_get_vfs_options(fs);
-        if (opts) {
-                r = sym_mnt_optstr_get_flags(opts, &flags, sym_mnt_get_builtin_optmap(MNT_LINUX_MAP));
-                if (r < 0)
-                        log_debug_errno(r, "Could not get flags for '%s', ignoring: %m", path);
-        }
 
         r = mount_nofollow(NULL, path, NULL, ((flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags) & ~MS_RELATIME, NULL);
         if (r < 0) {
