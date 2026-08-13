@@ -365,6 +365,35 @@ def process_coverage(args: argparse.Namespace, summary: Summary, name: str, jour
             print(f'Wrote coverage report for {name} to {output}', file=sys.stderr)
 
 
+def coco_host_type() -> Optional[str]:
+    try:
+        if Path('/sys/module/kvm_intel/parameters/tdx').read_text().strip() == 'Y':
+            return 'tdx'
+    except OSError:
+        pass
+    try:
+        if (
+            Path('/sys/module/kvm_amd/parameters/sev_snp').read_text().strip() == 'Y'
+            and Path('/dev/sev').exists()
+        ):
+            return 'sev-snp'
+    except OSError:
+        pass
+    return None
+
+
+def coco_nspawn_args(coco_type: str) -> list[str]:
+    # systemd-nspawn args (appended after '--' in boot mode) that expose the devices vmspawn needs to
+    # launch a confidential guest from inside the boot-mode container.
+    binds = ['--bind=/dev/kvm', '--bind=/dev/vhost-vsock']
+    if coco_type == 'sev-snp':
+        binds += ['--bind=/dev/sev']
+    # TDX guests obtain quotes via the host's Quote Generation Service; forward its socket if present.
+    if coco_type == 'tdx' and Path('/run/tdx-qgs/qgs.socket').exists():
+        binds += ['--bind=/run/tdx-qgs/qgs.socket']
+    return binds
+
+
 def statfs(path: Path) -> str:
     return subprocess.run(
         ['stat', '--file-system', os.fspath(path), '--format=%T'],
@@ -406,6 +435,8 @@ def main() -> None:
     parser.add_argument('--sanitizer-exclude-regex', required=True)
     parser.add_argument('--rtc', action=argparse.BooleanOptionalAction)
     parser.add_argument('--tpm', action=argparse.BooleanOptionalAction)
+    parser.add_argument('--vm-images', action=argparse.BooleanOptionalAction)
+    parser.add_argument('--coco', default=None, choices=('tdx', 'sev-snp', 'any'))
     parser.add_argument('--skip', action=argparse.BooleanOptionalAction)
     parser.add_argument('--suppress-sync', action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument('mkosi_args', nargs='*')
@@ -581,6 +612,55 @@ def main() -> None:
 
     vm = args.vm or os.getuid() != 0 or os.getenv('TEST_PREFER_QEMU', '0') == '1'
 
+    # Tests that launch nested VMs need the mkosi-built images, which are build outputs rather than
+    # installed test artifacts. Bind the output directory read-only into the boot-mode container at
+    # /work/vm-images on request, instead of mounting the whole build tree via RuntimeBuildSources.
+    vm_images_args: list[str] = []
+    if args.vm_images and not vm:
+        output_dir = args.meson_build_dir / 'mkosi.output'
+        if output_dir.exists():
+            vm_images_args = [f'--bind-ro={os.fspath(output_dir)}:/work/vm-images']
+        else:
+            print(
+                f'--vm-images requested but {output_dir} does not exist (images not built?); '
+                f'/work/vm-images will be unavailable and tests depending on it will skip',
+                file=sys.stderr,
+            )
+
+    # Coco needs to launch a real (L1) confidential guest, which requires the boot-mode nspawn on
+    # a coco-capable bare-metal host. Nested QEMU VM (vm mode) won't work.
+    coco_boot_args: list[str] = []
+    if args.coco:
+        if vm:
+            print(
+                f'{args.name} needs bare-metal boot mode (root, no nesting) for confidential VMs, skipping',
+                file=sys.stderr,
+            )
+            exit(77)
+        host = coco_host_type()
+        if host is None or (args.coco != 'any' and host != args.coco):
+            print(
+                f'Host does not provide coco={args.coco} (detected: {host}), skipping {args.name}',
+                file=sys.stderr,
+            )
+            exit(77)
+        if not Path('/dev/vhost-vsock').exists():
+            print(
+                f'{args.name} needs /dev/vhost-vsock (load the vhost_vsock module) for the guest '
+                f'notify channel, skipping',
+                file=sys.stderr,
+            )
+            exit(77)
+        coco_boot_args = coco_nspawn_args(host)
+        # /sys/module/*/parameters isn't reliably readable inside the nspawn container, so hand the
+        # resolved coco type to the test via the environment instead of making it re-detect.
+        dropin += textwrap.dedent(
+            f'''
+            [Service]
+            Environment=COCO_TYPE={host}
+            '''
+        )
+
     cmd = [
         args.mkosi,
         '--directory', os.fspath(args.mkosi_dir),
@@ -626,7 +706,7 @@ def main() -> None:
         *(['--runtime-build-sources=no', '--register=no'] if not sys.stdin.isatty() else []),
         'vm' if vm else 'boot',
         *(
-            ['--', '--capability=CAP_BPF', f'--suppress-sync={"yes" if args.suppress_sync else "no"}']
+            ['--', '--capability=CAP_BPF', f'--suppress-sync={"yes" if args.suppress_sync else "no"}', *vm_images_args, *coco_boot_args]
             if not vm
             else []
         ),
