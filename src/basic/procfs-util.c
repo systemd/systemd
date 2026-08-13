@@ -127,25 +127,28 @@ static uint64_t calc_gcd64(uint64_t a, uint64_t b) {
         return a;
 }
 
-int procfs_cpu_get_usage(nsec_t *ret) {
-        ProcfsCpuTicks ticks;
-        int r;
+nsec_t procfs_ticks_to_nsec(uint64_t ticks) {
+        uint64_t ticks_per_second = sysconf_clock_ticks_cached();
 
-        assert(ret);
-
-        r = procfs_cpu_get_ticks(&ticks);
-        if (r < 0)
-                return r;
-
-        uint64_t ticks_per_second = sysconf_clock_ticks_cached(),
-                sum = ticks.user + ticks.nice + ticks.system + ticks.irq + ticks.softirq;
-
-        /* Let's reduce this fraction before we apply it to avoid overflows when converting this to μsec */
+        /* Let's reduce this fraction before we apply it to avoid overflows when converting this to nsec */
         uint64_t gcd = calc_gcd64(NSEC_PER_SEC, ticks_per_second),
                 a = NSEC_PER_SEC / gcd,
                 b = ticks_per_second / gcd;
 
-        *ret = (nsec_t) DIV_ROUND_UP(sum * a, b);
+        return (nsec_t) DIV_ROUND_UP(ticks * a, b);
+}
+
+int procfs_cpu_get_usage(nsec_t *ret) {
+        int r;
+
+        assert(ret);
+
+        ProcfsCpuTicks ticks;
+        r = procfs_cpu_get_ticks(&ticks);
+        if (r < 0)
+                return r;
+
+        *ret = procfs_ticks_to_nsec(ticks.user + ticks.nice + ticks.system + ticks.irq + ticks.softirq);
         return 0;
 }
 
