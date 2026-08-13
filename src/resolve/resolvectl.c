@@ -71,6 +71,7 @@ static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 bool arg_ifindex_permissive = false; /* If true, don't generate an error if the specified interface index doesn't exist */
 static const char *arg_service_family = NULL;
+static bool arg_service_txt_set = false;
 static bool arg_ask_password = true;
 
 typedef enum RawType {
@@ -1019,15 +1020,26 @@ static int resolve_service(const char *name, const char *type, const char *domai
 VERB(verb_service, "service", "[[NAME] TYPE] DOMAIN", 2, 4, 0,
      "Resolve service (SRV)");
 static int verb_service(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        uint64_t saved_flags;
+        int r;
+
         if (sd_json_format_enabled(arg_json_format_flags))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Use --json=pretty with --type= to acquire resource record information in JSON format.");
 
-        if (argc == 2)
-                return resolve_service(NULL, NULL, argv[1]);
-        else if (argc == 3)
-                return resolve_service(NULL, argv[1], argv[2]);
-        else
+        if (argc == 4)
                 return resolve_service(argv[1], argv[2], argv[3]);
+
+        saved_flags = arg_flags;
+        if (!arg_service_txt_set)
+                arg_flags |= SD_RESOLVED_NO_TXT;
+
+        if (argc == 2)
+                r = resolve_service(NULL, NULL, argv[1]);
+        else
+                r = resolve_service(NULL, argv[1], argv[2]);
+
+        arg_flags = saved_flags;
+        return r;
 }
 
 #if HAVE_OPENSSL
@@ -3360,6 +3372,7 @@ static int compat_parse_argv(int argc, char *argv[], char ***remaining_args) {
                         if (r < 0)
                                 return r;
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_TXT, r == 0);
+                        arg_service_txt_set = true;
                         break;
 
                 OPTION_LONG("openpgp", NULL, "Query OpenPGP public key"):
@@ -3594,6 +3607,7 @@ static int native_parse_argv(int argc, char *argv[], char ***remaining_args) {
                         if (r < 0)
                                 return r;
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_TXT, r == 0);
+                        arg_service_txt_set = true;
                         break;
 
                 OPTION_LONG("cname", "BOOL", "Follow CNAME redirects (default: yes)"):
