@@ -273,6 +273,9 @@ manual_testcase_01_resolvectl() {
     assert_in 'test-domain1.example.com' "$(resolvectl domain hoge)"
     assert_in 'test-domain2.example.com' "$(resolvectl domain hoge)"
     assert_in 'test-search-domain.example.com' "$(resolvectl domain hoge)"
+    resolvectl domain hoge keep.example
+    (! echo -e "nameserver 10.0.2.1\nsearch \"unterminated" | SYSTEMD_INVOKED_AS=resolvconf resolvectl -a hoge)
+    assert_in 'keep.example' "$(resolvectl domain hoge)"
 
     # Tests for 'resolvconf -x'
     echo nameserver 10.0.2.1 | SYSTEMD_INVOKED_AS=resolvconf resolvectl -x -a hoge
@@ -579,10 +582,13 @@ testcase_08_resolved() {
     # Check SRV support
     run resolvectl service _mysvc._tcp signed.test
     grep -qF "myservice.signed.test:1234" "$RUN_OUT"
-    grep -qF "This is TXT for myservice" "$RUN_OUT"
+    (! grep -qF "This is TXT for myservice" "$RUN_OUT")
     grep -qF "10.0.0.20" "$RUN_OUT"
     grep -qF "fd00:dead:beef:cafe::17" "$RUN_OUT"
     grep -qF "authenticated: yes" "$RUN_OUT"
+    run resolvectl service "" _mysvc._tcp signed.test
+    grep -qF "myservice.signed.test:1234" "$RUN_OUT"
+    grep -qF "This is TXT for myservice" "$RUN_OUT"
 
     # Test service resolve over Varlink
     run varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveService '{"name":"","type":"_mysvc._tcp","domain":"signed.test"}'
@@ -1338,7 +1344,7 @@ testcase_14_refuse_record_types() {
 
     run resolvectl service _mysvc._tcp signed.test
     grep -qF "myservice.signed.test:1234" "$RUN_OUT"
-    grep -qF "This is TXT for myservice" "$RUN_OUT"
+    (! grep -qF "This is TXT for myservice" "$RUN_OUT")
     grep -qF "10.0.0.20" "$RUN_OUT"
     (! grep -qF "fd00:dead:beef:cafe::17" "$RUN_OUT")
     grep -qF "authenticated: yes" "$RUN_OUT"
@@ -1360,7 +1366,7 @@ testcase_14_refuse_record_types() {
 
     run resolvectl service _mysvc._tcp signed.test
     grep -qF "myservice.signed.test:1234" "$RUN_OUT"
-    grep -qF "This is TXT for myservice" "$RUN_OUT"
+    (! grep -qF "This is TXT for myservice" "$RUN_OUT")
     (! grep -qF "10.0.0.20" "$RUN_OUT")
     (! grep -qF "fd00:dead:beef:cafe::17" "$RUN_OUT")
     grep -qF "authenticated: yes" "$RUN_OUT"
@@ -1384,6 +1390,7 @@ testcase_14_refuse_record_types() {
     grep -qF "myservice.signed.test:1234" "$RUN_OUT"
     grep -qF "10.0.0.20" "$RUN_OUT"
     (! grep -qF "fd00:dead:beef:cafe::17" "$RUN_OUT")
+    (! grep -qF "This is TXT for myservice" "$RUN_OUT")
     grep -qF "authenticated: yes" "$RUN_OUT"
 
     run varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveService '{"name":"","type":"_mysvc._tcp","domain":"signed.test"}'
