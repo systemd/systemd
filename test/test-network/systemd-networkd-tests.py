@@ -10578,6 +10578,19 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         self.check_nftset('network6', '3ffe:501:ffff:[2-9a-f]00::/64')
         self.check_nftset('ifindex', 'dummy98')
 
+        check_output('ip link set dev veth99 down')
+
+        self.wait_address_dropped(
+            'dummy98',
+            'inet6 3ffe:501:ffff:[2-9a-f]00',
+            ipv='-6',
+        )
+        self.wait_route_dropped(
+            'dummy98',
+            '3ffe:501:ffff:[2-9a-f]00::/64 proto kernel metric [0-9]*',
+            ipv='-6',
+        )
+
         self.teardown_nftset('addr6', 'network6', 'ifindex')
 
     def verify_dhcp4_6rd(self, tunnel_name, address_prefix, address_prefix_re, border_router):
