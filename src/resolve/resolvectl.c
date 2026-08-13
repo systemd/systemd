@@ -98,7 +98,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_set_nta, strv_freep);
 
 COMMAND(
         "resolvectl\0",
-        "Send control commands to the network name resolution manager, or\n"
+        "Send control commands to the network name resolution manager, or "
         "resolve domain names, IPv4 and IPv6 addresses, DNS records, and services.",
         .man_pages = "resolvectl.1\0",
         .option_namespace = "resolvectl",
