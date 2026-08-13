@@ -732,6 +732,24 @@ void manager_set_server_address(Manager *m, ServerAddress *a) {
         }
 }
 
+/* Shared by both resolver paths, glibc getaddrinfo() and resolved's Varlink interface: pick the first
+ * address we found, or move on to the next host if we found none. */
+static int manager_resolve_complete(Manager *m) {
+        assert(m);
+        assert(m->current_server_name);
+
+        if (!m->current_server_name->addresses) {
+                log_error("Failed to find suitable address for host %s.", m->current_server_name->string);
+
+                /* Try next host */
+                return manager_connect(m);
+        }
+
+        manager_set_server_address(m, m->current_server_name->addresses);
+
+        return manager_begin(m);
+}
+
 static int manager_resolve_handler(sd_resolve_query *q, int ret, const struct addrinfo *ai, Manager *m) {
         int r;
 
@@ -768,16 +786,7 @@ static int manager_resolve_handler(sd_resolve_query *q, int ret, const struct ad
                 log_debug("Resolved address %s for %s.", pretty, m->current_server_name->string);
         }
 
-        if (!m->current_server_name->addresses) {
-                log_error("Failed to find suitable address for host %s.", m->current_server_name->string);
-
-                /* Try next host */
-                return manager_connect(m);
-        }
-
-        manager_set_server_address(m, m->current_server_name->addresses);
-
-        return manager_begin(m);
+        return manager_resolve_complete(m);
 }
 
 static int manager_retry_connect(sd_event_source *source, usec_t usec, void *userdata) {
