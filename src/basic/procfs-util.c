@@ -171,6 +171,39 @@ int procfs_cpu_get_usage(nsec_t *ret) {
         return 0;
 }
 
+int procfs_cpu_get_ticks(ProcfsCpuTicks *ret) {
+        _cleanup_free_ char *first_line = NULL;
+        int r;
+
+        assert(ret);
+
+        r = read_one_line_file("/proc/stat", &first_line);
+        if (r < 0)
+                return r;
+
+        const char *p = first_word(first_line, "cpu");
+        if (!p)
+                return -EINVAL;
+
+        /* All eight fields exist on any kernel we support: iowait was added in 2.5.41, steal in 2.6.11.
+         * "guest" and "guest_nice" are not returned, the kernel already includes them in "user" and
+         * "nice". */
+        ProcfsCpuTicks t;
+        if (sscanf(p, "%"SCNu64" %"SCNu64" %"SCNu64" %"SCNu64" %"SCNu64" %"SCNu64" %"SCNu64" %"SCNu64,
+                   &t.user,
+                   &t.nice,
+                   &t.system,
+                   &t.idle,
+                   &t.iowait,
+                   &t.irq,
+                   &t.softirq,
+                   &t.steal) < 8)
+                return -EINVAL;
+
+        *ret = t;
+        return 0;
+}
+
 int convert_meminfo_value_to_uint64_bytes(const char *s, uint64_t *ret) {
         _cleanup_free_ char *w = NULL;
         uint64_t v;
