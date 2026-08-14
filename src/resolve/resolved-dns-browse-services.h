@@ -65,7 +65,16 @@ void dns_browse_services_restart(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsServiceBrowser *, dns_service_browser_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnssdDiscoveredService *, dnssd_discovered_service_unref);
 
-bool dns_service_match_and_update(DnssdDiscoveredService *services, DnsResourceRecord *rr, int owner_family, usec_t until);
+int dns_service_match_and_update(
+                DnssdDiscoveredService *services,
+                DnsResourceRecord *rr,
+                int owner_family,
+                int ifindex,
+                usec_t until);
+int mdns_answer_contains_service(
+                DnsServiceBrowser *sb,
+                DnsAnswer *answer,
+                DnssdDiscoveredService *service);
 int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int owner_family);
 int dns_add_new_service(DnsServiceBrowser *sb, DnsResourceRecord *rr, int owner_family, int ifindex, usec_t until);
 int mdns_service_update(DnssdDiscoveredService *service, DnsResourceRecord *rr, usec_t t, usec_t until);
