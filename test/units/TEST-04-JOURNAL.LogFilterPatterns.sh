@@ -8,7 +8,7 @@ set -o pipefail
 
 if ! cgroupfs_supports_user_xattrs; then
     echo "CGroup does not support user xattrs, skipping LogFilterPatterns= tests."
-    exit 0
+    exit 77
 fi
 
 # Unfortunately, journalctl -I/--invocation= is unstable when debug logging is enabled on service manager.

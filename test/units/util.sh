@@ -576,3 +576,24 @@ find_qemu_binary() {
 
     command -v "qemu-system-$arch" >/dev/null 2>&1
 }
+
+# Waits for a systemd-vmspawn machine to register with machined. If vmspawn bailed out because
+# vhost-user-fs isn't available (e.g. inside a nested VM) the test is skipped gracefully; any other
+# early vmspawn exit is treated as a failure. Args: machine name, vmspawn PID, vmspawn console log.
+wait_for_machine() {
+    local machine="$1" pid="$2" log="$3"
+    timeout 30 bash -c "
+        while ! machinectl list --no-legend 2>/dev/null | grep >/dev/null '$machine'; do
+            if ! kill -0 $pid 2>/dev/null; then
+                if grep >/dev/null 'virtiofs.*QMP\|vhost-user-fs-pci' '$log'; then
+                    echo 'vhost-user-fs not supported (nested VM?), skipping'
+                    exit 77
+                fi
+                echo 'vmspawn exited before registering'
+                cat '$log'
+                exit 1
+            fi
+            sleep .5
+        done
+    "
+}

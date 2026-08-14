@@ -9,12 +9,12 @@ set -o pipefail
 
 if ! command -v /usr/lib/systemd/systemd-sbsign >/dev/null; then
     echo "systemd-sbsign not found, skipping."
-    exit 0
+    exit 77
 fi
 
 if [[ ! -d /usr/lib/systemd/boot/efi ]]; then
     echo "systemd-boot is not installed, skipping."
-    exit 0
+    exit 77
 fi
 
 cat >/tmp/openssl.conf <<EOF
