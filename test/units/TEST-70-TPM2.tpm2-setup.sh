@@ -8,7 +8,7 @@ SD_TPM2SETUP="/usr/lib/systemd/systemd-tpm2-setup"
 
 if [[ ! -x "${SD_TPM2SETUP:?}" ]]; then
     echo "$SD_TPM2SETUP not found, skipping the test"
-    exit 0
+    exit 77
 fi
 
 # systemd-tpm2-setup returns EX_UNAVAILABLE rather than 0 when it cannot set something up but this

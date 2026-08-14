@@ -11,7 +11,7 @@ SD_PCREXTEND="/usr/lib/systemd/systemd-pcrextend"
 
 if [[ ! -x "${SD_PCREXTEND:?}" ]] || ! tpm_has_pcr sha256 16 || ! tpm_has_pcr sha256 15; then
     echo "$SD_PCREXTEND or PCR sysfs files not found, skipping PCR extension tests"
-    exit 0
+    exit 77
 fi
 
 at_exit() {

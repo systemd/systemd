@@ -18,7 +18,7 @@ if [[ ! -f /usr/lib/systemd/system/systemd-mountfsd.socket ]] ||
    systemd-analyze compare-versions "$(pkcheck --version | awk '{print $3}')" lt 124 ||
    systemctl --version | grep -- "-BTF" >/dev/null; then
     echo "Skipping mountfsd/nsresourced tests"
-    exit 0
+    exit 77
 fi
 
 systemctl start systemd-mountfsd.socket systemd-nsresourced.socket
