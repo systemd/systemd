@@ -90,24 +90,6 @@ mke2fs -t ext4 -q -d "$WORKDIR/rootfs" "$WORKDIR/root.raw"
 BOOT_VOL="test-bind-volume-boot-$$"
 RUNTIME_VOL="test-bind-volume-runtime-$$"
 
-wait_for_machine() {
-    local machine="$1" pid="$2" log="$3"
-    timeout 30 bash -c "
-        while ! machinectl list --no-legend 2>/dev/null | grep >/dev/null '$machine'; do
-            if ! kill -0 $pid 2>/dev/null; then
-                echo 'vmspawn exited before machine registration'
-                cat '$log'
-                exit 77
-            fi
-            sleep .5
-        done
-    " || {
-        local rc=$?
-        if [[ $rc -eq 77 ]]; then exit 0; fi
-        exit "$rc"
-    }
-}
-
 # --- Boot the VM with one boot-time bind-volume ---
 MACHINE="test-bind-volume-$$"
 systemd-vmspawn \
