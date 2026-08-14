@@ -682,11 +682,16 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         arg_read_crypttab = r;
 
         } else if (streq(key, "luks.uuid")) {
+                const char *unprefixed_uuid;
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                d = get_crypto_device(startswith(value, "luks-") ?: value);
+                unprefixed_uuid = startswith(value, "luks-") ?: value;
+                if (warn_uuid_invalid(unprefixed_uuid, key))
+                        return 0;
+
+                d = get_crypto_device(unprefixed_uuid);
                 if (!d)
                         return log_oom();
 
@@ -781,6 +786,9 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 r = sscanf(value, "%m[0-9a-fA-F-]=%ms", &uuid, &uuid_value);
                 if (r == 2) {
+                        if (warn_uuid_invalid(uuid, key))
+                                return 0;
+
                         d = get_crypto_device(uuid);
                         if (!d)
                                 return log_oom();
