@@ -8,6 +8,11 @@ fi
 
 declare -i _CHILD_PID=0
 _PASSED_TESTS=()
+_SKIPPED_TESTS=()
+
+# A subtest may exit with this code to report that it skipped itself,
+# matching the skip code used by the integration test harness.
+_SUBTEST_SKIP_RC=77
 
 # Like trap, but passes the signal name as the first argument
 _trap_with_sig() {
@@ -56,7 +61,7 @@ _wait_harder() {
 _show_summary() {(
     set +x
 
-    if [[ ${#_PASSED_TESTS[@]} -eq 0 ]]; then
+    if [[ ${#_PASSED_TESTS[@]} -eq 0 && ${#_SKIPPED_TESTS[@]} -eq 0 ]]; then
         echo >&2 "No tests were executed, this is most likely an error"
         exit 1
     fi
@@ -66,12 +71,34 @@ _show_summary() {(
     for t in "${_PASSED_TESTS[@]}"; do
         echo "$t"
     done
+
+    if [[ ${#_SKIPPED_TESTS[@]} -gt 0 ]]; then
+        printf "SKIPPED TESTS: %3d:\n" "${#_SKIPPED_TESTS[@]}"
+        echo   "-------------------"
+        for t in "${_SKIPPED_TESTS[@]}"; do
+            echo "$t"
+        done
+    fi
 )}
+
+_record_subtest_rc() {
+    local subtest="${1:?}" rc="${2:?}"
+
+    if [[ $rc -eq $_SUBTEST_SKIP_RC ]]; then
+        echo "Subtest $subtest skipped"
+        _SKIPPED_TESTS+=("$subtest")
+    elif [[ $rc -ne 0 ]]; then
+        echo "Subtest $subtest failed"
+        return 1
+    else
+        _PASSED_TESTS+=("$subtest")
+    fi
+}
 
 # Like run_subtests, but propagate specified signals to the subtest script
 run_subtests_with_signals() {
     local subtests=("${0%.sh}".*.sh)
-    local subtest
+    local subtest rc
 
     if [[ "${#subtests[@]}" -eq 0 ]]; then
         echo >&2 "No subtests found for file $0"
@@ -100,14 +127,11 @@ run_subtests_with_signals() {
 
         : "--- $subtest BEGIN ---"
         SECONDS=0
+        rc=0
         "./$subtest" &
         _CHILD_PID=$!
-        if ! _wait_harder "$_CHILD_PID"; then
-            echo "Subtest $subtest failed"
-            return 1
-        fi
-
-        _PASSED_TESTS+=("$subtest")
+        _wait_harder "$_CHILD_PID" || rc=$?
+        _record_subtest_rc "$subtest" "$rc" || return 1
         : "--- $subtest END (${SECONDS}s) ---"
     done
 
@@ -117,7 +141,7 @@ run_subtests_with_signals() {
 # Run all subtests (i.e. files named as $TESTNAME.<subtest_name>.sh)
 run_subtests() {
     local subtests=("${0%.sh}".*.sh)
-    local subtest
+    local subtest rc
 
     if [[ "${#subtests[@]}" -eq 0 ]]; then
         echo >&2 "No subtests found for file $0"
@@ -139,16 +163,38 @@ run_subtests() {
 
         : "--- $subtest BEGIN ---"
         SECONDS=0
-        if ! "./$subtest"; then
-            echo "Subtest $subtest failed"
-            return 1
-        fi
-
-        _PASSED_TESTS+=("$subtest")
+        rc=0
+        "./$subtest" || rc=$?
+        _record_subtest_rc "$subtest" "$rc" || return 1
         : "--- $subtest END (${SECONDS}s) ---"
     done
 
     _show_summary
+}
+
+_finalize_subtests() {
+    if [[ ${#_PASSED_TESTS[@]} -eq 0 && ${#_SKIPPED_TESTS[@]} -gt 0 ]]; then
+        echo "All subtests skipped" | tee --append /skipped
+        exit "$_SUBTEST_SKIP_RC"
+    fi
+
+    touch /testok
+    exit 0
+}
+
+# Run all subtests and finalize the test in one shot: exit 77 (skipped) if every subtest skipped,
+# otherwise mark success (/testok) and exit. Use this ONLY for tests whose body is just subtests.
+# Do NOT use it if the parent script has meaningful test content of its own.
+run_subtests_and_exit() {
+    run_subtests
+    _finalize_subtests
+}
+
+# Like run_subtests_and_exit, but propagates the given signals to the subtests (see
+# run_subtests_with_signals).
+run_subtests_with_signals_and_exit() {
+    run_subtests_with_signals "$@"
+    _finalize_subtests
 }
 
 # Run all test cases (i.e. functions prefixed with testcase_ in the current namespace)

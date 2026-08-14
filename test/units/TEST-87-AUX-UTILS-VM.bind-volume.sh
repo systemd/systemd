@@ -17,33 +17,33 @@ set -o pipefail
 
 if [[ -v ASAN_OPTIONS ]]; then
     echo "vmspawn launches QEMU which doesn't work under ASan, skipping"
-    exit 0
+    exit 77
 fi
 
 if ! command -v systemd-vmspawn >/dev/null 2>&1; then
     echo "systemd-vmspawn not found, skipping"
-    exit 0
+    exit 77
 fi
 
 if ! command -v storagectl >/dev/null 2>&1; then
     echo "storagectl not found, skipping"
-    exit 0
+    exit 77
 fi
 
 if ! find_qemu_binary; then
     echo "QEMU not found, skipping"
-    exit 0
+    exit 77
 fi
 
 if ! command -v mke2fs >/dev/null 2>&1; then
     echo "mke2fs not found, skipping"
-    exit 0
+    exit 77
 fi
 
 # Storage providers are socket-activated; skip if the fs provider socket isn't present.
 if ! test -S /run/systemd/io.systemd.StorageProvider/fs; then
     echo "StorageProvider fs socket not found, skipping"
-    exit 0
+    exit 77
 fi
 
 # Find a kernel for direct boot
@@ -57,7 +57,7 @@ done
 
 if [[ -z "$KERNEL" ]]; then
     echo "No kernel found for direct VM boot, skipping"
-    exit 0
+    exit 77
 fi
 
 WORKDIR="$(mktemp -d /tmp/test-bind-volume.XXXXXXXXXX)"
@@ -89,24 +89,6 @@ mke2fs -t ext4 -q -d "$WORKDIR/rootfs" "$WORKDIR/root.raw"
 
 BOOT_VOL="test-bind-volume-boot-$$"
 RUNTIME_VOL="test-bind-volume-runtime-$$"
-
-wait_for_machine() {
-    local machine="$1" pid="$2" log="$3"
-    timeout 30 bash -c "
-        while ! machinectl list --no-legend 2>/dev/null | grep >/dev/null '$machine'; do
-            if ! kill -0 $pid 2>/dev/null; then
-                echo 'vmspawn exited before machine registration'
-                cat '$log'
-                exit 77
-            fi
-            sleep .5
-        done
-    " || {
-        local rc=$?
-        if [[ $rc -eq 77 ]]; then exit 0; fi
-        exit "$rc"
-    }
-}
 
 # --- Boot the VM with one boot-time bind-volume ---
 MACHINE="test-bind-volume-$$"

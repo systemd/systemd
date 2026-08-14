@@ -8,7 +8,7 @@ if [[ -v ASAN_OPTIONS ]]; then
     # Under sanitizers the service is slow enough that the calendar timer with 5s resolution ends up
     # missing ticks, making the test flaky
     echo "Sanitizers detected, skipping the test..."
-    exit 0
+    exit 77
 fi
 
 systemctl start defer-reactivation.timer

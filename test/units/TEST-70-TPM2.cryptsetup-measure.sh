@@ -17,7 +17,7 @@ export SYSTEMD_LOG_LEVEL=debug
 
 if ! command -v systemd-cryptsetup >/dev/null || ! tpm_has_pcr sha256 15; then
     echo "systemd-cryptsetup or PCR 15 (sha256) not available, skipping cryptsetup measurement test"
-    exit 0
+    exit 77
 fi
 
 IMAGE=""

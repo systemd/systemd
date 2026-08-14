@@ -19,12 +19,12 @@ set -o pipefail
 # Skip if prerequisites not met
 if systemctl --version | grep -F -- "-BPF_FRAMEWORK" >/dev/null; then
     echo "BPF framework not compiled in, skipping"
-    exit 0
+    exit 77
 fi
 
 if ! kernel_supports_lsm bpf; then
     echo "BPF LSM not available in kernel, skipping"
-    exit 0
+    exit 77
 fi
 
 # Check that the kernel has the bdev_setintegrity LSM hook in BTF.
@@ -32,13 +32,13 @@ fi
 if command -v bpftool >/dev/null 2>&1; then
     if ! bpftool btf dump file /sys/kernel/btf/vmlinux 2>/dev/null | grep 'bpf_lsm_bdev_setintegrity' >/dev/null; then
         echo "Kernel lacks bdev_setintegrity LSM hook (required for RestrictFileSystemAccess=), skipping"
-        exit 0
+        exit 77
     fi
 fi
 
 if [[ -v ASAN_OPTIONS ]]; then
     echo "Skipping enforcement test under sanitizers"
-    exit 0
+    exit 77
 fi
 
 HELPER="/usr/lib/systemd/tests/unit-tests/manual/test-bpf-restrict-fsaccess"
@@ -53,7 +53,7 @@ rc=0
 "$HELPER" check >/dev/null 2>&1 || rc=$?
 if [[ "$rc" -eq 77 ]]; then
     echo "test-bpf-restrict-fsaccess built without BPF attach support, skipping"
-    exit 0
+    exit 77
 fi
 
 # require_signatures is read-only — must be set via kernel cmdline
@@ -62,12 +62,12 @@ if [[ ! -e /sys/module/dm_verity/parameters/require_signatures ]]; then
 fi
 if [[ ! -e /sys/module/dm_verity/parameters/require_signatures ]]; then
     echo "dm_verity module not available, skipping enforcement test"
-    exit 0
+    exit 77
 fi
 val="$(cat /sys/module/dm_verity/parameters/require_signatures)"
 if [[ "$val" != "Y" && "$val" != "1" ]]; then
     echo "require_signatures not enabled (need dm-verity.require_signatures=1 on cmdline), skipping"
-    exit 0
+    exit 77
 fi
 
 at_exit() {
@@ -106,7 +106,7 @@ if ! /tmp/restrict-fsaccess-baseline/true 2>/dev/null; then
     echo "WARNING: tmpfs exec blocked BEFORE BPF attach (another LSM?)" >&2
     echo "Skipping enforcement test, baseline tmpfs exec fails"
     umount /tmp/restrict-fsaccess-baseline; rm -rf /tmp/restrict-fsaccess-baseline
-    exit 0
+    exit 77
 fi
 echo "Baseline: tmpfs exec works without BPF"
 umount /tmp/restrict-fsaccess-baseline; rm -rf /tmp/restrict-fsaccess-baseline
