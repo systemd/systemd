@@ -267,9 +267,11 @@ static void parse_credentials(void) {
         if (r < 0)
                 log_debug_errno(r, "Failed to read credential 'getty.auto', ignoring: %m");
         else if (r > 0) {
-                r = parse_getty_sources(value, &arg_getty_sources);
+                const char *p = strstrip(value);
+
+                r = parse_getty_sources(p, &arg_getty_sources);
                 if (r < 0)
-                        log_warning_errno(r, "Invalid 'getty.auto' credential, ignoring: %s", value);
+                        log_warning_errno(r, "Invalid 'getty.auto' credential, ignoring: %s", p);
         }
 }
 
