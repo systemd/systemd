@@ -49,6 +49,7 @@ _systemd_creds() {
                --tpm2-public-key
                --tpm2-public-key-pcrs
                --tpm2-signature
+               --tpm2-pcrlock
                --json
                --transcode
                --newline
@@ -87,6 +88,7 @@ _systemd_creds() {
                    --tpm2-public-key
                    --tpm2-public-key-pcrs
                    --tpm2-signature
+                   --tpm2-pcrlock
                    --not-after
                    --name
                    --timestamp
@@ -102,6 +104,7 @@ _systemd_creds() {
                    --tpm2-public-key
                    --tpm2-public-key-pcrs
                    --tpm2-signature
+                   --tpm2-pcrlock
                    --name
                    --timestamp
                    --allow-null'
@@ -119,7 +122,7 @@ _systemd_creds() {
 
     if __contains_word "$prev" ${OPTS[ARG]}; then
         case $prev in
-            --tpm2-public-key|--tpm2-signature)
+            --tpm2-public-key|--tpm2-signature|--tpm2-pcrlock)
                 comps=$(compgen -A file -- "$cur")
                 compopt -o filenames
                 ;;
