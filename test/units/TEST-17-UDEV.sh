@@ -8,6 +8,4 @@ set -o pipefail
 
 udevadm settle
 
-run_subtests
-
-touch /testok
+run_subtests_and_exit
