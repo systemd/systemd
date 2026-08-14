@@ -2,17 +2,34 @@
 #pragma once
 
 #include "forward.h"
+#include "options.h"
 
 #define VERB_ANY (UINT_MAX)
 
+typedef enum CommandFlags {
+        COMMAND_HELP_SEPARATE = 1 << 0,  /* Do not synchronize the width between verbs and options */
+} CommandFlags;
+
+typedef struct CommandDescription {
+        const char *names;             /* nulstr with the main command name and potentially aliases */
+        const char *abstract;          /* concrete abstract */
+        const char *argspec;           /* optional specification of positional args in synopsis */
+        const char *footer;            /* optional footer to print right above man page links */
+        const char *man_pages;         /* nulstr with man page names */
+        const char *option_namespace;  /* to be used when the options are in a namespace */
+        const PagerFlags *pager_flags; /* optional pointer to the runtime pager flags variable */
+        CommandFlags flags;
+} CommandDescription;
+
 typedef enum VerbFlags {
-        VERB_DEFAULT      = 1 << 0,  /* The verb to run if no verb is specified */
-        VERB_ONLINE_ONLY  = 1 << 1,  /* Just do nothing when running in chroot or offline */
-        VERB_GROUP_MARKER = 1 << 2,  /* Fake verb entry to separate groups */
+        VERB_DEFAULT        = 1 << 0,  /* The verb to run if no verb is specified */
+        VERB_ONLINE_ONLY    = 1 << 1,  /* Just do nothing when running in chroot or offline */
+        VERB_COMMAND_MARKER = 1 << 2,  /* Header entry with command description */
+        VERB_GROUP_MARKER   = 1 << 3,  /* Fake verb entry to separate groups */
 } VerbFlags;
 
 /* Note: see the comment on struct Option in options.h for why _alignptr_ is required here. */
-typedef struct _alignptr_ {
+typedef struct _alignptr_ Verb {
         const char *verb;
         unsigned min_args, max_args;
         VerbFlags flags;
@@ -71,6 +88,12 @@ assert_cc(sizeof(Verb) % sizeof(void*) == 0);
         _VERB_DATA(/* d= */ NULL, /* v= */ gr, /* a= */ NULL, /* amin= */ 0, /* amax= */ 0, \
                   /* f= */ VERB_GROUP_MARKER, /* dat= */ 0, /* h= */ NULL)
 
+#define _COMMAND(u, ...)                                                \
+        static const CommandDescription UNIQ_T(description, u) = { __VA_ARGS__ }; \
+        _VERB_DATA(/* d= */ NULL, /* v= */ NULL, /* a= */ NULL, /* amin= */ 0, /* amax= */ 0, \
+                   /* f= */ VERB_COMMAND_MARKER, /* dat= */ (uintptr_t) &UNIQ_T(description, u), /* h= */ NULL)
+#define COMMAND(...) _COMMAND(UNIQ, __VA_ARGS__)
+
 /* This is magically mapped to the beginning and end of the section */
 extern const Verb __start_SYSTEMD_VERBS[];
 extern const Verb __stop_SYSTEMD_VERBS[];
@@ -107,3 +130,40 @@ int _verbs_get_help_table(
 #define VERB_COMMON_HELP_HIDDEN(impl)                                   \
         VERB(verb_help, "help", NULL, VERB_ANY, VERB_ANY, 0, NULL);     \
         _VERB_COMMON_HELP_IMPL(impl)
+
+#define VERB_COMMON_HELP_AUTO(program)                                  \
+        VERB_FULL(verb_help_auto, "help", NULL, VERB_ANY, VERB_ANY, 0, (uintptr_t) program, "Show this help")
+
+#define VERB_COMMON_HELP_AUTO_HIDDEN(program)                           \
+        VERB_FULL(verb_help_auto, "help", NULL, VERB_ANY, VERB_ANY, 0, (uintptr_t) program, NULL)
+
+int _command_print_help(
+                const Verb verbs[],
+                const Verb verbs_end[],
+                const Option options[],
+                const Option options_end[],
+                const char *name);
+#define command_print_help(name)                                        \
+        _command_print_help(                                            \
+                __start_SYSTEMD_VERBS, __stop_SYSTEMD_VERBS,            \
+                __start_SYSTEMD_OPTIONS, __stop_SYSTEMD_OPTIONS,        \
+                name)
+
+static inline int verb_help_auto(int argc, char **argv, uintptr_t data, void *userdata) {
+        return command_print_help((const char*) ASSERT_PTR(data));
+}
+
+/* Print a machine-readable description of the program's commands, verbs, and options in the format
+ * defined by the CLI-Introspection Specification. One command object is emitted for each
+ * VERB_COMMAND() in the verb table, so multicall binaries are described in full. */
+int _introspect_cli(
+                const Verb verbs[],
+                const Verb verbs_end[],
+                const Option options[],
+                const Option options_end[],
+                sd_json_format_flags_t flags);
+#define introspect_cli(flags)                                           \
+        _introspect_cli(                                                \
+                __start_SYSTEMD_VERBS, __stop_SYSTEMD_VERBS,            \
+                __start_SYSTEMD_OPTIONS, __stop_SYSTEMD_OPTIONS,        \
+                flags)

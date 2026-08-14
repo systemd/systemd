@@ -24,7 +24,6 @@
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "polkit-agent.h"
-#include "pretty-print.h"
 #include "runtime-scope.h"
 #include "sparse-endian.h"
 #include "string-table.h"
@@ -179,6 +178,13 @@ static int print_status_info(const StatusInfo *i) {
 
         return 0;
 }
+
+COMMAND(
+        "timedatectl\0",
+        .abstract = "Query or change system time and date settings.",
+        .man_pages = "timedatectl.1\0",
+        .pager_flags = &arg_pager_flags,
+);
 
 VERB_DEFAULT_NOARG(verb_status, "status", "Show current time settings");
 static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
@@ -893,54 +899,7 @@ static int verb_revert(int argc, char *argv[], uintptr_t _data, void *userdata) 
         return 0;
 }
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *verbs = NULL, *verbs2 = NULL, *options = NULL;
-        int r;
-
-        r = terminal_urlify_man("timedatectl", "1", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        r = verbs_get_help_table_group("systemd-timesyncd Commands", &verbs2);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, verbs, verbs2, options);
-
-        printf("%s [OPTIONS...] COMMAND ...\n"
-               "\n%sQuery or change system time and date settings.%s\n"
-               "\nCommands:\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        printf("\nsystemd-timesyncd Commands:\n");
-        r = table_print_or_warn(verbs2);
-        if (r < 0)
-                return r;
-
-        printf("\nOptions:\n");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
-
-VERB_COMMON_HELP_HIDDEN(help);
+VERB_COMMON_HELP_AUTO_HIDDEN("timedatectl");
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         int r;
@@ -953,7 +912,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("timedatectl");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -1005,6 +964,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION('a', "all", NULL, "Show all properties, including empty ones"):
                         SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         *ret_args = option_parser_get_args(&opts);
