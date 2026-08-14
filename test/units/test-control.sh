@@ -8,6 +8,11 @@ fi
 
 declare -i _CHILD_PID=0
 _PASSED_TESTS=()
+_SKIPPED_TESTS=()
+
+# A subtest may exit with this code to report that it skipped itself,
+# matching the skip code used by the integration test harness.
+_SUBTEST_SKIP_RC=77
 
 # Like trap, but passes the signal name as the first argument
 _trap_with_sig() {
@@ -56,7 +61,7 @@ _wait_harder() {
 _show_summary() {(
     set +x
 
-    if [[ ${#_PASSED_TESTS[@]} -eq 0 ]]; then
+    if [[ ${#_PASSED_TESTS[@]} -eq 0 && ${#_SKIPPED_TESTS[@]} -eq 0 ]]; then
         echo >&2 "No tests were executed, this is most likely an error"
         exit 1
     fi
@@ -66,6 +71,14 @@ _show_summary() {(
     for t in "${_PASSED_TESTS[@]}"; do
         echo "$t"
     done
+
+    if [[ ${#_SKIPPED_TESTS[@]} -gt 0 ]]; then
+        printf "SKIPPED TESTS: %3d:\n" "${#_SKIPPED_TESTS[@]}"
+        echo   "-------------------"
+        for t in "${_SKIPPED_TESTS[@]}"; do
+            echo "$t"
+        done
+    fi
 )}
 
 # Like run_subtests, but propagate specified signals to the subtest script
@@ -100,14 +113,19 @@ run_subtests_with_signals() {
 
         : "--- $subtest BEGIN ---"
         SECONDS=0
+        local rc=0
         "./$subtest" &
         _CHILD_PID=$!
-        if ! _wait_harder "$_CHILD_PID"; then
+        _wait_harder "$_CHILD_PID" || rc=$?
+        if [[ $rc -eq $_SUBTEST_SKIP_RC ]]; then
+            echo "Subtest $subtest skipped"
+            _SKIPPED_TESTS+=("$subtest")
+        elif [[ $rc -ne 0 ]]; then
             echo "Subtest $subtest failed"
             return 1
+        else
+            _PASSED_TESTS+=("$subtest")
         fi
-
-        _PASSED_TESTS+=("$subtest")
         : "--- $subtest END (${SECONDS}s) ---"
     done
 
@@ -139,12 +157,17 @@ run_subtests() {
 
         : "--- $subtest BEGIN ---"
         SECONDS=0
-        if ! "./$subtest"; then
+        local rc=0
+        "./$subtest" || rc=$?
+        if [[ $rc -eq $_SUBTEST_SKIP_RC ]]; then
+            echo "Subtest $subtest skipped"
+            _SKIPPED_TESTS+=("$subtest")
+        elif [[ $rc -ne 0 ]]; then
             echo "Subtest $subtest failed"
             return 1
+        else
+            _PASSED_TESTS+=("$subtest")
         fi
-
-        _PASSED_TESTS+=("$subtest")
         : "--- $subtest END (${SECONDS}s) ---"
     done
 
