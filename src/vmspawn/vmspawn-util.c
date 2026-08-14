@@ -12,6 +12,7 @@
 #include "conf-files.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "hashmap.h"
 #include "json-util.h"
 #include "log.h"
@@ -716,4 +717,70 @@ char* escape_qemu_value(const char *s) {
         *t = 0;
 
         return e;
+}
+
+int line_buffer_feed(LineBuffer *b, const char *p, size_t n, line_buffer_emit_t emit, void *userdata) {
+        assert(b);
+        assert(p || n == 0);
+        assert(emit);
+
+        while (n > 0) {
+                const char *nl = memchr(p, '\n', n);
+                size_t l = nl ? (size_t) (nl - p) : n;
+
+                /* Force a line break if a single line grows beyond LONG_LINE_MAX,
+                 * so the writer can never make us buffer unbound amount of data. */
+                if (b->len + l > LONG_LINE_MAX) {
+                        size_t k = LONG_LINE_MAX - b->len;
+
+                        if (!GREEDY_REALLOC(b->buf, b->len + k + 1))
+                                return -ENOMEM;
+                        memcpy(b->buf + b->len, p, k);
+                        b->len += k;
+                        b->buf[b->len] = 0;
+
+                        emit(b->buf, userdata);
+                        b->len = 0;
+
+                        p += k;
+                        n -= k;
+                        continue;
+                }
+
+                if (!GREEDY_REALLOC(b->buf, b->len + l + 1))
+                        return -ENOMEM;
+                memcpy(b->buf + b->len, p, l);
+                b->len += l;
+                b->buf[b->len] = 0;
+
+                if (!nl)
+                        return 0;
+
+                emit(b->buf, userdata);
+                b->len = 0;
+
+                p = nl + 1;
+                n -= l + 1;
+        }
+
+        return 0;
+}
+
+void line_buffer_flush(LineBuffer *b, line_buffer_emit_t emit, void *userdata) {
+        assert(b);
+        assert(emit);
+
+        if (b->len == 0)
+                return;
+
+        emit(b->buf, userdata);
+        b->len = 0;
+}
+
+void line_buffer_done(LineBuffer *b) {
+        if (!b)
+                return;
+
+        b->buf = mfree(b->buf);
+        b->len = 0;
 }

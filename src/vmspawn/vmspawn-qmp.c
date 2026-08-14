@@ -1911,20 +1911,22 @@ int vmspawn_qmp_probe_features(VmspawnQmpBridge *bridge) {
         while (!qmp_client_is_idle(bridge->qmp)) {
                 r = qmp_client_process(bridge->qmp);
                 if (r < 0)
-                        return log_error_errno(r, "QMP probe pump failed: %m");
+                        return log_full_errno(ERRNO_IS_NEG_DISCONNECT(r) ? LOG_WARNING : LOG_ERR, r,
+                                              "QMP probe pump failed: %m");
                 if (r > 0)
                         continue;
 
                 r = qmp_client_wait(bridge->qmp, USEC_INFINITY);
                 if (r < 0)
-                        return log_error_errno(r, "QMP probe wait failed: %m");
+                        return log_full_errno(ERRNO_IS_NEG_DISCONNECT(r) ? LOG_WARNING : LOG_ERR, r,
+                                              "QMP probe wait failed: %m");
         }
 
         /* If fail_pending() drained the slots (transport dropped mid-probe), features can't be
          * trusted and we have no QMP channel for device setup anyway. */
         if (qmp_client_is_disconnected(bridge->qmp))
-                return log_error_errno(SYNTHETIC_ERRNO(ECONNRESET),
-                                       "QMP connection dropped during feature probing");
+                return log_warning_errno(SYNTHETIC_ERRNO(ECONNRESET),
+                                         "QMP connection dropped during feature probing");
 
         return 0;
 }
