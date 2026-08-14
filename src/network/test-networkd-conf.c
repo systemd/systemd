@@ -4,6 +4,7 @@
 #include "hexdecoct.h"
 #include "net-condition.h"
 #include "networkd-address.h"
+#include "networkd-dhcp-common.h"
 #include "networkd-dhcp6.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
@@ -13,6 +14,20 @@
 #include "set.h"
 #include "strv.h"
 #include "tests.h"
+
+TEST(network_adjust_dhcp_anonymize) {
+        Network network = {
+                .dhcp = ADDRESS_FAMILY_NO,
+                .dhcp6_register_addresses = true,
+        };
+
+        network_adjust_dhcp(&network);
+        ASSERT_TRUE(network.dhcp6_register_addresses);
+
+        network.dhcp_anonymize = true;
+        network_adjust_dhcp(&network);
+        ASSERT_FALSE(network.dhcp6_register_addresses);
+}
 
 static void test_config_parse_address_registration_time_one(
                 int ltype,

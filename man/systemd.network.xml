@@ -2580,6 +2580,7 @@ MultiPathRoute=2001:db8::1@eth0</programlisting>
           <para>When true,
           <varname>ClientIdentifier=mac</varname>,
           <varname>RapidCommit=no</varname>,
+          <varname>RegisterAddresses=no</varname>,
           <varname>SendHostname=no</varname>,
           <varname>Use6RD=no</varname>,
           <varname>UseCaptivePortal=no</varname>,
@@ -3270,7 +3271,7 @@ MultiPathRoute=2001:db8::1@eth0</programlisting>
           <ulink url="https://www.rfc-editor.org/rfc/rfc9686.html">RFC 9686</ulink>. When the DHCPv6 server
           also indicates support, global IPv6 addresses that are configured via methods other than DHCPv6 IA_NA
           (ex. SLAAC) are registered with the DHCPv6 server. Only addresses that are configured on the same
-          interface are registered. This is enabled by default.</para>
+          interface are registered. This is enabled by default, unless <varname>Anonymize=</varname> is enabled.</para>
 
           <xi:include href="version-info.xml" xpointer="v262"/>
         </listitem>

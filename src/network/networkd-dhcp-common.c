@@ -99,6 +99,9 @@ void network_adjust_dhcp(Network *network) {
         assert(network);
         assert(network->dhcp >= 0);
 
+        if (network->dhcp_anonymize)
+                network->dhcp6_register_addresses = false;
+
         if (network->dhcp == ADDRESS_FAMILY_NO)
                 return;
 
