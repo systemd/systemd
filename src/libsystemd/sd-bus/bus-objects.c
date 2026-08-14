@@ -373,8 +373,8 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 trivial_compare_func,
                 bus_fiber_future_unref);
 
-static int bus_fiber_resolved(sd_future *f) {
-        sd_bus *bus = ASSERT_PTR(sd_future_get_userdata(f));
+static int bus_fiber_resolved(sd_future *f, void *userdata) {
+        sd_bus *bus = ASSERT_PTR(userdata);
 
         assert_se(set_remove(bus->fiber_futures, f) == f);
         sd_future_unref(f);
@@ -488,7 +488,7 @@ static int method_callbacks_run(
                                 .userdata = u,
                         };
 
-                        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+                        _cleanup_(sd_future_cancel_unrefp) sd_future *f = NULL;
                         r = sd_fiber_new(bus->event, c->member, bus_fiber_entry, d, bus_fiber_data_destroy, &f);
                         if (r < 0)
                                 return bus_maybe_reply_error(m, r, NULL);
@@ -502,8 +502,10 @@ static int method_callbacks_run(
                                 return bus_maybe_reply_error(m, r, NULL);
                         assert(r > 0);
 
-                        /* Track the future on the bus so shutdown can cancel it and wait for it. */
-                        r = sd_future_set_callback(f, bus_fiber_resolved, bus);
+                        /* Track the future on the bus so shutdown can cancel it and wait for it.
+                         * Floating slot — tied to f's lifetime; bus_fiber_resolved is what drops
+                         * the set's ref, which is the last ref and frees f (and the slot). */
+                        r = sd_future_add_callback(f, /* ret_slot= */ NULL, bus_fiber_resolved, bus);
                         if (r < 0) {
                                 /* TAKE_PTR(f) hasn't run yet, so our cleanup attribute still owns the
                                  * ref; set_remove() returns the raw pointer without firing the hash_ops
