@@ -199,7 +199,6 @@ int json_stream_connect_address(JsonStream *s, const char *address) {
                 r = connect_unix_path(sock_fd, AT_FDCWD, address);
         } else
                 r = RET_NERRNO(connect(sock_fd, &sockaddr.sa, r));
-
         if (r < 0) {
                 if (!IN_SET(r, -EAGAIN, -EINPROGRESS))
                         return json_stream_log_errno(s, r, "Failed to connect to %s: %m", address);
@@ -212,26 +211,28 @@ int json_stream_connect_address(JsonStream *s, const char *address) {
                 s->flags |= JSON_STREAM_CONNECTING;
         }
 
-        int fd = TAKE_FD(sock_fd);
-        return json_stream_attach_fds(s, fd, fd);
+        r = json_stream_attach_fds(s, sock_fd, sock_fd);
+        if (r < 0)
+                return r;
+
+        TAKE_FD(sock_fd);
+        return 0;
 }
 
 int json_stream_attach_fds(JsonStream *s, int input_fd, int output_fd) {
         struct stat st;
 
         assert(s);
+        assert(input_fd >= 0);
+        assert(input_fd != s->input_fd);
+        assert(input_fd != s->output_fd);
+        assert(output_fd >= 0);
+        assert(output_fd != s->input_fd);
+        assert(output_fd != s->output_fd);
 
-        /* NB: input_fd and output_fd are donated to the JsonStream instance! */
+        /* NB: input_fd and output_fd are donated to the JsonStream instance on success. */
 
-        if (s->input_fd != s->output_fd) {
-                safe_close(s->input_fd);
-                safe_close(s->output_fd);
-        } else
-                safe_close(s->input_fd);
-
-        s->input_fd = input_fd;
-        s->output_fd = output_fd;
-        s->flags &= ~(JSON_STREAM_PREFER_READ|JSON_STREAM_PREFER_WRITE);
+        JsonStreamFlags flags = s->flags & ~(JSON_STREAM_PREFER_READ|JSON_STREAM_PREFER_WRITE);
 
         /* Detect non-socket fds up front so the read/write paths use read()/write() for
          * non-socket fds and send()/recv() for sockets (mostly for MSG_NOSIGNAL). */
@@ -239,17 +240,24 @@ int json_stream_attach_fds(JsonStream *s, int input_fd, int output_fd) {
                 if (fstat(input_fd, &st) < 0)
                         return -errno;
                 if (!S_ISSOCK(st.st_mode))
-                        s->flags |= JSON_STREAM_PREFER_READ;
+                        flags |= JSON_STREAM_PREFER_READ;
         }
 
         if (output_fd >= 0 && output_fd != input_fd) {
                 if (fstat(output_fd, &st) < 0)
                         return -errno;
                 if (!S_ISSOCK(st.st_mode))
-                        s->flags |= JSON_STREAM_PREFER_WRITE;
-        } else if (FLAGS_SET(s->flags, JSON_STREAM_PREFER_READ))
-                s->flags |= JSON_STREAM_PREFER_WRITE;
+                        flags |= JSON_STREAM_PREFER_WRITE;
+        } else if (FLAGS_SET(flags, JSON_STREAM_PREFER_READ))
+                flags |= JSON_STREAM_PREFER_WRITE;
 
+        if (s->input_fd != s->output_fd)
+                safe_close(s->output_fd);
+        safe_close(s->input_fd);
+
+        s->input_fd = input_fd;
+        s->output_fd = output_fd;
+        s->flags = flags;
         return 0;
 }
 
@@ -259,6 +267,9 @@ int json_stream_connect_fd_pair(JsonStream *s, int input_fd, int output_fd) {
         assert(s);
         assert(input_fd >= 0);
         assert(output_fd >= 0);
+
+        /* NB: input_fd and output_fd are donated to the JsonStream instance on success.
+         * The fds may be changed to non-blocking mode even on failure. */
 
         r = fd_nonblock(input_fd, true);
         if (r < 0)
