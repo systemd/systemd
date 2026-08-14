@@ -62,6 +62,4 @@ test -z "${res}"
 
 : "Run subtests"
 
-run_subtests
-
-touch /testok
+run_subtests_and_exit

@@ -18,6 +18,4 @@ fi
 # shellcheck source=test/units/test-control.sh
 . "$(dirname "$0")"/test-control.sh
 
-run_subtests
-
-touch /testok
+run_subtests_and_exit

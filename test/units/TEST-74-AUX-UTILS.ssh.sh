@@ -5,7 +5,7 @@ set -o pipefail
 
 if ! command -v ssh >/dev/null || ! command -v sshd >/dev/null ; then
     echo "ssh/sshd not found, skipping test." >&2
-    exit 0
+    exit 77
 fi
 
 systemctl -q is-active sshd-unix-local.socket

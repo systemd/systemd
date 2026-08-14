@@ -5,33 +5,33 @@ set -o pipefail
 
 if ! command -v systemd-sysinstall >/dev/null; then
     echo "systemd-sysinstall not found, skipping."
-    exit 0
+    exit 77
 fi
 
 if ! command -v systemd-repart >/dev/null; then
     echo "systemd-repart not found, skipping."
-    exit 0
+    exit 77
 fi
 
 if ! command -v bootctl >/dev/null; then
     echo "bootctl not found, skipping."
-    exit 0
+    exit 77
 fi
 
 if ! command -v ukify >/dev/null; then
     echo "ukify not found, skipping."
-    exit 0
+    exit 77
 fi
 
 if [[ ! -d /usr/lib/systemd/boot/efi ]]; then
     echo "sd-boot is not installed, skipping."
-    exit 0
+    exit 77
 fi
 
 # We need a real environment to fiddle with loop devices.
 if systemd-detect-virt -cq; then
     echo "Running in a container, skipping."
-    exit 0
+    exit 77
 fi
 
 # shellcheck source=test/units/test-control.sh
