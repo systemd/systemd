@@ -1005,7 +1005,7 @@ int manager_connect(Manager *m) {
                 struct addrinfo hints = {
                         .ai_flags = AI_NUMERICSERV|AI_ADDRCONFIG,
                         .ai_socktype = SOCK_DGRAM,
-                        .ai_family = socket_ipv6_is_supported() ? AF_UNSPEC : AF_INET,
+                        .ai_family = socket_ipv6_is_enabled() ? AF_UNSPEC : AF_INET,
                 };
 
                 r = resolve_getaddrinfo(m->resolve, &m->resolve_query, m->current_server_name->string, "123", &hints, manager_resolve_handler, NULL, m);
