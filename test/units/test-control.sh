@@ -172,6 +172,31 @@ run_subtests() {
     _show_summary
 }
 
+_finalize_subtests() {
+    if [[ ${#_PASSED_TESTS[@]} -eq 0 && ${#_SKIPPED_TESTS[@]} -gt 0 ]]; then
+        echo "All subtests skipped" | tee --append /skipped
+        exit "$_SUBTEST_SKIP_RC"
+    fi
+
+    touch /testok
+    exit 0
+}
+
+# Run all subtests and finalize the test in one shot: exit 77 (skipped) if every subtest skipped,
+# otherwise mark success (/testok) and exit. Use this ONLY for tests whose body is just subtests.
+# Do NOT use it if the parent script has meaningful test content of its own.
+run_subtests_and_exit() {
+    run_subtests
+    _finalize_subtests
+}
+
+# Like run_subtests_and_exit, but propagates the given signals to the subtests (see
+# run_subtests_with_signals).
+run_subtests_with_signals_and_exit() {
+    run_subtests_with_signals "$@"
+    _finalize_subtests
+}
+
 # Run all test cases (i.e. functions prefixed with testcase_ in the current namespace)
 run_testcases() {
     local testcase testcases
