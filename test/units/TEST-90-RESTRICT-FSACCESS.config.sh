@@ -16,7 +16,7 @@ set -o pipefail
 # RestrictFileSystemAccess= requires +BPF_FRAMEWORK at compile time
 if systemctl --version | grep -F -- "-BPF_FRAMEWORK" >/dev/null; then
     echo "BPF framework not compiled in, skipping"
-    exit 0
+    exit 77
 fi
 
 HELPER=/usr/lib/systemd/tests/unit-tests/manual/test-bpf-restrict-fsaccess

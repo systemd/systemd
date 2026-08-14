@@ -9,17 +9,17 @@ set -o pipefail
 
 if [[ -v ASAN_OPTIONS ]]; then
     echo "vmspawn launches QEMU which doesn't work under ASan, skipping"
-    exit 0
+    exit 77
 fi
 
 if ! command -v systemd-vmspawn >/dev/null 2>&1; then
     echo "systemd-vmspawn not found, skipping"
-    exit 0
+    exit 77
 fi
 
 if ! find_qemu_binary; then
     echo "QEMU not found, skipping"
-    exit 0
+    exit 77
 fi
 
 # --directory= needs virtiofsd (on Fedora it lives in /usr/libexec, not in PATH)
@@ -27,7 +27,7 @@ if ! command -v virtiofsd >/dev/null 2>&1 &&
    ! test -x /usr/libexec/virtiofsd &&
    ! test -x /usr/lib/virtiofsd; then
     echo "virtiofsd not found, skipping"
-    exit 0
+    exit 77
 fi
 
 # Find a kernel for direct boot
@@ -41,7 +41,7 @@ done
 
 if [[ -z "$KERNEL" ]]; then
     echo "No kernel found for direct VM boot, skipping"
-    exit 0
+    exit 77
 fi
 echo "Using kernel: $KERNEL"
 

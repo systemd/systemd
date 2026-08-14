@@ -8,7 +8,7 @@ set -eux
 
 if [[ "$(get_cgroup_hierarchy)" != unified ]]; then
     echo "Skipping $0 as we're not running with the unified cgroup hierarchy"
-    exit 0
+    exit 77
 fi
 
 # Multiple level process tree, parent process stays up

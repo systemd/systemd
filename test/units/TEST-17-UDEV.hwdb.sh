@@ -5,7 +5,7 @@ set -o pipefail
 
 if ! command -v systemd-hwdb >/dev/null; then
     echo "systemd-hwdb not found, skipping."
-    exit 0
+    exit 77
 fi
 
 # shellcheck source=test/units/util.sh

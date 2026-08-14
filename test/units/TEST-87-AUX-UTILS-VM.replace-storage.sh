@@ -18,32 +18,32 @@ set -o pipefail
 
 if [[ -v ASAN_OPTIONS ]]; then
     echo "vmspawn launches QEMU which doesn't work under ASan, skipping"
-    exit 0
+    exit 77
 fi
 
 if ! command -v systemd-vmspawn >/dev/null 2>&1; then
     echo "systemd-vmspawn not found, skipping"
-    exit 0
+    exit 77
 fi
 
 if ! command -v storagectl >/dev/null 2>&1; then
     echo "storagectl not found, skipping"
-    exit 0
+    exit 77
 fi
 
 if ! find_qemu_binary; then
     echo "QEMU not found, skipping"
-    exit 0
+    exit 77
 fi
 
 if ! command -v mke2fs >/dev/null 2>&1; then
     echo "mke2fs not found, skipping"
-    exit 0
+    exit 77
 fi
 
 if ! test -S /run/systemd/io.systemd.StorageProvider/fs; then
     echo "StorageProvider fs socket not found, skipping"
-    exit 0
+    exit 77
 fi
 
 KERNEL=""
@@ -56,7 +56,7 @@ done
 
 if [[ -z "$KERNEL" ]]; then
     echo "No kernel found for direct VM boot, skipping"
-    exit 0
+    exit 77
 fi
 
 WORKDIR="$(mktemp -d /tmp/test-replace-storage.XXXXXXXXXX)"

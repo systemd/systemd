@@ -595,9 +595,5 @@ wait_for_machine() {
             fi
             sleep .5
         done
-    " || {
-        local rc=$?
-        if [[ $rc -eq 77 ]]; then exit 0; fi
-        exit "$rc"
-    }
+    "
 }
