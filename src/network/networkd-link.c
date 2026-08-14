@@ -478,6 +478,8 @@ void link_enter_failed(Link *link) {
                 return;
 
 stop:
+        dhcp6_reset_address_registration(link);
+
         (void) link_stop_engines(link, /* may_keep_dynamic= */ false);
 }
 
@@ -1881,8 +1883,11 @@ static int link_carrier_gained(Link *link) {
          *
          * For non-wireless interfaces, we have no way to detect the connected network change. So,
          * we do not set any flags here. Note, both ssid and previous_ssid are NULL in that case. */
-        if (link->previous_ssid && !streq_ptr(link->previous_ssid, link->ssid))
+        if (link->previous_ssid && !streq_ptr(link->previous_ssid, link->ssid)) {
                 flags |= LINK_RECONFIGURE_UNCONDITIONALLY | LINK_RECONFIGURE_CLEANLY;
+
+                dhcp6_reset_address_registration(link);
+        }
         link->previous_ssid = mfree(link->previous_ssid);
 
         /* AP and P2P-GO interfaces may have a new SSID - update the link properties in case a new .network
@@ -1932,6 +1937,8 @@ static int link_carrier_lost_impl(Link *link) {
 
         if (!link->network)
                 return ret;
+
+        dhcp6_reset_address_registration(link);
 
         RET_GATHER(ret, link_stop_engines(link, /* may_keep_dynamic= */ false));
         RET_GATHER(ret, link_drop_static_config(link));

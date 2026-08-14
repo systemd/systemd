@@ -33,6 +33,8 @@ struct sd_dhcp6_lease {
         DHCP6Address *addr_iter;
         DHCP6Address *prefix_iter;
 
+        bool address_registration_supported;
+
         struct in6_addr *dns;
         size_t dns_count;
         sd_dns_resolver *dnr;

@@ -4,6 +4,8 @@
 #include "hexdecoct.h"
 #include "net-condition.h"
 #include "networkd-address.h"
+#include "networkd-dhcp-common.h"
+#include "networkd-dhcp6.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-route.h"
@@ -12,6 +14,58 @@
 #include "set.h"
 #include "strv.h"
 #include "tests.h"
+
+TEST(network_adjust_dhcp_anonymize) {
+        Network network = {
+                .dhcp = ADDRESS_FAMILY_NO,
+                .dhcp6_register_addresses = true,
+        };
+
+        network_adjust_dhcp(&network);
+        ASSERT_TRUE(network.dhcp6_register_addresses);
+
+        network.dhcp_anonymize = true;
+        network_adjust_dhcp(&network);
+        ASSERT_FALSE(network.dhcp6_register_addresses);
+}
+
+static void test_config_parse_address_registration_time_one(
+                int ltype,
+                const char *rvalue,
+                usec_t initial,
+                usec_t expected) {
+
+        usec_t usec = initial;
+
+        ASSERT_OK(config_parse_address_registration_time(
+                        "unit", "filename", 1, "section", 1, "lvalue", ltype, rvalue, &usec, NULL));
+        ASSERT_EQ(usec, expected);
+}
+
+TEST(config_parse_address_registration_time) {
+        test_config_parse_address_registration_time_one(
+                        ADDRESS_REGISTRATION_TIME_INITIAL_RETRANSMISSION,
+                        "2500ms", USEC_PER_SEC, 2500 * USEC_PER_MSEC);
+        test_config_parse_address_registration_time_one(
+                        ADDRESS_REGISTRATION_TIME_STATIC_REFRESH,
+                        "30min", 4 * USEC_PER_HOUR, 30 * USEC_PER_MINUTE);
+
+        test_config_parse_address_registration_time_one(
+                        ADDRESS_REGISTRATION_TIME_INITIAL_RETRANSMISSION,
+                        "", 2500 * USEC_PER_MSEC, USEC_PER_SEC);
+        test_config_parse_address_registration_time_one(
+                        ADDRESS_REGISTRATION_TIME_STATIC_REFRESH,
+                        "", 30 * USEC_PER_MINUTE, 4 * USEC_PER_HOUR);
+
+        FOREACH_STRING(rvalue, "hello", "0", "infinity") {
+                test_config_parse_address_registration_time_one(
+                                ADDRESS_REGISTRATION_TIME_INITIAL_RETRANSMISSION,
+                                rvalue, USEC_PER_SEC, USEC_PER_SEC);
+                test_config_parse_address_registration_time_one(
+                                ADDRESS_REGISTRATION_TIME_STATIC_REFRESH,
+                                rvalue, 4 * USEC_PER_HOUR, 4 * USEC_PER_HOUR);
+        }
+}
 
 static void test_config_parse_duid_type_one(const char *rvalue, DUIDType expected, usec_t expected_time) {
         DUID actual = {};

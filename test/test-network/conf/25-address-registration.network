@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=addr-reg-client*
+
+[Network]
+DHCP=ipv6
+IPv6AcceptRA=no
+LinkLocalAddressing=ipv6
+Address=2001:db8:9686::10/64
+
+[DHCPv6]
+WithoutRA=information-request
+# Leave room for retransmissions, so that a message repeated under one transaction ID is evidence that
+# the ADDR-REG-REPLY never arrived. With MRC=1 a transaction stops after its first message either way,
+# and the test could not tell a working reply path from a broken one. The retransmission time is kept
+# high for the same reason: nothing here waits on a retransmission, so the only thing a short one buys
+# is a spurious repeat whenever a loaded machine takes a moment to answer.
+AddressRegistrationInitialRetransmissionTimeSec=1s
+AddressRegistrationMaxRetransmissions=3
+StaticAddressRegistrationRefreshIntervalSec=2s

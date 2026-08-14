@@ -334,6 +334,10 @@ DHCPv6.DUIDRawData,                              config_parse_duid_rawdata,     
 DHCPv6.RapidCommit,                              config_parse_bool,                              0,                                      offsetof(Network, dhcp6_use_rapid_commit)
 DHCPv6.NetLabel,                                 config_parse_string,                            CONFIG_PARSE_STRING_SAFE,               offsetof(Network, dhcp6_netlabel)
 DHCPv6.SendRelease,                              config_parse_bool,                              0,                                      offsetof(Network, dhcp6_send_release)
+DHCPv6.RegisterAddresses,                        config_parse_bool,                              0,                                      offsetof(Network, dhcp6_register_addresses)
+DHCPv6.AddressRegistrationInitialRetransmissionTimeSec, config_parse_address_registration_time,  ADDRESS_REGISTRATION_TIME_INITIAL_RETRANSMISSION, offsetof(Network, dhcp6_address_registration_initial_retransmission_time_usec)
+DHCPv6.AddressRegistrationMaxRetransmissions,    config_parse_unsigned,                          0,                                      offsetof(Network, dhcp6_address_registration_max_retransmissions)
+DHCPv6.StaticAddressRegistrationRefreshIntervalSec, config_parse_address_registration_time,      ADDRESS_REGISTRATION_TIME_STATIC_REFRESH, offsetof(Network, dhcp6_static_address_registration_refresh_interval_usec)
 DHCPv6.NFTSet,                                   config_parse_nft_set,                           NFT_SET_PARSE_NETWORK,                  offsetof(Network, dhcp6_nft_set_context)
 DHCPv6.RouteTable,                               config_parse_dhcp_or_ra_route_table,            NETWORK_CONFIG_SOURCE_DHCP6,            0
 IPv6AcceptRA.UseRedirect,                        config_parse_bool,                              0,                                      offsetof(Network, ndisc_use_redirect)
