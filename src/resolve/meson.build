@@ -100,6 +100,9 @@ executables += [
                 'sources' : files('test-dns-answer.c'),
         },
         resolve_test_template + {
+                'sources' : files('test-dns-browse-services.c'),
+        },
+        resolve_test_template + {
                 'sources' : files('test-dns-cache.c'),
         },
         resolve_test_template + {
