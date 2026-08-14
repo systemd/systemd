@@ -92,24 +92,6 @@ RUNTIME_VOL="test-replace-storage-runtime-$$"
 truncate -s 32M "$WORKDIR/new-backing-1.raw"
 truncate -s 32M "$WORKDIR/new-backing-2.raw"
 
-wait_for_machine() {
-    local machine="$1" pid="$2" log="$3"
-    timeout 30 bash -c "
-        while ! machinectl list --no-legend 2>/dev/null | grep >/dev/null '$machine'; do
-            if ! kill -0 $pid 2>/dev/null; then
-                echo 'vmspawn exited before machine registration'
-                cat '$log'
-                exit 77
-            fi
-            sleep .5
-        done
-    " || {
-        local rc=$?
-        if [[ $rc -eq 77 ]]; then exit 0; fi
-        exit "$rc"
-    }
-}
-
 MACHINE="test-replace-storage-$$"
 systemd-vmspawn \
     --machine="$MACHINE" \

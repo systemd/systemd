@@ -83,20 +83,6 @@ mke2fs -t ext4 -q -d "$WORKDIR/rootfs" "$WORKDIR/root.raw"
 truncate -s 64M "$WORKDIR/extra1.raw"
 truncate -s 32M "$WORKDIR/extra2.raw"
 
-wait_for_machine() {
-    local machine="$1" pid="$2" log="$3"
-    timeout 30 bash -c "
-        while ! machinectl list --no-legend 2>/dev/null | grep >/dev/null '$machine'; do
-            if ! kill -0 $pid 2>/dev/null; then
-                echo 'vmspawn exited before machine registration'
-                cat '$log'
-                exit 1
-            fi
-            sleep .5
-        done
-    "
-}
-
 # --- Test 1: Multi-drive setup (root + 2 extra drives) ---
 # Verifies that --image with multiple --extra-drive flags works with the async
 # QMP pipeline. Three drives means three fdset allocations, three blockdev-add
