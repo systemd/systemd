@@ -5,12 +5,12 @@ set -o pipefail
 
 if ! command -v bootctl >/dev/null; then
     echo "bootctl not found, skipping."
-    exit 0
+    exit 77
 fi
 
 if [[ ! -d /usr/lib/systemd/boot/efi ]]; then
     echo "sd-boot is not installed, skipping."
-    exit 0
+    exit 77
 fi
 
 # shellcheck source=test/units/util.sh

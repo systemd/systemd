@@ -11,7 +11,7 @@ private_ipcns=$(systemd-run --quiet --wait --pipe -p PrivateIPC=yes readlink /pr
 
 if [[ ! -d /proc/sys/fs/mqueue ]]; then
     echo "POSIX message queues are not supported, skipping ownership checks"
-    exit 0
+    exit 77
 fi
 
 # Verify ownership attributes are applied to message queues

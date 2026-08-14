@@ -5,7 +5,7 @@ set -o pipefail
 
 if ! command -v userdbctl >/dev/null; then
     echo "userdbctl is not installed, skipping the test."
-    exit 0
+    exit 77
 fi
 
 # shellcheck source=test/units/util.sh

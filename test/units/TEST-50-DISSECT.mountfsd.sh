@@ -14,7 +14,7 @@ if [[ ! -f /usr/lib/systemd/system/systemd-mountfsd.socket ]] ||
    systemd-analyze compare-versions "$(uname -r)" lt 6.5 ||
    systemd-analyze compare-versions "$(pkcheck --version | awk '{print $3}')" lt 124; then
     echo "Skipping mountfsd/nsresourced tests"
-    exit 0
+    exit 77
 fi
 
 at_exit() {

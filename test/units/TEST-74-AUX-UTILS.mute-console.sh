@@ -5,7 +5,7 @@ set -o pipefail
 
 if ! command -v systemd-mute-console >/dev/null; then
     echo "systemd-mute-console is not installed, skipping the test"
-    exit 0
+    exit 77
 fi
 
 PID="$(systemd-notify --fork -- systemd-mute-console)"
