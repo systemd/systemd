@@ -120,7 +120,7 @@ static int mdns_maintenance_query(sd_event_source *s, uint64_t usec, void *userd
                         service->service_browser->question_utf8,
                         service->service_browser->question_idna,
                         /* question_bypass= */ NULL,
-                        service->service_browser->ifindex,
+                        service->ifindex,
                         service->service_browser->flags);
         if (r < 0)
                 return log_error_errno(r, "Failed to create mDNS query for maintenance: %m");
@@ -269,25 +269,88 @@ int mdns_service_update(DnssdDiscoveredService *service, DnsResourceRecord *rr, 
         return 0;
 }
 
-bool dns_service_match_and_update(DnssdDiscoveredService *services, DnsResourceRecord *rr, int owner_family, usec_t until) {
+static int mdns_answer_item_ifindex(DnsServiceBrowser *sb, DnsAnswerItem *item) {
+        assert(sb);
+        assert(item);
+
+        return item->ifindex > 0 ? item->ifindex : sb->ifindex;
+}
+
+static int dns_service_matches(
+                DnssdDiscoveredService *service,
+                DnsResourceRecord *rr,
+                int owner_family,
+                int ifindex) {
+
+        int r;
+
+        assert(service);
+        assert(rr);
+
+        r = dns_resource_record_equal(service->rr, rr);
+        if (r <= 0)
+                return r;
+
+        return service->family == owner_family && service->ifindex == ifindex;
+}
+
+int dns_service_match_and_update(
+                DnssdDiscoveredService *services,
+                DnsResourceRecord *rr,
+                int owner_family,
+                int ifindex,
+                usec_t until) {
+
         usec_t t = now(CLOCK_BOOTTIME);
+        int r;
 
-        /* Check if a discovered service matching the given resource record and owner family exists in the list.
-        * If found, update the service's expiration time if the new 'until' is later, unless the TTL is <= 1 (goodbye packet).
-        * Return true if a matching service is found, false otherwise. */
+        /* Check if a discovered service matching the given resource record, owner family, and ifindex exists
+         * in the list. If found, update the service's expiration time if the new 'until' is later, unless the
+         * TTL is <= 1 (goodbye packet). Return positive if a matching service is found, zero otherwise. */
 
-        LIST_FOREACH(dns_services, service, services)
-                if (dns_resource_record_equal(service->rr, rr) > 0 && service->family == owner_family) {
-                        if (rr->ttl <= 1)
-                                return true;
+        LIST_FOREACH(dns_services, service, services) {
+                r = dns_service_matches(service, rr, owner_family, ifindex);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
 
-                        if (service->until < until)
-                                mdns_service_update(service, rr, t, until);
+                if (rr->ttl <= 1)
+                        return 1;
 
-                        return true;
-                }
+                if (service->until < until)
+                        mdns_service_update(service, rr, t, until);
 
-        return false;
+                return 1;
+        }
+
+        return 0;
+}
+
+int mdns_answer_contains_service(
+                DnsServiceBrowser *sb,
+                DnsAnswer *answer,
+                DnssdDiscoveredService *service) {
+
+        DnsAnswerItem *item;
+        int r;
+
+        assert(sb);
+        assert(service);
+
+        DNS_ANSWER_FOREACH_ITEM(item, answer) {
+                r = dns_service_matches(
+                                service,
+                                item->rr,
+                                service->family,
+                                mdns_answer_item_ifindex(sb, item));
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return 1;
+        }
+
+        return 0;
 }
 
 void dns_browse_services_purge(Manager *m, int family) {
@@ -329,9 +392,14 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
         DNS_ANSWER_FOREACH_ITEM(item, answer) {
                 _cleanup_free_ char *name = NULL, *type = NULL, *domain = NULL;
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *entry = NULL;
-                int ifindex;
+                int ifindex = mdns_answer_item_ifindex(sb, item);
 
-                if (dns_service_match_and_update(sb->dns_services, item->rr, owner_family, item->until))
+                r = dns_service_match_and_update(sb->dns_services, item->rr, owner_family, ifindex, item->until);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to match DNS service: %m");
+                        goto finish;
+                }
+                if (r > 0)
                         continue;
 
                 r = dns_service_split(item->rr->ptr.name, &name, &type, &domain);
@@ -352,9 +420,6 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
 
                 if (!type)
                         continue;
-
-                /* Prefer the per-item ifindex, fall back to the service browser's ifindex */
-                ifindex = item->ifindex > 0 ? item->ifindex : sb->ifindex;
 
                 r = dns_add_new_service(sb, item->rr, owner_family, ifindex, item->until);
                 if (r < 0) {
@@ -404,7 +469,12 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
                 if (service->family != owner_family)
                         continue;
 
-                if (dns_answer_contains(answer, service->rr))
+                r = mdns_answer_contains_service(sb, answer, service);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to match DNS answer against service list: %m");
+                        goto finish;
+                }
+                if (r > 0)
                         continue;
 
                 r = dns_service_split(service->rr->ptr.name, &name, &type, &domain);
