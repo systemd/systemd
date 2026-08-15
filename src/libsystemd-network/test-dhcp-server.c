@@ -62,6 +62,64 @@ TEST(basic) {
         ASSERT_OK(sd_dhcp_server_start(server));
 }
 
+TEST(sd_dhcp_server_configure_pool) {
+        struct in_addr address = {
+                .s_addr = htobe32(0xC0000201), /* 192.0.2.1 */
+        };
+
+        _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
+        ASSERT_OK(sd_dhcp_server_new(&server, 4242));
+
+        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address, 24, 0, 0));
+        ASSERT_EQ(server->pool_offset, 1u);
+        ASSERT_EQ(server->pool_size, 254u);
+
+        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address, 24, 0, 254));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(
+                        sd_dhcp_server_configure_pool(server, &address, 24, 0, 255),
+                        ERANGE));
+
+        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address, 24, 254, 0));
+        ASSERT_EQ(server->pool_offset, 254u);
+        ASSERT_EQ(server->pool_size, 1u);
+
+        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address, 24, 254, 1));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(
+                        sd_dhcp_server_configure_pool(server, &address, 24, 254, 2),
+                        ERANGE));
+        ASSERT_EQ(server->pool_offset, 254u);
+        ASSERT_EQ(server->pool_size, 1u);
+
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(
+                        sd_dhcp_server_configure_pool(server, &address, 24, 255, 0),
+                        ERANGE));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(
+                        sd_dhcp_server_configure_pool(server, &address, 24, 255, 1),
+                        ERANGE));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(
+                        sd_dhcp_server_configure_pool(server, &address, 24, 256, 0),
+                        ERANGE));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(
+                        sd_dhcp_server_configure_pool(server, &address, 24, 256, 1),
+                        ERANGE));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(
+                        sd_dhcp_server_configure_pool(server, &address, 24, UINT32_MAX, 0),
+                        ERANGE));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(
+                        sd_dhcp_server_configure_pool(server, &address, 24, UINT32_MAX, 1),
+                        ERANGE));
+
+        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address, 30, 2, 1));
+        ASSERT_EQ(server->pool_offset, 2u);
+        ASSERT_EQ(server->pool_size, 1u);
+
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(
+                        sd_dhcp_server_configure_pool(server, &address, 30, 3, 0),
+                        ERANGE));
+        ASSERT_EQ(server->pool_offset, 2u);
+        ASSERT_EQ(server->pool_size, 1u);
+}
+
 static int process_one(sd_dhcp_server *server, sd_dhcp_message *message) {
         _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
         ASSERT_OK(dhcp_message_build(message, &iovw));
