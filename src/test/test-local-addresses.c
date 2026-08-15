@@ -116,6 +116,9 @@ static void check_local_gateways(sd_netlink *rtnl, int ifindex, int request_ifin
         ASSERT_OK(n = local_gateways(rtnl, request_ifindex, family, &a));
         print_local_addresses(a, n);
 
+        if (request_ifindex == ifindex)
+                ASSERT_EQ(n, family == AF_UNSPEC ? 3 : 1);
+
         ASSERT_OK(in_addr_from_string(AF_INET, "10.123.0.1", &u));
         ASSERT_EQ(has_local_address(a, n,
                                     &(struct local_address) {
@@ -145,6 +148,39 @@ static void check_local_gateways(sd_netlink *rtnl, int ifindex, int request_ifin
                                             .address = u,
                                     }),
                   IN_SET(family, AF_UNSPEC, AF_INET6));
+}
+
+static void check_local_gateway_peer(
+                sd_netlink *rtnl,
+                int ifindex,
+                int request_family,
+                int family,
+                const char *peer,
+                const char *local) {
+
+        _cleanup_free_ struct local_address *a = NULL;
+        union in_addr_union local_address, peer_address;
+        int n;
+
+        ASSERT_OK(n = local_gateways(rtnl, ifindex, request_family, &a));
+        print_local_addresses(a, n);
+
+        ASSERT_OK(in_addr_from_string(family, peer, &peer_address));
+        ASSERT_OK(in_addr_from_string(family, local, &local_address));
+
+        bool found = false;
+        FOREACH_ARRAY(i, a, n) {
+                if (i->family != family || i->priority != 2345)
+                        continue;
+                if (in_addr_equal(family, &i->address, &peer_address) <= 0)
+                        continue;
+
+                ASSERT_TRUE(in_addr_equal(family, &i->prefsrc, &local_address) > 0);
+                found = true;
+                break;
+        }
+
+        ASSERT_TRUE(found);
 }
 
 static void check_local_outbounds(sd_netlink *rtnl, int ifindex, int request_ifindex, int family, const char *ipv6_expected) {
@@ -294,6 +330,25 @@ TEST(local_addresses_with_dummy) {
         ASSERT_OK(sd_netlink_call(rtnl, message, 0, NULL));
         message = sd_netlink_message_unref(message);
 
+        /* Add default routes without explicit gateways. Without peer addresses, these must not be
+         * reported. */
+        ASSERT_OK(sd_rtnl_message_new_route(rtnl, &message, RTM_NEWROUTE, AF_INET, RTPROT_STATIC));
+        ASSERT_OK(sd_rtnl_message_route_set_scope(message, RT_SCOPE_LINK));
+        ASSERT_OK(sd_rtnl_message_route_set_type(message, RTN_UNICAST));
+        ASSERT_OK(sd_netlink_message_append_u32(message, RTA_PRIORITY, 2345));
+        ASSERT_OK(sd_netlink_message_append_u32(message, RTA_TABLE, RT_TABLE_MAIN));
+        ASSERT_OK(sd_netlink_message_append_u32(message, RTA_OIF, ifindex));
+        ASSERT_OK(sd_netlink_call(rtnl, message, 0, NULL));
+        message = sd_netlink_message_unref(message);
+
+        ASSERT_OK(sd_rtnl_message_new_route(rtnl, &message, RTM_NEWROUTE, AF_INET6, RTPROT_STATIC));
+        ASSERT_OK(sd_rtnl_message_route_set_type(message, RTN_UNICAST));
+        ASSERT_OK(sd_netlink_message_append_u32(message, RTA_PRIORITY, 2345));
+        ASSERT_OK(sd_netlink_message_append_u32(message, RTA_TABLE, RT_TABLE_MAIN));
+        ASSERT_OK(sd_netlink_message_append_u32(message, RTA_OIF, ifindex));
+        ASSERT_OK(sd_netlink_call(rtnl, message, 0, NULL));
+        message = sd_netlink_message_unref(message);
+
         /* Check */
         check_local_addresses(rtnl, ifindex, 0, AF_UNSPEC);
         check_local_addresses(rtnl, ifindex, 0, AF_INET);
@@ -387,6 +442,35 @@ TEST(local_addresses_with_dummy) {
         check_local_outbounds(rtnl, ifindex, ifindex, AF_UNSPEC, "2001:db8:1:123::124");
         check_local_outbounds(rtnl, ifindex, ifindex, AF_INET, "2001:db8:1:123::124");
         check_local_outbounds(rtnl, ifindex, ifindex, AF_INET6, "2001:db8:1:123::124");
+
+        /* Add point-to-point addresses and check that the peer endpoints back the gateway-less routes. */
+        ASSERT_OK(sd_rtnl_message_new_addr_update(rtnl, &message, ifindex, AF_INET));
+        ASSERT_OK(sd_rtnl_message_addr_set_scope(message, RT_SCOPE_UNIVERSE));
+        ASSERT_OK(sd_rtnl_message_addr_set_prefixlen(message, 32));
+        ASSERT_OK(in_addr_from_string(AF_INET, "10.124.0.1", &u));
+        ASSERT_OK(sd_netlink_message_append_in_addr(message, IFA_LOCAL, &u.in));
+        ASSERT_OK(in_addr_from_string(AF_INET, "10.124.0.2", &u));
+        ASSERT_OK(sd_netlink_message_append_in_addr(message, IFA_ADDRESS, &u.in));
+        ASSERT_OK(sd_netlink_call(rtnl, message, 0, NULL));
+        message = sd_netlink_message_unref(message);
+
+        ASSERT_OK(sd_rtnl_message_new_addr_update(rtnl, &message, ifindex, AF_INET6));
+        ASSERT_OK(sd_rtnl_message_addr_set_scope(message, RT_SCOPE_UNIVERSE));
+        ASSERT_OK(sd_rtnl_message_addr_set_prefixlen(message, 128));
+        ASSERT_OK(in_addr_from_string(AF_INET6, "2001:db8:2:123::1", &u));
+        ASSERT_OK(sd_netlink_message_append_in6_addr(message, IFA_LOCAL, &u.in6));
+        ASSERT_OK(in_addr_from_string(AF_INET6, "2001:db8:2:123::2", &u));
+        ASSERT_OK(sd_netlink_message_append_in6_addr(message, IFA_ADDRESS, &u.in6));
+        ASSERT_OK(sd_netlink_message_append_u32(message, IFA_FLAGS, IFA_F_NODAD));
+        ASSERT_OK(sd_netlink_call(rtnl, message, 0, NULL));
+        message = sd_netlink_message_unref(message);
+
+        check_local_gateway_peer(rtnl, ifindex, AF_UNSPEC, AF_INET, "10.124.0.2", "10.124.0.1");
+        check_local_gateway_peer(
+                        rtnl, ifindex, AF_UNSPEC, AF_INET6, "2001:db8:2:123::2", "2001:db8:2:123::1");
+        check_local_gateway_peer(rtnl, ifindex, AF_INET, AF_INET, "10.124.0.2", "10.124.0.1");
+        check_local_gateway_peer(
+                        rtnl, ifindex, AF_INET6, AF_INET6, "2001:db8:2:123::2", "2001:db8:2:123::1");
 
         /* Cleanup */
         ASSERT_OK(sd_rtnl_message_new_link(rtnl, &message, RTM_DELLINK, ifindex));
