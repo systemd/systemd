@@ -5,60 +5,36 @@
 #include <sys/ioctl.h>
 
 #include "sd-journal.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
+#include "ansi-color.h"
 #include "build.h"
 #include "dlopen-note.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "format-table.h"
 #include "io-util.h"
 #include "log.h"
 #include "logs-show.h"
 #include "main-func.h"
-#include "options.h"
 #include "parse-argument.h"
-#include "pretty-print.h"
 #include "qrcode-util.h"
 #include "signal-util.h"
 #include "stdio-util.h"
 #include "terminal-util.h"
+#include "verbs.h"
 
 static bool arg_continuous = false;
 static char *arg_tty = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_tty, freep);
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-bsod", "8", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        printf("%s [OPTIONS...]\n\n"
-               "%sFilter the journal to fetch the first message from the current boot with an\n"
-               "emergency log level and display it as a string and a QR code.%s\n"
-               "\n%sOptions:%s\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal(),
-               ansi_underline(),
-               ansi_normal());
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
+COMMAND(
+        "systemd-bsod\0",
+        "Filter the journal to fetch the first message from the current boot with an emergency "
+        "log level and display it as a string and a QR code.",
+        .man_pages = "systemd-bsod.8\0",
+);
 
 static int acquire_first_emergency_log_message(char **ret) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
@@ -255,7 +231,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-bsod");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -269,6 +245,9 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (option_parser_get_n_args(&opts) > 0)
