@@ -110,6 +110,8 @@ option('sysupdated', type: 'combo', value : 'auto',
 option('sysinstall', type : 'boolean',
        description : 'install the systemd-sysinstall tool')
 
+option('appd', type : 'boolean',
+       description : 'build and install systemd-appd')
 option('coredump', type : 'boolean',
        description : 'install the coredump handler')
 option('pstore', type : 'boolean',
