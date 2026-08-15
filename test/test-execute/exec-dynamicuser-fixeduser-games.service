@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test DynamicUser with static User= whose uid and gid are different
+# On Ubuntu or Debian, user games has uid==5 and gid==60.
+# On Alpine/postmarketOS, the user 'games' in the 'games' and 'users' groups.
+
+[Service]
+Type=oneshot
+ExecStart=bash -x -c '[[ "$$(id -nG)" =~ "games" ]] && test "$$(id -ng)" = "games" && test "$$(id -nu)" = "games"'
+# Multiple ExecStart= lines causes the issue #9702.
+ExecStart=bash -x -c '[[ "$$(id -nG)" =~ "games" ]] && test "$$(id -ng)" = "games" && test "$$(id -nu)" = "games"'
+DynamicUser=yes
+User=games
+ReadWritePaths=-/coverage

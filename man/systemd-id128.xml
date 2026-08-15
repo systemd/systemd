@@ -1,0 +1,227 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-id128" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-id128</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-id128</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-id128</refname>
+    <refpurpose>Generate and print sd-128 identifiers</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-id128</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">new</arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>systemd-id128</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">machine-id</arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>systemd-id128</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">boot-id</arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>systemd-id128</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">invocation-id</arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>systemd-id128</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">var-partition-uuid</arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>systemd-id128</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">show</arg>
+      <arg choice="opt" rep="repeat">NAME|UUID</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>id128</command> may be used to conveniently print
+    <citerefentry><refentrytitle>sd-id128</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    UUIDs. What identifier is printed depends on the specific verb.</para>
+
+    <para>With <command>new</command>, a new random identifier will be generated.</para>
+
+    <para>With <command>machine-id</command>, the identifier of the current machine will be
+    printed. See
+    <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+
+    <para>With <command>boot-id</command>, the identifier of the current boot will be
+    printed.</para>
+
+    <para>With <command>invocation-id</command>, the identifier of the current service invocation
+    will be printed. This is available in systemd services. See
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+
+    <para>With <command>show</command>, well-known IDs are printed (for now, only GPT partition type UUIDs),
+    along with brief identifier strings. When no arguments are specified, all known IDs are shown. When
+    arguments are specified, they may be the identifiers or ID values of one or more known IDs, which are
+    then printed with their name, or arbitrary IDs, which are then printed with a placeholder name. Combine
+    with <option>--uuid</option> to list the IDs in UUID style, i.e. the way GPT partition type UUIDs are
+    usually shown.</para>
+
+    <para><command>machine-id</command>, <command>boot-id</command>, and <command>show</command> may be
+    combined with the <option>--app-specific=<replaceable>app-id</replaceable></option> switch to generate
+    application-specific IDs. See
+    <citerefentry><refentrytitle>sd_id128_get_machine</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    for the discussion when this is useful. Support for <command>show --app-specific=</command> was added in
+    version 255.</para>
+
+    <para><command>var-partition-uuid</command> prints a UUID which, following the <ulink
+    url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2 Discoverable
+    Partitions Specification</ulink>, should be used as the GPT partition UUID for
+    <filename>/var/</filename>, being derived from the GPT partition type, keyed by the local
+    <filename>/etc/machine-id</filename>. Added in version 257.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>-p</option></term>
+        <term><option>--pretty</option></term>
+
+        <listitem><para>Generate output as programming language snippets.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-P</option></term>
+        <term><option>--value</option></term>
+
+        <listitem><para>Only print the value. May be combined with
+        <option>-u</option>/<option>--uuid</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-a <replaceable>app-id</replaceable></option></term>
+        <term><option>--app-specific=<replaceable>app-id</replaceable></option></term>
+
+        <listitem><para>With this option, identifiers will be printed that are the result of hashing the
+        application identifier <replaceable>app-id</replaceable> and another ID. The
+        <replaceable>app-id</replaceable> argument must be a valid sd-id128 string identifying the
+        application. When used with <command>machine-id</command>, the other ID will be the machine ID as
+        described in
+        <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>, when
+        used with <command>boot-id</command>, the other ID will be the boot ID, and when used with
+        <command>show</command>, the other ID or IDs should be specified via the positional arguments.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-u</option></term>
+        <term><option>--uuid</option></term>
+
+        <listitem><para>Generate output as a UUID formatted in the "canonical representation", with five
+        groups of digits separated by hyphens. See the Wikipedia entry for
+        <ulink url="https://en.wikipedia.org/wiki/Universally_unique_identifier#Format">Universally Unique Identifiers</ulink>
+        for more discussion.</para>
+
+        <xi:include href="version-info.xml" xpointer="v244"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="no-legend" />
+      <xi:include href="standard-options.xml" xpointer="json" />
+      <xi:include href="standard-options.xml" xpointer="j" />
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success 0 is returned, and a non-zero failure code otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Show a well-known UUID</title>
+      <programlisting>
+$ systemd-id128 show --value user-home
+773f91ef66d449b5bd83d683bf40ad16
+
+$ systemd-id128 show --value --uuid user-home
+773f91ef-66d4-49b5-bd83-d683bf40ad16
+
+$ systemd-id128 show 773f91ef-66d4-49b5-bd83-d683bf40ad16
+NAME      ID
+user-home 773f91ef66d449b5bd83d683bf40ad16
+</programlisting>
+    </example>
+
+    <example>
+      <title>Generate an application-specific UUID</title>
+
+      <programlisting>
+$ systemd-id128 machine-id -u
+3a9d668b-4db7-4939-8a4a-5e78a03bffb7
+
+$ systemd-id128 new -u
+1fb8f24b-02df-458d-9659-cc8ace68e28a
+
+$ systemd-id128 machine-id -u -a 1fb8f24b-02df-458d-9659-cc8ace68e28a
+47b82cb1-5339-43da-b2a6-1c350aef1bd1
+
+$ systemd-id128 -Pu show 3a9d668b-4db7-4939-8a4a-5e78a03bffb7 \
+    -a 1fb8f24b-02df-458d-9659-cc8ace68e28a
+47b82cb1-5339-43da-b2a6-1c350aef1bd1
+</programlisting>
+
+      <para>On a given machine with the ID 3a9d668b-4db7-4939-8a4a-5e78a03bffb7, for the application
+      1fb8f24b-02df-458d-9659-cc8ace68e28a, we generate an application-specific machine ID
+      (47b82cb1-5339-43da-b2a6-1c350aef1bd1). If we want to later recreate the same calculation on a
+      different machine, we need to specify both IDs explicitly as parameters to <command>show</command>.
+      </para>
+    </example>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-id128</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_id128_get_machine</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

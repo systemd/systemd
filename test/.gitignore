@@ -1,0 +1,5 @@
+.testdir
+test.log
+/dev
+/run
+/sys

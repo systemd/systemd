@@ -1,0 +1,169 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include "alloc-util.h"
+#include "ansi-color.h"
+#include "bus-util.h"
+#include "format-table.h"
+#include "hostname-util.h"
+#include "log.h"
+#include "parse-argument.h"
+#include "parse-util.h"
+#include "path-util.h"
+#include "signal-util.h"
+#include "string-table.h"
+#include "string-util.h"
+
+/* All functions in this file emit warnings. */
+
+int parse_boolean_argument(const char *optname, const char *s, bool *ret) {
+        int r;
+
+        /* Returns the result through *ret and the return value. */
+
+        assert(optname);
+
+        if (s) {
+                r = parse_boolean(s);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse boolean argument to '%s': %s", optname, s);
+
+                if (ret)
+                        *ret = r;
+                return r;
+        } else {
+                /* s may be NULL. This is controlled by OPTION flags. */
+                if (ret)
+                        *ret = true;
+                return true;
+        }
+}
+
+int parse_tristate_argument_with_auto(const char *optname, const char *s, int *ret) {
+        int r;
+
+        assert(optname);
+        assert(s); /* We refuse NULL arg here, since that would be ambiguous on cmdline: for
+                    * --enable-a[=BOOL], --enable-a is intuitively interpreted as true rather than "auto"
+                    * (parse_boolean_argument() does exactly that). IOW, tristate options should require
+                    * arguments. */
+
+        r = parse_tristate_full(s, "auto", ret);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse tristate argument to '%s': %s", optname, s);
+
+        return 0;
+}
+
+int parse_json_argument(const char *s, sd_json_format_flags_t *ret) {
+        assert(s);
+        assert(ret);
+
+        if (streq(s, "pretty"))
+                *ret = SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_COLOR_AUTO;
+        else if (streq(s, "short"))
+                *ret = SD_JSON_FORMAT_NEWLINE;
+        else if (streq(s, "off"))
+                *ret = SD_JSON_FORMAT_OFF;
+        else if (streq(s, "help")) {
+                puts("pretty\n"
+                     "short\n"
+                     "off");
+                return 0; /* 0 means → we showed a brief help, exit now */
+        } else
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown argument to --json= switch: %s", s);
+
+        return 1; /* 1 means → properly parsed */
+}
+
+int parse_path_argument(const char *path, bool suppress_root, char **arg) {
+        char *p;
+        int r;
+
+        assert(arg);
+
+        /*
+         * This function is intended to be used in command line parsers, to handle paths that are passed
+         * in. It makes the path absolute, and reduces it to NULL if omitted or root (the latter optionally).
+         *
+         * NOTE THAT THIS WILL FREE THE PREVIOUS ARGUMENT POINTER ON SUCCESS!
+         * Hence, do not pass in uninitialized pointers.
+         */
+
+        if (isempty(path)) {
+                *arg = mfree(*arg);
+                return 0;
+        }
+
+        r = path_make_absolute_cwd(path, &p);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse path \"%s\" and make it absolute: %m", path);
+
+        path_simplify(p);
+        if (suppress_root && empty_or_root(p))
+                p = mfree(p);
+
+        return free_and_replace(*arg, p);
+}
+
+int parse_signal_argument(const char *s, int *ret) {
+        int r;
+
+        assert(s);
+        assert(ret);
+
+        if (streq(s, "help"))
+                return DUMP_STRING_TABLE(signal, int, _NSIG);
+
+        if (streq(s, "list")) {
+                _cleanup_(table_unrefp) Table *table = NULL;
+
+                table = table_new("signal", "name");
+                if (!table)
+                        return log_oom();
+
+                for (int i = 1; i < _NSIG; i++) {
+                        r = table_add_many(
+                                        table,
+                                        TABLE_INT, i,
+                                        TABLE_SIGNAL, i);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
+
+                return table_print_or_warn(table);
+        }
+
+        r = signal_from_string(s);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse signal string \"%s\".", s);
+
+        *ret = r;
+        return 1; /* work to do */
+}
+
+int parse_machine_argument(const char *s, const char **ret_host, BusTransport *ret_transport) {
+        int r;
+
+        assert(s);
+        assert(ret_host);
+
+        r = machine_spec_valid(s);
+        if (r < 0)
+                return log_error_errno(r, "Failed to validate --machine= argument '%s': %m", s);
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid --machine= specified: %s", s);
+
+        *ret_host = s;
+
+        if (ret_transport)
+                *ret_transport = BUS_TRANSPORT_MACHINE;
+
+        return 0;
+}
+
+int parse_background_argument(const char *s, char **arg) {
+        if (!isempty(s) && !looks_like_ansi_color_code(s))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid --background= argument: %s", s);
+
+        return free_and_strdup_warn(arg, s);
+}

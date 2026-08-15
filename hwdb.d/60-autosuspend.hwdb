@@ -1,0 +1,108 @@
+# This file is part of systemd.
+#
+# The lookup keys are $MODALIAS strings, see udev's hwdb builtin.
+#
+# Match string formats:
+# <subsystem>:<modalias>
+#
+# pci:v<vendor>d<device>
+# usb:v<vendor>p<product>
+#
+# To add local entries, create a new file
+#   /etc/udev/hwdb.d/61-autosuspend-local.hwdb
+# and add your rules there. To load the new rules execute (as root):
+#   systemd-hwdb update
+#   udevadm trigger /dev/…
+#
+# If your changes are generally applicable, send them as a pull request to
+#   https://github.com/systemd/systemd
+# or create a bug report on https://github.com/systemd/systemd/issues and
+# include your new rules, a description of the device, and the output of
+#   udevadm info
+# for the device.
+#
+# Allowed properties are:
+#    ID_AUTOSUSPEND=0|1
+#    ID_AUTOSUSPEND_DELAY_MS=####
+#    ID_PERSIST=0|1
+#
+# ID_AUTOSUSPEND_DELAY_MS adjusts the delay for autosuspend to something
+# different than the kernel default of 2000ms.
+#
+# ID_PERSIST=0 allows disabling the kernels USB "persist" feature, which allows
+# the continued use of devices after a power loss (due to suspend). Disable it
+# if the device will loose state without a USB power session and the driver
+# is unable to recover the state when resuming. See
+#   https://docs.kernel.org/driver-api/usb/persist.html
+
+# Sort by brand, model
+
+#########################################
+# Alcor
+#########################################
+
+# AU9540 Smartcard Reader
+usb:v058Fp9540*
+ ID_AUTOSUSPEND=1
+
+#########################################
+# Framework
+#########################################
+
+# HDMI Expansion Card
+usb:v32ACp0002*
+# DisplayPort Expansion Card
+usb:v32ACp0003*
+ ID_AUTOSUSPEND=1
+
+#########################################
+# Lenovo
+#########################################
+
+# X1C8 Touchscreen
+usb:v04F3p2B7C*
+# T14 Gen 1 Touchscreen
+usb:v04F3p2ACC*
+ ID_AUTOSUSPEND=1
+
+#########################################
+# Microsoft
+#########################################
+
+# Surface Pro (2017) Type Cover
+usb:v045Ep09C0*
+ ID_AUTOSUSPEND=1
+
+#########################################
+# QEMU
+#########################################
+
+# Emulated USB HID devices
+usb:v0627p0001:*QEMU USB Keyboard*
+usb:v0627p0001:*QEMU USB Mouse*
+usb:v0627p0001:*QEMU USB Tablet*
+ ID_AUTOSUSPEND=1
+
+#########################################
+# WWAN
+#########################################
+
+# Sierra Wireless EM7345 4G LTE modem
+usb:v1199pA001*
+ ID_AUTOSUSPEND=1
+
+# Fibocom LG850-GL
+usb:v2CB7p0007*
+ ID_AUTOSUSPEND=1
+ ID_AUTOSUSPEND_DELAY_MS=7000
+
+# Dell Computer Corp. DW5826e Qualcomm Snapdragon X12 Global LTE-A
+usb:v413Cp8217*
+ ID_AUTOSUSPEND=1
+
+#########################################
+# Wacom
+#########################################
+
+usb:v056Ap51A0*
+ ID_AUTOSUSPEND=1

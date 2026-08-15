@@ -1,0 +1,63 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+#pragma once
+
+#include "forward.h"
+
+/* Some helpers for setting up loopback block devices */
+
+typedef struct LoopDevice {
+        unsigned n_ref;
+        int fd;
+        int lock_fd;
+        int nr;         /* The loopback device index (i.e. 4 for /dev/loop4); if this object encapsulates a non-loopback block device, set to -1 */
+        dev_t devno;    /* The loopback device's own dev_t */
+        char *node;
+        sd_device *dev;
+        char *backing_file;
+        bool relinquished;
+        bool created;        /* If we created the device */
+        dev_t backing_devno; /* The backing file's dev_t */
+        ino_t backing_inode; /* The backing file's ino_t */
+        uint64_t diskseq; /* Block device sequence number, monothonically incremented by the kernel on create/attach, or 0 if we don't know */
+        uint32_t sector_size;
+        uint64_t device_size;
+} LoopDevice;
+
+/* Returns true if LoopDevice object is not actually a loopback device but some other block device we just wrap */
+#define LOOP_DEVICE_IS_FOREIGN(d) ((d)->nr < 0)
+
+/* systemd-internal flags OR'd into the loop_flags argument of loop_device_make() and friends, in addition to
+ * the kernel's LO_FLAGS_*. These live in high bits to stay clear of the kernel values and are masked out
+ * before the flags reach the kernel.
+ *
+ * LOOP_DEVICE_MAY_POPULATE_PARTITION_TABLE: by default, when LO_FLAGS_PARTSCAN is requested but cannot be
+ * enabled on the device and the device carries no partition table, we hand back the original fd instead of
+ * allocating a loopback device — there's nothing to scan, and routing e.g. a multi-device btrfs member
+ * through a loopback breaks it (https://github.com/systemd/systemd/issues/42520). Callers that might write a
+ * (nested) partition table into the device and rely on partition scanning to pick it up afterwards must set
+ * this flag to force a real loopback device even when the device is currently unpartitioned. */
+#define LOOP_DEVICE_MAY_POPULATE_PARTITION_TABLE (UINT32_C(1) << 16)
+
+int loop_device_make(int fd, int open_flags, uint64_t offset, uint64_t size, uint32_t sector_size, uint32_t loop_flags, int lock_op, LoopDevice **ret);
+int loop_device_make_by_path_at(int dir_fd, const char *path, int open_flags, uint32_t sector_size, uint32_t loop_flags, int lock_op, LoopDevice **ret);
+static inline int loop_device_make_by_path(const char *path, int open_flags, uint32_t sector_size, uint32_t loop_flags, int lock_op, LoopDevice **ret) {
+        return loop_device_make_by_path_at(AT_FDCWD, path, open_flags, sector_size, loop_flags, lock_op, ret);
+}
+int loop_device_make_by_path_memory(const char *path, int open_flags, uint32_t sector_size, uint32_t loop_flags, int lock_op, LoopDevice **ret);
+int loop_device_open(sd_device *dev, int open_flags, int lock_op, LoopDevice **ret);
+int loop_device_open_from_fd(int fd, int open_flags, int lock_op, LoopDevice **ret);
+int loop_device_open_from_path(const char *path, int open_flags, int lock_op, LoopDevice **ret);
+
+DECLARE_TRIVIAL_REF_UNREF_FUNC(LoopDevice, loop_device);
+DEFINE_TRIVIAL_CLEANUP_FUNC(LoopDevice*, loop_device_unref);
+
+void loop_device_relinquish(LoopDevice *d);
+void loop_device_unrelinquish(LoopDevice *d);
+
+int loop_device_refresh_size(LoopDevice *d, uint64_t offset, uint64_t size);
+
+int loop_device_flock(LoopDevice *d, int operation);
+int loop_device_sync(LoopDevice *d);
+
+int loop_device_set_autoclear(LoopDevice *d, bool autoclear);
+int loop_device_set_filename(LoopDevice *d, const char *name);

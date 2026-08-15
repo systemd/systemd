@@ -1,0 +1,30 @@
+#!/bin/sh
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+set -e
+
+if [ -z "$1" ]; then
+    echo "Use: $0 page-name (with no section suffix)"
+    exit 1
+fi
+
+# make sure the rules have been regenerated (in case update-man-rules was just run)
+ninja -C @BUILD_ROOT@ src/version/version.h
+
+page="$(echo "$1" | sed 's/\./\\./')"
+target=$(ninja -C @BUILD_ROOT@ -t query man/man | grep -E -m1 "man/$page\.[0-9]$" | awk '{print $2}')
+if [ -z "$target" ]; then
+    echo "Cannot find page $1"
+    exit 1
+fi
+ninja -C @BUILD_ROOT@ "$target"
+
+fullname=@BUILD_ROOT@/"$target"
+redirect="$(sed -n -r '1 s|^\.so man[0-9]/(.*)|\1|p' "$fullname")"
+if [ -n "$redirect" ]; then
+    ninja -C @BUILD_ROOT@ "man/$redirect"
+
+    fullname=@BUILD_ROOT@"/man/$redirect"
+fi
+
+exec man "$fullname"

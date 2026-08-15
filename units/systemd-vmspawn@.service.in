@@ -1,0 +1,37 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Virtual Machine %i
+Documentation=man:systemd-vmspawn(1)
+PartOf=machines.target
+Before=machines.target
+Wants=modprobe@tun.service
+After=network.target modprobe@tun.service
+RequiresMountsFor=/var/lib/machines/%i
+
+[Service]
+ExecStart=systemd-vmspawn --quiet --register=yes --keep-unit --network-tap --machine=%i
+KillMode=mixed
+Type=notify
+Slice=machine.slice
+TimeoutSec=2min
+{{SERVICE_WATCHDOG}}
+
+{# Enforce a strict device policy. Make sure to keep these policies in sync if you change them! #}
+DevicePolicy=closed
+DeviceAllow=/dev/net/tun rwm
+DeviceAllow=char-pts rw
+
+# vmspawn itself needs access to /dev/kvm and /dev/vhost-vsock
+DeviceAllow=/dev/kvm rw
+DeviceAllow=/dev/vhost-vsock rw
+
+[Install]
+WantedBy=machines.target

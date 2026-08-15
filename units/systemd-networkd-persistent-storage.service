@@ -1,0 +1,27 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Enable Persistent Storage in systemd-networkd
+Documentation=man:networkctl(1)
+ConditionCapability=CAP_NET_ADMIN
+DefaultDependencies=no
+After=systemd-remount-fs.service systemd-networkd.service
+BindsTo=systemd-networkd.service
+Conflicts=shutdown.target
+Before=shutdown.target
+ConditionPathExists=!/etc/initrd-release
+
+[Service]
+Type=oneshot
+User=systemd-network
+ExecStart=networkctl persistent-storage yes
+ExecStop=networkctl persistent-storage no
+StateDirectory=systemd/network
+RemainAfterExit=yes

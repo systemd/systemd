@@ -1,0 +1,40 @@
+# shellcheck shell=sh
+
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+# Import the additional shell prompt prefix and suffix strings into $PS1, and
+# show the shell welcome string. These can be provisioned as system or service
+# credentials shell.prompt.prefix, shell.prompt.suffix and shell.welcome, and
+# are propagated into these environment variables by pam_systemd(8).
+
+# This file is "activated" through systemd-tmpfiles which links it into
+# /etc/profile.d/. To disable this, remove the
+# /etc/profile.d/70-systemd-shell-extra.sh symlink and mask the
+# 20-systemd-shell-extra.conf snippet (as root):
+#
+#   test -h /etc/profile.d/70-systemd-shell-extra.sh && \
+#     rm -v /etc/profile.d/70-systemd-shell-extra.sh && \
+#     ln -s /dev/null /etc/tmpfiles.d/20-systemd-shell-extra.conf
+
+if [ -n "${SHELL_PROMPT_PREFIX-}" ]; then
+    if [ -n "${BASH_VERSION-}" ] && [ "$PS1" = "\\s-\\v\\\$ " ]; then
+        PS1="[\u@\h \W]\\$ "
+    fi
+    PS1="$SHELL_PROMPT_PREFIX$PS1"
+fi
+
+if [ -n "${SHELL_PROMPT_SUFFIX-}" ]; then
+    if [ -n "${BASH_VERSION-}" ] && [ "$PS1" = "\\s-\\v\\\$ " ]; then
+        PS1="[\u@\h \W]\\$ "
+    fi
+    PS1="$PS1$SHELL_PROMPT_SUFFIX"
+fi
+
+if [ -n "${SHELL_WELCOME-}" ]; then
+   printf '%b\n' "$SHELL_WELCOME"
+fi

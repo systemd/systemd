@@ -1,0 +1,131 @@
+# This file is part of systemd.
+#
+# Pointingstick const-accel configuration, to make different brand / model
+# laptop pointingsticks have the same speed / feel, and per model adjustment of
+# the IBM TrackPoint and Dell DualPoint Stick driver's sensitivity setting.
+#
+# ########################### MATCHING #######################################
+#
+# The lookup keys are composed in:
+#   60-evdev.rules
+#
+# Supported hardware matches are:
+#  - Generic input devices match:
+#      evdev:input:bZZZZvYYYYpXXXXeWWWW-VVVV
+#    This matches on the kernel modalias of the input-device, mainly:
+#    ZZZZ is the bus-id (see /usr/include/linux/input.h BUS_*), YYYY, XXXX and
+#    WWW are the 4-digit hex uppercase vendor, product and version ID and VVVV
+#    is a variable-length input-modalias describing the device capabilities.
+#    The vendor, product and version ID for a device node "eventX" is listed
+#    in /sys/class/input/eventX/device/id.
+#
+#  - Input driver device name and DMI data match:
+#      evdev:name:<input device name>:dmi:bvn*:bvr*:bd*:svn<vendor>:pn*:*
+#    <input device name> is the name device specified by the driver,
+#    <vendor> is the firmware-provided string from the kernel DMI modalias,
+#    see /sys/class/dmi/id/modalias.
+#
+#  - Extended input driver device name, properties and DMI data match:
+#      evdev:name:<input device name>:phys:<phys>:ev:<ev>:dmi:bvn*:bvr*:bd*:svn<vendor>:pn*
+#    <input device name> is the name device specified by the
+#    driver, <phys> is the physical-device-path, "cat
+#    /sys/class/input/input?/phys", <ev> is the event bitmask, "cat
+#    /sys/class/input/input?/capabilities/ev" and <vendor> is the
+#    firmware-provided string exported by the kernel DMI modalias,
+#    see /sys/class/dmi/id/modalias.
+#
+# To add local entries, create a new file
+#   /etc/udev/hwdb.d/71-pointingstick-local.hwdb
+# and add your rules there. To load the new rules execute (as root):
+#   systemd-hwdb update
+#   udevadm trigger /dev/input/eventXX
+# where /dev/input/eventXX is the pointingstick in question. If in doubt, simply
+# use /dev/input/event* to reload all input rules.
+#
+# If your changes are generally applicable, preferably send them as a pull
+# request to
+#   https://github.com/systemd/systemd
+# or create a bug report on https://github.com/systemd/systemd/issues and
+# include your new rules, a description of the device, and the output of
+#   udevadm info /dev/input/eventXX.
+#
+# Allowed properties are:
+#   ID_INPUT_POINTINGSTICK
+#   POINTINGSTICK_SENSITIVITY
+#
+# Entries should be sorted with growing _SENSITIVITY and _CONST_ACCEL.
+#
+#########################################
+#      POINTINGSTICK_SENSITIVITY        #
+#########################################
+#
+# TPPS/2 IBM TrackPoint driver sensitivity sysfs setting
+#    POINTINGSTICK_SENSITIVITY=<sensitivity>
+#
+# Where <sensitivity> is a number between 0 and 255, note this property
+# only applies to TPPS/2 IBM TrackPoint devices, see
+# drivers/input/mouse/trackpoint.c in the Linux kernel sources.
+#
+
+# Sort by brand, model
+
+##########################################
+# Generic
+##########################################
+evdev:name:*[tT]rack[pP]oint*:*
+evdev:name:*[dD]ual[pP]oint [sS]tick*:*
+ ID_INPUT_POINTINGSTICK=1
+
+#########################################
+# Lenovo
+#########################################
+
+# Lenovo Thinkpad X220
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX220:*
+# Lenovo Thinkpad X220 tablet
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX220Tablet:*
+# Lenovo Thinkpad X230
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX230:*
+# Lenovo Thinkpad X230 tablet
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX230Tablet:*
+# Lenovo ThinkPad *30 series
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPad??30:*
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPad??30?:*
+# Lenovo Thinkpad *40 series
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPad??40:*
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPad??40?:*
+# Lenovo Thinkpad *50 series
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPad??50:*
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPad??50?:*
+# Lenovo Thinkpad *60 series
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPad??60:*
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPad??60?:*
+# Lenovo Thinkpad *70 series
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPad??70:*
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPad??70?:*
+# Lenovo Thinkpad *80 series
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPad??80:*
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPad??80?:*
+# Lenovo Thinkpad *90 series
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPad??90:*
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPad??90?:*
+# Lenovo Thinkpad X1 Carbon 3rd gen
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX1Carbon3rd:*
+# Lenovo Thinkpad X1 Carbon 4th gen
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX1Carbon4th:*
+# Lenovo Thinkpad X1 Tablet
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX1Tablet:*
+ POINTINGSTICK_SENSITIVITY=200
+
+# Lenovo Thinkpad X200/X201/X200s/X201s/X200 Tablet/X201 Tablet
+# Note these come with 2 revisions of keyboard, with the trackpoints having a
+# different sensitivity in the different revisions. 1.25 is a bit slow for the
+# least sensitive revision, but it is better to be a bit slow than too fast.
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX20?:*
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX20??:*
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX20?Tablet:*
+ POINTINGSTICK_SENSITIVITY=200
+
+# Lenovo UltraNav SK-8845 (USB keyboard)
+evdev:input:b0003v06CBp0009*
+ POINTINGSTICK_SENSITIVITY=200

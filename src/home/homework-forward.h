@@ -1,0 +1,12 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+#pragma once
+
+/* IWYU pragma: always_keep */
+
+#include "forward.h" /* IWYU pragma: export */
+
+typedef enum HomeSetupFlags HomeSetupFlags;
+
+typedef struct PasswordCache PasswordCache;
+typedef struct HomeSetup HomeSetup;
+typedef struct FscryptV2KeyUndo FscryptV2KeyUndo;

@@ -1,0 +1,7 @@
+[Unit]
+Description=Test notify-reload with SIGSTOP
+
+[Service]
+Type=notify-reload
+ReloadSignal=SIGSTOP
+ExecStart=/usr/lib/systemd/tests/testdata/TEST-80-NOTIFYACCESS.units/notify-reload-harness.sh no-handler /tmp/reload-sigstop-in /tmp/reload-sigstop-out

@@ -1,0 +1,42 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+#pragma once
+
+#include "homed-forward.h"
+
+/* Flags supported by UpdateEx() */
+#define SD_HOMED_UPDATE_OFFLINE (UINT64_C(1) << 0)
+#define SD_HOMED_UPDATE_FLAGS_ALL (SD_HOMED_UPDATE_OFFLINE)
+
+/* Flags supported by CreateHomeEx() */
+#define SD_HOMED_CREATE_FLAGS_ALL (0)
+
+/* Put some limits on disk sizes: not less than 5M, not more than 5T */
+#define USER_DISK_SIZE_MIN (UINT64_C(5)*1024*1024)
+#define USER_DISK_SIZE_MAX (UINT64_C(5)*1024*1024*1024*1024)
+
+/* The default disk size to use when nothing else is specified, relative to free disk space. We calculate
+ * this from the default rebalancing weights, so that what we create initially doesn't immediately require
+ * rebalancing. */
+#define USER_DISK_SIZE_DEFAULT_PERCENT ((unsigned) ((100 * REBALANCE_WEIGHT_DEFAULT) / (REBALANCE_WEIGHT_DEFAULT + REBALANCE_WEIGHT_BACKING)))
+
+extern const struct hash_ops blob_fd_hash_ops;
+
+bool suitable_user_name(const char *name);
+int suitable_realm(const char *realm);
+int suitable_image_path(const char *path);
+
+bool supported_fstype(const char *fstype);
+
+int split_user_name_realm(const char *t, char **ret_user_name, char **ret_realm);
+
+int bus_message_append_secret(sd_bus_message *m, UserRecord *secret);
+
+/* Many of our operations might be slow due to crypto, fsck, recursive chown() and so on. For these
+ * operations permit a *very* long timeout */
+#define HOME_SLOW_BUS_CALL_TIMEOUT_USEC (2*USEC_PER_MINUTE)
+
+/* Retry to deactivate home directories again and again every 15s until it works */
+#define HOME_RETRY_DEACTIVATE_USEC (15U * USEC_PER_SEC)
+
+const char* home_record_dir(void);
+const char* home_system_blob_dir(void);

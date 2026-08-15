@@ -1,0 +1,107 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd_pidfd_get_inode_id"
+  xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_pidfd_get_inode_id</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_pidfd_get_inode_id</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_pidfd_get_inode_id</refname>
+    <refpurpose>Acquire the 64-bit inode ID of a PID file descriptor (PIDFD)</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-daemon.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_pidfd_get_inode_id</function></funcdef>
+        <paramdef>int <parameter>pidfd</parameter></paramdef>
+        <paramdef>uint64_t *<parameter>ret</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_pidfd_get_inode_id()</function> may be invoked to acquire the 64-bit inode ID of
+    a PID file descriptor (PIDFD), which can be used to reliably identify a process for the current boot.</para>
+
+    <para>As a typical example, the service manager sets <varname>$MAINPIDFDID</varname> and <varname>$MANAGERPIDFDID</varname>
+    environment variables to the inode IDs of the service main process and the service manager itself, respectively,
+    if such functionality is supported by the kernel.</para>
+
+    <para>On 64-bit architectures, the inode ID can be directly obtained via a call to
+    <citerefentry project='man-pages'><refentrytitle>fstat</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+    on a given pidfd. However, on 32-bit architectures <structname>struct stat</structname>'s .st_ino
+    field is also 32-bit, which similar to PIDs is subject to reuse. Therefore, a second mechanism leveraging
+    <citerefentry project='man-pages'><refentrytitle>name_to_handle_at</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+    has been added to kernel in v6.14. This helper is added to simplify downstream handling of pidfd/pidfs internals.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, the function returns 0 or a positive integer. On failure, a negative errno-style
+    error code is returned.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+
+        <varlistentry>
+          <term><constant>-EOPNOTSUPP</constant></term>
+
+          <listitem><para>The stable PIDFD inode ID is not supported by the running kernel, or the system
+          is 32-bit and <function>name_to_handle_at()</function> is unavailable.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EBADF</constant></term>
+
+          <listitem><para>The specified file descriptor is invalid, or is not a PIDFD.</para></listitem>
+        </varlistentry>
+
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Notes</title>
+
+    <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
+  </refsect1>
+
+  <refsect1>
+    <title>History</title>
+    <para><function>sd_pidfd_get_inode_id()</function> was added in version 258.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

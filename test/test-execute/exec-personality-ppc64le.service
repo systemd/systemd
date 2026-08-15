@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for Personality=ppc64le
+
+[Service]
+ExecStart=bash -c 'echo $(uname -m); exit $(test $(uname -m) = "ppc64le")'
+Type=oneshot
+Personality=ppc64le

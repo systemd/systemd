@@ -1,0 +1,243 @@
+#!/bin/sh
+# -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
+# ex: ts=8 sw=4 sts=4 et filetype=sh
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# This file is part of systemd.
+#
+# systemd is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
+#
+# systemd is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
+
+set -e
+
+COMMAND="${1:?}"
+KERNEL_VERSION="${2:?}"
+ENTRY_DIR_ABS="${3:?}"
+KERNEL_IMAGE="$4"
+INITRD_OPTIONS_SHIFT=4
+
+if [ "$KERNEL_INSTALL_LAYOUT" != "bls" ]; then
+    [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+        echo "KERNEL_INSTALL_LAYOUT=$KERNEL_INSTALL_LAYOUT, quitting."
+    exit 0
+fi
+
+MACHINE_ID="${KERNEL_INSTALL_MACHINE_ID:?}"
+ENTRY_TOKEN="${KERNEL_INSTALL_ENTRY_TOKEN:?}"
+BOOT_ROOT="${KERNEL_INSTALL_BOOT_ROOT:?}"
+ENTRY_NAME="${KERNEL_INSTALL_ENTRY_NAME:-$ENTRY_TOKEN-$KERNEL_VERSION}"
+
+[ -n "$BOOT_MNT" ] || BOOT_MNT="$(stat -c %m "$BOOT_ROOT")"
+if [ "$BOOT_MNT" = '/' ]; then
+    ENTRY_DIR="$ENTRY_DIR_ABS"
+else
+    ENTRY_DIR="${ENTRY_DIR_ABS#"$BOOT_MNT"}"
+fi
+
+KERNEL_DEST="$ENTRY_DIR_ABS/linux"
+KERNEL_ENTRY="$ENTRY_DIR/linux"
+LOADER_ENTRY="$BOOT_ROOT/loader/entries/$ENTRY_NAME.conf"
+
+case "$COMMAND" in
+    remove)
+        if [ -f "/lib/modules/$KERNEL_VERSION/vmlinuz" ] && [ "$KERNEL_INSTALL_BOOT_ENTRY_TYPE" = "type2" ]; then
+            [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+                echo "BOOT_ENTRY_TYPE=type2, not removing loader entries."
+            exit 0
+        fi
+        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+            echo "Removing ${LOADER_ENTRY%.conf}*.conf"
+        exec rm -f \
+            "$LOADER_ENTRY" \
+            "${LOADER_ENTRY%.conf}"*".conf"
+        ;;
+    add)
+        ;;
+    *)
+        exit 0
+        ;;
+esac
+
+if [ -f /etc/os-release ]; then
+    # shellcheck source=/dev/null
+    . /etc/os-release
+elif [ -f /usr/lib/os-release ]; then
+    # shellcheck source=/dev/null
+    . /usr/lib/os-release
+fi
+
+[ -n "$PRETTY_NAME" ] || PRETTY_NAME="Linux $KERNEL_VERSION"
+
+SORT_KEY="$IMAGE_ID"
+[ -z "$SORT_KEY" ] && SORT_KEY="$ID"
+
+if [ -n "$KERNEL_INSTALL_CONF_ROOT" ]; then
+    if [ -f "$KERNEL_INSTALL_CONF_ROOT/cmdline" ]; then
+        BOOT_OPTIONS="$(grep -Gv '^\s*#' "$KERNEL_INSTALL_CONF_ROOT/cmdline" | tr -s "$IFS" ' ')"
+    fi
+elif [ -f /etc/kernel/cmdline ]; then
+    BOOT_OPTIONS="$(grep -Gv '^\s*#' /etc/kernel/cmdline | tr -s "$IFS" ' ')"
+elif [ -f /usr/lib/kernel/cmdline ]; then
+    BOOT_OPTIONS="$(grep -Gv '^\s*#' /usr/lib/kernel/cmdline | tr -s "$IFS" ' ')"
+elif ! systemd-detect-virt --container --quiet; then
+    BOOT_OPTIONS="$(tr -s "$IFS" '\n' </proc/cmdline | grep -ve '^BOOT_IMAGE=' -e '^initrd=' | tr '\n' ' ')"
+else
+    BOOT_OPTIONS=""
+fi
+
+BOOT_OPTIONS="${BOOT_OPTIONS% }"
+
+# If the boot entries are named after the machine ID, then suffix the kernel
+# command line with the machine ID we use, so that the machine ID remains
+# stable, even during factory reset, in the initrd (where the system's machine
+# ID is not directly accessible yet), and if the root file system is volatile.
+if [ "$ENTRY_TOKEN" = "$MACHINE_ID" ] && ! echo "$BOOT_OPTIONS" | grep -q "systemd.machine_id="; then
+    BOOT_OPTIONS="$BOOT_OPTIONS systemd.machine_id=$MACHINE_ID"
+fi
+
+TRIES_FILE="${KERNEL_INSTALL_CONF_ROOT:-/etc/kernel}/tries"
+
+if [ -f "$TRIES_FILE" ]; then
+    read -r TRIES <"$TRIES_FILE"
+    if ! echo "$TRIES" | grep -q '^[0-9][0-9]*$'; then
+        echo "$TRIES_FILE does not contain an integer." >&2
+        exit 1
+    fi
+    if [ -f "$LOADER_ENTRY" ]; then
+        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+            echo "Removing previous loader entry '$LOADER_ENTRY' without boot counting." >&2
+        rm -f "$LOADER_ENTRY"
+    fi
+    for loaderentry in "${LOADER_ENTRY%.conf}+"*.conf; do
+        [ "$loaderentry" = "${LOADER_ENTRY%.conf}+*.conf" ] && break
+        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+            echo "Removing previous loader entry '$loaderentry' that has not yet booted successfully." >&2
+        rm -f "$loaderentry"
+    done
+    LOADER_ENTRY="${LOADER_ENTRY%.conf}+$TRIES.conf"
+fi
+
+if ! [ -d "$ENTRY_DIR_ABS" ]; then
+    echo "Error: entry directory '$ENTRY_DIR_ABS' does not exist" >&2
+    exit 1
+fi
+
+install -m 0644 "$KERNEL_IMAGE" "$KERNEL_DEST" || {
+    echo "Error: could not copy '$KERNEL_IMAGE' to '$KERNEL_DEST'." >&2
+    exit 1
+}
+chown root:root "$KERNEL_DEST" || :
+
+if [ -n "$KERNEL_INSTALL_CONF_ROOT" ]; then
+    if [ -f "$KERNEL_INSTALL_CONF_ROOT/devicetree" ]; then
+        read -r DEVICETREE <"$KERNEL_INSTALL_CONF_ROOT/devicetree"
+    fi
+elif [ -f /etc/kernel/devicetree ]; then
+    read -r DEVICETREE </etc/kernel/devicetree
+elif [ -f /usr/lib/kernel/devicetree ]; then
+    read -r DEVICETREE </usr/lib/kernel/devicetree
+fi
+if [ -n "$DEVICETREE" ]; then
+    for prefix in \
+        "$KERNEL_INSTALL_CONF_ROOT" \
+        "/usr/lib/firmware/$KERNEL_VERSION/device-tree" \
+        "/usr/lib/linux-image-$KERNEL_VERSION" \
+        "/usr/lib/modules/$KERNEL_VERSION/dtb"
+    do
+        [ -n "$prefix" ] || continue
+        [ -f "$prefix/$DEVICETREE" ] || continue
+        DEVICETREE_SRC="$prefix/$DEVICETREE"
+        break
+    done
+
+    [ -n "$DEVICETREE_SRC" ] || {
+        echo "Error: could not find device tree blob '$DEVICETREE'." >&2
+        exit 1
+    }
+
+    DEVICETREE_DEST="$ENTRY_DIR_ABS/${DEVICETREE##*/}"
+    DEVICETREE_ENTRY="$ENTRY_DIR/${DEVICETREE##*/}"
+
+    install -m 0644 "$DEVICETREE_SRC" "$DEVICETREE_DEST" || {
+        echo "Error: could not copy '$DEVICETREE_SRC' to '$DEVICETREE_DEST'." >&2
+        exit 1
+    }
+    chown root:root "$DEVICETREE_DEST" || :
+fi
+
+shift "$INITRD_OPTIONS_SHIFT"
+# All files listed as arguments, and staged files starting with "initrd" are installed as initrds.
+for initrd in "${KERNEL_INSTALL_STAGING_AREA}"/microcode* "${@}" "${KERNEL_INSTALL_STAGING_AREA}"/initrd*; do
+    [ -f "$initrd" ] || {
+        case "$initrd" in
+            "${KERNEL_INSTALL_STAGING_AREA}/initrd*" | "${KERNEL_INSTALL_STAGING_AREA}/microcode*")
+            continue ;;
+        esac
+        echo "Error: '$initrd' is not a file." >&2
+        exit 1
+    }
+
+    initrd_basename="${initrd##*/}"
+    [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Installing $ENTRY_DIR_ABS/$initrd_basename"
+    install -m 0644 "$initrd" "$ENTRY_DIR_ABS/$initrd_basename" || {
+        echo "Error: could not copy '$initrd' to '$ENTRY_DIR_ABS/$initrd_basename'." >&2
+        exit 1
+    }
+    chown root:root "$ENTRY_DIR_ABS/$initrd_basename" || :
+done
+
+mkdir -p "${LOADER_ENTRY%/*}" || {
+    echo "Error: could not create loader entry directory '${LOADER_ENTRY%/*}'." >&2
+    exit 1
+}
+
+[ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Creating $LOADER_ENTRY"
+{
+    echo "# Boot Loader Specification type#1 entry"
+    echo "# File created by $0 (systemd {{VERSION_TAG}})"
+    echo "title      $PRETTY_NAME"
+    echo "version    $KERNEL_VERSION"
+    if [ "$ENTRY_TOKEN" = "$MACHINE_ID" ]; then
+        # See similar logic above for the systemd.machine_id= kernel command line option
+        echo "machine-id $MACHINE_ID"
+    fi
+    [ -n "$SORT_KEY" ] && echo "sort-key   $SORT_KEY"
+    [ -n "$BOOT_OPTIONS" ] && echo "options    $BOOT_OPTIONS"
+    echo "linux      $KERNEL_ENTRY"
+    [ -n "$DEVICETREE_ENTRY" ] && echo "devicetree $DEVICETREE_ENTRY"
+
+    have_initrd=
+    for initrd in "${KERNEL_INSTALL_STAGING_AREA}"/microcode* "${@}" "${KERNEL_INSTALL_STAGING_AREA}"/initrd*; do
+        [ -f "$initrd" ] || continue
+        echo "initrd     $ENTRY_DIR/${initrd##*/}"
+        have_initrd=yes
+    done
+
+    # Try a few variations that are generated by various initrd generators in their kernel-install hooks if
+    # no initrds were supplied.
+
+    if [ -z "$have_initrd" ] && [ -f "$ENTRY_DIR_ABS/initrd" ]; then
+        echo "initrd     $ENTRY_DIR/initrd"
+        have_initrd=yes
+    fi
+
+    if [ -z "$have_initrd" ] && [ -f "$BOOT_ROOT/initramfs-$KERNEL_VERSION.img" ]; then
+        echo "initrd     /initramfs-$KERNEL_VERSION.img"
+        have_initrd=yes
+    fi
+    :
+} >"$LOADER_ENTRY" || {
+    echo "Error: could not create loader entry '$LOADER_ENTRY'." >&2
+    exit 1
+}
+exit 0

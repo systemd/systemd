@@ -1,0 +1,24 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Save Transient machine-id to Disk
+Documentation=man:systemd-machine-id-commit.service(8)
+DefaultDependencies=no
+Conflicts=shutdown.target
+Before=shutdown.target
+After=local-fs.target first-boot-complete.target
+ConditionPathIsReadWrite=/etc
+ConditionPathIsMountPoint=/etc/machine-id
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=systemd-machine-id-setup --commit
+TimeoutSec=90s

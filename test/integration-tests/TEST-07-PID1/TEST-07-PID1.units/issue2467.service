@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Requires=issue2467.socket
+ConditionPathExistsGlob=/tmp/nonexistent
+# Make sure we hit the socket trigger limit in the test and not the service start limit.
+StartLimitInterval=1000
+StartLimitBurst=1000
+
+[Service]
+ExecStart=true

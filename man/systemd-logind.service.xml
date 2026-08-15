@@ -1,0 +1,130 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-logind.service" conditional='ENABLE_LOGIND'>
+
+  <refentryinfo>
+    <title>systemd-logind.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-logind.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-logind.service</refname>
+    <refname>systemd-logind</refname>
+    <refpurpose>Login manager</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-logind.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-logind</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-logind</command> is a system service that
+    manages user logins. It is responsible for:</para>
+
+    <itemizedlist>
+      <listitem><para>Keeping track of users and sessions, their processes and their idle state. This is implemented by
+      allocating a systemd slice unit for each user below <filename>user.slice</filename>, and a scope unit below it
+      for each concurrent session of a user. Also, a per-user service manager is started as system service instance of
+      <filename>user@.service</filename> for each logged in user.</para></listitem>
+
+      <listitem><para>Generating and managing session IDs. If auditing is available and an audit session ID is already set for
+      a session, then this ID is reused as the session ID. Otherwise, an independent session counter is
+      used.</para></listitem>
+
+      <listitem><para>Providing <ulink
+      url="https://www.freedesktop.org/wiki/Software/polkit">polkit</ulink>-based access for users for
+      operations such as system shutdown or sleep</para>
+      </listitem>
+
+      <listitem><para>Implementing a shutdown/sleep inhibition logic for applications</para></listitem>
+
+      <listitem><para>Handling of power/sleep hardware keys</para></listitem>
+
+      <listitem><para>Multi-seat management</para></listitem>
+
+      <listitem><para>Session switch management</para></listitem>
+
+      <listitem><para>Device access management for users</para></listitem>
+
+      <listitem><para>Automatic spawning of text logins (gettys) on virtual console activation and user
+      runtime directory management</para></listitem>
+
+      <listitem><para>Scheduled shutdown</para></listitem>
+
+      <listitem><para>Sending "wall" messages</para></listitem>
+    </itemizedlist>
+
+    <para>User sessions are registered with logind via the
+    <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    PAM module.</para>
+
+    <para>See
+    <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for information about the configuration of this service.</para>
+
+    <para>See
+    <citerefentry><refentrytitle>sd-login</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    for information about the basic concepts of logind
+    such as users, sessions and seats.</para>
+
+    <para>See
+    <citerefentry><refentrytitle>org.freedesktop.login1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>org.freedesktop.LogControl1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for information about the D-Bus APIs <filename>systemd-logind</filename> provides.</para>
+
+    <para>In addition to the D-Bus interface, <filename>systemd-logind</filename> also provides a Varlink
+    interface <constant>io.systemd.Shutdown</constant> for shutting down or rebooting the system. It
+    supports <function>PowerOff</function>, <function>Reboot</function>, <function>Halt</function>,
+    <function>KExec</function>, and <function>SoftReboot</function> methods. Each method accepts an
+    optional <varname>skipInhibitors</varname> boolean parameter to bypass active block inhibitors
+    (matching the <constant>SD_LOGIND_SKIP_INHIBITORS</constant> flag of the D-Bus interface). The
+    interface can be queried with
+    <command>varlinkctl introspect /run/systemd/io.systemd.Login io.systemd.Shutdown</command>.</para>
+
+    <para>For more information see
+    <ulink url="https://systemd.io/INHIBITOR_LOCKS">Inhibitor Locks</ulink>.</para>
+
+    <para>If you are interested in writing a display manager that makes use of logind, please have look at
+    <ulink url="https://systemd.io/WRITING_DISPLAY_MANAGERS">Writing Display
+    Managers</ulink>.
+    If you are interested in writing a desktop environment that makes use of logind, please have look at
+    <ulink url="https://systemd.io/WRITING_DESKTOP_ENVIRONMENTS">Writing
+    Desktop Environments</ulink>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Signal</title>
+    <variablelist>
+      <varlistentry>
+         <term><constant>SIGHUP</constant></term>
+         <listitem><para>Reloads the service configuration file.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-user-sessions.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>loginctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-login</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>org.freedesktop.login1</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

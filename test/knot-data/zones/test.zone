@@ -1,0 +1,26 @@
+; SPDX-License-Identifier: LGPL-2.1-or-later
+$TTL 86400
+$ORIGIN test.
+
+@ IN SOA ns1.unsigned.test. root.unsigned.test. (
+    42   ; serial
+    3H   ; refresh
+    15M  ; retry
+    1W   ; expire
+    1D   ; minimum TTL
+)
+
+; NS info
+@                     NS   ns1.unsigned
+; NS glue records
+ns1.unsigned          A    10.0.0.1
+ns1.unsigned          AAAA fd00:dead:beef:cafe::1
+
+onlinesign            NS   ns1.unsigned
+signed                NS   ns1.unsigned
+unsigned              NS   ns1.unsigned
+
+svcb                  SVCB  1   .   alpn=dot ipv4hint=10.0.0.1 ipv6hint=fd00:dead:beef:cafe::1
+https                 HTTPS 1   .   alpn="h2,h3"
+
+delegation.exercise   A 1.2.3.4

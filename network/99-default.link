@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: MIT-0
+#
+# This config file is installed as part of systemd.
+# It may be freely copied and edited (following the MIT No Attribution license).
+#
+# To make local modifications, use "networkctl edit". See networkctl(1) for details.
+# This file should not be edited in place, because it'll be overwritten on upgrades.
+
+[Match]
+OriginalName=*
+
+[Link]
+NamePolicy=keep kernel database onboard slot path
+AlternativeNamesPolicy=database onboard slot path mac
+MACAddressPolicy=persistent

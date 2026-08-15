@@ -1,0 +1,145 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd_hwdb_new" xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>sd_hwdb_new</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_hwdb_new</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_hwdb_new</refname>
+    <refname>sd_hwdb_new_from_path</refname>
+    <refname>sd_hwdb_ref</refname>
+    <refname>sd_hwdb_unref</refname>
+
+    <refpurpose>Create a new hwdb object and create or destroy references to it</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-hwdb.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_hwdb_new</function></funcdef>
+        <paramdef>sd_hwdb **<parameter>hwdb</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_hwdb_new_from_path</function></funcdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>sd_hwdb **<parameter>hwdb</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>sd_hwdb* <function>sd_hwdb_ref</function></funcdef>
+        <paramdef>sd_hwdb *<parameter>hwdb</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>sd_hwdb* <function>sd_hwdb_unref</function></funcdef>
+        <paramdef>sd_hwdb *<parameter>hwdb</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_hwdb_new()</function> creates a new hwdb object to access the binary hwdb
+    database. Upon initialization, the file containing the binary representation of the hardware database is
+    located and opened. The new object is returned in <parameter>hwdb</parameter>.</para>
+
+    <para><function>sd_hwdb_new_from_path()</function> may be used to specify the path from which the binary
+    hardware database should be opened.</para>
+
+    <para>The <parameter>hwdb</parameter> object is reference counted. <function>sd_hwdb_ref()</function> and
+    <function>sd_hwdb_unref()</function> may be used to get a new reference or destroy an existing reference
+    to an object. The caller must dispose of the reference acquired with <function>sd_hwdb_new()</function>
+    by calling <function>sd_hwdb_unref()</function> when done with the object.</para>
+
+    <para>Use
+    <citerefentry><refentrytitle>sd_hwdb_seek</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_hwdb_get</refentrytitle><manvolnum>3</manvolnum></citerefentry>, and
+    <citerefentry><refentrytitle>sd_hwdb_enumerate</refentrytitle><manvolnum>3</manvolnum></citerefentry> to
+    access entries.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, <function>sd_hwdb_new()</function> and <function>sd_hwdb_new_from_path()</function>
+    return a non-negative integer. On failure, a negative errno-style error code is returned.</para>
+
+    <para><function>sd_hwdb_ref()</function> always returns the argument.
+    </para>
+
+    <para><function>sd_hwdb_unref()</function> always returns <constant>NULL</constant>.
+    </para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-ENOENT</constant></term>
+
+          <listitem><para>The binary hardware database file could not be located. See
+          <citerefentry><refentrytitle>systemd-hwdb</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          for more information.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>The located binary hardware database file is in an incompatible format.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
+
+          <listitem><para>Memory allocation failed.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>History</title>
+    <para><function>sd_hwdb_new()</function>,
+    <function>sd_hwdb_ref()</function>, and
+    <function>sd_hwdb_unref()</function> were added in version 246.</para>
+    <para><function>sd_hwdb_new_from_path()</function> was added in version 252.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-hwdb</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-hwdb</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

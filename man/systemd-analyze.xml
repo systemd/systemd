@@ -1,0 +1,2001 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-analyze" conditional='ENABLE_ANALYZE'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-analyze</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-analyze</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-analyze</refname>
+    <refpurpose>Analyze and debug system manager</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg>time</arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">blame</arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">critical-chain</arg>
+      <arg choice="opt" rep="repeat"><replaceable>UNIT</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">dump</arg>
+      <arg choice="opt" rep="repeat"><replaceable>PATTERN</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">plot</arg>
+      <arg choice="opt">>file.svg</arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">dot</arg>
+      <arg choice="opt" rep="repeat"><replaceable>PATTERN</replaceable></arg>
+      <arg choice="opt">>file.dot</arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">unit-files</arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">unit-gdb</arg>
+      <arg choice="plain"><replaceable>SERVICE</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">unit-paths</arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">unit-shell</arg>
+      <arg choice="plain"><replaceable>SERVICE</replaceable></arg>
+      <arg choice="opt" rep="repeat"><replaceable>COMMAND</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">exit-status</arg>
+      <arg choice="opt" rep="repeat"><replaceable>STATUS</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">capability</arg>
+      <group choice="opt">
+        <arg choice="plain" rep="repeat"><replaceable>CAPABILITY</replaceable></arg>
+        <arg choice="plain">
+          <group choice="req">
+            <arg choice="plain">-m</arg>
+            <arg choice="plain">--mask</arg>
+          </group>
+          <replaceable>MASK</replaceable>
+        </arg>
+      </group>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">condition</arg>
+      <arg choice="plain"><replaceable>CONDITION</replaceable>…</arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">syscall-filter</arg>
+      <arg choice="opt"><replaceable>SET</replaceable>…</arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">filesystems</arg>
+      <arg choice="opt"><replaceable>SET</replaceable>…</arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">calendar</arg>
+      <arg choice="plain" rep="repeat"><replaceable>SPEC</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">timestamp</arg>
+      <arg choice="plain" rep="repeat"><replaceable>TIMESTAMP</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">timespan</arg>
+      <arg choice="plain" rep="repeat"><replaceable>SPAN</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">cat-config</arg>
+      <arg choice="plain" rep="repeat"><replaceable>NAME</replaceable>|<replaceable>PATH</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">compare-versions</arg>
+      <arg choice="plain"><replaceable>VERSION1</replaceable></arg>
+      <arg choice="opt"><replaceable>OP</replaceable></arg>
+      <arg choice="plain"><replaceable>VERSION2</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">verify</arg>
+      <arg choice="plain" rep="repeat"><replaceable>FILE</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">security</arg>
+      <arg choice="opt" rep="repeat"><replaceable>UNIT</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">inspect-elf</arg>
+      <arg choice="plain" rep="repeat"><replaceable>FILE</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">malloc</arg>
+      <arg choice="opt" rep="repeat"><replaceable>D-BUS SERVICE</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">fdstore</arg>
+      <arg choice="plain" rep="repeat"><replaceable>UNIT</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">image-policy</arg>
+      <arg choice="plain" rep="repeat"><replaceable>POLICY</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">has-tpm2</arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">identify-tpm2</arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">pcrs</arg>
+      <arg choice="opt" rep="repeat"><replaceable>PCR</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">nvpcrs</arg>
+      <arg choice="opt" rep="repeat"><replaceable>NVPCR</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">srk</arg>
+      <arg choice="opt"><replaceable>&gt;FILE</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">architectures</arg>
+      <arg choice="opt" rep="repeat"><replaceable>NAME</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">smbios11</arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">chid</arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">transient-settings</arg>
+      <arg choice="plain" rep="repeat"><replaceable>TYPE</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-analyze</command> may be used to determine
+    system boot-up performance statistics and retrieve other state and
+    tracing information from the system and service manager, and to
+    verify the correctness of unit files. It is also used to access
+    special functions useful for advanced system manager debugging.</para>
+
+    <para>If no command is passed, <command>systemd-analyze
+    time</command> is implied.</para>
+
+    <refsect2>
+      <title><command>systemd-analyze time</command></title>
+
+      <para>This command prints the time spent in the kernel before userspace has been reached, the time
+      spent in the initrd before normal system userspace has been reached, and the time normal system
+      userspace took to initialize. Note that these measurements simply measure the time passed up to the
+      point where all system services have been spawned, but not necessarily until they fully finished
+      initialization or the disk is idle.</para>
+
+      <para>If the manager carried shutdown timestamps across a kexec-based live update (i.e. they were
+      restored from the previous boot through the Live Update Orchestrator), the previous boot's shutdown
+      phases are prepended to the chain, so the full shutdown plus bootup sequence is shown and summed into
+      the total: the time spent stopping units (<literal>(stopping)</literal>), the time the manager took to
+      hand off to
+      <citerefentry><refentrytitle>systemd-shutdown</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      (<literal>(exit)</literal>) and the time spent in <command>systemd-shutdown</command> itself
+      (<literal>(systemd-shutdown)</literal>) are added before the firmware/loader/kernel/initrd/userspace
+      phases.</para>
+
+      <example>
+        <title><command>Show how long the boot took</command></title>
+
+        <programlisting># in a container
+$ systemd-analyze time
+Startup finished in 296ms (userspace)
+multi-user.target reached after 275ms in userspace
+
+# on a real machine
+$ systemd-analyze time
+Startup finished in 2.584s (kernel) + 19.176s (initrd) + 47.847s (userspace) = 1min 9.608s
+multi-user.target reached after 47.820s in userspace
+</programlisting>
+      </example>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze blame</command></title>
+
+      <para>This command prints a list of all running units, ordered by the time they took to initialize.
+      This information may be used to optimize boot-up times. Note that the output might be misleading as the
+      initialization of one service might be slow simply because it waits for the initialization of another
+      service to complete.  Also note: <command>systemd-analyze blame</command> does not display results for
+      services with <varname>Type=simple</varname>, because systemd considers such services to be started
+      immediately, hence no measurement of the initialization delays can be done. Also note that this command
+      only shows the time units took for starting up, it does not show how long unit jobs spent in the
+      execution queue. In particular it shows the time units spent in <literal>activating</literal> state,
+      which is not defined for units such as device units that transition directly from
+      <literal>inactive</literal> to <literal>active</literal>. This command hence gives an impression of the
+      performance of program code, but cannot accurately reflect latency introduced by waiting for
+      hardware and similar events.</para>
+
+      <example>
+        <title><command>Show which units took the most time during boot</command></title>
+
+        <programlisting>$ systemd-analyze blame
+         32.875s pmlogger.service
+         20.905s systemd-networkd-wait-online.service
+         13.299s dev-vda1.device
+         ...
+            23ms sysroot.mount
+            11ms initrd-udevadm-cleanup-db.service
+             3ms sys-kernel-config.mount
+</programlisting>
+      </example>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze critical-chain <optional><replaceable>UNIT</replaceable>...</optional></command></title>
+
+      <para>This command prints a tree of the time-critical chain of units (for each of the specified
+      <replaceable>UNIT</replaceable>s or for the default target otherwise). The time after the unit is
+      active or started is printed after the "@" character. The time the unit takes to start is printed after
+      the "+" character. Note that the output might be misleading as the initialization of services might
+      depend on socket activation and because of the parallel execution of units. Also, similarly to the
+      <command>blame</command> command, this only takes into account the time units spent in
+      <literal>activating</literal> state, and hence does not cover units that never went through an
+      <literal>activating</literal> state (such as device units that transition directly from
+      <literal>inactive</literal> to <literal>active</literal>). Moreover, it does not show information on
+      jobs (and in particular not jobs that timed out).</para>
+
+      <example>
+        <title><command>systemd-analyze critical-chain</command></title>
+
+      <programlisting>$ systemd-analyze critical-chain
+multi-user.target @47.820s
+└─pmie.service @35.968s +548ms
+  └─pmcd.service @33.715s +2.247s
+    └─network-online.target @33.712s
+      └─systemd-networkd-wait-online.service @12.804s +20.905s
+        └─systemd-networkd.service @11.109s +1.690s
+          └─systemd-udevd.service @9.201s +1.904s
+            └─systemd-tmpfiles-setup-dev.service @7.306s +1.776s
+              └─kmod-static-nodes.service @6.976s +177ms
+                └─systemd-journald.socket
+                  └─system.slice
+                    └─-.slice
+</programlisting>
+      </example>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze dump [<replaceable>pattern</replaceable>…]</command></title>
+
+      <para>Without any parameter, this command outputs a (usually very long) human-readable serialization of
+      the complete service manager state. Optional glob pattern may be specified, causing the output to be
+      limited to units whose names match one of the patterns. The output format is subject to change without
+      notice and should not be parsed by applications. This command is rate limited for unprivileged users.</para>
+
+      <example>
+        <title>Show the internal state of user manager</title>
+
+        <programlisting>$ systemd-analyze --user dump
+Timestamp userspace: Thu 2019-03-14 23:28:07 CET
+Timestamp finish: Thu 2019-03-14 23:28:07 CET
+Timestamp generators-start: Thu 2019-03-14 23:28:07 CET
+Timestamp generators-finish: Thu 2019-03-14 23:28:07 CET
+Timestamp units-load-start: Thu 2019-03-14 23:28:07 CET
+Timestamp units-load-finish: Thu 2019-03-14 23:28:07 CET
+-> Unit proc-timer_list.mount:
+        Description: /proc/timer_list
+        ...
+-> Unit default.target:
+        Description: Main user target
+...
+</programlisting>
+      </example>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze malloc [<replaceable>D-Bus service</replaceable>…]</command></title>
+
+      <para>This command can be used to request the output of the internal memory state (as returned by
+      <citerefentry project='man-pages'><refentrytitle>malloc_info</refentrytitle><manvolnum>3</manvolnum></citerefentry>)
+      of a D-Bus service. If no service is specified, the query will be sent to
+      <filename>org.freedesktop.systemd1</filename> (the system or user service manager). The output format
+      is not guaranteed to be stable and should not be parsed by applications.</para>
+
+      <para>The service must implement the <filename>org.freedesktop.MemoryAllocation1</filename> interface.
+      In the systemd suite, it is currently only implemented by the manager.</para>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze plot</command></title>
+
+      <para>This command prints either an SVG graphic, detailing which system services have been started at what
+      time, highlighting the time they spent on initialization, or the raw time data in JSON or table format.</para>
+
+      <example>
+        <title><command>Plot a bootchart</command></title>
+
+        <programlisting>$ systemd-analyze plot >bootup.svg
+$ eog bootup.svg&amp;
+</programlisting>
+      </example>
+
+      <para>Note that this plot is based on the most recent per-unit timing data of loaded units. This means
+      that if a unit gets started, then stopped and then started again the information shown will cover the
+      most recent start cycle, not the first one. Thus it is recommended to consult this information only
+      shortly after boot, so that this distinction does not matter. Moreover, units that are not referenced by
+      any other unit through a dependency might be unloaded by the service manager once they terminate (and
+      did not fail). Such units will not show up in the plot.</para>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze dot [<replaceable>pattern</replaceable>...]</command></title>
+
+      <para>This command generates textual dependency graph description in dot format for further processing
+      with the GraphViz
+      <citerefentry project='die-net'><refentrytitle>dot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      tool. Use a command line like <command>systemd-analyze dot | dot -Tsvg >systemd.svg</command> to
+      generate a graphical dependency tree. Unless <option>--order</option> or <option>--require</option> is
+      passed, the generated graph will show both ordering and requirement dependencies. Optional pattern
+      globbing style specifications (e.g. <filename>*.target</filename>) may be given at the end. A unit
+      dependency is included in the graph if any of these patterns match either the origin or destination
+      node.</para>
+
+      <example>
+        <title>Plot all dependencies of any unit whose name starts with <literal>avahi-daemon</literal>
+        </title>
+
+        <programlisting>$ systemd-analyze dot 'avahi-daemon.*' | dot -Tsvg >avahi.svg
+$ eog avahi.svg</programlisting>
+      </example>
+
+      <example>
+        <title>Plot the dependencies between all known target units</title>
+
+        <programlisting>$ systemd-analyze dot --to-pattern='*.target' --from-pattern='*.target' \
+      | dot -Tsvg >targets.svg
+$ eog targets.svg</programlisting>
+      </example>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze unit-paths</command></title>
+
+      <para>This command outputs a list of all directories from which unit files, <filename>.d</filename>
+      overrides, and <filename>.wants</filename>, <filename>.requires</filename> symlinks may be
+      loaded. Combine with <option>--user</option> to retrieve the list for the user manager instance, and
+      <option>--global</option> for the global configuration of user manager instances.</para>
+
+      <example>
+        <title><command>Show all paths for generated units</command></title>
+
+        <programlisting>$ systemd-analyze unit-paths | grep '^/run'
+/run/systemd/system.control
+/run/systemd/transient
+/run/systemd/generator.early
+/run/systemd/system
+/run/systemd/system.attached
+/run/systemd/generator
+/run/systemd/generator.late
+</programlisting>
+      </example>
+
+      <para>Note that this verb prints the list that is compiled into <command>systemd-analyze</command>
+      itself, and does not communicate with the running manager. Use
+      <programlisting>systemctl [--user] [--global] show -p UnitPath --value</programlisting>
+      to retrieve the actual list that the manager uses, with any empty directories omitted.</para>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze exit-status <optional><replaceable>STATUS</replaceable>...</optional></command></title>
+
+      <para>This command prints a list of exit statuses along with their "class", i.e. the source of the
+      definition (one of <literal>libc</literal>, <literal>systemd</literal>, <literal>LSB</literal>, or
+      <literal>BSD</literal>), see the Process Exit Codes section in
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+      If no additional arguments are specified, all known statuses are shown. Otherwise, only the
+      definitions for the specified codes are shown.</para>
+
+      <example>
+        <title><command>Show some example exit status names</command></title>
+
+        <programlisting>$ systemd-analyze exit-status 0 1 {63..65}
+NAME    STATUS CLASS
+SUCCESS 0      libc
+FAILURE 1      libc
+-       63     -
+USAGE   64     BSD
+DATAERR 65     BSD
+</programlisting>
+      </example>
+    </refsect2>
+
+    <refsect2>
+      <title>
+        <command>systemd-analyze capability
+          <group choice="opt">
+            <arg choice="plain" rep="repeat"><replaceable>CAPABILITY</replaceable></arg>
+            <arg choice="plain">
+              <group choice="req">
+                <arg choice="plain">-m</arg>
+                <arg choice="plain">--mask</arg>
+              </group>
+              <replaceable>MASK</replaceable>
+            </arg>
+          </group>
+        </command>
+      </title>
+
+      <para>This command prints a list of Linux capabilities along with their numeric IDs. See <citerefentry
+      project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+      for details. If no argument is specified the full list of capabilities known to the service manager and
+      the kernel is shown. Capabilities defined by the kernel but not known to the service manager are shown
+      as <literal>cap_???</literal>. Optionally, if arguments are specified they may refer to specific
+      cabilities by name or numeric ID, in which case only the indicated capabilities are shown in the
+      table.</para>
+
+      <para>Alternatively, if <option>--mask</option> is passed, a single numeric argument must be specified,
+      which is interpreted as a hexadecimal capability mask. In this case, only the capabilities present in
+      the mask are shown in the table. This mode is intended to aid in decoding capability sets available
+      via various debugging interfaces (e.g. <literal>/proc/PID/status</literal>).</para>
+
+      <example>
+        <title><command>Show some example capability names</command></title>
+
+        <programlisting>$ systemd-analyze capability 0 1 {30..32}
+NAME              NUMBER
+cap_chown              0
+cap_dac_override       1
+cap_audit_control     30
+cap_setfcap           31
+cap_mac_override      32</programlisting>
+      </example>
+
+      <example>
+        <title><command>Decode a capability mask extracted from /proc</command></title>
+
+        <programlisting>$ systemd-analyze capability -m 0000000000003c00
+NAME                 NUMBER
+cap_net_bind_service     10
+cap_net_broadcast        11
+cap_net_admin            12
+cap_net_raw              13
+</programlisting>
+      </example>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze condition <replaceable>CONDITION</replaceable>...</command></title>
+
+      <para>This command will evaluate <varname index="false">Condition*=...</varname> and
+      <varname index="false">Assert*=...</varname> assignments, and print their values, and
+      the resulting value of the combined condition set. See
+      <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      for a list of available conditions and asserts.</para>
+
+      <example>
+        <title>Evaluate conditions that check kernel versions</title>
+
+        <programlisting>$ systemd-analyze condition 'ConditionVersion = ! &lt;4.0' \
+        'ConditionVersion = &gt;=5.1' \
+        'ConditionACPower=|false' \
+        'ConditionArchitecture=|!arm' \
+        'AssertPathExists=/etc/os-release'
+test.service: AssertPathExists=/etc/os-release succeeded.
+Asserts succeeded.
+test.service: ConditionArchitecture=|!arm succeeded.
+test.service: ConditionACPower=|false failed.
+test.service: ConditionVersion=&gt;=5.1 succeeded.
+test.service: ConditionVersion=!&lt;4.0 succeeded.
+Conditions succeeded.</programlisting>
+      </example>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze syscall-filter <optional><replaceable>SET</replaceable>...</optional></command></title>
+
+      <para>This command will list system calls contained in the specified system call set
+      <replaceable>SET</replaceable>, or all known sets if no sets are specified. Argument
+      <replaceable>SET</replaceable> must include the <literal>@</literal> prefix.</para>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze filesystems <optional><replaceable>SET</replaceable>...</optional></command></title>
+
+      <para>This command will list filesystems in the specified filesystem set
+      <replaceable>SET</replaceable>, or all known sets if no sets are specified. Argument
+      <replaceable>SET</replaceable> must include the <literal>@</literal> prefix.</para>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze calendar <replaceable>EXPRESSION</replaceable>...</command></title>
+
+      <para>This command will parse and normalize repetitive calendar time events, and will calculate when
+      they elapse next. This takes the same input as the <varname>OnCalendar=</varname> setting in
+      <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      following the syntax described in
+      <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>. By
+      default, only the next time the calendar expression will elapse is shown; use
+      <option>--iterations=</option> to show the specified number of next times the expression
+      elapses. Each time the expression elapses forms a timestamp, see the <command>timestamp</command>
+      verb below.</para>
+
+      <example>
+        <title>Show leap days in the near future</title>
+
+        <programlisting>$ systemd-analyze calendar --iterations=5 '*-2-29 0:0:0'
+  Original form: *-2-29 0:0:0
+Normalized form: *-02-29 00:00:00
+    Next elapse: Sat 2020-02-29 00:00:00 UTC
+       From now: 11 months 15 days left
+       Iter. #2: Thu 2024-02-29 00:00:00 UTC
+       From now: 4 years 11 months left
+       Iter. #3: Tue 2028-02-29 00:00:00 UTC
+       From now: 8 years 11 months left
+       Iter. #4: Sun 2032-02-29 00:00:00 UTC
+       From now: 12 years 11 months left
+       Iter. #5: Fri 2036-02-29 00:00:00 UTC
+       From now: 16 years 11 months left
+</programlisting>
+      </example>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze timestamp <replaceable>TIMESTAMP</replaceable>...</command></title>
+
+      <para>This command parses a timestamp (i.e. a single point in time) and outputs the normalized form and
+      the difference between this timestamp and now. The timestamp should adhere to the syntax documented in
+      <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      section "PARSING TIMESTAMPS".</para>
+
+      <example>
+        <title>Show parsing of timestamps</title>
+
+        <programlisting>$ systemd-analyze timestamp yesterday now tomorrow
+  Original form: yesterday
+Normalized form: Mon 2019-05-20 00:00:00 CEST
+       (in UTC): Sun 2019-05-19 22:00:00 UTC
+   UNIX seconds: @15583032000
+       From now: 1 day 9h ago
+
+  Original form: now
+Normalized form: Tue 2019-05-21 09:48:39 CEST
+       (in UTC): Tue 2019-05-21 07:48:39 UTC
+   UNIX seconds: @1558424919.659757
+       From now: 43us ago
+
+  Original form: tomorrow
+Normalized form: Wed 2019-05-22 00:00:00 CEST
+       (in UTC): Tue 2019-05-21 22:00:00 UTC
+   UNIX seconds: @15584760000
+       From now: 14h left
+</programlisting>
+      </example>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze timespan <replaceable>EXPRESSION</replaceable>...</command></title>
+
+      <para>This command parses a time span (i.e. a difference between two timestamps) and outputs the
+      normalized form and the equivalent value in microseconds. The time span should adhere to the syntax
+      documented in
+      <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      section "PARSING TIME SPANS". Values without units are parsed as seconds.</para>
+
+      <example>
+        <title>Show parsing of timespans</title>
+
+        <programlisting>$ systemd-analyze timespan 1s 300s '1year 0.000001s'
+Original: 1s
+      μs: 1000000
+   Human: 1s
+
+Original: 300s
+      μs: 300000000
+   Human: 5min
+
+Original: 1year 0.000001s
+      μs: 31557600000001
+   Human: 1y 1us
+</programlisting>
+      </example>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze cat-config</command>
+      <replaceable>NAME</replaceable>|<replaceable>PATH</replaceable>...</title>
+
+      <para>This command is similar to <command>systemctl cat</command>, but operates on config files. It
+      will copy the contents of a config file and any drop-ins to standard output, using the usual systemd
+      set of directories and rules for precedence. Each argument must be either an absolute path including
+      the prefix (such as <filename>/etc/systemd/logind.conf</filename> or
+      <filename>/usr/lib/systemd/logind.conf</filename>), or a name relative to the prefix (such as
+      <filename>systemd/logind.conf</filename>).</para>
+
+      <example>
+        <title>Showing logind configuration</title>
+        <programlisting>$ systemd-analyze cat-config systemd/logind.conf
+# /etc/systemd/logind.conf
+...
+[Login]
+NAutoVTs=8
+...
+
+# /usr/lib/systemd/logind.conf.d/20-test.conf
+... some override from another package
+
+# /etc/systemd/logind.conf.d/50-override.conf
+... some administrator override
+</programlisting>
+      </example>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze compare-versions
+      <replaceable>VERSION1</replaceable>
+      <optional><replaceable>OP</replaceable></optional>
+      <replaceable>VERSION2</replaceable></command></title>
+
+      <para>This command has two distinct modes of operation, depending on whether the operator
+      <replaceable>OP</replaceable> is specified.</para>
+
+      <para>In the first mode — when <replaceable>OP</replaceable> is not specified —, it will compare the two
+      version strings and print either <literal><replaceable>VERSION1</replaceable> &lt;
+      <replaceable>VERSION2</replaceable></literal>, or <literal><replaceable>VERSION1</replaceable> ==
+      <replaceable>VERSION2</replaceable></literal>, or <literal><replaceable>VERSION1</replaceable> &gt;
+      <replaceable>VERSION2</replaceable></literal> as appropriate.</para>
+
+      <para>The exit status is <constant>0</constant> if the versions are equal, <constant>11</constant> if
+      the version of the right is smaller, and <constant>12</constant> if the version of the left is
+      smaller. (This matches the convention used by <command>rpmdev-vercmp</command>.)</para>
+
+      <para>In the second mode — when <replaceable>OP</replaceable> is specified — it will compare the two
+      version strings using the operation <replaceable>OP</replaceable> and return <constant>0</constant>
+      (success) if they condition is satisfied, and <constant>1</constant> (failure)
+      otherwise. <constant>OP</constant> may be <command>lt</command>, <command>le</command>,
+      <command>eq</command>, <command>ne</command>, <command>ge</command>, <command>gt</command>. In this
+      mode, no output is printed.
+      (This matches the convention used by
+      <citerefentry project='die-net'><refentrytitle>dpkg</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <option>--compare-versions</option>.)</para>
+
+      <example>
+        <title>Compare versions of a package</title>
+
+        <programlisting>
+$ systemd-analyze compare-versions systemd-250~rc1.fc36.aarch64 systemd-251.fc36.aarch64
+systemd-250~rc1.fc36.aarch64 &lt; systemd-251.fc36.aarch64
+$ echo $?
+12
+
+$ systemd-analyze compare-versions 1 lt 2; echo $?
+0
+$ systemd-analyze compare-versions 1 ge 2; echo $?
+1
+</programlisting>
+      </example>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze verify <replaceable>FILE</replaceable>...</command></title>
+
+      <para>This command will load unit files and print warnings if any errors are detected. Files specified
+      on the command line will be loaded, but also any other units referenced by them. A unit's name on disk
+      can be overridden by specifying an alias after a colon; see below for an example. The full unit search
+      path is formed by combining the directories for all command line arguments, and the usual unit load
+      paths. The variable <varname>$SYSTEMD_UNIT_PATH</varname> is supported, and may be used to replace or
+      augment the compiled in set of unit load paths; see
+      <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. All
+      units files present in the directories containing the command line arguments will be used in preference
+      to the other paths. If a template unit without an instance name is specified (e.g.
+      <filename>foo@.service</filename>), <literal>test_instance</literal> will be used as the instance
+      name, which can be controlled by <option>--instance=</option> option.</para>
+
+      <para>The following errors are currently detected:</para>
+      <itemizedlist>
+        <listitem><para>unknown sections and directives,</para></listitem>
+
+        <listitem><para>missing dependencies which are required to start the given unit,</para></listitem>
+
+        <listitem><para>man pages listed in <varname>Documentation=</varname> which are not found in the
+        system,</para></listitem>
+
+        <listitem><para>commands listed in <varname>ExecStart=</varname> and similar which are not found in
+        the system or not executable.</para></listitem>
+      </itemizedlist>
+
+      <example>
+        <title>Misspelt directives</title>
+
+        <programlisting>$ cat ./user.slice
+[Unit]
+WhatIsThis=11
+Documentation=man:nosuchfile(1)
+Requires=different.service
+
+[Service]
+Description=x
+
+$ systemd-analyze verify ./user.slice
+[./user.slice:9] Unknown lvalue 'WhatIsThis' in section 'Unit'
+[./user.slice:13] Unknown section 'Service'. Ignoring.
+Error: org.freedesktop.systemd1.LoadFailed:
+   Unit different.service failed to load:
+   No such file or directory.
+Failed to create user.slice/start: Invalid argument
+user.slice: man nosuchfile(1) command failed with code 16
+</programlisting>
+      </example>
+
+      <example>
+        <title>Missing service units</title>
+
+        <programlisting>$ tail ./a.socket ./b.socket
+==> ./a.socket &lt;==
+[Socket]
+ListenStream=100
+
+==> ./b.socket &lt;==
+[Socket]
+ListenStream=100
+Accept=yes
+
+$ systemd-analyze verify ./a.socket ./b.socket
+Service a.service not loaded, a.socket cannot be started.
+Service b@0.service not loaded, b.socket cannot be started.
+</programlisting>
+      </example>
+
+      <example>
+        <title>Aliasing a unit</title>
+
+        <programlisting>$ cat /tmp/source
+[Unit]
+Description=Hostname printer
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/echo %H
+MysteryKey=true
+
+$ systemd-analyze verify /tmp/source
+Failed to prepare filename /tmp/source: Invalid argument
+
+$ systemd-analyze verify /tmp/source:alias.service
+alias.service:7: Unknown key name 'MysteryKey' in section 'Service', ignoring.
+</programlisting>
+      </example>
+
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze security <optional><replaceable>UNIT</replaceable>...</optional></command></title>
+
+      <para>This command analyzes the security and sandboxing settings of one or more specified service
+      units. If at least one unit name is specified the security settings of the specified service units are
+      inspected and a detailed analysis is shown. If no unit name is specified, all currently loaded,
+      long-running service units are inspected and a terse table with results shown. The command checks for
+      various security-related service settings, assigning each a numeric "exposure level" value, depending
+      on how important a setting is. It then calculates an overall exposure level for the whole unit, which
+      is an estimation in the range 0.0…10.0 indicating how exposed a service is security-wise. High exposure
+      levels indicate very little applied sandboxing. Low exposure levels indicate tight sandboxing and
+      strongest security restrictions. Note that this only analyzes the per-service security features systemd
+      itself implements. This means that any additional security mechanisms applied by the service code
+      itself are not accounted for. The exposure level determined this way should not be misunderstood: a
+      high exposure level neither means that there is no effective sandboxing applied by the service code
+      itself, nor that the service is actually vulnerable to remote or local attacks. High exposure levels do
+      indicate however that most likely the service might benefit from additional settings applied to
+      them.</para>
+
+      <para>Please note that many of the security and sandboxing settings individually can be circumvented —
+      unless combined with others. For example, if a service retains the privilege to establish or undo mount
+      points many of the sandboxing options can be undone by the service code itself. Due to that is
+      essential that each service uses the most comprehensive and strict sandboxing and security settings
+      possible. The tool will take into account some of these combinations and relationships between the
+      settings, but not all. Also note that the security and sandboxing settings analyzed here only apply to
+      the operations executed by the service code itself. If a service has access to an IPC system (such as
+      D-Bus) it might request operations from other services that are not subject to the same
+      restrictions. Any comprehensive security and sandboxing analysis is hence incomplete if the IPC access
+      policy is not validated too.</para>
+
+      <example>
+      <title>Analyze <filename index="false">systemd-logind.service</filename></title>
+
+      <programlisting>$ systemd-analyze security --no-pager systemd-logind.service
+  NAME                DESCRIPTION                              EXPOSURE
+✗ PrivateNetwork=     Service has access to the host's network      0.5
+✗ User=/DynamicUser=  Service runs as root user                     0.4
+✗ DeviceAllow=        Service has no device ACL                     0.2
+✓ IPAddressDeny=      Service blocks all IP address ranges
+...
+→ Overall exposure level for systemd-logind.service: 4.1 OK 🙂
+</programlisting>
+      </example>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze inspect-elf <replaceable>FILE</replaceable>...</command></title>
+
+      <para>This command will load the specified files, and if they are ELF objects (executables,
+      libraries, core files, etc.) it will parse the embedded packaging metadata, if any, and print
+      it in a table or json format. See the
+      <ulink url="https://systemd.io/PACKAGE_METADATA_FOR_EXECUTABLE_FILES/">
+      Package Metadata for Executable Files</ulink> document for more information.</para>
+
+      <example>
+        <title>Print information about a core file as JSON</title>
+
+        <programlisting>$ systemd-analyze inspect-elf --json=pretty \
+        core.fsverity.1000.f77dac5dc161402aa44e15b7dd9dcf97.58561.1637106137000000
+{
+        "elfType" : "coredump",
+        "elfArchitecture" : "AMD x86-64",
+        "/home/bluca/git/fsverity-utils/fsverity" : {
+                "type" : "deb",
+                "name" : "fsverity-utils",
+                "version" : "1.3-1",
+                "buildId" : "7c895ecd2a271f93e96268f479fdc3c64a2ec4ee"
+        },
+        "/home/bluca/git/fsverity-utils/libfsverity.so.0" : {
+                "type" : "deb",
+                "name" : "fsverity-utils",
+                "version" : "1.3-1",
+                "buildId" : "b5e428254abf14237b0ae70ed85fffbb98a78f88"
+        }
+}
+</programlisting>
+      </example>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze dlopen-metadata <replaceable>FILE</replaceable></command></title>
+
+      <para>This command will load the specified file, and if it is an ELF object (executables,
+      libraries, core files, etc.) it will parse the embedded dlopen metadata, if any, and print
+      it in a table or json format. See the
+      <ulink url="https://systemd.io/ELF_DLOPEN_METADATA/">
+      dlopen() Metadata for ELF Files</ulink> document for more information.</para>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze fdstore <replaceable>UNIT</replaceable>...</command></title>
+
+      <para>Lists the current contents of the specified service unit's file descriptor store. This shows
+      names, inode types, device numbers, inode numbers, paths and open modes of the open file
+      descriptors. The specified units must have <varname>FileDescriptorStoreMax=</varname> enabled, see
+      <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+      details.</para>
+
+      <example>
+        <title>Table output</title>
+        <programlisting>$ systemd-analyze fdstore systemd-journald.service
+FDNAME TYPE DEVNO   INODE RDEVNO PATH             FLAGS
+stored sock 0:8   4218620 -      socket:[4218620] ro
+stored sock 0:8   4213198 -      socket:[4213198] ro
+stored sock 0:8   4213190 -      socket:[4213190] ro
+…</programlisting>
+      </example>
+
+      <para>Note: the "DEVNO" column refers to the major/minor numbers of the device node backing the file
+      system the file descriptor's inode is on. The "RDEVNO" column refers to the major/minor numbers of the
+      device node itself if the file descriptor refers to one. Compare with corresponding
+      <varname>.st_dev</varname> and <varname>.st_rdev</varname> fields in <type>struct stat</type> (see
+      <citerefentry
+      project='man-pages'><refentrytitle>stat</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
+      details). The listed inode numbers in the "INODE" column are on the file system indicated by
+      "DEVNO".</para>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze image-policy <replaceable>POLICY</replaceable>…</command></title>
+
+      <para>This command analyzes the specified image policy string, as per
+      <citerefentry><refentrytitle>systemd.image-policy</refentrytitle><manvolnum>7</manvolnum></citerefentry>. The
+      policy is normalized and simplified. For each currently defined partition identifier (as per the <ulink
+      url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2 Discoverable
+      Partitions Specification</ulink>) the effect of the image policy string is shown in tabular form.</para>
+
+      <example>
+        <title>Example Output</title>
+
+        <programlisting>$ systemd-analyze image-policy swap=encrypted:usr=read-only-on+verity:root=encrypted
+Analyzing policy: root=encrypted:usr=verity+read-only-on:swap=encrypted
+       Long form: root=encrypted:usr=verity+read-only-on:swap=encrypted:=unused+absent
+
+PARTITION       MODE        READ-ONLY GROWFS
+root            encrypted   -         -
+usr             verity      yes       -
+home            ignore      -         -
+srv             ignore      -         -
+esp             ignore      -         -
+xbootldr        ignore      -         -
+swap            encrypted   -         -
+root-verity     ignore      -         -
+usr-verity      unprotected yes       -
+root-verity-sig ignore      -         -
+usr-verity-sig  ignore      -         -
+tmp             ignore      -         -
+var             ignore      -         -
+default         ignore      -         -</programlisting>
+      </example>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze has-tpm2</command></title>
+
+      <para>Reports whether the system is equipped with a usable TPM2 device. If a TPM2 device has been
+      discovered, is supported, and is being used by firmware, by the OS kernel drivers and by userspace
+      (i.e. systemd) this prints <literal>yes</literal> and exits with exit status zero. If no such device is
+      discovered/supported/used, prints <literal>no</literal>. Otherwise, prints
+      <literal>partial</literal>. In either of these two cases exits with non-zero exit status. It also shows
+      five lines indicating separately whether firmware, drivers, the system, the kernel and libraries
+      discovered/support/use TPM2. Currently, required libraries are <filename>libtss2-esys.so.0</filename>,
+      <filename>libtss2-rc.so.0</filename>, and <filename>libtss2-mu.so.0</filename>. The requirement may be
+      changed in the future release.</para>
+
+      <para>Note, this checks for TPM 2.0 devices only, and does not consider TPM 1.2 at all.</para>
+
+      <para>Combine with <option>--quiet</option> to suppress the output.</para>
+
+      <example>
+        <title>Example Output</title>
+
+        <programlisting>yes
++firmware
++driver
++system
++subsystem
++libraries
+  +libtss2-esys.so.0
+  +libtss2-rc.so.0
+  +libtss2-mu.so.0</programlisting>
+      </example>
+
+      <xi:include href="version-info.xml" xpointer="v257"/>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze identify-tpm2</command></title>
+
+      <para>Shows vendor information about the TPM 2.0 device discovered.</para>
+
+      <example>
+        <title>Example Output</title>
+
+        <programlisting>  Family Indicator: 2.0
+             Level: 0
+          Revision: 1.59
+Specification Date: Mon 2023-01-09
+      Manufacturer: STM
+     Vendor String: ST33KTPM2XSPI
+  Firmware Version: 9.258
+   Modalias String: fi2.0:lv0:rv1.59:sy2023:sd9:mfSTM:vsST33KTPM2XSPI:ty0:fw9.258.0:</programlisting>
+      </example>
+
+      <xi:include href="version-info.xml" xpointer="v260"/>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze pcrs <optional><replaceable>PCR</replaceable>…</optional></command></title>
+
+      <para>This command shows the known TPM2 PCRs along with their identifying names and current values.</para>
+
+      <example>
+        <title>Example Output</title>
+
+        <programlisting>$ systemd-analyze pcrs
+NR NAME                SHA256
+ 0 platform-code       bcd2eb527108bbb1f5528409bcbe310aa9b74f687854cc5857605993f3d9eb11
+ 1 platform-config     b60622856eb7ce52637b80f30a520e6e87c347daa679f3335f4f1a600681bb01
+ 2 external-code       1471262403e9a62f9c392941300b4807fbdb6f0bfdd50abfab752732087017dd
+ 3 external-config     3d458cfe55cc03ea1f443f1562beec8df51c75e14a9fcf9a7234a13f198e7969
+ 4 boot-loader-code    939f7fa1458e1f7ce968874d908e524fc0debf890383d355e4ce347b7b78a95c
+ 5 boot-loader-config  864c61c5ea5ecbdb6951e6cb6d9c1f4b4eac79772f7fe13b8bece569d83d3768
+ 6 -                   3d458cfe55cc03ea1f443f1562beec8df51c75e14a9fcf9a7234a13f198e7969
+ 7 secure-boot-policy  9c905bd9b9891bfb889b90a54c4b537b889cfa817c4389cc25754823a9443255
+ 8 -                   0000000000000000000000000000000000000000000000000000000000000000
+ 9 kernel-initrd       9caa29b128113ef42aa53d421f03437be57211e5ebafc0fa8b5d4514ee37ff0c
+10 ima                 5ea9e3dab53eb6b483b6ec9e3b2c712bea66bca1b155637841216e0094387400
+11 kernel-boot         0000000000000000000000000000000000000000000000000000000000000000
+12 kernel-config       627ffa4b405e911902fe1f1a8b0164693b31acab04f805f15bccfe2209c7eace
+13 sysexts             0000000000000000000000000000000000000000000000000000000000000000
+14 shim-policy         0000000000000000000000000000000000000000000000000000000000000000
+15 system-identity     0000000000000000000000000000000000000000000000000000000000000000
+16 debug               0000000000000000000000000000000000000000000000000000000000000000
+17 -                   ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+18 -                   ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+19 -                   ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+20 -                   ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+21 -                   ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+22 -                   ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+23 application-support 0000000000000000000000000000000000000000000000000000000000000000</programlisting>
+      </example>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze nvpcrs <optional><replaceable>NVPCR</replaceable>…</optional></command></title>
+
+      <para>This command shows the known TPM2 NvPCRs (additional PCRs stored in TPM2 NV indexes) along with
+      their identifying names and current values.</para>
+
+      <example>
+        <title>Example Output</title>
+
+        <programlisting>$ systemd-analyze nvpcrs
+NAME         NVINDEX VALUE
+cryptsetup 0x1d10201 f400543943cc7215557ce672872ace5382e6d53177cc459078ba9277e41588d9
+hardware   0x1d10200 e155474936d7d74c893e6ece1099a2311d572cf23becea159dabf282db754284</programlisting>
+      </example>
+
+      <xi:include href="version-info.xml" xpointer="v259"/>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze srk <optional>&gt;<replaceable>FILE</replaceable></optional></command></title>
+
+      <para>This command reads the Storage Root Key (SRK) from the TPM2 device, and writes it in marshalled
+      TPM2B_PUBLIC format to stdout. The output is non-printable data, so it should be redirected to a file
+      or into a pipe.</para>
+
+      <example>
+        <title>Save the Storage Root Key to <filename>srk.tpm2b_public</filename></title>
+
+        <programlisting>systemd-analyze srk &gt;srk.tpm2b_public</programlisting>
+      </example>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze architectures <optional><replaceable>NAME</replaceable>...</optional></command></title>
+
+      <para>Lists all known CPU architectures, and which ones are native. The listed architecture names are
+      those <varname>ConditionArchitecture=</varname> supports, see
+      <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+      details. If architecture names are specified only those specified are listed.</para>
+
+      <example>
+        <title>Table output</title>
+        <programlisting>$ systemd-analyze architectures
+NAME        SUPPORT
+alpha       foreign
+arc         foreign
+arc-be      foreign
+arm         foreign
+arm64       foreign
+…
+sparc       foreign
+sparc64     foreign
+tilegx      foreign
+x86         secondary
+x86-64      native</programlisting>
+      </example>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze smbios11</command></title>
+
+      <para>Shows a list of SMBIOS Type #11 strings passed to the system. Also see
+      <citerefentry><refentrytitle>smbios-type-11</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+
+      <example>
+        <title>Example output</title>
+        <programlisting>$ systemd-analyze smbios11
+io.systemd.stub.kernel-cmdline-extra=console=ttyS0
+io.systemd.credential.binary:ssh.ephemeral-authorized_keys-all=c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSURGd20xbFp4WlRGclJteG9ZQlozOTYzcE1uYlJCaDMwM1MxVXhLSUM2NmYgbGVubmFydEB6ZXRhCg==
+io.systemd.credential:vmm.notify_socket=vsock-stream:2:254570042
+
+3 SMBIOS Type #11 strings passed.
+</programlisting>
+      </example>
+
+      <xi:include href="version-info.xml" xpointer="v257"/>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze chid</command></title>
+
+      <para>Shows a list of Computer Hardware IDs (CHIDs) of the local system. These IDs identify the
+      system's computer hardware, based on SMBIOS data. See <ulink
+      url="https://learn.microsoft.com/en-us/windows-hardware/drivers/dashboard/using-chids">Using Computer
+      Hardware IDs (CHIDs)</ulink> for details about CHIDs.</para>
+
+      <example>
+        <title>Example output</title>
+        <programlisting>$ systemd-analyze chid
+TYPE INPUT  CHID
+   3 MFPSmp 520537c0-3b59-504f-b062-9682ea236b21
+   4 MFPS-- edf05dc8-a53d-5b2c-8023-630bca2a2463
+   5 MFP--- ebc6a4d9-ec48-537a-916b-c69fa4fdd814
+   6 M--Smp 5ebe4bba-f598-5e90-9ff2-9fd0d3211465
+   7 M--S-- 1a3fb835-b42a-5f9c-a38c-eff5bfd5c41d
+   8 M-P-mp 2a831dce-8163-5bad-8406-435b8c752dd8
+   9 M-P--- 7c21c878-4a75-50f7-9816-21e811588da0
+  10 MF--mp 9a003537-bcc5-500e-b10a-8d8892e4fc64
+  11 MF---- bb9122bb-8a5c-50d2-a742-a85beb719909
+  13 M---mp bfc36935-5032-5987-a0a3-6311f01de33a
+
+LEGEND: M → sys_vendor (LENOVO) ┄ F → product_family (ThinkPad X1 Carbon Gen 9) ┄ P → product_name (20XW0055GE)
+        S → product_sku (LENOVO_MT_20XW_BU_Think_FM_ThinkPad X1 Carbon Gen 9) ┄ m → board_vendor (LENOVO)
+        p → board_name (20XW0055GE)</programlisting>
+      </example>
+
+      <xi:include href="version-info.xml" xpointer="v258"/>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze transient-settings <replaceable>TYPE</replaceable>...</command></title>
+
+      <para>Lists properties that can be set for various unit types via command line interfaces, in
+      particular
+      <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <command>set-property</command> and <option>--property=</option>/<option>--automount-property=</option>
+      options in
+      <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>, and
+      <citerefentry><refentrytitle>systemd-mount</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+      Those assignments are possible for a subset of the properties that can be set in config files, see
+      <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      and the other unit-type-specific pages. The <replaceable>TYPE</replaceable> argument must be a unit
+      type ("service", "socket", …). The properties that apply to the specific types are listed.</para>
+
+      <para>Note: D-Bus properties documented in
+      <citerefentry><refentrytitle>org.freedesktop.systemd1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      form a partially overlapping set with the lists generated by this command. Many D-Bus properties and
+      transient settings share the same names, but for example, <varname>LogRateLimitIntervalSec=</varname>
+      is described in
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> and
+      would be listed by this command, but the corresponding D-Bus property described in
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> is
+      <varname>LogRateLimitIntervalUSec</varname>.
+      </para>
+
+      <para>This verb is intended primarily for programmatic generation of shell completions.</para>
+
+      <xi:include href="version-info.xml" xpointer="v258"/>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze unit-shell <replaceable>SERVICE</replaceable> <optional><replaceable>command</replaceable>...</optional></command></title>
+
+      <para>The given command runs on the namespace of the specified running service. If no command is given,
+      spawn and attach a shell with the namespace to the service.</para>
+
+      <example>
+        <title>Example output</title>
+        <programlisting>$ systemd-analyze unit-shell systemd-resolved.service ls
+bin   dev  etc	   home  lib	lib64	lost+found  mnt  proc  run   srv  tmp  var	vmlinuz.old
+boot  efi  exitrd  init  lib32	libx32	media	    opt  root  sbin  sys  usr  vmlinuz	work</programlisting>
+      </example>
+
+      <xi:include href="version-info.xml" xpointer="v258"/>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze unit-gdb <replaceable>SERVICE</replaceable></command></title>
+
+      <para>Spawn and attach a debugger to the given service. By default,
+      <citerefentry project='man-pages'><refentrytitle>gdb</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      will be used. This may be changed using the <option>--debugger=</option> option or the
+      <varname>$SYSTEMD_DEBUGGER</varname> environment variable. Use the <option>--debugger-arguments=</option> option
+      to pass extra command line arguments to the debugger and quote as appropriate
+      when <replaceable>ARGS</replaceable> contain whitespace (See Example).</para>
+
+      <example>
+        <programlisting>$ systemd-analyze --debugger-arguments="-batch -ex 'info all-registers'" unit-gdb systemd-oomd.service</programlisting>
+      </example>
+
+      <xi:include href="version-info.xml" xpointer="v258"/>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--system</option></term>
+
+        <listitem><para>Operates on the system systemd instance. This
+        is the implied default.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--user</option></term>
+
+        <listitem><para>Operates on the user systemd
+        instance.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--global</option></term>
+
+        <listitem><para>Operates on the system-wide configuration for
+        user systemd instance.</para>
+
+        <xi:include href="version-info.xml" xpointer="v238"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--order</option></term>
+        <term><option>--require</option></term>
+
+        <listitem><para>When used in conjunction with the <command>dot</command> command (see above),
+        selects which dependencies are shown in the dependency graph. If <option>--order</option> is passed,
+        only dependencies of type <varname>After=</varname> or <varname>Before=</varname> are shown.
+        If <option>--require</option> is passed, only dependencies of type <varname>Requires=</varname>,
+        <varname>Requisite=</varname>, <varname>BindsTo=</varname>, <varname>Wants=</varname>, and
+        <varname>Conflicts=</varname> are shown. If neither is passed, this shows dependencies of
+        all these types.</para>
+
+        <xi:include href="version-info.xml" xpointer="v198"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--from-pattern=</option></term>
+        <term><option>--to-pattern=</option></term>
+
+        <listitem><para>When used in conjunction with the
+        <command>dot</command> command (see above), this selects which
+        relationships are shown in the dependency graph. Both options
+        require a
+        <citerefentry project='man-pages'><refentrytitle>glob</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        pattern as an argument, which will be matched against the
+        left-hand and the right-hand, respectively, nodes of a
+        relationship.</para>
+
+        <para>Each of these can be used more than once, in which case
+        the unit name must match one of the values. When tests for
+        both sides of the relation are present, a relation must pass
+        both tests to be shown. When patterns are also specified as
+        positional arguments, they must match at least one side of the
+        relation. In other words, patterns specified with those two
+        options will trim the list of edges matched by the positional
+        arguments, if any are given, and fully determine the list of
+        edges shown otherwise.</para>
+
+        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fuzz=<replaceable>timespan</replaceable></option></term>
+
+        <listitem><para>When used in conjunction with the
+        <command>critical-chain</command> command (see above), also
+        show units, which finished <replaceable>timespan</replaceable>
+        earlier, than the latest unit in the same level. The unit of
+        <replaceable>timespan</replaceable> is seconds unless
+        specified with a different unit, e.g.
+        "50ms".</para>
+
+        <xi:include href="version-info.xml" xpointer="v203"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--man=no</option></term>
+
+        <listitem><para>Do not invoke
+        <citerefentry project='man-pages'><refentrytitle>man</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        to verify the existence of man pages listed in <varname>Documentation=</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--generators</option></term>
+
+        <listitem><para>Invoke unit generators, see
+        <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        Some generators require root privileges. Under a normal user, running with
+        generators enabled will generally result in some warnings.</para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--instance=NAME</option></term>
+
+        <listitem>
+          <para>Specifies fallback instance name for template units. This will be used when one or more
+          template units without an instance name (e.g. <filename>foo@.service</filename>) specified for
+          <command>systemd-analyze condition</command> with <option>--unit=</option>,
+          <command>systemd-analyze security</command>, and <command>systemd-analyze verify</command>.
+          If unspecified, <literal>test_instance</literal> will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--recursive-errors=<replaceable>MODE</replaceable></option></term>
+
+        <listitem><para>Control verification of units and their dependencies and whether
+        <command>systemd-analyze verify</command> exits with a non-zero process exit status or not. With
+        <command>yes</command>, return a non-zero process exit status when warnings arise during verification
+        of either the specified unit or any of its associated dependencies. With <command>no</command>,
+        return a non-zero process exit status when warnings arise during verification of only the specified
+        unit. With <command>one</command>, return a non-zero process exit status when warnings arise during
+        verification of either the specified unit or its immediate dependencies. If this option is not
+        specified, zero is returned as the exit status regardless whether warnings arise during verification
+        or not.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--root=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>With <command>cat-config</command>, <command>verify</command>,
+        <command>condition</command>, <command>unit-gdb</command>, and <command>security</command> when
+        used with <option>--offline=</option>, operate on files underneath the specified root path
+        <replaceable>PATH</replaceable>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--image=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>With <command>cat-config</command>, <command>verify</command>,
+        <command>condition</command> and <command>security</command> when used with
+        <option>--offline=</option>, operate on files inside the specified image path
+        <replaceable>PATH</replaceable>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="image-policy-open" />
+
+      <varlistentry>
+        <term><option>--offline=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>With <command>security</command>, perform an offline security review
+        of the specified unit files, i.e. does not have to rely on PID 1 to acquire security
+        information for the files like the <command>security</command> verb when used by itself does.
+        This means that <option>--offline=</option> can be used with <option>--root=</option> and
+        <option>--image=</option> as well. If a unit's overall exposure level is above that set by
+        <option>--threshold=</option> (default value is 100), <option>--offline=</option> will return
+        an error.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--profile=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>With <command>security</command> <option>--offline=</option>, takes into
+        consideration the specified portable profile when assessing unit settings.
+        The profile can be passed by name, in which case the well-known system locations will
+        be searched, or it can be the full path to a specific drop-in file.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--threshold=<replaceable>NUMBER</replaceable></option></term>
+
+        <listitem><para>With <command>security</command>, allow the user to set a custom value
+        to compare the overall exposure level with, for the specified unit files. If a unit's
+        overall exposure level, is greater than that set by the user, <command>security</command>
+        will return an error. <option>--threshold=</option> can be used with <option>--offline=</option>
+        as well and its default value is 100.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--security-policy=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>With <command>security</command>, allow the user to define a custom set of
+        requirements formatted as a JSON file against which to compare the specified unit file(s)
+        and determine their overall exposure level to security threats.</para>
+
+        <table>
+          <title>Accepted Assessment Test Identifiers</title>
+
+          <tgroup cols='1'>
+            <colspec colname='directive' />
+            <thead>
+              <row>
+                <entry>Assessment Test Identifier</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>UserOrDynamicUser</entry>
+              </row>
+              <row>
+                <entry>SupplementaryGroups</entry>
+              </row>
+              <row>
+                <entry>PrivateMounts</entry>
+              </row>
+              <row>
+                <entry>PrivateDevices</entry>
+              </row>
+              <row>
+                <entry>PrivateTmp</entry>
+              </row>
+              <row>
+                <entry>PrivateNetwork</entry>
+              </row>
+              <row>
+                <entry>PrivateUsers</entry>
+              </row>
+              <row>
+                <entry>ProtectControlGroups</entry>
+              </row>
+              <row>
+                <entry>ProtectKernelModules</entry>
+              </row>
+              <row>
+                <entry>ProtectKernelTunables</entry>
+              </row>
+              <row>
+                <entry>ProtectKernelLogs</entry>
+              </row>
+              <row>
+                <entry>ProtectClock</entry>
+              </row>
+              <row>
+                <entry>ProtectHome</entry>
+              </row>
+              <row>
+                <entry>ProtectHostname</entry>
+              </row>
+              <row>
+                <entry>ProtectSystem</entry>
+              </row>
+              <row>
+                <entry>RootDirectoryOrRootImage</entry>
+              </row>
+              <row>
+                <entry>LockPersonality</entry>
+              </row>
+              <row>
+                <entry>MemoryDenyWriteExecute</entry>
+              </row>
+              <row>
+                <entry>NoNewPrivileges</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_SYS_ADMIN</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_SET_UID_GID_PCAP</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_SYS_PTRACE</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_SYS_TIME</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_NET_ADMIN</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_SYS_RAWIO</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_SYS_MODULE</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_AUDIT</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_SYSLOG</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_SYS_NICE_RESOURCE</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_MKNOD</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_CHOWN_FSETID_SETFCAP</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_DAC_FOWNER_IPC_OWNER</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_KILL</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_NET_BIND_SERVICE_BROADCAST_RAW</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_SYS_BOOT</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_MAC</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_LINUX_IMMUTABLE</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_IPC_LOCK</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_SYS_CHROOT</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_BLOCK_SUSPEND</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_WAKE_ALARM</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_LEASE</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_SYS_TTY_CONFIG</entry>
+              </row>
+              <row>
+                <entry>CapabilityBoundingSet_CAP_BPF</entry>
+              </row>
+              <row>
+                <entry>UMask</entry>
+              </row>
+              <row>
+                <entry>KeyringMode</entry>
+              </row>
+              <row>
+                <entry>ProtectProc</entry>
+              </row>
+              <row>
+                <entry>ProcSubset</entry>
+              </row>
+              <row>
+                <entry>NotifyAccess</entry>
+              </row>
+              <row>
+                <entry>RemoveIPC</entry>
+              </row>
+              <row>
+                <entry>Delegate</entry>
+              </row>
+              <row>
+                <entry>RestrictRealtime</entry>
+              </row>
+              <row>
+                <entry>RestrictSUIDSGID</entry>
+              </row>
+              <row>
+                <entry>RestrictNamespaces_user</entry>
+              </row>
+              <row>
+                <entry>RestrictNamespaces_mnt</entry>
+              </row>
+              <row>
+                <entry>RestrictNamespaces_ipc</entry>
+              </row>
+              <row>
+                <entry>RestrictNamespaces_pid</entry>
+              </row>
+              <row>
+                <entry>RestrictNamespaces_cgroup</entry>
+              </row>
+              <row>
+                <entry>RestrictNamespaces_uts</entry>
+              </row>
+              <row>
+                <entry>RestrictNamespaces_net</entry>
+              </row>
+              <row>
+                <entry>RestrictAddressFamilies_AF_INET_INET6</entry>
+              </row>
+              <row>
+                <entry>RestrictAddressFamilies_AF_UNIX</entry>
+              </row>
+              <row>
+                <entry>RestrictAddressFamilies_AF_NETLINK</entry>
+              </row>
+              <row>
+                <entry>RestrictAddressFamilies_AF_PACKET</entry>
+              </row>
+              <row>
+                <entry>RestrictAddressFamilies_OTHER</entry>
+              </row>
+              <row>
+                <entry>SystemCallArchitectures</entry>
+              </row>
+              <row>
+                <entry>SystemCallFilter_swap</entry>
+              </row>
+              <row>
+                <entry>SystemCallFilter_obsolete</entry>
+              </row>
+              <row>
+                <entry>SystemCallFilter_clock</entry>
+              </row>
+              <row>
+                <entry>SystemCallFilter_cpu_emulation</entry>
+              </row>
+              <row>
+                <entry>SystemCallFilter_debug</entry>
+              </row>
+              <row>
+                <entry>SystemCallFilter_mount</entry>
+              </row>
+              <row>
+                <entry>SystemCallFilter_module</entry>
+              </row>
+              <row>
+                <entry>SystemCallFilter_raw_io</entry>
+              </row>
+              <row>
+                <entry>SystemCallFilter_reboot</entry>
+              </row>
+              <row>
+                <entry>SystemCallFilter_privileged</entry>
+              </row>
+              <row>
+                <entry>SystemCallFilter_resources</entry>
+              </row>
+              <row>
+                <entry>IPAddressDeny</entry>
+              </row>
+              <row>
+                <entry>DeviceAllow</entry>
+              </row>
+              <row>
+                <entry>AmbientCapabilities</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
+
+        <para>See example "JSON Policy" below.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--json=<replaceable>MODE</replaceable></option></term>
+
+        <listitem><para>With the <command>security</command> command, generate a JSON formatted
+        output of the security analysis table. The format is a JSON array with objects
+        containing the following fields: <varname>set</varname> which indicates if the setting has
+        been enabled or not, <varname>name</varname> which is what is used to refer to the setting,
+        <varname>json_field</varname> which is the JSON compatible identifier of the setting,
+        <varname>description</varname> which is an outline of the setting state, and
+        <varname>exposure</varname> which is a number in the range 0.0…10.0, where a higher value
+        corresponds to a higher security threat. The JSON version of the table is printed to standard
+        output. The <replaceable>MODE</replaceable> passed to the option can be one of three:
+        <option>off</option> which is the default, <option>pretty</option> and <option>short</option>
+        which respectively output a prettified or shorted JSON version of the security table.
+
+        With the <command>plot</command> command, generate a JSON formatted output of the raw time data.
+        The format is a JSON array with objects containing the following fields: <varname>name</varname>
+        which is the unit name, <varname>activated</varname> which is the time after startup the
+        service was activated, <varname>activating</varname> which is how long after startup the service
+        was initially started, <varname>time</varname> which is how long the service took to activate
+        from when it was initially started, <varname>deactivated</varname> which is the time after startup
+        that the service was deactivated, <varname>deactivating</varname> which is the time after startup
+        that the service was initially told to deactivate.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--iterations=<replaceable>NUMBER</replaceable></option></term>
+
+        <listitem><para>When used with the <command>calendar</command> command, show the specified number of
+        iterations the specified calendar expression will elapse next. Defaults to 1.</para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--base-time=<replaceable>TIMESTAMP</replaceable></option></term>
+
+        <listitem><para>When used with the <command>calendar</command> command, show next iterations relative
+        to the specified point in time. If not specified, defaults to the current time.</para>
+
+        <xi:include href="version-info.xml" xpointer="v244"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--unit=<replaceable>UNIT</replaceable></option></term>
+
+        <listitem><para>When used with the <command>condition</command> command, evaluate all the
+        <varname index="false">Condition*=...</varname> and <varname index="false">Assert*=...</varname>
+        assignments in the specified unit file. The full unit search path is formed by combining the
+        directories for the specified unit with the usual unit load paths. The variable
+        <varname>$SYSTEMD_UNIT_PATH</varname> is supported, and may be used to replace or augment the
+        compiled in set of unit load paths; see
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. All
+        units files present in the directory containing the specified unit will be used in preference to the
+        other paths. If a template unit without an instance name is specified (e.g.
+        <filename>foo@.service</filename>), <literal>test_instance</literal> will be used as the instance
+        name, which can be controlled by <option>--instance=</option> option.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--table</option></term>
+
+        <listitem><para>When used with the <command>plot</command> command, the raw time data is output in a table.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--no-legend</option></term>
+
+        <listitem><para>When used with the <command>plot</command> command in combination with either
+        <option>--table</option> or <option>--json=</option>, no legends or hints are included in the output.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+      </varlistentry>
+
+      <xi:include href="user-system-options.xml" xpointer="host" />
+      <xi:include href="user-system-options.xml" xpointer="machine" />
+
+      <varlistentry>
+        <term><option>-q</option></term>
+        <term><option>--quiet</option></term>
+
+        <listitem><para>Suppress hints and other non-essential output.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tldr</option></term>
+
+        <listitem><para>With <command>cat-config</command>, only print the "interesting" parts of the
+        configuration files, skipping comments and empty lines and section headers followed only by
+        comments and empty lines.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--scale-svg=<replaceable>FACTOR</replaceable></option></term>
+
+        <listitem><para>When used with the <command>plot</command> command, the x-axis of the plot
+        can be stretched by FACTOR (default: 1.0).</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--detailed</option></term>
+
+        <listitem><para>When used with the <command>plot</command> command, activation timestamps
+        details can be seen in SVG plot.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--drm-device=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>When provided with the <command>chid</command> command, use this sysfs path to a DRM
+        device to fetch EDID from. Example: <filename>/sys/class/drm/card1-HDMI-A-1/</filename></para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--debugger=<replaceable>DEBUGGER</replaceable></option></term>
+
+        <listitem><para>Use the given debugger for the <command>unit-gdb</command> command. If not given and
+        <varname>$SYSTEMD_DEBUGGER</varname> is unset, then
+        <citerefentry project='man-pages'><refentrytitle>gdb</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        will be used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-A</option> <replaceable>ARGS</replaceable></term>
+        <term><option>--debugger-arguments=<replaceable>ARGS</replaceable></option></term>
+
+        <listitem><para>Pass the given <replaceable>ARGS</replaceable> as extra command line arguments to the debugger.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+    </variablelist>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>For most verbs, <constant>0</constant> is returned on success, and a non-zero failure code
+    otherwise.</para>
+
+    <para>For the verb <command>compare-versions</command>, in the two-argument form,
+    <constant>12</constant>, <constant>0</constant>, or <constant>11</constant> are returned if the second
+    version string is respectively larger than, equal to, or smaller than the first. In the three-argument
+    form, <constant>0</constant> or <constant>1</constant> are returned when the condition is respectively
+    true or false.</para>
+
+    <para>For the verb <command>has-tpm2</command>, <constant>0</constant> is returned if a TPM2 device is
+    discovered, supported, and used by firmware, driver, and userspace (i.e. <command>systemd</command>).
+    Otherwise, the OR combination of the value <constant>1</constant> (in case firmware support is missing),
+    <constant>2</constant> (in case driver support is missing), and <constant>4</constant> (in case userspace
+    support is missing). If no TPM2 support is available at all, value <constant>7</constant> is hence
+    returned.</para>
+  </refsect1>
+
+  <xi:include href="common-variables.xml" />
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>JSON Policy</title>
+
+      <para>The JSON file passed as a path parameter to <option>--security-policy=</option> has a top-level
+      JSON object, with keys being the assessment test identifiers mentioned above. The values in the file
+      should be JSON objects with one or more of the following fields: <option>description_na</option>
+      (string), <option>description_good</option> (string), <option>description_bad</option> (string),
+      <option>weight</option> (unsigned integer), and <option>range</option> (unsigned integer). If any of
+      these fields corresponding to a specific id of the unit file is missing from the JSON object, the
+      default built-in field value corresponding to that same id is used for security analysis as default.
+      The weight and range fields are used in determining the overall exposure level of the unit files: the
+      value of each setting is assigned a badness score, which is multiplied by the policy weight and divided
+      by the policy range to determine the overall exposure that the setting implies. The computed badness is
+      summed across all settings in the unit file, normalized to the 1…100 range, and used to determine the
+      overall exposure level of the unit.  By allowing users to manipulate these fields, the 'security' verb
+      gives them the option to decide for themself which ids are more important and hence should have a
+      greater effect on the exposure level. A weight of <literal>0</literal> means the setting will not be
+      checked.</para>
+
+      <programlisting>
+{
+  "PrivateDevices":
+    {
+    "description_good": "Service has no access to hardware devices",
+    "description_bad": "Service potentially has access to hardware devices",
+    "weight": 1000,
+    "range": 1
+    },
+  "PrivateMounts":
+    {
+    "description_good": "Service cannot install system mounts",
+    "description_bad": "Service may install system mounts",
+    "weight": 1000,
+    "range": 1
+    },
+  "PrivateNetwork":
+    {
+    "description_good": "Service has no access to the host's network",
+    "description_bad": "Service has access to the host's network",
+    "weight": 2500,
+    "range": 1
+    },
+  "PrivateTmp":
+    {
+    "description_good": "Service has no access to other software's temporary files",
+    "description_bad": "Service has access to other software's temporary files",
+    "weight": 1000,
+    "range": 1
+    },
+  "PrivateUsers":
+    {
+    "description_good": "Service does not have access to other users",
+    "description_bad": "Service has access to other users",
+    "weight": 1000,
+    "range": 1
+    }
+}
+</programlisting>
+    </example>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

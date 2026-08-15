@@ -1,0 +1,957 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!--
+  SPDX-License-Identifier: LGPL-2.1-or-later
+
+  Copyright © 2010 Brandon Philips
+-->
+<refentry id="tmpfiles.d"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>tmpfiles.d</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>tmpfiles.d</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>tmpfiles.d</refname>
+    <refpurpose>Configuration for creation, deletion, and cleaning of files and directories</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><simplelist>
+      <member><filename>/etc/tmpfiles.d/*.conf</filename></member>
+      <member><filename>/run/tmpfiles.d/*.conf</filename></member>
+      <member><filename>/usr/local/lib/tmpfiles.d/*.conf</filename></member>
+      <member><filename>/usr/lib/tmpfiles.d/*.conf</filename></member>
+    </simplelist></para>
+
+    <para><simplelist>
+      <member><filename>~/.config/user-tmpfiles.d/*.conf</filename></member>
+      <member><filename>$XDG_RUNTIME_DIR/user-tmpfiles.d/*.conf</filename></member>
+      <member><filename>~/.local/share/user-tmpfiles.d/*.conf</filename></member>
+      <member><filename index='false'>…</filename></member>
+      <member><filename>/usr/local/share/user-tmpfiles.d/*.conf</filename></member>
+      <member><filename>/usr/share/user-tmpfiles.d/*.conf</filename></member>
+    </simplelist></para>
+
+    <programlisting>#Type Path                                     Mode User Group Age         Argument
+f     /file/to/create                          mode user group -           content
+f+    /file/to/create-or-truncate              mode user group -           content
+w     /file/to/write-to                        -    -    -     -           content
+w+    /file/to/append-to                       -    -    -     -           content
+d     /directory/to/create-and-clean-up        mode user group cleanup-age -
+D     /directory/to/create-and-remove          mode user group cleanup-age -
+e     /directory/to/clean-up                   mode user group cleanup-age -
+v     /subvolume-or-directory/to/create        mode user group cleanup-age -
+q     /subvolume-or-directory/to/create        mode user group cleanup-age -
+Q     /subvolume-or-directory/to/create        mode user group cleanup-age -
+p     /fifo/to/create                          mode user group -           -
+p+    /fifo/to/[re]create                      mode user group -           -
+L     /symlink/to/create                       -    -    -     -           symlink/target/path
+L+    /symlink/to/[re]create                   -    -    -     -           symlink/target/path
+c     /dev/char-device-to-create               mode user group -           major:minor
+c+    /dev/char-device-to-[re]create           mode user group -           major:minor
+b     /dev/block-device-to-create              mode user group -           major:minor
+b+    /dev/block-device-to-[re]create          mode user group -           major:minor
+C     /target/to/create                        -    -    -     cleanup-age /source/to/copy
+C+    /target/to/create                        -    -    -     cleanup-age /source/to/copy
+x     /path-or-glob/to/ignore/recursively      -    -    -     cleanup-age -
+X     /path-or-glob/to/ignore                  -    -    -     cleanup-age -
+r     /path-or-glob/to/remove                  -    -    -     -           -
+R     /path-or-glob/to/remove/recursively      -    -    -     -           -
+z     /path-or-glob/to/adjust/mode             mode user group -           -
+Z     /path-or-glob/to/adjust/mode/recursively mode user group -           -
+t     /path-or-glob/to/set/xattrs              -    -    -     -           xattrs
+T     /path-or-glob/to/set/xattrs/recursively  -    -    -     -           xattrs
+h     /path-or-glob/to/set/attrs               -    -    -     -           file attrs
+H     /path-or-glob/to/set/attrs/recursively   -    -    -     -           file attrs
+a     /path-or-glob/to/set/acls                -    -    -     -           POSIX ACLs
+a+    /path-or-glob/to/append/acls             -    -    -     -           POSIX ACLs
+A     /path-or-glob/to/set/acls/recursively    -    -    -     -           POSIX ACLs
+A+    /path-or-glob/to/append/acls/recursively -    -    -     -           POSIX ACLs
+k     /path-or-glob/to/set/caps                -    -    -     -           file capabilities
+k+    /path-or-glob/to/adjust/caps             -    -    -     -           file capabilities
+K     /path-or-glob/to/set/caps/recursively    -    -    -     -           file capabilities
+K+    /path-or-glob/to/adjust/caps/recursively -    -    -     -           file capabilities
+
+</programlisting>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>tmpfiles.d</filename> configuration files provide a generic mechanism to define the
+    <emphasis>creation</emphasis> of regular files, directories, pipes, and device nodes, adjustments to
+    their <emphasis>access mode, ownership, attributes, quota assignments, and contents</emphasis>, and
+    finally their time-based <emphasis>removal</emphasis>. It is mostly commonly used for volatile and
+    temporary files and directories (such as those located under <filename>/run/</filename>,
+    <filename>/tmp/</filename>, <filename>/var/tmp/</filename>, the API file systems such as
+    <filename>/sys/</filename> or <filename>/proc/</filename>, as well as some other directories below
+    <filename>/var/</filename>).</para>
+
+    <para><citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    uses this configuration to create volatile files and directories during boot and to do periodic cleanup
+    afterwards. See
+    <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
+    the description of <filename>systemd-tmpfiles-setup.service</filename>,
+    <filename>systemd-tmpfiles-clean.service</filename>, and associated units.</para>
+
+    <para>System daemons frequently require private runtime directories below <filename>/run/</filename> to
+    store communication sockets and similar. For these, it is better to use
+    <varname>RuntimeDirectory=</varname> in their unit files (see
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details), if the flexibility provided by <filename>tmpfiles.d</filename> is not required. The advantages
+    are that the configuration required by the unit is centralized in one place, and that the lifetime of the
+    directory is tied to the lifetime of the service itself. Similarly, <varname>StateDirectory=</varname>,
+    <varname>CacheDirectory=</varname>, <varname>LogsDirectory=</varname>, and
+    <varname>ConfigurationDirectory=</varname> should be used to create directories under
+    <filename>/var/lib/</filename>, <filename>/var/cache/</filename>, <filename>/var/log/</filename>, and
+    <filename>/etc/</filename>. <filename>tmpfiles.d</filename> should be used for files whose lifetime is
+    independent of any service or requires more complicated configuration.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Configuration Directories and Precedence</title>
+
+    <para>Each configuration file shall be named in the style of
+    <filename><replaceable>package</replaceable>.conf</filename> or
+    <filename><replaceable>package</replaceable>-<replaceable>part</replaceable>.conf</filename>.
+    The second variant should be used when it is desirable to make it
+    easy to override just this part of configuration.</para>
+
+    <para>Files in <filename>/etc/tmpfiles.d</filename> override files with the same name in
+    <filename>/usr/lib/tmpfiles.d</filename> and <filename>/run/tmpfiles.d</filename>. Files in
+    <filename>/run/tmpfiles.d</filename> override files with the same name in
+    <filename>/usr/lib/tmpfiles.d</filename>. Packages should install their configuration files in
+    <filename>/usr/lib/tmpfiles.d</filename>. Files in <filename>/etc/tmpfiles.d</filename> are reserved for
+    the local administrator, who may use this logic to override the configuration files installed by vendor
+    packages. All configuration files are sorted by their filename in lexicographic order, regardless of
+    which of the directories they reside in. If multiple files specify the same path, the entry in the file
+    with the lexicographically earliest name will be applied (note that lines suppressed due to the
+    <literal>!</literal> are filtered before application, meaning that if an early line carries the
+    exclamation mark and is suppressed because of that, a later line matching in path will be applied).  All
+    other conflicting entries will be logged as errors. When two lines are prefix path and suffix path of
+    each other, then the prefix line is always created first, the suffix later (and if removal applies to the
+    line, the order is reversed: the suffix is removed first, the prefix later). Lines that take globs are
+    applied after those accepting no globs. If multiple operations shall be applied on the same file (such as
+    ACL, xattr, file attribute adjustments), these are always done in the same fixed order. Except for those
+    cases, the files/directories are processed in the order they are listed.</para>
+
+    <para>If the administrator wants to disable a configuration file
+    supplied by the vendor, the recommended way is to place a symlink
+    to <filename>/dev/null</filename> in
+    <filename>/etc/tmpfiles.d/</filename> bearing the same filename.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Configuration File Format</title>
+
+    <para>The configuration format is one line per path, containing type, path, mode, ownership, age, and
+    argument fields. The lines are separated by newlines, the fields by whitespace:</para>
+
+    <programlisting>#Type Path        Mode User Group Age Argument…
+d     /run/user   0755 root root  10d -
+L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
+
+    <para>Fields may contain C-style escapes. With the exception of the seventh field (the "argument") all
+    fields may be enclosed in quotes. Note that any whitespace found in the line after the beginning of the
+    argument field will be considered part of the argument field. To begin the argument field with a
+    whitespace character, use C-style escapes (e.g. <literal>\x20</literal>). Line types which do not
+    document use of the argument field reject a non-empty argument field; use <literal>-</literal> to leave
+    the argument field empty.</para>
+
+    <refsect2>
+      <title>Type</title>
+
+      <para>The type consists of a single letter and optionally one or more modifier characters: a plus sign
+      (<literal>+</literal>), exclamation mark (<literal>!</literal>), minus sign (<literal>-</literal>),
+      equals sign (<literal>=</literal>), tilde character (<literal>~</literal>) and/or caret
+      (<literal>^</literal>).</para>
+
+      <para>The following line types are understood:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><varname>f</varname></term>
+          <term><varname>f+</varname></term>
+          <listitem><para><varname>f</varname> will create a file if it does not exist yet. If the argument
+          parameter is given and the file did not exist yet, it will be written to the file.
+          <varname>f+</varname> will create or truncate the file. If the argument parameter is given, it will
+          be written to the file. Does not follow symlinks.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>w</varname></term>
+          <term><varname>w+</varname></term>
+          <listitem><para>Write the argument parameter to a file, if the file exists.
+          If suffixed with <varname>+</varname>, the line will be appended to the file.
+          If your configuration writes multiple lines to the same file, use <varname>w+</varname>.
+          Lines of this type accept shell-style globs in place of normal path names.
+          The argument parameter will be written without a trailing newline.
+          C-style backslash escapes are interpreted. Follows symlinks.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>d</varname></term>
+          <listitem><para>Create a directory. The mode and ownership will be adjusted if specified. Contents
+          of this directory are subject to time-based cleanup if the age argument is specified.
+          </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>D</varname></term>
+          <listitem><para>Similar to <varname>d</varname>, but in addition the contents of the directory will
+          be removed when <option>--remove</option> is used.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>e</varname></term>
+          <listitem><para>Adjust the mode and ownership of existing directories and remove their contents
+          based on age. Lines of this type accept shell-style globs in place of normal path names. Contents
+          of the directories are subject to time-based cleanup if the age argument is specified. If the age
+          argument is <literal>0</literal>, contents will be unconditionally deleted every time
+          <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          <option>--clean</option> is run.</para>
+
+          <para>For this entry to be useful, at least one of the mode, user, group, or age arguments must be
+          specified, since otherwise this entry has no effect. As an exception, an entry with no effect may
+          be useful when combined with <varname>!</varname>, see the examples.</para>
+
+          <xi:include href="version-info.xml" xpointer="v230"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>v</varname></term>
+          <listitem><para>Create a subvolume if the path does not exist yet, the file system supports
+          subvolumes (btrfs), and the system itself is installed into a subvolume (specifically: the root
+          directory <filename>/</filename> is itself a subvolume). Otherwise, create a normal directory, in
+          the same way as <varname>d</varname>.</para>
+
+          <para>A subvolume created with this line type is not assigned to any higher-level quota group. For
+          that, use <varname>q</varname> or <varname>Q</varname>, which allow creating simple quota group
+          hierarchies, see below.</para>
+
+          <xi:include href="version-info.xml" xpointer="v219"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>q</varname></term>
+          <listitem><para>Create a subvolume or directory the same as <varname>v</varname>, but assign the
+          subvolume to the same higher-level quota groups as the parent. This ensures that higher-level
+          limits and accounting applied to the parent subvolume also include the specified subvolume. On
+          non-btrfs file systems, this line type is identical to <varname>d</varname>.</para>
+
+          <para>If the subvolume already exists, no change to the quota hierarchy is made, regardless of whether the
+          subvolume is already attached to a quota group or not. Also see <varname>Q</varname> below. See
+          <citerefentry project='url'><refentrytitle url='https://btrfs.readthedocs.io/en/latest/btrfs-qgroup.html'>btrfs-qgroup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          for details about the btrfs quota group concept.</para>
+
+          <xi:include href="version-info.xml" xpointer="v228"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>Q</varname></term>
+          <listitem><para>Create the subvolume or directory the same as <varname>v</varname>, but assign the
+          new subvolume to a new leaf quota group. Instead of copying the higher-level quota group
+          assignments from the parent as is done with <varname>q</varname>, the lowest quota group of the
+          parent subvolume is determined that is not the leaf quota group. Then, an "intermediary" quota
+          group is inserted that is one level below this level, and shares the same ID part as the specified
+          subvolume. If no higher-level quota group exists for the parent subvolume, a new quota group at
+          level 255 sharing the same ID as the specified subvolume is inserted instead. This new intermediary
+          quota group is then assigned to the parent subvolume's higher-level quota groups, and the specified
+          subvolume's leaf quota group is assigned to it.</para>
+
+          <para>Effectively, this has a similar effect as <varname>q</varname>, however introduces a new higher-level
+          quota group for the specified subvolume that may be used to enforce limits and accounting to the specified
+          subvolume and children subvolume created within it. Thus, by creating subvolumes only via
+          <varname>q</varname> and <varname>Q</varname>, a concept of "subtree quotas" is implemented. Each subvolume
+          for which <varname>Q</varname> is set will get a "subtree" quota group created, and all child subvolumes
+          created within it will be assigned to it. Each subvolume for which <varname>q</varname> is set will not get
+          such a "subtree" quota group, but it is ensured that they are added to the same "subtree" quota group as
+          their immediate parents.</para>
+
+          <para>It is recommended to use <varname>Q</varname> for subvolumes that typically contain further subvolumes,
+          and where it is desirable to have accounting and quota limits on all child subvolumes together. Examples for
+          <varname>Q</varname> are typically <filename>/home/</filename> or <filename>/var/lib/machines/</filename>. In
+          contrast, <varname>q</varname> should be used for subvolumes that either usually do not include further
+          subvolumes or where no accounting and quota limits are needed that apply to all child subvolumes
+          together. Examples for <varname>q</varname> are typically <filename>/var/</filename> or
+          <filename>/var/tmp/</filename>. </para>
+
+          <para>As with <varname>q</varname>, <varname>Q</varname> has no effect on the quota group hierarchy if the
+          subvolume already exists, regardless of whether the subvolume already belong to a quota group or not.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v228"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>p</varname></term>
+          <term><varname>p+</varname></term>
+          <listitem><para>Create a named pipe (FIFO) if it does not
+          exist yet. If suffixed with <varname>+</varname> and a file
+          already exists where the pipe is to be created, it will be
+          removed and be replaced by the pipe.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>L</varname></term>
+          <term><varname>L+</varname></term>
+          <term><varname>L?</varname></term>
+          <listitem><para>Create a symlink if it does not exist yet. If suffixed with <varname>+</varname>
+          and a file or directory already exists where the symlink is to be created, it will be removed and
+          be replaced by the symlink. If suffixed with <varname>?</varname> and the source path does not
+          exist, the symlink is not created. If the argument is omitted, symlinks to files with the same name
+          residing in the directory <filename>/usr/share/factory/</filename> are created. Note that
+          permissions on symlinks are ignored.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>c</varname></term>
+          <term><varname>c+</varname></term>
+          <listitem><para>Create a character device node if it does
+          not exist yet. If suffixed with <varname>+</varname> and a
+          file already exists where the device node is to be created,
+          it will be removed and be replaced by the device node. It is
+          recommended to suffix this entry with an exclamation mark to
+          only create static device nodes at boot, as udev will not
+          manage static device nodes that are created at runtime.
+          </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>b</varname></term>
+          <term><varname>b+</varname></term>
+          <listitem><para>Create a block device node if it does not
+          exist yet. If suffixed with <varname>+</varname> and a file
+          already exists where the device node is to be created, it
+          will be removed and be replaced by the device node. It is
+          recommended to suffix this entry with an exclamation mark to
+          only create static device nodes at boot, as udev will not
+          manage static device nodes that are created at runtime.
+          </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>C</varname></term>
+          <term><varname>C+</varname></term>
+          <listitem><para>Recursively copy a file or directory, if the destination files or directories do
+          not exist yet or the destination directory is empty. Note that this command will not descend into
+          subdirectories if the destination directory already exists and is not empty, unless the action is
+          suffixed with <varname>+</varname>. Instead, the entire copy operation is skipped. If the argument
+          is omitted, files from the source directory <filename>/usr/share/factory/</filename> with the same
+          name are copied. Does not follow symlinks. Contents of the directories are subject to time-based
+          cleanup if the age argument is specified.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v214"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>x</varname></term>
+          <listitem><para>Ignore a path during cleaning. Use this type
+          to exclude paths from clean-up as controlled with the Age
+          parameter. Lines of this type accept shell-style globs in place
+          of normal path names.  </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>X</varname></term>
+          <listitem><para>Ignore a path during cleaning. Use this type
+          to exclude paths from clean-up as controlled with the Age
+          parameter. Unlike <varname>x</varname>, this parameter will
+          not exclude the content if path is a directory, but only
+          directory itself. Lines of this type accept
+          shell-style globs in place of normal path names.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v198"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>r</varname></term>
+          <listitem><para>Remove a file or directory if it exists.
+          This may not be used to remove non-empty directories, use
+          <varname>R</varname> for that.  Lines of this type accept
+          shell-style globs in place of normal path
+          names. Does not follow symlinks. When <option>--clean</option> is used, the file or directory is subject
+          to time-based cleanup if the age argument is specified. This age handling was added in v262.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>R</varname></term>
+          <listitem><para>Recursively remove a path and all its
+          subdirectories (if it is a directory). Lines of this type
+          accept shell-style globs in place of normal path
+          names. Does not follow symlinks. When <option>--clean</option> is used, the path is subject to
+          time-based cleanup if the age argument is specified. This age handling was added in v262.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>z</varname></term>
+          <listitem><para>Adjust the access mode, user and group ownership, and restore the SELinux security
+          context of a file or directory, if it exists. Lines of this type accept shell-style globs in place
+          of normal path names. Does not follow symlinks.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>Z</varname></term>
+          <listitem><para>Recursively set the access mode, user and group ownership, and restore the SELinux
+          security context of a file or directory if it exists, as well as of its subdirectories and the
+          files contained therein (if applicable). Lines of this type accept shell-style globs in place of
+          normal path names. Does not follow symlinks.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>t</varname></term>
+          <listitem><para>Set extended attributes, see <citerefentry
+          project='man-pages'><refentrytitle>attr</refentrytitle>
+          <manvolnum>5</manvolnum></citerefentry> for details. The argument field should take one or more
+          assignment expressions in the form
+          <replaceable>namespace</replaceable>.<replaceable>attribute</replaceable>=<replaceable>value</replaceable>,
+          for examples see below. Lines of this type accept shell-style globs in place of normal path
+          names. This can be useful for setting SMACK labels. Does not follow symlinks.</para>
+
+          <para>Please note that extended attributes settable with this line type are a different concept
+          from the Linux file attributes settable with <varname>h</varname>/<varname>H</varname>, see
+          below.</para>
+
+          <xi:include href="version-info.xml" xpointer="v218"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>T</varname></term>
+          <listitem><para>Same as <varname>t</varname>, but operates recursively.</para>
+
+          <xi:include href="version-info.xml" xpointer="v219"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>h</varname></term>
+          <listitem><para>Set Linux file/directory attributes. Lines of this type accept shell-style globs in
+          place of normal path names.</para>
+
+          <para>The format of the argument field is <varname>[+-=][aAcCdDeijPsStTu]</varname>. The prefix
+          <varname>+</varname> (the default one) causes the attributes to be added; <varname>-</varname>
+          causes the attributes to be removed; <varname>=</varname> causes the attributes to be set exactly
+          as the following letters. The letters <literal>aAcCdDeijPsStTu</literal> select the new attributes
+          for the files, see <citerefentry project='man-pages'><refentrytitle>chattr</refentrytitle>
+          <manvolnum>1</manvolnum></citerefentry> for further information.
+          </para>
+
+          <para>Passing only <varname>=</varname> as argument resets all the file attributes listed above. It
+          has to be pointed out that the <varname>=</varname> prefix limits itself to the attributes
+          corresponding to the letters listed here. All other attributes will be left untouched. Does not
+          follow symlinks.</para>
+
+          <para>Please note that the Linux file attributes settable with this line type are a different
+          concept from the extended attributes settable with <varname>t</varname>/<varname>T</varname>,
+          see above.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>H</varname></term>
+          <listitem><para>Sames as <varname>h</varname>, but operates recursively.</para>
+
+          <xi:include href="version-info.xml" xpointer="v220"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>a</varname></term>
+          <term><varname>a+</varname></term>
+          <listitem><para>Set POSIX ACLs (access control lists), see
+          <citerefentry project='man-pages'><refentrytitle>acl</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          Additionally, if 'X' is used, the execute bit is set only if the file is a directory or already has
+          execute permission for some user, as mentioned in
+          <citerefentry project='man-pages'><refentrytitle>setfacl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+          If suffixed with <varname>+</varname>, the specified entries will be added to the existing set.
+          <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          will automatically add the required base entries for user and group based on the access mode of the
+          file, unless base entries already exist or are explicitly specified. The mask will be added if not
+          specified explicitly or already present. Lines of this type accept shell-style globs in place of
+          normal path names. This can be useful for allowing additional access to certain files. Does not
+          follow symlinks.</para>
+
+          <xi:include href="version-info.xml" xpointer="v219"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>A</varname></term>
+          <term><varname>A+</varname></term>
+          <listitem><para>Same as <varname>a</varname> and
+          <varname>a+</varname>, but recursive. Does not follow
+          symlinks.</para>
+
+          <xi:include href="version-info.xml" xpointer="v219"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>k</varname></term>
+          <term><varname>k+</varname></term>
+          <listitem><para>Set file capabilities, see <citerefentry
+          project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+          Lines of this type accept shell-style globs in place of normal path names. Does not follow
+          symlinks.</para>
+
+          <para>The syntax follows <citerefentry
+          project='man-pages'><refentrytitle>cap_text_formats</refentrytitle><manvolnum>7</manvolnum></citerefentry>. It
+          also supports <literal>rootuid=<replaceable>INT</replaceable></literal> for the user namespace root
+          user ID.</para>
+
+          <para>If suffixed with <varname>+</varname>, current capabilities on the file that are not touched by the expression
+          will be kept. For example, if all <literal>cap_setuid</literal> capabilities need to be removed but
+          others should be kept, one can use <varname>k+</varname> with <literal>cap_setuid=</literal> or
+          <literal>cap_setuid-eip</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>K</varname></term>
+          <term><varname>K+</varname></term>
+          <listitem><para>Same as <varname>k</varname> and
+          <varname>k+</varname>, but recursive. Does not follow
+          symlinks.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>Type Modifiers</title>
+
+      <para>If the exclamation mark (<literal>!</literal>) is used, this line is only safe to execute during
+      boot, and can break a running system. Lines without the exclamation mark are presumed to be safe to
+      execute at any time, e.g. on package upgrades.
+      <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      will take lines with an exclamation mark only into consideration, if the <option>--boot</option> option
+      is given.</para>
+
+      <para>For example:
+      <programlisting># Make sure these are created by default so that nobody else can
+d /tmp/.X11-unix 1777 root root 10d
+
+# Unlink the X11 lock files
+r! /tmp/.X[0-9]*-lock</programlisting>
+      The second line in contrast to the first one would break a
+      running system, and will only be executed with
+      <option>--boot</option>.</para>
+
+      <para>If the minus sign (<literal>-</literal>) is used, this line failing to run successfully during
+      create (and only create) will not cause the execution of
+      <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      to return an error.</para>
+
+      <para>For example:
+      <programlisting># Modify sysfs but do not fail if we are in a container with a read-only /proc
+w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
+
+      <para>If the equals sign (<literal>=</literal>) is used, the file types of existing objects in the specified path
+      are checked, and removed if they do not match. This includes any implicitly created parent directories (which can
+      be either directories or directory symlinks). For example, if there is a FIFO in place of one of the parent path
+      components it will be replaced with a directory.</para>
+
+      <para>If the tilde character (<literal>~</literal>) is used, the argument (i.e. 6th) column is <ulink
+      url="https://www.rfc-editor.org/rfc/rfc4648.html">Base64 decoded</ulink> before use. This modifier is
+      only supported on line types that can write file contents, i.e. <varname>f</varname>,
+      <varname>f+</varname>, <varname>w</varname>, <varname>+</varname>. This is useful for writing arbitrary
+      binary data (including newlines and NUL bytes) to files. Note that if this switch is used, the argument
+      is not subject to specifier expansion, neither before nor after Base64 decoding.</para>
+
+      <para>If the caret character (<literal>^</literal>) is used, the argument (i.e. 6th) column takes a
+      service credential name to read the argument data from. See <ulink
+      url="https://systemd.io/CREDENTIALS">System and Service Credentials</ulink> for details about the
+      credentials concept. This modifier is only supported on line types that can write file contents,
+      i.e. <varname>f</varname>, <varname>f+</varname>, <varname>w</varname>, <varname>w+</varname>. This is
+      useful for writing arbitrary files with contents sourced from elsewhere, including from VM or container
+      managers further up. If the specified credential is not set for the <command>systemd-tmpfiles</command>
+      service, the line is silently skipped. If <literal>^</literal> and <literal>~</literal> are combined
+      Base64 decoding is applied to the credential contents.</para>
+
+      <para>If the dollar sign (<literal>$</literal>) is used, the file becomes subject to removal when
+      <command>systemd-tmpfiles</command> is invoked with the <option>--purge</option> switch. Lines without
+      this character are unaffected by that switch.</para>
+
+      <para>Note that for all line types that result in creation of any kind of file node
+      (i.e. <varname>f</varname>,
+      <varname>d</varname>/<varname>D</varname>/<varname>v</varname>/<varname>q</varname>/<varname>Q</varname>,
+      <varname>p</varname>, <varname>L</varname>, <varname>c</varname>/<varname>b</varname> and <varname>C</varname>)
+      leading directories are implicitly created if needed, owned by root with an access mode of 0755. In order to
+      create them with different modes or ownership make sure to add appropriate <varname>d</varname> lines.</para>
+    </refsect2>
+
+    <refsect2>
+      <title>Path</title>
+
+      <para>The file system path specification supports simple
+      specifier expansion, see below. The path (after expansion) must be
+      absolute.</para>
+    </refsect2>
+
+    <refsect2>
+      <title>Mode</title>
+
+      <para>The file access mode to use when creating this file or directory. If omitted or when set to
+      <literal>-</literal>, the default is used: 0755 for directories, 0644 for all other file objects. For
+      <varname>z</varname>, <varname>Z</varname> lines, if omitted or when set to <literal>-</literal>, the
+      file access mode will not be modified. This parameter is ignored for <varname>x</varname>,
+      <varname>r</varname>, <varname>R</varname>, <varname>L</varname>, <varname>t</varname>,
+      <varname>a</varname>, and <varname>k</varname> lines.</para>
+
+      <para>Optionally, if prefixed with <literal>~</literal>, the access mode is masked based on the already
+      set access bits for existing file or directories: if the existing file has all executable bits unset,
+      all executable bits are removed from the new access mode, too. Similarly, if all read bits are removed
+      from the old access mode, they will be removed from the new access mode too, and if all write bits are
+      removed, they will be removed from the new access mode too. In addition, the sticky/SUID/SGID bit is
+      removed unless applied to a directory. This functionality is particularly useful in conjunction with
+      <varname>Z</varname>.</para>
+
+      <para>By default, the access mode of listed inodes is set to the specified mode regardless of whether it is
+      created anew, or already existed. Optionally, if prefixed with <literal>:</literal>, the configured
+      access mode is only applied when creating new inodes, and if the inode the line refers to
+      already exists, its access mode is left in place unmodified.</para>
+    </refsect2>
+
+    <refsect2>
+      <title>User, Group</title>
+
+      <para>The user and group to use for this file or directory. This may either be a numeric ID or a
+      user/group name. If omitted or when set to <literal>-</literal>, the user and group of the user who
+      invokes
+      <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry> is
+      used. For <varname>z</varname> and <varname>Z</varname> lines, when omitted or when set to
+      <literal>-</literal>, the file ownership will not be modified. These parameters are ignored for
+      <varname>x</varname>, <varname>r</varname>, <varname>R</varname>, <varname>t</varname>,
+      and <varname>a</varname> lines.</para>
+
+      <para>This field should generally only reference system users/groups, i.e. users/groups that are
+      guaranteed to be resolvable during early boot. If this field references users/groups that only become
+      resolvable during later boot (i.e. after NIS, LDAP or a similar networked directory service become
+      available), execution of the operations declared by the line will likely fail. Also see <ulink
+      url="https://systemd.io/UIDS-GIDS/#notes-on-resolvability-of-user-and-group-names">Notes on
+      Resolvability of User and Group Names</ulink> for more information on requirements on system user/group
+      definitions.</para>
+
+      <para>By default, the ownership of listed inodes is set to the specified user/group regardless of whether it is
+      created anew, or already existed. Optionally, if prefixed with <literal>:</literal>, the configured
+      user/group information is only applied when creating new inodes, and if the inode the line refers to
+      already exists, its user/group is left in place unmodified.</para>
+    </refsect2>
+
+    <refsect2>
+      <title>Age</title>
+
+      <para>The date field, when set, is used to decide what files to
+      delete when cleaning. If a file or directory is older than the
+      current time minus the age field, it is deleted. The field
+      format is a series of integers each followed by one of the
+      following suffixes for the respective time units:
+      <constant>s</constant>,
+      <constant>m</constant> or <constant>min</constant>,
+      <constant>h</constant>,
+      <constant>d</constant>,
+      <constant>w</constant>,
+      <constant>ms</constant>, and
+      <constant>us</constant>,
+      meaning seconds, minutes, hours, days, weeks,
+      milliseconds, and microseconds, respectively. Full names of the time units can
+      be used too.
+      </para>
+
+      <para>If multiple integers and units are specified, the time
+      values are summed. If an integer is given without a unit,
+      <constant>s</constant> is assumed.
+      </para>
+
+      <para>When the age is set to zero, the files are cleaned
+      unconditionally.</para>
+
+      <para>The age field only applies to lines starting with
+      <varname>d</varname>, <varname>D</varname>, <varname>e</varname>,
+      <varname>v</varname>, <varname>q</varname>,
+      <varname>Q</varname>, <varname>C</varname>, <varname>r</varname>,
+      <varname>R</varname>, <varname>x</varname> and <varname>X</varname>.
+      If omitted or set to <literal>-</literal>, no automatic clean-up is done.</para>
+
+      <para>If the age field starts with a tilde character <literal>~</literal>, clean-up is only applied to
+      files and directories one level inside the directory specified, but not the files and directories
+      immediately inside it. For <varname>R</varname> lines, this also skips removing the specified
+      top-level directory itself. This modifier is not supported by <varname>r</varname> lines.</para>
+
+      <para>The age of a file system entry is determined from its last
+      modification timestamp (mtime), its last access timestamp (atime),
+      and (except for directories) its last status change timestamp
+      (ctime). By default, any of these three (or two) values will
+      prevent cleanup if it is more recent than the current time minus
+      the age field. To restrict the deletion based on particular type
+      of file timestamps, the age-by argument can be used.</para>
+
+      <para>The age-by argument overrides the timestamp types to be used for the age check. It can be
+      specified by prefixing the age argument with a sequence of characters to specify the timestamp types
+      and a colon (<literal>:</literal>):
+      <literal><replaceable>age-by</replaceable>...:<replaceable>cleanup-age</replaceable></literal>.  The
+      argument can consist of <constant>a</constant> (<constant>A</constant> for directories),
+      <constant>b</constant> (<constant>B</constant> for directories), <constant>c</constant>
+      (<constant>C</constant> for directories), or <constant>m</constant> (<constant>M</constant> for
+      directories). Those respectively indicate access, creation, last status change, and last modification
+      time of a file system entry. The lower-case letter signifies that the given timestamp type should be
+      considered for files, while the upper-case letter signifies that the given timestamp type should be
+      considered for directories. See <citerefentry
+      project='man-pages'><refentrytitle>statx</refentrytitle><manvolnum>2</manvolnum></citerefentry> file
+      timestamp fields for more details about timestamp types.</para>
+
+      <para>If not specified, the age-by field defaults to <constant>abcmABM</constant>, i.e. by default all
+      file timestamps are taken into consideration, with the exception of the last status change timestamp
+      (ctime) for directories. This is because the aging logic itself will alter the ctime whenever it
+      deletes a file inside it. To ensure that running the aging logic does not feed back into the next
+      iteration of itself, ctime for directories is ignored by default.</para>
+
+      <para>For example:<programlisting>
+# Files created and modified, and directories accessed more than
+# an hour ago in "/tmp/foo/bar", are subject to time-based cleanup.
+d /tmp/foo/bar - - - bmA:1h -</programlisting></para>
+
+      <para>Note that while the aging algorithm is run an exclusive BSD file lock (see <citerefentry
+      project='man-pages'><refentrytitle>flock</refentrytitle><manvolnum>2</manvolnum></citerefentry>) is
+      taken on each directory/file the algorithm decides to remove. If the aging algorithm finds a lock
+      (shared or exclusive) is already taken on some directory/file, it (and everything below it) is skipped.
+      Applications may use this to temporarily exclude certain directory subtrees from the aging algorithm:
+      the applications can take a BSD file lock themselves, and as long as they keep it aging of the
+      directory/file and everything below it is disabled.</para>
+
+      <para>This behavior can be used to ensure guaranteed cleanup of files or directories whose lifetime
+      should be aligned with the process that created them by having that process create them in a location
+      monitored by <command>systemd-tmpfiles</command> with an age of <literal>0</literal>, and having the
+      process immediately lock the directory or file before using it. Because the BSD lock is process
+      specific, the file is guaranteed to be unlocked as soon as the process exits, meaning that even if the
+      process crashes, those files and directories will be unlocked and cleaned up by
+      <command>systemd-tmpfiles</command>.</para>
+    </refsect2>
+
+    <refsect2>
+      <title>Argument</title>
+
+      <para>For <varname>L</varname> lines determines the destination path of the symlink. For <varname>c</varname> and
+      <varname>b</varname>, determines the major/minor of the device node, with major and minor formatted as integers,
+      separated by <literal>:</literal>, e.g. <literal>1:3</literal>. For <varname>f</varname>
+      and <varname>w</varname>, the argument may be used to specify a short string that is written to the file,
+      suffixed by a newline. For <varname>C</varname>, specifies the source file or directory. For <varname>t</varname>
+      and <varname>T</varname>, determines extended attributes to be set. For <varname>a</varname> and
+      <varname>A</varname>, determines ACL attributes to be set. For <varname>h</varname> and <varname>H</varname>,
+      determines the file attributes to set. For <varname>k</varname> and <varname>K</varname>, determines
+      file capabilities to be set. For line types that do not document use of this field, a non-empty
+      argument is rejected; use <literal>-</literal> to leave it unset.</para>
+
+      <para>This field can contain specifiers, see below.</para>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Specifiers</title>
+
+    <para>Specifiers can be used in the "path" and "argument" fields.
+    An unknown or unresolvable specifier is treated as invalid configuration.
+    The following expansions are understood:</para>
+      <table class='specifiers'>
+        <title>Specifiers available</title>
+        <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+          <colspec colname="spec" />
+          <colspec colname="mean" />
+          <colspec colname="detail" />
+          <thead>
+            <row>
+              <entry>Specifier</entry>
+              <entry>Meaning</entry>
+              <entry>Details</entry>
+            </row>
+          </thead>
+          <tbody>
+            <xi:include href="standard-specifiers.xml" xpointer="a"/>
+            <xi:include href="standard-specifiers.xml" xpointer="A"/>
+            <xi:include href="standard-specifiers.xml" xpointer="b"/>
+            <xi:include href="standard-specifiers.xml" xpointer="B"/>
+            <row>
+              <entry><literal>%C</literal></entry>
+              <entry>System or user cache directory</entry>
+              <entry>In <option>--user</option> mode, this is the same as <varname>$XDG_CACHE_HOME</varname>, and <filename>/var/cache</filename> otherwise.</entry>
+            </row>
+            <xi:include href="standard-specifiers.xml" xpointer="D"/>
+            <row>
+              <entry><literal>%g</literal></entry>
+              <entry>User group</entry>
+              <entry>This is the name of the group running the command. In case of the system instance this resolves to <literal>root</literal>.</entry>
+            </row>
+            <row>
+              <entry><literal>%G</literal></entry>
+              <entry>User GID</entry>
+              <entry>This is the numeric GID of the group running the command. In case of the system instance this resolves to <constant>0</constant>.</entry>
+            </row>
+            <row>
+              <entry><literal>%h</literal></entry>
+              <entry>User home directory</entry>
+              <entry>This is the home directory of the user running the command. In case of the system instance this resolves to <literal>/root</literal>.</entry>
+            </row>
+            <xi:include href="standard-specifiers.xml" xpointer="H"/>
+            <xi:include href="standard-specifiers.xml" xpointer="l"/>
+            <row>
+              <entry><literal>%L</literal></entry>
+              <entry>System or user log directory</entry>
+              <entry>In <option>--user</option> mode, this is the same as <varname>$XDG_STATE_HOME</varname> with <filename index="false">/log</filename> appended, and <filename>/var/log</filename> otherwise.</entry>
+            </row>
+            <xi:include href="standard-specifiers.xml" xpointer="m"/>
+            <xi:include href="standard-specifiers.xml" xpointer="M"/>
+            <xi:include href="standard-specifiers.xml" xpointer="o"/>
+            <xi:include href="standard-specifiers.xml" xpointer="q"/>
+            <row>
+              <entry><literal>%S</literal></entry>
+              <entry>System or user state directory</entry>
+              <entry>In <option>--user</option> mode, this is the same as <varname>$XDG_STATE_HOME</varname>, and <filename>/var/lib</filename> otherwise.</entry>
+            </row>
+            <row>
+              <entry><literal>%t</literal></entry>
+              <entry>System or user runtime directory</entry>
+              <entry>In <option>--user</option> mode, this is the same as <varname>$XDG_RUNTIME_DIR</varname>, and <filename>/run/</filename> otherwise.</entry>
+            </row>
+            <xi:include href="standard-specifiers.xml" xpointer="T"/>
+            <row>
+              <entry><literal>%u</literal></entry>
+              <entry>User name</entry>
+              <entry>This is the name of the user running the command. In case of the system instance this resolves to <literal>root</literal>.</entry>
+            </row>
+            <row>
+              <entry><literal>%U</literal></entry>
+              <entry>User UID</entry>
+              <entry>This is the numeric UID of the user running the command. In case of the system instance this resolves to <constant>0</constant>.</entry>
+            </row>
+            <xi:include href="standard-specifiers.xml" xpointer="v"/>
+            <xi:include href="standard-specifiers.xml" xpointer="V"/>
+            <xi:include href="standard-specifiers.xml" xpointer="w"/>
+            <xi:include href="standard-specifiers.xml" xpointer="W"/>
+            <xi:include href="standard-specifiers.xml" xpointer="percent"/>
+          </tbody>
+        </tgroup>
+      </table>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+    <example>
+      <title>Create directories with specific mode and ownership</title>
+      <para>
+      <citerefentry project='die-net'><refentrytitle>screen</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      needs two directories created at boot with specific modes and ownership:</para>
+
+      <programlisting># /usr/lib/tmpfiles.d/screen.conf
+d /run/screens  1777 root screen 10d
+d /run/uscreens 0755 root screen 10d12h
+</programlisting>
+
+      <para>Contents of <filename>/run/screens</filename> and /run/uscreens will
+      be cleaned up after 10 and 10½ days, respectively.</para>
+    </example>
+
+    <example>
+      <title>Create a directory with a SMACK attribute</title>
+      <programlisting>D /run/cups - - - -
+t /run/cups - - - - security.SMACK64=printing user.attr-with-spaces="foo bar"
+</programlisting>
+
+      <para>The directory will be owned by root and have default mode. Its contents are
+      not subject to time-based cleanup, but will be obliterated when
+      <command>systemd-tmpfiles --remove</command> runs.</para>
+    </example>
+
+    <example>
+      <title>Create a directory and prevent its contents from cleanup</title>
+      <para>
+      <citerefentry project='die-net'><refentrytitle>abrt</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      needs a directory created at boot with specific mode and ownership and its content
+      should be preserved from the automatic cleanup applied to the contents of
+      <filename>/var/tmp</filename>:</para>
+
+      <programlisting># /usr/lib/tmpfiles.d/tmp.conf
+d /var/tmp 1777 root root 30d
+</programlisting>
+
+      <programlisting># /usr/lib/tmpfiles.d/abrt.conf
+d /var/tmp/abrt 0755 abrt abrt -
+</programlisting>
+    </example>
+
+    <example>
+      <title>Apply clean up during boot and based on time</title>
+
+      <programlisting># /usr/lib/tmpfiles.d/dnf.conf
+r! /var/cache/dnf/*/*/download_lock.pid
+r! /var/cache/dnf/*/*/metadata_lock.pid
+r! /var/lib/dnf/rpmdb_lock.pid
+e  /var/cache/dnf/ - - - 30d
+</programlisting>
+
+     <para>The lock files will be removed during boot. Any files and directories in
+     <filename>/var/cache/dnf/</filename> will be removed after they have not been
+     accessed in 30 days.</para>
+    </example>
+
+    <example>
+      <title>Empty the contents of a cache directory on boot</title>
+
+      <programlisting># /usr/lib/tmpfiles.d/krb5rcache.conf
+e! /var/cache/krb5rcache - - - 0
+</programlisting>
+
+      <para>Any files and subdirectories in <filename>/var/cache/krb5rcache/</filename>
+      will be removed on boot. The directory will not be created.
+      </para>
+    </example>
+
+    <example>
+      <title>Provision SSH public key access for root user via Credentials in QEMU</title>
+
+      <programlisting>-smbios type=11,value=io.systemd.credential.binary:tmpfiles.extra=$(echo -e "d /root/.ssh 0750 root root -\nf~ /root/.ssh/authorized_keys 0600 root root - $(ssh-add -L | base64 -w 0)" | base64 -w 0)
+</programlisting>
+
+      <para>By passing this line to QEMU, the public key of the current user will be encoded in base64, added
+      to a tmpfiles.d line that tells
+      <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry> to
+      decode it into <filename>/root/.ssh/authorized_keys</filename>, encode that line itself in base64 and
+      pass it as a Credential that will be picked up by systemd from SMBIOS on boot.
+      </para>
+    </example>
+  </refsect1>
+
+  <refsect1>
+    <title><filename>/run/</filename> and <filename>/var/run/</filename></title>
+    <para><filename>/var/run/</filename> is a deprecated symlink to <filename>/run/</filename>, and
+    applications should use the latter. <command>systemd-tmpfiles</command> will warn if
+    <filename>/var/run/</filename> is used.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-delta</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>attr</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>getfattr</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>setfattr</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>setfacl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>getfacl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>chattr</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='url'><refentrytitle url='https://btrfs.readthedocs.io/en/latest/btrfs-subvolume.html'>btrfs-subvolume</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='url'><refentrytitle url='https://btrfs.readthedocs.io/en/latest/btrfs-qgroup.html'>btrfs-qgroup</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

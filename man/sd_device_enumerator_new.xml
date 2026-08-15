@@ -1,0 +1,151 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd_device_enumerator_new" xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>sd_device_enumerator_new</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_device_enumerator_new</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_device_enumerator_new</refname>
+    <refname>sd_device_enumerator_ref</refname>
+    <refname>sd_device_enumerator_unref</refname>
+    <refname>sd_device_enumerator_unrefp</refname>
+    <refpurpose>Create, reference, and release a device enumerator object</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-device.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_device_enumerator_new</function></funcdef>
+        <paramdef>sd_device_enumerator **<parameter>ret</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>sd_device_enumerator* <function>sd_device_enumerator_ref</function></funcdef>
+        <paramdef>sd_device_enumerator *<parameter>enumerator</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>sd_device_enumerator* <function>sd_device_enumerator_unref</function></funcdef>
+        <paramdef>sd_device_enumerator *<parameter>enumerator</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>void <function>sd_device_enumerator_unrefp</function></funcdef>
+        <paramdef>sd_device_enumerator **<parameter>enumerator</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+    <para>The <function>sd_device_enumerator</function> family of functions provides a way to iterate
+    over devices recognized by <citerefentry><refentrytitle>systemd-udevd</refentrytitle><manvolnum>8</manvolnum>
+    </citerefentry>. The enumerator allows filtering and matching devices by subsystem, properties and
+    other attributes.</para>
+
+    <para><function>sd_device_enumerator_new()</function> creates a new device enumerator object and
+    stores the result in the pointer referenced by <parameter>ret</parameter>. Returns 0 on success,
+    or a negative errno-style error code on failure.</para>
+
+    <para><function>sd_device_enumerator_ref()</function> increases the reference count of the
+    specified <parameter>enumerator</parameter> by one.</para>
+
+    <para><function>sd_device_enumerator_unref()</function> decreases the reference count of the
+    <parameter>enumerator</parameter> by one. When the reference count reaches zero, the enumerator
+    object is destroyed and cannot be used anymore, so further calls to <function>sd_device_enumerator_unref()
+    </function> or <function>sd_device_enumerator_unrefp()</function> are illegal.</para>
+
+    <para><function>sd_device_enumerator_unrefp()</function> is similar to
+    <function>sd_device_enumerator_unref()</function> but takes a pointer to a
+    pointer to an <type>sd_device_enumerator</type> object. This call is useful in
+    conjunction with GCC's and LLVM's <ulink
+    url="https://gcc.gnu.org/onlinedocs/gcc/Common-Variable-Attributes.html">Clean-up
+    Variable Attribute</ulink>. Note that this function is defined as an
+    inline function. Use a declaration like the following, in order to
+    allocate a <type>sd_device_enumerator</type> object that is freed automatically as the code
+    block is left:</para>
+
+    <programlisting>{
+  __attribute__((cleanup(sd_device_enumerator_unrefp))) sd_device_enumerator *enumerator = NULL;
+  int r;
+  …
+  r = sd_device_enumerator_new(&amp;enumerator);
+  if (r &lt; 0)
+    fprintf(stderr, "Failed to allocate sd_device_enumerator: %s\n", strerror(-r));
+  …
+}</programlisting>
+
+    <para><function>sd_device_enumerator_ref()</function> and <function>sd_device_enumerator_unref()</function>
+    execute no operation if the <parameter>enumerator</parameter> is <constant>NULL</constant>.
+    <function>sd_device_enumerator_unrefp()</function> will first dereference
+    its argument, which must not be <constant>NULL</constant>, and will execute no operation if
+    <emphasis>that</emphasis> is <constant>NULL</constant>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para><function>sd_device_enumerator_new()</function> returns 0 on success or a negative
+    errno-style error code on failure.</para>
+
+    <para><function>sd_device_enumerator_ref()</function> always returns the enumerator pointer.</para>
+    <para><function>sd_device_enumerator_unref()</function> always returns <constant>NULL</constant>.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
+
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>The argument is invalid.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Example</title>
+    <example>
+      <title>Using sd_device_enumerator_new()</title>
+      <programlisting><xi:include href="sd_device_enumerator_new-example.c" parse="text"/></programlisting>
+    </example>
+  </refsect1>
+
+  <refsect1>
+    <title>History</title>
+    <para><function>sd_device_enumerator_new()</function>, <function>sd_device_enumerator_ref()</function>,
+    <function>sd_device_enumerator_unref()</function>, and <function>sd_device_enumerator_unrefp()</function>
+    were added in version 240.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>sd_device_ref</refentrytitle><manvolnum>3</manvolnum>
+      </citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_device_enumerator_add_match_parent</refentrytitle>
+      <manvolnum>3</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

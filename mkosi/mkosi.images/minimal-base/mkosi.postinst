@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -e
+
+# We don't use mkosi.extra because /usr/sbin could be a symlink and cp doesn't handle that properly until
+# coreutils 9.5 or newer.
+mkdir -p "$BUILDROOT/sbin"
+rm -f "$BUILDROOT/sbin/init"
+cat >"$BUILDROOT/sbin/init" <<EOF
+#!/usr/bin/env bash
+echo "Hello from dummy init, beautiful day, innit?"
+ip link
+EOF
+chmod +x "$BUILDROOT/sbin/init"
+
+# Arch relies on tmpfiles.d/etc.conf but this image isn't booted
+if [ ! -e "$BUILDROOT/etc/os-release" ]; then
+    ln -s ../usr/lib/os-release "$BUILDROOT/etc/os-release"
+fi
+
+# For use in the minimal containers, only needs libsystemd and libc
+if [[ -x "$BUILDDIR/test-fdstore" ]]; then
+    cp "$BUILDDIR/test-fdstore" "$BUILDROOT/usr/bin/test-fdstore"
+elif [[ -x "$BUILDROOT/usr/lib/systemd/tests/unit-tests/manual/test-fdstore" ]]; then
+    cp "$BUILDROOT/usr/lib/systemd/tests/unit-tests/manual/test-fdstore" "$BUILDROOT/usr/bin/test-fdstore"
+elif [[ -x /usr/lib/systemd/tests/unit-tests/manual/test-fdstore ]]; then
+    cp /usr/lib/systemd/tests/unit-tests/manual/test-fdstore "$BUILDROOT/usr/bin/test-fdstore"
+else
+    echo >&2 "WARNING: test-fdstore binary not found, fdstore container tests will be skipped"
+fi

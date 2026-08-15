@@ -1,0 +1,54 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include <sys/uio.h>
+#include <unistd.h>
+
+#include "fd-util.h"
+#include "icmp6-test-util.h"
+#include "icmp6-util.h"
+#include "time-util.h"
+
+int test_fd[2] = EBADF_PAIR;
+int test_ifindex = 42;
+
+static struct in6_addr dummy_link_local = {
+        .s6_addr = {
+                0xfe, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x12, 0x34, 0x56, 0xff, 0xfe, 0x78, 0x9a, 0xbc,
+        },
+};
+
+int icmp6_bind(int ifindex, bool is_router) {
+        test_ifindex = ifindex;
+
+        if (!is_router && socketpair(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd) < 0)
+                return -errno;
+
+        return test_fd[is_router];
+}
+
+int icmp6_send(int fd, const struct in6_addr *dst, const struct iovec *iov, size_t n_iov) {
+        return writev(fd, iov, n_iov);
+}
+
+int icmp6_receive(
+                int fd,
+                void *buffer,
+                size_t size,
+                struct in6_addr *ret_sender,
+                int *ret_ifindex,
+                triple_timestamp *ret_timestamp) {
+
+        assert_se(read(fd, buffer, size) == (ssize_t) size);
+
+        if (ret_timestamp)
+                triple_timestamp_now(ret_timestamp);
+
+        if (ret_sender)
+                *ret_sender = dummy_link_local;
+
+        if (ret_ifindex)
+                *ret_ifindex = test_ifindex;
+
+        return 0;
+}

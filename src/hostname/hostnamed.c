@@ -1,0 +1,2737 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include <sys/stat.h>
+#include <sys/utsname.h>
+#include <unistd.h>
+
+#include "sd-bus.h"
+#include "sd-device.h"
+#include "sd-event.h"
+#include "sd-json.h"
+
+#include "alloc-util.h"
+#include "bitfield.h"
+#include "bus-common-errors.h"
+#include "bus-get-properties.h"
+#include "bus-log-control-api.h"
+#include "bus-object.h"
+#include "bus-polkit.h"
+#include "bus-util.h"
+#include "common-signal.h"
+#include "constants.h"
+#include "daemon-util.h"
+#include "device-private.h"
+#include "device-util.h"
+#include "dlopen-note.h"
+#include "env-file.h"
+#include "env-util.h"
+#include "extract-word.h"
+#include "fileio.h"
+#include "hashmap.h"
+#include "hostname-setup.h"
+#include "hostname-util.h"
+#include "id128-util.h"
+#include "json-util.h"
+#include "label-util.h"
+#include "log.h"
+#include "main-func.h"
+#include "nulstr-util.h"
+#include "os-util.h"
+#include "parse-util.h"
+#include "service-util.h"
+#include "stat-util.h"
+#include "string-util.h"
+#include "strv.h"
+#include "time-util.h"
+#include "varlink-io.systemd.Hostname.h"
+#include "varlink-io.systemd.service.h"
+#include "varlink-util.h"
+#include "virt.h"
+#include "vsock-util.h"
+
+#define VALID_DEPLOYMENT_CHARS (ALPHANUMERICAL "-.:")
+
+/* Properties we cache are indexed by an enum, to make invalidation easy and systematic (as we can iterate
+ * through them all, and they are uniformly strings). */
+typedef enum {
+        /* Read from /etc/hostname */
+        PROP_STATIC_HOSTNAME,
+        PROP_STATIC_HOSTNAME_SUBSTITUTED_WILDCARDS,
+
+        /* Read from /etc/machine-info (with fallbacks) */
+        PROP_PRETTY_HOSTNAME,
+        _PROP_MACHINE_INFO_SETTABLE_FIRST = PROP_PRETTY_HOSTNAME,
+        PROP_ICON_NAME,
+        PROP_CHASSIS,
+        PROP_DEPLOYMENT,
+        PROP_LOCATION,
+        PROP_TAGS,
+        _PROP_MACHINE_INFO_SETTABLE_LAST = PROP_TAGS,
+        PROP_HARDWARE_VENDOR,
+        PROP_HARDWARE_MODEL,
+        PROP_HARDWARE_SKU,
+        PROP_HARDWARE_VERSION,
+
+        /* Read from /etc/os-release (or /usr/lib/os-release) */
+        PROP_OS_PRETTY_NAME,
+        PROP_OS_FANCY_NAME,
+        PROP_OS_CPE_NAME,
+        PROP_OS_HOME_URL,
+        PROP_OS_SUPPORT_END,
+        PROP_OS_IMAGE_ID,
+        PROP_OS_IMAGE_VERSION,
+
+        _PROP_MAX,
+        _PROP_INVALID = -EINVAL,
+} HostProperty;
+
+typedef struct Context {
+        char *data[_PROP_MAX];
+
+        HostnameSource hostname_source;
+
+        struct stat etc_hostname_stat;
+        struct stat etc_os_release_stat;
+        struct stat etc_machine_info_stat;
+
+        sd_event *event;
+        sd_bus *bus;
+        sd_varlink_server *varlink_server;
+        Hashmap *polkit_registry;
+        sd_device *device_dmi;
+        sd_device *device_acpi;
+        sd_device *device_tree;
+} Context;
+
+static void context_reset(Context *c, uint64_t mask) {
+        assert(c);
+
+        for (HostProperty p = 0; p < _PROP_MAX; p++) {
+                if (!BIT_SET(mask, p))
+                        continue;
+
+                c->data[p] = mfree(c->data[p]);
+        }
+}
+
+#define context_reset_many(c, ...)      \
+        context_reset((c), INDEXES_TO_MASK(uint64_t, __VA_ARGS__))
+
+static void context_destroy(Context *c) {
+        assert(c);
+
+        context_reset(c, UINT64_MAX);
+        hashmap_free(c->polkit_registry);
+        sd_event_unref(c->event);
+        sd_bus_flush_close_unref(c->bus);
+        sd_varlink_server_unref(c->varlink_server);
+        sd_device_unref(c->device_dmi);
+        sd_device_unref(c->device_acpi);
+        sd_device_unref(c->device_tree);
+}
+
+static void context_read_etc_hostname(Context *c) {
+        struct stat current_stat = {};
+        int r;
+
+        assert(c);
+
+        if (stat(etc_hostname(), &current_stat) >= 0 &&
+            stat_inode_unmodified(&c->etc_hostname_stat, &current_stat))
+                return;
+
+        context_reset_many(c, PROP_STATIC_HOSTNAME,
+                              PROP_STATIC_HOSTNAME_SUBSTITUTED_WILDCARDS);
+
+        r = read_etc_hostname(/* path= */ NULL, /* substitute_wildcards= */ false, &c->data[PROP_STATIC_HOSTNAME]);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        log_warning_errno(r, "Failed to read /etc/hostname, ignoring: %m");
+        } else {
+                _cleanup_free_ char *substituted = NULL;
+
+                r = hostname_substitute_wildcards(c->data[PROP_STATIC_HOSTNAME], &substituted);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to substitute wildcards in /etc/hostname, ignoring: %m");
+                else if (!hostname_is_valid(substituted, VALID_HOSTNAME_TRAILING_DOT))
+                        log_warning("Hostname '%s' in /etc/hostname is invalid after expansion, ignoring.", substituted);
+                else
+                        c->data[PROP_STATIC_HOSTNAME_SUBSTITUTED_WILDCARDS] = TAKE_PTR(substituted);
+        }
+
+        c->etc_hostname_stat = current_stat;
+}
+
+static void context_read_machine_info(Context *c) {
+        struct stat current_stat = {};
+        int r;
+
+        assert(c);
+
+        if (stat(etc_machine_info(), &current_stat) >= 0 &&
+            stat_inode_unmodified(&c->etc_machine_info_stat, &current_stat))
+                return;
+
+        context_reset_many(c, PROP_PRETTY_HOSTNAME,
+                              PROP_ICON_NAME,
+                              PROP_CHASSIS,
+                              PROP_DEPLOYMENT,
+                              PROP_LOCATION,
+                              PROP_TAGS,
+                              PROP_HARDWARE_VENDOR,
+                              PROP_HARDWARE_MODEL,
+                              PROP_HARDWARE_SKU,
+                              PROP_HARDWARE_VERSION);
+
+        r = parse_env_file(NULL, etc_machine_info(),
+                           "PRETTY_HOSTNAME", &c->data[PROP_PRETTY_HOSTNAME],
+                           "ICON_NAME", &c->data[PROP_ICON_NAME],
+                           "CHASSIS", &c->data[PROP_CHASSIS],
+                           "DEPLOYMENT", &c->data[PROP_DEPLOYMENT],
+                           "LOCATION", &c->data[PROP_LOCATION],
+                           "TAGS", &c->data[PROP_TAGS],
+                           "HARDWARE_VENDOR", &c->data[PROP_HARDWARE_VENDOR],
+                           "HARDWARE_MODEL", &c->data[PROP_HARDWARE_MODEL],
+                           "HARDWARE_SKU", &c->data[PROP_HARDWARE_SKU],
+                           "HARDWARE_VERSION", &c->data[PROP_HARDWARE_VERSION]);
+        if (r < 0 && r != -ENOENT)
+                log_warning_errno(r, "Failed to read /etc/machine-info, ignoring: %m");
+
+        c->etc_machine_info_stat = current_stat;
+}
+
+static void context_read_os_release(Context *c) {
+        _cleanup_free_ char *os_name = NULL, *os_pretty_name = NULL, *os_fancy_name = NULL, *os_ansi_color = NULL;
+        struct stat current_stat = {};
+        int r;
+
+        assert(c);
+
+        if ((stat("/etc/os-release", &current_stat) >= 0 ||
+             stat("/usr/lib/os-release", &current_stat) >= 0) &&
+            stat_inode_unmodified(&c->etc_os_release_stat, &current_stat))
+                return;
+
+        context_reset_many(c, PROP_OS_PRETTY_NAME,
+                              PROP_OS_FANCY_NAME,
+                              PROP_OS_CPE_NAME,
+                              PROP_OS_HOME_URL,
+                              PROP_OS_SUPPORT_END,
+                              PROP_OS_IMAGE_ID,
+                              PROP_OS_IMAGE_VERSION);
+
+        r = parse_os_release(NULL,
+                             "PRETTY_NAME",   &os_pretty_name,
+                             "FANCY_NAME",    &os_fancy_name,
+                             "ANSI_COLOR",    &os_ansi_color,
+                             "NAME",          &os_name,
+                             "CPE_NAME",      &c->data[PROP_OS_CPE_NAME],
+                             "HOME_URL",      &c->data[PROP_OS_HOME_URL],
+                             "SUPPORT_END",   &c->data[PROP_OS_SUPPORT_END],
+                             "IMAGE_ID",      &c->data[PROP_OS_IMAGE_ID],
+                             "IMAGE_VERSION", &c->data[PROP_OS_IMAGE_VERSION]);
+        if (r < 0 && r != -ENOENT)
+                log_warning_errno(r, "Failed to read os-release file, ignoring: %m");
+
+        if (free_and_strdup(&c->data[PROP_OS_PRETTY_NAME], os_release_pretty_name(os_pretty_name, os_name)) < 0)
+                log_oom();
+
+        unescape_fancy_name(&os_fancy_name);
+
+        if (isempty(os_fancy_name)) {
+                free(os_fancy_name); /* free if empty string */
+
+                if (isempty(os_ansi_color))
+                        os_fancy_name = strdup(c->data[PROP_OS_PRETTY_NAME]);
+                else
+                        os_fancy_name = strjoin("\x1B[", os_ansi_color, "m", c->data[PROP_OS_PRETTY_NAME]);
+                if (!os_fancy_name)
+                        log_oom();
+        }
+
+        free_and_replace(c->data[PROP_OS_FANCY_NAME], os_fancy_name);
+
+        c->etc_os_release_stat = current_stat;
+}
+
+static bool use_dmi_data(void) {
+        int r;
+
+        r = getenv_bool("SYSTEMD_HOSTNAME_FORCE_DMI");
+        if (r >= 0) {
+                log_debug("Honouring $SYSTEMD_HOSTNAME_FORCE_DMI override: %s", yes_no(r));
+                return r;
+        }
+        if (r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_HOSTNAME_FORCE_DMI, ignoring: %m");
+
+        if (detect_container() > 0) {
+                log_debug("Running in a container, not using DMI hardware data.");
+                return false;
+        }
+
+        return true;
+}
+
+static int context_acquire_dmi_device(Context *c) {
+        int r;
+
+        assert(c);
+        assert(!c->device_dmi);
+
+        if (!use_dmi_data())
+                return 0;
+
+        r = sd_device_new_from_syspath(&c->device_dmi, "/sys/class/dmi/id/");
+        if (ERRNO_IS_NEG_DEVICE_ABSENT(r)) {
+                log_debug_errno(r, "Failed to open /sys/class/dmi/id/ device, ignoring: %m");
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to open /sys/class/dmi/id/ device: %m");
+
+        return 1;
+}
+
+static int context_acquire_acpi_device(Context *c) {
+        int r;
+
+        assert(c);
+        assert(!c->device_acpi);
+
+        r = sd_device_new_from_syspath(&c->device_acpi, "/sys/firmware/acpi/");
+        if (ERRNO_IS_NEG_DEVICE_ABSENT(r)) {
+                log_debug_errno(r, "Failed to open /sys/firmware/acpi/ device, ignoring: %m");
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to open /sys/firmware/acpi/ device: %m");
+
+        return 1;
+}
+
+static int context_acquire_device_tree(Context *c) {
+        int r;
+
+        assert(c);
+        assert(!c->device_tree);
+
+        r = sd_device_new_from_path(&c->device_tree, "/proc/device-tree/");
+        if (ERRNO_IS_NEG_DEVICE_ABSENT(r)) {
+                log_debug_errno(r, "Failed to open /proc/device-tree/ device, ignoring: %m");
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to open /proc/device-tree/ device: %m");
+
+        return 1;
+}
+
+static int get_dmi_property(Context *c, const char *key, char **ret) {
+        const char *s;
+        int r;
+
+        assert(c);
+        assert(key);
+        assert(ret);
+
+        if (!c->device_dmi)
+                return -ENODEV;
+
+        r = sd_device_get_property_value(c->device_dmi, key, &s);
+        if (r < 0)
+                return r;
+
+        if (!string_is_safe(s, STRING_ALLOW_EMPTY|STRING_ALLOW_BACKSLASHES|STRING_ALLOW_QUOTES|STRING_ALLOW_GLOBS))
+                return -ENXIO;
+
+        return strdup_to(ret, s);
+}
+
+static int get_dmi_properties(Context *c, const char * const * keys, char **ret) {
+        int r = -ENOENT;
+
+        assert(c);
+        assert(ret);
+
+        STRV_FOREACH(k, keys) {
+                r = get_dmi_property(c, *k, ret);
+                if (r >= 0 || !ERRNO_IS_NEG_DEVICE_ABSENT(r))
+                        return r;
+        }
+
+        return r;
+}
+
+static int get_chassis_asset_tag(Context *c, char **ret) {
+        return get_dmi_property(c, "ID_CHASSIS_ASSET_TAG", ret);
+}
+
+static int get_hardware_vendor(Context *c, char **ret) {
+        return get_dmi_properties(c, STRV_MAKE_CONST("ID_VENDOR_FROM_DATABASE", "ID_VENDOR"), ret);
+}
+
+static int get_hardware_model(Context *c, char **ret) {
+        return get_dmi_properties(c, STRV_MAKE_CONST("ID_MODEL_FROM_DATABASE", "ID_MODEL"), ret);
+}
+
+static int get_hardware_sku(Context *c, char **ret) {
+        _cleanup_free_ char *model = NULL, *sku = NULL;
+        int r;
+
+        assert(ret);
+
+        r = get_dmi_property(c, "ID_SKU", &sku);
+        if (r < 0)
+                return r;
+
+        /* Suppress reporting the SKU field, if it's the same string as the
+         * model field, which it appears to be on various systems */
+        r = get_hardware_model(c, &model);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        return r;
+        } else if (streq_ptr(sku, model))
+                return -ENOENT;
+
+        *ret = TAKE_PTR(sku);
+        return 0;
+}
+
+static int get_hardware_version(Context *c, char **ret) {
+        _cleanup_free_ char *version = NULL;
+        int r;
+
+        assert(ret);
+
+        r = get_dmi_property(c, "ID_HARDWARE_VERSION", &version);
+        if (r < 0)
+                return r;
+
+        /* Suppress reporting the version field, if it's the same string as the
+         * model or sku field, which it appears to be on various systems */
+        int (*getter)(Context *c, char **ret);
+        FOREACH_ARGUMENT(getter, get_hardware_model, get_hardware_sku) {
+                _cleanup_free_ char *value = NULL;
+
+                r = getter(c, &value);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return r;
+                if (streq_ptr(version, value))
+                        return -ENOENT;
+        }
+
+        *ret = TAKE_PTR(version);
+        return 0;
+}
+
+static int get_sysattr(sd_device *device, const char *key, char **ret) {
+        const char *s;
+        int r;
+
+        assert(key);
+        assert(ret);
+
+        if (!device)
+                return -ENODEV;
+
+        r = device_get_sysattr_safe_string(device, key, &s);
+        if (r < 0)
+                return log_device_debug_errno(device, r, "Failed to read '%s' attribute: %m", key);
+
+        if (!string_is_safe(s, STRING_ALLOW_EMPTY|STRING_ALLOW_BACKSLASHES|STRING_ALLOW_QUOTES|STRING_ALLOW_GLOBS))
+                return log_device_debug_errno(device, SYNTHETIC_ERRNO(ENXIO),
+                                              "'%s' attribute is not safe for exposing through DBus: %s",
+                                              key, s);
+
+        return strdup_to(ret, empty_to_null(s));
+}
+
+static int get_dmi_sysattr(Context *c, const char *key, char **ret) {
+        return get_sysattr(ASSERT_PTR(c)->device_dmi, key, ret);
+}
+
+static int get_device_tree_sysattr(Context *c, const char *key, char **ret) {
+        return get_sysattr(ASSERT_PTR(c)->device_tree, key, ret);
+}
+
+static int get_hardware_serial(Context *c, char **ret) {
+        int r;
+
+        assert(c);
+        assert(ret);
+
+        FOREACH_STRING(attr, "product_serial", "board_serial") {
+                r = get_dmi_sysattr(c, attr, ret);
+                if (r >= 0 || !ERRNO_IS_NEG_DEVICE_ABSENT(r))
+                        return r;
+        }
+
+        return get_device_tree_sysattr(c, "serial-number", ret);
+}
+
+static int get_firmware_version(Context *c, char **ret) {
+        return get_dmi_sysattr(c, "bios_version", ret);
+}
+
+static int get_firmware_vendor(Context *c, char **ret) {
+        return get_dmi_sysattr(c, "bios_vendor", ret);
+}
+
+static int get_firmware_date(Context *c, usec_t *ret) {
+        _cleanup_free_ char *bios_date = NULL, *month = NULL, *day = NULL, *year = NULL;
+        int r;
+
+        assert(c);
+        assert(ret);
+
+        r = get_dmi_sysattr(c, "bios_date", &bios_date);
+        if (ERRNO_IS_NEG_DEVICE_ABSENT(r)) {
+                *ret = USEC_INFINITY;
+                return 0;
+        }
+        if (r < 0)
+                return r;
+
+        const char *p = bios_date;
+        r = extract_many_words(&p, "/", EXTRACT_DONT_COALESCE_SEPARATORS, &month, &day, &year);
+        if (r < 0)
+                return r;
+        if (r != 3) /* less than three args read? */
+                return -EINVAL;
+        if (!isempty(p)) /* more left in the string? */
+                return -EINVAL;
+
+        unsigned m, d, y;
+        r = safe_atou_full(month, 10 | SAFE_ATO_REFUSE_PLUS_MINUS | SAFE_ATO_REFUSE_LEADING_WHITESPACE, &m);
+        if (r < 0)
+                return r;
+        if (m < 1 || m > 12)
+                return -EINVAL;
+        m -= 1;
+
+        r = safe_atou_full(day, 10 | SAFE_ATO_REFUSE_PLUS_MINUS | SAFE_ATO_REFUSE_LEADING_WHITESPACE, &d);
+        if (r < 0)
+                return r;
+        if (d < 1 || d > 31)
+                return -EINVAL;
+
+        r = safe_atou_full(year, 10 | SAFE_ATO_REFUSE_PLUS_MINUS | SAFE_ATO_REFUSE_LEADING_WHITESPACE, &y);
+        if (r < 0)
+                return r;
+        if (y < 1970 || y > (unsigned) INT_MAX)
+                return -EINVAL;
+        y -= 1900;
+
+        struct tm tm = {
+                .tm_mday = d,
+                .tm_mon = m,
+                .tm_year = y,
+        };
+
+        usec_t v;
+        r = mktime_or_timegm_usec(&tm, /* utc= */ true, &v);
+        if (r < 0)
+                return r;
+        if (tm.tm_mday != (int) d || tm.tm_mon != (int) m || tm.tm_year != (int) y)
+                return -EINVAL; /* date was not normalized? (e.g. "30th of feb") */
+
+        *ret = v;
+        return 0;
+}
+
+static const char* chassis_is_valid(const char *chassis) {
+        assert(chassis);
+
+        return nulstr_get(
+                        "vm\0"
+                        "container\0"
+                        "desktop\0"
+                        "laptop\0"
+                        "convertible\0"
+                        "server\0"
+                        "tablet\0"
+                        "handset\0"
+                        "watch\0"
+                        "embedded\0",
+                        chassis);
+}
+
+static bool deployment_is_valid(const char *deployment) {
+        assert(deployment);
+
+        return !isempty(deployment) &&
+                in_charset(deployment, VALID_DEPLOYMENT_CHARS);
+}
+
+static bool pretty_hostname_is_valid(const char *pretty_hostname) {
+        assert(pretty_hostname);
+
+        return string_is_safe(pretty_hostname, STRING_ALLOW_BACKSLASHES|STRING_ALLOW_QUOTES|STRING_ALLOW_GLOBS);
+}
+
+static bool icon_name_is_valid(const char *icon_name) {
+        assert(icon_name);
+
+        return string_is_safe(icon_name, STRING_FILENAME);
+}
+
+static bool location_is_valid(const char *location) {
+        assert(location);
+
+        return string_is_safe(location, STRING_ALLOW_BACKSLASHES|STRING_ALLOW_QUOTES|STRING_ALLOW_GLOBS);
+}
+
+static const char* fallback_chassis_by_virtualization(void) {
+        Virtualization v = detect_virtualization();
+        if (v < 0) {
+                log_debug_errno(v, "Failed to detect virtualization, ignoring: %m");
+                return NULL;
+        }
+
+        if (VIRTUALIZATION_IS_VM(v))
+                return "vm";
+        if (VIRTUALIZATION_IS_CONTAINER(v))
+                return "container";
+
+        return NULL;
+}
+
+static const char* fallback_chassis_by_dmi(Context *c) {
+        unsigned t;
+        int r;
+
+        assert(c);
+
+        if (!c->device_dmi)
+                return NULL;
+
+        r = device_get_sysattr_unsigned(c->device_dmi, "chassis_type", &t);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to read/parse DMI chassis type, ignoring: %m");
+                return NULL;
+        }
+
+        /* We only list the really obvious cases here. The DMI data is unreliable enough, so let's not do any
+         * additional guesswork on top of that.
+         *
+         * See the SMBIOS Specification 3.5.0 section 7.4.1 for details about the values listed here:
+         *
+         * https://www.dmtf.org/sites/default/files/standards/documents/DSP0134_3.5.0.pdf
+         */
+
+        switch (t) {
+
+        case 0x03: /* Desktop */
+        case 0x04: /* Low Profile Desktop */
+        case 0x06: /* Mini Tower */
+        case 0x07: /* Tower */
+        case 0x0D: /* All in one (i.e. PC built into monitor) */
+        case 0x23: /* Mini PC */
+        case 0x24: /* Stick PC */
+                return "desktop";
+
+        case 0x8: /* Portable */
+        case 0x9: /* Laptop */
+        case 0xA: /* Notebook */
+        case 0xE: /* Sub Notebook */
+                return "laptop";
+
+        case 0xB: /* Hand Held */
+                return "handset";
+
+        case 0x11: /* Main Server Chassis */
+        case 0x1C: /* Blade */
+        case 0x1D: /* Blade Enclosure */
+                return "server";
+
+        case 0x1E: /* Tablet */
+                return "tablet";
+
+        case 0x1F: /* Convertible */
+        case 0x20: /* Detachable */
+                return "convertible";
+
+        case 0x21: /* IoT Gateway */
+        case 0x22: /* Embedded PC */
+                return "embedded";
+
+        default:
+                log_debug("Unhandled DMI chassis type 0x%02x, ignoring.", t);
+                return NULL;
+        }
+}
+
+static const char* fallback_chassis_by_acpi(Context *c) {
+        unsigned t;
+        int r;
+
+        assert(c);
+
+        if (!c->device_acpi)
+                return NULL;
+
+        r = device_get_sysattr_unsigned(c->device_acpi, "pm_profile", &t);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to read/parse ACPI PM profile, ignoring: %m");
+                return NULL;
+        }
+
+        /* We only list the really obvious cases here as the ACPI data is not really super reliable.
+         *
+         * See the ACPI 5.0 Spec Section 5.2.9.1 for details:
+         *
+         * http://www.acpi.info/DOWNLOADS/ACPIspec50.pdf
+         */
+
+        switch (t) {
+
+        case 1: /* Desktop */
+        case 3: /* Workstation */
+        case 6: /* Appliance PC */
+                return "desktop";
+
+        case 2: /* Mobile */
+                return "laptop";
+
+        case 4: /* Enterprise Server */
+        case 5: /* SOHO Server */
+        case 7: /* Performance Server */
+                return "server";
+
+        case 8: /* Tablet */
+                return "tablet";
+
+        default:
+                log_debug("Unhandled ACPI PM profile 0x%02x, ignoring.", t);
+                return NULL;
+        }
+}
+
+static const char* fallback_chassis_by_device_tree(Context *c) {
+        const char *type, *chassis;
+        int r;
+
+        assert(c);
+
+        if (!c->device_tree)
+                return NULL;
+
+        r = device_get_sysattr_safe_string(c->device_tree, "chassis-type", &type);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to read device-tree chassis type, ignoring: %m");
+                return NULL;
+        }
+
+        /* Note that the DeviceTree specification uses the very same vocabulary
+         * of chassis types as we do, hence we do not need to translate these types:
+         *
+         * https://github.com/devicetree-org/devicetree-specification/blob/master/source/chapter3-devicenodes.rst */
+
+        chassis = chassis_is_valid(type);
+        if (!chassis)
+                log_debug("Invalid device-tree chassis type \"%s\", ignoring.", type);
+        return chassis;
+}
+
+static const char* fallback_chassis(Context *c) {
+        assert(c);
+
+        return
+                fallback_chassis_by_virtualization() ?:
+                fallback_chassis_by_dmi(c) ?:
+                fallback_chassis_by_acpi(c) ?:
+                fallback_chassis_by_device_tree(c);
+}
+
+static char* context_get_chassis(Context *c) {
+        const char *fallback;
+        char *dmi;
+
+        assert(c);
+
+        if (!isempty(c->data[PROP_CHASSIS]))
+                return strdup(c->data[PROP_CHASSIS]);
+
+        if (get_dmi_property(c, "ID_CHASSIS", &dmi) >= 0)
+                return dmi;
+
+        fallback = fallback_chassis(c);
+        if (fallback)
+                return strdup(fallback);
+
+        return NULL;
+}
+
+static char* context_fallback_icon_name(Context *c) {
+        _cleanup_free_ char *chassis = NULL;
+
+        assert(c);
+
+        chassis = context_get_chassis(c);
+        if (chassis)
+                return strjoin("computer-", chassis);
+
+        return strdup("computer");
+}
+
+static int context_update_kernel_hostname(
+                Context *c,
+                const char *transient_hostname) {
+
+        _cleanup_free_ char *_hn_free = NULL;
+        const char *hn;
+        HostnameSource hns;
+        int r;
+
+        assert(c);
+
+        /* /etc/hostname has the highest preference ... */
+        if (c->data[PROP_STATIC_HOSTNAME_SUBSTITUTED_WILDCARDS]) {
+                hn = c->data[PROP_STATIC_HOSTNAME_SUBSTITUTED_WILDCARDS];
+                hns = HOSTNAME_STATIC;
+
+        /* ... the transient hostname, (ie: DHCP) comes next ... */
+        } else if (transient_hostname) {
+                hn = transient_hostname;
+                hns = HOSTNAME_TRANSIENT;
+
+        /* ... and the ultimate fallback */
+        } else {
+                hn = _hn_free = get_default_hostname();
+                if (!hn)
+                        return log_oom();
+
+                hns = HOSTNAME_DEFAULT;
+        }
+
+        r = sethostname_idempotent(hn);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set hostname: %m");
+
+        if (c->hostname_source != hns) {
+                c->hostname_source = hns;
+                r = 1;
+        }
+
+        if (r == 0)
+                log_debug("Hostname was already set to <%s>.", hn);
+        else {
+                log_info("Hostname set to <%s> (%s)", hn, hostname_source_to_string(hns));
+
+                hostname_update_source_hint(hn, hns);
+        }
+
+        return r; /* 0 if no change, 1 if something was done  */
+}
+
+static void unset_statp(struct stat **p) {
+        assert(p);
+
+        if (!*p)
+                return;
+
+        **p = (struct stat) {};
+}
+
+static int context_write_data_static_hostname(Context *c) {
+        _cleanup_(unset_statp) struct stat *s = NULL;
+        int r;
+
+        assert(c);
+
+        /* Make sure that if we fail here, we invalidate the cached information, since it was updated
+         * already, even if we can't make it hit the disk. */
+        s = &c->etc_hostname_stat;
+
+        if (isempty(c->data[PROP_STATIC_HOSTNAME])) {
+                if (unlink(etc_hostname()) < 0 && errno != ENOENT)
+                        return log_error_errno(errno, "Failed to remove '%s': %m", etc_hostname());
+
+                TAKE_PTR(s);
+                return 0;
+        }
+
+        r = write_string_file(etc_hostname(), c->data[PROP_STATIC_HOSTNAME], WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write '%s': %m", etc_hostname());
+
+        TAKE_PTR(s);
+        return 0;
+}
+
+static int context_write_data_machine_info(Context *c) {
+        _cleanup_(unset_statp) struct stat *s = NULL;
+        static const char * const name[_PROP_MAX] = {
+                [PROP_PRETTY_HOSTNAME]  = "PRETTY_HOSTNAME",
+                [PROP_ICON_NAME]        = "ICON_NAME",
+                [PROP_CHASSIS]          = "CHASSIS",
+                [PROP_DEPLOYMENT]       = "DEPLOYMENT",
+                [PROP_LOCATION]         = "LOCATION",
+                [PROP_TAGS]             = "TAGS",
+        };
+        _cleanup_strv_free_ char **l = NULL;
+        int r;
+
+        assert(c);
+
+        /* Make sure that if we fail here, we invalidate the cached information, since it was updated
+         * already, even if we can't make it hit the disk. */
+        s = &c->etc_machine_info_stat;
+
+        r = load_env_file(NULL, etc_machine_info(), &l);
+        if (r < 0 && r != -ENOENT)
+                return log_error_errno(r, "Failed to read '%s': %m", etc_machine_info());
+
+        for (HostProperty p = _PROP_MACHINE_INFO_SETTABLE_FIRST; p <= _PROP_MACHINE_INFO_SETTABLE_LAST; p++) {
+                assert(name[p]);
+
+                if (strv_env_assign(&l, name[p], empty_to_null(c->data[p])) < 0)
+                        return log_oom();
+        }
+
+        if (strv_isempty(l)) {
+                if (unlink(etc_machine_info()) < 0 && errno != ENOENT)
+                        return log_error_errno(errno, "Failed to unlink '%s': %m", etc_machine_info());
+
+                TAKE_PTR(s);
+                return 0;
+        }
+
+        r = write_env_file(
+                        AT_FDCWD,
+                        etc_machine_info(),
+                        /* headers= */ NULL,
+                        l,
+                        WRITE_ENV_FILE_LABEL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write '%s': %m", etc_machine_info());
+
+        TAKE_PTR(s);
+        return 0;
+}
+
+static int property_get_hardware_property(
+                sd_bus_message *reply,
+                Context *c,
+                HostProperty prop,
+                int (*getter)(Context *c, char **ret)) {
+
+        _cleanup_free_ char *from_dmi = NULL;
+
+        assert(reply);
+        assert(c);
+        assert(IN_SET(prop, PROP_HARDWARE_VENDOR, PROP_HARDWARE_MODEL,
+                      PROP_HARDWARE_SKU, PROP_HARDWARE_VERSION));
+        assert(getter);
+
+        context_read_machine_info(c);
+
+        if (isempty(c->data[prop]))
+                (void) getter(c, &from_dmi);
+
+        return sd_bus_message_append(reply, "s", from_dmi ?: c->data[prop]);
+}
+
+static int property_get_hardware_vendor(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        return property_get_hardware_property(reply, userdata, PROP_HARDWARE_VENDOR, get_hardware_vendor);
+}
+
+static int property_get_hardware_model(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        return property_get_hardware_property(reply, userdata, PROP_HARDWARE_MODEL, get_hardware_model);
+}
+
+static int property_get_hardware_sku(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        return property_get_hardware_property(reply, userdata, PROP_HARDWARE_SKU, get_hardware_sku);
+}
+
+static int property_get_hardware_version(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        return property_get_hardware_property(reply, userdata, PROP_HARDWARE_VERSION, get_hardware_version);
+}
+
+static int property_get_firmware_version(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        _cleanup_free_ char *firmware_version = NULL;
+        Context *c = ASSERT_PTR(userdata);
+
+        (void) get_firmware_version(c, &firmware_version);
+
+        return sd_bus_message_append(reply, "s", firmware_version);
+}
+
+static int property_get_firmware_vendor(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        _cleanup_free_ char *firmware_vendor = NULL;
+        Context *c = ASSERT_PTR(userdata);
+
+        (void) get_firmware_vendor(c, &firmware_vendor);
+
+        return sd_bus_message_append(reply, "s", firmware_vendor);
+}
+
+static int property_get_firmware_date(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        usec_t firmware_date = USEC_INFINITY;
+        Context *c = ASSERT_PTR(userdata);
+
+        (void) get_firmware_date(c, &firmware_date);
+
+        return sd_bus_message_append(reply, "t", firmware_date);
+}
+
+static int property_get_chassis_asset_tag(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        _cleanup_free_ char *chassis_asset_tag = NULL;
+        Context *c = ASSERT_PTR(userdata);
+
+        (void) get_chassis_asset_tag(c, &chassis_asset_tag);
+
+        return sd_bus_message_append(reply, "s", chassis_asset_tag);
+}
+
+static int property_get_hostname(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        _cleanup_free_ char *hn = NULL;
+        int r;
+
+        r = gethostname_strict(&hn);
+        if (r < 0) {
+                if (r != -ENXIO)
+                        return r;
+
+                hn = get_default_hostname();
+                if (!hn)
+                        return -ENOMEM;
+        }
+
+        return sd_bus_message_append(reply, "s", hn);
+}
+
+static int property_get_static_hostname(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Context *c = ASSERT_PTR(userdata);
+
+        context_read_etc_hostname(c);
+
+        return sd_bus_message_append(reply, "s", c->data[PROP_STATIC_HOSTNAME_SUBSTITUTED_WILDCARDS]);
+}
+
+static int property_get_default_hostname(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        _cleanup_free_ char *hn = NULL;
+
+        hn = get_default_hostname();
+        if (!hn)
+                return log_oom();
+
+        return sd_bus_message_append(reply, "s", hn);
+}
+
+static void context_determine_hostname_source(Context *c) {
+        _cleanup_free_ char *hostname = NULL;
+        int r;
+
+        assert(c);
+
+        if (c->hostname_source >= 0)
+                return;
+
+        (void) gethostname_full(GET_HOSTNAME_ALLOW_LOCALHOST, &hostname);
+
+        if (streq_ptr(hostname, c->data[PROP_STATIC_HOSTNAME_SUBSTITUTED_WILDCARDS]))
+                c->hostname_source = HOSTNAME_STATIC;
+        else {
+                _cleanup_free_ char *fallback = NULL;
+
+                /* If the hostname was not set by us, try to figure out where it came from. If we set it to
+                 * the default hostname, the file will tell us. We compare the string because it is possible
+                 * that the hostname was set by an older version that had a different fallback, in the initrd
+                 * or before we reexecuted. */
+
+                r = read_one_line_file("/run/systemd/default-hostname", &fallback);
+                if (r < 0 && r != -ENOENT)
+                        log_warning_errno(r, "Failed to read /run/systemd/default-hostname, ignoring: %m");
+
+                if (streq_ptr(fallback, hostname))
+                        c->hostname_source = HOSTNAME_DEFAULT;
+                else
+                        c->hostname_source = HOSTNAME_TRANSIENT;
+        }
+}
+
+static int property_get_hostname_source(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Context *c = ASSERT_PTR(userdata);
+
+        context_read_etc_hostname(c);
+        context_determine_hostname_source(c);
+
+        return sd_bus_message_append(reply, "s", hostname_source_to_string(c->hostname_source));
+}
+
+static int property_get_machine_info_field(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        sd_bus_slot *slot;
+        Context *c;
+
+        /* Acquire the context object without this property's userdata offset added. Explanation: we want
+         * access to two pointers here: a) the main context object we cache all properties in, and b) the
+         * pointer to the property field inside the context object that we are supposed to update and
+         * use. The latter (b) we get in the 'userdata' function parameter, and sd-bus calculates that for us
+         * from the 'userdata' pointer we supplied when the vtable was registered, with the offset we
+         * specified in the vtable added on top. To get the former (a) we need the 'userdata' pointer from
+         * the vtable registration directly, without the offset added. Hence we ask sd-bus what the slot
+         * object is (which encapsulates the vtable registration), and then query the 'userdata' field
+         * directly off it. */
+        assert_se(slot = sd_bus_get_current_slot(bus));
+        assert_se(c = sd_bus_slot_get_userdata(slot));
+
+        context_read_machine_info(c);
+
+        return sd_bus_message_append(reply, "s", *(char**) userdata);
+}
+
+static int property_get_tags(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        context_read_machine_info(c);
+
+        /* Silently drop any invalid tags that might have been written into the file by hand */
+        _cleanup_strv_free_ char **l = NULL;
+        r = machine_tags_from_string(c->data[PROP_TAGS], /* graceful= */ true, &l);
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse machine tags '%s', ignoring: %m", strnull(c->data[PROP_TAGS]));
+
+        return sd_bus_message_append_strv(reply, l);
+}
+
+static int property_get_os_release_field(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        sd_bus_slot *slot;
+        Context *c;
+
+        /* As above, acquire the current context without this property's userdata offset added. */
+        assert_se(slot = sd_bus_get_current_slot(bus));
+        assert_se(c = sd_bus_slot_get_userdata(slot));
+
+        context_read_os_release(c);
+
+        return sd_bus_message_append(reply, "s", *(char**) userdata);
+}
+
+static int property_get_os_support_end(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Context *c = userdata;
+        usec_t eol = USEC_INFINITY;
+
+        context_read_os_release(c);
+
+        if (c->data[PROP_OS_SUPPORT_END])
+                (void) os_release_support_ended(c->data[PROP_OS_SUPPORT_END], /* quiet= */ false, &eol);
+
+        return sd_bus_message_append(reply, "t", eol);
+}
+
+static int property_get_icon_name(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        _cleanup_free_ char *n = NULL;
+        Context *c = userdata;
+        const char *name;
+
+        context_read_machine_info(c);
+
+        if (isempty(c->data[PROP_ICON_NAME]))
+                name = n = context_fallback_icon_name(c);
+        else
+                name = c->data[PROP_ICON_NAME];
+
+        if (!name)
+                return -ENOMEM;
+
+        return sd_bus_message_append(reply, "s", name);
+}
+
+static int property_get_chassis(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        _cleanup_free_ char *chassis = NULL;
+        Context *c = userdata;
+
+        context_read_machine_info(c);
+
+        chassis = context_get_chassis(c);
+
+        return sd_bus_message_append(reply, "s", chassis);
+}
+
+static int property_get_uname_field(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        struct utsname u;
+
+        assert_se(uname(&u) >= 0);
+
+        return sd_bus_message_append(reply, "s", (char*) &u + PTR_TO_SIZE(userdata));
+}
+
+static int property_get_machine_id(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        sd_id128_t id;
+        int r;
+
+        r = sd_id128_get_machine(&id);
+        if (r < 0)
+                return r;
+
+        return bus_property_get_id128(bus, path, interface, property, reply, &id, error);
+}
+
+static int property_get_boot_id(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        sd_id128_t id;
+        int r;
+
+        r = sd_id128_get_boot(&id);
+        if (r < 0)
+                return r;
+
+        return bus_property_get_id128(bus, path, interface, property, reply, &id, error);
+}
+
+static int property_get_vsock_cid(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        unsigned local_cid = VMADDR_CID_ANY;
+
+        (void) vsock_get_local_cid(&local_cid);
+
+        return sd_bus_message_append(reply, "u", (uint32_t) local_cid);
+}
+
+static int validate_and_substitute_hostname(const char *name, char **ret_substituted) {
+        int r;
+
+        assert(ret_substituted);
+
+        if (!name) {
+                *ret_substituted = NULL;
+                return 0;
+        }
+
+        _cleanup_free_ char *substituted = NULL;
+
+        r = hostname_substitute_wildcards(name, &substituted);
+        if (r < 0)
+                return log_error_errno(r, "Failed to substitute wildcards in hostname: %m");
+
+        if (!hostname_is_valid(substituted, 0))
+                return -EUCLEAN;
+
+        *ret_substituted = TAKE_PTR(substituted);
+        return 1;
+}
+
+static int bus_validate_and_substitute_hostname(const char *name, char **ret_substituted, sd_bus_error *error) {
+        int r;
+
+        assert(ret_substituted);
+
+        r = validate_and_substitute_hostname(name, ret_substituted);
+        if (r == -EUCLEAN)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid hostname '%s'", name);
+
+        return r;
+}
+
+static int method_set_hostname(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        Context *c = ASSERT_PTR(userdata);
+        const char *name;
+        int interactive, r;
+
+        assert(m);
+
+        r = sd_bus_message_read(m, "sb", &name, &interactive);
+        if (r < 0)
+                return r;
+
+        name = empty_to_null(name);
+
+        /* We always go through with the procedure below without comparing to the current hostname, because
+         * we might want to adjust hostname source information even if the actual hostname is unchanged. */
+
+        _cleanup_free_ char *substituted = NULL;
+        r = bus_validate_and_substitute_hostname(name, &substituted, error);
+        if (r < 0)
+                return r;
+
+        name = substituted;
+
+        r = bus_verify_polkit_async_full(
+                        m,
+                        "org.freedesktop.hostname1.set-hostname",
+                        /* details= */ NULL,
+                        /* good_user= */ UID_INVALID,
+                        interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
+                        &c->polkit_registry,
+                        /* ret_admin= */ NULL,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        context_read_etc_hostname(c);
+
+        r = context_update_kernel_hostname(c, name);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to set hostname: %m");
+        else if (r > 0)
+                (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m),
+                                                      "/org/freedesktop/hostname1", "org.freedesktop.hostname1",
+                                                      "Hostname", "HostnameSource", NULL);
+
+        return sd_bus_reply_method_return(m, NULL);
+}
+
+static int method_set_static_hostname(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        Context *c = ASSERT_PTR(userdata);
+        const char *name;
+        int interactive, r;
+
+        assert(m);
+
+        r = sd_bus_message_read(m, "sb", &name, &interactive);
+        if (r < 0)
+                return r;
+
+        name = empty_to_null(name);
+
+        context_read_etc_hostname(c);
+
+        if (streq_ptr(name, c->data[PROP_STATIC_HOSTNAME]))
+                return sd_bus_reply_method_return(m, NULL);
+
+        _cleanup_free_ char *substituted = NULL;
+        r = bus_validate_and_substitute_hostname(name, &substituted, error);
+        if (r < 0)
+                return r;
+
+        r = bus_verify_polkit_async_full(
+                        m,
+                        "org.freedesktop.hostname1.set-static-hostname",
+                        /* details= */ NULL,
+                        /* good_user= */ UID_INVALID,
+                        interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
+                        &c->polkit_registry,
+                        /* ret_admin= */ NULL,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        r = free_and_strdup_warn(&c->data[PROP_STATIC_HOSTNAME], name);
+        if (r < 0)
+                return r;
+
+        free_and_replace(c->data[PROP_STATIC_HOSTNAME_SUBSTITUTED_WILDCARDS], substituted);
+
+        r = context_write_data_static_hostname(c);
+        if (r < 0) {
+                if (ERRNO_IS_PRIVILEGE(r))
+                        return sd_bus_error_set(error, BUS_ERROR_FILE_IS_PROTECTED, "Not allowed to update /etc/hostname.");
+                if (r == -EROFS)
+                        return sd_bus_error_set(error, BUS_ERROR_READ_ONLY_FILESYSTEM, "/etc/hostname is in a read-only filesystem.");
+                return sd_bus_error_set_errnof(error, r, "Failed to set static hostname: %m");
+        }
+
+        r = context_update_kernel_hostname(c, /* transient_hostname= */ NULL);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to set hostname: %m");
+
+        (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m),
+                                              "/org/freedesktop/hostname1", "org.freedesktop.hostname1",
+                                              "StaticHostname", "Hostname", "HostnameSource", NULL);
+
+        return sd_bus_reply_method_return(m, NULL);
+}
+
+static int set_machine_info(Context *c, sd_bus_message *m, int prop, sd_bus_message_handler_t cb, sd_bus_error *error) {
+        int interactive;
+        const char *name;
+        int r;
+
+        assert(c);
+        assert(m);
+
+        r = sd_bus_message_read(m, "sb", &name, &interactive);
+        if (r < 0)
+                return r;
+
+        name = empty_to_null(name);
+
+        context_read_machine_info(c);
+
+        if (streq_ptr(name, c->data[prop]))
+                return sd_bus_reply_method_return(m, NULL);
+
+        if (!isempty(name)) {
+                /* The icon name might ultimately be used as file
+                 * name, so better be safe than sorry */
+
+                if (prop == PROP_ICON_NAME && !icon_name_is_valid(name))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid icon name '%s'", name);
+                if (prop == PROP_PRETTY_HOSTNAME && !pretty_hostname_is_valid(name))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid pretty hostname '%s'", name);
+                if (prop == PROP_CHASSIS && !chassis_is_valid(name))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid chassis '%s'", name);
+                if (prop == PROP_DEPLOYMENT && !deployment_is_valid(name))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid deployment '%s'", name);
+                if (prop == PROP_LOCATION && !location_is_valid(name))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid location '%s'", name);
+        }
+
+        /* Since the pretty hostname should always be changed at the same time as the static one, use the
+         * same policy action for both... */
+
+        r = bus_verify_polkit_async_full(
+                        m,
+                        prop == PROP_PRETTY_HOSTNAME ? "org.freedesktop.hostname1.set-static-hostname" : "org.freedesktop.hostname1.set-machine-info",
+                        /* details= */ NULL,
+                        /* good_user= */ UID_INVALID,
+                        interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
+                        &c->polkit_registry,
+                        /* ret_admin= */ NULL,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        r = free_and_strdup_warn(&c->data[prop], name);
+        if (r < 0)
+                return r;
+
+        r = context_write_data_machine_info(c);
+        if (r < 0) {
+                if (ERRNO_IS_PRIVILEGE(r))
+                        return sd_bus_error_set(error, BUS_ERROR_FILE_IS_PROTECTED, "Not allowed to update /etc/machine-info.");
+                if (r == -EROFS)
+                        return sd_bus_error_set(error, BUS_ERROR_READ_ONLY_FILESYSTEM, "/etc/machine-info is in a read-only filesystem.");
+                return sd_bus_error_set_errnof(error, r, "Failed to write machine info: %m");
+        }
+
+        log_info("Changed %s to '%s'",
+                 prop == PROP_PRETTY_HOSTNAME ? "pretty hostname" :
+                 prop == PROP_DEPLOYMENT ? "deployment" :
+                 prop == PROP_LOCATION ? "location" :
+                 prop == PROP_CHASSIS ? "chassis" : "icon name", strna(c->data[prop]));
+
+        (void) sd_bus_emit_properties_changed(
+                        sd_bus_message_get_bus(m),
+                        "/org/freedesktop/hostname1",
+                        "org.freedesktop.hostname1",
+                        prop == PROP_PRETTY_HOSTNAME ? "PrettyHostname" :
+                        prop == PROP_DEPLOYMENT ? "Deployment" :
+                        prop == PROP_LOCATION ? "Location" :
+                        prop == PROP_CHASSIS ? "Chassis" : "IconName" , NULL);
+
+        return sd_bus_reply_method_return(m, NULL);
+}
+
+static int method_set_pretty_hostname(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        return set_machine_info(userdata, m, PROP_PRETTY_HOSTNAME, method_set_pretty_hostname, error);
+}
+
+static int method_set_icon_name(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        return set_machine_info(userdata, m, PROP_ICON_NAME, method_set_icon_name, error);
+}
+
+static int method_set_chassis(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        return set_machine_info(userdata, m, PROP_CHASSIS, method_set_chassis, error);
+}
+
+static int method_set_deployment(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        return set_machine_info(userdata, m, PROP_DEPLOYMENT, method_set_deployment, error);
+}
+
+static int method_set_location(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        return set_machine_info(userdata, m, PROP_LOCATION, method_set_location, error);
+}
+
+static int context_store_tags(Context *c, char **tags) {
+        int r;
+
+        assert(c);
+
+        /* Persists the given machine tags (which must already be validated, sorted and deduplicated) to
+         * /etc/machine-info and emits a PropertiesChanged signal on the Tags property. */
+
+        if (strv_isempty(tags))
+                c->data[PROP_TAGS] = mfree(c->data[PROP_TAGS]);
+        else {
+                _cleanup_free_ char *j = strv_join(tags, ":");
+                if (!j)
+                        return log_oom();
+
+                free_and_replace(c->data[PROP_TAGS], j);
+        }
+
+        r = context_write_data_machine_info(c);
+        if (r < 0)
+                return r;
+
+        log_info("Changed tags to '%s'", strempty(c->data[PROP_TAGS]));
+
+        (void) sd_bus_emit_properties_changed(
+                        c->bus,
+                        "/org/freedesktop/hostname1",
+                        "org.freedesktop.hostname1",
+                        "Tags",
+                        NULL);
+
+        return 0;
+}
+
+static int bus_error_from_tags_write(sd_bus_error *error, int r) {
+        assert(error);
+        assert(r < 0);
+
+        log_error_errno(r, "Failed to write machine info: %m");
+        if (ERRNO_IS_PRIVILEGE(r))
+                return sd_bus_error_set(error, BUS_ERROR_FILE_IS_PROTECTED, "Not allowed to update /etc/machine-info.");
+        if (r == -EROFS)
+                return sd_bus_error_set(error, BUS_ERROR_READ_ONLY_FILESYSTEM, "/etc/machine-info is in a read-only filesystem.");
+        return sd_bus_error_set_errnof(error, r, "Failed to write machine info: %m");
+}
+
+static int method_set_tags(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(m);
+
+        _cleanup_strv_free_ char **tags = NULL;
+        r = sd_bus_message_read_strv(m, &tags);
+        if (r < 0)
+                return r;
+
+        strv_sort_uniq(tags);
+
+        if (strv_length(tags) > MACHINE_TAGS_MAX)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Too many machine tags specified.");
+
+        _cleanup_free_ char *j = strv_join(tags, ":");
+        if (!j)
+                return log_oom();
+
+        if (!machine_tag_list_is_valid(tags))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid tags '%s'", j);
+
+        context_read_machine_info(c);
+
+        _cleanup_strv_free_ char **current = NULL;
+        r = machine_tags_from_string(c->data[PROP_TAGS], /* graceful= */ true, &current);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse current machine tags: %m");
+
+        if (strv_equal(current, tags))
+                return sd_bus_reply_method_return(m, NULL);
+
+        r = bus_verify_polkit_async_full(
+                        m,
+                        "org.freedesktop.hostname1.set-machine-info",
+                        /* details= */ NULL,
+                        /* good_user= */ UID_INVALID,
+                        /* flags= */ 0,
+                        &c->polkit_registry,
+                        /* ret_admin= */ NULL,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        r = context_store_tags(c, tags);
+        if (r < 0)
+                return bus_error_from_tags_write(error, r);
+
+        return sd_bus_reply_method_return(m, NULL);
+}
+
+static int machine_tags_add_remove(char * const *base, char * const *add, char * const *remove, char ***ret) {
+        int r;
+
+        assert(ret);
+
+        /* Computes the resulting machine tag list when adding 'add' to and removing 'remove' from the 'base'
+         * list, i.e. (base ∪ add) \ remove, sorted and deduplicated. Shared by the D-Bus AddAndRemoveTags()
+         * and Varlink SetTags() implementations. */
+
+        _cleanup_strv_free_ char **tags = strv_copy(base);
+        if (!tags)
+                return -ENOMEM;
+
+        r = strv_extend_strv(&tags, add, /* filter_duplicates= */ true);
+        if (r < 0)
+                return r;
+
+        strv_remove_strv(tags, remove);
+
+        strv_sort_uniq(tags);
+
+        if (strv_length(tags) > MACHINE_TAGS_MAX)
+                return -E2BIG;
+
+        *ret = TAKE_PTR(tags);
+        return 0;
+}
+
+static int method_add_and_remove_tags(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(m);
+
+        _cleanup_strv_free_ char **add = NULL, **remove = NULL;
+        r = sd_bus_message_read_strv(m, &add);
+        if (r < 0)
+                return r;
+        r = sd_bus_message_read_strv(m, &remove);
+        if (r < 0)
+                return r;
+
+        if (!machine_tag_list_is_valid(add)) {
+                _cleanup_free_ char *j = strv_join(add, ":");
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid tags to add '%s'", strna(j));
+        }
+        if (!machine_tag_list_is_valid(remove)) {
+                _cleanup_free_ char *j = strv_join(remove, ":");
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid tags to remove '%s'", strna(j));
+        }
+
+        context_read_machine_info(c);
+
+        /* Start from the current tags, add the requested ones, then drop the ones to be removed. */
+        _cleanup_strv_free_ char **current = NULL;
+        r = machine_tags_from_string(c->data[PROP_TAGS], /* graceful= */ true, &current);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse current machine tags: %m");
+
+        _cleanup_strv_free_ char **tags = NULL;
+        r = machine_tags_add_remove(current, add, remove, &tags);
+        if (r == -E2BIG)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Too many machine tags specified.");
+        if (r < 0)
+                return log_oom();
+
+        if (strv_equal(current, tags))
+                return sd_bus_reply_method_return(m, NULL);
+
+        r = bus_verify_polkit_async_full(
+                        m,
+                        "org.freedesktop.hostname1.set-machine-info",
+                        /* details= */ NULL,
+                        /* good_user= */ UID_INVALID,
+                        /* flags= */ 0,
+                        &c->polkit_registry,
+                        /* ret_admin= */ NULL,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        r = context_store_tags(c, tags);
+        if (r < 0)
+                return bus_error_from_tags_write(error, r);
+
+        return sd_bus_reply_method_return(m, NULL);
+}
+
+static int method_get_product_uuid(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        Context *c = ASSERT_PTR(userdata);
+        int interactive, r;
+        sd_id128_t uuid;
+
+        assert(m);
+
+        r = sd_bus_message_read(m, "b", &interactive);
+        if (r < 0)
+                return r;
+
+        r = bus_verify_polkit_async_full(
+                        m,
+                        "org.freedesktop.hostname1.get-product-uuid",
+                        /* details= */ NULL,
+                        /* good_user= */ UID_INVALID,
+                        interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
+                        &c->polkit_registry,
+                        /* ret_admin= */ NULL,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        r = id128_get_product(&uuid);
+        if (r < 0) {
+                if (r == -EADDRNOTAVAIL)
+                        log_debug_errno(r, "DMI product UUID is all 0x00 or all 0xFF, ignoring.");
+                else
+                        log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
+                                       "Failed to read product UUID, ignoring: %m");
+
+                return sd_bus_error_set(error, BUS_ERROR_NO_PRODUCT_UUID,
+                                        "Failed to read product UUID from firmware.");
+        }
+
+        r = sd_bus_message_new_method_return(m, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append_array(reply, 'y', uuid.bytes, sizeof(uuid.bytes));
+        if (r < 0)
+                return r;
+
+        return sd_bus_message_send(reply);
+}
+
+static int method_get_hardware_serial(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        _cleanup_free_ char *serial = NULL;
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(m);
+
+        r = bus_verify_polkit_async(
+                        m,
+                        "org.freedesktop.hostname1.get-hardware-serial",
+                        /* details= */ NULL,
+                        &c->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        r = get_hardware_serial(c, &serial);
+        if (r < 0)
+                return sd_bus_error_set(error, BUS_ERROR_NO_HARDWARE_SERIAL,
+                                        "Failed to read hardware serial from firmware.");
+
+        return sd_bus_reply_method_return(m, "s", serial);
+}
+
+static int method_get_machine_info(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        static const struct {
+                const char *name;
+                HostProperty prop;
+        } field_table[] = {
+                { "PRETTY_HOSTNAME",  PROP_PRETTY_HOSTNAME  },
+                { "ICON_NAME",        PROP_ICON_NAME        },
+                { "CHASSIS",          PROP_CHASSIS          },
+                { "DEPLOYMENT",       PROP_DEPLOYMENT       },
+                { "LOCATION",         PROP_LOCATION         },
+                { "TAGS",             PROP_TAGS             },
+                { "HARDWARE_VENDOR",  PROP_HARDWARE_VENDOR  },
+                { "HARDWARE_MODEL",   PROP_HARDWARE_MODEL   },
+                { "HARDWARE_SKU",     PROP_HARDWARE_SKU     },
+                { "HARDWARE_VERSION", PROP_HARDWARE_VERSION },
+        };
+
+        Context *c = ASSERT_PTR(userdata);
+        const char *field;
+        int r;
+
+        assert(m);
+
+        r = sd_bus_message_read(m, "s", &field);
+        if (r < 0)
+                return r;
+
+        if (isempty(field))
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Field name must not be empty.");
+
+        if (!env_name_is_valid(field))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid field name '%s'.", field);
+
+        FOREACH_ELEMENT(e, field_table)
+                if (streq(field, e->name)) {
+                        /* For fields that are also exposed as D-Bus properties, use the same Context cache as the
+                         * property getters. Note that this returns the raw /etc/machine-info value only: property-level
+                         * fallback logic (e.g. DMI/chassis-based synthesis) is not applied here. For custom/unknown
+                         * fields, fall back to reading the file directly. */
+                        context_read_machine_info(c);
+
+                        if (isempty(c->data[e->prop]))
+                                return sd_bus_error_setf(error, BUS_ERROR_FIELD_NOT_SET, "Field '%s' is not set or empty in /etc/machine-info.", field);
+
+                        return sd_bus_reply_method_return(m, "s", c->data[e->prop]);
+                }
+
+        _cleanup_free_ char *value = NULL;
+
+        r = parse_env_file(NULL, etc_machine_info(),
+                           field, &value);
+        if (r < 0 && r != -ENOENT)
+                return sd_bus_error_set_errnof(error, r, "Failed to read /etc/machine-info: %m");
+
+        if (isempty(value))
+                return sd_bus_error_setf(error, BUS_ERROR_FIELD_NOT_SET, "Field '%s' is not set or empty in /etc/machine-info.", field);
+
+        return sd_bus_reply_method_return(m, "s", value);
+}
+
+static int build_describe_response(Context *c, bool privileged, sd_json_variant **ret) {
+        _cleanup_free_ char *hn = NULL, *dhn = NULL, *in = NULL,
+                *chassis = NULL, *vendor = NULL, *model = NULL, *serial = NULL, *firmware_version = NULL,
+                *firmware_vendor = NULL, *chassis_asset_tag = NULL, *sku = NULL, *hardware_version = NULL;
+        _cleanup_strv_free_ char **os_release_pairs = NULL, **machine_info_pairs = NULL;
+        usec_t firmware_date = USEC_INFINITY, eol = USEC_INFINITY;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        sd_id128_t machine_id, boot_id, product_uuid = SD_ID128_NULL;
+        unsigned local_cid = VMADDR_CID_ANY;
+        struct utsname u;
+        int r;
+
+        assert(c);
+        assert(ret);
+
+        context_read_etc_hostname(c);
+        context_read_machine_info(c);
+        context_read_os_release(c);
+        context_determine_hostname_source(c);
+
+        dhn = get_default_hostname();
+        if (!dhn)
+                return log_oom();
+
+        r = gethostname_strict(&hn);
+        if (r < 0 && r != -ENXIO)
+                return log_error_errno(r, "Failed to read local host name: %m");
+
+        if (isempty(c->data[PROP_ICON_NAME]))
+                in = context_fallback_icon_name(c);
+
+        chassis = context_get_chassis(c);
+
+        assert_se(uname(&u) >= 0);
+
+        if (isempty(c->data[PROP_HARDWARE_VENDOR]))
+                (void) get_hardware_vendor(c, &vendor);
+        if (isempty(c->data[PROP_HARDWARE_MODEL]))
+                (void) get_hardware_model(c, &model);
+        if (isempty(c->data[PROP_HARDWARE_SKU]))
+                (void) get_hardware_sku(c, &sku);
+        if (isempty(c->data[PROP_HARDWARE_VERSION]))
+                (void) get_hardware_version(c, &hardware_version);
+
+        if (privileged) {
+                /* The product UUID and hardware serial is only available to privileged clients */
+                (void) id128_get_product(&product_uuid);
+                (void) get_hardware_serial(c, &serial);
+        }
+        (void) get_firmware_version(c, &firmware_version);
+        (void) get_firmware_vendor(c, &firmware_vendor);
+        (void) get_firmware_date(c, &firmware_date);
+        (void) get_chassis_asset_tag(c, &chassis_asset_tag);
+
+        if (c->data[PROP_OS_SUPPORT_END])
+                (void) os_release_support_ended(c->data[PROP_OS_SUPPORT_END], /* quiet= */ false, &eol);
+
+        r = sd_id128_get_machine(&machine_id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get machine ID: %m");
+
+        r = sd_id128_get_boot(&boot_id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get boot ID: %m");
+
+        (void) vsock_get_local_cid(&local_cid);
+
+        (void) load_os_release_pairs(/* root= */ NULL, &os_release_pairs);
+        (void) load_env_file_pairs(/* f= */ NULL, etc_machine_info(), &machine_info_pairs);
+
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR_STRING("Hostname", hn ?: dhn),
+                        SD_JSON_BUILD_PAIR_STRING("StaticHostname", c->data[PROP_STATIC_HOSTNAME_SUBSTITUTED_WILDCARDS]),
+                        SD_JSON_BUILD_PAIR_STRING("PrettyHostname", c->data[PROP_PRETTY_HOSTNAME]),
+                        SD_JSON_BUILD_PAIR_STRING("DefaultHostname", dhn),
+                        SD_JSON_BUILD_PAIR_STRING("HostnameSource", hostname_source_to_string(c->hostname_source)),
+                        SD_JSON_BUILD_PAIR_STRING("IconName", in ?: c->data[PROP_ICON_NAME]),
+                        SD_JSON_BUILD_PAIR_STRING("Chassis", chassis),
+                        SD_JSON_BUILD_PAIR_STRING("ChassisAssetTag", chassis_asset_tag),
+                        SD_JSON_BUILD_PAIR_STRING("Deployment", c->data[PROP_DEPLOYMENT]),
+                        SD_JSON_BUILD_PAIR_STRING("Location", c->data[PROP_LOCATION]),
+                        SD_JSON_BUILD_PAIR_STRING("KernelName", u.sysname),
+                        SD_JSON_BUILD_PAIR_STRING("KernelRelease", u.release),
+                        SD_JSON_BUILD_PAIR_STRING("KernelVersion", u.version),
+                        SD_JSON_BUILD_PAIR_STRING("OperatingSystemPrettyName", c->data[PROP_OS_PRETTY_NAME]),
+                        SD_JSON_BUILD_PAIR_STRING("OperatingSystemFancyName", c->data[PROP_OS_FANCY_NAME]),
+                        SD_JSON_BUILD_PAIR_STRING("OperatingSystemCPEName", c->data[PROP_OS_CPE_NAME]),
+                        SD_JSON_BUILD_PAIR_STRING("OperatingSystemHomeURL", c->data[PROP_OS_HOME_URL]),
+                        JSON_BUILD_PAIR_FINITE_USEC("OperatingSystemSupportEnd", eol),
+                        SD_JSON_BUILD_PAIR("OperatingSystemReleaseData", JSON_BUILD_STRV_ENV_PAIR(os_release_pairs)),
+                        SD_JSON_BUILD_PAIR_STRING("OperatingSystemImageID", c->data[PROP_OS_IMAGE_ID]),
+                        SD_JSON_BUILD_PAIR_STRING("OperatingSystemImageVersion", c->data[PROP_OS_IMAGE_VERSION]),
+                        SD_JSON_BUILD_PAIR("MachineInformationData", JSON_BUILD_STRV_ENV_PAIR(machine_info_pairs)),
+                        SD_JSON_BUILD_PAIR_STRING("HardwareVendor", vendor ?: c->data[PROP_HARDWARE_VENDOR]),
+                        SD_JSON_BUILD_PAIR_STRING("HardwareModel", model ?: c->data[PROP_HARDWARE_MODEL]),
+                        SD_JSON_BUILD_PAIR_STRING("HardwareSerial", serial),
+                        SD_JSON_BUILD_PAIR_STRING("HardwareSKU", sku ?: c->data[PROP_HARDWARE_SKU]),
+                        SD_JSON_BUILD_PAIR_STRING("HardwareVersion", hardware_version ?: c->data[PROP_HARDWARE_VERSION]),
+                        SD_JSON_BUILD_PAIR_STRING("FirmwareVersion", firmware_version),
+                        SD_JSON_BUILD_PAIR_STRING("FirmwareVendor", firmware_vendor),
+                        JSON_BUILD_PAIR_FINITE_USEC("FirmwareDate", firmware_date),
+                        SD_JSON_BUILD_PAIR_ID128("MachineID", machine_id),
+                        SD_JSON_BUILD_PAIR_ID128("BootID", boot_id),
+                        SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(product_uuid), "ProductUUID", SD_JSON_BUILD_ID128(product_uuid)),
+                        SD_JSON_BUILD_PAIR_CONDITION(sd_id128_is_null(product_uuid), "ProductUUID", SD_JSON_BUILD_NULL),
+                        SD_JSON_BUILD_PAIR_CONDITION(local_cid != VMADDR_CID_ANY, "VSockCID", SD_JSON_BUILD_UNSIGNED(local_cid)),
+                        SD_JSON_BUILD_PAIR_CONDITION(local_cid == VMADDR_CID_ANY, "VSockCID", SD_JSON_BUILD_NULL));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build JSON data: %m");
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+static int method_describe(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        Context *c = ASSERT_PTR(userdata);
+        _cleanup_free_ char *text = NULL;
+        bool privileged;
+        int r;
+
+        assert(m);
+
+        r = bus_verify_polkit_async(
+                        m,
+                        "org.freedesktop.hostname1.get-description",
+                        /* details= */ NULL,
+                        &c->polkit_registry,
+                        error);
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        /* We ignore all authentication errors here, since most data is unprivileged, the one exception being
+         * the product ID which we'll check explicitly. */
+        privileged = r > 0;
+
+        r = build_describe_response(c, privileged, &v);
+        if (r < 0)
+                return r;
+
+        r = sd_json_variant_format(v, 0, &text);
+        if (r < 0)
+                return log_error_errno(r, "Failed to format JSON data: %m");
+
+        return sd_bus_reply_method_return(m, "s", text);
+}
+
+static const sd_bus_vtable hostname_vtable[] = {
+        SD_BUS_VTABLE_START(0),
+        SD_BUS_PROPERTY("Hostname", "s", property_get_hostname, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("StaticHostname", "s", property_get_static_hostname, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("PrettyHostname", "s", property_get_machine_info_field, offsetof(Context, data[PROP_PRETTY_HOSTNAME]), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("DefaultHostname", "s", property_get_default_hostname, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("HostnameSource", "s", property_get_hostname_source, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("IconName", "s", property_get_icon_name, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("Chassis", "s", property_get_chassis, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("Deployment", "s", property_get_machine_info_field, offsetof(Context, data[PROP_DEPLOYMENT]), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("Location", "s", property_get_machine_info_field, offsetof(Context, data[PROP_LOCATION]), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("Tags", "as", property_get_tags, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("KernelName", "s", property_get_uname_field, offsetof(struct utsname, sysname), SD_BUS_VTABLE_ABSOLUTE_OFFSET|SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("KernelRelease", "s", property_get_uname_field, offsetof(struct utsname, release), SD_BUS_VTABLE_ABSOLUTE_OFFSET|SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("KernelVersion", "s", property_get_uname_field, offsetof(struct utsname, version), SD_BUS_VTABLE_ABSOLUTE_OFFSET|SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("OperatingSystemPrettyName", "s", property_get_os_release_field, offsetof(Context, data[PROP_OS_PRETTY_NAME]), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("OperatingSystemFancyName", "s", property_get_os_release_field, offsetof(Context, data[PROP_OS_FANCY_NAME]), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("OperatingSystemCPEName", "s", property_get_os_release_field, offsetof(Context, data[PROP_OS_CPE_NAME]), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("OperatingSystemSupportEnd", "t", property_get_os_support_end, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("HomeURL", "s", property_get_os_release_field, offsetof(Context, data[PROP_OS_HOME_URL]), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("OperatingSystemImageID", "s", property_get_os_release_field, offsetof(Context, data[PROP_OS_IMAGE_ID]), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("OperatingSystemImageVersion", "s", property_get_os_release_field, offsetof(Context, data[PROP_OS_IMAGE_VERSION]), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("HardwareVendor", "s", property_get_hardware_vendor, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("HardwareModel", "s", property_get_hardware_model, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("HardwareSKU", "s", property_get_hardware_sku, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("HardwareVersion", "s", property_get_hardware_version, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("FirmwareVersion", "s", property_get_firmware_version, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("FirmwareVendor", "s", property_get_firmware_vendor, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("FirmwareDate", "t", property_get_firmware_date, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("MachineID", "ay", property_get_machine_id, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("BootID", "ay", property_get_boot_id, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("VSockCID", "u", property_get_vsock_cid, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ChassisAssetTag", "s", property_get_chassis_asset_tag, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+
+        SD_BUS_METHOD_WITH_ARGS("SetHostname",
+                                SD_BUS_ARGS("s", hostname, "b", interactive),
+                                SD_BUS_NO_RESULT,
+                                method_set_hostname,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("SetStaticHostname",
+                                SD_BUS_ARGS("s", hostname, "b", interactive),
+                                SD_BUS_NO_RESULT,
+                                method_set_static_hostname,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("SetPrettyHostname",
+                                SD_BUS_ARGS("s", hostname, "b", interactive),
+                                SD_BUS_NO_RESULT,
+                                method_set_pretty_hostname,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("SetIconName",
+                                SD_BUS_ARGS("s", icon, "b", interactive),
+                                SD_BUS_NO_RESULT,
+                                method_set_icon_name,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("SetChassis",
+                                SD_BUS_ARGS("s", chassis, "b", interactive),
+                                SD_BUS_NO_RESULT,
+                                method_set_chassis,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("SetDeployment",
+                                SD_BUS_ARGS("s", deployment, "b", interactive),
+                                SD_BUS_NO_RESULT,
+                                method_set_deployment,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("SetLocation",
+                                SD_BUS_ARGS("s", location, "b", interactive),
+                                SD_BUS_NO_RESULT,
+                                method_set_location,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("SetTags",
+                                SD_BUS_ARGS("as", tags),
+                                SD_BUS_NO_RESULT,
+                                method_set_tags,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("AddAndRemoveTags",
+                                SD_BUS_ARGS("as", add, "as", remove),
+                                SD_BUS_NO_RESULT,
+                                method_add_and_remove_tags,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("GetProductUUID",
+                                SD_BUS_ARGS("b", interactive),
+                                SD_BUS_RESULT("ay", uuid),
+                                method_get_product_uuid,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("GetHardwareSerial",
+                                SD_BUS_NO_ARGS,
+                                SD_BUS_RESULT("s", serial),
+                                method_get_hardware_serial,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("Describe",
+                                SD_BUS_NO_ARGS,
+                                SD_BUS_RESULT("s", json),
+                                method_describe,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("GetMachineInfo",
+                                SD_BUS_ARGS("s", field),
+                                SD_BUS_RESULT("s", value),
+                                method_get_machine_info,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+
+        SD_BUS_VTABLE_END,
+};
+
+static const BusObjectImplementation manager_object = {
+        "/org/freedesktop/hostname1",
+        "org.freedesktop.hostname1",
+        .vtables = BUS_VTABLES(hostname_vtable),
+};
+
+static int connect_bus(Context *c) {
+        int r;
+
+        assert(c);
+        assert(c->event);
+        assert(!c->bus);
+
+        r = bus_open_system_watch_bind_with_description(&c->bus, "bus-api-hostname");
+        if (r < 0)
+                return log_error_errno(r, "Failed to get system bus connection: %m");
+
+        r = bus_add_implementation(c->bus, &manager_object, c);
+        if (r < 0)
+                return r;
+
+        r = bus_log_control_api_register(c->bus);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_request_name_async(c->bus, NULL, "org.freedesktop.hostname1", 0, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to request name: %m");
+
+        r = sd_bus_attach_event(c->bus, c->event, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach bus to event loop: %m");
+
+        return 0;
+}
+
+static int vl_method_describe(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
+        bool privileged;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table_polkit_only, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        r = varlink_verify_polkit_async_full(
+                        link,
+                        c->bus,
+                        "org.freedesktop.hostname1.get-hardware-serial",
+                        /* details= */ NULL,
+                        UID_INVALID,
+                        POLKIT_DONT_REPLY,
+                        &c->polkit_registry,
+                        /* ret_admin= */ NULL);
+        if (r == 0)
+                return 0; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        /* We ignore all authentication errors here, since most data is unprivileged, the one exception being
+         * the product ID which we'll check explicitly. */
+        privileged = r > 0;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = build_describe_response(c, privileged, &v);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, v);
+}
+
+static int vl_validate_and_substitute_hostname(sd_varlink *link, const char *name, char **ret_substituted) {
+        int r;
+
+        assert(link);
+        assert(ret_substituted);
+
+        r = validate_and_substitute_hostname(name, ret_substituted);
+        if (r == -EUCLEAN)
+                return sd_varlink_error_invalid_parameter_name(link, "newValue");
+
+        return r;
+}
+
+static int vl_method_set_hostname(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "newValue", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, 0, SD_JSON_NULLABLE },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        _cleanup_free_ char *value = NULL;
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &value);
+        if (r != 0)
+                return r;
+
+        const char *name = empty_to_null(value);
+
+        /* We always go through with the procedure below without comparing to the current hostname, because
+         * we might want to adjust hostname source information even if the actual hostname is unchanged. */
+
+        _cleanup_free_ char *substituted = NULL;
+        r = vl_validate_and_substitute_hostname(link, name, &substituted);
+        if (r < 0)
+                return r;
+
+        name = substituted;
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        c->bus,
+                        "org.freedesktop.hostname1.set-hostname",
+                        /* details= */ NULL,
+                        &c->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        context_read_etc_hostname(c);
+
+        r = context_update_kernel_hostname(c, name);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                (void) sd_bus_emit_properties_changed(c->bus,
+                                                      "/org/freedesktop/hostname1", "org.freedesktop.hostname1",
+                                                      "Hostname", "HostnameSource", NULL);
+
+        return sd_varlink_reply(link, NULL);
+}
+
+static int vl_method_set_static_hostname(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "newValue", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, 0, SD_JSON_NULLABLE },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        _cleanup_free_ char *value = NULL;
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &value);
+        if (r != 0)
+                return r;
+
+        const char *name = empty_to_null(value);
+
+        context_read_etc_hostname(c);
+
+        if (streq_ptr(name, c->data[PROP_STATIC_HOSTNAME]))
+                return sd_varlink_reply(link, NULL);
+
+        _cleanup_free_ char *substituted = NULL;
+        r = vl_validate_and_substitute_hostname(link, name, &substituted);
+        if (r < 0)
+                return r;
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        c->bus,
+                        "org.freedesktop.hostname1.set-static-hostname",
+                        /* details= */ NULL,
+                        &c->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = free_and_strdup_warn(&c->data[PROP_STATIC_HOSTNAME], name);
+        if (r < 0)
+                return r;
+
+        free_and_replace(c->data[PROP_STATIC_HOSTNAME_SUBSTITUTED_WILDCARDS], substituted);
+
+        r = context_write_data_static_hostname(c);
+        if (r < 0)
+                return r;
+
+        r = context_update_kernel_hostname(c, /* transient_hostname= */ NULL);
+        if (r < 0)
+                return r;
+
+        (void) sd_bus_emit_properties_changed(c->bus,
+                                              "/org/freedesktop/hostname1", "org.freedesktop.hostname1",
+                                              "StaticHostname", "Hostname", "HostnameSource", NULL);
+
+        return sd_varlink_reply(link, NULL);
+}
+
+static int vl_set_machine_info(sd_varlink *link, sd_json_variant *parameters, void *userdata, HostProperty prop) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "newValue", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, 0, SD_JSON_NULLABLE },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        _cleanup_free_ char *value = NULL;
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &value);
+        if (r != 0)
+                return r;
+
+        const char *name = empty_to_null(value),
+                *polkit_action = "org.freedesktop.hostname1.set-machine-info",
+                *bus_property, *human_name;
+
+        switch (prop) {
+
+        case PROP_PRETTY_HOSTNAME:
+                if (name && !pretty_hostname_is_valid(name))
+                        return sd_varlink_error_invalid_parameter_name(link, "newValue");
+                bus_property = "PrettyHostname";
+                human_name = "pretty hostname";
+                /* Since the pretty hostname should always be changed at the same time as the static one, use
+                 * the same policy action for both... */
+                polkit_action = "org.freedesktop.hostname1.set-static-hostname";
+                break;
+
+        case PROP_ICON_NAME:
+                /* The icon name might ultimately be used as file name, so better be safe than sorry. */
+                if (name && !icon_name_is_valid(name))
+                        return sd_varlink_error_invalid_parameter_name(link, "newValue");
+                bus_property = "IconName";
+                human_name = "icon name";
+                break;
+
+        case PROP_CHASSIS:
+                if (name && !chassis_is_valid(name))
+                        return sd_varlink_error_invalid_parameter_name(link, "newValue");
+                bus_property = "Chassis";
+                human_name = "chassis";
+                break;
+
+        case PROP_DEPLOYMENT:
+                if (name && !deployment_is_valid(name))
+                        return sd_varlink_error_invalid_parameter_name(link, "newValue");
+                bus_property = "Deployment";
+                human_name = "deployment";
+                break;
+
+        case PROP_LOCATION:
+                if (name && !location_is_valid(name))
+                        return sd_varlink_error_invalid_parameter_name(link, "newValue");
+                bus_property = "Location";
+                human_name = "location";
+                break;
+
+        default:
+                assert_not_reached();
+        }
+
+        context_read_machine_info(c);
+
+        if (streq_ptr(name, c->data[prop]))
+                return sd_varlink_reply(link, NULL);
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        c->bus,
+                        polkit_action,
+                        /* details= */ NULL,
+                        &c->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = free_and_strdup_warn(&c->data[prop], name);
+        if (r < 0)
+                return r;
+
+        r = context_write_data_machine_info(c);
+        if (r < 0)
+                return r;
+
+        log_info("Changed %s to '%s'", human_name, strna(c->data[prop]));
+
+        (void) sd_bus_emit_properties_changed(
+                        c->bus,
+                        "/org/freedesktop/hostname1",
+                        "org.freedesktop.hostname1",
+                        bus_property,
+                        NULL);
+
+        return sd_varlink_reply(link, NULL);
+}
+
+static int vl_method_set_pretty_hostname(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_set_machine_info(link, parameters, userdata, PROP_PRETTY_HOSTNAME);
+}
+
+static int vl_method_set_icon_name(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_set_machine_info(link, parameters, userdata, PROP_ICON_NAME);
+}
+
+static int vl_method_set_chassis(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_set_machine_info(link, parameters, userdata, PROP_CHASSIS);
+}
+
+static int vl_method_set_deployment(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_set_machine_info(link, parameters, userdata, PROP_DEPLOYMENT);
+}
+
+static int vl_method_set_location(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_set_machine_info(link, parameters, userdata, PROP_LOCATION);
+}
+
+typedef struct SetTagsParameters {
+        char **set;
+        char **add;
+        char **remove;
+} SetTagsParameters;
+
+static void set_tags_parameters_done(SetTagsParameters *p) {
+        assert(p);
+
+        strv_free(p->set);
+        strv_free(p->add);
+        strv_free(p->remove);
+}
+
+static int vl_method_set_tags(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "set",    SD_JSON_VARIANT_ARRAY, sd_json_dispatch_strv, offsetof(SetTagsParameters, set),    SD_JSON_NULLABLE },
+                { "add",    SD_JSON_VARIANT_ARRAY, sd_json_dispatch_strv, offsetof(SetTagsParameters, add),    SD_JSON_NULLABLE },
+                { "remove", SD_JSON_VARIANT_ARRAY, sd_json_dispatch_strv, offsetof(SetTagsParameters, remove), SD_JSON_NULLABLE },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        _cleanup_(set_tags_parameters_done) SetTagsParameters p = {};
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        /* Both an absent 'set' field and an explicit null map to a NULL strv after dispatching, but only the
+         * former should keep the current tags — an explicit (possibly empty) 'set' resets the list. Hence
+         * check for the field's presence separately. */
+        bool reset = sd_json_variant_by_key(parameters, "set");
+
+        if (reset && !machine_tag_list_is_valid(p.set))
+                return sd_varlink_error_invalid_parameter_name(link, "set");
+        if (!machine_tag_list_is_valid(p.add))
+                return sd_varlink_error_invalid_parameter_name(link, "add");
+        if (!machine_tag_list_is_valid(p.remove))
+                return sd_varlink_error_invalid_parameter_name(link, "remove");
+
+        context_read_machine_info(c);
+
+        _cleanup_strv_free_ char **current = NULL;
+        r = machine_tags_from_string(c->data[PROP_TAGS], /* graceful= */ true, &current);
+        if (r < 0)
+                return r;
+
+        /* Use either the explicitly specified tag list or the current one as the basis, then apply the
+         * additions and removals on top. */
+        _cleanup_strv_free_ char **tags = NULL;
+        r = machine_tags_add_remove(reset ? p.set : current, p.add, p.remove, &tags);
+        if (r == -E2BIG)
+                return sd_varlink_error_invalid_parameter_name(link, "add");
+        if (r < 0)
+                return r;
+
+        if (strv_equal(tags, current))
+                return sd_varlink_reply(link, NULL);
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        c->bus,
+                        "org.freedesktop.hostname1.set-machine-info",
+                        /* details= */ NULL,
+                        &c->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = context_store_tags(c, tags);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, NULL);
+}
+
+static int connect_varlink(Context *c) {
+        int r;
+
+        assert(c);
+        assert(c->event);
+        assert(!c->varlink_server);
+
+        r = varlink_server_new(
+                        &c->varlink_server,
+                        SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA,
+                        c);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate Varlink server: %m");
+
+        r = sd_varlink_server_add_interface_many(
+                        c->varlink_server,
+                        &vl_interface_io_systemd_Hostname,
+                        &vl_interface_io_systemd_service);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add Hostname interface to Varlink server: %m");
+
+        r = sd_varlink_server_bind_method_many(
+                        c->varlink_server,
+                        "io.systemd.Hostname.Describe",          vl_method_describe,
+                        "io.systemd.Hostname.SetHostname",       vl_method_set_hostname,
+                        "io.systemd.Hostname.SetStaticHostname", vl_method_set_static_hostname,
+                        "io.systemd.Hostname.SetPrettyHostname", vl_method_set_pretty_hostname,
+                        "io.systemd.Hostname.SetIconName",       vl_method_set_icon_name,
+                        "io.systemd.Hostname.SetChassis",        vl_method_set_chassis,
+                        "io.systemd.Hostname.SetDeployment",     vl_method_set_deployment,
+                        "io.systemd.Hostname.SetLocation",       vl_method_set_location,
+                        "io.systemd.Hostname.SetTags",           vl_method_set_tags,
+                        "io.systemd.service.Ping",               varlink_method_ping,
+                        "io.systemd.service.SetLogLevel",        varlink_method_set_log_level,
+                        "io.systemd.service.GetEnvironment",     varlink_method_get_environment);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind Varlink method calls: %m");
+
+        r = sd_varlink_server_attach_event(c->varlink_server, c->event, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach Varlink server to event loop: %m");
+
+        r = sd_varlink_server_listen_auto(c->varlink_server);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind to passed Varlink sockets: %m");
+        if (r == 0) {
+                r = sd_varlink_server_listen_address(c->varlink_server, "/run/systemd/io.systemd.Hostname", 0666);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to bind to Varlink socket: %m");
+        }
+
+        return 0;
+}
+
+static bool context_check_idle(void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
+
+        return sd_varlink_server_current_connections(c->varlink_server) == 0 &&
+                hashmap_isempty(c->polkit_registry);
+}
+
+static int run(int argc, char *argv[]) {
+        _cleanup_(context_destroy) Context context = {
+                .hostname_source = _HOSTNAME_INVALID, /* appropriate value will be set later */
+        };
+        int r;
+
+        LIBSELINUX_NOTE(recommended);
+
+        log_setup();
+
+        r = service_parse_argv("systemd-hostnamed.service",
+                               "Manage the system hostname and related metadata.",
+                               BUS_IMPLEMENTATIONS(&manager_object,
+                                                   &log_control_object),
+                               /* runtime_scope= */ NULL,
+                               argc, argv);
+        if (r <= 0)
+                return r;
+
+        umask(0022);
+
+        r = mac_init();
+        if (r < 0)
+                return r;
+
+        r = context_acquire_dmi_device(&context);
+        if (r < 0)
+                return r;
+
+        r = context_acquire_acpi_device(&context);
+        if (r < 0)
+                return r;
+
+        r = context_acquire_device_tree(&context);
+        if (r < 0)
+                return r;
+
+        r = sd_event_default(&context.event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate event loop: %m");
+
+        (void) sd_event_set_watchdog(context.event, true);
+
+        r = sd_event_set_signal_exit(context.event, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to install SIGINT/SIGTERM handlers: %m");
+
+        r = sd_event_add_signal(context.event, /* ret= */ NULL, (SIGRTMIN+18)|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, /* userdata= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to install SIGRTMIN+18 handler: %m");
+
+        r = sd_event_add_memory_pressure(context.event, /* ret= */ NULL, /* callback= */ NULL, /* userdata= */ NULL);
+        if (r < 0)
+                log_debug_errno(r, "Failed to allocate memory pressure event source, ignoring: %m");
+
+        r = connect_bus(&context);
+        if (r < 0)
+                return r;
+
+        r = connect_varlink(&context);
+        if (r < 0)
+                return r;
+
+        r = sd_notify(false, NOTIFY_READY_MESSAGE);
+        if (r < 0)
+                log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
+
+        r = bus_event_loop_with_idle(
+                        context.event,
+                        context.bus,
+                        "org.freedesktop.hostname1",
+                        DEFAULT_EXIT_USEC,
+                        context_check_idle,
+                        &context);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run event loop: %m");
+
+        return 0;
+}
+
+DEFINE_MAIN_FUNCTION(run);

@@ -1,0 +1,14 @@
+{
+    "userName": "noautoresize",
+    "realName": "No Auto Resize User",
+    "uid": 3007,
+    "gid": 3007,
+    "homeDirectory": "/home/noautoresize",
+    "shell": "/bin/bash",
+    "disposition": "regular",
+    "storage": "luks",
+    "imagePath": "/home/noautoresize.home",
+    "diskSize": 53687091200,
+    "autoResizeMode": "off",
+    "rebalanceWeight": false
+}

@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for Personality=aarch64
+
+[Service]
+ExecStart=bash -c 'echo $(uname -m); exit $(test $(uname -m) = "aarch64")'
+Type=oneshot
+Personality=aarch64

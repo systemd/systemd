@@ -1,0 +1,143 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-machined.service" conditional='ENABLE_MACHINED'>
+
+  <refentryinfo>
+    <title>systemd-machined.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-machined.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-machined.service</refname>
+    <refname>systemd-machined</refname>
+    <refpurpose>Virtual machine and container registration manager</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-machined.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-machined</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-machined</command> is a system service that keeps track of locally running virtual
+    machines and containers.</para>
+
+    <para><command>systemd-machined</command> is useful for registering and keeping track of both OS
+    containers (containers that share the host kernel but run a full init system of their own and behave in
+    most regards like a full virtual operating system rather than just one virtualized app) and full virtual
+    machines (virtualized hardware running normal operating systems and possibly different kernels).</para>
+
+    <para><command>systemd-machined</command> should <emphasis>not</emphasis> be used for registering/keeping
+    track of application sandbox containers. A <emphasis>machine</emphasis> in the context of
+    <command>systemd-machined</command> is supposed to be an abstract term covering both OS containers and
+    full virtual machines, but not application sandboxes.</para>
+
+    <para>Machines registered with machined are exposed in various ways in the system. For example:
+    <itemizedlist>
+      <listitem><para>Tools like
+      <citerefentry project='man-pages'><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      will show to which machine a specific process belongs in a column of
+      its own, and so will
+      <ulink url="https://help.gnome.org/users/gnome-system-monitor/">gnome-system-monitor</ulink> or
+      <citerefentry><refentrytitle>systemd-cgls</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+      </listitem>
+
+      <listitem><para>systemd's various tools
+      (<citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>loginctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>timedatectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>localectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>, ...)
+      support the <option>-M</option> switch to operate on local containers instead of the host system.
+      </para></listitem>
+
+      <listitem><para><command>systemctl list-machines</command> will show the system state of all local
+      containers, connecting to the container's init system for that.</para></listitem>
+
+      <listitem><para>systemctl's <option>--recursive</option> switch has the effect of not only showing the
+      locally running services, but recursively showing the services of all registered containers.</para></listitem>
+
+      <listitem><para>The <command>machinectl</command> command provides access to a number of useful
+      operations on registered containers, such as introspecting them, rebooting, shutting them down, and
+      getting a login prompt on them.</para></listitem>
+
+      <listitem><para>The
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry> library
+      exposes the
+      <citerefentry><refentrytitle>sd_bus_open_system_machine</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      call to connect to the system bus of any registered container.</para></listitem>
+
+      <listitem><para>The
+      <citerefentry><refentrytitle>nss-mymachines</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      module makes sure all registered containers can be resolved via normal glibc
+      <citerefentry project='man-pages'><refentrytitle>gethostbyname</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      or
+      <citerefentry project='man-pages'><refentrytitle>getaddrinfo</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      calls.</para></listitem>
+    </itemizedlist></para>
+
+    <para>See
+    <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    for some examples on how to run containers with OS tools.</para>
+
+    <para>If you are interested in writing a VM or container manager that makes use of machined, please have
+    look at <ulink url="https://systemd.io/WRITING_VM_AND_CONTAINER_MANAGERS">Writing
+    Virtual Machine or Container Managers</ulink>. Also see the <ulink
+    url="https://systemd.io/CONTROL_GROUP_INTERFACE">New Control Group
+    Interfaces</ulink>.</para>
+
+    <para>The daemon provides both a C library interface
+    (which is shared with <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>)
+    as well as a D-Bus interface and a Varlink interface.
+    The library interface may be used to introspect and watch the state of virtual machines/containers.
+    The bus interface provides the same but in addition may also be used to register or terminate
+    machines. The Varlink interface may be used to register machines with optional extensions, e.g. with an
+    SSH key / address; it can be queried with
+    <command>varlinkctl introspect /run/systemd/machine/io.systemd.Machine io.systemd.Machine</command>.
+    For more information please consult
+    <citerefentry><refentrytitle>sd-login</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>org.freedesktop.machine1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>org.freedesktop.LogControl1</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+
+    <para>A small companion daemon
+    <citerefentry><refentrytitle>systemd-importd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    is also available, which implements importing, exporting, and downloading of container and VM images.
+    </para>
+
+    <para>For each container registered with <filename>systemd-machined.service</filename> that employs user
+    namespacing, users/groups are synthesized for the used UIDs/GIDs. These are made available to the system
+    using the <ulink url="https://systemd.io/USER_GROUP_API">User/Group Record Lookup API via
+    Varlink</ulink>, and thus may be resolved with
+    <citerefentry><refentrytitle>userdbctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> or the
+    usual glibc NSS calls.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>nss-mymachines</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>org.freedesktop.machine1</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>ssh</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

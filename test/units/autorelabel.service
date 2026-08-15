@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+# We use a custom autorelabel service instead of the SELinux provided set of
+# units & a generator, since the generator overrides the default target to the
+# SELinux one when it detects /.autorelabel. However, we use systemd.unit= on
+# the kernel command cmdline which always takes precedence, rendering all
+# SELinux efforts useless. Also, pulling in selinux-autorelabel.service
+# explicitly doesn't work either, as it doesn't check for the presence of
+# /.autorelabel and does the relabeling unconditionally which always ends with
+# a reboot, so we end up in a reboot loop (and it also spews quite a lot of
+# errors as it wants /etc/fstab and dracut-initramfs-restore).
+
+[Unit]
+Description=Relabel all filesystems
+DefaultDependencies=no
+Requires=local-fs.target
+After=local-fs.target
+Conflicts=shutdown.target
+Before=shutdown.target basic.target
+ConditionSecurity=selinux
+ConditionPathExists=|/.autorelabel
+SuccessAction=reboot
+
+[Service]
+ExecStart=bash -xec 'echo 0 >/sys/fs/selinux/enforce; fixfiles -f -F relabel; rm /.autorelabel;'
+Type=oneshot
+TimeoutSec=infinity
+
+[Install]
+WantedBy=basic.target

@@ -1,0 +1,314 @@
+#compdef busctl
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+# busctl(1) completion                               -*- shell-script -*-
+#
+# This file is part of systemd.
+#
+# systemd is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
+#
+# systemd is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
+
+(( $+functions[_busctl_commands] )) || _busctl_commands()
+{
+    local -a _busctl_cmds
+    _busctl_cmds=(
+        "list:List bus names"
+        "status:Show bus service, process or bus owner credentials"
+        "monitor:Show bus traffic"
+        "capture:Capture bus traffic"
+        "tree:Show object tree of service"
+        "introspect:Introspect object"
+        "call:Call a method"
+        "wait:Wait for a signal"
+        "get-property:Get property value"
+        "set-property:Set property value"
+    )
+    if (( CURRENT == 1 )); then
+        _describe -t commands 'busctl command' _busctl_cmds || compadd "$@"
+    else
+        local curcontext="$curcontext"
+        cmd="${${_busctl_cmds[(r)$words[1]:*]%%:*}}"
+        curcontext="${curcontext%:*:*}:busctl-${cmd}:"
+        if (( $+functions[_busctl_$cmd] )); then
+            _busctl_$cmd
+        else
+            _message "no more options"
+        fi
+    fi
+}
+
+__busctl() {
+    busctl $_bus_address --no-pager --no-legend "$@" 2>/dev/null
+}
+
+__dbus_matchspec() {
+    # https://dbus.freedesktop.org/doc/dbus-specification.html#message-bus-routing
+    _values -s, 'rules' \
+        'type[Match on message type]:type:(signal method_call method_return error)' \
+        'eavesdrop[Include unicast messages]:bool:(true false)' \
+        'sender[Match messages sent by a particular sender]:sender:{compadd $(_busctl_get_service_names)}'\
+        'interface[Match messages sent over or to a particular interface]:interface' \
+        'member[Match messages which have the given method or signal name]:member' \
+        'path[Match messages which are sent from or to the given object]:path' \
+        'path_namespace[Match messages which are sent from or to the given namespace]:namespace' \
+        'destination[Match messaged sent to the given unique name]:unique name:{compadd $(_busctl_get_unique_names)}'
+}
+
+(( $+functions[_busctl_get_json] )) || _busctl_get_json()
+{
+    local -a _json_forms
+    _json_forms=( $(__busctl --json=help; echo help) )
+    _values 'format' $_json_forms
+}
+
+(( $+functions[_busctl_get_service_names] )) || _busctl_get_service_names()
+{
+    local -a bus_names
+    bus_names=( $(__busctl call \
+        "org.freedesktop.DBus"  \
+        "/org/freedesktop/DBus" \
+        "org.freedesktop.DBus"  \
+        ListNames) )
+    echo ${(Q)bus_names[3,-1]}
+}
+
+(( $+functions[_busctl_get_unique_names] )) || _busctl_get_unique_names()
+{
+    local -a bus_names
+    local NAME OTHER
+    __busctl --unique list |
+    while read -r NAME OTHER; do
+        echo $NAME
+    done
+}
+
+(( $+functions[_busctl_get_objects] )) || _busctl_get_objects()
+{
+    local -a objects
+    local name="$1"
+    objects=($(__busctl --list tree $name ))
+    echo $objects
+}
+
+(( $+functions[_busctl_get_interfaces] )) || _busctl_get_interfaces()
+{
+    local NAME TYPE OTHER
+    __busctl introspect "$1" "$2" |
+    while read -r NAME TYPE OTHER; do
+        if [[ ${TYPE} == "interface" ]]; then
+            echo ${NAME}
+        fi
+    done
+}
+
+(( $+functions[_busctl_get_members] )) || _busctl_get_members()
+{
+    local member="$4"
+    local required="$5"
+    local NAME TYPE SIGNATURE VALUE FLAGS
+    __busctl introspect "$1" "$2" "$3" |
+    while read -r NAME TYPE SIGNATURE VALUE FLAGS; do
+        [[ -z "$member" || ${TYPE} == "$member" ]] &&
+        [[ -z "$required" || "${${(os: :)FLAGS}}" == $~required ]] &&
+        echo ${NAME#.}
+    done
+}
+
+(( $+functions[_busctl_get_signature] )) || _busctl_get_signature()
+{
+    local NAME TYPE SIGNATURE VALUE FLAGS
+    __busctl introspect "$1" "$2" "$3" |
+    while read -r NAME TYPE SIGNATURE VALUE FLAGS; do
+        if [[ ${NAME#.} == "$4" ]]; then
+            [[ ${SIGNATURE} != "-" ]] && echo ${SIGNATURE}
+        fi
+    done
+}
+
+(( $+functions[_busctl_status] )) || _busctl_status()
+{
+    local expl
+    _wanted busname expl 'busname' compadd "$@" - $(_busctl_get_service_names)
+}
+
+(( $+functions[_busctl_monitor] )) || _busctl_monitor()
+{
+    local expl
+    _wanted busname expl 'busname' compadd "$@" - $(_busctl_get_service_names)
+}
+
+(( $+functions[_busctl_tree] )) || _busctl_tree()
+{
+    local expl
+    _wanted busname expl 'busname' compadd "$@" - $(_busctl_get_service_names)
+}
+
+(( $+functions[_busctl_introspect] )) || _busctl_introspect()
+{
+    local expl
+    case $CURRENT in
+        2)
+            _wanted busname expl 'busname' \
+            compadd "$@" - $(_busctl_get_service_names)
+            ;;
+        3)
+            _wanted path expl 'path' \
+            compadd "$@" - $(_busctl_get_objects $words[2])
+            ;;
+        4)
+            _wanted interface expl 'interface' \
+            compadd "$@" - $(_busctl_get_interfaces $words[2,3])
+            ;;
+        *)
+            _message "no more options"
+    esac
+}
+
+(( $+functions[_busctl_call] )) || _busctl_call()
+{
+    local expl
+    case $CURRENT in
+        2)
+            _wanted busname expl 'busname' \
+            compadd "$@" - $(_busctl_get_service_names)
+            ;;
+        3)
+            _wanted path expl 'path' \
+            compadd "$@" - $(_busctl_get_objects $words[2])
+            ;;
+        4)
+            _wanted interface expl 'interface' \
+            compadd "$@" - $(_busctl_get_interfaces $words[2,3])
+            ;;
+        5)
+            _wanted method expl 'method' \
+            compadd "$@" - $(_busctl_get_members $words[2,4] "method")
+            ;;
+        6)
+            compadd "$@" - $(_busctl_get_signature $words[2,5])
+            ;;
+        *)
+            _message "no more options"
+    esac
+}
+
+(( $+functions[_busctl_wait] )) || _busctl_wait()
+{
+    local expl
+    case $CURRENT in
+        2)
+            _wanted busname expl 'busname' \
+            compadd "$@" - $(_busctl_get_service_names)
+            ;;
+        3)
+            _wanted path expl 'path' \
+            compadd "$@" - $(_busctl_get_objects $words[2])
+            ;;
+        4)
+            _wanted interface expl 'interface' \
+            compadd "$@" - $(_busctl_get_interfaces $words[2,3])
+            ;;
+        5)
+            _wanted method expl 'method' \
+            compadd "$@" - $(_busctl_get_members $words[2,4] "signal")
+            ;;
+        *)
+            _message "no more options"
+    esac
+}
+
+(( $+functions[_busctl_get-property] )) || _busctl_get-property()
+{
+    local expl
+    case $CURRENT in
+        2)
+            _wanted busname expl 'busname' \
+            compadd "$@" - $(_busctl_get_service_names)
+            ;;
+        3)
+            _wanted path expl 'path' \
+            compadd "$@" - $(_busctl_get_objects $words[2])
+            ;;
+        4)
+            _wanted interface expl 'interface' \
+            compadd "$@" - $(_busctl_get_interfaces $words[2,3])
+            ;;
+        5)
+            _wanted property expl 'property' \
+            compadd "$@" - $(_busctl_get_members $words[2,4] "property")
+            ;;
+        *)
+            _message "no more options"
+    esac
+}
+
+(( $+functions[_busctl_set-property] )) || _busctl_set-property()
+{
+    local expl
+    case $CURRENT in
+        2)
+            _wanted busname expl 'busname' \
+            compadd "$@" - $(_busctl_get_service_names)
+            ;;
+        3)
+            _wanted path expl 'path' \
+            compadd "$@" - $(_busctl_get_objects $words[2])
+            ;;
+        4)
+            _wanted interface expl 'interface' \
+            compadd "$@" - $(_busctl_get_interfaces $words[2,3])
+            ;;
+        5)
+            _wanted property expl 'property' \
+            compadd "$@" - $(_busctl_get_members $words[2,4] "property" "*writable*")
+            ;;
+        6)
+            compadd "$@" - $(_busctl_get_signature $words[2,5])
+            ;;
+        *)
+            _message "no more options"
+    esac
+}
+
+local -a _modes; _modes=("--user" "--system")
+# Use the last mode (they are exclusive and the last one is used).
+local _bus_address=${${words:*_modes}[(R)(${(j.|.)_modes})]}
+local curcontext=$curcontext state line
+_arguments \
+    '(- *)'{-h,--help}'[Prints a short help text and exits.]' \
+    '(- *)--version[Prints a short version string and exits.]' \
+    '--no-pager[Do not pipe output into a pager]' \
+    '--no-legend[Do not show the headers and footers]' \
+    '--system[Connect to system manager]' \
+    '--user[Connect to user service manager]' \
+    '(-H --host)'{-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
+    '(-M --machine)'{-M+,--machine=}'[Operate on local container]:machines:_sd_machines' \
+    '--address=[Connect to the bus specified by address]:address' \
+    '--show-machine[Show machine ID column in list]' \
+    '--unique[Only show unique names]' \
+    '--acquired[Only show acquired names]' \
+    '--activatable[Only show activatable names]' \
+    '--match=[Only show matching messages]:match:__dbus_matchspec' \
+    '--list[Do not show tree, but simple object path list]' \
+    '(-q --quiet)'{-q,--quiet}'[Do not show method call reply]'\
+    '--verbose[Show result values in long format]' \
+    '--xml-interface[Dump the XML description in introspect command]' \
+    '--json=[Show result values in long format]:format:_busctl_get_json' \
+    '-j[Show pretty json in interactive sessions, short json otherwise]' \
+    '--expect-reply=[Expect a method call reply]:boolean:(1 0)' \
+    '--auto-start=[Auto-start destination service]:boolean:(1 0)' \
+    '--allow-interactive-authorization=[Allow interactive authorization for operation]:boolean:(1 0)' \
+    '--timeout=[Maximum time to wait for method call completion and monitoring]:timeout (seconds)' \
+    '--augment-creds=[Extend credential data with data read from /proc/$PID]:boolean:(1 0)' \
+    '(-M --limit-messages)'{-M,--limit-messages}'[Exit after receiving a number of messages while monitoring]:integer' \
+    '*::busctl command:_busctl_commands'

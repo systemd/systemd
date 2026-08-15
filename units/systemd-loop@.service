@@ -1,0 +1,24 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Attach File %f to Loopback Block Device
+Documentation=man:systemd-loop@.service(8)
+DefaultDependencies=no
+RequiresMountsFor=%f
+IgnoreOnIsolate=yes
+Wants=modprobe@loop.service
+After=modprobe@loop.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+TimeoutSec=infinity
+ExecStart=systemd-dissect --attach --loop-ref-auto --quiet %f
+ExecStop=systemd-dissect --detach %f

@@ -1,0 +1,14 @@
+{
+    "userName": "fscryptuser",
+    "realName": "Fscrypt User",
+    "uid": 1004,
+    "gid": 1004,
+    "homeDirectory": "/home/fscryptuser",
+    "imagePath": "/home/fscryptuser.homedir",
+    "shell": "/bin/bash",
+    "disposition": "regular",
+    "storage": "fscrypt",
+    "fileSystemType": "ext4",
+    "accessMode": 448,
+    "diskSize": 21474836480
+}

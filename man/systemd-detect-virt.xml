@@ -1,0 +1,377 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-detect-virt"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-detect-virt</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-detect-virt</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-detect-virt</refname>
+    <refpurpose>Detect execution in a virtualized environment</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-detect-virt</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-detect-virt</command> detects execution in
+    a virtualized environment. It identifies the virtualization
+    technology and can distinguish full machine virtualization from
+    container virtualization. <filename>systemd-detect-virt</filename>
+    exits with a return value of 0 (success) if a virtualization
+    technology is detected, and non-zero (error) otherwise. By default,
+    any type of virtualization is detected, and the options
+    <option>--container</option> and <option>--vm</option> can be used
+    to limit what types of virtualization are detected.</para>
+
+    <para>When executed without <option>--quiet</option> will print a
+    short identifier for the detected virtualization technology. The
+    following technologies are currently identified:</para>
+
+    <table>
+      <title>Known virtualization technologies (both
+      VM, i.e. full hardware virtualization,
+      and container, i.e. shared kernel virtualization)</title>
+      <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+        <colspec colname="type" />
+        <colspec colname="id" />
+        <colspec colname="product" />
+        <thead>
+          <row>
+            <entry>Type</entry>
+            <entry>ID</entry>
+            <entry>Product</entry>
+          </row>
+        </thead>
+        <tbody>
+          <row>
+            <entry valign="top" morerows="17">VM</entry>
+            <entry><varname>qemu</varname></entry>
+            <entry>QEMU software virtualization, without KVM</entry>
+          </row>
+
+          <row>
+            <entry><varname>kvm</varname></entry>
+            <entry>Linux KVM kernel virtual machine, in combination with QEMU. Not used for other virtualizers using the KVM interfaces, such as Oracle VirtualBox or Amazon EC2 Nitro, see below.</entry>
+          </row>
+
+          <row>
+            <entry><varname>amazon</varname></entry>
+            <entry>Amazon EC2 Nitro using Linux KVM</entry>
+          </row>
+
+          <row>
+            <entry><varname>zvm</varname></entry>
+            <entry>s390 z/VM</entry>
+          </row>
+
+          <row>
+            <entry><varname>vmware</varname></entry>
+            <entry>VMware Workstation or Server, and related products</entry>
+          </row>
+
+          <row>
+            <entry><varname>microsoft</varname></entry>
+            <entry>Hyper-V, also known as Viridian or Windows Server Virtualization</entry>
+          </row>
+
+          <row>
+            <entry><varname>oracle</varname></entry>
+            <entry>Oracle VM VirtualBox (historically marketed by innotek and Sun Microsystems), for legacy and KVM hypervisor</entry>
+          </row>
+
+          <row>
+            <entry><varname>powervm</varname></entry>
+            <entry>IBM PowerVM hypervisor — comes as firmware with some IBM POWER servers</entry>
+          </row>
+
+          <row>
+            <entry><varname>xen</varname></entry>
+            <entry>Xen hypervisor (only domU, not dom0)</entry>
+          </row>
+
+          <row>
+            <entry><varname>bochs</varname></entry>
+            <entry>Bochs Emulator</entry>
+          </row>
+
+          <row>
+            <entry><varname>uml</varname></entry>
+            <entry>User-mode Linux</entry>
+          </row>
+
+          <row>
+            <entry><varname>parallels</varname></entry>
+            <entry>Parallels Desktop, Parallels Server</entry>
+          </row>
+
+          <row>
+            <entry><varname>bhyve</varname></entry>
+            <entry>bhyve, FreeBSD hypervisor</entry>
+          </row>
+
+          <row>
+            <entry><varname>qnx</varname></entry>
+            <entry>QNX hypervisor</entry>
+          </row>
+
+          <row>
+            <entry><varname>acrn</varname></entry>
+            <entry><ulink url="https://projectacrn.org">ACRN hypervisor</ulink></entry>
+          </row>
+
+          <row>
+            <entry><varname>apple</varname></entry>
+            <entry><ulink url="https://developer.apple.com/documentation/virtualization">Apple virtualization framework</ulink></entry>
+          </row>
+
+          <row>
+            <entry><varname>sre</varname></entry>
+            <entry><ulink url="https://www.lockheedmartin.com/en-us/products/Hardened-Security-for-Intel-Processors.html">LMHS SRE hypervisor</ulink></entry>
+          </row>
+
+          <row>
+            <entry><varname>google</varname></entry>
+            <entry><ulink url="https://cloud.google.com/compute">Google Compute Engine</ulink></entry>
+          </row>
+
+          <row>
+            <entry valign="top" morerows="9">Container</entry>
+            <entry><varname>openvz</varname></entry>
+            <entry>OpenVZ/Virtuozzo</entry>
+          </row>
+
+          <row>
+            <entry><varname>lxc</varname></entry>
+            <entry>Linux container implementation by LXC</entry>
+          </row>
+
+          <row>
+            <entry><varname>lxc-libvirt</varname></entry>
+            <entry>Linux container implementation by libvirt</entry>
+          </row>
+
+          <row>
+            <entry><varname>systemd-nspawn</varname></entry>
+            <entry>systemd's minimal container implementation, see <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry></entry>
+          </row>
+
+          <row>
+            <entry><varname>docker</varname></entry>
+            <entry>Docker container manager</entry>
+          </row>
+
+          <row>
+            <entry><varname>podman</varname></entry>
+            <entry><ulink url="https://podman.io">Podman</ulink> container manager</entry>
+          </row>
+
+          <row>
+            <entry><varname>rkt</varname></entry>
+            <entry>rkt app container runtime</entry>
+          </row>
+
+          <row>
+            <entry><varname>wsl</varname></entry>
+            <entry><ulink url="https://docs.microsoft.com/en-us/windows/wsl/about">Windows Subsystem for Linux</ulink></entry>
+          </row>
+
+          <row>
+            <entry><varname>proot</varname></entry>
+            <entry><ulink url="https://proot-me.github.io/">proot</ulink> userspace chroot/bind mount emulation</entry>
+          </row>
+
+          <row>
+            <entry><varname>pouch</varname></entry>
+            <entry><ulink url="https://github.com/alibaba/pouch">Pouch</ulink> Container Engine</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+
+    <para>If multiple virtualization solutions are used, only the
+    "innermost" is detected and identified. That means if both
+    machine and container virtualization are used in
+    conjunction, only the latter will be identified (unless
+    <option>--vm</option> is passed).</para>
+    <para> Windows Subsystem for Linux is not a Linux container,
+    but an environment for running Linux userspace applications on
+    top of the Windows kernel using a Linux-compatible interface.
+    WSL is categorized as a container for practical purposes.
+    Multiple WSL environments share the same kernel and services
+    should generally behave like when being run in a container.</para>
+
+    <para>When executed with <option>--cvm</option>, instead of
+    printing the virtualization technology, it will display the
+    confidential virtual machine technology, if any. The
+    following technologies are currently identified:</para>
+
+    <table>
+      <title>Known confidential virtualization technologies</title>
+      <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+        <colspec colname="id" />
+        <colspec colname="product" />
+        <thead>
+          <row>
+            <entry>Arch</entry>
+            <entry>ID</entry>
+            <entry>Technology</entry>
+          </row>
+        </thead>
+        <tbody>
+          <row>
+            <entry valign="top" morerows="3">x86_64</entry>
+            <entry><varname>sev</varname></entry>
+            <entry>AMD Secure Encrypted Virtualization</entry>
+          </row>
+          <row>
+            <entry><varname>sev-es</varname></entry>
+            <entry>AMD Secure Encrypted Virtualization - Encrypted State</entry>
+          </row>
+          <row>
+            <entry><varname>sev-snp</varname></entry>
+            <entry>AMD Secure Encrypted Virtualization - Secure Nested Paging</entry>
+          </row>
+          <row>
+            <entry><varname>tdx</varname></entry>
+            <entry>Intel Trust Domain Extensions</entry>
+          </row>
+          <row>
+            <entry>s390x</entry>
+            <entry><varname>protvirt</varname></entry>
+            <entry>IBM Protected Virtualization (Secure Execution)</entry>
+          </row>
+          <row>
+            <entry>arm64</entry>
+            <entry><varname>cca</varname></entry>
+            <entry>Arm Confidential Compute Architecture</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>-c</option></term>
+        <term><option>--container</option></term>
+
+        <listitem><para>Only detects container virtualization (i.e.
+        shared kernel virtualization).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-v</option></term>
+        <term><option>--vm</option></term>
+
+        <listitem><para>Only detects hardware virtualization.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-r</option></term>
+        <term><option>--chroot</option></term>
+
+        <listitem><para>Detect whether invoked in a
+        <citerefentry><refentrytitle>chroot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        environment. In this mode, no output is written, but the return
+        value indicates whether the process was invoked in a
+        <function>chroot()</function>
+        environment or not.</para>
+
+        <xi:include href="version-info.xml" xpointer="v228"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--private-users</option></term>
+
+        <listitem><para>Detect whether invoked in a user namespace.  In this mode, no
+        output is written, but the return value indicates whether the process was invoked
+        inside of a user namespace or not. See
+        <citerefentry project='man-pages'><refentrytitle>user_namespaces</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for more information.</para>
+
+        <xi:include href="version-info.xml" xpointer="v232"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--cvm</option></term>
+
+        <listitem><para>Detect whether invoked in a confidential virtual machine.
+        The result of this detection may be used to disable features that should
+        not be used in confidential VMs. It must not be used to release security
+        sensitive information. The latter must only be released after attestation
+        of the confidential environment.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-q</option></term>
+        <term><option>--quiet</option></term>
+
+        <listitem><para>Suppress output of the virtualization
+        technology identifier.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--list</option></term>
+
+        <listitem><para>Output all currently known and detectable container and VM environments.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--list-cvm</option></term>
+
+        <listitem><para>Output all currently known and detectable confidential virtualization technologies.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>If a virtualization technology is detected, 0 is returned, a
+    non-zero code otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>chroot</refentrytitle><manvolnum>2</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>namespaces</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

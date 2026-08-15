@@ -1,0 +1,47 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Initial Setup
+Documentation=man:systemd-firstboot(1)
+
+ConditionPathIsReadWrite=/etc
+ConditionFirstBoot=yes
+
+DefaultDependencies=no
+# This service may need to write to the file system:
+After=systemd-remount-fs.service
+# Both systemd-sysusers and systemd-tmpfiles may create the root account
+# (via factory files or credentials), obviating the need for us to do that:
+After=systemd-sysusers.service systemd-tmpfiles-setup.service
+# Let vconsole-setup do its setup before starting user interaction:
+After=systemd-vconsole-setup.service
+After=systemd-mute-console.socket
+
+Wants=first-boot-complete.target
+Before=first-boot-complete.target sysinit.target
+Conflicts=shutdown.target
+Before=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=systemd-firstboot --prompt-locale --prompt-keymap-auto --prompt-timezone --prompt-root-password --mute-console=yes
+StandardOutput=tty
+StandardInput=tty
+StandardError=tty
+TTYReset=yes
+
+# Optionally, pick up basic fields from credentials passed to the service
+# manager. This is useful for importing this data from nspawn's
+# --set-credential= switch.
+ImportCredential=passwd.hashed-password.root
+ImportCredential=passwd.plaintext-password.root
+ImportCredential=passwd.shell.root
+ImportCredential=firstboot.*

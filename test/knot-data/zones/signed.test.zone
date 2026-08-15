@@ -1,0 +1,74 @@
+; SPDX-License-Identifier: LGPL-2.1-or-later
+$TTL 86400
+$ORIGIN signed.test.
+
+@ IN SOA ns1.unsigned.test. root.unsigned.test. (
+    42   ; serial
+    3H   ; refresh
+    15M  ; retry
+    1W   ; expire
+    1D   ; minimum TTL
+)
+
+; NS info
+                      NS    ns1.unsigned.test.
+
+*.wild                TXT   "this is a wildcard"
+
+@                     MX    10 mail.signed.test.
+
+                      A     10.0.0.10
+mail                  A     10.0.0.11
+mail                  AAAA  fd00:dead:beef:cafe::11
+
+; https://github.com/systemd/systemd/issues/22002
+dupe                  A     10.0.0.12
+dupe                  A     10.0.0.13
+dupe-ipv6             AAAA  fd00:dead:beef:cafe::12
+dupe-ipv6             AAAA  fd00:dead:beef:cafe::13
+dupe-mixed            A     10.0.0.15
+dupe-mixed            A     10.0.0.16
+dupe-mixed            A     10.0.0.17
+dupe-mixed            AAAA  fd00:dead:beef:cafe::15
+dupe-mixed            AAAA  fd00:dead:beef:cafe::16
+dupe-mixed            AAAA  fd00:dead:beef:cafe::17
+
+; CNAME_REDIRECTS_MAX is 16, so let's test something close to that
+cname-chain           CNAME follow1.signed.test.
+follow1               CNAME follow2.signed.test.
+follow2               CNAME follow3.nested.signed.test.
+follow3.nested        CNAME follow4.signed.test.
+follow4               CNAME follow5.a.b.c.d.signed.test.
+follow5.a.b.c.d       CNAME follow6.signed.test.
+follow6               CNAME follow7.what.is.love.signed.test.
+follow7.what.is.love  CNAME follow8.signed.test.
+follow8               CNAME follow9.almost.there.signed.test.
+follow9.almost.there  CNAME follow10.so.close.signed.test.
+follow10.so.close     CNAME follow11.yet.so.far.signed.test.
+follow11.yet.so.far   CNAME follow12.getting.hot.signed.test.
+follow12.getting.hot  CNAME follow13.almost.final.signed.test.
+follow13.almost.final CNAME follow14.final.signed.test.
+follow14.final        A     10.0.0.14
+
+myservice             A     10.0.0.20
+myservice             AAAA  fd00:dead:beef:cafe::17
+_mysvc._tcp           SRV   10 5 1234 myservice
+_mysvc._tcp           TXT   "This is TXT for myservice"
+
+_invalidsvc._udp      SRV   5 5 1111 invalidservice
+
+_untrustedsvc._udp    SRV   5 5 1111 myservice.untrusted.test.
+
+; OPENPGPKEY RR for mr.smith@signed.test
+; The hash was generated using `echo -ne mr.smith | sha256sum | head -c56`
+; and exported via `gpg --export mr.smith | base64`
+5a786cdc59c161cdafd818143705026636962198c66ed4c5b3da321e._openpgpkey OPENPGPKEY (
+    mDMEYshhzhYJKwYBBAHaRw8BAQdAuU2RxKaycSdaR5YZ/q+/yoHeil/1WNRDVbpjPSd6QBa0GW1y
+    LnNtaXRoQHNpZ25lZC50ZXN0LnpvbmWImQQTFggAQRYhBIOXLJwlwowvXQVeJ3d9yvMKUDBWBQJi
+    yGHOAhsDBQkDwmcABQsJCAcCAiICBhUKCQgLAgQWAgMBAh4HAheAAAoJEHd9yvMKUDBWo6MA/2oC
+    zdnzMlK9gM5bNCFfPyagJfFfv7fW1l7WXTve6FJtAP0faW24ahE1okjmrsTUwqZHvDThysW5zTSt
+    j49S3JQDA7g4BGLIYc4SCisGAQQBl1UBBQEBB0CuNcTAt5AUE3seFN/Gm2euC+8dgtztyzoO/78K
+    ictFLAMBCAeIeAQYFggAIBYhBIOXLJwlwowvXQVeJ3d9yvMKUDBWBQJiyGHOAhsMAAoJEHd9yvMK
+    UDBWtxkA/jlbUgHpSoTKFNNTeXYbTz9jnoupe9eT4O3tU55ofwO7AQCa5ntSIuzDJ1E2iy7oOLOZ
+    m2ocNqpC7SULHhSKYfUWDg==
+)

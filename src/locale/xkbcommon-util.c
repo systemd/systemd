@@ -1,0 +1,74 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include "dlfcn-util.h"
+#include "dlopen-note.h"
+#include "log.h"
+#include "string-util.h"
+#include "xkbcommon-util.h"
+
+#if HAVE_XKBCOMMON
+DLSYM_PROTOTYPE(xkb_context_new) = NULL;
+DLSYM_PROTOTYPE(xkb_context_unref) = NULL;
+DLSYM_PROTOTYPE(xkb_context_set_log_fn) = NULL;
+DLSYM_PROTOTYPE(xkb_keymap_new_from_names) = NULL;
+DLSYM_PROTOTYPE(xkb_keymap_unref) = NULL;
+
+_dlopen_loader_
+static int dlopen_xkbcommon(int log_level) {
+        static void *xkbcommon_dl = NULL;
+
+        LIBXKBCOMMON_NOTE(suggested);
+
+        return dlopen_many_sym_or_warn(
+                        &xkbcommon_dl, "libxkbcommon.so.0", log_level,
+                        DLSYM_ARG(xkb_context_new),
+                        DLSYM_ARG(xkb_context_unref),
+                        DLSYM_ARG(xkb_context_set_log_fn),
+                        DLSYM_ARG(xkb_keymap_new_from_names),
+                        DLSYM_ARG(xkb_keymap_unref));
+}
+
+_printf_(3, 0)
+static void log_xkb(struct xkb_context *ctx, enum xkb_log_level lvl, const char *format, va_list args) {
+        const char *fmt;
+
+        fmt = strjoina("libxkbcommon: ", format);
+        DISABLE_WARNING_FORMAT_NONLITERAL;
+        log_internalv(LOG_DEBUG, 0, PROJECT_FILE, __LINE__, __func__, fmt, args);
+        REENABLE_WARNING;
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct xkb_context *, sym_xkb_context_unref, xkb_context_unrefp, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct xkb_keymap *, sym_xkb_keymap_unref, xkb_keymap_unrefp, NULL);
+
+int verify_xkb_rmlvo(const char *model, const char *layout, const char *variant, const char *options) {
+        _cleanup_(xkb_context_unrefp) struct xkb_context *ctx = NULL;
+        _cleanup_(xkb_keymap_unrefp) struct xkb_keymap *km = NULL;
+        const struct xkb_rule_names rmlvo = {
+                .model          = model,
+                .layout         = layout,
+                .variant        = variant,
+                .options        = options,
+        };
+        int r;
+
+        /* Compile keymap from RMLVO information to check out its validity */
+
+        r = dlopen_xkbcommon(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        ctx = sym_xkb_context_new(XKB_CONTEXT_NO_ENVIRONMENT_NAMES);
+        if (!ctx)
+                return -ENOMEM;
+
+        sym_xkb_context_set_log_fn(ctx, log_xkb);
+
+        km = sym_xkb_keymap_new_from_names(ctx, &rmlvo, XKB_KEYMAP_COMPILE_NO_FLAGS);
+        if (!km)
+                return -EINVAL;
+
+        return 0;
+}
+
+#endif

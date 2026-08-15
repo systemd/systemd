@@ -1,0 +1,250 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="machine-info" xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>machine-info</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>machine-info</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>machine-info</refname>
+    <refpurpose>Local machine information file</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>/etc/machine-info</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>The <filename>/etc/machine-info</filename> file contains
+    machine metadata.</para>
+
+    <para>The format of <filename>machine-info</filename> is a newline-separated list of environment-like
+    shell-compatible variable assignments, ignoring comments and empty lines. It is possible to source the
+    configuration from shell scripts, however, beyond mere variable assignments no shell features are
+    supported, allowing applications to read the file without implementing a shell compatible execution
+    engine. See
+    <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> for a
+    detailed description of the format.</para>
+
+    <para><filename>/etc/machine-info</filename> contains metadata about the machine that is set by the user
+    or administrator. The settings configured here have the highest precedence. When not set, appropriate
+    values may be determined automatically, based on the information about the hardware or other
+    configuration files. It is thus completely fine for this file to not be present.</para>
+
+    <para>You may use
+    <citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    to change the settings of this file from the command line.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following machine metadata parameters may be set using
+    <filename>/etc/machine-info</filename>:</para>
+
+    <refsect2>
+      <title>Machine Information</title>
+
+      <variablelist class='environment-variables'>
+
+        <varlistentry>
+          <term><varname>PRETTY_HOSTNAME=</varname></term>
+
+          <listitem><para>A pretty human-readable UTF-8 machine
+          identifier string. This should contain a name like
+          <literal>Lennart's Laptop</literal> which is useful to present
+          to the user and does not suffer by the syntax limitations of
+          internet domain names. If possible, the internet hostname as
+          configured in <filename>/etc/hostname</filename> should be
+          kept similar to this one. Example: if this value is
+          <literal>Lennart's Computer</literal> an Internet hostname of
+          <literal>lennarts-computer</literal> might be a good choice.
+          If this parameter is not set, an application should fall back
+          to the Internet hostname for presentation
+          purposes.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>ICON_NAME=</varname></term>
+
+          <listitem><para>An icon identifying this machine according to
+          the <ulink
+          url="https://standards.freedesktop.org/icon-naming-spec/icon-naming-spec-latest.html">XDG
+          Icon Naming Specification</ulink>. If this parameter is not
+          set, an application should fall back to
+          <literal>computer</literal> or a similar icon
+          name.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>CHASSIS=</varname></term>
+
+          <listitem><para>The chassis type. Currently, the following
+          chassis types are defined:
+          <literal>desktop</literal>,
+          <literal>laptop</literal>,
+          <literal>convertible</literal>,
+          <literal>server</literal>,
+          <literal>tablet</literal>,
+          <literal>handset</literal>,
+          <literal>watch</literal>, and
+          <literal>embedded</literal>,
+          as well as the special chassis types
+          <literal>vm</literal> and
+          <literal>container</literal> for
+          virtualized systems that lack an immediate physical chassis.</para>
+
+          <para>Note that most systems allow detection of the chassis type automatically (based on firmware
+          information or suchlike). This setting should only be used to override a misdetection or to manually
+          configure the chassis type where automatic detection is not available.</para>
+
+          <xi:include href="version-info.xml" xpointer="v197"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>DEPLOYMENT=</varname></term>
+
+          <listitem><para>Describes the system deployment environment.
+          One of the following is suggested:
+          <literal>development</literal>,
+          <literal>integration</literal>,
+          <literal>staging</literal>,
+          <literal>testing</literal>,
+          <literal>production</literal>.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v216"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>LOCATION=</varname></term>
+
+          <listitem><para>Describes the system location if applicable
+          and known. Takes a human-friendly, free-form string. This may
+          be as generic as <literal>Berlin, Germany</literal> or as
+          specific as <literal>Left Rack, 2nd Shelf</literal>.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v216"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>TAGS=</varname></term>
+
+          <listitem><para>A colon-separated list of tags attached to this machine. Tags are short labels that
+          may be used to classify and group machines for management purposes, for example to identify the role
+          a machine plays in a deployment (<literal>webserver</literal>, <literal>database</literal>), the
+          fleet or organizational unit it belongs to, or any other administrator-defined attribute. Example:
+          <literal>TAGS=webserver:frontend:berlin</literal>.</para>
+
+          <para>Each individual tag must be 1…255 characters long and may consist only of the ASCII
+          alphanumeric characters, <literal>-</literal>, <literal>.</literal> and <literal>=</literal>. The
+          first character may not be <literal>-</literal>, <literal>.</literal> or <literal>=</literal>, and
+          the last character may not be <literal>-</literal> or <literal>.</literal> (unless it takes the
+          parameterized form, see below).</para>
+
+          <para>A tag may optionally be parameterized with a value, in the form
+          <literal><replaceable>key</replaceable>=<replaceable>value</replaceable></literal>. The first
+          <literal>=</literal> separates the key from the value; any further <literal>=</literal> characters
+          are part of the value. The key (the part before the first <literal>=</literal>) follows the same
+          restrictions as an unparameterized tag, in particular it may not be empty and may not end in
+          <literal>-</literal> or <literal>.</literal>. The value (the part after the first
+          <literal>=</literal>) may be empty and is otherwise unrestricted within the allowed character set.
+          Example: <literal>TAGS=role=webserver:env=production:berlin</literal>. The same key may not be
+          assigned more than one distinct value: <literal>role=webserver:role=database</literal> is refused
+          (but a key may coexist with the corresponding unparameterized tag, e.g.
+          <literal>role:role=webserver</literal>).</para>
+
+          <para>The configured tags may be matched against with the
+          <varname>ConditionMachineTag=</varname> and <varname>AssertMachineTag=</varname> unit settings, see
+          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for details. They may be queried and changed with the <command>tags</command> command of
+          <citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>HARDWARE_VENDOR=</varname></term>
+
+          <listitem><para>Specifies the hardware vendor. If unspecified, the hardware vendor set in DMI or
+          <citerefentry><refentrytitle>hwdb</refentrytitle><manvolnum>7</manvolnum></citerefentry> will be
+          used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v251"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>HARDWARE_MODEL=</varname></term>
+
+          <listitem><para>Specifies the hardware model. If unspecified, the hardware model set in DMI or
+          <citerefentry><refentrytitle>hwdb</refentrytitle><manvolnum>7</manvolnum></citerefentry> will be
+          used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v251"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>HARDWARE_SKU=</varname></term>
+
+          <listitem><para>Specifies the hardware SKU (Stock-Keeping Unit). If unspecified, the hardware
+          SKU set in DMI will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>HARDWARE_VERSION=</varname></term>
+
+          <listitem><para>Specifies the hardware version. If unspecified, the hardware version set in DMI
+          will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <refsect2>
+      <title>Custom Fields</title>
+
+      <para>Operating system vendors and systemd administrators may extend the file format and introduce new
+      fields. It is highly recommended to prefix new fields with an OS-specific name in order to avoid name
+      clashes. Applications reading this file must ignore unknown fields.</para>
+
+      <para>Example: <literal>_LOCAL_EMERGENCY_CONTACT="user@example.org"</literal>.</para>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Example</title>
+
+    <programlisting>PRETTY_HOSTNAME="Lennart's Tablet"
+ICON_NAME=computer-tablet
+CHASSIS=tablet
+DEPLOYMENT=production
+TAGS=demo:berlin:role=webserver</programlisting>
+  </refsect1>
+
+  <refsect1>
+      <title>See Also</title>
+      <para><simplelist type="inline">
+        <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-hostnamed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      </simplelist></para>
+  </refsect1>
+
+</refentry>

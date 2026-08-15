@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Socket]
+ListenStream=/run/test.ctl
+# We might not be fast enough to hit the default limit (20 triggers per 2 secs)
+# in certain environments, i.e. when running without KVM or when collecting
+# coverage. Let's help it a bit in such cases by lowering the limit to 10 seconds.
+TriggerLimitIntervalSec=10

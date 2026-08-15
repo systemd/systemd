@@ -1,0 +1,460 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "alloc-util.h"
+#include "device-nodes.h"
+#include "errno-util.h"
+#include "extract-word.h"
+#include "fstab-util.h"
+#include "initrd-util.h"
+#include "libmount-util.h"
+#include "log.h"
+#include "nulstr-util.h"
+#include "parse-util.h"
+#include "path-util.h"
+#include "proc-cmdline.h"
+#include "string-util.h"
+#include "strv.h"
+
+bool fstab_enabled_full(int enabled) {
+        static int cached = -1;
+        bool val = true; /* If nothing specified or the check fails, then defaults to true. */
+        int r;
+
+        /* If 'enabled' is non-negative, then update the cache with it. */
+        if (enabled >= 0)
+                cached = enabled;
+
+        if (cached >= 0)
+                return cached;
+
+        r = proc_cmdline_get_bool("fstab", PROC_CMDLINE_STRIP_RD_PREFIX|PROC_CMDLINE_TRUE_WHEN_MISSING, &val);
+        if (r < 0)
+                log_debug_errno(r, "Failed to parse fstab= kernel command line option, ignoring: %m");
+
+        return (cached = val);
+}
+
+int fstab_has_fstype(const char *fstype) {
+#if HAVE_LIBMOUNT
+        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+        int r;
+
+        assert(fstype);
+
+        if (!fstab_enabled())
+                return false;
+
+        r = libmount_parse_fstab(&table, &iter);
+        if (r == -ENOENT)
+                return false;
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                struct libmnt_fs *fs;
+
+                r = sym_mnt_table_next_fs(table, iter, &fs);
+                if (r < 0)
+                        return r;
+                if (r > 0) /* EOF */
+                        return false;
+
+                if (streq_ptr(sym_mnt_fs_get_fstype(fs), fstype))
+                        return true;
+        }
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libmount support not compiled in");
+#endif
+}
+
+bool fstab_is_extrinsic(const char *mount, const char *opts) {
+
+        /* Don't bother with the OS data itself */
+        if (PATH_IN_SET(mount,
+                        "/",
+                        "/usr",
+                        "/etc"))
+                return true;
+
+        if (PATH_STARTSWITH_SET(mount,
+                                "/run/initramfs",    /* This should stay around from before we boot until after we shutdown */
+                                "/run/nextroot",     /* Similar (though might be updated from the host) */
+                                "/proc",             /* All of this is API VFS */
+                                "/sys",              /* … ditto … */
+                                "/dev"))             /* … ditto … */
+                return true;
+
+        /* If this is an initrd mount, and we are not in the initrd, then leave
+         * this around forever, too. */
+        if (fstab_test_option(opts, "x-initrd.mount\0") && !in_initrd())
+                return true;
+
+        return false;
+}
+
+#if HAVE_LIBMOUNT
+static int fstab_is_same_node(const char *what_fstab, const char *path) {
+        _cleanup_free_ char *node = NULL;
+
+        assert(what_fstab);
+        assert(path);
+
+        node = fstab_node_to_udev_node(what_fstab);
+        if (!node)
+                return -ENOMEM;
+
+        if (path_equal(node, path))
+                return true;
+
+        if (is_device_path(path) && is_device_path(node))
+                return devnode_same(node, path);
+
+        return false;
+}
+#endif
+
+int fstab_has_mount_point_prefix_strv(char * const *prefixes) {
+#if HAVE_LIBMOUNT
+        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+        int r;
+
+        assert(!strv_isempty(prefixes));
+
+        /* This function returns true if at least one entry in fstab has a mount point that starts with one
+         * of the passed prefixes. */
+
+        if (!fstab_enabled())
+                return false;
+
+        r = libmount_parse_fstab(&table, &iter);
+        if (r == -ENOENT)
+                return false;
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                struct libmnt_fs *fs;
+                const char *path;
+
+                r = sym_mnt_table_next_fs(table, iter, &fs);
+                if (r < 0)
+                        return r;
+                if (r > 0) /* EOF */
+                        return false;
+
+                path = sym_mnt_fs_get_target(fs);
+                if (!path)
+                        continue;
+
+                if (path_startswith_strv(path, prefixes))
+                        return true;
+        }
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libmount support not compiled in");
+#endif
+}
+
+int fstab_is_mount_point_full(const char *where, const char *path) {
+#if HAVE_LIBMOUNT
+        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+        int r;
+
+        assert(where || path);
+
+        if (!fstab_enabled())
+                return false;
+
+        r = libmount_parse_fstab(&table, &iter);
+        if (r == -ENOENT)
+                return false;
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                struct libmnt_fs *fs;
+
+                r = sym_mnt_table_next_fs(table, iter, &fs);
+                if (r < 0)
+                        return r;
+                if (r > 0) /* EOF */
+                        return false;
+
+                if (where && !path_equal(sym_mnt_fs_get_target(fs), where))
+                        continue;
+
+                if (!path)
+                        return true;
+
+                r = fstab_is_same_node(sym_mnt_fs_get_source(fs), path);
+                if (r > 0 || (r < 0 && !ERRNO_IS_DEVICE_ABSENT(r)))
+                        return r;
+        }
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libmount support not compiled in");
+#endif
+}
+
+static char* fstab_unescape_option(const char *s) {
+        /* Undo the fstab option escaping: "\," -> ",", "\\" -> "\", and keep any
+         * other "\x" verbatim (matches EXTRACT_UNESCAPE_SEPARATORS|EXTRACT_UNESCAPE_RELAX). */
+        char *ret, *e;
+
+        assert(s);
+
+        ret = new(char, strlen(s) + 1);
+        if (!ret)
+                return NULL;
+
+        e = ret;
+        for (const char *p = s; *p; p++) {
+                if (*p == '\\' && p[1] != '\0') {
+                        if (IN_SET(p[1], ',', '\\')) {
+                                *e++ = p[1];
+                                p++;
+                                continue;
+                        }
+                        /* Keep the backslash and the following character verbatim. */
+                        *e++ = *p++;
+                }
+                *e++ = *p;
+        }
+        *e = '\0';
+        return ret;
+}
+
+int fstab_filter_options(
+                const char *opts,
+                const char *names,
+                const char **ret_namefound,
+                char **ret_value,
+                char ***ret_values,
+                char **ret_filtered) {
+
+        _cleanup_strv_free_ char **values = NULL;
+        _cleanup_free_ char *value = NULL, *filtered = NULL;
+        const char *namefound = NULL;
+        int r;
+
+        assert(!isempty(names));
+        assert(!(ret_value && ret_values));
+
+        if (!opts)
+                goto finish;
+
+        /* Finds any options matching 'names', and returns:
+         * - the last matching option name in ret_namefound,
+         * - the last matching value in ret_value,
+         * - any matching values in ret_values,
+         * - the rest of the option string in ret_filtered.
+         *
+         * If !ret_value and !ret_values and !ret_filtered, this function is not allowed to fail.
+         *
+         * Returns negative on error, true if any matching options were found, false otherwise. */
+
+        if (ret_value || ret_values || ret_filtered) {
+                _cleanup_strv_free_ char **opts_split = NULL;
+                _cleanup_free_ char **filtered_strv = NULL; /* strings are owned by 'opts_split' */
+
+                /* For backwards compatibility, we need to pass-through escape characters.
+                 * The only ones we "consume" are the ones used as "\," or "\\". The option
+                 * values are not unescaped by strv_split_full() here; matching option values are
+                 * unescaped manually below so that callers keep getting the unescaped form. */
+                r = strv_split_full(&opts_split, opts, ",", EXTRACT_UNESCAPE_RELAX);
+                if (r < 0)
+                        return r;
+
+                STRV_FOREACH(opt, opts_split) {
+                        bool found = false;
+                        const char *x;
+
+                        NULSTR_FOREACH(name, names) {
+                                x = startswith(*opt, name);
+                                if (!x)
+                                        continue;
+
+                                /* If ret_values, only accept settings followed by assignment. */
+                                if (*x == '=' || (!ret_values && *x == '\0')) {
+                                        namefound = name;
+                                        found = true;
+                                        break;
+                                }
+                        }
+
+                        if (found) {
+                                _cleanup_free_ char *unescaped = NULL;
+
+                                if ((ret_value && *x == '=') || ret_values) {
+                                        unescaped = fstab_unescape_option(x + 1);
+                                        if (!unescaped)
+                                                return -ENOMEM;
+                                }
+
+                                if (ret_value)
+                                        r = free_and_replace(value, unescaped);
+                                else if (ret_values)
+                                        r = strv_extend(&values, unescaped);
+                                else
+                                        r = 0;
+                        } else
+                                r = strv_push(&filtered_strv, *opt);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (ret_filtered) {
+                        filtered = strv_join(filtered_strv, ",");
+                        if (!filtered)
+                                return -ENOMEM;
+                }
+        } else
+                for (const char *word = opts;;) {
+                        const char *end = word;
+
+                        /* Look for a *non-escaped* comma separator. Only commas and backslashes can be
+                         * escaped, so "\," and "\\" are the only valid escape sequences, and we can do a
+                         * very simple test here. */
+                        for (;;) {
+                                end += strcspn(end, ",\\");
+
+                                if (IN_SET(*end, ',', '\0'))
+                                        break;
+                                assert(*end == '\\');
+                                end++;                 /* Skip the backslash */
+                                if (*end != '\0')
+                                        end++;         /* Skip the escaped char, but watch out for a trailing comma */
+                        }
+
+                        NULSTR_FOREACH(name, names) {
+                                const char *x = startswith(word, name);
+                                if (!x || x > end)
+                                        continue;
+
+                                /* We know that the string is NUL terminated, so *x is valid */
+                                if (IN_SET(*x, '\0', '=', ',')) {
+                                        namefound = name;
+                                        break;
+                                }
+                        }
+
+                        if (*end == '\0')
+                                break;
+
+                        word = end + 1;
+                }
+
+finish:
+        if (ret_namefound)
+                *ret_namefound = namefound; /* owned by 'names' (passed-in) */
+        if (ret_value)
+                *ret_value = TAKE_PTR(value);
+        if (ret_values)
+                *ret_values = TAKE_PTR(values);
+        if (ret_filtered)
+                *ret_filtered = TAKE_PTR(filtered);
+
+        return !!namefound;
+}
+
+int fstab_find_pri(const char *opts, int *ret) {
+        _cleanup_free_ char *v = NULL;
+        int r, pri;
+
+        assert(ret);
+
+        r = fstab_filter_options(opts, "pri\0", NULL, &v, NULL, NULL);
+        if (r < 0)
+                return r;
+        if (r == 0 || !v)
+                return 0;
+
+        r = safe_atoi(v, &pri);
+        if (r < 0)
+                return r;
+
+        *ret = pri;
+        return 1;
+}
+
+static char *unquote(const char *s, const char* quotes) {
+        size_t l;
+        assert(s);
+
+        /* This is rather stupid, simply removes the heading and
+         * trailing quotes if there is one. Doesn't care about
+         * escaping or anything.
+         *
+         * DON'T USE THIS FOR NEW CODE ANYMORE! */
+
+        l = strlen(s);
+        if (l < 2)
+                return strdup(s);
+
+        if (strchr(quotes, s[0]) && s[l-1] == s[0])
+                return strndup(s+1, l-2);
+
+        return strdup(s);
+}
+
+static char *tag_to_udev_node(const char *tagvalue, const char *by) {
+        _cleanup_free_ char *t = NULL, *u = NULL;
+        size_t enc_len;
+
+        u = unquote(tagvalue, QUOTES);
+        if (!u)
+                return NULL;
+
+        enc_len = strlen(u) * 4 + 1;
+        t = new(char, enc_len);
+        if (!t)
+                return NULL;
+
+        if (encode_devnode_name(u, t, enc_len) < 0)
+                return NULL;
+
+        return strjoin("/dev/disk/by-", by, "/", t);
+}
+
+char* fstab_node_to_udev_node(const char *p) {
+        const char *q;
+
+        assert(p);
+
+        q = startswith(p, "LABEL=");
+        if (q)
+                return tag_to_udev_node(q, "label");
+
+        q = startswith(p, "UUID=");
+        if (q)
+                return tag_to_udev_node(q, "uuid");
+
+        q = startswith(p, "PARTUUID=");
+        if (q)
+                return tag_to_udev_node(q, "partuuid");
+
+        q = startswith(p, "PARTLABEL=");
+        if (q)
+                return tag_to_udev_node(q, "partlabel");
+
+        return strdup(p);
+}
+
+const char* fstab_path(void) {
+        return secure_getenv("SYSTEMD_FSTAB") ?: "/etc/fstab";
+}
+
+bool fstab_is_bind(const char *options, const char *fstype) {
+
+        if (fstab_test_option(options, "bind\0" "rbind\0"))
+                return true;
+
+        if (fstype && STR_IN_SET(fstype, "bind", "rbind"))
+                return true;
+
+        return false;
+}

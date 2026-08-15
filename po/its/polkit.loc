@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<locatingRules>
+  <locatingRule name="polkit policy" pattern="*.policy">
+    <documentRule localName="policyconfig" target="polkit.its"/>
+  </locatingRule>
+</locatingRules>

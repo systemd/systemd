@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for specifiers
+
+[Service]
+Type=oneshot
+ExecStart=bash -c 'test %t = $$XDG_RUNTIME_DIR'
+ExecStart=bash -c 'test %S = %h/.local/state'
+ExecStart=bash -c 'test %C = %h/.cache'
+ExecStart=bash -c 'test %L = %h/.local/state/log'
+ExecStart=bash -c 'test %E = %h/.config'

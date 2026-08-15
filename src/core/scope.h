@@ -1,0 +1,51 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+#pragma once
+
+#include "cgroup.h"
+#include "core-forward.h"
+#include "kill.h"
+#include "unit.h"
+
+typedef enum ScopeResult {
+        SCOPE_SUCCESS,
+        SCOPE_FAILURE_RESOURCES,
+        SCOPE_FAILURE_TIMEOUT,
+        SCOPE_FAILURE_OOM_KILL,
+        _SCOPE_RESULT_MAX,
+        _SCOPE_RESULT_INVALID = -EINVAL,
+} ScopeResult;
+
+typedef struct Scope {
+        Unit meta;
+
+        CGroupContext cgroup_context;
+        KillContext kill_context;
+        CGroupRuntime *cgroup_runtime;
+
+        ScopeState state, deserialized_state;
+        ScopeResult result;
+
+        usec_t runtime_max_usec;
+        usec_t runtime_rand_extra_usec;
+        usec_t timeout_stop_usec;
+
+        char *controller;
+        sd_bus_track *controller_track;
+
+        bool was_abandoned;
+
+        sd_event_source *timer_event_source;
+
+        char *user;
+        char *group;
+
+        OOMPolicy oom_policy;
+} Scope;
+
+extern const UnitVTable scope_vtable;
+
+int scope_abandon(Scope *s);
+
+DECLARE_STRING_TABLE_LOOKUP(scope_result, ScopeResult);
+
+DEFINE_CAST(SCOPE, Scope);

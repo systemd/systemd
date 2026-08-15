@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+
+if [[ "$1" == "clangd" ]]; then
+    exit 0
+fi
+
+if [[ ! -f "pkg/$PKG_SUBDIR/PKGBUILD" ]]; then
+    echo "PKGBUILD not found at pkg/$PKG_SUBDIR/PKGBUILD, run mkosi once with -ff to make sure the PKGBUILD is cloned" >&2
+    exit 1
+fi
+
+. mkosi/mkosi.functions
+
+MKOSI_CFLAGS="$MKOSI_CFLAGS -Wp,-U_FORTIFY_SOURCE"
+
+# Override the default options. We specifically disable "strip", "zipman" and "lto" as they slow down builds
+# significantly. OPTIONS= cannot be overridden on the makepkg command line so we append to /etc/makepkg.conf
+# instead. The rootfs is overlaid with a writable tmpfs during the build script so these changes don't end up
+# in the image itself.
+tee --append /etc/makepkg.conf >/dev/null <<EOF
+export CC="$( ((CC)) && echo "$CC" || ((LLVM)) && echo clang || echo gcc)"
+export CXX="$( ((CXX)) && echo "$CXX" || ((LLVM)) && echo clang++ || echo g++)"
+export CC_LD="$( ((LD)) && echo "$LD" || ((LLVM)) && echo lld)"
+export CXX_LD="$( ((LD)) && echo "$LD" || ((LLVM)) && echo lld)"
+export CFLAGS="\$CFLAGS $MKOSI_CFLAGS $CFLAGS"
+export CXXFLAGS="\$CXXFLAGS $MKOSI_CFLAGS $CFLAGS"
+export LDFLAGS="\$LDFLAGS $MKOSI_LDFLAGS $LDFLAGS"
+OPTIONS=(
+    docs
+    !libtool
+    !staticlibs
+    emptydirs
+    !zipman
+    purge
+    $( ((WITH_DEBUG)) && echo strip || echo !strip)
+    $( ((WITH_DEBUG)) && echo debug || echo !debug)
+    !lto
+)
+EOF
+
+TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
+
+sed "pkg/$PKG_SUBDIR/PKGBUILD" \
+    --expression "/-Dsysvinit-path=/d" \
+    --expression "/-Dsysvrcnd-path=/d" \
+    --expression "s/^pkgver=.*/pkgver=$(cat meson.version)/" \
+    --expression "s/^pkgrel=.*/pkgrel=$(date "+%Y%m%d%H%M%S" --date "@$TS")/" >/tmp/PKGBUILD
+mount --bind /tmp/PKGBUILD "pkg/$PKG_SUBDIR/PKGBUILD"
+
+(
+    shopt -s nullglob
+    rm -f "$BUILDDIR"/*.pkg.tar
+)
+
+# We can't configure the source or build directory so we use symlinks instead to make sure they are in the
+# expected locations. Because we run with --noextract we are responsible for making sure the source files
+# appear in src/. This means not only the systemd source directory, but also the patches and configuration
+# files that are shipped in the packaging repository. To achieve this, instead of symlinking the systemd
+# sources and build directory directly into "pkg/$PKG_SUBDIR/src", we symlink them into "pkg/$PKG_SUBDIR" and
+# then symlink "pkg/$PKG_SUBDIR" to "pkg/$PKG_SUBDIR/src".
+trap 'rm -f "pkg/$PKG_SUBDIR/src" "pkg/$PKG_SUBDIR/build" "pkg/$PKG_SUBDIR/systemd"' EXIT
+ln --symbolic "$SRCDIR" "pkg/$PKG_SUBDIR/systemd"
+ln --symbolic "$BUILDDIR" "pkg/$PKG_SUBDIR/build"
+ln --symbolic . "pkg/$PKG_SUBDIR/src"
+
+# We get around makepkg's root check by setting EUID to something else.
+# Linting the PKGBUILD takes multiple seconds every build so avoid that by nuking all the linting functions.
+# shellcheck disable=SC2046
+env --chdir="pkg/$PKG_SUBDIR" \
+    EUID=123 \
+    MAKEPKG_LINT_PKGBUILD=0 \
+    makepkg \
+    --noextract \
+    --noprepare \
+    $( ((WITH_TESTS)) || echo --nocheck) \
+    --clean \
+    --force \
+    _systemd_UPSTREAM=1 \
+    BUILDDIR="$PWD/pkg/$PKG_SUBDIR" \
+    PKGDEST="$BUILDDIR" \
+    PKGEXT=".pkg.tar" \
+    MESON_EXTRA_CONFIGURE_OPTIONS="$MKOSI_MESON_OPTIONS $MESON_OPTIONS"
+
+cp "$BUILDDIR"/*.pkg.tar "$PACKAGEDIR"

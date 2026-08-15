@@ -1,0 +1,71 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Journal Service
+Documentation=man:systemd-journald.service(8) man:journald.conf(5)
+DefaultDependencies=no
+Requires=systemd-journald.socket
+After=systemd-journald.socket systemd-journald-dev-log.socket systemd-journald-audit.socket syslog.socket
+Before=sysinit.target
+
+# To avoid journald being SIGKILLed during soft-reboot and corrupting journals.
+# See https://github.com/systemd/systemd/issues/30195
+# Note, typically soft-reboot.target will be never reached,
+# and systemd-soft-reboot.service will trigger soft-reboot.
+# Hence, this must be stopped before systemd-soft-reboot.service.
+Before=soft-reboot.target systemd-soft-reboot.service
+Conflicts=soft-reboot.target
+
+# Mount and swap units need the journal socket units. If they were removed by
+# an isolate request the mount and swap units would be removed too, hence let's
+# exclude systemd-journald and its sockets from isolate requests.
+IgnoreOnIsolate=yes
+
+[Service]
+DeviceAllow=char-* rw
+ExecStart={{LIBEXECDIR}}/systemd-journald
+FileDescriptorStoreMax=4224
+# Ensure services using StandardOutput=journal do not break when journald is stopped
+FileDescriptorStorePreserve=yes
+ImportCredential=journal.*
+IPAddressDeny=any
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
+OOMScoreAdjust=-250
+ProtectClock=yes
+Restart=always
+RestartSec=0
+RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_VSOCK AF_INET AF_INET6
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RuntimeDirectory=systemd/journal
+RuntimeDirectoryPreserve=yes
+# Audit socket is not listed here because this unit can be turned off. However
+# the link between the socket and the service units is still created thanks to
+# the 'Service=' setting specified in the socket unit.
+Sockets=systemd-journald.socket systemd-journald-dev-log.socket
+StandardOutput=null
+SystemCallArchitectures=native
+SystemCallErrorNumber=EPERM
+SystemCallFilter=@system-service
+Type=notify-reload
+PassEnvironment=TERM
+{{SERVICE_WATCHDOG}}
+
+# In case you're wondering why CAP_SYS_PTRACE is needed, access to
+# /proc/<pid>/exe requires this capability. Thus if this capability is missing
+# the _EXE=/OBJECT_EXE= fields will be missing from the journal entries.
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_DAC_OVERRIDE CAP_SYS_PTRACE CAP_SYSLOG CAP_AUDIT_CONTROL CAP_AUDIT_READ CAP_CHOWN CAP_DAC_READ_SEARCH CAP_FOWNER CAP_SETUID CAP_SETGID CAP_MAC_OVERRIDE
+
+# If there are many split up journal files we need a lot of fds to access them
+# all in parallel.
+LimitNOFILE={{HIGH_RLIMIT_NOFILE}}

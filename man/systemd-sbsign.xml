@@ -1,0 +1,152 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-sbsign"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>systemd-sbsign</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-sbsign</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-sbsign</refname>
+    <refpurpose>Sign PE binaries for EFI Secure Boot</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-sbsign</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="req">COMMAND</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-sbsign</command> can be used to sign PE binaries for EFI Secure Boot.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>sign</option></term>
+
+        <listitem><para>Signs the given PE binary for EFI Secure Boot. Takes a path to a PE binary as its
+        argument. If the PE binary already has a certificate table, the new signature will be added to it.
+        Otherwise, a new certificate table will be created. The signed PE binary will be written to the path
+        specified with <option>--output=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--output=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>Specifies the path where to write the signed PE binary or the data to be signed
+        offline when using the <option>--prepare-offline-signing</option> option.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--private-key=<replaceable>PATH/URI</replaceable></option></term>
+        <term><option>--private-key-source=<replaceable>TYPE</replaceable>[:<replaceable>NAME</replaceable>]</option></term>
+        <term><option>--certificate=<replaceable>PATH</replaceable></option></term>
+        <term><option>--certificate-source=<replaceable>TYPE</replaceable>[:<replaceable>NAME</replaceable>]</option></term>
+
+        <listitem><para>Set the Secure Boot private key and certificate for use with the
+        <command>sign</command> verb. The <option>--certificate=</option> option takes a path to a
+        PEM-encoded X.509 certificate or a URI that's passed to the OpenSSL provider configured with
+        <option>--certificate-source</option>. The <option>--certificate-source</option> option takes one of
+        <literal>file</literal> or <literal>provider</literal>, with the latter being followed by a specific
+        provider identifier, separated with a colon, e.g. <literal>provider:pkcs11</literal>. The
+        <option>--private-key=</option> option takes a path or a URI that will be passed to the OpenSSL
+        engine or provider, as specified by <option>--private-key-source=</option> as a
+        <literal>type:name</literal> tuple, such as <literal>engine:pkcs11</literal>. The specified OpenSSL
+        signing engine or provider will be used to sign the PE binary.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--prepare-offline-signing</option></term>
+
+        <listitem><para>When this option is specified, the <command>sign</command> command writes the data
+        that should be signed to the path specified with <option>--output=</option> instead of writing the
+        signed PE binary. This data can then be signed out of band after which the signature can be attached
+        to the PE binary using the <option>--signed-data=</option> and
+        <option>--signed-data-signature=</option> options.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--signed-data=<replaceable>PATH</replaceable></option></term>
+        <term><option>--signed-data-signature=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>Configure the signed data (as written to the path specified with
+        <option>--output=</option> when using the <option>--prepare-offline-signing</option> option) and
+        corresponding signature for the <command>sign</command> command.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help"/>
+      <xi:include href="standard-options.xml" xpointer="version"/>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Offline EFI secure boot signing of a PE binary</title>
+
+      <para>The following does offline secure boot signing of systemd-boot:</para>
+
+      <programlisting>SD_BOOT="$(find /usr/lib/systemd/boot/efi/ -name "systemd-boot*.efi" | head -n1)"
+# Extract the data that should be signed offline.
+/usr/lib/systemd/systemd-sbsign \
+    sign \
+    --certificate=secure-boot-certificate.pem \
+    --output=signed-data.bin \
+    --prepare-offline-signing \
+    "$SD_BOOT"
+# Sign the data out-of-band. This step usually happens out-of-band on a separate system.
+openssl dgst -sha256 -sign secure-boot-private-key.pem -out signed-data.sig signed-data.bin
+# Attach the signed data and its signature to the systemd-boot PE binary.
+/usr/lib/systemd/systemd-sbsign \
+    sign \
+    --certificate=secure-boot-certificate.pem \
+    --output="$SD_BOOT.signed" \
+    --signed-data=signed-data.bin \
+    --signed-data-signature=signed-data.sig \
+    "$SD_BOOT"</programlisting>
+    </example>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

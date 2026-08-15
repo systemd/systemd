@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<!DOCTYPE refsect1 PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+
+<!--
+  SPDX-License-Identifier: LGPL-2.1-or-later
+-->
+
+<refsect1>
+  <title/>
+
+  <variablelist class='network-directives'>
+    <varlistentry id='qdisc-parent'>
+      <term><varname>Parent=</varname></term>
+      <listitem>
+        <para>Configures the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
+        <literal>clsact</literal>, <literal>ingress</literal> or a class identifier. The class identifier is
+        specified as the major and minor numbers in hexadecimal in the range 0x1–0xffff separated with a
+        colon (<literal>major:minor</literal>). Defaults to <literal>root</literal>.</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry id='qdisc-handle'>
+      <term><varname>Handle=</varname></term>
+      <listitem>
+        <para>Configures the major number of unique identifier of the qdisc, known as the handle.
+        Takes a hexadecimal number in the range 0x1–0xffff. Defaults to unset.</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry id='tclass-parent'>
+      <term><varname>Parent=</varname></term>
+      <listitem>
+        <para>Configures the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>, or a
+        qdisc identifier. The qdisc identifier is specified as the major and minor numbers in hexadecimal in
+        the range 0x1–0xffff separated with a colon (<literal>major:minor</literal>). Defaults to
+        <literal>root</literal>.
+        </para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry id='tclass-classid'>
+      <term><varname>ClassId=</varname></term>
+      <listitem>
+        <para>Configures the unique identifier of the class. It is specified as the major and minor numbers in
+        hexadecimal in the range 0x1–0xffff separated with a colon (<literal>major:minor</literal>).
+        Defaults to unset.</para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+</refsect1>

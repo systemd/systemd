@@ -1,0 +1,118 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+# Names with prefixes are preferred, and the run-together names should be
+# considered deprecated (though there is no plan to remove them). New names
+# shall have underscores.
+
+# root_prefix and rootprefix are deprecated since we dropped support for split-usr
+# however we used to install units in root_prefix and a lot of downstream software
+# overrode this variable in their build system to support installing units elsewhere.
+# To stop those builds from silently breaking we keep root_prefix around but have
+# it as an alias for prefix
+root_prefix={{PREFIX_NOSLASH}}
+rootprefix=${root_prefix}
+prefix=${rootprefix}
+sysconf_dir={{SYSCONF_DIR}}
+sysconfdir=${sysconf_dir}
+
+systemd_util_dir=${prefix}/lib/systemd
+systemdutildir=${systemd_util_dir}
+
+systemd_system_unit_dir=${prefix}/lib/systemd/system
+systemdsystemunitdir=${systemd_system_unit_dir}
+
+systemd_system_preset_dir=${prefix}/lib/systemd/system-preset
+systemdsystempresetdir=${systemd_system_preset_dir}
+
+systemd_initrd_preset_dir=${prefix}/lib/systemd/initrd-preset
+systemdinitrdpresetdir=${systemd_initrd_preset_dir}
+
+systemd_user_unit_dir=${prefix}/lib/systemd/user
+systemduserunitdir=${systemd_user_unit_dir}
+
+systemd_user_preset_dir=${prefix}/lib/systemd/user-preset
+systemduserpresetdir=${systemd_user_preset_dir}
+
+systemd_system_conf_dir=${sysconfdir}/systemd/system
+systemdsystemconfdir=${systemd_system_conf_dir}
+
+systemd_user_conf_dir=${sysconfdir}/systemd/user
+systemduserconfdir=${systemd_user_conf_dir}
+
+systemd_system_unit_path=${systemd_system_conf_dir}:/etc/systemd/system:/run/systemd/system:/usr/local/lib/systemd/system:${systemd_system_unit_dir}:/usr/lib/systemd/system:/lib/systemd/system
+systemdsystemunitpath=${systemd_system_unit_path}
+
+systemd_user_unit_path=${systemd_user_conf_dir}:/etc/systemd/user:/run/systemd/user:/usr/local/lib/systemd/user:/usr/local/share/systemd/user:${systemd_user_unit_dir}:/usr/lib/systemd/user:/usr/share/systemd/user
+systemduserunitpath=${systemd_user_unit_path}
+
+systemd_system_generator_dir=${prefix}/lib/systemd/system-generators
+systemdsystemgeneratordir=${systemd_system_generator_dir}
+
+systemd_user_generator_dir=${prefix}/lib/systemd/user-generators
+systemdusergeneratordir=${systemd_user_generator_dir}
+
+systemd_system_generator_path=/run/systemd/system-generators:/etc/systemd/system-generators:/usr/local/lib/systemd/system-generators:${systemd_system_generator_dir}
+systemdsystemgeneratorpath=${systemd_system_generator_path}
+
+systemd_user_generator_path=/run/systemd/user-generators:/etc/systemd/user-generators:/usr/local/lib/systemd/user-generators:${systemd_user_generator_dir}
+systemdusergeneratorpath=${systemd_user_generator_path}
+
+systemd_sleep_dir=${prefix}/lib/systemd/system-sleep
+systemdsleepdir=${systemd_sleep_dir}
+
+systemd_shutdown_dir=${prefix}/lib/systemd/system-shutdown
+systemdshutdowndir=${systemd_shutdown_dir}
+
+tmpfiles_dir=${prefix}/lib/tmpfiles.d
+tmpfilesdir=${tmpfiles_dir}
+
+user_tmpfiles_dir=${prefix}/share/user-tmpfiles.d
+
+sysusers_dir=${prefix}/lib/sysusers.d
+sysusersdir=${sysusers_dir}
+
+sysctl_dir=${prefix}/lib/sysctl.d
+sysctldir=${sysctl_dir}
+
+binfmt_dir=${prefix}/lib/binfmt.d
+binfmtdir=${binfmt_dir}
+
+modules_load_dir=${prefix}/lib/modules-load.d
+modulesloaddir=${modules_load_dir}
+
+catalog_dir=${prefix}/lib/systemd/catalog
+catalogdir=${catalog_dir}
+
+system_alloc_uid_min={{SYSTEM_ALLOC_UID_MIN}}
+system_uid_max={{SYSTEM_UID_MAX}}
+systemuidmax=${system_uid_max}
+system_alloc_gid_min={{SYSTEM_ALLOC_GID_MIN}}
+system_gid_max={{SYSTEM_GID_MAX}}
+systemgidmax=${system_gid_max}
+
+greeter_uid_min={{GREETER_UID_MIN}}
+greeter_uid_max={{GREETER_UID_MAX}}
+
+dynamic_uid_min={{DYNAMIC_UID_MIN}}
+dynamicuidmin=${dynamic_uid_min}
+dynamic_uid_max={{DYNAMIC_UID_MAX}}
+dynamicuidmax=${dynamic_uid_max}
+
+container_uid_base_min={{CONTAINER_UID_BASE_MIN}}
+containeruidbasemin=${container_uid_base_min}
+container_uid_base_max={{CONTAINER_UID_BASE_MAX}}
+containeruidbasemax=${container_uid_base_max}
+
+foreign_uid_base={{FOREIGN_UID_BASE}}
+
+Name: systemd
+Description: systemd System and Service Manager
+URL: {{PROJECT_URL}}
+Version: {{PROJECT_VERSION}}

@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for ReadOnlyPaths=
+
+[Service]
+ReadOnlyPaths=/etc -/i-dont-exist /usr
+BindPaths=/etc:/tmp/etc2
+ExecStart=bash -x -c 'test ! -w /etc && test ! -w /usr && test ! -e /i-dont-exist && test -w /var'
+Type=oneshot

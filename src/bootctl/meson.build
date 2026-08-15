@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+bootctl_sources = files(
+        'bootctl.c',
+        'bootctl-install.c',
+        'bootctl-link.c',
+        'bootctl-random-seed.c',
+        'bootctl-reboot-to-firmware.c',
+        'bootctl-set-efivar.c',
+        'bootctl-status.c',
+        'bootctl-uki.c',
+        'bootctl-unlink.c',
+        'bootctl-cleanup.c',
+        'bootctl-util.c',
+        'bootspec-util.c',
+)
+
+executables += [
+        executable_template + {
+                'name' : 'bootctl',
+                'public' : true,
+                'conditions' : [
+                          'HAVE_BLKID',
+                ],
+                'sources' : bootctl_sources,
+                'dependencies' : [
+                        libopenssl_cflags,
+                        tpm2_cflags,
+                ],
+                'install' : get_option('link-boot-shared') ? 'yes' : 'static',
+        },
+        test_template + {
+                'sources' : files(
+                        'test-bootspec-util.c',
+                        'bootspec-util.c',
+                ),
+        },
+]

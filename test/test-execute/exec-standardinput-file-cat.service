@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for StandardInput=file:
+
+[Service]
+ExecStart=cat
+Type=oneshot
+StandardInput=file:/etc/os-release
+# We leave StandardOutput= unset here, to verify https://github.com/systemd/systemd/issues/14560 works
+# The "cat" tool is going to write to stdout, which fails if we dup() stdin to stdout

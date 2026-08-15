@@ -1,0 +1,106 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="systemd-xdg-autostart-generator" conditional="ENABLE_XDG_AUTOSTART">
+
+  <refentryinfo>
+    <title>systemd-xdg-autostart-generator</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-xdg-autostart-generator</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-xdg-autostart-generator</refname>
+    <refpurpose>User unit generator for XDG autostart files</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>/usr/lib/systemd/user-generators/systemd-xdg-autostart-generator</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-xdg-autostart-generator</filename> is a generator
+    that creates .service units for
+    <ulink url="https://specifications.freedesktop.org/autostart-spec/autostart-spec-latest.html">XDG autostart</ulink>
+    files.
+    This permits desktop environments to delegate startup of these applications to
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    .</para>
+
+    <para>Units created by <filename>systemd-xdg-autostart-generator</filename>
+    can be started by the desktop environment using <literal>xdg-desktop-autostart.target</literal>.
+    See
+    <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    for more details.</para>
+
+    <para>XDG autostart may be conditionalized using both standardized and non-standardized keys.
+    In order to handle these, the generator may create one or more <varname>ExecCondition=</varname> entries.
+    For non-standardized keys, well-known helper binaries provided by Desktop Environments are used.
+    All external helpers <emphasis>must</emphasis> detect their corresponding desktop environment and
+    <emphasis>must</emphasis> return success when run in a different environment.
+    This is important as all <varname>ExecCondition=</varname> directives must succeed for an application to be started.</para>
+
+    <table>
+      <title>
+        Special XDG desktop file entries that are processed
+      </title>
+      <tgroup cols='2'>
+        <colspec colname='entry' />
+        <colspec colname='handling' />
+        <thead>
+          <row>
+            <entry>Entry</entry>
+            <entry>Handling</entry>
+          </row>
+        </thead>
+        <tbody>
+          <row>
+            <entry><varname>Hidden=</varname>, <varname>X-systemd-skip=</varname></entry>
+            <entry>No service will be generated if set to true</entry>
+          </row>
+          <row>
+            <entry><varname>OnlyShowIn=</varname>, <varname>NotShowIn=</varname></entry>
+            <entry><varname>ExecCondition=</varname> using <filename>systemd-xdg-autostart-condition</filename></entry>
+          </row>
+          <row>
+            <entry><varname>TryExec=</varname></entry>
+            <entry>No service will be generated if the binary does not exist or cannot be executed</entry>
+          </row>
+          <row>
+            <entry><varname>AutostartCondition=</varname> (GNOME extension)</entry>
+            <entry><varname>ExecCondition=</varname> using <filename>gnome-systemd-autostart-condition</filename></entry>
+          </row>
+          <row>
+            <entry><varname>X-GNOME-Autostart-Phase=</varname></entry>
+            <entry>No service will be generated if set to any value</entry>
+          </row>
+          <row>
+            <entry><varname>X-KDE-autostart-condition=</varname></entry>
+            <entry><varname>ExecCondition=</varname> using <filename>kde-systemd-start-condition</filename></entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+
+    <para><filename>systemd-xdg-autostart-generator</filename> implements
+    <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

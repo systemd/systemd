@@ -1,0 +1,65 @@
+[Exec]
+Boot=off
+ProcessTwo=off
+Ephemeral=yes
+Parameters=/sbin/init -x=1
+Environment=THIS=that
+User=user
+WorkingDirectory=/cwd
+PivotRoot=/newroot
+Capability=CAP_NET
+DropCapability=CAP_ADMIN
+AmbientCapability=CAP_SETUID
+NoNewPrivileges=yes
+KillSignal=SIGTERM
+Personality=shy
+MachineID=edbfea3309ba41ea83e2318c58a8d498
+PrivateUsers=1:2
+NotifyReady=no
+SystemCallFilters=write
+LimitCPU=10:20
+LimitFSIZE=5:10
+LimitDATA=100:200
+LimitSTACK=1024:2048
+LimitCore=0:1024
+LimitRSS=1024:4096
+LimitNOFILE=5:15
+LimitAS=2048:4096
+LimitNPROC=32:64
+LimitMEMLOCK=128:256
+LimitLOCKS=100:300
+LimitSIGPENDING=1:3
+LimitMSGQUEUE=16:32
+LimitNICE=4:5
+LimitRTPRIO=0:1
+LimitRTTIME=2:3
+OOMScoreAdjust=50
+CPUAffinity=1,2,3-4
+Hostname=foo.bar
+ResolvConf=copy-host
+Timezone=bind
+LinkJournal=try-guest
+SuppressSync=yes
+
+[Files]
+ReadOnly=no
+Volatile=no
+Bind=/bindthis
+BindReadOnly=/bindthisro
+BindUser=testuser
+TemporaryFileSystem=/thisismytmpfs:rw
+Inaccessible=yes
+Overlay=/thisisanoverlay:/thisisanoverlaytoo
+OverlayReadOnly=/foo:/bar:/baz:/merged
+PrivateUsersOwnership=no
+
+[Network]
+Private=off
+VirtualEthernet=yes
+VirtualEthernetExtra=veth1:veth2
+Interface=eth1 enp0s1
+MACVLAN=eno1 eno2
+IPVLAN=eno3 enp2s124
+Bridge=bridge123 bridge125
+Zone=myzone
+Port=1234 156 -1

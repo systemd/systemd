@@ -1,0 +1,36 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Journal Socket (/dev/log)
+Documentation=man:systemd-journald.service(8) man:journald.conf(5)
+DefaultDependencies=no
+Before=sockets.target
+
+# Mount and swap units need this. If this socket unit is removed by an isolate
+# request the mount and swap units would be removed too, hence let's exclude
+# systemd-journald and its sockets from isolate requests.
+IgnoreOnIsolate=yes
+
+[Socket]
+ListenDatagram=/run/systemd/journal/dev-log
+PassCredentials=yes
+PassSecurity=yes
+Service=systemd-journald.service
+SocketMode=0666
+Symlinks=/dev/log
+Timestamping=us
+DeferTrigger=yes
+
+# Increase both the send and receive buffer, so that things don't
+# block early. Note that journald internally uses the this socket both
+# for receiving syslog messages, and for forwarding them to any other
+# syslog, hence we bump both values.
+ReceiveBuffer=8M
+SendBuffer=8M

@@ -1,0 +1,176 @@
+# shellcheck shell=bash
+# journalctl(1) completion                                -*- shell-script -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# This file is part of systemd.
+#
+# Copyright © 2010 Ran Benita
+#
+# systemd is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
+#
+# systemd is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
+
+__contains_word () {
+    local w word=$1; shift
+    for w in "$@"; do
+        [[ $w = "$word" ]] && return
+    done
+}
+
+__get_machines() {
+    local a b
+    { machinectl list --full --max-addresses=0 --no-legend --no-pager 2>/dev/null; echo ".host"; } |
+        { while read -r a b; do echo " $a"; done; } |
+        sort -u
+}
+
+__syslog_priorities=(emerg alert crit err warning notice info debug)
+__syslog_facilities=(kern user mail daemon auth syslog lpr news uucp cron authpriv ftp local0 local1 local2 local3 local4 local5 local6 local7)
+
+_journalctl() {
+    local field_vals= cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+    local -A OPTS=(
+        [STANDALONE]='-a --all --full --system --user
+                      --disk-usage -f --follow --header
+                      -h --help -l --local -m --merge --no-pager
+                      --no-tail -q --quiet --setup-keys --verify
+                      --version --list-catalog --update-catalog --list-boots
+                      --show-cursor --dmesg -k --pager-end -e -r --reverse
+                      --utc -x --catalog --no-full --force --dump-catalog
+                      --flush --rotate --sync --relinquish-var
+                      --smart-relinquish-var --no-hostname -W -N --fields
+                      --list-namespaces --list-invocations -I -v --verbose'
+        [ARG]='-b --boot -D --directory -i --file -F --field -t --identifier
+                      -T --exclude-identifier --facility -M --machine -o --output
+                      -u --unit --user-unit -p --priority --root --case-sensitive
+                      --namespace --invocation'
+        [ARGUNKNOWN]='-c --cursor --interval -n --lines -S --since -U --until
+                      --after-cursor --cursor-file --verify-key -g --grep
+                      --vacuum-size --vacuum-time --vacuum-files --output-fields'
+    )
+
+    # Use the default completion for shell redirect operators
+    if __contains_word "$prev" '>' '>>' '&>'; then
+        compopt -o filenames
+        COMPREPLY=( $(compgen -f -- "$cur") )
+        return 0
+    fi
+
+    # If the previous word looks like a short options group,
+    # handle it as if it were just the last short option.
+    # e.g. "-aefu" -> "-u"
+    if [[ "$prev" =~ ^-[a-zA-Z]{2,}$ ]]; then
+        prev="-${prev:(-1)}"
+    fi
+
+    if __contains_word "$prev" ${OPTS[ARG]} ${OPTS[ARGUNKNOWN]}; then
+        case $prev in
+            --boot|-b)
+                comps=$(journalctl -F '_BOOT_ID' 2>/dev/null)
+                ;;
+            --directory|-D|--root)
+                comps=$(compgen -d -- "$cur")
+                compopt -o filenames
+                ;;
+            --file|-i)
+                comps=$(compgen -f -- "$cur")
+                compopt -o filenames
+                ;;
+            --output|-o)
+                comps=$( journalctl --output=help 2>/dev/null )
+                ;;
+            --field|-F)
+                comps=$(journalctl --fields 2>/dev/null | sort)
+                ;;
+            --machine|-M)
+                comps=$( __get_machines )
+                ;;
+            --facility)
+                comps=${__syslog_facilities[*]}
+                ;;
+            --priority|-p)
+                comps=${__syslog_priorities[*]}
+                compopt -o nosort
+                ;;
+            --unit|-u)
+                if __contains_word "--user" ${COMP_WORDS[*]}; then
+                    comps=$(journalctl -F '_SYSTEMD_USER_UNIT' 2>/dev/null)
+                else
+                    comps=$(journalctl -F '_SYSTEMD_UNIT' 2>/dev/null)
+                fi
+                # Similarly to systemctl, we need to distinguish between
+                # escaped and unescaped names in order to be able to correctly
+                # complete them. In this particular case, if the name we're
+                # trying to complete is unescaped (i.e. foo\x2dbaz), escape
+                # it first, so the compgen below works as expected. For more
+                # information about these shenanigans see the systemctl
+                # completion file
+                if ! [[ $cur =~ '\\' ]]; then
+                    cur="$(printf '%q' $cur)"
+                fi
+                compopt -o filenames
+                ;;
+            --user-unit)
+                comps=$(journalctl -F '_SYSTEMD_USER_UNIT' 2>/dev/null)
+                if ! [[ $cur =~ '\\' ]]; then
+                    cur="$(printf '%q' $cur)"
+                fi
+                compopt -o filenames
+                ;;
+            --identifier|-t|--exclude-identifier|-T)
+                comps=$(journalctl -F 'SYSLOG_IDENTIFIER' 2>/dev/null)
+                ;;
+            --case-sensitive)
+                comps='yes no'
+                ;;
+            --namespace)
+                comps=$(journalctl --list-namespaces --output=cat 2>/dev/null)
+                ;;
+            *)
+                return 0
+                ;;
+        esac
+        COMPREPLY=( $(compgen -o filenames -W '$comps' -- "$cur") )
+        return 0
+    fi
+
+    if [[ $cur = -* ]]; then
+        COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
+        return 0
+    elif [[ $cur = *=* ]]; then
+        mapfile -t field_vals < <(journalctl -F "${prev%=}" 2>/dev/null)
+        COMPREPLY=( $(compgen -W '${field_vals[*]}' -- "${cur#=}") )
+    elif [[ $cur = /dev* ]]; then
+        compopt -o filenames
+        COMPREPLY=( $(compgen -f -- "${cur}") )
+    elif [[ $cur = /* ]]; then
+        # Append /dev/ to the list of completions, so that
+        # after typing /<TAB><TAB> the user sees /dev/ as one
+        # of the alternatives. Later on the rule above will
+        # take care of showing device files in /dev/.
+        mapfile -t field_vals < <(journalctl -F "_EXE" 2>/dev/null; echo '/dev/')
+        COMPREPLY=( $(compgen -W '${field_vals[*]}' -- "${cur}") )
+        if [[ "${COMPREPLY[@]}" = '/dev/' ]]; then
+            compopt -o filenames
+            COMPREPLY=( $(compgen -f -- "${cur}") )
+        fi
+    elif [[ $prev = '=' ]]; then
+        mapfile -t field_vals < <(journalctl -F "${COMP_WORDS[COMP_CWORD-2]}" 2>/dev/null)
+        COMPREPLY=( $(compgen -W '${field_vals[*]}' -- "$cur") )
+    else
+        mapfile -t field_vals < <(journalctl --fields 2>/dev/null)
+        compopt -o nospace
+        COMPREPLY=( $(compgen -W '${field_vals[*]}' -S= -- "$cur") )
+    fi
+}
+
+complete -F _journalctl journalctl

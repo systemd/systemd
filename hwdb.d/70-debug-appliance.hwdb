@@ -1,0 +1,36 @@
+# This file is part of systemd.
+#
+# Database for debug appliances.
+#
+# Permitted keys:
+#   ID_DEBUG_APPLIANCE=?*
+
+# Amlogic devices in burn mode
+# Used to interact with devices over Worldcup / ADNL protocol, see:
+# https://wiki.coreelec.org/coreelec:aml_usb_tool
+#
+# The idVendor and idProduct used are documented in source code here:
+# https://github.com/superna9999/pyamlboot/blob/d2857f4371bcdb7a90d885f24987e03b6d647a8a/PROTOCOL.md?plain=1#L17
+usb:v1B8EpC003*
+usb:v1B8EpC004*
+ ID_DEBUG_APPLIANCE=aml_burn_mode
+
+# Apple Silicon Macs and iOS devices in debug USB mode
+# Used to interact with devices over KIS / DebugUSB, see:
+# https://github.com/AsahiLinux/kisd
+#
+# The idVendor and idProduct used are documented in source code here:
+# https://github.com/AsahiLinux/kisd/blob/555c3b0d0e39e8a5ffaaa70d54452f263ac4df21/src/main.rs#L147
+usb:v05ACp1881*
+ ID_DEBUG_APPLIANCE=apple_debugusb
+
+# Samsung devices in download mode
+# Used to interact with devices over Odin protocol, see:
+# https://en.wikipedia.org/wiki/Odin_(firmware_flashing_software)
+#
+# The idVendor and idProduct used are documented in source code here:
+# https://github.com/Benjamin-Dobell/Heimdall/blob/3997d5cc607e6c603c6e7c0d07e42e9868c62af2/heimdall/source/BridgeManager.h#L69-L79
+usb:v04E8p6601*
+usb:v04E8p685D*
+usb:v04E8p68C3*
+ ID_DEBUG_APPLIANCE=samsung_odin

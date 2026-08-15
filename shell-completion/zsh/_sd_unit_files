@@ -1,0 +1,10 @@
+#autoload
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+_sd_unit_files() {
+    local files expl
+    files=( '*:files:->files' )
+
+    _description files expl 'unit file'
+    _files "$expl[@]" -g '*.(automount|device|mount|path|service|socket|swap|target|timer)'
+}

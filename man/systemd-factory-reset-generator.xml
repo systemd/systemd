@@ -1,0 +1,48 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="systemd-factory-reset-generator">
+
+  <refentryinfo>
+    <title>systemd-factory-reset-generator</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-factory-reset-generator</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-factory-reset-generator</refname>
+    <refpurpose>Pull <filename>factory-reset-now.target</filename> into the initial boot transaction when factory reset has been requested</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>/usr/lib/systemd/system-generators/systemd-factory-reset-generator</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-factory-reset-generator</filename> is a generator that pulls
+    <filename>factory-reset-now.target</filename> into the initial boot transaction when the factory reset
+    operation has been requested, either via the <varname>systemd.factory_reset=</varname> kernel command
+    line option or via the <varname>FactoryResetRequest</varname> EFI variable.</para>
+
+    <para><filename>systemd-factory-reset-generator</filename> implements
+    <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-factory-reset</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><ulink url="https://systemd.io/FACTORY_RESET">Factory Reset</ulink></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

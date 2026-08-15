@@ -1,0 +1,7 @@
+[Unit]
+Description=Test for DeferReactivation=yes (timer)
+
+[Timer]
+OnCalendar=*:*:0/5
+AccuracySec=1us
+DeferReactivation=yes

@@ -1,0 +1,7 @@
+# This file is part of systemd.
+# See systemd-networkd.service(8) and polkit(8) for more information.
+
+[Allow systemd-networkd to set timezone and transient hostname]
+Identity=unix-user:systemd-network
+Action=org.freedesktop.hostname1.set-hostname;org.freedesktop.hostname1.get-product-uuid;org.freedesktop.timedate1.set-timezone;
+ResultAny=yes

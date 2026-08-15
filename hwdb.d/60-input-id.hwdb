@@ -1,0 +1,129 @@
+# This file is part of systemd.
+#
+# The lookup keys are composed in:
+#   60-input-id.rules
+#
+# Match string formats:
+# id-input:modalias:<modalias>
+# id-input:<bus>:v<vid>p<pid>:name:<name>:*
+#
+# To add local entries, create a new file
+#   /etc/udev/hwdb.d/61-input-id-local.hwdb
+# and add your rules there. To load the new rules execute (as root):
+#   systemd-hwdb update
+#   udevadm trigger /dev/input/eventXX
+# where /dev/input/eventXX is the device in question. If in
+# doubt, simply use /dev/input/event* to reload all input rules.
+#
+# If your changes are generally applicable, send them as a pull request to
+#   https://github.com/systemd/systemd
+# or create a bug report on https://github.com/systemd/systemd/issues and
+# include your new rules, a description of the device, and the output of
+#   udevadm info /dev/input/eventXX
+#
+# This file must only be used where the input_id builtin assigns the wrong
+# properties or lacks the assignment of some properties. This is almost always
+# caused by a device not adhering to the standard of the device's type.
+#
+# Allowed properties are:
+#    ID_INPUT, ID_INPUT_ACCELEROMETER, ID_INPUT_MOUSE, ID_INPUT_POINTINGSTICK,
+#    ID_INPUT_TOUCHSCREEN, ID_INPUT_TOUCHPAD, ID_INPUT_TABLET,
+#    ID_INPUT_TABLET_PAD, ID_INPUT_JOYSTICK, ID_INPUT_KEY, ID_INPUT_KEYBOARD,
+#    ID_INPUT_SWITCH, ID_INPUT_TRACKBALL
+#
+#    ID_INPUT
+#       * MUST be set when ANY of ID_INPUT_* is set
+#       * MUST be unset when ALL of ID_INPUT_*  are unset
+#
+#    ID_INPUT_TABLET
+#       * MUST be set when setting ID_INPUT_TABLET_PAD
+#
+# Allowed values are 1 and 0 to set or unset, respectively.
+#
+# NOT allowed in this file are:
+#    ID_INPUT_WIDTH_MM, ID_INPUT_HEIGHT_MM, ID_INPUT_TOUCHPAD_INTEGRATION
+#
+
+# Example:
+# id-input:modalias:input:b0003v1234pABCD*
+#  ID_INPUT_TOUCHPAD=1
+#  ID_INPUT=1
+#
+# id-input:usb:v12abp34cd:name:SomeVendor *:*
+#  ID_INPUT_TOUCHPAD=1
+#  ID_INPUT=1
+#
+# For technical reasons the hexadecimal vid/pid in the modalias match are
+# uppercase but lowercase in the bus/vid/pid/name match.
+
+# Sort by brand, model
+
+# Any i2c device with a Mouse suffix in the name is not a pointing stick
+id-input:i2c:*:name:*Mouse:
+ ID_INPUT_POINTINGSTICK=0
+
+# Code Mercenaries Hard- und Software GmbH Virtual RC USB
+id-input:modalias:input:b0003v07C0p1125*
+ ID_INPUT_MOUSE=
+ ID_INPUT_JOYSTICK=1
+
+# Cooler Master ARGB GEN-2 controller
+id-input:modalias:input:b0003v2516p01C9*
+ ID_INPUT=0
+ ID_INPUT_MOUSE=0
+
+# GOLD WARRIOR SIM PhoenixRC 10411R
+id-input:modalias:input:b0003v1781p0898*
+ ID_INPUT_ACCELEROMETER=
+ ID_INPUT_JOYSTICK=1
+
+# XP-PEN STAR 06
+id-input:modalias:input:b0003v28bdp0078*
+ ID_INPUT_TABLET=1
+
+# XBox Series Elite controller
+id-input:modalias:input:b0005v045Ep0B22e0517*
+ ID_INPUT_JOYSTICK=1
+
+# Lite-On Tech IBM USB Travel Keyboard with Ultra Nav Mouse
+id-input:modalias:input:b0003v04B3p301Ee0100-e0,1,2,4*
+ ID_INPUT_POINTINGSTICK=1
+
+# Logitech G915 TKL Keyboard (Bluetooth)
+id-input:modalias:input:b0005v046DpB35Fe0022*
+ ID_INPUT_MOUSE=0
+
+# Logitech Ultrathin Touch Mouse
+id-input:modalias:input:b0005v046DpB00De0700*
+ ID_INPUT_MOUSE=1
+
+# Logitech MX Keys
+id-input:modalias:input:b0003v046Dp408Ae0111*
+ ID_INPUT_MOUSE=0
+
+# Logitech Craft Keyboard
+id-input:modalias:input:b0003v046Dp4066e0111*
+ ID_INPUT_MOUSE=0
+
+# CH Products Pro Pedals
+id-input:modalias:input:b0003v068Ep00F2*
+ ID_INPUT_ACCELEROMETER=0
+ ID_INPUT_JOYSTICK=1
+
+# TEX Shinobi Trackpoint
+id-input:modalias:input:b0003v04D9p0407e0111-e0,1,2,4*
+ ID_INPUT_POINTINGSTICK=1
+
+# ASRock LED Controller
+id-input:modalias:input:b0003v26CEp01A2*
+ ID_INPUT_JOYSTICK=
+ ID_INPUT_KEY=
+ ID_INPUT=
+
+# Saitek PLC Pro Flight Rudder Pedals
+id-input:modalias:input:b0003v06A3p0763*
+ ID_INPUT_JOYSTICK=1
+
+# PXN HB S handbrake
+id-input:modalias:input:b0003v11FFpA701*
+ ID_INPUT_JOYSTICK=1

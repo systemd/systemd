@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test RestrictNamespaces=mnt
+
+[Service]
+RestrictNamespaces=mnt
+ExecStart=unshare -m
+Type=oneshot

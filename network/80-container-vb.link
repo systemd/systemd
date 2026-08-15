@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: MIT-0
+#
+# This config file is installed as part of systemd.
+# It may be freely copied and edited (following the MIT No Attribution license).
+#
+# To make local modifications, use "networkctl edit". See networkctl(1) for details.
+# This file should not be edited in place, because it'll be overwritten on upgrades.
+
+# This .link file matches the host-side of the virtual Ethernet link created
+# by systemd-nspawn's --network-veth switch with --network-bridge= or
+# --network-zone= switch. See systemd-nspawn(1) for details.
+
+[Match]
+Kind=veth
+OriginalName=vb-*
+
+[Link]
+NamePolicy=keep
+Property=ID_NET_MANAGED_BY=io.systemd.Network

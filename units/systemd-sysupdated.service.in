@@ -1,0 +1,30 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=System Update Service
+Documentation=man:systemd-sysupdated.service(8)
+Documentation=man:org.freedesktop.sysupdate1(5)
+
+[Service]
+ExecStart={{LIBEXECDIR}}/systemd-sysupdated
+BusName=org.freedesktop.sysupdate1
+KillMode=mixed
+CapabilityBoundingSet=CAP_CHOWN CAP_FOWNER CAP_FSETID CAP_MKNOD CAP_SETFCAP CAP_SYS_ADMIN CAP_SETPCAP CAP_DAC_OVERRIDE CAP_LINUX_IMMUTABLE
+NoNewPrivileges=yes
+MemoryDenyWriteExecute=yes
+ProtectHostname=yes
+RestrictRealtime=yes
+RestrictNamespaces=net mnt
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallFilter=@system-service @mount
+SystemCallErrorNumber=EPERM
+SystemCallArchitectures=native
+LockPersonality=yes
+{{SERVICE_WATCHDOG}}

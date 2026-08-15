@@ -1,0 +1,29 @@
+#compdef kernel-install
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+(( $+functions[_kernel-install_images] )) ||
+_kernel-install_images(){
+    if [[ "$words[2]" == "remove" ]]; then
+        _message 'No more options'
+    else
+        _path_files -W /boot/ -P /boot/ -g "vmlinuz-*"
+    fi
+}
+
+(( $+functions[_kernel-install_kernels] )) ||
+_kernel-install_kernels(){
+    read -r _MACHINE_ID < /etc/machine-id
+    _kernel=( /lib/modules/[0-9]* )
+    if [[ "$cmd" == "remove" && -n "$_MACHINE_ID" ]]; then
+        _kernel=( "/boot/$_MACHINE_ID"/[0-9]* )
+    fi
+    _kernel=( ${_kernel##*/} )
+    _describe "installed kernels" _kernel
+}
+
+_arguments \
+    '(- :)'{-h,--help}'[Show help]' \
+    '(- :)--version[Show package version]' \
+    '1::add or remove:(add remove)' \
+    '2::kernel versions:_kernel-install_kernels' \
+    '3::kernel images:_kernel-install_images'

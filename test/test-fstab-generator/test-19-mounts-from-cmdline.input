@@ -1,0 +1,8 @@
+rd.systemd.mount-extra=/dev/sdx1:/sysroot:auto:defaults
+rd.systemd.mount-extra=/dev/sdx2:/hoge/without_options:auto
+rd.systemd.mount-extra=/dev/sdx3:/hoge/without_fstype
+rd.systemd.mount-extra=/dev/sdx4
+rd.systemd.mount-extra=//foo\ufffebar:/hoge/with\x20space:cifs:rw,seclabel
+systemd.mount-extra=/dev/sdx5:/usr:auto:defaults
+systemd.mount-extra=/dev/sdx6:/foo/also_in_initrd:auto:x-initrd.mount
+systemd.mount-extra=/dev/sdx7:/foo/not_in_initrd:auto:defaults

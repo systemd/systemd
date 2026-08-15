@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for TemporaryFileSystem on /usr
+
+[Service]
+Type=oneshot
+
+# Check TemporaryFileSystem= are empty
+ExecStart=bash -c 'for i in $$(ls -A /usr); do test $$i = lib -o $$i = lib64 -o $$i = bin -o $$i = sbin || false; done'
+
+# Cannot create files under /usr
+ExecStart=bash -c '! touch /usr/hoge'
+ExecStart=bash -c '! touch /usr/bin/hoge'
+
+TemporaryFileSystem=/usr:ro
+BindReadOnlyPaths=-/usr/lib -/usr/lib64 /usr/bin /usr/sbin

@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# Make sure SSH authorized keys recorded in user records can be consumed by SSH
+#
+AuthorizedKeysCommand {{BINDIR}}/userdbctl ssh-authorized-keys %u
+AuthorizedKeysCommandUser root

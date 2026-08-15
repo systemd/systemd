@@ -1,0 +1,151 @@
+#compdef systemd-analyze
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+(( $+functions[_systemd-analyze_verify] )) ||
+    _systemd-analyze_verify() {
+        _sd_unit_files
+    }
+
+(( $+functions[_systemd-analyze_cat-config] )) ||
+    _systemd-analyze_cat-config() {
+        _files -W '(/run/systemd/ /etc/systemd/ /usr/lib/systemd/)' -P 'systemd/'
+    }
+
+(( $+functions[_systemd-analyze_inspect-elf] )) ||
+    _systemd-analyze_inspect-elf() {
+        _files
+    }
+
+(( $+functions[_systemd-analyze_critical-chain] )) ||
+    _systemd-analyze_critical-chain() {
+        local -a _units
+        systemctl list-units --no-legend --no-pager --plain --all 2>/dev/null |
+        while read -r a b c; do
+            _units+=($a)
+        done
+        compadd -a _units
+    }
+
+(( $+functions[_systemd-analyze_security] )) ||
+    _systemd-analyze_security() {
+        _sd_unit_files
+    }
+
+(( $+functions[_systemd-analyze_syscall-filter] )) ||
+    _systemd-analyze_syscall-filter() {
+        local -a _groups
+        _groups=( $(systemd-analyze --quiet --no-pager syscall-filter 2>/dev/null | grep '^@') )
+        _describe -t groups 'syscall groups' _groups || compadd "$@"
+    }
+
+(( $+functions[_systemd-analyze_filesystems] )) ||
+    _systemd-analyze_filesystems() {
+        local -a _groups
+        _groups=( $(systemd-analyze --quiet --no-pager filesystems 2>/dev/null | grep '^@') )
+        _describe -t groups 'file system groups' _groups || compadd "$@"
+    }
+
+(( $+functions[_systemd-analyze_architectures] )) ||
+    _systemd-analyze_architectures() {
+        local -a _architectures
+        _architectures=( $(systemd-analyze --quiet --no-pager --no-legend architectures | { while read -r a b; do echo " $a"; done; } 2>/dev/null) )
+        _describe -t architectures 'architectures' _architectures || compadd "$@"
+    }
+
+(( $+functions[_systemd-analyze_plot] )) ||
+    _systemd-analyze_plot() {
+        local -a _options
+        _options=( '--json=off' '--json=pretty' '--json=short' '--table' '--no-legend' )
+        _describe 'plot options' _options
+    }
+
+(( $+functions[_systemd-analyze_transient-settings] )) ||
+    _systemd-analyze_transient-settings() {
+        local -a _types
+        _types=( $(systemctl --no-pager --no-legend -t help 2>/dev/null) )
+        _describe -t types 'unit types' _types
+    }
+
+(( $+functions[_systemd-analyze_commands] )) ||
+    _systemd-analyze_commands(){
+        local -a _systemd_analyze_cmds
+        # Descriptions taken from systemd-analyze --help.
+        _systemd_analyze_cmds=(
+            'time:Print time spent in the kernel before reaching userspace'
+            'blame:Print list of running units ordered by time to init'
+            'critical-chain:Print a tree of the time critical chain of units'
+            'plot:Output SVG graphic showing service initialization, or raw time data in JSON or table format'
+            'dot:Dump dependency graph (in dot(1) format)'
+            'dump:Dump server status'
+            'cat-config:Cat systemd config files'
+            'unit-files:List files and symlinks for units'
+            'unit-paths:List unit load paths'
+            'exit-status:List known exit statuses'
+            'capability:List capability definitions'
+            'syscall-filter:List syscalls in seccomp filters'
+            'filesystems:List known filesystems'
+            'condition:Evaluate Condition*= and Assert*= assignments'
+            'verify:Check unit files for correctness'
+            'calendar:Validate repetitive calendar time events'
+            'timestamp:Parse a systemd syntax timestamp'
+            'timespan:Parse a systemd syntax timespan'
+            'security:Analyze security settings of a service'
+            'inspect-elf:Parse and print ELF package metadata'
+            'dlopen-metadata:Parse and print ELF dlopen metadata'
+            'has-tpm2:Report whether TPM2 support is available'
+            'transient-settings:List transient settings for unit types'
+            'architectures:List known architectures'
+            'smbios11:List strings passed via SMBIOS Type #11'
+            'chid:List local CHIDs'
+            'compare-versions:Compare two version strings'
+            'image-policy:Analyze image policy string'
+            'pcrs:Show TPM2 PCRs and their names'
+            'srk:Write TPM2 SRK (to FILE)'
+            # log-level, log-target, service-watchdogs have been deprecated
+        )
+
+        if (( CURRENT == 1 )); then
+            _describe "options" _systemd_analyze_cmds
+        else
+            local curcontext="$curcontext"
+            cmd="${${_systemd_analyze_cmds[(r)$words[1]:*]%%:*}}"
+            if (( $#cmd )); then
+                if (( $+functions[_systemd-analyze_$cmd] )) && (( CURRENT == 2 )); then
+                    _systemd-analyze_$cmd
+                else
+                    _message "no more options"
+                fi
+            else
+                _message "unknown systemd-analyze command: $words[1]"
+            fi
+        fi
+    }
+
+_arguments \
+    '(- *)'{-h,--help}'[Show help text]' \
+    '(- *)--version[Show package version]' \
+    '--system[Operate on system systemd instance]' \
+    '--user[Operate on user systemd instance]' \
+    '--global[Show global user instance config]' \
+    '--root=[Add support for root argument]:PATH' \
+    '--image=[Add support for discrete images]:PATH' \
+    '--recursive-errors=[When verifying a unit, control dependency verification]:MODE' \
+    '--offline=[Perform a security review of the specified unit files]:BOOL:(yes no)' \
+    '--threshold=[Set a value to compare the overall security exposure level with]: NUMBER' \
+    '--security-policy=[Use customized requirements to compare unit files against]: PATH' \
+    "--json=[Generate a JSON output of the security analysis table or plot's raw time data]:MODE:(pretty short off)" \
+    "--table=[Generate a table of plot's raw time data]" \
+    '--profile=[Include the specified profile in the security review of units]: PATH' \
+    '--no-pager[Do not pipe output into a pager]' \
+    "--no-legend[Do not show the headers and footers for plot's raw time data formats]" \
+    '--man=[Do (not) check for existence of man pages]:BOOL:(yes no)' \
+    '--generators=[Do (not) run unit generators]:BOOL:(yes no)' \
+    '--order[When generating graph for dot, show only order]' \
+    '--require[When generating graph for dot, show only requirement]' \
+    '--fuzz=[When printing the tree of the critical chain, print also services, which finished TIMESPAN earlier, than the latest in the branch]:TIMESPAN' \
+    '--from-pattern=[When generating a dependency graph, filter only origins]:GLOB' \
+    '--to-pattern=[When generating a dependency graph, filter only destinations]:GLOB' \
+    '(-H --host)'{-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
+    '(-M --machine)'{-M+,--machine=}'[Operate on local container]:machine:_sd_machines' \
+    '--quiet[Do not show hints]' \
+    '*::systemd-analyze commands:_systemd-analyze_commands'

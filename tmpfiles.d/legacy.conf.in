@@ -1,0 +1,18 @@
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+# See tmpfiles.d(5) for details.
+
+# The functionality provided by these files and directories has been replaced
+# by newer interfaces. Their use is discouraged on legacy-free systems. This
+# configuration is provided to maintain backward compatibility.
+
+d /run/lock 0755 root root -
+L /var/lock - - - - ../run/lock
+{% if CREATE_LOG_DIRS %}
+L$ /var/log/README - - - - ../..{{DOC_DIR}}/README.logs
+{% endif %}

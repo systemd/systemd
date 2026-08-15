@@ -1,0 +1,46 @@
+# EditorConfig configuration for systemd
+# http://EditorConfig.org
+
+# NOTE: If you update this file make sure to update .dir-locals.el and .vimrc,
+# too.
+
+# Top-most EditorConfig file
+root = true
+
+# Unix-style newlines with a newline ending every file, utf-8 charset
+[*]
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+charset = utf-8
+
+[NEWS]
+indent_style = space
+indent_size = 4
+
+# Match config files, set indent to spaces with width of eight
+[*.{c,h}]
+indent_style = space
+indent_size = 8
+max_line_length = 109
+
+[{*.sh,mkosi.build,mkosi.prepare,mkosi.postinst,shell-completion/zsh/_*}]
+indent_style = space
+indent_size = 4
+
+[meson.build]
+indent_style = space
+indent_size = 8
+
+[man/*.xml]
+indent_size = 2
+indent_style = space
+max_line_length = 109
+
+[docs/**/*.css]
+indent_style = space
+indent_size = 2
+
+[docs/**/*.html]
+indent_style = space
+indent_size = 2

@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=dummy98
+
+[Network]
+IPv6AcceptRA=no
+Address=10.1.2.3/16
+
+[TrivialLinkEqualizer]
+Parent=root
+Handle=0031
+Id=1

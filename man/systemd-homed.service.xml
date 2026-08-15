@@ -1,0 +1,137 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-homed.service" conditional='ENABLE_HOMED'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-homed.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-homed.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-homed.service</refname>
+    <refname>systemd-homed</refname>
+    <refpurpose>Home Area/User Account Manager</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-homed.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-homed</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-homed</command> is a system service that may be used to create, remove, change or
+    inspect home areas (directories and network mounts and real or loopback block devices with a filesystem,
+    optionally encrypted).</para>
+
+    <para>Most of <command>systemd-homed</command>'s functionality is accessible through the
+    <citerefentry><refentrytitle>homectl</refentrytitle><manvolnum>1</manvolnum></citerefentry> command.</para>
+
+    <para>See the <ulink url="https://systemd.io/HOME_DIRECTORY">Home Directories</ulink> documentation for
+    details about the format and design of home areas managed by
+    <filename>systemd-homed.service</filename>.</para>
+
+    <para>Each home directory managed by <filename>systemd-homed.service</filename> synthesizes a local user
+    and group. These are made available to the system using the <ulink
+    url="https://systemd.io/USER_GROUP_API">User/Group Record Lookup API via Varlink</ulink>, and thus may be
+    browsed with
+    <citerefentry><refentrytitle>userdbctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+    <para><filename>systemd-homed.service</filename> also manages blob directories for each home directory
+    it manages. See <ulink url="https://systemd.io/USER_RECORD_BLOB_DIRS">User Record Blob Directories</ulink>
+    for more details.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Key Management</title>
+
+    <para>User records are cryptographically signed with a public/private key pair (the signature is part of
+    the JSON record itself). For a user to be permitted to log in locally the public key matching the
+    signature of their user record must be installed. For a user record to be modified locally the private
+    key matching the signature must be installed locally, too. The keys are stored in the
+    <filename>/var/lib/systemd/home/</filename> directory:</para>
+
+    <variablelist>
+
+      <varlistentry>
+        <term><filename>/var/lib/systemd/home/local.private</filename></term>
+
+        <listitem><para>The private key of the public/private key pair used for local records. Currently,
+        only a single such key may be installed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>/var/lib/systemd/home/local.public</filename></term>
+
+        <listitem><para>The public key of the public/private key pair used for local records. Currently,
+        only a single such key may be installed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>/var/lib/systemd/home/*.public</filename></term>
+
+        <listitem><para>Additional public keys. Any users whose user records are signed with any of these keys
+        are permitted to log in locally. An arbitrary number of keys may be installed this
+        way.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>All key files listed above are in PEM format.</para>
+
+    <para>In order to migrate a home directory from a host <literal>foobar</literal> to another host
+    <literal>quux</literal> it is hence sufficient to copy
+    <filename>/var/lib/systemd/home/local.public</filename> from the host <literal>foobar</literal> to
+    <literal>quux</literal>, maybe calling the file on the destination <filename
+    index="false">/var/lib/systemd/home/foobar.public</filename>, reflecting the origin of the key. If the
+    user record should be modifiable on <literal>quux</literal> the pair
+    <filename>/var/lib/systemd/home/local.public</filename> and
+    <filename>/var/lib/systemd/home/local.private</filename> need to be copied from <literal>foobar</literal>
+    to <literal>quux</literal>, and placed under the identical paths there, as currently only a single
+    private key is supported per host. Note of course that the latter means that user records
+    generated/signed before the key pair is copied in, lose their validity.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Signals</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><constant>SIGUSR1</constant></term>
+
+        <listitem><para>Upon reception of the <constant>SIGUSR1</constant> process signal
+        <command>systemd-homed</command> will reestablish its file watches on <filename>/home/</filename> and
+        rescan the directory for home directories.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>homed.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>homectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>pam_systemd_home</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>userdbctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>org.freedesktop.home1</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

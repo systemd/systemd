@@ -1,0 +1,266 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -eux
+set -o pipefail
+
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
+export SYSTEMD_LOG_LEVEL=debug
+export PAGER=
+SD_PCREXTEND="/usr/lib/systemd/systemd-pcrextend"
+SD_PCRLOCK="/usr/lib/systemd/systemd-pcrlock"
+SD_MEASURE="/usr/lib/systemd/systemd-measure"
+
+if [[ ! -x "${SD_PCREXTEND:?}" ]] || [[ ! -x "${SD_PCRLOCK:?}" ]] || [[ ! -x "${SD_MEASURE:?}" ]] ; then
+    echo "$SD_PCREXTEND or $SD_PCRLOCK or $SD_MEASURE not found, skipping pcrlock tests"
+    exit 0
+fi
+
+at_exit() {
+    if [[ $? -ne 0 ]]; then
+        # Dump the event log on fail, to make debugging a bit easier
+        [[ -e /run/log/systemd/tpm2-measure.log ]] && jq --seq --slurp </run/log/systemd/tpm2-measure.log
+    fi
+
+    set +e
+
+    systemd-cryptsetup detach pcrlock
+
+    if [[ -x "${SD_PCRLOCK:-}" ]]; then
+        "$SD_PCRLOCK" remove-policy
+        "$SD_PCRLOCK" unlock-firmware-config
+        "$SD_PCRLOCK" unlock-gpt
+        "$SD_PCRLOCK" unlock-machine-id
+        "$SD_PCRLOCK" unlock-file-system
+        "$SD_PCRLOCK" unlock-raw --pcrlock=/var/lib/pcrlock.d/910-test70.pcrlock
+        "$SD_PCRLOCK" unlock-raw --pcrlock=/var/lib/pcrlock.d/920-test70.pcrlock
+    fi
+
+    rm -rf /tmp/fakexbootldr /var/lib/pcrlock.d/123-empty.pcrlock.d /run/systemd/system/systemd-pcrlock.socket.d
+    if [[ -n "${img:-}" ]]; then
+        rm -f "$img" "$img".private.pem "$img".public.pem "$img".pcrsign
+    fi
+    rm -f /tmp/borked /tmp/pcrlockpwd /var/lib/systemd/pcrlock.json /var/lib/systemd/pcrlock.json.gone
+    systemctl daemon-reload
+}
+
+trap at_exit EXIT
+
+# Temporarily override sd-pcrextend's sanity checks
+export SYSTEMD_FORCE_MEASURE=1
+
+# The PCRs we are going to lock to. We exclude the various PCRs we touched
+# above where no event log record was written, because we cannot analyze
+# things without event log. We include debug PCR 16, see below.
+PCRS="1+2+3+4+5+16"
+
+# Remove the old measurement log, as it contains all kinds of nonsense from the
+# previous test, which will fail our consistency checks. Removing the file also
+# means we'll fail consistency check, but at least we'll fail them consistently
+# (as the PCR values simply won't match the log).
+rm -f /run/log/systemd/tpm2-measure.log
+
+# Add the os-separator measurements, they should be the only measurements that touch pcr 0…6 done from userspace.
+RS=$'\x1e'
+cat >/run/log/systemd/tpm2-measure.log <<EOF
+${RS}{"pcr":0,"digests":[{"hashAlg":"sha256","digest":"ff5b9d73dad709633ae76adf444012b57e913a12ed7403c3931145862f35f841"}],"content_type":"systemd","content":{"string":"os-separator","bootId":"5270738c127841a4b592f0fdc2839929","timestamp":2659711,"eventType":"os-separator"}}
+${RS}{"pcr":1,"digests":[{"hashAlg":"sha256","digest":"ff5b9d73dad709633ae76adf444012b57e913a12ed7403c3931145862f35f841"}],"content_type":"systemd","content":{"string":"os-separator","bootId":"5270738c127841a4b592f0fdc2839929","timestamp":2659775,"eventType":"os-separator"}}
+${RS}{"pcr":2,"digests":[{"hashAlg":"sha256","digest":"ff5b9d73dad709633ae76adf444012b57e913a12ed7403c3931145862f35f841"}],"content_type":"systemd","content":{"string":"os-separator","bootId":"5270738c127841a4b592f0fdc2839929","timestamp":2659805,"eventType":"os-separator"}}
+${RS}{"pcr":3,"digests":[{"hashAlg":"sha256","digest":"ff5b9d73dad709633ae76adf444012b57e913a12ed7403c3931145862f35f841"}],"content_type":"systemd","content":{"string":"os-separator","bootId":"5270738c127841a4b592f0fdc2839929","timestamp":2659829,"eventType":"os-separator"}}
+${RS}{"pcr":4,"digests":[{"hashAlg":"sha256","digest":"ff5b9d73dad709633ae76adf444012b57e913a12ed7403c3931145862f35f841"}],"content_type":"systemd","content":{"string":"os-separator","bootId":"5270738c127841a4b592f0fdc2839929","timestamp":2659851,"eventType":"os-separator"}}
+${RS}{"pcr":5,"digests":[{"hashAlg":"sha256","digest":"ff5b9d73dad709633ae76adf444012b57e913a12ed7403c3931145862f35f841"}],"content_type":"systemd","content":{"string":"os-separator","bootId":"5270738c127841a4b592f0fdc2839929","timestamp":2660099,"eventType":"os-separator"}}
+${RS}{"pcr":6,"digests":[{"hashAlg":"sha256","digest":"ff5b9d73dad709633ae76adf444012b57e913a12ed7403c3931145862f35f841"}],"content_type":"systemd","content":{"string":"os-separator","bootId":"5270738c127841a4b592f0fdc2839929","timestamp":2660139,"eventType":"os-separator"}}
+EOF
+
+# Reset TPM PCR 16 ("debug") explicitly, so that we can use it in a known good state
+tpm2_pcrreset 16
+
+# Ensure a truncated log doesn't crash pcrlock
+echo -n -e \\x1e >/tmp/borked
+set +e
+SYSTEMD_MEASURE_LOG_USERSPACE=/tmp/borked "$SD_PCRLOCK" cel --no-pager --json=pretty
+ret=$?
+set -e
+# If it crashes the exit code will be 149
+test $ret -eq 1
+
+SYSTEMD_COLORS=256 "$SD_PCRLOCK"
+"$SD_PCRLOCK" is-supported
+"$SD_PCRLOCK" cel --no-pager --json=pretty
+"$SD_PCRLOCK" log --pcr="$PCRS"
+"$SD_PCRLOCK" log --json=pretty --pcr="$PCRS"
+"$SD_PCRLOCK" list-components
+"$SD_PCRLOCK" list-components --location=250-
+"$SD_PCRLOCK" list-components --location=250-:350-
+"$SD_PCRLOCK" lock-firmware-config
+"$SD_PCRLOCK" lock-gpt
+"$SD_PCRLOCK" lock-machine-id
+"$SD_PCRLOCK" lock-file-system
+"$SD_PCRLOCK" lock-file-system /
+"$SD_PCRLOCK" predict --pcr="$PCRS"
+"$SD_PCRLOCK" predict --pcr="0x1+0x3+4"
+"$SD_PCRLOCK" predict --json=pretty --pcr="$PCRS"
+
+SD_STUB="$(find /usr/lib/systemd/boot/efi/ -name "systemd-boot*.efi" | head -n1)"
+if [[ -n "$SD_STUB" ]]; then
+    pe_direct="$("$SD_PCRLOCK" lock-pe "$SD_STUB")"
+    pe_stdin="$("$SD_PCRLOCK" lock-pe <"$SD_STUB")"
+    pe_pipe="$(cat "$SD_STUB" | "$SD_PCRLOCK" lock-pe)"
+    [[ "$pe_direct" == "$pe_stdin" ]]
+    [[ "$pe_stdin" == "$pe_pipe" ]]
+
+    uki_direct="$("$SD_PCRLOCK" lock-uki "$SD_STUB")"
+    uki_stdin="$("$SD_PCRLOCK" lock-uki <"$SD_STUB")"
+    uki_pipe="$(cat "$SD_STUB" | "$SD_PCRLOCK" lock-uki)"
+    [[ "$uki_direct" == "$uki_stdin" ]]
+    [[ "$uki_stdin" == "$uki_pipe" ]]
+fi
+
+if "$SD_PCRLOCK" is-supported; then
+    PIN=huhu "$SD_PCRLOCK" make-policy --pcr="$PCRS" --recovery-pin=query
+    # Repeat immediately (this call will have to reuse the nvindex, rather than create it)
+    "$SD_PCRLOCK" make-policy --pcr="$PCRS"
+    "$SD_PCRLOCK" make-policy --pcr="$PCRS" --force
+fi
+
+img="/tmp/pcrlock.img"
+truncate -s 20M "$img"
+echo -n hoho >/tmp/pcrlockpwd
+chmod 0600 /tmp/pcrlockpwd
+cryptsetup luksFormat -q --pbkdf pbkdf2 --pbkdf-force-iterations 1000 --use-urandom "$img" /tmp/pcrlockpwd
+
+systemd-cryptenroll --unlock-key-file=/tmp/pcrlockpwd --tpm2-device=auto --tpm2-pcrlock=/var/lib/systemd/pcrlock.json --tpm2-public-key= --wipe-slot=tpm2 "$img"
+systemd-cryptsetup attach pcrlock "$img" - tpm2-device=auto,tpm2-pcrlock=/var/lib/systemd/pcrlock.json,headless
+systemd-cryptsetup detach pcrlock
+
+# Ensure systemd-pcrlock not crashing on empty variant directory
+mkdir -p /var/lib/pcrlock.d/123-empty.pcrlock.d
+"$SD_PCRLOCK" predict --pcr="$PCRS"
+rm -rf /var/lib/pcrlock.d/123-empty.pcrlock.d
+
+# Measure something into PCR 16 (the "debug" PCR), which should make the activation fail
+"$SD_PCREXTEND" --pcr=16 test70
+
+"$SD_PCRLOCK" cel --json=pretty
+
+(! systemd-cryptsetup attach pcrlock "$img" - tpm2-device=auto,tpm2-pcrlock=/var/lib/systemd/pcrlock.json,headless )
+
+# Now add a component for it, rebuild policy and it should work (we'll rebuild
+# once like that, but don't provide the recovery pin. This should fail, since
+# the PCR is hosed after all. But then we'll use recovery pin, and it should
+# work.
+echo -n test70 | "$SD_PCRLOCK" lock-raw --pcrlock=/var/lib/pcrlock.d/910-test70.pcrlock --pcr=16
+(! "$SD_PCRLOCK" make-policy --pcr="$PCRS")
+PIN=huhu "$SD_PCRLOCK" make-policy --pcr="$PCRS" --recovery-pin=query
+
+systemd-cryptsetup attach pcrlock "$img" - tpm2-device=auto,tpm2-pcrlock=/var/lib/systemd/pcrlock.json,headless
+systemd-cryptsetup detach pcrlock
+
+# And now let's do it the clean way, and generate the right policy ahead of time.
+echo -n test70-take-two | "$SD_PCRLOCK" lock-raw --pcrlock=/var/lib/pcrlock.d/920-test70.pcrlock --pcr=16
+"$SD_PCRLOCK" make-policy --pcr="$PCRS"
+# the next one should be skipped because redundant
+"$SD_PCRLOCK" make-policy --pcr="$PCRS"
+# but this one should not be skipped, even if redundant, because we force it
+"$SD_PCRLOCK" make-policy --pcr="$PCRS" --force --recovery-pin=show
+
+"$SD_PCREXTEND" --pcr=16 test70-take-two
+
+"$SD_PCRLOCK" cel --json=pretty
+
+systemd-cryptsetup attach pcrlock "$img" - tpm2-device=auto,tpm2-pcrlock=/var/lib/systemd/pcrlock.json,headless
+systemd-cryptsetup detach pcrlock
+
+# Now combined pcrlock and signed PCR
+# Generate key pair
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$img".private.pem
+openssl rsa -pubout -in "$img".private.pem -out "$img".public.pem
+systemd-cryptenroll --unlock-tpm2-device=auto --tpm2-device=auto --tpm2-pcrlock=/var/lib/systemd/pcrlock.json --tpm2-public-key="$img".public.pem --wipe-slot=tpm2 "$img"
+"$SD_MEASURE" sign --current --bank=sha256 --private-key="$img".private.pem --public-key="$img".public.pem --phase=: | tee "$img".pcrsign
+SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup attach pcrlock "$img" - "tpm2-device=auto,tpm2-pcrlock=/var/lib/systemd/pcrlock.json,tpm2-signature=$img.pcrsign,headless"
+systemd-cryptsetup detach pcrlock
+systemd-cryptenroll --unlock-key-file=/tmp/pcrlockpwd --tpm2-device=auto --tpm2-pcrlock=/var/lib/systemd/pcrlock.json --tpm2-public-key= --wipe-slot=tpm2 "$img"
+rm "$img".public.pem "$img".private.pem "$img".pcrsign
+
+# Now use the root fs support, i.e. make the tool write a copy of the pcrlock
+# file as service credential to some temporary dir and remove the local copy, so that
+# it has to use the credential version.
+mkdir /tmp/fakexbootldr
+SYSTEMD_XBOOTLDR_PATH=/tmp/fakexbootldr SYSTEMD_RELAX_XBOOTLDR_CHECKS=1 "$SD_PCRLOCK" make-policy --pcr="$PCRS" --force
+mv /var/lib/systemd/pcrlock.json /var/lib/systemd/pcrlock.json.gone
+
+ls -al /tmp/fakexbootldr/loader/credentials
+
+CREDENTIAL_FILE="$(echo /tmp/fakexbootldr/loader/credentials/pcrlock.*.cred)"
+test -f "$CREDENTIAL_FILE"
+
+# Strip dir and .cred suffix from file name.
+CREDENTIAL_NAME=${CREDENTIAL_FILE#/tmp/fakexbootldr/loader/credentials/}
+CREDENTIAL_NAME=${CREDENTIAL_NAME%.cred}
+
+# If SB is enabled then this will fail as it's not locked but TPM2 is enabled
+if cmp /sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c <(printf '\6\0\0\0\1'); then
+    ALLOW_NULL=--allow-null
+fi
+systemd-creds decrypt "${ALLOW_NULL:-}" --name="$CREDENTIAL_NAME" "$CREDENTIAL_FILE"
+ln -s "$CREDENTIAL_FILE" /tmp/fakexbootldr/loader/credentials/"$CREDENTIAL_NAME"
+test -f /tmp/fakexbootldr/loader/credentials/"$CREDENTIAL_NAME"
+
+SYSTEMD_ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY=/tmp/fakexbootldr/loader/credentials systemd-cryptsetup attach pcrlock "$img" - tpm2-device=auto,headless
+systemd-cryptsetup detach pcrlock
+
+mv /var/lib/systemd/pcrlock.json.gone /var/lib/systemd/pcrlock.json
+SYSTEMD_XBOOTLDR_PATH=/tmp/fakexbootldr SYSTEMD_RELAX_XBOOTLDR_CHECKS=1 "$SD_PCRLOCK" remove-policy
+
+"$SD_PCRLOCK" unlock-firmware-config
+"$SD_PCRLOCK" unlock-gpt
+"$SD_PCRLOCK" unlock-machine-id
+"$SD_PCRLOCK" unlock-file-system
+"$SD_PCRLOCK" unlock-raw --pcrlock=/var/lib/pcrlock.d/910-test70.pcrlock
+"$SD_PCRLOCK" unlock-raw --pcrlock=/var/lib/pcrlock.d/920-test70.pcrlock
+
+(! "$SD_PCRLOCK" "")
+(! "$SD_PCRLOCK" predict --pcr=-1)
+(! "$SD_PCRLOCK" predict --pcr=foo)
+(! "$SD_PCRLOCK" predict --pcr=1+1)
+(! "$SD_PCRLOCK" predict --pcr=1+++++1)
+(! "$SD_PCRLOCK" make-policy --nv-index=0)
+(! "$SD_PCRLOCK" make-policy --nv-index=foo)
+(! "$SD_PCRLOCK" list-components --location=:)
+(! "$SD_PCRLOCK" lock-gpt "")
+(! "$SD_PCRLOCK" lock-gpt /dev/sr0)
+(! "$SD_PCRLOCK" lock-pe /dev/full)
+(! "$SD_PCRLOCK" lock-pe /bin/true)
+(! "$SD_PCRLOCK" lock-uki /dev/full)
+(! "$SD_PCRLOCK" lock-uki /bin/true)
+(! "$SD_PCRLOCK" lock-file-system "")
+
+# Exercise Varlink API a bit (but first turn off condition)
+
+mkdir -p /run/systemd/system/systemd-pcrlock.socket.d
+cat >/run/systemd/system/systemd-pcrlock.socket.d/50-no-condition.conf <<EOF
+[Unit]
+# Turn off all conditions
+ConditionSecurity=
+EOF
+
+systemctl daemon-reload
+systemctl restart systemd-pcrlock.socket
+
+varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.RemovePolicy '{}'
+varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.MakePolicy '{}'
+varlinkctl call --collect --json=pretty /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.ReadEventLog '{}'
+varlinkctl call --collect --json=pretty /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.ListComponents '{}'
+varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.Lock '{"category":"firmwareConfig"}'
+varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.Lock '{"category":"firmwareConfig","lock":false}'
+varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.Lock '{"category":"firmwareCode","lock":false}'
+varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.Lock '{"category":"secureBootPolicy","lock":false}'
+varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.Lock '{"category":"secureBootAuthority","lock":false}'
+
+rm "$img" /tmp/pcrlockpwd
+
+# For issue #35746
+for _ in {0..10}; do
+    run0 /usr/lib/systemd/systemd-pcrlock
+done

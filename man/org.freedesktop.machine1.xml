@@ -1,0 +1,805 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" >
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="org.freedesktop.machine1" conditional='ENABLE_MACHINED'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>org.freedesktop.machine1</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>org.freedesktop.machine1</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>org.freedesktop.machine1</refname>
+    <refpurpose>The D-Bus interface of systemd-machined</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Introduction</title>
+
+    <para>
+    <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    is a system service that keeps track of locally running virtual machines and containers.
+    This page describes the D-Bus interface.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>The Manager Object</title>
+
+    <para>The service exposes the following interfaces on the Manager object on the bus:</para>
+
+    <programlisting executable="systemd-machined" node="/org/freedesktop/machine1" interface="org.freedesktop.machine1.Manager">
+node /org/freedesktop/machine1 {
+  interface org.freedesktop.machine1.Manager {
+    methods:
+      GetMachine(in  s name,
+                 out o machine);
+      GetImage(in  s name,
+               out o image);
+      GetMachineByPID(in  u pid,
+                      out o machine);
+      ListMachines(out a(ssso) machines);
+      ListImages(out a(ssbttto) images);
+      CreateMachine(in  s name,
+                    in  ay id,
+                    in  s service,
+                    in  s class,
+                    in  u leader,
+                    in  s root_directory,
+                    in  a(sv) scope_properties,
+                    out o path);
+      CreateMachineWithNetwork(in  s name,
+                               in  ay id,
+                               in  s service,
+                               in  s class,
+                               in  u leader,
+                               in  s root_directory,
+                               in  ai ifindices,
+                               in  a(sv) scope_properties,
+                               out o path);
+      CreateMachineEx(in  s name,
+                      in  a(sv) properties,
+                      in  a(sv) scope_properties,
+                      out o path);
+      RegisterMachine(in  s name,
+                      in  ay id,
+                      in  s service,
+                      in  s class,
+                      in  u leader,
+                      in  s root_directory,
+                      out o path);
+      RegisterMachineWithNetwork(in  s name,
+                                 in  ay id,
+                                 in  s service,
+                                 in  s class,
+                                 in  u leader,
+                                 in  s root_directory,
+                                 in  ai ifindices,
+                                 out o path);
+      RegisterMachineEx(in  s name,
+                        in  a(sv) properties,
+                        out o path);
+      UnregisterMachine(in  s name);
+      TerminateMachine(in  s id);
+      KillMachine(in  s name,
+                  in  s whom,
+                  in  i signal);
+      GetMachineAddresses(in  s name,
+                          out a(iay) addresses);
+      GetMachineSSHInfo(in  s name,
+                        out s ssh_address,
+                        out s ssh_private_key_path);
+      GetMachineOSRelease(in  s name,
+                          out a{ss} fields);
+      OpenMachinePTY(in  s name,
+                     out h pty,
+                     out s pty_path);
+      OpenMachineLogin(in  s name,
+                       out h pty,
+                       out s pty_path);
+      OpenMachineShell(in  s name,
+                       in  s user,
+                       in  s path,
+                       in  as args,
+                       in  as environment,
+                       out h pty,
+                       out s pty_path);
+      BindMountMachine(in  s name,
+                       in  s source,
+                       in  s destination,
+                       in  b read_only,
+                       in  b mkdir);
+      CopyFromMachine(in  s name,
+                      in  s source,
+                      in  s destination);
+      CopyToMachine(in  s name,
+                    in  s source,
+                    in  s destination);
+      CopyFromMachineWithFlags(in  s name,
+                               in  s source,
+                               in  s destination,
+                               in  t flags);
+      CopyToMachineWithFlags(in  s name,
+                             in  s source,
+                             in  s destination,
+                             in  t flags);
+      OpenMachineRootDirectory(in  s name,
+                               out h fd);
+      GetMachineUIDShift(in  s name,
+                         out u shift);
+      RemoveImage(in  s name);
+      RenameImage(in  s name,
+                  in  s new_name);
+      CloneImage(in  s name,
+                 in  s new_name,
+                 in  b read_only);
+      MarkImageReadOnly(in  s name,
+                        in  b read_only);
+      GetImageHostname(in  s name,
+                       out s hostname);
+      GetImageMachineID(in  s name,
+                        out ay id);
+      GetImageMachineInfo(in  s name,
+                          out a{ss} machine_info);
+      GetImageOSRelease(in  s name,
+                        out a{ss} os_release);
+      SetPoolLimit(in  t size);
+      SetImageLimit(in  s name,
+                    in  t size);
+      CleanPool(in  s mode,
+                out a(st) images);
+      MapFromMachineUser(in  s name,
+                         in  u uid_inner,
+                         out u uid_outer);
+      MapToMachineUser(in  u uid_outer,
+                       out s machine_name,
+                       out o machine_path,
+                       out u uid_inner);
+      MapFromMachineGroup(in  s name,
+                          in  u gid_inner,
+                          out u gid_outer);
+      MapToMachineGroup(in  u gid_outer,
+                        out s machine_name,
+                        out o machine_path,
+                        out u gid_inner);
+    signals:
+      MachineNew(s machine,
+                 o path);
+      MachineRemoved(s machine,
+                     o path);
+    properties:
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s PoolPath = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t PoolUsage = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t PoolLimit = ...;
+  };
+  interface org.freedesktop.DBus.Peer { ... };
+  interface org.freedesktop.DBus.Introspectable { ... };
+  interface org.freedesktop.DBus.Properties { ... };
+};
+</programlisting>
+
+    <!--method UnregisterMachine is not documented!-->
+
+    <!--method OpenMachineRootDirectory is not documented!-->
+
+    <!--method GetMachineUIDShift is not documented!-->
+
+    <!--method GetImageHostname is not documented!-->
+
+    <!--method GetImageMachineID is not documented!-->
+
+    <!--method GetImageMachineInfo is not documented!-->
+
+    <!--method GetImageOSRelease is not documented!-->
+
+    <!--method CleanPool is not documented!-->
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.machine1.Manager"/>
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.machine1.Manager"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="GetMachine()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="GetImage()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="GetMachineByPID()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="ListMachines()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="ListImages()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="CreateMachine()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="CreateMachineWithNetwork()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="CreateMachineEx()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="RegisterMachine()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="RegisterMachineWithNetwork()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="RegisterMachineEx()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="UnregisterMachine()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="TerminateMachine()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="KillMachine()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="GetMachineAddresses()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="GetMachineSSHInfo()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="GetMachineOSRelease()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="OpenMachinePTY()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="OpenMachineLogin()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="OpenMachineShell()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="BindMountMachine()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="CopyFromMachine()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="CopyToMachine()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="CopyFromMachineWithFlags()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="CopyToMachineWithFlags()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="OpenMachineRootDirectory()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="GetMachineUIDShift()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="RemoveImage()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="RenameImage()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="CloneImage()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="MarkImageReadOnly()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="GetImageHostname()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="GetImageMachineID()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="GetImageMachineInfo()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="GetImageOSRelease()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetPoolLimit()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetImageLimit()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="CleanPool()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="MapFromMachineUser()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="MapToMachineUser()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="MapFromMachineGroup()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="MapToMachineGroup()"/>
+
+    <variablelist class="dbus-signal" generated="True" extra-ref="MachineNew()"/>
+
+    <variablelist class="dbus-signal" generated="True" extra-ref="MachineRemoved()"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PoolPath"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PoolUsage"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PoolLimit"/>
+
+    <!--End of Autogenerated section-->
+
+    <refsect2>
+      <title>Methods</title>
+
+      <para><function>GetMachine()</function> may be used to get the machine object path for the machine with
+      the specified name. Similarly, <function>GetMachineByPID()</function> gets the machine object the
+      specified PID belongs to if there is any.</para>
+
+      <para><function>GetImage()</function> may be used to get the image object path of the image with the
+      specified name.</para>
+
+      <para><function>ListMachines()</function> returns an array of all currently registered machines. The
+      structures in the array consist of the following fields: machine name, machine class, an identifier for
+      the service that registered the machine and the machine object path.</para>
+
+      <para><function>ListImages()</function> returns an array of all currently known images. The
+      structures in the array consist of the following fields: image name, type, read-only flag, creation
+      time, modification time, current disk space, and image object path.</para>
+
+      <para><function>CreateMachine()</function> may be used to register a new virtual machine or container
+      with <command>systemd-machined</command>, creating a scope unit for it. It accepts the following arguments: a
+      machine name chosen by the registrar, an optional UUID as a 32 byte array, a string that identifies the
+      service that registers the machine, a class string, the PID of the leader process of the machine, an
+      optional root directory of the container, and an array of additional properties to use for the scope
+      registration. The virtual machine name must be suitable as a hostname, and hence should follow the usual
+      DNS hostname rules, as well as the Linux hostname restrictions. Specifically, only 7 bit ASCII is
+      permitted, a maximum length of 64 characters is enforced, only characters from the set
+      <literal>a-zA-Z0-9-_.</literal> are allowed, the name may not begin with a dot, and it may not contain
+      two dots immediately following each other. Container and VM managers should ideally use the hostname
+      used internally in the machine for this parameter. This recommendation is made in order to make the
+      machine name naturally resolvable using
+      <citerefentry><refentrytitle>nss-mymachines</refentrytitle><manvolnum>8</manvolnum></citerefentry>. If
+      a container manager needs to embed characters outside of the indicated range, escaping is required,
+      possibly using <literal>_</literal> as the escape character. Another (somewhat natural) option would be
+      to utilize Internet IDNA encoding. The UUID is passed as a 32 byte array or, if no suitable UUID is
+      available, an empty array (zero length) or zeroed out array shall be passed. The UUID should identify
+      the virtual machine/container uniquely and should ideally be the same UUID that
+      <filename>/etc/machine-id</filename> in the VM/container is initialized from. The service string can be
+      free-form, but it is recommended to pass a short lowercase identifier like
+      <literal>systemd-nspawn</literal>, <literal>libvirt-lxc</literal> or similar. The class string should
+      be either <literal>container</literal> or <literal>vm</literal> indicating whether the machine to
+      register is of the respective class. The leader PID should be the host PID of the init process of the
+      container or the encapsulating process of the VM. If the root directory of the container is known and
+      available in the host's hierarchy, it should be passed (note that this is for informational purposes
+      only, and will not be used otherwise). Otherwise, pass the empty string instead. Finally, the
+      scope properties are passed as array in the same way as to PID1's
+      <function>StartTransientUnit()</function> method. Calling this method will internally register a transient scope
+      unit for the calling client (utilizing the passed scope_properties) and move the leader PID into
+      it. The method returns an object path for the registered machine object that implements the
+      <interfacename>org.freedesktop.machine1.Machine</interfacename> interface (see below). Also see the
+      <ulink url="https://systemd.io/CONTROL_GROUP_INTERFACE">New Control Group
+      Interfaces</ulink> for details about scope units and how to alter resource control settings on the
+      created machine at runtime.</para>
+
+      <para><function>RegisterMachine()</function> is similar to <function>CreateMachine()</function>.
+      However, it only registers a machine and does not create a scope unit for it. Instead, the caller's unit is
+      registered. We recommend to only use this method for container or VM managers that are run
+      multiple times, one instance for each container/VM they manage, and are invoked as system
+      services.</para>
+
+      <para><function>RegisterMachineEx()</function> and <function>CreateMachineEx()</function> are similar
+      to the counterparts, but take a series of key/value pairs instead of a fixed number of parameters, to
+      allow for future extensions, and take a PIDFD instead of a PID for the leader parameter. The currently
+      supported parameters are:
+      <itemizedlist>
+        <listitem><para><literal>Id</literal> (<literal>ay</literal>): the machine UUID.</para></listitem>
+        <listitem><para><literal>Service</literal> (<literal>s</literal>): the service string.</para></listitem>
+        <listitem><para><literal>Class</literal> (<literal>s</literal>): the class string.</para></listitem>
+        <listitem><para><literal>LeaderPIDFD</literal> (<literal>h</literal>): A PIDFD for the leader process of the machine.
+        This parameter is optional. If it is specified, it is preferred over the combination of
+        <literal>LeaderPID</literal>
+        and <literal>LeaderPIDFDID</literal>.</para></listitem>
+        <listitem><para><literal>LeaderPID</literal> (<literal>u</literal>): A PID for the leader process of the
+        machine. This parameter is optional. Must be specified together with
+        <literal>LeaderPIDFDID</literal>.</para></listitem>
+        <listitem><para><literal>LeaderPIDFDID</literal> (<literal>t</literal>): A PIDFDID for the leader
+        process of the machine. This parameter is optional. Must be specified together with
+        <literal>LeaderPID</literal>.</para></listitem>
+        <listitem><para><literal>RootDirectory</literal> (<literal>s</literal>): The root directory of the container. This
+        parameter is optional and for informational purposes only.</para></listitem>
+        <listitem><para><literal>NetworkInterfaces</literal> (<literal>ai</literal>): An array of network
+        interface indices, as in
+        <function>CreateMachineWithNetwork()</function>. This parameter is optional.</para></listitem>
+      </itemizedlist></para>
+
+      <para><function>CreateMachineWithNetwork()</function> and
+      <function>RegisterMachineWithNetwork()</function> are similar to <function>CreateMachine()</function>
+      and <function>RegisterMachine()</function> but take an extra argument: an array of network interface
+      indices that point towards the virtual machine or container. The interface indices should reference one
+      or more network interfaces on the host that can be used to communicate with the guest. Commonly, the
+      passed interface index refers to the host side of a "veth" link (in case of containers), a
+      "tun"/"tap" link (in case of VMs), or the host side of a bridge interface that bridges access to the
+      VM/container interfaces. Specifying this information is useful to enable support for link-local IPv6
+      communication to the machines since the scope field of sockaddr_in6 can be initialized by the
+      specified ifindex.
+      <citerefentry><refentrytitle>nss-mymachines</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      makes use of this information.</para>
+
+      <para><function>KillMachine()</function> sends a UNIX signal to the machine's processes. As its arguments, it takes a
+      machine name (as originally passed to <function>CreateMachine()</function> or returned by
+      <function>ListMachines()</function>), an identifier that specifies what precisely to send the signal to (either
+      <literal>leader</literal> or <literal>all</literal>), and a numeric UNIX signal integer.</para>
+
+      <para><function>TerminateMachine()</function> terminates a virtual machine, killing its processes. It
+      takes a machine name as its only argument.</para>
+
+      <para><function>GetMachineAddresses()</function> retrieves the IP addresses of a container. This method
+      returns an array of pairs consisting of an address family specifier (<constant>AF_INET</constant> or
+      <constant>AF_INET6</constant>) and a byte array containing the addresses. This is only supported for
+      containers that make use of network namespacing.</para>
+
+      <para><function>GetMachineSSHInfo()</function> retrieves the SSH information of a machine. This method
+      returns two strings, the SSH address which can be used to tell SSH where to connect, and the path
+      to the SSH private key required for the connection to succeed.</para>
+
+      <para><function>GetMachineOSRelease()</function> retrieves the OS release information of a
+      container. This method returns an array of key value pairs read from the
+      <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> file in
+      the container and is useful to identify the operating system used in a container.</para>
+
+      <para><function>OpenMachinePTY()</function> allocates a pseudo TTY in the container and returns a file
+      descriptor and its path. This is equivalent to transitioning into the container and invoking
+      <citerefentry project="man-pages"><refentrytitle>posix_openpt</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+      </para>
+
+      <para><function>OpenMachineLogin()</function> allocates a pseudo TTY in the container and ensures that
+      a getty login prompt of the container is running on the other end. It returns the file descriptor of
+      the PTY and the PTY path. This is useful for acquiring a pty with a login prompt from the
+      container.</para>
+
+      <para><function>OpenMachineShell()</function> allocates a pseudo TTY in the container, as the specified
+      user, and invokes the executable at the specified path with a list of arguments (starting from
+      argv[0]) and an environment block. It then returns the file descriptor of the PTY and the PTY
+      path.</para>
+
+      <para><function>BindMountMachine()</function> bind mounts a file or directory from the host into the
+      container. Its arguments consist of a machine name, the source directory on the host, the destination directory in the
+      container, and two booleans, one indicating whether the bind mount shall be
+      read-only, the other indicating whether the destination mount point shall be created first, if it is
+      missing.</para>
+
+      <para><function>CopyFromMachine()</function> copies files or directories from a container into the
+      host. It takes a container name, a source directory in the container and a destination directory on the
+      host as arguments.
+      <function>CopyToMachine()</function> does the opposite and copies files from a source
+      directory on the host into a destination directory in the container.
+      <function>CopyFromMachineWithFlags()</function> and <function>CopyToMachineWithFlags()</function> do the same but take an additional flags argument.</para>
+
+      <para><function>RemoveImage()</function> removes the image with the specified name.</para>
+
+      <para><function>RenameImage()</function> renames the specified image.</para>
+
+      <para><function>CloneImage()</function> clones the specified image under a new name. It also takes a
+      boolean argument indicating whether the resulting image shall be read-only or not.</para>
+
+      <para><function>MarkImageReadOnly()</function> toggles the read-only flag of an image.</para>
+
+      <para><function>SetPoolLimit()</function> sets an overall quota limit on the pool of images.</para>
+
+      <para><function>SetImageLimit()</function> sets a per-image quota limit.</para>
+
+      <para><function>MapFromMachineUser()</function>, <function>MapToMachineUser()</function>,
+      <function>MapFromMachineGroup()</function>, and <function>MapToMachineGroup()</function> may be used to map
+      UIDs/GIDs from the host user namespace to a container user namespace or vice versa.</para>
+    </refsect2>
+
+    <refsect2>
+      <title>Signals</title>
+
+      <para><function>MachineNew()</function> and <function>MachineRemoved()</function> are sent whenever a new
+      machine is registered or removed. These signals carry the machine name and the object path to the corresponding
+      <interfacename>org.freedesktop.machine1.Machine</interfacename> interface (see below).</para>
+    </refsect2>
+
+    <refsect2>
+      <title>Properties</title>
+
+      <para><varname>PoolPath</varname> specifies the file system path where images are written to.</para>
+
+      <para><varname>PoolUsage</varname> specifies the current usage size of the image pool in bytes.</para>
+
+      <para><varname>PoolLimit</varname> specifies the size limit of the image pool in bytes.</para>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Machine Objects</title>
+
+    <programlisting executable="systemd-machined" node="/org/freedesktop/machine1/machine/rawhide" interface="org.freedesktop.machine1.Machine">
+node /org/freedesktop/machine1/machine/rawhide {
+  interface org.freedesktop.machine1.Machine {
+    methods:
+      Terminate();
+      Kill(in  s whom,
+           in  i signal);
+      GetAddresses(out a(iay) addresses);
+      GetSSHInfo(out s ssh_address,
+                 out s ssh_private_key_path);
+      GetOSRelease(out a{ss} fields);
+      GetUIDShift(out u shift);
+      OpenPTY(out h pty,
+              out s pty_path);
+      OpenLogin(out h pty,
+                out s pty_path);
+      OpenShell(in  s user,
+                in  s path,
+                in  as args,
+                in  as environment,
+                out h pty,
+                out s pty_path);
+      BindMount(in  s source,
+                in  s destination,
+                in  b read_only,
+                in  b mkdir);
+      CopyFrom(in  s source,
+               in  s destination);
+      CopyTo(in  s source,
+             in  s destination);
+      CopyFromWithFlags(in  s source,
+                        in  s destination,
+                        in  t flags);
+      CopyToWithFlags(in  s source,
+                      in  s destination,
+                      in  t flags);
+      OpenRootDirectory(out h fd);
+    properties:
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s Name = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly ay Id = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t Timestamp = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t TimestampMonotonic = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s Service = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s Unit = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s Subgroup = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly u Leader = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t LeaderPIDFDId = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly u Supervisor = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t SupervisorPIDFDId = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s Class = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s RootDirectory = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly ai NetworkInterfaces = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly u VSockCID = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s SSHAddress = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s SSHPrivateKeyPath = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s State = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly u UID = ...;
+  };
+  interface org.freedesktop.DBus.Peer { ... };
+  interface org.freedesktop.DBus.Introspectable { ... };
+  interface org.freedesktop.DBus.Properties { ... };
+};
+</programlisting>
+
+    <!--method GetUIDShift is not documented!-->
+
+    <!--method OpenPTY is not documented!-->
+
+    <!--method OpenLogin is not documented!-->
+
+    <!--method OpenShell is not documented!-->
+
+    <!--method BindMount is not documented!-->
+
+    <!--method CopyFrom is not documented!-->
+
+    <!--method CopyTo is not documented!-->
+
+    <!--method CopyFromWithFlags is not documented!-->
+
+    <!--method CopyToWithFlags is not documented!-->
+
+    <!--method OpenRootDirectory is not documented!-->
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.machine1.Machine"/>
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.machine1.Machine"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Terminate()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Kill()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="GetAddresses()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="GetSSHInfo()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="GetOSRelease()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="GetUIDShift()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="OpenPTY()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="OpenLogin()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="OpenShell()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="BindMount()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="CopyFrom()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="CopyTo()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="CopyFromWithFlags()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="CopyToWithFlags()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="OpenRootDirectory()"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="Name"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="Id"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="Timestamp"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="TimestampMonotonic"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="Service"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="Unit"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="Subgroup"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="Leader"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LeaderPIDFDId"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="Supervisor"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="SupervisorPIDFDId"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="Class"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RootDirectory"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="NetworkInterfaces"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="VSockCID"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="SSHAddress"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="SSHPrivateKeyPath"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="State"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="UID"/>
+
+    <!--End of Autogenerated section-->
+
+    <refsect2>
+      <title>Methods</title>
+
+      <para><function>Terminate()</function> and <function>Kill()</function> terminate/kill the machine. These methods
+      take the same arguments as <function>TerminateMachine()</function> and
+      <function>KillMachine()</function> on the Manager interface, respectively.</para>
+
+      <para><function>GetAddresses()</function>, <function>GetSSHInfo()</function> and <function>GetOSRelease()</function> get the IP address,
+      SSH connection and OS release information from the machine. These methods take the same arguments as
+      <function>GetMachineAddresses()</function>, <function>GetMachineSSHInfo()</function> and <function>GetMachineOSRelease()</function> of the
+      Manager interface, respectively.</para>
+    </refsect2>
+
+    <refsect2>
+      <title>Properties</title>
+
+      <para><varname>Name</varname> is the machine name as it was passed in during registration with
+      <function>CreateMachine()</function> on the manager object.</para>
+
+      <para><varname>Id</varname> is the machine UUID.</para>
+
+      <para><varname>Timestamp</varname> and <varname>TimestampMonotonic</varname> are the realtime and
+      monotonic timestamps when the virtual machines where created in microseconds since the epoch.</para>
+
+      <para><varname>Service</varname> contains a short string identifying the registering service as passed
+      in during registration of the machine.</para>
+
+      <para><varname>Unit</varname> is the systemd scope or service unit name for the machine.</para>
+
+      <para><varname>Leader</varname> is the PID of the leader process of the machine. (The leader process is the
+      top-level process of the payload of the machine, i.e. for containers PID 1 inside the container, and
+      for VMs the process encapsulating the VM. Its lifetime defines the lifetime of the machine.)</para>
+
+      <para><varname>LeaderPIDFDId</varname> encodes the Linux pidfd inode ID of the leader process of the
+      machine.</para>
+
+      <para><varname>Supervisor</varname> is the PID of the supervisor process of the machine. (The
+      supervisor process is the process that manages the machine, if there's a separate one for it. A
+      supervisor process is not always defined, and does not define the machine's lifetime.)</para>
+
+      <para><varname>SupervisorPIDFDId</varname> encodes the Linux pidfd inode ID of the supervisor process of the
+      machine.</para>
+
+      <para><varname>Class</varname> is the class of the machine and is either the string "vm" (for real VMs
+      based on virtualized hardware) or "container" (for lightweight userspace virtualization sharing the
+      same kernel as the host).</para>
+
+      <para><varname>RootDirectory</varname> is the root directory of the container if it is known and
+      applicable or the empty string.</para>
+
+      <para><varname>NetworkInterfaces</varname> contains an array of network interface indices that point
+      towards the container, the VM or the host. For details about this information see the description of
+      <function>CreateMachineWithNetwork()</function> above.</para>
+
+      <para><varname>VSockCID</varname> is the VSOCK CID of the VM if it is known, or
+      <constant>VMADDR_CID_ANY</constant> otherwise.</para>
+
+      <para><varname>SSHAddress</varname> is the address of the VM in a format <command>ssh</command> can understand
+      if it is known or the empty string.</para>
+
+      <para><varname>SSHPrivateKeyPath</varname> is the path to the SSH private key of the VM if it is known
+      or the empty string.</para>
+
+      <para><varname>State</varname> is the state of the machine and is one of <literal>opening</literal>,
+      <literal>running</literal>, or <literal>closing</literal>. Note that the state machine is not considered
+      part of the API and states might be removed or added without this being considered API breakage.
+      </para>
+
+      <para><varname>Subgroup</varname> contains the sub-control-group path this machine's processes reside
+      in, relative to the specified unit's control group.</para>
+
+      <para><varname>UID</varname> contains the numeric UNIX UID of the user who registered the machine.</para>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Introspect <interfacename>org.freedesktop.machine1.Manager</interfacename> on the bus</title>
+
+      <programlisting>
+$ gdbus introspect --system \
+  --dest org.freedesktop.machine1 \
+  --object-path /org/freedesktop/machine1
+</programlisting>
+    </example>
+
+    <example>
+      <title>Introspect <interfacename>org.freedesktop.machine1.Machine</interfacename> on the bus</title>
+
+      <programlisting>
+$ gdbus introspect --system \
+  --dest org.freedesktop.machine1 \
+  --object-path /org/freedesktop/machine1/machine/rawhide
+</programlisting>
+    </example>
+  </refsect1>
+
+  <xi:include href="org.freedesktop.locale1.xml" xpointer="versioning"/>
+
+  <refsect1>
+    <title>History</title>
+    <refsect2>
+      <title>The Manager Object</title>
+      <para><function>CopyFromMachineWithFlags()</function> and
+      <function>CopyToMachineWithFlags()</function> were added in version 252.</para>
+      <para><function>GetMachineSSHInfo()</function> was added in version 256.</para>
+    </refsect2>
+    <refsect2>
+      <title>Machine Objects</title>
+      <para><function>CopyFromWithFlags()</function> and
+      <function>CopyToWithFlags()</function> were added in version 252.</para>
+      <para><function>GetSSHInfo()</function>, <varname>VSockCID</varname>, <varname>SSHAddress</varname>,
+      and <varname>SSHPrivateKeyPath</varname> were added in version 256.</para>
+      <para><varname>LeaderPIDFDId</varname>, <varname>Supervisor</varname>,
+      <varname>SupervisorPIDFDId</varname>, <varname>Subgroup</varname>, and <varname>UID</varname> were added
+      in version 258.</para>
+      <para><function>CreateMachineEx()</function>, and <function>RegisterMachineEx()</function> were added
+      in version 259.</para>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

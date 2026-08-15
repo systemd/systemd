@@ -1,0 +1,2179 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-nspawn" conditional="ENABLE_NSPAWN"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-nspawn</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-nspawn</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-nspawn</refname>
+    <refpurpose>Spawn a command or OS in a lightweight container</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-nspawn</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="opt"><replaceable>COMMAND</replaceable>
+      <arg choice="opt" rep="repeat">ARGS</arg>
+      </arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-nspawn</command>
+      <arg choice="plain">--boot</arg>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="opt" rep="repeat">ARGS</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-nspawn</command> may be used to run a command or OS in a lightweight namespace
+    container. In many ways it is similar to <citerefentry
+    project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry>, but more powerful
+    since it virtualizes the file system hierarchy, as well as the process tree, the various IPC subsystems, and
+    the host and domain names.</para>
+
+    <para><command>systemd-nspawn</command> may be invoked on any directory tree containing an operating system tree,
+    using the <option>--directory=</option> command line option. By using the <option>--machine=</option> option an OS
+    tree is automatically searched for in a couple of locations, most importantly in
+    <filename>/var/lib/machines/</filename>, the suggested directory to place OS container images installed on the
+    system.</para>
+
+    <para>In contrast to <citerefentry
+    project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry> <command>systemd-nspawn</command>
+    may be used to boot full Linux-based operating systems in a container.</para>
+
+    <para><command>systemd-nspawn</command> limits access to various kernel interfaces in the container to
+    read-only, such as <filename>/sys/</filename>, <filename>/proc/sys/</filename>, or
+    <filename>/sys/fs/selinux/</filename>. The host's network interfaces and the system clock may not be
+    changed from within the container. Device nodes may not be created. The host system cannot be rebooted
+    and kernel modules may not be loaded from within the container. <emphasis>This sandbox can easily be
+    circumvented from within the container if user namespaces are not used</emphasis>. This means that
+    untrusted code must always be run in a user namespace, see the discussion of the
+    <option>--private-users=</option> option below.</para>
+
+    <para>Use a tool like <citerefentry
+    project='mankier'><refentrytitle>dnf</refentrytitle><manvolnum>8</manvolnum></citerefentry>, <citerefentry
+    project='die-net'><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>, or
+    <citerefentry project='archlinux'><refentrytitle>pacman</refentrytitle><manvolnum>8</manvolnum></citerefentry> to
+    set up an OS directory tree suitable as file system hierarchy for <command>systemd-nspawn</command> containers. See
+    the Examples section below for details on suitable invocation of these commands.</para>
+
+    <para>As a safety check <command>systemd-nspawn</command> will verify the existence of
+    <filename>/usr/lib/os-release</filename> or <filename>/etc/os-release</filename> in the container tree before
+    booting a container (see
+    <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>).  It might be
+    necessary to add this file to the container tree manually if the OS of the container is too old to contain this
+    file out-of-the-box.</para>
+
+    <para><command>systemd-nspawn</command> may be invoked directly from the interactive command line or run as system
+    service in the background. In this mode each container instance runs as its own service instance; a default
+    template unit file <filename>systemd-nspawn@.service</filename> is provided to make this easy, taking the container
+    name as instance identifier. Note that different default options apply when <command>systemd-nspawn</command> is
+    invoked by the template unit file than interactively on the command line. Most importantly the template unit file
+    makes use of the <option>--boot</option> option which is not the default in case <command>systemd-nspawn</command>
+    is invoked from the interactive command line. Further differences with the defaults are documented along with the
+    various supported options below.</para>
+
+    <para>The <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry> tool may
+    be used to execute a number of operations on containers. In particular it provides easy-to-use commands to run
+    containers as system services using the <filename>systemd-nspawn@.service</filename> template unit
+    file.</para>
+
+    <para>Along with each container a settings file with the <filename>.nspawn</filename> suffix may exist, containing
+    additional settings to apply when running the container. See
+    <citerefentry><refentrytitle>systemd.nspawn</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details. Settings files override the default options used by the <filename>systemd-nspawn@.service</filename>
+    template unit file, making it usually unnecessary to alter this template file directly.</para>
+
+    <para>Note that <command>systemd-nspawn</command> will mount file systems private to the container to
+    <filename>/dev/</filename>, <filename>/run/</filename>, and similar. These will not be visible outside of
+    the container, and their contents will be lost when the container exits.</para>
+
+    <para>Note that running two <command>systemd-nspawn</command> containers from the same directory tree will not make
+    processes in them see each other. The PID namespace separation of the two containers is complete and the containers
+    will share very few runtime objects except for the underlying file system. Rather use
+    <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+    <command>login</command> or <command>shell</command> commands to request an additional login session in a running
+    container.</para>
+
+    <para><command>systemd-nspawn</command> implements the <ulink
+    url="https://systemd.io/CONTAINER_INTERFACE">Container Interface</ulink> specification.</para>
+
+    <para>While running, containers invoked with <command>systemd-nspawn</command> are registered with the
+    <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>8</manvolnum></citerefentry> service that
+    keeps track of running containers, and provides programming interfaces to interact with them.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Unprivileged Operation</title>
+
+    <para><command>systemd-nspawn</command> may be invoked with or without privileges. The full functionality
+    is currently only available when invoked with privileges. When invoked without privileges, various
+    limitations apply, including, but not limited to:</para>
+
+    <itemizedlist>
+      <listitem><para>Only disk image based containers are supported (i.e. <option>--image=</option>).
+      Directory based ones (i.e. <option>--directory=</option>) are only supported if owned by the "foreign"
+      UID range.</para></listitem>
+
+      <listitem><para>Only <option>--private-network</option> and <option>--network-veth</option> networking
+      modes are supported.</para></listitem>
+    </itemizedlist>
+
+    <para>When running in unprivileged mode, some needed functionality is provided via
+    <citerefentry><refentrytitle>systemd-mountfsd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>systemd-nsresourced.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>If option <option>--boot</option> is specified, the arguments
+    are used as arguments for the init program. Otherwise,
+    <replaceable>COMMAND</replaceable> specifies the program to launch
+    in the container, and the remaining arguments are used as
+    arguments for this program. If <option>--boot</option> is not used and
+    no arguments are specified, a shell is launched in the
+    container.</para>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+
+      <varlistentry>
+        <term><option>-q</option></term>
+        <term><option>--quiet</option></term>
+
+        <listitem><para>Turns off any status output by the tool
+        itself. When this switch is used, the only output from nspawn
+        will be the console output of the container OS
+        itself.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--settings=<replaceable>MODE</replaceable></option></term>
+
+        <listitem><para>Controls whether
+        <command>systemd-nspawn</command> shall search for and use
+        additional per-container settings from
+        <filename>.nspawn</filename> files. Takes a boolean or the
+        special values <option>override</option> or
+        <option>trusted</option>.</para>
+
+        <para>If enabled (the default), a settings file named after the
+        machine (as specified with the <option>--machine=</option>
+        setting, or derived from the directory or image file name)
+        with the suffix <filename>.nspawn</filename> is searched in
+        <filename>/etc/systemd/nspawn/</filename> and
+        <filename>/run/systemd/nspawn/</filename>. If it is found
+        there, its settings are read and used. If it is not found
+        there, it is subsequently searched in the same directory as the
+        image file or in the immediate parent of the root directory of
+        the container. In this case, if the file is found, its settings
+        will be also read and used, but potentially unsafe settings
+        are ignored. Note that in both these cases, settings on the
+        command line take precedence over the corresponding settings
+        from loaded <filename>.nspawn</filename> files, if both are
+        specified. Unsafe settings are considered all settings that
+        elevate the container's privileges or grant access to
+        additional resources such as files or directories of the
+        host. For details about the format and contents of
+        <filename>.nspawn</filename> files, consult
+        <citerefentry><refentrytitle>systemd.nspawn</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <para>If this option is set to <option>override</option>, the
+        file is searched, read and used the same way, however, the order of
+        precedence is reversed: settings read from the
+        <filename>.nspawn</filename> file will take precedence over
+        the corresponding command line options, if both are
+        specified.</para>
+
+        <para>If this option is set to <option>trusted</option>, the
+        file is searched, read and used the same way, but regardless
+        of being found in <filename>/etc/systemd/nspawn/</filename>,
+        <filename>/run/systemd/nspawn/</filename> or next to the image
+        file or container root directory, all settings will take
+        effect, however, command line arguments still take precedence
+        over corresponding settings.</para>
+
+        <para>If disabled, no <filename>.nspawn</filename> file is read
+        and no settings except the ones on the command line are in
+        effect.</para>
+
+        <xi:include href="version-info.xml" xpointer="v226"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--cleanup</option></term>
+
+        <listitem>
+          <para>Clean up left-over mounts and underlying mount points used by the container, and exit without
+          invoking any containers. This may be useful when the previous invocation of
+          <command>systemd-nspawn</command> was unexpectedly terminated. This requires at least one of
+          <option>-M/--machine=</option>, <option>-D/--directory=</option>, or <option>-i/--image=</option>
+          to determine the mounts to be cleaned up.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+    </variablelist>
+
+    <refsect2>
+    <title>Image Options</title>
+
+    <variablelist>
+
+      <varlistentry>
+        <term><option>-D</option></term>
+        <term><option>--directory=</option></term>
+
+        <listitem><para>Directory to use as file system root for the container.</para>
+
+        <para>If neither <option>--directory=</option>, nor <option>--image=</option> is specified the
+        directory is determined by searching for a directory named the same as the machine name specified
+        with <option>--machine=</option>. See
+        <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        section "Files and Directories" for the precise search path.</para>
+
+        <xi:include href="vpick.xml" xpointer="directory"/>
+
+        <para>If neither <option>--directory=</option>, <option>--image=</option>, nor
+        <option>--machine=</option> are specified, the current directory will be used. May not be specified
+        together with <option>--image=</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--template=</option></term>
+
+        <listitem><para>Directory or <literal>btrfs</literal> subvolume to use as template for the
+        container's root directory. If this is specified and the container's root directory (as configured by
+        <option>--directory=</option>) does not yet exist it is created as <literal>btrfs</literal> snapshot
+        (if supported) or plain directory (otherwise) and populated from this template tree. Ideally, the
+        specified template path refers to the root of a <literal>btrfs</literal> subvolume, in which case a
+        simple copy-on-write snapshot is taken, and populating the root directory is instant. If the
+        specified template path does not refer to the root of a <literal>btrfs</literal> subvolume (or not
+        even to a <literal>btrfs</literal> file system at all), the tree is copied (though possibly in a
+        'reflink' copy-on-write scheme — if the file system supports that), which can be substantially more
+        time-consuming. Note that the snapshot taken is of the specified directory or subvolume, including
+        all subdirectories and subvolumes below it, but excluding any sub-mounts. May not be specified
+        together with <option>--image=</option> or <option>--ephemeral</option>.</para>
+
+        <para>Note that this switch leaves hostname, machine ID and
+        all other settings that could identify the instance
+        unmodified.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-x</option></term>
+        <term><option>--ephemeral</option></term>
+
+        <listitem><para>If specified, the container is run with a temporary snapshot of its file system that is removed
+        immediately when the container terminates. May not be specified together with
+        <option>--template=</option>.</para>
+        <para>Note that this switch leaves hostname, machine ID and all other settings that could identify
+        the instance unmodified. Please note that — as with <option>--template=</option> — taking the
+        temporary snapshot is more efficient on file systems that support subvolume snapshots or 'reflinks'
+        natively (<literal>btrfs</literal> or new <literal>xfs</literal>) than on more traditional file
+        systems that do not (<literal>ext4</literal>). Note that the snapshot taken is of the specified
+        directory or subvolume, including all subdirectories and subvolumes below it, but excluding any
+        sub-mounts.</para>
+
+        <para>With this option no modifications of the container image are retained. Use
+        <option>--volatile=</option> (described below) for other mechanisms to restrict persistency of
+        container images during runtime.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-i</option></term>
+        <term><option>--image=</option></term>
+
+        <listitem><para>Disk image to mount the root directory for the
+        container from. Takes a path to a regular file or to a block
+        device node. The file or block device must contain
+        either:</para>
+
+        <itemizedlist>
+          <listitem><para>An MBR partition table with a single
+          partition of type 0x83 that is marked
+          bootable.</para></listitem>
+
+          <listitem><para>A GUID partition table (GPT) with a single
+          partition of type
+          0fc63daf-8483-4772-8e79-3d69d8477de4.</para></listitem>
+
+          <listitem><para>A GUID partition table (GPT) with a marked root partition which is mounted as the
+          root directory of the container. Optionally, GPT images may contain a home and/or a server data
+          partition which are mounted to the appropriate places in the container. All these partitions must
+          be identified by the partition types defined by the <ulink
+          url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2
+          Discoverable Partitions Specification</ulink>.</para></listitem>
+
+          <listitem><para>No partition table, and a single file system spanning the whole image.</para></listitem>
+        </itemizedlist>
+
+        <para>On GPT images, if an EFI System Partition (ESP) is discovered, it is automatically mounted to
+        <filename>/efi</filename> (or <filename>/boot</filename> as fallback) in case a directory by this name exists
+        and is empty.</para>
+
+        <para>Partitions encrypted with LUKS are automatically decrypted. Also, on GPT images dm-verity data integrity
+        hash partitions are set up if the root hash for them is specified using the <option>--root-hash=</option>
+        option.</para>
+
+        <para>Single file system images (i.e. file systems without a surrounding partition table) can be opened using
+        dm-verity if the integrity data is passed using the <option>--root-hash=</option> and
+        <option>--verity-data=</option> (and optionally <option>--root-hash-sig=</option>) options.</para>
+
+        <para>Any other partitions, such as foreign partitions or swap partitions are not mounted. May not be specified
+        together with <option>--directory=</option>, <option>--template=</option>.</para>
+
+        <xi:include href="vpick.xml" xpointer="image"/>
+
+        <xi:include href="version-info.xml" xpointer="v211"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--image-policy=<replaceable>policy</replaceable></option></term>
+
+        <listitem><para>Takes an image policy string as argument, as per
+        <citerefentry><refentrytitle>systemd.image-policy</refentrytitle><manvolnum>7</manvolnum></citerefentry>. The
+        policy is enforced when operating on the disk image specified via <option>--image=</option>, see
+        above. If not specified, defaults to
+        <literal>root=verity+signed+encrypted+unprotected+absent:usr=verity+signed+encrypted+unprotected+absent:home=encrypted+unprotected+absent:srv=encrypted+unprotected+absent:esp=unprotected+absent:xbootldr=unprotected+absent:tmp=encrypted+unprotected+absent:var=encrypted+unprotected+absent</literal>,
+        i.e. all recognized file systems in the image are used, but not the swap partition.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--mstack=</option></term>
+
+        <listitem><para>Mount stack to mount the root directory for the container from. Takes a path to a
+        directory implementing
+        <citerefentry><refentrytitle>systemd.mstack</refentrytitle><manvolnum>7</manvolnum></citerefentry>. This
+        may be used to run a container of an <literal>overlayfs</literal> assembled from a number of layers,
+        possibly writable and augmented with additional bind mounts.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--oci-bundle=</option></term>
+
+        <listitem><para>Takes the path to an OCI runtime bundle to invoke, as specified in the <ulink
+        url="https://github.com/opencontainers/runtime-spec/blob/master/spec.md">OCI Runtime Specification</ulink>. In
+        this case, no <filename>.nspawn</filename> file is loaded, and the root directory and various settings are read
+        from the OCI runtime JSON data (but data passed on the command line takes precedence).</para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--read-only</option></term>
+
+        <listitem><para>Mount the container's root file system (and any other file systems contained in the container
+        image) read-only. This has no effect on additional mounts made with <option>--bind=</option>,
+        <option>--tmpfs=</option> and similar options. This mode is implied if the container image file or directory is
+        marked read-only itself. It is also implied if <option>--volatile=</option> is used. In this case, the container
+        image on disk is strictly read-only, while changes are permitted but kept non-persistently in memory only. For
+        further details, see below.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--volatile</option></term>
+        <term><option>--volatile=<replaceable>MODE</replaceable></option></term>
+
+        <listitem><para>Boots the container in volatile mode. When no mode parameter is passed or when mode is
+        specified as <option>yes</option>, full volatile mode is enabled. This means the root directory is mounted as a
+        mostly unpopulated <literal>tmpfs</literal> instance, and <filename>/usr/</filename> from the OS tree is
+        mounted into it in read-only mode (the system thus starts up with read-only OS image, but pristine state and
+        configuration, any changes are lost on shutdown). When the mode parameter is specified as
+        <option>state</option>, the OS tree is mounted read-only, but <filename>/var/</filename> is mounted as a
+        writable <literal>tmpfs</literal> instance into it (the system thus starts up with read-only OS resources and
+        configuration, but pristine state, and any changes to the latter are lost on shutdown). When the mode parameter
+        is specified as <option>overlay</option> the read-only root file system is combined with a writable
+        <filename>tmpfs</filename> instance through <literal>overlayfs</literal>, so that it appears at it normally
+        would, but any changes are applied to the temporary file system only and lost when the container is
+        terminated. When the mode parameter is specified as <option>no</option> (the default), the whole OS tree is
+        made available writable (unless <option>--read-only</option> is specified, see above).</para>
+
+        <para>Note that if one of the volatile modes is chosen, its effect is limited to the root file system
+        (or <filename>/var/</filename> in case of <option>state</option>), and any other mounts placed in the
+        hierarchy are unaffected — regardless of whether they are established automatically (e.g. the EFI system
+        partition that might be mounted to <filename>/efi/</filename> or <filename>/boot/</filename>) or
+        explicitly (e.g. through an additional command line option such as <option>--bind=</option>, see
+        below). This means, even if <option>--volatile=overlay</option> is used changes to
+        <filename>/efi/</filename> or <filename>/boot/</filename> are prohibited in case such a partition
+        exists in the container image operated on, and even if <option>--volatile=state</option> is used the
+        hypothetical file <filename index="false">/etc/foobar</filename> is potentially writable if
+        <option>--bind=/etc/foobar</option> is used to mount it from outside the read-only container
+        <filename>/etc/</filename> directory.</para>
+
+        <para>The <option>--ephemeral</option> option is closely related to this setting, and provides similar
+        behaviour by making a temporary, ephemeral copy of the whole OS image and executing that. For further details,
+        see above.</para>
+
+        <para>The <option>--tmpfs=</option> and <option>--overlay=</option> options provide similar functionality, but
+        for specific sub-directories of the OS image only. For details, see below.</para>
+
+        <para>This option provides similar functionality for containers as the <literal>systemd.volatile=</literal>
+        kernel command line switch provides for host systems. See
+        <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details.</para>
+
+        <para>Note that setting this option to <option>yes</option> or <option>state</option> will only work
+        correctly with operating systems in the container that can boot up with only
+        <filename>/usr/</filename> mounted, and are able to automatically populate <filename>/var/</filename>
+        (and <filename>/etc/</filename> in case of <literal>--volatile=yes</literal>). Specifically, this
+        means that operating systems that follow the historic split of <filename>/bin/</filename> and
+        <filename>/lib/</filename> (and related directories) from <filename>/usr/</filename> (i.e. where the
+        former are not symlinks into the latter) are not supported by <literal>--volatile=yes</literal> as
+        container payload. The <option>overlay</option> option does not require any particular preparations
+        in the OS, but do note that <literal>overlayfs</literal> behaviour differs from regular file systems
+        in a number of ways, and hence compatibility is limited.</para>
+
+        <xi:include href="version-info.xml" xpointer="v216"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--root-hash=</option></term>
+
+        <listitem><para>Takes a data integrity (dm-verity) root hash specified in hexadecimal. This option enables data
+        integrity checks using dm-verity, if the used image contains the appropriate integrity data (see above). The
+        specified hash must match the root hash of integrity data, and is usually at least 256 bits (and hence 64
+        formatted hexadecimal characters) long (in case of SHA256 for example). If this option is not specified, but
+        the image file carries the <literal>user.verity.roothash</literal> extended file attribute (see <citerefentry
+        project='man-pages'><refentrytitle>xattr</refentrytitle><manvolnum>7</manvolnum></citerefentry>), then the root
+        hash is read from it, also as formatted hexadecimal characters. If the extended file attribute is not found (or
+        is not supported by the underlying file system), but a file with the <filename>.roothash</filename> suffix is
+        found next to the image file, bearing otherwise the same name (except if the image has the
+        <filename>.raw</filename> suffix, in which case the root hash file must not have it in its name), the root hash
+        is read from it and automatically used, also as formatted hexadecimal characters.</para>
+
+        <para>Note that this configures the root hash for the root file system. Disk images may also contain
+        separate file systems for the <filename>/usr/</filename> hierarchy, which may be Verity protected as
+        well. The root hash for this protection may be configured via the
+        <literal>user.verity.usrhash</literal> extended file attribute or via a <filename>.usrhash</filename>
+        file adjacent to the disk image, following the same format and logic as for the root hash for the
+        root file system described here. Note that there's currently no switch to configure the root hash for
+        the <filename>/usr/</filename> from the command line.</para>
+
+        <para>Also see the <varname>RootHash=</varname> option in
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--root-hash-sig=</option></term>
+
+        <listitem><para>Takes a PKCS7 signature of the <option>--root-hash=</option> option.
+        The semantics are the same as for the <varname>RootHashSignature=</varname> option, see
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--verity-data=</option></term>
+
+        <listitem><para>Takes the path to a data integrity (dm-verity) file. This option enables data integrity checks
+        using dm-verity, if a root-hash is passed and if the used image itself does not contain the integrity data.
+        The integrity data must be matched by the root hash. If this option is not specified, but a file with the
+        <filename>.verity</filename> suffix is found next to the image file, bearing otherwise the same name (except if
+        the image has the <filename>.raw</filename> suffix, in which case the verity data file must not have it in its name),
+        the verity data is read from it and automatically used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--pivot-root=</option></term>
+
+        <listitem><para>Pivot the specified directory to <filename>/</filename> inside the container, and either unmount the
+        container's old root, or pivot it to another specified directory. Takes one of: a path argument — in which case the
+        specified path will be pivoted to <filename>/</filename> and the old root will be unmounted; or a colon-separated pair
+        of new root path and pivot destination for the old root. The new root path will be pivoted to <filename>/</filename>,
+        and the old <filename>/</filename> will be pivoted to the other directory. Both paths must be absolute, and are resolved
+        in the container's file system namespace.</para>
+
+        <para>This is for containers which have several bootable directories in them; for example, several
+        <citerefentry><refentrytitle>ostree</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        deployments. It emulates the behavior of the boot loader and the initrd which normally select which
+        directory to mount as the root and start the container's PID 1 in.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    </refsect2><refsect2>
+    <title>Execution Options</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>-a</option></term>
+        <term><option>--as-pid2</option></term>
+
+        <listitem><para>Invoke the shell or specified program as process ID (PID) 2 instead of PID 1 (init). By
+        default, if neither this option nor <option>--boot</option> is used, the selected program is run as the process
+        with PID 1, a mode only suitable for programs that are aware of the special semantics that the process with
+        PID 1 has on UNIX. For example, it needs to reap all processes reparented to it, and should implement
+        <command>sysvinit</command> compatible signal handling (specifically: it needs to reboot on SIGINT, reexecute
+        on SIGTERM, reload configuration on SIGHUP, and so on). With <option>--as-pid2</option> a minimal stub init
+        process is run as PID 1 and the selected program is executed as PID 2 (and hence does not need to implement any
+        special semantics). The stub init process will reap processes as necessary and react appropriately to
+        signals. It is recommended to use this mode to invoke arbitrary commands in containers, unless they have been
+        modified to run correctly as PID 1. Or in other words: this switch should be used for pretty much all commands,
+        except when the command refers to an init or shell implementation, as these are generally capable of running
+        correctly as PID 1. This option may not be combined with <option>--boot</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v229"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-b</option></term>
+        <term><option>--boot</option></term>
+
+        <listitem><para>Automatically search for an init program and invoke it as PID 1, instead of a shell or a user
+        supplied program. If this option is used, arguments specified on the command line are used as arguments for the
+        init program. This option may not be combined with <option>--as-pid2</option>.</para>
+
+        <para>The following table explains the different modes of invocation and relationship to
+        <option>--as-pid2</option> (see above):</para>
+
+        <table>
+          <title>Invocation Mode</title>
+          <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+            <colspec colname="switch" />
+            <colspec colname="explanation" />
+            <thead>
+              <row>
+                <entry>Switch</entry>
+                <entry>Explanation</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>Neither <option>--as-pid2</option> nor <option>--boot</option> specified</entry>
+                <entry>The passed parameters are interpreted as the command line, which is executed as PID 1 in the container.</entry>
+              </row>
+
+              <row>
+                <entry><option>--as-pid2</option> specified</entry>
+                <entry>The passed parameters are interpreted as the command line, which is executed as PID 2 in the container. A stub init process is run as PID 1.</entry>
+              </row>
+
+              <row>
+                <entry><option>--boot</option> specified</entry>
+                <entry>An init program is automatically searched for and run as PID 1 in the container. The passed parameters are used as invocation parameters for this process.</entry>
+              </row>
+
+            </tbody>
+          </tgroup>
+        </table>
+
+        <para>Note that <option>--boot</option> is the default mode of operation if the
+        <filename>systemd-nspawn@.service</filename> template unit file is used.</para>
+
+        <para>When <option>--boot</option> is used, the passed parameters are processed the same way the
+        kernel processes its command line before handing it to PID 1: any <literal>KEY=VALUE</literal>
+        assignment whose <literal>KEY</literal> does not contain a <literal>.</literal> is exported as
+        an environment variable for PID 1 (with <literal>-</literal> in the key replaced by
+        <literal>_</literal>, as if specified via <option>--setenv=</option>), while all other
+        parameters (including <literal>systemd.*=</literal> assignments) are passed as arguments to the
+        init program.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--chdir=</option></term>
+
+        <listitem><para>Change to the specified working directory before invoking the process in the container. Expects
+        an absolute path in the container's file system namespace.</para>
+
+        <xi:include href="version-info.xml" xpointer="v229"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-E <replaceable>NAME</replaceable>[=<replaceable>VALUE</replaceable>]</option></term>
+        <term><option>--setenv=<replaceable>NAME</replaceable>[=<replaceable>VALUE</replaceable>]</option></term>
+
+        <listitem><para>Specifies an environment variable to pass to the init process in the container. This
+        may be used to override the default variables or to set additional variables. It may be used more
+        than once to set multiple variables. When <literal>=</literal> and <replaceable>VALUE</replaceable>
+        are omitted, the value of the variable with the same name in the program environment will be used.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-u</option></term>
+        <term><option>--uid=</option></term>
+
+        <listitem><para>After transitioning into the container, change to the specified user defined in the
+        container's user database. Like all other systemd-nspawn features, this is not a security feature and
+        provides protection against accidental destructive operations only. This option was previously named
+        <option>--user=</option>. The old name is still accepted but deprecated. The short option
+        <option>-u</option> is compatible with both old and new versions of
+        <command>systemd-nspawn</command>.</para>
+
+        <para>Note that if credentials are used in combination with a non-root <option>--uid=</option>
+        (e.g.: <option>--set-credential=</option> or <option>--load-credential=</option>), then
+        <option>--no-new-privileges=yes</option> must be used, and <option>--boot</option> or
+        <option>--as-pid2</option> must not be used, as the credentials would otherwise be unreadable
+        by the container due to missing privileges after switching to the specified user.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--kill-signal=</option></term>
+
+        <listitem><para>Specify the process signal to send to the container's PID 1 when nspawn itself receives
+        <constant>SIGTERM</constant>, in order to trigger an orderly shutdown of the container. Defaults to
+        <constant>SIGRTMIN+3</constant> if <option>--boot</option> is used (on systemd-compatible init systems
+        <constant>SIGRTMIN+3</constant> triggers an orderly shutdown). If <option>--boot</option> is not used and this
+        option is not specified, the container's processes are terminated abruptly via <constant>SIGKILL</constant>. For
+        a list of valid signals, see <citerefentry
+        project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--notify-ready=</option></term>
+
+        <listitem><para>Configures support for notifications from the container's init process.
+        <option>--notify-ready=</option> takes a boolean. If false <command>systemd-nspawn</command>
+        notifies the calling service manager with a <literal>READY=1</literal> message when the init process is
+        created. If true it waits for a <literal>READY=1</literal> message from the init process in the VM
+        before sending its own to the service manager. For more details about notifications see
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+
+        <para>Defaults to false. (Note that this is unlike the option of the same name to
+        <citerefentry><refentrytitle>systemd-vmspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        that defaults to true.)</para>
+
+        <para>If <command>systemd-nspawn</command> itself is invoked with a <varname>$NOTIFY_SOCKET</varname>
+        set in its environment (i.e. it is itself supervised by a service manager that uses the
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        protocol), <literal>FDSTORE=1</literal> and <literal>FDSTOREREMOVE=1</literal> messages received
+        from the container payload (along with any accompanying file descriptors and
+        <literal>FDNAME=</literal> tag) are forwarded one level up to the enveloping service manager. This
+        allows the file descriptor store of services running inside the container to be preserved across
+        container restarts (and, transitively, across restarts, re-execs, soft-reboots and LUO-based kexecs
+        of any outer service manager), provided
+        <varname>FileDescriptorStoreMax=</varname>/<varname>FileDescriptorStorePreserve=yes</varname> are
+        configured on the unit running <command>systemd-nspawn</command>. See the
+        <ulink url="https://systemd.io/FILE_DESCRIPTOR_STORE">File Descriptor Store</ulink> documentation
+        for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v231"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--suppress-sync=</option></term>
+
+        <listitem><para>Expects a boolean argument. If true, turns off any form of on-disk file system
+        synchronization for the container payload. This means all system calls such as <citerefentry
+        project='man-pages'><refentrytitle>sync</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
+        <function>fsync()</function>, <function>syncfs()</function>, … will execute no operation, and the
+        <constant>O_SYNC</constant>/<constant>O_DSYNC</constant> flags to <citerefentry
+        project='man-pages'><refentrytitle>open</refentrytitle><manvolnum>2</manvolnum></citerefentry> and
+        related calls will be made unavailable. This is potentially dangerous, as assumed data integrity
+        guarantees to the container payload are not actually enforced (i.e. data assumed to have been written
+        to disk might be lost if the system is shut down abnormally). However, this can dramatically improve
+        container runtime performance – as long as these guarantees are not required or desirable, for
+        example because any data written by the container is of temporary, redundant nature, or just an
+        intermediary artifact that will be further processed and finalized by a later step in a
+        pipeline. Defaults to false.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    </refsect2><refsect2>
+    <title>System Identity Options</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>-M</option></term>
+        <term><option>--machine=</option></term>
+
+        <listitem><para>Sets the machine name for this container. This
+        name may be used to identify this container during its runtime
+        (for example in tools like
+        <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        and similar), and is used to initialize the container's
+        hostname (which the container can choose to override,
+        however). If not specified, the last component of the root
+        directory path of the container is used, possibly suffixed
+        with a random identifier in case <option>--ephemeral</option>
+        mode is selected. If the root directory selected is the host's
+        root directory the host's hostname is used as default
+        instead.</para>
+
+        <xi:include href="version-info.xml" xpointer="v202"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--hostname=</option></term>
+
+        <listitem><para>Controls the hostname to set within the container, if different from the machine name. Expects
+        a valid hostname as argument. If this option is used, the kernel hostname of the container will be set to this
+        value, otherwise it will be initialized to the machine name as controlled by the <option>--machine=</option>
+        option described above. The machine name is used for various aspect of identification of the container from the
+        outside, the kernel hostname configurable with this option is useful for the container to identify itself from
+        the inside. It is usually a good idea to keep both forms of identification synchronized, in order to avoid
+        confusion. It is hence recommended to avoid usage of this option, and use <option>--machine=</option>
+        exclusively. Note that regardless whether the container's hostname is initialized from the name set with
+        <option>--hostname=</option> or the one set with <option>--machine=</option>, the container can later override
+        its kernel hostname freely on its own as well.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--uuid=</option></term>
+
+        <listitem><para>Set the specified UUID for the container. The
+        init system will initialize
+        <filename>/etc/machine-id</filename> from this if this file is
+        not set yet. Note that this option takes effect only if
+        <filename>/etc/machine-id</filename> in the container is
+        unpopulated.</para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    </refsect2><refsect2>
+    <title>Property Options</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>-S</option></term>
+        <term><option>--slice=</option></term>
+
+        <listitem><para>Make the container part of the specified slice, instead of the default
+        <filename>machine.slice</filename>. This applies only if the machine is run in its own scope unit, i.e. if
+        <option>--keep-unit</option> is not used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v206"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--property=</option></term>
+
+        <listitem><para>Set a unit property on the scope unit to register for the machine. This applies only if the
+        machine is run in its own scope unit, i.e. if <option>--keep-unit</option> is not used. Takes unit property
+        assignments in the same format as <command>systemctl set-property</command>. This is useful to set memory
+        limits and similar for the container.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--register=</option></term>
+
+        <listitem><para>Controls whether the container is registered with
+        <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>8</manvolnum></citerefentry>.  Takes a
+        boolean argument or <literal>auto</literal>, and defaults to <literal>auto</literal>.  This option should be
+        enabled when the container runs a full Operating System (more specifically: a system and service manager as
+        PID 1), and is useful to ensure that the container is accessible via
+        <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry> and shown by
+        tools such as <citerefentry
+        project='man-pages'><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>.  If the container
+        does not run a service manager, it is recommended to set this option to <literal>no</literal>.  When set to
+        <literal>auto</literal>, registration is attempted but failures are ignored.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--keep-unit</option></term>
+
+        <listitem><para>Instead of creating a transient scope unit to run the container in, simply use the service or
+        scope unit <command>systemd-nspawn</command> has been invoked in. If <option>--register=yes</option> is set
+        this unit is registered with
+        <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>8</manvolnum></citerefentry>. This
+        switch should be used if <command>systemd-nspawn</command> is invoked from within a service unit, and the
+        service unit's sole purpose is to run a single <command>systemd-nspawn</command> container. This option is not
+        available if run from a user session.</para>
+        <para>Note that passing <option>--keep-unit</option> disables the effect of <option>--slice=</option> and
+        <option>--property=</option>. Use <option>--keep-unit</option> and <option>--register=no</option> in
+        combination to disable any kind of unit allocation or registration with
+        <command>systemd-machined</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    </refsect2><refsect2>
+    <title>User Namespacing Options</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--private-users=</option></term>
+
+        <listitem><para>Controls user namespacing. If enabled, the container will run with its own private set of UNIX
+        user and group ids (UIDs and GIDs). This involves mapping the private UIDs/GIDs used in the container (starting
+        with the container's root user 0 and up) to a range of UIDs/GIDs on the host that are not used for other
+        purposes (usually in the range beyond the host's UID/GID 65536). The parameter may be specified as follows:</para>
+
+        <orderedlist>
+          <listitem><para>If one or two colon-separated numbers are specified, user namespacing is turned on. The first
+          parameter specifies the first host UID/GID to assign to the container, the second parameter specifies the
+          number of host UIDs/GIDs to assign to the container. If the second parameter is omitted, 65536 UIDs/GIDs are
+          assigned.</para></listitem>
+
+          <listitem><para>If the parameter is <literal>yes</literal>, user namespacing is turned on. The
+          UID/GID range to use is determined automatically from the file ownership of the root directory of
+          the container's directory tree. To use this option, make sure to prepare the directory tree in
+          advance, and ensure that all files and directories in it are owned by UIDs/GIDs in the range you'd
+          like to use. Also, make sure that used file ACLs exclusively reference UIDs/GIDs in the appropriate
+          range. In this mode, the number of UIDs/GIDs assigned to the container is 65536, and the owner
+          UID/GID of the root directory must be a multiple of 65536.</para></listitem>
+
+          <listitem><para>The special value <literal>pick</literal> turns on user namespacing. In this case
+          the UID/GID range is automatically chosen. As first step, the file owner UID/GID of the root
+          directory of the container's directory tree is read, and it is checked that no other container is
+          currently using it. If this check is successful, the UID/GID range determined this way is used,
+          similarly to the behavior if <literal>yes</literal> is specified. If the check is not successful
+          (and thus the UID/GID range indicated in the root directory's file owner is already used elsewhere)
+          a new – currently unused – UID/GID range of 65536 UIDs/GIDs is randomly chosen between the host
+          UID/GIDs of 524288 and 1878982656, always starting at a multiple of 65536, and, if possible,
+          consistently hashed from the machine name. This setting implies
+          <option>--private-users-ownership=auto</option> (see below), which possibly has the effect that the
+          files and directories in the container's directory tree will be owned by the appropriate users of
+          the range picked. Using this option makes user namespace behavior fully automatic. Note that the
+          first invocation of a previously unused container image might result in picking a new UID/GID range
+          for it, and thus in the (possibly expensive) file ownership adjustment operation. However,
+          subsequent invocations of the container will be cheap (unless of course the picked UID/GID range is
+          assigned to a different use by then).</para></listitem>
+
+          <listitem><para>If the parameter is <literal>no</literal>, user namespacing is turned off. This is
+          the default when <command>systemd-nspawn</command> is invoked directly. (Note that the
+          <filename>systemd-nspawn@.service</filename> unit enables private users.) This option is not
+          secure and must not be used to run untrusted code.</para></listitem>
+
+          <listitem><para>If the parameter is <literal>identity</literal>, user namespacing is employed with
+          an identity mapping for the first 65536 UIDs/GIDs. This is mostly equivalent to
+          <option>--private-users=0:65536</option>. While it does not provide UID/GID isolation, since all
+          host and container UIDs/GIDs are chosen identically it does provide process capability isolation,
+          but may be useful if proper user namespacing with distinct UID maps is not possible. This option is
+          not secure and must not be used to run untrusted code.</para></listitem>
+
+          <listitem><para>If the parameter is <literal>managed</literal>, user namespacing is employed with
+          in <emphasis>managed</emphasis> mode, i.e. allocation of a UID range is delegated to
+          <citerefentry><refentrytitle>systemd-nsresourced.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>. This
+          mode is selected by default if invoked unprivileged, but can also be requested explicitly when
+          privileged. In this mode a 64K UID range is automatically picked.</para></listitem>
+        </orderedlist>
+
+        <para>It is recommended to assign at least 65536 UIDs/GIDs to each container, so that the usable
+        UID/GID range in the container covers 16 bits. For best security, do not assign overlapping UID/GID
+        ranges to multiple containers. It is hence a good idea to use the upper 16 bit of the host 32-bit
+        UIDs/GIDs as container identifier, while the lower 16 bits encode the container UID/GID used. This is
+        in fact the behavior enforced by the <option>--private-users=pick</option> option.</para>
+
+        <para>When user namespaces are used, the GID range assigned to each container is always chosen
+        identical to the UID range.</para>
+
+        <para>In most cases, <option>--private-users=managed</option> (or when privileged
+        <option>--private-users=pick</option>, too) is the recommended option as user
+        namespacing is advised for security, and this option massively enhances container security while
+        operating fully automatically in most cases.</para>
+
+        <para>Note that the picked UID/GID range is not written to <filename>/etc/passwd</filename> or
+        <filename>/etc/group</filename>. In fact, the allocation of the range is not stored persistently,
+        except possibly in the file ownership of the files and directories of the container, see
+        <option>--private-users-ownership=</option>.</para>
+
+        <para>Note that when user namespacing is used without UID mapping (see below) file ownership on disk
+        reflects this, and all of the container's files and directories are owned by the container's
+        effective user and group IDs. This means that copying files from and to the container image requires
+        correction of the numeric UID/GID values, according to the UID/GID shift applied.</para>
+
+        <para>Note that for fully unprivileged operation in <literal>managed</literal> mode, any directory
+        image should be owned by the foreign UID range.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--private-users-ownership=</option></term>
+
+        <listitem><para>Controls how to adjust the container image's UIDs and GIDs to match the UID/GID range
+        chosen with <option>--private-users=</option>, see above. Takes one of <literal>off</literal> (to
+        leave the image as is), <literal>chown</literal> (to recursively <function>chown()</function> the
+        container's directory tree as needed), <literal>map</literal> (in order to use transparent ID mapping
+        mounts from UID 0 to the target UID range), <literal>foreign</literal> (the same, but from the
+        foreign UID range base) or <literal>auto</literal> for automatically using <literal>map</literal> or
+        <literal>foreign</literal>, where available and applicable and <literal>chown</literal> where
+        not.</para>
+
+        <para>If <literal>chown</literal> is selected, all files and directories in the container's directory
+        tree will be adjusted so that they are owned by the appropriate UIDs/GIDs selected for the container
+        (see above).  This operation is potentially expensive, as it involves iterating through the full
+        directory tree of the container. Besides actual file ownership, file ACLs are adjusted as
+        well.</para>
+
+        <para>Typically <literal>foreign</literal> or <literal>map</literal> is the best choice, since it
+        transparently maps UIDs/GIDs in memory as needed without modifying the image, and without requiring
+        an expensive recursive adjustment operation. However, it is not available for all file systems,
+        currently.</para>
+
+        <para>The <option>--private-users-ownership=auto</option> option is implied if
+        <option>--private-users=pick</option> is used. This option has no effect if user namespacing is not
+        used.</para>
+
+        <para><citerefentry><refentrytitle>systemd-dissect</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+        <option>--shift</option> switch may be used to shift UID/GID ownership from or to the 0, foreign or
+        specific container UID/GID base outside of any <command>systemd-nspawn</command> invocation.</para>
+
+        <xi:include href="version-info.xml" xpointer="v230"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--private-users-delegate=</option></term>
+
+        <listitem><para>Takes a non-negative integer. Requests that the specified number of additional 64K
+        UID/GID ranges are delegated into the container's user namespace. These delegated ranges are mapped
+        1:1 (i.e. the same UID/GID values are used inside and outside the user namespace) and can be used by
+        nested containers to allocate their own transient UID/GID ranges via
+        <citerefentry><refentrytitle>systemd-nsresourced.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <para>This option requires <option>--private-users=managed</option>, as the delegation is performed
+        by
+        <citerefentry><refentrytitle>systemd-nsresourced.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        as part of the user namespace allocation. The maximum number of delegated ranges is 16. Defaults to
+        0, i.e. no delegation.</para>
+
+        <para>When this option is used with a non-zero value, the
+        <citerefentry><refentrytitle>systemd-nsresourced.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        Varlink socket (<filename>/run/systemd/io.systemd.NamespaceResource</filename>) is automatically
+        bind-mounted into the container along with the necessary discovery symlinks in
+        <filename>/run/systemd/userdb/</filename> and <filename>/run/varlink/registry/</filename>. This
+        allows processes inside the container to contact
+        <command>systemd-nsresourced</command> on the host in order to allocate nested user namespaces from
+        the delegated ranges.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-U</option></term>
+
+        <listitem><para>If the kernel supports the user namespaces feature, equivalent to
+        <option>--private-users=pick --private-users-ownership=auto</option>, otherwise equivalent to
+        <option>--private-users=no</option>.</para>
+
+        <para>Note that <option>-U</option> is the default if the
+        <filename>systemd-nspawn@.service</filename> template unit file is used.</para>
+
+        <para>Note: it is possible to undo the effect of <option>--private-users-ownership=chown</option> (or
+        <option>-U</option>) on the file system by redoing the operation with the first UID of 0:</para>
+
+        <programlisting>systemd-nspawn … --private-users=0 --private-users-ownership=chown</programlisting>
+
+        <xi:include href="version-info.xml" xpointer="v230"/>
+        </listitem>
+      </varlistentry>
+
+    </variablelist>
+
+    </refsect2><refsect2>
+    <title>Networking Options</title>
+
+    <variablelist>
+
+      <varlistentry>
+        <term><option>--private-network</option></term>
+
+        <listitem><para>Disconnect networking of the container from
+        the host. This makes all network interfaces unavailable in the
+        container, with the exception of the loopback device and those
+        specified with <option>--network-interface=</option> and
+        configured with <option>--network-veth</option>. If this
+        option is specified, the <constant>CAP_NET_ADMIN</constant> capability will be
+        added to the set of capabilities the container retains. The
+        latter may be disabled by using <option>--drop-capability=</option>.
+        If this option is not specified (or implied by one of the options
+        listed below), the container will have full access to the host network.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--network-interface=</option></term>
+
+        <listitem><para>Assign the specified network interface to the container. Either takes a single
+        interface name, referencing the name on the host, or a colon-separated pair of interfaces, in which
+        case the first one references the name on the host, and the second one the name in the container.
+        When the container terminates, the interface is moved back to the calling namespace and renamed to
+        its original name.  Note that <option>--network-interface=</option> implies
+        <option>--private-network</option>. This option may be used more than once to add multiple network
+        interfaces to the container.</para>
+
+        <para>Note that any network interface specified this way must already exist at the time the container
+        is started. If the container shall be started automatically at boot via a
+        <filename>systemd-nspawn@.service</filename> unit file instance, it might hence make sense to add a
+        unit file drop-in to the service instance
+        (e.g. <filename>/etc/systemd/system/systemd-nspawn@foobar.service.d/50-network.conf</filename>) with
+        contents like the following:</para>
+
+        <programlisting>[Unit]
+Wants=sys-subsystem-net-devices-ens1.device
+After=sys-subsystem-net-devices-ens1.device</programlisting>
+
+        <para>This will make sure that activation of the container service will be delayed until the
+        <literal>ens1</literal> network interface has shown up. This is required since hardware probing is
+        fully asynchronous, and network interfaces might be discovered only later during the boot process,
+        after the container would normally be started without these explicit dependencies.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--network-macvlan=</option></term>
+
+        <listitem><para>Create a <literal>macvlan</literal> interface of the specified Ethernet network
+        interface and add it to the container. Either takes a single interface name, referencing the name
+        on the host, or a colon-separated pair of interfaces, in which case the first one references the name
+        on the host, and the second one the name in the container. A <literal>macvlan</literal> interface is
+        a virtual interface that adds a second MAC address to an existing physical Ethernet link. If the
+        container interface name is not defined, the interface in the container will be named after the
+        interface on the host, prefixed with <literal>mv-</literal>. Note that
+        <option>--network-macvlan=</option> implies <option>--private-network</option>. This option may be
+        used more than once to add multiple network interfaces to the container.</para>
+
+        <para>As with <option>--network-interface=</option>, the underlying Ethernet network interface must
+        already exist at the time the container is started, and thus similar unit file drop-ins as described
+        above might be useful.</para>
+
+        <xi:include href="version-info.xml" xpointer="v211"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--network-ipvlan=</option></term>
+
+        <listitem><para>Create an <literal>ipvlan</literal> interface of the specified Ethernet network
+        interface and add it to the container. Either takes a single interface name, referencing the name on
+        the host, or a colon-separated pair of interfaces, in which case the first one references the name
+        on the host, and the second one the name in the container. An <literal>ipvlan</literal> interface is
+        a virtual interface,
+        similar to a <literal>macvlan</literal> interface, which uses the same MAC address as the underlying
+        interface. If the container interface name is not defined, the interface in the container will be
+        named after the interface on the host, prefixed
+        with <literal>iv-</literal>.  Note that <option>--network-ipvlan=</option> implies
+        <option>--private-network</option>. This option may be used more than once to add multiple network
+        interfaces to the container.</para>
+
+        <para>As with <option>--network-interface=</option>, the underlying Ethernet network interface must
+        already exist at the time the container is started, and thus similar unit file drop-ins as described
+        above might be useful.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-n</option></term>
+        <term><option>--network-veth</option></term>
+
+        <listitem><para>Create a virtual Ethernet link (<literal>veth</literal>) between host and container. The host
+        side of the Ethernet link will be available as a network interface named after the container's name (as
+        specified with <option>--machine=</option>), prefixed with <literal>ve-</literal>. The container side of the
+        Ethernet link will be named <literal>host0</literal>. The <option>--network-veth</option> option implies
+        <option>--private-network</option>.</para>
+
+        <para>Note that
+        <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        includes by default a network file <filename>/usr/lib/systemd/network/80-container-ve.network</filename>
+        matching the host-side interfaces created this way, which contains settings to enable automatic address
+        provisioning on the created virtual link via DHCP, as well as automatic IP routing onto the host's external
+        network interfaces. It also contains <filename>/usr/lib/systemd/network/80-container-host0.network</filename>
+        matching the container-side interface created this way, containing settings to enable client side address
+        assignment via DHCP. In case <filename>systemd-networkd</filename> is running on both the host and inside the
+        container, automatic IP communication from the container to the host is thus available, with further
+        connectivity to the external network.</para>
+
+        <para>Note that <option>--network-veth</option> is the default if the
+        <filename>systemd-nspawn@.service</filename> template unit file is used.</para>
+
+        <para>Note that on Linux network interface names may have a length of 15 characters at maximum, while
+        container names may have a length up to 64 characters. As this option derives the host-side interface
+        name from the container name the name is possibly truncated. Thus, care needs to be taken to ensure
+        that interface names remain unique in this case, or even better container names are generally not
+        chosen longer than 12 characters, to avoid the truncation. If the name is truncated,
+        <command>systemd-nspawn</command> will automatically append a 4-digit hash value to the name to
+        reduce the chance of collisions. However, the hash algorithm is not collision-free. (See
+        <citerefentry><refentrytitle>systemd.net-naming-scheme</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for details on older naming algorithms for this interface). Alternatively, the
+        <option>--network-veth-extra=</option> option may be used, which allows free configuration of the
+        host-side interface name independently of the container name — but might require a bit more
+        additional configuration in case bridging in a fashion similar to <option>--network-bridge=</option>
+        is desired.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--network-veth-extra=</option></term>
+
+        <listitem><para>Adds an additional virtual Ethernet link
+        between host and container. Takes a colon-separated pair of
+        host interface name and container interface name. The latter
+        may be omitted in which case the container and host sides will
+        be assigned the same name. This switch is independent of
+        <option>--network-veth</option>, and — in contrast — may be
+        used multiple times, and allows configuration of the network
+        interface names. Note that <option>--network-bridge=</option>
+        has no effect on interfaces created with
+        <option>--network-veth-extra=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v228"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--network-bridge=</option></term>
+
+        <listitem><para>Adds the host side of the Ethernet link created with <option>--network-veth</option>
+        to the specified Ethernet bridge interface. Expects a valid network interface name of a bridge device
+        as argument. Note that <option>--network-bridge=</option> implies <option>--network-veth</option>. If
+        this option is used, the host side of the Ethernet link will use the <literal>vb-</literal> prefix
+        instead of <literal>ve-</literal>. Regardless of the used naming prefix the same network interface
+        name length limits imposed by Linux apply, along with the complications this creates (for details see
+        above).</para>
+
+        <para>As with <option>--network-interface=</option>, the underlying bridge network interface must
+        already exist at the time the container is started, and thus similar unit file drop-ins as described
+        above might be useful.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--network-zone=</option></term>
+
+        <listitem><para>Creates a virtual Ethernet link (<literal>veth</literal>) to the container and adds it to an
+        automatically managed Ethernet bridge interface. The bridge interface is named after the passed argument,
+        prefixed with <literal>vz-</literal>. The bridge interface is automatically created when the first container
+        configured for its name is started, and is automatically removed when the last container configured for its
+        name exits. Hence, each bridge interface configured this way exists only as long as there's at least one
+        container referencing it running. This option is very similar to <option>--network-bridge=</option>, besides
+        this automatic creation/removal of the bridge device.</para>
+
+        <para>This setting makes it easy to place multiple related containers on a common, virtual Ethernet-based
+        broadcast domain, here called a "zone". Each container may only be part of one zone, but each zone may contain
+        any number of containers. Each zone is referenced by its name. Names may be chosen freely (as long as they form
+        valid network interface names when prefixed with <literal>vz-</literal>), and it is sufficient to pass the same
+        name to the <option>--network-zone=</option> switch of the various concurrently running containers to join
+        them in one zone.</para>
+
+        <para>Note that
+        <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        includes by default a network file <filename>/usr/lib/systemd/network/80-container-vz.network</filename>
+        matching the bridge interfaces created this way, which contains settings to enable automatic address
+        provisioning on the created virtual network via DHCP, as well as automatic IP routing onto the host's external
+        network interfaces. Using <option>--network-zone=</option> is hence in most cases fully automatic and
+        sufficient to connect multiple local containers in a joined broadcast domain to the host, with further
+        connectivity to the external network.</para>
+
+        <xi:include href="version-info.xml" xpointer="v230"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--network-namespace-path=</option></term>
+
+        <listitem><para>Takes the path to a file representing a kernel
+        network namespace that the container shall run in. The specified path
+        should refer to a (possibly bind-mounted) network namespace file, as
+        exposed by the kernel below <filename>/proc/$PID/ns/net</filename>.
+        This makes the container enter the given network namespace. One of the
+        typical use cases is to give a network namespace under
+        <filename>/run/netns</filename> created by <citerefentry
+        project='man-pages'><refentrytitle>ip-netns</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        for example, <option>--network-namespace-path=/run/netns/foo</option>.
+        Note that this option cannot be used together with other
+        network-related options, such as <option>--private-network</option>
+        or <option>--network-interface=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v236"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-p</option></term>
+        <term><option>--port=</option></term>
+
+        <listitem><para>If private networking is enabled, maps an IP
+        port on the host onto an IP port on the container. Takes a
+        protocol specifier (either <literal>tcp</literal> or
+        <literal>udp</literal>), separated by a colon from a host port
+        number in the range 1 to 65535, separated by a colon from a
+        container port number in the range from 1 to 65535. The
+        protocol specifier and its separating colon may be omitted, in
+        which case <literal>tcp</literal> is assumed. The container
+        port number and its colon may be omitted, in which case the
+        same port as the host port is implied. This option is only
+        supported if private networking is used, such as with
+        <option>--network-veth</option>, <option>--network-zone=</option>
+        <option>--network-bridge=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    </refsect2><refsect2>
+    <title>Security Options</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--capability=</option></term>
+
+        <listitem><para>List one or more additional capabilities to grant the container.  Takes a
+        comma-separated list of capability names, see <citerefentry
+        project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for more information. Note that the following capabilities will be granted in any way:
+        <constant>CAP_AUDIT_CONTROL</constant>, <constant>CAP_AUDIT_WRITE</constant>,
+        <constant>CAP_CHOWN</constant>, <constant>CAP_DAC_OVERRIDE</constant>,
+        <constant>CAP_DAC_READ_SEARCH</constant>, <constant>CAP_FOWNER</constant>,
+        <constant>CAP_FSETID</constant>, <constant>CAP_IPC_OWNER</constant>, <constant>CAP_KILL</constant>,
+        <constant>CAP_LEASE</constant>, <constant>CAP_LINUX_IMMUTABLE</constant>,
+        <constant>CAP_MKNOD</constant>, <constant>CAP_NET_BIND_SERVICE</constant>,
+        <constant>CAP_NET_BROADCAST</constant>, <constant>CAP_NET_RAW</constant>,
+        <constant>CAP_SETFCAP</constant>, <constant>CAP_SETGID</constant>, <constant>CAP_SETPCAP</constant>,
+        <constant>CAP_SETUID</constant>, <constant>CAP_SYS_ADMIN</constant>,
+        <constant>CAP_SYS_BOOT</constant>, <constant>CAP_SYS_CHROOT</constant>,
+        <constant>CAP_SYS_NICE</constant>, <constant>CAP_SYS_PTRACE</constant>,
+        <constant>CAP_SYS_RESOURCE</constant>, <constant>CAP_SYS_TTY_CONFIG</constant>. Also
+        <constant>CAP_NET_ADMIN</constant> is retained if <option>--private-network</option> is specified.
+        If the special value <literal>all</literal> is passed, all capabilities are retained.</para>
+
+        <para>If the special value of <literal>help</literal> is passed, the program will print known
+        capability names and exit.</para>
+
+        <para>This option sets the bounding set of capabilities which
+        also limits the ambient capabilities as given with the
+        <option>--ambient-capability=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--drop-capability=</option></term>
+
+        <listitem><para>Specify one or more additional capabilities to
+        drop for the container. This allows running the container with
+        fewer capabilities than the default (see
+        above).</para>
+
+        <para>If the special value of <literal>help</literal> is passed, the program will print known
+        capability names and exit.</para>
+
+        <para>This option sets the bounding set of capabilities which
+        also limits the ambient capabilities as given with the
+        <option>--ambient-capability=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--ambient-capability=</option></term>
+
+        <listitem><para>Specify one or more additional capabilities to
+        pass in the inheritable and ambient set to the program started
+        within the container. The value <literal>all</literal> is not
+        supported for this setting.</para>
+
+        <para>All capabilities specified here must be in the set
+        allowed with the <option>--capability=</option> and
+        <option>--drop-capability=</option> options. Otherwise, an
+        error message will be shown.</para>
+
+        <para>This option cannot be combined with the boot mode of the
+        container (as requested via <option>--boot</option>).</para>
+
+        <para>If the special value of <literal>help</literal> is
+        passed, the program will print known capability names and
+        exit.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--no-new-privileges=</option></term>
+
+        <listitem><para>Takes a boolean argument. Specifies the value of the
+        <constant>PR_SET_NO_NEW_PRIVS</constant> flag for the container payload. Defaults to off. When turned
+        on the payload code of the container cannot acquire new privileges, i.e. the "setuid" file bit as
+        well as file system capabilities will not have an effect anymore. See <citerefentry
+        project='man-pages'><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
+        details about this flag. </para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--system-call-filter=</option></term> <listitem><para>Alter the system call filter
+        applied to containers. Takes a space-separated list of system call names or group names (the latter
+        prefixed with <literal>@</literal>, as listed by the <command>syscall-filter</command> command of
+        <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>). Passed
+        system calls will be permitted. The list may optionally be prefixed by <literal>~</literal>, in which
+        case all listed system calls are prohibited. If this command line option is used multiple times the
+        configured lists are combined. If both a positive and a negative list (that is one system call list
+        without and one with the <literal>~</literal> prefix) are configured, the negative list takes
+        precedence over the positive list. Note that <command>systemd-nspawn</command> always implements a
+        system call allow list (as opposed to a deny list!), and this command line option hence adds or
+        removes entries from the default allow list, depending on the <literal>~</literal> prefix. Note that
+        the applied system call filter is also altered implicitly if additional capabilities are passed using
+        the <command>--capabilities=</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--restrict-address-families=</option></term>
+
+        <listitem><para>Restrict the socket address families accessible to the container. Takes a
+        space-separated list of address family names, such as <constant>AF_INET</constant>,
+        <constant>AF_INET6</constant> or <constant>AF_UNIX</constant>. When prefixed with
+        <literal>~</literal> the listed address families will be prohibited, otherwise they will be permitted
+        (allowlisted). Use the special value <literal>none</literal> to prohibit all address families. This
+        option may be specified more than once, in which case the configured lists are combined. If both a
+        positive and a negative list are configured, the negative list takes precedence over the positive
+        list.</para>
+
+        <para>Note that currently this option defaults to no restrictions, i.e. all address families are
+        accessible. In a future version of systemd, the default will be changed to restrict address families to
+        <constant>AF_INET</constant>, <constant>AF_INET6</constant> and <constant>AF_UNIX</constant>. Use
+        <option>--restrict-address-families=</option> (with an empty argument) or set
+        <varname>RestrictAddressFamilies=</varname> in a <filename>.nspawn</filename> file to opt out of
+        filtering explicitly.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-Z</option></term>
+        <term><option>--selinux-context=</option></term>
+
+        <listitem><para>Sets the SELinux security context to be used
+        to label processes in the container.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-L</option></term>
+        <term><option>--selinux-apifs-context=</option></term>
+
+        <listitem><para>Sets the SELinux security context to be used
+        to label files in the virtual API file systems in the
+        container.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+
+    </refsect2><refsect2>
+    <title>Resource Options</title>
+
+    <variablelist>
+
+      <varlistentry>
+        <term><option>--rlimit=</option></term>
+
+        <listitem><para>Sets the specified POSIX resource limit for the container payload. Expects an assignment of the
+        form
+        <literal><replaceable>LIMIT</replaceable>=<replaceable>SOFT</replaceable>:<replaceable>HARD</replaceable></literal>
+        or <literal><replaceable>LIMIT</replaceable>=<replaceable>VALUE</replaceable></literal>, where
+        <replaceable>LIMIT</replaceable> should refer to a resource limit type, such as
+        <constant>RLIMIT_NOFILE</constant> or <constant>RLIMIT_NICE</constant>. The <replaceable>SOFT</replaceable> and
+        <replaceable>HARD</replaceable> fields should refer to the numeric soft and hard resource limit values. If the
+        second form is used, <replaceable>VALUE</replaceable> may specify a value that is used both as soft and hard
+        limit. In place of a numeric value the special string <literal>infinity</literal> may be used to turn off
+        resource limiting for the specific type of resource. This command line option may be used multiple times to
+        control limits on multiple limit types. If used multiple times for the same limit type, the last use
+        wins. For details about resource limits see <citerefentry
+        project='man-pages'><refentrytitle>setrlimit</refentrytitle><manvolnum>2</manvolnum></citerefentry>. By default
+        resource limits for the container's init process (PID 1) are set to the same values the Linux kernel originally
+        passed to the host init system. Note that some resource limits are enforced on resources counted per user, in
+        particular <constant>RLIMIT_NPROC</constant>. This means that unless user namespacing is deployed
+        (i.e. <option>--private-users=</option> is used, see above), any limits set will be applied to the resource
+        usage of the same user on all local containers as well as the host. This means particular care needs to be
+        taken with these limits as they might be triggered by possibly less trusted code. Example:
+        <literal>--rlimit=RLIMIT_NOFILE=8192:16384</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--oom-score-adjust=</option></term>
+
+        <listitem><para>Changes the OOM ("Out Of Memory") score adjustment value for the container payload. This controls
+        <filename>/proc/self/oom_score_adj</filename> which influences the preference with which this container is
+        terminated when memory becomes scarce. For details see <citerefentry
+        project='man-pages'><refentrytitle>proc</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Takes an
+        integer in the range -1000…1000.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--cpu-affinity=</option></term>
+
+        <listitem><para>Controls the CPU affinity of the container payload. Takes a comma separated list of CPU numbers
+        or number ranges (the latter's start and end value separated by dashes). See <citerefentry
+        project='man-pages'><refentrytitle>sched_setaffinity</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
+        details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--personality=</option></term>
+
+        <listitem><para>Control the architecture ("personality")
+        reported by
+        <citerefentry project='man-pages'><refentrytitle>uname</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        in the container. Currently, only <literal>x86</literal> and
+        <literal>x86-64</literal> are supported. This is useful when
+        running a 32-bit container on a 64-bit host. If this setting
+        is not used, the personality reported in the container is the
+        same as the one reported on the host.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    </refsect2><refsect2>
+    <title>Integration Options</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--resolv-conf=</option></term>
+
+        <listitem><para>Configures how <filename>/etc/resolv.conf</filename> inside of the container shall be
+        handled (i.e. DNS configuration synchronization from host to container). Takes one of
+        <literal>off</literal>, <literal>copy-host</literal>, <literal>copy-static</literal>,
+        <literal>copy-uplink</literal>, <literal>copy-stub</literal>, <literal>replace-host</literal>,
+        <literal>replace-static</literal>, <literal>replace-uplink</literal>,
+        <literal>replace-stub</literal>, <literal>bind-host</literal>, <literal>bind-static</literal>,
+        <literal>bind-uplink</literal>, <literal>bind-stub</literal>, <literal>delete</literal> or
+        <literal>auto</literal>.</para>
+
+        <para>If set to <literal>off</literal> the <filename>/etc/resolv.conf</filename> file in the
+        container is left as it is included in the image, and neither modified nor bind mounted over.</para>
+
+        <para>If set to <literal>copy-host</literal>, the <filename>/etc/resolv.conf</filename> file from the
+        host is copied into the container, unless the file exists already and is not a regular file (e.g. a
+        symlink). Similarly, if <literal>replace-host</literal> is used the file is copied, replacing any
+        existing inode, including symlinks. Similarly, if <literal>bind-host</literal> is used, the file is
+        bind mounted from the host into the container.</para>
+
+        <para>If set to <literal>copy-static</literal>, <literal>replace-static</literal> or
+        <literal>bind-static</literal> the static <filename>resolv.conf</filename> file supplied with
+        <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        (specifically: <filename>/usr/lib/systemd/resolv.conf</filename>) is copied or bind mounted into the
+        container.</para>
+
+        <para>If set to <literal>copy-uplink</literal>, <literal>replace-uplink</literal> or
+        <literal>bind-uplink</literal> the uplink <filename>resolv.conf</filename> file managed by
+        <filename>systemd-resolved.service</filename> (specifically:
+        <filename>/run/systemd/resolve/resolv.conf</filename>) is copied or bind mounted into the
+        container.</para>
+
+        <para>If set to <literal>copy-stub</literal>, <literal>replace-stub</literal> or
+        <literal>bind-stub</literal> the stub <filename>resolv.conf</filename> file managed by
+        <filename>systemd-resolved.service</filename> (specifically:
+        <filename>/run/systemd/resolve/stub-resolv.conf</filename>) is copied or bind mounted into the
+        container.</para>
+
+        <para>If set to <literal>delete</literal> the <filename>/etc/resolv.conf</filename> file in the
+        container is deleted if it exists.</para>
+
+        <para>Finally, if set to <literal>auto</literal> the file is left as it is if private networking is
+        turned on (see <option>--private-network</option>). Otherwise, if
+        <filename>systemd-resolved.service</filename> is running its stub <filename>resolv.conf</filename>
+        file is used, and if not the host's <filename>/etc/resolv.conf</filename> file. In the latter cases
+        the file is copied if the image is writable, and bind mounted otherwise.</para>
+
+        <para>It's recommended to use <literal>copy-…</literal> or <literal>replace-…</literal> if the
+        container shall be able to make changes to the DNS configuration on its own, deviating from the
+        host's settings. Otherwise, <literal>bind</literal> is preferable, as it means direct changes to
+        <filename>/etc/resolv.conf</filename> in the container are not allowed, as it is a read-only bind
+        mount (but note that if the container has enough privileges, it might simply go ahead and unmount the
+        bind mount anyway). Note that both if the file is bind mounted and if it is copied no further
+        propagation of configuration is generally done after the one-time early initialization (this is
+        because the file is usually updated through copying and renaming). Defaults to
+        <literal>auto</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--timezone=</option></term>
+
+        <listitem><para>Configures how <filename>/etc/localtime</filename> inside of the container
+        (i.e. local timezone synchronization from host to container) shall be handled. Takes one of
+        <literal>off</literal>, <literal>copy</literal>, <literal>bind</literal>, <literal>symlink</literal>,
+        <literal>delete</literal> or <literal>auto</literal>. If set to <literal>off</literal> the
+        <filename>/etc/localtime</filename> file in the container is left as it is included in the image, and
+        neither modified nor bind mounted over. If set to <literal>copy</literal> the
+        <filename>/etc/localtime</filename> file of the host is copied into the container. Similarly, if
+        <literal>bind</literal> is used, the file is bind mounted from the host into the container. If set to
+        <literal>symlink</literal>, a symlink is created pointing from <filename>/etc/localtime</filename> in
+        the container to the timezone file in the container that matches the timezone setting on the host. If
+        set to <literal>delete</literal>, the file in the container is deleted, should it exist. If set to
+        <literal>auto</literal> and the <filename>/etc/localtime</filename> file of the host is a symlink,
+        then <literal>symlink</literal> mode is used, and <literal>copy</literal> otherwise, except if the
+        image is read-only in which case <literal>bind</literal> is used instead. Defaults to
+        <literal>auto</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--link-journal=</option></term>
+
+        <listitem><para>Control whether the container's journal shall
+        be made visible to the host system. If enabled, allows viewing
+        the container's journal files from the host (but not vice
+        versa). Takes one of <literal>no</literal>,
+        <literal>host</literal>, <literal>try-host</literal>,
+        <literal>guest</literal>, <literal>try-guest</literal>,
+        <literal>auto</literal>. If <literal>no</literal>, the journal
+        is not linked. If <literal>host</literal>, the journal files
+        are stored on the host file system (beneath
+        <filename>/var/log/journal/<replaceable>machine-id</replaceable></filename>)
+        and the subdirectory is bind-mounted into the container at the
+        same location. If <literal>guest</literal>, the journal files
+        are stored on the guest file system (beneath
+        <filename>/var/log/journal/<replaceable>machine-id</replaceable></filename>)
+        and the subdirectory is symlinked into the host at the same
+        location. <literal>try-host</literal> and
+        <literal>try-guest</literal> do the same but do not fail if
+        the host does not have persistent journaling enabled, or if
+        the container is in the <option>--ephemeral</option> mode. If
+        <literal>auto</literal> (the default), and the right
+        subdirectory of <filename>/var/log/journal</filename> exists,
+        it will be bind mounted into the container. If the
+        subdirectory does not exist, no linking is performed.
+        Effectively, booting a container once with
+        <literal>guest</literal> or <literal>host</literal> will link
+        the journal persistently if further on the default of
+        <literal>auto</literal> is used.</para>
+
+        <para>Note that <option>--link-journal=try-guest</option> is the default if the
+        <filename>systemd-nspawn@.service</filename> template unit file is used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v187"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-j</option></term>
+
+        <listitem><para>Equivalent to
+        <option>--link-journal=try-guest</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v187"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--forward-journal=</option></term>
+
+        <listitem><para>Forward the container's journal to the host by starting
+        <citerefentry><refentrytitle>systemd-journal-remote</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        listening on a Unix socket that is bind-mounted into the container. The container's
+        <citerefentry><refentrytitle>systemd-journald</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        connects to the socket via the <varname>journal.forward_to_socket</varname> credential and streams
+        journal entries to the host in real-time. Takes a path to a journal file or directory where the received
+        entries will be stored. If the path ends in <literal>.journal</literal>, entries are written to a single
+        file; otherwise, entries are split per host into the specified directory.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--forward-journal-max-use=<replaceable>BYTES</replaceable></option></term>
+        <term><option>--forward-journal-keep-free=<replaceable>BYTES</replaceable></option></term>
+        <term><option>--forward-journal-max-file-size=<replaceable>BYTES</replaceable></option></term>
+        <term><option>--forward-journal-max-files=<replaceable>N</replaceable></option></term>
+
+        <listitem><para>These options configure the corresponding settings of
+        <citerefentry><refentrytitle>systemd-journal-remote</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        when forwarding journal entries from the container. See
+        <citerefentry><refentrytitle>journal-remote.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for the descriptions of these settings.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+    </variablelist>
+
+    </refsect2><refsect2>
+    <title>Mount Options</title>
+
+    <variablelist>
+
+      <varlistentry>
+        <term><option>--bind=</option></term>
+        <term><option>--bind-ro=</option></term>
+
+        <listitem><para>Bind mount a file or directory from the host into the container. Takes one of: a path
+        argument — in which case the specified path will be mounted from the host to the same path in the container, or
+        a colon-separated pair of paths — in which case the first specified path is the source in the host, and the
+        second path is the destination in the container, or a colon-separated triple of source path, destination path
+        and mount options. The source path may optionally be prefixed with a <literal>+</literal> character. If so, the
+        source path is taken relative to the image's root directory. This permits setting up bind mounts within the
+        container image. The source path may be specified as empty string, in which case a temporary directory below
+        the host's <filename>/var/tmp/</filename> directory is used. It is automatically removed when the container is
+        shut down. If the source path is not absolute, it is resolved relative to the current working directory.
+        The <option>--bind-ro=</option> option creates read-only bind mounts. Backslash escapes are interpreted,
+        so <literal>\:</literal> may be used to embed colons in either path. This option may be specified
+        multiple times for creating multiple independent bind mount points.</para>
+
+        <para>Mount options are comma-separated. <option>rbind</option> and <option>norbind</option> control whether
+        to create a recursive or a regular bind mount. Defaults to <option>rbind</option>. <option>noidmap</option>,
+        <option>idmap</option>, <option>rootidmap</option> and <option>owneridmap</option> control ID mapping.</para>
+
+        <para>Using <option>idmap</option>, <option>rootidmap</option> or <option>owneridmap</option> requires support
+        by the source filesystem for user/group ID mapped mounts. Defaults to <option>noidmap</option>. With
+        <option>x</option> being the container's UID range offset, <option>y</option> being the length of the
+        container's UID range, and <option>p</option> being the owner UID of the bind mount source inode on the host:
+
+        <itemizedlist>
+          <listitem><para>If <option>noidmap</option> is used, any user <option>z</option> in the range
+          <option>0 … y</option> seen from inside of the container is mapped to <option>x + z</option> in the
+          <option>x … x + y</option> range on the host. Other host users are mapped to
+          <option>nobody</option> inside the container.</para></listitem>
+
+          <listitem><para>If <option>idmap</option> is used, any user <option>z</option> in the UID range
+          <option>0 … y</option> as seen from inside the container is mapped to the same <option>z</option>
+          in the same <option>0 … y</option> range on the host. Other host users are mapped to
+          <option>nobody</option> inside the container.</para></listitem>
+
+          <listitem><para>If <option>rootidmap</option> is used, the user <option>0</option> seen from inside
+          of the container is mapped to <option>p</option> on the host. Other host users are mapped to
+          <option>nobody</option> inside the container.</para></listitem>
+
+          <listitem><para>If <option>owneridmap</option> is used, the owner of the target directory inside of the
+          container is mapped to <option>p</option> on the host. Other host users are mapped to
+          <option>nobody</option> inside the container.</para></listitem>
+        </itemizedlist></para>
+
+        <para>Whichever ID mapping option is used, the same mapping will be used for users and groups IDs. If
+        <option>rootidmap</option> or <option>owneridmap</option> are used, the group owning the bind mounted directory
+        will have no effect.</para>
+
+        <para>Note that when this option is used in combination with <option>--private-users</option>, the resulting
+        mount points will be owned by the <constant>nobody</constant> user. That's because the mount and its files and
+        directories continue to be owned by the relevant host users and groups, which do not exist in the container,
+        and thus show up under the wildcard UID 65534 (nobody). If such bind mounts are created, it is recommended to
+        make them read-only, using <option>--bind-ro=</option>. Alternatively you can use the "idmap" mount option to
+        map the filesystem IDs.</para>
+
+        <xi:include href="version-info.xml" xpointer="v198"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--bind-user=</option></term>
+
+        <listitem><para>Binds the home directory of the specified user on the host into the container. Takes
+        the name of an existing user on the host as argument. May be used multiple times to bind multiple
+        users into the container. This does two things:</para>
+
+        <orderedlist>
+          <listitem><para>The user's home directory is bind mounted from the host into
+          <filename>/run/host/home/</filename>, using an idmapped mount to map the host user's UID/GID to its
+          assigned UID/GID in the container.</para></listitem>
+
+          <listitem><para>A JSON user and group record is generated in <filename>/run/userdb/</filename> that
+          describes the mapped user. It contains a minimized representation of the host's user record,
+          adjusted to the UID/GID and home directory path assigned to the user in the container. The
+          <citerefentry><refentrytitle>nss-systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          glibc NSS module will pick up these records from there and make them available in the container's
+          user/group databases.</para></listitem>
+        </orderedlist>
+
+        <para>The combination of the two operations above ensures that it is possible to log into the
+        container using the same account information as on the host. The user is only mapped transiently,
+        while the container is running, and the mapping itself does not result in persistent changes to the
+        container (except maybe for log messages generated at login time, and similar). Note that in
+        particular the UID/GID assignment in the container is not made persistently. If the user is mapped
+        transiently, it is best to not allow the user to make persistent changes to the container. If the
+        user leaves files or directories owned by the user, and those UIDs/GIDs are reused during later
+        container invocations (possibly with a different <option>--bind-user=</option> mapping), those files
+        and directories will be accessible to the "new" user.</para>
+
+        <para>The user/group record mapping only works if the container contains systemd 249 or newer, with
+        <command>nss-systemd</command> properly configured in <filename>nsswitch.conf</filename>. See
+        <citerefentry><refentrytitle>nss-systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
+        details.</para>
+
+        <para>Note that the user record propagated from the host into the container will contain the UNIX
+        password hash of the user, so that seamless logins in the container are possible. If the container is
+        less trusted than the host it is hence important to use a strong UNIX password hash function
+        (e.g. yescrypt or similar, with the <literal>$y$</literal> hash prefix).</para>
+
+        <para>When binding a user from the host into the container checks are executed to ensure that the
+        username is not yet known in the container. Moreover, it is checked that the UID/GID allocated for it
+        is not currently defined in the user/group databases of the container. Both checks directly access
+        the container's <filename>/etc/passwd</filename> and <filename>/etc/group</filename>, and thus might
+        not detect existing accounts in other databases.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--bind-user-shell=</option></term>
+
+        <listitem><para>When used with <option>--bind-user=</option>, includes the specified shell in the
+        user records of users bound into the container. Takes either a boolean or an absolute path.</para>
+
+        <itemizedlist>
+          <listitem><para>If false (the default), no shell is passed in the user records for users bound into
+          the container. This causes bound users to the use the container's default shell.</para></listitem>
+
+          <listitem><para>If true, the shells specified by the host user records are included in the user records of all users bound into the container.</para></listitem>
+
+          <listitem><para>If passed an absolute path, sets that path as the shell for user records of all users bound into the container.</para></listitem>
+        </itemizedlist>
+
+        <para>Note: This will not check whether the specified shells exist in the container.</para>
+
+        <para>This operation is only supported in combination with <option>--bind-user=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--bind-user-group=<replaceable>NAME</replaceable></option></term>
+
+        <listitem><para>When used with <option>--bind-user=</option>, includes the specified group as an
+        auxiliary group in the user records of users bound into the container. Takes a group name.</para>
+
+        <para>Note: This will not check whether the specified groups exist in the container.</para>
+
+        <para>This operation is only supported in combination with <option>--bind-user=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--inaccessible=</option></term>
+
+        <listitem><para>Make the specified path inaccessible in the container. This over-mounts the specified path
+        (which must exist in the container) with a file node of the same type that is empty and has the most
+        restrictive access mode supported. This is an effective way to mask files, directories and other file system
+        objects from the container payload. This option may be used more than once in case all specified paths are
+        masked.</para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tmpfs=</option></term>
+
+        <listitem><para>Mount a tmpfs file system into the container.  Takes a single absolute path argument that
+        specifies where to mount the tmpfs instance to (in which case the directory access mode will be chosen as 0755,
+        owned by root/root), or optionally a colon-separated pair of path and mount option string that is used for
+        mounting (in which case the kernel default for access mode and owner will be chosen, unless otherwise
+        specified). Backslash escapes are interpreted in the path, so <literal>\:</literal> may be used to embed colons
+        in the path.</para>
+
+        <para>Note that this option cannot be used to replace the root file system of the container with a temporary
+        file system. However, the <option>--volatile=</option> option described below provides similar
+        functionality, with a focus on implementing stateless operating system images.</para>
+
+        <xi:include href="version-info.xml" xpointer="v214"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--overlay=</option></term>
+        <term><option>--overlay-ro=</option></term>
+
+        <listitem><para>Combine multiple directory trees into one overlay file system and mount it into the
+        container. Takes a list of colon-separated paths to the directory trees to combine and the
+        destination mount point.</para>
+
+        <para>Backslash escapes are interpreted in the paths, so <literal>\:</literal> may be used to embed
+        colons in the paths.</para>
+
+        <para>If three or more paths are specified, then the last specified path is the destination mount
+        point in the container, all paths specified before refer to directory trees on the host and are
+        combined in the specified order into one overlay file system. The left-most path is hence the lowest
+        directory tree, the second-to-last path the highest directory tree in the stacking order. If
+        <option>--overlay-ro=</option> is used instead of <option>--overlay=</option>, a read-only overlay
+        file system is created. If a writable overlay file system is created, all changes made to it are
+        written to the highest directory tree in the stacking order, i.e. the second-to-last specified.
+        </para>
+
+        <para>If only two paths are specified, then the second specified path is used both as the top-level
+        directory tree in the stacking order as seen from the host, as well as the mount point for the
+        overlay file system in the container. At least two paths have to be specified.</para>
+
+        <para>The source paths may optionally be prefixed with <literal>+</literal> character. If so they are
+        taken relative to the image's root directory. The uppermost source path may also be specified as an
+        empty string, in which case a temporary directory below the host's <filename>/var/tmp/</filename> is
+        used. The directory is removed automatically when the container is shut down. This behaviour is
+        useful in order to make read-only container directories writable while the container is running. For
+        example, use <literal>--overlay=+/var::/var</literal> in order to automatically overlay a writable
+        temporary directory on a read-only <filename>/var/</filename> directory. If a source path is not
+        absolute, it is resolved relative to the current working directory.</para>
+
+        <para>For details about overlay file systems, see <ulink
+        url="https://docs.kernel.org/filesystems/overlayfs.html">Overlay Filesystem</ulink>.
+        Note that the semantics of overlay file systems are substantially different from normal file systems,
+        in particular regarding reported device and inode information. Device and inode information may
+        change for a file while it is being written to, and processes might see out-of-date versions of files
+        at times. Note that this switch automatically derives the <literal>workdir=</literal> mount option
+        for the overlay file system from the top-level directory tree, making it a sibling of it. It is hence
+        essential that the top-level directory tree is not a mount point itself (since the working directory
+        must be on the same file system as the top-most directory tree). Also note that the
+        <literal>lowerdir=</literal> mount option receives the paths to stack in the opposite order of this
+        switch.</para>
+
+        <para>Note that this option cannot be used to replace the root file system of the container with an overlay
+        file system. However, the <option>--volatile=</option> option described above provides similar functionality,
+        with a focus on implementing stateless operating system images.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect2>
+
+  <refsect2>
+    <title>Input/Output Options</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--console=<replaceable>MODE</replaceable></option></term>
+
+        <listitem><para>Configures how to set up standard input, output and error output for the container
+        payload, as well as the <filename>/dev/console</filename> device for the container. Takes one of
+        <option>interactive</option>, <option>read-only</option>, <option>passive</option>,
+        <option>pipe</option> or <option>autopipe</option>. If <option>interactive</option>, a pseudo-TTY is
+        allocated and made available as <filename>/dev/console</filename> in the container. It is then
+        bi-directionally connected to the standard input and output passed to
+        <command>systemd-nspawn</command>. <option>read-only</option> is similar but only the output of the
+        container is propagated and no input from the caller is read. If <option>passive</option>, a pseudo
+        TTY is allocated, but it is not connected anywhere. In <option>pipe</option> mode no pseudo TTY is
+        allocated, but the standard input, output and error output file descriptors passed to
+        <command>systemd-nspawn</command> are passed on — as they are — to the container payload, see the
+        following paragraph. Finally, <option>autopipe</option> mode operates like
+        <option>interactive</option> when <command>systemd-nspawn</command> is invoked on a terminal, and
+        like <option>pipe</option> otherwise. Defaults to <option>interactive</option> if
+        <command>systemd-nspawn</command> is invoked from a terminal, and <option>read-only</option>
+        otherwise.</para>
+
+        <para>In <option>pipe</option> mode, <filename>/dev/console</filename> will not exist in the
+        container. This means that the container payload generally cannot be a full init system as init
+        systems tend to require <filename>/dev/console</filename> to be available. On the other hand, in this
+        mode container invocations can be used within shell pipelines. This is because intermediary pseudo
+        TTYs do not permit independent bidirectional propagation of the end-of-file (EOF) condition, which is
+        necessary for shell pipelines to work correctly. <emphasis>Note that the <option>pipe</option> mode
+        should be used carefully</emphasis>, as passing arbitrary file descriptors to less trusted container
+        payloads might open up unwanted interfaces for access by the container payload. For example, if a
+        passed file descriptor refers to a TTY of some form, APIs such as <constant>TIOCSTI</constant> may be
+        used to synthesize input that might be used for escaping the container. Hence <option>pipe</option>
+        mode should only be used if the payload is sufficiently trusted or when the standard
+        input/output/error output file descriptors are known safe, for example pipes.</para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--pipe</option></term>
+        <term><option>-P</option></term>
+
+        <listitem><para>Equivalent to <option>--console=pipe</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--background=<replaceable>COLOR</replaceable></option></term>
+
+        <listitem><para>Change the terminal background color to the specified ANSI color as long as the
+        container runs. The color specified should be an ANSI X3.64 SGR background color, i.e. strings such
+        as <literal>40</literal>, <literal>41</literal>, …, <literal>47</literal>, <literal>48;2;…</literal>,
+        <literal>48;5;…</literal>. See <ulink
+        url="https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_(Select_Graphic_Rendition)_parameters">ANSI
+        Escape Code (Wikipedia)</ulink> for details. Assign an empty string to disable any coloring.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+    </variablelist>
+
+    </refsect2>
+    <refsect2>
+      <title>Credentials</title>
+
+      <variablelist>
+        <varlistentry>
+          <term><option>--load-credential=<replaceable>ID</replaceable>:<replaceable>PATH</replaceable></option></term>
+          <term><option>--set-credential=<replaceable>ID</replaceable>:<replaceable>VALUE</replaceable></option></term>
+
+          <listitem><para>Pass a credential to the container. These two options correspond to the
+          <varname>LoadCredential=</varname> and <varname>SetCredential=</varname> settings in unit files. See
+          <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+          details about these concepts, as well as the syntax of the option's arguments.</para>
+
+          <para>Note: when <command>systemd-nspawn</command> runs as systemd system service it can propagate
+          the credentials it received via <varname>LoadCredential=</varname>/<varname>SetCredential=</varname>
+          to the container payload. A systemd service manager running as PID 1 in the container can further
+          propagate them to the services it itself starts. It is thus possible to easily propagate credentials
+          from a parent service manager to a container manager service and from there into its payload. This
+          can even be done recursively.</para>
+
+          <para>In order to embed binary data into the credential data for <option>--set-credential=</option>,
+          use C-style escaping (i.e. <literal>\n</literal> to embed a newline, or <literal>\x00</literal> to
+          embed a <constant>NUL</constant> byte). Note that the invoking shell might already apply unescaping
+          once, hence this might require double escaping!</para>
+
+          <para>The
+          <citerefentry><refentrytitle>systemd-sysusers.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          and
+          <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          services read credentials configured this way for the purpose of configuring the container's root
+          user's password and shell, as well as system locale, keymap and timezone during the first boot
+          process of the container. This is particularly useful in combination with
+          <option>--volatile=yes</option> where every single boot appears as first boot, since configuration
+          applied to <filename>/etc/</filename> is lost on container reboot cycles. See the respective man
+          pages for details. Example:</para>
+
+          <programlisting># systemd-nspawn -i image.raw \
+          --volatile=yes \
+          --set-credential=firstboot.locale:de_DE.UTF-8 \
+          --set-credential=passwd.hashed-password.root:'$y$j9T$yAuRJu1o5HioZAGDYPU5d.$F64ni6J2y2nNQve90M/p0ZP0ECP/qqzipNyaY9fjGpC' \
+          -b</programlisting>
+
+          <para>The above command line will invoke the specified image file <filename>image.raw</filename> in
+          volatile mode, i.e. with empty <filename>/etc/</filename> and <filename>/var/</filename>.  The
+          container payload will recognize this as a first boot, and will invoke
+          <filename>systemd-firstboot.service</filename>, which then reads the two passed credentials to
+          configure the system's initial locale and root password.</para>
+
+          <xi:include href="version-info.xml" xpointer="v247"/>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+
+    </refsect2><refsect2>
+    <title>Other</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--system</option></term>
+        <term><option>--user</option></term>
+
+        <listitem><para>Specify whether to run in system or user scope. This controls which service manager and
+        machined instance to interact with, as well as operational defaults such as user namespace mode and
+        private networking. If neither is specified, <option>--system</option> is implied when running as
+        root, <option>--user</option> otherwise.</para>
+
+        <para>Note: for backwards compatibility, <option>--user</option> followed by a positional argument
+        is interpreted as the deprecated <option>--user=<replaceable>NAME</replaceable></option> form (now
+        <option>--uid=</option>). To use <option>--user</option> for scope selection when positional
+        arguments follow, separate them with <literal>--</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+      <xi:include href="standard-options.xml" xpointer="no-ask-password" />
+    </variablelist>
+   </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Hotkeys</title>
+
+    <para>When invoked in interactive mode (i.e. the default <option>--console=interactive</option>), a few
+    special keyboard shortcuts are understood that control the container runtime. These shortcuts need to be
+    typed within 1s to have effect, otherwise they will be forwarded to the container as regular
+    keypresses.</para>
+
+    <variablelist>
+      <varlistentry>
+        <term>Ctrl-] Ctrl-] Ctrl-]</term>
+        <listitem><para>Immediately terminate the container, killing all processes.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>Ctrl-] Ctrl-] r</term>
+        <listitem><para>Issue a reboot request to the container.</para>
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>Ctrl-] Ctrl-] p</term>
+        <listitem><para>Issue a shutdown request to the container.</para>
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+    </variablelist>
+  </refsect1>
+
+  <xi:include href="common-variables.xml" />
+
+  <refsect1>
+    <title>Examples</title>
+
+    <xi:include href="importctl.xml" xpointer="example-import-tar" />
+
+    <example>
+      <title>Build and boot a minimal Fedora distribution in a container</title>
+
+      <programlisting># dnf -y --releasever=&fedora_latest_version; --installroot=/var/lib/machines/f&fedora_latest_version; \
+      --use-host-config --setopt=install_weak_deps=0 \
+      --repo=fedora --repo=updates install \
+      passwd dnf fedora-release nano util-linux systemd systemd-networkd
+# systemd-nspawn -bD /var/lib/machines/f&fedora_latest_version;</programlisting>
+
+      <para>(Omit <parameter>--use-host-config</parameter> when using <command>dnf</command> &lt;= 4.)
+      This installs a minimal Fedora distribution into the directory
+      <filename index="false">/var/lib/machines/f&fedora_latest_version;</filename>
+      and then boots that OS in a namespace container. Because the installation
+      is located underneath the standard <filename>/var/lib/machines/</filename>
+      directory, it is also possible to start the machine using
+      <command>systemd-nspawn -M f&fedora_latest_version;</command>.</para>
+    </example>
+
+    <example>
+      <title>Spawn a shell in a container of a minimal Debian unstable distribution</title>
+
+      <programlisting># debootstrap unstable ~/debian-tree/
+# systemd-nspawn -D ~/debian-tree/</programlisting>
+
+      <para>This installs a minimal Debian unstable distribution into
+      the directory <filename>~/debian-tree/</filename> and then
+      spawns a shell from this image in a namespace container.</para>
+
+      <para><command>debootstrap</command> supports
+      <ulink url="https://www.debian.org">Debian</ulink>,
+      and <ulink url="https://www.ubuntu.com">Ubuntu</ulink>
+      out of the box, so the same command can be used to install any of those. For other
+      distributions from the Debian family, a mirror has to be specified, see
+      <citerefentry project='die-net'><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+      </para>
+    </example>
+
+    <example>
+      <title>Boot a minimal
+      <ulink url="https://www.archlinux.org">Arch Linux</ulink> distribution in a container</title>
+
+      <programlisting># pacstrap -c ~/arch-tree/ base
+# systemd-nspawn -bD ~/arch-tree/</programlisting>
+
+      <para>This installs a minimal Arch Linux distribution into the
+      directory <filename>~/arch-tree/</filename> and then boots an OS
+      in a namespace container in it.</para>
+    </example>
+
+    <example>
+      <title>Install the
+      <ulink url="https://software.opensuse.org/distributions/tumbleweed">OpenSUSE Tumbleweed</ulink>
+      rolling distribution</title>
+
+      <programlisting># zypper --root=/var/lib/machines/tumbleweed ar -c \
+      https://download.opensuse.org/tumbleweed/repo/oss tumbleweed
+# zypper --root=/var/lib/machines/tumbleweed refresh
+# zypper --root=/var/lib/machines/tumbleweed install --no-recommends \
+      systemd shadow zypper openSUSE-release vim
+# systemd-nspawn -M tumbleweed passwd root
+# systemd-nspawn -M tumbleweed -b</programlisting>
+    </example>
+
+    <example>
+      <title>Boot into an ephemeral snapshot of the host system</title>
+
+      <programlisting># systemd-nspawn -D / -xb</programlisting>
+
+      <para>This runs a copy of the host system in a snapshot which is removed immediately when the container
+      exits. All file system changes made during runtime will be lost on shutdown, hence.</para>
+    </example>
+
+    <example>
+      <title>Run a container with SELinux sandbox security contexts</title>
+
+      <programlisting># chcon system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -R /srv/container
+# systemd-nspawn -L system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 \
+      -Z system_u:system_r:svirt_lxc_net_t:s0:c0,c1 -D /srv/container /bin/sh</programlisting>
+    </example>
+
+    <example>
+      <title>Run a container with an OSTree deployment</title>
+
+      <programlisting># systemd-nspawn -b -i ~/image.raw \
+      --pivot-root=/ostree/deploy/$OS/deploy/$CHECKSUM:/sysroot \
+      --bind=+/sysroot/ostree/deploy/$OS/var:/var</programlisting>
+    </example>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>The exit code of the program executed in the container is
+    returned.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.nspawn</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='mankier'><refentrytitle>dnf</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='archlinux'><refentrytitle>pacman</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='mankier'><refentrytitle>zypper</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>importctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-mountfsd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-nsresourced.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.mstack</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry project='url'><refentrytitle url='https://btrfs.readthedocs.io/en/latest/btrfs.html'>btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

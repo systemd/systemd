@@ -1,0 +1,27 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Make TPM PCR Policy
+Documentation=man:systemd-pcrlock(8)
+DefaultDependencies=no
+Conflicts=shutdown.target
+After=systemd-tpm2-setup.service
+Before=sysinit.target shutdown.target
+After=systemd-remount-fs.service var.mount
+ConditionPathExists=!/etc/initrd-release
+ConditionSecurity=measured-uki
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart={{LIBEXECDIR}}/systemd-pcrlock make-policy --location=770
+
+[Install]
+WantedBy=sysinit.target

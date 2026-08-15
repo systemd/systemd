@@ -1,0 +1,5 @@
+foo:x:301:301::/:NOLOGIN
+aaa:x:303:302::/:NOLOGIN
+bbb:x:304:302::/:NOLOGIN
+ccc:x:305:305::/:NOLOGIN
+zzz:x:306:SYSTEM_UGID_MAX::/:NOLOGIN

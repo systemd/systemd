@@ -1,0 +1,57 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-portabled.service" conditional='ENABLE_PORTABLED'>
+
+  <refentryinfo>
+    <title>systemd-portabled.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-portabled.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-portabled.service</refname>
+    <refname>systemd-portabled</refname>
+    <refpurpose>Portable service manager</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-portabled.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-portabled</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-portabled</command> is a system service that may be used to attach, detach and inspect
+    portable service images.</para>
+
+    <para>Most of <command>systemd-portabled</command>'s functionality is accessible through the
+    <citerefentry><refentrytitle>portablectl</refentrytitle><manvolnum>1</manvolnum></citerefentry> command.</para>
+
+    <para>See the <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services</ulink> page
+    for details about the concepts this service implements.</para>
+
+    <para>See
+    <citerefentry><refentrytitle>org.freedesktop.portable1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>org.freedesktop.LogControl1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for a description of the D-Bus API.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>portablectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>org.freedesktop.portable1</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

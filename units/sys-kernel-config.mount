@@ -1,0 +1,31 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Kernel Configuration File System
+Documentation=https://docs.kernel.org/filesystems/configfs.html
+Documentation=https://systemd.io/API_FILE_SYSTEMS
+DefaultDependencies=no
+ConditionPathExists=/sys/kernel/config
+ConditionCapability=CAP_SYS_RAWIO
+Before=sysinit.target
+
+# These dependencies are used to make certain that the module is fully
+# loaded. Indeed udev starts this unit when it receives an uevent for the
+# module but the kernel sends it too early, ie before the init() of the module
+# is fully operational and /sys/kernel/config is created, see issue#17586.
+
+After=modprobe@configfs.service
+Requires=modprobe@configfs.service
+
+[Mount]
+What=configfs
+Where=/sys/kernel/config
+Type=configfs
+Options=nosuid,nodev,noexec

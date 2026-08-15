@@ -1,0 +1,404 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include <netinet/icmp6.h>
+
+#include "sd-ndisc-protocol.h"
+#include "sd-netlink.h"
+
+#include "alloc-util.h"
+#include "build.h"
+#include "ether-addr-util.h"
+#include "fd-util.h"
+#include "hexdecoct.h"
+#include "icmp6-util.h"
+#include "in-addr-util.h"
+#include "main-func.h"
+#include "ndisc-option.h"
+#include "netlink-util.h"
+#include "network-common.h"
+#include "options.h"
+#include "parse-util.h"
+#include "set.h"
+#include "string-util.h"
+#include "strv.h"
+#include "time-util.h"
+
+static int arg_ifindex = 0;
+static int arg_icmp6_type = 0;
+static union in_addr_union arg_dest = IN_ADDR_NULL;
+static uint8_t arg_hop_limit = 0;
+static uint8_t arg_ra_flags = 0;
+static uint8_t arg_preference = false;
+static usec_t arg_lifetime = 0;
+static usec_t arg_reachable = 0;
+static usec_t arg_retransmit = 0;
+static uint32_t arg_na_flags = 0;
+static union in_addr_union arg_target_address = IN_ADDR_NULL;
+static union in_addr_union arg_redirect_destination = IN_ADDR_NULL;
+static bool arg_set_source_mac = false;
+static struct ether_addr arg_source_mac = {};
+static bool arg_set_target_mac = false;
+static struct ether_addr arg_target_mac = {};
+static struct ip6_hdr *arg_redirected_header = NULL;
+static bool arg_set_mtu = false;
+static uint32_t arg_mtu = 0;
+
+STATIC_DESTRUCTOR_REGISTER(arg_redirected_header, freep);
+
+static int parse_icmp6_type(const char *str) {
+        if (STR_IN_SET(str, "router-solicit", "rs", "RS"))
+                return ND_ROUTER_SOLICIT;
+        if (STR_IN_SET(str, "router-advertisement", "ra", "RA"))
+                return ND_ROUTER_ADVERT;
+        if (STR_IN_SET(str, "neighbor-solicit", "ns", "NS"))
+                return ND_NEIGHBOR_SOLICIT;
+        if (STR_IN_SET(str, "neighbor-advertisement", "na", "NA"))
+                return ND_NEIGHBOR_ADVERT;
+        if (STR_IN_SET(str, "redirect", "rd", "RD"))
+                return ND_REDIRECT;
+        return -EINVAL;
+}
+
+static int parse_preference(const char *str) {
+        if (streq(str, "low"))
+                return SD_NDISC_PREFERENCE_LOW;
+        if (streq(str, "medium"))
+                return SD_NDISC_PREFERENCE_MEDIUM;
+        if (streq(str, "high"))
+                return SD_NDISC_PREFERENCE_HIGH;
+        if (streq(str, "reserved"))
+                return SD_NDISC_PREFERENCE_RESERVED;
+        return -EINVAL;
+}
+
+static int parse_argv(int argc, char *argv[]) {
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        int r;
+
+        assert(argc >= 0);
+        assert(argv);
+
+        OptionParser opts = { argc, argv };
+
+        FOREACH_OPTION_OR_RETURN(c, &opts)
+                switch (c) {
+
+                OPTION_COMMON_VERSION:
+                        return version();
+
+                OPTION('i', "interface", "INTERFACE", "Network interface"):
+                        r = rtnl_resolve_interface_or_warn(&rtnl, opts.arg);
+                        if (r < 0)
+                                return r;
+                        arg_ifindex = r;
+                        break;
+
+                OPTION('t', "type", "TYPE", "ICMPv6 message type"):
+                        r = parse_icmp6_type(opts.arg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse message type: %m");
+                        arg_icmp6_type = r;
+                        break;
+
+                OPTION('d', "dest", "ADDRESS", "Destination address"):
+                        r = in_addr_from_string(AF_INET6, opts.arg, &arg_dest);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse destination address: %m");
+                        if (!in6_addr_is_link_local(&arg_dest.in6))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "The destination address %s is not a link-local address.", opts.arg);
+                        break;
+
+                OPTION_GROUP("Router Advertisement"): {}
+
+                OPTION_LONG("hop-limit", "LIMIT", "Hop limit"):
+                        r = safe_atou8(opts.arg, &arg_hop_limit);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse hop limit: %m");
+                        break;
+
+                OPTION_LONG("managed", "BOOL", "Managed flag"):
+                        r = parse_boolean(opts.arg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse managed flag: %m");
+                        SET_FLAG(arg_ra_flags, ND_RA_FLAG_MANAGED, r);
+                        break;
+
+                OPTION_LONG("other", "BOOL", "Other flag"):
+                        r = parse_boolean(opts.arg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse other flag: %m");
+                        SET_FLAG(arg_ra_flags, ND_RA_FLAG_OTHER, r);
+                        break;
+
+                OPTION_LONG("home-agent", "BOOL", "Home-agent flag"):
+                        r = parse_boolean(opts.arg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse home-agent flag: %m");
+                        SET_FLAG(arg_ra_flags, ND_RA_FLAG_HOME_AGENT, r);
+                        break;
+
+                OPTION_LONG("preference", "PREF", "Preference"):
+                        r = parse_preference(opts.arg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse preference: %m");
+                        arg_preference = r;
+                        break;
+
+                OPTION_LONG("lifetime", "SECS", "Lifetime"):
+                        r = parse_sec(opts.arg, &arg_lifetime);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse lifetime: %m");
+                        break;
+
+                OPTION_LONG("reachable-time", "SECS", "Reachable time"):
+                        r = parse_sec(opts.arg, &arg_reachable);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse reachable time: %m");
+                        break;
+
+                OPTION_LONG("retransmit-timer", "SECS", "Retransmit timer"):
+                        r = parse_sec(opts.arg, &arg_retransmit);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse retransmit timer: %m");
+                        break;
+
+                OPTION_GROUP("Neighbor Advertisement"): {}
+
+                OPTION_LONG("is-router", "BOOL", "Router flag"):
+                        r = parse_boolean(opts.arg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse is-router flag: %m");
+                        SET_FLAG(arg_na_flags, ND_NA_FLAG_ROUTER, r);
+                        break;
+
+                OPTION_LONG("is-solicited", "BOOL", "Solicited flag"):
+                        r = parse_boolean(opts.arg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse is-solicited flag: %m");
+                        SET_FLAG(arg_na_flags, ND_NA_FLAG_SOLICITED, r);
+                        break;
+
+                OPTION_LONG("is-override", "BOOL", "Override flag"):
+                        r = parse_boolean(opts.arg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse is-override flag: %m");
+                        SET_FLAG(arg_na_flags, ND_NA_FLAG_OVERRIDE, r);
+                        break;
+
+                OPTION_GROUP("Neighbor Solicit/Advertisement and Redirect"): {}
+
+                OPTION_LONG("target-address", "ADDRESS", "Target address"):
+                        r = in_addr_from_string(AF_INET6, opts.arg, &arg_target_address);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse target address: %m");
+                        break;
+
+                OPTION_GROUP("Redirect"): {}
+
+                OPTION_LONG("redirect-destination", "ADDRESS", "Redirect destination address"):
+                        r = in_addr_from_string(AF_INET6, opts.arg, &arg_redirect_destination);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse destination address: %m");
+                        break;
+
+                OPTION_GROUP("NDisc Options"): {}
+
+                OPTION_LONG("source-ll-address", "BOOL", "Include source link-layer address"):
+                        r = parse_boolean(opts.arg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse source LL address option: %m");
+                        arg_set_source_mac = r;
+                        break;
+
+                OPTION_LONG("target-ll-address", "ADDRESS", "Target link-layer address"):
+                        r = parse_ether_addr(opts.arg, &arg_target_mac);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse target LL address option: %m");
+                        arg_set_target_mac = true;
+                        break;
+
+                OPTION_LONG("redirected-header", "BASE64", "Redirected header (base64)"): {
+                        _cleanup_free_ void *p = NULL;
+                        size_t len;
+
+                        r = unbase64mem(opts.arg, &p, &len);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse redirected header: %m");
+
+                        if (len < sizeof(struct ip6_hdr))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid redirected header.");
+
+                        arg_redirected_header = TAKE_PTR(p);
+                        break;
+                }
+
+                OPTION_LONG("mtu", "MTU", "MTU"):
+                        r = safe_atou32(opts.arg, &arg_mtu);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse MTU: %m");
+                        arg_set_mtu = true;
+                        break;
+                }
+
+        if (arg_ifindex <= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--interface/-i option is mandatory.");
+
+        if (arg_icmp6_type <= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--type/-t option is mandatory.");
+
+        if (in6_addr_is_null(&arg_dest.in6)) {
+                if (IN_SET(arg_icmp6_type, ND_ROUTER_ADVERT, ND_NEIGHBOR_ADVERT, ND_REDIRECT))
+                        arg_dest.in6 = IN6_ADDR_ALL_NODES_MULTICAST;
+                else
+                        arg_dest.in6 = IN6_ADDR_ALL_ROUTERS_MULTICAST;
+        }
+
+        if (arg_set_source_mac) {
+                struct hw_addr_data hw_addr;
+
+                r = rtnl_get_link_hw_addr(&rtnl, arg_ifindex, &hw_addr);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get the source link-layer address: %m");
+
+                if (hw_addr.length != sizeof(struct ether_addr))
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "Unsupported hardware address length %zu.",
+                                               hw_addr.length);
+
+                arg_source_mac = hw_addr.ether;
+        }
+
+        return 1;
+}
+
+static int send_icmp6(int fd, const struct icmp6_hdr *hdr) {
+        _cleanup_set_free_ Set *options = NULL;
+        int r;
+
+        assert(fd >= 0);
+        assert(hdr);
+
+        if (arg_set_source_mac) {
+                r = ndisc_option_add_link_layer_address(&options, SD_NDISC_OPTION_SOURCE_LL_ADDRESS, 0, &arg_source_mac);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_set_target_mac) {
+                r = ndisc_option_add_link_layer_address(&options, SD_NDISC_OPTION_TARGET_LL_ADDRESS, 0, &arg_target_mac);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_redirected_header) {
+                r = ndisc_option_add_redirected_header(&options, 0, arg_redirected_header);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_set_mtu) {
+                r = ndisc_option_add_mtu(&options, 0, arg_mtu);
+                if (r < 0)
+                        return r;
+        }
+
+        return ndisc_send(fd, &arg_dest.in6, hdr, options, now(CLOCK_BOOTTIME));
+}
+
+static int send_router_solicit(int fd) {
+        struct nd_router_solicit hdr = {
+                .nd_rs_type = ND_ROUTER_SOLICIT,
+        };
+
+        assert(fd >= 0);
+
+        return send_icmp6(fd, &hdr.nd_rs_hdr);
+}
+
+static int send_router_advertisement(int fd) {
+        struct nd_router_advert hdr = {
+                .nd_ra_type = ND_ROUTER_ADVERT,
+                .nd_ra_router_lifetime = usec_to_be16_sec(arg_lifetime),
+                .nd_ra_reachable = usec_to_be32_msec(arg_reachable),
+                .nd_ra_retransmit = usec_to_be32_msec(arg_retransmit),
+        };
+
+        assert(fd >= 0);
+
+        /* The nd_ra_curhoplimit and nd_ra_flags_reserved fields cannot specified with nd_ra_router_lifetime
+         * simultaneously in the structured initializer in the above. */
+        hdr.nd_ra_curhoplimit = arg_hop_limit;
+        hdr.nd_ra_flags_reserved = arg_ra_flags;
+
+        return send_icmp6(fd, &hdr.nd_ra_hdr);
+}
+
+static int send_neighbor_solicit(int fd) {
+        struct nd_neighbor_solicit hdr = {
+                .nd_ns_type = ND_NEIGHBOR_SOLICIT,
+                .nd_ns_target = arg_target_address.in6,
+        };
+
+        assert(fd >= 0);
+
+        return send_icmp6(fd, &hdr.nd_ns_hdr);
+}
+
+static int send_neighbor_advertisement(int fd) {
+        struct nd_neighbor_advert hdr = {
+                .nd_na_type = ND_NEIGHBOR_ADVERT,
+                .nd_na_flags_reserved = arg_na_flags,
+                .nd_na_target = arg_target_address.in6,
+        };
+
+        assert(fd >= 0);
+
+        return send_icmp6(fd, &hdr.nd_na_hdr);
+}
+
+static int send_redirect(int fd) {
+        struct nd_redirect hdr = {
+                .nd_rd_type = ND_REDIRECT,
+                .nd_rd_target = arg_target_address.in6,
+                .nd_rd_dst = arg_redirect_destination.in6,
+        };
+
+        assert(fd >= 0);
+
+        return send_icmp6(fd, &hdr.nd_rd_hdr);
+}
+
+static int run(int argc, char *argv[]) {
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        log_setup();
+
+        r = parse_argv(argc, argv);
+        if (r <= 0)
+                return r;
+
+        fd = icmp6_bind(arg_ifindex, /* is_router= */ false);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to bind socket to interface: %m");
+
+        switch (arg_icmp6_type) {
+        case ND_ROUTER_SOLICIT:
+                return send_router_solicit(fd);
+        case ND_ROUTER_ADVERT:
+                return send_router_advertisement(fd);
+        case ND_NEIGHBOR_SOLICIT:
+                return send_neighbor_solicit(fd);
+        case ND_NEIGHBOR_ADVERT:
+                return send_neighbor_advertisement(fd);
+        case ND_REDIRECT:
+                return send_redirect(fd);
+        default:
+                assert_not_reached();
+        }
+
+        return 0;
+}
+
+DEFINE_MAIN_FUNCTION(run);

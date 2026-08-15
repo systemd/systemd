@@ -1,0 +1,92 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd-json"
+  xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd-json</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd-json</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd-json</refname>
+    <refpurpose>APIs for Dealing with JSON Objects</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-json.h&gt;</funcsynopsisinfo>
+    </funcsynopsis>
+
+    <cmdsynopsis>
+      <command>pkg-config --cflags --libs libsystemd</command>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>sd-json.h</filename> is part of
+    <citerefentry><refentrytitle>libsystemd</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
+    provides APIs to parse, generate, format and otherwise operate with JSON objects.</para>
+
+    <para>The API's central data structure is <type>JsonVariant</type> which encapsulates a JSON object,
+    array, string, boolean, number or null value. These data structures are mostly considered immutable after
+    construction (i.e. their contents will not change, but some meta-data might, such as reference counters).</para>
+
+    <para>The APIs broadly fall into five categories:</para>
+
+    <itemizedlist>
+      <listitem><para>APIs to directly operate with <type>JsonVariant</type> objects, in the
+      <function>sd_json_variant*</function> namespace.</para></listitem>
+
+      <listitem><para>APIs to construct complex JSON objects, in the <function>sd_json_build*</function>
+      namespace.</para></listitem>
+
+      <listitem><para>APIs to map <type>JsonVariant</type> objects and their fields to matching fields in C
+      structures, in the <function>sd_json_dispatch*</function> namespace.</para></listitem>
+
+      <listitem><para>APIs to convert a string representation of a JSON object into a
+      <type>JsonVariant</type> object, in the <function>sd_json_parse*</function>
+      namespace.</para></listitem>
+
+      <listitem><para>APIs to convert an <type>JsonVariant</type> object into its string representation, in
+      the <function>sd_json_format*</function> namespace.</para></listitem>
+    </itemizedlist>
+
+    <para>This JSON library will internally encode JSON integer numbers in the range
+    <constant>INT64_MIN</constant>…<constant>UINT64_MAX</constant> into native 64bit signed or unsigned
+    integers, and will reproduce them without loss of precision. Non-integer numbers are stored in 64bit IEEE
+    floating point numbers.</para>
+
+    <para>If the functions return string arrays, these are generally
+    <constant>NULL</constant> terminated and need to be freed by the
+    caller with the libc
+    <citerefentry project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    call after use, including the strings referenced therein.
+    Similarly, individual strings returned need to be freed, as
+    well.</para>
+
+    <para>As a special exception, instead of an empty string array <constant>NULL</constant> may be returned,
+    which should be treated equivalent to an empty string array.</para>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-varlink</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

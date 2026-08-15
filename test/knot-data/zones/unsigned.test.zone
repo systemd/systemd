@@ -1,0 +1,23 @@
+; SPDX-License-Identifier: LGPL-2.1-or-later
+$TTL 86400
+$ORIGIN unsigned.test.
+
+@ IN SOA ns1.unsigned.test. root.unsigned.test. (
+    42   ; serial
+    3H   ; refresh
+    15M  ; retry
+    1W   ; expire
+    1D   ; minimum TTL
+)
+
+; NS info
+@                     NS   ns1
+ns1                   A    10.0.0.1
+ns1                   AAAA fd00:dead:beef:cafe::1
+
+@                     MX   15 mail.unsigned.test.
+
+                      A    10.0.0.101
+                      AAAA fd00:dead:beef:cafe::101
+mail                  A    10.0.0.111
+stale1          1     A    10.0.0.112

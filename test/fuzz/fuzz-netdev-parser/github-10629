@@ -1,0 +1,10 @@
+[NetDev]
+Name=vlan99
+Kind=vcan
+
+[VLAN]
+Id=99
+GVRP=true
+MVRP=true
+LooseBinding=true
+ReorderHeader=true

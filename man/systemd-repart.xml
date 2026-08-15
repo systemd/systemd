@@ -1,0 +1,939 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-repart" conditional='ENABLE_REPART'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-repart</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-repart</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-repart</refname>
+    <refname>systemd-repart.service</refname>
+    <refpurpose>Automatically grow and add partitions, and generate disk images (DDIs)</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-repart</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="opt">BLOCKDEVICE</arg>
+    </cmdsynopsis>
+
+    <para><filename>systemd-repart.service</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-repart</command> creates partition tables, and adds or grows partitions, based on
+    the configuration files described in
+    <citerefentry><refentrytitle>repart.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>. It operates
+    on the block device or file image specified on the command line.</para>
+
+    <para><command>systemd-repart</command> is used when <emphasis>building</emphasis> OS images, and also
+    when <emphasis>deploying</emphasis> images to automatically adjust them, during boot, to the system they
+    are running on. This way the image can be minimal in size and may be augmented automatically at boot,
+    taking possession of the disk space available.</para>
+
+    <para>If invoked with no arguments, <command>systemd-repart</command> operates on the block device
+    backing the root file system partition of the running OS, thus adding and growing partitions of the
+    booted OS itself. When called in the initrd, it operates on the block device backing
+    <filename>/sysroot/</filename> instead, i.e. on the block device the system will soon transition into. If
+    <varname>--image=</varname> is used, it will operate on the specified device or image file. The
+    <filename>systemd-repart.service</filename> service is generally run at boot in the initrd, in order to
+    augment the partition table of the OS before its partitions are mounted.</para>
+
+    <para>If the block device is specified as <literal>-</literal> (or as an empty string),
+    <command>systemd-repart</command> will not operate on any block device or image file, and instead
+    determine and output the minimum disk/image size for the specified partition configuration, taking all
+    configured size constraints into account.</para>
+
+    <para><command>systemd-repart</command> operations are mostly incremental: it grows existing partitions
+    or adds new ones, but does not shrink, delete, or move existing partitions. The service is intended to be
+    run on every boot, but when it detects that the partition table already matches the installed
+    <filename>repart.d/*.conf</filename> configuration files, it executes no operation.</para>
+
+    <para>The following use cases are among those covered:</para>
+
+    <itemizedlist>
+      <listitem><para>The root partition may be grown to cover the whole available disk space.</para></listitem>
+      <listitem><para>A <filename>/home/</filename>, swap, or <filename>/srv/</filename> partition can be
+      added.</para></listitem>
+      <listitem><para>A second (or third, …) root partition may be added, to cover A/B style setups
+      where a second version of the root file system is alternatingly used for implementing update
+      schemes. The deployed image would carry only a single partition ("A") but on first boot a second
+      partition ("B") for this purpose is automatically created.</para></listitem>
+    </itemizedlist>
+
+    <para>The algorithm executed by <command>systemd-repart</command> is roughly as follows:</para>
+
+    <orderedlist>
+      <listitem><para>The <filename>repart.d/*.conf</filename> configuration files are loaded and parsed, and
+      ordered by filename (without the directory prefix). For each configuration file, drop-in files are
+      loaded from directories with same name as the configuration file with the suffix ".d" added.
+      </para></listitem>
+
+      <listitem><para>The partition table on the block device is loaded and parsed, if present.
+      </para></listitem>
+
+      <listitem><para>The existing partitions in the partition table are matched with the
+      <filename>repart.d/*.conf</filename> files by GPT partition type UUID. The first existing partition of
+      a specific type is assigned the first configuration file declaring the same type. The second existing
+      partition of a specific type is then assigned the second configuration file declaring the same type,
+      and so on. After this iterative assigning is complete, any existing partitions that have no matching
+      configuration file are considered "foreign" and left as they are. And any configuration files for which
+      no partition was matched are treated as requests to create a partition.</para></listitem>
+
+      <listitem><para>Partitions that shall be created are now allocated on the disk, taking the size
+      constraints and weights declared in the configuration files into account. Free space is used within the
+      limits set by size and padding requests. In addition, existing partitions that should be grown are
+      grown. New partitions are always appended to the end of the partition table, taking the first partition
+      table slot whose index is greater than the indexes of all existing partitions. Partitions are never
+      reordered and thus partition numbers remain stable. When partitions are created, they are placed in the
+      smallest area of free space that is large enough to satisfy the size and padding limits. This means
+      that partitions might have different order on disk than in the partition table. Note that this
+      allocation happens in memory only, the partition table on disk is not updated yet.</para></listitem>
+
+      <listitem><para>All existing partitions for which configuration files exist and which currently have no
+      GPT partition label set will be assigned a label, either explicitly configured in the configuration or
+      — if that's missing — derived automatically from the partition type. The same is done for all
+      partitions that are newly created. These assignments are done in memory only, too, the disk is not
+      updated yet.</para></listitem>
+
+      <listitem><para>Similarly, all existing partitions for which configuration files exist and which
+      currently have an all-zero identifying UUID will be assigned a new UUID. This UUID is cryptographically
+      hashed from a common seed value together with the partition type UUID (and a counter in case multiple
+      partitions of the same type are defined), see below. The same is done for all partitions that are
+      created anew. These assignments are done in memory only, too, the disk is not updated yet.
+      </para></listitem>
+
+      <listitem><para>Similarly, if the disk's volume UUID is all zeroes it is also initialized, also
+      cryptographically hashed from the same common seed value. This is done in memory only too.
+      </para></listitem>
+
+      <listitem><para>The disk space assigned to new partitions (i.e. what was previously free space) is now
+      erased. Specifically, all file system signatures are removed, and if the device supports it, the
+      <constant>BLKDISCARD</constant> I/O control command is issued to inform the hardware that the space is
+      now empty. In addition any "padding" between partitions and at the end of the device is similarly
+      erased.</para></listitem>
+
+      <listitem><para>The new partition table is finally written to disk. The kernel is asked to reread the
+      partition table.</para></listitem>
+    </orderedlist>
+
+    <para>As an exception to the normal incremental operation, when called in a special "factory reset" mode,
+    <command>systemd-repart</command> may be used to erase existing partitions to reset an installation back
+    to vendor defaults. This mode of operation is used when either the <option>--factory-reset=yes</option>
+    switch is passed on the tool's command line, or the <option>systemd.factory_reset=yes</option> option is
+    specified on the kernel command line, or the <varname>FactoryResetRequest</varname> EFI variable (vendor
+    UUID <constant>8cf2644b-4b0b-428f-9387-6d876050dc67</constant>) is set to "yes". It alters the algorithm
+    above slightly: between the 3rd and the 4th step above any partition marked explicitly via the
+    <varname>FactoryReset=</varname> boolean is deleted, and the algorithm restarted, thus immediately
+    re-creating these partitions anew empty.</para>
+
+    <para>Note that <command>systemd-repart</command> by default only changes partition tables, it does not
+    create or resize any file systems within these partitions, unless the <varname>Format=</varname>
+    configuration option is specified. Also note that there are also separate mechanisms available for this
+    purpose, for example
+    <citerefentry><refentrytitle>systemd-growfs</refentrytitle><manvolnum>8</manvolnum></citerefentry> and
+    <command>systemd-makefs</command>.</para>
+
+    <para>The UUIDs identifying the new partitions created (or assigned to existing partitions that have no
+    UUID yet), as well as the disk as a whole are hashed cryptographically from a common seed value. This
+    seed value is usually the
+    <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> of the
+    system, so that the machine ID reproducibly determines the UUIDs assigned to all partitions. If the
+    machine ID cannot be read (or the user passes <option>--seed=random</option>, see below) the seed is
+    generated randomly instead, so that the partition UUIDs are also effectively random. The seed value may
+    also be set explicitly, formatted as UUID via the <option>--seed=</option> option. By hashing these UUIDs
+    from a common seed images prepared with this tool become reproducible and the result of the algorithm
+    above deterministic.</para>
+
+    <para>The positional argument should specify the block device or a regular file to operate on. If
+    <option>--empty=create</option> is specified, the specified path is created as regular file, which is
+    useful for generating disk images from scratch.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>-n</option></term>
+        <term><option>--dry-run=</option></term>
+
+        <listitem><para>Takes a boolean. If this switch is not specified, <option>--dry-run=yes</option> is
+        the implied default. Controls whether <filename>systemd-repart</filename> executes the requested
+        re-partition operations or whether it should only show what it would do. Unless
+        <option>--dry-run=no</option> is specified <filename>systemd-repart</filename> will not actually
+        touch the device's partition table. The short option <option>-n</option> is equivalent to
+        <option>--dry-run=yes</option> and was added in version 262.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--empty=</option></term>
+
+        <listitem><para>Takes one of <literal>refuse</literal>, <literal>allow</literal>,
+        <literal>require</literal>, <literal>force</literal> or <literal>create</literal>. Controls how to
+        operate on block devices that are entirely empty, i.e. carry no partition table/disk label yet. If
+        this switch is not specified, the implied default is <literal>refuse</literal>.</para>
+
+        <para>If <literal>refuse</literal> <command>systemd-repart</command> requires that the block device
+        it shall operate on already carries a partition table and refuses operation if none is found. If
+        <literal>allow</literal> the command will extend an existing partition table or create a new one if
+        none exists. If <literal>require</literal> the command will create a new partition table if none
+        exists so far, and refuse operation if one already exists. If <literal>force</literal> it will create
+        a fresh partition table unconditionally, erasing the disk fully in effect. If
+        <literal>force</literal> no existing partitions will be taken into account or survive the
+        operation. Hence: use with care, this is a great way to lose all your data. If
+        <literal>create</literal> a new loopback file is create under the path passed via the device node
+        parameter, of the size indicated with <option>--size=</option>, see below.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--discard=</option></term>
+
+        <listitem><para>Takes a boolean. If this switch is not specified ,<option>--discard=yes</option> is
+        the implied default. Controls whether to issue the <constant>BLKDISCARD</constant> I/O control
+        command on the space taken up by any added partitions or on the space in between them. Usually, it is
+        a good idea to issue this request since it tells the underlying hardware that the covered blocks
+        shall be considered empty, improving performance. If operating on a regular file instead of a block
+        device node, a sparse file is generated.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--size=</option></term>
+
+        <listitem><para>Takes a size in bytes, using the usual K, M, G, T suffixes, or the special value
+        <literal>auto</literal>. If used the specified device node path must refer to a regular file, which
+        is then grown to the specified size if smaller, before any change is made to the partition table. If
+        specified as <literal>auto</literal> the minimal size for the disk image is automatically determined
+        (i.e. the minimal sizes of all partitions are summed up, taking space for additional metadata into
+        account). This switch is not supported if the specified node is a block device. This switch has no
+        effect if the file is already as large as the specified size or larger. The specified size is
+        implicitly rounded up to multiples of 4096. When used with <option>--empty=create</option> this
+        specifies the initial size of the loopback file to create.</para>
+
+        <para>The <option>--size=auto</option> option takes the sizes of pre-existing partitions into
+        account. However, it does not accommodate for partition tables that are not tightly packed: the
+        configured partitions might still not fit into the backing device if empty space exists between
+        pre-existing partitions (or before the first partition) that cannot be fully filled by partitions to
+        grow or create.</para>
+
+        <para>Also note that the automatic size determination does not take files or directories specified
+        with <option>CopyFiles=</option> into account: operation might fail if the specified files or
+        directories require more disk space then the configured per-partition minimal size
+        limit.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--cow=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>Controls copy-on-write for newly created image files on filesystems that support it.
+        If true, copy-on-write is enabled; if false, it is disabled. If set to <literal>auto</literal>, the
+        filesystem or parent directory default is left unchanged. Copy-on-write allows files to be reflinked
+        into the image, reducing both build time and disk usage, but may result in fragmentation for images
+        subject to frequent random writes. Defaults to <literal>auto</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--factory-reset=</option></term>
+
+        <listitem><para>Takes boolean. If this switch is not specified, <option>--factory-reset=no</option> is
+        the implied default. Controls whether to operate in "factory reset" mode, see above. If set to true
+        this will remove all existing partitions marked with <varname>FactoryReset=</varname> set to yes
+        early while executing the re-partitioning algorithm. Use with care, this is a great way to lose all
+        your data. Note that partition files need to explicitly turn <varname>FactoryReset=</varname> on, as
+        the option defaults to off. If no partitions are marked for factory reset this switch has no
+        effect. Note that there are two other methods to request factory reset operation: via the kernel
+        command line and via an EFI variable, see above.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--can-factory-reset</option></term>
+
+        <listitem><para>If this switch is specified the disk is not re-partitioned. Instead it is determined
+        if any existing partitions are marked with <varname>FactoryReset=</varname>. If there are the tool
+        will exit with exit status zero, otherwise non-zero. This switch may be used to quickly determine
+        whether the running system supports a factory reset mechanism built on
+        <command>systemd-repart</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--root=</option></term>
+
+        <listitem><para>Takes a path to a directory to use as root file system when searching for
+        <filename>repart.d/*.conf</filename> files, for the machine ID file to use as seed and for the
+        <varname>CopyFiles=</varname> and <varname>CopyBlocks=</varname> source files and directories. By
+        default when invoked on the regular system this defaults to the host's root file system
+        <filename>/</filename>. If invoked from the initrd this defaults to <filename>/sysroot/</filename>,
+        so that the tool operates on the configuration and machine ID stored in the root file system later
+        transitioned into itself.</para>
+
+        <para>See <option>--copy-source=</option> for a more restricted option that only affects
+        <varname>CopyFiles=</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--image=</option></term>
+
+        <listitem><para>Takes a path to a disk image file or device to mount and use in a similar fashion to
+        <option>--root=</option>, see above.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="image-policy-open" />
+
+      <varlistentry>
+        <term><option>--seed=</option></term>
+
+        <listitem><para>Takes a UUID as argument or the special value <constant>random</constant>. If a UUID
+        is specified the UUIDs to assign to partitions and the partition table itself are derived via
+        cryptographic hashing from it. If not specified, it is attempted to read the machine ID from the host
+        (or more precisely, the root directory configured via <option>--root=</option>) and use it as seed
+        instead, falling back to a randomized seed otherwise. Use <option>--seed=random</option> to force a
+        randomized seed. Explicitly specifying the seed may be used to generated strictly reproducible
+        partition tables.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--pretty=</option></term>
+
+        <listitem><para>Takes a boolean argument. If this switch is not specified, it defaults to on when
+        called from an interactive terminal and off otherwise. Controls whether to show a user friendly table
+        and graphic illustrating the changes applied.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--definitions=</option></term>
+
+        <listitem><para>Takes a file system path. If specified the <filename>*.conf</filename> files are read
+        from the specified directory instead of searching in <filename>/usr/lib/repart.d/*.conf</filename>,
+        <filename>/etc/repart.d/*.conf</filename>,
+        <filename>/run/repart.d/*.conf</filename>.</para>
+
+        <para>This parameter can be specified multiple times.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--key-file=</option></term>
+
+        <listitem><para>Takes a file system path. Configures the encryption key to use when setting up LUKS2
+        volumes configured with the <varname>Encrypt=key-file</varname> setting in partition files. Should
+        refer to a regular file containing the key, or an <constant>AF_UNIX</constant> stream socket in the
+        file system. In the latter case, a connection is made to it and the key read from it. If this switch
+        is not specified, and no <varname>KeyFile=</varname> is specified in the partition file, the empty
+        key (i.e. zero length key) is used. This behaviour is useful for setting up encrypted partitions during
+        early first boot that receive their user-supplied password only in a later setup step.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--private-key=</option></term>
+
+        <listitem><para>Takes a file system path or an engine or provider specific designation. Configures
+        the signing key to use when creating verity signature partitions with the
+        <varname>Verity=signature</varname> setting in partition files.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--private-key-source=</option></term>
+
+        <listitem><para>Takes one of <literal>file</literal>, <literal>engine</literal> or
+        <literal>provider</literal>. In the latter two cases, it is followed by the name of a provider or
+        engine, separated by colon, that will be passed to OpenSSL's "engine" or "provider" logic.
+        Configures how to load the private key to use when creating verity signature partitions with the
+        <varname>Verity=signature</varname> setting in partition files.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--certificate=</option></term>
+
+        <listitem><para>Takes a file system path or a provider specific designation. Configures the PEM
+        encoded X.509 certificate to use when creating verity signature partitions with the
+        <varname>Verity=signature</varname> setting in partition files.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--certificate-source=</option></term>
+
+        <listitem><para>Takes one of <literal>file</literal>, or <literal>provider</literal>. In the latter
+        case, it is followed by the name of a provider, separated by colon, that will be passed to OpenSSL's
+        "provider" logic. Configures how to load the X.509 certificate to use when creating verity signature
+        partitions with the <varname>Verity=signature</varname> setting in partition files.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--join-signature=</option></term>
+
+        <listitem><para>Specifies a colon-separated tuple with a hex-encoded top-level Verity hash of a
+        <varname>Verity=hash</varname> partition as first element, and a PKCS7 signature of the roothash
+        as a path to a DER-encoded signature file, or as an ASCII base64 string encoding of a DER-encoded
+        signature prefixed by <literal>base64:</literal>. To be used on a pre-existing image that was
+        created with a parameter such as <option>--defer-partitions=root-verity-sig</option>, in order to
+        allow implementing offline signing of the verity signature partition.</para>
+
+        <para>This is an alternative to online signing using parameters such as
+        <option>--private-key=</option>, for build systems where the private key for production signing is
+        not available in the same context where content is created.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tpm2-device=</option></term>
+        <term><option>--tpm2-pcrs=</option></term>
+
+        <listitem><para>Configures the TPM2 device and list of PCRs to use for LUKS2 volumes configured with
+        the <varname>Encrypt=tpm2</varname> option. These options take the same parameters as the identically
+        named options to
+        <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        and have the same effect on partitions where TPM2 enrollment is requested.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tpm2-device-key=<replaceable>PATH</replaceable></option></term>
+        <term><option>--tpm2-seal-key-handle=<replaceable>HANDLE</replaceable></option></term>
+
+        <listitem><para>Configures a TPM2 SRK key to bind encryption to. See
+        <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for details on this option.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tpm2-public-key=<replaceable>PATH</replaceable></option></term>
+        <term><option>--tpm2-public-key-pcrs=<replaceable>PCR<optional>+PCR...</optional></replaceable></option></term>
+
+        <listitem><para>Configures a TPM2 signed PCR policy to bind encryption to. See
+        <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for details on these two options.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tpm2-public-key-policyref=<replaceable>STRING</replaceable></option></term>
+
+        <listitem><para>Configures the policy reference to use together with the signed PCR policy configured
+        via <option>--tpm2-public-key=</option>. See
+        <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for details on this option.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tpm2-pcrlock=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>Configures a TPM2 pcrlock policy to bind encryption to. See
+        <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for details on this option.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--split=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>Enables generation of split artifacts from partitions configured with
+        <varname>SplitName=</varname>. If enabled, for each partition with <varname>SplitName=</varname> set,
+        a separate output file containing just the contents of that partition is generated. The output
+        filename consists of the loopback filename suffixed with the name configured with
+        <varname>SplitName=</varname>. If the loopback filename ends with <literal>.raw</literal>, the suffix
+        is inserted before the <literal>.raw</literal> extension instead.</para>
+
+        <para>Note that <option>--split</option> is independent from <option>--dry-run</option>. Even if
+        <option>--dry-run</option> is enabled, split artifacts will still be generated from an existing image
+        if <option>--split</option> is enabled.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--include-partitions=<replaceable>PARTITIONS</replaceable></option></term>
+        <term><option>--exclude-partitions=<replaceable>PARTITIONS</replaceable></option></term>
+
+        <listitem><para>These options specify which partition types <command>systemd-repart</command> should
+        operate on. If <option>--include-partitions=</option> is used, all partitions that are not specified
+        are excluded. If <option>--exclude-partitions=</option> is used, all partitions that are specified
+        are excluded. Both options take a comma separated list of GPT partition type UUIDs or identifiers
+        (see <varname>Type=</varname> in
+        <citerefentry><refentrytitle>repart.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--defer-partitions=<replaceable>PARTITIONS</replaceable></option></term>
+
+        <listitem><para>This option specifies for which partition types <command>systemd-repart</command>
+        should defer. All partitions that are deferred using this option are still taken into account when
+        calculating the sizes and offsets of other partitions, but are not actually written to the disk image.
+        The net effect of this option is that if you run <command>systemd-repart</command> again without this
+        option, the missing partitions will be added as if they had not been deferred the first time
+        <command>systemd-repart</command> was executed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--defer-partitions-empty=yes</option></term>
+
+        <listitem><para>This is very similar to <option>--defer-partitions=</option> but automatically
+        selects all partitions for deferral that have <option>Format=empty</option> set and do not configure
+        a custom label, or which set <option>Label=_empty</option>. It may be used in conjunction with
+        <option>--defer-partitions=</option> or <option>--defer-partitions-factory-reset=yes</option>, in
+        which case all matching partitions are deferred.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--defer-partitions-factory-reset=yes</option></term>
+
+        <listitem><para>This is very similar to <option>--defer-partitions=</option> but automatically
+        selects all partitions for deferral that have <option>FactoryReset=yes</option> set. It may be used
+        in conjunction with <option>--defer-partitions=</option> or
+        <option>--defer-partitions-empty=yes</option>, in which case all matching partitions are
+        deferred.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--sector-size=<replaceable>BYTES</replaceable></option></term>
+
+        <listitem><para>This option allows configuring the sector size of the image produced by
+        <command>systemd-repart</command>. It takes a value that is a power of <literal>2</literal> between
+        <literal>512</literal> and <literal>4096</literal>. This option is useful when building images for
+        disks that use a different sector size as the disk on which the image is produced.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--grain-size=<replaceable>BYTES</replaceable></option></term>
+
+        <listitem><para>This option controls the partition alignment granularity used when placing
+        partitions. It takes a power-of-2 value that is at least the sector size. All partition start
+        offsets will be rounded up to a multiple of this value. Defaults to
+        <constant>MAX(4096, sector_size)</constant>, matching the conventional 4 KiB alignment. Setting
+        this to <literal>1M</literal> ensures proper alignment for modern storage devices even after
+        small fixed-size partitions such as a verity signature partition.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--architecture=<replaceable>ARCH</replaceable></option></term>
+
+        <listitem><para>This option allows overriding the architecture used for architecture specific
+        partition types. For example, if set to <literal>arm64</literal> a partition type of
+        <literal>root-x86-64</literal> referenced in <filename>repart.d/</filename> drop-ins will be patched
+        dynamically to refer to <literal>root-arm64</literal> instead. Takes one of
+        <literal>alpha</literal>,
+        <literal>arc</literal>,
+        <literal>arm</literal>,
+        <literal>arm64</literal>,
+        <literal>ia64</literal>,
+        <literal>loongarch64</literal>,
+        <literal>mips-le</literal>,
+        <literal>mips64-le</literal>,
+        <literal>parisc</literal>,
+        <literal>ppc</literal>,
+        <literal>ppc64</literal>,
+        <literal>ppc64-le</literal>,
+        <literal>riscv32</literal>,
+        <literal>riscv64</literal>,
+        <literal>s390</literal>,
+        <literal>s390x</literal>,
+        <literal>tilegx</literal>,
+        <literal>x86</literal> or
+        <literal>x86-64</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--offline=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>Instructs <command>systemd-repart</command> to build the image offline. Takes a
+        boolean or <literal>auto</literal>. Defaults to <literal>auto</literal>. If enabled, the image is
+        built without using loop devices. This is useful to build images unprivileged or when loop devices
+        are not available. If disabled, the image is always built using loop devices. If
+        <literal>auto</literal>, <command>systemd-repart</command> will build the image online if possible
+        and fall back to building the image offline if loop devices are not available or cannot be accessed
+        due to missing permissions.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--copy-from=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>Instructs <command>systemd-repart</command> to synthesize partition definitions from
+        the partition table in the given image or device. This option can be specified multiple times to
+        synthesize definitions from each of the given images or devices. The generated definitions will copy
+        the partitions into the destination partition table. The copied partitions will have the same or a
+        slightly larger size (partitions may be enlarged to align to the new grain or sector size), metadata
+        and contents but might have a different partition number and might be located at a different offset
+        in the destination partition table. These definitions can be combined with partition definitions read
+        from regular partition definition files. The synthesized definitions take precedence over the
+        definitions read from partition definition files.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--copy-source=<replaceable>PATH</replaceable></option></term>
+        <term><option>-s</option> <replaceable>PATH</replaceable></term>
+
+        <listitem><para>Specifies a source directory all <varname>CopyFiles=</varname> source paths shall be
+        considered relative to. This is similar to <option>--root=</option>, but exclusively applies to the
+        <varname>CopyFiles=</varname> setting. If <option>--root=</option> and
+        <option>--copy-source=</option> are used in combination the former applies as usual, except for
+        <varname>CopyFiles=</varname> where the latter takes precedence.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--make-ddi=<replaceable>TYPE</replaceable></option></term>
+
+        <listitem><para>Takes one of <literal>sysext</literal>, <literal>confext</literal> or
+        <literal>portable</literal>. Generates a Discoverable Disk Image (DDI) for a system extension
+        (sysext, see
+        <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for details), configuration extension (confext) or <ulink
+        url="https://systemd.io/PORTABLE_SERVICES">Portable Services</ulink>. The generated image will consist
+        of a signed Verity <literal>erofs</literal> file system as root partition. In this mode of operation
+        the partition definitions in <filename>/usr/lib/repart.d/*.conf</filename> and related directories
+        are not read, and <option>--definitions=</option> is not supported, as appropriate definitions for
+        the selected DDI class will be chosen automatically.</para>
+
+        <para>Must be used in conjunction with <option>--copy-source=</option> to specify the file hierarchy
+        to populate the DDI with. The specified directory should contain an <filename>etc/</filename>
+        subdirectory if <literal>confext</literal> is selected. If <literal>sysext</literal> is selected it
+        should contain either a <filename>usr/</filename> or <filename>opt/</filename> directory, or both. If
+        <literal>portable</literal> is used a full OS file hierarchy can be provided.</para>
+
+        <para>This option implies <option>--empty=create</option>, <option>--size=auto</option> and
+        <option>--seed=random</option> (the latter two can be overridden).</para>
+
+        <para>The private key and certificate for signing the DDI must be specified via the
+        <option>--private-key=</option> and <option>--certificate=</option> switches.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-S</option></term>
+        <term><option>-C</option></term>
+        <term><option>-P</option></term>
+
+        <listitem><para>Shortcuts for <option>--make-ddi=sysext</option>,
+        <option>--make-ddi=confext</option>, <option>--make-ddi=portable</option>,
+        respectively.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--append-fstab=</option></term>
+
+        <listitem><para>Takes one of <literal>no</literal>, <literal>auto</literal> or
+        <literal>replace</literal>. Controls how the generated
+        <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        file by <option>--generate-fstab=</option> will behave in case that there is a previously
+        existing file.</para>
+
+        <para>If <literal>no</literal> <command>systemd-repart</command> will complain and abort in
+        case that there is a file. This is the default behaviour. If <literal>replace</literal>
+        the file will be silently replaced with the new generated one.</para>
+
+        <para>If <literal>auto</literal> <command>systemd-repart</command> will search in the pre-existing file
+        the section that belong to the automatically generated content and will replace it with the newer
+        generated content, and keep the user provided section if there is one. The generated section is
+        identified looking for the automatic content surrounded by
+        <literal># Start section ↓ of automatically generated fstab by systemd-repart</literal> and
+        <literal># End section ↑ of automatically generated fstab by systemd-repart</literal>. The content
+        that is before and after those comments are considered user provided, and kept in the new file.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--generate-fstab=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>Specifies a path where to write
+        <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        entries for the mountpoints configured with <option>MountPoint=</option> in the root directory
+        specified with <option>--copy-source=</option> or <option>--root=</option> or in the host's root
+        directory if neither is specified. Disabled by default.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--generate-crypttab=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>Specifies a path where to write crypttab entries for the encrypted volumes configured
+        with <option>EncryptedVolume=</option> in the root directory specified with
+        <option>--copy-source=</option> or <option>--root=</option> or in the host's root directory if
+        neither is specified. Disabled by default.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--list-devices</option></term>
+
+        <listitem><para>Show a list of candidate block devices this command may operate on. Specifically,
+        this enumerates block devices currently present that support partition tables, and shows their device
+        node paths along with any of their symlinks.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--el-torito=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>Write a minimal ISO9660 header with El Torito boot catalog. That will
+        boot the ESP on EFI firmware.</para>
+
+        <para>The ISO9660 filesystem created by it will be empty. The initramfs is expected to create a
+        partitionable loop device on top of the device to change the block size and enable GPT
+        partitions.</para>
+
+        <para>The disk requires at least one partition with <varname>Type=esp</varname>. The first one will
+        be the one referenced in the boot catalog.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--el-torito-system=<replaceable>STRING</replaceable></option></term>
+
+        <listitem><para>When creating an ISO9660 header, this value will be used as the system identifier.
+        This is useful for the media to be matched against osinfo db.</para>
+
+        <para>The value is limited to 32 characters.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--el-torito-volume=<replaceable>STRING</replaceable></option></term>
+
+        <listitem><para>When creating an ISO9660 header, this value will be used as volume identifier.
+        This is useful for the media to be matched against osinfo db.</para>
+
+        <para>The value is limited to 32 characters.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--el-torito-publisher=<replaceable>STRING</replaceable></option></term>
+
+        <listitem><para>When creating an ISO9660 header, this value will be used as publisher identifier.
+        This is useful for the media to be matched against osinfo db.</para>
+
+        <para>The value is limited to 128 characters.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="no-legend" />
+      <xi:include href="standard-options.xml" xpointer="json" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned, and a non-zero failure code otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Example</title>
+
+    <example>
+      <title>Generate a configuration extension image</title>
+
+      <para>The following creates a configuration extension DDI (confext) for an
+      <filename>/etc/motd</filename> update:</para>
+
+      <programlisting>mkdir -p tree/etc/extension-release.d
+echo "Hello World" >tree/etc/motd
+cat >tree/etc/extension-release.d/extension-release.my-motd &lt;&lt;EOF
+ID=fedora
+VERSION_ID=38
+IMAGE_ID=my-motd
+IMAGE_VERSION=7
+EOF
+systemd-repart -C \
+  --private-key=verity-private-key.pem \
+  --certificate=verity-certificate.pem \
+  -s tree/ \
+  /var/lib/confexts/my-motd.confext.raw
+systemd-confext refresh</programlisting>
+
+      <para>The DDI generated that way may be applied to the system with
+      <citerefentry><refentrytitle>systemd-confext</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+    </example>
+
+    <example>
+      <title>Generate a system extension image and sign it via PKCS11</title>
+
+      <para>The following creates a system extension DDI (sysext) for an
+      <filename>/usr/foo</filename> update and signs it with a hardware token via PKCS11:</para>
+
+      <programlisting>mkdir -p tree/usr/lib/extension-release.d
+echo "Hello World" >tree/usr/foo
+cat >tree/usr/lib/extension-release.d/extension-release.my-foo &lt;&lt;EOF
+ID=fedora
+VERSION_ID=38
+IMAGE_ID=my-foo
+IMAGE_VERSION=7
+EOF
+systemd-repart --make-ddi=sysext \
+  --private-key-source=engine:pkcs11 \
+  --private-key="pkcs11:model=PKCS%2315%20emulated;manufacturer=piv_II;serial=0123456789abcdef;token=Some%20Cert" \
+  --certificate=verity-certificate.pem \
+  -s tree/ \
+  /var/lib/extensions/my-foo.sysext.raw
+systemd-sysext refresh</programlisting>
+
+      <para>The DDI generated that way may be applied to the system with
+      <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+    </example>
+
+    <example>
+      <title>Generate a dm-verity signature offline and append it to a pre-built image</title>
+
+      <para>The following creates an image with dm-verity metadata, signs it separately to simulate an
+      offline signing system, and then appends the signature to the image:</para>
+
+      <programlisting>mkdir -p repart.d/ /tmp/tree/usr/lib/
+
+cat >/tmp/tree/usr/lib/os-release &lt;&lt;EOF
+ID=debian
+VERSION_ID=13
+EOF
+
+cat >repart.d/10-root.conf &lt;&lt;EOF
+[Partition]
+Type=root
+Format=erofs
+SizeMinBytes=100M
+SizeMaxBytes=100M
+Verity=data
+VerityMatchKey=root
+EOF
+
+cat >repart.d/11-root-verity.conf &lt;&lt;EOF
+[Partition]
+Type=root-verity
+Label=%o_%w_verity
+Verity=hash
+VerityMatchKey=root
+SizeMinBytes=400M
+SizeMaxBytes=400M
+EOF
+
+cat >repart.d/12-root-verity-sig.conf &lt;&lt;EOF
+[Partition]
+Type=root-verity-sig
+Label=%o_%w_verity_sig
+Verity=signature
+VerityMatchKey=root
+EOF
+
+systemd-repart --definitions repart.d \
+  --defer-partitions=root-verity-sig \
+  --copy-source=/tmp/tree/ \
+  --empty=create --size=600M \
+  --json=short \
+  /tmp/img.raw | jq --raw-output0 ".[-1].roothash" &gt; /tmp/img.roothash
+
+openssl smime -sign -in /tmp/img.roothash \
+  -inkey verity-private-key.pem \
+  -signer verity-certificate.pem \
+  -noattr -binary -outform der \
+  -out /tmp/img.roothash.p7s
+
+systemd-repart --definitions repart.d \
+  --dry-run=no --root=/tmp/tree/ \
+  --join-signature="$(cat /tmp/img.roothash):/tmp/img.roothash.p7s" \
+  --certificate=verity-certificate.pem \
+  /tmp/img.raw</programlisting>
+    </example>
+
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>repart.d</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>portablectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

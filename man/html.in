@@ -1,0 +1,30 @@
+#!/bin/sh
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+set -e
+
+if [ -z "$1" ]; then
+    echo "Use: $0 page-name (with no section suffix)"
+    exit 1
+fi
+
+# make sure the rules have been regenerated (in case update-man-rules was just run)
+ninja -C @BUILD_ROOT@ src/version/version.h
+
+target="man/$1.html"
+ninja -C @BUILD_ROOT@ "$target"
+
+fullname=@BUILD_ROOT@/"$target"
+if [ -f "$fullname" ]; then
+    redirect="$(readlink "$fullname" || :)"
+else
+    redirect=""
+fi
+if [ -n "$redirect" ]; then
+    ninja -C @BUILD_ROOT@ "man/$redirect"
+
+    fullname=@BUILD_ROOT@"/man/$redirect"
+fi
+
+set -x
+exec xdg-open "$fullname"

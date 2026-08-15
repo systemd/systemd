@@ -1,0 +1,166 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-keyutil"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>systemd-keyutil</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-keyutil</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-keyutil</refname>
+    <refpurpose>Perform various operations on private keys and X.509 certificates</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-keyutil</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="req">COMMAND</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-keyutil</command> can be used to perform various operations on private keys and
+    X.509 certificates.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>validate</option></term>
+
+        <listitem><para>Checks that we can load the private key and certificate specified with
+        <option>--private-key=</option> and <option>--certificate=</option> respectively.</para>
+
+        <para>As a side effect, if the private key is loaded from a PIN-protected hardware token, this
+        command can be used to cache the PIN in the kernel keyring. The
+        <varname>$SYSTEMD_ASK_PASSWORD_KEYRING_TIMEOUT_SEC</varname> and
+        <varname>$SYSTEMD_ASK_PASSWORD_KEYRING_TYPE</varname> environment variables can be used to control
+        how long and in which kernel keyring the PIN is cached.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>extract-public</command></term>
+
+        <listitem><para>This commands prints the public key in PEM format extracted from either the
+        certificate given with <option>--certificate=</option> or the private key given with
+        <option>--private-key=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>extract-certificate</command></term>
+
+        <listitem><para>This command prints the X.509 certificate in PEM format extracted from the
+        certificate given with <option>--certificate=</option>. This is useful when loading a certificate
+        from an OpenSSL provider (e.g. a hardware token) and wanting to output a standalone PEM certificate
+        that can be used without the provider.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>pkcs7</command></term>
+
+        <listitem><para>This command embeds the PKCS#1 signature (RSA) provided with
+        <option>--signature=</option> in a PKCS#7 signature using the certificate given with
+        <option>--certificate=</option> and writes it to the file specified with <option>--output=</option>
+        in PKCS#7 format (p7s). If <option>--content=</option> is provided it is included in the p7s,
+        otherwise a "detached" signature is created. The <option>--hash-algorithm=</option> option, which
+        defaults to <literal>SHA256</literal>, specifies what hash algorithm was used to generate the
+        signature.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--private-key=<replaceable>PATH/URI</replaceable></option></term>
+        <term><option>--private-key-source=<replaceable>TYPE</replaceable>[:<replaceable>NAME</replaceable>]</option></term>
+        <term><option>--certificate=<replaceable>PATH</replaceable></option></term>
+        <term><option>--certificate-source=<replaceable>TYPE</replaceable>[:<replaceable>NAME</replaceable>]</option></term>
+
+        <listitem><para>Set the private key and certificate to use. The <option>--certificate=</option>
+        option takes a path to a PEM encoded X.509 certificate or a URI that's passed to the OpenSSL provider
+        configured with <option>--certificate-source</option>. The <option>--certificate-source</option>
+        takes one of <literal>file</literal> or <literal>provider</literal>, with the latter being followed
+        by a specific provider identifier, separated with a colon, e.g. <literal>provider:pkcs11</literal>.
+        The <option>--private-key=</option> option can take a path or a URI that will be passed to the
+        OpenSSL engine or provider, as specified by <option>--private-key-source=</option> as a
+        <literal>type:name</literal> tuple, such as <literal>engine:pkcs11</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--signature=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>Input PKCS#1 signature for the <command>pkcs7</command> command.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--content=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>Input data that corresponds to the PKCS#1 signature for the <command>pkcs7</command>
+        command, used for generating inline (i.e. non-"detached") PKCS#7 signatures.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--hash-algorithm=<replaceable>ALGORITHM</replaceable></option></term>
+
+        <listitem><para>Hash algorithm used to generate the PKCS#1 signature for the <command>pkcs7</command>
+        command. This should be a valid openssl digest algorithm; use <literal>openssl list
+        -digest-algorithms</literal> to see a list of valid algorithms on your system. Defaults to
+        <literal>SHA256</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--output=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>Output PKCS#7 signature for the <command>pkcs7</command> command.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help"/>
+      <xi:include href="standard-options.xml" xpointer="version"/>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd-sbsign</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

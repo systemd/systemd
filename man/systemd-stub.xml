@@ -1,0 +1,887 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-stub" conditional='ENABLE_BOOTLOADER'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>systemd-stub</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-stub</refentrytitle>
+    <manvolnum>7</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-stub</refname>
+    <refname>sd-stub</refname>
+    <refname>linuxx64.efi.stub</refname>
+    <refname>linuxia32.efi.stub</refname>
+    <refname>linuxaa64.efi.stub</refname>
+    <refpurpose>A simple UEFI kernel boot stub</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><simplelist>
+      <member><filename>/usr/lib/systemd/boot/efi/linuxx64.efi.stub</filename></member>
+      <member><filename>/usr/lib/systemd/boot/efi/linuxia32.efi.stub</filename></member>
+      <member><filename>/usr/lib/systemd/boot/efi/linuxaa64.efi.stub</filename></member>
+      <member><filename><replaceable>ESP</replaceable>/.../<replaceable>foo</replaceable>.efi.extra.d/*.addon.efi</filename></member>
+      <member><filename><replaceable>ESP</replaceable>/.../<replaceable>foo</replaceable>.efi.extra.d/*.cred</filename></member>
+      <member><filename><replaceable>ESP</replaceable>/.../<replaceable>foo</replaceable>.efi.extra.d/*.raw</filename></member>
+      <member><filename><replaceable>ESP</replaceable>/.../<replaceable>foo</replaceable>.efi.extra.d/*.sysext.raw</filename></member>
+      <member><filename><replaceable>ESP</replaceable>/.../<replaceable>foo</replaceable>.efi.extra.d/*.confext.raw</filename></member>
+      <member><filename><replaceable>ESP</replaceable>/loader/addons/*.addon.efi</filename></member>
+      <member><filename><replaceable>ESP</replaceable>/loader/credentials/*.cred</filename></member>
+      <member><filename><replaceable>ESP</replaceable>/loader/extensions/*.raw</filename></member>
+      <member><filename><replaceable>ESP</replaceable>/loader/extensions/*.sysext.raw</filename></member>
+      <member><filename><replaceable>ESP</replaceable>/loader/extensions/*.confext.raw</filename></member>
+    </simplelist></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-stub</command> (stored in per-architecture files
+    <filename>linuxx64.efi.stub</filename>, <filename>linuxia32.efi.stub</filename>,
+    <filename>linuxaa64.efi.stub</filename> on disk) is a simple UEFI boot stub. An UEFI boot stub is
+    attached to a Linux kernel binary image, and is a piece of code that runs in the UEFI firmware
+    environment before transitioning into the Linux kernel environment. The UEFI boot stub ensures a Linux
+    kernel is executable as regular UEFI binary, and is able to do various preparations before switching the
+    system into the Linux world.</para>
+
+    <para>The UEFI boot stub looks for various resources for the kernel invocation inside the UEFI PE binary
+    itself. This allows combining various resources inside a single PE binary image (a "Unified Kernel Image"
+    or "UKI" for short), which may then be signed via UEFI SecureBoot as a whole, covering all individual
+    resources at once. Specifically it may include the following PE sections:</para>
+
+    <itemizedlist>
+      <!-- Let's keep this in the canonical order we also measure the sections by, i.e. as in
+           src/fundamental/uki.h's UnifiedSection enum -->
+
+      <listitem><para>A <literal>.linux</literal> section with the ELF Linux kernel image.
+      This section is required.</para></listitem>
+
+      <listitem><para>An optional <literal>.osrel</literal> section with OS release information, i.e. the
+      contents of the
+      <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> file of
+      the OS the kernel belongs to.</para></listitem>
+
+      <listitem><para>An optional <literal>.cmdline</literal> section with the kernel command line to pass to
+      the invoked kernel.</para></listitem>
+
+      <listitem><para>An optional <literal>.initrd</literal> section with the initrd.</para></listitem>
+
+      <listitem><para>An optional <literal>.ucode</literal> section with an initrd containing microcode, to
+      be handed to the kernel before any other initrd. This initrd must not be compressed.</para></listitem>
+
+      <listitem><para>An optional <literal>.splash</literal> section with an image (in the Windows
+      <filename>.BMP</filename> format) to show on screen before invoking the kernel.</para></listitem>
+
+      <listitem><para>An optional <literal>.dtb</literal> section with a compiled binary DeviceTree.
+      </para></listitem>
+
+      <listitem><para>Zero or more <literal>.dtbauto</literal> sections. <command>systemd-stub</command>
+      will always use the first matching one. The match is performed by taking the first DeviceTree's
+      <literal>compatible</literal> string supplied by the firmware in configuration tables and comparing it
+      with the first <literal>compatible</literal> string from each of the <literal>.dtbauto</literal>
+      sections. If the firmware does not provide a DeviceTree, the match is done using the
+      <literal>.hwids</literal> section instead. After selecting the matching entry in the
+      <literal>.hwids</literal> section (see the description below), the <literal>compatible</literal> string
+      from that entry will be used to perform the same matching procedure. If a match is found, that
+      <literal>.dtbauto</literal> section will be loaded and will override <literal>.dtb</literal> if
+      present.</para></listitem>
+
+      <listitem><para>Zero or more <literal>.efifw</literal> sections for the firmware image. It works
+      in many ways similar to <literal>.dtbauto</literal> sections. <command>systemd-stub</command>
+      will always use the first matching one. The match is performed by first selecting the most appropriate
+      entry in the <literal>.hwids</literal> section based on the hardware IDs supplied by SMBIOS (see below).
+      If a suitable entry is found, the <literal>fwid</literal> string from that entry will be used to
+      perform the matching procedure for firmware blobs in <literal>.efifw</literal> section. The first
+      matching firmware will be loaded.
+      </para></listitem>
+
+      <listitem><para>An optional <literal>.hwids</literal> section with hardware IDs of the machines to
+      match DeviceTrees. <command>systemd-stub</command> will use the SMBIOS data to calculate hardware IDs
+      of the machine (as per <ulink
+      url="https://learn.microsoft.com/en-us/windows-hardware/drivers/install/specifying-hardware-ids-for-a-computer">specification</ulink>),
+      and then it will try to find any of them in the <literal>.hwids</literal> section. The first
+      matching entry will be used.</para></listitem>
+
+      <listitem><para>An optional <literal>.uname</literal> section with the kernel version information, i.e.
+      the output of <command>uname -r</command> for the kernel included in the <literal>.linux</literal>
+      section.</para></listitem>
+
+      <listitem><para>An optional <literal>.sbat</literal> section with
+      <ulink url="https://github.com/rhboot/shim/blob/main/SBAT.md">SBAT</ulink> revocation metadata.
+      </para></listitem>
+
+      <listitem><para>An optional <literal>.pcrsig</literal> section with a set of cryptographic signatures
+      for the expected TPM2 PCR values after the kernel has been booted, in JSON format. This is useful for
+      implementing TPM2 policies that bind disk encryption and similar to kernels that are signed by a
+      specific key.</para></listitem>
+
+      <listitem><para>An optional <literal>.pcrpkey</literal> section with a public key in the PEM format
+      matching the signature data in the <literal>.pcrsig</literal> section.</para></listitem>
+    </itemizedlist>
+
+    <!-- FIXME: how does .dtauto/.hwids matching interact with profiles? -->
+
+    <para>In a basic UKI, the sections listed above appear at most once, with the exception of
+    <literal>.dtbauto</literal> and <literal>.efifw</literal> sections. In a multi-profile UKI,
+    multiple sets of these sections are present in a single file and form "profiles",
+    one of which can be selected at boot. For this, the PE section <literal>.profile</literal> is
+    defined to be used as the separator between sets of sections. The
+    <literal>.profile</literal> section itself may contain meta-information about the section, and follows a
+    similar structure as the contents of the <literal>.osrel</literal> section. For further details about
+    multi-profile UKIs, see below.</para> <para>If UEFI SecureBoot is enabled and the
+    <literal>.cmdline</literal> section is present in the executed image, any attempts to override the kernel
+    command line by passing one as invocation parameters to the EFI binary are ignored. Thus, in order to
+    allow overriding the kernel command line, either disable UEFI SecureBoot, or do not include a kernel
+    command line PE section in the kernel image file. If a command line is accepted via EFI invocation
+    parameters to the EFI binary it is measured into TPM PCR 12 (if a TPM is present).</para> <para>If a
+    DeviceTree is embedded in the <literal>.dtb</literal> section, it replaces an existing DeviceTree in the
+    corresponding EFI configuration table. <command>systemd-stub</command> will ask the firmware via the
+    <literal>EFI_DT_FIXUP_PROTOCOL</literal> for hardware specific fixups to the DeviceTree.</para>
+
+    <para>The contents of 11 of these 12 sections are measured into TPM PCR 11. It is otherwise not used and
+    thus the result can be pre-calculated without too much effort. The <literal>.pcrsig</literal> section is
+    not included in this PCR measurement, since it is supposed to contain signatures for the output of the
+    measurement operation, and thus cannot also be input to it. If an UKI contains multiple profiles, only
+    the PE sections of the selected profile (and those of the base profile, except if overridden) are
+    measured.</para>
+
+    <para>If non-zero, the selected numeric profile is measured into PCR 12.</para>
+
+    <para>When <literal>.pcrsig</literal> and/or <literal>.pcrpkey</literal> sections are present in a
+    unified kernel image their contents are passed to the booted kernel in an synthetic initrd cpio archive
+    that places them in the <filename>/.extra/tpm2-pcr-signature.json</filename> and
+    <filename>/.extra/tpm2-pcr-public-key.pem</filename> files. Typically, a
+    <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> line then
+    ensures they are copied into <filename>/run/systemd/tpm2-pcr-signature.json</filename> and
+    <filename>/run/systemd/tpm2-pcr-public-key.pem</filename> where they remain accessible even after the
+    system transitions out of the initrd environment into the host file system. Tools such
+    <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    and <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    will automatically use files present under these paths to unlock protected resources (encrypted storage
+    or credentials) or bind encryption to booted kernels.</para>
+
+    <para>For further details about the UKI concept, see the <ulink
+    url="https://uapi-group.org/specifications/specs/unified_kernel_image/">UAPI.5 UKI specification</ulink>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Companion Files</title>
+
+    <para>The <command>systemd-stub</command> UEFI boot stub automatically collects three types of auxiliary
+    companion files optionally placed in drop-in directories on the same partition as the EFI binary,
+    dynamically generates <command>cpio</command> initrd archives from them, and passes them to the kernel.
+    Specifically:</para>
+
+    <itemizedlist>
+      <listitem><para>For a kernel binary called <filename><replaceable>foo</replaceable>.efi</filename>, it
+      will look for files with the <filename>.cred</filename> suffix in a directory named
+      <filename><replaceable>foo</replaceable>.efi.extra.d/</filename> next to it. If the kernel binary
+      uses a counter for the purpose of
+      <ulink url="https://systemd.io/AUTOMATIC_BOOT_ASSESSMENT">Automatic Boot Assessment</ulink>, this
+      counter will be ignored. For example, <filename><replaceable>foo</replaceable>+3-0.efi</filename>
+      will look in directory <filename><replaceable>foo</replaceable>.efi.extra.d/</filename>.
+      A <command>cpio</command>
+      archive is generated from all files found that way, placing them in the
+      <filename>/.extra/credentials/</filename> directory of the initrd file hierarchy. The main initrd may
+      then access them in this directory. This is supposed to be used to store auxiliary, encrypted,
+      authenticated credentials for use with <varname>LoadCredentialEncrypted</varname> in the UEFI System
+      Partition. See
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      and
+      <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      for
+      details on encrypted credentials. The generated <command>cpio</command> archive is measured into TPM
+      PCR 12 (if a TPM is present).</para></listitem>
+
+      <listitem><para>Similarly, files
+      <filename><replaceable>foo</replaceable>.efi.extra.d/*.sysext.raw</filename> are packed up in a
+      <command>cpio</command> archive and placed in the <filename>/.extra/sysext/</filename> directory in the
+      initrd file hierarchy. This is supposed to be used to pass additional UKI-specific system extension
+      images to the initrd. See
+      <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
+      details on system extension images. The generated <command>cpio</command> archive containing these
+      system extension images is measured into TPM PCR 13 (if a TPM is present).</para></listitem>
+
+      <!-- Note: the actual suffix we look for for sysexts is just *.raw (not *.sysext.raw), for
+           compatibility reasons with old versions. But we want people to name their system extensions
+           properly, hence we document the *.sysext.raw suffix only. -->
+
+      <listitem><para>Similarly, files <filename>/loader/extensions/*.sysext.raw</filename>
+      are packed up in a <command>cpio</command> archive and placed in the <filename>/.extra/global_sysext/</filename>
+      directory in the initrd file hierarchy. This is supposed to be used to pass additional global system
+      extension images to the initrd. See
+      <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
+      details on system extension images. The generated <command>cpio</command> archive containing these
+      system extension images is measured into TPM PCR 13 (if a TPM is present).</para></listitem>
+
+      <listitem><para>Similarly, files
+      <filename><replaceable>foo</replaceable>.efi.extra.d/*.confext.raw</filename> are packed up in a
+      <command>cpio</command> archive and placed in the <filename>/.extra/confext/</filename> directory in
+      the initrd file hierarchy. This is supposed to be used to pass additional UKI-specific configuration
+      extension images to the initrd. See
+      <citerefentry><refentrytitle>systemd-confext</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
+      details on configuration extension images. The generated <command>cpio</command> archive containing
+      these configuration extension images is measured into TPM PCR 12 (if a TPM is present).</para></listitem>
+
+      <listitem><para>Similarly, files <filename>/loader/extensions/*.confext.raw</filename>
+      are packed up in a <command>cpio</command> archive and placed in the <filename>/.extra/global_confext/</filename>
+      directory in the initrd file hierarchy. This is supposed to be used to pass additional global configuration
+      extension images to the initrd. See
+      <citerefentry><refentrytitle>systemd-confext</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
+      details on configuration extension images. The generated <command>cpio</command> archive containing
+      these configuration extension images is measured into TPM PCR 12 (if a TPM is present).</para></listitem>
+
+      <listitem><para>Similarly, files
+      <filename><replaceable>foo</replaceable>.efi.extra.d/*.addon.efi</filename> are loaded and verified as
+      PE binaries and specific sections are loaded from them. Addons are used to pass additional kernel
+      command line parameters (<literal>.cmdline</literal> section), or DeviceTree blobs
+      (<literal>.dtb</literal> section), additional initrds (<literal>.initrd</literal> section),
+      and microcode updates (<literal>.ucode</literal> section). Addons allow those resources to be passed
+      regardless of the kernel version being booted, for example allowing platform vendors to ship
+      platform-specific configuration.</para>
+
+      <para>In case Secure Boot is enabled, these files will be validated using keys in UEFI DB, Shim's DB or
+      Shim's MOK, and only loaded if the check passes. Additionally, if both the addon and the UKI contain a
+      <literal>.uname</literal> section, the addon will be rejected if they do not match exactly. It is
+      recommended to always add a <literal>.sbat</literal> section to all signed addons, so that they may be
+      revoked with a SBAT policy update, without requiring blocklisting via DBX/MOKX. The
+      <citerefentry><refentrytitle>ukify</refentrytitle><manvolnum>1</manvolnum></citerefentry> tool will add
+      a SBAT policy by default if none is passed when building addons. For more information on SBAT see
+      <ulink url="https://github.com/rhboot/shim/blob/main/SBAT.md">Shim documentation</ulink>.</para>
+
+      <para>Addon files are sorted, loaded, and measured into TPM PCR 12 (if a TPM is present) and appended
+      to the kernel command line. UKI command line options are listed first, then options from addons in
+      <filename>/loader/addons/*.addon.efi</filename>, and finally UKI-specific addons. Device tree blobs are
+      loaded and measured following the same algorithm. Microcode addons are passed to the kernel in inverse
+      order (UKI specific addons, global addons, UKI embedded section). This is because the microcode update
+      driver stops on the first matching filename. Addons are always loaded in the same order based on
+      the filename, so that, given the same set of addons, the same set of measurements can be expected in
+      PCR12. However, note that the filename is not protected by the PE signature, and as such an attacker
+      with write access to the ESP could potentially rename these files to change the order in which they are
+      loaded, in a way that could alter the functionality of the kernel, as some options might be
+      order-dependent. If you sign such addons, you should pay attention to the PCR12 values and make use of
+      an attestation service so that improper use of your signed addons can be detected and dealt with using
+      one of the aforementioned revocation mechanisms.</para></listitem>
+
+      <listitem><para>Files <filename>/loader/credentials/*.cred</filename> are packed up in a
+      <command>cpio</command> archive and placed in the <filename>/.extra/global_credentials/</filename>
+      directory of the initrd file hierarchy. This is supposed to be used to pass additional credentials to
+      the initrd, regardless of the kernel version being booted. The generated <command>cpio</command>
+      archive is measured into TPM PCR 12 (if a TPM is present).</para></listitem>
+
+      <listitem><para>Additionally, files <filename>/loader/addons/*.addon.efi</filename> are loaded and
+      verified as PE binaries, and <literal>.cmdline</literal>, <literal>.dtb</literal>,
+      <literal>.initrd</literal>, and <literal>.ucode</literal> sections are parsed from them.
+      This is supposed to be used to pass additional command line parameters, DeviceTree blobs, initrds,
+      and microcode updates to the kernel, regardless of the kernel version being booted.</para></listitem>
+    </itemizedlist>
+
+    <para>These mechanisms may be used to parameterize and extend trusted (i.e. signed), immutable initrd
+    images in a reasonably safe way: all data they contain is measured into TPM PCRs. On access they should be
+    further validated: in case of the credentials case by encrypting/authenticating them via TPM, as exposed
+    by <command>systemd-creds encrypt -T</command> (see
+    <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+    details); in case of the system extension images by using signed Verity images.</para>
+
+    <para>Note that earlier components of the boot process might register additional initrds, and thus
+    additional "companion" resources such as system extensions, configuration extensions and credentials for
+    consumption by the kernel and OS eventually booted. For example,
+    <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> does
+    this for resources configured in UAPI.1 Type #1 <literal>extra</literal>
+    lines. <filename>systemd-stub</filename> will combine any resources provided that way with the companion
+    file resources it acquires itself.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Multi-Profile UKIs</title>
+
+    <para>In many contexts it is useful to allow invocation of a single UKI in multiple different modes (or
+    "profiles") without compromising the cryptographic integrity, measurements and so on of the boot
+    process. For example, a single UKI might provide three distinct profiles: a regular boot one, one that
+    invokes a "factory reset" operation, and one that boots into a storage target mode (as in
+    <citerefentry><refentrytitle>systemd-storagetm.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>). Each
+    profile would then use the same <literal>.linux</literal> and <literal>.initrd</literal> sections, but would
+    have a separate <literal>.cmdline</literal> section. For example the latter two profiles would extend the
+    regular kernel command line with <literal>systemd.unit=factory-reset.target</literal> or
+    <literal>rd.systemd.unit=storagetm.target</literal>.</para>
+
+    <para>A single UKI may support multiple profiles by means of the special <literal>.profile</literal> PE
+    section. This section acts as separator between the PE sections of the individual profiles.
+    <literal>.profile</literal> PE sections hence may appear multiple times in a single UKI, and the other PE
+    sections listed above may appear multiple times too, if <literal>.profile</literal> are used, but only
+    once before the first <literal>.profile</literal> section, once between each subsequent pair, and once
+    after the last appearance of <literal>.profile</literal>. The sections listed before the first
+    <literal>.profile</literal> are considered the "base" profile of the UKI. Each
+    <literal>.profile</literal> section then introduces a new profile, which are numbered starting from zero.
+    The PE sections following each <literal>.profile</literal> are specific to that profile. When booting
+    into a specific profile, the base section's profiles are used in combination with the specific profile's
+    sections: if the same section is defined in both, the per-profile section overrides the base profile's
+    version, otherwise the base profile sections are used.</para>
+
+    <para>A UKI that contains no <literal>.profile</literal> is consider equivalent to one that just contains
+    a single <literal>.profile</literal>, as having only a single profile <literal>@0</literal>.</para>
+
+    <para>Here's a simple example for a multi-profile UKI's sections, inspired by the setup suggested above:</para>
+
+    <table>
+      <title>Multi-Profile UKI Example</title>
+
+      <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+        <colspec colname="section" />
+        <colspec colname="profile" />
+
+        <thead>
+          <row>
+            <entry>Section</entry>
+            <entry>Profile</entry>
+          </row>
+        </thead>
+
+        <tbody>
+          <row>
+            <entry><literal>.linux</literal></entry>
+            <entry morerows="3" valign="middle">Base profile</entry>
+          </row>
+          <row>
+            <entry><literal>.osrel</literal></entry>
+          </row>
+          <row>
+            <entry><literal>.cmdline</literal></entry>
+          </row>
+          <row>
+            <entry><literal>.initrd</literal></entry>
+          </row>
+          <row>
+            <entry><literal>.profile</literal></entry>
+            <entry>Profile @0</entry>
+          </row>
+          <row>
+            <entry><literal>.profile</literal></entry>
+            <entry morerows="1" valign="middle">Profile @1</entry>
+          </row>
+          <row>
+            <entry><literal>.cmdline</literal></entry>
+          </row>
+          <row>
+            <entry><literal>.profile</literal></entry>
+            <entry morerows="1" valign="middle">Profile @2</entry>
+          </row>
+          <row>
+            <entry><literal>.cmdline</literal></entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+
+    <para>The section list above would define three profiles. The first four sections make up the base
+    profile. A <literal>.profile</literal> section then introduces profile @0. It does not override any
+    sections (or add any) from the base section, hence it is immediately followed by another
+    <literal>.profile</literal> section that then introduces section @1. This profile overrides the kernel
+    command line. Finally, the last two sections define section @2, again overriding the command line. (Note
+    that in this example the first <literal>.cmdline</literal> could also moved behind the first
+    <literal>.profile</literal> with equivalent effect. To keep things nicely extensible, it is probably a
+    good idea to keep the generic command line in the base section instead of profile 0, in case later added
+    profiles might want to reuse it.)</para>
+
+    <para>The profile to boot may be controlled via the UKI's own command line: if the first argument starts
+    with <literal>@</literal>, followed by a positive integer number in decimal, it selects the profile to
+    boot into. If the first argument is not specified like that, the UKI will automatically boot into profile
+    0.</para>
+
+    <para>A <literal>.profile</literal> section may contain meta-information about the profile. It follows a
+    similar format as <literal>.osrel</literal> (i.e. an environment-variable-assignment-block-like list of
+    newline separated strings). Currently two fields are defined: <literal>ID=</literal> is supposed to carry
+    a short identifying string that identifies the profile
+    (e.g. <literal>ID=factory-reset</literal>). <literal>TITLE=</literal> should contain a human-readable
+    string that may appear in the boot menu entry for this profile (e.g. <literal>TITLE='Factory Reset this
+    Device'</literal>).</para>
+  </refsect1>
+
+  <refsect1>
+    <title>TPM PCR Notes</title>
+
+    <para>Note that when a unified kernel using <command>systemd-stub</command> is invoked the firmware will
+    measure it as a whole to TPM PCR 4, covering all embedded resources, such as the stub code itself, the
+    core kernel, the embedded initrd and kernel command line (see above for a full list), including all UKI
+    profiles.</para>
+
+    <para>Also note that when <command>systemd-stub</command> measures a PE section, it will measure the
+    amount of bytes that the section takes up in memory (<varname>VirtualSize</varname>) and not the amount
+    of bytes that the section takes up on disk (<varname>SizeOfRawData</varname>). This means that if the
+    size in memory is larger than the size on disk, <command>systemd-stub</command> will end up measuring
+    extra zeroes. To avoid this from happening, it is recommended to make sure that the size in memory of
+    each section that is measured by <command>systemd-stub</command> is always smaller than or equal to the
+    size on disk. <command>ukify</command> automatically makes sure this is the case when building UKIs or
+    addons.</para>
+
+    <para>Also note that the Linux kernel will measure all initrds it receives into TPM PCR 9. This means
+    every type of initrd (of the selected UKI profile) will possibly be measured two or three times: the
+    initrds embedded in the kernel image will be measured to PCR 4, PCR 9 and PCR 11; the initrd synthesized
+    from credentials (and the one synthesized from configuration extensions) will be measured to both PCR 9
+    and PCR 12; the initrd synthesized from system extensions will be measured to both PCR 4 and PCR 9. Let's
+    summarize the OS resources and the PCRs they are measured to:</para>
+
+    <table>
+      <title>OS Resource PCR Summary</title>
+
+      <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+        <colspec colname="pcr" />
+        <colspec colname="definition" />
+
+        <thead>
+          <row>
+            <entry>OS Resource</entry>
+            <entry>Measurement PCR</entry>
+          </row>
+        </thead>
+
+        <tbody>
+          <row>
+            <entry><command>systemd-stub</command> code (the entry point of the unified PE binary)</entry>
+            <entry>4</entry>
+          </row>
+
+          <row>
+            <entry>Core kernel code (embedded in unified PE binary)</entry>
+            <entry>4 + 11</entry>
+          </row>
+
+          <row>
+            <entry>OS release information (embedded in the unified PE binary)</entry>
+            <entry>4 + 11</entry>
+          </row>
+
+          <row>
+            <entry>Main initrd (embedded in unified PE binary)</entry>
+            <entry>4 + 9 + 11</entry>
+          </row>
+
+          <row>
+            <entry>Microcode initrd (embedded in unified PE binary)</entry>
+            <entry>4 + 9 + 11</entry>
+          </row>
+
+          <row>
+            <entry>Default kernel command line (embedded in unified PE binary)</entry>
+            <entry>4 + 11</entry>
+          </row>
+
+          <row>
+            <entry>Overridden kernel command line</entry>
+            <entry>12</entry>
+          </row>
+
+          <row>
+            <entry>Boot splash (embedded in the unified PE binary)</entry>
+            <entry>4 + 11</entry>
+          </row>
+
+          <row>
+            <entry>TPM2 PCR signature JSON (embedded in unified PE binary, synthesized into initrd)</entry>
+            <entry>4 + 9</entry>
+          </row>
+
+          <row>
+            <entry>TPM2 PCR PEM public key (embedded in unified PE binary, synthesized into initrd)</entry>
+            <entry>4 + 9 + 11</entry>
+          </row>
+
+          <row>
+            <entry>Credentials (synthesized initrd from companion files)</entry>
+            <entry>9 + 12</entry>
+          </row>
+
+          <row>
+            <entry>System Extensions (synthesized initrd from companion files)</entry>
+            <entry>9 + 13</entry>
+          </row>
+
+          <row>
+            <entry>Configuration Extensions (synthesized initrd from companion files)</entry>
+            <entry>9 + 12</entry>
+          </row>
+
+          <row>
+            <entry>Selected profile unless zero</entry>
+            <entry>12</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+  </refsect1>
+
+  <refsect1>
+    <title>EFI Variables</title>
+
+    <para>The following EFI variables are defined, set and read by <command>systemd-stub</command>, under the
+    vendor UUID <literal>4a67b082-0a4c-41cf-b6c7-440b29bb8c4f</literal>, for communication between the boot
+    stub and the OS:</para>
+
+    <variablelist class='efi-variables'>
+      <varlistentry>
+        <term><varname>LoaderDevicePartUUID</varname></term>
+
+        <listitem><para>Contains the partition UUID of the partition the boot loader has been started from on
+        the current boot (usually a EFI System Partition). If already set by the boot loader, this will
+        remain untouched by <command>systemd-stub</command>. If not set yet, this will be set to the
+        partition UUID of the partition the unified kernel is started from, in order to support systems that
+        directly boot into a unified kernel image, bypassing any boot loader.
+        <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        uses this information to automatically find the disk booted from, in order to discover various other
+        partitions on the same disk automatically.</para>
+
+        <xi:include href="version-info.xml" xpointer="v224"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderFirmwareInfo</varname></term>
+        <term><varname>LoaderFirmwareType</varname></term>
+
+        <listitem><para>Brief firmware information. Use
+        <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> to view this
+        data.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderTpm2ActivePcrBanks</varname></term>
+
+        <listitem><para>Hexadecimal string representation of a bitmask with values defined by the TCG EFI
+        Protocol Specification for TPM 2.0 as EFI_TCG2_BOOT_HASH_ALG_*. If no TPM2 support or no active
+        banks were detected, will be set to <constant>0</constant>. Set by the boot loader. Use
+        <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        to view this data.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderImageIdentifier</varname></term>
+
+        <listitem><para>The file system path to the EFI executable of the boot loader for the current boot,
+        relative to the partition's root directory (i.e. relative to the partition indicated by
+        <varname>LoaderDevicePartUUID</varname>, see above). If not set yet, this will be set to the file
+        system path of the EFI executable of the booted unified kernel, in order to support systems that
+        directly boot into a unified kernel image, bypassing any boot loader.  Use
+        <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> to view
+        this data.</para>
+
+        <xi:include href="version-info.xml" xpointer="v237"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>StubDevicePartUUID</varname></term>
+        <term><varname>StubImageIdentifier</varname></term>
+
+        <listitem><para>Similar to <varname>LoaderDevicePartUUID</varname> and
+        <varname>LoaderImageIdentifier</varname>, but indicates the location of the unified kernel image EFI
+        binary rather than the location of the boot loader binary, regardless of whether booted via a boot loader
+        or not.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>StubDeviceURL</varname></term>
+
+        <listitem><para>If the kernel image has been invoked via network booting this variable contains the
+        originating URL. This may be used to automatically acquire additional resources from the same
+        source.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>StubInfo</varname></term>
+
+        <listitem><para>Brief stub information. Use
+        <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> to view
+        this data.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>StubPcrKernelImage</varname></term>
+
+        <listitem><para>The PCR register index the kernel image, initrd image, boot splash, devicetree
+        database, and the embedded command line are measured into, formatted as decimal ASCII string (e.g.
+        <literal>11</literal>). This variable is set if a measurement was successfully completed, and remains
+        unset otherwise.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>StubPcrKernelParameters</varname></term>
+
+        <listitem><para>The PCR register index the kernel command line and credentials are measured into,
+        formatted as decimal ASCII string (e.g. <literal>12</literal>). This variable is set if a measurement
+        was successfully completed, and remains unset otherwise.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>StubPcrInitRDSysExts</varname></term>
+
+        <listitem><para>The PCR register index the system extensions for the initrd, which are picked up from
+        the file system the kernel image is located on. Formatted as decimal ASCII string (e.g.
+        <literal>13</literal>). This variable is set if a measurement was successfully completed, and remains
+        unset otherwise.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>StubPcrInitRDConfExts</varname></term>
+
+        <listitem><para>The PCR register index the configuration extensions for the initrd, which are picked
+        up from the file system the kernel image is located on. Formatted as decimal ASCII string (e.g.
+        <literal>12</literal>). This variable is set if a measurement was successfully completed, and remains
+        unset otherwise.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>StubProfile</varname></term>
+
+        <listitem><para>The numeric index of the selected profile, without the <literal>@</literal>,
+        formatted as decimal string. Set both on single-profile and multi-profile UKIs. (In the former case
+        this variable will be set to <literal>0</literal> unconditionally.)</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderPcrSMBIOS</varname></term>
+
+        <listitem><para>The PCR register index select SMBIOS structures are measured into — type 1
+        (system information, with the volatile "Wake-up Type" field zeroed out), type 2 (baseboard
+        information) and type 11 (OEM strings). Formatted as decimal ASCII string (e.g.
+        <literal>1</literal>). This variable is set if a measurement was successfully completed, and remains
+        unset otherwise. <command>systemd-stub</command> performs this measurement only if it has not already
+        been done in the same boot (e.g. by the boot loader), as indicated by this variable being set
+        already.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderBootSecret</varname></term>
+
+        <listitem><para>A non-volatile EFI variable only accessible from the pre-boot environment
+        (i.e. access from the OS is not permitted) that contains a per-system secret. It is set automatically
+        by <command>systemd-stub</command> if not present already. A secret derived from the value of this
+        EFI variable is passed to the OS in <filename>/.extra/boot-secret</filename>, see below.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>Note that some of the variables above may also be set by the boot loader. The stub will only set
+    them if they are not set already. Some of these variables are defined by the <ulink
+    url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>initrd Resources</title>
+
+    <para>The following resources are passed as initrd cpio archives to the booted kernel, and thus make up
+    the initial file system hierarchy in the initrd execution environment:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><filename>/</filename></term>
+
+        <listitem><para>The main initrd from the <literal>.initrd</literal> PE section of the unified kernel
+        image.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>/.extra/credentials/*.cred</filename></term>
+        <listitem><para>Credential files (suffix <literal>.cred</literal>) that are placed next to the
+        unified kernel image (as described above) are copied into the
+        <filename>/.extra/credentials/</filename> directory in the initrd execution
+        environment.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>/.extra/global_credentials/*.cred</filename></term>
+        <listitem><para>Similarly, credential files in the <filename>/loader/credentials/</filename>
+        directory in the file system the unified kernel image is placed in are copied into the
+        <filename>/.extra/global_credentials/</filename> directory in the initrd execution
+        environment.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>/.extra/sysext/*.sysext.raw</filename></term>
+        <listitem><para>System extension image files (suffix <literal>.sysext.raw</literal>) that are placed
+        next to the unified kernel image (as described above) are copied into the
+        <filename>/.extra/sysext/</filename> directory in the initrd execution environment.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>/.extra/global_sysext/*.sysext.raw</filename></term>
+        <listitem><para>Similarly, system extension image files (suffix <literal>.sysext.raw</literal>) that
+        are placed in the <filename>/loader/extensions/</filename> directory in the file system the unified
+        kernel image is placed in are copied into the <filename>/.extra/global_sysext/</filename>
+        directory in the initrd execution environment.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>/.extra/confext/*.confext.raw</filename></term>
+        <listitem><para>Configuration extension image files (suffix <literal>.confext.raw</literal>) that are
+        placed next to the unified kernel image (as described above) are copied into the
+        <filename>/.extra/confext/</filename> directory in the initrd execution environment.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>/.extra/global_confext/*.confext.raw</filename></term>
+        <listitem><para>Similarly, configuration extension image files (suffix <literal>.confext.raw</literal>)
+        that are placed in the <filename>/loader/extensions/</filename> directory in the file system the unified
+        kernel image is placed in are copied into the <filename>/.extra/global_confext/</filename>
+        directory in the initrd execution environment.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>/.extra/tpm2-pcr-signature.json</filename></term>
+        <listitem><para>The TPM2 PCR signature JSON object included in the <literal>.pcrsig</literal> PE
+        section of the unified kernel image is copied into the
+        <filename>/.extra/tpm2-pcr-signature.json</filename> file in the initrd execution environment.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>/.extra/tpm2-pcr-public-key.pem</filename></term>
+        <listitem><para>The PEM public key included in the <literal>.pcrpkey</literal> PE section of the
+        unified kernel image is copied into the <filename>/.extra/tpm2-pcr-public-key.pem</filename> file in
+        the initrd execution environment.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>/.extra/profile</filename></term>
+        <term><filename>/.extra/os-release</filename></term>
+        <listitem><para>The contents of the <literal>.profile</literal> and <literal>.osrel</literal>
+        sections of the selected profile, if any.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>/.extra/boot-secret</filename></term>
+        <listitem><para>A 32 byte per-system secret which is derived from a 32 byte secret stored in an EFI
+        variable (<varname>LoaderBootSecret</varname>, see above), which itself is only accessible to the
+        pre-boot environment. This may be used for various early-boot cryptographic purposes, and OS file
+        system access to it is restricted to root. The <varname>IMAGE_ID=</varname>/<varname>ID=</varname>
+        data from the <literal>.osrel</literal> is hashed into the secret, to ensure that different images
+        get a distinct secret passed. Moreover, a randomized 32 byte value stored in the ESP in the
+        <literal>/loader/boot-secret-mixin</literal> file is hashed in as well, ensuring that distinct disks will
+        result in different boot secrets.</para>
+
+        <para>Note: this boot secret is ultimately protected only by firmware-enforced access controls on the
+        EFI variable. This is generally a much weaker protection than TPM-based approaches have, and it is
+        hence strongly recommended to use the TPM on systems that possess one. The boot secret is primarily
+        intended to be a lower-security fallback for cases where a TPM is not available.</para>
+
+        <para>Applications should never protect resources directly with this secret, but derive their own
+        secret from it (by hashing it together with some application ID, in HMAC mode for example), in order
+        not to accidentally leak the primary boot secret.</para>
+
+        <para>Note that the boot secret is only available if the pre-boot environment had a suitable RNG
+        source at the current boot or an earlier one. This source can be an initialized on-disk
+        random seed or the EFI RNG support, or both.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>Note that all these files are located in the <literal>tmpfs</literal> file system the kernel sets
+    up for the initrd file hierarchy and are thus lost when the system transitions from the initrd execution
+    environment into the host file system. If these resources shall be kept around over this transition they
+    need to be copied to a place that survives the transition first, for example via a suitable
+    <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> line. By
+    default, this is done for the TPM2 PCR signature and public key files.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>SMBIOS Type 11 Strings</title>
+
+    <para><command>systemd-stub</command> can be configured using SMBIOS Type 11 strings. Applicable strings
+    consist of a name, followed by <literal>=</literal>, followed by the value. Unless
+    <command>systemd-stub</command> detects it is running inside a confidential computing environment,
+    <command>systemd-stub</command> will search the table for a string with a specific name, and if found,
+    use its value. The following strings are read:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><varname>io.systemd.stub.kernel-cmdline-extra</varname></term>
+        <listitem><para>If set, the value of this string is added to the list of kernel command line
+        arguments that are measured in PCR12 and passed to the kernel.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>io.systemd.boot.loglevel</varname></term>
+        <listitem><para>If set, the value of this string is used as log level. Valid values (from most to
+        least critical) are <literal>emerg</literal>, <literal>alert</literal>, <literal>crit</literal>,
+        <literal>err</literal>, <literal>warning</literal>, <literal>notice</literal>, <literal>info</literal>,
+        and <literal>debug</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Assembling Kernel Images</title>
+
+    <para>In order to assemble a bootable Unified Kernel Image from various components as described above, use
+    <citerefentry><refentrytitle>ukify</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink></member>
+      <member><ulink url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink></member>
+      <member><citerefentry><refentrytitle>ukify</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><ulink url="https://systemd.io/TPM2_PCR_MEASUREMENTS">TPM2 PCR Measurements Made by systemd</ulink></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

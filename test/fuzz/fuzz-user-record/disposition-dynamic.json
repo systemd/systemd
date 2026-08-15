@@ -1,0 +1,9 @@
+{
+    "userName": "dynamicuser",
+    "uid": 61234,
+    "gid": 61234,
+    "homeDirectory": "/run/dynamicuser",
+    "shell": "/usr/sbin/nologin",
+    "disposition": "dynamic",
+    "locked": true
+}

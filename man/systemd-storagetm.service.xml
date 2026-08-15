@@ -1,0 +1,117 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="systemd-storagetm.service" conditional='ENABLE_STORAGETM'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-storagetm.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-storagetm.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-storagetm.service</refname>
+    <refname>systemd-storagetm</refname>
+    <refpurpose>Exposes all local block devices as NVMe-TCP mass storage devices</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-storagetm.service</filename></para>
+
+    <cmdsynopsis>
+      <command>/usr/lib/systemd/systemd-storagetm</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="opt"><replaceable>DEVICE</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-storagetm.service</filename> is a service that exposes all local block devices as
+    NVMe-TCP mass storage devices. Its primary use-case is to be invoked by the
+    <filename>storage-target-mode.target</filename> unit that can be booted into.</para>
+
+    <warning>
+      <para>The NVMe disks are currently exposed without authentication or encryption, in read/write
+      mode. This means network peers may read from and write to the device without any restrictions. This
+      functionality should hence only be used in a local setup.</para>
+    </warning>
+
+    <para>Note that to function properly networking must be configured too. The recommended mechanism to boot
+    into a storage target mode is by adding <literal>rd.systemd.unit=storage-target-mode.target
+    ip=link-local</literal> on the kernel command line. Note that <literal>ip=link-local</literal> only
+    configures link-local IP, i.e. IPv4LL and IPv6LL, which means non-routable addresses. This is done for
+    security reasons, so that only systems on the local link can access the devices. Use
+    <literal>ip=dhcp</literal> to assign routable addresses too. For further details see
+    <citerefentry><refentrytitle>systemd-network-generator.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+    <para>Unless the <option>--all</option> switch is used expects one or more block devices or regular files to expose
+    via NVMe-TCP as argument.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--nqn=</option></term>
+        <listitem><para>Takes a string. If specified configures the NVMe Qualified Name to use for the
+        exposed NVMe-TCP mass storage devices. The NQN should follow the syntax described in <ulink
+        url="https://nvmexpress.org/wp-content/uploads/NVM-Express-Base-Specification-2.0c-2022.10.04-Ratified.pdf">NVM
+        Express Base Specification 2.0c</ulink>, section 4.5 "NVMe Qualified Names". Note that the NQN
+        specified here will be suffixed with a dot and the block device name before it is exposed on the
+        NVMe target. If not specified, defaults to
+        <literal>nqn.2023-10.io.systemd:storagetm.<replaceable>ID</replaceable></literal>, where ID is
+        replaced by a 128bit ID derived from
+        <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--all</option></term>
+        <term><option>-a</option></term>
+
+        <listitem><para>If specified exposes all local block devices via NVMe-TCP, current and future
+        (i.e. it watches block devices come and go and updates the NVMe-TCP list as needed). Note that by
+        default any block devices that originate on the same block device as the block device backing the
+        current root file system are excluded. If the switch is specified twice this safety mechanism is
+        disabled.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--list-devices</option></term>
+
+        <listitem><para>Show a list of candidate block devices this command may operate on. Specifically,
+        this enumerates block devices currently present, and shows their device node paths along with any of
+        their symlinks.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

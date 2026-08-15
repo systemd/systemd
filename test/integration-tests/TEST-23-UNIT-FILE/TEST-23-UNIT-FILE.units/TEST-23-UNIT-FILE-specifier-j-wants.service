@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Wants with percent-j specifier
+Wants=TEST-23-UNIT-FILE-specifier-j-depends-%j.service
+After=TEST-23-UNIT-FILE-specifier-j-depends-%j.service
+
+[Service]
+Type=oneshot
+ExecStart=test -f /tmp/test-specifier-j-%j
+ExecStart=touch /tmp/tetsuite-23-specifier-j-done

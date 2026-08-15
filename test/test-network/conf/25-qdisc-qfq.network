@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=dummy98
+
+[Network]
+IPv6AcceptRA=no
+Address=10.1.2.3/16
+
+[QuickFairQueueing]
+Parent=root
+Handle=0002
+
+[QuickFairQueueingClass]
+Parent=root
+ClassId=0002:0030
+Weight=2
+MaxPacketBytes=16000
+
+[QuickFairQueueingClass]
+Parent=root
+ClassId=0002:0031
+Weight=10
+MaxPacketBytes=8000

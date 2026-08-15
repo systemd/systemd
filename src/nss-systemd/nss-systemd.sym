@@ -1,0 +1,36 @@
+/***
+  SPDX-License-Identifier: LGPL-2.1-or-later
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+***/
+
+{
+global:
+        _nss_systemd_getpwnam_r;
+        _nss_systemd_getspnam_r;
+        _nss_systemd_getpwuid_r;
+        _nss_systemd_endpwent;
+        _nss_systemd_setpwent;
+        _nss_systemd_getpwent_r;
+        _nss_systemd_endspent;
+        _nss_systemd_setspent;
+        _nss_systemd_getspent_r;
+        _nss_systemd_getgrnam_r;
+        _nss_systemd_getsgnam_r;
+        _nss_systemd_getgrgid_r;
+        _nss_systemd_endgrent;
+        _nss_systemd_setgrent;
+        _nss_systemd_getgrent_r;
+        _nss_systemd_endsgent;
+        _nss_systemd_setsgent;
+        _nss_systemd_getsgent_r;
+        _nss_systemd_initgroups_dyn;
+
+        /* These two are not used by glibc, but can be used by apps to explicitly disable nss-systemd for the calling thread. */
+        _nss_systemd_block;
+        _nss_systemd_is_blocked;
+local: *;
+};

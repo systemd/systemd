@@ -1,0 +1,304 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include <stdio.h>
+
+#include "alloc-util.h"
+#include "build.h"
+#include "fileio.h"
+#include "format-table.h"
+#include "log.h"
+#include "main-func.h"
+#include "options.h"
+#include "path-util.h"
+#include "pretty-print.h"
+#include "string-util.h"
+#include "strv.h"
+#include "unit-def.h"
+#include "unit-name.h"
+
+static enum {
+        ACTION_ESCAPE,
+        ACTION_UNESCAPE,
+        ACTION_MANGLE
+} arg_action = ACTION_ESCAPE;
+static const char *arg_suffix = NULL;
+static const char *arg_template = NULL;
+static bool arg_path = false;
+static bool arg_instance = false;
+static bool arg_stdin = false;
+
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-escape", "1", &link);
+        if (r < 0)
+                return log_oom();
+
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        printf("%s [OPTIONS...] [NAME...]\n\n"
+               "%sEscape strings for usage in systemd unit names.%s\n\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal());
+
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
+        return 0;
+}
+
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
+        assert(argc >= 0);
+        assert(argv);
+
+        OptionParser opts = { argc, argv };
+
+        FOREACH_OPTION_OR_RETURN(c, &opts)
+                switch (c) {
+
+                OPTION_COMMON_HELP:
+                        return help();
+
+                OPTION_COMMON_VERSION:
+                        return version();
+
+                OPTION_LONG("suffix", "SUFFIX", "Unit suffix to append to escaped strings"): {
+                        UnitType t = unit_type_from_string(opts.arg);
+                        if (t < 0)
+                                return log_error_errno(t, "Invalid unit suffix type \"%s\".", opts.arg);
+
+                        arg_suffix = opts.arg;
+                        break;
+                }
+
+                OPTION_LONG("template", "TEMPLATE", "Insert strings as instance into template"):
+                        if (!unit_name_is_valid(opts.arg, UNIT_NAME_TEMPLATE))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Template name %s is not valid.", opts.arg);
+
+                        arg_template = opts.arg;
+                        break;
+
+                OPTION_LONG("stdin", NULL, "Read strings from standard input"):
+                        arg_stdin = true;
+                        break;
+
+                OPTION_LONG("instance", NULL, "With --unescape, show just the instance part"):
+                        arg_instance = true;
+                        break;
+
+                OPTION('u', "unescape", NULL, "Unescape strings"):
+                        arg_action = ACTION_UNESCAPE;
+                        break;
+
+                OPTION('m', "mangle", NULL, "Mangle strings"):
+                        arg_action = ACTION_MANGLE;
+                        break;
+
+                OPTION('p', "path", NULL,
+                       "When escaping/unescaping assume the string is a path"):
+                        arg_path = true;
+                        break;
+                }
+
+        if (arg_stdin && option_parser_get_n_args(&opts) > 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--stdin may not be combined with arguments.");
+
+        if (!arg_stdin && option_parser_get_n_args(&opts) == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Not enough arguments.");
+
+        if (arg_template && arg_suffix)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--suffix= and --template= may not be combined.");
+
+        if ((arg_template || arg_suffix) && arg_action == ACTION_MANGLE)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--suffix= and --template= are not compatible with --mangle.");
+
+        if (arg_suffix && arg_action == ACTION_UNESCAPE)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--suffix is not compatible with --unescape.");
+
+        if (arg_path && !IN_SET(arg_action, ACTION_ESCAPE, ACTION_UNESCAPE))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--path may not be combined with --mangle.");
+
+        if (arg_instance && arg_action != ACTION_UNESCAPE)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--instance must be used in conjunction with --unescape.");
+
+        if (arg_instance && arg_template)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--instance may not be combined with --template.");
+
+        *ret_args = option_parser_get_args(&opts);
+        return 1;
+}
+
+static int process_one(const char *input, char **ret) {
+        _cleanup_free_ char *e = NULL;
+        int r;
+
+        assert(input);
+        assert(ret);
+
+        switch (arg_action) {
+
+        case ACTION_ESCAPE:
+                if (arg_path) {
+                        r = unit_name_path_escape(input, &e);
+                        if (r == -EINVAL) {
+                                /* If escaping failed because the string was invalid, let's print a
+                                 * friendly message about it. Catch these specific error cases
+                                 * explicitly. */
+
+                                if (!path_is_valid(input))
+                                        return log_error_errno(r, "Input '%s' is not a valid file system path, failed to escape.", input);
+                                if (!path_is_absolute(input))
+                                        return log_error_errno(r, "Input '%s' is not an absolute file system path, failed to escape.", input);
+                                if (!path_is_normalized(input))
+                                        return log_error_errno(r, "Input '%s' is not a normalized file system path, failed to escape.", input);
+                        }
+                        if (r < 0)
+                                /* All other error cases. */
+                                return log_error_errno(r, "Failed to escape string: %m");
+
+                        /* If the escaping worked, then still warn if the path is not like we'd like
+                         * it. Because that means escaping is not necessarily reversible. */
+
+                        if (!path_is_valid(input))
+                                log_warning("Input '%s' is not a valid file system path, escaping is likely not going to be reversible.", input);
+                        else if (!path_is_absolute(input))
+                                log_warning("Input '%s' is not an absolute file system path, escaping is likely not going to be reversible.", input);
+
+                        /* Note that we don't complain about paths not being normalized here, because
+                         * some forms of non-normalization is actually OK, such as a series // and
+                         * unit_name_path_escape() will clean those up silently, and the reversal is
+                         * "close enough" to be OK. */
+                } else {
+                        e = unit_name_escape(input);
+                        if (!e)
+                                return log_oom();
+                }
+
+                if (arg_template) {
+                        char *x;
+
+                        r = unit_name_replace_instance(arg_template, e, &x);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to replace instance: %m");
+
+                        free_and_replace(e, x);
+                } else if (arg_suffix) {
+                        if (!strextend(&e, ".", arg_suffix))
+                                return log_oom();
+                }
+
+                break;
+
+        case ACTION_UNESCAPE: {
+                _cleanup_free_ char *name = NULL;
+
+                if (arg_template || arg_instance) {
+                        _cleanup_free_ char *template = NULL;
+
+                        r = unit_name_to_instance(input, &name);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to extract instance: %m");
+                        if (isempty(name))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unit %s is missing the instance name.", input);
+
+                        r = unit_name_template(input, &template);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to extract template: %m");
+                        if (arg_template && !streq(arg_template, template))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unit %s template %s does not match specified template %s.",
+                                                       input, template, arg_template);
+                } else {
+                        name = strdup(input);
+                        if (!name)
+                                return log_oom();
+                }
+
+                if (arg_path)
+                        r = unit_name_path_unescape(name, &e);
+                else
+                        r = unit_name_unescape(name, &e);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to unescape string: %m");
+
+                break;
+        }
+
+        case ACTION_MANGLE:
+                r = unit_name_mangle(input, 0, &e);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to mangle name: %m");
+
+                break;
+        }
+
+        *ret = TAKE_PTR(e);
+        return 0;
+}
+
+static int run(int argc, char *argv[]) {
+        int r;
+
+        log_setup();
+
+        char **args = NULL;
+        r = parse_argv(argc, argv, &args);
+        if (r <= 0)
+                return r;
+
+        if (arg_stdin) {
+                for (;;) {
+                        _cleanup_free_ char *e = NULL, *line = NULL;
+
+                        r = read_line(stdin, LONG_LINE_MAX, &line);
+                        if (r == -ENOBUFS)
+                                return log_error_errno(r, "Input line from standard input is too long, refusing.");
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to read from standard input: %m");
+                        if (r == 0)
+                                return 0;
+
+                        r = process_one(line, &e);
+                        if (r < 0)
+                                return r;
+
+                        puts(e);
+                }
+        }
+
+        STRV_FOREACH(i, args) {
+                _cleanup_free_ char *e = NULL;
+
+                r = process_one(*i, &e);
+                if (r < 0)
+                        return r;
+
+                if (i != args)
+                        fputc(' ', stdout);
+
+                fputs(e, stdout);
+        }
+
+        fputc('\n', stdout);
+
+        return 0;
+}
+
+DEFINE_MAIN_FUNCTION(run);

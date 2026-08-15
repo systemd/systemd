@@ -1,0 +1,802 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="networkctl" conditional='ENABLE_NETWORKD'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>networkctl</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>networkctl</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>networkctl</refname>
+    <refpurpose>Query or modify the status of network links</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>networkctl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">COMMAND</arg>
+      <arg choice="opt" rep="repeat">LINK</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>networkctl</command> may be used to query or modify the
+    state of the network links as seen by
+    <command>systemd-networkd</command>.  Please refer to
+    <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    for an introduction to the basic concepts, functionality, and
+    configuration syntax.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
+
+    <para>The following commands are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term>
+          <command>list</command>
+          <optional><replaceable>PATTERN…</replaceable></optional>
+        </term>
+
+        <listitem>
+          <para>Show a list of existing links and their status. If one or more
+          <replaceable>PATTERN</replaceable>s are specified, only links matching one of them are shown.
+          If no further arguments are specified shows all links,
+          otherwise just the specified links. Produces output similar to:
+
+          <programlisting>IDX LINK         TYPE     OPERATIONAL SETUP
+  1 lo           loopback carrier     unmanaged
+  2 eth0         ether    routable    configured
+  3 virbr0       ether    no-carrier  unmanaged
+  4 virbr0-nic   ether    off         unmanaged
+
+4 links listed.</programlisting></para>
+
+        <para>The operational status is one of the following:
+            <variablelist>
+              <varlistentry>
+                <term>missing</term>
+                <listitem>
+                    <para>The device is missing.</para>
+
+                    <xi:include href="version-info.xml" xpointer="v245"/>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>off</term>
+                <listitem>
+                  <para>The device is powered down.</para>
+
+                  <xi:include href="version-info.xml" xpointer="v240"/>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>no-carrier</term>
+                <listitem>
+                  <para>The device is powered up, but does not yet have a carrier.</para>
+
+                  <xi:include href="version-info.xml" xpointer="v240"/>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>dormant</term>
+                <listitem>
+                  <para>The device has a carrier, but is not yet ready for normal traffic.</para>
+
+                  <xi:include href="version-info.xml" xpointer="v240"/>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>degraded-carrier</term>
+                <listitem>
+                  <para>One of the bonding or bridge slave network interfaces is in off, no-carrier, or
+                  dormant state, and the master interface has no address.</para>
+
+                  <xi:include href="version-info.xml" xpointer="v242"/>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>carrier</term>
+                <listitem>
+                  <para>The link has carrier, or for bond or bridge master, all bonding or bridge slave
+                  network interfaces are enslaved to the master.</para>
+
+                  <xi:include href="version-info.xml" xpointer="v240"/>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>degraded</term>
+                <listitem>
+                  <para>The link has carrier and addresses valid on the local link configured. For bond or
+                  bridge master this means that not all slave network interfaces have carrier but at least
+                  one does.</para>
+
+                  <xi:include href="version-info.xml" xpointer="v240"/>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>enslaved</term>
+                <listitem>
+                  <para>The link has carrier and is enslaved to bond or bridge master network interface.
+                  </para>
+
+                  <xi:include href="version-info.xml" xpointer="v242"/>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>routable</term>
+                <listitem>
+                  <para>The link has carrier and routable address configured. For bond or bridge master it is
+                  not necessary for all slave network interfaces to have carrier, but at least one must.</para>
+
+                  <xi:include href="version-info.xml" xpointer="v240"/>
+                </listitem>
+              </varlistentry>
+            </variablelist>
+        </para>
+
+        <para>The setup status is one of the following:
+            <variablelist>
+              <varlistentry>
+                <term>pending</term>
+                <listitem>
+                  <para><citerefentry><refentrytitle>systemd-udevd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                  is still processing the link, we do not yet know if we will manage it.</para>
+
+                  <xi:include href="version-info.xml" xpointer="v240"/>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>initialized</term>
+                <listitem>
+                  <para><citerefentry><refentrytitle>systemd-udevd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                  has processed the link, but we do not yet know if we will manage it.</para>
+
+                  <xi:include href="version-info.xml" xpointer="v251"/>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>configuring</term>
+                <listitem>
+                  <para>Configuration for the link is being retrieved or the link is being configured.</para>
+
+                  <xi:include href="version-info.xml" xpointer="v240"/>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>configured</term>
+                <listitem>
+                  <para>Link has been configured successfully.</para>
+
+                  <xi:include href="version-info.xml" xpointer="v240"/>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>unmanaged</term>
+                <listitem>
+                  <para><command>systemd-networkd</command> is not handling the link.</para>
+
+                  <xi:include href="version-info.xml" xpointer="v240"/>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>failed</term>
+                <listitem>
+                  <para><command>systemd-networkd</command> failed to configure the link.</para>
+
+                  <xi:include href="version-info.xml" xpointer="v240"/>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>linger</term>
+                <listitem>
+                  <para>The link is gone, but has not yet been dropped by <command>systemd-networkd</command>.</para>
+
+                  <xi:include href="version-info.xml" xpointer="v240"/>
+                </listitem>
+              </varlistentry>
+            </variablelist>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>
+          <command>status</command>
+          <optional><replaceable>PATTERN…</replaceable></optional>
+        </term>
+
+        <listitem>
+          <para>Show information about the specified links: type, state, kernel module driver, hardware and
+          IP address, configured DNS servers, etc. If one or more <replaceable>PATTERN</replaceable>s are
+          specified, only links matching one of them are shown.</para>
+
+          <para>When no links are specified, an overall network status is shown. Also see the option
+          <option>--all</option>.</para>
+
+          <para>Produces output similar to:
+          <programlisting>
+●        State: routable
+  Online state: online
+       Address: 10.193.76.5 on eth0
+                192.168.122.1 on virbr0
+                169.254.190.105 on eth0
+                fe80::5054:aa:bbbb:cccc on eth0
+       Gateway: 10.193.11.1 (CISCO SYSTEMS, INC.) on eth0
+           DNS: 8.8.8.8
+                8.8.4.4</programlisting></para>
+
+          <para>In the overall network status, the online state depends on the individual online state of all
+          required links. Managed links are required for online by default. In this case, the online state is
+          one of the following:
+          <variablelist>
+            <varlistentry>
+              <term>unknown</term>
+              <listitem>
+                <para>All links have unknown online status (i.e. there are no required links).</para>
+
+                <xi:include href="version-info.xml" xpointer="v249"/>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term>offline</term>
+              <listitem>
+                <para>All required links are offline.</para>
+
+                <xi:include href="version-info.xml" xpointer="v249"/>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term>partial</term>
+              <listitem>
+                <para>Some, but not all, required links are online.</para>
+
+                <xi:include href="version-info.xml" xpointer="v249"/>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term>online</term>
+              <listitem>
+                <para>All required links are online.</para>
+
+                <xi:include href="version-info.xml" xpointer="v249"/>
+              </listitem>
+            </varlistentry>
+          </variablelist>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v219"/>
+        </listitem>
+
+      </varlistentry>
+
+      <varlistentry>
+        <term>
+          <command>dhcp-lease</command>
+          <replaceable>INTERFACE</replaceable>
+          <optional><replaceable>CODE<optional><replaceable>:FORMAT</replaceable></optional></replaceable></optional>
+          …
+        </term>
+
+        <listitem>
+          <para>Show the DHCP message of the acquired lease (i.e. the received DHCPACK message). Takes an
+          interface name and optional DHCP option codes. If no option code is specified, both the DHCP
+          message header and all options are shown. If one or more option codes are specified, only the
+          specified options are shown.</para>
+
+          <para>When called with the <option>--json=</option> option, the entire DHCP message is shown in
+          JSON format. In that case, any specified option codes are ignored.</para>
+
+          <para>By default, each option is displayed in a human-readable format, depending on the option.
+          For example, DNS server addresses are shown as a list of IP addresses (e.g.
+          <literal>192.0.2.1</literal>), and the lease time is shown as a human-readable duration (e.g.
+          <literal>8h</literal>).</para>
+
+          <para>Each option code may optionally be followed by a formatter, separated by a colon (e.g.
+          <literal>42:address</literal>). This can be useful if the default formatting is not appropriate.
+          </para>
+
+          <para>The following formatters are supported:</para>
+          <variablelist>
+            <varlistentry>
+              <term><option>auto</option></term>
+              <listitem>
+                <para>Use the default formatting.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>hex</option></term>
+              <listitem>
+                <para>Show the raw bytes in hexadecimal, separated by colons.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>flag</option></term>
+              <listitem>
+                <para>Treat the option as having zero-length data and display <literal>yes</literal>.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>bool</option></term>
+              <listitem>
+                <para>Treat the option as a 1-byte boolean and display <literal>yes</literal> or <literal>no</literal>.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>uint8</option></term>
+              <listitem>
+                <para>Treat the option as a 1-byte unsigned integer.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>uint16</option></term>
+              <listitem>
+                <para>Treat the option as a 2-byte unsigned integer.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>time</option></term>
+              <listitem>
+                <para>Treat the option as a 4-byte time value in seconds and display it as a human-readable duration.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>string</option></term>
+              <listitem>
+                <para>Treat the option as a string.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>address</option></term>
+              <listitem>
+                <para>Treat the option as one or more IPv4 addresses and display them in human-readable form.</para>
+              </listitem>
+            </varlistentry>
+          </variablelist>
+
+          <para>Produces output similar to:
+          <programlisting>$ networkctl dhcp-lease eth0
+Header:
+              KEY VALUE
+   Hardware Type: ETHER
+Hardware Address: 41:42:43:31:32:33
+  Client Address: 192.0.2.123
+  Server Address: 192.0.2.1
+
+Options:
+CODE NAME               DATA
+   1 subnet mask        255.255.255.0
+   3 router             192.0.2.1
+   6 domain name server 192.0.2.1
+  12 hostname           test-node
+  15 domain name        lan
+  28 broadcast address  192.0.2.255
+  42 NTP server         192.0.2.11
+                        192.0.2.12
+  51 lease time         1d
+  53 message type       5
+  54 server identifier  192.0.2.1
+  58 renewal time       11h 5min 38s
+  59 rebinding time     20h 5min 38s
+ 119 domain search      hoge.example.com
+                        foo.example.com</programlisting>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>
+          <command>lldp</command>
+          <optional><replaceable>PATTERN…</replaceable></optional>
+        </term>
+
+        <listitem>
+          <para>Show discovered LLDP (Link Layer Discovery Protocol) neighbors. If one or more
+          <replaceable>PATTERN</replaceable>s are specified only neighbors on those interfaces are shown.
+          Otherwise, shows discovered neighbors on all interfaces. Note that for this feature to work,
+          <varname>LLDP=</varname> must be turned on for the specific interface, see
+          <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+          details.</para>
+
+          <para>Produces output similar to:
+          <programlisting>LINK    SYSTEM-NAME SYSTEM-DESCRIPTION CHASSIS-ID        PORT-ID PORT-DESCRIPTION CAPS
+enp0s25 GS1900      -                  00:e0:4c:00:00:00 2       Port #2           ..b........
+
+Capability Flags:
+o - Other; p - Repeater;  b - Bridge; w - WLAN Access Point; r - Router;
+t - Telephone; d - DOCSIS cable device; a - Station; c - Customer VLAN;
+s - Service VLAN, m - Two-port MAC Relay (TPMR)
+
+1 neighbor(s) listed.</programlisting></para>
+
+          <xi:include href="version-info.xml" xpointer="v219"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>
+          <command>label</command>
+        </term>
+
+        <listitem><para>Show numerical address labels that can be used for address selection.
+        This is the same information that
+        <citerefentry project='die-net'><refentrytitle>ip-addrlabel</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        shows. See <ulink url="https://tools.ietf.org/html/rfc3484">RFC 3484</ulink>
+        for a discussion of address labels.</para>
+
+        <para>Produces output similar to:
+        <programlisting>Prefix/Prefixlen                          Label
+        ::/0                                  1
+    fc00::/7                                  5
+    fec0::/10                                11
+    2002::/16                                 2
+    3ffe::/16                                12
+ 2001:10::/28                                 7
+    2001::/32                                 6
+::ffff:0.0.0.0/96                             4
+        ::/96                                 3
+       ::1/128                                0</programlisting></para>
+
+        <xi:include href="version-info.xml" xpointer="v234"/>
+        </listitem>
+      </varlistentry>
+
+       <varlistentry>
+        <term>
+          <command>delete</command>
+          <replaceable>DEVICE…</replaceable>
+        </term>
+        <listitem><para>Deletes virtual netdevs. Takes interface name or index number.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/></listitem>
+      </varlistentry>
+
+       <varlistentry>
+        <term>
+          <command>up</command>
+          <replaceable>DEVICE…</replaceable>
+        </term>
+        <listitem><para>Bring devices up. Takes interface name or index number.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+      </varlistentry>
+
+       <varlistentry>
+        <term>
+          <command>down</command>
+          <replaceable>DEVICE…</replaceable>
+        </term>
+        <listitem><para>Bring devices down. Takes interface name or index number.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+      </varlistentry>
+
+       <varlistentry>
+        <term>
+          <command>renew</command>
+          <replaceable>DEVICE…</replaceable>
+        </term>
+        <listitem><para>Renew dynamic configurations e.g. addresses received from DHCP server.
+        Takes interface name or index number.</para>
+
+        <xi:include href="version-info.xml" xpointer="v244"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>
+          <command>forcerenew</command>
+          <replaceable>DEVICE…</replaceable>
+        </term>
+        <listitem><para>Send a FORCERENEW message to all connected clients, triggering DHCP reconfiguration.
+        Takes interface name or index number.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>
+          <command>reconfigure</command>
+          <replaceable>DEVICE…</replaceable>
+        </term>
+        <listitem><para>Reconfigure network interfaces. Takes interface name or index number. Note that
+        this does not reload <filename>.netdev</filename> or <filename>.network</filename>
+        corresponding to the specified interface. So, if you edit config files, it is necessary to call
+        <command>networkctl reload</command> first to apply new settings.</para>
+
+        <xi:include href="version-info.xml" xpointer="v244"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>
+          <command>reload</command>
+        </term>
+        <listitem>
+          <para>Reload <filename>.netdev</filename> and <filename>.network</filename> files.</para>
+
+          <para>If a new or modified <filename>.netdev</filename> file is found, then the corresponding
+          netdev is created or updated, respectively. Note, if the corresponding interface already exists,
+          then some of new settings may not be applied. E.g., VLAN ID cannot be changed after the interface
+          was created, so changing [VLAN] <varname>Id=</varname> will not take effect if the matching VLAN
+          interface already exists. To apply such settings, the interfaces need to be removed manually before
+          reload. Also note that even if a <filename>.netdev</filename> file is removed,
+          <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          does not remove the existing netdev corresponding to the file.
+          </para>
+
+          <para>If a new, modified, or removed <filename>.network</filename> file is found, then all
+          interfaces that matched the file are reconfigured. This reconfiguration step can be skipped by
+          passing <option>--no-reconfigure</option>, in which case only config files are reloaded from disk
+          without reconfiguring any network interfaces. Use <command>networkctl reconfigure</command> afterwards
+          to selectively apply config changes per interface.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>
+          <command>edit</command>
+          <replaceable>FILE</replaceable>|<replaceable>@DEVICE</replaceable>…
+        </term>
+        <listitem><para>Edit network configuration files, which include <filename>.network</filename>,
+        <filename>.netdev</filename>, and <filename>.link</filename> files. If no network config file
+        matching the given name is found, a new one will be created under <filename>/etc/</filename> or
+        <filename>/run/</filename>, depending on whether <option>--runtime</option> is specified.
+        Specially, if the name is prefixed by <literal>@</literal>, it will be treated as
+        a network interface, and editing will be performed on the network config files associated
+        with it. Additionally, the interface name can be suffixed with <literal>:network</literal> (default),
+        <literal>:link</literal>, or <literal>:netdev</literal>, in order to choose the type of network config
+        to operate on.</para>
+
+        <para>If <option>--drop-in=</option> is specified, edit the drop-in file instead of
+        the main configuration file. Unless <option>--no-reload</option> is specified,
+        <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        will be reloaded after the edit of the <filename>.network</filename> or <filename>.netdev</filename>
+        files finishes. The same applies for <filename>.link</filename> files and
+        <citerefentry><refentrytitle>systemd-udevd</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        Note that the changed link settings are not automatically applied after reloading.
+        To achieve that, trigger uevents for the corresponding interface. Refer to
+        <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for more information.</para>
+
+        <para>If <option>--stdin</option> is specified, the new content will be read from standard input.
+        In this mode, the old content of the file is discarded.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>
+          <command>cat</command>
+          <optional><replaceable>FILE</replaceable>|<replaceable>@DEVICE</replaceable>…</optional>
+        </term>
+        <listitem>
+          <para>Show network configuration files. This command honors the <literal>@</literal> prefix in a
+          similar way as <command>edit</command>, with support for an additional suffix <literal>:all</literal>
+          for showing all types of configuration files associated with the interface at once. When no argument
+          is specified, <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          and its drop-in files will be shown.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>
+          <command>mask</command>
+          <replaceable>FILE</replaceable>…
+        </term>
+        <listitem><para>Mask network configuration files, which include <filename>.network</filename>,
+        <filename>.netdev</filename>, and <filename>.link</filename> files. A symlink of the given name will
+        be created under <filename>/etc/</filename> or <filename>/run/</filename>, depending on
+        whether <option>--runtime</option> is specified, that points to <filename>/dev/null</filename>.
+        If a non-empty config file with the specified name exists under the target directory or a directory
+        with higher priority (e.g. <option>--runtime</option> is used while an existing config resides
+        in <filename>/etc/</filename>), the operation is aborted.</para>
+
+        <para>This command honors <option>--no-reload</option> in the same way as <command>edit</command>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>
+          <command>unmask</command>
+          <replaceable>FILE</replaceable>…
+        </term>
+        <listitem><para>Unmask network configuration files, i.e. reverting the effect of <command>mask</command>.
+        Note that this command operates regardless of the scope of the directory, i.e. <option>--runtime</option>
+        is of no effect.</para>
+
+        <para>This command honors <option>--no-reload</option> in the same way as <command>edit</command>
+        and <command>mask</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>
+          <command>persistent-storage</command>
+          <replaceable>BOOL</replaceable>
+        </term>
+        <listitem>
+          <para>Notify
+          <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          that the persistent storage for the service is ready. This is called by
+          <filename>systemd-networkd-persistent-storage.service</filename>. Usually, this command should not
+          be called manually by users or administrators.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term>
+          <option>-a</option>
+          <option>--all</option>
+        </term>
+
+        <listitem>
+          <para>Show all links with <command>status</command>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v219"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>
+          <option>-s</option>
+          <option>--stats</option>
+        </term>
+
+        <listitem>
+          <para>Show link statistics with <command>status</command>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-l</option></term>
+        <term><option>--full</option></term>
+
+        <listitem>
+          <para>Do not ellipsize the output.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-n</option></term>
+        <term><option>--lines=</option></term>
+
+        <listitem>
+          <para>When used with <command>status</command>, controls the number of journal lines to show,
+          counting from the most recent ones. Takes a positive integer argument. Defaults to 10.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--drop-in=<replaceable>NAME</replaceable></option></term>
+
+        <listitem>
+          <para>When used with <command>edit</command>, edit the drop-in file <replaceable>NAME</replaceable>
+          instead of the main configuration file.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--no-reload</option></term>
+
+        <listitem>
+          <para>When used with <command>edit</command>, <command>mask</command>, or <command>unmask</command>,
+          <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          or
+          <citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          will not be reloaded after the operation finishes.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--no-reconfigure</option></term>
+
+        <listitem>
+          <para>When used with <command>reload</command>, only reload config files from disk without
+          reconfiguring any network interfaces. This may be useful to avoid reconfiguring multiple
+          interfaces simultaneously when multiple <filename>.network</filename> files are updated,
+          or when an updated <filename>.network</filename> file is applied to multiple interfaces.
+          Use <command>networkctl reconfigure</command> afterwards to apply changes selectively
+          per interface.</para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--runtime</option></term>
+
+        <listitem>
+          <para>When used with <command>edit</command> or <command>mask</command>,
+          operate on the file under <filename>/run/</filename> instead of <filename>/etc/</filename>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--stdin</option></term>
+
+        <listitem>
+          <para>When used with <command>edit</command>, the contents of the file will be read from standard
+          input and the editor will not be launched. In this mode, the old contents of the file are
+          automatically replaced. This is useful to "edit" configuration from scripts, especially so that
+          drop-in directories are created and populated in one go.</para>
+
+          <para>Multiple drop-ins may be "edited" in this mode with <option>--drop-in=</option>, and
+          the same contents will be written to all of them. Otherwise, exactly one main configuration file
+          is expected.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="no-ask-password" />
+      <xi:include href="standard-options.xml" xpointer="json" />
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+      <xi:include href="standard-options.xml" xpointer="no-legend" />
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>ip</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

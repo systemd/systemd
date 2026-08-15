@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for exec condition that triggers skipping
+
+[Service]
+Type=oneshot
+
+# exit codes [1, 254] will result in skipping the rest of execution
+ExecCondition=bash -c 'exit 0'
+ExecCondition=bash -c 'exit 254'
+
+# This would normally fail the unit but will not get run due to the skip above
+ExecCondition=bash -c 'exit 255'
+
+# This should not get run
+ExecStart=bash -c 'true'

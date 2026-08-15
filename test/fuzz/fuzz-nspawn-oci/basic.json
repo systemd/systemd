@@ -1,0 +1,348 @@
+{
+    "ociVersion": "1.0.0",
+
+    "hostname" : "foo",
+
+    "root": {
+        "path": "rootfs",
+        "readonly": true
+    },
+
+    "process": {
+        "terminal": false,
+        "consoleSize": {
+            "height":6667,
+            "width":6668
+        },
+
+        "user": {
+            "uid": 14,
+            "gid": 14,
+            "additionalGids": [59, 81]
+        },
+
+        "args": [
+            "/tmp/verify.sh"
+        ],
+
+        "env": [
+            "FOO=BAR",
+            "WITHSPACES=FOO BAR",
+            "WITHSHELLCHARS=$ASDF \\\"asdf asdf\\\" !",
+            "WITHCONTROLCHARS=\\123\\125\\010\\020",
+            "TERM=xterm"
+        ],
+
+        "cwd": "/tmp/src",
+
+        "noNewPrivileges" : true,
+        "oomScoreAdj" : 20,
+        "capabilities" : {
+            "bounding" : [
+                "CAP_AUDIT_WRITE",
+                "CAP_KILL",
+                "CAP_NET_BIND_SERVICE"
+            ],
+            "permitted" : [
+                "CAP_AUDIT_WRITE",
+                "CAP_KILL",
+                "CAP_NET_BIND_SERVICE"
+            ],
+            "inheritable" : [
+                "CAP_AUDIT_WRITE",
+                "CAP_KILL",
+                "CAP_NET_BIND_SERVICE"
+            ],
+            "effective" : [
+                "CAP_AUDIT_WRITE",
+                "CAP_KILL"
+            ],
+            "ambient" : [
+                "CAP_NET_BIND_SERVICE"
+            ]
+        },
+        "rlimits" : [
+            {
+                "type" : "RLIMIT_NOFILE",
+                "soft" : 1024,
+                "hard" : 1024
+            },
+            {
+                "type" : "RLIMIT_RTPRIO",
+                "soft" : 5,
+                "hard" : 10
+            }
+        ]
+    },
+
+    "mounts": [
+        {
+            "destination": "/tmp/src",
+            "source": "src",
+            "options": ["ro"]
+        },
+
+        {
+            "destination": "/tmp/verify.sh",
+            "source": "verify.sh",
+            "options": ["ro"]
+        },
+
+        {
+            "destination": "/proc",
+            "type": "proc",
+            "source": "proc"
+        },
+        {
+            "destination": "/dev",
+            "type": "tmpfs",
+            "source": "tmpfs",
+            "options": [
+                "mode=777"
+            ]
+        },
+        {
+            "destination": "/dev/pts",
+            "type": "devpts",
+            "source": "devpts",
+            "options": [
+                "mode=777"
+            ]
+        },
+        {
+            "destination": "/dev/shm",
+            "type": "tmpfs",
+            "source": "shm",
+            "options": [
+                "mode=777"
+            ]
+        },
+        {
+            "destination": "/dev/mqueue",
+            "type": "mqueue",
+            "source": "mqueue",
+            "options": [
+                "mode=777"
+            ]
+        },
+        {
+            "destination": "/sys",
+            "type": "sysfs",
+            "source": "sysfs",
+            "options": [
+                "mode=777"
+            ]
+        },
+        {
+            "destination": "/sys/fs/cgroup",
+            "type": "cgroup",
+            "source": "cgroup",
+            "options": [
+                "mode=777"
+            ]
+        }
+    ],
+
+    "linux" : {
+        "namespaces" : [
+            {
+                "type" : "mount"
+            },
+            {
+                "type" : "network",
+                "path" : "$NETNS"
+            },
+            {
+                "type" : "pid"
+            },
+            {
+                "type" : "uts"
+            }
+        ],
+        "uidMappings" : [
+            {
+                "containerID" : 0,
+                "hostID" : 1000,
+                "size" : 100
+            }
+        ],
+        "gidMappings" : [
+            {
+                "containerID" : 0,
+                "hostID" : 1000,
+                "size" : 100
+            }
+        ],
+        "devices" : [
+            {
+                "type" : "c",
+                "path" : "/dev/zero",
+                "major" : 1,
+                "minor" : 5,
+                "fileMode" : 444
+            },
+            {
+                "type" : "b",
+                "path" : "$DEV",
+                "major" : 4,
+                "minor" : 2,
+                "fileMode" : 666,
+                "uid" : 0,
+                "gid" : 0
+            }
+        ],
+        "resources" : {
+            "devices" : [
+                {
+                    "allow" : false,
+                    "access" : "m"
+                },
+                {
+                    "allow" : true,
+                    "type" : "b",
+                    "major" : 4,
+                    "minor" : 2,
+                    "access" : "rwm"
+                }
+            ],
+            "memory" : {
+                "limit" : 134217728,
+                "reservation" : 33554432,
+                "swap" : 268435456
+            },
+            "cpu" : {
+                "shares" : 1024,
+                "quota" : 1000000,
+                "period" : 500000,
+                "cpus" : "0-7"
+            },
+            "blockIO" : {
+                "weight" : 10,
+                "weightDevice" : [
+                    {
+                        "major" : 4,
+                        "minor" : 2,
+                        "weight" : 500
+                    }
+                ],
+                "throttleReadBpsDevice" : [
+                    {
+                        "major" : 4,
+                        "minor" : 2,
+                        "rate" : 500
+                    }
+                ],
+                "throttleWriteBpsDevice" : [
+                    {
+                        "major" : 4,
+                        "minor" : 2,
+                        "rate" : 500
+                    }
+                ],
+                "throttleReadIOPSDevice" : [
+                    {
+                        "major" : 4,
+                        "minor" : 2,
+                        "rate" : 500
+                    }
+                ],
+                "throttleWriteIOPSDevice" : [
+                    {
+                        "major" : 4,
+                        "minor" : 2,
+                        "rate" : 500
+                    }
+                ]
+            },
+            "pids" : {
+                "limit" : 1024
+            }
+        },
+        "sysctl" : {
+            "kernel.domainname" : "foo.bar",
+            "vm.swappiness" : "60"
+        },
+        "seccomp" : {
+            "defaultAction" : "SCMP_ACT_ALLOW",
+            "architectures" : [
+                "SCMP_ARCH_ARM",
+                "SCMP_ARCH_X86_64"
+            ],
+            "syscalls" : [
+                {
+                    "names" : [
+                        "lchown",
+                        "chmod"
+                    ],
+                    "action" : "SCMP_ACT_ERRNO",
+                    "args" : [
+                        {
+                            "index" : 0,
+                            "value" : 1,
+                            "op" : "SCMP_CMP_NE"
+                        },
+                        {
+                            "index" : 1,
+                            "value" : 2,
+                            "valueTwo" : 3,
+                            "op" : "SCMP_CMP_MASKED_EQ"
+                        }
+                    ]
+                }
+            ]
+        },
+        "rootfsPropagation" : "shared",
+        "maskedPaths" : [
+            "/proc/kcore",
+            "/root/nonexistent"
+        ],
+        "readonlyPaths" : [
+            "/proc/sys",
+            "/opt/readonly"
+        ]
+    },
+    "hooks" : {
+        "prestart" : [
+            {
+                "path" : "/bin/sh",
+                "args" : [
+                    "-xec",
+                    "echo $PRESTART_FOO >/prestart"
+                ],
+                "env" : [
+                    "PRESTART_FOO=prestart_bar",
+                    "ALSO_FOO=also_bar"
+                ],
+                "timeout" : 666
+            },
+            {
+                "path" : "/bin/touch",
+                "args" : [
+                    "/tmp/also-prestart"
+                ]
+            }
+        ],
+        "poststart" : [
+            {
+                "path" : "/bin/sh",
+                "args" : [
+                    "touch",
+                    "/poststart"
+                ]
+            }
+        ],
+        "poststop" : [
+            {
+                "path" : "/bin/sh",
+                "args" : [
+                    "touch",
+                    "/poststop"
+                ]
+            }
+        ]
+    },
+    "annotations" : {
+        "hello.world" : "1",
+        "foo" : "bar"
+    }
+}

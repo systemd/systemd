@@ -1,0 +1,319 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="sysusers.d" conditional='ENABLE_SYSUSERS'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sysusers.d</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sysusers.d</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sysusers.d</refname>
+    <refpurpose>Declarative allocation of system users and groups</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><simplelist>
+      <member><filename>/etc/sysusers.d/*.conf</filename></member>
+      <member><filename>/run/sysusers.d/*.conf</filename></member>
+      <member><filename>/usr/local/lib/sysusers.d/*.conf</filename></member>
+      <member><filename>/usr/lib/sysusers.d/*.conf</filename></member>
+    </simplelist></para>
+
+    <programlisting>
+#Type Name       ID                  GECOS              Home directory Shell
+u     user_name  uid                 "User Description" /home/dir      /path/to/shell
+u     user_name  uid:gid             "User Description" /home/dir      /path/to/shell
+u     user_name  /file/owned/by/user "User Description" /home/dir      /path/to/shell
+g     group_name gid
+g     group_name /file/owned/by/group
+m     user_name  group_name
+r     -          lowest-highest</programlisting>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-sysusers</command> uses the files from
+    <filename>sysusers.d</filename> directory to create system users and groups and
+    to add users to groups, at package installation or boot time. This tool may be
+    used to allocate system users and groups only, it is not useful for creating
+    non-system (i.e. regular, "human") users and groups, as it accesses
+    <filename>/etc/passwd</filename> and <filename>/etc/group</filename> directly,
+    bypassing any more complex user databases, for example any database involving NIS
+    or LDAP.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Configuration Directories and Precedence</title>
+
+    <para>Each configuration file shall be named in the style of
+    <filename><replaceable>package</replaceable>.conf</filename> or
+    <filename><replaceable>package</replaceable>-<replaceable>part</replaceable>.conf</filename>.
+    The second variant should be used when it is desirable to make it
+    easy to override just this part of configuration.</para>
+
+    <para>Files in <filename>/etc/sysusers.d</filename> override files
+    with the same name in <filename>/usr/lib/sysusers.d</filename> and
+    <filename>/run/sysusers.d</filename>. Files in
+    <filename>/run/sysusers.d</filename> override files with the same
+    name in <filename>/usr/lib/sysusers.d</filename>. Packages should
+    install their configuration files in
+    <filename>/usr/lib/sysusers.d</filename>. Files in
+    <filename>/etc/sysusers.d</filename> are reserved for the local
+    administrator, who may use this logic to override the
+    configuration files installed by vendor packages. All
+    configuration files are sorted by their filename in lexicographic
+    order, regardless of which of the directories they reside in. If
+    multiple files specify the same path, the entry in the file with
+    the lexicographically earliest name will be applied. All later
+    entries for the same user and group names will be logged as warnings.
+    </para>
+
+    <para>If the administrator wants to disable a configuration file
+    supplied by the vendor, the recommended way is to place a symlink
+    to <filename>/dev/null</filename> in
+    <filename>/etc/sysusers.d/</filename> bearing the same filename.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Configuration File Format</title>
+
+    <para>The file format is one line per user or group containing name, ID, GECOS
+    field description, home directory, and login shell:</para>
+
+    <programlisting>#Type Name     ID             GECOS                 Home directory Shell
+u!    httpd    404            "HTTP User"
+u!    _authd   /usr/bin/authd "Authorization user"
+u!    postgres -              "Postgresql Database" /var/lib/pgsql /usr/libexec/postgresdb
+g     input    -              -
+m     _authd   input
+u     root     0              "Superuser"           /root          /bin/zsh
+r     -        500-900
+</programlisting>
+
+    <para>Empty lines and lines beginning with the <literal>#</literal> character are ignored, and may be used for
+    commenting.</para>
+
+    <refsect2>
+      <title>Type</title>
+
+      <para>The type consists of a single letter. The following line
+      types are understood:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><varname>u</varname></term>
+          <listitem><para>Create a system user and group of the specified name should
+          they not exist yet. The user's primary group will be set to the group
+          bearing the same name unless the ID field specifies it. The account will be
+          created disabled, so that logins are not allowed.</para>
+
+          <xi:include href="version-info.xml" xpointer="v215"/>
+
+          <para>Type <varname>u</varname> may be suffixed with an exclamation mark (<literal>u!</literal>) to
+          create a fully locked account. This is recommended, since logins should typically not be allowed
+          for system users. With or without the exclamation mark an invalid password is set. For
+          <literal>u!</literal>, the account is also locked, which makes a difference for non-password forms
+          of authentication, such as SSH or similar.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>g</varname></term>
+          <listitem><para>Create a system group of the specified name
+          should it not exist yet. Note that <varname>u</varname>
+          implicitly creates a matching group. The group will be
+          created with no password set.</para>
+
+          <xi:include href="version-info.xml" xpointer="v215"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>m</varname></term>
+          <listitem><para>Add a user to a group. If the user or group
+          do not exist yet, they will be implicitly
+          created.</para>
+
+          <xi:include href="version-info.xml" xpointer="v215"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>r</varname></term>
+          <listitem><para>Add a range of numeric UIDs/GIDs to the pool
+          to allocate new UIDs and GIDs from. If no line of this type
+          is specified, the range of UIDs/GIDs is set to some
+          compiled-in default. Note that both UIDs and GIDs are
+          allocated from the same pool, in order to ensure that users
+          and groups of the same name are likely to carry the same
+          numeric UID and GID.</para>
+
+          <xi:include href="version-info.xml" xpointer="v216"/></listitem>
+        </varlistentry>
+
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>Name</title>
+
+      <para>The name field specifies the user or group name. The specified name must consist only of the characters a-z,
+      A-Z, 0-9, <literal>_</literal> and <literal>-</literal>, except for the first character which must be one of a-z,
+      A-Z or <literal>_</literal> (i.e. numbers and <literal>-</literal> are not permitted as first character). The
+      user/group name must have at least one character, and at most 31.</para>
+
+      <para>For further details about the syntax of user/group names, see <ulink
+      url="https://systemd.io/USER_NAMES">User/Group Name Syntax</ulink>.</para>
+
+      <para>It is strongly recommended to pick user and group names that are unlikely to clash with normal users
+      created by the administrator. A good scheme to guarantee this is by prefixing all system and group names with the
+      underscore, and avoiding too generic names.</para>
+
+      <para>For <varname>m</varname> lines, this field should contain
+      the user name to add to a group.</para>
+
+      <para>For lines of type <varname>r</varname>, this field should
+      be set to <literal>-</literal>.</para>
+    </refsect2>
+
+    <refsect2>
+      <title>ID</title>
+
+      <para>For <varname>u</varname> and <varname>g</varname>, the
+      numeric 32-bit UID or GID of the user/group. Do not use IDs 65535
+      or 4294967295, as they have special placeholder meanings.
+      Specify <literal>-</literal> for automatic UID/GID allocation
+      for the user or group (this is strongly recommended unless it is strictly
+      necessary to use a specific UID or GID). Alternatively, specify an absolute path
+      in the file system. In this case, the UID/GID is read from the
+      path's owner/group. This is useful to create users whose UID/GID
+      match the owners of pre-existing files (such as SUID or SGID
+      binaries).
+      The syntaxes <literal><replaceable>uid</replaceable>:<replaceable>gid</replaceable></literal> and
+      <literal><replaceable>uid</replaceable>:<replaceable>groupname</replaceable></literal> are supported to
+      allow creating users with specific primary groups. The given group must be created explicitly, or it
+      must already exist. Specifying <literal>-</literal> for the UID in these syntaxes is also supported.
+      </para>
+
+      <para>For <varname>m</varname> lines, this field should contain
+      the group name to add to a user to.</para>
+
+      <para>For lines of type <varname>r</varname>, this field should
+      be set to a UID/GID range in the format
+      <literal>FROM-TO</literal>, where both values are formatted as
+      decimal ASCII numbers. Alternatively, a single UID/GID may be
+      specified formatted as decimal ASCII numbers.</para>
+    </refsect2>
+
+    <refsect2>
+      <title>GECOS</title>
+
+      <para>A short, descriptive string for users to be created, enclosed in
+      quotation marks. Note that this field may not contain colons.</para>
+
+      <para>Only applies to lines of type <varname>u</varname> and should otherwise
+      be left unset (or <literal>-</literal>).</para>
+    </refsect2>
+
+    <refsect2>
+      <title>Home Directory</title>
+
+      <para>The home directory for a new system user. If omitted, defaults to the
+      root directory.</para>
+
+      <para>Only applies to lines of type <varname>u</varname> and should otherwise
+      be left unset (or <literal>-</literal>). It is recommended to omit this, unless
+      software strictly requires a home directory to be set.</para>
+
+      <para><command>systemd-sysusers</command> only sets the home directory record in the
+      user database. To actually create the directory, consider adding a corresponding
+      <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      fragment.</para>
+    </refsect2>
+
+    <refsect2>
+      <title>Shell</title>
+
+      <para>The login shell of the user. If not specified, this will be set to
+      <filename>/usr/sbin/nologin</filename>, except if the UID of the user is 0, in
+      which case <filename>/bin/sh</filename> will be used.</para>
+
+      <para>Only applies to lines of type <varname>u</varname> and should otherwise
+      be left unset (or <literal>-</literal>). It is recommended to omit this, unless
+      a shell different <filename>/usr/sbin/nologin</filename> must be used.</para>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Specifiers</title>
+
+    <para>Specifiers can be used in the <literal>Name</literal>, <literal>ID</literal>,
+    <literal>GECOS</literal>, <literal>Home directory</literal>, and <literal>Shell</literal> fields. An
+    unknown or unresolvable specifier is treated as invalid configuration. The following expansions are
+    understood:</para>
+
+    <table class='specifiers'>
+      <title>Specifiers available</title>
+      <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+        <colspec colname="spec" />
+        <colspec colname="mean" />
+        <colspec colname="detail" />
+        <thead>
+          <row>
+            <entry>Specifier</entry>
+            <entry>Meaning</entry>
+            <entry>Details</entry>
+          </row>
+        </thead>
+        <tbody>
+          <xi:include href="standard-specifiers.xml" xpointer="a"/>
+          <xi:include href="standard-specifiers.xml" xpointer="A"/>
+          <xi:include href="standard-specifiers.xml" xpointer="b"/>
+          <xi:include href="standard-specifiers.xml" xpointer="B"/>
+          <xi:include href="standard-specifiers.xml" xpointer="H"/>
+          <xi:include href="standard-specifiers.xml" xpointer="l"/>
+          <xi:include href="standard-specifiers.xml" xpointer="m"/>
+          <xi:include href="standard-specifiers.xml" xpointer="M"/>
+          <xi:include href="standard-specifiers.xml" xpointer="o"/>
+          <xi:include href="standard-specifiers.xml" xpointer="q"/>
+          <xi:include href="standard-specifiers.xml" xpointer="T"/>
+          <xi:include href="standard-specifiers.xml" xpointer="v"/>
+          <xi:include href="standard-specifiers.xml" xpointer="V"/>
+          <xi:include href="standard-specifiers.xml" xpointer="w"/>
+          <xi:include href="standard-specifiers.xml" xpointer="W"/>
+          <xi:include href="standard-specifiers.xml" xpointer="percent"/>
+        </tbody>
+      </tgroup>
+    </table>
+  </refsect1>
+
+  <refsect1>
+    <title>Idempotence</title>
+
+    <para>Note that <command>systemd-sysusers</command> will do nothing if the
+    specified users or groups already exist or the users are members of specified
+    groups, so normally there is no reason to override
+    <filename>sysusers.d</filename> vendor configuration, except to block certain
+    users or groups from being created.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-sysusers</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

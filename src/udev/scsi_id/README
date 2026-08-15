@@ -1,0 +1,4 @@
+scsi_id - generate a SCSI unique identifier for a given SCSI device
+
+Please send questions, comments or patches to <patmans@us.ibm.com> or
+<linux-hotplug-devel@lists.sourceforge.net>.

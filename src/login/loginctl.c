@@ -1,0 +1,1686 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include <locale.h>
+#include <unistd.h>
+
+#include "sd-bus.h"
+#include "sd-journal.h"
+
+#include "alloc-util.h"
+#include "ansi-color.h"
+#include "build.h"
+#include "bus-error.h"
+#include "bus-locator.h"
+#include "bus-map-properties.h"
+#include "bus-print-properties.h"
+#include "bus-unit-procs.h"
+#include "bus-util.h"
+#include "cgroup-show.h"
+#include "cgroup-util.h"
+#include "dlopen-note.h"
+#include "format-table.h"
+#include "format-util.h"
+#include "help-util.h"
+#include "log.h"
+#include "logs-show.h"
+#include "main-func.h"
+#include "options.h"
+#include "pager.h"
+#include "parse-argument.h"
+#include "parse-util.h"
+#include "polkit-agent.h"
+#include "process-util.h"
+#include "runtime-scope.h"
+#include "string-table.h"
+#include "string-util.h"
+#include "strv.h"
+#include "sysfs-show.h"
+#include "terminal-util.h"
+#include "time-util.h"
+#include "user-util.h"
+#include "verbs.h"
+
+static char **arg_property = NULL;
+static BusPrintPropertyFlags arg_print_flags = 0;
+static bool arg_full = false;
+static PagerFlags arg_pager_flags = 0;
+static bool arg_legend = true;
+static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
+static const char *arg_kill_whom = NULL;
+static int arg_signal = SIGTERM;
+static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
+static const char *arg_host = NULL;
+static bool arg_ask_password = true;
+static unsigned arg_lines = 10;
+static OutputMode arg_output = OUTPUT_SHORT;
+
+STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
+
+typedef struct SessionStatusInfo {
+        const char *id;
+        uid_t uid;
+        const char *name;
+        dual_timestamp timestamp;
+        unsigned vtnr;
+        const char *seat;
+        const char *tty;
+        const char *display;
+        bool remote;
+        const char *remote_host;
+        const char *remote_user;
+        const char *service;
+        pid_t leader;
+        const char *type;
+        const char *class;
+        const char *state;
+        const char *scope;
+        const char *desktop;
+        bool idle_hint;
+        dual_timestamp idle_hint_timestamp;
+} SessionStatusInfo;
+
+typedef struct UserStatusInfo {
+        uid_t uid;
+        bool linger;
+        const char *name;
+        dual_timestamp timestamp;
+        const char *state;
+        char **sessions;
+        const char *display;
+        const char *slice;
+} UserStatusInfo;
+
+typedef struct SeatStatusInfo {
+        const char *id;
+        const char *active_session;
+        char **sessions;
+} SeatStatusInfo;
+
+static void user_status_info_done(UserStatusInfo *info) {
+        assert(info);
+
+        strv_free(info->sessions);
+}
+
+static void seat_status_info_done(SeatStatusInfo *info) {
+        assert(info);
+
+        strv_free(info->sessions);
+}
+
+static OutputFlags get_output_flags(void) {
+        return
+                FLAGS_SET(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY) * OUTPUT_SHOW_ALL |
+                (arg_full || !on_tty() || pager_have()) * OUTPUT_FULL_WIDTH |
+                colors_enabled() * OUTPUT_COLOR;
+}
+
+static int list_table_print(Table *table, const char *type) {
+        int r;
+
+        assert(table);
+        assert(type);
+
+        r = table_set_sort(table, (size_t) 0);
+        if (r < 0)
+                return table_log_sort_error(r);
+
+        r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
+        if (r < 0)
+                return r;
+
+        if (arg_legend) {
+                if (table_isempty(table))
+                        printf("No %s.\n", type);
+                else
+                        printf("\n%zu %s listed.\n", table_get_rows(table) - 1, type);
+        }
+
+        return 0;
+}
+
+static int list_sessions_table_add(Table *table, sd_bus_message *reply) {
+        int r;
+
+        assert(table);
+        assert(reply);
+
+        r = sd_bus_message_enter_container(reply, 'a', "(sussussbto)");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        for (;;) {
+                const char *session_id, *user, *seat, *class, *tty;
+                uint32_t uid, leader_pid;
+                int idle;
+                uint64_t idle_timestamp_monotonic;
+
+                r = sd_bus_message_read(reply, "(sussussbto)",
+                                        &session_id,
+                                        &uid,
+                                        &user,
+                                        &seat,
+                                        &leader_pid,
+                                        &class,
+                                        &tty,
+                                        &idle,
+                                        &idle_timestamp_monotonic,
+                                        /* object= */ NULL);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+                if (r == 0)
+                        break;
+
+                r = table_add_many(table,
+                                   TABLE_STRING, session_id,
+                                   TABLE_UID, (uid_t) uid,
+                                   TABLE_STRING, user,
+                                   TABLE_STRING, empty_to_null(seat),
+                                   TABLE_PID, (pid_t) leader_pid,
+                                   TABLE_STRING, class,
+                                   TABLE_STRING, empty_to_null(tty),
+                                   TABLE_BOOLEAN, idle);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                if (idle)
+                        r = table_add_cell(table, NULL, TABLE_TIMESTAMP_RELATIVE_MONOTONIC, &idle_timestamp_monotonic);
+                else
+                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        return 0;
+}
+
+static int list_sessions_table_add_fallback(Table *table, sd_bus_message *reply, sd_bus *bus) {
+
+        static const struct bus_properties_map map[] = {
+                { "Leader",                 "u", NULL, offsetof(SessionStatusInfo, leader)                        },
+                { "Class",                  "s", NULL, offsetof(SessionStatusInfo, class)                         },
+                { "TTY",                    "s", NULL, offsetof(SessionStatusInfo, tty)                           },
+                { "IdleHint",               "b", NULL, offsetof(SessionStatusInfo, idle_hint)                     },
+                { "IdleSinceHintMonotonic", "t", NULL, offsetof(SessionStatusInfo, idle_hint_timestamp.monotonic) },
+                {},
+        };
+
+        int r;
+
+        assert(table);
+        assert(reply);
+        assert(bus);
+
+        r = sd_bus_message_enter_container(reply, 'a', "(susso)");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        for (;;) {
+                _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                const char *id, *user, *seat, *object;
+                uint32_t uid;
+                SessionStatusInfo i = {};
+
+                r = sd_bus_message_read(reply, "(susso)", &id, &uid, &user, &seat, &object);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+                if (r == 0)
+                        break;
+
+                r = bus_map_all_properties(bus, "org.freedesktop.login1", object, map, BUS_MAP_BOOLEAN_AS_BOOL, &e, &m, &i);
+                if (r < 0) {
+                        log_full_errno(sd_bus_error_has_name(&e, SD_BUS_ERROR_UNKNOWN_OBJECT) ? LOG_DEBUG : LOG_WARNING,
+                                       r,
+                                       "Failed to get properties of session %s, ignoring: %s",
+                                       id, bus_error_message(&e, r));
+                        continue;
+                }
+
+                r = table_add_many(table,
+                                   TABLE_STRING, id,
+                                   TABLE_UID, (uid_t) uid,
+                                   TABLE_STRING, user,
+                                   TABLE_STRING, empty_to_null(seat),
+                                   TABLE_PID, i.leader,
+                                   TABLE_STRING, i.class,
+                                   TABLE_STRING, empty_to_null(i.tty),
+                                   TABLE_BOOLEAN, i.idle_hint);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                if (i.idle_hint)
+                        r = table_add_cell(table, NULL, TABLE_TIMESTAMP_RELATIVE_MONOTONIC, &i.idle_hint_timestamp.monotonic);
+                else
+                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        return 0;
+}
+
+VERB_GROUP("Session Commands");
+
+VERB_DEFAULT_NOARG(verb_list_sessions, "list-sessions", "List sessions");
+static int verb_list_sessions(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        sd_bus *bus = ASSERT_PTR(userdata);
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(table_unrefp) Table *table = NULL;
+        bool use_ex = true;
+        int r;
+
+        assert(argv);
+
+        r = bus_call_method(bus, bus_login_mgr, "ListSessionsEx", &error, &reply, NULL);
+        if (r < 0) {
+                if (sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD)) {
+                        sd_bus_error_free(&error);
+
+                        use_ex = false;
+                        r = bus_call_method(bus, bus_login_mgr, "ListSessions", &error, &reply, NULL);
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to list sessions: %s", bus_error_message(&error, r));
+        }
+
+        table = table_new("session", "uid", "user", "seat", "leader", "class", "tty", "idle", "since");
+        if (!table)
+                return log_oom();
+
+        /* Right-align the first two fields (since they are numeric) */
+        (void) table_set_align_percent(table, TABLE_HEADER_CELL(0), 100);
+        (void) table_set_align_percent(table, TABLE_HEADER_CELL(1), 100);
+
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
+
+        if (use_ex)
+                r = list_sessions_table_add(table, reply);
+        else
+                r = list_sessions_table_add_fallback(table, reply, bus);
+        if (r < 0)
+                return r;
+
+        return list_table_print(table, "sessions");
+}
+
+static int show_unit_cgroup(
+                sd_bus *bus,
+                const char *unit,
+                pid_t leader,
+                const char *prefix) {
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *cgroup = NULL;
+        int r;
+
+        assert(bus);
+        assert(unit);
+        assert(prefix);
+
+        r = show_cgroup_get_unit_path_and_warn(bus, unit, &cgroup);
+        if (r < 0)
+                return r;
+
+        if (isempty(cgroup))
+                return 0;
+
+        unsigned c = MAX(LESS_BY(columns(), 18U), 10U);
+        r = unit_show_processes(bus, unit, cgroup, prefix, c, get_output_flags(), &error);
+        if (r == -EBADR) {
+                if (arg_transport == BUS_TRANSPORT_REMOTE)
+                        return 0;
+
+                /* Fallback for older systemd versions where the GetUnitProcesses() call is not yet available */
+
+                if (cg_is_empty(cgroup) != 0 && leader <= 0)
+                        return 0;
+
+                show_cgroup_and_extra(cgroup, prefix, c, &leader, leader > 0, get_output_flags());
+        } else if (r < 0)
+                return log_error_errno(r, "Failed to dump process list: %s", bus_error_message(&error, r));
+
+        return 0;
+}
+
+static int prop_map_first_of_struct(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        const char *contents;
+        int r;
+
+        assert(bus);
+        assert(m);
+
+        r = sd_bus_message_peek_type(m, NULL, &contents);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_STRUCT, contents);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read_basic(m, contents[0], userdata);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_skip(m, contents+1);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_exit_container(m);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int prop_map_sessions_strv(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        const char *name;
+        int r;
+
+        assert(bus);
+        assert(m);
+
+        r = sd_bus_message_enter_container(m, 'a', "(so)");
+        if (r < 0)
+                return r;
+
+        while ((r = sd_bus_message_read(m, "(so)", &name, NULL)) > 0) {
+                r = strv_extend(userdata, name);
+                if (r < 0)
+                        return r;
+        }
+        if (r < 0)
+                return r;
+
+        return sd_bus_message_exit_container(m);
+}
+
+static int mark_session(char **sessions, const char *target_session) {
+        assert(sessions);
+        assert(target_session);
+
+        STRV_FOREACH(i, sessions)
+                if (streq(*i, target_session)) {
+                        _cleanup_free_ char *marked = NULL;
+
+                        marked = strjoin("*", target_session);
+                        if (!marked)
+                                return log_oom();
+
+                        return free_and_replace(*i, marked);
+                }
+
+        return 0;
+}
+
+static int print_session_status_info(sd_bus *bus, const char *path) {
+
+        static const struct bus_properties_map map[] = {
+                { "Id",                     "s",    NULL,                     offsetof(SessionStatusInfo,  id)                            },
+                { "Name",                   "s",    NULL,                     offsetof(SessionStatusInfo,  name)                          },
+                { "TTY",                    "s",    NULL,                     offsetof(SessionStatusInfo,  tty)                           },
+                { "Display",                "s",    NULL,                     offsetof(SessionStatusInfo,  display)                       },
+                { "RemoteHost",             "s",    NULL,                     offsetof(SessionStatusInfo,  remote_host)                   },
+                { "RemoteUser",             "s",    NULL,                     offsetof(SessionStatusInfo,  remote_user)                   },
+                { "Service",                "s",    NULL,                     offsetof(SessionStatusInfo,  service)                       },
+                { "Desktop",                "s",    NULL,                     offsetof(SessionStatusInfo,  desktop)                       },
+                { "Type",                   "s",    NULL,                     offsetof(SessionStatusInfo,  type)                          },
+                { "Class",                  "s",    NULL,                     offsetof(SessionStatusInfo,  class)                         },
+                { "Scope",                  "s",    NULL,                     offsetof(SessionStatusInfo,  scope)                         },
+                { "State",                  "s",    NULL,                     offsetof(SessionStatusInfo,  state)                         },
+                { "VTNr",                   "u",    NULL,                     offsetof(SessionStatusInfo,  vtnr)                          },
+                { "Leader",                 "u",    NULL,                     offsetof(SessionStatusInfo,  leader)                        },
+                { "Remote",                 "b",    NULL,                     offsetof(SessionStatusInfo,  remote)                        },
+                { "Timestamp",              "t",    NULL,                     offsetof(SessionStatusInfo,  timestamp.realtime)            },
+                { "TimestampMonotonic",     "t",    NULL,                     offsetof(SessionStatusInfo,  timestamp.monotonic)           },
+                { "IdleHint",               "b",    NULL,                     offsetof(SessionStatusInfo,  idle_hint)                     },
+                { "IdleSinceHint",          "t",    NULL,                     offsetof(SessionStatusInfo,  idle_hint_timestamp.realtime)  },
+                { "IdleSinceHintMonotonic", "t",    NULL,                     offsetof(SessionStatusInfo,  idle_hint_timestamp.monotonic) },
+                { "User",                   "(uo)", prop_map_first_of_struct, offsetof(SessionStatusInfo,  uid)                           },
+                { "Seat",                   "(so)", prop_map_first_of_struct, offsetof(SessionStatusInfo,  seat)                          },
+                {}
+        };
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(table_unrefp) Table *table = NULL;
+        SessionStatusInfo i = {};
+        int r;
+
+        r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, BUS_MAP_BOOLEAN_AS_BOOL, &error, &m, &i);
+        if (r < 0)
+                return log_error_errno(r, "Could not get properties: %s", bus_error_message(&error, r));
+
+        table = table_new_vertical();
+        if (!table)
+                return log_oom();
+
+        table_set_ersatz_string(table, TABLE_ERSATZ_NA);
+
+        if (dual_timestamp_is_set(&i.timestamp)) {
+                r = table_add_cell(table, NULL, TABLE_FIELD, "Since");
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                r = table_add_cell_stringf(table, NULL, "%s; %s",
+                                           FORMAT_TIMESTAMP(i.timestamp.realtime),
+                                           FORMAT_TIMESTAMP_RELATIVE_MONOTONIC(i.timestamp.monotonic));
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        r = table_add_many(table,
+                           TABLE_FIELD, "State",
+                           TABLE_STRING, i.state);
+        if (r < 0)
+                return table_log_add_error(r);
+
+        if (i.leader > 0) {
+                _cleanup_free_ char *name = NULL;
+
+                (void) pid_get_comm(i.leader, &name);
+
+                r = table_add_cell(table, NULL, TABLE_FIELD, "Leader");
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                r = table_add_cell_stringf(table, NULL, PID_FMT "%s%s%s",
+                                           i.leader,
+                                           !isempty(name) ? " (" : "",
+                                           strempty(name),
+                                           !isempty(name) ? ")" : "");
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (!isempty(i.seat)) {
+                r = table_add_cell(table, NULL, TABLE_FIELD, "Seat");
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                if (i.vtnr > 0)
+                        r = table_add_cell_stringf(table, NULL, "%s; vc%u", i.seat, i.vtnr);
+                else
+                        r = table_add_cell(table, NULL, TABLE_STRING, i.seat);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (!isempty(i.tty))
+                r = table_add_many(table,
+                                   TABLE_FIELD, "TTY",
+                                   TABLE_STRING, i.tty);
+        else if (!isempty(i.display))
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Display",
+                                   TABLE_STRING, i.display);
+        else
+                r = 0;
+        if (r < 0)
+                return table_log_add_error(r);
+
+        r = table_add_cell(table, NULL, TABLE_FIELD, "Remote");
+        if (r < 0)
+                return table_log_add_error(r);
+
+        if (i.remote_host && i.remote_user)
+                r = table_add_cell_stringf(table, NULL, "%s@%s", i.remote_user, i.remote_host);
+        else if (i.remote_host)
+                r = table_add_cell(table, NULL, TABLE_STRING, i.remote_host);
+        else if (i.remote_user)
+                r = table_add_cell_stringf(table, NULL, "user %s", i.remote_user);
+        else
+                r = table_add_cell(table, NULL, TABLE_BOOLEAN, &i.remote);
+        if (r < 0)
+                return table_log_add_error(r);
+
+        if (i.service) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Service",
+                                   TABLE_STRING, i.service);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (i.type) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Type",
+                                   TABLE_STRING, i.type);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (i.class) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Class",
+                                   TABLE_STRING, i.class);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (!isempty(i.desktop)) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Desktop",
+                                   TABLE_STRING, i.desktop);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        r = table_add_cell(table, NULL, TABLE_FIELD, "Idle");
+        if (r < 0)
+                return table_log_add_error(r);
+
+        if (i.idle_hint && dual_timestamp_is_set(&i.idle_hint_timestamp))
+                r = table_add_cell_stringf(table, NULL, "%s since %s (%s)",
+                                           yes_no(i.idle_hint),
+                                           FORMAT_TIMESTAMP(i.idle_hint_timestamp.realtime),
+                                           FORMAT_TIMESTAMP_RELATIVE_MONOTONIC(i.idle_hint_timestamp.monotonic));
+        else
+                r = table_add_cell(table, NULL, TABLE_BOOLEAN, &i.idle_hint);
+        if (r < 0)
+                return table_log_add_error(r);
+
+        if (i.scope) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Unit",
+                                   TABLE_SET_MINIMUM_WIDTH, STRLEN("Display"), /* For alignment with show_unit_cgroup */
+                                   TABLE_STRING, i.scope);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        /* We don't use the table to show the header, in order to make the width of the column stable. */
+        printf("%s%s - %s (" UID_FMT ")%s\n", ansi_highlight(), i.id, i.name, i.uid, ansi_normal());
+
+        r = table_print_or_warn(table);
+        if (r < 0)
+                return r;
+
+        if (i.scope) {
+                show_unit_cgroup(bus, i.scope, i.leader, /* prefix= */ strrepa(" ", STRLEN("Display: ")));
+
+                if (arg_transport == BUS_TRANSPORT_LOCAL)
+                        show_journal_by_unit(
+                                        stdout,
+                                        i.scope,
+                                        /* namespace= */ NULL,
+                                        arg_output,
+                                        /* n_columns= */ 0,
+                                        i.timestamp.monotonic,
+                                        arg_lines,
+                                        get_output_flags() | OUTPUT_BEGIN_NEWLINE,
+                                        SD_JOURNAL_LOCAL_ONLY,
+                                        /* system_unit= */ true,
+                                        /* ellipsized= */ NULL);
+        }
+
+        return 0;
+}
+
+static int print_user_status_info(sd_bus *bus, const char *path) {
+
+        static const struct bus_properties_map map[] = {
+                { "Name",               "s",     NULL,                     offsetof(UserStatusInfo, name)                },
+                { "Linger",             "b",     NULL,                     offsetof(UserStatusInfo, linger)              },
+                { "Slice",              "s",     NULL,                     offsetof(UserStatusInfo, slice)               },
+                { "State",              "s",     NULL,                     offsetof(UserStatusInfo, state)               },
+                { "UID",                "u",     NULL,                     offsetof(UserStatusInfo, uid)                 },
+                { "Timestamp",          "t",     NULL,                     offsetof(UserStatusInfo, timestamp.realtime)  },
+                { "TimestampMonotonic", "t",     NULL,                     offsetof(UserStatusInfo, timestamp.monotonic) },
+                { "Display",            "(so)",  prop_map_first_of_struct, offsetof(UserStatusInfo, display)             },
+                { "Sessions",           "a(so)", prop_map_sessions_strv,   offsetof(UserStatusInfo, sessions)            },
+                {}
+        };
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(user_status_info_done) UserStatusInfo i = {};
+        _cleanup_(table_unrefp) Table *table = NULL;
+        int r;
+
+        r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, BUS_MAP_BOOLEAN_AS_BOOL, &error, &m, &i);
+        if (r < 0)
+                return log_error_errno(r, "Could not get properties: %s", bus_error_message(&error, r));
+
+        table = table_new_vertical();
+        if (!table)
+                return log_oom();
+
+        table_set_ersatz_string(table, TABLE_ERSATZ_NA);
+
+        if (dual_timestamp_is_set(&i.timestamp)) {
+                r = table_add_cell(table, NULL, TABLE_FIELD, "Since");
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                r = table_add_cell_stringf(table, NULL, "%s; %s",
+                                           FORMAT_TIMESTAMP(i.timestamp.realtime),
+                                           FORMAT_TIMESTAMP_RELATIVE_MONOTONIC(i.timestamp.monotonic));
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        r = table_add_many(table,
+                           TABLE_FIELD, "State",
+                           TABLE_STRING, i.state);
+        if (r < 0)
+                return table_log_add_error(r);
+
+        if (!strv_isempty(i.sessions)) {
+                _cleanup_strv_free_ char **sessions = TAKE_PTR(i.sessions);
+
+                r = mark_session(sessions, i.display);
+                if (r < 0)
+                        return r;
+
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Sessions",
+                                   TABLE_STRV_WRAPPED, sessions);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        r = table_add_many(table,
+                           TABLE_FIELD, "Linger",
+                           TABLE_BOOLEAN, i.linger);
+        if (r < 0)
+                return table_log_add_error(r);
+
+        if (i.slice) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Unit",
+                                   TABLE_SET_MINIMUM_WIDTH, STRLEN("Sessions"), /* For alignment with show_unit_cgroup */
+                                   TABLE_STRING, i.slice);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        printf("%s%s (" UID_FMT ")%s\n", ansi_highlight(), i.name, i.uid, ansi_normal());
+
+        r = table_print_or_warn(table);
+        if (r < 0)
+                return r;
+
+        if (i.slice) {
+                show_unit_cgroup(bus, i.slice, /* leader= */ 0, /* prefix= */ strrepa(" ", STRLEN("Sessions: ")));
+
+                if (arg_transport == BUS_TRANSPORT_LOCAL)
+                        show_journal_by_unit(
+                                        stdout,
+                                        i.slice,
+                                        /* namespace= */ NULL,
+                                        arg_output,
+                                        /* n_columns= */ 0,
+                                        i.timestamp.monotonic,
+                                        arg_lines,
+                                        get_output_flags() | OUTPUT_BEGIN_NEWLINE,
+                                        SD_JOURNAL_LOCAL_ONLY,
+                                        /* system_unit= */ true,
+                                        /* ellipsized= */ NULL);
+        }
+
+        return 0;
+}
+
+static int print_seat_status_info(sd_bus *bus, const char *path) {
+
+        static const struct bus_properties_map map[] = {
+                { "Id",            "s",     NULL,                     offsetof(SeatStatusInfo, id)             },
+                { "ActiveSession", "(so)",  prop_map_first_of_struct, offsetof(SeatStatusInfo, active_session) },
+                { "Sessions",      "a(so)", prop_map_sessions_strv,   offsetof(SeatStatusInfo, sessions)       },
+                {}
+        };
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(seat_status_info_done) SeatStatusInfo i = {};
+        _cleanup_(table_unrefp) Table *table = NULL;
+        int r;
+
+        r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, 0, &error, &m, &i);
+        if (r < 0)
+                return log_error_errno(r, "Could not get properties: %s", bus_error_message(&error, r));
+
+        table = table_new_vertical();
+        if (!table)
+                return log_oom();
+
+        table_set_ersatz_string(table, TABLE_ERSATZ_NA);
+
+        if (!strv_isempty(i.sessions)) {
+                _cleanup_strv_free_ char **sessions = TAKE_PTR(i.sessions);
+
+                r = mark_session(sessions, i.active_session);
+                if (r < 0)
+                        return r;
+
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Sessions",
+                                   TABLE_STRV_WRAPPED, sessions);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Devices",
+                                   TABLE_SET_MINIMUM_WIDTH, STRLEN("Sessions"), /* For alignment with show_sysfs */
+                                   TABLE_EMPTY);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        printf("%s%s%s\n", ansi_highlight(), i.id, ansi_normal());
+
+        r = table_print_or_warn(table);
+        if (r < 0)
+                return r;
+
+        if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                unsigned c = MAX(LESS_BY(columns(), 21U), 10U);
+                show_sysfs(i.id, strrepa(" ", STRLEN("Sessions:")), c, get_output_flags());
+        }
+
+        return 0;
+}
+
+static int print_property(
+                const char *name,
+                const char *expected_value,
+                char type,
+                const char *contents,
+                sd_bus_message *m,
+                BusPrintPropertyFlags flags) {
+
+        int r;
+
+        assert(name);
+        assert(m);
+
+        switch (type) {
+
+        case SD_BUS_TYPE_STRUCT:
+
+                if (contents[0] == SD_BUS_TYPE_STRING && STR_IN_SET(name, "Display", "Seat", "ActiveSession")) {
+                        const char *s;
+
+                        r = sd_bus_message_read(m, "(so)", &s, NULL);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        bus_print_property_value(name, expected_value, flags, s);
+
+                        return 1;
+
+                } else if (contents[0] == SD_BUS_TYPE_UINT32 && streq(name, "User")) {
+                        uint32_t uid;
+
+                        r = sd_bus_message_read(m, "(uo)", &uid, NULL);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        if (!uid_is_valid(uid))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid user ID: " UID_FMT,
+                                                       uid);
+
+                        bus_print_property_valuef(name, expected_value, flags, UID_FMT, uid);
+                        return 1;
+                }
+                break;
+
+        case SD_BUS_TYPE_ARRAY:
+
+                if (contents[0] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "Sessions")) {
+                        const char *s;
+                        bool space = false;
+
+                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(so)");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        if (!FLAGS_SET(flags, BUS_PRINT_PROPERTY_ONLY_VALUE))
+                                printf("%s=", name);
+
+                        while ((r = sd_bus_message_read(m, "(so)", &s, NULL)) > 0) {
+                                printf("%s%s", space ? " " : "", s);
+                                space = true;
+                        }
+
+                        if (space || !FLAGS_SET(flags, BUS_PRINT_PROPERTY_ONLY_VALUE))
+                                printf("\n");
+
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        return 1;
+                }
+                break;
+        }
+
+        return 0;
+}
+
+static int show_properties(sd_bus *bus, const char *path) {
+        int r;
+
+        assert(bus);
+        assert(path);
+
+        r = bus_print_all_properties(
+                        bus,
+                        "org.freedesktop.login1",
+                        path,
+                        print_property,
+                        arg_property,
+                        arg_print_flags,
+                        NULL);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        return 0;
+}
+
+static int get_bus_path_by_id(
+                sd_bus *bus,
+                const char *type,
+                const char *method,
+                const char *id,
+                char **ret) {
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        const char *path;
+        int r;
+
+        assert(bus);
+        assert(type);
+        assert(STR_IN_SET(type, "session", "seat"));
+        assert(method);
+        assert(id);
+        assert(ret);
+
+        r = bus_call_method(bus, bus_login_mgr, method, &error, &reply, "s", id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get path for %s '%s': %s", type, id, bus_error_message(&error, r));
+
+        r = sd_bus_message_read(reply, "o", &path);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        return strdup_to(ret, path);
+}
+
+VERB(verb_show_session, "session-status", "[ID…]", VERB_ANY, VERB_ANY, 0,
+     "Show session status");
+VERB(verb_show_session, "show-session", "[ID…]", VERB_ANY, VERB_ANY, 0,
+     "Show properties of sessions or the manager");
+static int verb_show_session(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        sd_bus *bus = ASSERT_PTR(userdata);
+        bool properties;
+        int r;
+
+        assert(argv);
+
+        properties = !strstr(argv[0], "status");
+
+        pager_open(arg_pager_flags);
+
+        if (argc <= 1) {
+                _cleanup_free_ char *path = NULL;
+
+                /* If no argument is specified inspect the manager itself */
+                if (properties)
+                        return show_properties(bus, "/org/freedesktop/login1");
+
+                r = get_bus_path_by_id(bus, "session", "GetSession", "auto", &path);
+                if (r < 0)
+                        return r;
+
+                return print_session_status_info(bus, path);
+        }
+
+        for (int i = 1, first = true; i < argc; i++, first = false) {
+                _cleanup_free_ char *path = NULL;
+
+                r = get_bus_path_by_id(bus, "session", "GetSession", argv[i], &path);
+                if (r < 0)
+                        return r;
+
+                if (!first)
+                        putchar('\n');
+
+                if (properties)
+                        r = show_properties(bus, path);
+                else
+                        r = print_session_status_info(bus, path);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+VERB(verb_activate, "activate", "[ID]", VERB_ANY, 2, 0,
+     "Activate a session");
+VERB(verb_activate, "lock-session", "[ID…]", VERB_ANY, VERB_ANY, 0,
+     "Screen lock one or more sessions");
+VERB(verb_activate, "unlock-session", "[ID…]", VERB_ANY, VERB_ANY, 0,
+     "Screen unlock one or more sessions");
+static int verb_activate(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus = ASSERT_PTR(userdata);
+        int r;
+
+        assert(argv);
+
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        if (argc < 2) {
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.login1",
+                                "/org/freedesktop/login1/session/auto",
+                                "org.freedesktop.login1.Session",
+                                streq(argv[0], "lock-session")      ? "Lock" :
+                                streq(argv[0], "unlock-session")    ? "Unlock" :
+                                streq(argv[0], "terminate-session") ? "Terminate" :
+                                                                      "Activate",
+                                &error, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
+
+                return 0;
+        }
+
+        for (int i = 1; i < argc; i++) {
+                r = bus_call_method(
+                                bus,
+                                bus_login_mgr,
+                                streq(argv[0], "lock-session")      ? "LockSession" :
+                                streq(argv[0], "unlock-session")    ? "UnlockSession" :
+                                streq(argv[0], "terminate-session") ? "TerminateSession" :
+                                                                      "ActivateSession",
+                                &error, NULL,
+                                "s", argv[i]);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
+        }
+
+        return 0;
+}
+
+VERB_NOARG(verb_lock_sessions, "lock-sessions", "Screen lock all current sessions");
+VERB_NOARG(verb_lock_sessions, "unlock-sessions", "Screen unlock all current sessions");
+static int verb_lock_sessions(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus = ASSERT_PTR(userdata);
+        int r;
+
+        assert(argv);
+
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        r = bus_call_method(
+                        bus,
+                        bus_login_mgr,
+                        streq(argv[0], "lock-sessions") ? "LockSessions" : "UnlockSessions",
+                        &error, NULL,
+                        NULL);
+        if (r < 0)
+                return log_error_errno(r, "Could not lock sessions: %s", bus_error_message(&error, r));
+
+        return 0;
+}
+
+/* The implementation is above, but we put this here to preserve the logical order in --help. */
+VERB(verb_activate, "terminate-session", "ID…", 2, VERB_ANY, 0,
+     "Terminate one or more sessions");
+
+VERB(verb_kill_session, "kill-session", "ID…", 2, VERB_ANY, 0,
+     "Send signal to processes of a session");
+static int verb_kill_session(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus = ASSERT_PTR(userdata);
+        int r;
+
+        assert(argv);
+
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        if (!arg_kill_whom)
+                arg_kill_whom = "all";
+
+        for (int i = 1; i < argc; i++) {
+                r = bus_call_method(
+                                bus,
+                                bus_login_mgr,
+                                "KillSession",
+                                &error, NULL,
+                                "ssi", argv[i], arg_kill_whom, arg_signal);
+                if (r < 0)
+                        return log_error_errno(r, "Could not kill session: %s", bus_error_message(&error, r));
+        }
+
+        return 0;
+}
+
+VERB_GROUP("User Commands");
+
+VERB_NOARG(verb_list_users, "list-users", "List users");
+static int verb_list_users(int argc, char *argv[], uintptr_t _data, void *userdata) {
+
+        static const struct bus_properties_map property_map[] = {
+                { "Linger", "b", NULL, offsetof(UserStatusInfo, linger) },
+                { "State",  "s", NULL, offsetof(UserStatusInfo, state)  },
+                {},
+        };
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(table_unrefp) Table *table = NULL;
+        sd_bus *bus = ASSERT_PTR(userdata);
+        int r;
+
+        assert(argv);
+
+        r = bus_call_method(bus, bus_login_mgr, "ListUsers", &error, &reply, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to list users: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_enter_container(reply, 'a', "(uso)");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        table = table_new("uid", "user", "linger", "state");
+        if (!table)
+                return log_oom();
+
+        (void) table_set_align_percent(table, TABLE_HEADER_CELL(0), 100);
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
+
+        for (;;) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error_property = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply_property = NULL;
+                _cleanup_(user_status_info_done) UserStatusInfo info = {};
+                const char *user, *object;
+                uint32_t uid;
+
+                r = sd_bus_message_read(reply, "(uso)", &uid, &user, &object);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+                if (r == 0)
+                        break;
+
+                r = bus_map_all_properties(bus,
+                                           "org.freedesktop.login1",
+                                           object,
+                                           property_map,
+                                           BUS_MAP_BOOLEAN_AS_BOOL,
+                                           &error_property,
+                                           &reply_property,
+                                           &info);
+                if (r < 0) {
+                        log_full_errno(sd_bus_error_has_name(&error_property, SD_BUS_ERROR_UNKNOWN_OBJECT) ? LOG_DEBUG : LOG_WARNING,
+                                       r,
+                                       "Failed to get properties of user %s, ignoring: %s",
+                                       user, bus_error_message(&error_property, r));
+                        continue;
+                }
+
+                r = table_add_many(table,
+                                   TABLE_UID, (uid_t) uid,
+                                   TABLE_STRING, user,
+                                   TABLE_BOOLEAN, info.linger,
+                                   TABLE_STRING, info.state);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        return list_table_print(table, "users");
+}
+
+VERB(verb_show_user, "user-status", "[USER…]", VERB_ANY, VERB_ANY, 0,
+     "Show user status");
+VERB(verb_show_user, "show-user", "[USER…]", VERB_ANY, VERB_ANY, 0,
+     "Show properties of users or the manager");
+static int verb_show_user(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        sd_bus *bus = ASSERT_PTR(userdata);
+        bool properties;
+        int r;
+
+        assert(argv);
+
+        properties = !strstr(argv[0], "status");
+
+        pager_open(arg_pager_flags);
+
+        if (argc <= 1) {
+                /* If no argument is specified inspect the manager itself */
+                if (properties)
+                        return show_properties(bus, "/org/freedesktop/login1");
+
+                return print_user_status_info(bus, "/org/freedesktop/login1/user/self");
+        }
+
+        for (int i = 1, first = true; i < argc; i++, first = false) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+                const char *path;
+                uid_t uid;
+
+                r = get_user_creds(argv[i], /* flags= */ 0, NULL, &uid, NULL, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
+
+                r = bus_call_method(bus, bus_login_mgr, "GetUser", &error, &reply, "u", (uint32_t) uid);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get user: %s", bus_error_message(&error, r));
+
+                r = sd_bus_message_read(reply, "o", &path);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                if (!first)
+                        putchar('\n');
+
+                if (properties)
+                        r = show_properties(bus, path);
+                else
+                        r = print_user_status_info(bus, path);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+VERB(verb_enable_linger, "enable-linger", "[USER…]", VERB_ANY, VERB_ANY, 0,
+     "Enable linger state of one or more users");
+VERB(verb_enable_linger, "disable-linger", "[USER…]", VERB_ANY, VERB_ANY, 0,
+     "Disable linger state of one or more users");
+static int verb_enable_linger(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus = ASSERT_PTR(userdata);
+        char* short_argv[3];
+        bool b;
+        int r;
+
+        assert(argv);
+
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        b = streq(argv[0], "enable-linger");
+
+        if (argc < 2) {
+                /* No argument? Let's use an empty user name,
+                 * then logind will use our user. */
+
+                short_argv[0] = argv[0];
+                short_argv[1] = (char*) "";
+                short_argv[2] = NULL;
+                argv = short_argv;
+                argc = 2;
+        }
+
+        for (int i = 1; i < argc; i++) {
+                uid_t uid;
+
+                if (isempty(argv[i]))
+                        uid = UID_INVALID;
+                else {
+                        r = get_user_creds(argv[i], /* flags= */ 0, NULL, &uid, NULL, NULL, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
+                }
+
+                r = bus_call_method(
+                                bus,
+                                bus_login_mgr,
+                                "SetUserLinger",
+                                &error, NULL,
+                                "ubb", (uint32_t) uid, b, true);
+                if (r < 0)
+                        return log_error_errno(r, "Could not enable linger: %s", bus_error_message(&error, r));
+        }
+
+        return 0;
+}
+
+VERB(verb_terminate_user, "terminate-user", "USER…", 2, VERB_ANY, 0,
+     "Terminate all sessions of one or more users");
+static int verb_terminate_user(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus = ASSERT_PTR(userdata);
+        int r;
+
+        assert(argv);
+
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        for (int i = 1; i < argc; i++) {
+                uid_t uid;
+
+                if (isempty(argv[i]))
+                        uid = getuid();
+                else {
+                        r = get_user_creds(argv[i], /* flags= */ 0, NULL, &uid, NULL, NULL, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
+                }
+
+                r = bus_call_method(bus, bus_login_mgr, "TerminateUser", &error, NULL, "u", (uint32_t) uid);
+                if (r < 0)
+                        return log_error_errno(r, "Could not terminate user: %s", bus_error_message(&error, r));
+        }
+
+        return 0;
+}
+
+VERB(verb_kill_user, "kill-user", "USER…", 2, VERB_ANY, 0,
+     "Send signal to processes of a user");
+static int verb_kill_user(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus = ASSERT_PTR(userdata);
+        int r;
+
+        assert(argv);
+
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        if (!arg_kill_whom)
+                arg_kill_whom = "all";
+
+        for (int i = 1; i < argc; i++) {
+                uid_t uid;
+
+                if (isempty(argv[i]))
+                        uid = getuid();
+                else {
+                        r = get_user_creds(argv[i], /* flags= */ 0, NULL, &uid, NULL, NULL, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
+                }
+
+                r = bus_call_method(
+                        bus,
+                        bus_login_mgr,
+                        "KillUser",
+                        &error, NULL,
+                        "ui", (uint32_t) uid, arg_signal);
+                if (r < 0)
+                        return log_error_errno(r, "Could not kill user: %s", bus_error_message(&error, r));
+        }
+
+        return 0;
+}
+
+VERB_GROUP("Seat Commands");
+
+VERB_NOARG(verb_list_seats, "list-seats", "List seats");
+static int verb_list_seats(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(table_unrefp) Table *table = NULL;
+        sd_bus *bus = ASSERT_PTR(userdata);
+        int r;
+
+        assert(argv);
+
+        r = bus_call_method(bus, bus_login_mgr, "ListSeats", &error, &reply, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to list seats: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_enter_container(reply, 'a', "(so)");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        table = table_new("seat");
+        if (!table)
+                return log_oom();
+
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
+
+        for (;;) {
+                const char *seat;
+
+                r = sd_bus_message_read(reply, "(so)", &seat, NULL);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+                if (r == 0)
+                        break;
+
+                r = table_add_cell(table, NULL, TABLE_STRING, seat);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        return list_table_print(table, "seats");
+}
+
+VERB(verb_show_seat, "seat-status", "[NAME…]", VERB_ANY, VERB_ANY, 0,
+     "Show seat status");
+VERB(verb_show_seat, "show-seat", "[NAME…]", VERB_ANY, VERB_ANY, 0,
+     "Show properties of seats or the manager");
+static int verb_show_seat(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        sd_bus *bus = ASSERT_PTR(userdata);
+        bool properties;
+        int r;
+
+        assert(argv);
+
+        properties = !strstr(argv[0], "status");
+
+        pager_open(arg_pager_flags);
+
+        if (argc <= 1) {
+                _cleanup_free_ char *path = NULL;
+
+                /* If no argument is specified inspect the manager itself */
+                if (properties)
+                        return show_properties(bus, "/org/freedesktop/login1");
+
+                r = get_bus_path_by_id(bus, "seat", "GetSeat", "auto", &path);
+                if (r < 0)
+                        return r;
+
+                return print_seat_status_info(bus, path);
+        }
+
+        for (int i = 1, first = true; i < argc; i++, first = false) {
+                _cleanup_free_ char *path = NULL;
+
+                r = get_bus_path_by_id(bus, "seat", "GetSeat", argv[i], &path);
+                if (r < 0)
+                        return r;
+
+                if (!first)
+                        putchar('\n');
+
+                if (properties)
+                        r = show_properties(bus, path);
+                else
+                        r = print_seat_status_info(bus, path);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+VERB(verb_attach, "attach", "NAME DEVICE…", 3, VERB_ANY, 0,
+     "Attach one or more devices to a seat");
+static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus = ASSERT_PTR(userdata);
+        int r;
+
+        assert(argv);
+
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        for (int i = 2; i < argc; i++) {
+
+                r = bus_call_method(
+                        bus,
+                        bus_login_mgr,
+                        "AttachDevice",
+                        &error, NULL,
+                        "ssb", argv[1], argv[i], true);
+                if (r < 0)
+                        return log_error_errno(r, "Could not attach device: %s", bus_error_message(&error, r));
+        }
+
+        return 0;
+}
+
+VERB_NOARG(verb_flush_devices, "flush-devices", "Flush all device associations");
+static int verb_flush_devices(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus = ASSERT_PTR(userdata);
+        int r;
+
+        assert(argv);
+
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        r = bus_call_method(bus, bus_login_mgr, "FlushDevices", &error, NULL, "b", true);
+        if (r < 0)
+                return log_error_errno(r, "Could not flush devices: %s", bus_error_message(&error, r));
+
+        return 0;
+}
+
+VERB(verb_terminate_seat, "terminate-seat", "NAME…", 2, VERB_ANY, 0,
+     "Terminate all sessions on one or more seats");
+static int verb_terminate_seat(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus = ASSERT_PTR(userdata);
+        int r;
+
+        assert(argv);
+
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        for (int i = 1; i < argc; i++) {
+
+                r = bus_call_method(bus, bus_login_mgr, "TerminateSeat", &error, NULL, "s", argv[i]);
+                if (r < 0)
+                        return log_error_errno(r, "Could not terminate seat: %s", bus_error_message(&error, r));
+        }
+
+        return 0;
+}
+
+static int help(void) {
+        static const char *const groups[] = {
+                "Session Commands",
+                "User Commands",
+                "Seat Commands",
+        };
+
+        Table *vtables[ELEMENTSOF(groups)] = {};
+        CLEANUP_ELEMENTS(vtables, table_unref_array_clear);
+        _cleanup_(table_unrefp) Table *options = NULL;
+        int r;
+
+        pager_open(arg_pager_flags);
+
+        for (size_t i = 0; i < ELEMENTSOF(groups); i++) {
+                r = verbs_get_help_table_group(groups[i], &vtables[i]);
+                if (r < 0)
+                        return r;
+        }
+
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        assert_cc(ELEMENTSOF(vtables) == 3);
+        (void) table_sync_column_widths(0, vtables[0], vtables[1], vtables[2], options);
+
+        help_cmdline("[OPTIONS…] COMMAND …");
+        help_abstract("Send control commands to or query the login manager.");
+
+        for (size_t i = 0; i < ELEMENTSOF(groups); i++) {
+                help_section(groups[i]);
+                r = table_print_or_warn(vtables[i]);
+                if (r < 0)
+                        return r;
+        }
+
+        help_section("Options");
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        help_man_page_reference("loginctl", "1");
+        return 0;
+}
+
+VERB_COMMON_HELP_HIDDEN(help);
+
+static int parse_argv(int argc, char *argv[], char ***remaining_args) {
+        int r;
+
+        assert(argc >= 0);
+        assert(argv);
+        assert(remaining_args);
+
+        OptionParser opts = { argc, argv };
+
+        FOREACH_OPTION_OR_RETURN(c, &opts)
+                switch (c) {
+
+                OPTION_COMMON_HELP:
+                        return help();
+
+                OPTION_COMMON_VERSION:
+                        return version();
+
+                OPTION_COMMON_HOST:
+                        arg_transport = BUS_TRANSPORT_REMOTE;
+                        arg_host = opts.arg;
+                        break;
+
+                OPTION_COMMON_MACHINE:
+                        r = parse_machine_argument(opts.arg, &arg_host, &arg_transport);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION('p', "property", "NAME", "Show only properties by this name"): {}
+                OPTION_SHORT('P', "NAME", "Equivalent to --value --property=NAME"):
+                        r = strv_extend(&arg_property, opts.arg);
+                        if (r < 0)
+                                return log_oom();
+
+                        /* If the user asked for a particular property, show it to them, even if it is
+                         * empty. */
+                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
+
+                        if (opts.opt->short_code == 'P')
+                                SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
+
+                        break;
+
+                OPTION('a', "all", NULL, "Show all properties, including empty ones"):
+                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
+                        break;
+
+                OPTION_LONG("value", NULL, "When showing properties, only print the value"):
+                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
+                        break;
+
+                OPTION('l', "full", NULL, "Do not ellipsize output"):
+                        arg_full = true;
+                        break;
+
+                OPTION_LONG("kill-whom", "WHOM", "Whom to send signal to"):
+                        arg_kill_whom = opts.arg;
+                        break;
+
+                OPTION('s', "signal", "SIGNAL", "Which signal to send"):
+                        r = parse_signal_argument(opts.arg, &arg_signal);
+                        if (r <= 0)
+                                return r;
+                        break;
+
+                OPTION('n', "lines", "INTEGER", "Number of journal entries to show"):
+                        if (safe_atou(opts.arg, &arg_lines) < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse lines '%s'", opts.arg);
+                        break;
+
+                OPTION_COMMON_JSON:
+                        r = parse_json_argument(opts.arg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+
+                        if (sd_json_format_enabled(arg_json_format_flags))
+                                arg_legend = false;
+
+                        break;
+
+                OPTION_COMMON_LOWERCASE_J:
+                        arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
+                        arg_legend = false;
+                        break;
+
+                OPTION('o', "output", "MODE",
+                       "Change journal output mode (short, short-precise, short-iso, "
+                       "short-iso-precise, short-full, short-monotonic, short-unix, short-delta, "
+                       "json, json-pretty, json-sse, json-seq, cat, verbose, export, with-unit)"):
+                        if (streq(opts.arg, "help"))
+                                return DUMP_STRING_TABLE(output_mode, OutputMode, _OUTPUT_MODE_MAX);
+
+                        arg_output = output_mode_from_string(opts.arg);
+                        if (arg_output < 0)
+                                return log_error_errno(arg_output, "Unknown output '%s'.", opts.arg);
+
+                        break;
+
+                OPTION_COMMON_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
+                OPTION_COMMON_NO_LEGEND:
+                        arg_legend = false;
+                        break;
+
+                OPTION_COMMON_NO_ASK_PASSWORD:
+                        arg_ask_password = false;
+                        break;
+                }
+
+        *remaining_args = option_parser_get_args(&opts);
+        return 1;
+}
+
+static int run(int argc, char *argv[]) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        char **args = NULL;
+        int r;
+
+        COMPRESS_JOURNAL_NOTE;
+
+        setlocale(LC_ALL, "");
+        log_setup();
+
+        r = parse_argv(argc, argv, &args);
+        if (r <= 0)
+                return r;
+
+        journal_browse_prepare();
+
+        r = bus_connect_transport(arg_transport, arg_host, RUNTIME_SCOPE_SYSTEM, &bus);
+        if (r < 0)
+                return bus_log_connect_error(r, arg_transport, RUNTIME_SCOPE_SYSTEM);
+
+        (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
+
+        return dispatch_verb(args, bus);
+}
+
+DEFINE_MAIN_FUNCTION(run);

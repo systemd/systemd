@@ -1,0 +1,122 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=dummy98
+
+[Network]
+IPv6AcceptRA=no
+Address=2001:1234:5:8f63::1/128
+Address=149.10.124.58/28
+DefaultRouteOnDevice=yes
+IPv4LLRoute=yes
+
+[Route]
+Destination=2001:1234:5:8fff:ff:ff:ff:ff/128
+
+[Route]
+Destination=2001:1234:5:9fff:ff:ff:ff:ff/128
+
+[Route]
+Gateway=2001:1234:5:8fff:ff:ff:ff:ff
+
+[Route]
+Destination=2001:1234:5:afff:ff:ff:ff:ff/128
+Gateway=fe80::222:4dff:ff:ff:ff:ff
+
+[Route]
+Destination=149.10.124.64
+
+[Route]
+Gateway=149.10.124.64
+
+[Route]
+Gateway=149.10.125.65
+GatewayOnLink=yes
+
+[Route]
+Destination=192.168.1.1
+InitialCongestionWindow=20
+
+[Route]
+Destination=192.168.1.2
+InitialAdvertisedReceiveWindow=30
+
+[Route]
+Destination=192.168.1.3
+TCPAdvertisedMaximumSegmentSize=30
+
+[Route]
+Destination=192.168.1.4
+HopLimit=122
+
+[Route]
+Type=blackhole
+Destination=202.54.1.2
+
+[Route]
+Type=unreachable
+Destination=202.54.1.3
+
+[Route]
+Type=prohibit
+Destination=202.54.1.4
+
+[Route]
+Type=blackhole
+Destination=2001:1234:5678::2
+
+[Route]
+Type=unreachable
+Destination=2001:1234:5678::3
+
+[Route]
+Type=prohibit
+Destination=2001:1234:5678::4
+
+[Route]
+Type=local
+Destination=149.10.123.1
+
+[Route]
+Type=anycast
+Destination=149.10.123.2
+
+[Route]
+Type=broadcast
+Destination=149.10.123.3
+
+[Route]
+Type=multicast
+Destination=149.10.123.4
+
+[Route]
+Destination=192.168.10.1/32
+MultiPathRoute=149.10.123.59@test1 20
+MultiPathRoute=149.10.123.60@test1 30
+MultiPathRoute=149.10.124.59 10
+MultiPathRoute=149.10.124.60 5
+
+[Route]
+Destination=2001:1234:5:bfff:ff:ff:ff:ff/128
+MultiPathRoute=2001:1234:5:6fff:ff:ff:ff:ff@test1 20
+MultiPathRoute=2001:1234:5:7fff:ff:ff:ff:ff@test1 30
+MultiPathRoute=2001:1234:5:8fff:ff:ff:ff:ff@dummy98 10
+MultiPathRoute=2001:1234:5:9fff:ff:ff:ff:ff@dummy98 5
+
+[Route]
+Destination=192.168.10.2/32
+MultiPathRoute=2001:1234:5:6fff:ff:ff:ff:ff@test1 20
+MultiPathRoute=2001:1234:5:7fff:ff:ff:ff:ff@test1 30
+MultiPathRoute=2001:1234:5:8fff:ff:ff:ff:ff@dummy98 10
+MultiPathRoute=2001:1234:5:9fff:ff:ff:ff:ff@dummy98 5
+
+[Address]
+Address=1.1.8.105/31
+Peer=1.1.8.104/31
+
+[Route]
+Gateway=1.1.8.104
+
+[Route]
+Destination=192.168.20.0/24
+MultiPathRoute=@test1 15
+MultiPathRoute=@dummy98 25

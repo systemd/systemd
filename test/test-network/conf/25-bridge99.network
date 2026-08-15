@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=bridge99
+
+[Link]
+MTUBytes=9000
+
+[Network]
+Address=192.168.0.15/24
+Gateway=192.168.0.1
+IPv6AcceptRA=no

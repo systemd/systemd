@@ -1,0 +1,102 @@
+---
+# vi: ts=2 sw=2 et:
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+name: Unit tests
+on:
+  pull_request:
+    branches:
+      - main
+      - v[0-9]+-stable
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ${{ matrix.runner }}
+    concurrency:
+      group: ${{ github.workflow }}-${{ matrix.run_phase }}-${{ matrix.cross_arch || 'native' }}-${{ github.ref }}-${{ matrix.runner }}
+      cancel-in-progress: true
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ ubuntu-24.04 ]
+        run_phase: [GCC, GCC_ASAN_UBSAN, CLANG, CLANG_RELEASE, CLANG_ASAN_UBSAN, CLANG_ASAN_UBSAN_NO_DEPS]
+        include:
+          - run_phase: GCC
+          - run_phase: GCC
+            runner: ubuntu-24.04-arm
+          - run_phase: GCC
+            runner: ubuntu-24.04-arm
+            cross_arch: armhf
+          - run_phase: GCC
+            runner: ubuntu-24.04-ppc64le
+          - run_phase: GCC
+            runner: ubuntu-24.04-s390x
+          - run_phase: CLANG
+          - run_phase: CLANG
+            runner: ubuntu-24.04-arm
+          - run_phase: CLANG
+            runner: ubuntu-24.04-arm
+            cross_arch: armhf
+          - run_phase: CLANG
+            runner: ubuntu-24.04-ppc64le
+          - run_phase: CLANG
+            runner: ubuntu-24.04-s390x
+    env:
+      CROSS_ARCH: ${{ matrix.cross_arch || '' }}
+    steps:
+      - name: Repository checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Install build dependencies
+        run: |
+          # Drop XDG_* stuff from /etc/environment, so we don't get the user
+          # XDG_* variables when running under sudo
+          sudo sed -i '/^XDG_/d' /etc/environment
+          # Pass only specific env variables through sudo, to avoid having
+          # the already existing XDG_* stuff on the "other side"
+          sudo --preserve-env=GITHUB_ACTIONS,CI,CROSS_ARCH .github/workflows/unit-tests.sh SETUP
+      - name: Build & test
+        run: sudo --preserve-env=GITHUB_ACTIONS,CI,CROSS_ARCH .github/workflows/unit-tests.sh RUN_${{ matrix.run_phase }}
+
+  build-musl:
+    name: Build & test (musl, postmarketOS)
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: ${{ github.workflow }}-musl-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: Repository checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - uses: systemd/mkosi@f7762b71437227922a367bb89597843c77494ef9
+
+      - name: Build tools tree
+        run: |
+          tee mkosi/mkosi.local.conf <<EOF
+          [Build]
+          ToolsTreeDistribution=postmarketos
+          EOF
+
+          mkosi -f box -- true
+
+      - name: Build
+        run: |
+          mkosi box -- \
+              meson setup \
+                  --werror \
+                  -Dtests=unsafe \
+                  -Dslow-tests=true \
+                  -Dfuzz-tests=true \
+                  -Dlibc=musl \
+                  -Ddlopen-tests=true \
+                  build
+          mkosi box -- ninja -v -C build
+
+      - name: Test
+        run: mkosi box -- meson test -C build --print-errorlogs --no-stdsplit --quiet

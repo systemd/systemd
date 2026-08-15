@@ -1,0 +1,91 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd_device_ref" xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>sd_device_ref</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_device_ref</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_device_ref</refname>
+    <refname>sd_device_unref</refname>
+    <refname>sd_device_unrefp</refname>
+
+    <refpurpose>Create or destroy references to a device object</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-device.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>sd_device* <function>sd_device_ref</function></funcdef>
+        <paramdef>sd_device *<parameter>device</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>sd_device* <function>sd_device_unref</function></funcdef>
+        <paramdef>sd_device *<parameter>device</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>void <function>sd_device_unrefp</function></funcdef>
+        <paramdef>sd_device **<parameter>device</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+
+    <para><function>sd_device_ref()</function> increases the internal reference counter of
+    <parameter>device</parameter> by one.</para>
+
+    <para><function>sd_device_unref()</function> decreases the internal reference counter of
+    <parameter>device</parameter> by one. Once the reference count has dropped to zero,
+    <parameter>device</parameter> is destroyed and cannot be used anymore, so further calls to
+    <function>sd_device_ref()</function> or <function>sd_device_unref()</function> are illegal.</para>
+
+    <para><function>sd_device_unrefp()</function> is similar to <function>sd_device_unref()</function> but
+    takes a pointer to a pointer to an <type>sd_device</type> object. This call is useful in conjunction with
+    GCC's and LLVM's <ulink url="https://gcc.gnu.org/onlinedocs/gcc/Common-Variable-Attributes.html">Clean-up
+    Variable Attribute</ulink>. Note that this function is defined as an inline function. Use a declaration
+    like the following, in order to allocate a device object that is freed automatically as the code block is
+    left:</para>
+
+    <programlisting>{
+  __attribute__((cleanup(sd_device_unrefp))) sd_device *device = NULL;
+  int r;
+  …
+  r = sd_device_new_from_syspath(&amp;device, "…");
+  if (r &lt; 0) {
+    errno = -r;
+    fprintf(stderr, "Failed to allocate device: %m\n");
+  }
+  …
+}</programlisting>
+
+    <para><function>sd_device_ref()</function> and <function>sd_device_unref()</function> execute no
+    operation if the argument is <constant>NULL</constant>. <function>sd_device_unrefp()</function> will
+    first dereference its argument, which must not be <constant>NULL</constant>, and will execute no
+    operation if <emphasis>that</emphasis> is <constant>NULL</constant>.</para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para><function>sd_device_ref()</function> always returns the argument, and
+    <function>sd_device_unref()</function> always returns <constant>NULL</constant>.
+    </para>
+  </refsect1>
+<refsect1>
+    <title>History</title>
+    <para><function>sd_device_ref()</function>,
+    <function>sd_device_unref()</function>, and
+    <function>sd_device_unrefp()</function> were added in version 251.</para>
+  </refsect1>
+</refentry>

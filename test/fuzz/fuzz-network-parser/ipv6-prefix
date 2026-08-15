@@ -1,0 +1,10 @@
+[Match]
+Name=veth-peer
+
+[Network]
+IPv6PrefixDelegation=yes
+
+[IPv6Prefix]
+Prefix=2002:da8:1:0::/64
+PreferredLifetimeSec=1000s
+ValidLifetimeSec=2100s

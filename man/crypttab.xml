@@ -1,0 +1,1157 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!--
+  SPDX-License-Identifier: LGPL-2.1-or-later
+
+  This is based on crypttab(5) from Fedora's initscripts package, which in
+  turn is based on Debian's version.
+
+  The Red Hat version has been written by Miloslav Trmac <mitr@redhat.com>.
+-->
+<refentry id="crypttab" conditional='HAVE_LIBCRYPTSETUP' xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>crypttab</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>crypttab</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>crypttab</refname>
+    <refpurpose>Configuration for encrypted block devices</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>/etc/crypttab</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>The <filename>/etc/crypttab</filename> file describes
+    encrypted block devices that are set up during system boot.</para>
+
+    <para>Empty lines and lines starting with the <literal>#</literal>
+    character are ignored. Each of the remaining lines describes one
+    encrypted block device. Fields are delimited by white space.</para>
+
+    <para>Each line is in the form<programlisting><replaceable>volume-name</replaceable> <replaceable>encrypted-device</replaceable> <replaceable>key-file</replaceable> <replaceable>options</replaceable></programlisting>
+    The first two fields are mandatory, the remaining two are
+    optional.</para>
+
+    <para>Setting up encrypted block devices using this file supports four encryption modes: LUKS, TrueCrypt,
+    BitLocker and plain. See <citerefentry
+    project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
+    more information about each mode. When no mode is specified in the options field and the block device
+    contains a LUKS signature, it is opened as a LUKS device; otherwise, it is assumed to be in raw dm-crypt
+    (plain mode) format.</para>
+
+    <para>The four fields of <filename>/etc/crypttab</filename> are defined as follows:</para>
+
+    <orderedlist>
+
+      <listitem><para>The first field contains the name of the resulting volume with decrypted data; its
+      block device is set up below <filename>/dev/mapper/</filename>.</para></listitem>
+
+      <listitem><para>The second field contains a path to the underlying block
+      device or file, or a specification of a block device via
+      <literal>UUID=</literal> followed by the UUID.</para></listitem>
+
+      <listitem><para>The third field specifies an absolute path to a file with the encryption
+      key. Optionally, the path may be followed by <literal>:</literal> and an
+      <filename>/etc/fstab</filename> style device specification (e.g. starting with
+      <literal>LABEL=</literal> or similar); in which case the path is taken relative to the specified
+      device's file system root. If the field is not present or is <literal>none</literal> or
+      <literal>-</literal>, a key file named after the volume to unlock (i.e. the first column of the line),
+      suffixed with <filename>.key</filename> is automatically loaded from the
+      <filename>/etc/cryptsetup-keys.d/</filename> and <filename>/run/cryptsetup-keys.d/</filename>
+      directories, if present. Otherwise, the password has to be manually entered during system boot. For
+      swap encryption, <filename>/dev/urandom</filename> may be used as key file, resulting in a randomized
+      key.</para>
+
+      <para>If the specified key file path refers to an <constant>AF_UNIX</constant> stream socket in the
+      file system, the key is acquired by connecting to the socket and reading it from the connection. This
+      allows the implementation of a service to provide key information dynamically, at the moment when it is
+      needed. For details see below.</para></listitem>
+
+      <listitem><para>The fourth field, if present, is a comma-delimited list of options. The supported
+      options are listed below.</para></listitem>
+    </orderedlist>
+  </refsect1>
+
+  <refsect1>
+    <title>Key Acquisition</title>
+
+    <para>Six different mechanisms for acquiring the decryption key or passphrase unlocking the encrypted
+    volume are supported. Specifically:</para>
+
+    <orderedlist>
+
+      <listitem><para>Most prominently, the user may be queried interactively during volume activation
+      (i.e. typically at boot), asking them to type in the necessary passphrases.</para></listitem>
+
+      <listitem><para>The (unencrypted) key may be read from a file on disk, possibly on removable media. The third field
+      of each line encodes the location, for details see above.</para></listitem>
+
+      <listitem><para>The (unencrypted) key may be requested from another service, by specifying an
+      <constant>AF_UNIX</constant> file system socket in place of a key file in the third field. For details
+      see above and below.</para></listitem>
+
+      <listitem><para>The key may be acquired via a PKCS#11 compatible hardware security token or
+      smartcard. In this case, a saved key used in unlock process is stored on disk/removable media, acquired via
+      <constant>AF_UNIX</constant>, or stored in the LUKS2 JSON token metadata header. For RSA, the saved key
+      is an encrypted volume key. The encrypted volume key is then decrypted by the PKCS#11 token with an RSA
+      private key stored on it, and used to unlock the encrypted volume. For elliptic-curve (EC) cryptography,
+      the saved key is the public key generated in enrollment process. The public key is then used to derive
+      a shared secret with a private key stored in the PKCS#11 token. The derived shared secret is then used
+      to unlock the volume. Use the <option>pkcs11-uri=</option> option described below to use this mechanism.
+      </para></listitem>
+
+      <listitem><para>Similarly, the key may be acquired via a FIDO2 compatible hardware security token
+      (which must implement the "hmac-secret" extension). In this case, a key generated randomly during
+      enrollment is stored on disk/removable media, acquired via <constant>AF_UNIX</constant>, or stored in
+      the LUKS2 JSON token metadata header. The random key is hashed via a keyed hash function (HMAC) on the
+      FIDO2 token, using a secret key stored on the token that never leaves it. The resulting hash value is
+      then used as key to unlock the encrypted volume. Use the <option>fido2-device=</option> option
+      described below to use this mechanism.</para></listitem>
+
+      <listitem><para>Similarly, the key may be acquired via a TPM2 security chip. In this case, a (during
+      enrollment) randomly generated key — encrypted by an asymmetric key derived from the TPM2 chip's seed
+      key — is stored on disk/removable media, acquired via <constant>AF_UNIX</constant>, or stored in the
+      LUKS2 JSON token metadata header. Use the <option>tpm2-device=</option> option described below to use
+      this mechanism.</para></listitem>
+    </orderedlist>
+
+    <para>For the latter five mechanisms the source for the key material used for unlocking the volume is
+    primarily configured in the third field of each <filename>/etc/crypttab</filename> line, but may also
+    be configured in <filename>/etc/cryptsetup-keys.d/</filename> and
+    <filename>/run/cryptsetup-keys.d/</filename> (see above) or in the LUKS2 JSON token header (in case of
+    the latter three). Use the
+    <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    tool to enroll PKCS#11, FIDO2 and TPM2 devices in LUKS2 volumes.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Supported Options</title>
+
+    <para>The following options may be used in the fourth field of each line:</para>
+
+    <variablelist class='fstab-options'>
+
+      <varlistentry>
+        <term><option>cipher=</option></term>
+
+        <listitem><para>Specifies the cipher to use. See <citerefentry
+        project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for possible values and the default value of this option. A cipher with unpredictable IV values, such
+        as <literal>aes-cbc-essiv:sha256</literal>, is recommended. Embedded commas in the cipher
+        specification need to be escaped by preceding them with a backslash, see example below.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>discard</option></term>
+
+        <listitem><para>Allow discard requests to be passed through the encrypted block
+        device. This improves performance on SSD storage but has security implications.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v207"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>hash=</option></term>
+
+        <listitem><para>Specifies the hash to use for password
+        hashing. See
+        <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for possible values and the default value of this
+        option.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>header=</option></term>
+
+        <listitem><para>Use a detached (separated) metadata device or file
+        where the header containing the master key(s) is stored. This
+        option is only relevant for LUKS and TrueCrypt/VeraCrypt devices. See
+        <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for possible values and the default value of this option.</para>
+
+        <para>Optionally, the path may be followed by <literal>:</literal> and an
+        <filename>/etc/fstab</filename> device specification (e.g. starting with <literal>UUID=</literal> or
+        similar); in which case, the path is relative to the device file system root. The device gets mounted
+        automatically for LUKS device activation duration only.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>keyfile-offset=</option></term>
+
+        <listitem><para>Specifies the number of bytes to skip at the
+        start of the key file. See
+        <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for possible values and the default value of this
+        option.</para>
+
+        <xi:include href="version-info.xml" xpointer="v187"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>keyfile-size=</option></term>
+
+        <listitem><para>Specifies the maximum number of bytes to read
+        from the key file. See
+        <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for possible values and the default value of this option. This
+        option is ignored in plain encryption mode, where the key file
+        size is determined by the key size. It is also ignored when
+        the key file is used as a salt file for a FIDO2 token, as the
+        salt size in that case is defined by the FIDO2 specification
+        to be exactly 32 bytes.</para>
+
+        <xi:include href="version-info.xml" xpointer="v188"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>keyfile-erase</option></term>
+
+        <listitem><para>If enabled, the specified key file is erased after the volume is activated or when
+        activation fails. This is in particular useful when the key file is only acquired transiently before
+        activation (e.g. via a file in <filename>/run/</filename>, generated by a service running before
+        activation), and shall be removed after use. Defaults to off.</para>
+
+        <para>Note that this option only applies to a key file explicitly configured in the third field, and
+        has no effect on key files that are automatically discovered in
+        <filename>/etc/cryptsetup-keys.d/</filename> and <filename>/run/cryptsetup-keys.d/</filename>. The
+        latter are considered shared resources that are not owned by an individual volume, and hence are never
+        erased. To erase an automatically discovered key file, configure its path explicitly in the third
+        field.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>key-slot=</option></term>
+
+        <listitem><para>Specifies the key slot to compare the
+        passphrase or key against. If the key slot does not match the
+        given passphrase or key, but another would, the setup of the
+        device will fail regardless. This option implies
+        <option>luks</option>. See
+        <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for possible values. The default is to try all key slots in
+        sequential order.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>keyfile-timeout=</option></term>
+
+        <listitem><para> Specifies the timeout for the device on
+        which the key file resides or the device used as the key file,
+        and falls back to a password if it could not be accessed. See
+        <citerefentry><refentrytitle>systemd-cryptsetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for key files on external devices.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>link-volume-key=</option></term>
+
+        <listitem><para>Specifies the kernel keyring and key description
+        (see <citerefentry project='man-pages'><refentrytitle>keyrings</refentrytitle><manvolnum>7</manvolnum></citerefentry>)
+        where LUKS2 volume key gets linked during device activation. The kernel keyring
+        description and key description must be separated by <literal>::</literal>.</para>
+
+        <para>The kernel keyring part can be a string description or a predefined
+        kernel keyring prefixed with <literal>@</literal> (e.g.: to use <literal>@s</literal> session or
+        <literal>@u</literal> user keyring directly). The type prefix text in the kernel keyring description
+        is not required. The specified kernel keyring must already exist at the time of device activation.</para>
+
+        <para>The key part is a string description optionally prefixed by a <literal>%key_type:</literal>.
+        If no type is specified, the <literal>user</literal> type key is linked by default. See
+        <citerefentry project='man-pages'><refentrytitle>keyctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for more information on key descriptions (KEY IDENTIFIERS section).</para>
+
+        <para>Note that the linked volume key is not cleaned up automatically when the device is detached.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>luks</option></term>
+
+        <listitem><para>Force LUKS mode. When this mode is used, the
+        following options are ignored since they are provided by the
+        LUKS header on the device: <option>cipher=</option>,
+        <option>hash=</option>,
+        <option>size=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>bitlk</option></term>
+
+        <listitem><para>Decrypt BitLocker drive. Encryption parameters
+        are deduced by cryptsetup from BitLocker header.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>_netdev</option></term>
+
+        <listitem><para>Marks this cryptsetup device as requiring network. It will be
+        started after the network is available, similarly to
+        <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        units marked with <option>_netdev</option>. The service unit to set up this device
+        will be ordered between <filename>remote-fs-pre.target</filename> and
+        <filename>remote-cryptsetup.target</filename>, instead of
+        <filename>cryptsetup-pre.target</filename> and
+        <filename>cryptsetup.target</filename>.</para>
+
+        <para>Hint: if this device is used for a mount point that is specified in
+        <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        the <option>_netdev</option> option should also be used for the mount
+        point. Otherwise, a dependency loop might be created where the mount point
+        will be pulled in by <filename>local-fs.target</filename>, while the
+        service to configure the network is usually only started <emphasis>after</emphasis>
+        the local file system has been mounted.</para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>noauto</option></term>
+
+        <listitem><para>This device will not be added to <filename>cryptsetup.target</filename>.
+        This means that it will not be automatically unlocked on boot, unless something else pulls
+        it in. In particular, if the device is used for a mount point, it'll be unlocked
+        automatically during boot, unless the mount point itself is also disabled with
+        <option>noauto</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>nofail</option></term>
+
+        <listitem><para>This device will not be a hard dependency of
+        <filename>cryptsetup.target</filename>. It'll still be pulled in and started, but the system
+        will not wait for the device to show up and be unlocked, and boot will not fail if this is
+        unsuccessful. Note that other units that depend on the unlocked device may still fail. In
+        particular, if the device is used for a mount point, the mount point itself also needs to
+        have the <option>nofail</option> option, or the boot will fail if the device is not unlocked
+        successfully. If a keyfile and/or a <option>header</option> are specified, the dependencies on
+        their respective directories will also not be fatal, so that unmounting said directories will
+        not cause the generated cryptset unit to be deactivated.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>offset=</option></term>
+
+        <listitem><para>Start offset in the backend device, in 512-byte sectors. This
+        option is only relevant for plain devices.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>plain</option></term>
+
+        <listitem><para>Force plain encryption mode.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>read-only</option></term><term><option>readonly</option></term>
+
+        <listitem><para>Set up the encrypted block device in read-only
+        mode.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>same-cpu-crypt</option></term>
+
+        <listitem><para>Perform encryption using the same CPU that IO was submitted on. The default is to use
+        an unbound workqueue so that encryption work is automatically balanced between available CPUs.</para>
+
+        <para>This requires kernel 4.0 or newer.</para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>submit-from-crypt-cpus</option></term>
+
+        <listitem><para>Disable offloading writes to a separate thread after encryption. There are some
+        situations where offloading write requests from the encryption threads to a dedicated thread degrades
+        performance significantly. The default is to offload write requests to a dedicated thread because it
+        benefits the CFQ scheduler to have writes submitted using the same context.</para>
+
+        <para>This requires kernel 4.0 or newer.</para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>no-read-workqueue</option></term>
+
+        <listitem><para>Bypass dm-crypt internal workqueue and process read requests synchronously. The
+        default is to queue these requests and process them asynchronously.</para>
+
+        <para>This requires kernel 5.9 or newer.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>no-write-workqueue</option></term>
+
+        <listitem><para>Bypass dm-crypt internal workqueue and process write requests synchronously. The
+        default is to queue these requests and process them asynchronously.</para>
+
+        <para>This requires kernel 5.9 or newer.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>skip=</option></term>
+
+        <listitem><para>How many 512-byte sectors of the encrypted data to skip at the
+        beginning. This is different from the <option>offset=</option> option with respect
+        to the sector numbers used in initialization vector (IV) calculation. Using
+        <option>offset=</option> will shift the IV calculation by the same negative
+        amount. Hence, if <option>offset=<replaceable>n</replaceable></option> is given,
+        sector <replaceable>n</replaceable> will get a sector number of 0 for the IV
+        calculation. Using <option>skip=</option> causes sector
+        <replaceable>n</replaceable> to also be the first sector of the mapped device, but
+        with its number for IV generation being <replaceable>n</replaceable>.</para>
+
+        <para>This option is only relevant for plain devices.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>size=</option></term>
+
+        <listitem><para>Specifies the key size in bits. See
+        <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for possible values and the default value of this
+        option.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>sector-size=</option></term>
+
+        <listitem><para>Specifies the sector size in bytes. See
+        <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for possible values and the default value of this
+        option.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>swap</option></term>
+
+        <listitem><para>The encrypted block device will be used as a
+        swap device, and will be formatted accordingly after setting
+        up the encrypted block device, with
+        <citerefentry project='man-pages'><refentrytitle>mkswap</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        This option implies <option>plain</option>.</para>
+
+        <warning>
+          <para>Using the <option>swap</option> option will
+          destroy the contents of the named partition during every boot,
+          so make sure the underlying block device is specified
+          correctly.</para>
+        </warning>
+
+        <xi:include href="version-info.xml" xpointer="v186"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>tcrypt</option></term>
+
+        <listitem><para>Use TrueCrypt encryption mode. When this mode
+        is used, the following options are ignored since they are
+        provided by the TrueCrypt header on the device or do not
+        apply:
+        <option>cipher=</option>,
+        <option>hash=</option>,
+        <option>keyfile-offset=</option>,
+        <option>keyfile-size=</option>,
+        <option>size=</option>.</para>
+
+        <para>When this mode is used, the passphrase is read from the
+        key file given in the third field. Only the first line of this
+        file is read, excluding the new line character.</para>
+
+        <para>Note that the TrueCrypt format uses both passphrase and
+        key files to derive a password for the volume. Therefore, the
+        passphrase and all key files need to be provided. Use
+        <option>tcrypt-keyfile=</option> to provide the absolute path
+        to all key files. When using an empty passphrase in
+        combination with one or more key files, use
+        <literal>/dev/null</literal> as the password file in the third
+        field.</para>
+
+        <xi:include href="version-info.xml" xpointer="v206"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>tcrypt-hidden</option></term>
+
+        <listitem><para>Use the hidden TrueCrypt volume. This option
+        implies <option>tcrypt</option>.</para>
+
+        <para>This will map the hidden volume that is inside of the
+        volume provided in the second field. Please note that there is
+        no protection for the hidden volume if the outer volume is
+        mounted instead. See
+        <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for more information on this limitation.</para>
+
+        <xi:include href="version-info.xml" xpointer="v206"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>tcrypt-keyfile=</option></term>
+
+        <listitem><para>Specifies the absolute path to a key file to
+        use for a TrueCrypt volume. This implies
+        <option>tcrypt</option> and can be used more than once to
+        provide several key files.</para>
+
+        <para>See the entry for <option>tcrypt</option> on the
+        behavior of the passphrase and key files when using TrueCrypt
+        encryption mode.</para>
+
+        <xi:include href="version-info.xml" xpointer="v206"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>tcrypt-system</option></term>
+
+        <listitem><para>Use TrueCrypt in system encryption mode. This
+        option implies <option>tcrypt</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v206"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>tcrypt-veracrypt</option></term>
+
+        <listitem><para>Check for a VeraCrypt volume.  VeraCrypt is a fork of
+        TrueCrypt that is mostly compatible, but uses different, stronger key
+        derivation algorithms that cannot be detected without this flag.
+        Enabling this option could substantially slow down unlocking, because
+        VeraCrypt's key derivation takes much longer than TrueCrypt's.  This
+        option implies <option>tcrypt</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v232"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>veracrypt-pim=</option></term>
+
+        <listitem><para>Specifies a custom Personal Iteration Multiplier (PIM)
+        value, which can range from 0..2147468 for standard veracrypt volumes
+        and 0..65535 for veracrypt system volumes. A value of 0 will imply the
+        VeraCrypt default.
+
+        This option is only effective when <option>tcrypt-veracrypt</option> is
+        set.</para>
+
+        <para>Note that VeraCrypt enforces a minimal allowed PIM value depending on the
+        password strength and the hash algorithm used for key derivation, however
+        <option>veracrypt-pim=</option> is not checked against these bounds.
+        See
+        <ulink url="https://www.veracrypt.fr/en/Personal%20Iterations%20Multiplier%20%28PIM%29.html">Veracrypt Personal Iterations Multiplier</ulink>
+        documentation for more information.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>timeout=</option></term>
+
+        <listitem><para>Specifies the timeout for querying for a
+        password. If no unit is specified, seconds is used. Supported
+        units are s, ms, us, min, h, d. A timeout of 0 waits
+        indefinitely (which is the default).</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>tmp=</option></term>
+
+        <listitem><para>The encrypted block device will be prepared for using it as
+        <filename>/tmp/</filename>; it will be formatted using <citerefentry
+        project='man-pages'><refentrytitle>mkfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>. Takes
+        a file system type as argument, such as <literal>ext4</literal>, <literal>xfs</literal> or
+        <literal>btrfs</literal>. If no argument is specified defaults to <literal>ext4</literal>. This
+        option implies <option>plain</option>.</para>
+
+        <warning>
+          <para>Using the <option>tmp</option> option will destroy the contents of the named partition
+          during every boot, so make sure the underlying block device is specified correctly.</para>
+        </warning>
+
+        <xi:include href="version-info.xml" xpointer="v186"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>tries=</option></term>
+
+        <listitem><para>Specifies the maximum number of times the user
+        is queried for a password. The default is 3. If set to 0, the
+        user is queried for a password indefinitely.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>headless=</option></term>
+
+        <listitem><para>Takes a boolean argument, defaults to false. If true, never query interactively
+        for the password/PIN. Useful for headless systems.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>verify</option></term>
+
+        <listitem><para>If the encryption password is read from console, it has to be entered twice to
+        prevent typos.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>password-echo=yes|no|masked</option></term>
+
+        <listitem><para>Controls whether to echo passwords or security token PINs
+        that are read from console. Takes a boolean or the special string <literal>masked</literal>.
+        The default is <option>password-echo=masked</option>.</para>
+
+        <para>If enabled, the typed characters are echoed literally. If disabled,
+        the typed characters are not echoed in any form, the user will not get
+        feedback on their input. If set to <literal>masked</literal>, an asterisk
+        (<literal>*</literal>) is echoed for each character typed. Regardless of
+        which mode is chosen, if the user hits the tabulator key (<literal>↹</literal>)
+        at any time, or the backspace key (<literal>⌫</literal>) before any other
+        data has been entered, then echo is turned off.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>password-cache=yes|no|read-only</option></term>
+
+        <listitem><para>Controls whether to use cache for passwords or security token PINs.
+        Takes a boolean or the special string <literal>read-only</literal>. Defaults to
+        <literal>yes</literal>.</para>
+
+        <para>If set to <literal>read-only</literal>, the kernel keyring is checked for a
+        password/PIN before requesting one interactively. If set to <literal>yes</literal>,
+        in addition to checking the keyring, any password/PIN entered interactively is cached
+        in the keyring with a 2.5-minute timeout before being purged.</para>
+
+        <para>Note that this option is not permitted for PKCS#11 security tokens. The reasoning
+        behind this is that PKCS#11 security tokens are usually configured to lock after being
+        supplied an invalid PIN multiple times, so using the cache might inadvertently lock the
+        token.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>pkcs11-uri=</option></term>
+
+        <listitem><para>Takes either the special value <literal>auto</literal> or an <ulink
+        url="https://tools.ietf.org/html/rfc7512">RFC7512 PKCS#11 URI</ulink> pointing to a private key
+        which is used to decrypt the encrypted key specified in the third column of the line. This is useful
+        for unlocking encrypted volumes through PKCS#11 compatible security tokens or smartcards. See below
+        for an example how to set up this mechanism for unlocking a LUKS2 volume with a YubiKey security
+        token.</para>
+
+        <para>If specified as <literal>auto</literal> the volume must be of type LUKS2 and must carry PKCS#11
+        security token metadata in its LUKS2 JSON token section. In this mode the URI and the encrypted key
+        are automatically read from the LUKS2 JSON token header. Use
+        <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        as a simple tool for enrolling PKCS#11 security tokens or smartcards in a way compatible with
+        <literal>auto</literal>. In this mode the third column of the line should remain empty (that is,
+        specified as <literal>-</literal>).</para>
+
+        <para>The specified URI can refer directly to a private key stored on a token or alternatively
+        just to a slot or token, in which case a search for a suitable private key will be performed.  In
+        this case, if multiple suitable objects are found, the token is refused. The keyfile configured
+        in the third column of the line is used as is (i.e. in binary form, unprocessed). The resulting
+        decrypted key (for RSA) or derived shared secret (for ECC) is then Base64 encoded before it is used
+        to unlock the LUKS volume.</para>
+
+        <para>Use <command>systemd-cryptenroll --pkcs11-token-uri=list</command> to list all suitable PKCS#11
+        security tokens currently plugged in, along with their URIs.</para>
+
+        <para>Note that many newer security tokens that may be used as PKCS#11 security token typically also
+        implement the newer and simpler FIDO2 standard. Consider using <option>fido2-device=</option>
+        (described below) to enroll it via FIDO2 instead. Note that a security token enrolled via PKCS#11
+        cannot be used to unlock the volume via FIDO2, unless also enrolled via FIDO2, and vice
+        versa.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>fido2-device=</option></term>
+
+        <listitem><para>Takes either the special value <literal>auto</literal> or the path to a
+        <literal>hidraw</literal> device node (e.g. <filename>/dev/hidraw1</filename>) referring to a FIDO2
+        security token that implements the <literal>hmac-secret</literal> extension (most current hardware
+        security tokens do). See below for an example how to set up this mechanism for unlocking an encrypted
+        volume with a FIDO2 security token.</para>
+
+        <para>If specified as <literal>auto</literal> the FIDO2 token device is automatically discovered, as
+        it is plugged in.</para>
+
+        <para>FIDO2 volume unlocking requires a client ID hash (CID) to be configured via
+        <option>fido2-cid=</option> (see below) and a key to pass to the security token's HMAC functionality
+        (configured in the line's third column) to operate. If not configured and the volume is of type
+        LUKS2, the CID and the key are read from LUKS2 JSON token metadata instead. Use
+        <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        as simple tool for enrolling FIDO2 security tokens for LUKS2 volumes.</para>
+
+        <para>Use <command>systemd-cryptenroll --fido2-device=list</command> to list all suitable FIDO2
+        security tokens currently plugged in, along with their device nodes.</para>
+
+        <para>This option implements the following mechanism: the configured key is hashed via they HMAC
+        keyed hash function the FIDO2 device implements, keyed by a secret key embedded on the device. The
+        resulting hash value is Base64 encoded and used to unlock the LUKS2 volume. As it should not be
+        possible to extract the secret from the hardware token, it should not be possible to retrieve the
+        hashed key given the configured key — without possessing the hardware token.</para>
+
+        <para>Note that many security tokens that implement FIDO2 also implement PKCS#11, suitable for
+        unlocking volumes via the <option>pkcs11-uri=</option> option described above. Typically the newer,
+        simpler FIDO2 standard is preferable.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>fido2-cid=</option></term>
+
+        <listitem><para>Takes a Base64 encoded FIDO2 client ID to use for the FIDO2 unlock operation. If
+        specified, but <option>fido2-device=</option> is not, <option>fido2-device=auto</option> is
+        implied. If <option>fido2-device=</option> is used but <option>fido2-cid=</option> is not, the volume
+        must be of LUKS2 type, and the CID is read from the LUKS2 JSON token header. Use
+        <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for enrolling a FIDO2 token in the LUKS2 header compatible with this automatic
+        mode.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>fido2-rp=</option></term>
+
+        <listitem><para>Takes a string, configuring the FIDO2 Relying Party (rp) for the FIDO2 unlock
+        operation. If not specified, <literal>io.systemd.cryptsetup</literal> is used, except if the LUKS2
+        JSON token header contains a different value. It should normally not be necessary to override
+        this.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>fido2-pin=</option></term>
+
+        <listitem><para>Controls whether to require the user to enter a PIN when unlocking the volume (the
+        FIDO2 <literal>clientPin</literal> feature). This option only applies when in manual mode, i.e.
+        when <option>fido2-cid=</option> option is set. Defaults to neither true or false, but rather to
+        <constant>v248</constant> behavior, that is: try with no PIN first, but if token reports that PIN
+        is required, try again asking for PIN.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>fido2-up=</option></term>
+
+        <listitem><para>Controls whether to require the user to verify presence (tap the token, the FIDO2
+        <literal>up</literal> feature) when unlocking the volume. This option only applies when in manual
+        mode, i.e. when <option>fido2-cid=</option> option is set. Defaults to neither true or false,
+        but rather to <constant>v248</constant> behavior, that is: try with no UP first, but if token reports
+        that UP is required, try again with UP enabled.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>fido2-uv=</option></term>
+
+        <listitem><para>Controls whether to require user verification (the FIDO2 <literal>uv</literal> feature)
+        when unlocking the volume. This option only applies when in manual mode, i.e. when
+        <option>fido2-cid=</option> option is set. Defaults to neither true or false, but rather to
+        <constant>v248</constant> behavior, that is: omit configuring UV whatsoever.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>tpm2-device=</option></term>
+
+        <listitem><para>Takes either the special value <literal>auto</literal> or the path to a device node
+        (e.g. <filename>/dev/tpmrm0</filename>) referring to a TPM2 security chip. See below for an example
+        how to set up this mechanism for unlocking an encrypted volume with a TPM2 chip.</para>
+
+        <para>Use <option>tpm2-pcrs=</option> (see below) to configure the set of TPM2 PCRs to bind the
+        volume unlocking to. Use
+        <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        as simple tool for enrolling TPM2 security chips in LUKS2 volumes.</para>
+
+        <para>If specified as <literal>auto</literal> the TPM2 device is automatically discovered. Use
+        <command>systemd-cryptenroll --tpm2-device=list</command> to list all suitable TPM2 devices currently
+        available, along with their device nodes.</para>
+
+        <para>This option implements the following mechanism: when enrolling a TPM2 device via
+        <command>systemd-cryptenroll</command> on a LUKS2 volume, a randomized key unlocking the volume is
+        generated on the host and loaded into the TPM2 chip where it is encrypted with an asymmetric
+        "primary" key pair derived from the TPM2's internal "seed" key. Neither the seed key nor the primary
+        key are permitted to ever leave the TPM2 chip — however, the now encrypted randomized key may. It is
+        saved in the LUKS2 volume JSON token header. When unlocking the encrypted volume, the primary key
+        pair is generated on the TPM2 chip again (which works as long as the chip's seed key is correctly
+        maintained by the TPM2 chip), which is then used to decrypt (on the TPM2 chip) the encrypted key from
+        the LUKS2 volume JSON token header saved there during enrollment. The resulting decrypted key is then
+        used to unlock the volume. When the randomized key is encrypted the current values of the selected
+        PCRs (see below) are included in the operation, so that different PCR state results in different
+        encrypted keys and the decrypted key can only be recovered if the same PCR state is
+        reproduced.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>tpm2-pcrs=</option></term>
+
+        <listitem><para>Takes a <literal>+</literal> separated list of numeric TPM2 PCR (i.e. "Platform
+        Configuration Register") indexes to bind the TPM2 volume unlocking to. This option is only useful
+        when TPM2 enrollment metadata is not available in the LUKS2 JSON token header already, the way
+        <command>systemd-cryptenroll</command> writes it there. If not used (and no metadata in the LUKS2
+        JSON token header defines it), defaults to a list of a single entry: PCR 7. Assign an empty string to
+        encode a policy that binds the key to no PCRs, making the key accessible to local programs regardless
+        of the current PCR state.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>tpm2-pin=</option></term>
+
+        <listitem><para>Takes a boolean argument, defaults to <literal>false</literal>. Controls whether
+        TPM2 volume unlocking is bound to a PIN in addition to PCRs. Similarly, this option is only useful
+        when TPM2 enrollment metadata is not available.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>tpm2-signature=</option></term>
+
+        <listitem><para>Takes an absolute path to a TPM2 PCR JSON signature file, as produced by the
+        <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        tool. This permits locking LUKS2 volumes to any PCR values for which a valid signature matching a
+        public key specified at key enrollment time can be provided. See
+        <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for details on enrolling TPM2 PCR public keys. If this option is not specified but it is attempted to
+        unlock a LUKS2 volume with a signed TPM2 PCR enrollment, a suitable signature file
+        <filename>tpm2-pcr-signature.json</filename> is searched for in <filename>/etc/systemd/</filename>,
+        <filename>/run/systemd/</filename>, <filename>/usr/lib/systemd/</filename> (in this
+        order).</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>tpm2-pcrlock=</option></term>
+
+        <listitem><para>Takes an absolute path to a TPM2 pcrlock policy file, as produced by the
+        <citerefentry><refentrytitle>systemd-pcrlock</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        tool. This permits locking LUKS2 volumes to a local policy of allowed PCR values with
+        variants. See
+        <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for details on enrolling TPM2 pcrlock policies. If this option is not specified but it is attempted
+        to unlock a LUKS2 volume with a TPM2 pcrlock enrollment, a suitable signature file
+        <filename>pcrlock.json</filename> is searched for in <filename>/run/systemd/</filename> and
+        <filename>/var/lib/systemd/</filename> (in this order).</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>tpm2-measure-pcr=</option></term>
+
+        <listitem><para>Controls whether to measure the volume key of the encrypted volume to a TPM2 PCR. If
+        set to "no" (which is the default) no PCR extension is done. If set to "yes" the volume key is
+        measured into PCR 15. If set to a decimal integer in the range 0…23 the volume key is measured into
+        the specified PCR. The volume key is measured along with the activated volume name and its UUID. This
+        functionality is particularly useful for the encrypted volume backing the root file system, as it
+        then allows later TPM objects to be securely bound to the root file system and hence the specific
+        installation.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>tpm2-measure-bank=</option></term>
+
+        <listitem><para>This option is deprecated and has no effect since version 262. All suitable PCR
+        banks are used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>tpm2-measure-keyslot-nvpcr=</option></term>
+
+        <listitem><para>Controls whether to measure information about the used LUKS unlock keyslot to a TPM2
+        non-volatile index (nvindex in PCR mode). Takes a boolean argument, or an NvPCR name. If set to false
+        or an empty string (which is the default) no TPM2 nvindex extension is done, otherwise keyslot
+        information is measured to an nvindex of the specified name, which is allocated if needed. If set to
+        true the recommended default of <literal>cryptsetup</literal> is selected as NvPCR. The slot index
+        and the used unlock mechanism (i.e. <literal>tpm2</literal>, <literal>fido2</literal>,
+        <literal>pkcs11</literal>) are measured along with the activated volume name and its UUID.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>token-timeout=</option></term>
+
+        <listitem><para>Specifies how long to wait at most for configured security devices (i.e. FIDO2,
+        PKCS#11, TPM2) to show up. Takes a time value in seconds (but other time units may be specified too,
+        see <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for supported formats). Defaults to 30s. Once the specified timeout elapsed authentication via
+        password is attempted. Note that this timeout applies to waiting for the security device to show up —
+        it does not apply to the PIN prompt for the device (should one be needed) or similar. Pass 0 to turn
+        off the timeout and wait forever.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>try-empty-password=</option></term>
+
+        <listitem><para>Takes a boolean argument. If enabled, right before asking the user for a password it
+        is first attempted to unlock the volume with an empty password. This is useful for systems that are
+        initialized with an encrypted volume with only an empty password set, which shall be replaced with a
+        suitable password during first boot, but after activation.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>x-systemd.device-timeout=</option></term>
+
+        <listitem><para>Specifies how long systemd should wait for a block device to show up before
+        giving up on the entry. The argument is a time in seconds or explicitly specified units of
+        <literal>s</literal>, <literal>min</literal>, <literal>h</literal>, <literal>ms</literal>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v216"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>x-initrd.attach</option></term>
+
+        <listitem><para>Setup this encrypted block device in the initrd, similarly to
+        <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        units marked with <option>x-initrd.mount</option>.</para>
+
+        <para>Although it is not necessary to mark the mount entry for the root file system with
+        <option>x-initrd.mount</option>, <option>x-initrd.attach</option> is still recommended with
+        the encrypted block device containing the root file system as otherwise systemd will
+        attempt to detach the device during the regular system shutdown while it is still in
+        use. With this option the device will still be detached but later after the root file
+        system is unmounted.</para>
+
+        <para>All other encrypted block devices that contain file systems mounted in the initrd should use
+        this option.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>fixate-volume-key=</option></term>
+
+        <listitem><para>Pin the expected hash of the volume key.</para>
+
+        <para>In certain cases, e.g. for LUKS volumes where the key is sealed to the TPM2, this may be required
+        to provide a guarantee that the volume being attached is the volume which was previously created.
+        <option>fixate-volume-key=</option> can be used to set the expected volume key hash and refuse to attach the volume
+        if it has a different one. The expected hash matches the digest which is measured to the sha256 PCR bank of the
+        TPM2 when <option>tpm2-measure-pcr=</option> is used.</para>
+
+        <para>For newly created LUKS volumes, the expected hash can be generated by
+        <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        For additional details, see the <option>EncryptedVolume=</option> description at
+        <citerefentry><refentrytitle>repart.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
+
+    </variablelist>
+
+    <para>At early boot and when the system manager configuration is
+    reloaded, this file is translated into native systemd units by
+    <citerefentry><refentrytitle>systemd-cryptsetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title><constant>AF_UNIX</constant> Key Files</title>
+
+    <para>If the key file path (as specified in the third column of <filename>/etc/crypttab</filename>
+    entries, see above) refers to an <constant>AF_UNIX</constant> stream socket in the file system, the key
+    is acquired by connecting to the socket and reading the key from the connection. The connection is made
+    from an <constant>AF_UNIX</constant> socket name in the abstract namespace, see <citerefentry
+    project='man-pages'><refentrytitle>unix</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+    details. The source socket name is chosen according to the following format:</para>
+
+    <programlisting><constant>NUL</constant> <replaceable>RANDOM</replaceable> /cryptsetup/ <replaceable>VOLUME</replaceable></programlisting>
+
+    <para>In other words: a <constant>NUL</constant> byte (as required for abstract namespace sockets),
+    followed by a random string (consisting of alphanumeric characters only), followed by the literal
+    string <literal>/cryptsetup/</literal>, followed by the name of the volume to acquire they key
+    for. For example, for the volume <literal>myvol</literal>:</para>
+
+    <programlisting>\0d7067f78d9827418/cryptsetup/myvol</programlisting>
+
+    <para>Services listening on the <constant>AF_UNIX</constant> stream socket may query the source socket
+    name with <citerefentry
+    project='man-pages'><refentrytitle>getpeername</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
+    and use this to determine which key to send, allowing a single listening socket to serve keys for
+    multiple volumes. If the PKCS#11 logic is used (see above), the socket source name is picked in similar
+    fashion, except that the literal string <literal>/cryptsetup-pkcs11/</literal> is used. And similarly for
+    FIDO2 (<literal>/cryptsetup-fido2-salt/</literal>) and TPM2 (<literal>/cryptsetup-tpm2/</literal>).
+    A different path component is used so that services providing key material know that the secret key was
+    not requested directly, but instead an encrypted key that will be decrypted via the PKCS#11/FIDO2/TPM2
+    logic to acquire the final secret key.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+    <example>
+      <title>/etc/crypttab example</title>
+      <para>Set up four encrypted block devices. One using LUKS for normal storage, another one for usage as
+      a swap device and two TrueCrypt volumes. For the fourth device, the option string is interpreted as two
+      options <literal>cipher=xchacha12,aes-adiantum-plain64</literal>,
+      <literal>keyfile-timeout=10s</literal>.</para>
+
+      <programlisting>luks       UUID=2505567a-9e27-4efe-a4d5-15ad146c258b
+swap       /dev/sda7       /dev/urandom       swap
+truecrypt  /dev/sda2       /etc/container_password  tcrypt
+hidden     /mnt/tc_hidden  /dev/null    tcrypt-hidden,tcrypt-keyfile=/etc/keyfile
+external   /dev/sda3       keyfile:LABEL=keydev keyfile-timeout=10s,cipher=xchacha12\,aes-adiantum-plain64
+</programlisting>
+    </example>
+
+    <example>
+      <title>Yubikey-based PKCS#11 Volume Unlocking Example</title>
+
+      <para>The PKCS#11 logic allows hooking up any compatible security token that is capable of storing RSA
+      or EC cryptographic keys for unlocking an encrypted volume. Here's an example how to set up a Yubikey
+      security token for this purpose on a LUKS2 volume, using <citerefentry
+      project='debian'><refentrytitle>ykmap</refentrytitle><manvolnum>1</manvolnum></citerefentry> from the
+      yubikey-manager project to initialize the token and
+      <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      to add it in the LUKS2 volume:</para>
+
+      <programlisting><xi:include href="yubikey-crypttab.sh" parse="text" /></programlisting>
+
+      <para>A few notes on the above:</para>
+
+      <itemizedlist>
+        <listitem><para>We use RSA2048, which is the longest key size current Yubikeys support</para></listitem>
+        <listitem><para>We use Yubikey key slot 9d, since that's apparently the keyslot to use for decryption purposes,
+        see
+        <ulink url="https://developers.yubico.com/PIV/Introduction/Certificate_slots.html">Yubico PIV certificate slots</ulink>.
+        </para></listitem>
+      </itemizedlist>
+    </example>
+
+    <example>
+      <title>FIDO2 Volume Unlocking Example</title>
+
+      <para>The FIDO2 logic allows using any compatible FIDO2 security token that implements the
+      <literal>hmac-secret</literal> extension for unlocking an encrypted volume. Here's an example how to
+      set up a FIDO2 security token for this purpose for a LUKS2 volume, using
+      <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>:</para>
+
+      <programlisting><xi:include href="fido2-crypttab.sh" parse="text" /></programlisting>
+    </example>
+
+    <example>
+      <title>TPM2 Volume Unlocking Example</title>
+
+      <para>The TPM2 logic allows using any TPM2 chip supported by the Linux kernel for unlocking an
+      encrypted volume. Here's an example how to set up a TPM2 chip for this purpose for a LUKS2 volume,
+      using
+      <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>:</para>
+
+      <programlisting><xi:include href="tpm2-crypttab.sh" parse="text" /></programlisting>
+    </example>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-cryptsetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>repart.d</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>mkswap</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>mke2fs</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

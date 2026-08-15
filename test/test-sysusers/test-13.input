@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Ensure that the semantic for the uid:groupname syntax is correct
+#
+#Type Name ID  GECOS HOMEDIR
+g hoge    300     -            -
+u foo     301     -            -
+
+g baz     302     -            -
+u aaa     303:baz -            -
+u bbb     304:baz -            -
+u ccc     305     -            -
+
+g yyy     -
+u zzz     306:yyy

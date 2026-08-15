@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=bond199
+
+[Network]
+IPv6AcceptRA=no

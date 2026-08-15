@@ -1,0 +1,106 @@
+<?xml version="1.0"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+          "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+
+<!--
+  SPDX-License-Identifier: LGPL-2.1-or-later
+  Copyright © 2014 Josh Triplett
+-->
+
+<refentry xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refnamediv>
+    <refname/>
+    <refpurpose/>
+  </refnamediv>
+
+  <refsect1 id='confd'>
+    <title>Configuration Directories and Precedence</title>
+
+    <para>Configuration files are read from directories in <filename>/etc/</filename>,
+    <filename>/run/</filename>, <filename>/usr/local/lib/</filename>, and <filename>/usr/lib/</filename>, in
+    order of precedence, as listed in the SYNOPSIS section above. Files must have the
+    <literal>.conf</literal> extension. Files in <filename>/etc/</filename> override files with the same name
+    in <filename>/run/</filename>, <filename>/usr/local/lib/</filename>, and
+    <filename>/usr/lib/</filename>. Files in <filename>/run/</filename> override files with the same name
+    under <filename>/usr/</filename>.</para>
+
+    <para>All configuration files are sorted by their filename in lexicographic order, regardless of which of
+    the directories they reside in. If multiple files specify the same option, the entry in the file with the
+    lexicographically latest name will take precedence. Thus, the configuration in a certain file may either
+    be replaced completely (by placing a file with the same name in a directory with higher priority), or
+    individual settings might be changed (by specifying additional settings in a file with a different name
+    that is ordered later).</para>
+
+    <para>Packages should install their configuration files in <filename>/usr/lib/</filename> (distribution
+    packages) or <filename>/usr/local/lib/</filename> (local installs)
+    <xi:include xpointer="usr-local-footnote" />.
+    Files in <filename>/etc/</filename> are reserved for the local administrator, who may use this logic to
+    override the configuration files installed by vendor packages.</para>
+
+    <para>It is recommended to prefix all filenames with a two-digit number and a dash to simplify the
+    ordering. It is recommended to use the range 10-40 for configuration files in <filename>/usr/</filename>
+    and the range 60-90 for configuration files in <filename>/etc/</filename> and <filename>/run/</filename>,
+    to make sure that local and transient configuration files will always take priority over configuration
+    files shipped by the OS vendor.</para>
+
+    <para>If the administrator wants to disable a configuration file supplied by the vendor, the recommended
+    way is to place a symlink to <filename>/dev/null</filename> in the configuration directory in
+    <filename>/etc/</filename>, with the same filename as the vendor configuration file. If the vendor
+    configuration file is included in the initrd image, the image has to be regenerated.</para>
+  </refsect1>
+
+  <refsect1 id='main-conf'>
+    <title>Configuration Directories and Precedence</title>
+
+    <para>The default configuration is set during compilation, so configuration is only needed when it is
+    necessary to deviate from those defaults. The main configuration file is loaded from one of the
+    listed directories in order of priority, only the first file found is used:
+    <filename>/etc/systemd/</filename>,
+    <filename>/run/systemd/</filename>,
+    <filename>/usr/local/lib/systemd/</filename> <xi:include xpointer="usr-local-footnote" />,
+    <filename>/usr/lib/systemd/</filename>.
+    The vendor version of the file contains commented out entries showing the defaults as a guide to the
+    administrator. Local overrides can also be created by creating drop-ins, as described below. The main
+    configuration file can also be edited for this purpose (or a copy in <filename>/etc/</filename> if it is
+    shipped under <filename>/usr/</filename>), however using drop-ins for local configuration is recommended
+    over modifications to the main configuration file.</para>
+
+    <para>In addition to the main configuration file, drop-in configuration snippets are read from
+    <filename>/usr/lib/systemd/*.conf.d/</filename>, <filename>/usr/local/lib/systemd/*.conf.d/</filename>,
+    and <filename>/etc/systemd/*.conf.d/</filename>. Those drop-ins have higher precedence and override the
+    main configuration file. Files in the <filename>*.conf.d/</filename> configuration subdirectories are
+    sorted by their filename in lexicographic order, regardless of in which of the subdirectories they
+    reside. When multiple files specify the same option, for options which accept just a single value, the
+    entry in the file sorted last takes precedence, and for options which accept a list of values, entries
+    are collected as they occur in the sorted files.</para>
+
+    <para>When packages need to customize the configuration, they can install drop-ins under
+    <filename>/usr/</filename>. Files in <filename>/etc/</filename> are reserved for the local administrator,
+    who may use this logic to override the configuration files installed by vendor packages. Drop-ins have to
+    be used to override package drop-ins, since the main configuration file has lower precedence. It is
+    recommended to prefix all filenames in those subdirectories with a two-digit number and a dash, to
+    simplify the ordering. This also defines a concept of drop-in priorities to allow OS vendors to ship
+    drop-ins within a specific range lower than the range used by users. This should lower the risk of
+    package drop-ins overriding accidentally drop-ins defined by users. It is recommended to use the range
+    10-40 for drop-ins in <filename>/usr/</filename> and the range 60-90 for drop-ins in
+    <filename>/etc/</filename> and <filename>/run/</filename>, to make sure that local and transient drop-ins
+    take priority over drop-ins shipped by the OS vendor.</para>
+
+    <para>To disable a configuration file supplied by the vendor, the recommended way is to place a symlink
+    to <filename>/dev/null</filename> in the configuration directory in <filename>/etc/</filename>, with the
+    same filename as the vendor configuration file.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Extras</title>
+
+    <para><filename>/usr/local/lib/systemd</filename>
+    <footnote id='usr-local-footnote'>
+      <para>💣💥🧨💥💥💣 Please note that those configuration files must be available at all times. If
+      <filename>/usr/local/</filename> is a separate partition, it may not be available during early boot,
+      and must not be used for configuration.</para>
+    </footnote>
+    </para>
+  </refsect1>
+
+</refentry>

@@ -1,0 +1,408 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-tmpfiles"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-tmpfiles</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-tmpfiles</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-tmpfiles</refname>
+    <refname>systemd-tmpfiles-setup.service</refname>
+    <refname>systemd-tmpfiles-setup-dev-early.service</refname>
+    <refname>systemd-tmpfiles-setup-dev.service</refname>
+    <refname>systemd-tmpfiles-clean.service</refname>
+    <refname>systemd-tmpfiles-clean.timer</refname>
+    <refpurpose>Create, delete, and clean up files and directories</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-tmpfiles</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="opt" rep="repeat"><replaceable>CONFIGFILE</replaceable></arg>
+    </cmdsynopsis>
+
+    <para>System units:
+    <simplelist>
+      <member><filename>systemd-tmpfiles-setup.service</filename></member>
+      <member><filename>systemd-tmpfiles-setup-dev-early.service</filename></member>
+      <member><filename>systemd-tmpfiles-setup-dev.service</filename></member>
+      <member><filename>systemd-tmpfiles-clean.service</filename></member>
+      <member><filename>systemd-tmpfiles-clean.timer</filename></member>
+    </simplelist>
+    </para>
+
+    <para>User units:
+    <simplelist>
+      <member><filename>systemd-tmpfiles-setup.service</filename></member>
+      <member><filename>systemd-tmpfiles-clean.service</filename></member>
+      <member><filename>systemd-tmpfiles-clean.timer</filename></member>
+    </simplelist>
+    </para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-tmpfiles</command> creates, deletes, and cleans up files and directories, using
+    the configuration file format and location specified in
+    <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    Historically, it was designed to manage volatile and temporary files, as the name suggests, but it provides
+    generic file management functionality and can be used to manage any kind of files. It must
+    be invoked with one or more commands <option>--create</option>, <option>--remove</option>, and
+    <option>--clean</option>, to select the respective subset of operations.</para>
+
+    <para>If invoked with no arguments, directives from the configuration files found in the directories
+    specified by
+    <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> are
+    executed. When invoked with positional arguments, if option
+    <option>--replace=<replaceable>PATH</replaceable></option> is specified, arguments specified on the
+    command line are used instead of the configuration file <replaceable>PATH</replaceable>. Otherwise, just
+    the configuration specified by the command line arguments is executed. If the string <literal>-</literal>
+    is specified instead of a filename, the configuration is read from standard input. If the argument is a
+    file name (without any slashes), all configuration directories are searched for a matching file and the
+    file found that has the highest priority is executed. If the argument is a path, that file is used
+    directly without searching the configuration directories for any other matching file.</para>
+
+    <para>System services (<filename>systemd-tmpfiles-setup.service</filename>,
+    <filename>systemd-tmpfiles-setup-dev-early.service</filename>,
+    <filename>systemd-tmpfiles-setup-dev.service</filename>,
+    <filename>systemd-tmpfiles-clean.service</filename>) invoke <command>systemd-tmpfiles</command> to create
+    system files and to perform system wide cleanup. Those services read administrator-controlled
+    configuration files in <filename>tmpfiles.d/</filename> directories. User services
+    (<filename>systemd-tmpfiles-setup.service</filename>,
+    <filename>systemd-tmpfiles-clean.service</filename>) also invoke <command>systemd-tmpfiles</command>, but
+    it reads a separate set of files, which includes user-controlled files under
+    <filename>~/.config/user-tmpfiles.d/</filename> and <filename>~/.local/share/user-tmpfiles.d/</filename>,
+    and administrator-controlled files under <filename>/usr/share/user-tmpfiles.d/</filename>. Users may use
+    this to create and clean up files under their control, but the system instance performs global cleanup
+    and is not influenced by user configuration. Note that this means a time-based cleanup configured in the
+    system instance, such as the one typically configured for <filename>/tmp/</filename>, will thus also
+    affect files created by the user instance if they are placed in <filename>/tmp/</filename>, even if the
+    user instance's time-based cleanup is turned off.</para>
+
+    <para>To re-apply settings after configuration has been modified, simply restart
+    <filename>systemd-tmpfiles-clean.service</filename>, which will apply any settings which can be safely
+    executed at runtime. To debug <command>systemd-tmpfiles</command>, it may be useful to invoke it
+    directly from the command line with increased log level (see <varname>$SYSTEMD_LOG_LEVEL</varname>
+    below).</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands and options</title>
+
+    <para>The following commands are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--create</option></term>
+        <listitem><para>If this command is passed, all files and
+        directories marked with
+        <varname>f</varname>,
+        <varname>F</varname>,
+        <varname>w</varname>,
+        <varname>d</varname>,
+        <varname>D</varname>,
+        <varname>v</varname>,
+        <varname>p</varname>,
+        <varname>L</varname>,
+        <varname>c</varname>,
+        <varname>b</varname>,
+        <varname>m</varname>
+        in the configuration files are created or written to. Files
+        and directories marked with
+        <varname>z</varname>,
+        <varname>Z</varname>,
+        <varname>t</varname>,
+        <varname>T</varname>,
+        <varname>a</varname>, and
+        <varname>A</varname> have their ownership, access mode and
+        security labels set.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--clean</option></term>
+        <listitem><para>If this command is passed, all files and
+        directories with an age parameter configured will be cleaned
+        up.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--remove</option></term>
+        <listitem><para>If this command is passed, the contents of
+        directories marked with <varname>D</varname> or
+        <varname>R</varname>, and files or directories themselves
+        marked with <varname>r</varname> or <varname>R</varname> are
+        removed unless an exclusive or shared BSD lock is taken on them (see <citerefentry
+        project='man-pages'><refentrytitle>flock</refentrytitle><manvolnum>2</manvolnum></citerefentry>).
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--purge</option></term>
+
+        <listitem><para>If this option is passed, all files and directories declared for
+        <emphasis>creation</emphasis> and marked with the <literal>$</literal> character by the
+        <filename>tmpfiles.d/</filename> files specified on the command line will be
+        <emphasis>deleted</emphasis>. Specifically, this acts on all files and directories marked with
+        <varname>f</varname>, <varname>F</varname>, <varname>d</varname>, <varname>D</varname>,
+        <varname>v</varname>, <varname>q</varname>, <varname>Q</varname>, <varname>p</varname>,
+        <varname>L</varname>, <varname>c</varname>, <varname>b</varname>, <varname>C</varname>,
+        <varname>w</varname>, <varname>e</varname>. If this switch is used at least one
+        <filename>tmpfiles.d/</filename> file (or <filename>-</filename> for standard input) must be
+        specified on the command line or the invocation will be refused, for safety reasons (as otherwise
+        much of the installed system files might be removed).</para>
+
+        <para>The primary usecase for this option is to automatically remove files and directories that
+        originally have been created on behalf of an installed package at package removal time.</para>
+
+        <para>It is recommended to first run this command in combination with <option>--dry-run</option>
+        (see below) to verify which files and directories will be deleted.</para>
+
+        <para><emphasis>Warning!</emphasis> This is usually not the command you want! In most cases
+        <option>--remove</option> is what you are looking for.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--user</option></term>
+        <listitem><para>Execute "user" configuration, i.e. <filename>tmpfiles.d/</filename>
+        files in user configuration directories.</para>
+
+        <xi:include href="version-info.xml" xpointer="v236"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--boot</option></term>
+        <listitem><para>Also execute lines with an exclamation mark. Lines that are not safe to be executed
+        on a running system may be marked in this way. <command>systemd-tmpfiles</command> is executed in
+        early boot with <option>--boot</option> specified and will execute those lines. When invoked again
+        later, it should be called without <option>--boot</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--graceful</option></term>
+        <listitem><para>Ignore configuration lines pertaining to unknown users or groups. This option is
+        intended to be used in early boot before all users or groups have been created.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-n</option></term>
+        <term><option>--dry-run</option></term>
+        <listitem><para>Process the configuration and print what operations would be performed, but do not
+        actually change anything in the file system. The short option <option>-n</option> was added in
+        version 262.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--inline</option></term>
+        <listitem><para>Treat each positional argument as a separate configuration
+        line instead of a file name.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--prefix=<replaceable>path</replaceable></option></term>
+        <listitem><para>Only apply rules with paths that start with
+        the specified prefix. This option can be specified multiple
+        times.</para>
+
+        <xi:include href="version-info.xml" xpointer="v212"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--exclude-prefix=<replaceable>path</replaceable></option></term>
+        <listitem><para>Ignore rules with paths that start with the
+        specified prefix. This option can be specified multiple
+        times.</para>
+
+        <xi:include href="version-info.xml" xpointer="v207"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-E</option></term>
+        <listitem><para>A shortcut for <literal>--exclude-prefix=/dev --exclude-prefix=/proc
+        --exclude-prefix=/run --exclude-prefix=/sys</literal>, i.e. exclude the hierarchies typically backed
+        by virtual or memory file systems. This is useful in combination with <option>--root=</option>, if
+        the specified directory tree contains an OS tree without these virtual/memory file systems mounted
+        in, as it is typically not desirable to create any files and directories below these subdirectories
+        if they are supposed to be overmounted during runtime.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--root=<replaceable>root</replaceable></option></term>
+        <listitem><para>Takes a directory path as an argument. All paths will be prefixed with the given alternate
+        <replaceable>root</replaceable> path, including config search paths.</para>
+
+        <para>When this option is used, the libc Name Service Switch (NSS) is bypassed for resolving users
+        and groups. Instead the files <filename>/etc/passwd</filename> and <filename>/etc/group</filename>
+        inside the alternate root are read directly. This means that users/groups not listed in these files
+        will not be resolved, i.e. LDAP NIS and other complex databases are not considered.</para>
+
+        <para>Consider combining this with <option>-E</option> to ensure the invocation does not create files
+        or directories below mount points in the OS image operated on that are typically overmounted during
+        runtime.</para>
+
+        <para>Note that this is not a sandboxing or security feature.
+        <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        definitions are potentially not processed in a hermetic fashion to the specified root.</para>
+
+        <xi:include href="version-info.xml" xpointer="v212"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--image=<replaceable>image</replaceable></option></term>
+
+        <listitem><para>Takes a path to a disk image file or block device node. If specified all operations
+        are applied to file system in the indicated disk image. This is similar to <option>--root=</option>
+        but operates on file systems stored in disk images or block devices. The disk image should either
+        contain just a file system or a set of file systems within a GPT partition table, following the
+        <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2 Discoverable Partitions
+        Specification</ulink>. For further information on supported disk images, see
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+        switch of the same name.</para>
+
+        <para>Implies <option>-E</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="image-policy-open" />
+
+      <varlistentry>
+        <term><option>--replace=<replaceable>PATH</replaceable></option></term>
+        <listitem><para>When this option is given, one or more positional arguments
+        must be specified. All configuration files found in the directories listed in
+        <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        will be read, and the configuration given on the command line will be
+        handled instead of and with the same priority as the configuration file
+        <replaceable>PATH</replaceable>.</para>
+
+        <para>This option is intended to be used when package installation scripts
+        are running and files belonging to that package are not yet available on
+        disk, so their contents must be given on the command line, but the admin
+        configuration might already exist and should be given higher priority.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v238"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="cat-config" />
+      <xi:include href="standard-options.xml" xpointer="tldr" />
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+
+    <para>It is possible to combine <option>--create</option>, <option>--clean</option>, and <option>--remove</option>
+    in one invocation (in which case removal and cleanup are executed before creation of new files). For example,
+    during boot the following command line is executed to ensure that all temporary and volatile directories are
+    removed and created according to the configuration file:</para>
+
+    <programlisting>systemd-tmpfiles --remove --create</programlisting>
+  </refsect1>
+
+  <refsect1>
+    <title>Credentials</title>
+
+    <para><command>systemd-tmpfiles</command> supports the service credentials logic as implemented by
+    <varname>ImportCredential=</varname>/<varname>LoadCredential=</varname>/<varname>SetCredential=</varname>
+    (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details). The following credentials are used when passed in:</para>
+
+    <variablelist class='system-credentials'>
+      <varlistentry>
+        <term><varname>tmpfiles.extra</varname></term>
+
+        <listitem><para> The contents of this credential may contain additional lines to operate on. The
+        credential contents should follow the same format as any other <filename>tmpfiles.d/</filename>
+        drop-in configuration file. If this credential is passed it is processed after all of the drop-in
+        files read from the file system. The lines in the credential can hence augment existing lines of the
+        OS, but not override them.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>Note that by default the <filename>systemd-tmpfiles-setup.service</filename> unit file (and related
+    unit files) is set up to inherit the <literal>tmpfiles.extra</literal> credential from the service
+    manager.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Environment</title>
+
+    <variablelist class='environment-variables'>
+      <xi:include href="common-variables.xml" xpointer="log-level" />
+      <xi:include href="common-variables.xml" xpointer="log-color" />
+      <xi:include href="common-variables.xml" xpointer="log-time" />
+      <xi:include href="common-variables.xml" xpointer="log-location" />
+      <xi:include href="common-variables.xml" xpointer="log-target" />
+      <xi:include href="common-variables.xml" xpointer="pager" />
+      <xi:include href="common-variables.xml" xpointer="less" />
+      <xi:include href="common-variables.xml" xpointer="lesscharset" />
+      <xi:include href="common-variables.xml" xpointer="lesssecure" />
+      <xi:include href="common-variables.xml" xpointer="colors" />
+      <xi:include href="common-variables.xml" xpointer="urlify" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Unprivileged --cleanup operation</title>
+
+    <para><command>systemd-tmpfiles</command> tries to avoid changing
+    the access and modification times on the directories it accesses,
+    which requires <constant>CAP_FOWNER</constant> privileges. When
+    running as non-root, directories which are checked for files to
+    clean up will have their access time bumped, which might prevent
+    their cleanup.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned. If the configuration was syntactically invalid (syntax errors, missing
+    arguments, …), so some lines had to be ignored, but no other errors occurred, <constant>65</constant> is
+    returned (<constant>EX_DATAERR</constant> from <filename>/usr/include/sysexits.h</filename>). If the
+    configuration was syntactically valid, but could not be executed (lack of permissions, creation of files
+    in missing directories, invalid contents when writing to <filename>/sys/</filename> values, …),
+    <constant>73</constant> is returned (<constant>EX_CANTCREAT</constant> from
+    <filename>/usr/include/sysexits.h</filename>). Otherwise, <constant>1</constant> is returned
+    (<constant>EXIT_FAILURE</constant> from <filename>/usr/include/stdlib.h</filename>).</para>
+
+    <para>Note: when creating items, if the target already exists, but is of the wrong type or otherwise does
+    not match the requested state, and forced operation has not been requested with <literal>+</literal>,
+    a message is emitted, but the failure is otherwise ignored.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

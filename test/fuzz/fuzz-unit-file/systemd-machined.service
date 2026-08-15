@@ -1,0 +1,49 @@
+service
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Virtual Machine and Container Registration Service
+Documentation=man:systemd-machined.service(8)
+Documentation=man:org.freedesktop.machine1(5)
+Wants=machine.slice
+After=machine.slice
+RequiresMountsFor=/var/lib/machines
+OnFailureIsolate=false
+FailureActionExitStatus=222
+FailureActionExitStatus=
+SuccessActionExitStatus=0
+SuccessActionExitStatus=
+
+[Service]
+ExecStart=/usr/lib/systemd/systemd-machined
+BusName=org.freedesktop.machine1
+WatchdogSec=3min
+CapabilityBoundingSet=CAP_KILL CAP_SYS_PTRACE CAP_SYS_ADMIN CAP_SETGID CAP_SYS_CHROOT CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_CHOWN CAP_FOWNER CAP_FSETID CAP_MKNOD
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6
+SystemCallFilter=~@clock @cpu-emulation @debug @keyring @module @obsolete @raw-io @reboot @swap
+SystemCallArchitectures=native
+LockPersonality=yes
+IPAddressDeny=any
+
+# Note that machined cannot be placed in a mount namespace, since it
+# needs access to the host's mount namespace in order to implement the
+# "machinectl bind" operation.
+
+SELinuxContext=system_u:system_r:kernel_t:s0
+AppArmorProfile=profile
+SELinuxContext=-system_u:system_r:kernel_t:s22
+AppArmorProfile=-profile
+IODeviceLatencyTargetSec=/dev/sda 25ms
+IODeviceLatencyTargetSec=/dev/sdb 2h
+PIDFile=%t/mypid
+PIDFile=
+DisableControllers=

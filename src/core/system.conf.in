@@ -1,0 +1,93 @@
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it under the
+#  terms of the GNU Lesser General Public License as published by the Free
+#  Software Foundation; either version 2.1 of the License, or (at your option)
+#  any later version.
+#
+# Entries in this file show the compile time defaults. Local configuration
+# should be created by either modifying this file (or a copy of it placed in
+# /etc/ if the original file is shipped in /usr/), or by creating "drop-ins" in
+# /etc/systemd/system.conf.d/ directory. The latter is generally recommended.
+# Defaults can be restored by simply deleting the main configuration file and
+# all drop-ins located in /etc/.
+#
+# Use 'systemd-analyze cat-config systemd/system.conf' to display the full config.
+#
+# See systemd-system.conf(5) for details.
+
+[Manager]
+#LogLevel=info
+#LogTarget=journal-or-kmsg
+#LogColor=yes
+#LogLocation=no
+#LogTime=no
+#DumpCore=yes
+#ShowStatus=yes
+#CrashChangeVT=no
+#CrashShell=no
+#CrashAction=freeze
+#CtrlAltDelBurstAction=reboot-force
+#CPUAffinity=
+#NUMAPolicy=default
+#NUMAMask=
+#RuntimeWatchdogSec=off
+#RuntimeWatchdogPreSec=off
+#RuntimeWatchdogPreGovernor=
+#RebootWatchdogSec=10min
+#KExecWatchdogSec=off
+#WatchdogDevice=
+#MinimumUptimeSec=15s
+#CapabilityBoundingSet=
+#NoNewPrivileges=no
+#ProtectSystem=auto
+#RestrictFileSystemAccess=no
+#SystemCallArchitectures=
+#TimerSlackNSec=
+#StatusUnitFormat={{STATUS_UNIT_FORMAT_DEFAULT_STR}}
+#DefaultTimerAccuracySec=1min
+#DefaultStandardOutput=journal
+#DefaultStandardError=inherit
+#DefaultTimeoutStartSec={{DEFAULT_TIMEOUT_SEC}}s
+#DefaultTimeoutStopSec={{DEFAULT_TIMEOUT_SEC}}s
+#DefaultTimeoutAbortSec=
+#DefaultDeviceTimeoutSec={{DEFAULT_TIMEOUT_SEC}}s
+#DefaultRestartSec=100ms
+#DefaultStartLimitIntervalSec=10s
+#DefaultStartLimitBurst=5
+#DefaultEnvironment=
+#DefaultIOAccounting=no
+#DefaultIPAccounting=no
+#DefaultMemoryAccounting={{ 'yes' if MEMORY_ACCOUNTING_DEFAULT else 'no' }}
+#DefaultTasksAccounting=yes
+#DefaultTasksMax=15%
+#DefaultLimitCPU=
+#DefaultLimitFSIZE=
+#DefaultLimitDATA=
+#DefaultLimitSTACK=
+#DefaultLimitCORE=
+#DefaultLimitRSS=
+#DefaultLimitNOFILE=1024:{{HIGH_RLIMIT_NOFILE}}
+#DefaultLimitAS=
+#DefaultLimitNPROC=
+#DefaultLimitMEMLOCK=8M
+#DefaultLimitLOCKS=
+#DefaultLimitSIGPENDING=
+#DefaultLimitMSGQUEUE=
+#DefaultLimitNICE=
+#DefaultLimitRTPRIO=
+#DefaultLimitRTTIME=
+#DefaultMemoryPressureThresholdSec=200ms
+#DefaultMemoryPressureWatch=auto
+#DefaultCPUPressureThresholdSec=200ms
+#DefaultCPUPressureWatch=auto
+#DefaultIOPressureThresholdSec=200ms
+#DefaultIOPressureWatch=auto
+#DefaultOOMPolicy=stop
+#DefaultSmackProcessLabel=
+#DefaultRestrictSUIDSGID=
+#ReloadLimitIntervalSec=
+#ReloadLimitBurst=
+#EventLoopRateLimitIntervalSec=1s
+#EventLoopRateLimitBurst=50000
+#DefaultMemoryZSwapWriteback=yes

@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[NetDev]
+Name=gretun98
+Kind=gre
+
+[Tunnel]
+Local=any
+Remote=10.65.223.239
+Key=104
+SerializeTunneledPackets=false

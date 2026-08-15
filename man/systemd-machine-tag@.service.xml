@@ -1,0 +1,65 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-machine-tag_.service" conditional='ENABLE_HOSTNAMED'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-machine-tag@.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-machine-tag@.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-machine-tag@.service</refname>
+    <refpurpose>Add a machine tag to the host</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-machine-tag@.service</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-machine-tag@<replaceable>TAG</replaceable>.service</filename> is a service
+    template that adds the machine tag <replaceable>TAG</replaceable> (taken from the instance name) to the
+    host's list of machine tags. Whenever an instance of this template is pulled in, the corresponding tag is
+    added; the operation is idempotent, so pulling it in repeatedly has no further effect.</para>
+
+    <para>The primary use of this template is automatic, hardware-driven tagging: the
+    <varname>SYSTEMD_MACHINE_TAG</varname> udev property, when set on a device, causes the matching instance
+    of this template to be pulled in (via <varname>SYSTEMD_WANTS=</varname>), so that plugging in or
+    detecting a specific device automatically tags the host. See
+    <citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details on the <varname>SYSTEMD_WANTS=</varname> mechanism.</para>
+
+    <para>Machine tags may be inspected and edited with the <command>tags</command> verb of
+    <citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>, and are
+    stored in the <varname>TAGS=</varname> field of
+    <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Each
+    tag must be 1…255 characters long and consist only of ASCII alphanumeric characters,
+    <literal>-</literal> and <literal>.</literal>.</para>
+
+    <xi:include href="version-info.xml" xpointer="v262"/>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-hostnamed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

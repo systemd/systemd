@@ -1,0 +1,79 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="iocost.conf" xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>iocost.conf</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>iocost.conf</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>iocost.conf</refname>
+    <refpurpose>Configuration files for the iocost solution manager</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para>
+      <filename>/etc/systemd/iocost.conf</filename>
+      <filename>/etc/systemd/iocost.conf.d/*.conf</filename>
+    </para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>This file configures the behavior of <literal>iocost</literal>, a tool mostly used by
+    <citerefentry><refentrytitle>systemd-udevd</refentrytitle><manvolnum>8</manvolnum></citerefentry> rules
+    to automatically apply I/O cost solutions to <filename>/sys/fs/cgroup/io.cost.*</filename>.</para>
+
+    <para>The qos and model values are calculated based on benchmarks collected on the
+    <ulink url="https://github.com/iocost-benchmark/iocost-benchmarks">iocost-benchmark</ulink>
+    project and turned into a set of solutions that go from most to least isolated.
+    Isolation allows the system to remain responsive in face of high I/O load.
+    Which solutions are available for a device can be queried from the udev metadata attached to it. By
+    default the naive solution is used, which provides the most bandwidth.</para>
+  </refsect1>
+
+  <xi:include href="standard-conf.xml" xpointer="main-conf" />
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>All options are configured in the [IOCost] section:</para>
+
+    <variablelist class='config-directives'>
+
+      <varlistentry>
+        <term><varname>TargetSolution=</varname></term>
+
+        <listitem><para>Chooses which I/O cost solution (identified by named string) should be used
+        for the devices in this system. The known solutions can be queried from the udev metadata
+        attached to the devices. If a device does not have the specified solution, the first one
+        listed in <varname>IOCOST_SOLUTIONS</varname> is used instead.</para>
+
+        <para>E.g. <literal>TargetSolution=isolated-bandwidth</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><ulink url="https://github.com/iocost-benchmark/iocost-benchmarks">The
+      iocost-benchmarks github project</ulink></member>
+      <member><ulink url="https://github.com/facebookexperimental/resctl-demo/tree/main/resctl-bench/doc">The resctl-bench
+      documentation details how the values are obtained</ulink></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

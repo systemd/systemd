@@ -1,0 +1,83 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-hostnamed.service" conditional='ENABLE_HOSTNAMED'>
+
+  <refentryinfo>
+    <title>systemd-hostnamed.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-hostnamed.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-hostnamed.service</refname>
+    <refname>systemd-hostnamed</refname>
+    <refpurpose>Daemon to control system hostname from programs</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-hostnamed.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-hostnamed</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-hostnamed.service</filename> is a system service that may be used to change the
+    system's hostname and related machine metadata from user programs. It is automatically activated on
+    request and terminates itself when unused.</para>
+
+    <para>It currently offers access to five variables:
+    <itemizedlist>
+      <listitem><para>The current hostname (Example: <literal>dhcp-192-168-47-11</literal>)</para>
+      </listitem>
+
+      <listitem><para>The static (configured) hostname (Example:
+      <literal>lennarts-computer</literal>)</para></listitem>
+
+      <listitem><para>The pretty hostname (Example: <literal>Lennart's Computer</literal>)</para>
+      </listitem>
+
+      <listitem><para>A suitable icon name for the local host (Example:
+      <literal>computer-laptop</literal>)</para></listitem>
+
+      <listitem><para>A chassis type (Example: <literal>tablet</literal>)</para>
+      </listitem>
+    </itemizedlist></para>
+
+    <para>The static hostname is stored in <filename>/etc/hostname</filename>, see
+    <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more
+    information. The pretty hostname, chassis type, and icon name are stored in
+    <filename>/etc/machine-info</filename>, see
+    <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+    <para>The tool
+    <citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry> is a
+    command line client to this service.</para>
+
+    <para>See
+    <citerefentry><refentrytitle>org.freedesktop.hostname1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>org.freedesktop.LogControl1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for a description of the D-Bus API.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sethostname</refentrytitle><manvolnum>2</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>org.freedesktop.hostname1</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

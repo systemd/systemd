@@ -1,0 +1,35 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Load/Save OS Random Seed
+Documentation=man:systemd-random-seed.service(8) man:random(4)
+
+ConditionVirtualization=!container
+ConditionPathExists=!/etc/initrd-release
+
+DefaultDependencies=no
+After=systemd-remount-fs.service
+Before=first-boot-complete.target
+RequiresMountsFor={{RANDOM_SEED}}
+Wants=first-boot-complete.target
+Conflicts=shutdown.target
+Before=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart={{LIBEXECDIR}}/systemd-random-seed load
+ExecStop={{LIBEXECDIR}}/systemd-random-seed save
+
+# This service waits until the kernel's entropy pool is initialized, and may be
+# used as ordering barrier for service that require an initialized entropy
+# pool. Since initialization can take a while on entropy-starved systems, let's
+# increase the timeout substantially here.
+TimeoutSec=10min

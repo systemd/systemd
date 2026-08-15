@@ -1,0 +1,203 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="nss-systemd" conditional='ENABLE_NSS_SYSTEMD'>
+
+  <refentryinfo>
+    <title>nss-systemd</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>nss-systemd</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>nss-systemd</refname>
+    <refname>libnss_systemd.so.2</refname>
+    <refpurpose>UNIX user and group name resolution for user/group lookup via Varlink</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>libnss_systemd.so.2</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>nss-systemd</command> is a plug-in module for the GNU Name Service Switch (NSS)
+    functionality of the GNU C Library (<command>glibc</command>), providing UNIX user and group name
+    resolution for services implementing the <ulink url="https://systemd.io/USER_GROUP_API">User/Group Record
+    Lookup API via Varlink</ulink>, such as the system and service manager
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> (for its
+    <varname>DynamicUser=</varname> feature, see
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details),
+    <citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>, or <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+    <para>This module also ensures that the root and nobody users and groups (i.e. the users/groups with the UIDs/GIDs
+    0 and 65534) remain resolvable at all times, even if they are not listed in <filename>/etc/passwd</filename> or
+    <filename>/etc/group</filename>, or if these files are missing.</para>
+
+    <para>This module preferably utilizes
+    <citerefentry><refentrytitle>systemd-userdbd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    for resolving users and groups, but also works without the service running.</para>
+
+    <para>To activate the NSS module, add <literal>systemd</literal> to the lines starting with
+    <literal>passwd:</literal>, <literal>group:</literal>, <literal>shadow:</literal> and
+    <literal>gshadow:</literal> in <filename>/etc/nsswitch.conf</filename>.</para>
+
+    <para>It is recommended to place <literal>systemd</literal> after the <literal>files</literal> entry of
+    the <filename>/etc/nsswitch.conf</filename> lines so that <filename>/etc/passwd</filename>,
+    <filename>/etc/group</filename>, <filename>/etc/shadow</filename> and <filename>/etc/gshadow</filename>
+    based mappings take precedence.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Static Drop-In JSON User/Group Records</title>
+
+    <para>Besides user/group records acquired via the aforementioned Varlink IPC interfaces and the
+    synthesized root and nobody accounts, this module also makes user and group accounts available to the
+    system that are defined in static drop-in files in the <filename>/etc/userdb/</filename>,
+    <filename>/run/userdb/</filename>, <filename>/run/host/userdb/</filename> and
+    <filename>/usr/lib/userdb/</filename> directories.</para>
+
+    <para>This is a simple mechanism to provide static user and group records via JSON drop-in files. Such
+    user records should be defined in the format described by the <ulink
+    url="https://systemd.io/USER_RECORD">JSON User Records</ulink> specification and be placed in one of the
+    aforementioned directories under a file name composed of the user name suffixed with
+    <filename>.user</filename>, with a world-readable access mode. A symlink named after the user record's
+    UID formatted in decimal and suffixed with <filename>.user</filename> pointing to the primary record file
+    should be created as well, in order to allow both lookups by username and by UID. Privileged user record
+    data (e.g. hashed UNIX passwords) may optionally be provided as well, in a pair of separate companion
+    files with the <filename>.user-privileged</filename> suffix. The data should be stored in a regular file
+    named after the user name, suffixed with <filename>.user-privileged</filename>, and a symlink pointing to
+    it, named after the used numeric UID formatted in decimal with the same suffix. These companion files
+    should not be readable to anyone but root. Example:</para>
+
+    <programlisting>-rw-r--r--. 1 root root  723 May 10 foobar.user
+-rw-------. 1 root root  123 May 10 foobar.user-privileged
+lrwxrwxrwx. 1 root root   19 May 10 4711.user -> foobar.user
+lrwxrwxrwx. 1 root root   19 May 10 4711.user-privileged -> foobar.user-privileged</programlisting>
+
+    <para>Similarly, group records following the format described in <ulink
+    url="https://systemd.io/GROUP_RECORD">JSON Group Record</ulink> may be defined, using the file suffixes
+    <filename>.group</filename> and <filename>.group-privileged</filename>.</para>
+
+    <para>The primary user/group record files (i.e. those with the <filename>.user</filename> and
+    <filename>.group</filename> suffixes) should not contain the <literal>privileged</literal> section as
+    described in the specifications. The privileged user/group record files (i.e. those with the
+    <filename>.user-privileged</filename> and <filename>.group-privileged</filename> suffixes) should
+    contain this section, exclusively.</para>
+
+    <para>In addition to the two types of user record files and the two types of group record files there's a
+    fifth type of file that may be placed in the searched directories: files that indicate membership of
+    users in groups. Specifically, for every pair of user/group where the user shall be a member of a group a
+    file named
+    <literal><replaceable>username</replaceable>:<replaceable>groupname</replaceable>.membership</literal>
+    must be created, i.e. the textual UNIX user name, followed by a colon, followed by the textual UNIX group
+    name, suffixed by <literal>.membership</literal>. The contents of these files are currently not read,
+    however it is recommended to create them containing an empty JSON object
+    (i.e. <literal>{}</literal>). The mere existence of these files is enough to affect a user/group
+    membership. If a program provides user and/or group record files in the searched directories, it must
+    always also create such files, both for primary and auxiliary group memberships.</para>
+
+    <para>Note that static user/group records generally do not override conflicting records in
+    <filename>/etc/passwd</filename> or <filename>/etc/group</filename> or other account databases. In fact,
+    before dropping in these files a reasonable level of care should be taken to avoid user/group name and
+    UID/GID conflicts.</para>
+
+    <para>The <filename>systemd-userdb-load-credentials.service</filename> service automatically runs at boot
+    and installs these files from user records passed in via system credentials. See
+    <citerefentry><refentrytitle>userdbctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> and
+    <citerefentry><refentrytitle>systemd.system-credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    for details.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Configuration in <filename>/etc/nsswitch.conf</filename></title>
+
+    <para>Here is an example <filename>/etc/nsswitch.conf</filename> file that enables
+    <command>nss-systemd</command> correctly:</para>
+
+    <!-- synchronize with other nss-* man pages and factory/etc/nsswitch.conf -->
+    <programlisting>passwd:         files <command>systemd</command>
+group:          files <command>[SUCCESS=merge] systemd</command>
+shadow:         files <command>systemd</command>
+gshadow:        files <command>systemd</command>
+
+hosts:          mymachines resolve [!UNAVAIL=return] files myhostname dns
+networks:       files
+
+protocols:      db files
+services:       db files
+ethers:         db files
+rpc:            db files
+
+netgroup:       nis</programlisting>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Example: Mappings provided by <filename>systemd-machined.service</filename></title>
+
+    <para>The container <literal>rawhide</literal> is spawned using
+    <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>:
+    </para>
+
+    <programlisting># systemd-nspawn -M rawhide --boot --network-veth --private-users=pick
+Spawning container rawhide on /var/lib/machines/rawhide.
+Selected user namespace base 20119552 and range 65536.
+...
+
+$ machinectl --max-addresses=3
+MACHINE CLASS     SERVICE        OS     VERSION ADDRESSES
+rawhide container systemd-nspawn fedora 30      169.254.40.164 fe80::94aa:3aff:fe7b:d4b9
+
+$ getent passwd vu-rawhide-0 vu-rawhide-81
+vu-rawhide-0:*:20119552:65534:vu-rawhide-0:/:/usr/sbin/nologin
+vu-rawhide-81:*:20119633:65534:vu-rawhide-81:/:/usr/sbin/nologin
+
+$ getent group vg-rawhide-0 vg-rawhide-81
+vg-rawhide-0:*:20119552:
+vg-rawhide-81:*:20119633:
+
+$ ps -o user:15,pid,tty,command -e|grep '^vu-rawhide'
+vu-rawhide-0      692 ?        /usr/lib/systemd/systemd
+vu-rawhide-0      731 ?        /usr/lib/systemd/systemd-journald
+vu-rawhide-192    734 ?        /usr/lib/systemd/systemd-networkd
+vu-rawhide-193    738 ?        /usr/lib/systemd/systemd-resolved
+vu-rawhide-0      742 ?        /usr/lib/systemd/systemd-logind
+vu-rawhide-81     744 ?        /usr/bin/dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+vu-rawhide-0      746 ?        /usr/sbin/sshd -D ...
+vu-rawhide-0      752 ?        /usr/lib/systemd/systemd --user
+vu-rawhide-0      753 ?        (sd-pam)
+vu-rawhide-0     1628 ?        login -- zbyszek
+vu-rawhide-1000  1630 ?        /usr/lib/systemd/systemd --user
+vu-rawhide-1000  1631 ?        (sd-pam)
+vu-rawhide-1000  1637 pts/8    -zsh
+</programlisting>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>nss-resolve</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>nss-myhostname</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>nss-mymachines</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-userdbd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>userdbctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.system-credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>nsswitch.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>getent</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

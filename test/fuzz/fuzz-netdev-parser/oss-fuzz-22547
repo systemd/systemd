@@ -1,0 +1,10 @@
+[NetDev]
+Name=o
+Kind=macsec
+
+[MACsecReceiveChannel]
+MACAddress=12.0.4
+Port=913
+[MACsecReceiveChannel]
+MACAddress=12.0.4
+Port=913

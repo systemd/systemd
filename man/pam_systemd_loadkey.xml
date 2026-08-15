@@ -1,0 +1,142 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="pam_systemd_loadkey" conditional='HAVE_PAM' xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>pam_systemd_loadkey</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>pam_systemd_loadkey</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>pam_systemd_loadkey</refname>
+    <refpurpose>Read password from kernel keyring and set it as PAM authtok</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>pam_systemd_loadkey.so</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>pam_systemd_loadkey</command> reads a NUL-separated password list from the kernel keyring,
+    and sets the last password in the list as the PAM authtok, which can be used by e.g.
+    <citerefentry project='man-pages'><refentrytitle>pam_get_authtok</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    </para>
+
+    <para>The password list is supposed to be stored in the "user" keyring of the root user,
+    by an earlier call to
+    <citerefentry><refentrytitle>systemd-ask-password</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    with <option>--keyname=</option>.
+    You can pass the keyname to <command>pam_systemd_loadkey</command> via the <option>keyname=</option> option.</para>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist class='pam-directives'>
+
+      <varlistentry>
+        <term><varname>keyname=</varname></term>
+
+        <listitem><para>Takes a string argument which sets the keyname to read.
+        The default is <literal>cryptsetup</literal>.
+        During boot,
+        <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        stores a passphrase or PIN in the keyring.
+        The LUKS2 volume key can also be used, via the <option>link-volume-key</option> option in
+        <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <table>
+          <title>
+            Possible values for <varname>keyname</varname>.
+          </title>
+
+          <tgroup cols='2'>
+            <colspec colname='value' />
+            <colspec colname='description' />
+            <thead>
+              <row>
+                <entry>Value</entry>
+                <entry>Description</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>cryptsetup</entry>
+                <entry>Passphrase or recovery key</entry>
+              </row>
+              <row>
+                <entry>fido2-pin</entry>
+                <entry>Security token PIN</entry>
+              </row>
+              <row>
+                <entry>luks2-pin</entry>
+                <entry>LUKS2 token PIN</entry>
+              </row>
+              <row>
+                <entry>tpm2-pin</entry>
+                <entry>TPM2 PIN</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>debug</varname></term>
+
+        <listitem><para>The module will log debugging information as it operates.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Example</title>
+
+    <para>This module is intended to be used when you use LUKS with a passphrase, enable autologin in the display
+    manager, and want to unlock Gnome Keyring / KDE KWallet automatically. So in total, you only enter one password
+    during boot.</para>
+
+    <para>You need to set the password of your Gnome Keyring/KWallet to the same as your LUKS passphrase.
+    Then add the following lines to your display manager's PAM config under <filename>/etc/pam.d/</filename> (e.g.
+    <filename>sddm-autologin</filename>):</para>
+
+    <programlisting>
+-auth       optional    pam_systemd_loadkey.so
+-auth       optional    pam_gnome_keyring.so
+-session    optional    pam_gnome_keyring.so auto_start
+-session    optional    pam_kwallet5.so auto_start
+</programlisting>
+
+    <para>And add the following lines to your display manager's systemd service file, so it can access root's keyring:</para>
+
+    <programlisting>
+[Service]
+KeyringMode=inherit
+</programlisting>
+
+    <para>In this setup, early during the boot process,
+    <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    will ask for the passphrase and store it in the kernel keyring with the keyname <literal>cryptsetup</literal>.
+    Then when the display manager does the autologin, <command>pam_systemd_loadkey</command> will read the passphrase
+    from the kernel keyring, set it as the PAM authtok, and then <command>pam_gnome_keyring</command> and
+    <command>pam_kwallet5</command> will unlock with the same passphrase.</para>
+  </refsect1>
+
+</refentry>

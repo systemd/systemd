@@ -1,0 +1,68 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=User Login Management
+Documentation=man:sd-login(3)
+Documentation=man:systemd-logind.service(8)
+Documentation=man:logind.conf(5)
+Documentation=man:org.freedesktop.login1(5)
+
+Wants=user.slice modprobe@drm.service
+After=nss-user-lookup.target user.slice modprobe@drm.service
+
+# Ask for the dbus socket.
+Wants=dbus.socket
+After=dbus.socket
+
+[Service]
+BusName=org.freedesktop.login1
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_MAC_ADMIN CAP_AUDIT_CONTROL CAP_CHOWN CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_FOWNER CAP_SYS_TTY_CONFIG CAP_LINUX_IMMUTABLE
+DeviceAllow=block-* r
+DeviceAllow=char-/dev/console rw
+DeviceAllow=char-drm rw
+DeviceAllow=char-hidraw rw
+DeviceAllow=char-hvc rw
+DeviceAllow=char-input rw
+DeviceAllow=char-tty rw
+DeviceAllow=char-vcs rw
+ExecStart={{LIBEXECDIR}}/systemd-logind
+FileDescriptorStoreMax=768
+IPAddressDeny=any
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
+PrivateTmp=yes
+# We don't use ProtectProc= since we need to look for usernames and tty for wall messages
+ProtectClock=yes
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectSystem=strict
+ReadWritePaths=/etc /run
+Restart=always
+RestartSec=0
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RuntimeDirectory=systemd/sessions systemd/seats systemd/users systemd/inhibit systemd/shutdown
+RuntimeDirectoryPreserve=yes
+StateDirectory=systemd/linger
+SystemCallArchitectures=native
+SystemCallErrorNumber=EPERM
+SystemCallFilter=@system-service
+Type=notify-reload
+{{SERVICE_WATCHDOG}}
+
+# Increase the default a bit in order to allow many simultaneous logins since
+# we keep one fd open per session.
+LimitNOFILE={{HIGH_RLIMIT_NOFILE}}

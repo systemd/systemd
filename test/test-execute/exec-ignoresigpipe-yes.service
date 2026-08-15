@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for IgnoreSIGPIPE=yes
+
+[Service]
+ExecStart=bash -x -c 'kill -PIPE 0'
+Type=oneshot
+IgnoreSIGPIPE=yes

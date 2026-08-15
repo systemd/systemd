@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+
+if [[ "$1" == "clangd" ]]; then
+    exit 0
+fi
+
+if [[ ! -f "pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}/systemd.spec" ]]; then
+    echo "spec not found at pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}/systemd.spec, run mkosi once with -ff to make sure the spec is cloned" >&2
+    exit 1
+fi
+
+. mkosi/mkosi.functions
+
+TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
+
+# The openSUSE filelists hardcode the manpage compression extension. This causes rpmbuild errors since we
+# disable manpage compression as the files cannot be found. Fix the issue by removing the compression
+# extension.
+# TODO: remove autovt@ removal when the upstream spec is updated
+# TODO: remove systemd-udevd-control.socket removal when the upstream spec is updated
+while read -r filelist; do
+    sed -E \
+        -e '/autovt@/d' \
+        -e '/sockets\.target\.wants\/systemd-udevd-control\.socket/d' \
+        -e '/systemd-udevd-control\.socket\.8/d' \
+        -e 's/\.gz$//' \
+        "$filelist" >"/tmp/$(basename "$filelist")"
+    mount --bind "/tmp/$(basename "$filelist")" "$filelist"
+done < <(find "pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}" -name "files.*")
+
+if [[ "$(rpm --eval "%{lua:print(rpm.vercmp('$(rpm --version | cut -d ' ' -f3)', '4.20'))}")" == "-1" ]]; then
+    # Fix the %install override so debuginfo packages are generated.
+    tee --append /usr/lib/rpm/suse/macros <<'EOF'
+%install %{debug_package}\
+%%install\
+%{nil}
+EOF
+fi
+
+VERSION="$(cat meson.version)"
+RELEASE="$(date "+%Y%m%d%H%M%S" --date "@$TS")"
+
+MKOSI_CFLAGS="$MKOSI_CFLAGS -Wp,-U_FORTIFY_SOURCE"
+if ((WITH_DEBUG)); then
+    MKOSI_CFLAGS="$MKOSI_CFLAGS -fdebug-prefix-map=../src=/usr/src/debug/systemd"
+fi
+
+MKOSI_LDFLAGS="$(rpm --eval "%{?build_ldflags}") $MKOSI_LDFLAGS"
+
+# A macro can't have an empty body and currently opensuse does not specify any of its own linker flags so
+# set LDFLAGS to %{nil} if there are no linker flags.
+if [[ -z "${MKOSI_LDFLAGS// }" ]]; then
+    MKOSI_LDFLAGS="%{nil}"
+fi
+
+# The opensuse spec tars up stuff in test/ and unpacks it in test/integration-tests, which we now use for our
+# own purposes, so let's get rid of that specific bit of logic in the opensuse spec until they've had a chance
+# to adapt.
+#
+# TODO: remove manual default-hierarchy patch when the upstream spec is updated
+sed "pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}/systemd.spec" -e '/integration-tests\/README/d' -e '/default-hierarchy/ d' >/tmp/systemd.spec
+mount --bind /tmp/systemd.spec "pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}/systemd.spec"
+
+build() {
+    IFS=
+    # shellcheck disable=SC2046
+    env \
+    --unset CFLAGS \
+    --unset CXXFLAGS \
+    --unset LDFLAGS \
+    CC="$( ((CC)) && echo "$CC" || ((LLVM)) && echo clang || echo gcc)" \
+    CXX="$( ((CXX)) && echo "$CXX" || ((LLVM)) && echo clang++ || echo g++)" \
+    CC_LD="$( ((LD)) && echo "$LD" || ((LLVM)) && echo lld)" \
+    CXX_LD="$( ((LD)) && echo "$LD" || ((LLVM)) && echo lld)" \
+    rpmbuild \
+        -bb \
+        --noprep \
+        --build-in-place \
+        --with upstream \
+        --without sysvcompat \
+        $( ((WITH_TESTS)) || echo "--nocheck") \
+        --define "_topdir /var/tmp" \
+        --define "_sourcedir $PWD/pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}" \
+        --define "_rpmdir $BUILDDIR" \
+        ${BUILDDIR:+"--define=_vpath_builddir $BUILDDIR"} \
+        --define "_build_name_fmt %%{NAME}-%%{VERSION}-%%{RELEASE}.%%{ARCH}.rpm" \
+        --define "_binary_payload w.ufdio" \
+        $( ((WITH_DEBUG)) || echo "--define=debug_package %{nil}") \
+        --define "vendor openSUSE" \
+        --define "version_override $VERSION" \
+        --define "release_override $RELEASE" \
+        --define "__check_files sh -c '$(rpm --define "_topdir /var/tmp" --eval %__check_files) | tee /tmp/unpackaged-files'" \
+        --define "build_cflags $(rpm --eval "%{?build_cflags}") $MKOSI_CFLAGS $CFLAGS" \
+        --define "build_cxxflags $(rpm --eval "%{?build_cxxflags}") $MKOSI_CFLAGS $CFLAGS" \
+        --define "build_ldflags $MKOSI_LDFLAGS $LDFLAGS" \
+        $( ((MESON_VERBOSE)) || echo "--undefine=__meson_verbose") \
+        --define "meson_extra_configure_options $MKOSI_MESON_OPTIONS $MESON_OPTIONS" \
+        --define "__os_install_post /usr/lib/rpm/brp-suse %{nil}" \
+        --define "ext_man %{nil}" \
+        --define "__elf_exclude_path ^/usr/lib/systemd/tests/unit-tests/.*$" \
+        --define "__script_requires %{nil}" \
+        --define "_find_debuginfo_dwz_opts %{nil}" \
+        --define "_find_debuginfo_opts --unique-debug-src-base \"%{name}\"" \
+        "$@" \
+        "pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}/systemd.spec"
+
+    EXIT_STATUS=$?
+
+    # Make sure we don't reconfigure twice.
+    MKOSI_MESON_OPTIONS="${MKOSI_MESON_OPTIONS//"--wipe"/}"
+
+    return $EXIT_STATUS
+}
+
+(
+    shopt -s nullglob
+    rm -f "$BUILDDIR"/*.rpm
+)
+
+if ! build; then
+    if [[ ! -s /tmp/unpackaged-files ]]; then
+        exit 1
+    fi
+
+    grep -v "\.debug" /tmp/unpackaged-files >>"pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}/files.systemd"
+    build --noprep --nocheck
+fi
+
+# The %sysusers_generate_pre macro generates these and leaves them behind, clean them up
+rm -f systemd-network.pre systemd-resolve.pre
+
+cp "$BUILDDIR"/*.rpm "$PACKAGEDIR"
+
+make_sysext_unsigned /var/tmp/BUILD/*/BUILDROOT

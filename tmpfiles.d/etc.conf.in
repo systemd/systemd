@@ -1,0 +1,21 @@
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+# See tmpfiles.d(5) for details.
+
+L /etc/os-release - - - - ../usr/lib/os-release
+L+ /etc/mtab - - - - ../proc/self/mounts
+{% if HAVE_SMACK_RUN_LABEL %}
+t /etc/mtab - - - - security.SMACK64=_
+{% endif %}
+C! /etc/locale.conf - - - -
+C! /etc/nsswitch.conf - - - -
+C! /etc/vconsole.conf - - - -
+{% if HAVE_PAM %}
+C! /etc/pam.d - - - -
+{% endif %}
+C! /etc/issue - - - -

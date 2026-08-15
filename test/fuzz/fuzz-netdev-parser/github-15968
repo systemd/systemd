@@ -1,0 +1,14 @@
+[NetDev]
+Name=t
+[L2TP]
+b
+Remote=1.8.0.2
+
+[L2TPSession]
+SessionId=
+[L2TP]
+PeerTunnelId=2
+[NetDev]
+Kind=l2tp
+[L2TP]
+TunnelId=4

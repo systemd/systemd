@@ -1,0 +1,70 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+# Settings for systemd units distributed with systemd itself. Most of these
+# should be enabled by default, even if the distribution follows a general
+# default-off policy.
+
+enable remote-fs.target
+enable remote-cryptsetup.target
+enable remote-integritysetup.target
+enable remote-veritysetup.target
+enable machines.target
+
+enable getty@.service
+
+enable systemd-boot-clear-sysfail.service
+enable systemd-boot-update.service
+enable systemd-confext.service
+enable systemd-homed.service
+enable systemd-homed-activate.service
+enable systemd-journalctl-metrics.socket
+enable systemd-journald-audit.socket
+enable systemd-mountfsd.socket
+enable systemd-network-generator.service
+enable systemd-networkd.service
+enable systemd-networkd-wait-online.service
+enable systemd-nsresourced.socket
+enable systemd-pstore.service
+enable systemd-report-basic.socket
+enable systemd-report-cgroup.socket
+enable systemd-report-files.socket
+enable systemd-report-sign-plain.socket
+enable systemd-report-sign-tsm.socket
+enable systemd-report.socket
+enable systemd-resolved.service
+enable systemd-sysext.service
+enable systemd-sysupdate-notify-bootctl.socket
+enable systemd-sysupdate-notify-pcrlock.socket
+enable systemd-sysupdate-notify-sysext.socket
+enable systemd-timesyncd.service
+enable systemd-tpm2-clear.service
+enable systemd-userdbd.socket
+
+disable console-getty.service
+disable debug-shell.service
+
+disable exit.target
+disable halt.target
+disable kexec.target
+disable poweroff.target
+enable reboot.target
+disable rescue.target
+
+disable proc-sys-fs-binfmt_misc.mount
+
+disable syslog.socket
+
+disable systemd-boot-check-no-failures.service
+disable systemd-confext-sysroot.service
+disable systemd-journal-gatewayd.*
+disable systemd-journal-remote.*
+disable systemd-journal-upload.*
+disable systemd-sysext-sysroot.service
+disable systemd-time-wait-sync.service

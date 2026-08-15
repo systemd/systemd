@@ -1,0 +1,53 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="systemd-environment-d-generator" conditional='ENABLE_ENVIRONMENT_D'>
+
+  <refentryinfo>
+    <title>systemd-environment-d-generator</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-environment-d-generator</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-environment-d-generator</refname>
+    <refname>30-systemd-environment-d-generator</refname>
+    <refpurpose>Load variables specified by <filename>environment.d</filename>
+    </refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>&USER_ENV_GENERATOR_DIR;/30-systemd-environment-d-generator</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-environment-d-generator</filename> is a
+    <citerefentry><refentrytitle>systemd.environment-generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    that reads environment configuration specified by
+    <citerefentry><refentrytitle>environment.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    configuration files and passes it to the
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    user manager instance.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.environment-generator</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

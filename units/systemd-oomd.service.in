@@ -1,0 +1,63 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Userspace Out-Of-Memory (OOM) Killer
+Documentation=man:systemd-oomd.service(8)
+Documentation=man:org.freedesktop.oom1(5)
+DefaultDependencies=no
+After=swap.target
+Before=multi-user.target shutdown.target
+Conflicts=shutdown.target
+ConditionControlGroupController=memory
+ConditionPathExists=/proc/pressure/cpu
+ConditionPathExists=/proc/pressure/io
+ConditionPathExists=/proc/pressure/memory
+Requires=systemd-oomd.socket
+After=systemd-sysusers.service
+
+[Service]
+AmbientCapabilities=CAP_KILL CAP_DAC_OVERRIDE
+BusName=org.freedesktop.oom1
+CapabilityBoundingSet=CAP_KILL CAP_DAC_OVERRIDE
+ExecStart={{LIBEXECDIR}}/systemd-oomd
+IPAddressDeny=any
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+# Reserve some minimum amount of memory so that systemd-oomd can continue to
+# run in resource starved scenarios.
+MemoryMin=64M
+MemoryLow=64M
+NoNewPrivileges=yes
+OOMScoreAdjust=-900
+PrivateDevices=yes
+PrivateTmp=disconnected
+ProtectClock=yes
+ProtectHome=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectSystem=strict
+Restart=on-failure
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+SystemCallArchitectures=native
+SystemCallErrorNumber=EPERM
+SystemCallFilter=@system-service
+Type=notify-reload
+User=systemd-oom
+{{SERVICE_WATCHDOG}}
+
+[Install]
+WantedBy=multi-user.target
+Alias=dbus-org.freedesktop.oom1.service
+Also=systemd-oomd.socket

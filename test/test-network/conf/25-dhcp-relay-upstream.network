@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=relay-up
+
+[Network]
+Address=192.0.2.10/24
+IPv6AcceptRA=no
+DHCPRelay=upstream
+
+[DHCPRelay]
+AgentAddress=192.0.2.10
+InterfacePriority=100

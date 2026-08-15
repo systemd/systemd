@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=bareudp99
+Name=batadv99
+Name=ip6tnl-external
+Name=ipvlan99
+Name=ipvtap99
+Name=macvlan99
+Name=macvtap99
+Name=veth99
+Name=veth-peer
+Name=veth-mtu
+Name=veth-mtu-peer
+Name=vcan99
+Name=vxcan99
+Name=vxcan-peer
+Name=vrf99
+Name=geneve99
+Name=ifb99
+Name=ipiptun99
+Name=nlmon99
+Name=xfrm98 xfrm99
+Name=vxlan98
+Name=hogehogehogehogehogehoge
+Name=testtun99
+Name=testtap99
+
+[Network]
+LinkLocalAddressing=yes
+IPv6AcceptRA=no

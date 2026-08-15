@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# check that 'm' lines do not conflicts 'u' line
+#
+#Type Name ID  GECOS HOMEDIR
+u     u1   300 -     -
+m     u2   u1

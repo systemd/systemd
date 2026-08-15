@@ -1,0 +1,272 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-report"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-report</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-report</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-report</refname>
+    <refpurpose>Generate report of system metrics</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-report</command> <arg choice="opt" rep="repeat">OPTIONS</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><emphasis>Note: this command is experimental for now. While it is likely to become a regular
+    component of systemd, it might still change in behaviour and interface.</emphasis></para>
+
+    <para><command>systemd-report</command> requests metrics from the system and writes them to
+    standard output.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
+
+    <para>The following commands are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><command>metrics</command> <arg choice="opt" rep="repeat">MATCH</arg></term>
+
+        <listitem><para>Acquire a list of metrics values from all local services providing them, and write
+        them to standard output. Optionally takes one or more match expressions for filtering the metrics to
+        show. The expression either may be a literal metric family name to search for, or a prefix of one
+        (which will be matched only at dot boundaries). If multiple matches are specified as multiple
+        parameters, any metric matching <emphasis>any</emphasis> of the specified matches are shown.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>describe</command> <arg choice="opt" rep="repeat">MATCH</arg></term>
+
+        <listitem><para>Acquire a list of metric families from all local services providing them, and write
+        them to standard output. This returns primarily static information about metrics, their data types
+        and human readable description, without values.</para>
+
+        <para>Match expressions supported by <command>metrics</command> are supported by
+        <command>describe</command> too.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>generate</command> <arg choice="opt" rep="repeat">MATCH</arg></term>
+
+        <listitem><para>Acquire a list of metrics and build a JSON report.</para>
+
+        <para>Match expressions supported by <command>metrics</command> are supported here too.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>upload</command> <arg choice="opt" rep="repeat">MATCH</arg></term>
+
+        <listitem><para>This command can be used to send the report built by <command>generate</command>
+        to an external server. Two upload mechanisms are supported. If an <literal>http://</literal> or
+        <literal>https://</literal> URL is specified with <option>--url=</option>, an HTTP upload will be
+        performed to the specified location. Otherwise, any sockets under
+        <filename>/run/systemd/report.upload/</filename> will be used to call
+        <function>io.systemd.Report.Uploader.Upload()</function>.</para>
+
+        <para>Match expressions supported by <command>metrics</command> are supported here too.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>list-sources</command></term>
+
+        <listitem><para>Show list of known metrics sources.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--system</option></term>
+        <term><option>--user</option></term>
+
+        <listitem>
+          <para>Query per-system metrics sources (the default), or the per-user metrics sources.</para>
+
+          <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="json" />
+      <xi:include href="standard-options.xml" xpointer="j" />
+      <xi:include href="standard-options.xml" xpointer="no-legend" />
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+
+      <varlistentry>
+        <term><option>--url=<replaceable>URL</replaceable></option></term>
+
+        <listitem><para>Upload the collected report to the specified address instead of writing it to
+        standard output. <replaceable>URL</replaceable> must point to a server accepting POST requests with
+        a JSON-formatted report body.</para>
+
+        <para>Note: both <literal>http://</literal> and <literal>https://</literal> URLs are supported, but
+        <emphasis>connections over plain HTTP are made without encryption</emphasis>. Thus, this mode should
+        only be used in specific situations where integrity and confidentiality of the report is not required
+        or is ensured through some other means. Using <literal>https://</literal> is recommended.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--key=<replaceable>FILENAME</replaceable></option></term>
+
+        <listitem><para>Takes a path to a SSL key file in PEM format, used for client certificate
+        authentication when uploading. Can also be set to <literal>-</literal>, to disable client certificate
+        authentication. Defaults to
+        <filename>&CERTIFICATE_ROOT;/private/systemd-report.pem</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--cert=<replaceable>FILENAME</replaceable></option></term>
+
+        <listitem><para>Takes a path to a SSL certificate file in PEM format, used for client certificate
+        authentication when uploading. Defaults to
+        <filename>&CERTIFICATE_ROOT;/certs/systemd-report.pem</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--trust=<replaceable>FILENAME</replaceable>|<constant>all</constant></option></term>
+
+        <listitem><para>Takes a path to a SSL CA certificate file in PEM format used to verify the server
+        certificate, or the literal string <constant>all</constant> to disable certificate checking
+        entirely. Defaults to <filename>&CERTIFICATE_ROOT;/ca/trusted.pem</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--network-timeout=<replaceable>SEC</replaceable></option></term>
+
+        <listitem><para>Timeout for the network upload operation. Takes a value in seconds (or in other
+        time units if suffixed with <literal>ms</literal>, <literal>min</literal>, <literal>h</literal>,
+        etc.); see
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for details. Defaults to 30 seconds.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--extra-header=<replaceable>NAME</replaceable>: <replaceable>VALUE</replaceable></option></term>
+
+        <listitem><para>Inject an additional HTTP header into the upload request. May be specified multiple
+        times to add several headers. Passing an empty string clears any headers added by previous
+        <option>--extra-header=</option> uses.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--sign=<replaceable>MODE</replaceable></option></term>
+
+        <listitem><para>Controls whether and how the report generated by <command>generate</command> or
+        uploaded by <command>upload</command> is cryptographically signed. Signatures are acquired by calling
+        <function>io.systemd.Report.Signer.Sign()</function> on each socket found under
+        <filename>/run/systemd/report.sign/</filename>.</para>
+
+        <para>When signing is requested (any value other than <option>no</option>) the report is emitted as a
+        JSON-SEQ stream: the report object comes first, followed by one signature object per acquired signature
+        (possibly none, in <option>best-effort</option> mode), each covering the precise binary representation
+        of the report object. With <option>no</option> the report is emitted as a single plain JSON object.
+        Takes one of the following values:</para>
+
+        <variablelist>
+          <varlistentry>
+            <term><option>no</option></term>
+            <listitem><para>Do not sign the report; it is emitted as a single plain JSON object. This is the
+            default.</para>
+
+            <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>best-effort</option></term>
+            <listitem><para>Never fail because of signing. Any acquired signatures are included. The operation
+            succeeds even if none could be acquired, in which case the JSON-SEQ stream simply contains no
+            signature objects.</para>
+
+            <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>require-one</option></term>
+            <listitem><para>Require at least one signature. Individual signers that fail or return no signature
+            are tolerated, but the operation fails if not a single signature could be acquired.</para>
+
+            <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>require-all</option></term>
+            <listitem><para>Require every signer to succeed with at least one signature. The operation fails
+            if no signer is present, if any signer returns an error, or if any signer returns no signature.
+            </para>
+
+            <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+          </varlistentry>
+        </variablelist>
+
+        <para>Defaults to <option>no</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned, a non-zero failure code
+    otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

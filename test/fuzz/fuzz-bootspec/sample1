@@ -1,0 +1,22 @@
+{
+    "config": "timeout 3\nconsole-mode 2\n# default 08a5690afeedfeedaaac0a5d2e3cf6b0-*\n# default auto-reboot-to-firmware-setup\n",
+    "entries": [
+        [
+            "08a5690afeedfeedaaac0a5d2e3cf6b0-5.15.14-200.fc35.x86_64.conf",
+            "title      Fedora Linux 35 (Workstation Edition)\nversion    5.15.14-200.fc35.x86_64\nmachine-id 08a5690afeedfeedaaac0a5d2e3cf6b0\noptions    root=/dev/mapper/fedora_krowka-root rw rd.lvm.lv=fedora_krowka/root rd.luks.uuid=luks-2d9b648a-15b1-4204-988b-ec085089f8ce rd.lvm.lv=fedora_krowka/swap LANG=en_US.UTF-8 selinux=0 resume=/dev/mapper/fedora_krowka-swap systemd.show-status systemd.unit-status-format=name quiet\nlinux      /08a5690afeedfeedaaac0a5d2e3cf6b0/5.15.14-200.fc35.x86_64/linux\ninitrd     /08a5690afeedfeedaaac0a5d2e3cf6b0/5.15.14-200.fc35.x86_64/initrd\n"
+        ],
+        [
+            "08a5690afeedfeedaaac0a5d2e3cf6b0-5.17.0-0.rc5.102.fc36.x86_64.conf",
+            "title      Fedora Linux 36 (Workstation Edition Prerelease)\nversion    5.17.0-0.rc5.102.fc36.x86_64\nmachine-id 08a5690afeedfeedaaac0a5d2e3cf6b0\noptions    root=/dev/mapper/fedora_krowka-root rw rd.lvm.lv=fedora_krowka/root rd.luks.uuid=luks-2d9b648a-15b1-4204-988b-ec085089f8ce rd.lvm.lv=fedora_krowka/swap LANG=en_US.UTF-8 selinux=0 resume=/dev/mapper/fedora_krowka-swap systemd.show-status systemd.unit-status-format=name quiet\nlinux      /08a5690afeedfeedaaac0a5d2e3cf6b0/5.17.0-0.rc5.102.fc36.x86_64/linux\ninitrd      /08a5690afeedfeedaaac0a5d2e3cf6b0/5.17.0-0.rc5.102.fc36.x86_64/initrd\n"
+        ],
+        [
+            "listing.conf",
+            "title Title\nversion 3.7.2-201.fc18.x86_64\nmachine-id 4098b3f648d74c13b1f04ccfba7798e8\nsort-key 666\nlinux /6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.x86_64/linux\ninitrd /6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.x86_64/initrd\nefi /6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.x86_64/efi\noptions one two three four\ndevicetree 6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.armv7hl/tegra20-paz00.dtb\ndevicetree-overlay /6a9857a393724b7a981ebb5b8495b9ea/overlays/overlay_A.dtbo /6a9857a393724b7a981ebb5b8495b9ea/overlays/overlay_B.dtbo\narchitecture IA32\narchitecture x64\narchitecture IA64\narchitecture ARM\narchitecture AA64\n"
+        ]
+    ],
+    "loader": [
+        "08a5690a2eed47cf92ac0a5d2e3cf6b0-5.17.0-0.rc5.102.fc36.x86_64.conf",
+        "08a5690a2eed47cf92ac0a5d2e3cf6b0-5.15.14-200.fc35.x86_64.conf",
+        "auto-reboot-to-firmware-setup"
+    ]
+}

@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test CAP_SYSLOG for ProtectKernelLogs=no
+
+[Service]
+ProtectKernelLogs=no
+# sed: remove dropped (cap_xxx-[epi]) and IAB capabilities from the output
+ExecStart=bash -x -c 'capsh --print | sed -re "s/[^ ]+?\-[epi]+//g" -e '/IAB/d' | grep cap_syslog'
+Type=oneshot

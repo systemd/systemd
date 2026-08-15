@@ -1,0 +1,21 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Display Boot-Time Emergency Messages In Full Screen
+Documentation=man:systemd-bsod.service(8)
+ConditionVirtualization=no
+DefaultDependencies=no
+After=systemd-battery-check.service
+Before=shutdown.target
+Conflicts=shutdown.target
+
+[Service]
+RemainAfterExit=yes
+ExecStart={{LIBEXECDIR}}/systemd-bsod --continuous

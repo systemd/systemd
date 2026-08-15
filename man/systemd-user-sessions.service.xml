@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="systemd-user-sessions.service" conditional='HAVE_PAM'>
+
+  <refentryinfo>
+    <title>systemd-user-sessions.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-user-sessions.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-user-sessions.service</refname>
+    <refname>systemd-user-sessions</refname>
+    <refpurpose>Permit user logins after boot, prohibit user logins at shutdown</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-user-sessions.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-user-sessions</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-user-sessions.service</filename> is a
+    service that controls user logins through
+    <citerefentry project='man-pages'><refentrytitle>pam_nologin</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    After basic system initialization is complete, it removes
+    <filename>/run/nologin</filename>, thus permitting logins. Before
+    system shutdown, it creates <filename>/run/nologin</filename>, thus
+    prohibiting further logins.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>pam_nologin</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

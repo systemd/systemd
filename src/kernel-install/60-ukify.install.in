@@ -1,0 +1,291 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# -*- mode: python-mode -*-
+#
+# This file is part of systemd.
+#
+# systemd is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
+#
+# systemd is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
+
+# pylint: disable=import-outside-toplevel,consider-using-with,disable=redefined-builtin
+
+import argparse
+import os
+import shlex
+import subprocess
+import types
+from shutil import which
+from pathlib import Path
+from typing import Optional
+
+__version__ = '{{PROJECT_VERSION}} ({{VERSION_TAG}})'
+
+try:
+    VERBOSE = int(os.environ['KERNEL_INSTALL_VERBOSE']) > 0
+except (KeyError, ValueError):
+    VERBOSE = False
+
+# Override location of ukify and the boot stub for testing and debugging.
+UKIFY = os.getenv('KERNEL_INSTALL_UKIFY', which('ukify'))
+BOOT_STUB = os.getenv('KERNEL_INSTALL_BOOT_STUB')
+
+
+def shell_join(cmd):
+    # TODO: drop in favour of shlex.join once shlex.join supports pathlib.Path.
+    return ' '.join(shlex.quote(str(x)) for x in cmd)
+
+def log(*args, **kwargs):
+    if VERBOSE:
+        print(*args, **kwargs)
+
+def path_is_readable(p: Path, dir=False) -> None:
+    """Verify access to a file or directory."""
+    try:
+        p.open().close()
+    except IsADirectoryError:
+        if dir:
+            return
+        raise
+
+def mandatory_variable(name):
+    try:
+        return os.environ[name]
+    except KeyError as e:
+        raise KeyError(f'${name} must be set in the environment') from e
+
+def parse_args(args=None):
+    p = argparse.ArgumentParser(
+        description='kernel-install plugin to build a Unified Kernel Image',
+        allow_abbrev=False,
+        usage='60-ukify.install COMMAND KERNEL_VERSION ENTRY_DIR KERNEL_IMAGE INITRD…',
+    )
+
+    # Suppress printing of usage synopsis on errors
+    p.error = lambda message: p.exit(2, f'{p.prog}: error: {message}\n')
+
+    p.add_argument('command',
+                   metavar='COMMAND',
+                   help="The action to perform. Only 'add' is supported.")
+    p.add_argument('kernel_version',
+                   metavar='KERNEL_VERSION',
+                   help='Kernel version string')
+    p.add_argument('entry_dir',
+                   metavar='ENTRY_DIR',
+                   type=Path,
+                   nargs='?',
+                   help='Type#1 entry directory (ignored)')
+    p.add_argument('kernel_image',
+                   metavar='KERNEL_IMAGE',
+                   type=Path,
+                   nargs='?',
+                   help='Kernel binary')
+    p.add_argument('initrd',
+                   metavar='INITRD…',
+                   type=Path,
+                   nargs='*',
+                   help='Initrd files')
+    p.add_argument('--version',
+                   action='version',
+                   version=f'systemd {__version__}')
+
+    opts = p.parse_args(args)
+
+    if opts.command == 'add':
+        opts.staging_area = Path(mandatory_variable('KERNEL_INSTALL_STAGING_AREA'))
+        path_is_readable(opts.staging_area, dir=True)
+
+        opts.entry_token = mandatory_variable('KERNEL_INSTALL_ENTRY_TOKEN')
+        opts.machine_id = mandatory_variable('KERNEL_INSTALL_MACHINE_ID')
+
+    return opts
+
+def we_are_wanted() -> bool:
+    KERNEL_INSTALL_IMAGE_TYPE = os.getenv('KERNEL_INSTALL_IMAGE_TYPE')
+
+    if KERNEL_INSTALL_IMAGE_TYPE == 'uki':
+        log('The image being installed is already a UKI, quitting.')
+        return False
+
+    KERNEL_INSTALL_LAYOUT = os.getenv('KERNEL_INSTALL_LAYOUT')
+
+    if KERNEL_INSTALL_LAYOUT != 'uki':
+        log(f'{KERNEL_INSTALL_LAYOUT=}, quitting.')
+        return False
+
+    KERNEL_INSTALL_UKI_GENERATOR = os.getenv('KERNEL_INSTALL_UKI_GENERATOR') or 'ukify'
+
+    if KERNEL_INSTALL_UKI_GENERATOR != 'ukify':
+        log(f'{KERNEL_INSTALL_UKI_GENERATOR=}, quitting.')
+        return False
+
+    log('KERNEL_INSTALL_LAYOUT and KERNEL_INSTALL_UKI_GENERATOR are good')
+    return True
+
+
+def input_file_location(
+        filename: str,
+        *search_directories: str) -> Optional[Path]:
+
+    if root := os.getenv('KERNEL_INSTALL_CONF_ROOT'):
+        search_directories = (root,)
+    elif not search_directories:
+        # This is the default search path.
+        search_directories = ('/etc/kernel',
+                              '/usr/lib/kernel')
+
+    for dir in search_directories:
+        p = Path(dir) / filename
+        if p.exists():
+            return p
+    return None
+
+
+def uki_conf_location() -> Optional[Path]:
+    return input_file_location('uki.conf',
+                               '/etc/kernel',
+                               '/run/kernel',
+                               '/usr/local/lib/kernel',
+                               '/usr/lib/kernel')
+
+
+def devicetree_config_location() -> Optional[Path]:
+    return input_file_location('devicetree')
+
+
+def devicetree_file_location(opts) -> Optional[Path]:
+    # This mirrors the logic in 90-loaderentry.install. Keep in sync.
+    configfile = devicetree_config_location()
+    if configfile is None:
+        return None
+
+    devicetree = configfile.read_text().strip()
+    if not devicetree:
+        raise ValueError(f'{configfile!r} is empty')
+
+    path = input_file_location(
+        devicetree,
+        f'/usr/lib/firmware/{opts.kernel_version}/device-tree',
+        f'/usr/lib/linux-image-{opts.kernel_version}',
+        f'/usr/lib/modules/{opts.kernel_version}/dtb',
+    )
+    if path is None:
+        raise FileNotFoundError(f'DeviceTree file {devicetree} not found')
+    return path
+
+
+def kernel_cmdline_base() -> list[str]:
+    path = input_file_location('cmdline')
+    if path:
+        # Filter out commented out lines from cmdline.
+        lines = path.read_text().splitlines()
+        return [opt
+                for line in lines
+                if not line.startswith('#')
+                for opt in line.split()]
+
+    if os.getenv('KERNEL_INSTALL_CONF_ROOT'):
+        return []
+
+    # Don't read /proc/cmdline in containers it belongs to the host and would
+    # leak the host's root= (or a faked value) into the UKI. Mirrors
+    # the same guard in 90-loaderentry.install.
+    try:
+        result = subprocess.run(
+            ['systemd-detect-virt', '--container', '--quiet'],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if result.returncode == 0:
+            return []
+    except FileNotFoundError:
+        pass
+
+    # If we read /proc/cmdline, we need to do some additional filtering.
+    options = Path('/proc/cmdline').read_text().split()
+    return [opt for opt in options
+            if not opt.startswith(('BOOT_IMAGE=', 'initrd='))]
+
+
+def kernel_cmdline(opts) -> str:
+    options = kernel_cmdline_base()
+
+    # If the boot entries are named after the machine ID, then suffix the kernel
+    # command line with the machine ID we use, so that the machine ID remains
+    # stable, even during factory reset, in the initrd (where the system's machine
+    # ID is not directly accessible yet), and if the root file system is volatile.
+    if (opts.entry_token == opts.machine_id and
+        not any(opt.startswith('systemd.machine_id=') for opt in options)):
+        options += [f'systemd.machine_id={opts.machine_id}']
+
+    # TODO: we unconditionally set the cmdline here, ignoring the setting in
+    #       the config file. Should we not do that?
+
+    # Prepend a space so that '@' does not get misinterpreted
+    return ' ' + ' '.join(options)
+
+
+def initrd_list(opts) -> list[Path]:
+    microcode = sorted(opts.staging_area.glob('microcode*'))
+    initrd = sorted(opts.staging_area.glob('initrd*'))
+
+    # Order taken from 90-loaderentry.install
+    return [*microcode, *opts.initrd, *initrd]
+
+
+def load_module(name: str, path: str) -> types.ModuleType:
+    module = types.ModuleType(name)
+    text = open(path).read()
+    exec(compile(text, path, 'exec'), module.__dict__)
+    return module
+
+
+def call_ukify(opts) -> None:
+    ukify = load_module('ukify', UKIFY)
+
+    # Create "empty" namespace. We want to override just a few settings, so it
+    # doesn't make sense to configure everything. We pretend to parse an empty
+    # argument set to prepopulate the namespace with the defaults.
+    opts2 = ukify.create_parser().parse_args(['build'])
+
+    opts2.config = uki_conf_location()
+    opts2.uname = opts.kernel_version
+    opts2.linux = opts.kernel_image
+    opts2.initrd = initrd_list(opts)
+    # Note that 'uki.efi' is the name required by 90-uki-copy.install.
+    opts2.output = opts.staging_area / 'uki.efi'
+
+    if devicetree := devicetree_file_location(opts):
+        opts2.devicetree = devicetree
+
+    opts2.cmdline = kernel_cmdline(opts)
+    if BOOT_STUB:
+        opts2.stub = BOOT_STUB
+
+    ukify.apply_config(opts2)
+    ukify.finalize_options(opts2)
+    ukify.check_inputs(opts2)
+    ukify.make_uki(opts2)
+
+    log(f'{opts2.output} has been created')
+
+
+def main():
+    opts = parse_args()
+    if opts.command != 'add':
+        return
+    if not we_are_wanted():
+        return
+
+    call_ukify(opts)
+
+
+if __name__ == '__main__':
+    main()

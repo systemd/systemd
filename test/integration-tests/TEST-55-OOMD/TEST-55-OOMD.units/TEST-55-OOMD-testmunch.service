@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Create some memory pressure
+
+[Service]
+MemoryHigh=12M
+Slice=TEST-55-OOMD-workload.slice
+ExecStart=stress-ng --timeout 3m --vm 10 --vm-bytes 200M --vm-keep

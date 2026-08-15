@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for CPUAffinity (merge)
+
+[Service]
+ExecStart=bash -c 'test $$(cat /proc/self/status | grep Cpus_allowed: | rev | cut -c 1) = 7'
+CPUAffinity=0,1
+CPUAffinity=1-2

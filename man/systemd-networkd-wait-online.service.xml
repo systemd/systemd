@@ -1,0 +1,210 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-networkd-wait-online.service" conditional='ENABLE_NETWORKD'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-networkd-wait-online.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-networkd-wait-online.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-networkd-wait-online.service</refname>
+    <refname>systemd-networkd-wait-online@.service</refname>
+    <refname>systemd-networkd-wait-online</refname>
+    <refpurpose>Wait for network to come online</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-networkd-wait-online.service</filename></para>
+    <para><filename>systemd-networkd-wait-online@.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-networkd-wait-online</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-networkd-wait-online</command> is a
+    oneshot system service (see <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>), that waits for the network to be
+    configured. By default, it will wait for all links it is aware of
+    and which are managed by
+    <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    to be fully configured or failed, and for at least one link to be online. Here, online means that
+    the link's operational state is equal or higher than <literal>degraded</literal>. The threshold
+    can be configured by <option>--operational-state=</option> option.</para>
+
+    <para>The service <filename>systemd-networkd-wait-online.service</filename> invokes
+    <command>systemd-networkd-wait-online</command> without any options. Thus, it waits for all managed
+    interfaces to be configured or failed, and for at least one to be online.</para>
+
+    <para>The service <filename>systemd-networkd-wait-online@.service</filename> takes an interface
+    name, and invokes <command>systemd-networkd-wait-online</command> with <option>-i</option> and the
+    specified interface name. Thus, wait for the specified interface to be configured and online. For
+    example, <filename>systemd-networkd-wait-online@eth0.service</filename> waits for
+    <filename>eth0</filename> to be configured by <command>systemd-networkd</command> and online.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>-i</option> <replaceable>INTERFACE</replaceable><optional>:<replaceable>MIN_OPERSTATE</replaceable><optional>:<replaceable>MAX_OPERSTATE</replaceable></optional></optional></term>
+        <term><option>--interface=<replaceable>INTERFACE</replaceable><optional>:<replaceable>MIN_OPERSTATE</replaceable><optional>:<replaceable>MAX_OPERSTATE</replaceable></optional></optional></option></term>
+
+        <listitem><para>Network interface to wait for before deciding if the system is online. This
+        is useful when a system has several interfaces which will be configured, but a particular
+        one is necessary to access some network resources. When used, all other interfaces are ignored.
+        This option may be used more than once to wait for multiple network interfaces. When this
+        option is specified multiple times, then <command>systemd-networkd-wait-online</command> waits
+        for all specified interfaces to be online. Optionally, required minimum and maximum operational
+        states can be specified after a colon <literal>:</literal>. Please see
+        <citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for possible operational states. If the operational state is not specified here, then
+        the value from <varname>RequiredForOnline=</varname> in the corresponding
+        <filename>.network</filename> file is used if present, and <literal>degraded</literal> otherwise.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v213"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--ignore=<replaceable>INTERFACE</replaceable></option></term>
+
+        <listitem><para>Network interfaces to be ignored when deciding
+        if the system is online. By default, only the loopback
+        interface is ignored. This option may be used more than once
+        to ignore multiple network interfaces. </para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-o</option> <replaceable>MIN_OPERSTATE</replaceable><optional>:<replaceable>MAX_OPERSTATE</replaceable></optional></term>
+        <term><option>--operational-state=<replaceable>MIN_OPERSTATE</replaceable><optional>:<replaceable>MAX_OPERSTATE</replaceable></optional></option></term>
+
+        <listitem><para>Takes a minimum operational state and an optional maximum operational state.
+        Please see <citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for possible operational states. If set, the specified value overrides
+        <varname>RequiredForOnline=</varname> settings in <filename>.network</filename> files.
+        But this does not override operational states specified in <option>--interface=</option> option.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-4</option></term>
+        <term><option>--ipv4</option></term>
+
+        <listitem><para>Waiting for an IPv4 address of each network interface to be configured. If this
+        option is specified with <option>--any</option>, then
+        <command>systemd-networkd-wait-online</command> exits with success when at least one interface
+        becomes online and has an IPv4 address. If the required minimum operational state is
+        below <literal>routable</literal>, then each link (or at least one link with
+        <option>--any</option>) must have an IPv4 link-local or routable address. If the required
+        minimum operational state is <literal>routable</literal>, then each link must have an IPv4
+        routable address.</para>
+        <para>If neither <option>--ipv4</option> nor
+        <option>--ipv6</option> is specified, then the value from
+        <varname>RequiredFamilyForOnline=</varname> in the corresponding <filename>.network</filename>
+        file is used if present.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-6</option></term>
+        <term><option>--ipv6</option></term>
+
+        <listitem><para>Waiting for an IPv6 address of each network interface to be configured. If this
+        option is specified with <option>--any</option>, then
+        <command>systemd-networkd-wait-online</command> exits with success when at least one interface
+        becomes online and has an IPv6 address. If the required minimum operational state is
+        below <literal>routable</literal>, then each link (or at least one link with
+        <option>--any</option>) must have an IPv6 link-local or routable address. If the required
+        minimum operational state is <literal>routable</literal>, then each link must have an IPv6
+        routable address.</para>
+        <para>If neither <option>--ipv4</option> nor
+        <option>--ipv6</option> is specified, then the value from
+        <varname>RequiredFamilyForOnline=</varname> in the corresponding <filename>.network</filename>
+        file is used if present.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--dns</option></term>
+
+        <listitem><para>Waiting for DNS servers to be accessible on each interface. If this
+        option is specified with <option>--any</option>, then
+        <command>systemd-networkd-wait-online</command> exits with success when at least one interface
+        becomes online and has an accessible DNS server.</para>
+        <para>If a link has the property <varname>DefaultRoute=yes</varname> (either because the
+        <varname>DNSDefaultRoute=</varname> network property is explicitly configured, or
+        because the link does not have any "routing-only" domains), or if the search domain "." is
+        configured, then wait for link-specific DNS servers to be accessible. Otherwise, allow global
+        DNS servers to satisfy the condition.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--any</option></term>
+
+        <listitem><para>Even if several interfaces are in configuring state,
+        <command>systemd-networkd-wait-online</command> exits with success when at least one interface
+        becomes online. When this option is specified with <option>--interface=</option>, then
+        <command>systemd-networkd-wait-online</command> waits for one of the specified interfaces to be
+        online. This option is useful when some interfaces may not have carrier on boot.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--timeout=<replaceable>SECS</replaceable></option></term>
+
+        <listitem><para>Fail the service if the network is not online
+        by the time the timeout elapses. A timeout of 0 disables the
+        timeout. Defaults to 120 seconds. </para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-q</option></term>
+        <term><option>--quiet</option></term>
+
+        <listitem><para>Suppress log messages.</para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

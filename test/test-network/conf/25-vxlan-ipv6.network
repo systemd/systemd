@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=vxlan97
+
+[Network]
+IPv6AcceptRA=no
+LinkLocalAddressing=yes
+
+[BridgeFDB]
+MACAddress=00:00:00:00:00:00
+Destination=fe80::27c:16ff:fec0:6c74
+OutgoingInterface=test1
+VNI=4831583
+
+[BridgeFDB]
+MACAddress=00:00:00:00:00:00
+Destination=fe80::2a2:e4ff:fef9:2269
+OutgoingInterface=test1
+VNI=4831583
+
+[BridgeFDB]
+MACAddress=00:00:00:00:00:00
+Destination=fe80::23b:d2ff:fe95:967f
+OutgoingInterface=test1
+VNI=4831583

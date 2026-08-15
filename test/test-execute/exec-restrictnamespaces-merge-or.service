@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test merging RestrictNamespaces= with OR
+
+[Service]
+RestrictNamespaces=mnt pid
+RestrictNamespaces=mnt uts
+ExecStart=unshare -m -u -p -f
+ExecStart=bash -c '! unshare -u -i -n'
+Type=oneshot

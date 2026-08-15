@@ -1,0 +1,25 @@
+#compdef systemd-tmpfiles
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+_arguments \
+    '(- *)'{-h,--help}'[Show help]' \
+    '--user[Execute user configuration]' \
+    '(- *)--version[Show package version]' \
+    '(--tldr --dry-run)--cat-config[Show configuration files]' \
+    '(--cat-config --dry-run)--tldr[Show non-comment parts of configuration]' \
+    '--create[Create, set ownership/permissions based on the config files.]' \
+    '--clean[Clean up all files and directories with an age parameter configured.]' \
+    '--remove[All files and directories marked with r, R in the configuration files are removed.]' \
+    '--purge[Delete files and directories marked for creation in specified configuration files (careful!)]' \
+    '--boot[Execute actions only safe at boot]' \
+    '--graceful[Quietly ignore unknown users or groups]' \
+    '*--prefix=[Only apply rules that apply to paths with the specified prefix.]:PATH' \
+    '*--exclude-prefix=[Ignore rules that apply to paths with the specified prefix.]:PATH' \
+    '-E[Ignore rules prefixed with /dev, /proc, /run, /sys]' \
+    '--root=[Operate on an alternate filesystem root]:directory:_directories' \
+    '--image=[Operate on disk image as filesystem root]:image' \
+    '--image-policy=[Specify disk image dissection policy]:policy' \
+    '--replace=[Treat arguments as replacement for PATH]:PATH' \
+    '(--cat-config --tldr)--dry-run[Just print what would be done]' \
+    '--no-pager[Do not pipe output into a pager]' \
+    '*::files:_files -g "*.conf"'

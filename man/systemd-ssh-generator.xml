@@ -1,0 +1,163 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="systemd-ssh-generator"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-ssh-generator</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-ssh-generator</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-ssh-generator</refname>
+    <refpurpose>Generator for binding a socket-activated SSH server to local <constant>AF_VSOCK</constant>
+    and <constant>AF_UNIX</constant> sockets</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>/usr/lib/systemd/system-generators/systemd-ssh-generator</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-ssh-generator</command> binds a socket-activated SSH server to local
+    <constant>AF_VSOCK</constant> and <constant>AF_UNIX</constant> sockets under certain conditions. It only
+    has an effect if the
+    <citerefentry project="man-pages"><refentrytitle>sshd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    binary is installed. Specifically, it does the following:</para>
+
+    <itemizedlist>
+      <listitem><para>If invoked in a VM with <constant>AF_VSOCK</constant> support, a socket-activated SSH
+      per-connection service is bound to <constant>AF_VSOCK</constant> port 22.</para></listitem>
+
+      <listitem><para>If invoked in a container environment with a writable directory
+      <filename>/run/host/unix-export/</filename> pre-mounted it binds SSH to an <constant>AF_UNIX</constant>
+      socket <filename>/run/host/unix-export/ssh</filename>. The assumption is that this directory is bind
+      mounted to the host side as well, and can be used to connect to the container from there. See <ulink
+      url="https://systemd.io/CONTAINER_INTERFACE">Container Interface</ulink> for more information about
+      this interface.</para></listitem>
+
+      <listitem><para>A local <constant>AF_UNIX</constant> socket
+      <filename>/run/ssh-unix-local/socket</filename> is also bound, unconditionally. This may be used for
+      SSH communication from the host to itself, without involving networking, for example to traverse
+      security boundaries safely and with secure authentication.</para></listitem>
+
+      <listitem><para>Additional <constant>AF_UNIX</constant> and <constant>AF_VSOCK</constant> sockets are
+      optionally bound, based on the <varname>systemd.ssh_listen=</varname> kernel command line option or the
+      <filename>ssh.listen</filename> system credential (see below).</para></listitem>
+    </itemizedlist>
+
+    <para>See
+    <citerefentry><refentrytitle>systemd-ssh-proxy</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+    details on how to connect to these sockets via the <command>ssh</command> client.</para>
+
+    <para>The <varname>ssh.authorized_keys.root</varname> credential can be used to allow specific public keys
+    to log in over SSH. See
+    <citerefentry><refentrytitle>systemd.system-credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    for more information.</para>
+
+    <para>The generator will use a packaged <filename>sshd@.service</filename> service template file if one
+    exists, and otherwise generate a suitable service template file.</para>
+
+    <para><command>systemd-ssh-generator</command> implements
+    <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Kernel Command Line</title>
+
+    <para><command>systemd-ssh-generator</command> understands the following
+    <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    parameters:</para>
+
+    <variablelist class='kernel-commandline-options'>
+      <varlistentry>
+        <term><varname>systemd.ssh_auto=</varname></term>
+
+        <listitem><para>This option takes an optional boolean argument, and defaults to yes. If enabled, the
+        automatic binding to the <constant>AF_VSOCK</constant> and <constant>AF_UNIX</constant> sockets
+        listed above is done. If disable, this is not done, except for those explicitly requested via
+        <varname>systemd.ssh_listen=</varname> on the kernel command line or via the
+        <varname>ssh.listen</varname> system credential.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.ssh_listen=</varname></term>
+
+        <listitem><para>This option configures an additional socket to bind SSH to. It may be used multiple
+        times to bind multiple sockets. The syntax should follow the one of <varname>ListenStream=</varname>,
+        see
+        <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details. This functionality supports all socket families
+        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> supports,
+        including <constant>AF_INET</constant> and <constant>AF_INET6</constant>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Credentials</title>
+
+    <para><command>systemd-ssh-generator</command> supports the system credentials logic. The following
+    credentials are used when passed in:</para>
+
+    <variablelist class='system-credentials'>
+      <varlistentry>
+        <term><varname>ssh.listen</varname></term>
+
+        <listitem><para>This credential should be a text file, with each line referencing one additional
+        socket to bind SSH to. The syntax should follow the one of <varname>ListenStream=</varname>, see
+        <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details. This functionality supports all socket families systemd supports, including
+        <constant>AF_INET</constant> and <constant>AF_INET6</constant>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ssh.ephemeral-authorized_keys-all</varname></term>
+
+        <listitem>
+          <para>Provides additional public keys, given in the customary <filename>authorized_keys</filename>
+            format, for all users, for incoming connections via the generated <constant>AF_VSOCK</constant>
+            and <constant>AF_UNIX</constant> socket units.</para>
+
+          <para>The intended use of this is for a host system (in either VM or container configurations) to
+            generate a keypair and inject the public key into the guest, using the private key to connect to
+            any user account on the guest via ssh, without further authentication.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.system-credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry project="man-pages"><refentrytitle>vsock</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry project="man-pages"><refentrytitle>unix</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry project="man-pages"><refentrytitle>ssh</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project="man-pages"><refentrytitle>sshd</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

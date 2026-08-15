@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x.systemd-sysext">
+    <sub-class-of type="application/vnd.efi.img"/>
+    <comment>System Extension DDI</comment>
+    <generic-icon name="application-x-addon"/>
+    <glob pattern="*.sysext.raw"/>
+  </mime-type>
+  <mime-type type="application/x.systemd-confext">
+    <sub-class-of type="application/vnd.efi.img"/>
+    <comment>Configuration Extension DDI</comment>
+    <generic-icon name="application-x-addon"/>
+    <glob pattern="*.confext.raw"/>
+  </mime-type>
+  <mime-type type="application/x.systemd-home">
+    <sub-class-of type="application/vnd.efi.img"/>
+    <comment>Home Directory (LUKS)</comment>
+    <generic-icon name="user-home"/>
+    <glob pattern="*.home"/>
+  </mime-type>
+  <mime-type type="application/x.systemd-journal">
+    <comment>Journal Log File</comment>
+    <magic>
+      <match type="string" value="LPKSHHRH" offset="0"/>
+    </magic>
+  </mime-type>
+  <mime-type type="application/x.systemd-catalog">
+    <comment>Journal Message Catalog</comment>
+    <magic>
+      <match type="string" value="RHHHKSLP" offset="0"/>
+    </magic>
+  </mime-type>
+  <mime-type type="application/x.systemd-hwdb">
+    <comment>Hardware Database</comment>
+    <magic>
+      <match type="string" value="KSLPHHRH" offset="0"/>
+    </magic>
+  </mime-type>
+  <mime-type type="application/x.systemd-credential">
+    <comment>Encrypted Credential</comment>
+    <generic-icon name="security-high"/>
+    <magic>
+      <match type="string" value="Whxqht+dQJax1aZeCGLxm" offset="0"/>
+      <match type="string" value="VbntHThZTUOoMZ0uuzMqx" offset="0"/>
+      <match type="string" value="DHzAexF2RZGcSwvqCLwg/" offset="0"/>
+      <match type="string" value="+vfrk0HjQSyhpDb5Wik2L" offset="0"/>
+      <match type="string" value="k6iUCUh0RJCQyvL8k8q1U" offset="0"/>
+      <match type="string" value="70rBNnmpSA6n22iJf58WX" offset="0"/>
+      <match type="string" value="r0lQqEkTTrGnOEYwT/MMB" offset="0"/>
+      <match type="string" value="rbxMo++2QgG6iBtvLkCV6" offset="0"/>
+      <match type="string" value="1AYt+3GtTIaAS0DvEYDx/" offset="0"/>
+      <match type="string" value="Xi1cdgNyTq+EPG+19kCY9" offset="0"/>
+      <match type="string" value="FBQliBiiQM2QC86GLbXHu" offset="0"/>
+      <match type="string" value="Kh+HekJ1Qxqz+e0fXY9mA" offset="0"/>
+      <match type="string" value="r7/qrOtqSjeVQZ0TXEfze" offset="0"/>
+      <match type="string" value="FuSSlJ+UQAKGdY+Ut8Urx" offset="0"/>
+      <match type="string" value="BYRp2vb1QySABUnaD46i+" offset="0"/>
+    </magic>
+  </mime-type>
+</mime-info>

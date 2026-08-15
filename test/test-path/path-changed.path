@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+[Unit]
+Description=Test PathChanged
+
+[Path]
+PathChanged=/tmp/test-path_changed
+
+[Install]
+WantedBy=multi-user.target

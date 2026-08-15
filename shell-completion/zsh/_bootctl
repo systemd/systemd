@@ -1,0 +1,114 @@
+#compdef bootctl
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+__bootctl() {
+    bootctl --no-pager $@ 2>/dev/null
+}
+
+_bootctl_comp_ids() {
+    local expl
+    local -a ids
+    __bootctl list | while read -r a b; do
+        if [[ "$a" == "id:" ]]; then
+            ids+="$b"
+        fi
+    done
+    _wanted id expl 'boot id' compadd "$@" -a ids
+}
+
+_bootctl_set-default() {
+    _bootctl_comp_ids
+}
+
+_bootctl_set-oneshot() {
+    _bootctl_comp_ids
+}
+
+_bootctl_set-sysfail() {
+    _bootctl_comp_ids
+}
+
+_bootctl_set-preferred() {
+    _bootctl_comp_ids
+}
+
+_bootctl_unlink() {
+    _bootctl_comp_ids
+}
+
+_bootctl_link() {
+    _files
+}
+
+_bootctl_kernel-identify() {
+    _files
+}
+
+_bootctl_kernel-inspect() {
+    _files
+}
+
+_bootctl_reboot-to-firmware() {
+    local -a _completions
+    _completions=( yes no )
+    typeset -U _completions
+    _describe 'possible values' _completions
+}
+
+(( $+functions[_bootctl_commands] )) || _bootctl_commands()
+{
+    local -a _bootctl_cmds
+    _bootctl_cmds=(
+        "status:Show status of installed systemd-boot and EFI variables"
+        "install:Install systemd-boot to the ESP and EFI variables"
+        "update:Update systemd-boot in the ESP and EFI variables"
+        "remove:Remove systemd-boot from the ESP and EFI variables"
+        "is-installed:Test whether systemd-boot is installed in the ESP"
+        "random-seed:Initialize random seed in ESP and EFI variables"
+        "reboot-to-firmware:Query or set reboot-to-firmware EFI flag"
+        "list:List boot loader entries"
+        "set-default:Set the default boot loader entry"
+        "set-oneshot:Set the default boot loader entry only for the next boot"
+        "set-sysfail:Set boot loader entry used in case of a system failure"
+        "set-preferred:Set the preferred boot loader entry"
+        "set-timeout:Set the menu timeout"
+        "set-timeout-oneshot:Set the menu timeout for the next boot only"
+        "unlink:Remove boot loader entry"
+        "link:Add boot loader entry"
+        "link-auto:Add boot loader entry for kernel and resources staged in /var/lib/systemd/uki/"
+        "cleanup:Remove files in ESP not referenced in any boot entry"
+        "kernel-identify:Identify kernel image type"
+        "kernel-inspect:Print details about the kernel image"
+    )
+    if (( CURRENT == 1 )); then
+        _describe -t commands 'bootctl command' _bootctl_cmds || compadd "$@"
+    else
+        local curcontext="$curcontext"
+        cmd="${${_bootctl_cmds[(r)$words[1]:*]%%:*}}"
+        if (( $+functions[_bootctl_$cmd] )); then
+            _bootctl_$cmd
+        else
+            _message "no more options"
+        fi
+    fi
+}
+
+_arguments \
+    '(- *)'{-h,--help}'[Prints a short help text and exits.]' \
+    '(- *)--version[Prints a short version string and exits.]' \
+    '--esp-path=[Path to the EFI System Partition (ESP)]:path:_directories' \
+    '--boot-path=[Path to the $BOOT partition]:path:_directories' \
+    '(-p --print-esp-path)'{-p,--print-esp-path}'[Print path to the EFI system partition]' \
+    '(-x --print-boot-path)'{-x,--print-boot-path}'[Print path to the $BOOT partition]' \
+    '--print-efi-architecture[Print the EFI architecture identifier]' \
+    '--make-machine-id-directory=[Control creation and deletion of the top-level machine ID directory.]:options:(yes no auto)' \
+    '--no-pager[Do not pipe output into a pager]' \
+    '--graceful[Do not fail when locating ESP or writing fails]' \
+    '--dry-run[Dry run (unlink and cleanup)]' \
+    '--oldest=[Delete oldest boot menu entry]:options:(yes no)' \
+    '--root=[Operate under the specified directory]:PATH' \
+    '--image=[Operate on the specified image]:PATH' \
+    '--install-source[Where to pick files when using --root=/--image=]:options:(image host auto)' \
+    '--random-seed[Whether to create random-seed file during install]:options:(yes no)' \
+    '--variables=[Touch EFI variables]:options:(yes no)' \
+    '*::bootctl command:_bootctl_commands'

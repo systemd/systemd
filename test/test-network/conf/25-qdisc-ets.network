@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=dummy98
+
+[Network]
+IPv6AcceptRA=no
+Address=10.1.2.3/16
+
+[EnhancedTransmissionSelection]
+Parent=root
+Handle=3a
+Bands=10
+StrictBands=3
+QuantumBytes=2 4 6
+QuantumBytes=
+QuantumBytes=1 2 3
+QuantumBytes=4 5
+PriorityMap=8 7 6 5
+PriorityMap=
+PriorityMap=3 4 5
+PriorityMap=6 7

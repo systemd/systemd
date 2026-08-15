@@ -1,0 +1,20 @@
+{
+    "type": "devicetree",
+    "name": "Dell Inc. Inspiron",
+    "compatible": "dell,inspiron-14-plus-7441",
+    "hwids": [
+        "4689ccaf-4f31-5146-887f-ca965da0f28a",
+        "e4c9fe83-73ba-5160-bc18-57d4a98e960d",
+        "efc06900-f603-5944-88e5-4de722816f91",
+        "90117b25-1646-515b-bfeb-286e74f2a1e8",
+        "c1190be1-8ed5-50f1-9097-2a73ad9c4eb1",
+        "0d9ce3bc-620c-5209-9e82-7382cb6cffcd",
+        "ff394805-0b5f-52f6-9e1d-afb1d2bee411",
+        "07c6477a-7ef7-56c7-91d9-73d23295b0c0",
+        "a66b1244-0027-5451-a96a-dfcfc42ab892",
+        "ef84110e-bd09-5f0f-a3dd-7995b4a3a706",
+        "07c6bbd9-caf8-5025-84d8-4efdb790f663",
+        "bea2e67a-b660-5044-8acd-0d28e8c2e974",
+        "8548ce7c-fdf3-55d0-95ba-606ca8db50da"
+    ]
+}

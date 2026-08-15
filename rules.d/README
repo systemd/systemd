@@ -1,0 +1,8 @@
+Files in this directory contain configuration for systemd-udevd.service, a
+daemon that manages symlinks to device nodes, permissions of devices nodes,
+emits device events for userspace, and renames network interfaces.
+
+See man:udev(7) for an overview of the configuration file format, and
+man:systemd-udevd.service(8) for a description of service itself.
+
+Use 'systemd-analyze cat-config udev/rules.d' to display the effective config.

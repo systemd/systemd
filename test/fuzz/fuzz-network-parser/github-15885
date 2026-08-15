@@ -1,0 +1,9 @@
+[DHCPv4]
+SendOption=1:string:
+SendOption=1:uint8:
+SendOption=1:uint16:
+SendOption=1:uint32:
+SendOption=1:ipv4address:
+SendOption=1:ipv4address:127.0.0.1
+SendOption=1:ipv6address:
+SendOption=1:ipv6address:52:54:00:b9:b5:61

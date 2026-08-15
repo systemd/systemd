@@ -1,0 +1,82 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+ACTION=="remove", GOTO="systemd_end"
+
+SUBSYSTEM=="tty", KERNEL=="tty[a-zA-Z]*|hvc*|xvc*|hvsi*|ttysclp*|sclp_line*|3270/tty[0-9]*", TAG+="systemd"
+KERNEL=="vport*", TAG+="systemd"
+
+SUBSYSTEM=="ubi", TAG+="systemd"
+
+SUBSYSTEM=="block", TAG+="systemd"
+
+# We can't make any conclusions about suspended DM devices so let's just import previous SYSTEMD_READY state and skip other rules
+SUBSYSTEM=="block", ENV{DM_SUSPENDED}=="1", IMPORT{db}="SYSTEMD_READY"
+SUBSYSTEM=="block", ENV{DM_SUSPENDED}=="1", GOTO="systemd_end"
+
+SUBSYSTEM=="block", ACTION=="add", ENV{DM_UDEV_DISABLE_OTHER_RULES_FLAG}=="1", ENV{SYSTEMD_READY}="0"
+
+# Ignore encrypted devices with no identified superblock on it, since
+# we are probably still calling mke2fs or mkswap on it.
+SUBSYSTEM=="block", ENV{DM_UUID}=="CRYPT-*", ENV{ID_PART_TABLE_TYPE}=="", ENV{ID_FS_USAGE}=="", ENV{SYSTEMD_READY}="0"
+
+# Explicitly set SYSTEMD_READY=1 for DM devices that don't have it set yet, so that we always have something to import above
+SUBSYSTEM=="block", ENV{DM_UUID}=="?*", ENV{SYSTEMD_READY}=="", ENV{SYSTEMD_READY}="1"
+
+# add symlink to GPT root disk
+SUBSYSTEM=="block", ENV{ID_PART_GPT_AUTO_ROOT}=="1", ENV{ID_FS_TYPE}!="crypto_LUKS", SYMLINK+="gpt-auto-root"
+SUBSYSTEM=="block", ENV{ID_PART_GPT_AUTO_ROOT}=="1", ENV{ID_FS_TYPE}=="crypto_LUKS", SYMLINK+="gpt-auto-root-luks"
+SUBSYSTEM=="block", ENV{DM_UUID}=="CRYPT-*", ENV{DM_NAME}=="root", SYMLINK+="gpt-auto-root"
+
+# Ignore raid devices that are not yet assembled and started
+SUBSYSTEM=="block", ENV{DEVTYPE}=="disk", KERNEL=="md*", TEST!="md/array_state", ENV{SYSTEMD_READY}="0"
+SUBSYSTEM=="block", ENV{DEVTYPE}=="disk", KERNEL=="md*", ATTR{md/array_state}=="|clear|inactive", ENV{SYSTEMD_READY}="0"
+
+# Ignore loop devices that don't have any file attached
+SUBSYSTEM=="block", KERNEL=="loop[0-9]*", ENV{DEVTYPE}=="disk", TEST!="loop/backing_file", ENV{SYSTEMD_READY}="0"
+
+# Ignore nbd devices until the PID file exists (which signals a connected device)
+SUBSYSTEM=="block", KERNEL=="nbd*", ENV{DEVTYPE}=="disk", TEST!="pid", ENV{SYSTEMD_READY}="0"
+
+# We need a hardware independent way to identify network devices. We
+# use the /sys/subsystem/ path for this. Kernel "bus" and "class" names
+# should be treated as one namespace, like udev handles it. This is mostly
+# just an identification string for systemd, so whether the path actually is
+# accessible or not does not matter as long as it is unique and in the
+# filesystem namespace.
+
+SUBSYSTEM=="net", KERNEL!="lo", TAG+="systemd", ENV{SYSTEMD_ALIAS}+="/sys/subsystem/net/devices/$name"
+SUBSYSTEM=="bluetooth", TAG+="systemd", ENV{SYSTEMD_ALIAS}+="/sys/subsystem/bluetooth/devices/%k"
+
+SUBSYSTEM=="bluetooth", TAG+="systemd", ENV{SYSTEMD_WANTS}+="bluetooth.target"
+ENV{ID_SMARTCARD_READER}=="?*", TAG+="systemd", ENV{SYSTEMD_WANTS}+="smartcard.target"
+SUBSYSTEM=="sound", KERNEL=="card*", TAG+="systemd", ENV{SYSTEMD_WANTS}+="sound.target"
+
+SUBSYSTEM=="printer", TAG+="systemd", ENV{SYSTEMD_WANTS}+="printer.target"
+SUBSYSTEM=="usb", KERNEL=="lp*", TAG+="systemd", ENV{SYSTEMD_WANTS}+="printer.target"
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ENV{ID_USB_INTERFACES}=="*:0701??:*", TAG+="systemd", ENV{SYSTEMD_WANTS}+="printer.target"
+
+# Apply sysctl variables to network devices (and only to those) as they appear.
+ACTION=="add", SUBSYSTEM=="net", KERNEL!="lo", RUN+="/usr/lib/systemd/systemd-sysctl --prefix=/net/ipv4/conf/$name --prefix=/net/ipv4/neigh/$name --prefix=/net/ipv6/conf/$name --prefix=/net/ipv6/neigh/$name"
+
+# Pull in backlight save/restore for all backlight devices and
+# keyboard backlights
+SUBSYSTEM=="backlight", TAG+="systemd", IMPORT{builtin}="path_id", ENV{SYSTEMD_WANTS}+="systemd-backlight@backlight:$name.service"
+SUBSYSTEM=="leds", KERNEL=="*kbd_backlight", TAG+="systemd", IMPORT{builtin}="path_id", ENV{SYSTEMD_WANTS}+="systemd-backlight@leds:$name.service"
+
+# Pull in rfkill save/restore for all rfkill devices
+SUBSYSTEM=="rfkill", ENV{SYSTEMD_RFKILL}="1"
+SUBSYSTEM=="rfkill", IMPORT{builtin}="path_id"
+SUBSYSTEM=="misc", KERNEL=="rfkill", TAG+="systemd", ENV{SYSTEMD_WANTS}+="systemd-rfkill.socket"
+
+# Asynchronously mount file systems implemented by these modules as soon as they are loaded.
+SUBSYSTEM=="module", KERNEL=="fuse", TAG+="systemd", ENV{SYSTEMD_WANTS}+="sys-fs-fuse-connections.mount"
+SUBSYSTEM=="module", KERNEL=="configfs", TAG+="systemd", ENV{SYSTEMD_WANTS}+="sys-kernel-config.mount"
+
+LABEL="systemd_end"

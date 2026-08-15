@@ -1,0 +1,136 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+ACTION=="remove", GOTO="uaccess_end"
+ENV{MAJOR}=="", GOTO="uaccess_end"
+
+# PTP/MTP protocol devices, cameras, portable media players
+SUBSYSTEM=="usb", ENV{ID_USB_INTERFACES}=="*:060101:*", TAG+="uaccess"
+
+# Digicams with proprietary protocol
+ENV{ID_GPHOTO2}=="?*", TAG+="uaccess"
+
+# SCSI and USB scanners
+ENV{libsane_matched}=="yes", TAG+="uaccess"
+
+# HPLIP devices (necessary for ink level check and HP tool maintenance)
+ENV{ID_HPLIP}=="1", TAG+="uaccess"
+
+# optical drives
+SUBSYSTEM=="block", ENV{ID_CDROM}=="1", TAG+="uaccess"
+SUBSYSTEM=="scsi_generic", SUBSYSTEMS=="scsi", ATTRS{type}=="4|5", TAG+="uaccess"
+
+# Sound devices
+SUBSYSTEM=="sound", TAG+="uaccess", \
+  OPTIONS+="static_node=snd/timer", OPTIONS+="static_node=snd/seq"
+
+# Webcams, frame grabber, TV cards
+SUBSYSTEM=="video4linux", TAG+="uaccess"
+SUBSYSTEM=="dvb", TAG+="uaccess"
+SUBSYSTEM=="media", TAG+="uaccess"
+# libcamera software ISP used with some cams requires udmabuf access
+KERNEL=="udmabuf", TAG+="uaccess"
+
+# industrial cameras, some webcams, camcorders, set-top boxes, TV sets, audio devices, and more
+SUBSYSTEM=="firewire", TEST=="units", ENV{IEEE1394_UNIT_FUNCTION_MIDI}=="1", TAG+="uaccess"
+SUBSYSTEM=="firewire", TEST=="units", ENV{IEEE1394_UNIT_FUNCTION_AUDIO}=="1", TAG+="uaccess"
+SUBSYSTEM=="firewire", TEST=="units", ENV{IEEE1394_UNIT_FUNCTION_VIDEO}=="1", TAG+="uaccess"
+
+# DRI video devices
+SUBSYSTEM=="drm", KERNEL=="card*", TAG+="uaccess"
+{% if GROUP_RENDER_UACCESS %}
+# DRI render nodes
+SUBSYSTEM=="drm", KERNEL=="renderD*", TAG+="uaccess", TAG+="xaccess-render"
+# DRI accel nodes
+SUBSYSTEM=="accel", KERNEL=="accel*", TAG+="uaccess", TAG+="xaccess-accel"
+# AMD KFD nodes
+SUBSYSTEM=="kfd", KERNEL=="kfd", TAG+="uaccess", TAG+="xaccess-render"
+{% endif %}
+{% if DEV_KVM_UACCESS %}
+# KVM
+SUBSYSTEM=="misc", KERNEL=="kvm", TAG+="uaccess"
+{% endif %}
+
+# smart-card readers
+ENV{ID_SMARTCARD_READER}=="?*", TAG+="uaccess"
+
+# (USB) authentication devices
+ENV{ID_SECURITY_TOKEN}=="?*", TAG+="uaccess"
+
+# PDA devices
+ENV{ID_PDA}=="?*", TAG+="uaccess"
+
+# Programmable remote control
+ENV{ID_REMOTE_CONTROL}=="1", TAG+="uaccess"
+
+# joysticks
+SUBSYSTEM=="input", ENV{ID_INPUT_JOYSTICK}=="?*", TAG+="uaccess"
+
+# color measurement devices
+ENV{COLOR_MEASUREMENT_DEVICE}=="?*", TAG+="uaccess"
+
+# DDC/CI device, usually high-end monitors such as the DreamColor
+ENV{DDC_DEVICE}=="?*", TAG+="uaccess"
+
+# media player raw devices (for user-mode drivers, Android SDK, etc.)
+SUBSYSTEM=="usb", ENV{ID_MEDIA_PLAYER}=="?*", TAG+="uaccess"
+
+# Android devices (ADB DbC, ADB, Fastboot)
+# Used to interact with devices over Android Debug Bridge and Fastboot protocols, see:
+# * https://developer.android.com/tools/adb
+# * https://source.android.com/docs/setup/test/running
+# * https://source.android.com/docs/setup/test/flash
+#
+# The bInterfaceClass and bInterfaceSubClass used are documented in source code here:
+# * https://android.googlesource.com/platform/packages/modules/adb/+/d0db47dcdf941673f405e1095e6ffb5e565902e5/adb.h#199
+# * https://android.googlesource.com/platform/system/core/+/7199051aaf0ddfa2849650933119307327d8669c/fastboot/fastboot.cpp#244
+#
+# Since it's using a generic vendor specific interface class, this can potentially result
+# in a rare case where non-ADB/Fastboot device ends up with an ID_DEBUG_APPLIANCE="android".
+SUBSYSTEM=="usb", ENV{ID_USB_INTERFACES}=="*:dc0201:*|*:ff4201:*|*:ff4203:*", ENV{ID_DEBUG_APPLIANCE}="android"
+
+# software-defined radio communication devices
+ENV{ID_SOFTWARE_RADIO}=="?*", TAG+="uaccess"
+
+# 3D printers, CNC machines, laser cutters, 3D scanners, etc.
+ENV{ID_MAKER_TOOL}=="?*", TAG+="uaccess"
+
+# Protocol analyzers
+ENV{ID_SIGNAL_ANALYZER}=="?*", ENV{DEVTYPE}=="usb_device", TAG+="uaccess"
+ENV{ID_SIGNAL_ANALYZER}=="?*", KERNEL=="ttyACM[0-9]*", TAG+="uaccess"
+
+# rfkill / radio killswitches
+KERNEL=="rfkill", SUBSYSTEM=="misc", TAG+="uaccess"
+
+# AV production controllers
+# Most of these devices use HID for the knobs, faders, buttons, encoders, and jog wheels.
+SUBSYSTEM=="hidraw", ENV{ID_AV_PRODUCTION_CONTROLLER}=="1", TAG+="uaccess"
+
+# Some devices use vendor defined protocols on USB Bulk endpoints for controllers.
+# Other devices transfer graphics to screens on the device through USB Bulk endpoints.
+# This also allows accessing HID devices with the libusb backend of hidapi.
+SUBSYSTEM=="usb", ENV{ID_AV_PRODUCTION_CONTROLLER}=="1", TAG+="uaccess"
+
+# USB and Bluetooth controllable lights
+SUBSYSTEM=="hidraw", ENV{ID_AV_LIGHTS}=="1", TAG+="uaccess"
+SUBSYSTEM=="usb", ENV{ID_AV_LIGHTS}=="1", TAG+="uaccess"
+
+# Hardware wallets
+SUBSYSTEM=="usb", ENV{ID_HARDWARE_WALLET}=="1", TAG+="uaccess"
+SUBSYSTEM=="hidraw", ENV{ID_HARDWARE_WALLET}=="1", TAG+="uaccess"
+
+# 3D mice
+# As defined in https://en.wikipedia.org/wiki/3Dconnexion
+SUBSYSTEM=="hidraw", ENV{ID_INPUT_3D_MOUSE}=="1", TAG+="uaccess"
+
+# Debug interfaces (e.g. Android Debug Bridge)
+# Made available via xaccess additionally to support scenarios like headless testing machines.
+ENV{ID_DEBUG_APPLIANCE}=="?*", TAG+="uaccess", TAG+="xaccess-debug-appliance"
+
+LABEL="uaccess_end"

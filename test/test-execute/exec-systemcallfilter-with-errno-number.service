@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for SystemCallFilter with errno number
+
+[Service]
+ExecStart=python3 -c 'import os\ntry: os.uname()\nexcept Exception as e: exit(e.errno)'
+Type=oneshot
+SystemCallFilter=~uname:255
+SystemCallErrorNumber=EACCES

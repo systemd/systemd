@@ -1,0 +1,2 @@
+root:x:0:0:Super User:/root:/bin/sh
+nobody:x:65534:65534:Kernel Overflow User:/:NOLOGIN

@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+OriginalName=dummy98
+
+[Link]
+MTUBytes=1600

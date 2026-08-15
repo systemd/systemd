@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[NetDev]
+Name=vtitun97
+Kind=vti
+
+[Tunnel]
+Local=10.65.223.238
+Remote=any

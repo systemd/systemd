@@ -1,0 +1,76 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-userdbd.service" conditional='ENABLE_USERDB'>
+
+  <refentryinfo>
+    <title>systemd-userdbd.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-userdbd.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-userdbd.service</refname>
+    <refname>systemd-userdbd</refname>
+    <refpurpose>JSON User/Group Record Query Multiplexer/NSS Compatibility</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-userdbd.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-userdbd</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-userdbd</command> is a system service that multiplexes user/group lookups to all
+    local services that provide JSON user/group record definitions to the system. In addition it synthesizes
+    JSON user/group records from classic UNIX/glibc NSS user/group records in order to provide full backwards
+    compatibility. It may also pick up statically defined JSON user/group records from files in
+    <filename>/etc/userdb/</filename>, <filename>/run/userdb/</filename>,
+    <filename>/run/host/userdb/</filename> and <filename>/usr/lib/userdb/</filename> with the
+    <literal>.user</literal> or <literal>.group</literal> extension. For more details about the extensions
+    read the <citerefentry><refentrytitle>nss-systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    manpage.</para>
+
+    <para>Most of <command>systemd-userdbd</command>'s functionality is accessible through the
+    <citerefentry><refentrytitle>userdbctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    command.</para>
+
+    <para>The user and group records this service provides access to follow the <ulink
+    url="https://systemd.io/USER_RECORD">JSON User Records</ulink> and <ulink
+    url="https://systemd.io/GROUP_RECORD">JSON Group Record</ulink> definitions. This service implements the
+    <ulink url="https://systemd.io/USER_GROUP_API">User/Group Record Lookup API via Varlink</ulink>, and
+    multiplexes access other services implementing this API, too. It is thus both server and client of this
+    API.</para>
+
+    <para>This service provides three distinct <ulink url="https://varlink.org/">Varlink</ulink> services:
+    <constant>io.systemd.Multiplexer</constant> provides a single, unified API for querying JSON user and
+    group records. Internally it talks to all other user/group record services running on the system in
+    parallel and forwards any information discovered. This simplifies clients substantially since they need
+    to talk to a single service only instead of all of them in
+    parallel. <constant>io.systemd.NameServiceSwitch</constant> provides compatibility with classic
+    UNIX/glibc NSS user records, i.e. converts <type>struct passwd</type> and <type>struct group</type>
+    records as acquired with APIs such as <citerefentry
+    project='man-pages'><refentrytitle>getpwnam</refentrytitle><manvolnum>1</manvolnum></citerefentry> to
+    JSON user/group records, thus hiding the differences between the services as much as
+    possible. <constant>io.systemd.DropIn</constant> makes JSON user/group records from the aforementioned
+    drop-in directories available.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>nss-systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>userdbctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

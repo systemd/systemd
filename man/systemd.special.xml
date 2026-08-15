@@ -1,0 +1,1622 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd.special" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd.special</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd.special</refentrytitle>
+    <manvolnum>7</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd.special</refname>
+    <refpurpose>Special systemd units</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv><para>
+    <!-- sort alphabetically, targets first --><filename>basic.target</filename>,
+    <filename>bluetooth.target</filename>,
+    <filename>cryptsetup-pre.target</filename>,
+    <filename>cryptsetup.target</filename>,
+    <filename>veritysetup-pre.target</filename>,
+    <filename>veritysetup.target</filename>,
+    <filename>ctrl-alt-del.target</filename>,
+    <filename>blockdev@.target</filename>,
+    <filename>boot-complete.target</filename>,
+    <filename>default.target</filename>,
+    <filename>emergency.target</filename>,
+    <filename>exit.target</filename>,
+    <filename>factory-reset.target</filename>,
+    <filename>factory-reset-now.target</filename>,
+    <filename>final.target</filename>,
+    <filename>first-boot-complete.target</filename>,
+    <filename>getty.target</filename>,
+    <filename>getty-pre.target</filename>,
+    <filename>graphical.target</filename>,
+    <filename>halt.target</filename>,
+    <filename>hibernate.target</filename>,
+    <filename>hybrid-sleep.target</filename>,
+    <filename>suspend-then-hibernate.target</filename>,
+    <filename>initrd.target</filename>,
+    <filename>initrd-fs.target</filename>,
+    <filename>initrd-root-device.target</filename>,
+    <filename>initrd-root-fs.target</filename>,
+    <filename>initrd-usr-fs.target</filename>,
+    <filename>integritysetup-pre.target</filename>,
+    <filename>integritysetup.target</filename>,
+    <filename>kbrequest.target</filename>,
+    <filename>kexec.target</filename>,
+    <filename>local-fs-pre.target</filename>,
+    <filename>local-fs.target</filename>,
+    <filename>machines.target</filename>,
+    <filename>multi-user.target</filename>,
+    <filename>network-online.target</filename>,
+    <filename>network-pre.target</filename>,
+    <filename>network.target</filename>,
+    <filename>nss-lookup.target</filename>,
+    <filename>nss-user-lookup.target</filename>,
+    <filename>paths.target</filename>,
+    <filename>poweroff.target</filename>,
+    <filename>printer.target</filename>,
+    <filename>reboot.target</filename>,
+    <filename>remote-cryptsetup.target</filename>,
+    <filename>remote-integritysetup.target</filename>,
+    <filename>remote-veritysetup.target</filename>,
+    <filename>remote-fs-pre.target</filename>,
+    <filename>remote-fs.target</filename>,
+    <filename>rescue.target</filename>,
+    <filename>rpcbind.target</filename>,
+    <filename>shutdown.target</filename>,
+    <filename>sigpwr.target</filename>,
+    <filename>sleep.target</filename>,
+    <filename>slices.target</filename>,
+    <filename>smartcard.target</filename>,
+    <filename>sockets.target</filename>,
+    <filename>soft-reboot.target</filename>,
+    <filename>sound.target</filename>,
+    <filename>ssh-access.target</filename>,
+    <filename>storage-target-mode.target</filename>,
+    <filename>suspend.target</filename>,
+    <filename>swap.target</filename>,
+    <filename>sysinit.target</filename>,
+    <filename>system-update.target</filename>,
+    <filename>system-update-pre.target</filename>,
+    <filename>time-set.target</filename>,
+    <filename>time-sync.target</filename>,
+    <filename>timers.target</filename>,
+    <filename>tpm2.target</filename>,
+    <filename>umount.target</filename>,
+    <filename>usb-gadget.target</filename>,
+    <!-- slices --><filename>-.slice</filename>,
+    <filename>capsule.slice</filename>,
+    <filename>machine.slice</filename>,
+    <filename>system.slice</filename>,
+    <filename>user.slice</filename>,
+    <!-- the rest --><filename>-.mount</filename>,
+    <filename>dbus.service</filename>,
+    <filename>dbus.socket</filename>,
+    <filename>display-manager.service</filename>,
+    <filename>init.scope</filename>,
+    <filename>syslog.socket</filename>,
+    <filename>system-update-cleanup.service</filename>
+  </para></refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>A few units are treated specially by systemd. Many of them have
+    special internal semantics and cannot be renamed, while others simply
+    have a standard meaning and should be present on all systems.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Units managed by the system service manager</title>
+
+    <refsect2>
+      <title>Special System Units</title>
+
+      <variablelist>
+        <varlistentry>
+          <term><filename>-.mount</filename></term>
+          <listitem>
+            <para>The root mount point, i.e. the mount unit for the <filename>/</filename>
+            path. This unit is unconditionally active, during the entire time the system is up, as
+            this mount point is where the basic userspace is running from.</para>
+
+          <xi:include href="version-info.xml" xpointer="v235"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><filename>basic.target</filename></term>
+          <listitem>
+            <para>A special target unit covering basic boot-up.</para>
+
+            <para>systemd automatically adds dependency of the type
+            <varname>After=</varname> for this target unit to all
+            services (except for those with
+            <varname>DefaultDependencies=no</varname>).</para>
+
+            <para>Usually, this should pull-in all local mount points plus
+            <filename>/var/</filename>, <filename>/tmp/</filename> and
+            <filename>/var/tmp/</filename>, swap devices, sockets, timers,
+            path units and other basic initialization necessary for general
+            purpose daemons. The mentioned mount points are special cased
+            to allow them to be remote.
+            </para>
+
+            <para>This target usually does not pull in any non-target units
+            directly, but rather does so indirectly via other early boot targets.
+            It is instead meant as a synchronization point for late boot
+            services. Refer to
+            <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+            for details on the targets involved.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>boot-complete.target</filename></term>
+          <listitem>
+            <para>This target is intended as generic synchronization point for services that shall determine or act on
+            whether the boot process completed successfully. Order units that are required to succeed for a boot process
+            to be considered successful before this unit, and add a <varname>Requires=</varname> dependency from the
+            target unit to them. Order units that shall only run when the boot process is considered successful after the
+            target unit and pull in the target from it, also with <varname>Requires=</varname>. Note that by default this
+            target unit is not part of the initial boot transaction, but is supposed to be pulled in only if required by
+            units that want to run only on successful boots.</para>
+
+            <para>See
+            <citerefentry><refentrytitle>systemd-boot-check-no-failures.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            for a service that implements a generic system health check and orders itself before
+            <filename>boot-complete.target</filename>.</para>
+
+            <para>See
+            <citerefentry><refentrytitle>systemd-bless-boot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            for a service that propagates boot success information to the boot loader, and orders itself after
+            <filename>boot-complete.target</filename>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v240"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>ctrl-alt-del.target</filename></term>
+          <listitem>
+            <para>systemd starts this target whenever Control+Alt+Del is
+            pressed on the console. Usually, this should be aliased
+            (symlinked) to <filename>reboot.target</filename>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>cryptsetup.target</filename></term>
+          <listitem>
+            <para>A target that pulls in setup services for all
+            encrypted block devices.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>veritysetup.target</filename></term>
+          <listitem>
+            <para>A target that pulls in setup services for all
+            verity integrity protected block devices.</para>
+
+            <xi:include href="version-info.xml" xpointer="v248"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>dbus.service</filename></term>
+          <listitem>
+            <para>A special unit for the D-Bus bus daemon. As soon as
+            this service is fully started up systemd will connect to it
+            and register its service.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>dbus.socket</filename></term>
+          <listitem>
+            <para>A special unit for the D-Bus system bus socket. All
+            units with <varname>Type=dbus</varname> automatically gain a
+            dependency on this unit.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>default.target</filename></term>
+          <listitem>
+            <para>The default unit systemd starts at bootup. Usually, this should be aliased (symlinked) to
+            <filename>multi-user.target</filename> or <filename>graphical.target</filename>. See
+            <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+            more discussion.</para>
+
+            <para>The default unit systemd starts at bootup can be overridden with the
+            <varname>systemd.unit=</varname> kernel command line option, or more conveniently, with the short
+            names like <varname>single</varname>, <varname>rescue</varname>, <varname>1</varname>,
+            <varname>3</varname>, <varname>5</varname>, …; see
+            <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+            <para>If <filename>default.target</filename> is not present on disk and no unit was requested on
+            the kernel command line, the default set at compile time will be used
+            (<filename>&FALLBACK_DEFAULT_TARGET;</filename>).</para>
+
+            <para>If the default unit or one of the fallbacks cannot be started, systemd starts
+            <filename>rescue.target</filename>.</para>
+
+            <para>For typical unit files please set <literal>WantedBy=</literal> to a regular target (like
+            <filename>multi-user.target</filename> or <filename>graphical.target</filename>),
+            instead of <filename>default.target</filename>, since such a service will also be run on special
+            boots like on system update, emergency boot…</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>display-manager.service</filename></term>
+          <listitem>
+            <para>The display manager service. Usually, this should be
+            aliased (symlinked) to <filename>gdm.service</filename> or a
+            similar display manager service.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>emergency.target</filename></term>
+          <listitem>
+            <para>A special target unit that starts an emergency shell on the main console. This
+            target does not pull in other services or mounts. It is the most minimal version of
+            starting the system in order to acquire an interactive shell; the only processes running
+            are usually just the system manager (PID 1) and the shell process. This unit may be used
+            by specifying <varname>emergency</varname> on the kernel command line; it is
+            also used when a file system check on a required file system fails and boot-up cannot
+            continue. Compare with <filename>rescue.target</filename>, which serves a similar
+            purpose, but also starts the most basic services and mounts all file systems.</para>
+
+            <para>In many ways booting into <filename>emergency.target</filename> is similar to the
+            effect of booting with <literal>init=/bin/sh</literal> on the kernel command line,
+            except that emergency mode provides you with the full system and service manager, and
+            allows starting individual units in order to continue the boot process in steps.</para>
+
+            <para>Note that depending on how <filename>emergency.target</filename> is reached, the root file
+            system might be mounted read-only or read-write (no remounting is done specially for this
+            target). For example, the system may boot with root mounted read-only when <varname>ro</varname>
+            is used on the kernel command line and remain this way for <filename>emergency.target</filename>,
+            or the system may transition to <filename>emergency.target</filename> after the system has been
+            partially booted and disks have already been remounted read-write.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>exit.target</filename></term>
+          <listitem>
+            <para>A special service unit for shutting down the system or
+            user service manager. It is equivalent to
+            <filename>poweroff.target</filename> on non-container
+            systems, and also works in containers.</para>
+
+            <para>systemd will start this unit when it receives the
+            <constant>SIGTERM</constant> or <constant>SIGINT</constant>
+            signal when running as user service daemon.</para>
+
+            <para>Normally, this (indirectly) pulls in
+            <filename>shutdown.target</filename>, which in turn should be
+            conflicted by all units that want to be scheduled for
+            shutdown when the service manager starts to exit.</para>
+
+            <xi:include href="version-info.xml" xpointer="v186"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>factory-reset.target</filename></term>
+          <listitem>
+            <para>A special target to request a factory reset operation. This will typically persistently
+            store a request flag for the next boot and then reboot in order to reset the system to factory
+            state.</para>
+
+            <para>See <ulink url="https://systemd.io/FACTORY_RESET">Factory Reset</ulink> for more
+            information.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>factory-reset-now.target</filename></term>
+          <listitem>
+            <para>A special target that is started on boots that shall execute a factory reset. It may be
+            used to pull in additional services that shall be invoked during a factory reset operation. It
+            also acts as ordering barrier: once the target is reached the factory reset state is marked as
+            "completed".</para>
+
+            <para>See <ulink url="https://systemd.io/FACTORY_RESET">Factory Reset</ulink> for more
+            information.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>final.target</filename></term>
+          <listitem>
+            <para>A special target unit that is used during the shutdown
+            logic and may be used to pull in late services after all
+            normal services are already terminated and all mounts
+            unmounted.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>getty.target</filename></term>
+          <listitem>
+            <para>A special target unit that pulls in statically
+            configured local TTY <filename>getty</filename> instances.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>graphical.target</filename></term>
+          <listitem>
+            <para>A special target unit for setting up a graphical login
+            screen. This pulls in
+            <filename>multi-user.target</filename>.</para>
+
+            <para>Units that are needed for graphical logins shall add
+            <varname>Wants=</varname> dependencies for their unit to
+            this unit (or <filename>multi-user.target</filename>) during
+            installation. This is best configured via
+            <varname>WantedBy=graphical.target</varname> in the unit's
+            [Install] section.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>hibernate.target</filename></term>
+          <listitem>
+            <para>A special target unit for hibernating the system. This
+            pulls in <filename>sleep.target</filename>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>hybrid-sleep.target</filename></term>
+          <listitem>
+            <para>A special target unit for hibernating and suspending
+            the system at the same time. This pulls in
+            <filename>sleep.target</filename>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v196"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>suspend-then-hibernate.target</filename></term>
+          <listitem>
+            <para>A special target unit for suspending the system for a period
+            of time, waking it and putting it into hibernate. This pulls in
+            <filename>sleep.target</filename>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v239"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><filename>halt.target</filename></term>
+          <listitem>
+            <para>A special target unit for shutting down and halting
+            the system. Note that this target is distinct from
+            <filename>poweroff.target</filename> in that it generally
+            really just halts the system rather than powering it
+            down.</para>
+
+            <para>Applications wanting to halt the system should not start this unit
+            directly, but should instead execute <command>systemctl halt</command>
+            (possibly with the <option>--no-block</option> option) or call
+            <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+            <command>org.freedesktop.systemd1.Manager.Halt</command> D-Bus method
+            directly.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>imports.target</filename></term>
+          <listitem>
+            <para>A target unit that pulls in all disk image download jobs to execute on system boot. This is
+            used by
+            <citerefentry><refentrytitle>systemd-import-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v258"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>init.scope</filename></term>
+          <listitem>
+            <para>This scope unit is where the system and service manager (PID 1) itself resides. It
+            is active as long as the system is running.</para>
+
+            <xi:include href="version-info.xml" xpointer="v235"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>initrd.target</filename></term>
+          <listitem>
+            <para>This is the default target in the initrd, similar to <filename>default.target</filename> in
+            the main system. It is used to mount the real root and transition to it. See
+            <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+            more discussion.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>initrd-fs.target</filename></term>
+          <listitem>
+            <para><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            automatically adds dependencies of type <varname>Before=</varname> to
+            <filename>sysroot-usr.mount</filename> and all mount points found in
+            <filename>/etc/fstab</filename> that have the <option>x-initrd.mount</option> mount option set
+            and do not have the <option>noauto</option> mount option set. It is also indirectly ordered after
+            <filename>sysroot.mount</filename>. Thus, once this target is reached the
+            <filename>/sysroot/</filename> hierarchy is fully set up, in preparation for the transition to
+            the host OS.</para>
+
+          <xi:include href="version-info.xml" xpointer="v199"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>initrd-root-device.target</filename></term>
+          <listitem>
+            <para>A special initrd target unit that is reached when the root filesystem device is available, but before
+            it has been mounted.
+            <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            and
+            <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            automatically set up the appropriate dependencies to make this happen.
+            </para>
+
+            <xi:include href="version-info.xml" xpointer="v230"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>initrd-root-fs.target</filename></term>
+          <listitem>
+            <para><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            automatically adds dependencies of type <varname>Before=</varname> to the
+            <filename>sysroot.mount</filename> unit, which is generated from the kernel command line's
+            <varname>root=</varname> setting (or equivalent).</para>
+
+          <xi:include href="version-info.xml" xpointer="v199"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>initrd-usr-fs.target</filename></term>
+          <listitem>
+            <para><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            automatically adds dependencies of type <varname>Before=</varname> to the
+            <filename>sysusr-usr.mount</filename> unit, which is generated from the kernel command line's
+            <varname>usr=</varname> switch. Services may order themselves after this target unit in order to
+            run once the <filename>/sysusr/</filename> hierarchy becomes available, on systems that come up
+            initially without a root file system, but with an initialized <filename>/usr/</filename> and need
+            to access that before setting up the root file system to ultimately switch to. On systems where
+            <varname>usr=</varname> is not used this target is ordered after
+            <filename>sysroot.mount</filename> and thus mostly equivalent to
+            <filename>initrd-root-fs.target</filename>. In effect on any system once this target is reached
+            the file system backing <filename>/usr/</filename> is mounted, though possibly at two different
+            locations, either below the <filename>/sysusr/</filename> or the <filename>/sysroot/</filename>
+            hierarchies.</para>
+
+          <xi:include href="version-info.xml" xpointer="v249"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>kbrequest.target</filename></term>
+          <listitem>
+            <para>systemd starts this target whenever Alt+ArrowUp is
+            pressed on the console. Note that any user with physical access
+            to the machine will be able to do this, without authentication,
+            so this should be used carefully.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>kexec.target</filename></term>
+          <listitem>
+            <para>A special target unit for shutting down and rebooting the system via kexec.</para>
+
+            <para>Applications wanting to reboot the system should not start this unit directly, but should
+            instead execute <command>systemctl kexec</command> (possibly with the
+            <option>--no-block</option> option) or call
+            <citerefentry><refentrytitle>systemd-logind</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
+            <function>org.freedesktop.login1.Manager.RebootWithFlags()</function> D-Bus method
+            directly.</para>
+
+            <para>See
+            <citerefentry><refentrytitle>systemd-kexec.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            for further details of the operation this target pulls in.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>local-fs.target</filename></term>
+          <listitem>
+            <para><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            automatically adds dependencies of type
+            <varname>Before=</varname> to all mount units that refer to
+            local mount points for this target unit. In addition, it
+            adds dependencies of type <varname>Wants=</varname> to this
+            target unit for those mounts listed in
+            <filename>/etc/fstab</filename> that have the
+            <option>auto</option> mount option set.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>machines.target</filename></term>
+          <listitem>
+            <para>A standard target unit for starting all the containers
+            and other virtual machines. See <filename>systemd-nspawn@.service</filename>
+            for an example.</para>
+
+            <xi:include href="version-info.xml" xpointer="v233"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>multi-user.target</filename></term>
+          <listitem>
+            <para>A special target unit for setting up a multi-user
+            system (non-graphical). This is pulled in by
+            <filename>graphical.target</filename>.</para>
+
+            <para>Units that are needed for a multi-user system shall
+            add <varname>Wants=</varname> dependencies for their unit to
+            this unit during installation. This is best configured via
+            <varname>WantedBy=multi-user.target</varname> in the unit's
+            [Install] section.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>network-online.target</filename></term>
+          <listitem>
+            <para>Units that strictly require a configured network
+            connection should pull in
+            <filename>network-online.target</filename> (via a
+            <varname>Wants=</varname> type dependency) and order
+            themselves after it. This target unit is intended to pull in
+            a service that delays further execution until the network is
+            sufficiently set up. What precisely this requires is left to
+            the implementation of the network managing service.</para>
+
+            <para>Note the distinction between this unit and <filename>network.target</filename>. This unit
+            is an active unit (i.e. pulled in by the consumer rather than the provider of this functionality)
+            and pulls in a service which possibly adds substantial delays to further execution. In contrast,
+            <filename>network.target</filename> is a passive unit (i.e. pulled in by the provider of the
+            functionality, rather than the consumer) that usually does not delay execution much. Usually,
+            <filename>network.target</filename> is part of the boot of most systems, while
+            <filename>network-online.target</filename> is not, except when at least one unit requires
+            it. Also see <ulink url="https://systemd.io/NETWORK_ONLINE">Running Services After the Network Is
+            Up</ulink> for more information.</para>
+
+            <para>All mount units for remote network file systems automatically pull in this unit, and order
+            themselves after it. Note that networking daemons that simply <emphasis>provide</emphasis>
+            functionality to other hosts (as opposed to <emphasis>consume</emphasis> functionality of other
+            hosts) generally do not need to pull this in.</para>
+
+            <para>Note that this unit is only useful during the original system start-up
+            logic. After the system has completed booting up, it will not track the online state of
+            the system anymore. Due to this it cannot be used as a network connection monitor
+            concept, it is purely a one-time system start-up concept.</para>
+
+            <xi:include href="version-info.xml" xpointer="v200"/>
+            </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>paths.target</filename></term>
+          <listitem>
+            <para>A special target unit that sets up all path units (see
+            <citerefentry><refentrytitle>systemd.path</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            for details) that shall be active after boot.</para>
+
+            <para>It is recommended that path units installed by
+            applications get pulled in via <varname>Wants=</varname>
+            dependencies from this unit. This is best configured via a
+            <varname>WantedBy=paths.target</varname> in the path unit's
+            [Install] section.</para>
+
+            <xi:include href="version-info.xml" xpointer="v199"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>poweroff.target</filename></term>
+          <listitem>
+            <para>A special target unit for shutting down and powering
+            off the system.</para>
+
+            <para>Applications wanting to power off the system should not start this unit
+            directly, but should instead execute <command>systemctl poweroff</command>
+            (possibly with the <option>--no-block</option> option) or call
+            <citerefentry><refentrytitle>systemd-logind</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
+            <command>org.freedesktop.login1.Manager.PowerOff</command> D-Bus method
+            directly.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>reboot.target</filename></term>
+          <listitem>
+            <para>A special target unit for shutting down and rebooting the system.</para>
+
+            <para>Applications wanting to reboot the system should not start this unit directly, but should
+            instead execute <command>systemctl reboot</command> (possibly with the
+            <option>--no-block</option> option) or call
+            <citerefentry><refentrytitle>systemd-logind</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
+            <function>org.freedesktop.login1.Manager.Reboot()</function> D-Bus method directly.</para>
+
+            <para>See
+            <citerefentry><refentrytitle>systemd-reboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            for further details of the operation this target pulls in.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>remote-cryptsetup.target</filename></term>
+          <listitem>
+            <para>Similar to <filename>cryptsetup.target</filename>, but for encrypted
+            devices which are accessed over the network. It is used for
+            <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            entries marked with <option>_netdev</option>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v235"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>remote-integritysetup.target</filename></term>
+          <listitem>
+            <para>Similar to <filename>integritysetup.target</filename>, but for integrity protected devices
+            which are accessed over the network. It is used for
+            <citerefentry><refentrytitle>integritytab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            entries marked with <option>_netdev</option>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>remote-veritysetup.target</filename></term>
+          <listitem>
+            <para>Similar to <filename>veritysetup.target</filename>, but for verity
+            protected devices which are accessed over the network. It is used for
+            <citerefentry><refentrytitle>veritytab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            entries marked with <option>_netdev</option>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>remote-fs.target</filename></term>
+          <listitem>
+            <para>Similar to <filename>local-fs.target</filename>, but
+            for remote mount points.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>rescue.target</filename></term>
+          <listitem>
+            <para>A special target unit that pulls in the base system (including system mounts) and
+            spawns a rescue shell. Isolate to this target in order to administer the system in
+            single-user mode with all file systems mounted but with no services running, except for
+            the most basic. Compare with <filename>emergency.target</filename>, which is much more
+            reduced and does not provide the file systems or most basic services. Compare with
+            <filename>multi-user.target</filename>, this target could be seen as
+            <filename>single-user.target</filename>.</para>
+
+            <para>Use the <literal>systemd.unit=rescue.target</literal> kernel command line option
+            to boot into this mode. A short alias for this kernel command line option is
+            <literal>1</literal>, for compatibility with SysV.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>shutdown.target</filename></term>
+          <listitem>
+            <para>A special target unit that terminates the services on
+            system shutdown.</para>
+
+            <para>Services that shall be terminated on system shutdown
+            shall add <varname>Conflicts=</varname> and
+            <varname>Before=</varname> dependencies to this unit for
+            their service unit, which is implicitly done when
+            <varname>DefaultDependencies=yes</varname> is set (the
+            default).</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>sigpwr.target</filename></term>
+          <listitem>
+            <para>A special target that is started when systemd receives
+            the SIGPWR process signal, which is normally sent by the
+            kernel or UPS daemons when power fails.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>sleep.target</filename></term>
+          <listitem>
+            <para>A special target unit that is pulled in by <filename>suspend.target</filename>,
+            <filename>hibernate.target</filename>, <filename>suspend-then-hibernate.target</filename>, and
+            <filename>hybrid-sleep.target</filename> and may be used to hook units into the sleep state
+            logic.</para>
+
+            <para>In order to hook external programs <emphasis>before</emphasis> the actual system sleep
+            operation, place their command line in a service unit file's <varname>ExecStart=</varname> line
+            (use <varname>Type=oneshot</varname>), and ensure the unit is pulled in by
+            <filename>sleep.target</filename> and ordered before it. In order to hook program code
+            <emphasis>after</emphasis> the actual system sleep operation (i.e. to be run after the system
+            woke up again), place the command in <varname>ExecStop=</varname> instead, and make sure to
+            enable <varname>StopWhenUnneeded=</varname> and <varname>RemainAfterExit=</varname>. Both
+            approaches can be combined into one unit file in order to run programs both before and after the
+            sleep operation.</para>
+
+            <example>
+              <title>Combined Example</title>
+
+              <programlisting>[Unit]
+DefaultDependencies=no
+StopWhenUnneeded=yes
+Before=sleep.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/some-before-command
+ExecStop=/usr/bin/some-after-command
+
+[Install]
+WantedBy=sleep.target</programlisting>
+            </example>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>slices.target</filename></term>
+          <listitem>
+            <para>A special target unit that sets up all slice units (see
+            <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            for details) that shall always be active after boot. By default, the generic
+            <filename>system.slice</filename> slice unit as well as the root slice unit
+            <filename>-.slice</filename> are pulled in and ordered before this unit (see
+            below).</para>
+
+            <para>Adding slice units to <filename>slices.target</filename> is generally not
+            necessary. Instead, when some unit that uses <varname>Slice=</varname> is started, the
+            specified slice will be started automatically. Adding
+            <varname>WantedBy=slices.target</varname> lines to the [Install]
+            section should only be done for units that need to be always active. In that case care
+            needs to be taken to avoid creating a loop through the automatic dependencies on
+            "parent" slices.</para>
+
+            <xi:include href="version-info.xml" xpointer="v229"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>sockets.target</filename></term>
+          <listitem>
+            <para>A special target unit that sets up all socket
+            units (see
+            <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            for details) that shall be active after boot.</para>
+
+            <para>Services that can be socket-activated shall add
+            <varname>Wants=</varname> dependencies to this unit for
+            their socket unit during installation. This is best
+            configured via a <varname>WantedBy=sockets.target</varname>
+            in the socket unit's [Install]
+            section.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>soft-reboot.target</filename></term>
+          <listitem>
+            <para>A special target unit for shutting down and rebooting the userspace of the system (leaving
+            the kernel running).</para>
+
+            <para>Applications wanting to reboot the system should not start this unit directly, but should
+            instead execute <command>systemctl soft-reboot</command> (possibly with the
+            <option>--no-block</option> option) or call
+            <citerefentry><refentrytitle>systemd-logind</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
+            <function>org.freedesktop.login1.Manager.RebootWithFlags()</function> D-Bus method
+            directly.</para>
+
+            <para>See
+            <citerefentry><refentrytitle>systemd-soft-reboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            for further details of the operation this target pulls in.</para>
+
+            <xi:include href="version-info.xml" xpointer="v254"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>storage-target-mode.target</filename></term>
+          <listitem>
+            <para>A special target unit that can be booted into that selects the "Storage Target Mode" for
+            the OS. In this mode all local storage disks are exposed to external systems as block
+            devices. This invokes
+            <citerefentry><refentrytitle>systemd-storagetm.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            which exposes all local disks as NVMe-TCP devices for access over the network. It might as well
+            invoke other services too that make local disks available via other mechanisms.</para>
+            <xi:include href="version-info.xml" xpointer="v255"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>suspend.target</filename></term>
+          <listitem>
+            <para>A special target unit for suspending the system. This
+            pulls in <filename>sleep.target</filename>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>swap.target</filename></term>
+          <listitem>
+            <para>Similar to <filename>local-fs.target</filename>, but
+            for swap partitions and swap files.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>sysinit.target</filename></term>
+          <listitem>
+            <para>systemd automatically adds dependencies of the types
+            <varname>Requires=</varname> and <varname>After=</varname>
+            for this target unit to all services (except for those with
+            <varname>DefaultDependencies=no</varname>).</para>
+
+            <para>This target pulls in the services required for system
+            initialization. System services pulled in by this target should
+            declare <varname>DefaultDependencies=no</varname> and specify
+            all their dependencies manually, including access to anything
+            more than a read only root filesystem. For details on the
+            dependencies of this target, refer to
+            <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>syslog.socket</filename></term>
+          <listitem>
+            <para>The socket unit syslog implementations should listen
+            on. All userspace log messages will be made available on
+            this socket. For more information about syslog integration,
+            please consult the <ulink
+            url="https://systemd.io/SYSLOG">Syslog
+            Interface</ulink> document.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>system-update.target</filename></term>
+          <term><filename>system-update-pre.target</filename></term>
+          <term><filename>system-update-cleanup.service</filename></term>
+          <listitem>
+            <para>A special target unit that is used for offline system updates.
+            <citerefentry><refentrytitle>systemd-system-update-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            will redirect the boot process to this target if <filename>/system-update</filename> or
+            <filename>/etc/system-update</filename> exists. For more information see
+            <citerefentry><refentrytitle>systemd.offline-updates</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+            </para>
+
+            <para>Updates should happen before the <filename>system-update.target</filename> is
+            reached, and the services which implement them should cause the machine to reboot. The
+            main units executing the update should order themselves after
+            <filename>system-update-pre.target</filename> but not pull it in. Services which want to
+            run during system updates only, but before the actual system update is executed should
+            order themselves before this unit and pull it in. As a safety measure, if this does not
+            happen, and <filename>/system-update</filename> or
+            <filename>/etc/system-update</filename> still exists after
+            <filename>system-update.target</filename> is reached,
+            <filename>system-update-cleanup.service</filename> will remove the symlinks and reboot
+            the machine.</para>
+
+            <xi:include href="version-info.xml" xpointer="v186"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>timers.target</filename></term>
+          <listitem>
+            <para>A special target unit that sets up all timer units
+            (see
+            <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            for details) that shall be active after boot.</para>
+
+            <para>It is recommended that timer units installed by
+            applications get pulled in via <varname>Wants=</varname>
+            dependencies from this unit. This is best configured via
+            <varname>WantedBy=timers.target</varname> in the timer
+            unit's [Install] section.</para>
+
+            <xi:include href="version-info.xml" xpointer="v199"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>umount.target</filename></term>
+          <listitem>
+            <para>A special target unit that unmounts all mount and
+            automount points on system shutdown.</para>
+
+            <para>Mounts that shall be unmounted on system shutdown
+            shall add Conflicts dependencies to this unit for their
+            mount unit, which is implicitly done when
+            <varname>DefaultDependencies=yes</varname> is set (the
+            default).</para>
+          </listitem>
+        </varlistentry>
+
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>Special System Units for Devices</title>
+
+      <para>Some target units are automatically pulled in as devices of
+      certain kinds show up in the system. These may be used to
+      automatically activate various services based on the specific type
+      of the available hardware.</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><filename>bluetooth.target</filename></term>
+          <listitem>
+            <para>This target is started automatically as soon as a
+            Bluetooth controller is plugged in or becomes available at
+            boot.</para>
+
+            <para>This may be used to pull in Bluetooth management
+            daemons dynamically when Bluetooth hardware is found.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>printer.target</filename></term>
+          <listitem>
+            <para>This target is started automatically as soon as a
+            printer is plugged in or becomes available at boot.</para>
+
+            <para>This may be used to pull in printer management daemons
+            dynamically when printer hardware is found.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>smartcard.target</filename></term>
+          <listitem>
+            <para>This target is started automatically as soon as a
+            smartcard controller is plugged in or becomes available at
+            boot.</para>
+
+            <para>This may be used to pull in smartcard management
+            daemons dynamically when smartcard hardware is found.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>sound.target</filename></term>
+          <listitem>
+            <para>This target is started automatically as soon as a
+            sound card is plugged in or becomes available at
+            boot.</para>
+
+            <para>This may be used to pull in audio management daemons
+            dynamically when audio hardware is found.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>usb-gadget.target</filename></term>
+          <listitem>
+            <para>This target is started automatically as soon as a
+            USB Device Controller becomes available at boot.</para>
+
+            <para>This may be used to pull in usb gadget
+            dynamically when UDC hardware is found.</para>
+
+            <xi:include href="version-info.xml" xpointer="v242"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>tpm2.target</filename></term>
+          <listitem>
+            <para>This target is started automatically if a TPM2 device is discovered, either by the OS or by
+            the firmware. It acts as synchronization point for services that require TPM2 device access. The
+            target unit is enqueued by
+            <citerefentry><refentrytitle>systemd-tpm2-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            if it detects that the firmware has discovered a TPM2 device but the OS kernel has not activated
+            a driver for it yet. It is also pulled in whenever
+            <citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            discovers a TPM2 device. The target unit is ordered after the <filename>/dev/tpmrm0</filename>
+            device node, so that it only becomes active once the TPM2 device is actually accessible. Early
+            boot programs that intend to access the TPM2 device should hence order themselves after this
+            target unit, but not pull it in.</para>
+
+            <xi:include href="version-info.xml" xpointer="v256"/>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>Special Passive System Units </title>
+
+      <para>A number of special system targets are defined that can be
+      used to properly order boot-up of optional services. These targets
+      are generally not part of the initial boot transaction, unless
+      they are explicitly pulled in by one of the implementing services.
+      Note specifically that these <emphasis>passive</emphasis> target
+      units are generally not pulled in by the consumer of a service,
+      but by the provider of the service. This means: a consuming
+      service should order itself after these targets (as appropriate),
+      but not pull it in. A providing service should order itself before
+      these targets (as appropriate) and pull it in (via a
+      <varname>Wants=</varname> type dependency).</para>
+
+      <para>Note that these passive units cannot be started manually,
+      i.e. <literal>systemctl start time-sync.target</literal> will fail
+      with an error. They can only be pulled in by dependency. This is
+      enforced since they exist for ordering purposes only and thus are
+      not useful as only unit within a transaction.</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><filename>blockdev@.target</filename></term>
+          <listitem><para>This template unit is used to order mount units and other consumers of block
+          devices after services that synthesize these block devices. In particular, this is intended to be
+          used with storage services (such as
+          <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>/
+          <citerefentry><refentrytitle>systemd-veritysetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>)
+          that allocate and manage a virtual block device. Storage services are ordered before an instance of
+          <filename>blockdev@.target</filename>, and the consumer units after it. The ordering is
+          particularly relevant during shutdown, as it ensures that the mount is deactivated first and the
+          service backing the mount later. The <filename>blockdev@.target</filename> instance should be
+          pulled in via a <option>Wants=</option> dependency of the storage daemon and thus generally not be
+          part of any transaction unless a storage daemon is used. The instance name for instances of this
+          template unit must be a properly escaped block device node path, e.g.
+          <filename index="false">blockdev@dev-mapper-foobar.target</filename> for the storage device
+          <filename index="false">/dev/mapper/foobar</filename>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>cryptsetup-pre.target</filename></term>
+          <listitem>
+            <para>This passive target unit may be pulled in by services
+            that want to run before any encrypted block device is set
+            up. All encrypted block devices are set up after this target
+            has been reached. Since the shutdown order is implicitly the
+            reverse start-up order between units, this target is
+            particularly useful to ensure that a service is shut down
+            only after all encrypted block devices are fully
+            stopped.</para>
+
+            <xi:include href="version-info.xml" xpointer="v215"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>veritysetup-pre.target</filename></term>
+          <listitem>
+            <para>This passive target unit may be pulled in by services
+            that want to run before any verity integrity protected block
+            device is set up. All verity integrity protected block
+            devices are set up after this target has been reached. Since
+            the shutdown order is implicitly the reverse start-up order
+            between units, this target is particularly useful to ensure
+            that a service is shut down only after all verity integrity
+            protected block devices are fully stopped.</para>
+
+            <xi:include href="version-info.xml" xpointer="v248"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>first-boot-complete.target</filename></term>
+          <listitem>
+            <para>This passive target is intended as a synchronization point for units that need to run once
+            during the first boot.  Only after all units ordered before this target have finished, will the
+            <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            be committed to disk, marking the first boot as completed.  If the boot is aborted at any time
+            before that, the next boot will re-run any units with <varname>ConditionFirstBoot=yes</varname>.
+            </para>
+
+            <xi:include href="version-info.xml" xpointer="v247"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>getty-pre.target</filename></term>
+          <listitem>
+            <para>A special passive target unit. Users of this target
+            are expected to pull it in the boot transaction via
+            a dependency (e.g. <varname>Wants=</varname>). Order your
+            unit before this unit if you want to make use of the console
+            just before <filename>getty</filename> is started.
+            </para>
+
+            <xi:include href="version-info.xml" xpointer="v235"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>imports-pre.target</filename></term>
+          <listitem>
+            <para>A passive unit that is ordered before all disk image download jobs to execute on system
+            boot. This is used by
+            <citerefentry><refentrytitle>systemd-import-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v258"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>local-fs-pre.target</filename></term>
+          <listitem>
+            <para>This target unit is
+            automatically ordered before
+            all local mount points marked
+            with <option>auto</option>
+            (see above). It can be used to
+            execute certain units before
+            all local mounts.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>network.target</filename></term>
+          <listitem>
+            <para>This unit is supposed to indicate when network functionality is available, but it is only
+            very weakly defined what that is supposed to mean. However, the following should apply at
+            minimum:</para>
+
+            <itemizedlist>
+              <listitem><para>At start-up, any configured synthetic network devices (i.e. not physical ones
+              that require hardware to show up and be probed, but virtual ones like bridge devices and
+              similar which are created programmatically) that do not depend on any underlying hardware
+              should be allocated by the time this target is reached. It is not necessary for these
+              interfaces to also have completed IP level configuration by the time
+              <filename>network.target</filename> is reached.</para></listitem>
+
+              <listitem><para>At shutdown, a unit that is ordered after <filename>network.target</filename>
+              will be stopped before the network — to whatever level it might be set up by then — is shut
+              down. It is hence useful when writing service files that require network access on shutdown,
+              which should order themselves after this target, but not pull it in. Also see <ulink
+              url="https://systemd.io/NETWORK_ONLINE">Running Services After the Network Is Up</ulink> for
+              more information.</para></listitem>
+            </itemizedlist>
+
+            <para>It must emphasized that at start-up there's no guarantee that hardware-based devices have
+            shown up by the time this target is reached, or even acquired complete IP configuration. For that
+            purpose use <filename>network-online.target</filename> as described above.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>network-pre.target</filename></term>
+          <listitem>
+            <para>This passive target unit may be pulled in by services that want to run before any network
+            is set up, for example for the purpose of setting up a firewall. All network management software
+            orders itself after this target, but does not pull it in. Also see <ulink
+            url="https://systemd.io/NETWORK_ONLINE">Running Services After the Network Is Up</ulink> for more
+            information.</para>
+
+            <xi:include href="version-info.xml" xpointer="v214"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>nss-lookup.target</filename></term>
+          <listitem>
+            <para>A target that should be used as synchronization point for all host/network name
+            service lookups. Note that this is independent of UNIX user/group name lookups for which
+            <filename>nss-user-lookup.target</filename> should be used.  All services for which the
+            availability of full host/network name resolution is essential should be ordered after
+            this target, but not pull it in.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>nss-user-lookup.target</filename></term>
+          <listitem>
+            <para>A target that should be used as synchronization point for all regular UNIX
+            user/group name service lookups. Note that this is independent of host/network name
+            lookups for which <filename>nss-lookup.target</filename> should be used. All services
+            for which the availability of the full user/group database is essential should be
+            ordered after this target, but not pull it in. All services which provide parts of the
+            user/group database should be ordered before this target, and pull it in. Note that this
+            unit is only relevant for regular users and groups — system users and groups are
+            required to be resolvable during earliest boot already, and hence do not need any
+            special ordering against this target.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>remote-fs-pre.target</filename></term>
+          <listitem>
+            <para>This target unit is automatically ordered before all
+            mount point units (see above) and cryptsetup/veritysetup devices
+            marked with the <option>_netdev</option>. It can be used to run
+            certain units before remote encrypted devices and mounts are established.
+            Note that this unit is generally not part of the initial
+            transaction, unless the unit that wants to be ordered before
+            all remote mounts pulls it in via a
+            <varname>Wants=</varname> type dependency. If the unit wants
+            to be pulled in by the first remote mount showing up, it
+            should use <filename>network-online.target</filename> (see
+            above).</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>rpcbind.target</filename></term>
+          <listitem>
+            <para>The portmapper/rpcbind pulls in this target and orders
+            itself before it, to indicate its availability.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>ssh-access.target</filename></term>
+          <listitem>
+            <para>Service and socket units that provide remote SSH secure shell access to the local system
+            should pull in this unit and order themselves before this unit. It's supposed to act as a
+            milestone indicating if and when SSH access into the system is available. It should only become
+            active when an SSH port is bound for remote clients (i.e. if SSH is used as a local privilege
+            escalation mechanism, it should <emphasis>not</emphasis> involve this target unit), regardless of
+            the protocol choices, i.e. regardless of whether IPv4, IPv6 or <constant>AF_VSOCK</constant> is
+            used.</para>
+            <xi:include href="version-info.xml" xpointer="v256"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>time-set.target</filename></term>
+          <listitem>
+            <para>Services responsible for setting the system clock (<constant>CLOCK_REALTIME</constant>)
+            from a local source (such as a maintained timestamp file or imprecise real-time clock) should
+            pull in this target and order themselves before it. Services where approximate, roughly monotonic
+            time is desired should be ordered after this unit, but not pull it in.</para>
+
+            <para>This target does not provide the accuracy guarantees of
+            <filename>time-sync.target</filename> (see below), however does not depend on remote clock
+            sources to be reachable, i.e. the target is typically not delayed by network problems and
+            similar. Use of this target is recommended for services where approximate clock accuracy and
+            rough monotonicity is desired but activation shall not be delayed for possibly unreliable network
+            communication.</para>
+
+            <para>The service manager automatically adds dependencies of type <varname>After=</varname> for
+            this target unit to all timer units with at least one <varname>OnCalendar=</varname>
+            directive.</para>
+
+            <para>The
+            <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            service is a simple daemon that pulls in this target and orders itself before it. Besides
+            implementing the SNTP network protocol it maintains a timestamp file on disk whose modification
+            time is regularly updated. At service start-up the local system clock is set from that modification time,
+            ensuring it increases roughly monotonically.</para>
+
+            <para>Note that ordering a unit after <filename>time-set.target</filename> only has effect if
+            there's actually a service ordered before it that delays it until the clock is adjusted for rough
+            monotonicity. Otherwise, this target might get reached before the clock is adjusted to be roughly
+            monotonic. Enable
+            <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+            or an alternative NTP implementation to delay the target.</para>
+
+            <xi:include href="version-info.xml" xpointer="v242"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>time-sync.target</filename></term>
+          <listitem>
+            <para>Services indicating completed synchronization of the system clock
+            (<constant>CLOCK_REALTIME</constant>) to a remote source should pull in this target and order
+            themselves before it. Services where accurate time is essential should be ordered after this
+            unit, but not pull it in.</para>
+
+            <para>The service manager automatically adds dependencies of type <varname>After=</varname> for
+            this target unit to all timer units with at least one <varname>OnCalendar=</varname> directive.</para>
+
+            <para>This target provides stricter clock accuracy guarantees than
+            <filename>time-set.target</filename> (see above), but likely requires
+            network communication and thus introduces unpredictable delays.
+            Services that require clock accuracy and where network
+            communication delays are acceptable should use this target. Services that require a less accurate
+            clock, and only approximate and roughly monotonic clock behaviour should use
+            <filename>time-set.target</filename> instead.</para>
+
+            <para>Note that ordering a unit after <filename>time-sync.target</filename> only has effect if
+            there's actually a service ordered before it that delays it until clock synchronization is
+            reached. Otherwise, this target might get reached before the clock is synchronized to any remote
+            accurate reference clock. When using
+            <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+            enable
+            <citerefentry><refentrytitle>systemd-time-wait-sync.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            to delay the target; or use an equivalent service for other NTP implementations.</para>
+
+            <table>
+              <title>Comparison</title>
+              <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+                <colspec colname="time-set" />
+                <colspec colname="time-sync" />
+                <thead>
+                  <row>
+                    <entry><filename>time-set.target</filename></entry>
+                    <entry><filename>time-sync.target</filename></entry>
+                  </row>
+                </thead>
+                <tbody>
+                  <row>
+                    <entry>"quick" to reach</entry>
+                    <entry>"slow" to reach</entry>
+                  </row>
+                  <row>
+                    <entry>typically uses local clock sources, boot process not affected by availability of external resources</entry>
+                    <entry>typically uses remote clock sources, inserts dependencies on remote resources into boot process</entry>
+                  </row>
+                  <row>
+                    <entry>reliable, because local</entry>
+                    <entry>unreliable, because typically network involved</entry>
+                  </row>
+                  <row>
+                    <entry>typically guarantees an approximate and roughly monotonic clock only</entry>
+                    <entry>typically guarantees an accurate clock</entry>
+                  </row>
+                  <row>
+                    <entry>implemented by <filename>systemd-timesyncd.service</filename></entry>
+                    <entry>implemented by <filename>systemd-time-wait-sync.service</filename></entry>
+                  </row>
+                </tbody>
+              </tgroup>
+            </table>
+
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>Special Slice Units</title>
+
+      <para>There are four <literal>.slice</literal> units which form the basis of the hierarchy for
+      assignment of resources for services, users, and virtual machines or containers. See
+      <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      for details about slice units.</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><filename>-.slice</filename></term>
+          <listitem>
+            <para>The root slice is the root of the slice hierarchy. It usually does not contain units
+            directly, but may be used to set defaults for the whole tree.</para>
+
+            <xi:include href="version-info.xml" xpointer="v206"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><filename>machine.slice</filename></term>
+          <listitem>
+            <para>By default, all virtual machines and containers registered with
+            <command>systemd-machined</command> are found in this slice. This is pulled in by
+            <filename>systemd-machined.service</filename>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v206"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><filename>capsule.slice</filename></term>
+          <listitem>
+            <para>By default, all capsules encapsulated in <filename>capsule@.service</filename> are found in
+            this slice.</para>
+
+            <xi:include href="version-info.xml" xpointer="v255"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><filename>system.slice</filename></term>
+          <listitem>
+            <para>By default, all system services started by <command>systemd</command> are found in this
+            slice.</para>
+
+            <xi:include href="version-info.xml" xpointer="v206"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><filename>user.slice</filename></term>
+          <listitem>
+            <para>By default, all user processes and services started on
+            behalf of the user, including the per-user systemd instance
+            are found in this slice.  This is pulled in by
+            <filename>systemd-logind.service</filename>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v206"/>
+          </listitem>
+        </varlistentry>
+
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Units managed by the user service manager</title>
+
+    <refsect2>
+      <title>Special User Units</title>
+
+      <para>When systemd runs as a user instance, the following special
+      units are available:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><filename>default.target</filename></term>
+          <listitem>
+            <para>This is the main target of the user service manager, started by default when the service
+            manager is invoked. Various services that compose the normal user session should be pulled into
+            this target. In this regard, <filename>default.target</filename> is similar to
+            <filename>multi-user.target</filename> in the system instance, but it is a real unit, not an
+            alias.</para>
+
+            <xi:include href="version-info.xml" xpointer="v242"/>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+
+      <variablelist>
+        <varlistentry>
+          <term><filename>capsule@.target</filename></term>
+          <listitem>
+            <para>This is the main target of capsule service managers, started by default, instantiated with
+            the capsule name. This may be used to define different sets of units that are started for
+            different capsules via generic unit definitions. For details about capsules see
+            <citerefentry><refentrytitle>capsule@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v255"/>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+
+      <para>In addition, the following units are available which have definitions similar to their
+      system counterparts:
+      <filename>exit.target</filename>,
+      <filename>shutdown.target</filename>,
+      <filename>sockets.target</filename>,
+      <filename>timers.target</filename>,
+      <filename>paths.target</filename>,
+      <filename>bluetooth.target</filename>,
+      <filename>printer.target</filename>,
+      <filename>smartcard.target</filename>,
+      <filename>sound.target</filename>.</para>
+    </refsect2>
+
+    <refsect2>
+      <title>Special Passive User Units</title>
+
+      <variablelist>
+        <varlistentry>
+          <term><filename>graphical-session.target</filename></term>
+          <listitem>
+            <para>This target is active whenever any graphical session is running. It is used to
+            stop user services which only apply to a graphical (X, Wayland, etc.) session when the
+            session is terminated. Such services should have
+            <literal>PartOf=graphical-session.target</literal> in their [Unit]
+            section. A target for a particular session (e. g.
+            <filename>gnome-session.target</filename>) starts and stops
+            <literal>graphical-session.target</literal> with
+            <literal>BindsTo=graphical-session.target</literal>.</para>
+
+            <para>Which services are started by a session target is determined by the
+            <literal>Wants=</literal> and <literal>Requires=</literal> dependencies.  For services
+            that can be enabled independently, symlinks in <literal>.wants/</literal> and
+            <literal>.requires/</literal> should be used, see
+            <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+            Those symlinks should either be shipped in packages, or should be added dynamically
+            after installation, for example using <literal>systemctl add-wants</literal>, see
+            <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+            </para>
+
+            <example>
+              <title>Nautilus as part of a GNOME session</title>
+
+              <para><literal>gnome-session.target</literal> pulls in Nautilus as top-level service:</para>
+
+              <programlisting>[Unit]
+Description=User systemd services for GNOME graphical session
+Wants=nautilus.service
+BindsTo=graphical-session.target</programlisting>
+
+              <para><literal>nautilus.service</literal> gets stopped when the session stops:</para>
+
+              <programlisting>[Unit]
+Description=Render the desktop icons with Nautilus
+PartOf=graphical-session.target
+
+[Service]
+…</programlisting>
+            </example>
+
+              <xi:include href="version-info.xml" xpointer="v234"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><filename>graphical-session-pre.target</filename></term>
+          <listitem>
+            <para>This target contains services which set up the environment or global configuration
+            of a graphical session, such as SSH/GPG agents (which need to export an environment
+            variable into all desktop processes) or migration of obsolete d-conf keys after an OS
+            upgrade (which needs to happen before starting any process that might use them). This
+            target must be started before starting a graphical session like
+            <filename>gnome-session.target</filename>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v234"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><filename>xdg-desktop-autostart.target</filename></term>
+          <listitem>
+            <para>The XDG specification defines a way to autostart applications using XDG desktop files.
+            systemd ships
+            <citerefentry><refentrytitle>systemd-xdg-autostart-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            for the XDG desktop files in autostart directories. Desktop Environments can opt-in to use this
+            service by adding a <varname>Wants=</varname> dependency on
+            <filename>xdg-desktop-autostart.target</filename>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v246"/>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>Special User Slice Units</title>
+
+      <para>There are four <literal>.slice</literal> units which form the basis of the user hierarchy for
+      assignment of resources for user applications and services. See
+      <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      for details about slice units and the documentation about
+      <ulink url="https://systemd.io/DESKTOP_ENVIRONMENTS">Desktop Environments</ulink>
+      for further information.</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><filename>-.slice</filename></term>
+          <listitem>
+            <para>The root slice is the root of the user's slice hierarchy.
+            It usually does not contain units directly, but may be used to set defaults for the whole tree.</para>
+
+            <xi:include href="version-info.xml" xpointer="v247"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><filename>app.slice</filename></term>
+          <listitem>
+            <para>By default, all user services and applications managed by
+            <command>systemd</command> are found in this slice.
+            All interactively launched applications like web browsers and text editors
+            as well as non-critical services should be placed into this slice.</para>
+
+            <xi:include href="version-info.xml" xpointer="v247"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><filename>session.slice</filename></term>
+          <listitem>
+            <para>All essential services and applications required for the
+            session should use this slice.
+            These are services that either cannot be restarted easily
+            or where latency issues may affect the interactivity of the system and applications.
+            This includes the display server, screen readers and other services such as DBus or XDG portals.
+            Such services should be configured to be part of this slice by
+            adding <varname>Slice=session.slice</varname> to their unit files.</para>
+
+            <xi:include href="version-info.xml" xpointer="v247"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><filename>background.slice</filename></term>
+          <listitem>
+            <para>All services running low-priority background tasks should use this slice.
+            This permits resources to be preferentially assigned to the other slices.
+            Examples include non-interactive tasks like file indexing or backup operations
+            where latency is not important.</para>
+
+            <xi:include href="version-info.xml" xpointer="v247"/>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+      <title>See Also</title>
+      <para><simplelist type="inline">
+        <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>user@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      </simplelist></para>
+  </refsect1>
+
+</refentry>

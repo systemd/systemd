@@ -1,0 +1,60 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Network Time Synchronization
+Documentation=man:systemd-timesyncd.service(8)
+ConditionCapability=CAP_SYS_TIME
+ConditionVirtualization=!container
+DefaultDependencies=no
+After=systemd-sysusers.service
+Before=time-set.target sysinit.target shutdown.target
+Conflicts=shutdown.target
+Wants=time-set.target
+
+[Service]
+AmbientCapabilities=CAP_SYS_TIME
+BusName=org.freedesktop.timesync1
+CapabilityBoundingSet=CAP_SYS_TIME
+# Turn off DNSSEC validation for hostname look-ups, since those need the
+# correct time to work, but we likely won't acquire that without NTP. Let's
+# break this chicken-and-egg cycle here.
+Environment=SYSTEMD_NSS_RESOLVE_VALIDATE=0
+ExecStart={{LIBEXECDIR}}/systemd-timesyncd
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
+PrivateDevices=yes
+PrivateTmp=disconnected
+ProtectProc=invisible
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectSystem=strict
+Restart=always
+RestartSec=0
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RuntimeDirectory=systemd/timesync
+StateDirectory=systemd/timesync
+SystemCallArchitectures=native
+SystemCallErrorNumber=EPERM
+SystemCallFilter=@system-service @clock
+Type=notify
+User=systemd-timesync
+{{SERVICE_WATCHDOG}}
+
+[Install]
+WantedBy=sysinit.target
+Alias=dbus-org.freedesktop.timesync1.service

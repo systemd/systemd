@@ -1,0 +1,77 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="binfmt.d" conditional='ENABLE_BINFMT'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>binfmt.d</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>binfmt.d</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>binfmt.d</refname>
+    <refpurpose>Configure additional binary formats for
+    executables at boot</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><simplelist>
+      <member><filename>/etc/binfmt.d/*.conf</filename></member>
+      <member><filename>/run/binfmt.d/*.conf</filename></member>
+      <member><filename>/usr/local/lib/binfmt.d/*.conf</filename></member>
+      <member><filename>/usr/lib/binfmt.d/*.conf</filename></member>
+    </simplelist></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>At boot,
+    <citerefentry><refentrytitle>systemd-binfmt.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    reads configuration files from the above directories to register
+    in the kernel additional binary formats for executables.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Configuration Format</title>
+
+    <para>Each file contains a list of binfmt_misc kernel binary format rules. Consult the kernel's <ulink
+    url="https://docs.kernel.org/admin-guide/binfmt-misc.html">Kernel Support for
+    miscellaneous Binary Formats (binfmt_misc)</ulink> documentation file for more information on
+    registration of additional binary formats and how to write rules.</para>
+
+    <para>Empty lines and lines beginning with <literal>;</literal> and <literal>#</literal> are ignored.
+    Note that this means you may not use those symbols as the delimiter in binary format rules.</para>
+  </refsect1>
+
+  <xi:include href="standard-conf.xml" xpointer="confd" />
+
+  <refsect1>
+    <title>Example</title>
+    <example>
+      <title>/etc/binfmt.d/wine.conf example:</title>
+
+      <programlisting># Start WINE on Windows executables
+:DOSWin:M::MZ::/usr/bin/wine:</programlisting>
+    </example>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-binfmt.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-delta</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>wine</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

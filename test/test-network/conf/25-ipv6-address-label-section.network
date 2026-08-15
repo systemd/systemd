@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=dummy98
+
+[Network]
+IPv6AcceptRA=no
+
+[IPv6AddressLabel]
+Label=4444
+Prefix=2004:da8:1:0::/64
+
+# invalid sections
+[IPv6AddressLabel]
+# No Label=
+Prefix=2004:da8:1:1::/64
+
+[IPv6AddressLabel]
+# No Prefix=
+Label=4445
+
+[IPv6AddressLabel]
+# Invalid label
+Label=0xffffffff
+Prefix=2004:da8:1:2::/64
+
+[IPv6AddressLabel]
+# IPv4 mapped prefix
+Label=4446
+Prefix=::ffff:c0a8:0/120
+
+[IPv6AddressLabel]
+# Invalid prefix
+Label=4447
+Prefix=192.168.1.0/24

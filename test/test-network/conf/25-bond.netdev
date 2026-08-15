@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[NetDev]
+Name=bond99
+Kind=bond
+
+[Bond]
+Mode=802.3ad
+TransmitHashPolicy=layer3+4
+MIIMonitorSec=1s
+LACPTransmitRate=fast
+UpDelaySec=2s
+DownDelaySec=2s
+ResendIGMP=4
+MinLinks=1
+AdActorSystemPriority=1218
+AdUserPortKey=811
+AdActorSystem=00:11:22:33:44:55
+# feed the sanitizer
+AdActorSystem=00:11:22:33:44:55

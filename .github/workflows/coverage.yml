@@ -1,0 +1,162 @@
+---
+# SPDX-License-Identifier: LGPL-2.1-or-later
+name: coverage
+
+on:
+  schedule:
+    # Calculate coverage daily at midnight
+    - cron:  '0 0 * * *'
+
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/coverage.yml
+      - test/integration-tests/integration-test-wrapper.py
+
+permissions:
+  contents: read
+
+jobs:
+  coverage:
+    runs-on: ubuntu-24.04
+    if: github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable'
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: systemd/mkosi@f7762b71437227922a367bb89597843c77494ef9
+
+      # Freeing up disk space with rm -rf can take multiple minutes. Since we don't need the extra free space
+      # immediately, we remove the files in the background. However, we first move them to a different location
+      # so that nothing tries to use anything in these directories anymore while we're busy deleting them.
+      - name: Free disk space
+        run: |
+          sudo mv /usr/local /usr/local.trash
+          sudo mv /opt/hostedtoolcache /opt/hostedtoolcache.trash
+          sudo systemd-run rm -rf /usr/local.trash /opt/hostedtoolcache.trash
+
+      - name: Btrfs
+        run: |
+          truncate --size=100G btrfs.raw
+          mkfs.btrfs btrfs.raw
+          sudo mkdir /mnt/mkosi
+          LOOP="$(sudo losetup --find --show --direct-io=on btrfs.raw)"
+          sudo mount "$LOOP" /mnt/mkosi --options compress=zstd:1,user_subvol_rm_allowed,noatime,discard=async,space_cache=v2
+          sudo chown "$(id -u):$(id -g)" /mnt/mkosi
+          mkdir /mnt/mkosi/tmp
+          echo "TMPDIR=/mnt/mkosi/tmp" >>"$GITHUB_ENV"
+          ln -s /mnt/mkosi/build build
+
+      - name: Configure
+        run: |
+          tee mkosi/mkosi.local.conf <<EOF
+          [Distribution]
+          Distribution=arch
+
+          [Build]
+          ToolsTreeDistribution=arch
+          UseSubvolumes=yes
+          WithTests=no
+
+          WorkspaceDirectory=$TMPDIR
+          PackageCacheDirectory=$TMPDIR/cache
+
+          Environment=
+                  # Build debuginfo packages since we'll be publishing the packages as artifacts.
+                  WITH_DEBUG=1
+                  CFLAGS=-Og
+                  MESON_OPTIONS=--werror
+                  COVERAGE=1
+
+          [Runtime]
+          RAM=4G
+          EOF
+
+      - name: Generate secure boot key
+        run: mkosi --debug genkey
+
+      - name: Show image summary
+        run: mkosi summary
+
+      - name: Build tools tree
+        run: sudo mkosi -f box -- true
+
+      - name: Configure meson
+        run: |
+          sudo mkosi box -- \
+            meson setup \
+            --buildtype=debugoptimized \
+            build
+
+      - name: Build image
+        run: sudo mkosi box -- meson compile -C build mkosi
+
+      - name: Initial coverage report
+        run: |
+          sudo mkdir -p build/test/coverage
+          sudo mkosi box -- \
+            lcov \
+            --directory build/mkosi.builddir/arch~rolling~x86-64 \
+            --capture \
+            --initial \
+            --exclude "*.gperf" \
+            --output-file build/test/coverage/initial.coverage-info \
+            --base-directory src/ \
+            --ignore-errors source \
+            --no-external \
+            --substitute "s#src/src#src#g"
+
+      - name: Run integration tests
+        run: |
+          # --preserve-env makes sure all the github actions environment variables are propagated which are
+          # used in integration-test-wrapper.py to construct the `gh` command line to download the journals
+          # of failed tests.
+          sudo --preserve-env mkosi box -- \
+            env \
+            TEST_RUNNER=ubuntu-24.04 \
+            meson test \
+            -C build \
+            --no-rebuild \
+            --setup=integration \
+            --suite=integration-tests \
+            --print-errorlogs \
+            --no-stdsplit \
+            --num-processes "$(($(nproc) - 1))" \
+            --timeout-multiplier 2 \
+            --max-lines 300 \
+            --quiet
+
+      - name: Fix journal ownership
+        if: failure() && (github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable')
+        run: sudo chown -R "$(id -u):$(id -g)" build/test/journal build/meson-logs || true
+
+      - name: Archive failed test journals
+        uses: actions/upload-artifact@v7
+        if: failure() && (github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable')
+        with:
+          name: ci-coverage-${{ github.run_id }}-${{ github.run_attempt }}-arch-rolling-failed-test-journals
+          path: |
+            build/test/journal/*.journal
+            build/meson-logs/*
+          retention-days: 7
+
+      - name: Combine coverage reports
+        run: |
+          lcov_args=()
+
+          while read -r file; do
+              lcov_args+=(--add-tracefile "${file}")
+          done < <(find build/test/coverage -name "TEST-*.coverage-info")
+
+          sudo mkosi box -- lcov --ignore-errors inconsistent,inconsistent "${lcov_args[@]}" --output-file build/test/coverage/everything.coverage-info
+
+      - name: List coverage report
+        run: sudo mkosi box -- lcov --ignore-errors inconsistent,inconsistent --list build/test/coverage/everything.coverage-info
+
+      - name: Coveralls
+        uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b
+        if: github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable'
+        with:
+          file: build/test/coverage/everything.coverage-info

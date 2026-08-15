@@ -1,0 +1,91 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-battery-check.service" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-battery-check</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-battery-check.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-battery-check.service</refname>
+    <refname>systemd-battery-check</refname>
+    <refpurpose>Check battery level whether there's enough charge, and power off if not</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-battery-check.service</filename></para>
+    <cmdsynopsis>
+      <command>/usr/lib/systemd/systemd-battery-check</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>This service checks the presence of an external power supply and the battery level during the early
+    boot stage to determine whether there is sufficient power to carry on with the booting process.</para>
+
+    <para><command>systemd-battery-check</command> returns success if the device is connected to an AC power
+    source or if the battery charge is greater than 5%. It returns failure otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood by <command>systemd-battery-check</command>:</para>
+
+    <variablelist>
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>
+      On success (running on AC power or battery capacity greater than 5%), 0 is returned, a non-zero failure
+      code otherwise.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Kernel Command Line</title>
+
+    <para>The following variables are understood:</para>
+
+    <variablelist class='kernel-commandline-options'>
+      <varlistentry>
+        <term><varname>systemd.battery_check=<replaceable>BOOL</replaceable></varname></term>
+
+        <listitem>
+          <para>Takes a boolean. If specified with false, <command>systemd-battery-check</command> command
+          will return immediately with exit status 0 without checking battery capacity and AC power
+          existence, and the service <filename>systemd-battery-check.service</filename> will succeed. This
+          may be useful when the command wrongly detects and reports battery capacity percentage or AC power
+          existence, or when you want to boot the system forcibly.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

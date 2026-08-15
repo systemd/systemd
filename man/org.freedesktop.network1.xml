@@ -1,0 +1,633 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="org.freedesktop.network1" conditional='ENABLE_NETWORKD'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>org.freedesktop.network1</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>org.freedesktop.network1</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>org.freedesktop.network1</refname>
+    <refpurpose>The D-Bus interface of systemd-networkd</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Introduction</title>
+
+    <para>
+    <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    is a system service that manages and configures network interfaces. This page describes the D-Bus
+    interface.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>The Manager Object</title>
+
+    <para>The service exposes the following interfaces on the Manager object on the bus:</para>
+
+    <programlisting executable="systemd-networkd" node="/org/freedesktop/network1" interface="org.freedesktop.network1.Manager">
+node /org/freedesktop/network1 {
+  interface org.freedesktop.network1.Manager {
+    methods:
+      ListLinks(out a(iso) links);
+      GetLinkByName(in  s name,
+                    out i ifindex,
+                    out o path);
+      GetLinkByIndex(in  i ifindex,
+                     out s name,
+                     out o path);
+      SetLinkNTP(in  i ifindex,
+                 in  as servers);
+      SetLinkDNS(in  i ifindex,
+                 in  a(iay) addresses);
+      SetLinkDNSEx(in  i ifindex,
+                   in  a(iayqs) addresses);
+      SetLinkDomains(in  i ifindex,
+                     in  a(sb) domains);
+      SetLinkDefaultRoute(in  i ifindex,
+                          in  b enable);
+      SetLinkLLMNR(in  i ifindex,
+                   in  s mode);
+      SetLinkMulticastDNS(in  i ifindex,
+                          in  s mode);
+      SetLinkDNSOverTLS(in  i ifindex,
+                        in  s mode);
+      SetLinkDNSSEC(in  i ifindex,
+                    in  s mode);
+      SetLinkDNSSECNegativeTrustAnchors(in  i ifindex,
+                                        in  as names);
+      RevertLinkNTP(in  i ifindex);
+      RevertLinkDNS(in  i ifindex);
+      RenewLink(in  i ifindex);
+      ForceRenewLink(in  i ifindex);
+      ReconfigureLink(in  i ifindex);
+      Reload();
+      DescribeLink(in  i ifindex,
+                   out s json);
+      Describe(out s json);
+    properties:
+      readonly s OperationalState = '...';
+      readonly s CarrierState = '...';
+      readonly s AddressState = '...';
+      readonly s IPv4AddressState = '...';
+      readonly s IPv6AddressState = '...';
+      readonly s OnlineState = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t NamespaceId = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly u NamespaceNSID = ...;
+  };
+  interface org.freedesktop.DBus.Peer { ... };
+  interface org.freedesktop.DBus.Introspectable { ... };
+  interface org.freedesktop.DBus.Properties { ... };
+};
+</programlisting>
+
+    <!--method ListLinks is not documented!-->
+
+    <!--method GetLinkByName is not documented!-->
+
+    <!--method GetLinkByIndex is not documented!-->
+
+    <!--method SetLinkNTP is not documented!-->
+
+    <!--method SetLinkDNS is not documented!-->
+
+    <!--method SetLinkDNSEx is not documented!-->
+
+    <!--method SetLinkDomains is not documented!-->
+
+    <!--method SetLinkDefaultRoute is not documented!-->
+
+    <!--method SetLinkLLMNR is not documented!-->
+
+    <!--method SetLinkMulticastDNS is not documented!-->
+
+    <!--method SetLinkDNSOverTLS is not documented!-->
+
+    <!--method SetLinkDNSSEC is not documented!-->
+
+    <!--method SetLinkDNSSECNegativeTrustAnchors is not documented!-->
+
+    <!--method RevertLinkNTP is not documented!-->
+
+    <!--method RevertLinkDNS is not documented!-->
+
+    <!--method RenewLink is not documented!-->
+
+    <!--method ForceRenewLink is not documented!-->
+
+    <!--method ReconfigureLink is not documented!-->
+
+    <!--method Reload is not documented!-->
+
+    <!--method DescribeLink is not documented!-->
+
+    <!--method Describe is not documented!-->
+
+    <!--property OperationalState is not documented!-->
+
+    <!--property CarrierState is not documented!-->
+
+    <!--property AddressState is not documented!-->
+
+    <!--property IPv4AddressState is not documented!-->
+
+    <!--property IPv6AddressState is not documented!-->
+
+    <!--property OnlineState is not documented!-->
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.network1.Manager"/>
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.network1.Manager"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="ListLinks()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="GetLinkByName()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="GetLinkByIndex()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetLinkNTP()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetLinkDNS()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetLinkDNSEx()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetLinkDomains()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetLinkDefaultRoute()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetLinkLLMNR()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetLinkMulticastDNS()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetLinkDNSOverTLS()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetLinkDNSSEC()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetLinkDNSSECNegativeTrustAnchors()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="RevertLinkNTP()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="RevertLinkDNS()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="RenewLink()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="ForceRenewLink()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="ReconfigureLink()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Reload()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="DescribeLink()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Describe()"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="OperationalState"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CarrierState"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="AddressState"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="IPv4AddressState"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="IPv6AddressState"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="OnlineState"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="NamespaceId"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="NamespaceNSID"/>
+
+    <!--End of Autogenerated section-->
+
+    <para>
+      Provides information about the manager.
+    </para>
+
+    <refsect2>
+      <title>Properties</title>
+
+      <para><varname>NamespaceId</varname> contains the inode number of the network namespace that the
+      network service runs in. A client may compare this with the inode number of its own network namespace
+      to verify whether the service manages the same network namespace.</para>
+
+      <para><varname>NamespaceNSID</varname> contains the "nsid" identifier the kernel maintains for the
+      network namespace, if there's one assigned.</para>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Link Object</title>
+
+    <programlisting executable="systemd-networkd" node="/org/freedesktop/network1/link/_1" interface="org.freedesktop.network1.Link">
+node /org/freedesktop/network1/link/_1 {
+  interface org.freedesktop.network1.Link {
+    methods:
+      SetNTP(in  as servers);
+      SetDNS(in  a(iay) addresses);
+      SetDNSEx(in  a(iayqs) addresses);
+      SetDomains(in  a(sb) domains);
+      SetDefaultRoute(in  b enable);
+      SetLLMNR(in  s mode);
+      SetMulticastDNS(in  s mode);
+      SetDNSOverTLS(in  s mode);
+      SetDNSSEC(in  s mode);
+      SetDNSSECNegativeTrustAnchors(in  as names);
+      RevertNTP();
+      RevertDNS();
+      Renew();
+      ForceRenew();
+      Reconfigure();
+      Describe(out s json);
+    properties:
+      readonly s OperationalState = '...';
+      readonly s CarrierState = '...';
+      readonly s AddressState = '...';
+      readonly s IPv4AddressState = '...';
+      readonly s IPv6AddressState = '...';
+      readonly s OnlineState = '...';
+      readonly s AdministrativeState = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly (tt) BitRates = ...;
+  };
+  interface org.freedesktop.DBus.Peer { ... };
+  interface org.freedesktop.DBus.Introspectable { ... };
+  interface org.freedesktop.DBus.Properties { ... };
+};
+</programlisting>
+
+    <!--method SetNTP is not documented!-->
+
+    <!--method SetDNS is not documented!-->
+
+    <!--method SetDNSEx is not documented!-->
+
+    <!--method SetDomains is not documented!-->
+
+    <!--method SetDefaultRoute is not documented!-->
+
+    <!--method SetLLMNR is not documented!-->
+
+    <!--method SetMulticastDNS is not documented!-->
+
+    <!--method SetDNSOverTLS is not documented!-->
+
+    <!--method SetDNSSEC is not documented!-->
+
+    <!--method SetDNSSECNegativeTrustAnchors is not documented!-->
+
+    <!--method RevertNTP is not documented!-->
+
+    <!--method RevertDNS is not documented!-->
+
+    <!--method Renew is not documented!-->
+
+    <!--method ForceRenew is not documented!-->
+
+    <!--method Reconfigure is not documented!-->
+
+    <!--method Describe is not documented!-->
+
+    <!--property OperationalState is not documented!-->
+
+    <!--property CarrierState is not documented!-->
+
+    <!--property AddressState is not documented!-->
+
+    <!--property IPv4AddressState is not documented!-->
+
+    <!--property IPv6AddressState is not documented!-->
+
+    <!--property OnlineState is not documented!-->
+
+    <!--property AdministrativeState is not documented!-->
+
+    <!--property BitRates is not documented!-->
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.network1.Link"/>
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.network1.Link"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetNTP()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetDNS()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetDNSEx()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetDomains()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetDefaultRoute()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetLLMNR()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetMulticastDNS()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetDNSOverTLS()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetDNSSEC()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetDNSSECNegativeTrustAnchors()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="RevertNTP()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="RevertDNS()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Renew()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="ForceRenew()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Reconfigure()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Describe()"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="OperationalState"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CarrierState"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="AddressState"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="IPv4AddressState"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="IPv6AddressState"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="OnlineState"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="AdministrativeState"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="BitRates"/>
+
+    <!--End of Autogenerated section-->
+
+    <para>
+      Provides information about interfaces.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Network Object</title>
+
+    <programlisting executable="systemd-networkd" node="/org/freedesktop/network1/network/_1" interface="org.freedesktop.network1.Network">
+node /org/freedesktop/network1/network/_1 {
+  interface org.freedesktop.network1.Network {
+    properties:
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s Description = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s SourcePath = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as MatchMAC = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as MatchPath = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as MatchDriver = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as MatchType = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as MatchName = ['...', ...];
+  };
+  interface org.freedesktop.DBus.Peer { ... };
+  interface org.freedesktop.DBus.Introspectable { ... };
+  interface org.freedesktop.DBus.Properties { ... };
+};
+</programlisting>
+
+    <!--property Description is not documented!-->
+
+    <!--property SourcePath is not documented!-->
+
+    <!--property MatchMAC is not documented!-->
+
+    <!--property MatchPath is not documented!-->
+
+    <!--property MatchDriver is not documented!-->
+
+    <!--property MatchType is not documented!-->
+
+    <!--property MatchName is not documented!-->
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.network1.Network"/>
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.network1.Network"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="Description"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="SourcePath"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MatchMAC"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MatchPath"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MatchDriver"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MatchType"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MatchName"/>
+
+    <!--End of Autogenerated section-->
+
+    <para>
+      Provides information about .network files.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>DHCP Server Object</title>
+
+    <programlisting executable="systemd-networkd" node="/org/freedesktop/network1/link/_1" interface="org.freedesktop.network1.DHCPServer">
+node /org/freedesktop/network1/link/_1 {
+  interface org.freedesktop.network1.DHCPServer {
+    properties:
+      readonly a(uayayayayt) Leases = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly u PoolSize = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly u PoolOffset = ...;
+  };
+  interface org.freedesktop.DBus.Peer { ... };
+  interface org.freedesktop.DBus.Introspectable { ... };
+  interface org.freedesktop.DBus.Properties { ... };
+  interface org.freedesktop.network1.Link { ... };
+};
+</programlisting>
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.network1.Link"/>
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.network1.DHCPServer"/>
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.network1.Link"/>
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.network1.DHCPServer"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="Leases"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PoolSize"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PoolOffset"/>
+
+    <!--End of Autogenerated section-->
+
+    <para>
+      Provides information about the DHCP server. The <varname>Leases</varname> property contains
+      the currently active leases. The <varname>PoolSize</varname> property contains the total number
+      of addresses in the dynamic address pool. The <varname>PoolOffset</varname> property contains
+      the offset from the subnet base address where the pool starts. These correspond to the
+      <varname>PoolSize=</varname> and <varname>PoolOffset=</varname> settings in
+      <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+      <constant>UINT32_MAX</constant> is used as a sentinel value for <varname>PoolSize</varname>
+      and <varname>PoolOffset</varname> to indicate that the information is unavailable (i.e. no
+      DHCP server is configured or the link is in relay mode), rather than a valid pool size or
+      offset.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>DHCPv4 Client Object</title>
+
+    <programlisting executable="systemd-networkd" node="/org/freedesktop/network1/link/_1" interface="org.freedesktop.network1.DHCPv4Client">
+node /org/freedesktop/network1/link/_1 {
+  interface org.freedesktop.network1.DHCPv4Client {
+    properties:
+      readonly s State = '...';
+  };
+  interface org.freedesktop.DBus.Peer { ... };
+  interface org.freedesktop.DBus.Introspectable { ... };
+  interface org.freedesktop.DBus.Properties { ... };
+  interface org.freedesktop.network1.Link { ... };
+};
+</programlisting>
+
+    <!--property State is not documented!-->
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.network1.Link"/>
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.network1.DHCPv4Client"/>
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.network1.Link"/>
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.network1.DHCPv4Client"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="State"/>
+
+    <!--End of Autogenerated section-->
+
+    <para>
+      Provides information about DHCPv4 client status.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>DHCPv6 Client Object</title>
+
+    <programlisting executable="systemd-networkd" node="/org/freedesktop/network1/link/_1" interface="org.freedesktop.network1.DHCPv6Client">
+node /org/freedesktop/network1/link/_1 {
+  interface org.freedesktop.network1.DHCPv6Client {
+    properties:
+      readonly s State = '...';
+  };
+  interface org.freedesktop.DBus.Peer { ... };
+  interface org.freedesktop.DBus.Introspectable { ... };
+  interface org.freedesktop.DBus.Properties { ... };
+  interface org.freedesktop.network1.Link { ... };
+};
+</programlisting>
+
+    <!--property State is not documented!-->
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.network1.Link"/>
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.network1.DHCPv6Client"/>
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.network1.Link"/>
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.network1.DHCPv6Client"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="State"/>
+
+    <!--End of Autogenerated section-->
+
+    <para>
+      Provides information about DHCPv6 client status.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Introspect <interfacename>org.freedesktop.network1.Manager</interfacename> on the bus</title>
+
+      <programlisting>
+$ gdbus introspect --system \
+  --dest org.freedesktop.network1 \
+  --object-path /org/freedesktop/network1
+</programlisting>
+    </example>
+
+    <example>
+      <title>Introspect <interfacename>org.freedesktop.network1.Link</interfacename> on the bus</title>
+
+      <programlisting>
+$ gdbus introspect --system \
+  --dest org.freedesktop.network1 \
+  --object-path /org/freedesktop/network1/link/_11
+</programlisting>
+    </example>
+  </refsect1>
+
+  <xi:include href="org.freedesktop.locale1.xml" xpointer="versioning"/>
+
+  <refsect1>
+    <title>History</title>
+    <refsect2>
+      <title>DHCP Server Object</title>
+      <para><varname>PoolSize</varname> and <varname>PoolOffset</varname> were added in version 261.</para>
+    </refsect2>
+    <refsect2>
+      <title>DHCPv4 Client Object</title>
+      <para><varname>State</varname> was added in version 255.</para>
+    </refsect2>
+    <refsect2>
+      <title>DHCPv6 Client Object</title>
+      <para><varname>State</varname> was added in version 255.</para>
+    </refsect2>
+    <refsect2>
+      <title>Manager Object</title>
+      <para><varname>NamespaceNSID</varname> was added in version 256.</para>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

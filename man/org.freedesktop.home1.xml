@@ -1,0 +1,666 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" >
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="org.freedesktop.home1" conditional='ENABLE_HOMED'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>org.freedesktop.home1</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>org.freedesktop.home1</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>org.freedesktop.home1</refname>
+    <refpurpose>The D-Bus interface of systemd-homed</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Introduction</title>
+
+    <para><citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    is a system service which may be used to create, remove, change or inspect home areas. This page
+    describes the D-Bus interface.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>The Manager Object</title>
+
+    <para>The service exposes the following interfaces on the Manager object on the bus:</para>
+
+    <programlisting executable="systemd-homed" node="/org/freedesktop/home1" interface="org.freedesktop.home1.Manager">
+node /org/freedesktop/home1 {
+  interface org.freedesktop.home1.Manager {
+    methods:
+      GetHomeByName(in  s user_name,
+                    out u uid,
+                    out s home_state,
+                    out u gid,
+                    out s real_name,
+                    out s home_directory,
+                    out s shell,
+                    out o bus_path);
+      GetHomeByUID(in  u uid,
+                   out s user_name,
+                   out s home_state,
+                   out u gid,
+                   out s real_name,
+                   out s home_directory,
+                   out s shell,
+                   out o bus_path);
+      GetUserRecordByName(in  s user_name,
+                          out s user_record,
+                          out b incomplete,
+                          out o bus_path);
+      GetUserRecordByUID(in  u uid,
+                         out s user_record,
+                         out b incomplete,
+                         out o bus_path);
+      ListHomes(out a(susussso) home_areas);
+      ActivateHome(in  s user_name,
+                   in  s secret);
+      ActivateHomeIfReferenced(in  s user_name,
+                               in  s secret);
+      @org.freedesktop.systemd1.Privileged("true")
+      DeactivateHome(in  s user_name);
+      RegisterHome(in  s user_record);
+      AdoptHome(in  s image_path,
+                in  t flags);
+      UnregisterHome(in  s user_name);
+      CreateHome(in  s user_record);
+      CreateHomeEx(in  s user_record,
+                   in  a{sh} blobs,
+                   in  t flags);
+      RealizeHome(in  s user_name,
+                  in  s secret);
+      RemoveHome(in  s user_name);
+      @org.freedesktop.systemd1.Privileged("true")
+      FixateHome(in  s user_name,
+                 in  s secret);
+      AuthenticateHome(in  s user_name,
+                       in  s secret);
+      UpdateHome(in  s user_record);
+      UpdateHomeEx(in  s user_record,
+                   in  a{sh} blobs,
+                   in  t flags);
+      ResizeHome(in  s user_name,
+                 in  t size,
+                 in  s secret);
+      ChangePasswordHome(in  s user_name,
+                         in  s new_secret,
+                         in  s old_secret);
+      @org.freedesktop.systemd1.Privileged("true")
+      LockHome(in  s user_name);
+      @org.freedesktop.systemd1.Privileged("true")
+      UnlockHome(in  s user_name,
+                 in  s secret);
+      AcquireHome(in  s user_name,
+                  in  s secret,
+                  in  b please_suspend,
+                  out h send_fd);
+      @org.freedesktop.systemd1.Privileged("true")
+      RefHome(in  s user_name,
+              in  b please_suspend,
+              out h send_fd);
+      @org.freedesktop.systemd1.Privileged("true")
+      RefHomeUnrestricted(in  s user_name,
+                          in  b please_suspend,
+                          out h send_fd);
+      @org.freedesktop.systemd1.Privileged("true")
+      ReleaseHome(in  s user_name);
+      ListSigningKeys(out a(sst) keys);
+      GetSigningKey(in  s name,
+                    out s der,
+                    out t flags);
+      AddSigningKey(in  s name,
+                    in  s pem,
+                    in  t flags);
+      RemoveSigningKey(in  s name,
+                       in  t flags);
+      @org.freedesktop.systemd1.Privileged("true")
+      LockAllHomes();
+      @org.freedesktop.systemd1.Privileged("true")
+      DeactivateAllHomes();
+      @org.freedesktop.systemd1.Privileged("true")
+      Rebalance();
+    properties:
+      readonly a(sso) AutoLogin = [...];
+  };
+  interface org.freedesktop.DBus.Peer { ... };
+  interface org.freedesktop.DBus.Introspectable { ... };
+  interface org.freedesktop.DBus.Properties { ... };
+};
+</programlisting>
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.home1.Manager"/>
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.home1.Manager"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="GetHomeByName()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="GetHomeByUID()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="GetUserRecordByName()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="GetUserRecordByUID()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="ListHomes()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="ActivateHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="ActivateHomeIfReferenced()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="DeactivateHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="RegisterHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="AdoptHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="UnregisterHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="CreateHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="CreateHomeEx()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="RealizeHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="RemoveHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="FixateHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="AuthenticateHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="UpdateHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="UpdateHomeEx()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="ResizeHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="ChangePasswordHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="LockHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="UnlockHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="AcquireHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="RefHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="RefHomeUnrestricted()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="ReleaseHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="ListSigningKeys()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="GetSigningKey()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="AddSigningKey()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="RemoveSigningKey()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="LockAllHomes()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="DeactivateAllHomes()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Rebalance()"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="AutoLogin"/>
+
+    <!--End of Autogenerated section-->
+
+    <refsect2>
+      <title>Methods</title>
+
+      <para><function>GetHomeByName()</function> returns basic user information (a minimal subset of the full
+      user record), provided a user name. The information supplied more or less matches what
+      <citerefentry project="man-pages"><refentrytitle>getpwnam</refentrytitle><manvolnum>3</manvolnum></citerefentry> returns:
+      the numeric UID and GID, the real name, home directory and shell. In addition it returns a state
+      identifier describing the state the user's home directory is in, as well as a bus path referring to the
+      bus object encapsulating the user record and home directory. This object implements the
+      <classname>org.freedesktop.home1.Home</classname> interface documented below. This method, and most others
+      in this interface that take user names, will try to use the caller's home area if the specified user name is
+      an empty string.</para>
+
+      <para><function>GetHomeByUID()</function> is similar to <function>GetHomeByName()</function> but
+      acquires the information based on the numeric UID of the user.</para>
+
+      <para><function>GetUserRecordByName()</function> is also similar to
+      <function>GetHomeByName()</function> but returns the full JSON user record data instead of the broken
+      down records. An additional returned boolean indicates whether the record is complete or not. A record
+      is considered complete when its <literal>privileged</literal> section is included, and incomplete if it
+      was removed (see <ulink url="https://systemd.io/USER_RECORD">JSON User Records</ulink> for details
+      about the various sections of a user record). Generally, only privileged clients and clients running
+      under the identity of the user itself get access to the <literal>privileged</literal> section and will
+      thus see complete records.</para>
+
+      <para><function>GetUserRecordByUID()</function> is similar to <function>GetUserRecordByName()</function>
+      but returns the user record matching the specified numeric UID.</para>
+
+      <para><function>ListHomes()</function> returns an array of all locally managed users. The array
+      contains the same fields <function>GetHomeByName()</function> returns: user name, numeric UID, state,
+      numeric GID, real name, home directory, shell and bus path of the matching bus object.</para>
+
+      <para><function>ActivateHome()</function> activates (i.e. mounts) the home directory of the specified
+      user. The second argument shall contain a user record consisting only of a <literal>secret</literal>
+      section (all other sections should be stripped, see <ulink url="https://systemd.io/USER_RECORD">JSON
+      User Records</ulink> for details), and should contain only the secret credentials necessary for
+      unlocking the home directory. Typically a client would invoke this function first with an entirely
+      empty record (which is possibly sufficient if single-factor authentication with a plugged-in security
+      token is configured), and would then retry with a record populated with more information, depending on
+      the returned error code, in case more credentials are necessary. This function is synchronous and
+      returns only after the home directory was fully activated (or the operation failed), which might take
+      some time. Clients must be prepared for that, and typically should extend the D-Bus method call
+      timeout accordingly. This method is equivalent to the <function>Activate()</function> method on the
+      <classname>org.freedesktop.home1.Home</classname> interface documented below, but may be called on the
+      manager object and takes a user name as additional argument, instead.</para>
+
+      <para><function>ActivateHomeIfReferenced()</function> is identical to
+      <function>ActivateHome()</function>. However, the call only succeeds if the home directory is currently
+      referenced. Useful in conjunction with <function>RefHomeUnrestricted()</function>, which allows
+      creating a reference to a home directory even if the home directory is not active.</para>
+
+      <para><function>DeactivateHome()</function> deactivates (i.e. unmounts) the home directory of the
+      specified user. It is equivalent to the <function>Deactivate()</function> method on the
+      <classname>org.freedesktop.home1.Home</classname> interface documented below.</para>
+
+      <para><function>RegisterHome()</function> registers a new home directory locally. It receives the JSON
+      user record as only argument (which typically excludes the <literal>secret</literal>
+      section). Registering a home directory just makes the user record known to the system, it does not
+      create a home directory or such (which is expected to exist already, or created later). This operation
+      is useful to register home directories locally that are not located where
+      <filename>systemd-homed.service</filename> would find them automatically.</para>
+
+      <para><function>AdoptHome()</function> also registers a new home directory locally. It takes a path to
+      a home directory itself, and will register it locally. This only works for <filename>*.home</filename>
+      and <filename>*.homedir/</filename> home directories. This operation is done automatically for all such
+      home areas showing up in <filename>/home/</filename>, but may be requested explicitly with this call for
+      directories elsewhere. The <varname>flags</varname> must be set to zero, currently.</para>
+
+      <para><function>UnregisterHome()</function> unregisters an existing home directory. It takes a user
+      name as argument and undoes what <function>RegisterHome()</function> does. It does not attempt to
+      remove the home directory itself, it just unregisters it with the local system. Note that if the home
+      directory is placed where <filename>systemd-homed.service</filename> looks for home directories anyway
+      this call will only undo fixation (see below), but the record will remain known to
+      <filename>systemd-homed.service</filename> and be listed among known records. Since the user record is
+      embedded into the home directory this operation generally does not discard data belonging to the user
+      or their record. This method is equivalent to
+      <function>Unregister()</function> on the <classname>org.freedesktop.home1.Home</classname>
+      interface.</para>
+
+      <para><function>CreateHome()</function> registers and creates a new home directory. This takes a fully
+      specified JSON user record as argument (including the <literal>secret</literal> section). This registers
+      the user record locally and creates a home directory matching it, depending on the settings specified
+      in the record in combination with local configuration.</para>
+
+      <para><function>CreateHomeEx()</function> is like <function>CreateHome()</function>, but it allows the
+      home directory to be created with a pre-populated blob directory (see
+      <ulink url="https://systemd.io/USER_RECORD_BLOB_DIRS">User Record Blob Directories</ulink> for more info).
+      This can be done via the dictionary passed as the <varname>blobs</varname> argument to this method: the values
+      are open file descriptors to regular files, and the keys are the filenames that should contain their respective
+      file's data in the blob directory. Note that for security reasons, the file descriptors passed into this method
+      must have enough privileges to read their target file and thus cannot be <literal>O_PATH</literal>; this
+      is done to ensure the caller is actually permitted to read the file they are asking to publish in the
+      blob directories. If the user record passed as the first argument contains a <literal>blobManifest</literal>
+      field it will be enforced; otherwise, a <literal>blobManifest</literal> field will be generated and inserted
+      into the record. The <varname>flags</varname> argument may be used for future expansion, but for now
+      pass 0.</para>
+
+      <para><function>RealizeHome()</function> creates a home directory whose user record is already
+      registered locally. This takes a user name plus a user record consisting only of the
+      <literal>secret</literal> section. Invoking <function>RegisterHome()</function> followed by
+      <function>RealizeHome()</function> is mostly equivalent to calling <function>CreateHome()</function>,
+      except that the latter combines the two in atomic fashion. This method is equivalent to
+      <function>Realize()</function> on the <classname>org.freedesktop.home1.Home</classname>
+      interface.</para>
+
+      <para><function>RemoveHome()</function> unregisters a user record locally, and removes the home
+      directory belonging to it, if it is accessible. It takes a user name as argument. This method is equivalent to
+      <function>Remove()</function> on the <classname>org.freedesktop.home1.Home</classname>
+      interface.</para>
+
+      <para><function>FixateHome()</function> <literal>fixates</literal> an automatically discovered home
+      directory. <filename>systemd-homed.service</filename> automatically discovers home directories dropped
+      in our plugged in and adds them to the runtime list of user records it manages. A user record
+      discovered that way may be <literal>fixated</literal>, in which case it is copied out of the home
+      directory, onto persistent storage, to fixate the UID/GID assignment of the record, and extract
+      additional (typically previously encrypted) user record data from the home directory. A home directory
+      mus be fixated before it can be logged into. This method call takes a user name and a JSON user record
+      consisting only of the <literal>secret</literal> section as argument. This method is equivalent to
+      <function>Fixate()</function> on the <classname>org.freedesktop.home1.Home</classname> interface.</para>
+
+      <para><function>AuthenticateHome()</function> checks passwords or other authentication credentials
+      associated with the home directory. It takes a user name and a JSON user record consisting only of the
+      <literal>secret</literal> section as argument. Note that many of the other method calls authenticate
+      the user first, in order to execute some other operation. This method call only authenticates and
+      executes no further operation. Like <function>ActivateHome()</function> it is usually first invoked
+      with an empty JSON user record, which is then populated for subsequent tries with additional
+      authentication data supplied. This method is equivalent to
+      <function>Authenticate()</function> on the <classname>org.freedesktop.home1.Home</classname>
+      interface.</para>
+
+      <para><function>UpdateHome()</function> updates a locally registered user record. Takes a fully
+      specified JSON user record as argument (possibly including the <literal>secret</literal> section). A user
+      with a matching name and realm must be registered locally already, and the last change timestamp of the
+      newly supplied record must be newer than the previously existing user record. Note this operation updates
+      the user record only, it does not propagate passwords/authentication tokens from the user record to the
+      storage back-end, or resizes the storage back-end. Typically a home directory is first updated, and then
+      the password of the underlying storage updated using <function>ChangePasswordHome()</function> as well
+      as the storage resized using <function>ResizeHome()</function>. This method is equivalent to
+      <function>Update()</function> on the <classname>org.freedesktop.home1.Home</classname> interface.</para>
+
+      <para><function>UpdateHomeEx()</function> is like <function>UpdateHome()</function>, but it allows for
+      changes to the blob directory (see <ulink url="https://systemd.io/USER_RECORD_BLOB_DIRS">User Record Blob
+      Directories</ulink> for more info). The <varname>blobs</varname> argument works in the same way as
+      <function>CreateHomeEx()</function>, so check there for details. The new blob directory contents passed into
+      this method will completely replace the user's existing blob directory. The <varname>flags</varname> argument
+      can be used to further customize the behavior of this method via flags defined as follows:</para>
+      <programlisting>
+#define SD_HOMED_UPDATE_OFFLINE (UINT64_C(1) &lt;&lt; 0)
+</programlisting>
+      <para>When <constant>SD_HOMED_UPDATE_OFFLINE</constant> (0x01) is set, no attempt is made to update the copies
+      of the user record and blob directory that are embedded into the home directory. Changes will be stored, however,
+      and may be propagated into the home directory the next time it is reconciled (most likely when the user next logs in).
+      Note that any changes made with this flag set may be lost if the home area has a newer record, which can happen
+      if the home area is updated on another machine after this method call. This method is equivalent to
+      <function>UpdateEx()</function> on the <classname>org.freedesktop.home1.Home</classname> interface.</para>
+
+      <para><function>ResizeHome()</function> resizes the storage associated with a user record. Takes a user
+      name, a disk size in bytes, and optionally a user record consisting only of the <literal>secret</literal>
+      section as arguments. If the size is specified as <constant>UINT64_MAX</constant> the storage is resized to
+      the size already specified in the user record. Typically, if the user record is updated using
+      <function>UpdateHome()</function> above this is used to propagate the size configured there-in down to
+      the underlying storage back-end. This method is equivalent to <function>Resize()</function> on the
+      <classname>org.freedesktop.home1.Home</classname> interface.</para>
+
+      <para><function>ChangePasswordHome()</function> changes the passwords/authentication tokens of a home
+      directory. Takes a user name, and two JSON user record objects, each consisting only of the
+      <literal>secret</literal> section, for the old and for the new passwords/authentication tokens. If the
+      user record with the new passwords/authentication token data is specified as empty the existing user
+      record's settings are propagated down to the home directory storage. This is typically used after a
+      user record is updated using <function>UpdateHome()</function> in order to propagate the
+      secrets/authentication tokens down to the storage. Background: depending on the backend the user's
+      authentication credentials are stored at multiple places: the user record kept on the host, the user
+      record kept in the home directory and the encrypted LUKS volume slot. If the home directory is used on
+      a different machined temporarily, and the password is changed there, and then is moved back to the
+      original host, the passwords of the three might get out of sync. By issuing
+      <function>ChangePasswordHome()</function> the three locations are updated to match the newest
+      information. This method is equivalent to <function>ChangePassword()</function> on the
+      <classname>org.freedesktop.home1.Home</classname> interface.</para>
+
+      <para><function>LockHome()</function> temporarily suspends access to a home directory, flushing out any
+      cryptographic keys from memory. This is only supported on some back-ends, and is usually done during system
+      suspend, in order to effectively secure home directories while the system is sleeping. Takes a user
+      name as single argument. If an application attempts to access a home directory while it is locked it
+      will typically freeze until the home directory is unlocked again. This method is equivalent to
+      <function>Lock()</function> on the <classname>org.freedesktop.home1.Home</classname> interface.</para>
+
+      <para><function>UnlockHome()</function> undoes the effect of <function>LockHome()</function>. Takes a
+      user name and a user record consisting only of the <literal>secret</literal> section as arguments. This
+      method is equivalent to <function>Unlock()</function> on the
+      <classname>org.freedesktop.home1.Home</classname> interface.</para>
+
+      <para><function>AcquireHome()</function> activates or unlocks a home directory in a reference counted
+      mode of operation. Takes a user name and user record consisting only of <literal>secret</literal>
+      section as argument. If the home directory is not active yet, it is activated. If it is currently
+      locked it is unlocked. After completion a reference to the activation/unlocking of the home directory
+      is returned via a file descriptor. When the last client which acquired such a file descriptor closes it
+      the home directory is automatically deactivated again. This method is typically invoked when a user
+      logs in, and the file descriptor is held until the user logs out again, thus ensuring the user's home
+      directory can be unmounted automatically again in a robust fashion, when the user logs out. The third
+      argument is a boolean which indicates whether the client invoking the call is able to automatically
+      re-authenticate when the system comes back from suspending. It should be set by all clients that
+      implement a secure lock screen running outside of the user's context, that is brought up when the
+      system comes back from suspend and can be used to re-acquire the credentials to unlock the user's home
+      directory. If a home directory has at least one client with an open reference to the home directory
+      that does not support this it is not suspended automatically at system suspend, otherwise it is. This
+      method is equivalent to <function>Acquire()</function> on the
+      <classname>org.freedesktop.home1.Home</classname> interface.</para>
+
+      <para><function>RefHome()</function> is similar to <function>AcquireHome()</function> but takes no user
+      record with <literal>secret</literal> section, i.e. will take an additional reference to an already
+      activated/unlocked home directory without attempting to activate/unlock it itself. It will fail if the
+      home directory is not already activated. This method is equivalent to
+      <function>Ref()</function> on the <classname>org.freedesktop.home1.Home</classname>
+      interface.</para>
+
+      <para><function>RefHomeUnrestricted()</function> is identical to <function>RefHome()</function> but
+      succeeds even if the home area is not active currently. This is useful on conjunction with
+      <function>ActivateHomeIfReferenced()</function>.</para>
+
+      <para><function>ReleaseHome()</function> releases a home directory again, if all file descriptors
+      referencing it are already closed, that where acquired through <function>AcquireHome()</function> or
+      <function>RefHome()</function>. Note that this call does not actually cause the deactivation of the
+      home directory (which happens automatically when the last referencing file descriptor is closed), but
+      is simply a synchronization mechanism that allows delaying of the user session's termination until any
+      triggered deactivation is completed. This method is equivalent to <function>Release()</function> on the
+      <classname>org.freedesktop.home1.Home</classname> interface.</para>
+
+      <para><function>LockAllHomes()</function> locks all active home directories that only have references
+      that opted into automatic suspending during system suspend. This is usually invoked automatically
+      shortly before system suspend.</para>
+
+      <para><function>DeactivateAllHomes()</function> deactivates all home areas that are currently
+      active. This is usually invoked automatically shortly before system shutdown.</para>
+
+      <para><function>Rebalance()</function> synchronously rebalances free disk space between home
+      areas. This only executes an operation if at least one home area using the LUKS2 backend is active and
+      has rebalancing enabled, and is otherwise a NOP.</para>
+
+      <para><function>ListSigningKeys()</function> acquires a list of installed home area signing
+      keys. Returns an array of key names with their PEM encoded public key data. Each entry also comes with
+      a flags value which is currently unused and should be ignored by clients.</para>
+
+      <para><function>GetSigningKey()</function> acquires the PEM encoded public part of the specified home
+      area signing key of the specified name. Also returns a currently unused flags value that should be
+      ignored. The <varname>flags</varname> parameter must be set to zero, currently.</para>
+
+      <para><function>AddSigningKey()</function> adds a new key to the list of home area signing keys. Takes
+      a name string (free-form, suitable as filename, with suffix <literal>.public</literal>), the PEM
+      encoded public key data and a currently unused flags value that must be zero. The
+      <varname>flags</varname> parameter must be set to zero, currently.</para>
+
+      <para><function>RemoveSigningKey()</function> removes a key from the list of home area signing
+      keys. Takes the name of the key to remove and a currently unused flags value that must be zero. The
+      <varname>flags</varname> parameter must be set to zero, currently.</para>
+    </refsect2>
+
+    <refsect2>
+      <title>Properties</title>
+
+      <para><varname>AutoLogin</varname> exposes an array of structures consisting of user name, seat name
+      and object path of an home directory object. All locally managed users that have the
+      <literal>autoLogin</literal> field set are listed here, with the seat name they are associated with. A
+      display manager may watch this property and pre-fill the login screen with the users exposed this
+      way.</para>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>The Home Object</title>
+
+    <programlisting executable="systemd-homed" node="/org/freedesktop/home1/home" interface="org.freedesktop.home1.Home">
+node /org/freedesktop/home1/home {
+  interface org.freedesktop.home1.Home {
+    methods:
+      Activate(in  s secret);
+      ActivateIfReferenced(in  s secret);
+      @org.freedesktop.systemd1.Privileged("true")
+      Deactivate();
+      Unregister();
+      Realize(in  s secret);
+      Remove();
+      @org.freedesktop.systemd1.Privileged("true")
+      Fixate(in  s secret);
+      Authenticate(in  s secret);
+      Update(in  s user_record);
+      UpdateEx(in  s user_record,
+               in  a{sh} blobs,
+               in  t flags);
+      Resize(in  t size,
+             in  s secret);
+      ChangePassword(in  s new_secret,
+                     in  s old_secret);
+      @org.freedesktop.systemd1.Privileged("true")
+      Lock();
+      @org.freedesktop.systemd1.Privileged("true")
+      Unlock(in  s secret);
+      @org.freedesktop.systemd1.Privileged("true")
+      Acquire(in  s secret,
+              in  b please_suspend,
+              out h send_fd);
+      @org.freedesktop.systemd1.Privileged("true")
+      Ref(in  b please_suspend,
+          out h send_fd);
+      @org.freedesktop.systemd1.Privileged("true")
+      RefUnrestricted(in  b please_suspend,
+                      out h send_fd);
+      @org.freedesktop.systemd1.Privileged("true")
+      Release();
+    properties:
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s UserName = '...';
+      readonly u UID = ...;
+      readonly (suusss) UnixRecord = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s State = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("invalidates")
+      readonly (sb) UserRecord = ...;
+  };
+  interface org.freedesktop.DBus.Peer { ... };
+  interface org.freedesktop.DBus.Introspectable { ... };
+  interface org.freedesktop.DBus.Properties { ... };
+  interface org.freedesktop.DBus.ObjectManager { ... };
+};
+</programlisting>
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.DBus.ObjectManager"/>
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.home1.Home"/>
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.DBus.ObjectManager"/>
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.home1.Home"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Activate()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="ActivateIfReferenced()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Deactivate()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Unregister()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Realize()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Remove()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Fixate()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Authenticate()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Update()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="UpdateEx()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Resize()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="ChangePassword()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Lock()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Unlock()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Acquire()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Ref()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="RefUnrestricted()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Release()"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="UserName"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="UID"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="UnixRecord"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="State"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="UserRecord"/>
+
+    <!--End of Autogenerated section-->
+
+    <refsect2>
+      <title>Methods</title>
+
+      <para><function>Activate()</function>, <function>ActivateIfReferenced()</function>,
+      <function>Deactivate()</function>, <function>Unregister()</function>, <function>Realize()</function>,
+      <function>Remove()</function>, <function>Fixate()</function>, <function>Authenticate()</function>,
+      <function>Update()</function>, <function>UpdateEx()</function>, <function>Resize()</function>,
+      <function>ChangePassword()</function>, <function>Lock()</function>, <function>Unlock()</function>,
+      <function>Acquire()</function>, <function>Ref()</function>, <function>RefUnrestricted()</function>,
+      <function>Release()</function>,
+      operate like their matching counterparts on the <classname>org.freedesktop.home1.Manager</classname>
+      interface (see above). The main difference is that they are methods of the home directory objects, and
+      hence carry no additional user name parameter. Which of the two flavors of methods to call depends on
+      the handles to the user known on the client side: if only the user name is known, it is preferable to use
+      the methods on the manager object since they operate with user names only. Clients can also easily operate
+      on their own home area by using the methods on the manager object with an empty string as the user name.
+      If the client has the home's object path already acquired in some way, however, it is preferable to operate
+      on the <classname>org.freedesktop.home1.Home</classname> objects instead.</para>
+    </refsect2>
+
+    <refsect2>
+      <title>Properties</title>
+
+      <para><varname>UserName</varname> contains the user name of the user account/home directory.</para>
+
+      <para><varname>UID</varname> contains the numeric UNIX UID of the user account.</para>
+
+      <para><varname>UnixRecord</varname> contains a structure encapsulating the six fields a
+      <structname>struct passwd</structname> typically contains (the password field is suppressed).</para>
+
+      <para><varname>State</varname> exposes the current state home the home directory.</para>
+
+      <para><varname>UserRecord</varname> contains the full JSON user record string of the user account.</para>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="org.freedesktop.locale1.xml" xpointer="versioning"/>
+
+  <refsect1>
+    <title>History</title>
+    <refsect2>
+      <title>The Manager Object</title>
+      <para><function>ActivateHomeIfReferenced()</function>, <function>RefHomeUnrestricted()</function>,
+      <function>CreateHomeEx()</function>, and <function>UpdateHomeEx()</function> were added in version 256.</para>
+      <para><function>AdoptHome()</function>, <function>ListSigningKeys()</function>,
+      <function>GetSigningKey()</function>, <function>AddSigningKey()</function>, and
+      <function>RemoveSigningKey()</function> were added in version 258.</para>
+    </refsect2>
+    <refsect2>
+      <title>Home Objects</title>
+      <para><function>ActivateIfReferenced()</function>, <function>RefUnrestricted()</function>, and
+      <function>UpdateEx()</function> were added in version 256.</para>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>homectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

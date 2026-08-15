@@ -1,0 +1,89 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-pty-forward"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>systemd-pty-forward</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-pty-forward</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-pty-forward</refname>
+    <refpurpose>Run a command with a custom terminal background color or title</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-pty-forward</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="req">COMMAND</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-pty-forward</command> can be used to run a command with a custom terminal
+    background color or title.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--background=<replaceable>COLOR</replaceable></option></term>
+
+        <listitem><para>Change the terminal background color to the specified ANSI color as long as the
+        command runs. The color specified should be an ANSI X3.64 SGR background color, i.e. strings such as
+        <literal>40</literal>, <literal>41</literal>, …, <literal>47</literal>, <literal>48;2;…</literal>,
+        <literal>48;5;…</literal>. See <ulink
+        url="https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_(Select_Graphic_Rendition)_parameters">ANSI
+        Escape Code (Wikipedia)</ulink> for details.</para>
+
+        <para>Example: <literal>--background=44</literal> for a blue background.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--title=<replaceable>TITLE</replaceable></option></term>
+
+        <listitem><para>Change the terminal title to the specified string as long as the command runs.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--quiet</option></term>
+        <term><option>-q</option></term>
+
+        <listitem><para>Suppresses additional informational output while running.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--read-only</option></term>
+
+        <listitem><para>Do not accept any user input on standard input.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help"/>
+      <xi:include href="standard-options.xml" xpointer="version"/>
+    </variablelist>
+  </refsect1>
+</refentry>

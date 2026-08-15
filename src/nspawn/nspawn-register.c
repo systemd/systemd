@@ -1,0 +1,304 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include "sd-bus.h"
+
+#include "alloc-util.h"
+#include "bus-error.h"
+#include "bus-locator.h"
+#include "bus-unit-util.h"
+#include "bus-util.h"
+#include "bus-wait-for-jobs.h"
+#include "nspawn-mount.h"
+#include "nspawn-register.h"
+#include "nspawn-settings.h"
+#include "pidref.h"
+#include "special.h"
+#include "stat-util.h"
+#include "string-util.h"
+#include "unit-def.h"
+#include "unit-name.h"
+
+static int append_machine_properties(
+                sd_bus_message *m,
+                CustomMount *mounts,
+                unsigned n_mounts,
+                int kill_signal,
+                bool coredump_receive) {
+
+        int r;
+
+        assert(m);
+
+        r = sd_bus_message_append(m, "(sv)", "DevicePolicy", "s", "closed");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        /* If you make changes here, also make sure to update systemd-nspawn@.service, to keep the device
+         * policies in sync regardless if we are run with or without the --keep-unit switch. */
+        r = sd_bus_message_append(m, "(sv)", "DeviceAllow", "a(ss)", 3,
+                                  /* Allow the container to access and create the API device node, so that
+                                   * PrivateDevices= in the container can work fine. */
+                                  "/dev/net/tun", "rwm",
+                                  /* Allow the container to access ptys. However, do not permit the container
+                                   * to ever create these device nodes. */
+                                  "char-pts", "rw",
+                                  /* Allow the container to access and create the FUSE API device node. */
+                                  "/dev/fuse", "rwm");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        FOREACH_ARRAY(cm, mounts, n_mounts) {
+                if (cm->type != CUSTOM_MOUNT_BIND)
+                        continue;
+
+                r = is_device_node(cm->source);
+                if (r == -ENOENT) {
+                        /* The bind source might only appear as the image is put together, hence don't complain */
+                        log_debug_errno(r, "Bind mount source %s not found, ignoring: %m", cm->source);
+                        continue;
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to stat %s: %m", cm->source);
+
+                if (r) {
+                        r = sd_bus_message_append(m, "(sv)", "DeviceAllow", "a(ss)", 1,
+                                                  cm->source, cm->read_only ? "r" : "rw");
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to append message arguments: %m");
+                }
+        }
+
+        if (kill_signal != 0) {
+                r = sd_bus_message_append(m, "(sv)", "KillSignal", "i", kill_signal);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append(m, "(sv)", "KillMode", "s", "mixed");
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        if (coredump_receive) {
+                r = sd_bus_message_append(m, "(sv)", "CoredumpReceive", "b", true);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        return 0;
+}
+
+static int append_controller_property(sd_bus *bus, sd_bus_message *m) {
+        const char *unique;
+        int r;
+
+        assert(bus);
+        assert(m);
+
+        r = sd_bus_get_unique_name(bus, &unique);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get unique name: %m");
+
+        r = sd_bus_message_append(m, "(sv)", "Controller", "s", unique);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 0;
+}
+
+static int can_set_coredump_receive(sd_bus *bus) {
+        _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *path = NULL;
+        int b, r;
+
+        assert(bus);
+
+        path = unit_dbus_path_from_name(SPECIAL_INIT_SCOPE);
+        if (!path)
+                return log_oom();
+
+        r = sd_bus_get_property_trivial(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        path,
+                        "org.freedesktop.systemd1.Scope",
+                        "CoredumpReceive",
+                        &e,
+                        'b', &b);
+        if (r < 0 && !sd_bus_error_has_names(&e, SD_BUS_ERROR_UNKNOWN_PROPERTY, SD_BUS_ERROR_PROPERTY_READ_ONLY))
+                log_warning_errno(r, "Failed to determine if CoredumpReceive= can be set, assuming it cannot be: %s",
+                                  bus_error_message(&e, r));
+
+        return r >= 0;
+}
+
+int allocate_scope(
+                sd_bus *bus,
+                const char *machine_name,
+                const PidRef* pid,
+                const char *slice,
+                CustomMount *mounts,
+                unsigned n_mounts,
+                int kill_signal,
+                char **properties,
+                sd_bus_message *properties_message,
+                StartMode start_mode,
+                AllocateScopeFlags flags) {
+
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
+        _cleanup_free_ char *scope = NULL;
+        const char *object;
+        int r;
+
+        assert(bus);
+
+        r = bus_wait_for_jobs_new(bus, &w);
+        if (r < 0)
+                return log_error_errno(r, "Could not watch job: %m");
+
+        r = unit_name_mangle_with_suffix(machine_name, "as machine name", 0, ".scope", &scope);
+        if (r < 0)
+                return log_error_errno(r, "Failed to mangle scope name: %m");
+
+        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "StartTransientUnit");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(m, "ss", scope, "fail");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        /* Properties */
+        r = sd_bus_message_open_container(m, 'a', "(sv)");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = bus_append_scope_pidref(m, pid, FLAGS_SET(flags, ALLOCATE_SCOPE_ALLOW_PIDFD));
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        _cleanup_free_ char *description = strjoin("Container ", machine_name);
+        if (!description)
+                return log_oom();
+
+        r = sd_bus_message_append(m, "(sv)(sv)(sv)(sv)(sv)",
+                                  "Description", "s", description,
+                                  "Delegate", "b", 1,
+                                  "CollectMode", "s", "inactive-or-failed",
+                                  "AddRef", "b", 1,
+                                  "Slice", "s", isempty(slice) ? SPECIAL_MACHINE_SLICE : slice);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = append_controller_property(bus, m);
+        if (r < 0)
+                return r;
+
+        if (properties_message) {
+                r = sd_bus_message_copy(m, properties_message, true);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        r = append_machine_properties(
+                        m,
+                        mounts,
+                        n_mounts,
+                        kill_signal,
+                        start_mode == START_BOOT && can_set_coredump_receive(bus) > 0);
+        if (r < 0)
+                return r;
+
+        r = bus_append_unit_property_assignment_many(m, UNIT_SCOPE, properties);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        /* No auxiliary units */
+        r = sd_bus_message_append(
+                        m,
+                        "a(sa(sv))",
+                        0);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_call(bus, m, 0, &error, &reply);
+        if (r < 0) {
+                /* If this failed with a property we couldn't write, this is quite likely because the server
+                 * doesn't support PIDFDs yet, let's try without. */
+                if (FLAGS_SET(flags, ALLOCATE_SCOPE_ALLOW_PIDFD) &&
+                    sd_bus_error_has_names(&error, SD_BUS_ERROR_UNKNOWN_PROPERTY, SD_BUS_ERROR_PROPERTY_READ_ONLY))
+                        return allocate_scope(
+                                        bus,
+                                        machine_name,
+                                        pid,
+                                        slice,
+                                        mounts,
+                                        n_mounts,
+                                        kill_signal,
+                                        properties,
+                                        properties_message,
+                                        start_mode,
+                                        flags & ~ALLOCATE_SCOPE_ALLOW_PIDFD);
+
+                return log_error_errno(r, "Failed to allocate scope: %s", bus_error_message(&error, r));
+        }
+
+        r = sd_bus_message_read(reply, "o", &object);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = bus_wait_for_jobs_one(
+                        w,
+                        object,
+                        BUS_WAIT_JOBS_LOG_ERROR,
+                        /* extra_args= */ NULL);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+int terminate_scope(
+                sd_bus *bus,
+                const char *machine_name) {
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *scope = NULL;
+        int r;
+
+        r = unit_name_mangle_with_suffix(machine_name, "to terminate", /* flags= */ 0, ".scope", &scope);
+        if (r < 0)
+                return log_error_errno(r, "Failed to mangle scope name: %m");
+
+        r = bus_call_method(bus, bus_systemd_mgr, "AbandonScope", &error, /* ret_reply= */ NULL, "s", scope);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to abandon scope '%s', ignoring: %s", scope, bus_error_message(&error, r));
+                sd_bus_error_free(&error);
+        }
+
+        r = bus_call_method(
+                        bus,
+                        bus_systemd_mgr,
+                        "KillUnit",
+                        &error,
+                        NULL,
+                        "ssi",
+                        scope,
+                        "all",
+                        (int32_t) SIGKILL);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to SIGKILL scope '%s', ignoring: %s", scope, bus_error_message(&error, r));
+                sd_bus_error_free(&error);
+        }
+
+        r = bus_call_method(bus, bus_systemd_mgr, "UnrefUnit", &error, /* ret_reply= */ NULL, "s", scope);
+        if (r < 0)
+                log_debug_errno(r, "Failed to drop reference to scope '%s', ignoring: %s", scope, bus_error_message(&error, r));
+
+        return 0;
+}

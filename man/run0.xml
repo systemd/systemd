@@ -1,0 +1,467 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="run0"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>run0</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>run0</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>run0</refname>
+    <refpurpose>Elevate privileges</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>run0</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="opt" rep="repeat">COMMAND</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>run0</command> may be used to temporarily and interactively acquire elevated or different
+    privileges. It serves a similar purpose as <citerefentry
+    project='man-pages'><refentrytitle>sudo</refentrytitle><manvolnum>8</manvolnum></citerefentry>, but
+    operates differently in a couple of key areas:</para>
+
+    <itemizedlist>
+      <listitem><para>No execution or security context credentials are inherited from the caller into the
+      invoked commands, as they are invoked from a fresh, isolated service forked off by the service manager.
+      </para></listitem>
+
+      <listitem><para>Authentication takes place via <ulink
+      url="https://www.freedesktop.org/wiki/Software/polkit">polkit</ulink>, thus isolating the
+      authentication prompt from the terminal (if possible).</para></listitem>
+
+      <listitem><para>An independent pseudo-tty is allocated for the invoked command, detaching its lifecycle and
+      isolating it for security.</para></listitem>
+
+      <listitem><para>No SetUID/SetGID file access bit functionality is used for the implementation.</para></listitem>
+    </itemizedlist>
+
+    <para>Altogether this should provide a safer and more robust alternative to the <command>sudo</command>
+    mechanism, in particular in OS environments where SetUID/SetGID support is not available (for example by
+    setting the <varname>NoNewPrivileges=</varname> variable in
+    <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>).</para>
+
+    <para>Any session invoked via <command>run0</command> will run through the
+    <literal>systemd-run0</literal> PAM stack.</para>
+
+    <para>Note that <command>run0</command> is implemented as an alternative multi-call invocation of
+    <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>. That is,
+    <command>run0</command> is a symbolic link to <command>systemd-run</command> executable file, and it
+    behaves as <command>run0</command> if it is invoked through the symbolic link, otherwise behaves as
+    <command>systemd-run</command>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--unit=</option></term>
+
+        <listitem><para>Use this unit name instead of an automatically generated one.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--property=</option></term>
+
+        <listitem><para>Sets a property of the service unit that is created. This option takes an assignment
+        in the same format as
+        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+        <command>set-property</command> command.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--description=</option></term>
+
+        <listitem><para>Provide a description for the service unit that is invoked. If not specified,
+        the command itself will be used as a description. See <varname>Description=</varname> in
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--slice=</option></term>
+
+        <listitem><para>Make the new <filename>.service</filename> unit part of the specified slice, instead
+        of <filename>user.slice</filename>. This option conflicts with <option>--lightweight=</option> and
+        <option>--area=</option>, and implies <literal>XDG_SESSION_CLASS=none</literal>,
+        to keep the new process within the specified slice instead of a new session scope.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--slice-inherit</option></term>
+
+        <listitem><para>Make the new <filename>.service</filename> unit part of the slice the
+        <command>run0</command> itself has been invoked in. This option may be combined with
+        <option>--slice=</option>, in which case the slice specified via <option>--slice=</option> is placed
+        within the slice the <command>run0</command> command is invoked in. Also conflicts with
+        <option>--lightweight=</option> and <option>--area=</option> and implies
+        <literal>XDG_SESSION_CLASS=none</literal>, similar to <option>--slice=</option>.</para>
+
+        <para>Example: consider <command>run0</command> being invoked in the slice
+        <filename>foo.slice</filename>, and the <option>--slice=</option> argument is
+        <filename>bar</filename>. The unit will then be placed under
+        <filename>foo-bar.slice</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/>
+
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--user=</option></term>
+        <term><option>-u</option></term>
+        <term><option>--group=</option></term>
+        <term><option>-g</option></term>
+
+        <listitem><para>Switches to the specified user/group. If not specified defaults to
+        <literal>root</literal>, unless <option>--area=</option> or <option>--empower</option> are used (see
+        below), in which case this defaults to the invoking user.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--nice=</option></term>
+
+        <listitem><para>Runs the invoked session with the specified nice level.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--chdir=</option></term>
+        <term><option>-D</option></term>
+
+        <listitem><para>Runs the invoked session with the specified working directory. If not specified
+        defaults to the client's current working directory if switching to the root user, or the target
+        user's home directory otherwise.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-k</option></term>
+        <term><option>--reset-timestamp</option></term>
+
+        <listitem><para>Revokes temporary polkit authorization for this terminal, if present.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-K</option></term>
+        <term><option>--remove-timestamp</option></term>
+
+        <listitem><para>Revokes all temporary polkit authorizations for this user session.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-v</option></term>
+        <term><option>--validate</option></term>
+
+        <listitem><para>Request authorization from polkit. Can be used to create a temporary authorization
+        without running a command.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--via-shell</option></term>
+
+        <listitem><para>Invokes the target user's login shell and runs the specified command (if any) via it.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-i</option></term>
+
+        <listitem><para>Shortcut for <option>--via-shell --chdir='~'</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--setenv=<replaceable>NAME</replaceable>[=<replaceable>VALUE</replaceable>]</option></term>
+
+        <listitem><para>Runs the invoked session with the specified environment variable set. This parameter
+        may be used more than once to set multiple variables. When <literal>=</literal> and
+        <replaceable>VALUE</replaceable> are omitted, the value of the variable with the same name in the
+        invoking environment will be used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--background=<replaceable>COLOR</replaceable></option></term>
+
+        <listitem><para>Change the terminal background color to the specified ANSI color as long as the
+        session lasts. If not specified, the background will be tinted in a reddish tone when operating as
+        root, and in a yellowish tone when operating under another UID, as reminder of the changed
+        privileges. The color specified should be an ANSI X3.64 SGR background color, i.e. strings such as
+        <literal>40</literal>, <literal>41</literal>, …, <literal>47</literal>, <literal>48;2;…</literal>,
+        <literal>48;5;…</literal>. See <ulink
+        url="https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_(Select_Graphic_Rendition)_parameters">ANSI
+        Escape Code (Wikipedia)</ulink> for details. Set to an empty string to disable.</para>
+
+        <para>Example: <literal>--background=44</literal> for a blue background.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--pty</option></term>
+        <term><option>--pty-late</option></term>
+        <term><option>--pipe</option></term>
+
+        <listitem><para>Request allocation of a pseudo TTY for the <command>run0</command> session (in case
+        of <option>--pty</option> or <option>--pty-late</option>), or request passing the caller's STDIO file
+        descriptors directly through (in case of <option>--pipe</option>). <option>--pty-late</option> is
+        very similar to <option>--pty</option> but begins the TTY processing only once unit startup is
+        complete, leaving input to any passwords/polkit agents until that time. If neither switch is
+        specified, or if both <option>--pipe</option> and one of
+        <option>--pty</option>/<option>--pty-late</option> are specified, the mode will be picked
+        automatically: if standard input, standard output, and standard error output are all connected to a
+        TTY then a pseudo TTY is allocated (in <option>--pty-late</option> mode unless
+        <option>--no-ask-password</option> is specified in which case <option>--pty</option> is selected),
+        otherwise the relevant file descriptors are passed through directly.</para>
+
+        <para id="v257"><option>--pty</option> and <option>--pipe</option> were added in v257.</para>
+        <para id="v258"><option>--pty-late</option> was added in v258.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--shell-prompt-prefix=<replaceable>STRING</replaceable></option></term>
+
+        <listitem><para>Set a shell prompt prefix string. This ultimately controls the
+        <varname>$SHELL_PROMPT_PREFIX</varname> environment variable for the invoked program, which is
+        typically imported into the shell prompt. By default – if emojis are supported –, a superhero emoji is
+        shown (🦸). This default may also be changed (or turned off) by passing the
+        <varname>$SYSTEMD_RUN_SHELL_PROMPT_PREFIX</varname> environment variable to <varname>run0</varname>,
+        see below. Set to an empty string to disable shell prompt prefixing.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--lightweight=<replaceable>BOOLEAN</replaceable></option></term>
+
+        <listitem><para>Controls whether to activate the per-user service manager for the target user. By
+        default (unset or set to <option>auto</option>), if the target user is <literal>root</literal> or
+        a system user the per-user service manager is not activated as effect of the <command>run0</command>
+        invocation, otherwise it is.</para>
+
+        <para>This ultimately controls the <varname>$XDG_SESSION_CLASS</varname> environment variable
+        <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        respects.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--area=<replaceable>AREA</replaceable></option></term>
+
+        <listitem><para>Controls the "area" of the target account to log into. Areas are secondary home
+        directories within the primary home directory of the target user, i.e. logging into area
+        <literal>foobar</literal> of an account translates to <varname>$HOME</varname> being set to
+        <filename>~/Areas/foobar</filename> on login.</para>
+
+        <para>If this option is used, the default user to transition to changes from root to the calling
+        user's (but <option>--user=</option> takes precedence, see above). Or in other words, just specifying
+        an area without a user is a mechanism to create a new session of the calling user, just with a
+        different area.</para>
+
+        <para>This ultimately controls the <varname>$XDG_AREA</varname> environment variable
+        <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        respects.</para>
+
+        <para>For details on the area concept see
+        <citerefentry><refentrytitle>pam_systemd_home</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--empower</option></term>
+
+        <listitem><para>If specified, run0 will elevate the privileges of the selected user (using
+        <option>--user=</option>) or the current user if no user is explicitly selected. Currently this means
+        we give the invoked process all available capabilities and add the <literal>empower</literal>
+        group as a supplemental group (for which all polkit actions are allowed by default), but other
+        privileges may be granted in the future as well when using this option.</para>
+
+        <para>Note that other (unprivileged) processes of the selected user will have privileges over the
+        invoked process. Consider not using this option in an environment where there might be malicious
+        processes running as the selected user.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--same-root-dir</option></term>
+
+        <listitem><para>Execute the <command>run0</command> session in the same root directory that the
+        <command>run0</command> command is executed in.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--machine=</option></term>
+
+        <listitem>
+          <para>Execute operation in a local container. Specify a container name to connect to.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-n</option></term>
+        <term><option>--non-interactive</option></term>
+
+        <listitem><para>Equivalent to <option>--no-ask-password</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="no-ask-password" />
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+
+    <para>All command line arguments after the first non-option argument become part of the command line of
+    the launched process. If no command line is specified an interactive shell is invoked. The shell to
+    invoke may be controlled through <option>--via-shell</option> - when specified the target user's shell
+    is used - or <option>--setenv=SHELL=…</option>. By default, the <emphasis>originating user's</emphasis> shell
+    is executed if operating locally, or <filename>/bin/sh</filename> when operating with <option>--machine=</option>.</para>
+
+    <para>Note that unlike <command>sudo</command>, <command>run0</command> always spawns shells with login shell
+    semantics, regardless of <option>-i</option>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned. If <command>run0</command> failed to start the session or the specified command fails, a
+    non-zero return value will be returned.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Environment Variables</title>
+
+    <para>As with <command>systemd-run</command>, the session will inherit the system
+    environment from the service manager. In addition, the following environment variables will be set:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><varname>$TERM</varname></term>
+        <listitem><para>Copied from the <varname>$TERM</varname> of the caller. Can be overridden with
+        <option>--setenv=</option></para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$SUDO_USER</varname></term>
+        <listitem><para>Set to the username of the originating user.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$SUDO_UID</varname></term>
+        <listitem><para>Set to the numeric UNIX user id of the originating user.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$SUDO_GID</varname></term>
+        <listitem><para>Set to the primary numeric UNIX group id of the originating session.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$SHELL_PROMPT_PREFIX</varname></term>
+        <listitem><para>By default, set to the superhero emoji (if supported), but may be overridden with the
+        <varname>$SYSTEMD_RUN_SHELL_PROMPT_PREFIX</varname> environment variable (see below), or the
+        <option>--shell-prompt-prefix=</option> switch (see above).</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>The following variables may be passed to <command>run0</command>:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><varname>$SYSTEMD_RUN_SHELL_PROMPT_PREFIX</varname></term>
+        <listitem><para>If set, overrides the default shell prompt prefix that <command>run0</command> sets
+        for the invoked shell (the superhero emoji). Set to an empty string to disable shell prompt
+        prefixing.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>sudo</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

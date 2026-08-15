@@ -1,0 +1,22 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Create List of Static Device Nodes
+Documentation=man:kmod(8)
+DefaultDependencies=no
+Before=sysinit.target systemd-tmpfiles-setup-dev-early.service
+ConditionCapability=CAP_SYS_MODULE
+ConditionFileNotEmpty=/lib/modules/%v/modules.devname
+ConditionPathExists={{KMOD}}
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart={{KMOD}} static-nodes --format=tmpfiles --output=/run/tmpfiles.d/static-nodes.conf

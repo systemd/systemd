@@ -1,0 +1,18 @@
+#autoload
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+(( $+functions[__sd_machines_get_machines] )) ||
+    __sd_machines_get_machines () {
+        { machinectl list --full --max-addresses=0 --no-legend --no-pager 2>/dev/null; echo ".host"; } |
+            { while read -r a b; do echo "$a"; done; } |
+            sort -u
+    }
+
+local -a _machines
+_machines=("${(fo)$(__sd_machines_get_machines)}")
+typeset -U _machines
+if [[ -n "$_machines" ]]; then
+    _describe 'machines' _machines
+else
+    _message 'no machines'
+fi

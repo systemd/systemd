@@ -1,0 +1,151 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+libsystemd_network_sources = files(
+        'arp-util.c',
+        'dhcp-client-send.c',
+        'dhcp-message.c',
+        'dhcp-message-dump.c',
+        'dhcp-protocol.c',
+        'dhcp-relay-downstream.c',
+        'dhcp-relay-interface.c',
+        'dhcp-relay-upstream.c',
+        'dhcp-route.c',
+        'dhcp-server-request.c',
+        'dhcp-server-send.c',
+        'dhcp6-network.c',
+        'dhcp6-option.c',
+        'dhcp6-protocol.c',
+        'icmp6-packet.c',
+        'icmp6-util.c',
+        'ip-util.c',
+        'lldp-neighbor.c',
+        'lldp-network.c',
+        'ndisc-option.c',
+        'network-common.c',
+        'network-internal.c',
+        'sd-dhcp-client-id.c',
+        'sd-dhcp-client.c',
+        'sd-dhcp-duid.c',
+        'sd-dhcp-lease.c',
+        'sd-dhcp-relay.c',
+        'sd-dhcp-server-lease.c',
+        'sd-dhcp-server.c',
+        'sd-dhcp6-client.c',
+        'sd-dhcp6-lease.c',
+        'sd-dns-resolver.c',
+        'sd-ipv4acd.c',
+        'sd-ipv4ll.c',
+        'sd-lldp-rx.c',
+        'sd-lldp-tx.c',
+        'sd-ndisc.c',
+        'sd-ndisc-neighbor.c',
+        'sd-ndisc-redirect.c',
+        'sd-ndisc-router.c',
+        'sd-ndisc-router-solicit.c',
+        'sd-radv.c',
+        'tlv-util.c',
+)
+
+sources += libsystemd_network_sources
+
+libsystemd_network = static_library(
+        'systemd-network',
+        libsystemd_network_sources,
+        include_directories : includes,
+        implicit_include_directories : false,
+        dependencies : userspace,
+        build_by_default : false)
+
+libsystemd_network_includes = [include_directories('.'), includes]
+
+############################################################
+
+network_test_template = test_template + {
+        'link_with' : [
+                libshared,
+                libsystemd_network,
+        ],
+        'suite' : 'network',
+}
+
+network_fuzz_template = fuzz_template + {
+        'link_with' : [
+                libshared,
+                libsystemd_network,
+        ],
+}
+
+executables += [
+        network_test_template + {
+                'sources' : files('test-acd.c'),
+                'type' : 'manual',
+        },
+        network_test_template + {
+                'sources' : files('test-dhcp-client.c'),
+        },
+        network_test_template + {
+                'sources' : files('test-dhcp-client-id.c'),
+        },
+        network_test_template + {
+                'sources' : files('test-dhcp-duid.c'),
+        },
+        network_test_template + {
+                'sources' : files('test-dhcp-message.c'),
+        },
+        network_test_template + {
+                'sources' : files('test-dhcp-relay.c'),
+        },
+        network_test_template + {
+                'sources' : files('test-dhcp-server.c'),
+        },
+        network_test_template + {
+                'sources' : files('test-dhcp6-client.c'),
+        },
+        network_test_template + {
+                'sources' : files('test-ip-util.c'),
+        },
+        network_test_template + {
+                'sources' : files('test-ipv4ll-manual.c'),
+                'type' : 'manual',
+        },
+        network_test_template + {
+                'sources' : files('test-ipv4ll.c'),
+        },
+        network_test_template + {
+                'sources' : files('test-lldp-rx.c'),
+        },
+        network_test_template + {
+                'sources' : files('test-ndisc-ra.c'),
+                'export' : files('icmp6-test-util.c'),
+        },
+        network_test_template + {
+                'sources' : files('test-ndisc-rs.c'),
+                'import' : ['test-ndisc-ra'],
+        },
+        network_test_template + {
+                'sources' : files('test-ndisc-send.c'),
+                'type' : 'manual',
+        },
+        network_test_template + {
+                'sources' : files('test-tlv-util.c'),
+        },
+        network_fuzz_template + {
+                'sources' : files('fuzz-dhcp-client.c'),
+        },
+        network_fuzz_template + {
+                'sources' : files('fuzz-dhcp-relay.c'),
+        },
+        network_fuzz_template + {
+                'sources' : files('fuzz-dhcp6-client.c'),
+        },
+        network_fuzz_template + {
+                'sources' : files('fuzz-dhcp-server.c'),
+        },
+        network_fuzz_template + {
+                'sources' : files('fuzz-lldp-rx.c'),
+        },
+        network_fuzz_template + {
+                'sources' : files('fuzz-ndisc-rs.c'),
+                'import' : ['test-ndisc-ra'],
+        },
+]

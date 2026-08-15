@@ -1,0 +1,2330 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include <unistd.h>
+
+#include "sd-bus.h"
+#include "sd-daemon.h"
+#include "sd-event.h"
+#include "sd-json.h"
+
+#include "alloc-util.h"
+#include "ansi-color.h"
+#include "bitfield.h"
+#include "build.h"
+#include "bus-dump.h"
+#include "bus-error.h"
+#include "bus-internal.h"
+#include "bus-signature.h"
+#include "bus-type.h"
+#include "bus-util.h"
+#include "busctl-introspect.h"
+#include "capsule-util.h"
+#include "errno-util.h"
+#include "escape.h"
+#include "fd-util.h"
+#include "fdset.h"
+#include "fileio.h"
+#include "format-table.h"
+#include "glyph-util.h"
+#include "help-util.h"
+#include "log.h"
+#include "logarithm.h"
+#include "main-func.h"
+#include "memstream-util.h"
+#include "options.h"
+#include "os-util.h"
+#include "pager.h"
+#include "parse-argument.h"
+#include "parse-util.h"
+#include "path-util.h"
+#include "runtime-scope.h"
+#include "set.h"
+#include "string-util.h"
+#include "strv.h"
+#include "terminal-util.h"
+#include "time-util.h"
+#include "user-util.h"
+#include "verbs.h"
+#include "version.h"
+
+static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
+static PagerFlags arg_pager_flags = 0;
+static bool arg_legend = true;
+static int arg_full = -1;
+static const char *arg_address = NULL;
+static bool arg_unique = false;
+static bool arg_acquired = false;
+static bool arg_activatable = false;
+static bool arg_show_machine = false;
+static char **arg_matches = NULL;
+static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
+static const char *arg_host = NULL;
+static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+static size_t arg_snaplen = 4096;
+static bool arg_list = false;
+static bool arg_quiet = false;
+static bool arg_verbose = false;
+static bool arg_xml_interface = false;
+static bool arg_expect_reply = true;
+static bool arg_auto_start = true;
+static bool arg_allow_interactive_authorization = true;
+static bool arg_augment_creds = true;
+static bool arg_watch_bind = false;
+static usec_t arg_timeout = 0;
+static const char *arg_destination = NULL;
+static uint64_t arg_limit_messages = UINT64_MAX;
+static uint64_t arg_limit_signals = 1;
+
+STATIC_DESTRUCTOR_REGISTER(arg_matches, strv_freep);
+
+#define NAME_IS_ACQUIRED INT_TO_PTR(1)
+#define NAME_IS_ACTIVATABLE INT_TO_PTR(2)
+
+static int acquire_bus(bool set_monitor, sd_bus **ret) {
+        _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_close_ int pin_fd = -EBADF;
+        int r;
+
+        r = sd_bus_new(&bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate bus: %m");
+
+        (void) sd_bus_set_description(bus, "busctl");
+
+        if (set_monitor) {
+                r = sd_bus_set_monitor(bus, true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set monitor mode: %m");
+
+                r = sd_bus_negotiate_creds(bus, true, _SD_BUS_CREDS_ALL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enable credentials: %m");
+
+                r = sd_bus_negotiate_timestamp(bus, true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enable timestamps: %m");
+
+                r = sd_bus_negotiate_fds(bus, true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enable fds: %m");
+        }
+
+        r = sd_bus_set_bus_client(bus, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set bus client: %m");
+
+        r = sd_bus_set_watch_bind(bus, arg_watch_bind);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set watch-bind setting to '%s': %m",
+                                       yes_no(arg_watch_bind));
+
+        if (arg_address)
+                r = sd_bus_set_address(bus, arg_address);
+        else
+                switch (arg_transport) {
+
+                case BUS_TRANSPORT_LOCAL:
+
+                        switch (arg_runtime_scope) {
+
+                        case RUNTIME_SCOPE_USER:
+                                r = bus_set_address_user(bus);
+                                break;
+
+                        case RUNTIME_SCOPE_SYSTEM:
+                                r = bus_set_address_system(bus);
+                                break;
+
+                        default:
+                                assert_not_reached();
+                        }
+
+                        break;
+
+                case BUS_TRANSPORT_REMOTE:
+                        r = bus_set_address_system_remote(bus, arg_host);
+                        break;
+
+                case BUS_TRANSPORT_MACHINE:
+                        r = bus_set_address_machine(bus, arg_runtime_scope, arg_host);
+                        break;
+
+                case BUS_TRANSPORT_CAPSULE:
+                        r = bus_set_address_capsule_bus(bus, arg_host, &pin_fd);
+                        break;
+
+                default:
+                        assert_not_reached();
+                }
+        if (r < 0)
+                return bus_log_address_error(r, arg_transport);
+
+        r = sd_bus_start(bus);
+        if (r < 0)
+                return bus_log_connect_error(r, arg_transport, arg_runtime_scope);
+
+        *ret = TAKE_PTR(bus);
+
+        return 0;
+}
+
+static void notify_bus_error(const sd_bus_error *error) {
+
+        if (!sd_bus_error_is_set(error))
+                return;
+
+        (void) sd_notifyf(/* unset_environment= */ false, "BUSERROR=%s", error->name);
+}
+
+VERB_DEFAULT_NOARG(verb_list, "list", "List bus names");
+static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_strv_free_ char **acquired = NULL, **activatable = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_hashmap_free_ Hashmap *names = NULL;
+        _cleanup_(table_unrefp) Table *table = NULL;
+        char *k;
+        void *v;
+        int r;
+
+        enum {
+                COLUMN_ACTIVATABLE,
+                COLUMN_NAME,
+                COLUMN_PID,
+                COLUMN_PROCESS,
+                COLUMN_USER,
+                COLUMN_CONNECTION,
+                COLUMN_UNIT,
+                COLUMN_SESSION,
+                COLUMN_DESCRIPTION,
+                COLUMN_MACHINE,
+        };
+
+        if (!arg_unique && !arg_acquired && !arg_activatable)
+                arg_unique = arg_acquired = arg_activatable = true;
+
+        r = acquire_bus(false, &bus);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_list_names(bus,
+                              (arg_acquired || arg_unique) ? &acquired : NULL,
+                              arg_activatable ? &activatable : NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to list names: %m");
+
+        names = hashmap_new(&string_hash_ops);
+        if (!names)
+                return log_oom();
+
+        STRV_FOREACH(i, acquired) {
+                r = hashmap_put(names, *i, NAME_IS_ACQUIRED);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add to hashmap: %m");
+        }
+
+        STRV_FOREACH(i, activatable) {
+                r = hashmap_put(names, *i, NAME_IS_ACTIVATABLE);
+                if (r < 0 && r != -EEXIST)
+                        return log_error_errno(r, "Failed to add to hashmap: %m");
+        }
+
+        table = table_new("activatable",
+                          "name",
+                          "pid",
+                          "process",
+                          "user",
+                          "connection",
+                          "unit",
+                          "session",
+                          "description",
+                          "machine");
+        if (!table)
+                return log_oom();
+
+        if (arg_full > 0)
+                table_set_width(table, 0);
+
+        r = table_set_align_percent(table, table_get_cell(table, 0, COLUMN_PID), 100);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set alignment: %m");
+
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
+
+        r = table_set_sort(table, (size_t) COLUMN_NAME);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set sort column: %m");
+
+        if (arg_show_machine)
+                r = table_set_display(table, (size_t) COLUMN_NAME,
+                                             (size_t) COLUMN_PID,
+                                             (size_t) COLUMN_PROCESS,
+                                             (size_t) COLUMN_USER,
+                                             (size_t) COLUMN_CONNECTION,
+                                             (size_t) COLUMN_UNIT,
+                                             (size_t) COLUMN_SESSION,
+                                             (size_t) COLUMN_DESCRIPTION,
+                                             (size_t) COLUMN_MACHINE);
+        else
+                r = table_set_display(table, (size_t) COLUMN_NAME,
+                                             (size_t) COLUMN_PID,
+                                             (size_t) COLUMN_PROCESS,
+                                             (size_t) COLUMN_USER,
+                                             (size_t) COLUMN_CONNECTION,
+                                             (size_t) COLUMN_UNIT,
+                                             (size_t) COLUMN_SESSION,
+                                             (size_t) COLUMN_DESCRIPTION);
+
+        if (r < 0)
+                return log_error_errno(r, "Failed to set columns to display: %m");
+
+        HASHMAP_FOREACH_KEY(v, k, names) {
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+
+                if (v == NAME_IS_ACTIVATABLE) {
+                        r = table_add_many(
+                                        table,
+                                        TABLE_INT, PTR_TO_INT(v),
+                                        TABLE_STRING, k,
+                                        TABLE_EMPTY,
+                                        TABLE_EMPTY,
+                                        TABLE_EMPTY,
+                                        TABLE_STRING, "(activatable)", TABLE_SET_COLOR, ansi_grey(),
+                                        TABLE_EMPTY,
+                                        TABLE_EMPTY,
+                                        TABLE_EMPTY,
+                                        TABLE_EMPTY);
+                        if (r < 0)
+                                return table_log_add_error(r);
+
+                        continue;
+                }
+
+                assert(v == NAME_IS_ACQUIRED);
+
+                if (!arg_unique && k[0] == ':')
+                        continue;
+
+                if (!arg_acquired && k[0] != ':')
+                        continue;
+
+                r = table_add_many(table,
+                                   TABLE_INT, PTR_TO_INT(v),
+                                   TABLE_STRING, k);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                r = sd_bus_get_name_creds(
+                                bus, k,
+                                (arg_augment_creds ? SD_BUS_CREDS_AUGMENT : 0) |
+                                SD_BUS_CREDS_EUID|SD_BUS_CREDS_PID|SD_BUS_CREDS_COMM|
+                                SD_BUS_CREDS_UNIQUE_NAME|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_SESSION|
+                                SD_BUS_CREDS_DESCRIPTION, &creds);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to acquire credentials of service %s, ignoring: %m", k);
+
+                        r = table_fill_empty(table, COLUMN_MACHINE);
+                } else {
+                        const char *unique = NULL, *session = NULL, *unit = NULL, *cn = NULL;
+                        pid_t pid;
+                        uid_t uid;
+
+                        r = sd_bus_creds_get_pid(creds, &pid);
+                        if (r >= 0) {
+                                const char *comm = NULL;
+
+                                (void) sd_bus_creds_get_comm(creds, &comm);
+
+                                r = table_add_many(table,
+                                                   TABLE_PID, pid,
+                                                   TABLE_STRING, strna(comm));
+                        } else
+                                r = table_add_many(table, TABLE_EMPTY, TABLE_EMPTY);
+                        if (r < 0)
+                                return table_log_add_error(r);
+
+                        r = sd_bus_creds_get_euid(creds, &uid);
+                        if (r >= 0) {
+                                _cleanup_free_ char *u = NULL;
+
+                                u = uid_to_name(uid);
+                                if (!u)
+                                        return log_oom();
+
+                                r = table_add_cell(table, NULL, TABLE_STRING, u);
+                        } else
+                                r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                        if (r < 0)
+                                return table_log_add_error(r);
+
+                        (void) sd_bus_creds_get_unique_name(creds, &unique);
+                        (void) sd_bus_creds_get_unit(creds, &unit);
+                        (void) sd_bus_creds_get_session(creds, &session);
+                        (void) sd_bus_creds_get_description(creds, &cn);
+
+                        r = table_add_many(
+                                        table,
+                                        TABLE_STRING, unique,
+                                        TABLE_STRING, unit,
+                                        TABLE_STRING, session,
+                                        TABLE_STRING, cn);
+                }
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                if (arg_show_machine) {
+                        sd_id128_t mid;
+
+                        r = sd_bus_get_name_machine_id(bus, k, &mid);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to acquire credentials of service %s, ignoring: %m", k);
+                        else {
+                                r = table_add_cell(table, NULL, TABLE_ID128, &mid);
+                                if (r < 0)
+                                        return table_log_add_error(r);
+
+                                continue; /* line fully filled, no need to fill the remainder below */
+                        }
+                }
+
+                r = table_fill_empty(table, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to fill line: %m");
+        }
+
+        return table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
+}
+
+static void print_subtree(const char *prefix, const char *path, char **l) {
+        assert(l);
+
+        /* We assume the list is sorted. Let's first skip over the
+         * entry we are looking at. */
+        for (;;) {
+                if (!*l)
+                        return;
+
+                if (!streq(*l, path))
+                        break;
+
+                l++;
+        }
+
+        const char
+                *vertical = strjoina(prefix, glyph(GLYPH_TREE_VERTICAL)),
+                *space = strjoina(prefix, glyph(GLYPH_TREE_SPACE));
+
+        for (;;) {
+                bool has_more = false;
+                char **n;
+
+                if (!*l || !path_startswith(*l, path))
+                        break;
+
+                n = l + 1;
+                for (;;) {
+                        if (!*n || !path_startswith(*n, path))
+                                break;
+
+                        if (!path_startswith(*n, *l)) {
+                                has_more = true;
+                                break;
+                        }
+
+                        n++;
+                }
+
+                printf("%s%s %s\n",
+                       prefix,
+                       glyph(has_more ? GLYPH_TREE_BRANCH : GLYPH_TREE_RIGHT),
+                       *l);
+
+                print_subtree(has_more ? vertical : space, *l, l);
+                l = n;
+        }
+}
+
+static void print_tree(char **l) {
+        if (arg_list)
+                strv_print(l);
+        else if (strv_isempty(l))
+                printf("No objects discovered.\n");
+        else if (streq(l[0], "/") && !l[1])
+                printf("Only root object discovered.\n");
+        else
+                print_subtree("", "/", l);
+}
+
+static int on_path(const char *path, void *userdata) {
+        Set *paths = ASSERT_PTR(userdata);
+        int r;
+
+        r = set_put_strdup(&paths, path);
+        if (r < 0)
+                return log_oom();
+
+        return 0;
+}
+
+static int find_nodes(sd_bus *bus, const char *service, const char *path, Set *paths) {
+        static const XMLIntrospectOps ops = {
+                .on_path = on_path,
+        };
+
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        const char *xml;
+        int r;
+
+        r = sd_bus_call_method(bus, service, path,
+                               "org.freedesktop.DBus.Introspectable", "Introspect",
+                               &error, &reply, NULL);
+        if (r < 0) {
+                notify_bus_error(&error);
+                printf("%sFailed to introspect object %s of service %s: %s%s\n",
+                       ansi_highlight_red(),
+                       path, service, bus_error_message(&error, r),
+                       ansi_normal());
+                return r;
+        }
+
+        r = sd_bus_message_read(reply, "s", &xml);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        return parse_xml_introspect(path, xml, &ops, paths);
+}
+
+static int tree_one(sd_bus *bus, const char *service) {
+        _cleanup_set_free_ Set *paths = NULL, *done = NULL, *failed = NULL;
+        _cleanup_free_ char **l = NULL;
+        int r;
+
+        r = set_put_strdup(&paths, "/");
+        if (r < 0)
+                return log_oom();
+
+        for (;;) {
+                _cleanup_free_ char *p = NULL;
+                int q;
+
+                p = set_steal_first(paths);
+                if (!p)
+                        break;
+
+                if (set_contains(done, p) ||
+                    set_contains(failed, p))
+                        continue;
+
+                q = find_nodes(bus, service, p, paths);
+                if (q < 0 && r >= 0)
+                        r = q;
+
+                q = set_ensure_consume(q < 0 ? &failed : &done, &string_hash_ops_free, TAKE_PTR(p));
+                assert(q != 0);
+                if (q < 0)
+                        return log_oom();
+        }
+
+        pager_open(arg_pager_flags);
+
+        l = set_get_strv(done);
+        if (!l)
+                return log_oom();
+
+        strv_sort(l);
+        print_tree(l);
+
+        fflush(stdout);
+
+        return r;
+}
+
+VERB(verb_tree, "tree", "[SERVICE…]", VERB_ANY, VERB_ANY, 0,
+     "Show object tree of service");
+static int verb_tree(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int r;
+
+        /* Do superficial verification of arguments before even opening the bus */
+        STRV_FOREACH(i, strv_skip(argv, 1))
+                if (!sd_bus_service_name_is_valid(*i))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Invalid bus service name: %s", *i);
+
+        if (!arg_unique && !arg_acquired)
+                arg_acquired = true;
+
+        r = acquire_bus(false, &bus);
+        if (r < 0)
+                return r;
+
+        char **args = strv_skip(argv, 1);
+        if (args)
+                STRV_FOREACH(arg, args) {
+                        if (arg != args)
+                                puts("");
+
+                        if (args[1]) {
+                                pager_open(arg_pager_flags);
+                                printf("Service %s%s%s:\n", ansi_highlight(), *arg, ansi_normal());
+                        }
+
+                        RET_GATHER(r, tree_one(bus, *arg));
+                }
+        else {
+                _cleanup_strv_free_ char **names = NULL;
+
+                r = sd_bus_list_names(bus, &names, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get name list: %m");
+
+                pager_open(arg_pager_flags);
+
+                STRV_FOREACH(name, names) {
+                        if (!arg_unique && (*name)[0] == ':')
+                                continue;
+
+                        if (!arg_acquired && (*name)[0] == ':')
+                                continue;
+
+                        if (name != names)
+                                puts("");
+
+                        printf("Service %s%s%s:\n", ansi_highlight(), *name, ansi_normal());
+
+                        RET_GATHER(r, tree_one(bus, *name));
+                }
+        }
+
+        return r;
+}
+
+static int format_cmdline(sd_bus_message *m, FILE *f, bool needs_space) {
+        int r;
+
+        for (;;) {
+                const char *contents = NULL;
+                char type;
+                union {
+                        uint8_t u8;
+                        uint16_t u16;
+                        int16_t s16;
+                        uint32_t u32;
+                        int32_t s32;
+                        uint64_t u64;
+                        int64_t s64;
+                        double d64;
+                        const char *string;
+                        int i;
+                } basic;
+
+                r = sd_bus_message_peek_type(m, &type, &contents);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return needs_space;
+
+                if (bus_type_is_container(type) > 0) {
+
+                        r = sd_bus_message_enter_container(m, type, contents);
+                        if (r < 0)
+                                return r;
+
+                        if (type == SD_BUS_TYPE_ARRAY) {
+                                unsigned n = 0;
+
+                                /* count array entries */
+                                for (;;) {
+
+                                        r = sd_bus_message_skip(m, contents);
+                                        if (r < 0)
+                                                return r;
+                                        if (r == 0)
+                                                break;
+
+                                        n++;
+                                }
+
+                                r = sd_bus_message_rewind(m, false);
+                                if (r < 0)
+                                        return r;
+
+                                if (needs_space)
+                                        fputc(' ', f);
+
+                                fprintf(f, "%u", n);
+                                needs_space = true;
+
+                        } else if (type == SD_BUS_TYPE_VARIANT) {
+
+                                if (needs_space)
+                                        fputc(' ', f);
+
+                                fprintf(f, "%s", contents);
+                                needs_space = true;
+                        }
+
+                        r = format_cmdline(m, f, needs_space);
+                        if (r < 0)
+                                return r;
+
+                        needs_space = r > 0;
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return r;
+
+                        continue;
+                }
+
+                r = sd_bus_message_read_basic(m, type, &basic);
+                if (r < 0)
+                        return r;
+
+                if (needs_space)
+                        fputc(' ', f);
+
+                switch (type) {
+                case SD_BUS_TYPE_BYTE:
+                        fprintf(f, "%u", basic.u8);
+                        break;
+
+                case SD_BUS_TYPE_BOOLEAN:
+                        fputs(true_false(basic.i), f);
+                        break;
+
+                case SD_BUS_TYPE_INT16:
+                        fprintf(f, "%i", basic.s16);
+                        break;
+
+                case SD_BUS_TYPE_UINT16:
+                        fprintf(f, "%u", basic.u16);
+                        break;
+
+                case SD_BUS_TYPE_INT32:
+                        fprintf(f, "%i", basic.s32);
+                        break;
+
+                case SD_BUS_TYPE_UINT32:
+                        fprintf(f, "%u", basic.u32);
+                        break;
+
+                case SD_BUS_TYPE_INT64:
+                        fprintf(f, "%" PRIi64, basic.s64);
+                        break;
+
+                case SD_BUS_TYPE_UINT64:
+                        fprintf(f, "%" PRIu64, basic.u64);
+                        break;
+
+                case SD_BUS_TYPE_DOUBLE:
+                        fprintf(f, "%g", basic.d64);
+                        break;
+
+                case SD_BUS_TYPE_STRING:
+                case SD_BUS_TYPE_OBJECT_PATH:
+                case SD_BUS_TYPE_SIGNATURE: {
+                        _cleanup_free_ char *b = NULL;
+
+                        b = cescape(basic.string);
+                        if (!b)
+                                return -ENOMEM;
+
+                        fprintf(f, "\"%s\"", b);
+                        break;
+                }
+
+                case SD_BUS_TYPE_UNIX_FD:
+                        fprintf(f, "%i", basic.i);
+                        break;
+
+                default:
+                        assert_not_reached();
+                }
+
+                needs_space = true;
+        }
+}
+
+typedef struct Member {
+        const char *type;
+        char *interface;
+        char *name;
+        char *signature;
+        char *result;
+        char *value;
+        bool writable;
+        uint64_t flags;
+} Member;
+
+static void member_hash_func(const Member *m, struct siphash *state) {
+        uint64_t arity = 1;
+
+        assert(m);
+        assert(m->type);
+
+        string_hash_func(m->type, state);
+
+        arity += !!m->name + !!m->interface;
+
+        uint64_hash_func(&arity, state);
+
+        if (m->name)
+                string_hash_func(m->name, state);
+
+        if (m->signature)
+                string_hash_func(m->signature, state);
+
+        if (m->interface)
+                string_hash_func(m->interface, state);
+}
+
+static int member_compare_func(const Member *x, const Member *y) {
+        int d;
+
+        assert(x);
+        assert(y);
+        assert(x->type);
+        assert(y->type);
+
+        d = strcmp_ptr(x->interface, y->interface);
+        if (d != 0)
+                return d;
+
+        d = strcmp(x->type, y->type);
+        if (d != 0)
+                return d;
+
+        d = strcmp_ptr(x->name, y->name);
+        if (d != 0)
+                return d;
+
+        return strcmp_ptr(x->signature, y->signature);
+}
+
+static Member* member_free(Member *m) {
+        if (!m)
+                return NULL;
+
+        free(m->interface);
+        free(m->name);
+        free(m->signature);
+        free(m->result);
+        free(m->value);
+        return mfree(m);
+}
+DEFINE_TRIVIAL_CLEANUP_FUNC(Member*, member_free);
+
+static int on_interface(const char *interface, uint64_t flags, void *userdata) {
+        _cleanup_(member_freep) Member *m = NULL;
+        Set *members = ASSERT_PTR(userdata);
+        int r;
+
+        assert(interface);
+
+        m = new(Member, 1);
+        if (!m)
+                return log_oom();
+
+        *m = (Member) {
+                .type = "interface",
+                .flags = flags,
+        };
+
+        r = strdup_to(&m->interface, interface);
+        if (r < 0)
+                return log_oom();
+
+        r = set_consume(members, TAKE_PTR(m));
+        if (r < 0)
+                return log_oom();
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                       "Invalid introspection data: duplicate interface '%s'.", interface);
+
+        return 0;
+}
+
+static int on_method(const char *interface, const char *name, const char *signature, const char *result, uint64_t flags, void *userdata) {
+        _cleanup_(member_freep) Member *m = NULL;
+        Set *members = userdata;
+        int r;
+
+        assert(interface);
+        assert(name);
+
+        m = new(Member, 1);
+        if (!m)
+                return log_oom();
+
+        *m = (Member) {
+                .type = "method",
+                .flags = flags,
+        };
+
+        r = strdup_to(&m->interface, interface);
+        if (r < 0)
+                return log_oom();
+
+        r = strdup_to(&m->name, name);
+        if (r < 0)
+                return log_oom();
+
+        r = strdup_to(&m->signature, signature);
+        if (r < 0)
+                return log_oom();
+
+        r = strdup_to(&m->result, result);
+        if (r < 0)
+                return log_oom();
+
+        r = set_consume(members, TAKE_PTR(m));
+        if (r < 0)
+                return log_oom();
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                       "Invalid introspection data: duplicate method '%s' on interface '%s'.", name, interface);
+
+        return 0;
+}
+
+static int on_signal(const char *interface, const char *name, const char *signature, uint64_t flags, void *userdata) {
+        _cleanup_(member_freep) Member *m = NULL;
+        Set *members = userdata;
+        int r;
+
+        assert(interface);
+        assert(name);
+
+        m = new(Member, 1);
+        if (!m)
+                return log_oom();
+
+        *m = (Member) {
+                .type = "signal",
+                .flags = flags,
+        };
+
+        r = strdup_to(&m->interface, interface);
+        if (r < 0)
+                return log_oom();
+
+        r = strdup_to(&m->name, name);
+        if (r < 0)
+                return log_oom();
+
+        r = strdup_to(&m->signature, signature);
+        if (r < 0)
+                return log_oom();
+
+        r = set_consume(members, TAKE_PTR(m));
+        if (r < 0)
+                return log_oom();
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                       "Invalid introspection data: duplicate signal '%s' on interface '%s'.", name, interface);
+
+        return 0;
+}
+
+static int on_property(const char *interface, const char *name, const char *signature, bool writable, uint64_t flags, void *userdata) {
+        _cleanup_(member_freep) Member *m = NULL;
+        Set *members = userdata;
+        int r;
+
+        assert(interface);
+        assert(name);
+
+        m = new(Member, 1);
+        if (!m)
+                return log_oom();
+
+        *m = (Member) {
+                .type = "property",
+                .flags = flags,
+                .writable = writable,
+        };
+
+        r = strdup_to(&m->interface, interface);
+        if (r < 0)
+                return log_oom();
+
+        r = strdup_to(&m->name, name);
+        if (r < 0)
+                return log_oom();
+
+        r = strdup_to(&m->signature, signature);
+        if (r < 0)
+                return log_oom();
+
+        r = set_consume(members, TAKE_PTR(m));
+        if (r < 0)
+                return log_oom();
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                       "Invalid introspection data: duplicate property '%s' on interface '%s'.", name, interface);
+
+        return 0;
+}
+
+DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+                member_hash_ops,
+                Member,
+                member_hash_func,
+                member_compare_func,
+                member_free);
+
+static int members_flags_to_string(const Member *m, char **ret) {
+        static const char *map[] = {
+                [LOG2U(SD_BUS_VTABLE_DEPRECATED)]                  = "deprecated",
+                [LOG2U(SD_BUS_VTABLE_METHOD_NO_REPLY)]             = "no-reply",
+                [LOG2U(SD_BUS_VTABLE_PROPERTY_CONST)]              = "const",
+                [LOG2U(SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE)]       = "emits-change",
+                [LOG2U(SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION)] = "emits-invalidation",
+        };
+
+        assert(m);
+        assert(ret);
+
+        _cleanup_free_ char *str = NULL;
+        for (size_t i = 0; i < ELEMENTSOF(map); i++)
+                if (BIT_SET(m->flags, i) && map[i])
+                        if (!strextend_with_separator(&str, " ", map[i]))
+                                return -ENOMEM;
+
+        if (m->writable)
+                if (!strextend_with_separator(&str, " ", "writable"))
+                        return -ENOMEM;
+
+        *ret = TAKE_PTR(str);
+        return 0;
+}
+
+VERB(verb_introspect, "introspect", "SERVICE OBJECT [INTERFACE]", 3, 4, 0,
+     "Introspect an object");
+static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        static const XMLIntrospectOps ops = {
+                .on_interface = on_interface,
+                .on_method = on_method,
+                .on_signal = on_signal,
+                .on_property = on_property,
+        };
+
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply_xml = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_set_free_ Set *members = NULL;
+        Member *m;
+        const char *xml;
+        int r;
+
+        r = acquire_bus(false, &bus);
+        if (r < 0)
+                return r;
+
+        members = set_new(&member_hash_ops);
+        if (!members)
+                return log_oom();
+
+        r = sd_bus_call_method(bus, argv[1], argv[2],
+                               "org.freedesktop.DBus.Introspectable", "Introspect",
+                               &error, &reply_xml, NULL);
+        if (r < 0) {
+                notify_bus_error(&error);
+                return log_error_errno(r, "Failed to introspect object %s of service %s: %s",
+                                       argv[2], argv[1], bus_error_message(&error, r));
+        }
+
+        r = sd_bus_message_read(reply_xml, "s", &xml);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        if (arg_xml_interface) {
+                /* Just dump the received XML and finish */
+                pager_open(arg_pager_flags);
+                puts(xml);
+                return 0;
+        }
+
+        /* First, get list of all properties */
+        r = parse_xml_introspect(argv[2], xml, &ops, members);
+        if (r < 0)
+                return r;
+
+        /* Second, find the current values for them */
+        SET_FOREACH(m, members) {
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+
+                if (!streq(m->type, "property"))
+                        continue;
+
+                if (m->value)
+                        continue;
+
+                if (argv[3] && !streq(argv[3], m->interface))
+                        continue;
+
+                r = sd_bus_call_method(bus, argv[1], argv[2],
+                                       "org.freedesktop.DBus.Properties", "GetAll",
+                                       &error, &reply, "s", m->interface);
+                if (r < 0) {
+                        notify_bus_error(&error);
+                        return log_error_errno(r, "Failed to get all properties on interface %s: %s",
+                                               m->interface, bus_error_message(&error, r));
+                }
+
+                r = sd_bus_message_enter_container(reply, 'a', "{sv}");
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                for (;;) {
+                        _cleanup_(memstream_done) MemStream ms = {};
+                        _cleanup_free_ char *buf = NULL;
+                        const char *name, *contents;
+                        Member *z;
+                        char type;
+                        FILE *mf;
+
+                        r = sd_bus_message_enter_container(reply, 'e', "sv");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+                        if (r == 0)
+                                break;
+
+                        r = sd_bus_message_read(reply, "s", &name);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_peek_type(reply, &type, &contents);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+                        if (type != 'v')
+                                return bus_log_parse_error(EINVAL);
+
+                        r = sd_bus_message_enter_container(reply, 'v', contents);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        mf = memstream_init(&ms);
+                        if (!mf)
+                                return log_oom();
+
+                        r = format_cmdline(reply, mf, false);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = memstream_finalize(&ms, &buf, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to flush and close memstream: %m");
+
+                        z = set_get(members, &((Member) {
+                                                .type = "property",
+                                                .interface = m->interface,
+                                                .signature = (char*) contents,
+                                                .name = (char*) name }));
+                        if (z)
+                                free_and_replace(z->value, buf);
+
+                        r = sd_bus_message_exit_container(reply);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_exit_container(reply);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+                }
+
+                r = sd_bus_message_exit_container(reply);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+        }
+
+        size_t n;
+        _cleanup_free_ Member **sorted = NULL;
+        r = set_dump_sorted(members, (void***) &sorted, &n);
+        if (r < 0)
+                return log_oom();
+
+        _cleanup_(table_unrefp) Table *table = table_new("name", "type", "signature", "result/value", "flags");
+        if (!table)
+                return log_oom();
+
+        if (arg_full)
+                table_set_width(table, 0);
+        (void) table_set_maximum_width(table, table_get_cell(table, 0, 3), arg_full ? 100 : 40);
+        table_set_header(table, arg_legend);
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
+
+        FOREACH_ARRAY(p, sorted, n) {
+                bool is_interface;
+
+                m = *p;
+
+                if (argv[3] && !streq(argv[3], m->interface))
+                        continue;
+
+                is_interface = streq(m->type, "interface");
+
+                if (argv[3] && is_interface)
+                        continue;
+
+                if (is_interface)
+                        r = table_add_many(
+                                        table,
+                                        TABLE_STRING, m->interface,
+                                        TABLE_SET_COLOR, ansi_highlight());
+                else
+                        r = table_add_cell_stringf(
+                                        table, /* ret_cell= */ NULL, ".%s", m->name);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                _cleanup_free_ char *flags = NULL;
+                r = members_flags_to_string(m, &flags);
+                if (r < 0)
+                        return log_oom();
+
+                r = table_add_many(
+                                table,
+                                TABLE_STRING, m->type,
+                                TABLE_STRING, m->signature,
+                                TABLE_STRING, m->value ?: m->result,
+                                TABLE_STRING, flags);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        return table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
+}
+
+static int message_dump(sd_bus_message *m, FILE *f) {
+        int r;
+
+        assert(m);
+
+        r = sd_bus_message_dump(m, f, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
+        if (r < 0)
+                return log_error_errno(r, "Failed to dump DBus message: %m");
+
+        return 0;
+}
+
+static int message_pcap(sd_bus_message *m, FILE *f) {
+        int r;
+
+        assert(m);
+
+        r = bus_message_pcap_frame(m, arg_snaplen, f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to dump DBus message in PCAP format: %m");
+
+        return 0;
+}
+
+static int message_json(sd_bus_message *m, FILE *f) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        int r;
+
+        assert(m);
+
+        r = sd_bus_message_dump_json(m, SD_BUS_MESSAGE_DUMP_WITH_HEADER, &v);
+        if (r < 0)
+                return log_error_errno(r, "Failed to build JSON object from DBus message: %m");
+
+        r = sd_json_variant_dump(v, arg_json_format_flags, f, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to show JSON object: %m");
+
+        return 0;
+}
+
+static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f)) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *message = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        uint32_t flags = 0;
+        const char *unique_name;
+        bool is_monitor = false;
+        int r;
+
+        r = acquire_bus(true, &bus);
+        if (r < 0)
+                return r;
+
+        usec_t end = arg_timeout > 0 ?
+                usec_add(now(CLOCK_MONOTONIC), arg_timeout) : USEC_INFINITY;
+
+        /* upgrade connection; it's not used for anything else after this call */
+        r = sd_bus_message_new_method_call(bus,
+                                           &message,
+                                           "org.freedesktop.DBus",
+                                           "/org/freedesktop/DBus",
+                                           "org.freedesktop.DBus.Monitoring",
+                                           "BecomeMonitor");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_open_container(message, 'a', "s");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        STRV_FOREACH(i, argv+1) {
+                _cleanup_free_ char *m = NULL;
+
+                if (!sd_bus_service_name_is_valid(*i))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid service name '%s'", *i);
+
+                m = strjoin("sender='", *i, "'");
+                if (!m)
+                        return log_oom();
+
+                r = sd_bus_message_append_basic(message, 's', m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                free(m);
+                m = strjoin("destination='", *i, "'");
+                if (!m)
+                        return log_oom();
+
+                r = sd_bus_message_append_basic(message, 's', m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        STRV_FOREACH(i, arg_matches) {
+                r = sd_bus_message_append_basic(message, 's', *i);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        r = sd_bus_message_close_container(message);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append_basic(message, 'u', &flags);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_call(bus, message, arg_timeout, &error, NULL);
+        if (r < 0) {
+                notify_bus_error(&error);
+                return log_error_errno(r, "Call to org.freedesktop.DBus.Monitoring.BecomeMonitor failed: %s",
+                                       bus_error_message(&error, r));
+        }
+
+        r = sd_bus_get_unique_name(bus, &unique_name);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get unique name: %m");
+
+        if (!arg_quiet && !sd_json_format_enabled(arg_json_format_flags))
+                log_info("Monitoring bus message stream.");
+
+        (void) sd_notify(/* unset_environment=false */ false, "READY=1");
+
+        for (;;) {
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+
+                r = sd_bus_process(bus, &m);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to process bus: %m");
+
+                if (m) {
+                        if (!is_monitor) {
+                                const char *name;
+
+                                /* wait until we lose our unique name */
+                                if (sd_bus_message_is_signal(m, "org.freedesktop.DBus", "NameLost") <= 0)
+                                        continue;
+
+                                r = sd_bus_message_read(m, "s", &name);
+                                if (r < 0)
+                                        return bus_log_parse_error(r);
+
+                                if (streq(name, unique_name))
+                                        is_monitor = true;
+
+                                continue;
+                        }
+
+                        dump(m, stdout);
+                        fflush(stdout);
+
+                        if (arg_limit_messages != UINT64_MAX) {
+                                arg_limit_messages--;
+
+                                if (arg_limit_messages == 0) {
+                                        if (!arg_quiet && !sd_json_format_enabled(arg_json_format_flags))
+                                                log_info("Received requested maximum number of messages, exiting.");
+                                        return 0;
+                                }
+                        }
+
+                        if (sd_bus_message_is_signal(m, "org.freedesktop.DBus.Local", "Disconnected") > 0) {
+                                if (!arg_quiet && !sd_json_format_enabled(arg_json_format_flags))
+                                        log_info("Connection terminated, exiting.");
+                                return 0;
+                        }
+
+                        continue;
+                }
+
+                if (r > 0)
+                        continue;
+
+                r = sd_bus_wait(bus, arg_timeout > 0 ? usec_sub_unsigned(end, now(CLOCK_MONOTONIC)) : UINT64_MAX);
+                if (r == 0 && arg_timeout > 0 && now(CLOCK_MONOTONIC) >= end) {
+                        if (!arg_quiet && !sd_json_format_enabled(arg_json_format_flags))
+                                log_info("Timed out waiting for messages, exiting.");
+                        return 0;
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to wait for bus: %m");
+        }
+}
+
+VERB(verb_monitor, "monitor", "[SERVICE…]", VERB_ANY, VERB_ANY, 0,
+     "Show bus traffic");
+static int verb_monitor(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        return monitor(argc, argv, sd_json_format_enabled(arg_json_format_flags) ? message_json : message_dump);
+}
+
+VERB(verb_capture, "capture", "[SERVICE…]", VERB_ANY, VERB_ANY, 0,
+     "Capture bus traffic as pcap");
+static int verb_capture(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_free_ char *osname = NULL;
+        static const char info[] =
+                "busctl (systemd) " PROJECT_VERSION_FULL " (Git " GIT_VERSION ")";
+        int r;
+
+        if (isatty_safe(STDOUT_FILENO))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Refusing to write message data to console, please redirect output to a file.");
+
+        r = parse_os_release(NULL, "PRETTY_NAME", &osname);
+        if (r < 0)
+                log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_INFO, r,
+                               "Failed to read os-release file, ignoring: %m");
+        bus_pcap_header(arg_snaplen, osname, info, stdout);
+
+        r = monitor(argc, argv, message_pcap);
+        if (r < 0)
+                return r;
+
+        r = fflush_and_check(stdout);
+        if (r < 0)
+                return log_error_errno(r, "Couldn't write capture file: %m");
+
+        return r;
+}
+
+VERB(verb_status, "status", "[SERVICE]", VERB_ANY, 2, 0,
+     "Show bus service, process, or bus owner credentials");
+static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        pid_t pid;
+        int r;
+
+        r = acquire_bus(false, &bus);
+        if (r < 0)
+                return r;
+
+        pager_open(arg_pager_flags);
+
+        if (!isempty(argv[1])) {
+                r = parse_pid(argv[1], &pid);
+                if (r < 0)
+                        r = sd_bus_get_name_creds(
+                                        bus,
+                                        argv[1],
+                                        (arg_augment_creds ? SD_BUS_CREDS_AUGMENT : 0) | _SD_BUS_CREDS_ALL,
+                                        &creds);
+                else
+                        r = sd_bus_creds_new_from_pid(
+                                        &creds,
+                                        pid,
+                                        _SD_BUS_CREDS_ALL);
+        } else {
+                const char *scope, *address;
+                sd_id128_t bus_id;
+
+                r = sd_bus_get_address(bus, &address);
+                if (r >= 0)
+                        printf("BusAddress=%s%s%s\n", ansi_highlight(), address, ansi_normal());
+
+                r = sd_bus_get_scope(bus, &scope);
+                if (r >= 0)
+                        printf("BusScope=%s%s%s\n", ansi_highlight(), scope, ansi_normal());
+
+                r = sd_bus_get_bus_id(bus, &bus_id);
+                if (r >= 0)
+                        printf("BusID=%s" SD_ID128_FORMAT_STR "%s\n",
+                               ansi_highlight(), SD_ID128_FORMAT_VAL(bus_id), ansi_normal());
+
+                r = sd_bus_get_owner_creds(
+                                bus,
+                                (arg_augment_creds ? SD_BUS_CREDS_AUGMENT : 0) | _SD_BUS_CREDS_ALL,
+                                &creds);
+        }
+
+        if (r < 0)
+                return log_error_errno(r, "Failed to get credentials: %m");
+
+        bus_creds_dump(creds, NULL, false);
+        return 0;
+}
+
+static int message_append_cmdline(sd_bus_message *m, const char *signature, FDSet **passed_fdset, char ***x) {
+        char **p;
+        int r;
+
+        assert(m);
+        assert(signature);
+        assert(passed_fdset);
+        assert(x);
+
+        p = *x;
+
+        for (;;) {
+                const char *v;
+                char t;
+
+                t = *signature;
+                v = *p;
+
+                if (t == 0)
+                        break;
+                if (!v)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Too few parameters for signature.");
+
+                signature++;
+                p++;
+
+                switch (t) {
+
+                case SD_BUS_TYPE_BOOLEAN:
+
+                        r = parse_boolean(v);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse '%s' as boolean: %m", v);
+
+                        r = sd_bus_message_append_basic(m, t, &r);
+                        break;
+
+                case SD_BUS_TYPE_BYTE: {
+                        uint8_t z;
+
+                        r = safe_atou8(v, &z);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse '%s' as byte (unsigned 8-bit integer): %m", v);
+
+                        r = sd_bus_message_append_basic(m, t, &z);
+                        break;
+                }
+
+                case SD_BUS_TYPE_INT16: {
+                        int16_t z;
+
+                        r = safe_atoi16(v, &z);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse '%s' as signed 16-bit integer: %m", v);
+
+                        r = sd_bus_message_append_basic(m, t, &z);
+                        break;
+                }
+
+                case SD_BUS_TYPE_UINT16: {
+                        uint16_t z;
+
+                        r = safe_atou16(v, &z);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse '%s' as unsigned 16-bit integer: %m", v);
+
+                        r = sd_bus_message_append_basic(m, t, &z);
+                        break;
+                }
+
+                case SD_BUS_TYPE_INT32: {
+                        int32_t z;
+
+                        r = safe_atoi32(v, &z);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse '%s' as signed 32-bit integer: %m", v);
+
+                        r = sd_bus_message_append_basic(m, t, &z);
+                        break;
+                }
+
+                case SD_BUS_TYPE_UINT32: {
+                        uint32_t z;
+
+                        r = safe_atou32(v, &z);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse '%s' as unsigned 32-bit integer: %m", v);
+
+                        r = sd_bus_message_append_basic(m, t, &z);
+                        break;
+                }
+
+                case SD_BUS_TYPE_INT64: {
+                        int64_t z;
+
+                        r = safe_atoi64(v, &z);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse '%s' as signed 64-bit integer: %m", v);
+
+                        r = sd_bus_message_append_basic(m, t, &z);
+                        break;
+                }
+
+                case SD_BUS_TYPE_UINT64: {
+                        uint64_t z;
+
+                        r = safe_atou64(v, &z);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse '%s' as unsigned 64-bit integer: %m", v);
+
+                        r = sd_bus_message_append_basic(m, t, &z);
+                        break;
+                }
+
+                case SD_BUS_TYPE_DOUBLE: {
+                        double z;
+
+                        r = safe_atod(v, &z);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse '%s' as double precision floating point: %m", v);
+
+                        r = sd_bus_message_append_basic(m, t, &z);
+                        break;
+                }
+
+                case SD_BUS_TYPE_STRING:
+                case SD_BUS_TYPE_OBJECT_PATH:
+                case SD_BUS_TYPE_SIGNATURE:
+
+                        r = sd_bus_message_append_basic(m, t, v);
+                        break;
+
+                case SD_BUS_TYPE_ARRAY: {
+                        uint32_t n;
+                        size_t k;
+
+                        r = safe_atou32(v, &n);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse '%s' number of array entries: %m", v);
+
+                        r = signature_element_length(signature, &k);
+                        if (r < 0)
+                                return log_error_errno(r, "Invalid array signature: %m");
+
+                        {
+                                char s[k + 1];
+                                memcpy(s, signature, k);
+                                s[k] = 0;
+
+                                r = sd_bus_message_open_container(m, SD_BUS_TYPE_ARRAY, s);
+                                if (r < 0)
+                                        return bus_log_create_error(r);
+
+                                for (unsigned i = 0; i < n; i++) {
+                                        r = message_append_cmdline(m, s, passed_fdset, &p);
+                                        if (r < 0)
+                                                return r;
+                                }
+                        }
+
+                        signature += k;
+
+                        r = sd_bus_message_close_container(m);
+                        break;
+                }
+
+                case SD_BUS_TYPE_VARIANT:
+                        r = sd_bus_message_open_container(m, SD_BUS_TYPE_VARIANT, v);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = message_append_cmdline(m, v, passed_fdset, &p);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_close_container(m);
+                        break;
+
+                case SD_BUS_TYPE_STRUCT_BEGIN:
+                case SD_BUS_TYPE_DICT_ENTRY_BEGIN: {
+                        size_t k;
+
+                        signature--;
+                        p--;
+
+                        r = signature_element_length(signature, &k);
+                        if (r < 0 || k < 2) {
+                                if (r >= 0 && k < 2)
+                                        r = -ERANGE;
+                                return log_error_errno(r, "Invalid struct/dict entry signature: %m");
+                        }
+
+                        {
+                                char s[k-1];
+                                memcpy(s, signature + 1, k - 2);
+                                s[k - 2] = 0;
+
+                                const char ctype = t == SD_BUS_TYPE_STRUCT_BEGIN ?
+                                        SD_BUS_TYPE_STRUCT : SD_BUS_TYPE_DICT_ENTRY;
+                                r = sd_bus_message_open_container(m, ctype, s);
+                                if (r < 0)
+                                        return bus_log_create_error(r);
+
+                                r = message_append_cmdline(m, s, passed_fdset, &p);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        signature += k;
+
+                        r = sd_bus_message_close_container(m);
+                        break;
+                }
+
+                case SD_BUS_TYPE_UNIX_FD: {
+                        int fd;
+
+                        fd = parse_fd(v);
+                        if (fd < 0)
+                                return log_error_errno(fd, "Failed to parse '%s' as a file descriptor: %m", v);
+
+                        if (!*passed_fdset) {
+                                r = fdset_new_fill(/* filter_cloexec= */ 0, passed_fdset);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to create fd set: %m");
+                        }
+
+                        if (!fdset_contains(*passed_fdset, fd))
+                                return log_error_errno(SYNTHETIC_ERRNO(EBADF), "Failed to find file descriptor '%s' among passed file descriptors.", v);
+
+                        r = sd_bus_message_append_basic(m, t, &fd);
+                        break;
+                }
+
+                default:
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Unknown signature type %c.", t);
+                }
+
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        *x = p;
+        return 0;
+}
+
+static int bus_message_dump(sd_bus_message *m, uint64_t flags) {
+        const char *contents;
+        int r;
+
+        assert(m);
+
+        r = sd_bus_message_rewind(m, !FLAGS_SET(flags, SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY));
+        if (r < 0)
+                return log_error_errno(r, "Failed to rewind: %m");
+
+        if (FLAGS_SET(flags, SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY)) {
+                r = sd_bus_message_peek_type(m, /* ret_type= */ NULL, &contents);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = sd_bus_message_enter_container(m, 'v', contents);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+        } else {
+                r = sd_bus_message_is_empty(m);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+                if (r > 0 || arg_quiet)
+                        return 0;
+        }
+
+        if (sd_json_format_enabled(arg_json_format_flags)) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                if (arg_json_format_flags & (SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
+                        pager_open(arg_pager_flags);
+
+                r = sd_bus_message_dump_json(m, flags, &v);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to dump DBus message to JSON object: %m");
+
+                r = sd_json_variant_dump(v, arg_json_format_flags, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to dump JSON object: %m");
+
+        } else if (arg_verbose) {
+                pager_open(arg_pager_flags);
+
+                r = sd_bus_message_dump(m, NULL, flags);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to dump DBus message: %m");
+        } else {
+
+                fputs(FLAGS_SET(flags, SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY) ? contents : sd_bus_message_get_signature(m, true), stdout);
+                fputc(' ', stdout);
+
+                r = format_cmdline(m, stdout, /* needs_space= */ false);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                fputc('\n', stdout);
+        }
+
+        if (FLAGS_SET(flags, SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY)) {
+                r = sd_bus_message_exit_container(m);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+        }
+
+        return 0;
+}
+
+VERB(verb_call, "call", "SERVICE OBJECT INTERFACE METHOD [SIGNATURE [ARGUMENT…]]", 5, VERB_ANY, 0,
+     "Call a method");
+static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_fdset_free_ FDSet *passed_fdset = NULL;
+        int r;
+
+        r = acquire_bus(false, &bus);
+        if (r < 0)
+                return r;
+
+        if (!service_name_is_valid(argv[1]))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid service name: %s", argv[1]);
+        if (!object_path_is_valid(argv[2]))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid object path: %s", argv[2]);
+        if (!interface_name_is_valid(argv[3]))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid interface name: %s", argv[3]);
+        if (!member_name_is_valid(argv[4]))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid member name: %s", argv[4]);
+
+        r = sd_bus_message_new_method_call(bus, &m, argv[1], argv[2], argv[3], argv[4]);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_set_expect_reply(m, arg_expect_reply);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_set_auto_start(m, arg_auto_start);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_set_allow_interactive_authorization(m, arg_allow_interactive_authorization);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        if (!isempty(argv[5])) {
+                char **p;
+
+                p = argv+6;
+
+                r = message_append_cmdline(m, argv[5], &passed_fdset, &p);
+                if (r < 0)
+                        return r;
+
+                if (*p)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Too many parameters for signature.");
+        }
+
+        if (!arg_expect_reply) {
+                r = sd_bus_send(bus, m, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to send message: %m");
+
+                return 0;
+        }
+
+        r = sd_bus_call(bus, m, arg_timeout, &error, &reply);
+        if (r < 0) {
+                notify_bus_error(&error);
+                return log_error_errno(r, "Call failed: %s", bus_error_message(&error, r));
+        }
+
+        return bus_message_dump(reply, /* flags= */ 0);
+}
+
+VERB(verb_emit, "emit", "OBJECT INTERFACE SIGNAL [SIGNATURE [ARGUMENT…]]", 4, VERB_ANY, 0,
+     "Emit a signal");
+static int verb_emit(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_fdset_free_ FDSet *passed_fdset = NULL;
+        int r;
+
+        r = acquire_bus(false, &bus);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_new_signal(bus, &m, argv[1], argv[2], argv[3]);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        if (arg_destination) {
+                r = sd_bus_message_set_destination(m, arg_destination);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        r = sd_bus_message_set_auto_start(m, arg_auto_start);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        if (!isempty(argv[4])) {
+                char **p;
+
+                p = argv+5;
+
+                r = message_append_cmdline(m, argv[4], &passed_fdset, &p);
+                if (r < 0)
+                        return r;
+
+                if (*p)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Too many parameters for signature.");
+        }
+
+        r = sd_bus_send(bus, m, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to send signal: %m");
+
+        return 0;
+}
+
+VERB(verb_get_property, "get-property", "SERVICE OBJECT INTERFACE PROPERTY…", 5, VERB_ANY, 0,
+     "Get property value");
+static int verb_get_property(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        if (!service_name_is_valid(argv[1]))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid service name: %s", argv[1]);
+        if (!object_path_is_valid(argv[2]))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid object path: %s", argv[2]);
+        if (!interface_name_is_valid(argv[3]))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid interface name: %s", argv[3]);
+
+        r = acquire_bus(false, &bus);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(i, argv + 4) {
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+
+                r = sd_bus_call_method(bus, argv[1], argv[2],
+                                       "org.freedesktop.DBus.Properties", "Get",
+                                       &error, &reply, "ss", argv[3], *i);
+                if (r < 0) {
+                        notify_bus_error(&error);
+                        return log_error_errno(r, "Failed to get property %s on interface %s: %s",
+                                               *i, argv[3],
+                                               bus_error_message(&error, r));
+                }
+
+                r = bus_message_dump(reply, SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int on_bus_signal(sd_bus_message *msg, void *userdata, sd_bus_error *ret_error) {
+        int r;
+
+        r = bus_message_dump(msg, /* flags= */ 0);
+        if (r < 0)
+                return sd_event_exit(sd_bus_get_event(sd_bus_message_get_bus(ASSERT_PTR(msg))), r);
+
+        if (arg_limit_signals != UINT64_MAX) {
+                arg_limit_signals--;
+
+                if (arg_limit_signals == 0) {
+                        if (!arg_quiet && !sd_json_format_enabled(arg_json_format_flags))
+                                log_info("Received requested maximum number of signals, exiting.");
+
+                        return sd_event_exit(sd_bus_get_event(sd_bus_message_get_bus(ASSERT_PTR(msg))), 0);
+                }
+        }
+
+        return 0;
+}
+
+VERB(verb_wait, "wait", "[SERVICE] OBJECT INTERFACE SIGNAL", 4, 5, 0,
+     "Wait for a signal");
+static int verb_wait(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *timer = NULL;
+        int argn = 1, r;
+
+        const char *sender = argc == 5 ? argv[argn++] : NULL;
+        const char *path = argv[argn++];
+        const char *interface = argv[argn++];
+        const char *member = argv[argn++];
+
+        if (sender && !service_name_is_valid(sender))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid service name: %s", sender);
+        if (!object_path_is_valid(path))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid object path: %s", path);
+        if (!interface_name_is_valid(interface))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid interface name: %s", interface);
+        if (!member_name_is_valid(member))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid member name: %s", member);
+
+        r = acquire_bus(/* set_monitor= */ false, &bus);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_match_signal(bus, NULL, sender, path, interface, member, on_bus_signal, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to match signal %s on interface %s: %m", member, interface);
+
+        r = sd_event_new(&e);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate event loop: %m\n");
+
+        r = sd_bus_attach_event(bus, e, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach bus event: %m\n");
+
+        if (arg_timeout) {
+                r = sd_event_add_time_relative(e, &timer, CLOCK_MONOTONIC, arg_timeout, 0, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to schedule timeout: %m\n");
+        }
+
+        /* The match is installed and we're ready to observe the signal */
+        sd_notify(/* unset_environment= */ false, "READY=1");
+
+        return sd_event_loop(e);
+}
+
+VERB(verb_set_property, "set-property", "SERVICE OBJECT INTERFACE PROPERTY SIGNATURE ARGUMENT…", 6, VERB_ANY, 0,
+     "Set property value");
+static int verb_set_property(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_fdset_free_ FDSet *passed_fdset = NULL;
+        char **p;
+        int r;
+
+        if (!service_name_is_valid(argv[1]))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid service name: %s", argv[1]);
+        if (!object_path_is_valid(argv[2]))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid object path: %s", argv[2]);
+        if (!interface_name_is_valid(argv[3]))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid interface name: %s", argv[3]);
+
+        r = acquire_bus(false, &bus);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_new_method_call(bus, &m, argv[1], argv[2],
+                                           "org.freedesktop.DBus.Properties", "Set");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(m, "ss", argv[3], argv[4]);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_open_container(m, 'v', argv[5]);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        p = argv + 6;
+        r = message_append_cmdline(m, argv[5], &passed_fdset, &p);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        if (*p)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many parameters for signature.");
+
+        r = sd_bus_call(bus, m, arg_timeout, &error, NULL);
+        if (r < 0) {
+                notify_bus_error(&error);
+                return log_error_errno(r, "Failed to set property %s on interface %s: %s",
+                                       argv[4], argv[3],
+                                       bus_error_message(&error, r));
+        }
+
+        return 0;
+}
+
+static int help(void) {
+        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
+        int r;
+
+        pager_open(arg_pager_flags);
+
+        r = verbs_get_help_table(&verbs);
+        if (r < 0)
+                return r;
+
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        /* Note: column widths are not synced, because the verbs table is very wide. */
+
+        help_cmdline("[OPTIONS…] COMMAND …");
+        help_abstract("Introspect the D-Bus IPC bus.");
+
+        help_section("Commands");
+        r = table_print_or_warn(verbs);
+        if (r < 0)
+                return r;
+
+        help_section("Options");
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        help_man_page_reference("busctl", "1");
+
+        return 0;
+}
+
+VERB_COMMON_HELP(help);
+
+static int parse_argv(int argc, char *argv[], char ***remaining_args) {
+        assert(argc >= 0);
+        assert(argv);
+        assert(remaining_args);
+
+        OptionParser opts = { argc, argv };
+        int r;
+
+        FOREACH_OPTION_OR_RETURN(c, &opts)
+                switch (c) {
+
+                OPTION_COMMON_HELP:
+                        return help();
+
+                OPTION_COMMON_VERSION:
+                        return version();
+
+                OPTION_COMMON_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
+                OPTION_COMMON_NO_LEGEND:
+                        arg_legend = false;
+                        break;
+
+                OPTION('l', "full", NULL, "Do not ellipsize output"):
+                        arg_full = true;
+                        break;
+
+                OPTION_LONG("system", NULL, "Connect to system bus"):
+                        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+                        break;
+
+                OPTION_LONG("user", NULL, "Connect to user bus"):
+                        arg_runtime_scope = RUNTIME_SCOPE_USER;
+                        break;
+
+                OPTION_COMMON_HOST:
+                        arg_transport = BUS_TRANSPORT_REMOTE;
+                        arg_host = opts.arg;
+                        break;
+
+                OPTION_COMMON_MACHINE:
+                        r = parse_machine_argument(opts.arg, &arg_host, &arg_transport);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION('C', "capsule", "NAME", "Operate on capsule"):
+                        r = capsule_name_is_valid(opts.arg);
+                        if (r < 0)
+                                return log_error_errno(r, "Unable to validate capsule name '%s': %m", opts.arg);
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid capsule name: %s", opts.arg);
+
+                        arg_host = opts.arg;
+                        arg_transport = BUS_TRANSPORT_CAPSULE;
+                        break;
+
+                OPTION_LONG("address", "ADDRESS", "Connect to bus specified by address"):
+                        arg_address = opts.arg;
+                        break;
+
+                OPTION_LONG("show-machine", NULL, "Show machine ID column in list"):
+                        arg_show_machine = true;
+                        break;
+
+                OPTION_LONG("unique", NULL, "Only show unique names"):
+                        arg_unique = true;
+                        break;
+
+                OPTION_LONG("acquired", NULL, "Only show acquired names"):
+                        arg_acquired = true;
+                        break;
+
+                OPTION_LONG("activatable", NULL, "Only show activatable names"):
+                        arg_activatable = true;
+                        break;
+
+                OPTION_LONG("match", "MATCH", "Only show matching messages"):
+                        if (strv_extend(&arg_matches, opts.arg) < 0)
+                                return log_oom();
+                        break;
+
+                OPTION_LONG("size", "SIZE", "Maximum length of captured packet"): {
+                        uint64_t sz;
+
+                        r = parse_size(opts.arg, 1024, &sz);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse size '%s': %m", opts.arg);
+
+                        if ((uint64_t) (size_t) sz !=  sz)
+                                return log_error_errno(SYNTHETIC_ERRNO(E2BIG),
+                                                       "Size out of range.");
+
+                        arg_snaplen = (size_t) sz;
+                        break;
+                }
+
+                OPTION_LONG("list", NULL, "Don't show tree, but simple object path list"):
+                        arg_list = true;
+                        break;
+
+                OPTION('q', "quiet", NULL, "Don't show method call reply"):
+                        arg_quiet = true;
+                        break;
+
+                OPTION_LONG("verbose", NULL, "Show result values in long format"):
+                        arg_verbose = true;
+                        break;
+
+                OPTION_COMMON_JSON:
+                        r = parse_json_argument(opts.arg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+                        break;
+
+                OPTION_COMMON_LOWERCASE_J:
+                        arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
+                        break;
+
+                OPTION_LONG("xml-interface", NULL, "Dump the XML description in introspect command"):
+                        arg_xml_interface = true;
+                        break;
+
+                OPTION_LONG("expect-reply", "BOOL", "Expect a method call reply"):
+                        r = parse_boolean_argument("--expect-reply=", opts.arg, &arg_expect_reply);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("auto-start", "BOOL", "Auto-start destination service"):
+                        r = parse_boolean_argument("--auto-start=", opts.arg, &arg_auto_start);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("allow-interactive-authorization", "",
+                            "Allow interactive authorization for operation"):
+                        r = parse_boolean_argument("--allow-interactive-authorization=", opts.arg,
+                                                   &arg_allow_interactive_authorization);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("timeout", "SECS", "Maximum time to wait for method call completion"):
+                        if (isempty(opts.arg)) {
+                                arg_timeout = 0; /* Reset to default */
+                                break;
+                        }
+
+                        r = parse_sec(opts.arg, &arg_timeout);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --timeout= parameter '%s': %m", opts.arg);
+                        break;
+
+                OPTION_LONG("augment-creds", "BOOL",
+                            "Extend credential data with data read from /proc/$PID"):
+                        r = parse_boolean_argument("--augment-creds=", opts.arg, &arg_augment_creds);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("watch-bind", "BOOL",
+                            "Wait for bus AF_UNIX socket to be bound in the file system"):
+                        r = parse_boolean_argument("--watch-bind=", opts.arg, &arg_watch_bind);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("destination", "SERVICE", "Destination service of a signal"):
+                        arg_destination = opts.arg;
+                        break;
+
+                OPTION('N', "limit-messages", "NUMBER",
+                       "Stop monitoring after receiving the specified number of messages"):
+                        if (isempty(opts.arg)) {
+                                /* Reset to default */
+                                arg_limit_messages = UINT64_MAX;
+                                arg_limit_signals = 1;
+                                break;
+                        }
+
+                        if (streq(opts.arg, "infinity")) {
+                                arg_limit_signals = arg_limit_messages = UINT64_MAX;
+                                break;
+                        }
+
+                        r = safe_atou64(opts.arg, &arg_limit_messages);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --limit-messages= parameter: %s", opts.arg);
+                        if (arg_limit_messages == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--limit-messages= parameter cannot be 0");
+
+                        arg_limit_signals = arg_limit_messages;
+                        break;
+                }
+
+        if (arg_full < 0)
+                arg_full = terminal_is_dumb();
+
+        *remaining_args = option_parser_get_args(&opts);
+        return 1;
+}
+
+static int run(int argc, char *argv[]) {
+        int r;
+
+        log_setup();
+
+        char **args = NULL;
+        r = parse_argv(argc, argv, &args);
+        if (r <= 0)
+                return r;
+
+        return dispatch_verb(args, NULL);
+}
+
+DEFINE_MAIN_FUNCTION(run);

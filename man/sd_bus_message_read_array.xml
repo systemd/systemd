@@ -1,0 +1,123 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd_bus_message_read_array" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_bus_message_read_array</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_message_read_array</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_message_read_array</refname>
+
+    <refpurpose>Access an array of elements in a message</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_message_read_array</function></funcdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+        <paramdef>char <parameter>type</parameter></paramdef>
+        <paramdef>const void **<parameter>ptr</parameter></paramdef>
+        <paramdef>size_t *<parameter>size</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_bus_message_read_array()</function> provides access to an array elements in the
+    bus message <parameter>m</parameter>. The "read pointer" in the message must be right before an array of type
+    <parameter>type</parameter>. As a special case, <parameter>type</parameter> may be
+    <constant>NUL</constant>, in which case any trivial type is acceptable. A pointer to the array data is returned
+    in the parameter <parameter>ptr</parameter> and the size of array data (in bytes) is returned in the
+    parameter <parameter>size</parameter>. If the returned <parameter>size</parameter> parameter is 0, a
+    valid non-null pointer will be returned as <parameter>ptr</parameter>, but it may not be
+    dereferenced. The data is aligned as appropriate for the data type. The data is part of the message — it
+    may not be modified and is valid only as long as the message is referenced. After this function returns,
+    the "read pointer" points at the next element after the array.</para>
+
+    <para>Note that this function only supports arrays of trivial types, i.e. arrays of booleans, the various
+    integer types, as well as floating point numbers. In particular it may not be used for arrays of strings,
+    structures or similar.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>
+      On success and when an array was read, <function>sd_bus_message_read_array()</function> returns an
+      integer greater than zero. If invoked while inside a container element (such as an array, e.g. when
+      operating on an array of arrays) and the final element of the outer container has been read already and
+      the read pointer is thus behind the last element of the outer container this call returns 0 (and the
+      returned pointer will be <constant>NULL</constant> and the size will be 0). On failure, it returns a
+      negative errno-style error code.
+    </para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>Specified type is invalid or not a trivial type (see above), or the message
+          parameter or one of the output parameters are <constant>NULL</constant>.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EOPNOTSUPP</constant></term>
+
+          <listitem><para>The byte order in the message is different than native byte
+          order.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EPERM</constant></term>
+
+          <listitem><para>The message is not sealed.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EBADMSG</constant></term>
+
+          <listitem><para>The message cannot be parsed.</para></listitem>
+        </varlistentry>
+
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-notes.xml"/>
+
+  <refsect1>
+    <title>History</title>
+    <para><function>sd_bus_message_read_array()</function> was added in version 240.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_bus_message_read</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_bus_message_read_strv</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

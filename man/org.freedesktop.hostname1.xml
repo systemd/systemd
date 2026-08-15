@@ -1,0 +1,557 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="org.freedesktop.hostname1" conditional='ENABLE_HOSTNAMED'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>org.freedesktop.hostname1</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>org.freedesktop.hostname1</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>org.freedesktop.hostname1</refname>
+    <refpurpose>The D-Bus interface of systemd-hostnamed</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Introduction</title>
+
+    <para>
+    <citerefentry><refentrytitle>systemd-hostnamed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    is a system service that can be used to control the hostname and related machine metadata from user
+    programs. This page describes the hostname semantics and the D-Bus interface.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>The D-Bus API</title>
+
+    <para>The service exposes the following interfaces on the bus:</para>
+
+    <programlisting executable="systemd-hostnamed" node="/org/freedesktop/hostname1" interface="org.freedesktop.hostname1">
+node /org/freedesktop/hostname1 {
+  interface org.freedesktop.hostname1 {
+    methods:
+      SetHostname(in  s hostname,
+                  in  b interactive);
+      SetStaticHostname(in  s hostname,
+                        in  b interactive);
+      SetPrettyHostname(in  s hostname,
+                        in  b interactive);
+      SetIconName(in  s icon,
+                  in  b interactive);
+      SetChassis(in  s chassis,
+                 in  b interactive);
+      SetDeployment(in  s deployment,
+                    in  b interactive);
+      SetLocation(in  s location,
+                  in  b interactive);
+      SetTags(in  as tags);
+      AddAndRemoveTags(in  as add,
+                       in  as remove);
+      GetProductUUID(in  b interactive,
+                     out ay uuid);
+      GetHardwareSerial(out s serial);
+      Describe(out s json);
+      GetMachineInfo(in  s field,
+                     out s value);
+    properties:
+      readonly s Hostname = '...';
+      readonly s StaticHostname = '...';
+      readonly s PrettyHostname = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s DefaultHostname = '...';
+      readonly s HostnameSource = '...';
+      readonly s IconName = '...';
+      readonly s Chassis = '...';
+      readonly s Deployment = '...';
+      readonly s Location = '...';
+      readonly as Tags = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s KernelName = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s KernelRelease = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s KernelVersion = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s OperatingSystemPrettyName = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s OperatingSystemFancyName = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s OperatingSystemCPEName = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t OperatingSystemSupportEnd = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s HomeURL = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s OperatingSystemImageID = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s OperatingSystemImageVersion = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s HardwareVendor = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s HardwareModel = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s HardwareSKU = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s HardwareVersion = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s FirmwareVersion = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s FirmwareVendor = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t FirmwareDate = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly ay MachineID = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly ay BootID = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly u VSockCID = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s ChassisAssetTag = '...';
+  };
+  interface org.freedesktop.DBus.Peer { ... };
+  interface org.freedesktop.DBus.Introspectable { ... };
+  interface org.freedesktop.DBus.Properties { ... };
+};
+</programlisting>
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.hostname1"/>
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.hostname1"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetHostname()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetStaticHostname()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetPrettyHostname()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetIconName()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetChassis()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetDeployment()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetLocation()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetTags()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="AddAndRemoveTags()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="GetProductUUID()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="GetHardwareSerial()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Describe()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="GetMachineInfo()"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="Hostname"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StaticHostname"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PrettyHostname"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DefaultHostname"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="HostnameSource"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="IconName"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="Chassis"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="Deployment"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="Location"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="Tags"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="KernelName"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="KernelRelease"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="KernelVersion"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="OperatingSystemPrettyName"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="OperatingSystemFancyName"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="OperatingSystemCPEName"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="OperatingSystemSupportEnd"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="HomeURL"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="OperatingSystemImageID"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="OperatingSystemImageVersion"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="HardwareVendor"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="HardwareModel"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="HardwareSKU"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="HardwareVersion"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="FirmwareVersion"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="FirmwareVendor"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="FirmwareDate"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MachineID"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="BootID"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="VSockCID"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ChassisAssetTag"/>
+
+    <!--End of Autogenerated section-->
+
+    <para>Whenever the hostname or other metadata is changed via the daemon,
+    <function>PropertyChanged</function> signals are sent out to subscribed clients. Changing a hostname
+    using this interface is authenticated via
+    <ulink url="https://www.freedesktop.org/software/polkit/docs/latest/">polkit</ulink>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Semantics</title>
+
+    <para>The <varname>StaticHostname</varname> property exposes the "static" hostname configured in
+    <filename>/etc/hostname</filename>. It is not always in sync with the current hostname as returned by the
+    <citerefentry project="man-pages"><refentrytitle>gethostname</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    system call. If no static hostname is configured this property will be the empty string.</para>
+
+    <para>When <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> or
+    <citerefentry><refentrytitle>systemd-hostnamed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    set the hostname, this static hostname <emphasis>has the highest priority</emphasis>.</para>
+
+    <para>The <varname>Hostname</varname> property exposes the actual hostname configured in the kernel via
+    <citerefentry project="man-pages"><refentrytitle>sethostname</refentrytitle><manvolnum>2</manvolnum></citerefentry>.
+    It can be different from the static hostname. This property is never empty.</para>
+
+    <para>The <varname>PrettyHostname</varname> property exposes the <emphasis>pretty hostname</emphasis>
+    which is a free-form UTF-8 hostname for presentation to the user. User interfaces should ensure that the
+    pretty hostname and the static hostname stay in sync. E.g. when the former is <literal>Lennart’s
+    Computer</literal> the latter should be <literal>lennarts-computer</literal>. If no pretty hostname is
+    set this setting will be the empty string. Applications should then find a suitable fallback, such as the
+    dynamic hostname.</para>
+
+    <para>The <varname>DefaultHostname</varname> property exposes the default hostname (configured through
+    <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>, or a
+    fallback set at compilation time).</para>
+
+    <para>The <varname>HostnameSource</varname> property exposes the origin of the currently configured
+    hostname. One of <literal>static</literal> (set from <filename>/etc/hostname</filename>),
+    <literal>transient</literal> (a non-permanent hostname from an external source),
+    <literal>default</literal> (the value from <filename>os-release</filename> or the compiled-in
+    fallback).</para>
+
+    <para>The <varname>IconName</varname> property exposes the <emphasis>icon name</emphasis> following the
+    XDG icon naming spec. If not set, information such as the chassis type (see below) is used to find a
+    suitable fallback icon name (i.e. <literal>computer-laptop</literal>
+    vs. <literal>computer-desktop</literal> is picked based on the chassis information). If no such data is
+    available, the empty string is returned. In that case an application should fall back to a replacement
+    icon, for example <literal>computer</literal>. If this property is set to the empty string, the automatic
+    fallback name selection is enabled again.</para>
+
+    <para>The <varname>Chassis</varname> property exposes a <emphasis>chassis type</emphasis>, one of the
+    currently defined chassis types: <literal>desktop</literal>, <literal>laptop</literal>,
+    <literal>server</literal>, <literal>tablet</literal>, <literal>handset</literal>, as well as the special
+    chassis types <literal>vm</literal> and <literal>container</literal> for virtualized systems. Note that
+    in most cases the chassis type will be determined automatically from DMI/SMBIOS/ACPI firmware
+    information. Writing to this setting is hence useful only to override misdetected chassis types, or to
+    configure the chassis type if it could not be auto-detected. Set this property to the empty string to
+    reenable the automatic detection of the chassis type from firmware information.</para>
+
+    <para>The <varname>Tags</varname> property exposes a list of <emphasis>machine tags</emphasis>: short
+    labels that may be used to classify and group machines for management purposes, for example to identify
+    the role a machine plays in a deployment, the fleet or organizational unit it belongs to, or any other
+    administrator-defined attribute. Each individual tag is 1…255 characters long and consists only of the
+    ASCII alphanumeric characters, <literal>-</literal> and <literal>.</literal>. The tags are stored as a
+    colon-separated list in the <varname>TAGS=</varname> field of <filename>/etc/machine-info</filename>, see
+    <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details. If no tags are configured this property is the empty list.</para>
+
+    <para>Note that <filename>systemd-hostnamed</filename> starts only on request and terminates after a
+    short idle period. This effectively means that <function>PropertyChanged</function> messages are not sent
+    out for changes made directly on the files (as in: administrator edits the files with vi). This is
+    the intended behavior: manual configuration changes should require manual reloading.</para>
+
+    <para>The transient (dynamic) hostname exposed by the <varname>Hostname</varname> property maps directly
+    to the kernel hostname. This hostname should be assumed to be highly dynamic, and hence should be watched
+    directly, without depending on <function>PropertyChanged</function> messages from
+    <filename>systemd-hostnamed</filename>. To accomplish this, open
+    <filename>/proc/sys/kernel/hostname</filename> and
+    <citerefentry project="man-pages"><refentrytitle>poll</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    for <constant>SIGHUP</constant> which is triggered by the kernel every time the hostname changes. Again:
+    this is special for the transient (dynamic) hostname, and does not apply to the configured (fixed)
+    hostname.</para>
+
+    <para>Applications may read the hostname data directly if hostname change notifications
+    are not necessary. Use
+    <citerefentry project="man-pages"><refentrytitle>gethostname</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
+    <filename>/etc/hostname</filename> (possibly with per-distribution fallbacks), and
+    <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for that. For more information on these files and syscalls see the respective man pages.</para>
+
+    <para><varname>KernelName</varname>, <varname>KernelRelease</varname>, and
+    <varname>KernelVersion</varname> expose the kernel name (e.g. <literal>Linux</literal>), release
+    (e.g. <literal>5.0.0-11</literal>), and version (i.e. the build number, e.g. <literal>#11</literal>) as
+    reported by <citerefentry project="man-pages"><refentrytitle>uname</refentrytitle><manvolnum>2</manvolnum></citerefentry>.</para>
+
+    <para><varname>OperatingSystemPrettyName</varname>, <varname>OperatingSystemFancyName</varname>,
+    <varname>OperatingSystemCPEName</varname>, and <varname>HomeURL</varname> expose the
+    <varname>PRETTY_NAME=</varname>, <varname>FANCY_NAME=</varname>, <varname>CPE_NAME=</varname> and
+    <varname>HOME_URL=</varname> fields from
+    <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>. The
+    purpose of those properties is to allow remote clients to access this information over D-Bus. Local
+    clients can access the information directly.</para>
+
+    <para><varname>MachineID</varname> expose the 128bit machine ID, see
+    <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details.</para>
+
+    <para><varname>BootID</varname> expose the 128bit boot ID, as per
+    <filename>/proc/sys/kernel/random/boot_id</filename>.</para>
+
+    <para><varname>VSockCID</varname> exposes the system's local <constant>AF_VSOCK</constant> CID (Context
+    Identifier, i.e. address) for the system, if one is available in the virtual machine environment. Set to
+    <constant>UINT32_MAX</constant> otherwise. See <citerefentry project="man-pages"><refentrytitle>vsock</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+    details.</para>
+
+    <para><varname>OperatingSystemSupportEnd</varname> exposes when the OS' vendor support ends, if this
+    information is known. It's an unsigned 64bit value, in µs since the UNIX epoch, UTC. If this information
+    is not known carries the value 2^64-1, i.e. <constant>UINT64_MAX</constant>.</para>
+
+    <para><varname>OperatingSystemImageID</varname> and <varname>OperatingSystemImageVersion</varname> expose
+    the OS image name and version if available, or contain empty strings otherwise. This mostly corresponds
+    to the <varname>IMAGE_ID=</varname> and <varname>IMAGE_VERSION=</varname> fields of the
+    <filename>os-release</filename> file.</para>
+
+    <para><varname>HardwareVendor</varname>, <varname>HardwareModel</varname>, <varname>HardwareSKU</varname>,
+    and <varname>HardwareVersion</varname> expose vendor information about the hardware of the system. The
+    stock keeping unit (SKU) describes a distinct type of hardware for sale, purchase or inventory management.
+    The SKU and version are only available if they deviate from the model and among each other. Thereby the
+    version is more specific and only available if it differs from the model and SKU. If no such information
+    can be determined these properties are set to empty strings.</para>
+
+    <para><varname>FirmwareVersion</varname> and <varname>FirmwareVendor</varname> expose information about
+    the system's firmware, i.e. a version string and a vendor name. If no such information can be determined
+    these properties are set to empty strings.</para>
+
+    <para><varname>FirmwareDate</varname> exposes the firmware build date, if that information is known. It's
+    an unsigned 64bit value, in µs since the UNIX epoch, UTC. If not known
+    <constant>UNIT64_MAX</constant>.</para>
+
+    <para><varname>ChassisAssetTag</varname> exposes an unique identifier of the system chassis. If this
+    information is not known this property is set to an empty string.</para>
+
+    <refsect2>
+      <title>Methods</title>
+
+      <para><function>SetHostname()</function> sets the transient (dynamic) hostname, which is used if no
+      static hostname is set. This value must be an internet-style hostname, 7-bit lowercase ASCII, no
+      special chars/spaces. An empty string will unset the transient hostname.</para>
+
+      <para><function>SetStaticHostname()</function> sets the static hostname which is exposed by the
+      <varname>StaticHostname</varname> property. When called with an empty argument, the static
+      configuration in <filename>/etc/hostname</filename> is removed. Since the static hostname has the
+      highest priority, calling this function usually affects also the <varname>Hostname</varname> property
+      and the effective hostname configured in the kernel.</para>
+
+      <para><function>SetPrettyHostname()</function> sets the pretty hostname which is exposed by the
+      <varname>PrettyHostname</varname> property.</para>
+
+      <para><function>SetIconName()</function>, <function>SetChassis()</function>,
+      <function>SetDeployment()</function>, and <function>SetLocation()</function> set the properties
+      <varname>IconName</varname> (the name of the icon representing for the machine),
+      <varname>Chassis</varname> (the machine form factor), <varname>Deployment</varname> (the system
+      deployment environment), and <varname>Location</varname> (physical system location), respectively.
+      </para>
+
+      <para><function>SetTags()</function> sets the machine tags exposed by the <varname>Tags</varname>
+      property. It takes a list of strings, each of which must be a valid machine tag (1…255 ASCII
+      alphanumeric characters, <literal>-</literal> and <literal>.</literal>). Passing an empty list removes
+      the <varname>TAGS=</varname> field from <filename>/etc/machine-info</filename>.</para>
+
+      <para><function>AddAndRemoveTags()</function> incrementally updates the <varname>Tags</varname>
+      property instead of replacing it. It takes two lists of machine tags: the tags in <varname>add</varname>
+      are added to the current list, and the tags in <varname>remove</varname> are dropped from it (the
+      resulting list is <varname>(current ∪ add) \ remove</varname>, sorted and deduplicated). This is useful
+      when several independent agents each manage a subset of the tags without racing on a read-modify-write
+      of the full list. Each tag must be a valid machine tag, as for <function>SetTags()</function>.</para>
+
+      <para><varname>PrettyHostname</varname>, <varname>IconName</varname>, <varname>Chassis</varname>,
+      <varname>Deployment</varname>, <varname>Location</varname>, and <varname>Tags</varname> are stored in
+      <filename>/etc/machine-info</filename>. See
+      <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+      the semantics of those settings.</para>
+
+      <para><function>GetProductUUID()</function> returns the "product UUID" as exposed by the kernel based
+      on DMI information in <filename>/sys/class/dmi/id/product_uuid</filename>. Reading the file directly
+      requires root privileges, and this method allows access to unprivileged clients through the polkit
+      framework.</para>
+
+      <para><function>GetHardwareSerial()</function> returns the "hardware serial" as exposed by the kernel
+      based on DMI information. Reading the file directly requires root privileges, and this method allows
+      access to unprivileged clients through the polkit framework.</para>
+
+      <para><function>Describe()</function> returns a JSON representation of all properties in one.</para>
+
+      <para><function>GetMachineInfo()</function> returns the value of the given field from
+      <filename>/etc/machine-info</filename>. For well-known fields, this method reads values from the same
+      internal cache used by the corresponding D-Bus property getters, but returns only the raw
+      <filename>/etc/machine-info</filename> values (i.e. without property-level fallback logic such as
+      DMI/chassis-based detection). Custom (non-standard) fields are read directly from the file.
+      An error is returned if the field name is empty, invalid, or not set in the file.</para>
+    </refsect2>
+
+    <refsect2>
+      <title>Security</title>
+
+      <para>The <varname>interactive</varname> boolean parameters can be used to control whether polkit
+      should interactively ask the user for authentication credentials if required.</para>
+
+      <para>The polkit action for <function>SetHostname()</function> is
+      <interfacename>org.freedesktop.hostname1.set-hostname</interfacename>. For
+      <function>SetStaticHostname()</function> and <function>SetPrettyHostname()</function> it is
+      <interfacename>org.freedesktop.hostname1.set-static-hostname</interfacename>. For
+      <function>SetIconName()</function>, <function>SetChassis()</function>, <function>SetDeployment()</function>,
+      <function>SetLocation()</function>, <function>SetTags()</function> and
+      <function>AddAndRemoveTags()</function> it is
+      <interfacename>org.freedesktop.hostname1.set-machine-info</interfacename>.</para>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Recommendations</title>
+
+    <para>Here are three examples that show how the pretty hostname and the icon name should be used:
+    <itemizedlist>
+      <listitem><para>When registering DNS-SD services: use the pretty hostname in the service name, and pass
+      the icon name in the TXT data, if there is an icon name. Browsing clients can then show the server icon
+      on each service. This is especially useful for WebDAV applications or UPnP media sharing.
+      </para></listitem>
+
+      <listitem><para>Set the bluetooth name to the pretty hostname.</para></listitem>
+
+      <listitem><para>When your file browser has a "Computer" icon, replace the name with the pretty hostname
+      if set, and the icon with the icon name, if it is set.</para></listitem>
+    </itemizedlist></para>
+
+    <para>To properly handle name lookups with changing local hostnames without having to edit
+    <filename>/etc/hosts</filename>, we recommend using <filename>systemd-hostnamed</filename> in combination
+    with <citerefentry><refentrytitle>nss-myhostname</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    </para>
+
+    <para>Here are some recommendations to follow when generating a static (internet) hostname from a pretty
+    name:
+    <itemizedlist>
+      <listitem><para>Generate a single DNS label only, not an FQDN. That means no dots allowed. Strip them,
+      or replace them with <literal>-</literal>.</para></listitem>
+
+      <listitem><para>It's probably safer to not use any non-ASCII chars, even if DNS allows this in some way
+      these days. In fact, restrict your charset to <literal>a-zA-Z0-9</literal> and <literal>-</literal>.
+      Strip other chars, or try to replace them in some smart way with chars from this set, for example
+      <literal>ä</literal> → <literal>ae</literal>, and use <literal>-</literal> as the replacement for all
+      punctuation characters and whitespace.</para></listitem>
+
+      <listitem><para>Try to avoid creating repeated <literal>-</literal>, as well as <literal>-</literal> as
+      the first or last char.</para></listitem>
+
+      <listitem><para>Limit the hostname to 63 chars, which is the length of a DNS label.</para></listitem>
+
+      <listitem><para>If after stripping special chars the empty string is the result, you can pass this
+      as-is to <filename>systemd-hostnamed</filename> in which case it will automatically use a suitable
+      fallback.</para></listitem>
+
+      <listitem><para>Uppercase characters should be replaced with their lowercase equivalents.
+      </para></listitem>
+    </itemizedlist></para>
+
+    <para>Note that while <filename>systemd-hostnamed</filename> applies some checks to the hostname you pass
+    they are much looser than the recommendations above. For example, <filename>systemd-hostnamed</filename>
+    will also accept <literal>_</literal> in the hostname, but we recommend not using this to avoid clashes
+    with DNS-SD service types. Also <filename>systemd-hostnamed</filename> allows longer hostnames, but
+    because of the DNS label limitations, we recommend not making use of this.</para>
+
+    <para>Here are a couple of example conversions:
+    <itemizedlist>
+      <listitem><para><literal>Lennart's PC</literal> → <literal>lennarts-pc</literal></para></listitem>
+      <listitem><para><literal>Müllers Computer</literal> → <literal>muellers-computer</literal></para></listitem>
+      <listitem><para><literal>Voran!</literal> → <literal>voran</literal></para></listitem>
+      <listitem><para><literal>Es war einmal ein Männlein</literal> → <literal>es-war-einmal-ein-maennlein</literal></para></listitem>
+      <listitem><para><literal>Jawoll. Ist doch wahr!</literal> → <literal>jawoll-ist-doch-wahr</literal></para></listitem>
+      <listitem><para><literal>レナート</literal> → <literal>localhost</literal></para></listitem>
+      <listitem><para><literal>...zack!!! zack!...</literal> → <literal>zack-zack</literal></para></listitem>
+    </itemizedlist></para>
+
+    <para>Of course, an already valid internet hostname label you enter and pass through this
+    conversion should stay unmodified, so that users have direct control of it, if they want — by simply
+    ignoring the fact that the pretty hostname is pretty and just edit it as if it was the normal internet
+    name.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Introspect <interfacename>org.freedesktop.hostname1</interfacename> on the bus</title>
+
+      <programlisting>$ gdbus introspect --system \
+  --dest org.freedesktop.hostname1 \
+  --object-path /org/freedesktop/hostname1
+</programlisting>
+    </example>
+  </refsect1>
+
+  <xi:include href="org.freedesktop.locale1.xml" xpointer="versioning"/>
+
+  <refsect1>
+    <title>History</title>
+    <refsect2>
+      <title>The D-Bus API</title>
+      <para><varname>FirmwareVersion</varname> and
+      <function>GetHardwareSerial()</function> were added in version 251.</para>
+      <para><varname>OperatingSystemSupportEnd</varname>,
+      <varname>FirmwareVendor</varname>, and
+      <varname>FirmwareDate</varname> were added in version 253.</para>
+      <para><varname>MachineID</varname>, <varname>BootID</varname> and
+      <varname>VSockCID</varname> were added in version 256.</para>
+      <para><varname>ChassisAssetTag</varname>, <varname>OperatingSystemImageID</varname>,
+      <varname>OperatingSystemImageVersion</varname>, <varname>HardwareSKU</varname>, and
+      <varname>HardwareVersion</varname> were added in version 258.</para>
+      <para><varname>OperatingSystemFancyName</varname> was added in version 260.</para>
+      <para><function>GetMachineInfo()</function>, <varname>Tags</varname> and
+      <function>SetTags()</function> were added in version 261.</para>
+      <para><function>AddAndRemoveTags()</function> was added in version 262.</para>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-hostnamed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member>David Zeuthen's original Fedora
+      <ulink url="https://fedoraproject.org/wiki/Features/BetterHostname">Feature page about xdg-hostname</ulink></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

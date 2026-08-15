@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[NetDev]
+Name=batadv99
+Kind=batadv
+Description=Batman test
+
+[BatmanAdvanced]
+GatewayMode=server
+RoutingAlgorithm=batman-iv
+DistributedArpTable=1
+Fragmentation=0
+HopPenalty=10
+OriginatorIntervalSec=1000ms
+GatewayBandwidthDown=205M
+GatewayBandwidthUp=2G

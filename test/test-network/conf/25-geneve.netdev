@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[NetDev]
+Name=geneve99
+Kind=geneve
+
+[GENEVE]
+Id=99
+Remote=192.168.22.1
+TTL=1
+UDPChecksum=true
+UDP6ZeroChecksumTx=true
+UDP6ZeroChecksumRx=true
+DestinationPort=6082

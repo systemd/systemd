@@ -1,0 +1,270 @@
+---
+title: File Descriptor Store
+category: Interfaces
+layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
+---
+
+# The File Descriptor Store
+
+*TL;DR: The systemd service manager may optionally maintain a set of file
+descriptors for each service. Those file descriptors are under control of the
+service. Storing file descriptors in the manager makes is easier to restart
+services without dropping connections or losing state.*
+
+Since its inception `systemd` has supported the *socket* *activation*
+mechanism: the service manager creates and listens on some sockets (and similar
+UNIX file descriptors) on behalf of a service, and then passes them to the
+service during activation of the service via UNIX file descriptor (short: *fd*)
+passing over `execve()`. This is primarily exposed in the
+[.socket](https://www.freedesktop.org/software/systemd/man/latest/systemd.socket.html)
+unit type.
+
+The *file* *descriptor* *store* (short: *fdstore*) extends this concept, and
+allows services to *upload* during runtime additional fds to the service
+manager that it shall keep on its behalf. File descriptors are passed back to
+the service on subsequent activations, the same way as any socket activation
+fds are passed.
+
+If a service fd is passed to the fdstore logic of the service manager it only
+maintains a duplicate of it (in the sense of UNIX
+[`dup(2)`](https://man7.org/linux/man-pages/man2/dup.2.html)), the fd remains
+also in possession of the service itself, and it may (and is expected to)
+invoke any operations on it that it likes.
+
+The primary use-case of this logic is to permit services to restart seamlessly
+(for example to update them to a newer version), without losing execution
+context, dropping pinned resources, terminating established connections or even
+just momentarily losing connectivity. In fact, as the file descriptors can be
+uploaded freely at any time during the service runtime, this can even be used
+to implement services that robustly handle abnormal termination and can recover
+from that without losing pinned resources.
+
+Note that Linux supports the
+[`memfd`](https://man7.org/linux/man-pages/man2/memfd_create.2.html) concept
+that allows associating a memory-backed fd with arbitrary data. This may
+conveniently be used to serialize service state into and then place in the
+fdstore, in order to implement service restarts with full service state being
+passed over.
+
+## Basic Mechanism
+
+The fdstore is enabled per-service via the
+[`FileDescriptorStoreMax=`](https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html#FileDescriptorStoreMax=)
+service setting. It defaults to zero (which means the fdstore logic is turned
+off), but can take an unsigned integer value that controls how many fds to
+permit the service to upload to the service manager to keep simultaneously.
+
+If set to values > 0, the fdstore is enabled. When invoked the service may now
+(asynchronously) upload file descriptors to the fdstore via the
+[`sd_pid_notify_with_fds()`](https://www.freedesktop.org/software/systemd/man/latest/sd_pid_notify_with_fds.html)
+API call (or an equivalent re-implementation). When uploading the fds it is
+necessary to set the `FDSTORE=1` field in the message, to indicate what the fd
+is intended for. It's recommended to also set the `FDNAME=…` field to any
+string of choice, which may be used to identify the fd later.
+
+Whenever the service is restarted the fds in its fdstore will be passed to the
+new instance following the same protocol as for socket activation fds. i.e. the
+`$LISTEN_FDS`, `$LISTEN_PID`, `$LISTEN_PIDFDID`, and `$LISTEN_FDNAMES`
+environment variables will be set (the latter will be populated from the
+`FDNAME=…` field mentioned above). See
+[`sd_listen_fds()`](https://www.freedesktop.org/software/systemd/man/latest/sd_listen_fds.html)
+for details on receiving such fds in a service. (Note that the name set in
+`FDNAME=…` does not need to be unique, which is useful when operating with
+multiple fully equivalent sockets or similar, for example for a service that
+both operates on IPv4 and IPv6 and treats both more or less the same.).
+
+And that's already the gist of it.
+
+## Seamless Service Restarts
+
+A system service that provides a client-facing interface that shall be able to
+seamlessly restart can make use of this in a scheme like the following:
+whenever a new connection comes in it uploads its fd immediately into its
+fdstore. At appropriate times it also serializes its state into a memfd it
+uploads to the service manager — either whenever the state changed
+sufficiently, or simply right before it terminates. (The latter of course means
+that state only survives on *clean* restarts and abnormal termination implies the
+state is lost completely — while the former would mean there's a good chance the
+next restart after an abnormal termination could continue where it left off
+with only some context lost.)
+
+Using the fdstore for such seamless service restarts is generally recommended
+over implementations that attempt to leave a process from the old service
+instance around until after the new instance already started, so that the old
+then communicates with the new service instance, and passes the fds over
+directly. Typically service restarts are a mechanism for implementing *code*
+updates, hence leaving two version of the service running at the same time is
+generally problematic. It also collides with the systemd service manager's
+general principle of guaranteeing a pristine execution environment, a pristine
+security context, and a pristine resource management context for freshly
+started services, without uncontrolled "leftovers" from previous runs. For
+example: leaving processes from previous runs generally negatively affects
+lifecycle management (i.e. `KillMode=none` must be set), which disables large
+parts of the service managers state tracking, resource management (as resource
+counters cannot start at zero during service activation anymore, since the old
+processes remaining skew them), security policies (as processes with possibly
+out-of-date security policies – SElinux, AppArmor, any LSM, seccomp, BPF — in
+effect remain), and similar.
+
+## File Descriptor Store Lifecycle
+
+By default any file descriptor stored in the fdstore for which a `POLLHUP` or
+`POLLERR` is seen is automatically closed and removed from the fdstore. This
+behavior can be turned off, by setting the `FDPOLL=0` field when uploading the
+fd via `sd_notify_with_fds()`.
+
+The fdstore is automatically closed whenever the service is fully deactivated
+and no jobs are queued for it anymore. This means that a restart job for a
+service will leave the fdstore intact, but a separate stop and start job for
+it — executed synchronously one after the other — will likely not.
+
+This behavior can be modified via the
+[`FileDescriptorStorePreserve=`](https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html#FileDescriptorStorePreserve=)
+setting in service unit files. If set to `yes` the fdstore will be kept as long
+as the service definition is loaded into memory by the service manager, i.e. as
+long as at least one other loaded unit has a reference to it. If set to
+`on-success` the behaviour is the same as `yes`, except that the fdstore is
+discarded once the service enters the permanent `failed` state, i.e. after all
+automated restart attempts driven by `Restart=` have been exhausted.
+
+The `systemctl clean --what=fdstore …` command may be used to explicitly clear
+the fdstore of a service. This is only allowed when the service is fully
+deactivated, and is hence primarily useful in case
+`FileDescriptorStorePreserve=yes` is set (because the fdstore is otherwise
+fully closed anyway in this state).
+
+Individual file descriptors may be removed from the fdstore via the
+`sd_notify()` mechanism, by sending an `FDSTOREREMOVE=1` message, accompanied
+by an `FDNAME=…` string identifying the fds to remove. (The name does not have
+to be unique, as mentioned, in which case *all* matching fds are
+closed). Generally it's a good idea to send such messages to the service
+manager during initialization of the service whenever an unrecognized fd is
+received, to make the service robust for code updates: if an old version
+uploaded an fd that the new version doesn't recognize anymore it's a good idea to
+close it both in the service and in the fdstore.
+
+Note that storing a duplicate of an fd in the fdstore means the resource pinned
+by the fd remains pinned even if the service closes its duplicate of the
+fd. This in particular means that peers on a connection socket uploaded this
+way will not receive an automatic `POLLHUP` event anymore if the service code
+issues `close()` on the socket. It must accompany it with an `FDSTOREREMOVE=1`
+notification to the service manager, so that the fd is comprehensively closed.
+
+## Access Control
+
+Access to the fds in the file descriptor store is generally restricted to the
+service code itself. Pushing fds into or removing fds from the fdstore is
+subject to the access control restrictions of any other `sd_notify()` message,
+which is controlled via
+[`NotifyAccess=`](https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html#NotifyAccess=).
+
+By default only the main service process hence can push/remove fds, but by
+setting `NotifyAccess=all` this may be relaxed to allow arbitrary service
+child processes to do the same.
+
+## Soft Reboot
+
+The fdstore is particularly interesting in [soft
+reboot](https://www.freedesktop.org/software/systemd/man/latest/systemd-soft-reboot.service.html)
+scenarios, as per `systemctl soft-reboot` (which restarts userspace like in a
+real reboot, but leaves the kernel running). File descriptor stores that remain
+loaded at the very end of the system cycle — just before the soft-reboot – are
+passed over to the next system cycle, and propagated to services they originate
+from there. This enables updating the full userspace of a system during
+runtime, fully replacing all processes without losing pinning resources,
+interrupting connectivity or established connections and similar.
+
+This mechanism can be enabled either by making sure the service survives until
+the very end (i.e. by setting `DefaultDependencies=no` so that it keeps running
+for the whole system lifetime without being regularly deactivated at shutdown)
+or by setting `FileDescriptorStorePreserve=yes` (and referencing the unit
+continuously).
+
+For further details see [Resource
+Pass-Through](https://www.freedesktop.org/software/systemd/man/latest/systemd-soft-reboot.service.html#Resource%20Pass-Through).
+
+## Kernel Live Update (kexec)
+
+On kernels that support the [Live Update
+Orchestrator](https://docs.kernel.org/userspace-api/liveupdate.html)
+(LUO), the fdstore may also be preserved across a `kexec`-based reboot into a
+new kernel. This allows updating the kernel itself without losing pinned
+resources such as serialized service state, analogous to soft reboot, but for
+the kernel.
+
+Only file descriptors that reference LUO-compatible kernel objects can be
+preserved this way. Currently the kernel supports `memfd` only for LUO, but
+more types are being worked on. Other kinds of file descriptors (sockets,
+regular files, etc.) will be dropped from the store during the kexec transition.
+
+LUO preservation of the fdstore is triggered automatically whenever a
+kexec-based reboot is initiated on an LUO-capable kernel, and is gated by a
+similar rule as soft-reboot: the service must have
+`FileDescriptorStorePreserve=yes` set, so that its fdstore remains loaded. On
+the other side of the kexec, the system manager rebuilds the mapping of fds
+back to their original service units, so that when those services are
+re-activated the fds are passed to them using the normal fdstore protocol.
+Adding a `FDNAME=…` string identifying the fd is also highly recommended,
+otherwise in case multiple fds are stored, it will be impossible to
+distinguish them, as they will all carry the default name (`stored`).
+
+Services that need to preserve additional kernel state may also create their
+own LUO sessions by opening `/dev/liveupdate` directly (see the kernel
+documentation linked above) and pushing the obtained session fd into their
+fdstore (it is recommended to use a `FDNAME=…` string, as above). systemd
+detects such fds and arranges for them to survive the kexec as well, so that
+the session, and any supported file descriptors preserved inside it, is
+handed back to the service on the other side of the reboot.
+
+## Initrd Transitions
+
+The fdstore may also be used to pass file descriptors for resources from the
+initrd context to the main system. Restarting all processes after the
+transition is important as code running in the initrd should generally not
+continue to run after the switch to the host file system, since that pins
+backing files from the initrd, and the initrd might contain different versions
+of programs than the host.
+
+Any service that still runs during the initrd→host transition will have its
+fdstore passed over the transition, where it will be passed back to any queued
+services of the same name.
+
+The soft reboot cycle transition and the initrd→host transition are
+semantically very similar, hence similar rules apply, and in both cases it is
+recommended to use the fdstore if pinned resources shall be passed over.
+
+## Propagation Across Manager Boundaries
+
+When a service that has `FileDescriptorStorePreserve=yes` set is itself running
+under another service manager, for example a service of the per-user manager
+(`user@.service`), or a payload running inside a
+[`systemd-nspawn`](https://www.freedesktop.org/software/systemd/man/latest/systemd-nspawn.html)
+container, fds pushed into its fdstore are automatically forwarded one level up
+the supervisor chain via the enveloping manager's `$NOTIFY_SOCKET`. This allows
+the fdstore contents of inner services to be preserved across restarts, re-execs,
+soft-reboots, etc. of the *outer* manager, even when the inner manager (or the
+container payload) is itself restarted along the way. On the way up, each fd is
+tagged with its originating unit id and the original `FDNAME=…` value, so that
+when the fds are eventually handed back down (via the regular
+`$LISTEN_FDS`/`$LISTEN_FDNAMES` protocol), each manager along the chain can
+route them back to the correct unit's fdstore. `FDSTOREREMOVE=1` notifications
+are forwarded the same way, so that explicit removals propagate all the way up too.
+
+For this to work the enveloping unit must itself enable the fdstore (i.e. set
+`FileDescriptorStoreMax=` to a sufficiently large value and
+`FileDescriptorStorePreserve=yes`).
+
+## Debugging
+
+The
+[`systemd-analyze`](https://www.freedesktop.org/software/systemd/man/latest/systemd-analyze.html#systemd-analyze%20fdstore%20%5BUNIT...%5D)
+tool may be used to list the current contents of the fdstore of any running
+service.
+
+The
+[`systemd-run`](https://www.freedesktop.org/software/systemd/man/latest/systemd-run.html)
+tool may be used to quickly start a testing binary or similar as a service. Use
+`-p FileDescriptorStoreMax=4711` to enable the fdstore from `systemd-run`'s
+command line. By using the `-t` switch you can even interactively communicate
+via processes spawned that way, via the TTY.

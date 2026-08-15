@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: MIT-0
+#
+# This is a copy of 99-default.link.
+
+[Match]
+OriginalName=*
+
+[Link]
+NamePolicy=keep kernel database onboard slot path
+AlternativeNamesPolicy=database onboard slot path mac
+MACAddressPolicy=persistent

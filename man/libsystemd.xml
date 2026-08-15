@@ -1,0 +1,92 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="libsystemd"
+  xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>libsystemd</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>libsystemd</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>libsystemd</refname>
+    <refpurpose>Functions for implementing services and interacting with systemd</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <programlisting>
+#include &lt;systemd/sd-bus.h&gt;
+#include &lt;systemd/sd-daemon.h&gt;
+#include &lt;systemd/sd-device.h&gt;
+#include &lt;systemd/sd-event.h&gt;
+#include &lt;systemd/sd-gpt.h&gt;
+#include &lt;systemd/sd-hwdb.h&gt;
+#include &lt;systemd/sd-id128.h&gt;
+#include &lt;systemd/sd-journal.h&gt;
+#include &lt;systemd/sd-json.h&gt;
+#include &lt;systemd/sd-login.h&gt;
+#include &lt;systemd/sd-messages.h&gt;
+#include &lt;systemd/sd-path.h&gt;
+#include &lt;systemd/sd-varlink.h&gt;
+</programlisting>
+
+    <cmdsynopsis>
+      <command>pkg-config --cflags --libs libsystemd</command>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>The <filename>libsystemd</filename> library provides functions that allow interacting with various
+    interfaces provided by the
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> service
+    manager, as well as various other functions and constants useful for implementing services in
+    general.</para>
+
+    <para>See
+    <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd-bus-errors</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd-device</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd-hwdb</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd-id128</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd-json</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd-login</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd-path</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    and
+    <citerefentry><refentrytitle>sd-varlink</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    for information about different parts of the library interface.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Interface stability</title>
+
+    <para>Strict backwards-compatibility is maintained for the API (application programming interface) and
+    ABI (application binary interface). Symbol versioning is used, with symbols only added and never removed.
+    </para>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>libudev</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><ulink url="https://systemd.io/PORTABILITY_AND_STABILITY/">Interface Portability and Stability Promise</ulink></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

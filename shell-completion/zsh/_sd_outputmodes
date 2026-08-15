@@ -1,0 +1,6 @@
+#autoload
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+local -a _output_opts
+_output_opts=(short short-full short-iso short-iso-precise short-precise short-monotonic short-unix short-delta verbose export json json-pretty json-sse json-seq cat with-unit)
+_describe -t output 'output mode' _output_opts || compadd "$@"

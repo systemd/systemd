@@ -1,0 +1,189 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="systemd-sysctl.service"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-sysctl.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-sysctl.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-sysctl.service</refname>
+    <refname>systemd-sysctl</refname>
+    <refpurpose>Configure kernel parameters at boot</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>/usr/lib/systemd/systemd-sysctl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="opt" rep="repeat"><replaceable>CONFIGFILE</replaceable></arg>
+    </cmdsynopsis>
+    <para><filename>systemd-sysctl.service</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-sysctl.service</filename> is an early boot
+    service that configures
+    <citerefentry project='man-pages'><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    kernel parameters by invoking <command>/usr/lib/systemd/systemd-sysctl</command>.</para>
+
+    <para>When invoked with no arguments, <command>/usr/lib/systemd/systemd-sysctl</command> applies
+    all directives from configuration files listed in
+    <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    When invoked with positional arguments, the configuration specified by the command line arguments is
+    executed. If the string <literal>-</literal> is specified instead of a filename, the configuration is
+    read from standard input. If the argument is a file name (without any slashes), all configuration
+    directories are searched for a matching file and the file found that has the highest priority is
+    executed. If the argument is a path, that file is used directly without searching the configuration
+    directories for any other matching file.</para>
+
+    <para>In addition, <option>--prefix=</option> option may be used to limit which sysctl
+    settings are applied.</para>
+
+    <para>See
+    <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for information about the configuration of sysctl settings. After sysctl configuration is
+    changed on disk, it must be written to the files in <filename>/proc/sys/</filename> before it
+    takes effect. It is possible to update specific settings, or simply to reload all configuration,
+    see Examples below.</para>
+  </refsect1>
+
+  <refsect1><title>Options</title>
+    <variablelist>
+      <varlistentry>
+        <term><option>--prefix=</option></term>
+        <listitem>
+          <para>Only apply rules with the specified prefix.</para>
+
+        <xi:include href="version-info.xml" xpointer="v230"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--strict</option></term>
+        <listitem>
+          <para>Always return non-zero exit code on failure (including invalid sysctl variable
+          name and insufficient permissions), unless the sysctl variable name is prefixed with a "-"
+          character.</para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--verify</option></term>
+        <listitem>
+          <para>Verify sysctl values after write.</para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--inline</option></term>
+        <listitem><para>Treat each positional argument as a separate configuration line instead of a file
+        name.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="cat-config" />
+      <xi:include href="standard-options.xml" xpointer="tldr" />
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Credentials</title>
+
+    <para><command>systemd-sysctl</command> supports the service credentials logic as implemented by
+    <varname>ImportCredential=</varname>/<varname>LoadCredential=</varname>/<varname>SetCredential=</varname>
+    (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details). The following credentials are used when passed in:</para>
+
+    <variablelist class='system-credentials'>
+      <varlistentry>
+        <term><varname>sysctl.extra</varname></term>
+
+        <listitem><para>The contents of this credential may contain additional lines to operate on. The
+        credential contents should follow the same format as any other <filename>sysctl.d/</filename> drop-in
+        configuration file. If this credential is passed it is processed after all of the drop-in files read
+        from the file system. The settings configured in the credential hence take precedence over those in
+        the file system.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>Note that by default the <filename>systemd-sysctl.service</filename> unit file is set up to inherit
+    the <literal>sysctl.extra</literal> credential from the service manager.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Reset all sysctl settings</title>
+
+      <programlisting>systemctl restart systemd-sysctl</programlisting>
+    </example>
+
+    <example>
+      <title>View coredump handler configuration</title>
+
+      <programlisting># sysctl kernel.core_pattern
+kernel.core_pattern = |/usr/libexec/abrt-hook-ccpp %s %c %p %u %g %t %P %I
+</programlisting>
+    </example>
+
+    <example>
+      <title>Update coredump handler configuration</title>
+
+      <programlisting># /usr/lib/systemd/systemd-sysctl --prefix kernel.core_pattern</programlisting>
+
+      <para>This searches all the directories listed in
+      <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      for configuration files and writes <filename>/proc/sys/kernel/core_pattern</filename>.</para>
+    </example>
+
+    <example>
+      <title>Update coredump handler configuration according to a specific file</title>
+
+      <programlisting># /usr/lib/systemd/systemd-sysctl 50-coredump.conf</programlisting>
+
+      <para>This applies all the settings found in <filename>50-coredump.conf</filename>.
+      Either <filename>/etc/sysctl.d/50-coredump.conf</filename>, or
+      <filename>/run/sysctl.d/50-coredump.conf</filename>, or
+      <filename>/usr/lib/sysctl.d/50-coredump.conf</filename> will be used, in the order
+      of preference.</para>
+    </example>
+
+    <para>See
+    <citerefentry project='man-pages'><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    for various ways to directly apply sysctl settings.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

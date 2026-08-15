@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[NetDev]
+Name=bond98
+Kind=bond
+
+[Bond]
+Mode=balance-tlb
+DynamicTransmitLoadBalancing=true

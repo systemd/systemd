@@ -1,0 +1,166 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+#pragma once
+
+#include "sd-id128.h"
+
+#include "copy.h"
+#include "list.h"
+#include "machine-forward.h"
+#include "pidref.h"
+#include "time-util.h"
+
+typedef enum MachineState {
+        MACHINE_OPENING,    /* Machine is being registered */
+        MACHINE_RUNNING,    /* Machine is running */
+        MACHINE_CLOSING,    /* Machine is terminating */
+        _MACHINE_STATE_MAX,
+        _MACHINE_STATE_INVALID = -EINVAL,
+} MachineState;
+
+typedef enum MachineClass {
+        MACHINE_CONTAINER,
+        MACHINE_VM,
+        MACHINE_HOST,
+        _MACHINE_CLASS_MAX,
+        _MACHINE_CLASS_INVALID = -EINVAL,
+} MachineClass;
+
+#define MACHINE_CLASS_CAN_REGISTER(class) IN_SET((class), MACHINE_CONTAINER, MACHINE_VM)
+
+typedef enum KillWhom {
+        KILL_LEADER,
+        KILL_SUPERVISOR,
+        KILL_ALL,
+        _KILL_WHOM_MAX,
+        _KILL_WHOM_INVALID = -EINVAL,
+} KillWhom;
+
+typedef struct Machine {
+        /* Note: machine objects registered with the --system instance can be allocated by privileged *and*
+         * unprivileged clients. We generally do this to make DNS-style name resolution work, and since
+         * that's a system-wide concept, the machine registrations need to be system-wide too.
+         *
+         * polkit manages access to machines registered by unprivileged clients. The general rule should be
+         * that local users (i.e. those with a seat) may register machines, and do basic interaction with
+         * their own machines without having to authenticate as administrator – however any more complex
+         * (such as: copying files in + out of a container; or logging in interactively) should only be
+         * available after administrator authentication, following the logic that users better use their own
+         * per-user instance of systemd-machined for that. */
+
+        Manager *manager;
+
+        char *name;
+        sd_id128_t id;
+
+        uid_t uid;
+
+        MachineClass class;
+
+        char *state_file;
+        char *service;
+        /* Note that the root directory is accepted as-is from the caller, including unprivileged users, so
+         * do not use it for anything but informational purposes. */
+        char *root_directory;
+
+        char *unit;
+        char *subgroup;
+        char *scope_job;
+        char *cgroup;
+
+        /* Leader: the top-level process that encapsulates the machine itself. For containers that's PID 1,
+         * for VMs that's qemu or whatever process wraps the actual VM code. This process defines the runtime
+         * lifecycle of the machine. In case of containers we can use this reference to enter namespaces,
+         * send signals and so on.
+         *
+         * Supervisor: the process that supervises the machine, if there is any and if that process is
+         * responsible for a single machine. Sending SIGTERM to this process should (non-cooperatively)
+         * terminate the machine. */
+        PidRef leader, supervisor;
+        sd_event_source *leader_pidfd_event_source, *supervisor_pidfd_event_source;
+
+        dual_timestamp timestamp;
+
+        sd_event_source *cgroup_empty_event_source;
+
+        bool in_gc_queue:1;
+        bool started:1;
+        bool stopping:1;
+        bool referenced:1;
+        bool allocate_unit;
+
+        sd_bus_message *create_message;
+
+        int *netif;
+        size_t n_netif;
+
+        unsigned vsock_cid;
+        char *ssh_address;
+        char *ssh_private_key_path;
+        char *control_address;
+
+        LIST_HEAD(Operation, operations);
+
+        LIST_FIELDS(Machine, gc_queue);
+} Machine;
+
+int machine_new(MachineClass class, const char *name, Machine **ret);
+int machine_link(Manager *manager, Machine *machine);
+Machine* machine_free(Machine *m);
+bool machine_may_gc(Machine *m, bool drop_not_started);
+void machine_add_to_gc_queue(Machine *m);
+int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error);
+int machine_stop(Machine *m);
+int machine_finalize(Machine *m);
+int machine_save(Machine *m);
+int machine_load(Machine *m);
+int machine_kill(Machine *m, KillWhom whom, int signo);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Machine*, machine_free);
+
+void machine_release_unit(Machine *m);
+
+MachineState machine_get_state(Machine *m);
+
+DECLARE_STRING_TABLE_LOOKUP(machine_class, MachineClass);
+
+DECLARE_STRING_TABLE_LOOKUP(machine_state, MachineState);
+
+DECLARE_STRING_TABLE_LOOKUP(kill_whom, KillWhom);
+
+int machine_openpt(Machine *m, int flags, char **ret_peer);
+int machine_start_getty(Machine *m, const char *ptmx_name, sd_bus_error *error);
+int machine_start_shell(Machine *m, int ptmx_fd, const char *ptmx_name, const char *user, const char *path, char **args, char **env, sd_bus_error *error);
+#define machine_default_shell_path() ("/bin/sh")
+char** machine_default_shell_args(const char *user);
+
+int machine_copy_from_to_operation(
+                Manager *manager,
+                Machine *machine,
+                const char *host_path,
+                const char *container_path,
+                bool copy_from_container,
+                CopyFlags copy_flags,
+                Operation **ret);
+
+int machine_get_uid_shift(Machine *m, uid_t *ret);
+
+int machine_owns_uid(Machine *m, uid_t host_uid, uid_t *ret_internal_uid);
+int machine_owns_gid(Machine *m, gid_t host_gid, gid_t *ret_internal_gid);
+
+int machine_translate_uid(Machine *m, uid_t internal_uid, uid_t *ret_host_uid);
+int machine_translate_gid(Machine *m, gid_t internal_gid, gid_t *ret_host_gid);
+
+int machine_open_root_directory(Machine *machine);
+
+typedef enum AcquireMetadata {
+        ACQUIRE_METADATA_NO,
+        ACQUIRE_METADATA_YES,
+        ACQUIRE_METADATA_GRACEFUL,
+        _ACQUIRE_METADATA_MAX,
+        _ACQUIRE_METADATA_INVALID = -EINVAL,
+} AcquireMetadata;
+
+DECLARE_STRING_TABLE_LOOKUP(acquire_metadata, AcquireMetadata);
+inline static bool should_acquire_metadata(AcquireMetadata am) {
+        return am == ACQUIRE_METADATA_YES || am == ACQUIRE_METADATA_GRACEFUL;
+}

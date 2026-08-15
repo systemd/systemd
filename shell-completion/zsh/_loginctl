@@ -1,0 +1,182 @@
+#compdef loginctl
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+(( $+functions[_loginctl_all_sessions] )) ||
+_loginctl_all_sessions() {
+    local session description
+    loginctl --no-legend list-sessions 2>/dev/null | while read -r session description; do
+        _sys_all_sessions+=( "$session" )
+        _sys_all_sessions_descr+=( "${session}:$description" )
+    done
+}
+
+(( $+functions[_loginctl_all_users] )) ||
+_loginctl_all_users() {
+    local uid description
+    loginctl --no-legend list-users 2>/dev/null | while read -r uid description; do
+        _sys_all_users+=( "$uid" )
+        _sys_all_users_descr+=( "${uid}:$description" )
+    done
+}
+
+(( $+functions[_loginctl_all_seats] )) ||
+_loginctl_all_seats() {
+    local seat description
+    loginctl --no-legend list-seats 2>/dev/null | while read -r seat description; do
+        _sys_all_seats+=( "$seat" )
+        _sys_all_seats_descr+=( "${seat}:$description" )
+    done
+}
+
+local fun
+# Completion functions for SESSIONS
+for fun in session-status show-session activate lock-session unlock-session terminate-session kill-session ; do
+    (( $+functions[_loginctl_$fun] )) ||
+_loginctl_$fun() {
+    local -a _sys_all_sessions{,_descr}
+
+    _sys_all_sessions=( "self" )
+    _sys_all_sessions_descr=( "self:alias for the current session" )
+
+    _loginctl_all_sessions
+    for _ignore in $words[2,-1]; do
+        _sys_all_sessions[(i)$_ignore]=()
+        _sys_all_sessions_descr[(i)$_ignore:*]=()
+    done
+
+    if zstyle -T ":completion:${curcontext}:systemd-sessions" verbose; then
+        _describe -t systemd-sessions session _sys_all_sessions_descr _sys_all_sessions "$@"
+    else
+        local expl
+        _wanted systemd-sessions expl session compadd "$@" -a _sys_all_sessions
+    fi
+}
+done
+
+# Completion functions for USERS
+for fun in user-status show-user enable-linger disable-linger terminate-user kill-user ; do
+    (( $+functions[_loginctl_$fun] )) ||
+_loginctl_$fun() {
+    local -a _sys_all_users{,_descr}
+    zstyle -a ":completion:${curcontext}:users" users _sys_all_users
+
+    if ! (( $#_sys_all_users )); then
+        _loginctl_all_users
+    fi
+
+    for _ignore in $words[2,-1]; do
+        _sys_all_users[(i)$_ignore]=()
+        _sys_all_users_descr[(i)$_ignore:*]=()
+    done
+
+    # using the common tag `users' here, not rolling our own `systemd-users' tag
+    if zstyle -T ":completion:${curcontext}:users" verbose; then
+        _describe -t users user ${_sys_all_users_descr:+_sys_all_users_descr} _sys_all_users "$@"
+    else
+        local expl
+        _wanted users expl user compadd "$@" -a _sys_all_users
+    fi
+}
+done
+
+# Completion functions for SEATS
+(( $+functions[_loginctl_seats] )) ||
+_loginctl_seats() {
+    local -a _sys_all_seats{,_descr}
+
+    _sys_all_seats=( "self" )
+    _sys_all_seats_descr=( "self:alias for the current seat" )
+
+    _loginctl_all_seats
+    for _ignore in $words[2,-1]; do
+        _sys_all_seats[(i)$_ignore]=()
+        _sys_all_seats_descr[(i)$_ignore:*]=()
+    done
+
+    if zstyle -T ":completion:${curcontext}:systemd-seats" verbose; then
+        _describe -t systemd-seats seat _sys_all_seats_descr _sys_all_seats "$@"
+    else
+        local expl
+        _wanted systemd-seats expl seat compadd "$@" -a _sys_all_seats
+    fi
+}
+for fun in seat-status show-seat terminate-seat ; do
+    (( $+functions[_loginctl_$fun] )) ||
+_loginctl_$fun() { _loginctl_seats }
+done
+
+# Completion functions for ATTACH
+(( $+functions[_loginctl_attach] )) ||
+_loginctl_attach() {
+    _arguments -w -C -S -s \
+               ':seat:_loginctl_seats' \
+               '*:device:_files'
+}
+
+# no loginctl completion for:
+# [STANDALONE]='list-sessions list-users list-seats flush-devices'
+
+(( $+functions[_loginctl_commands] )) ||
+_loginctl_commands() {
+    local -a _loginctl_cmds
+    _loginctl_cmds=(
+        "list-sessions:List sessions"
+        "session-status:Show session status"
+        "show-session:Show properties of one or more sessions"
+        "activate:Activate a session"
+        "lock-session:Screen lock one or more sessions"
+        "unlock-session:Screen unlock one or more sessions"
+        "lock-sessions:Screen lock all current sessions"
+        "unlock-sessions:Screen unlock all current sessions"
+        "terminate-session:Terminate one or more sessions"
+        "kill-session:Send signal to processes of a session"
+        "list-users:List users"
+        "user-status:Show user status"
+        "show-user:Show properties of one or more users"
+        "enable-linger:Enable linger state of one or more users"
+        "disable-linger:Disable linger state of one or more users"
+        "terminate-user:Terminate all sessions of one or more users"
+        "kill-user:Send signal to processes of a user"
+        "list-seats:List seats"
+        "seat-status:Show seat status"
+        "show-seat:Show properties of one or more seats"
+        "attach:Attach one or more devices to a seat"
+        "flush-devices:Flush all device associations"
+        "terminate-seat:Terminate all sessions on one or more seats"
+    )
+
+    if (( CURRENT == 1 )); then
+        _describe -t commands 'loginctl command' _loginctl_cmds || compadd "$@"
+    else
+        local curcontext="$curcontext" _ignore
+
+        cmd="${${_loginctl_cmds[(r)$words[1]:*]%%:*}}"
+
+        if (( $#cmd )); then
+            curcontext="${curcontext%:*:*}:loginctl-${cmd}:"
+
+            _call_function ret _loginctl_$cmd || _message 'no more arguments'
+        else
+            _message "unknown loginctl command: $words[1]"
+        fi
+        return ret
+    fi
+}
+
+
+_arguments -s \
+    '(- *)'{-h,--help}'[Show help]' \
+    '(- *)--version[Show package version]' \
+    '*'{-p+,--property=}'[Show only properties by this name]:unit property' \
+    '(-a --all)'{-a,--all}'[Show all properties, including empty ones]' \
+    '--kill-whom=[Whom to send signal to]:killwhom:(main control all)' \
+    '(-s --signal)'{-s+,--signal=}'[Which signal to send]:signal:_signals' \
+    '(-H --host)'{-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
+    '(-M --machine)'{-M+,--machine=}'[Operate on local container]:machine:_sd_machines' \
+    '(-l --full)'{-l,--full}'[Do not ellipsize output]' \
+    '--no-pager[Do not pipe output into a pager]' \
+    '--no-legend[Do not show the headers and footers]' \
+    '--no-ask-password[Do not ask for system passwords]' \
+    '(-n --lines)'{-n+,--lines=}'[Number of journal entries to show]' \
+    '(-o --output)'{-o+,--output=}'[Change journal output mode]:output modes:_sd_outputmodes' \
+    '*::loginctl command:_loginctl_commands'

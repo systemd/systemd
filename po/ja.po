@@ -1,0 +1,1329 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# Japanese translation for systemd.
+#
+# Takuro Onoue <kusanaginoturugi@gmail.com>, 2021, 2026.
+# Y T <yi818670@gmail.com>, 2025, 2026.
+msgid ""
+msgstr ""
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-07-20 16:42+0900\n"
+"PO-Revision-Date: 2026-08-02 00:10+0000\n"
+"Last-Translator: Takuro Onoue <kusanaginoturugi@gmail.com>\n"
+"Language-Team: Japanese <https://translate.fedoraproject.org/projects/"
+"systemd/main/ja/>\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"X-Generator: Weblate 2026.7.1\n"
+
+#: src/core/org.freedesktop.systemd1.policy.in:22
+msgid "Send passphrase back to system"
+msgstr "パスフレーズをシステムに送信"
+
+#: src/core/org.freedesktop.systemd1.policy.in:23
+msgid ""
+"Authentication is required to send the entered passphrase back to the system."
+msgstr "パスフレーズをシステムに送信するには認証が必要です。"
+
+#: src/core/org.freedesktop.systemd1.policy.in:33
+msgid "Manage system services or other units"
+msgstr "システムサービスやその他のユニットの管理"
+
+#: src/core/org.freedesktop.systemd1.policy.in:34
+msgid "Authentication is required to manage system services or other units."
+msgstr "システムサービスやその他のユニットを管理するには認証が必要です。"
+
+#: src/core/org.freedesktop.systemd1.policy.in:43
+msgid "Manage system service or unit files"
+msgstr "システムサービスファイルやその他のユニットファイルの管理"
+
+#: src/core/org.freedesktop.systemd1.policy.in:44
+msgid "Authentication is required to manage system service or unit files."
+msgstr ""
+"システムサービスファイルやその他のユニットファイルを管理するには認証が必要で"
+"す。"
+
+#: src/core/org.freedesktop.systemd1.policy.in:54
+msgid "Set or unset system and service manager environment variables"
+msgstr "システムマネージャー環境変数の設定または解除"
+
+#: src/core/org.freedesktop.systemd1.policy.in:55
+msgid ""
+"Authentication is required to set or unset system and service manager "
+"environment variables."
+msgstr "システムマネージャー環境変数を設定または解除するには認証が必要です。"
+
+#: src/core/org.freedesktop.systemd1.policy.in:64
+msgid "Reload the systemd state"
+msgstr "systemdの状態の再読み込み"
+
+#: src/core/org.freedesktop.systemd1.policy.in:65
+msgid "Authentication is required to reload the systemd state."
+msgstr "systemdの状態を再読み込みするには認証が必要です。"
+
+#: src/core/org.freedesktop.systemd1.policy.in:74
+msgid "Dump the systemd state without rate limits"
+msgstr "systemdの状態をレート制限に関係なく出力する"
+
+#: src/core/org.freedesktop.systemd1.policy.in:75
+msgid ""
+"Authentication is required to dump the systemd state without rate limits."
+msgstr "systemdの状態をレート制限に関係なく出力するには認証が必要です。"
+
+#: src/home/org.freedesktop.home1.policy:13
+msgid "Create a home area"
+msgstr "ホーム領域の作成"
+
+#: src/home/org.freedesktop.home1.policy:14
+msgid "Authentication is required to create a user's home area."
+msgstr "ユーザーのホーム領域を作成するには認証が必要です。"
+
+#: src/home/org.freedesktop.home1.policy:23
+msgid "Remove a home area"
+msgstr "ホーム領域の削除"
+
+#: src/home/org.freedesktop.home1.policy:24
+msgid "Authentication is required to remove a user's home area."
+msgstr "ユーザーのホーム領域の削除には認証が必要です。"
+
+#: src/home/org.freedesktop.home1.policy:33
+msgid "Check credentials of a home area"
+msgstr "ホーム領域の認証情報の確認"
+
+#: src/home/org.freedesktop.home1.policy:34
+msgid ""
+"Authentication is required to check credentials against a user's home area."
+msgstr "ユーザーのホーム領域に対する認証情報の確認には認証が必要です。"
+
+#: src/home/org.freedesktop.home1.policy:43
+msgid "Update a home area"
+msgstr "ホーム領域の更新"
+
+#: src/home/org.freedesktop.home1.policy:44
+msgid "Authentication is required to update a user's home area."
+msgstr "ユーザーのホーム領域の更新には認証が必要です。"
+
+#: src/home/org.freedesktop.home1.policy:53
+msgid "Update your home area"
+msgstr "ホーム領域の更新"
+
+#: src/home/org.freedesktop.home1.policy:54
+msgid "Authentication is required to update your home area."
+msgstr "ホーム領域の更新には認証が必要です。"
+
+#: src/home/org.freedesktop.home1.policy:63
+msgid "Resize a home area"
+msgstr "ホーム領域のサイズ変更"
+
+#: src/home/org.freedesktop.home1.policy:64
+msgid "Authentication is required to resize a user's home area."
+msgstr "ユーザーのホーム領域のサイズ変更には認証が必要です。"
+
+#: src/home/org.freedesktop.home1.policy:73
+msgid "Change password of a home area"
+msgstr "ホーム領域のパスワード変更"
+
+#: src/home/org.freedesktop.home1.policy:74
+msgid ""
+"Authentication is required to change the password of a user's home area."
+msgstr "ユーザーのホーム領域のパスワードを変更するには認証が必要です。"
+
+#: src/home/org.freedesktop.home1.policy:83
+msgid "Activate a home area"
+msgstr "ホーム領域の有効化"
+
+#: src/home/org.freedesktop.home1.policy:84
+msgid "Authentication is required to activate a user's home area."
+msgstr "ユーザーのホーム領域を有効化するには認証が必要です。"
+
+#: src/home/org.freedesktop.home1.policy:93
+msgid "Manage Home Directory Signing Keys"
+msgstr "ホームディレクトリの署名キーの管理"
+
+#: src/home/org.freedesktop.home1.policy:94
+msgid "Authentication is required to manage signing keys for home directories."
+msgstr "ホームディレクトリの署名キーを管理するには認証が必要です。"
+
+#: src/home/pam_systemd_home.c:328
+#, c-format
+msgid ""
+"Home of user %s is currently absent, please plug in the necessary storage "
+"device or backing file system."
+msgstr ""
+"ユーザー %s のホーム領域は現在利用できません。必要なストレージデバイスまたは"
+"ホーム領域の保存先となるファイルシステムを接続してください。"
+
+#: src/home/pam_systemd_home.c:333
+#, c-format
+msgid "Too frequent login attempts for user %s, try again later."
+msgstr "ユーザー %s のログイン試行が頻繁すぎます。後ほどやり直してください。"
+
+#: src/home/pam_systemd_home.c:345
+msgid "Password: "
+msgstr "パスワード： "
+
+#: src/home/pam_systemd_home.c:347
+#, c-format
+msgid "Password incorrect or not sufficient for authentication of user %s."
+msgstr "ユーザー %s のパスワードが正しくないか、パスワードだけでは認証できません。"
+
+#: src/home/pam_systemd_home.c:348
+msgid "Sorry, try again: "
+msgstr "すみません、パスワードを再入力してください： "
+
+#: src/home/pam_systemd_home.c:370
+msgid "Recovery key: "
+msgstr "復旧キー： "
+
+#: src/home/pam_systemd_home.c:372
+#, c-format
+msgid ""
+"Password/recovery key incorrect or not sufficient for authentication of user "
+"%s."
+msgstr ""
+"ユーザー %s のパスワードまたは復旧キーが正しくないか、これだけでは認証できま"
+"せん。"
+
+#: src/home/pam_systemd_home.c:373
+msgid "Sorry, reenter recovery key: "
+msgstr "すみません、復旧キーを再入力してください： "
+
+#: src/home/pam_systemd_home.c:393
+#, c-format
+msgid "Security token of user %s not inserted."
+msgstr "ユーザー %s のセキュリティトークンが挿入されていません。"
+
+#: src/home/pam_systemd_home.c:394 src/home/pam_systemd_home.c:397
+msgid "Try again with password: "
+msgstr "パスワードを入力して再試行してください： "
+
+#: src/home/pam_systemd_home.c:396
+#, c-format
+msgid ""
+"Password incorrect or not sufficient, and configured security token of user "
+"%s not inserted."
+msgstr ""
+"ユーザー %s のパスワードが正しくないか、パスワードだけでは認証できません。ま"
+"た、設定済みのセキュリティトークンが挿入されていません。"
+
+#: src/home/pam_systemd_home.c:416
+msgid "Security token PIN: "
+msgstr "セキュリティトークンのPIN： "
+
+#: src/home/pam_systemd_home.c:433
+#, c-format
+msgid "Please authenticate physically on security token of user %s."
+msgstr "ユーザー %s のセキュリティトークンを操作して認証してください。"
+
+#: src/home/pam_systemd_home.c:444
+#, c-format
+msgid "Please confirm presence on security token of user %s."
+msgstr ""
+"ユーザー %s のセキュリティトークンで存在確認（タッチ操作など）を行ってくださ"
+"い。"
+
+#: src/home/pam_systemd_home.c:455
+#, c-format
+msgid "Please verify user on security token of user %s."
+msgstr "ユーザー %s のセキュリティトークンで本人確認を行ってください。"
+
+#: src/home/pam_systemd_home.c:464
+msgid ""
+"Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
+"insertion might suffice.)"
+msgstr ""
+"セキュリティトークンのPINがロックされています。ロックを解除してからもう一度お"
+"試しください。（ヒント：一旦トークンを外して再挿入してみてください。）"
+
+#: src/home/pam_systemd_home.c:472
+#, c-format
+msgid "Security token PIN incorrect for user %s."
+msgstr "ユーザー %s のセキュリティトークンのPINが正しくありません。"
+
+#: src/home/pam_systemd_home.c:473 src/home/pam_systemd_home.c:492
+#: src/home/pam_systemd_home.c:511
+msgid "Sorry, retry security token PIN: "
+msgstr "すみません、セキュリティトークンのPINを再入力してください： "
+
+#: src/home/pam_systemd_home.c:491
+#, c-format
+msgid "Security token PIN of user %s incorrect (only a few tries left!)"
+msgstr ""
+"ユーザー %s のセキュリティトークンのPINが正しくありません（残り試行可能回数が"
+"少なくなっています！）"
+
+#: src/home/pam_systemd_home.c:510
+#, c-format
+msgid "Security token PIN of user %s incorrect (only one try left!)"
+msgstr ""
+"ユーザー %s のセキュリティトークンのPINが正しくありません（残り試行可能回数が"
+"1回です！）"
+
+#: src/home/pam_systemd_home.c:677
+#, c-format
+msgid "Home of user %s is currently not active, please log in locally first."
+msgstr ""
+"ユーザー %s のホーム領域がアクティブではありません。ローカル環境にログインし"
+"てください。"
+
+#: src/home/pam_systemd_home.c:679
+#, c-format
+msgid "Home of user %s is currently locked, please unlock locally first."
+msgstr ""
+"ユーザー %s のホーム領域がロックされています。ローカル環境にてロックを解除し"
+"てからもう一度お試しください。"
+
+#: src/home/pam_systemd_home.c:713
+#, c-format
+msgid "Too many unsuccessful login attempts for user %s, refusing."
+msgstr "ユーザー %s のログイン試行の失敗回数が多すぎたため、拒否されました。"
+
+#: src/home/pam_systemd_home.c:1015
+msgid "User record is blocked, prohibiting access."
+msgstr "ユーザー情報がブロックされたため、アクセスが禁止されています。"
+
+#: src/home/pam_systemd_home.c:1019
+msgid "User record is not valid yet, prohibiting access."
+msgstr "ユーザー情報がまだ有効でないため、アクセスが禁止されています。"
+
+#: src/home/pam_systemd_home.c:1023
+msgid "User record is not valid anymore, prohibiting access."
+msgstr "ユーザー情報がもはや有効でないため、アクセスが禁止されています。"
+
+#: src/home/pam_systemd_home.c:1028 src/home/pam_systemd_home.c:1077
+msgid "User record not valid, prohibiting access."
+msgstr "ユーザー情報が有効でないため、アクセスが禁止されています。"
+
+#: src/home/pam_systemd_home.c:1038
+#, c-format
+msgid "Too many logins, try again in %s."
+msgstr "ログイン回数が多すぎます。%s後に試してください。"
+
+#: src/home/pam_systemd_home.c:1049
+msgid "Password change required."
+msgstr "パスワードの更新が必要です。"
+
+#: src/home/pam_systemd_home.c:1053
+msgid "Password expired, change required."
+msgstr "パスワードの有効期限が切れたため、パスワードの更新が必要です。"
+
+#: src/home/pam_systemd_home.c:1059
+msgid "Password is expired, but can't change, refusing login."
+msgstr "パスワードの有効期限が切れましたが、更新できないため、ログインを拒否します。"
+
+#: src/home/pam_systemd_home.c:1063
+msgid "Password will expire soon, please change."
+msgstr "パスワードの有効期限がまもなく切れます。パスワードを更新してください。"
+
+#: src/hostname/org.freedesktop.hostname1.policy:20
+msgid "Set hostname"
+msgstr "ホスト名の設定"
+
+#: src/hostname/org.freedesktop.hostname1.policy:21
+msgid "Authentication is required to set the local hostname."
+msgstr "ホスト名を設定するには認証が必要です。"
+
+#: src/hostname/org.freedesktop.hostname1.policy:30
+msgid "Set static hostname"
+msgstr "静的なホスト名の設定"
+
+#: src/hostname/org.freedesktop.hostname1.policy:31
+msgid ""
+"Authentication is required to set the statically configured local hostname, "
+"as well as the pretty hostname."
+msgstr "静的なホスト名や表示用ホスト名を設定するには認証が必要です。"
+
+#: src/hostname/org.freedesktop.hostname1.policy:41
+msgid "Set machine information"
+msgstr "マシン情報の設定"
+
+#: src/hostname/org.freedesktop.hostname1.policy:42
+msgid "Authentication is required to set local machine information."
+msgstr "マシン情報を設定するには認証が必要です。"
+
+#: src/hostname/org.freedesktop.hostname1.policy:51
+msgid "Get product UUID"
+msgstr "プロダクトUUIDを取得する"
+
+#: src/hostname/org.freedesktop.hostname1.policy:52
+msgid "Authentication is required to get product UUID."
+msgstr "プロダクトUUIDを取得するには認証が必要です。"
+
+#: src/hostname/org.freedesktop.hostname1.policy:61
+msgid "Get hardware serial number"
+msgstr "ハードウェアのシリアル番号を取得する"
+
+#: src/hostname/org.freedesktop.hostname1.policy:62
+msgid "Authentication is required to get hardware serial number."
+msgstr "ハードウェアのシリアル番号を取得するには認証が必要です。"
+
+#: src/hostname/org.freedesktop.hostname1.policy:71
+msgid "Get system description"
+msgstr "システムの説明を取得"
+
+#: src/hostname/org.freedesktop.hostname1.policy:72
+msgid "Authentication is required to get system description."
+msgstr "システムの説明を取得するには認証が必要です。"
+
+#: src/import/org.freedesktop.import1.policy:22
+msgid "Import a disk image"
+msgstr "ディスクイメージの読み込み"
+
+#: src/import/org.freedesktop.import1.policy:23
+msgid "Authentication is required to import an image."
+msgstr "ディスクイメージを読み込むには認証が必要です。"
+
+#: src/import/org.freedesktop.import1.policy:32
+msgid "Export a disk image"
+msgstr "ディスクイメージの書き出し"
+
+#: src/import/org.freedesktop.import1.policy:33
+msgid "Authentication is required to export disk image."
+msgstr "ディスクイメージを書き出すには認証が必要です。"
+
+#: src/import/org.freedesktop.import1.policy:42
+msgid "Download a disk image"
+msgstr "ディスクイメージのダウンロード"
+
+#: src/import/org.freedesktop.import1.policy:43
+msgid "Authentication is required to download a disk image."
+msgstr "ディスクイメージをダウンロードするには認証が必要です。"
+
+#: src/import/org.freedesktop.import1.policy:52
+msgid "Cancel transfer of a disk image"
+msgstr "ディスクイメージの転送を中止"
+
+#: src/import/org.freedesktop.import1.policy:53
+msgid ""
+"Authentication is required to cancel the ongoing transfer of a disk image."
+msgstr "ディスクイメージの転送を中止するには認証が必要です。"
+
+#: src/locale/org.freedesktop.locale1.policy:22
+msgid "Set system locale"
+msgstr "システムロケールの設定"
+
+#: src/locale/org.freedesktop.locale1.policy:23
+msgid "Authentication is required to set the system locale."
+msgstr "システムロケールを設定するには認証が必要です。"
+
+#: src/locale/org.freedesktop.locale1.policy:33
+msgid "Set system keyboard settings"
+msgstr "システムキーボードの設定"
+
+#: src/locale/org.freedesktop.locale1.policy:34
+msgid "Authentication is required to set the system keyboard settings."
+msgstr "システムキーボードを設定するには認証が必要です。"
+
+#: src/login/org.freedesktop.login1.policy:22
+msgid "Allow applications to inhibit system shutdown"
+msgstr "アプリケーションがシステムのシャットダウンを阻害することを許可"
+
+#: src/login/org.freedesktop.login1.policy:23
+msgid ""
+"Authentication is required for an application to inhibit system shutdown."
+msgstr "アプリケーションがシステムのシャットダウンを阻害するには認証が必要です。"
+
+#: src/login/org.freedesktop.login1.policy:33
+msgid "Allow applications to delay system shutdown"
+msgstr "アプリケーションがシステムのシャットダウンを遅延させることを許可"
+
+#: src/login/org.freedesktop.login1.policy:34
+msgid "Authentication is required for an application to delay system shutdown."
+msgstr "アプリケーションがシステムのシャットダウンを遅延させるには認証が必要です。"
+
+#: src/login/org.freedesktop.login1.policy:44
+msgid "Allow applications to inhibit system sleep"
+msgstr "アプリケーションがシステムのスリープを阻害することを許可"
+
+#: src/login/org.freedesktop.login1.policy:45
+msgid "Authentication is required for an application to inhibit system sleep."
+msgstr "アプリケーションがシステムのスリープを阻害するには認証が必要です。"
+
+#: src/login/org.freedesktop.login1.policy:55
+msgid "Allow applications to delay system sleep"
+msgstr "アプリケーションがシステムのスリープを遅延させることを許可"
+
+#: src/login/org.freedesktop.login1.policy:56
+msgid "Authentication is required for an application to delay system sleep."
+msgstr "アプリケーションがシステムのスリープを遅延させるには認証が必要です。"
+
+#: src/login/org.freedesktop.login1.policy:65
+msgid "Allow applications to inhibit automatic system suspend"
+msgstr "アプリケーションがシステムの自動的なサスペンドを阻害することを許可"
+
+#: src/login/org.freedesktop.login1.policy:66
+msgid ""
+"Authentication is required for an application to inhibit automatic system "
+"suspend."
+msgstr "アプリケーションがシステムの自動的なサスペンドを阻害するには認証が必要です。"
+
+#: src/login/org.freedesktop.login1.policy:75
+msgid "Allow applications to inhibit system handling of the power key"
+msgstr "アプリケーションが電源ボタンによる動作を阻害することを許可"
+
+#: src/login/org.freedesktop.login1.policy:76
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the power key."
+msgstr "アプリケーションが電源ボタンによる動作を阻害するには認証が必要です。"
+
+#: src/login/org.freedesktop.login1.policy:86
+msgid "Allow applications to inhibit system handling of the suspend key"
+msgstr "アプリケーションがサスペンドキーによる動作を阻害することを許可"
+
+#: src/login/org.freedesktop.login1.policy:87
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the suspend key."
+msgstr "アプリケーションがサスペンドキーによる動作を阻害するには認証が必要です。"
+
+#: src/login/org.freedesktop.login1.policy:97
+msgid "Allow applications to inhibit system handling of the hibernate key"
+msgstr "アプリケーションがハイバネートキーによる動作を阻害することを許可"
+
+#: src/login/org.freedesktop.login1.policy:98
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the hibernate key."
+msgstr "アプリケーションがハイバネートキーによる動作を阻害するには認証が必要です。"
+
+#: src/login/org.freedesktop.login1.policy:107
+msgid "Allow applications to inhibit system handling of the lid switch"
+msgstr "アプリケーションが液晶開閉による動作を阻害することを許可"
+
+#: src/login/org.freedesktop.login1.policy:108
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the lid switch."
+msgstr "アプリケーションが液晶開閉による動作を阻害するには認証が必要です。"
+
+#: src/login/org.freedesktop.login1.policy:117
+msgid "Allow applications to inhibit system handling of the reboot key"
+msgstr "アプリケーションが再起動ボタンによる動作を阻害することを許可"
+
+#: src/login/org.freedesktop.login1.policy:118
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the reboot key."
+msgstr "アプリケーションが再起動ボタンによる動作を阻害するには認証が必要です。"
+
+#: src/login/org.freedesktop.login1.policy:128
+msgid "Allow non-logged-in user to run programs"
+msgstr "ログインしていないユーザーがプログラムを実行することを許可"
+
+#: src/login/org.freedesktop.login1.policy:129
+msgid "Explicit request is required to run programs as a non-logged-in user."
+msgstr "ログインしていないユーザーがプログラムを実行するには明示的な要求が必要です。"
+
+#: src/login/org.freedesktop.login1.policy:138
+msgid "Allow non-logged-in users to run programs"
+msgstr "ログインしていないユーザーがプログラムを実行することを許可"
+
+#: src/login/org.freedesktop.login1.policy:139
+msgid "Authentication is required to run programs as a non-logged-in user."
+msgstr "ログインしていないユーザーがプログラムを実行するには認証が必要です。"
+
+#: src/login/org.freedesktop.login1.policy:148
+msgid "Allow attaching devices to seats"
+msgstr "シートにデバイスを接続することを許可"
+
+#: src/login/org.freedesktop.login1.policy:149
+msgid "Authentication is required to attach a device to a seat."
+msgstr "シートにデバイスを接続するには認証が必要です。"
+
+#: src/login/org.freedesktop.login1.policy:159
+msgid "Flush device to seat attachments"
+msgstr "デバイスのシートへの接続のリセット"
+
+#: src/login/org.freedesktop.login1.policy:160
+msgid "Authentication is required to reset how devices are attached to seats."
+msgstr "デバイスのシートへの接続をリセットするには認証が必要です。"
+
+#: src/login/org.freedesktop.login1.policy:169
+msgid "Power off the system"
+msgstr "システムの電源を切る"
+
+#: src/login/org.freedesktop.login1.policy:170
+msgid "Authentication is required to power off the system."
+msgstr "システムの電源を切るには認証が必要です。"
+
+#: src/login/org.freedesktop.login1.policy:180
+msgid "Power off the system while other users are logged in"
+msgstr "他のユーザーがログインしている状態でシステムの電源を切る"
+
+#: src/login/org.freedesktop.login1.policy:181
+msgid ""
+"Authentication is required to power off the system while other users are "
+"logged in."
+msgstr "他のユーザーがログインしている状態でシステムの電源を切るには認証が必要です。"
+
+#: src/login/org.freedesktop.login1.policy:191
+msgid "Power off the system while an application is inhibiting this"
+msgstr "アプリケーションが使用されている状態でシステムの電源を切る"
+
+#: src/login/org.freedesktop.login1.policy:192
+msgid ""
+"Authentication is required to power off the system while an application is "
+"inhibiting this."
+msgstr ""
+"アプリケーションが使用されている状態でシステムの電源を切るには認証が必要です"
+"。"
+
+#: src/login/org.freedesktop.login1.policy:202
+msgid "Reboot the system"
+msgstr "システムの再起動"
+
+#: src/login/org.freedesktop.login1.policy:203
+msgid "Authentication is required to reboot the system."
+msgstr "システムの再起動には認証が必要です。"
+
+#: src/login/org.freedesktop.login1.policy:213
+msgid "Reboot the system while other users are logged in"
+msgstr "他のユーザーがログインしている状態でシステムを再起動する"
+
+#: src/login/org.freedesktop.login1.policy:214
+msgid ""
+"Authentication is required to reboot the system while other users are logged "
+"in."
+msgstr "他のユーザーがログインしている状態でシステムを再起動するには認証が必要です。"
+
+#: src/login/org.freedesktop.login1.policy:224
+msgid "Reboot the system while an application is inhibiting this"
+msgstr "アプリケーションが使用されている状態でシステムを再起動する"
+
+#: src/login/org.freedesktop.login1.policy:225
+msgid ""
+"Authentication is required to reboot the system while an application is "
+"inhibiting this."
+msgstr ""
+"アプリケーションが使用されている状態でシステムを再起動するには認証が必要です"
+"。"
+
+#: src/login/org.freedesktop.login1.policy:235
+msgid "Halt the system"
+msgstr "システムの停止"
+
+#: src/login/org.freedesktop.login1.policy:236
+msgid "Authentication is required to halt the system."
+msgstr "システムを停止するには認証が必要です。"
+
+#: src/login/org.freedesktop.login1.policy:246
+msgid "Halt the system while other users are logged in"
+msgstr "他のユーザーがログインしている状態でシステムを停止する"
+
+#: src/login/org.freedesktop.login1.policy:247
+msgid ""
+"Authentication is required to halt the system while other users are logged "
+"in."
+msgstr "他のユーザーがログインしている状態でシステムを停止するには認証が必要です。"
+
+#: src/login/org.freedesktop.login1.policy:257
+msgid "Halt the system while an application is inhibiting this"
+msgstr "アプリケーションが使用されている状態でシステムを停止する"
+
+#: src/login/org.freedesktop.login1.policy:258
+msgid ""
+"Authentication is required to halt the system while an application is "
+"inhibiting this."
+msgstr "アプリケーションが使用されている状態でシステムを停止するには認証が必要です。"
+
+#: src/login/org.freedesktop.login1.policy:268
+msgid "Suspend the system"
+msgstr "システムのサスペンド"
+
+#: src/login/org.freedesktop.login1.policy:269
+msgid "Authentication is required to suspend the system."
+msgstr "システムのサスペンドには認証が必要です。"
+
+#: src/login/org.freedesktop.login1.policy:278
+msgid "Suspend the system while other users are logged in"
+msgstr "他のユーザーがログインしている状態でシステムをサスペンドする"
+
+#: src/login/org.freedesktop.login1.policy:279
+msgid ""
+"Authentication is required to suspend the system while other users are "
+"logged in."
+msgstr ""
+"他のユーザーがログインしている状態でシステムをサスペンドするには認証が必要で"
+"す。"
+
+#: src/login/org.freedesktop.login1.policy:289
+msgid "Suspend the system while an application is inhibiting this"
+msgstr "アプリケーションが使用されている状態でシステムをサスペンドする"
+
+#: src/login/org.freedesktop.login1.policy:290
+msgid ""
+"Authentication is required to suspend the system while an application is "
+"inhibiting this."
+msgstr ""
+"アプリケーションが使用されている状態でシステムをサスペンドするには認証が必要"
+"です。"
+
+#: src/login/org.freedesktop.login1.policy:300
+msgid "Hibernate the system"
+msgstr "システムのハイバネート"
+
+#: src/login/org.freedesktop.login1.policy:301
+msgid "Authentication is required to hibernate the system."
+msgstr "システムのハイバネートには認証が必要です。"
+
+#: src/login/org.freedesktop.login1.policy:310
+msgid "Hibernate the system while other users are logged in"
+msgstr "他のユーザーがログインしている状態でシステムをハイバネートする"
+
+#: src/login/org.freedesktop.login1.policy:311
+msgid ""
+"Authentication is required to hibernate the system while other users are "
+"logged in."
+msgstr ""
+"他のユーザーがログインしている状態でシステムをハイバネートするには認証が必要"
+"です。"
+
+#: src/login/org.freedesktop.login1.policy:321
+msgid "Hibernate the system while an application is inhibiting this"
+msgstr "アプリケーションが使用されている状態でシステムをハイバネートする"
+
+#: src/login/org.freedesktop.login1.policy:322
+msgid ""
+"Authentication is required to hibernate the system while an application is "
+"inhibiting this."
+msgstr ""
+"アプリケーションが使用されている状態でシステムをハイバネートするには認証が必"
+"要です。"
+
+#: src/login/org.freedesktop.login1.policy:332
+msgid "Manage active sessions, users and seats"
+msgstr "アクティブなセッションやユーザー、シートの管理"
+
+#: src/login/org.freedesktop.login1.policy:333
+msgid "Authentication is required to manage active sessions, users and seats."
+msgstr "アクティブなセッションやユーザー、シートを管理するには認証が必要です。"
+
+#: src/login/org.freedesktop.login1.policy:342
+msgid "Lock or unlock active sessions"
+msgstr "アクティブなセッションのロックまたはロック解除"
+
+#: src/login/org.freedesktop.login1.policy:343
+msgid "Authentication is required to lock or unlock active sessions."
+msgstr "アクティブなセッションをロックまたはロック解除するには認証が必要です。"
+
+#: src/login/org.freedesktop.login1.policy:352
+msgid "Set the reboot \"reason\" in the kernel"
+msgstr "再起動の理由を設定する"
+
+#: src/login/org.freedesktop.login1.policy:353
+msgid "Authentication is required to set the reboot \"reason\" in the kernel."
+msgstr "再起動の理由を設定するには認証が必要です。"
+
+#: src/login/org.freedesktop.login1.policy:363
+msgid "Indicate to the firmware to boot to setup interface"
+msgstr "ファームウェアに「インターフェースの設定を起動」を表示させる"
+
+#: src/login/org.freedesktop.login1.policy:364
+msgid ""
+"Authentication is required to indicate to the firmware to boot to setup "
+"interface."
+msgstr ""
+"ファームウェアに「インターフェースの設定を起動」を表示させるには認証が必要で"
+"す。"
+
+#: src/login/org.freedesktop.login1.policy:374
+msgid "Indicate to the boot loader to boot to the boot loader menu"
+msgstr "ブートローダーにメニューを起動するための項目を表示させる"
+
+#: src/login/org.freedesktop.login1.policy:375
+msgid ""
+"Authentication is required to indicate to the boot loader to boot to the "
+"boot loader menu."
+msgstr "ブートローダーにメニューを起動するための項目を表示させるには認証が必要です。"
+
+#: src/login/org.freedesktop.login1.policy:385
+msgid "Indicate to the boot loader to boot a specific entry"
+msgstr "ブートローダーに特定の項目を表示させる"
+
+#: src/login/org.freedesktop.login1.policy:386
+msgid ""
+"Authentication is required to indicate to the boot loader to boot into a "
+"specific boot loader entry."
+msgstr "ブートローダーに特定の項目を表示させるには認証が必要です。"
+
+#: src/login/org.freedesktop.login1.policy:396
+msgid "Set a wall message"
+msgstr "全ユーザーへのメッセージの設定"
+
+#: src/login/org.freedesktop.login1.policy:397
+msgid "Authentication is required to set a wall message."
+msgstr "全ユーザーへのメッセージを設定するには認証が必要です。"
+
+#: src/login/org.freedesktop.login1.policy:406
+msgid "Change Session"
+msgstr "セッションの変更"
+
+#: src/login/org.freedesktop.login1.policy:407
+msgid "Authentication is required to change the virtual terminal."
+msgstr "仮想ターミナルを変更するには認証が必要です。"
+
+#: src/machine/org.freedesktop.machine1.policy:22
+msgid "Log into a local container"
+msgstr "ローカルなコンテナへログイン"
+
+#: src/machine/org.freedesktop.machine1.policy:23
+msgid "Authentication is required to log into a local container."
+msgstr "ローカルなコンテナへログインするには認証が必要です。"
+
+#: src/machine/org.freedesktop.machine1.policy:32
+msgid "Log into the local host"
+msgstr "ローカルホストへログイン"
+
+#: src/machine/org.freedesktop.machine1.policy:33
+msgid "Authentication is required to log into the local host."
+msgstr "ローカルホストへログインするには認証が必要です。"
+
+#: src/machine/org.freedesktop.machine1.policy:42
+msgid "Acquire a shell in a local container"
+msgstr "ローカルなコンテナのシェルを取得"
+
+#: src/machine/org.freedesktop.machine1.policy:43
+msgid "Authentication is required to acquire a shell in a local container."
+msgstr "ローカルなコンテナのシェルを取得するには認証が必要です。"
+
+#: src/machine/org.freedesktop.machine1.policy:53
+msgid "Acquire a shell on the local host"
+msgstr "ローカルホストのシェルを取得"
+
+#: src/machine/org.freedesktop.machine1.policy:54
+msgid "Authentication is required to acquire a shell on the local host."
+msgstr "ローカルホストのシェルを取得するには認証が必要です。"
+
+#: src/machine/org.freedesktop.machine1.policy:64
+msgid "Acquire a pseudo TTY in a local container"
+msgstr "ローカルなコンテナの仮想TTYを取得"
+
+#: src/machine/org.freedesktop.machine1.policy:65
+msgid ""
+"Authentication is required to acquire a pseudo TTY in a local container."
+msgstr "ローカルなコンテナの仮想TTYを取得するには認証が必要です。"
+
+#: src/machine/org.freedesktop.machine1.policy:74
+msgid "Acquire a pseudo TTY on the local host"
+msgstr "ローカルホストの仮想TTYを取得する"
+
+#: src/machine/org.freedesktop.machine1.policy:75
+msgid "Authentication is required to acquire a pseudo TTY on the local host."
+msgstr "ローカルホストの仮想TTYを取得するには認証が必要です。"
+
+#: src/machine/org.freedesktop.machine1.policy:84
+msgid "Manage local virtual machines and containers"
+msgstr "ローカルに存在する仮想マシンやコンテナの管理"
+
+#: src/machine/org.freedesktop.machine1.policy:85
+msgid ""
+"Authentication is required to manage local virtual machines and containers."
+msgstr "ローカルに存在する仮想マシンやコンテナを管理するには認証が必要です。"
+
+#: src/machine/org.freedesktop.machine1.policy:95
+msgid "Inspect local virtual machines and containers"
+msgstr "ローカルに存在する仮想マシンやコンテナの精査"
+
+#: src/machine/org.freedesktop.machine1.policy:96
+msgid ""
+"Authentication is required to inspect local virtual machines and containers."
+msgstr "ローカルに存在する仮想マシンやコンテナを精査するには認証が必要です。"
+
+#: src/machine/org.freedesktop.machine1.policy:105
+msgid "Create a local virtual machine or container"
+msgstr "ローカルに存在する仮想マシンやコンテナの作成"
+
+#: src/machine/org.freedesktop.machine1.policy:106
+msgid ""
+"Authentication is required to create a local virtual machine or container."
+msgstr "ローカルに存在する仮想マシンやコンテナを作成するには認証が必要です。"
+
+#: src/machine/org.freedesktop.machine1.policy:116
+msgid "Register a local virtual machine or container"
+msgstr "ローカルに存在する仮想マシンやコンテナの登録"
+
+#: src/machine/org.freedesktop.machine1.policy:117
+msgid ""
+"Authentication is required to register a local virtual machine or container."
+msgstr "ローカルに存在する仮想マシンやコンテナを登録するには認証が必要です。"
+
+#: src/machine/org.freedesktop.machine1.policy:126
+msgid "Manage local virtual machine and container images"
+msgstr "ローカルに存在する仮想マシンやコンテナのイメージ管理"
+
+#: src/machine/org.freedesktop.machine1.policy:127
+msgid ""
+"Authentication is required to manage local virtual machine and container "
+"images."
+msgstr ""
+"ローカルに存在する仮想マシンやコンテナのイメージを管理するには認証が必要です"
+"。"
+
+#: src/machine/org.freedesktop.machine1.policy:137
+msgid "Inspect local virtual machine and container images"
+msgstr "ローカルに存在する仮想マシンやコンテナのイメージの精査"
+
+#: src/machine/org.freedesktop.machine1.policy:138
+msgid ""
+"Authentication is required to inspect local virtual machine and container "
+"images."
+msgstr ""
+"ローカルに存在する仮想マシンやコンテナのイメージを精査するには認証が必要です"
+"。"
+
+#: src/network/org.freedesktop.network1.policy:22
+msgid "Set NTP servers"
+msgstr "NTPサーバーの設定"
+
+#: src/network/org.freedesktop.network1.policy:23
+msgid "Authentication is required to set NTP servers."
+msgstr "NTPサーバーを設定するには認証が必要です。"
+
+#: src/network/org.freedesktop.network1.policy:33
+#: src/resolve/org.freedesktop.resolve1.policy:44
+msgid "Set DNS servers"
+msgstr "DNSサーバーの設定"
+
+#: src/network/org.freedesktop.network1.policy:34
+#: src/resolve/org.freedesktop.resolve1.policy:45
+msgid "Authentication is required to set DNS servers."
+msgstr "DNSサーバーを設定するには認証が必要です。"
+
+#: src/network/org.freedesktop.network1.policy:44
+#: src/resolve/org.freedesktop.resolve1.policy:55
+msgid "Set domains"
+msgstr "ドメインの設定"
+
+#: src/network/org.freedesktop.network1.policy:45
+#: src/resolve/org.freedesktop.resolve1.policy:56
+msgid "Authentication is required to set domains."
+msgstr "ドメインを設定するには認証が必要です。"
+
+#: src/network/org.freedesktop.network1.policy:55
+#: src/resolve/org.freedesktop.resolve1.policy:66
+msgid "Set default route"
+msgstr "デフォルトルートの設定"
+
+#: src/network/org.freedesktop.network1.policy:56
+#: src/resolve/org.freedesktop.resolve1.policy:67
+msgid "Authentication is required to set default route."
+msgstr "デフォルトルートを設定するには認証が必要です。"
+
+#: src/network/org.freedesktop.network1.policy:66
+#: src/resolve/org.freedesktop.resolve1.policy:77
+msgid "Enable/disable LLMNR"
+msgstr "LLMNRの有効化/無効化"
+
+#: src/network/org.freedesktop.network1.policy:67
+#: src/resolve/org.freedesktop.resolve1.policy:78
+msgid "Authentication is required to enable or disable LLMNR."
+msgstr "LLMNRを有効化または無効化するには認証が必要です。"
+
+#: src/network/org.freedesktop.network1.policy:77
+#: src/resolve/org.freedesktop.resolve1.policy:88
+msgid "Enable/disable multicast DNS"
+msgstr "マルチキャストDNSの有効化/無効化"
+
+#: src/network/org.freedesktop.network1.policy:78
+#: src/resolve/org.freedesktop.resolve1.policy:89
+msgid "Authentication is required to enable or disable multicast DNS."
+msgstr "マルチキャストDNSを有効化または無効化するには認証が必要です。"
+
+#: src/network/org.freedesktop.network1.policy:88
+#: src/resolve/org.freedesktop.resolve1.policy:99
+msgid "Enable/disable DNS over TLS"
+msgstr "DNS over TLSの有効化/無効化"
+
+#: src/network/org.freedesktop.network1.policy:89
+#: src/resolve/org.freedesktop.resolve1.policy:100
+msgid "Authentication is required to enable or disable DNS over TLS."
+msgstr "DNS over TLSを有効化または無効化するには認証が必要です。"
+
+#: src/network/org.freedesktop.network1.policy:99
+#: src/resolve/org.freedesktop.resolve1.policy:110
+msgid "Enable/disable DNSSEC"
+msgstr "DNSSECの有効化/無効化"
+
+#: src/network/org.freedesktop.network1.policy:100
+#: src/resolve/org.freedesktop.resolve1.policy:111
+msgid "Authentication is required to enable or disable DNSSEC."
+msgstr "DNSSECを有効化または無効化するには認証が必要です。"
+
+#: src/network/org.freedesktop.network1.policy:110
+#: src/resolve/org.freedesktop.resolve1.policy:121
+msgid "Set DNSSEC Negative Trust Anchors"
+msgstr "DNSSEC Negative Trust Anchorsの設定"
+
+#: src/network/org.freedesktop.network1.policy:111
+#: src/resolve/org.freedesktop.resolve1.policy:122
+msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
+msgstr "DNSSEC Negative Trust Anchorsを設定するには認証が必要です。"
+
+#: src/network/org.freedesktop.network1.policy:121
+msgid "Revert NTP settings"
+msgstr "NTPの設定の破棄"
+
+#: src/network/org.freedesktop.network1.policy:122
+msgid "Authentication is required to reset NTP settings."
+msgstr "NTPの設定を破棄するには認証が必要です。"
+
+#: src/network/org.freedesktop.network1.policy:132
+msgid "Revert DNS settings"
+msgstr "DNSの設定を破棄"
+
+#: src/network/org.freedesktop.network1.policy:133
+msgid "Authentication is required to reset DNS settings."
+msgstr "DNSの設定を破棄するには認証が必要です。"
+
+#: src/network/org.freedesktop.network1.policy:143
+msgid "DHCP server sends force renew message"
+msgstr "DHCPサーバーが強制的にIPアドレスを更新する"
+
+#: src/network/org.freedesktop.network1.policy:144
+msgid ""
+"Authentication is required to send a force renew message from the DHCP "
+"server."
+msgstr "DHCPサーバーが強制的なIPアドレス更新を行うには認証が必要です。"
+
+#: src/network/org.freedesktop.network1.policy:154
+msgid "Renew dynamic addresses"
+msgstr "動的アドレスの更新"
+
+#: src/network/org.freedesktop.network1.policy:155
+msgid "Authentication is required to renew dynamic addresses."
+msgstr "動的アドレスの更新には認証が必要です。"
+
+#: src/network/org.freedesktop.network1.policy:165
+msgid "Reload network settings"
+msgstr "ネットワークの設定の再読み込み"
+
+#: src/network/org.freedesktop.network1.policy:166
+msgid "Authentication is required to reload network settings."
+msgstr "ネットワークの設定を再読み込みするには認証が必要です。"
+
+#: src/network/org.freedesktop.network1.policy:176
+msgid "Reconfigure network interface"
+msgstr "ネットワークインターフェイスの再設定"
+
+#: src/network/org.freedesktop.network1.policy:177
+msgid "Authentication is required to reconfigure network interface."
+msgstr "ネットワークインターフェイスの再設定には認証が必要です。"
+
+#: src/network/org.freedesktop.network1.policy:187
+msgid "Specify whether persistent storage for systemd-networkd is available"
+msgstr "systemd-networkdの永続的ストレージの設定"
+
+#: src/network/org.freedesktop.network1.policy:188
+msgid ""
+"Authentication is required to specify whether persistent storage for systemd-"
+"networkd is available."
+msgstr "systemd-networkdの永続的ストレージを設定するには認証が必要です。"
+
+#: src/network/org.freedesktop.network1.policy:198
+msgid "Manage network links"
+msgstr "ネットワークインターフェイスの管理"
+
+#: src/network/org.freedesktop.network1.policy:199
+msgid "Authentication is required to manage network links."
+msgstr "ネットワークインターフェイスを管理するには認証が必要です。"
+
+#: src/portable/org.freedesktop.portable1.policy:13
+msgid "Inspect a portable service image"
+msgstr "ポータブルサービスイメージの精査"
+
+#: src/portable/org.freedesktop.portable1.policy:14
+msgid "Authentication is required to inspect a portable service image."
+msgstr "ポータブルサービスイメージを精査するには認証が必要です。"
+
+#: src/portable/org.freedesktop.portable1.policy:23
+msgid "Attach or detach a portable service image"
+msgstr "ポータブルサービスイメージの接続または切断"
+
+#: src/portable/org.freedesktop.portable1.policy:24
+msgid ""
+"Authentication is required to attach or detach a portable service image."
+msgstr "ポータブルサービスイメージを接続または切り離すには認証が必要です。"
+
+#: src/portable/org.freedesktop.portable1.policy:34
+msgid "Delete or modify portable service image"
+msgstr "ポータブルサービスイメージの削除または修正"
+
+#: src/portable/org.freedesktop.portable1.policy:35
+msgid ""
+"Authentication is required to delete or modify a portable service image."
+msgstr "ポータブルサービスイメージを削除または修正するには認証が必要です。"
+
+#: src/resolve/org.freedesktop.resolve1.policy:22
+msgid "Register a DNS-SD service"
+msgstr "DNS-SDサービスを登録"
+
+#: src/resolve/org.freedesktop.resolve1.policy:23
+msgid "Authentication is required to register a DNS-SD service."
+msgstr "DNS-SDサービスを登録するには認証が必要です。"
+
+#: src/resolve/org.freedesktop.resolve1.policy:33
+msgid "Unregister a DNS-SD service"
+msgstr "DNS-SDサービスへの登録を解除"
+
+#: src/resolve/org.freedesktop.resolve1.policy:34
+msgid "Authentication is required to unregister a DNS-SD service."
+msgstr "DNS-SDサービスへの登録を解除するには認証が必要です。"
+
+#: src/resolve/org.freedesktop.resolve1.policy:132
+msgid "Revert name resolution settings"
+msgstr "名前解決の設定の破棄"
+
+#: src/resolve/org.freedesktop.resolve1.policy:133
+msgid "Authentication is required to reset name resolution settings."
+msgstr "名前解決の設定を破棄するには認証が必要です。"
+
+#: src/resolve/org.freedesktop.resolve1.policy:143
+msgid "Subscribe query results"
+msgstr "名前解決の問い合わせ結果を監視する"
+
+#: src/resolve/org.freedesktop.resolve1.policy:144
+msgid "Authentication is required to subscribe query results."
+msgstr "名前解決の問い合わせ結果を監視するには認証が必要です。"
+
+#: src/resolve/org.freedesktop.resolve1.policy:154
+msgid "Subscribe to DNS configuration"
+msgstr "DNSに関する設定を監視する"
+
+#: src/resolve/org.freedesktop.resolve1.policy:155
+msgid "Authentication is required to subscribe to DNS configuration."
+msgstr "DNSに関する設定を監視するには認証が必要です。"
+
+#: src/resolve/org.freedesktop.resolve1.policy:165
+msgid "Dump cache"
+msgstr "キャッシュの表示"
+
+#: src/resolve/org.freedesktop.resolve1.policy:166
+msgid "Authentication is required to dump cache."
+msgstr "キャッシュを表示するには認証が必要です。"
+
+#: src/resolve/org.freedesktop.resolve1.policy:176
+msgid "Dump server state"
+msgstr "サーバーの状態を表示"
+
+#: src/resolve/org.freedesktop.resolve1.policy:177
+msgid "Authentication is required to dump server state."
+msgstr "サーバーの状態を表示するには認証が必要です。"
+
+#: src/resolve/org.freedesktop.resolve1.policy:187
+msgid "Dump statistics"
+msgstr "統計情報の表示"
+
+#: src/resolve/org.freedesktop.resolve1.policy:188
+msgid "Authentication is required to dump statistics."
+msgstr "統計情報を表示するには認証が必要です。"
+
+#: src/resolve/org.freedesktop.resolve1.policy:198
+msgid "Reset statistics"
+msgstr "統計情報のリセット"
+
+#: src/resolve/org.freedesktop.resolve1.policy:199
+msgid "Authentication is required to reset statistics."
+msgstr "統計情報をリセットするには認証が必要です。"
+
+#: src/resolve/org.freedesktop.resolve1.policy:209
+msgid "Flush DNS caches"
+msgstr "DNSキャッシュの消去"
+
+#: src/resolve/org.freedesktop.resolve1.policy:210
+msgid "Authentication is required to flush DNS caches."
+msgstr "DNSキャッシュを消去するには認証が必要です。"
+
+#: src/resolve/org.freedesktop.resolve1.policy:220
+msgid "Reset server features"
+msgstr "サーバー機能のリセット"
+
+#: src/resolve/org.freedesktop.resolve1.policy:221
+msgid "Authentication is required to reset server features."
+msgstr "サーバー機能をリセットするには認証が必要です。"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:38
+msgid "Check for system updates"
+msgstr "システム更新の確認"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:39
+msgid "Authentication is required to check for system updates."
+msgstr "システム更新の確認をするには認証が必要です。"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:48
+msgid "Cancel checking for system updates"
+msgstr "システム更新のチェックの中断"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:49
+msgid "Authentication is required to cancel checking for system updates."
+msgstr "システム更新のチェックを中断するには認証が必要です。"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:58
+msgid "Install system updates"
+msgstr "システム更新のインストール"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:59
+msgid "Authentication is required to install system updates."
+msgstr "システム更新をインストールするには認証が必要です。"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:68
+msgid "Cancel installing system updates"
+msgstr "システム更新のインストールの中断"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:69
+msgid "Authentication is required to cancel installing system updates."
+msgstr "システム更新のインストールを中断するには認証が必要です。"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:78
+msgid "Install specific system version"
+msgstr "特定のシステムバージョンをインストール"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:79
+msgid ""
+"Authentication is required to update the system to a specific (possibly old) "
+"version."
+msgstr "特定のシステムバージョン（古い場合もあります）へ更新するには認証が必要です。"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:88
+msgid "Cancel installing specific system version"
+msgstr "特定のシステムバージョンのインストールの中断"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:89
+msgid ""
+"Authentication is required to cancel updating the system to a specific "
+"(possibly old) version."
+msgstr ""
+"特定のシステムバージョン（古い場合もあります）のインストールを中断するには認"
+"証が必要です。"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:98
+msgid "Clean up old system updates"
+msgstr "古いシステム更新の消去"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:99
+msgid "Authentication is required to clean up old system updates."
+msgstr "古いシステム更新を消去するには認証が必要です。"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:108
+msgid "Cancel cleaning up old system updates"
+msgstr "古いシステム更新の消去の中断"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:109
+msgid "Authentication is required to cancel cleanup of old system updates."
+msgstr "古いシステム更新の消去を中断するには認証が必要です。"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:118
+msgid "Manage optional features"
+msgstr "任意の機能の管理"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:119
+msgid "Authentication is required to manage optional features."
+msgstr "任意の機能を管理するには認証が必要です。"
+
+#: src/timedate/org.freedesktop.timedate1.policy:22
+msgid "Set system time"
+msgstr "システムの時刻設定"
+
+#: src/timedate/org.freedesktop.timedate1.policy:23
+msgid "Authentication is required to set the system time."
+msgstr "システムの時刻を設定するには認証が必要です。"
+
+#: src/timedate/org.freedesktop.timedate1.policy:33
+msgid "Set system timezone"
+msgstr "システムのタイムゾーンを設定"
+
+#: src/timedate/org.freedesktop.timedate1.policy:34
+msgid "Authentication is required to set the system timezone."
+msgstr "システムのタイムゾーンを設定するには認証が必要です。"
+
+#: src/timedate/org.freedesktop.timedate1.policy:43
+msgid "Set RTC to local timezone or UTC"
+msgstr "ハードウェア時刻をローカルタイムゾーンまたはUTCに設定"
+
+#: src/timedate/org.freedesktop.timedate1.policy:44
+msgid ""
+"Authentication is required to control whether the RTC stores the local or "
+"UTC time."
+msgstr "ハードウェア時刻をローカルタイムゾーンまたはUTCに設定するには認証が必要です。"
+
+#: src/timedate/org.freedesktop.timedate1.policy:53
+msgid "Turn network time synchronization on or off"
+msgstr "ネットワーク経由の時刻同期の有効化または無効化"
+
+#: src/timedate/org.freedesktop.timedate1.policy:54
+msgid ""
+"Authentication is required to control whether network time synchronization "
+"shall be enabled."
+msgstr "ネットワーク経由の時刻同期を有効または無効にするには認証が必要です。"
+
+#: src/core/dbus-unit.c:372
+msgid "Authentication is required to start '$(unit)'."
+msgstr "'$(unit)'を開始するには認証が必要です。"
+
+#: src/core/dbus-unit.c:373
+msgid "Authentication is required to stop '$(unit)'."
+msgstr "'$(unit)'を停止するには認証が必要です。"
+
+#: src/core/dbus-unit.c:374
+msgid "Authentication is required to reload '$(unit)'."
+msgstr "'$(unit)'を再読み込みするには認証が必要です。"
+
+#: src/core/dbus-unit.c:375 src/core/dbus-unit.c:376
+msgid "Authentication is required to restart '$(unit)'."
+msgstr "'$(unit)'を再起動するには認証が必要です。"
+
+#: src/core/dbus-unit.c:594
+msgid ""
+"Authentication is required to send a UNIX signal to the processes of '$"
+"(unit)'."
+msgstr "'$(unit)'のプロセスにUNIXシグナルを送るには認証が必要です。"
+
+#: src/core/dbus-unit.c:647
+msgid ""
+"Authentication is required to send a UNIX signal to the processes of "
+"subgroup of '$(unit)'."
+msgstr "'$(unit)'のサブグループ内のプロセスにUNIXシグナルを送るには認証が必要です。"
+
+#: src/core/dbus-unit.c:675
+msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
+msgstr "'$(unit)'の「失敗」状態をリセットするには認証が必要です。"
+
+#: src/core/dbus-unit.c:705
+msgid "Authentication is required to set properties on '$(unit)'."
+msgstr "'$(unit)'のプロパティを設定するには認証が必要です。"
+
+#: src/core/dbus-unit.c:802
+msgid ""
+"Authentication is required to delete files and directories associated with '$"
+"(unit)'."
+msgstr "'$(unit)'に関連付けられたファイルやディレクトリの削除には認証が必要です。"
+
+#: src/core/dbus-unit.c:839
+msgid ""
+"Authentication is required to freeze or thaw the processes of '$(unit)' unit."
+msgstr "'$(unit)'のプロセスを凍結または凍結解除するには認証が必要です。"
+
+#: src/shared/libfido2-util.c:494 src/shared/libfido2-util.c:551
+msgid "Please confirm presence on security token to unlock."
+msgstr ""
+"ロックを解除するには、セキュリティトークンで存在確認（タッチ操作など）を行っ"
+"てください。"
+
+#: src/shared/libfido2-util.c:510
+msgid "Please verify user on security token to unlock."
+msgstr "ロックを解除するには、セキュリティトークンで本人確認を行ってください。"
+
+#: src/shared/libfido2-util.c:944
+#, c-format
+msgid ""
+"Please enter security token PIN (remaining attempts before lock-out: %d):"
+msgstr ""
+"セキュリティトークンのPINを入力してください（ロックアウトされるまでの残り試行"
+"回数：%d）："
+
+#: src/shared/libfido2-util.c:955
+msgid "Please enter security token PIN:"
+msgstr "セキュリティトークンのPINを入力してください："

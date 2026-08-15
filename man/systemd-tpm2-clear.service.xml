@@ -1,0 +1,90 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="systemd-tpm2-clear.service" conditional='ENABLE_BOOTLOADER'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-tpm2-clear.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-tpm2-clear.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-tpm2-clear.service</refname>
+    <refpurpose>Request that the TPM security chip is cleared on next boot</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-tpm2-clear.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-tpm2-clear</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-tpm2-clear.service</filename> is a service that requests that the TPM is reset by
+    the PC firmware on the next boot. It makes use of the TPM Physical Presence Interface (PPI). Note that
+    this service does not immediately execute the clear operation, but simply asks the PC firmware to execute
+    it at next boot, where the user will be asked for confirmation before the operation is done.</para>
+
+    <para><filename>systemd-tpm2-clear.service</filename> is typically hooked into the
+    <filename>factory-reset.target</filename> unit in order to request the TPM request before an immediate
+    reboot. See <ulink url="https://systemd.io/FACTORY_RESET">Factory Reset</ulink> for more
+    information.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--graceful</option></term>
+
+        <listitem><para>Exit cleanly and execute no operation if the system does not possess a TPM
+        chip.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Kernel Command Line</title>
+
+    <para><filename>systemd-tpm2-clear</filename> understands the following kernel command line
+    parameters:</para>
+
+    <variablelist class='kernel-commandline-options'>
+      <varlistentry>
+        <term><varname>systemd.tpm2_allow_clear=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If false the service will succeed, but instead of requesting
+        the TPM clear operation from the PC firmware it will not execute any operation. If not specified
+        defaults to true.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-tpm2-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-factory-reset-request.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

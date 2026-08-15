@@ -1,0 +1,10 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+#pragma once
+
+#include "forward.h"
+
+int verb_edit(int argc, char *argv[], uintptr_t _data, void *userdata);
+int verb_cat(int argc, char *argv[], uintptr_t _data, void *userdata);
+
+int verb_mask(int argc, char *argv[], uintptr_t _data, void *userdata);
+int verb_unmask(int argc, char *argv[], uintptr_t _data, void *userdata);

@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+set -o pipefail
+
+if [[ "$1" == "build" ]]; then
+    exit 0
+fi
+
+pkgdir=/usr/host-pkgs
+develver=$(dpkg-query --root="$BUILDROOT" --showformat='${Version}' --show systemd)
+distrover=$(
+    apt-cache madison systemd |
+        awk -F '|' '$3 !~ /file:\/+repository/ && !found { gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2; found=1 }'
+)
+
+if [[ -z $distrover ]]; then
+    echo "Skipping upgrade test, no distro version found"
+    exit 0
+fi
+
+if [[ ${distrover#*:} =~ ^([0-9]+) ]]; then
+    distromajor=${BASH_REMATCH[1]}
+else
+    echo "Skipping upgrade test, unable to parse distro version: $distrover"
+    exit 0
+fi
+
+if [[ ${develver#*:} =~ ^([0-9]+) ]]; then
+    develmajor=${BASH_REMATCH[1]}
+else
+    echo "Skipping upgrade test, unable to parse development version: $develver"
+    exit 0
+fi
+
+deltaver=$((develmajor - distromajor))
+
+if [[ $deltaver -le 0 ]]; then
+    echo "Skipping upgrade test, distro version is newer or equal: $distrover"
+    exit 0
+fi
+
+declare -A packages=()
+distro_packages=()
+devel_packages=()
+
+while IFS=$'\t' read -r package source package_architecture; do
+    [[ $source == systemd ]] || continue
+    [[ $package_architecture == "$DISTRIBUTION_ARCHITECTURE" || $package_architecture == all ]] || continue
+    [[ $package != *-dbgsym* ]] || continue
+
+    packages["$package"]=
+done < <(dpkg-query --root="$BUILDROOT" --show --showformat='${Package}\t${source:Package}\t${Architecture}\n')
+
+# Prepare scripts run before VolatilePackages are installed, so include them explicitly.
+while read -r package; do
+    [[ $package != *-dbgsym* ]] || continue
+
+    packages["$package"]=
+done < <(jq --raw-output '.VolatilePackages[]' <"$MKOSI_CONFIG")
+
+for package in "${!packages[@]}"; do
+    devel_packages+=("$package=$develver")
+
+    package_versions=$(apt-cache madison "$package")
+    if awk -F '|' -v version="$distrover" '
+            $3 !~ /file:\/+repository/ {
+                gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2)
+                if ($2 == version)
+                    found=1
+            }
+            END {
+                exit !found
+            }
+        ' <<<"$package_versions"; then
+        distro_packages+=("$package=$distrover")
+    fi
+done
+
+if (( ${#distro_packages[@]} == 0 )); then
+    echo "Skipping upgrade test, no distro packages found"
+    exit 0
+fi
+
+if (( ${#devel_packages[@]} == 0 )); then
+    echo "Skipping upgrade test, no development packages found"
+    exit 0
+fi
+
+rm -rf "$BUILDROOT$pkgdir/distro" "$BUILDROOT$pkgdir/devel"
+mkdir -p "$BUILDROOT$pkgdir"/{distro,devel}
+
+# apt-get download writes packages to the current directory
+(
+    cd "$BUILDROOT$pkgdir/distro"
+    apt-get download "${distro_packages[@]}"
+)
+
+(
+    cd "$BUILDROOT$pkgdir/devel"
+    apt-get download "${devel_packages[@]}"
+)

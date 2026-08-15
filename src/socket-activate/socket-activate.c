@@ -1,0 +1,525 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include <sys/epoll.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+#include "sd-daemon.h"
+
+#include "alloc-util.h"
+#include "build.h"
+#include "daemon-util.h"
+#include "dlopen-note.h"
+#include "env-util.h"
+#include "errno-util.h"
+#include "escape.h"
+#include "fd-util.h"
+#include "format-table.h"
+#include "format-util.h"
+#include "log.h"
+#include "main-func.h"
+#include "options.h"
+#include "pidfd-util.h"
+#include "pidref.h"
+#include "pretty-print.h"
+#include "process-util.h"
+#include "socket-netlink.h"
+#include "socket-util.h"
+#include "string-util.h"
+#include "strv.h"
+
+static char **arg_listen = NULL;
+static bool arg_accept = false;
+static int arg_socket_type = SOCK_STREAM;
+static char **arg_setenv = NULL;
+static char **arg_fdnames = NULL;
+static bool arg_inetd = false;
+static bool arg_now = false;
+
+static int add_epoll(int epoll_fd, int fd) {
+        struct epoll_event ev = {
+                .events = EPOLLIN,
+                .data.fd = fd,
+        };
+
+        assert(epoll_fd >= 0);
+        assert(fd >= 0);
+
+        if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0)
+                return log_error_errno(errno, "Failed to add event on epoll fd:%d for fd:%d: %m", epoll_fd, fd);
+
+        return 0;
+}
+
+static int open_sockets(int *ret_epoll_fd) {
+        _cleanup_close_ int epoll_fd = -EBADF;
+        int n, r, count = 0;
+
+        assert(ret_epoll_fd);
+
+        n = sd_listen_fds(true);
+        if (n < 0)
+                return log_error_errno(n, "Failed to read listening file descriptors from environment: %m");
+        if (n > 0) {
+                log_info("Received %i descriptors via the environment.", n);
+
+                for (int fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd++) {
+                        r = fd_cloexec(fd, arg_accept);
+                        if (r < 0)
+                                return r;
+
+                        count++;
+                }
+        }
+
+        /* Close logging and all other descriptors */
+        if (arg_listen) {
+                _cleanup_free_ int *except = new(int, n);
+                if (!except)
+                        return log_oom();
+
+                for (int i = 0; i < n; i++)
+                        except[i] = SD_LISTEN_FDS_START + i;
+
+                log_close();
+                log_set_open_when_needed(true);
+                log_settle_target();
+
+                r = close_all_fds(except, n);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to close all file descriptors: %m");
+        }
+
+        /* Note: we leak some fd's on error here. It doesn't matter much, since the program will exit
+         * immediately anyway, but would be a pain to fix. */
+
+        STRV_FOREACH(address, arg_listen) {
+                r = make_socket_fd(LOG_DEBUG, *address, arg_socket_type, (arg_accept * SOCK_CLOEXEC));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open '%s': %m", *address);
+
+                assert(r == SD_LISTEN_FDS_START + count);
+                count++;
+        }
+
+        if (arg_listen) {
+                log_open();
+                log_set_open_when_needed(false);
+        }
+
+        if (count > 1 && !arg_accept && arg_inetd)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--inetd only supported with a single file descriptor, or with --accept.");
+
+        if (arg_fdnames && !arg_inetd) {
+                size_t n_fdnames = strv_length(arg_fdnames);
+
+                if (!arg_accept && n_fdnames != (size_t) count)
+                        log_warning("The number of fd names is different from the number of fds: %zu vs %i",
+                                    n_fdnames, count);
+
+                if (arg_accept && n_fdnames > 1)
+                        log_warning("More than one fd name specified with --accept.");
+        }
+
+        if (!arg_now) {
+                epoll_fd = epoll_create1(EPOLL_CLOEXEC);
+                if (epoll_fd < 0)
+                        return log_error_errno(errno, "Failed to create epoll object: %m");
+        }
+
+        for (int fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + count; fd++) {
+                _cleanup_free_ char *name = NULL;
+
+                getsockname_pretty(fd, &name);
+                log_info("Listening on %s as %i.", strna(name), fd);
+
+                if (epoll_fd >= 0) {
+                        r = add_epoll(epoll_fd, fd);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        *ret_epoll_fd = TAKE_FD(epoll_fd);
+        return count;
+}
+
+static int exec_process(char * const *argv, int start_fd, size_t n_fds) {
+        _cleanup_strv_free_ char **envp = NULL;
+        int r;
+
+        assert(!strv_isempty(argv));
+        assert(start_fd >= 0);
+        assert(n_fds > 0);
+
+        FOREACH_STRING(var, "TERM", "COLORTERM", "NO_COLOR", "PATH", "USER", "HOME") {
+                const char *n;
+
+                n = strv_find_prefix(environ, var);
+                if (!n)
+                        continue;
+
+                r = strv_extend(&envp, n);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_inetd) {
+                assert(n_fds == 1);
+
+                r = rearrange_stdio(start_fd, start_fd, STDERR_FILENO); /* invalidates start_fd on success + error */
+                if (r < 0)
+                        return log_error_errno(r, "Failed to move fd to stdin+stdout: %m");
+
+        } else {
+                if (start_fd != SD_LISTEN_FDS_START) {
+                        assert(n_fds == 1);
+
+                        if (dup2(start_fd, SD_LISTEN_FDS_START) < 0)
+                                return log_error_errno(errno, "Failed to dup connection: %m");
+
+                        safe_close(start_fd);
+                }
+
+                r = strv_extendf(&envp, "LISTEN_FDS=%zu", n_fds);
+                if (r < 0)
+                        return r;
+
+                r = strv_extendf(&envp, "LISTEN_PID=" PID_FMT, getpid_cached());
+                if (r < 0)
+                        return r;
+
+                uint64_t pidfdid;
+                if (pidfd_get_inode_id_self_cached(&pidfdid) >= 0) {
+                        r = strv_extendf(&envp, "LISTEN_PIDFDID=%" PRIu64, pidfdid);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (arg_fdnames) {
+                        _cleanup_free_ char *names = NULL;
+                        size_t len;
+
+                        len = strv_length(arg_fdnames);
+                        if (len == 1)
+                                for (size_t i = 1; i < n_fds; i++) {
+                                        r = strv_extend(&arg_fdnames, arg_fdnames[0]);
+                                        if (r < 0)
+                                                return log_oom();
+                                }
+
+                        names = strv_join(arg_fdnames, ":");
+                        if (!names)
+                                return log_oom();
+
+                        char *t = strjoin("LISTEN_FDNAMES=", names);
+                        if (!t)
+                                return log_oom();
+
+                        r = strv_consume(&envp, t);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        STRV_FOREACH(s, arg_setenv) {
+                r = strv_env_replace_strdup(&envp, *s);
+                if (r < 0)
+                        return r;
+        }
+
+        _cleanup_free_ char *joined = strv_join(argv, " ");
+        if (!joined)
+                return log_oom();
+
+        log_info("Executing: %s", joined);
+        execvpe(argv[0], argv, envp);
+
+        return log_error_errno(errno, "Failed to execute '%s': %m", joined);
+}
+
+static int fork_and_exec_process(char * const *argv, int fd) {
+        _cleanup_free_ char *joined = NULL;
+        int r;
+
+        assert(!strv_isempty(argv));
+        assert(fd >= 0);
+
+        joined = strv_join(argv, " ");
+        if (!joined)
+                return log_oom();
+
+        _cleanup_(pidref_done) PidRef child_pidref = PIDREF_NULL;
+        r = pidref_safe_fork(
+                        "(activate)",
+                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG,
+                        &child_pidref);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                /* In the child */
+                (void) exec_process(argv, fd, 1);
+                _exit(EXIT_FAILURE);
+        }
+
+        log_info("Spawned '%s' as PID " PID_FMT ".", joined, child_pidref.pid);
+        return 0;
+}
+
+static int do_accept(char * const *argv, int fd) {
+        _cleanup_free_ char *local = NULL, *peer = NULL;
+        _cleanup_close_ int fd_accepted = -EBADF;
+
+        fd_accepted = accept4(fd, NULL, NULL, 0);
+        if (fd_accepted < 0) {
+                if (ERRNO_IS_ACCEPT_AGAIN(errno))
+                        return 0;
+
+                return log_error_errno(errno, "Failed to accept connection on fd:%d: %m", fd);
+        }
+
+        (void) getsockname_pretty(fd_accepted, &local);
+        (void) getpeername_pretty(fd_accepted, true, &peer);
+        log_info("Connection from %s to %s", strna(peer), strna(local));
+
+        return fork_and_exec_process(argv, fd_accepted);
+}
+
+/* SIGCHLD handler. */
+static void sigchld_hdl(int sig) {
+        int r;
+
+        PROTECT_ERRNO;
+
+        for (;;) {
+                siginfo_t si = {};
+
+                r = waitid(P_ALL, 0, &si, WEXITED | WNOHANG);
+                if (r < 0) {
+                        if (errno != ECHILD)
+                                log_error_errno(errno, "Failed to reap children: %m");
+                        return;
+                }
+                if (si.si_pid == 0)
+                        return;
+
+                log_info("Child %d died with code %d", si.si_pid, si.si_status);
+        }
+}
+
+static int install_chld_handler(void) {
+        static const struct sigaction act = {
+                .sa_flags = SA_NOCLDSTOP | SA_RESTART,
+                .sa_handler = sigchld_hdl,
+        };
+
+        if (sigaction(SIGCHLD, &act, NULL) < 0)
+                return log_error_errno(errno, "Failed to install SIGCHLD handler: %m");
+
+        return 0;
+}
+
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-socket-activate", "1", &link);
+        if (r < 0)
+                return log_oom();
+
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        printf("%s [OPTIONS...] COMMAND ...\n"
+               "\n%sListen on sockets and launch child on connection.%s\n"
+               "\n%sOptions:%s\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               ansi_underline(),
+               ansi_normal());
+
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nNote: file descriptors from sd_listen_fds() will be passed through.\n"
+               "\nSee the %s for details.\n", link);
+        return 0;
+}
+
+static int parse_argv(int argc, char *argv[], char ***remaining_args) {
+        assert(argc >= 0);
+        assert(argv);
+        assert(remaining_args);
+
+        OptionParser opts = { argc, argv, OPTION_PARSER_STOP_AT_FIRST_NONOPTION };
+        int r;
+
+        FOREACH_OPTION_OR_RETURN(c, &opts)
+                switch (c) {
+
+                OPTION_COMMON_HELP:
+                        return help();
+
+                OPTION_COMMON_VERSION:
+                        return version();
+
+                OPTION('l', "listen", "ADDR",
+                       "Listen for raw connections at ADDR"):
+                        r = strv_extend(&arg_listen, opts.arg);
+                        if (r < 0)
+                                return log_oom();
+
+                        break;
+
+                OPTION('d', "datagram", NULL,
+                       "Listen on datagram instead of stream socket"):
+                        if (arg_socket_type == SOCK_SEQPACKET)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "--datagram may not be combined with --seqpacket.");
+
+                        arg_socket_type = SOCK_DGRAM;
+                        break;
+
+                OPTION_LONG("seqpacket", NULL,
+                            "Listen on SOCK_SEQPACKET instead of stream socket"):
+                        if (arg_socket_type == SOCK_DGRAM)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "--seqpacket may not be combined with --datagram.");
+
+                        arg_socket_type = SOCK_SEQPACKET;
+                        break;
+
+                OPTION('a', "accept", NULL,
+                       "Spawn separate child for each connection"):
+                        arg_accept = true;
+                        break;
+
+                OPTION('E', "setenv", "NAME[=VALUE]",
+                       "Pass an environment variable to children"): {}
+                OPTION_LONG("environment", "NAME[=VALUE]", /* help= */ NULL): /* legacy alias */
+                        r = strv_env_replace_strdup_passthrough(&arg_setenv, opts.arg);
+                        if (r < 0)
+                                return log_error_errno(r, "Cannot assign environment variable %s: %m", opts.arg);
+                        break;
+
+                OPTION_LONG("fdname", "NAME[:NAME...]",
+                            "Specify names for file descriptors"): {
+                        _cleanup_strv_free_ char **names = NULL;
+
+                        names = strv_split(opts.arg, ":");
+                        if (!names)
+                                return log_oom();
+
+                        STRV_FOREACH(s, names)
+                                if (!fdname_is_valid(*s)) {
+                                        _cleanup_free_ char *esc = NULL;
+
+                                        esc = cescape(*s);
+                                        log_warning("File descriptor name \"%s\" is not valid.", esc);
+                                }
+
+                        /* Empty argument means one empty name */
+                        r = strv_extend_strv(&arg_fdnames,
+                                             strv_isempty(names) ? STRV_MAKE("") : names,
+                                             false);
+                        if (r < 0)
+                                return log_error_errno(r, "strv_extend_strv: %m");
+                        break;
+                }
+
+                OPTION_LONG("inetd", NULL,
+                            "Enable inetd file descriptor passing protocol"):
+                        arg_inetd = true;
+                        break;
+
+                OPTION_LONG("now", NULL,
+                            "Start instantly instead of waiting for connection"):
+                        arg_now = true;
+                        break;
+                }
+
+        *remaining_args = option_parser_get_args(&opts);
+        if (strv_isempty(*remaining_args))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "%s: command to execute is missing.",
+                                       program_invocation_short_name);
+
+        if (arg_socket_type == SOCK_DGRAM && arg_accept)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Datagram sockets do not accept connections. "
+                                       "The --datagram and --accept options may not be combined.");
+
+        if (arg_accept && arg_now)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--now cannot be used in conjunction with --accept.");
+
+        if (arg_fdnames && arg_inetd)
+                log_warning("--fdname= has no effect with --inetd present.");
+
+        return 1 /* work to do */;
+}
+
+static int run(int argc, char **argv) {
+        _cleanup_close_ int epoll_fd = -EBADF;
+        _cleanup_strv_free_ char **exec_argv = NULL;
+        int r, n;
+
+        LIBSELINUX_NOTE(recommended);
+
+        log_setup();
+
+        char **args = NULL;
+        r = parse_argv(argc, argv, &args);
+        if (r <= 0)
+                return r;
+
+        exec_argv = strv_copy(args);
+        if (!exec_argv)
+                return log_oom();
+
+        assert(!strv_isempty(exec_argv));
+
+        n = open_sockets(&epoll_fd);
+        if (n < 0)
+                return n;
+        if (n == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "No sockets to listen on specified or passed in.");
+
+        if (arg_accept) {
+                r = install_chld_handler();
+                if (r < 0)
+                        return r;
+        }
+
+        /* Notify the caller that all sockets are open now. */
+        _unused_ _cleanup_(notify_on_cleanup) const char *notify = notify_start(NOTIFY_READY_MESSAGE, NOTIFY_STOPPING_MESSAGE);
+
+        for (;;) {
+                struct epoll_event event;
+
+                if (epoll_fd >= 0) {
+                        if (epoll_wait(epoll_fd, &event, 1, -1) < 0) {
+                                if (errno == EINTR)
+                                        continue;
+
+                                return log_error_errno(errno, "epoll_wait() failed: %m");
+                        }
+
+                        log_info("Communication attempt on fd %i.", event.data.fd);
+                }
+
+                if (!arg_accept)
+                        return exec_process(exec_argv, SD_LISTEN_FDS_START, (size_t) n);
+
+                r = do_accept(exec_argv, event.data.fd);
+                if (r < 0)
+                        return r;
+        }
+}
+
+DEFINE_MAIN_FUNCTION(run);

@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for ReadOnlyPaths=
+
+[Service]
+ReadOnlyPaths=/usr /etc /sys /dev -/i-dont-exist
+PrivateDevices=yes
+ExecStart=bash -x -c 'test ! -w /usr && test ! -w /etc && test ! -w /sys && test ! -w /sys/fs/cgroup'
+ExecStart=bash -x -c 'test ! -w /dev && test ! -w /dev/shm && test ! -e /i-dont-exist && test -w /var'
+Type=oneshot

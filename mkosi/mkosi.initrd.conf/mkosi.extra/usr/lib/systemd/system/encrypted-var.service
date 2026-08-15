@@ -1,0 +1,20 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+
+[Unit]
+Description=Add encrypted var partition to root disk
+Documentation=man:systemd-repart.service(8)
+
+ConditionVirtualization=!container
+
+DefaultDependencies=no
+Wants=modprobe@loop.service modprobe@dm_mod.service
+After=modprobe@loop.service modprobe@dm_mod.service sysroot.mount
+Before=initrd-root-fs.target
+Conflicts=shutdown.target initrd-switch-root.target
+Before=shutdown.target initrd-switch-root.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=systemd-repart --definitions /usr/lib/encrypted-var.repart.d --key-file %d/keyfile --dry-run=no /sysroot
+ImportCredential=keyfile

@@ -1,0 +1,137 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-ssh-proxy"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-ssh-proxy</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-ssh-proxy</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-ssh-proxy</refname>
+    <refpurpose>SSH client plugin for connecting to <constant>AF_VSOCK</constant> and
+    <constant>AF_UNIX</constant> sockets</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <programlisting>
+Host unix/* unix%* vsock/* vsock%* vsock-mux/* vsock-mux%*
+    ProxyCommand /usr/lib/systemd/systemd-ssh-proxy %h %p
+    ProxyUseFdpass yes
+</programlisting>
+    <cmdsynopsis>
+      <command>/usr/lib/systemd/systemd-ssh-proxy</command> <arg>ADDRESS</arg> <arg>PORT</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-ssh-proxy</command> is a small "proxy" plugin for the <citerefentry
+    project="man-pages"><refentrytitle>ssh</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    tool that allows connecting to <constant>AF_UNIX</constant> and <constant>AF_VSOCK</constant> sockets. It
+    implements the interface defined by <filename>ssh</filename>'s <varname>ProxyCommand</varname>
+    configuration option. It's supposed to be used with an <citerefentry
+    project="man-pages"><refentrytitle>ssh_config</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    configuration fragment like the following:</para>
+
+    <programlisting>
+Host unix/* unix%* vsock/* vsock%* vsock-mux/* vsock-mux%*
+    ProxyCommand /usr/lib/systemd/systemd-ssh-proxy %h %p
+    ProxyUseFdpass yes
+    CheckHostIP no
+
+Host .host
+    ProxyCommand /usr/lib/systemd/systemd-ssh-proxy unix/run/ssh-unix-local/socket %p
+    ProxyUseFdpass yes
+    CheckHostIP no
+</programlisting>
+
+    <para>A configuration fragment along these lines is by default installed into
+    <filename>/etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf</filename>.</para>
+
+    <para>With this in place, SSH connections to host string <literal>unix/</literal> followed by an absolute
+    <constant>AF_UNIX</constant> file system path to a socket will be directed to the specified socket, which
+    must be of type <constant>SOCK_STREAM</constant>. Similar, SSH connections to <literal>vsock/</literal>
+    followed by an <constant>AF_VSOCK</constant> CID will result in an SSH connection made to that
+    CID. <literal>vsock-mux/</literal> followed by an absolute <constant>AF_UNIX</constant> file system
+    path to a socket is similar but for cloud-hypervisor/firecracker which do not allow
+    direct <constant>AF_VSOCK</constant> communication between the host and guests, and provide their own
+    multiplexer over <constant>AF_UNIX</constant> sockets. See
+    <ulink url="https://github.com/cloud-hypervisor/cloud-hypervisor/blob/main/docs/vsock.md">cloud-hypervisor VSOCK support</ulink>
+    and <ulink url="https://github.com/firecracker-microvm/firecracker/blob/main/docs/vsock.md">Using the Firecracker Virtio-vsock Device</ulink>.
+    Note that <literal>%</literal> can be used as a separator instead of <literal>/</literal> to be
+    compatible with tools like <literal>scp</literal> and <literal>rsync</literal>.</para>
+
+    <para>Moreover, connecting to <literal>.host</literal> will connect to the local host via SSH, without
+    involving networking.</para>
+
+    <para>This tool is supposed to be used together with
+    <citerefentry><refentrytitle>systemd-ssh-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    which when run inside a VM or container will bind SSH to suitable
+    addresses. <command>systemd-ssh-generator</command> is supposed to run in the container or VM guest, and
+    <command>systemd-ssh-proxy</command> is run on the host, in order to connect to the container or VM
+    guest.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned, a non-zero failure code
+    otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Talk to a local VM with CID 4711</title>
+
+      <programlisting>ssh vsock/4711</programlisting>
+  </example>
+
+    <example>
+      <title>Talk to a VM guest hosted with cloud-hypervisor/firecracker</title>
+
+      <programlisting>ssh vsock-mux/run/vm-1234.sock</programlisting>
+    </example>
+
+    <example>
+      <title>Talk to the local host via ssh</title>
+
+      <programlisting>ssh .host</programlisting>
+
+      <para>or equivalent:</para>
+
+      <programlisting>ssh unix/run/ssh-unix-local/socket</programlisting>
+    </example>
+
+    <example>
+      <title>Copy local 'foo' file to a local VM with CID 1348</title>
+
+      <programlisting>scp foo vsock%1348:</programlisting>
+    </example>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-ssh-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project="man-pages"><refentrytitle>vsock</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry project="man-pages"><refentrytitle>unix</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry project="man-pages"><refentrytitle>ssh</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project="man-pages"><refentrytitle>sshd</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

@@ -1,0 +1,29 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Early Battery Level Check
+Documentation=man:systemd-battery-check.service(8)
+
+ConditionVirtualization=no
+ConditionDirectoryNotEmpty=/sys/class/power_supply/
+ConditionKernelCommandLine=!systemd.battery_check=0
+ConditionKernelCommandLine=!systemd.battery-check=0
+AssertPathExists=/etc/initrd-release
+
+DefaultDependencies=no
+After=plymouth-start.service
+Before=initrd-root-device.target systemd-hibernate-resume.service
+
+FailureAction=poweroff-force
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart={{LIBEXECDIR}}/systemd-battery-check

@@ -1,0 +1,111 @@
+#compdef systemd-run
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+# @todo _systemctl has a helper with the same name, so we must redefine
+__systemctl() {
+    local -a _modes
+    _modes=("--user" "--system")
+    systemctl ${words:*_modes} --full --no-legend --no-pager --plain "$@" 2>/dev/null
+}
+
+(( $+functions[__systemd-run_get_slices] )) ||
+    __systemd-run_get_slices () {
+        __systemctl list-units --all -t slice |
+            { while read -r a b; do echo $a; done; }
+    }
+
+(( $+functions[__systemd-run_slices] )) ||
+    __systemd-run_slices () {
+        local -a _slices
+        _slices=(${(fo)"$(__systemd-run_get_slices)"})
+        typeset -U _slices
+        _describe 'slices' _slices
+    }
+
+(( $+functions[_systemd-run_job_modes] )) ||
+    _systemd-run_job_modes() {
+        local -a _modes
+        _modes=($( systemd-run --job-mode=help 2>/dev/null ))
+        _values "${_modes[@]}"
+    }
+
+(( $+functions[_systemd-run_properties] )) ||
+    _systemd-run_properties() {
+        local -a _properties
+        _properties=($( systemd-analyze transient-settings scope service 2>/dev/null |
+            while read -r p; do [ -z "$p" ] || echo "$p="; done ))
+        _values 'NAME=VALUE' "${_properties[@]}"
+    }
+
+(( $+functions[_systemd-run_path-properties] )) ||
+    _systemd-run_path-properties() {
+        local -a _properties
+        _properties=($( systemd-analyze transient-settings path 2>/dev/null |
+            while read -r p; do [ -z "$p" ] || echo "$p="; done ))
+        _values 'NAME=VALUE' "${_properties[@]}"
+    }
+
+(( $+functions[_systemd-run_socket-properties] )) ||
+    _systemd-run_socket-properties() {
+        local -a _properties
+        _properties=($( systemd-analyze transient-settings socket 2>/dev/null |
+            while read -r p; do [ -z "$p" ] || echo "$p="; done ))
+        _values 'NAME=VALUE' "${_properties[@]}"
+    }
+
+(( $+functions[_systemd-run_timer-properties] )) ||
+    _systemd-run_timer-properties() {
+        local -a _properties
+        _properties=($( systemd-analyze transient-settings timer 2>/dev/null |
+            while read -r p; do [ -z "$p" ] || echo "$p="; done ))
+        _values 'NAME=VALUE' "${_properties[@]}"
+    }
+
+_arguments \
+    '(-G --collect --shell)'{-G,--collect}'[Unload the transient unit after it completed]' \
+    '--description=[Description for unit]:description' \
+    '--gid=[Run as system group]:group:_groups' \
+    '(- *)'{-h,--help}'[Show help message]' \
+    '(-H --host)'{-H+,--host=}'[Operate on remote host]:[user@]host:_sd_hosts_or_user_at_host' \
+    '(-M --machine)'{-M+,--machine=}'[Operate on local container]:machines:_sd_machines' \
+    '(-C --capsule)'{-C,--capsule=}'[Operate on capsule]:capsule' \
+    '--nice=[Nice level]:nice level' \
+    '--no-ask-password[Do not query the user for authentication]' \
+    '--no-pager[Do not spawn a pager]' \
+    '(--wait)--no-block[Do not synchronously wait for the unit start operation to finish]' \
+    '--on-active=[Run after SEC seconds]:SEC' \
+    '--on-boot=[Run SEC seconds after machine was booted up]:SEC' \
+    '--on-calendar=[Realtime timer]:SPEC' \
+    '--on-clock-change[Defines a trigger based on system clock jumps]' \
+    '--on-startup=[Run SEC seconds after systemd was first started]:SEC' \
+    '--on-timezone-change[Defines a trigger based on system timezone changes]' \
+    '--on-unit-active=[Run SEC seconds after the last activation]:SEC' \
+    '--on-unit-inactive=[Run SEC seconds after the last deactivation]:SEC' \
+    '--path-property=[Set path unit property]:NAME=VALUE:_systemd-run_path-properties' \
+    '(-P --pipe)'{-P,--pipe}'[Inherit standard input, output, and error]' \
+    {'*-p+','*--property='}'[Set unit property]:NAME=VALUE:_systemd-run_properties' \
+    '(-t --pty --shell)'{-t,--pty}'[The service connects to the terminal]' \
+    '(-q --quiet)'{-q,--quiet}'[Suppresses additional informational output]' \
+    '--json=[Output as JSON]:JSON:(pretty short off)' \
+    '--job-mode=[Specify how to deal with other jobs]:mode:_systemd-run_job_modes' \
+    '(-r --remain-after-exit)'{-r,--remain-after-exit}'[Leave service around until explicitly stopped]' \
+    '(-d --same-dir --working-directory --shell)'{-d,--same-dir}'[Run on the current working directory]' \
+    '--scope[Run this as scope rather than service]' \
+    '--send-sighup[Send SIGHUP when terminating]' \
+    '(--shell)--service-type=[Service type]:type:(simple forking oneshot dbus notify idle)' \
+    {'*-E+','*--setenv='}'[Set environment]:NAME=VALUE' \
+    '(-S --shell --pty --same-dir --wait --collect --service-type)'{-S,--shell}'[requests an interactive shell in the current working directory]' \
+    '--slice=[Run in the specified slice]:slices:__systemd-run_slices' \
+    '--slice-inherit[Run in the inherited slice]' \
+    '--expand-environment=[Control expansion of environment variables]:bool:(yes no)' \
+    '--socket-property=[Set socket unit property]:NAME=VALUE:_systemd-run_socket-properties' \
+    '(--user)--system[Run as system unit]' \
+    '--timer-property=[Set timer unit property]:NAME=VALUE:_systemd-run_timer-properties' \
+    '--uid=[Run as system user]:user:_users' \
+    '(-u --unit)'{-u+,--unit=}'[Run under the specified unit name]:unit name' \
+    '(--system)--user[Run as user unit]' \
+    '(- *)--version[Show package version]' \
+    '(--no-block --shell)--wait[Wait until service stopped again]' \
+    '(--same-dir -d --shell)--working-directory=[Run with the specified working directory]:dir:_files -/' \
+    '(-):command: _command_names -e' \
+    '*::arguments:_normal'

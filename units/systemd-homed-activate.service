@@ -1,0 +1,23 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Home Area Activation
+Documentation=man:systemd-homed.service(8)
+After=home.mount systemd-homed.service
+Before=systemd-user-sessions.service
+
+[Service]
+ExecStop=homectl deactivate-all
+RemainAfterExit=true
+Type=oneshot
+
+[Install]
+WantedBy=systemd-homed.service
+Also=systemd-homed.service

@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for ReadOnlyPaths=
+
+[Service]
+Type=oneshot
+# This should work, as we explicitly disable the effect of ReadOnlyPaths=
+ExecStart=+bash -c 'touch /tmp/thisisasimpletest'
+# This should also work, as we do not disable the effect of ReadOnlyPaths= but invert the exit code
+ExecStart=bash -x -c '! touch /tmp/thisisasimpletest'
+ExecStart=+bash -c 'rm /tmp/thisisasimpletest'
+ReadOnlyPaths=/tmp

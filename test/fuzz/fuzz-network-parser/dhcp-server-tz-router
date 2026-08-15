@@ -1,0 +1,13 @@
+[Match]
+Name=veth-peer
+
+[Network]
+IPv6AcceptRA=false
+Address=192.168.5.1/24
+DHCPServer=yes
+
+[DHCPServer]
+PoolOffset=10
+PoolSize=50
+EmitRouter=yes
+Timezone=Europe/Berlin
