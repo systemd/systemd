@@ -62,7 +62,7 @@ TEST(basic) {
         ASSERT_OK(sd_dhcp_server_start(server));
 }
 
-TEST(configure_pool) {
+TEST(sd_dhcp_server_configure_pool) {
         struct in_addr address = {
                 .s_addr = htobe32(0xC0000201), /* 192.0.2.1 */
         };
