@@ -89,6 +89,26 @@ TEST(ecc_pkey_curve_x_y) {
         assert_se(memcmp_nn(y, y_len, y2, y2_size) == 0);
 }
 
+TEST(ecc_pkey_curve_x_y_leading_zero) {
+        /* Regression test: a P-384 public key whose x-coordinate has a most significant zero
+         * byte. BN_bn2bin() would strip it and return a 47-byte coordinate; ecc_pkey_to_curve_x_y()
+         * must zero-pad both coordinates to the 48-byte P-384 field width. */
+        DEFINE_HEX_PTR(key, "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d485977454159484b6f5a497a6a3043415159464b34454541434944596741454147625a626d4a32534231424a4879633178674f7a4a646e67586767566254700a5a76515070516b54564779387362777677734872635a4871307a5a76782f316c4336787a5a64615648433147303835786c636c4a7770435a57685571576866730a2f6a70337a436d6e446a49754a79505735435148494930652b575a47706263490a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a");
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        assert_se(openssl_pubkey_from_pem(key, key_len, &pkey) >= 0);
+
+        _cleanup_free_ void *x = NULL, *y = NULL;
+        size_t x_size, y_size;
+        int curve_id;
+        assert_se(ecc_pkey_to_curve_x_y(pkey, &curve_id, &x, &x_size, &y, &y_size) >= 0);
+        assert_se(curve_id == NID_secp384r1);
+
+        /* Both coordinates must be the full P-384 field width, even though x has a leading zero. */
+        assert_se(x_size == 48);
+        assert_se(y_size == 48);
+        assert_se(((const uint8_t*) x)[0] == 0x00);
+}
+
 TEST(invalid) {
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
 
