@@ -33,6 +33,7 @@ INTROSPECTABLE=(
     systemd-mute-console
     systemd-notify
     systemd-oomd
+    systemd-path
     systemd-veritysetup
     timedatectl
     varlinkctl
