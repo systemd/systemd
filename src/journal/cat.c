@@ -1,26 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <stdio.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-journal.h"
+#include "sd-json.h"
 
-#include "alloc-util.h"
 #include "build.h"
 #include "env-util.h"
 #include "fd-util.h"
-#include "format-table.h"
 #include "format-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "options.h"
 #include "parse-argument.h"
-#include "pretty-print.h"
 #include "string-util.h"
 #include "strv.h"
 #include "syslog-util.h"
+#include "verbs.h"
 
 static const char *arg_identifier = NULL;
 static const char *arg_namespace = NULL;
@@ -28,32 +25,12 @@ static int arg_priority = LOG_INFO;
 static int arg_stderr_priority = -1;
 static bool arg_level_prefix = true;
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-cat", "1", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        printf("%s [OPTIONS...] COMMAND ...\n\n"
-               "%sExecute process with stdout/stderr connected to the journal.%s\n\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
+COMMAND(
+        "systemd-cat\0",
+        "Execute process with stdout/stderr connected to the journal.",
+        .argspec = "[COMMAND…]\0",
+        .man_pages = "systemd-cat.1\0",
+);
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
@@ -66,7 +43,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-cat");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -101,6 +78,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                             "Connect to specified journal namespace"):
                         arg_namespace = empty_to_null(opts.arg);
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         *ret_args = option_parser_get_args(&opts);
