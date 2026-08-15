@@ -109,6 +109,13 @@ any given process. Additionally, apps following this convention will be placed
 in a slice called `app-<AppID>.slice`, to allow users and desktop environments
 to apply resource limits on all instances of a given app at once.
 
+Libraries that launch apps can easily comply with this convention by registering
+the app with `systemd-appd` via the `$XDG_RUNTIME_DIR/systemd/io.systemd.AppInstance`
+Varlink interface, before `exec()`ing the app's entry point. `systemd-appd` will
+move the caller into an appropriate `.scope` if necessary. Similarly, sandboxing
+engines like Flatpak should register the app with `systemd-appd` before `exec()`ing
+the app's main binary.
+
 `.desktop` files can opt themselves out of the launcher's scope-creation logic
 by using the line: `X-systemd-skip-register=true`. This is especially useful for
 situations where the `Exec=` entrypoint defined in the `.desktop` file is just a
