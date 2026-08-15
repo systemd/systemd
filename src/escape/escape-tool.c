@@ -2,19 +2,19 @@
 
 #include <stdio.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "build.h"
 #include "fileio.h"
-#include "format-table.h"
 #include "log.h"
 #include "main-func.h"
-#include "options.h"
 #include "path-util.h"
-#include "pretty-print.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unit-def.h"
 #include "unit-name.h"
+#include "verbs.h"
 
 static enum {
         ACTION_ESCAPE,
@@ -27,32 +27,12 @@ static bool arg_path = false;
 static bool arg_instance = false;
 static bool arg_stdin = false;
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-escape", "1", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        printf("%s [OPTIONS...] [NAME...]\n\n"
-               "%sEscape strings for usage in systemd unit names.%s\n\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
+COMMAND(
+        "systemd-escape\0",
+        "Escape strings for usage in systemd unit names.",
+        .argspec = "STRING…\0" "--stdin\0",
+        .man_pages = "systemd-escape.1\0",
+);
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
@@ -64,7 +44,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-escape");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -106,6 +86,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                        "When escaping/unescaping assume the string is a path"):
                         arg_path = true;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (arg_stdin && option_parser_get_n_args(&opts) > 0)
