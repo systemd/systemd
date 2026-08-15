@@ -18,6 +18,13 @@ int main(int argc, char *argv[]) {
         assert_se(procfs_cpu_get_usage(&nsec) >= 0);
         log_info("Current system CPU time: %s", FORMAT_TIMESPAN(nsec/NSEC_PER_USEC, 1));
 
+        ProcfsCpuTicks ticks;
+        assert_se(procfs_cpu_get_ticks(&ticks) >= 0);
+        log_info("Current CPU ticks: user=%" PRIu64 " nice=%" PRIu64 " system=%" PRIu64 " idle=%" PRIu64
+                 " iowait=%" PRIu64 " irq=%" PRIu64 " softirq=%" PRIu64 " steal=%" PRIu64,
+                 ticks.user, ticks.nice, ticks.system, ticks.idle,
+                 ticks.iowait, ticks.irq, ticks.softirq, ticks.steal);
+
         assert_se(procfs_memory_get_used(&v) >= 0);
         log_info("Current memory usage: %s", FORMAT_BYTES(v));
 
