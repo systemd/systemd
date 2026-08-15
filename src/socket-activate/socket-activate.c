@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "sd-daemon.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "build.h"
@@ -14,19 +15,17 @@
 #include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
-#include "format-table.h"
 #include "format-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "options.h"
 #include "pidfd-util.h"
 #include "pidref.h"
-#include "pretty-print.h"
 #include "process-util.h"
 #include "socket-netlink.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "verbs.h"
 
 static char **arg_listen = NULL;
 static bool arg_accept = false;
@@ -35,6 +34,14 @@ static char **arg_setenv = NULL;
 static char **arg_fdnames = NULL;
 static bool arg_inetd = false;
 static bool arg_now = false;
+
+COMMAND(
+        "systemd-socket-activate\0",
+        "Listen on sockets and launch child on connection.",
+        .argspec = "COMMAND…\0",
+        .footer = "Note: file descriptors from sd_listen_fds() will be passed through.",
+        .man_pages = "systemd-socket-activate.1\0",
+);
 
 static int add_epoll(int epoll_fd, int fd) {
         struct epoll_event ev = {
@@ -320,37 +327,6 @@ static int install_chld_handler(void) {
         return 0;
 }
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-socket-activate", "1", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        printf("%s [OPTIONS...] COMMAND ...\n"
-               "\n%sListen on sockets and launch child on connection.%s\n"
-               "\n%sOptions:%s\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal(),
-               ansi_underline(),
-               ansi_normal());
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nNote: file descriptors from sd_listen_fds() will be passed through.\n"
-               "\nSee the %s for details.\n", link);
-        return 0;
-}
-
 static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         assert(argc >= 0);
         assert(argv);
@@ -363,7 +339,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-socket-activate");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -441,6 +417,9 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                             "Start instantly instead of waiting for connection"):
                         arg_now = true;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         *remaining_args = option_parser_get_args(&opts);
