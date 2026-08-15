@@ -18,6 +18,7 @@ INTROSPECTABLE=(
     systemd-battery-check
     systemd-binfmt
     systemd-bsod
+    systemd-cat
     systemd-dissect
     systemd-firstboot    
     systemd-hwdb
