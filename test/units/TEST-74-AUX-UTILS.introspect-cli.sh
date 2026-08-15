@@ -15,6 +15,7 @@ INTROSPECTABLE=(
     systemd-analyze
     systemd-ask-password
     systemd-backlight
+    systemd-battery-check
     systemd-dissect
     systemd-firstboot    
     systemd-hwdb
