@@ -29,6 +29,7 @@ INTROSPECTABLE=(
     systemd-hwdb
     systemd-id128
     systemd-imds
+    systemd-inhibit
     systemd-notify
     systemd-veritysetup
     timedatectl
