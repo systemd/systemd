@@ -28,30 +28,29 @@
 #include "strv.h"
 #include "verbs.h"
 
-static const char prefixes[] =
-        "/etc\0"
-        "/run\0"
-        "/usr/local/lib\0"
-        "/usr/local/share\0"
-        "/usr/lib\0"
+#define PREFIXES                                \
+        "/etc\0"                                \
+        "/run\0"                                \
+        "/usr/local/lib\0"                      \
+        "/usr/local/share\0"                    \
+        "/usr/lib\0"                            \
         "/usr/share\0"
-        ;
 
-static const char suffixes[] =
-        "sysctl.d\0"
-        "tmpfiles.d\0"
-        "modules-load.d\0"
-        "binfmt.d\0"
-        "systemd/system\0"
+#define SUFFIXES                                \
+        "sysctl.d\0"                            \
+        "tmpfiles.d\0"                          \
+        "modules-load.d\0"                      \
+        "binfmt.d\0"                            \
+        "systemd/system\0"                      \
+        "systemd/user\0"                        \
+        "systemd/system-preset\0"               \
+        "systemd/user-preset\0"                 \
+        "udev/rules.d\0"                        \
+        "modprobe.d\0"
+
+#define HAVE_DROPINS                            \
+        "systemd/system\0"                      \
         "systemd/user\0"
-        "systemd/system-preset\0"
-        "systemd/user-preset\0"
-        "udev/rules.d\0"
-        "modprobe.d\0";
-
-static const char have_dropins[] =
-        "systemd/system\0"
-        "systemd/user\0";
 
 static PagerFlags arg_pager_flags = 0;
 static int arg_diff = -1;
@@ -386,10 +385,10 @@ static int process_suffix(const char *suffix, const char *onlyprefix) {
         assert(!startswith(suffix, "/"));
         assert(!strstr(suffix, "//"));
 
-        bool dropins = nulstr_contains(have_dropins, suffix);
+        bool dropins = nulstr_contains(HAVE_DROPINS, suffix);
 
         _cleanup_ordered_hashmap_free_ OrderedHashmap *top = NULL, *bottom = NULL, *drops = NULL;
-        NULSTR_FOREACH(p, prefixes) {
+        NULSTR_FOREACH(p, PREFIXES) {
                 _cleanup_free_ char *t = NULL;
 
                 t = path_join(p, suffix);
@@ -432,7 +431,7 @@ static int process_suffix(const char *suffix, const char *onlyprefix) {
 static int process_suffixes(const char *onlyprefix) {
         int n_found = 0, r;
 
-        NULSTR_FOREACH(n, suffixes) {
+        NULSTR_FOREACH(n, SUFFIXES) {
                 r = process_suffix(n, onlyprefix);
                 if (r < 0)
                         return r;
@@ -450,7 +449,7 @@ static int process_suffix_chop(const char *arg) {
                 return process_suffix(arg, NULL);
 
         /* Strip prefix from the suffix */
-        NULSTR_FOREACH(p, prefixes) {
+        NULSTR_FOREACH(p, PREFIXES) {
                 const char *suffix;
 
                 suffix = startswith(arg, p);
