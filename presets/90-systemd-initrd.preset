@@ -9,12 +9,14 @@
 
 # Settings for systemd units distributed with systemd itself, specific to initrds.
 
+enable systemd-confext-sysroot.service
 enable systemd-journald-audit.socket
 enable systemd-network-generator.service
 enable systemd-networkd.service
 enable systemd-networkd-wait-online.service
 enable systemd-pstore.service
 enable systemd-resolved.service
+enable systemd-sysext-sysroot.service
 enable systemd-tpm2-clear.service
 
 disable console-getty.service

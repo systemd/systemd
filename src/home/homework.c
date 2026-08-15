@@ -13,12 +13,14 @@
 #include "chown-recursive.h"
 #include "copy.h"
 #include "cryptsetup-util.h"
+#include "dlopen-note.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "filesystems.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "home-util.h"
 #include "homework-fido2.h"
@@ -457,6 +459,11 @@ int home_setup_done(HomeSetup *setup) {
 
         setup->key_serial = keyring_unlink(setup->key_serial);
 
+        /* Roll back a v2 fscrypt master key that home_setup_fscrypt() installed but that no activated
+         * home ended up owning (passwd/update/resize of an inactive home, or any error path). On the
+         * activation path home_activate_directory() disarms this first, so the live home keeps its key. */
+        fscrypt_v2_key_undo_done(&setup->fscrypt_v2_key_undo);
+
         setup->undo_mount = false;
         setup->undo_dm = false;
         setup->do_offline_fitrim = false;
@@ -512,7 +519,7 @@ int home_setup(
                 break;
 
         case USER_FSCRYPT:
-                r = home_setup_fscrypt(h, setup, cache);
+                r = home_setup_fscrypt(h, flags, setup, cache);
                 break;
 
         case USER_CIFS:
@@ -551,27 +558,23 @@ int home_sync_and_statfs(int root_fd, struct statfs *ret) {
 }
 
 static int read_identity_file(int root_fd, sd_json_variant **ret) {
-        _cleanup_fclose_ FILE *identity_file = NULL;
-        _cleanup_close_ int identity_fd = -EBADF;
         int r;
 
         assert(root_fd >= 0);
         assert(ret);
 
-        identity_fd = openat(root_fd, ".identity", O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW|O_NONBLOCK);
+        _cleanup_close_ int identity_fd = xopenat_full(root_fd, ".identity", O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW|O_NONBLOCK, XO_REGULAR, MODE_INVALID);
         if (identity_fd < 0)
-                return log_error_errno(errno, "Failed to open .identity file in home directory: %m");
-
-        r = fd_verify_regular(identity_fd);
-        if (r < 0)
-                return log_error_errno(r, "Embedded identity file is not a regular file, refusing: %m");
-
-        identity_file = take_fdopen(&identity_fd, "r");
-        if (!identity_file)
-                return log_oom();
+                return log_error_errno(identity_fd, "Failed to open .identity file in home directory: %m");
 
         unsigned line = 0, column = 0;
-        r = sd_json_parse_file(identity_file, ".identity", SD_JSON_PARSE_SENSITIVE, ret, &line, &column);
+        r = sd_json_parse_fd(
+                        ".identity",
+                        TAKE_FD(identity_fd),
+                        SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SENSITIVE|SD_JSON_PARSE_DONATE_FD,
+                        ret,
+                        &line,
+                        &column);
         if (r < 0)
                 return log_error_errno(r, "[.identity:%u:%u] Failed to parse JSON data: %m", line, column);
 
@@ -915,6 +918,7 @@ static int home_activate(UserRecord *h, UserRecord **ret_home) {
         int r;
 
         assert(h);
+        assert(ret_home);
 
         if (!h->user_name)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "User record lacks user name, refusing.");
@@ -1330,7 +1334,7 @@ static int determine_default_storage(UserStorage *ret) {
                         if (r < 0)
                                 log_warning_errno(r, "Failed to determine if %s is encrypted, ignoring: %m", get_home_root());
 
-                        r = dlopen_cryptsetup();
+                        r = dlopen_cryptsetup(LOG_DEBUG);
                         if (r < 0)
                                 log_info("Not using '%s' storage, since libcryptsetup could not be loaded.", user_storage_to_string(USER_LUKS));
                         else {
@@ -2000,11 +2004,19 @@ static int run(int argc, char *argv[]) {
         sd_json_variant *fdmap, *blob_fd_variant;
         int r;
 
+        LIBBLKID_NOTE(recommended);
+        LIBCRYPT_NOTE(recommended);
+        LIBCRYPTO_NOTE(recommended);
+        LIBCRYPTSETUP_NOTE(recommended);
+        LIBFDISK_NOTE(recommended);
+        LIBFIDO2_NOTE(suggested);
+        LIBMOUNT_NOTE(recommended);
+        LIBP11KIT_NOTE(suggested);
+        LIBSELINUX_NOTE(recommended);
+
         start = now(CLOCK_MONOTONIC);
 
         log_setup();
-
-        cryptsetup_enable_logging(NULL);
 
         umask(0022);
 
@@ -2025,7 +2037,7 @@ static int run(int argc, char *argv[]) {
         }
 
         unsigned line = 0, column = 0;
-        r = sd_json_parse_file(json_file, json_path, SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
+        r = sd_json_parse_file(json_file, json_path, SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
         if (r < 0)
                 return log_error_errno(r, "[%s:%u:%u] Failed to parse JSON data: %m", json_path, line, column);
 

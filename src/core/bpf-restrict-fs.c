@@ -15,42 +15,37 @@
 
 #if BPF_FRAMEWORK
 /* libbpf, clang and llc compile time dependencies are satisfied */
-#include "bpf-dlopen.h"
+#include "bpf-util.h"
 #include "bpf-link.h"
-#include "bpf/restrict-fs/restrict-fs-skel.h"
+#include "restrict-fs-skel.h"
 
 #define CGROUP_HASH_SIZE_MAX 2048
 
-static struct restrict_fs_bpf *restrict_fs_bpf_free(struct restrict_fs_bpf *obj) {
-        /* restrict_fs_bpf__destroy handles object == NULL case */
-        restrict_fs_bpf__destroy(obj);
+/* restrict_fs_bpf__destroy handles object == NULL case */
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct restrict_fs_bpf *, restrict_fs_bpf__destroy, restrict_fs_bpf_freep, NULL);
 
-        return NULL;
-}
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct restrict_fs_bpf *, restrict_fs_bpf_free);
-
-static bool bpf_can_link_lsm_program(struct bpf_program *prog) {
-        _cleanup_(bpf_link_freep) struct bpf_link *link = NULL;
-
-        assert(prog);
-
-        link = sym_bpf_program__attach_lsm(prog);
-
-        /* If bpf_program__attach_lsm fails the resulting value stores libbpf error code instead of memory
-         * pointer. That is the case when the helper is called on architectures where BPF trampoline (hence
-         * BPF_LSM_MAC attach type) is not supported. */
-        return bpf_get_error_translated(link) == 0;
-}
-
-static int prepare_restrict_fs_bpf(struct restrict_fs_bpf **ret_obj) {
-        _cleanup_(restrict_fs_bpf_freep) struct restrict_fs_bpf *obj = NULL;
-        _cleanup_close_ int inner_map_fd = -EBADF;
+int bpf_restrict_fs_setup(Manager *m) {
         int r;
 
-        assert(ret_obj);
+        assert(m);
 
-        obj = restrict_fs_bpf__open();
+        if (!MANAGER_IS_SYSTEM(m))
+                return 0;
+
+        r = dlopen_bpf(LOG_WARNING);
+        if (r < 0)
+                return r;
+
+        r = lsm_supported("bpf");
+        if (r == -ENOPKG)
+                return log_debug_errno(r, "bpf-restrict-fs: securityfs not mounted, BPF LSM support not available.");
+        if (r < 0)
+                return log_warning_errno(r, "bpf-restrict-fs: Can't determine whether the BPF LSM module is used: %m");
+        if (r == 0)
+                return log_info_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                      "bpf-restrict-fs: BPF LSM hook not enabled in the kernel, BPF LSM not supported.");
+
+        _cleanup_(restrict_fs_bpf_freep) struct restrict_fs_bpf *obj = restrict_fs_bpf__open();
         if (!obj)
                 return log_error_errno(errno, "bpf-restrict-fs: Failed to open BPF object: %m");
 
@@ -62,7 +57,7 @@ static int prepare_restrict_fs_bpf(struct restrict_fs_bpf **ret_obj) {
                                        sym_bpf_map__name(obj->maps.cgroup_hash));
 
         /* Dummy map to satisfy the verifier */
-        inner_map_fd = compat_bpf_map_create(BPF_MAP_TYPE_HASH, NULL, sizeof(uint32_t), sizeof(uint32_t), 128U, NULL);
+        _cleanup_close_ int inner_map_fd = compat_bpf_map_create(BPF_MAP_TYPE_HASH, NULL, sizeof(uint32_t), sizeof(uint32_t), 128U, NULL);
         if (inner_map_fd < 0)
                 return log_error_errno(errno, "bpf-restrict-fs: Failed to create BPF map: %m");
 
@@ -76,62 +71,7 @@ static int prepare_restrict_fs_bpf(struct restrict_fs_bpf **ret_obj) {
         if (r < 0)
                 return log_error_errno(r, "bpf-restrict-fs: Failed to load BPF object: %m");
 
-        *ret_obj = TAKE_PTR(obj);
-
-        return 0;
-}
-
-bool bpf_restrict_fs_supported(bool initialize) {
-        _cleanup_(restrict_fs_bpf_freep) struct restrict_fs_bpf *obj = NULL;
-        static int supported = -1;
-        int r;
-
-        if (supported >= 0)
-                return supported;
-        if (!initialize)
-                return false;
-
-        if (dlopen_bpf_full(LOG_WARNING) < 0)
-                return (supported = false);
-
-        r = lsm_supported("bpf");
-        if (r == -ENOPKG) {
-                log_debug_errno(r, "bpf-restrict-fs: securityfs not mounted, BPF LSM support not available.");
-                return (supported = false);
-        }
-        if (r < 0) {
-                log_warning_errno(r, "bpf-restrict-fs: Can't determine whether the BPF LSM module is used: %m");
-                return (supported = false);
-        }
-        if (r == 0) {
-                log_info("bpf-restrict-fs: BPF LSM hook not enabled in the kernel, BPF LSM not supported.");
-                return (supported = false);
-        }
-
-        r = prepare_restrict_fs_bpf(&obj);
-        if (r < 0)
-                return (supported = false);
-
-        if (!bpf_can_link_lsm_program(obj->progs.restrict_filesystems)) {
-                log_warning("bpf-restrict-fs: Failed to link program; assuming BPF LSM is not available.");
-                return (supported = false);
-        }
-
-        return (supported = true);
-}
-
-int bpf_restrict_fs_setup(Manager *m) {
-        _cleanup_(restrict_fs_bpf_freep) struct restrict_fs_bpf *obj = NULL;
-        _cleanup_(bpf_link_freep) struct bpf_link *link = NULL;
-        int r;
-
-        assert(m);
-
-        r = prepare_restrict_fs_bpf(&obj);
-        if (r < 0)
-                return r;
-
-        link = sym_bpf_program__attach_lsm(obj->progs.restrict_filesystems);
+        _cleanup_(bpf_link_freep) struct bpf_link *link = sym_bpf_program__attach_lsm(obj->progs.restrict_filesystems);
         r = bpf_get_error_translated(link);
         if (r != 0)
                 return log_error_errno(r, "bpf-restrict-fs: Failed to link '%s' LSM BPF program: %m",
@@ -186,7 +126,10 @@ int bpf_restrict_fs_update(const Set *filesystems, uint64_t cgroup_id, int outer
                         if (magic[i] == 0)
                                 break;
 
-                        if (sym_bpf_map_update_elem(inner_map_fd, &magic[i], &dummy_value, BPF_ANY) != 0) {
+                        /* The map key is uint32_t but statfs_f_type_t may be 64-bit, pass a truncated copy
+                         * to avoid breaking on big endian arches. */
+                        uint32_t key = magic[i];
+                        if (sym_bpf_map_update_elem(inner_map_fd, &key, &dummy_value, BPF_ANY) != 0) {
                                 r = log_error_errno(errno, "bpf-restrict-fs: Failed to update BPF map: %m");
 
                                 if (sym_bpf_map_delete_elem(outer_map_fd, &cgroup_id) != 0)
@@ -205,10 +148,6 @@ int bpf_restrict_fs_cleanup(Unit *u) {
 
         assert(u);
         assert(u->manager);
-
-        /* If we never successfully detected support, there is nothing to clean up. */
-        if (!bpf_restrict_fs_supported(/* initialize= */ false))
-                return 0;
 
         if (!u->manager->restrict_fs)
                 return 0;
@@ -244,11 +183,12 @@ void bpf_restrict_fs_destroy(struct restrict_fs_bpf *prog) {
         restrict_fs_bpf__destroy(prog);
 }
 #else /* ! BPF_FRAMEWORK */
-bool bpf_restrict_fs_supported(bool initialize) {
-        return false;
-}
-
 int bpf_restrict_fs_setup(Manager *m) {
+        assert(m);
+
+        if (!MANAGER_IS_SYSTEM(m))
+                return 0;
+
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "bpf-restrict-fs: BPF framework is not supported.");
 }
 

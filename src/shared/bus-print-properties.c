@@ -58,17 +58,18 @@ int bus_print_property_valuef(const char *name, const char *expected_value, BusP
         return bus_print_property_value(name, expected_value, flags, s);
 }
 
-static int bus_print_property(const char *name, const char *expected_value, sd_bus_message *m, BusPrintPropertyFlags flags) {
-        char type;
-        const char *contents;
+static int bus_print_property(
+                const char *name,
+                const char *expected_value,
+                char type,
+                const char *contents,
+                sd_bus_message *m,
+                BusPrintPropertyFlags flags) {
+
         int r;
 
         assert(name);
         assert(m);
-
-        r = sd_bus_message_peek_type(m, &type, &contents);
-        if (r < 0)
-                return r;
 
         switch (type) {
 
@@ -113,7 +114,11 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                         return r;
 
                 if (bus_property_is_timestamp(name))
-                        bus_print_property_value(name, expected_value, flags, FORMAT_TIMESTAMP(u));
+                        /* RTCTimeUSec should always be displayed in UTC, consistent with timedatectl status */
+                        if (streq(name, "RTCTimeUSec"))
+                                bus_print_property_value(name, expected_value, flags, FORMAT_TIMESTAMP_STYLE(u, TIMESTAMP_UTC));
+                        else
+                                bus_print_property_value(name, expected_value, flags, FORMAT_TIMESTAMP(u));
 
                 /* Managed OOM pressure default implies "unset" and use the default set in oomd.conf. Without
                  * this condition, we will print "infinity" which implies there is no limit on memory
@@ -340,6 +345,34 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
         return 0;
 }
 
+static bool match_filter(char **filter, const char *name, const char **ret_expected_value) {
+        const char *expected_value = NULL;
+
+        assert(name);
+        assert(ret_expected_value);
+
+        if (!filter) {
+                *ret_expected_value = NULL;
+                return true;
+        }
+
+        STRV_FOREACH(f, filter) {
+                const char *p = startswith(*f, name);
+
+                if (!p)
+                        continue;
+                if (*p == '\0') {
+                        *ret_expected_value = NULL;
+                        return true;
+                }
+                if (*p == '=' && !expected_value)
+                        expected_value = p + 1;
+        }
+
+        *ret_expected_value = expected_value;
+        return expected_value != NULL;
+}
+
 int bus_message_print_all_properties(
                 sd_bus_message *m,
                 bus_message_print_t func,
@@ -356,7 +389,6 @@ int bus_message_print_all_properties(
                 return r;
 
         while ((r = sd_bus_message_enter_container(m, SD_BUS_TYPE_DICT_ENTRY, "sv")) > 0) {
-                _cleanup_free_ char *name_with_equal = NULL;
                 const char *name, *contents, *expected_value = NULL;
 
                 r = sd_bus_message_read_basic(m, SD_BUS_TYPE_STRING, &name);
@@ -369,14 +401,7 @@ int bus_message_print_all_properties(
                                 return log_oom();
                 }
 
-                name_with_equal = strjoin(name, "=");
-                if (!name_with_equal)
-                        return log_oom();
-
-                if (!filter ||
-                    strv_contains(filter, name) ||
-                    (expected_value = strv_find_startswith(filter, name_with_equal))) {
-
+                if (match_filter(filter, name, &expected_value)) {
                         r = sd_bus_message_peek_type(m, NULL, &contents);
                         if (r < 0)
                                 return r;
@@ -385,10 +410,16 @@ int bus_message_print_all_properties(
                         if (r < 0)
                                 return r;
 
+                        char value_type;
+                        const char *value_contents;
+                        r = sd_bus_message_peek_type(m, &value_type, &value_contents);
+                        if (r < 0)
+                                return r;
+
                         if (func)
-                                r = func(name, expected_value, m, flags);
+                                r = func(name, expected_value, value_type, value_contents, m, flags);
                         if (!func || r == 0)
-                                r = bus_print_property(name, expected_value, m, flags);
+                                r = bus_print_property(name, expected_value, value_type, value_contents, m, flags);
                         if (r < 0)
                                 return r;
                         if (r == 0) {

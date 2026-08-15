@@ -273,13 +273,11 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         }
 
         if (!have_syslog_identifier &&
-            string_is_safe(program_invocation_short_name)) {
+            string_is_safe(program_invocation_short_name, /* flags= */ 0)) {
 
-                /* Implicitly add program_invocation_short_name, if it
-                 * is not set explicitly. We only do this for
-                 * program_invocation_short_name, and nothing else
-                 * since everything else is much nicer to retrieve
-                 * from the outside. */
+                /* Implicitly add program_invocation_short_name, if it is not set explicitly. We only do this
+                 * for program_invocation_short_name, and nothing else since everything else is much nicer to
+                 * retrieve from the outside. */
 
                 w[j++] = IOVEC_MAKE_STRING("SYSLOG_IDENTIFIER=");
                 w[j++] = IOVEC_MAKE_STRING(program_invocation_short_name);

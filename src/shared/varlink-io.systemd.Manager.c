@@ -3,6 +3,18 @@
 #include "varlink-idl-common.h"
 #include "varlink-io.systemd.Manager.h"
 
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                LogTarget,
+                SD_VARLINK_DEFINE_ENUM_VALUE(console),
+                SD_VARLINK_DEFINE_ENUM_VALUE(kmsg),
+                SD_VARLINK_DEFINE_ENUM_VALUE(journal),
+                SD_VARLINK_DEFINE_ENUM_VALUE(syslog),
+                SD_VARLINK_DEFINE_ENUM_VALUE(console_prefixed),
+                SD_VARLINK_DEFINE_ENUM_VALUE(journal_or_kmsg),
+                SD_VARLINK_DEFINE_ENUM_VALUE(syslog_or_kmsg),
+                SD_VARLINK_DEFINE_ENUM_VALUE(auto),
+                SD_VARLINK_DEFINE_ENUM_VALUE(null));
+
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 LogLevelStruct,
                 SD_VARLINK_FIELD_COMMENT("'console' target log level"),
@@ -25,13 +37,13 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#LogColor="),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(LogLevel, LogLevelStruct, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#LogColor="),
-                SD_VARLINK_DEFINE_FIELD(LogTarget, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(LogTarget, LogTarget, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#ManagerEnvironment="),
                 SD_VARLINK_DEFINE_FIELD(Environment, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultStandardOutput="),
-                SD_VARLINK_DEFINE_FIELD(DefaultStandardOutput, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(DefaultStandardOutput, ExecOutputType, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultStandardError="),
-                SD_VARLINK_DEFINE_FIELD(DefaultStandardError, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(DefaultStandardError, ExecOutputType, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#ServiceWatchdogs="),
                 SD_VARLINK_DEFINE_FIELD(ServiceWatchdogs, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultTimerAccuracySec="),
@@ -63,7 +75,15 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultMemoryPressureThresholdUSec="),
                 SD_VARLINK_DEFINE_FIELD(DefaultMemoryPressureThresholdUSec, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultMemoryPressureWatch="),
-                SD_VARLINK_DEFINE_FIELD(DefaultMemoryPressureWatch, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(DefaultMemoryPressureWatch, CGroupPressureWatch, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultCPUPressureThresholdUSec="),
+                SD_VARLINK_DEFINE_FIELD(DefaultCPUPressureThresholdUSec, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultCPUPressureWatch="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(DefaultCPUPressureWatch, CGroupPressureWatch, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultIOPressureThresholdUSec="),
+                SD_VARLINK_DEFINE_FIELD(DefaultIOPressureThresholdUSec, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultIOPressureWatch="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(DefaultIOPressureWatch, CGroupPressureWatch, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#RuntimeWatchdogSec="),
                 SD_VARLINK_DEFINE_FIELD(RuntimeWatchdogUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#RebootWatchdogSec="),
@@ -79,17 +99,19 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#TimerSlackNSec="),
                 SD_VARLINK_DEFINE_FIELD(TimerSlackNSec, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultOOMPolicy="),
-                SD_VARLINK_DEFINE_FIELD(DefaultOOMPolicy, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(DefaultOOMPolicy, OOMPolicy, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultOOMScoreAdjust="),
                 SD_VARLINK_DEFINE_FIELD(DefaultOOMScoreAdjust, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultRestrictSUIDSGID="),
                 SD_VARLINK_DEFINE_FIELD(DefaultRestrictSUIDSGID, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#CtrlAltDelBurstAction="),
-                SD_VARLINK_DEFINE_FIELD(CtrlAltDelBurstAction, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(CtrlAltDelBurstAction, EmergencyAction, 0),
                 SD_VARLINK_FIELD_COMMENT("The console on which systemd asks for confirmation when spawning processes"),
                 SD_VARLINK_DEFINE_FIELD(ConfirmSpawn, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Root of the control group hierarchy that the manager is running in"),
-                SD_VARLINK_DEFINE_FIELD(ControlGroup, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD(ControlGroup, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd-system.conf.html#DefaultMemoryZSwapWriteback="),
+                SD_VARLINK_DEFINE_FIELD(DefaultMemoryZSwapWriteback, SD_VARLINK_BOOL, 0));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 ManagerRuntime,
@@ -119,6 +141,18 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(UserspaceTimestamp, Timestamp, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Timestamp when the system finished booting up"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(FinishTimestamp, Timestamp, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Timestamp when shutdown began, i.e. when units started to be stopped"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ShutdownStartTimestamp, Timestamp, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Timestamp when all units finished stopping during shutdown"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ShutdownFinishTimestamp, Timestamp, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Timestamp when the previous boot began stopping units, restored across a kexec-based live update"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(PreviousShutdownStartTimestamp, Timestamp, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Timestamp when the previous boot finished stopping units, restored across a kexec-based live update"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(PreviousShutdownFinishTimestamp, Timestamp, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Timestamp when systemd-shutdown began execution during the previous boot, restored across a kexec-based live update"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(PreviousShutdownLateStartTimestamp, Timestamp, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Timestamp when systemd-shutdown was about to kexec into the current kernel, restored across a kexec-based live update"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(PreviousShutdownLateFinishTimestamp, Timestamp, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Timestamp when the manager started uploading security policies to the kernel"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(SecurityStartTimestamp, Timestamp, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Timestamp when the manager finished uploading security policies to the kernel"),
@@ -166,7 +200,11 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Exit code of the manager"),
                 SD_VARLINK_DEFINE_FIELD(ExitCode, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("Encodes how many soft-reboots were successfully completed"),
-                SD_VARLINK_DEFINE_FIELD(SoftRebootsCount, SD_VARLINK_INT, 0));
+                SD_VARLINK_DEFINE_FIELD(SoftRebootsCount, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Encodes how many consecutive kexec reboots were successfully completed since the last full boot. Zero if the Live Update Orchestrator is not available."),
+                SD_VARLINK_DEFINE_FIELD(KExecsCount, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Number of successfully completed configuration reloads"),
+                SD_VARLINK_DEFINE_FIELD(ReloadCount, SD_VARLINK_INT, 0));
 
 static SD_VARLINK_DEFINE_METHOD(
                 Describe,
@@ -193,6 +231,15 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("Job enqueue error message (on failure)"),
                 SD_VARLINK_DEFINE_OUTPUT(errorMessage, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
+static SD_VARLINK_DEFINE_METHOD(PowerOff);
+static SD_VARLINK_DEFINE_METHOD(Reboot);
+static SD_VARLINK_DEFINE_METHOD(Halt);
+static SD_VARLINK_DEFINE_METHOD(KExec);
+static SD_VARLINK_DEFINE_METHOD(
+                SoftReboot,
+                SD_VARLINK_FIELD_COMMENT("New root directory for the soft reboot"),
+                SD_VARLINK_DEFINE_INPUT(root, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+
 static SD_VARLINK_DEFINE_ERROR(RateLimitReached);
 
 SD_VARLINK_DEFINE_INTERFACE(
@@ -205,6 +252,16 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_Reload,
                 SD_VARLINK_SYMBOL_COMMENT("Enqueue all marked jobs"),
                 &vl_method_EnqueueMarkedJobs,
+                SD_VARLINK_SYMBOL_COMMENT("Power off the system"),
+                &vl_method_PowerOff,
+                SD_VARLINK_SYMBOL_COMMENT("Reboot the system"),
+                &vl_method_Reboot,
+                SD_VARLINK_SYMBOL_COMMENT("Halt the system"),
+                &vl_method_Halt,
+                SD_VARLINK_SYMBOL_COMMENT("Reboot the system via kexec"),
+                &vl_method_KExec,
+                SD_VARLINK_SYMBOL_COMMENT("Soft-reboot the userspace"),
+                &vl_method_SoftReboot,
                 &vl_error_RateLimitReached,
                 &vl_type_ManagerContext,
                 &vl_type_ManagerRuntime,
@@ -212,4 +269,9 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_ResourceLimit,
                 &vl_type_ResourceLimitTable,
                 &vl_type_RateLimit,
-                &vl_type_LogLevelStruct);
+                &vl_type_LogLevelStruct,
+                &vl_type_LogTarget,
+                &vl_type_OOMPolicy,
+                &vl_type_ExecOutputType,
+                &vl_type_CGroupPressureWatch,
+                &vl_type_EmergencyAction);

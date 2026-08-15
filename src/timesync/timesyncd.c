@@ -8,7 +8,6 @@
 
 #include "bus-log-control-api.h"
 #include "bus-object.h"
-#include "capability-util.h"
 #include "clock-util.h"
 #include "daemon-util.h"
 #include "errno-util.h"
@@ -17,14 +16,12 @@
 #include "fs-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "mkdir-label.h"
 #include "network-util.h"
 #include "process-util.h"
 #include "service-util.h"
 #include "timesyncd-bus.h"
 #include "timesyncd-conf.h"
 #include "timesyncd-manager.h"
-#include "user-util.h"
 
 static int advance_tstamp(int fd, usec_t epoch) {
         assert(fd >= 0);
@@ -72,7 +69,7 @@ static int advance_tstamp(int fd, usec_t epoch) {
         return 0;
 }
 
-static int load_clock_timestamp(uid_t uid, gid_t gid) {
+static int load_clock_timestamp(void) {
         usec_t epoch = TIME_EPOCH * USEC_PER_SEC, ct;
         _cleanup_close_ int fd = -EBADF;
         int r;
@@ -82,18 +79,13 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
          * is particularly helpful on systems lacking a battery backed RTC. We also will adjust the time to
          * at least the build time of systemd. */
 
-        fd = open(TIMESYNCD_CLOCK_FILE, O_RDWR|O_CLOEXEC, 0644);
+        fd = RET_NERRNO(open(TIMESYNCD_CLOCK_FILE, O_RDWR|O_CLOEXEC, 0644));
         if (fd < 0) {
-                if (errno != ENOENT)
-                        log_debug_errno(errno, "Unable to open timestamp file "TIMESYNCD_CLOCK_FILE", ignoring: %m");
-
-                r = mkdir_safe_label(TIMESYNCD_CLOCK_FILE_DIR, 0755, uid, gid,
-                                     MKDIR_FOLLOW_SYMLINK | MKDIR_WARN_MODE);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to create "TIMESYNCD_CLOCK_FILE_DIR", ignoring: %m");
+                if (fd != -ENOENT)
+                        log_warning_errno(fd, "Unable to open timestamp file "TIMESYNCD_CLOCK_FILE", ignoring: %m");
 
                 /* Create stamp file with the compiled-in date */
-                r = touch_file(TIMESYNCD_CLOCK_FILE, /* parents= */ false, epoch, uid, gid, 0644);
+                r = touch_file(TIMESYNCD_CLOCK_FILE, /* parents= */ false, epoch, UID_INVALID, GID_INVALID, MODE_INVALID);
                 if (r < 0)
                         log_debug_errno(r, "Failed to create %s, ignoring: %m", TIMESYNCD_CLOCK_FILE);
         } else {
@@ -102,13 +94,6 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
                 /* Check if the recorded time is later than the compiled-in one */
                 if (fstat(fd, &st) < 0)
                         return log_error_errno(errno, "Unable to stat timestamp file "TIMESYNCD_CLOCK_FILE": %m");
-
-                /* Try to fix the access mode, so that we can still touch the file after dropping
-                 * privileges */
-                r = fchmod_and_chown(fd, 0644, uid, gid);
-                if (r < 0)
-                        log_full_errno(ERRNO_IS_PRIVILEGE(r) ? LOG_DEBUG : LOG_WARNING, r,
-                                       "Failed to chmod or chown %s, ignoring: %m", TIMESYNCD_CLOCK_FILE);
 
                 epoch = MAX(epoch, timespec_load(&st.st_mtim));
 
@@ -140,9 +125,6 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
 static int run(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
-        const char *user = "systemd-timesync";
-        uid_t uid, uid_current;
-        gid_t gid;
         int r;
 
         log_set_facility(LOG_CRON);
@@ -161,26 +143,9 @@ static int run(int argc, char *argv[]) {
         if (argc != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program does not take arguments.");
 
-        uid = uid_current = geteuid();
-        gid = getegid();
-
-        if (uid_current == 0) {
-                r = get_user_creds(&user, &uid, &gid, NULL, NULL, 0);
-                if (r < 0)
-                        return log_error_errno(r, "Cannot resolve user name %s: %m", user);
-        }
-
-        r = load_clock_timestamp(uid, gid);
+        r = load_clock_timestamp();
         if (r < 0)
                 return r;
-
-        /* Drop privileges, but only if we have been started as root. If we are not running as root we assume all
-         * privileges are already dropped. */
-        if (uid_current == 0) {
-                r = drop_privileges(uid, gid, (1ULL << CAP_SYS_TIME));
-                if (r < 0)
-                        return log_error_errno(r, "Failed to drop privileges: %m");
-        }
 
         r = manager_new(&m);
         if (r < 0)

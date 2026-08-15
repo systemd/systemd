@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "bus-object.h"
+#include "dhcp-server-internal.h"
 #include "dhcp-server-lease-internal.h"
 #include "hashmap.h"
 #include "networkd-dhcp-server-bus.h"
@@ -30,9 +31,6 @@ static int property_get_leases(
         if (!s)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Link %s has no DHCP server.", l->ifname);
 
-        if (sd_dhcp_server_is_in_relay_mode(s))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Link %s has DHCP relay agent active.", l->ifname);
-
         r = sd_bus_message_open_container(reply, 'a', "(uayayayayt)");
         if (r < 0)
                 return r;
@@ -58,7 +56,7 @@ static int property_get_leases(
                 if (r < 0)
                         return r;
 
-                r = sd_bus_message_append_array(reply, 'y', &lease->chaddr, sizeof(lease->chaddr));
+                r = sd_bus_message_append_array(reply, 'y', &lease->hw_addr.bytes, lease->hw_addr.length);
                 if (r < 0)
                         return r;
 
@@ -72,6 +70,40 @@ static int property_get_leases(
         }
 
         return sd_bus_message_close_container(reply);
+}
+
+static int property_get_pool_size(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Link *l = ASSERT_PTR(userdata);
+
+        assert(reply);
+
+        uint32_t v = l->dhcp_server ? l->dhcp_server->pool_size : UINT32_MAX;
+        return sd_bus_message_append_basic(reply, 'u', &v);
+}
+
+static int property_get_pool_offset(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Link *l = ASSERT_PTR(userdata);
+
+        assert(reply);
+
+        uint32_t v = l->dhcp_server ? l->dhcp_server->pool_offset : UINT32_MAX;
+        return sd_bus_message_append_basic(reply, 'u', &v);
 }
 
 static int dhcp_server_emit_changed_strv(Link *link, char **properties) {
@@ -104,6 +136,8 @@ static const sd_bus_vtable dhcp_server_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
         SD_BUS_PROPERTY("Leases", "a(uayayayayt)", property_get_leases, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("PoolSize", "u", property_get_pool_size, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("PoolOffset", "u", property_get_pool_offset, 0, SD_BUS_VTABLE_PROPERTY_CONST),
 
         SD_BUS_VTABLE_END
 };

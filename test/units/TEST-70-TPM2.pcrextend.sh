@@ -19,6 +19,16 @@ at_exit() {
         # Dump the event log on fail, to make debugging a bit easier
         jq --seq --slurp </run/log/systemd/tpm2-measure.log
     fi
+
+    set +e
+
+    if [[ -e /etc/machine-id.save ]]; then
+        mv /etc/machine-id.save /etc/machine-id
+    fi
+
+    rm -rf /run/systemd/system/systemd-pcrextend.socket.d
+    systemctl daemon-reload
+    rm -f /tmp/oldpcr16 /tmp/oldpcr15 /tmp/newpcr16 /tmp/newpcr15
 }
 
 trap at_exit EXIT
@@ -53,7 +63,6 @@ fi
 (! "$SD_PCREXTEND" --bank= foo)
 (! "$SD_PCREXTEND" --tpm2-device= foo)
 (! "$SD_PCREXTEND" --tpm2-device=/dev/null foo)
-(! "$SD_PCREXTEND" --pcr= foo)
 (! "$SD_PCREXTEND" --pcr=-1 foo)
 (! "$SD_PCREXTEND" --pcr=1024 foo)
 (! "$SD_PCREXTEND" --foo=bar)

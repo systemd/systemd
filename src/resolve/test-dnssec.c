@@ -521,6 +521,59 @@ TEST(dnssec_verify_rrset) {
         assert_se(result == DNSSEC_VALIDATED);
 }
 
+TEST(dnssec_verify_rrset_invalid_rsa_dnskey) {
+        static const uint8_t signature_blob[] = { 0x00 };
+        static const uint8_t dnskey_blob[] = { 0x00 };
+
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *rrsig = NULL, *dnskey = NULL;
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        DnssecResult result;
+
+        ASSERT_NOT_NULL(a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "example.com."));
+
+        a->a.in_addr.s_addr = inet_addr("192.0.2.1");
+
+        ASSERT_NOT_NULL(dnskey = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNSKEY, "example.com."));
+
+        dnskey->dnskey.flags = DNSKEY_FLAG_ZONE_KEY;
+        dnskey->dnskey.protocol = 3;
+        dnskey->dnskey.algorithm = DNSSEC_ALGORITHM_RSASHA256;
+        dnskey->dnskey.key_size = sizeof(dnskey_blob);
+        ASSERT_NOT_NULL(dnskey->dnskey.key = memdup(dnskey_blob, sizeof(dnskey_blob)));
+
+        ASSERT_NOT_NULL(rrsig = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "example.com."));
+
+        rrsig->rrsig.type_covered = DNS_TYPE_A;
+        rrsig->rrsig.algorithm = DNSSEC_ALGORITHM_RSASHA256;
+        rrsig->rrsig.labels = 2;
+        rrsig->rrsig.original_ttl = 3600;
+        rrsig->rrsig.expiration = 2000000000;
+        rrsig->rrsig.inception = 1000000000;
+        rrsig->rrsig.key_tag = dnssec_keytag(dnskey, false);
+        ASSERT_NOT_NULL(rrsig->rrsig.signer = strdup("example.com."));
+        rrsig->rrsig.signature_size = sizeof(signature_blob);
+        ASSERT_NOT_NULL(rrsig->rrsig.signature = memdup(signature_blob, rrsig->rrsig.signature_size));
+
+        ASSERT_GT(dnssec_key_match_rrsig(a->key, rrsig), 0);
+        ASSERT_GT(dnssec_rrsig_match_dnskey(rrsig, dnskey, false), 0);
+
+        ASSERT_NOT_NULL(answer = dns_answer_new(1));
+        ASSERT_OK(dns_answer_add(answer, a, 0, DNS_ANSWER_AUTHENTICATED, NULL));
+
+        ASSERT_ERROR(dnssec_verify_rrset(answer, a->key, rrsig, dnskey,
+                                         rrsig->rrsig.inception * USEC_PER_SEC, &result),
+                     EINVAL);
+
+        dnskey->dnskey.key = mfree(dnskey->dnskey.key);
+        dnskey->dnskey.key_size = 0;
+        rrsig->rrsig.key_tag = dnssec_keytag(dnskey, false);
+
+        ASSERT_GT(dnssec_rrsig_match_dnskey(rrsig, dnskey, false), 0);
+        ASSERT_ERROR(dnssec_verify_rrset(answer, a->key, rrsig, dnskey,
+                                         rrsig->rrsig.inception * USEC_PER_SEC, &result),
+                     EINVAL);
+}
+
 TEST(dnssec_verify_rrset2) {
         static const uint8_t signature_blob[] = {
                 0x48, 0x45, 0xc8, 0x8b, 0xc0, 0x14, 0x92, 0xf5, 0x15, 0xc6, 0x84, 0x9d, 0x2f, 0xe3, 0x32, 0x11,

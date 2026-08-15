@@ -3,8 +3,9 @@
 
 #include <string.h>
 
-#include "basic-forward.h"
-#include "memory-util-fundamental.h" /* IWYU pragma: export */
+#include "forward.h"
+
+#include "../fundamental/memory-util.h" /* IWYU pragma: export */
 
 size_t page_size(void) _pure_;
 #define PAGE_ALIGN(l)          ALIGN_TO(l, page_size())
@@ -57,12 +58,6 @@ static inline int memcmp_nn(const void *s1, size_t n1, const void *s2, size_t n2
 
 #define zero(x) (memzero(&(x), sizeof(x)))
 
-bool memeqbyte(uint8_t byte, const void *data, size_t length) _nonnull_if_nonzero_(2, 3);
-
-#define memeqzero(data, length) memeqbyte(0x00, data, length)
-
-#define eqzero(x) memeqzero(x, sizeof(x))
-
 static inline void* mempset(void *s, int c, size_t n) {
         memset(s, c, n);
         return (uint8_t*) s + n;
@@ -103,6 +98,3 @@ static inline void erase_and_freep(void *p) {
 static inline void erase_char(char *p) {
         explicit_bzero_safe(p, sizeof(char));
 }
-
-/* Makes a copy of the buffer with reversed order of bytes */
-void* memdup_reverse(const void *mem, size_t size);

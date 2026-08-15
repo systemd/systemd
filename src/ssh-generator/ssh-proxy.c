@@ -62,6 +62,9 @@ static int process_vsock_string(const char *host, const char *port) {
         if (r < 0)
                 return log_error_errno(r, "Failed to parse vsock cid: %s", host);
 
+        if (cid == VMADDR_CID_ANY)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use VMADDR_CID_ANY to connect to a remote host.");
+
         return process_vsock_cid(cid, port);
 }
 
@@ -279,7 +282,7 @@ static int fetch_machine(const char *machine, RuntimeScope scope, sd_json_varian
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to machined on %s: %m", addr);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *result = NULL;
+        sd_json_variant *result = NULL;
         const char *error_id;
         r = sd_varlink_callbo(
                         vl,
@@ -300,7 +303,9 @@ static int fetch_machine(const char *machine, RuntimeScope scope, sd_json_varian
                 return log_error_errno(r, "Failed to issue io.systemd.Machine.List() varlink call: %s", error_id);
         }
 
-        *ret = TAKE_PTR(result);
+        /* result is a borrowed reference into the varlink connection's receive buffer. Take a real ref so
+         * that it survives the cleanup of vl below. */
+        *ret = sd_json_variant_ref(result);
         return 0;
 }
 
@@ -332,6 +337,7 @@ static int process_machine(const char *machine, const char *port) {
                 { "vSockCid", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint32,       voffsetof(p, cid),     0                 },
                 { "class",    SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string, voffsetof(p, class),   SD_JSON_MANDATORY },
                 { "service",  SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string, voffsetof(p, service), 0                 },
+                {}
         };
 
         r = sd_json_dispatch(result, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
@@ -344,11 +350,11 @@ static int process_machine(const char *machine, const char *port) {
                 if (!streq_ptr(p.service, "systemd-nspawn"))
                         return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Don't know how to SSH into '%s' container %s.", p.service, machine);
 
-                r = runtime_directory_generic(scope, "systemd/nspawn/unix-export", &path);
+                r = runtime_directory_generic(scope, "systemd/nspawn", &path);
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine runtime directory: %m");
 
-                if (!path_extend(&path, machine, "ssh"))
+                if (!path_extend(&path, machine, "unix-export", "ssh"))
                         return log_oom();
 
                 r = is_socket(path);

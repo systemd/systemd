@@ -400,7 +400,7 @@ TEST(packet_validate_query_too_many_questions) {
         ASSERT_ERROR(dns_packet_validate_query(packet), EBADMSG);
 }
 
-TEST(packet_validate_query_with_anwser) {
+TEST(packet_validate_query_with_answer) {
         _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
@@ -3902,7 +3902,7 @@ static DnsSvcParam* add_svcb_param(DnsResourceRecord *rr, uint16_t key, const ch
         param->key = key;
         param->length = len;
 
-        if (value != NULL)
+        if (value)
                 memcpy(param->value, value, len);
 
         LIST_APPEND(params, rr->svcb.params, param);

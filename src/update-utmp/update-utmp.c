@@ -7,9 +7,11 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-util.h"
+#include "dlopen-note.h"
 #include "libaudit-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "strv.h"
 #include "time-util.h"
 #include "utmp-wtmp.h"
 #include "verbs.h"
@@ -51,7 +53,8 @@ static int get_startup_monotonic_time(Context *c, usec_t *ret) {
         return 0;
 }
 
-static int on_reboot(int argc, char *argv[], void *userdata) {
+VERB_NOARG(verb_on_reboot, "reboot", /* help= */ NULL);
+static int verb_on_reboot(int argc, char *argv[], uintptr_t _data, void *userdata) {
         Context *c = ASSERT_PTR(userdata);
         usec_t t = 0, boottime;
         int r, q = 0;
@@ -60,7 +63,7 @@ static int on_reboot(int argc, char *argv[], void *userdata) {
 
 #if HAVE_AUDIT
         if (c->audit_fd >= 0)
-                if (sym_audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_BOOT, "", "systemd-update-utmp", NULL, NULL, NULL, 1) < 0 &&
+                if (sym_audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_BOOT, "", "update-utmp", NULL, NULL, NULL, 1) < 0 &&
                     errno != EPERM)
                         q = log_error_errno(errno, "Failed to send audit message: %m");
 #endif
@@ -80,7 +83,8 @@ static int on_reboot(int argc, char *argv[], void *userdata) {
         return q;
 }
 
-static int on_shutdown(int argc, char *argv[], void *userdata) {
+VERB_NOARG(verb_on_shutdown, "shutdown", /* help= */ NULL);
+static int verb_on_shutdown(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r, q = 0;
 
         /* We started shut-down, so let's write the utmp record and send the audit msg. */
@@ -89,7 +93,7 @@ static int on_shutdown(int argc, char *argv[], void *userdata) {
         Context *c = ASSERT_PTR(userdata);
 
         if (c->audit_fd >= 0)
-                if (sym_audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_SHUTDOWN, "", "systemd-update-utmp", NULL, NULL, NULL, 1) < 0 &&
+                if (sym_audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_SHUTDOWN, "", "update-utmp", NULL, NULL, NULL, 1) < 0 &&
                     errno != EPERM)
                         q = log_error_errno(errno, "Failed to send audit message: %m");
 #endif
@@ -102,15 +106,11 @@ static int on_shutdown(int argc, char *argv[], void *userdata) {
 }
 
 static int run(int argc, char *argv[]) {
-        static const Verb verbs[] = {
-                { "reboot",   1, 1, 0, on_reboot   },
-                { "shutdown", 1, 1, 0, on_shutdown },
-                {}
-        };
-
         _cleanup_(context_clear) Context c = {
                 .audit_fd = -EBADF,
         };
+
+        LIBAUDIT_NOTE(recommended);
 
         log_setup();
 
@@ -118,7 +118,7 @@ static int run(int argc, char *argv[]) {
 
         c.audit_fd = open_audit_fd_or_warn();
 
-        return dispatch_verb(argc, argv, verbs, &c);
+        return dispatch_verb(strv_skip(argv, 1), &c);
 }
 
 DEFINE_MAIN_FUNCTION(run);

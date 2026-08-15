@@ -16,6 +16,7 @@
 #include "constants.h"
 #include "daemon-util.h"
 #include "dirent-util.h"
+#include "dlopen-note.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "hash-funcs.h"
@@ -23,17 +24,18 @@
 #include "hostname-util.h"
 #include "machine.h"
 #include "machined.h"
+#include "machined-dbus.h"
 #include "machined-varlink.h"
 #include "main-func.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "operation.h"
 #include "path-lookup.h"
 #include "service-util.h"
 #include "set.h"
 #include "signal-util.h"
-#include "socket-util.h"
 #include "special.h"
 #include "string-util.h"
+#include "vsock-util.h"
 
 static Manager* manager_unref(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_unref);
@@ -345,6 +347,12 @@ static int run(int argc, char *argv[]) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
         RuntimeScope scope = RUNTIME_SCOPE_SYSTEM;
         int r;
+
+        LIBBLKID_NOTE(recommended);
+        LIBCRYPTO_NOTE(suggested);
+        LIBCRYPTSETUP_NOTE(suggested);
+        LIBMOUNT_NOTE(recommended);
+        LIBSELINUX_NOTE(recommended);
 
         log_set_facility(LOG_AUTH);
         log_setup();

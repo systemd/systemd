@@ -14,21 +14,21 @@ if not rules_files:
     sys.exit('Specify files to test as arguments')
 
 quoted_string_re = r'"(?:[^\\"]|\\.)*"'
-no_args_tests = re.compile(r'(ACTION|DEVPATH|KERNELS?|NAME|SYMLINK|SUBSYSTEMS?|DRIVERS?|TAG|PROGRAM|RESULT|TEST)\s*(?:=|!)=\s*' + quoted_string_re + '$')
+no_args_tests = re.compile(rf'(ACTION|DEVPATH|KERNELS?|NAME|SYMLINK|SUBSYSTEMS?|DRIVERS?|TAG|PROGRAM|RESULT|TEST)\s*(?:=|!)=\s*{quoted_string_re}$')  # fmt: skip
 # PROGRAM can also be specified as an assignment.
 program_assign = re.compile(r'PROGRAM\s*=\s*' + quoted_string_re + '$')
-args_tests = re.compile(r'(ATTRS?|ENV|CONST|TEST){([a-zA-Z0-9/_.*%-]+)}\s*(?:=|!)=\s*' + quoted_string_re + '$')
-no_args_assign = re.compile(r'(NAME|SYMLINK|OWNER|GROUP|MODE|TAG|RUN|LABEL|GOTO|OPTIONS|IMPORT)\s*(?:\+=|:=|=)\s*' + quoted_string_re + '$')
-args_assign = re.compile(r'(ATTR|ENV|IMPORT|RUN){([a-zA-Z0-9/_.*%-]+)}\s*(=|\+=)\s*' + quoted_string_re + '$')
+args_tests = re.compile(rf'(ATTRS?|ENV|CONST|TEST){{([a-zA-Z0-9/_.*%-]+)}}\s*(?:=|!)=\s*{quoted_string_re}$')
+no_args_assign = re.compile(rf'(NAME|SYMLINK|OWNER|GROUP|MODE|TAG|RUN|LABEL|GOTO|OPTIONS|IMPORT)\s*(?:\+=|:=|=)\s*{quoted_string_re}$')  # fmt: skip
+args_assign = re.compile(rf'(ATTR|ENV|IMPORT|RUN){{([a-zA-Z0-9/_.*%-]+)}}\s*(=|\+=)\s*{quoted_string_re}$')
 # Find comma-separated groups, but allow commas that are inside quoted strings.
 # Using quoted_string_re + '?' so that strings missing the last double quote
 # will still match for this part that splits on commas.
-comma_separated_group_re = re.compile(r'(?:[^,"]|' + quoted_string_re + '?)+')
+comma_separated_group_re = re.compile(rf'(?:[^,"]|{quoted_string_re}?)+')
 
 result = 0
 buffer = ''
 for path in rules_files:
-    print('# looking at {}'.format(path))
+    print(f'# looking at {path}')
     lineno = 0
     for line in open(path):
         lineno += 1
@@ -50,11 +50,14 @@ for path in rules_files:
         # it generally improves the readability of the rules.
         for clause_match in comma_separated_group_re.finditer(line):
             clause = clause_match.group().strip()
-            if not (no_args_tests.match(clause) or args_tests.match(clause) or
-                    no_args_assign.match(clause) or args_assign.match(clause) or
-                    program_assign.match(clause)):
-
-                print('Invalid line {}:{}: {}'.format(path, lineno, line))
+            if not (
+                no_args_tests.match(clause)
+                or args_tests.match(clause)
+                or no_args_assign.match(clause)
+                or args_assign.match(clause)
+                or program_assign.match(clause)
+            ):
+                print(f'Invalid line {path}:{lineno}: {line}')
                 print('  clause:', clause)
                 print()
                 result = 1

@@ -10,8 +10,10 @@
 #include "fd-util.h"
 #include "hashmap.h"
 #include "log.h"
+#include "memstream-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
+#include "unaligned.h"
 
 static char** catalog_dirs = NULL;
 static const char *no_catalog_dirs[] = {
@@ -27,11 +29,10 @@ static OrderedHashmap* test_import(const char* contents, ssize_t size, int code)
         if (size < 0)
                 size = strlen(contents);
 
-        fd = mkostemp_safe(name);
-        assert_se(fd >= 0);
-        assert_se(write(fd, contents, size) == size);
+        ASSERT_OK(fd = mkostemp_safe(name));
+        ASSERT_EQ(write(fd, contents, size), size);
 
-        assert_se(catalog_import_file(&h, fd, name) == code);
+        ASSERT_EQ(catalog_import_file(&h, fd, name), code);
 
         return h;
 }
@@ -40,7 +41,7 @@ static void test_catalog_import_invalid(void) {
         _cleanup_ordered_hashmap_free_ OrderedHashmap *h = NULL;
 
         h = test_import("xxx", -1, -EINVAL);
-        assert_se(ordered_hashmap_isempty(h));
+        ASSERT_TRUE(ordered_hashmap_isempty(h));
 }
 
 static void test_catalog_import_badid(void) {
@@ -68,12 +69,12 @@ static void test_catalog_import_one(void) {
 "payload\n";
 
         h = test_import(input, -1, 0);
-        assert_se(ordered_hashmap_size(h) == 1);
+        ASSERT_EQ(ordered_hashmap_size(h), 1u);
 
         ORDERED_HASHMAP_FOREACH(payload, h) {
                 printf("expect: %s\n", expect);
                 printf("actual: %s\n", payload);
-                assert_se(streq(expect, payload));
+                ASSERT_STREQ(expect, payload);
         }
 }
 
@@ -103,10 +104,10 @@ static void test_catalog_import_merge(void) {
 "override payload\n";
 
         h = test_import(input, -1, 0);
-        assert_se(ordered_hashmap_size(h) == 1);
+        ASSERT_EQ(ordered_hashmap_size(h), 1u);
 
         ORDERED_HASHMAP_FOREACH(payload, h)
-                assert_se(streq(combined, payload));
+                ASSERT_STREQ(combined, payload);
 }
 
 static void test_catalog_import_merge_no_body(void) {
@@ -134,62 +135,116 @@ static void test_catalog_import_merge_no_body(void) {
 "payload\n";
 
         h = test_import(input, -1, 0);
-        assert_se(ordered_hashmap_size(h) == 1);
+        ASSERT_EQ(ordered_hashmap_size(h), 1u);
 
         ORDERED_HASHMAP_FOREACH(payload, h)
-                assert_se(streq(combined, payload));
+                ASSERT_STREQ(combined, payload);
 }
 
 static void test_catalog_update(const char *database) {
-        int r;
-
         /* Test what happens if there are no files. */
-        r = catalog_update(database, NULL, NULL);
-        assert_se(r == 0);
+        ASSERT_OK_ZERO(catalog_update(database, NULL, NULL));
 
         /* Test what happens if there are no files in the directory. */
-        r = catalog_update(database, NULL, no_catalog_dirs);
-        assert_se(r == 0);
+        ASSERT_OK_ZERO(catalog_update(database, NULL, no_catalog_dirs));
 
         /* Make sure that we at least have some files loaded or the
          * catalog_list below will fail. */
-        r = catalog_update(database, NULL, (const char * const *) catalog_dirs);
-        assert_se(r == 0);
+        ASSERT_OK_ZERO(catalog_update(database, NULL, (const char * const *) catalog_dirs));
 }
 
 static void test_catalog_file_lang(void) {
         _cleanup_free_ char *lang = NULL, *lang2 = NULL, *lang3 = NULL, *lang4 = NULL;
 
-        assert_se(catalog_file_lang("systemd.de_DE.catalog", &lang) == 1);
-        assert_se(streq(lang, "de_DE"));
+        ASSERT_EQ(catalog_file_lang("systemd.de_DE.catalog", &lang), 1);
+        ASSERT_STREQ(lang, "de_DE");
 
-        assert_se(catalog_file_lang("systemd..catalog", &lang2) == 0);
-        assert_se(lang2 == NULL);
+        ASSERT_OK_ZERO(catalog_file_lang("systemd..catalog", &lang2));
+        ASSERT_NULL(lang2);
 
-        assert_se(catalog_file_lang("systemd.fr.catalog", &lang2) == 1);
-        assert_se(streq(lang2, "fr"));
+        ASSERT_EQ(catalog_file_lang("systemd.fr.catalog", &lang2), 1);
+        ASSERT_STREQ(lang2, "fr");
 
-        assert_se(catalog_file_lang("systemd.fr.catalog.gz", &lang3) == 0);
-        assert_se(lang3 == NULL);
+        ASSERT_OK_ZERO(catalog_file_lang("systemd.fr.catalog.gz", &lang3));
+        ASSERT_NULL(lang3);
 
-        assert_se(catalog_file_lang("systemd.01234567890123456789012345678901.catalog", &lang3) == 0);
-        assert_se(lang3 == NULL);
+        ASSERT_OK_ZERO(catalog_file_lang("systemd.01234567890123456789012345678901.catalog", &lang3));
+        ASSERT_NULL(lang3);
 
-        assert_se(catalog_file_lang("systemd.0123456789012345678901234567890.catalog", &lang3) == 1);
-        assert_se(streq(lang3, "0123456789012345678901234567890"));
+        ASSERT_EQ(catalog_file_lang("systemd.0123456789012345678901234567890.catalog", &lang3), 1);
+        ASSERT_STREQ(lang3, "0123456789012345678901234567890");
 
-        assert_se(catalog_file_lang("/x/y/systemd.catalog", &lang4) == 0);
-        assert_se(lang4 == NULL);
+        ASSERT_OK_ZERO(catalog_file_lang("/x/y/systemd.catalog", &lang4));
+        ASSERT_NULL(lang4);
 
-        assert_se(catalog_file_lang("/x/y/systemd.ru_RU.catalog", &lang4) == 1);
-        assert_se(streq(lang4, "ru_RU"));
+        ASSERT_EQ(catalog_file_lang("/x/y/systemd.ru_RU.catalog", &lang4), 1);
+        ASSERT_STREQ(lang4, "ru_RU");
+}
+
+static void test_catalog_oob_offset_one(uint64_t item_offset, size_t strings_size) {
+        /* Builds a hostile single-item catalog database and verifies the reader rejects it instead of
+         * chasing the item's string offset out of the mapping. The blob is laid out from the real struct
+         * offsets so it keeps matching open_mmap() if CatalogHeader/CatalogItem ever change. */
+        _cleanup_(unlink_tempfilep) char db[] = "/tmp/test-catalog.XXXXXX";
+        _cleanup_close_ int fd = -EBADF;
+        _cleanup_free_ char *text = NULL;
+        _cleanup_free_ uint8_t *blob = NULL;
+        size_t blob_size = sizeof(CatalogHeader) + sizeof(CatalogItem) + strings_size;
+
+        ASSERT_NOT_NULL(blob = new0(uint8_t, blob_size));
+        uint8_t *item = blob + sizeof(CatalogHeader);
+
+        memcpy(blob + offsetof(CatalogHeader, signature),
+               (const uint8_t[]) CATALOG_SIGNATURE, sizeof_field(CatalogHeader, signature));
+        unaligned_write_le64(blob + offsetof(CatalogHeader, header_size), sizeof(CatalogHeader));
+        unaligned_write_le64(blob + offsetof(CatalogHeader, n_items), 1);
+        unaligned_write_le64(blob + offsetof(CatalogHeader, catalog_item_size), sizeof(CatalogItem));
+
+        memset(item + offsetof(CatalogItem, id), 0x42, sizeof_field(CatalogItem, id));
+        /* item language left zero so the C-locale lookup matches */
+        unaligned_write_le64(item + offsetof(CatalogItem, offset), item_offset);
+
+        /* Any trailing string store is filled with non-NUL bytes, so an in-bounds offset still has no
+         * terminator before EOF. */
+        memset(blob + sizeof(CatalogHeader) + sizeof(CatalogItem), 0x41, strings_size);
+
+        ASSERT_OK(fd = mkostemp_safe(db));
+        ASSERT_OK_EQ_ERRNO(write(fd, blob, blob_size), (ssize_t) blob_size);
+
+        sd_id128_t id;
+        memset(&id, 0x42, sizeof(id));
+
+        ASSERT_ERROR(catalog_get(db, id, &text), ENOENT);
+        ASSERT_NULL(text);
+
+        /* Listing the same database must walk every item without dereferencing the bad offset, and the
+         * corrupt item must be skipped rather than emitted. Capture the output and assert its id is absent
+         * so a regressed guard is caught here and not only under a sanitizer. */
+        bool oneline;
+        FOREACH_ARGUMENT(oneline, true, false) {
+                _cleanup_(memstream_done) MemStream m = {};
+                _cleanup_free_ char *out = NULL;
+                FILE *f;
+
+                ASSERT_NOT_NULL(f = memstream_init(&m));
+                ASSERT_OK(catalog_list(f, db, oneline));
+                ASSERT_OK(memstream_finalize(&m, &out, NULL));
+                ASSERT_NULL(strstr(out, SD_ID128_TO_STRING(id)));
+        }
+}
+
+static void test_catalog_oob_offset(void) {
+        /* Offset lands far past EOF: rejected by the bounds check. */
+        test_catalog_oob_offset_one(/* item_offset= */ UINT64_C(0x4000000000), /* strings_size= */ 0);
+
+        /* Offset is in bounds but its string runs to EOF with no terminator: rejected by memchr(). */
+        test_catalog_oob_offset_one(/* item_offset= */ 0, /* strings_size= */ 16);
 }
 
 int main(int argc, char *argv[]) {
         _cleanup_(unlink_tempfilep) char database[] = "/tmp/test-catalog.XXXXXX";
         _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ char *text = NULL;
-        int r;
 
         setlocale(LC_ALL, "de_DE.UTF-8");
 
@@ -199,10 +254,12 @@ int main(int argc, char *argv[]) {
          * If it is not, e.g. installed by systemd-tests package, then use installed catalogs. */
         catalog_dirs = STRV_MAKE(get_catalog_dir());
 
-        assert_se(access(catalog_dirs[0], F_OK) >= 0);
+        ASSERT_OK_ERRNO(access(catalog_dirs[0], F_OK));
         log_notice("Using catalog directory '%s'", catalog_dirs[0]);
 
         test_catalog_file_lang();
+
+        test_catalog_oob_offset();
 
         test_catalog_import_invalid();
         test_catalog_import_badid();
@@ -210,17 +267,15 @@ int main(int argc, char *argv[]) {
         test_catalog_import_merge();
         test_catalog_import_merge_no_body();
 
-        assert_se((fd = mkostemp_safe(database)) >= 0);
+        ASSERT_OK(fd = mkostemp_safe(database));
 
         test_catalog_update(database);
 
-        r = catalog_list(NULL, database, true);
-        assert_se(r >= 0);
+        ASSERT_OK(catalog_list(NULL, database, true));
 
-        r = catalog_list(NULL, database, false);
-        assert_se(r >= 0);
+        ASSERT_OK(catalog_list(NULL, database, false));
 
-        assert_se(catalog_get(database, SD_MESSAGE_COREDUMP, &text) >= 0);
+        ASSERT_OK(catalog_get(database, SD_MESSAGE_COREDUMP, &text));
         printf(">>>%s<<<\n", text);
 
         return 0;

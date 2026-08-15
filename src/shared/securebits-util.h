@@ -3,7 +3,7 @@
 
 #include <linux/securebits.h>
 
-#include "shared-forward.h"
+#include "forward.h"
 
 int secure_bits_to_strv(int i, char ***ret);
 DECLARE_STRING_TABLE_LOOKUP_WITH_FALLBACK(secure_bits, int);

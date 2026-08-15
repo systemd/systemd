@@ -202,6 +202,10 @@ static int dhcp6_request_address(
         Address *existing;
         int r;
 
+        assert(link);
+        assert(server_address);
+        assert(ip6_addr);
+
         r = address_new(&addr);
         if (r < 0)
                 return log_oom();
@@ -360,7 +364,7 @@ static int dhcp6_lease_information_acquired(sd_dhcp6_client *client, Link *link)
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get DHCPv6 lease: %m");
 
-        unref_and_replace_full(link->dhcp6_lease, lease, sd_dhcp6_lease_ref, sd_dhcp6_lease_unref);
+        unref_and_replace_new_ref(link->dhcp6_lease, lease, sd_dhcp6_lease_ref, sd_dhcp6_lease_unref);
 
         link_dirty(link);
         return 0;

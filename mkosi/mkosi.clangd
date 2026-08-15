@@ -13,5 +13,5 @@ exec "${SPAWN[@]}" \
         clangd \
             --compile-commands-dir=build \
             --path-mappings="\
-$(pwd)/mkosi.tools/usr/include=/usr/include" \
+$(pwd)/mkosi/mkosi.tools/usr/include=/usr/include" \
             "$@"

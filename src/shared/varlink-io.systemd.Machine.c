@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "sd-varlink-idl.h"
-
 #include "bus-polkit.h"
 #include "varlink-idl-common.h"
 #include "varlink-io.systemd.Machine.h"
@@ -12,6 +10,18 @@
         SD_VARLINK_FIELD_COMMENT("If non-null the PID of a machine. Special value 0 means to take pid of the machine the caller is part of."), \
         SD_VARLINK_DEFINE_INPUT_BY_TYPE(pid, ProcessId, SD_VARLINK_NULLABLE),                                                                  \
         VARLINK_DEFINE_POLKIT_INPUT
+
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                MachineClass,
+                SD_VARLINK_DEFINE_ENUM_VALUE(container),
+                SD_VARLINK_DEFINE_ENUM_VALUE(vm),
+                SD_VARLINK_DEFINE_ENUM_VALUE(host));
+
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                KillWhom,
+                SD_VARLINK_DEFINE_ENUM_VALUE(leader),
+                SD_VARLINK_DEFINE_ENUM_VALUE(supervisor),
+                SD_VARLINK_DEFINE_ENUM_VALUE(all));
 
 static SD_VARLINK_DEFINE_ENUM_TYPE(
                 AcquireMetadata,
@@ -33,20 +43,22 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(name,                    SD_VARLINK_STRING, 0),
                 SD_VARLINK_DEFINE_INPUT(id,                      SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_INPUT(service,                 SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_DEFINE_INPUT(class,                   SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(class,            MachineClass, 0),
                 SD_VARLINK_FIELD_COMMENT("The leader PID as simple positive integer."),
                 SD_VARLINK_DEFINE_INPUT(leader,                  SD_VARLINK_INT,    SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The leader PID as ProcessId structure. If both the leader and leaderProcessId parameters are specified they must reference the same process. Typically one would only specify one or the other however. It's generally recommended to specify leaderProcessId as it references a process in a robust way without risk of identifier recycling."),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(leaderProcessId, ProcessId,         SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("The supervisor PID as simple positive integer."),
-                SD_VARLINK_DEFINE_INPUT(supervisor,              SD_VARLINK_INT,    SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("The supervisor PID as ProcessId structure. If both the supervisor and supervisorProcessId parameters are specified they must reference the same process. Typically only one or the other would be specified. It's generally recommended to specify supervisorProcessId as it references a process in a robust way without risk of identifier recycling."),
-                SD_VARLINK_DEFINE_INPUT_BY_TYPE(supervisorProcessId, ProcessId,         SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The supervisor PID as simple positive integer. Deprecated and ignored: the supervisor is now always derived from the caller's socket (kept for backward compatibility)."),
+                SD_VARLINK_DEFINE_INPUT(supervisor,              SD_VARLINK_INT,    SD_VARLINK_NULLABLE), /* for backward compat, ignored */
+                SD_VARLINK_FIELD_COMMENT("The supervisor PID as ProcessId structure. Deprecated and ignored: the supervisor is now always derived from the caller's socket (kept for backward compatibility)."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(supervisorProcessId, ProcessId,         SD_VARLINK_NULLABLE), /* for backward compat, ignored */
                 SD_VARLINK_DEFINE_INPUT(rootDirectory,           SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_INPUT(ifIndices,               SD_VARLINK_INT,    SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_INPUT(vSockCid,                SD_VARLINK_INT,    SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_INPUT(sshAddress,              SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_INPUT(sshPrivateKeyPath,       SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Varlink socket address for direct machine control. The server at this address is expected to implement io.systemd.MachineInstance and optionally io.systemd.VirtualMachineInstance."),
+                SD_VARLINK_DEFINE_INPUT(controlAddress,          SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Controls whether to allocate a scope unit for the machine to register. If false, the client already took care of that and registered a service/scope specific to the machine."),
                 SD_VARLINK_DEFINE_INPUT(allocateUnit,            SD_VARLINK_BOOL,   SD_VARLINK_NULLABLE),
                 VARLINK_DEFINE_POLKIT_INPUT);
@@ -63,7 +75,7 @@ static SD_VARLINK_DEFINE_METHOD(
                 Kill,
                 VARLINK_DEFINE_MACHINE_LOOKUP_AND_POLKIT_INPUT_FIELDS,
                 SD_VARLINK_FIELD_COMMENT("Identifier that specifies what precisely to send the signal to (either 'leader', 'supervisor', or 'all')."),
-                SD_VARLINK_DEFINE_INPUT(whom, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(whom, KillWhom, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Numeric UNIX signal integer."),
                 SD_VARLINK_DEFINE_INPUT(signal, SD_VARLINK_INT, 0));
 
@@ -80,7 +92,7 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("Name of the software that registered this machine"),
                 SD_VARLINK_DEFINE_OUTPUT(service, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The class of this machine"),
-                SD_VARLINK_DEFINE_OUTPUT(class, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(class, MachineClass, 0),
                 SD_VARLINK_FIELD_COMMENT("Leader process PID of this machine"),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(leader, ProcessId, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Supervisor process PID of this machine"),
@@ -97,6 +109,8 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_DEFINE_OUTPUT(sshAddress, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Path to private SSH key"),
                 SD_VARLINK_DEFINE_OUTPUT(sshPrivateKeyPath, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Varlink socket address for direct machine control, implementing io.systemd.MachineInstance and optionally further interfaces"),
+                SD_VARLINK_DEFINE_OUTPUT(controlAddress, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("List of addresses of the machine"),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(addresses, Address, SD_VARLINK_ARRAY | SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("OS release information of the machine. It contains an array of key value pairs read from the os-release(5) file in the image."),
@@ -218,6 +232,10 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_ProcessId,
                 SD_VARLINK_SYMBOL_COMMENT("A timestamp object consisting of both CLOCK_REALTIME and CLOCK_MONOTONIC timestamps"),
                 &vl_type_Timestamp,
+                SD_VARLINK_SYMBOL_COMMENT("The class of a machine"),
+                &vl_type_MachineClass,
+                SD_VARLINK_SYMBOL_COMMENT("What to send a signal to in a machine"),
+                &vl_type_KillWhom,
                 SD_VARLINK_SYMBOL_COMMENT("A enum field allowing to gracefully get metadata"),
                 &vl_type_AcquireMetadata,
                 SD_VARLINK_SYMBOL_COMMENT("An address object"),

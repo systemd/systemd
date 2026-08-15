@@ -134,9 +134,9 @@ static int link_put_dns(Link *link, OrderedSet **s) {
 
                 r = sd_dhcp_lease_get_dnr(link->dhcp_lease, &resolvers);
                 if (r >= 0) {
-                        struct in_addr_full **dot_servers;
+                        struct in_addr_full **dot_servers = NULL;
                         size_t n = 0;
-                        CLEANUP_ARRAY(dot_servers, n, in_addr_full_array_free);
+                        CLEANUP_ARRAY(dot_servers, n, in_addr_full_free_array);
 
                         r = dns_resolvers_to_dot_addrs(resolvers, r, &dot_servers, &n);
                         if (r < 0)
@@ -163,9 +163,9 @@ static int link_put_dns(Link *link, OrderedSet **s) {
 
                 r = sd_dhcp6_lease_get_dnr(link->dhcp6_lease, &resolvers);
                 if (r >= 0) {
-                        struct in_addr_full **dot_servers;
+                        struct in_addr_full **dot_servers = NULL;
                         size_t n = 0;
-                        CLEANUP_ARRAY(dot_servers, n, in_addr_full_array_free);
+                        CLEANUP_ARRAY(dot_servers, n, in_addr_full_free_array);
 
                         r = dns_resolvers_to_dot_addrs(resolvers, r, &dot_servers, &n);
                         if (r < 0)
@@ -193,7 +193,7 @@ static int link_put_dns(Link *link, OrderedSet **s) {
                 SET_FOREACH(a, link->ndisc_dnr) {
                         struct in_addr_full **dot_servers = NULL;
                         size_t n = 0;
-                        CLEANUP_ARRAY(dot_servers, n, in_addr_full_array_free);
+                        CLEANUP_ARRAY(dot_servers, n, in_addr_full_free_array);
 
                         r = dns_resolvers_to_dot_addrs(&a->resolver, 1, &dot_servers, &n);
                         if (r < 0)
@@ -959,15 +959,6 @@ static int link_save(Link *link) {
         print_link_hashmap(f, "CARRIER_BOUND_TO=", link->bound_to_links);
         print_link_hashmap(f, "CARRIER_BOUND_BY=", link->bound_by_links);
 
-        if (link->dhcp_lease) {
-                r = dhcp_lease_save(link->dhcp_lease, link->lease_file);
-                if (r < 0)
-                        return r;
-
-                fprintf(f, "DHCP_LEASE=%s\n", link->lease_file);
-        } else
-                (void) unlink(link->lease_file);
-
         r = link_serialize_dhcp6_client(link, f);
         if (r < 0)
                 return r;
@@ -998,6 +989,12 @@ void link_dirty(Link *link) {
 
         /* Also mark manager dirty as link is dirty */
         link->manager->dirty = true;
+
+        /* The interface has been already removed, and the state file for the interface has been or will be
+         * removed. The file should not be recreated. Note, even in that case, we may need to recreate the
+         * manager state file. Hence the dirty flag for the manager should be set in the above. */
+        if (link->state == LINK_STATE_LINGER)
+                return;
 
         if (set_ensure_put(&link->manager->dirty_links, &link_hash_ops, link) <= 0)
                 return; /* Ignore allocation errors and don't take another ref if the link was already dirty */

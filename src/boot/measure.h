@@ -6,6 +6,7 @@
 #if ENABLE_TPM
 
 bool tpm_present(void);
+bool runtime_measurement_available(void);
 uint32_t tpm_get_active_pcr_banks(void);
 
 /* Routines for boot-time TPM PCR measurement as well as submitting an event log entry about it. The latter
@@ -26,6 +27,10 @@ EFI_STATUS tpm_log_load_options(const char16_t *load_options, bool *ret_measured
 #else
 
 static inline bool tpm_present(void) {
+        return false;
+}
+
+static inline bool runtime_measurement_available(void) {
         return false;
 }
 

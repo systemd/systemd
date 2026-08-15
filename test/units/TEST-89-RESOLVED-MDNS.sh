@@ -64,6 +64,7 @@ EOF
 check_both() {
     local service_id="${1:?}"
     local result_file="${2:?}"
+    local i svc
 
     # We should get 20 services per container, 40 total
     if [[ "$(wc -l <"$result_file")" -ge 40 ]]; then
@@ -86,6 +87,7 @@ check_both() {
 check_first() {
     local service_id="${1:?}"
     local result_file="${2:?}"
+    local i svc
 
     # We should get 20 services per container
     if [[ "$(wc -l <"$result_file")" -ge 20 ]]; then
@@ -114,7 +116,7 @@ run_and_check_services() {
     local service_id="${1:?}"
     local check_func="${2:?}"
     local unit_name="varlinkctl-$service_id-$SRANDOM.service"
-    local i out_file parameters service_type svc tmp_file
+    local error_file out_file parameters service_type tmp_file
 
     out_file="$(mktemp)"
     error_file="$(mktemp)"
@@ -122,14 +124,16 @@ run_and_check_services() {
     service_type="_testService$service_id._udp"
     parameters="{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": ${BRIDGE_INDEX:?}, \"flags\": 16785432 }"
 
-    systemd-run --unit="$unit_name" --service-type=exec -p StandardOutput="file:$out_file" -p StandardError="file:$error_file" \
-        varlinkctl call --more /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices "$parameters"
-
     # shellcheck disable=SC2064
     # Note: unregister the trap once it's fired, otherwise it'll get propagated to functions that call this
     #       one, *sigh*
+    # The stop comes first, so the unit is gone before its output files are
+    # removed, and is best-effort: a unit which already exited on its own must
+    # not make the removal be skipped.
+    trap "trap - RETURN; systemctl stop $unit_name 2>/dev/null || :; rm -f $out_file $error_file $tmp_file" RETURN
 
-    trap "trap - RETURN; systemctl stop $unit_name" RETURN
+    systemd-run --unit="$unit_name" --service-type=exec -p StandardOutput="file:$out_file" -p StandardError="file:$error_file" \
+        varlinkctl call --more /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices "$parameters"
 
     for _ in {0..14}; do
         # The response format, for reference (it's JSON-SEQ):
@@ -191,6 +195,124 @@ testcase_single_service_multiple_times() {
     for _ in {0..4}; do
         run_and_check_services 4 check_both
     done
+}
+
+# Helper function to run browse services with a custom ifindex
+run_and_check_services_with_ifindex() {
+    local service_id="${1:?}"
+    local check_func="${2:?}"
+    local ifindex="${3:?}"
+    local unit_name="varlinkctl-$service_id-$SRANDOM.service"
+    local error_file out_file parameters service_type tmp_file
+
+    out_file="$(mktemp)"
+    error_file="$(mktemp)"
+    tmp_file="$(mktemp)"
+    service_type="_testService$service_id._udp"
+    parameters="{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": $ifindex, \"flags\": 16785432 }"
+
+    # shellcheck disable=SC2064
+    # Note: same as above about unregistering the trap once it's fired
+    trap "trap - RETURN; systemctl stop $unit_name 2>/dev/null || :; rm -f $out_file $error_file $tmp_file" RETURN
+
+    systemd-run --unit="$unit_name" --service-type=exec -p StandardOutput="file:$out_file" -p StandardError="file:$error_file" \
+        varlinkctl call --more /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices "$parameters"
+
+    for _ in {0..14}; do
+        if [[ -s "$out_file" ]]; then
+            grep -o '"name":"[^"]*"' "$out_file" | sed 's/"name":"//;s/"//g' | sort | tee "$tmp_file"
+            if "$check_func" "$service_id" "$tmp_file"; then
+                return 0
+            fi
+        fi
+
+        sleep 2
+    done
+
+    cat "$out_file"
+    cat "$error_file"
+    return 1
+}
+
+testcase_browse_all_interfaces_ifindex_zero() {
+    : "Test browsing all interfaces with ifindex=0"
+    resolvectl flush-caches
+    # Using ifindex=0 should discover services on all mDNS interfaces
+    run_and_check_services_with_ifindex 0 check_both 0
+}
+
+testcase_browse_ifindex_zero_no_flap() {
+    : "ifindex=0 browse must not emit spurious 'removed' events while publishers stay up"
+    resolvectl flush-caches
+
+    local out_file unit_name service_type added removed
+    local dummy="ravc-noflap"
+
+    out_file="$(mktemp)"
+    unit_name="varlinkctl-noflap-$SRANDOM.service"
+    service_type="_testService5._udp"
+
+    # The flap only manifests when the browser reconciles >=2 same-family mDNS
+    # scopes: the pre-fix code diffed the browser's global service list against
+    # each scope's partial answer, spuriously removing services absent from that
+    # one scope. The host normally has only the container bridge as an mDNS
+    # interface, so add a service-less dummy link with mDNS enabled to guarantee a
+    # second (empty) scope that the ifindex=0 reconciliation must combine. This
+    # must succeed -- without the second scope the testcase asserts nothing.
+    # A previously interrupted run may have leaked the fixed-name link: RETURN traps
+    # do not fire when set -e aborts a function mid-flight, so clear it first to keep
+    # re-runs self-healing instead of tripping over EEXIST here.
+    ip link del "$dummy" 2>/dev/null || :
+    ip link add "$dummy" type dummy
+    # Arm the cleanup before anything else can fail, so neither the fixed-name
+    # link nor the output file leaks into later testcases: run_testcases runs
+    # each testcase in its own subshell, whose EXIT trap fires however the
+    # testcase ends. The browse unit may not exist yet, hence the best-effort
+    # stop.
+    # shellcheck disable=SC2064
+    trap "systemctl stop $unit_name 2>/dev/null || :; ip link del $dummy 2>/dev/null || :; rm -f $out_file" EXIT
+    ip link set "$dummy" up multicast on
+    ip address add 169.254.171.171/16 dev "$dummy"
+    resolvectl mdns "$dummy" yes
+    [[ "$(resolvectl mdns "$dummy")" =~ :\ yes$ ]]
+    sleep 2  # let resolved create the scope before we start browsing
+
+    # Long-running browse across *all* interfaces (ifindex=0). With the
+    # combined-answer reconciliation there must be no 'removed' event as long as
+    # every publisher stays up. Use --timeout=infinity: the subscription goes idle
+    # once everything is discovered, and varlinkctl's default 45s idle timeout
+    # would sever it (and the assertion) mid-observation.
+    systemd-run --unit="$unit_name" --service-type=exec -p StandardOutput="file:$out_file" \
+        varlinkctl call --more --timeout=infinity /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices \
+        "{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": 0, \"flags\": 16785432 }"
+
+    # Wait until both containers' services (20 each, 40 total) have been
+    # discovered. Count occurrences, not lines: varlinkctl --more emits compact
+    # JSON-SEQ and one notify batches many entries onto a single line.
+    for _ in {0..14}; do
+        added="$( { grep -o '"updateFlag":"added"' "$out_file" || :; } | wc -l)"
+        [[ "$added" -ge 40 ]] && break
+        sleep 2
+    done
+    if [[ "${added:-0}" -lt 40 ]]; then
+        echo >&2 "Did not discover the expected services on ifindex=0"
+        cat "$out_file" >&2
+        return 1
+    fi
+
+    # Observe a further window during which several continuous-query revisits
+    # happen; a correct ifindex=0 browse emits zero 'removed' events while every
+    # publisher stays up.
+    sleep 12
+
+    removed="$( { grep -o '"updateFlag":"removed"' "$out_file" || :; } | wc -l)"
+    if [[ "${removed:-0}" -ne 0 ]]; then
+        echo >&2 "Got $removed spurious 'removed' event(s) on ifindex=0 while all publishers were up:"
+        grep -oE '"updateFlag":"removed"[^}]*"name":"[^"]*"' "$out_file" >&2 || :
+        return 1
+    fi
+
+    echo testcase_end
 }
 
 testcase_second_unreachable() {

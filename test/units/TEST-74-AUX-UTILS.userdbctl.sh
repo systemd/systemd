@@ -3,6 +3,11 @@
 set -eux
 set -o pipefail
 
+if ! command -v userdbctl >/dev/null; then
+    echo "userdbctl is not installed, skipping the test."
+    exit 0
+fi
+
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
@@ -50,14 +55,17 @@ assert_eq "$(userdbctl user 2147352576 -j | jq -r .userName)" foreign-0
 assert_eq "$(userdbctl user 2147352577 -j | jq -r .userName)" foreign-1
 assert_eq "$(userdbctl user 2147418110 -j | jq -r .userName)" foreign-65534
 
-# Make sure that -F shows same data as if we'd ask directly
-userdbctl user root -j | userdbctl -F- user  | cmp - <(userdbctl user root)
-userdbctl user test-74-userdbctl -j | userdbctl -F- user  | cmp - <(userdbctl user test-74-userdbctl)
-userdbctl user 65534 -j | userdbctl -F- user  | cmp - <(userdbctl user 65534)
+(! userdbctl --uuid=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa user root)
+(! userdbctl --uuid=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa group root)
 
-userdbctl group root -j | userdbctl -F- group  | cmp - <(userdbctl group root)
-userdbctl group test-74-userdbctl -j | userdbctl -F- group  | cmp - <(userdbctl group test-74-userdbctl)
-userdbctl group 65534 -j | userdbctl -F- group  | cmp - <(userdbctl group 65534)
+# Make sure that -F shows same data as if we'd ask directly
+userdbctl user root -j | userdbctl -F- user | cmp - <(userdbctl user root)
+userdbctl user test-74-userdbctl -j | userdbctl -F- user | cmp - <(userdbctl user test-74-userdbctl)
+userdbctl user 65534 -j | userdbctl -F- user | cmp - <(userdbctl user 65534)
+
+userdbctl group root -j | userdbctl -F- group | cmp - <(userdbctl group root)
+userdbctl group test-74-userdbctl -j | userdbctl -F- group | cmp - <(userdbctl group test-74-userdbctl)
+userdbctl group 65534 -j | userdbctl -F- group | cmp - <(userdbctl group 65534)
 
 # Ensure NSS doesn't try to automount via open_tree
 if [[ ! -v ASAN_OPTIONS ]]; then
@@ -81,3 +89,7 @@ userdbctl group "$DISK_GID" | grep -F 'io.systemd.NameServiceSwitch' >/dev/null
 (! busctl call org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager LookupDynamicUserByName "s" disk)
 (! busctl call org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager LookupDynamicUserByUID "u" "$DISK_GID")
 systemctl stop "$UNIT"
+
+# Probe specific user records
+echo '{"userName":"weightmin","cpuWeight":1,"ioWeight":1}' | userdbctl -F -
+echo '{"userName":"weightmax","cpuWeight":10000,"ioWeight":10000}' | userdbctl -F -

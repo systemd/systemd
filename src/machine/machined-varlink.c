@@ -31,6 +31,7 @@
 #include "varlink-io.systemd.Resolve.Hook.h"
 #include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
+#include "xattr-util.h"
 
 typedef struct LookupParameters {
         const char *user_name;
@@ -476,9 +477,9 @@ static int list_machine_one_and_maybe_read_metadata(sd_varlink *link, Machine *m
 
         r = sd_json_buildo(
                         &v,
-                        SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(m->name)),
+                        SD_JSON_BUILD_PAIR_STRING("name", m->name),
                         SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(m->id), "id", SD_JSON_BUILD_ID128(m->id)),
-                        SD_JSON_BUILD_PAIR("class", SD_JSON_BUILD_STRING(machine_class_to_string(m->class))),
+                        JSON_BUILD_PAIR_ENUM("class", machine_class_to_string(m->class)),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("service", m->service),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("rootDirectory", m->root_directory),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("unit", m->unit),
@@ -489,6 +490,7 @@ static int list_machine_one_and_maybe_read_metadata(sd_varlink *link, Machine *m
                         JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("vSockCid", m->vsock_cid, VMADDR_CID_ANY),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("sshAddress", m->ssh_address),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("sshPrivateKeyPath", m->ssh_private_key_path),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("controlAddress", m->control_address),
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("addresses", addr_array),
                         JSON_BUILD_PAIR_STRV_ENV_PAIR_NON_EMPTY("OSRelease", os_release),
                         JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("UIDShift", shift, UID_INVALID),
@@ -534,7 +536,18 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         if (r != 0)
                 return r;
 
-        r = varlink_set_sentinel(link, VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE);
+        if (m->runtime_scope != RUNTIME_SCOPE_USER && should_acquire_metadata(p.acquire_metadata)) {
+                r = varlink_verify_polkit_async(
+                                link,
+                                m->system_bus,
+                                "org.freedesktop.machine1.inspect-machines",
+                                (const char**) STRV_MAKE("name", strna(p.name)),
+                                &m->polkit_registry);
+                if (r <= 0)
+                        return r;
+        }
+
+        r = sd_varlink_set_sentinel(link, VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE);
         if (r < 0)
                 return r;
 
@@ -681,7 +694,18 @@ static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, 
         if (r != 0)
                 return r;
 
-        r = varlink_set_sentinel(link, VARLINK_ERROR_MACHINE_IMAGE_NO_SUCH_IMAGE);
+        if (m->runtime_scope != RUNTIME_SCOPE_USER && should_acquire_metadata(p.acquire_metadata)) {
+                r = varlink_verify_polkit_async(
+                                link,
+                                m->system_bus,
+                                "org.freedesktop.machine1.inspect-images",
+                                (const char**) STRV_MAKE("name", strna(p.image_name)),
+                                &m->polkit_registry);
+                if (r <= 0)
+                        return r;
+        }
+
+        r = sd_varlink_set_sentinel(link, VARLINK_ERROR_MACHINE_IMAGE_NO_SUCH_IMAGE);
         if (r < 0)
                 return r;
 
@@ -750,6 +774,14 @@ static int manager_varlink_init_userdb(Manager *m) {
         r = sd_varlink_server_listen_address(s, VARLINK_PATH_MACHINED_USERDB, 0666 | SD_VARLINK_SERVER_MODE_MKDIR_0755);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind to varlink socket %s: %m", VARLINK_PATH_MACHINED_USERDB);
+
+        /* Reduce the noise routed to us: advertise that only look-ups for the higher UID range */
+        char text[DECIMAL_STR_MAX(uid_t) + 1 + DECIMAL_STR_MAX(gid_t) + 1];
+        xsprintf(text, UID_FMT "-" UID_FMT, (uid_t) 0x10000U, (uid_t) UINT32_C(0xfffffffe));
+        FOREACH_STRING(xattr, "user.userdb.uid", "user.userdb.gid")
+                (void) xsetxattr(AT_FDCWD, VARLINK_PATH_MACHINED_USERDB, /* at_flags= */ 0, xattr, text);
+        (void) xsetxattr(AT_FDCWD, VARLINK_PATH_MACHINED_USERDB, /* at_flags= */ 0, "user.userdb.username", "vu-*");
+        (void) xsetxattr(AT_FDCWD, VARLINK_PATH_MACHINED_USERDB, /* at_flags= */ 0, "user.userdb.groupname", "vg-*");
 
         r = sd_varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)

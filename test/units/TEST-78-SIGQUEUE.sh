@@ -3,7 +3,7 @@
 set -ex
 set -o pipefail
 
-if ! env --block-signal=SIGUSR1 true 2> /dev/null ; then
+if ! env --block-signal=SIGUSR1 true 2>/dev/null; then
     echo "env tool too old, can't block signals, skipping test." >&2
     echo OK >/testok
     exit 0

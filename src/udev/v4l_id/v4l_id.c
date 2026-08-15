@@ -4,7 +4,6 @@
  */
 
 #include <fcntl.h>
-#include <getopt.h>
 #include <linux/videodev2.h>
 #include <stdio.h>
 #include <sys/ioctl.h>
@@ -12,41 +11,54 @@
 #include "build.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "format-table.h"
+#include "help-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "options.h"
+#include "string-util.h"
+#include "strv.h"
+#include "utf8.h"
 
 static const char *arg_device = NULL;
 
-static int parse_argv(int argc, char *argv[]) {
-        static const struct option options[] = {
-                { "help",     no_argument, NULL, 'h' },
-                { "version",  no_argument, NULL, 'v' },
-                {}
-        };
-        int c;
+static int help(void) {
+        _cleanup_(table_unrefp) Table *options = NULL;
+        int r;
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        help_cmdline("[OPTIONS...] DEVICE");
+        help_abstract("Video4Linux device identification.");
+        help_section("Options");
+
+        return table_print_or_warn(options);
+}
+
+static int parse_argv(int argc, char *argv[]) {
+        assert(argc >= 0);
+        assert(argv);
+
+        OptionParser opts = { argc, argv };
+
+        FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
-                case 'h':
-                        printf("%s [OPTIONS...] DEVICE\n\n"
-                               "Video4Linux device identification.\n\n"
-                               "  -h --help     Show this help text\n"
-                               "     --version  Show package version\n",
-                               program_invocation_short_name);
-                        return 0;
-                case 'v':
+
+                OPTION_COMMON_HELP:
+                        return help();
+
+                OPTION_COMMON_VERSION:
                         return version();
-                case '?':
-                        return -EINVAL;
-                default:
-                        assert_not_reached();
                 }
 
-        if (!argv[optind])
+        char **args = option_parser_get_args(&opts);
+        if (strv_length(args) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "DEVICE argument missing.");
+                                       "Need exactly one DEVICE argument.");
 
-        arg_device = argv[optind];
+        arg_device = args[0];
         return 1;
 }
 
@@ -72,7 +84,8 @@ static int run(int argc, char *argv[]) {
                 int capabilities;
 
                 printf("ID_V4L_VERSION=2\n");
-                printf("ID_V4L_PRODUCT=%s\n", v2cap.card);
+                if (utf8_is_valid((char *)v2cap.card) && !string_has_cc((char *)v2cap.card, /* ok= */ NULL))
+                        printf("ID_V4L_PRODUCT=%s\n", v2cap.card);
                 printf("ID_V4L_CAPABILITIES=:");
 
                 if (v2cap.capabilities & V4L2_CAP_DEVICE_CAPS)

@@ -163,6 +163,8 @@ char* ascii_strupper(char *s) {
 }
 
 char* ascii_strlower_n(char *s, size_t n) {
+        assert(n <= 0 || s);
+
         if (n <= 0)
                 return s;
 
@@ -173,6 +175,9 @@ char* ascii_strlower_n(char *s, size_t n) {
 }
 
 int ascii_strcasecmp_n(const char *a, const char *b, size_t n) {
+
+        assert(a);
+        assert(b);
 
         for (; n > 0; a++, b++, n--) {
                 int x, y;
@@ -276,15 +281,27 @@ static bool string_has_ansi_sequence(const char *s, size_t len) {
 }
 
 static size_t previous_ansi_sequence(const char *s, size_t length, const char **ret_where) {
+
+        assert(s);
+        assert(ret_where);
+
         /* Locate the previous ANSI sequence and save its start in *ret_where and return length. */
 
-        for (size_t i = length - 2; i > 0; i--) {  /* -2 because at least two bytes are needed */
-                size_t slen = ansi_sequence_length(s + (i - 1), length - (i - 1));
-                if (slen == 0)
-                        continue;
+        if (length < 2) {
+                /* Need at least two bytes for an ANSI sequence */
+                *ret_where = NULL;
+                return 0;
+        }
 
-                *ret_where = s + (i - 1);
-                return slen;
+        for (size_t i = length - 2;; i--) {  /* -2 because at least two bytes are needed */
+                size_t slen = ansi_sequence_length(s + i, length - i);
+                if (slen > 0) {
+                        *ret_where = s + i;
+                        return slen;
+                }
+
+                if (i == 0)
+                        break;
         }
 
         *ret_where = NULL;
@@ -342,6 +359,33 @@ static char *ascii_ellipsize_mem(const char *s, size_t old_length, size_t new_le
         return t;
 }
 
+/* Walk backwards from 'end' (exclusive) to the start of the last complete UTF-8 character, without
+ * descending below 'start', validate it and return a pointer to its first byte, optionally decoding it
+ * into *ret_c. Returns NULL on a truncated or otherwise malformed sequence. */
+static const char* find_previous_unichar(const char *start, const char *end, char32_t *ret_c) {
+        const char *p;
+        int r;
+
+        assert(start);
+        assert(end);
+        assert(end > start);
+
+        for (p = end; p > start; ) {
+                p--;
+                if (((uint8_t) *p & 0xc0) != 0x80) /* Found a non-continuation byte, i.e. a character start. */
+                        break;
+        }
+
+        r = utf8_encoded_valid_unichar(p, end - p);
+        if (r < 0 || p + r != end)
+                return NULL;
+
+        if (ret_c)
+                assert_se(utf8_encoded_to_unichar(p, ret_c) == r);
+
+        return p;
+}
+
 char* ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigned percent) {
         size_t x, k, len, len2;
         const char *i, *j;
@@ -385,10 +429,12 @@ char* ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
                         continue;  /* ANSI sequences don't take up any space in output */
                 }
 
-                char32_t c;
-                r = utf8_encoded_to_unichar(i, &c);
+                r = utf8_encoded_valid_unichar(i, s + old_length - i);
                 if (r < 0)
                         return NULL;
+
+                char32_t c;
+                assert_se(utf8_encoded_to_unichar(i, &c) == r);
 
                 int w = unichar_iswide(c) ? 2 : 1;
                 if (k + w > x)
@@ -416,9 +462,9 @@ char* ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
                         continue;
                 }
 
-                tt = utf8_prev_char(t);
-                r = utf8_encoded_to_unichar(tt, &c);
-                if (r < 0)
+                /* Find the previous complete UTF-8 character inside the retained suffix. */
+                tt = find_previous_unichar(i, t, &c);
+                if (!tt)
                         return NULL;
 
                 w = unichar_iswide(c) ? 2 : 1;
@@ -436,11 +482,21 @@ char* ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
         if (k >= new_length) {
                 /* Make space for ellipsis, if required and possible. We know that the edge character is not
                  * part of an ANSI sequence (because then we'd skip it). If the last character we looked at
-                 * was wide, we don't need to make space. */
-                if (j < s + old_length)
-                        j = utf8_next_char(j);
-                else if (i > s)
-                        i = utf8_prev_char(i);
+                 * was wide, we don't need to make space.
+                 * Move the edge by one complete UTF-8 character within the input slice. */
+                if (j < s + old_length) {
+                        r = utf8_encoded_valid_unichar(j, s + old_length - j);
+                        if (r < 0)
+                                return NULL;
+
+                        j += r;
+                } else if (i > s) {
+                        const char *tt = find_previous_unichar(s, i, NULL);
+                        if (!tt)
+                                return NULL;
+
+                        i = tt;
+                }
         }
 
         len = i - s;
@@ -660,6 +716,7 @@ char* strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
 
         assert(ibuf);
         assert(*ibuf);
+        POINTER_MAY_BE_NULL(_isz);
 
         /* This does three things:
          *
@@ -969,44 +1026,55 @@ oom:
         return -ENOMEM;
 }
 
-char* strrep(const char *s, unsigned n) {
-        char *r, *p;
+char* strrep(const char *s, size_t n) {
+        char *ret, *p;
         size_t l;
 
         assert(s);
 
         l = strlen(s);
-        p = r = malloc(l * n + 1);
-        if (!r)
+        if (!MUL_ASSIGN_SAFE(&l, n))
+                return NULL;
+        if (!INC_SAFE(&l, 1))
                 return NULL;
 
-        for (unsigned i = 0; i < n; i++)
+        p = ret = malloc(l);
+        if (!ret)
+                return NULL;
+
+        for (size_t i = 0; i < n; i++)
                 p = stpcpy(p, s);
 
         *p = 0;
-        return r;
+        return ret;
 }
 
 int split_pair(const char *s, const char *sep, char **ret_first, char **ret_second) {
         assert(s);
         assert(!isempty(sep));
-        assert(ret_first);
-        assert(ret_second);
 
         const char *x = strstr(s, sep);
         if (!x)
                 return -EINVAL;
 
-        _cleanup_free_ char *a = strndup(s, x - s);
-        if (!a)
-                return -ENOMEM;
+        _cleanup_free_ char *a = NULL;
+        if (ret_first) {
+                a = strndup(s, x - s);
+                if (!a)
+                        return -ENOMEM;
+        }
 
-        _cleanup_free_ char *b = strdup(x + strlen(sep));
-        if (!b)
-                return -ENOMEM;
+        _cleanup_free_ char *b = NULL;
+        if (ret_second) {
+                b = strdup(x + strlen(sep));
+                if (!b)
+                        return -ENOMEM;
+        }
 
-        *ret_first = TAKE_PTR(a);
-        *ret_second = TAKE_PTR(b);
+        if (ret_first)
+                *ret_first = TAKE_PTR(a);
+        if (ret_second)
+                *ret_second = TAKE_PTR(b);
         return 0;
 }
 
@@ -1086,25 +1154,50 @@ int strdup_to_full(char **ret, const char *src) {
         }
 };
 
-bool string_is_safe(const char *p) {
-        if (!p)
+bool string_is_safe(const char *p, StringSafeFlags flags) {
+
+        /* Baseline checks are:
+         *   • No control characters (i.e. 0…31 + 127)
+         *   • UTF-8 valid (well, technically we skip this test if STRING_ASCII is set, since that is a tighter test)
+         */
+
+        if (FLAGS_SET(flags, STRING_ALLOW_EMPTY) ? !p : isempty(p))
                 return false;
 
-        /* Checks if the specified string contains no quotes or control characters */
+        if (!FLAGS_SET(flags, STRING_ASCII) && !utf8_is_valid(p))
+                return false;
 
         for (const char *t = p; *t; t++) {
-                if (*t > 0 && *t < ' ') /* no control characters */
+                /* never allow control characters, except for new line */
+                if ((*t > 0 && *t < ' ' && *t != '\n') || *t == 0x7f)
                         return false;
 
-                if (strchr(QUOTES "\\\x7f", *t))
+                if (!FLAGS_SET(flags, STRING_ALLOW_NEWLINES) && *t == '\n')
+                        return false;
+
+                if (!FLAGS_SET(flags, STRING_ALLOW_BACKSLASHES) && *t == '\\')
+                        return false;
+
+                if (!FLAGS_SET(flags, STRING_ALLOW_QUOTES) && strchr(QUOTES, *t))
+                        return false;
+
+                if (!FLAGS_SET(flags, STRING_ALLOW_GLOBS) && strchr(GLOB_CHARS, *t))
+                        return false;
+
+                if (FLAGS_SET(flags, STRING_DISALLOW_WHITESPACE) && strchr(WHITESPACE, *t))
+                        return false;
+
+                if (FLAGS_SET(flags, STRING_ASCII) && (uint8_t) *t >= 0x80)
                         return false;
         }
 
-        return true;
-}
+        if (FLAGS_SET(flags, STRING_FILENAME) && !filename_is_valid(p))
+                return false;
 
-bool string_is_safe_ascii(const char *p) {
-        return ascii_is_valid(p) && string_is_safe(p);
+        if (FLAGS_SET(flags, STRING_FILENAME_PART) && !filename_part_is_valid(p))
+                return false;
+
+        return true;
 }
 
 char* str_realloc(char *p) {
@@ -1133,6 +1226,7 @@ int string_truncate_lines(const char *s, size_t n_lines, char **ret) {
         size_t n = 0;
 
         assert(s);
+        assert(ret);
 
         /* Truncate after the specified number of lines. Returns > 0 if a truncation was applied or == 0 if
          * there were fewer lines in the string anyway. Trailing newlines on input are ignored, and not
@@ -1186,6 +1280,8 @@ int string_truncate_lines(const char *s, size_t n_lines, char **ret) {
 int string_extract_line(const char *s, size_t i, char **ret) {
         const char *p = s;
         size_t c = 0;
+
+        assert(ret);
 
         /* Extract the i'nth line from the specified string. Returns > 0 if there are more lines after that,
          * and == 0 if we are looking at the last line or already beyond the last line. As special
@@ -1276,7 +1372,7 @@ char* string_replace_char(char *str, char old_char, char new_char) {
         return str;
 }
 
-int make_cstring(const char *s, size_t n, MakeCStringMode mode, char **ret) {
+int make_cstring(const void *s, size_t n, MakeCStringMode mode, char **ret) {
         char *b;
 
         assert(s || n == 0);
@@ -1295,11 +1391,11 @@ int make_cstring(const char *s, size_t n, MakeCStringMode mode, char **ret) {
 
                 b = new0(char, 1);
         } else {
-                const char *nul;
+                const uint8_t *nul;
 
                 nul = memchr(s, 0, n);
                 if (nul) {
-                        if (nul < s + n - 1 || /* embedded NUL? */
+                        if (nul < (const uint8_t*) s + n - 1 || /* embedded NUL? */
                             mode == MAKE_CSTRING_REFUSE_TRAILING_NUL)
                                 return -EINVAL;
 
@@ -1332,6 +1428,23 @@ size_t strspn_from_end(const char *str, const char *accept) {
                 n++;
 
         return n;
+}
+
+size_t strnspn(const char *str, const char *accept, size_t n) {
+        size_t i;
+
+        /* Like strspn(), but reads at most 'n' bytes from 'str'. Returns the length of the initial
+         * run of 'str' (capped at 'n') that consists solely of bytes found in 'accept'. Stops at a
+         * NUL byte too. Unlike strspn() this is safe on a buffer that is not NUL terminated within
+         * 'n' bytes. */
+
+        assert(str || n == 0);
+        assert(accept);
+
+        for (i = 0; i < n && str[i] != '\0' && strchr(accept, str[i]); i++)
+                ;
+
+        return i;
 }
 
 char* strdupspn(const char *a, const char *accept) {
@@ -1407,28 +1520,47 @@ char* find_line_after_internal(const char *haystack, const char *needle) {
         return NULL;
 }
 
-bool version_is_valid(const char *s) {
-        if (isempty(s))
+bool version_is_valid(const char *s, VersionFlags flags) {
+
+        /* Validates a version string superficially. This does not process the version string in any
+         * semantical way, it mostly just validates that its charset is reasonable. */
+
+        if (FLAGS_SET(flags, VERSION_ALLOW_EMPTY) ? !s : isempty(s))
                 return false;
 
         if (!filename_part_is_valid(s))
                 return false;
 
-        /* This is a superset of the characters used by semver. We additionally allow "," and "_". */
-        if (!in_charset(s, ALPHANUMERICAL ".,_-+"))
-                return false;
+        /* We always allow all characters specified by the UAPI.10 Version Specification, i.e. 0-9, a-z, A-Z,
+         * ".", "-", "~", "^".
+         *
+         * If the relevant flags are set we'll also allow "+" and "_" separators.
+         *
+         * Note that with SemVer allows 0-9, a-z, A-Z, "+", "-", ".", hence with VERSION_ALLOW_PLUS we
+         * implement a superset of it.
+         *
+         * If you wonder when to use which flags: when validating foreign versions (e.g. distribution
+         * versions in /etc/os-release or so) validate liberally, i.e. add
+         * VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS. When validating our own versioned objects (e.g. vpick
+         * or so) validate more strictly, and in particular refuse characters such as "_" and "+" that may be
+         * used for separating component names or boot attempt counters. Also: first – if appropriate – split
+         * the string into individual components. For example, if the string consists of a name and a
+         * version, separated by some character, only pass the version part to this function. The name part
+         * may pass verification, but it's cleaner to not rely on that.
+         *
+         * For details about UAPI.10 see:
+         *
+         * → https://uapi-group.org/specifications/specs/version_format_specification/ */
 
-        return true;
-}
+        char charset[] = ALPHANUMERICAL ".-~^" /* plus room for the two chars below: */ "\0\0";
+        size_t l = strlen(charset);
 
-bool version_is_valid_versionspec(const char *s) {
-        if (!filename_part_is_valid(s))
-                return false;
+        if (FLAGS_SET(flags, VERSION_ALLOW_UNDERSCORE))
+                charset[l++] = '_';
+        if (FLAGS_SET(flags, VERSION_ALLOW_PLUS))
+                charset[l++] = '+';
 
-        if (!in_charset(s, ALPHANUMERICAL "-.~^"))
-                return false;
-
-        return true;
+        return in_charset(s, charset);
 }
 
 ssize_t strlevenshtein(const char *x, const char *y) {
@@ -1503,15 +1635,30 @@ char* strrstr_internal(const char *haystack, const char *needle) {
 
         /* Special case: for the empty string we return the very last possible occurrence, i.e. *after* the
          * last char, not before. */
-        if (*needle == 0)
+        if (needle[0] == 0)
                 return (char*) strchr(haystack, 0);
+
+        /* Special case: for single character strings, just use optimized strrchr() */
+        if (needle[1] == 0)
+                return (char*) strrchr(haystack, needle[0]);
 
         for (const char *p = strstr(haystack, needle), *q; p; p = q) {
                 q = strstr(p + 1, needle);
                 if (!q)
-                        return (char *) p;
+                        return (char*) p;
         }
         return NULL;
+}
+
+char* strrstr_no_case_internal(const char *haystack, const char *needle) {
+        if (!haystack || !needle)
+                return NULL;
+
+        for (const char *p = strchr(haystack, 0); p > haystack; p--)
+                if (startswith_no_case(p, needle))
+                        return (char*) p;
+
+        return startswith_no_case(haystack, needle) ? (char*) haystack : NULL;
 }
 
 size_t str_common_prefix(const char *a, const char *b) {

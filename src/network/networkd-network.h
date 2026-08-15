@@ -7,10 +7,12 @@
 #include "bridge.h"
 #include "firewall-util.h"
 #include "ipoib.h"
+#include "iovec-wrapper.h"
 #include "net-condition.h"
 #include "network-util.h"
 #include "networkd-bridge-vlan.h"
 #include "networkd-dhcp-common.h"
+#include "networkd-dhcp-relay.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-dhcp4.h"
 #include "networkd-dhcp6.h"
@@ -21,7 +23,9 @@
 #include "networkd-ndisc.h"
 #include "networkd-radv.h"
 #include "networkd-sysctl.h"
+#include "networkd-wwan-bus.h"
 #include "resolve-util.h"
+#include "tlv-util.h"
 
 typedef enum KeepConfiguration {
         KEEP_CONFIGURATION_NO               = 0,
@@ -122,7 +126,7 @@ typedef struct Network {
         bool dhcp_iaid_set;
         char *dhcp_vendor_class_identifier;
         char *dhcp_mudurl;
-        char **dhcp_user_class;
+        struct iovec_wrapper dhcp_user_class;
         char *dhcp_hostname;
         char *dhcp_label;
         uint64_t dhcp_max_attempts;
@@ -137,7 +141,6 @@ typedef struct Network {
         int dhcp_critical;
         int dhcp_ip_service_type;
         int dhcp_socket_priority;
-        bool dhcp_socket_priority_set;
         bool dhcp_anonymize;
         bool dhcp_send_hostname;
         bool dhcp_send_hostname_set;
@@ -167,8 +170,8 @@ typedef struct Network {
         Set *dhcp_deny_listed_ip;
         Set *dhcp_allow_listed_ip;
         Set *dhcp_request_options;
-        OrderedHashmap *dhcp_client_send_options;
-        OrderedHashmap *dhcp_client_send_vendor_options;
+        TLV dhcp_extra_options;
+        TLV dhcp_vendor_options;
         char *dhcp_netlabel;
         NFTSetContext dhcp_nft_set_context;
 
@@ -203,18 +206,28 @@ typedef struct Network {
         char *dhcp6_netlabel;
         bool dhcp6_send_release;
         NFTSetContext dhcp6_nft_set_context;
+        uint32_t dhcp6_route_table;
+        bool dhcp6_route_table_set;
+
+        /* DHCP Relay Agent Support */
+        DHCPRelayInterfaceMode dhcp_relay_interface_mode;
+        Address *dhcp_relay_agent_address;
+        struct in_addr dhcp_relay_target_address; /* for deprecated DHCPServer.RelayTarget= */
+        struct in_addr dhcp_relay_agent_address_in_addr;
+        struct in_addr dhcp_relay_gateway_address;
+        struct iovec dhcp_relay_remote_id; /* for deprecated DHCPServer.RelayAgentRemoteId= */
+        struct iovec dhcp_relay_circuit_id;
+        struct iovec dhcp_relay_vss;
+        TLV dhcp_relay_extra_options;
+        int dhcp_relay_interface_priority;
 
         /* DHCP Server Support */
         bool dhcp_server;
-        bool dhcp_server_bind_to_interface;
         unsigned char dhcp_server_address_prefixlen;
         struct in_addr dhcp_server_address_in_addr;
         const Address *dhcp_server_address;
         int dhcp_server_uplink_index;
         char *dhcp_server_uplink_name;
-        struct in_addr dhcp_server_relay_target;
-        char *dhcp_server_relay_agent_circuit_id;
-        char *dhcp_server_relay_agent_remote_id;
         NetworkDHCPServerEmitAddress dhcp_server_emit[_SD_DHCP_LEASE_SERVER_TYPE_MAX];
         bool dhcp_server_emit_router;
         struct in_addr dhcp_server_router;
@@ -225,8 +238,8 @@ typedef struct Network {
         usec_t dhcp_server_default_lease_time_usec, dhcp_server_max_lease_time_usec;
         uint32_t dhcp_server_pool_offset;
         uint32_t dhcp_server_pool_size;
-        OrderedHashmap *dhcp_server_send_options;
-        OrderedHashmap *dhcp_server_send_vendor_options;
+        TLV dhcp_server_extra_options;
+        TLV dhcp_server_vendor_options;
         struct in_addr dhcp_server_boot_server_address;
         char *dhcp_server_boot_server_name;
         char *dhcp_server_boot_filename;
@@ -331,6 +344,7 @@ typedef struct Network {
         int ip_forwarding[2];
         int ipv4_accept_local;
         int ipv4_route_localnet;
+        int ipv4_src_valid_mark;
         int ipv6_dad_transmits;
         uint8_t ipv6_hop_limit;
         usec_t ipv6_retransmission_time;
@@ -341,7 +355,7 @@ typedef struct Network {
         IPReversePathFilter ipv4_rp_filter;
         IPv4ForceIgmpVersion ipv4_force_igmp_version;
         int ipv6_proxy_ndp;
-        Set *ipv6_proxy_ndp_addresses;
+        Set *neighbor_proxy_addresses;
         int mpls_input;
 
         /* NDisc support */
@@ -416,7 +430,14 @@ typedef struct Network {
         char **ntp;
 
         /* ModemManager support */
-        char **mm_simple_connect_props;
+        char *mm_apn;
+        bool mm_allow_roaming;
+        MMBearerAllowedAuth mm_allowed_auth;
+        MMBearerIpFamily mm_ip_family;
+        char *mm_operator_id;
+        char *mm_user;
+        char *mm_password;
+        char *mm_pin;
         int mm_use_gateway;
         uint32_t mm_route_metric;
         bool mm_route_metric_set;

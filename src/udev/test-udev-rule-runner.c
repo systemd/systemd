@@ -12,7 +12,7 @@
 #include "label-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "mount-util.h"
 #include "namespace-util.h"
 #include "parse-util.h"
@@ -103,7 +103,7 @@ static int run(int argc, char *argv[]) {
 
         /* Let's make sure the test runs with selinux assumed disabled. */
 #if HAVE_SELINUX
-        if (dlopen_libselinux() >= 0)
+        if (dlopen_libselinux(LOG_DEBUG) >= 0)
                 sym_fini_selinuxmnt();
 #endif
         mac_selinux_retest();

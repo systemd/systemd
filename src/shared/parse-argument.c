@@ -31,7 +31,7 @@ int parse_boolean_argument(const char *optname, const char *s, bool *ret) {
                         *ret = r;
                 return r;
         } else {
-                /* s may be NULL. This is controlled by getopt_long() parameters. */
+                /* s may be NULL. This is controlled by OPTION flags. */
                 if (ret)
                         *ret = true;
                 return true;
@@ -42,10 +42,10 @@ int parse_tristate_argument_with_auto(const char *optname, const char *s, int *r
         int r;
 
         assert(optname);
-        assert(s); /* We refuse NULL optarg here, since that would be ambiguous on cmdline:
-                      for --enable-a[=BOOL], --enable-a is intuitively interpreted as true rather than "auto"
-                      (parse_boolean_argument() does exactly that). IOW, tristate options should require
-                      arguments. */
+        assert(s); /* We refuse NULL arg here, since that would be ambiguous on cmdline: for
+                    * --enable-a[=BOOL], --enable-a is intuitively interpreted as true rather than "auto"
+                    * (parse_boolean_argument() does exactly that). IOW, tristate options should require
+                    * arguments. */
 
         r = parse_tristate_full(s, "auto", ret);
         if (r < 0)
@@ -78,6 +78,8 @@ int parse_json_argument(const char *s, sd_json_format_flags_t *ret) {
 int parse_path_argument(const char *path, bool suppress_root, char **arg) {
         char *p;
         int r;
+
+        assert(arg);
 
         /*
          * This function is intended to be used in command line parsers, to handle paths that are passed
@@ -128,11 +130,7 @@ int parse_signal_argument(const char *s, int *ret) {
                                 return table_log_add_error(r);
                 }
 
-                r = table_print(table, NULL);
-                if (r < 0)
-                        return table_log_print_error(r);
-
-                return 0;
+                return table_print_or_warn(table);
         }
 
         r = signal_from_string(s);

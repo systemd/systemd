@@ -1,0 +1,292 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sysupdate.components" conditional='ENABLE_SYSUPDATE'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sysupdate.components</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sysupdate.components</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sysupdate.components</refname>
+    <refpurpose>Definition Files for Update Components</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><simplelist>
+      <member><filename>/etc/sysupdate.<replaceable>component</replaceable>.component</filename></member>
+      <member><filename>/run/sysupdate.<replaceable>component</replaceable>.component</filename></member>
+      <member><filename>/usr/local/lib/sysupdate.<replaceable>component</replaceable>.component</filename></member>
+      <member><filename>/usr/lib/sysupdate.<replaceable>component</replaceable>.component</filename></member>
+    </simplelist></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>A "Component" is a set of
+    <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    transfer definitions that
+    <citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    updates independently from the rest of the OS.
+    Each component is a self-contained installation with its own version, and its own set of transfer files,
+    stored in a directory named after the component:
+    <filename>sysupdate.<replaceable>component</replaceable>.d/*.transfer</filename> (as opposed to the
+    default, component-less <filename>sysupdate.d/*.transfer</filename>).
+    Components are selected via the <option>--component=</option>, <option>--component-all</option> or
+    <option>--component-suggested</option> switches of
+    <citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry>, and
+    enumerated by its <command>components</command> command.</para>
+
+    <para>Because components are updated separately, they are the right tool for OS resources that shall be
+    versioned and updated independently from the base OS — for example a container image or a portable service
+    image that follows its own release cycle. This is the primary difference between a component and an
+    <citerefentry><refentrytitle>sysupdate.features</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    Optional Feature: the transfers belonging to a feature are updated in lock-step with the target they are
+    part of, while a component is a wholly separate installation. Do not use a component for resources that
+    shall always be updated synchronously with something else; use a feature (or simply additional transfer
+    files in the same directory) for those cases.</para>
+
+    <para>A component does not require a <filename>*.component</filename> file: as soon as a matching
+    <filename>sysupdate.<replaceable>component</replaceable>.d/</filename> directory with transfer definitions
+    exists, the component is available for updating. The <filename>*.component</filename> file described here
+    is optional, and carries metadata about the component (such as a human-readable description and a
+    documentation URL) as well as its enablement state.</para>
+
+    <para>When a component is disabled (via <varname>Enabled=false</varname>, see below), operations that
+    would download or install new versions — most importantly <command>update</command> — refuse to act on
+    it. Other operations, such as <command>vacuum</command> and <command>cleanup</command>, continue to
+    consider the component's transfers so that previously installed instances remain managed and can be
+    cleaned up. Components are enabled or disabled with the <command>enable-component</command> and
+    <command>disable-component</command> commands of
+    <citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    which write an <varname>Enabled=</varname> setting into a drop-in next to the component definition.</para>
+
+    <para>Component definitions support drop-in files, which are most commonly used to override the
+    <varname>Enabled=</varname> setting. Drop-ins are read from
+    <filename>sysupdate.<replaceable>component</replaceable>.component.d/*.conf</filename> in the same set of
+    directories as the main file. They can also be masked to hide the component definition entirely.</para>
+
+    <para>Each <filename>*.component</filename> file contains one section: [Component].</para>
+  </refsect1>
+
+  <refsect1>
+    <title>[Component] Section Options</title>
+
+    <para>This section defines general properties of this component.</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><varname>Description=</varname></term>
+
+        <listitem><para>A short human-readable description of this component.
+        This may be used as a label for this component, so the string should meaningfully identify the
+        component among the components available on the system.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Documentation=</varname></term>
+
+        <listitem><para>A user-presentable URL to documentation about this component.
+        This setting supports specifier expansion; see below for details on supported specifiers.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Enabled=</varname></term>
+
+        <listitem><para>Whether or not this component is enabled. If unspecified, the component is enabled
+        by default. When disabled, <command>systemd-sysupdate</command> refuses to download or install new
+        versions of this component, but continues to consider its transfers while vacuuming and in other
+        situations where it needs to determine ownership over previously downloaded system resources.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Suggest=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If true, this component is suggested for enablement, if
+        false it is not. This does not enable the component on its own, but is a hint surfaced by the update
+        tools (for example via the <option>--component-suggested</option> switch of
+        <citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry>)
+        so that the system administrator or higher-level tooling may act on it.</para>
+
+        <para>If this setting is not specified, the <varname>SuggestOn…=</varname> conditions described below
+        are evaluated instead to determine whether the component is suggested. If neither this setting nor any
+        <varname>SuggestOn…=</varname> condition is specified, the component is not suggested.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>SuggestOnArchitecture=</varname></term>
+        <term><varname>SuggestOnFirmware=</varname></term>
+        <term><varname>SuggestOnVirtualization=</varname></term>
+        <term><varname>SuggestOnHost=</varname></term>
+        <term><varname>SuggestOnFraction=</varname></term>
+        <term><varname>SuggestOnKernelCommandLine=</varname></term>
+        <term><varname>SuggestOnVersion=</varname></term>
+        <term><varname>SuggestOnCredential=</varname></term>
+        <term><varname>SuggestOnSecurity=</varname></term>
+        <term><varname>SuggestOnOSRelease=</varname></term>
+        <term><varname>SuggestOnMachineTag=</varname></term>
+
+        <listitem><para>Suggest this component for enablement depending on system properties. These settings
+        take the same arguments and implement the same semantics — including the leading <literal>!</literal>
+        for negation — as the identically-named
+        <varname>ConditionArchitecture=</varname>, <varname>ConditionFirmware=</varname>,
+        <varname>ConditionVirtualization=</varname>, <varname>ConditionHost=</varname>,
+        <varname>ConditionFraction=</varname>, <varname>ConditionKernelCommandLine=</varname>,
+        <varname>ConditionVersion=</varname>, <varname>ConditionCredential=</varname>,
+        <varname>ConditionSecurity=</varname>, <varname>ConditionOSRelease=</varname> and
+        <varname>ConditionMachineTag=</varname> settings for unit files, which are documented in
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        The component is suggested if all specified conditions apply. As with the <varname>Condition…=</varname>
+        settings, assigning an empty string to one of these resets the list.</para>
+
+        <para>These conditions are only evaluated if <varname>Suggest=</varname> is not specified.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Specifiers</title>
+
+    <para>Specifiers may be used in the <varname>Documentation=</varname> setting. The following expansions
+    are understood:</para>
+
+    <table class='specifiers'>
+      <title>Specifiers available</title>
+      <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+        <colspec colname="spec" />
+        <colspec colname="mean" />
+        <colspec colname="detail" />
+        <thead>
+          <row>
+            <entry>Specifier</entry>
+            <entry>Meaning</entry>
+            <entry>Details</entry>
+          </row>
+        </thead>
+        <tbody>
+          <xi:include href="standard-specifiers.xml" xpointer="a"/>
+          <xi:include href="standard-specifiers.xml" xpointer="A"/>
+          <xi:include href="standard-specifiers.xml" xpointer="b"/>
+          <xi:include href="standard-specifiers.xml" xpointer="B"/>
+          <xi:include href="standard-specifiers.xml" xpointer="H"/>
+          <xi:include href="standard-specifiers.xml" xpointer="l"/>
+          <xi:include href="standard-specifiers.xml" xpointer="m"/>
+          <xi:include href="standard-specifiers.xml" xpointer="M"/>
+          <xi:include href="standard-specifiers.xml" xpointer="o"/>
+          <xi:include href="standard-specifiers.xml" xpointer="v"/>
+          <xi:include href="standard-specifiers.xml" xpointer="w"/>
+          <xi:include href="standard-specifiers.xml" xpointer="W"/>
+          <xi:include href="standard-specifiers.xml" xpointer="T"/>
+          <xi:include href="standard-specifiers.xml" xpointer="V"/>
+          <xi:include href="standard-specifiers.xml" xpointer="percent"/>
+        </tbody>
+      </tgroup>
+    </table>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>A Separately Updated Container Image</title>
+
+      <para>We'll use the hypothetical "foobarOS" described in
+      <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> as our
+      example base OS.
+      foobarOS ships a container image that many, but not all, deployments want to run. The image has its own
+      release cadence and version number, entirely separate from the base OS, so it is a poor fit for an
+      Optional Feature (which would be version-locked to the OS). Instead, let's model it as a component named
+      <literal>webapp</literal>.</para>
+
+      <para>First, the component definition, carrying its metadata and marking it as disabled by default:</para>
+
+      <para><programlisting># /usr/lib/sysupdate.webapp.component
+[Component]
+Description=WebApp Container Image
+Documentation=https://docs.example.com/foobarOS/webapp
+Enabled=false
+</programlisting></para>
+
+      <para>Next, the transfer definition for the component, placed in the component's own directory
+      <filename>sysupdate.webapp.d/</filename>:</para>
+
+      <para><programlisting># /usr/lib/sysupdate.webapp.d/50-webapp.transfer
+[Source]
+Type=url-file
+Path=https://download.example.com/
+MatchPattern=webapp_@v.raw.xz
+
+[Target]
+Type=regular-file
+Path=/var/lib/machines
+MatchPattern=webapp_@v.raw
+Mode=0444
+InstancesMax=2
+</programlisting></para>
+
+      <para>With these two files, updates for the <literal>webapp</literal> component can be checked and
+      downloaded independently of the base OS, for example with
+      <command>systemd-sysupdate --component=webapp update</command>. Because
+      <varname>Enabled=false</varname> was set, the administrator must first opt in with
+      <command>systemd-sysupdate enable-component webapp</command>, which writes the following drop-in:</para>
+
+      <para><programlisting># /etc/sysupdate.webapp.component.d/50-systemd-sysupdate-enabled.conf
+# Generated via 'systemd-sysupdate enable-component'
+
+[Component]
+Enabled=true
+</programlisting></para>
+    </example>
+
+    <example>
+      <title>A Component Suggested Only on Bare Metal</title>
+
+      <para>Suppose foobarOS ships a component with firmware and microcode updates that is only relevant when
+      running on physical hardware, not inside a virtual machine. We can use <varname>SuggestOn…=</varname> to
+      hint that the component should be enabled in that case, without enabling it automatically:</para>
+
+      <para><programlisting># /usr/lib/sysupdate.firmware.component
+[Component]
+Description=Firmware and Microcode Updates
+Documentation=https://docs.example.com/foobarOS/firmware
+Enabled=false
+SuggestOnVirtualization=!vm
+</programlisting></para>
+
+      <para>Higher-level tooling can now query the suggested components (via
+      <command>systemd-sysupdate --component-suggested …</command>) and enable them as appropriate. On bare
+      metal the <literal>firmware</literal> component is suggested; inside a VM it is not.</para>
+    </example>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sysupdate.features</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

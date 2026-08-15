@@ -132,7 +132,8 @@ void log_wait(void) {
         log_count = 0;
 }
 
-_used_ intptr_t __stack_chk_guard = (intptr_t) 0x70f6967de78acae3;
+// NOLINTNEXTLINE(misc-use-internal-linkage)
+_used_ uintptr_t __stack_chk_guard = (uintptr_t) 0x70f6967de78acae3;
 
 /* We can only set a random stack canary if this function attribute is available,
  * otherwise this may create a stack check fail. */
@@ -143,12 +144,14 @@ void __stack_chk_guard_init(void) {
                 (void) rng->GetRNG(rng, NULL, sizeof(__stack_chk_guard), (void *) &__stack_chk_guard);
         else
                 /* Better than no extra entropy. */
-                __stack_chk_guard ^= (intptr_t) __executable_start;
+                __stack_chk_guard ^= (uintptr_t) __executable_start;
 }
 #endif
 
+// NOLINTBEGIN(misc-use-internal-linkage)
 _used_ _noreturn_ void __stack_chk_fail(void);
 _used_ _noreturn_ void __stack_chk_fail_local(void);
+// NOLINTEND(misc-use-internal-linkage)
 void __stack_chk_fail(void) {
         panic(u"systemd-boot: Stack check failed, halting.");
 }
@@ -157,6 +160,7 @@ void __stack_chk_fail_local(void) {
 }
 
 /* Called by libgcc for some fatal errors like integer overflow with -ftrapv. */
+// NOLINTNEXTLINE(misc-use-internal-linkage)
 _used_ _noreturn_ void abort(void);
 void abort(void) {
         panic(u"systemd-boot: Unknown error, halting.");
@@ -164,8 +168,10 @@ void abort(void) {
 
 #if defined(__ARM_EABI__)
 /* These override the (weak) div0 handlers from libgcc as they would otherwise call raise() instead. */
+// NOLINTBEGIN(misc-use-internal-linkage)
 _used_ _noreturn_ int __aeabi_idiv0(int return_value);
 _used_ _noreturn_ long long __aeabi_ldiv0(long long return_value);
+// NOLINTEND(misc-use-internal-linkage)
 
 int __aeabi_idiv0(int return_value) {
         panic(u"systemd-boot: Division by zero, halting.");

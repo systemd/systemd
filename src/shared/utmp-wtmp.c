@@ -17,6 +17,8 @@ static void init_timestamp(struct utmpx *store, usec_t t) {
         if (t <= 0)
                 t = now(CLOCK_REALTIME);
 
+        /* Silence static analyzers */
+        assert_cc(USEC_PER_SEC > 0);
         store->ut_tv.tv_sec = t / USEC_PER_SEC;
         store->ut_tv.tv_usec = t % USEC_PER_SEC;
 }

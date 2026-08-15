@@ -34,4 +34,4 @@ ConditionPathIsSymbolicLink=|/etc/system-update
 
 [Service]
 Type=oneshot
-ExecStart=rm -fv /system-update /etc/system-update
+ExecStart=systemd-tmpfiles --inline --remove 'r /system-update' 'r /etc/system-update'

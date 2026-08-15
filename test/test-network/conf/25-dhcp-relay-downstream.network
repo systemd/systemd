@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=relay-down
+
+[Network]
+Address=198.51.100.10/24
+IPv6AcceptRA=no
+DHCPRelay=downstream
+
+[DHCPRelay]
+AgentAddress=198.51.100.10
+GatewayAddress=198.51.100.10
+CircuitId=string:test-dhcp-relay-circuit-id
+VirtualSubnetSelection=string:subnet-hoge

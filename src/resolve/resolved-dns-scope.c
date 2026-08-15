@@ -16,6 +16,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "hostname-util.h"
+#include "json-util.h"
 #include "log.h"
 #include "random-util.h"
 #include "resolved-dns-browse-services.h"
@@ -75,6 +76,7 @@ int dns_scope_new(
                 .protocol = protocol,
                 .family = family,
                 .resend_timeout = MULTICAST_RESEND_TIMEOUT_MIN_USEC,
+                .cache.cache_max = m->cache_max[protocol],
 
                 /* Enforce ratelimiting for the multicast protocols */
                 .ratelimit = { MULTICAST_RATELIMIT_INTERVAL_USEC, MULTICAST_RATELIMIT_BURST },
@@ -1814,7 +1816,7 @@ int dns_scope_to_json(DnsScope *scope, bool with_cache, sd_json_variant **ret) {
 
         return sd_json_buildo(
                         ret,
-                        SD_JSON_BUILD_PAIR_STRING("protocol", dns_protocol_to_string(scope->protocol)),
+                        JSON_BUILD_PAIR_ENUM("protocol", dns_protocol_to_string(scope->protocol)),
                         SD_JSON_BUILD_PAIR_CONDITION(scope->family != AF_UNSPEC, "family", SD_JSON_BUILD_INTEGER(scope->family)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!scope->link, "ifindex", SD_JSON_BUILD_INTEGER(dns_scope_ifindex(scope))),
                         SD_JSON_BUILD_PAIR_CONDITION(!!scope->link, "ifname", SD_JSON_BUILD_STRING(dns_scope_ifname(scope))),

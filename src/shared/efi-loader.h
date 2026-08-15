@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
+#include "forward.h"
 
 /* Various calls that interface with EFI variables implementing https://systemd.io/BOOT_LOADER_INTERFACE */
 
@@ -15,6 +15,7 @@ int efi_loader_get_features(uint64_t *ret);
 int efi_stub_get_features(uint64_t *ret);
 
 int efi_measured_uki(int log_level);
+int efi_measured_os(int log_level);
 
 int efi_loader_get_config_timeout_one_shot(usec_t *ret);
 int efi_loader_update_entry_one_shot_cache(char **cache, struct stat *cache_stat);
@@ -22,3 +23,5 @@ int efi_loader_update_entry_one_shot_cache(char **cache, struct stat *cache_stat
 int efi_get_variable_id128(const char *variable, sd_id128_t *ret);
 
 bool efi_loader_entry_name_valid(const char *s);
+bool efi_loader_entry_title_valid(const char *s);
+bool efi_loader_entry_resource_filename_valid(const char *s);

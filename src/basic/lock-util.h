@@ -4,7 +4,7 @@
 /* Include here so consumers have LOCK_{EX,SH,NB} available. */
 #include <sys/file.h> /* IWYU pragma: export */
 
-#include "basic-forward.h"
+#include "forward.h"
 
 typedef struct LockFile {
         int dir_fd;

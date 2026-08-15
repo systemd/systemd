@@ -2,7 +2,7 @@
 #pragma once
 
 #include "compress.h"
-#include "shared-forward.h"
+#include "forward.h"
 #include "journal-importer.h"
 #include "journal-remote-write.h"
 

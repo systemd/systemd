@@ -112,7 +112,7 @@ int icmp6_packet_receive(int fd, ICMP6Packet **ret) {
         if (!p)
                 return -ENOMEM;
 
-        r = icmp6_receive(fd, p->raw_packet, p->raw_size, &p->sender_address, &p->timestamp);
+        r = icmp6_receive(fd, p->raw_packet, p->raw_size, &p->sender_address, &p->ifindex, &p->timestamp);
         if (r == -EADDRNOTAVAIL)
                 return log_debug_errno(r, "ICMPv6: Received a packet from neither link-local nor null address.");
         if (r == -EMULTIHOP)

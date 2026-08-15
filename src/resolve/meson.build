@@ -7,7 +7,7 @@ endif
 systemd_resolved_sources = files(
         'resolved.c',
 )
-systemd_resolved_extract_sources = files(
+systemd_resolved_export_sources = files(
         'resolved-bus.c',
         'resolved-conf.c',
         'resolved-dns-browse-services.c',
@@ -36,6 +36,7 @@ systemd_resolved_extract_sources = files(
         'resolved-mdns.c',
         'resolved-resolv-conf.c',
         'resolved-socket-graveyard.c',
+        'resolved-static-records.c',
         'resolved-util.c',
         'resolved-varlink.c',
 )
@@ -58,10 +59,10 @@ resolved_dns_delegate_gperf_c = custom_target(
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 generated_sources += [resolved_gperf_c, resolved_dnssd_gperf_c, resolved_dns_delegate_gperf_c]
-systemd_resolved_extract_sources += [resolved_gperf_c, resolved_dnssd_gperf_c, resolved_dns_delegate_gperf_c]
+systemd_resolved_export_sources += [resolved_gperf_c, resolved_dnssd_gperf_c, resolved_dns_delegate_gperf_c]
 
 if conf.get('ENABLE_DNS_OVER_TLS') == 1
-        systemd_resolved_extract_sources += files(
+        systemd_resolved_export_sources += files(
                 'resolved-dnstls.c',
         )
 endif
@@ -69,21 +70,19 @@ endif
 resolve_common_template = {
         'dependencies' : [
                 libidn2_cflags,
-                libopenssl,
-                libm,
-                threads,
+                libopenssl_cflags,
         ],
 }
 
-resolve_test_template = test_template + resolve_common_template + {'objects' : ['systemd-resolved']}
-resolve_fuzz_template = fuzz_template + resolve_common_template + {'objects' : ['systemd-resolved']}
+resolve_test_template = test_template + resolve_common_template + {'import' : ['systemd-resolved']}
+resolve_fuzz_template = fuzz_template + resolve_common_template + {'import' : ['systemd-resolved']}
 
 executables += [
         libexec_template + resolve_common_template + {
                 'name' : 'systemd-resolved',
                 'dbus' : true,
                 'sources' : systemd_resolved_sources,
-                'extract' : systemd_resolved_extract_sources,
+                'export' : systemd_resolved_export_sources,
         },
         executable_template + resolve_common_template + {
                 'name' : 'resolvectl',
@@ -92,7 +91,7 @@ executables += [
                         'resolvconf-compat.c',
                         'resolvectl.c',
                 ),
-                'objects' : ['systemd-resolved'],
+                'import' : ['systemd-resolved'],
         },
         resolve_test_template + {
                 'sources' : files('test-resolve-tables.c'),
@@ -131,6 +130,10 @@ executables += [
         resolve_test_template + {
                 'sources' : files('test-dnssec-complex.c'),
                 'type' : 'manual',
+        },
+        resolve_test_template + {
+                'sources' : files('test-dnssec-crypto.c'),
+                'conditions' : ['HAVE_OPENSSL'],
         },
         resolve_test_template + {
                 'sources' : files('test-dns-search-domain.c'),

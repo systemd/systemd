@@ -7,7 +7,7 @@
 
 #include <netinet/in.h>
 
-#include "sd-forward.h"
+#include "forward.h"
 
 #define IN6_ADDR_ALL_ROUTERS_MULTICAST                                  \
         ((const struct in6_addr) { { {                                  \
@@ -28,4 +28,5 @@ int icmp6_receive(
                 void *buffer,
                 size_t size,
                 struct in6_addr *ret_sender,
+                int *ret_ifindex,
                 triple_timestamp *ret_timestamp);

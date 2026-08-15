@@ -14,7 +14,7 @@ DefaultDependencies=no
 Conflicts=shutdown.target
 After=tpm2.target
 Before=shutdown.target factory-reset.target
-ConditionSecurity=measured-uki
+ConditionSecurity=measured-os
 FailureAction=reboot-force
 
 [Service]

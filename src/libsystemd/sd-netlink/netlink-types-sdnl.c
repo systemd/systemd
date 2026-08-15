@@ -18,6 +18,8 @@ static const NLAPolicy sdnl_req_policies[] = {
 DEFINE_POLICY_SET(sdnl_req);
 
 static const NLAPolicy unix_diag_msg_policies[] = {
+        [UNIX_DIAG_NAME]  = BUILD_POLICY(STRING), /* Note: not NUL-terminated on the wire, read via sd_netlink_message_read_data() */
+        [UNIX_DIAG_VFS]   = BUILD_POLICY_WITH_SIZE(BINARY, sizeof(struct unix_diag_vfs)),
         [UNIX_DIAG_RQLEN] = BUILD_POLICY_WITH_SIZE(BINARY, sizeof(struct unix_diag_rqlen)),
 };
 DEFINE_POLICY_SET(unix_diag_msg);

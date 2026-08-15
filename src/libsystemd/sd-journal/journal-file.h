@@ -5,10 +5,10 @@
 #include <sys/stat.h>
 
 #include "compress.h"
-#include "sd-forward.h"
-#include "gcrypt-util.h"
+#include "forward.h"
 #include "journal-def.h"
 #include "mmap-cache.h"
+#include "ratelimit.h"
 #include "sparse-endian.h"
 
 typedef struct JournalMetrics {
@@ -98,20 +98,7 @@ typedef struct JournalFile {
         void *compress_buffer;
 #endif
 
-        gcry_md_hd_t hmac;
-        bool hmac_running;
-
-        FSSHeader *fss_file;
-        size_t fss_file_size;
-
-        uint64_t fss_start_usec;
-        uint64_t fss_interval_usec;
-
-        void *fsprg_state;
-        size_t fsprg_state_size;
-
-        void *fsprg_seed;
-        size_t fsprg_seed_size;
+        JournalAuthContext *auth_context;
 
         /* When we insert this file into the per-boot priority queue 'newest_by_boot_id' in sd_journal, then by these keys */
         sd_id128_t newest_boot_id;
@@ -121,6 +108,7 @@ typedef struct JournalFile {
         unsigned newest_boot_id_prioq_idx;
         uint64_t newest_entry_offset;
         uint8_t newest_state;
+        RateLimit tail_timestamp_ratelimit; /* rate-limits journal_file_read_tail_timestamp() calls during iteration */
 } JournalFile;
 
 typedef enum JournalFileFlags {

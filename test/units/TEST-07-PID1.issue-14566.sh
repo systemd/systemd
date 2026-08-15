@@ -6,21 +6,14 @@ set -o pipefail
 # Test that KillMode=mixed does not leave left over processes with ExecStopPost=
 # Issue: https://github.com/systemd/systemd/issues/14566
 
-if [[ -v ASAN_OPTIONS ]]; then
-    # Temporarily skip this test when running with sanitizers due to a deadlock
-    # See: https://bugzilla.redhat.com/show_bug.cgi?id=2098125
-    echo "Sanitizers detected, skipping the test..."
-    exit 0
-fi
-
+rm -f /run/leakedtestpid
 systemctl start issue14566-repro
-sleep 4
 systemctl status issue14566-repro
 
-leaked_pid=$(cat /leakedtestpid)
+leaked_pid=$(cat /run/leakedtestpid)
 
 systemctl stop issue14566-repro
-sleep 4
+timeout 30 bash -c 'while systemctl is-active issue14566-repro; do sleep .5; done'
 
 # Leaked PID will still be around if we're buggy.
 # I personally prefer to see 42.

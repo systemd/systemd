@@ -3,12 +3,9 @@
 systemd_journal_gatewayd_sources = files(
         'journal-gatewayd.c',
 )
-systemd_journal_gatewayd_extract_sources = files(
-        'microhttpd-util.c',
-)
 
 systemd_journal_remote_sources = files('journal-remote-main.c')
-systemd_journal_remote_extract_sources = files(
+systemd_journal_remote_export_sources = files(
         'journal-compression-util.c',
         'journal-remote-parse.c',
         'journal-remote-write.c',
@@ -19,16 +16,15 @@ systemd_journal_upload_sources = files(
         'journal-upload-journal.c',
         'journal-upload.c',
 )
-systemd_journal_upload_extract_sources = files(
+systemd_journal_upload_export_sources = files(
         'journal-header-util.c',
 )
 
 common_deps = [
-        libgnutls,
+        libgnutls_cflags,
         liblz4_cflags,
         libxz_cflags,
         libzstd_cflags,
-        threads,
 ]
 
 executables += [
@@ -40,8 +36,7 @@ executables += [
                         'HAVE_MICROHTTPD',
                 ],
                 'sources' : systemd_journal_gatewayd_sources,
-                'extract' : systemd_journal_gatewayd_extract_sources,
-                'dependencies' : common_deps + [libmicrohttpd],
+                'dependencies' : common_deps + [libmicrohttpd_cflags],
         },
         libexec_template + {
                 'name' : 'systemd-journal-remote',
@@ -49,11 +44,10 @@ executables += [
                 # We always build systemd-journal-remote regardless of ENABLE_REMOTE because we have to build
                 # fuzz-journal-remote even when --auto-features=disabled (see tools/oss-fuzz.sh for why).
                 # Instead, we make sure we don't install it when the remote feature is disabled.
-                'install' : conf.get('ENABLE_REMOTE') == 1,
+                'install' : conf.get('ENABLE_REMOTE') == 1 ? 'yes' : 'no',
                 'sources' : systemd_journal_remote_sources,
-                'extract' : systemd_journal_remote_extract_sources,
-                'objects' : conf.get('HAVE_MICROHTTPD') == 1 ? ['systemd-journal-gatewayd'] : [],
-                'dependencies' : common_deps + [libmicrohttpd],
+                'export' : systemd_journal_remote_export_sources,
+                'dependencies' : common_deps + [libmicrohttpd_cflags],
         },
         libexec_template + {
                 'name' : 'systemd-journal-upload',
@@ -63,19 +57,22 @@ executables += [
                         'HAVE_LIBCURL',
                 ],
                 'sources' : systemd_journal_upload_sources,
-                'extract' : systemd_journal_upload_extract_sources,
-                'objects' : ['systemd-journal-remote'],
-                'dependencies' : common_deps + [libcurl],
+                'export' : systemd_journal_upload_export_sources,
+                'import' : ['systemd-journal-remote'],
+                'dependencies' : [
+                        common_deps,
+                        libcurl_cflags,
+                ],
         },
         test_template + {
                 'sources' : files('test-journal-header-util.c'),
                 'conditions' : ['ENABLE_REMOTE', 'HAVE_LIBCURL'],
-                'objects' : ['systemd-journal-upload'],
+                'import' : ['systemd-journal-remote', 'systemd-journal-upload'],
         },
         fuzz_template + {
                 'sources' : files('fuzz-journal-remote.c'),
-                'objects' : ['systemd-journal-remote'],
-                'dependencies' : common_deps + [libmicrohttpd],
+                'import' : ['systemd-journal-remote'],
+                'dependencies' : common_deps + [libmicrohttpd_cflags],
         },
 ]
 
@@ -98,9 +95,4 @@ endforeach
 if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1
         install_data('browse.html',
                      install_dir : pkgdatadir / 'gatewayd')
-
-        if get_option('create-log-dirs')
-                install_emptydir('/var/log/journal/remote',
-                                 install_mode : 'rwxr-xr-x')
-        endif
 endif

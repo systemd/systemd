@@ -5,10 +5,12 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "efivars.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "iovec-util.h"
 #include "locale-setup.h"
 #include "log.h"
 #include "proc-cmdline.h"
@@ -317,4 +319,78 @@ const char* etc_vconsole_conf(void) {
                 cached = secure_getenv("SYSTEMD_ETC_VCONSOLE_CONF") ?: "/etc/vconsole.conf";
 
         return cached;
+}
+
+int locale_lang_from_efi(char **ret, LocaleLangFromEfiFlags flags) {
+        int r;
+
+        assert(ret);
+
+        if (!is_efi_boot()) {
+                *ret = NULL;
+                return 0;
+        }
+
+        /* NB: unlike most other UEFI variables, PlatformLang is actually in 7bit ASCII! Hence we are not
+         * using efi_get_variable_string() here */
+        _cleanup_(iovec_done) struct iovec iov = {};
+        r = efi_get_variable(EFI_GLOBAL_VARIABLE_STR("PlatformLang"), /* ret_attribute= */ NULL, &iov.iov_base, &iov.iov_len);
+        if (r == -ENOENT) {
+                *ret = NULL;
+                return 0;
+        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read PlatformLang EFI variable: %m");
+
+        _cleanup_free_ char *tag = NULL;
+        r = make_cstring(iov.iov_base, iov.iov_len, MAKE_CSTRING_ALLOW_TRAILING_NUL, &tag);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to convert PlatformLang EFI variable to C string: %m");
+
+        /* Convert the UEFI BCP47 language tag into a glibc tag. We'll not bother with the complexity of the
+         * whole spec, but just convert "xx-XX" into "xx_XX", with some flexibility on the case
+         * sensitivity. This is a best-effort thing anyway. */
+
+        if (strlen(tag) != 5 ||
+            !strchr(LETTERS, tag[0]) ||
+            !strchr(LETTERS, tag[1]) ||
+            tag[2] != '-' ||
+            !strchr(LETTERS, tag[3]) ||
+            !strchr(LETTERS, tag[4])) {
+                log_debug("PlatformLang variable does not have the form 'xx-XX', ignoring: %s", tag);
+                *ret = NULL;
+                return 0;
+        }
+
+        tag[0] = ascii_tolower(tag[0]);
+        tag[1] = ascii_tolower(tag[1]);
+        tag[2] = '_';
+        tag[3] = ascii_toupper(tag[3]);
+        tag[4] = ascii_toupper(tag[4]);
+
+        /* Let's optionally suppress en_US locale, since that's almost certainly just the built-in default
+         * locale of the firmware. Since we typically prefer C.UTF-8 over en_US.UTF-8 as default, let's hence
+         * suppress it. */
+        if (FLAGS_SET(flags, LOCALE_SUPPRESS_EN_US) && streq(tag, "en_US")) {
+                log_debug("Firmware language is en_US, suppressing because likely just the firmware default.");
+                *ret = NULL;
+                return 0;
+        }
+
+        if (!strextend(&tag, ".UTF-8"))
+                return -ENOMEM;
+
+        if (FLAGS_SET(flags, LOCALE_REQUIRE_INSTALLED)) {
+                r = locale_is_installed(tag);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        log_debug("Determined locale '%s' from PlatformLang, but it isn't installed, ignoring.", tag);
+                        *ret = NULL;
+                        return 0;
+                }
+        }
+
+        *ret = TAKE_PTR(tag);
+        return 1;
 }

@@ -1,0 +1,35 @@
+#compdef storagectl
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+(( $+functions[_storagectl_commands] )) || _storagectl_commands()
+{
+    local -a _storagectl_cmds
+    _storagectl_cmds=(
+        "volumes:List storage volumes"
+        "templates:List storage volume templates"
+        "providers:List storage providers"
+        "help:Prints a short help text and exits"
+    )
+    if (( CURRENT == 1 )); then
+        _describe -t commands 'storagectl command' _storagectl_cmds
+    else
+        local curcontext="$curcontext"
+        cmd="${${_storagectl_cmds[(r)$words[1]:*]%%:*}}"
+        if (( $+functions[_storagectl_$cmd] )); then
+            _storagectl_$cmd
+        else
+            _message "no more options"
+        fi
+    fi
+}
+
+_arguments \
+    '(- *)'{-h,--help}'[Prints a short help text and exits.]' \
+    '(- *)--version[Prints a short version string and exits.]' \
+    '--no-pager[Do not pipe output into a pager]' \
+    '--no-legend[Do not show the headers and footers]' \
+    '--no-ask-password[Do not query the user for authentication]' \
+    '--json=[Show output as JSON]:mode:(pretty short off help)' \
+    '--system[Operate in system mode]' \
+    '--user[Operate in user mode]' \
+    '*::storagectl command:_storagectl_commands'

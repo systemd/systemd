@@ -84,7 +84,13 @@ int name_to_handle_at_loop(
                 h->handle_bytes = n;
 
                 if (ret_unique_mnt_id) {
-                        uint64_t mnt_id;
+                        /* Here, explicitly initialize mnt_id, otherwise valgrind complains:
+                         *
+                         * ==175708== Conditional jump or move depends on uninitialised value(s)
+                         * ==175708==    at 0x4BC33D1: inode_same_at (stat-util.c:610)
+                         * ==175708==    by 0x4BF1972: inode_same (stat-util.h:86)
+                         */
+                        uint64_t mnt_id = 0;
 
                         /* The kernel will still use this as uint64_t pointer */
                         r = name_to_handle_at(fd, path, h, (int *) &mnt_id, flags|AT_HANDLE_MNT_ID_UNIQUE);
@@ -236,7 +242,7 @@ struct file_handle* file_handle_dup(const struct file_handle *fh) {
 int is_mount_point_at(int dir_fd, const char *path, int flags) {
         int r;
 
-        assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(dir_fd));
         assert((flags & ~AT_SYMLINK_FOLLOW) == 0);
 
         if (path_equal(path, "/"))
@@ -250,6 +256,7 @@ int is_mount_point_at(int dir_fd, const char *path, int flags) {
                         at_flags_normalize_nofollow(flags) |
                         AT_NO_AUTOMOUNT |            /* don't trigger automounts – mounts are a local concept, hence no need to trigger automounts to determine STATX_ATTR_MOUNT_ROOT */
                         AT_STATX_DONT_SYNC,          /* don't go to the network for this – for similar reasons */
+                        /* xstatx_flags = */ 0,
                         STATX_TYPE|STATX_INO,
                         /* optional_mask = */ 0,
                         STATX_ATTR_MOUNT_ROOT,
@@ -299,7 +306,7 @@ static int path_get_mnt_id_at_internal(int dir_fd, const char *path, bool unique
         struct statx sx;
         int r;
 
-        assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(dir_fd));
         assert(ret);
 
         r = xstatx(dir_fd, path,
@@ -318,6 +325,8 @@ static int path_get_mnt_id_at_internal(int dir_fd, const char *path, bool unique
 int path_get_mnt_id_at(int dir_fd, const char *path, int *ret) {
         uint64_t mnt_id;
         int r;
+
+        assert(ret);
 
         r = path_get_mnt_id_at_internal(dir_fd, path, /* unique = */ false, &mnt_id);
         if (r < 0)
@@ -376,6 +385,17 @@ bool fstype_needs_quota(const char *fstype) {
                           "f2fs");
 }
 
+bool fstype_has_internal_quota(const char *fstype) {
+        /* These filesystems have built-in quota support and do not need
+         * external quotacheck/quotaon services - see the "nothing needed"
+         * entries in fstype_needs_quota() above. */
+        return STR_IN_SET(fstype,
+                          "xfs",
+                          "gfs2",
+                          "ocfs2",
+                          "btrfs");
+}
+
 bool fstype_is_api_vfs(const char *fstype) {
         assert(fstype);
 
@@ -391,8 +411,7 @@ bool fstype_is_api_vfs(const char *fstype) {
         /* Filesystems not present in the internal database */
         return STR_IN_SET(fstype,
                           "autofs",
-                          "cpuset",
-                          "devtmpfs");
+                          "cpuset");
 }
 
 bool fstype_is_blockdev_backed(const char *fstype) {
@@ -402,7 +421,15 @@ bool fstype_is_blockdev_backed(const char *fstype) {
         if (x)
                 fstype = x;
 
-        return !streq(fstype, "9p") && !fstype_is_network(fstype) && !fstype_is_api_vfs(fstype);
+        return !STR_IN_SET(fstype, "9p", "overlay") && !fstype_is_network(fstype) && !fstype_is_api_vfs(fstype);
+}
+
+bool fstype_is_fuse(const char *fstype) {
+        assert(fstype);
+
+        /* Plain 'fuse', 'fuseblk' (e.g. ntfs-3g, exfat-fuse — used for file systems backed by an actual
+         * block device), or any 'fuse.<subtype>' (e.g. sshfs, rclone, gvfs, ...). */
+        return STR_IN_SET(fstype, "fuse", "fuseblk") || startswith(fstype, "fuse.");
 }
 
 bool fstype_is_ro(const char *fstype) {
@@ -464,6 +491,22 @@ bool fstype_can_fmask_dmask(const char *fstype) {
          * not be allowed in our MAC context. If we don't know ourselves, on new kernels we can just ask the
          * kernel. */
         return streq(fstype, "vfat") || (mount_option_supported(fstype, "fmask", "0177") > 0 && mount_option_supported(fstype, "dmask", "0077") > 0);
+}
+
+bool fstype_can_ownership(const char *fstype) {
+        /* File systems which are not known to not support uid/gid ownership.
+         * For some types, this can be a bit murky. So just exclude the ones that for sure
+         * don't support with the current implementations in Linux. */
+
+        return !STR_IN_SET(ASSERT_PTR(fstype),
+                           "adfs",
+                           "exfat",
+                           "fat",
+                           "hfs",
+                           "hpfs",
+                           "msdos",
+                           "ntfs",
+                           "vfat");
 }
 
 bool fstype_can_uid_gid(const char *fstype) {
@@ -596,6 +639,9 @@ const char* mount_propagation_flag_to_string(unsigned long flags) {
 }
 
 int mount_propagation_flag_from_string(const char *name, unsigned long *ret) {
+
+        POINTER_MAY_BE_NULL(name);
+        assert(ret);
 
         if (isempty(name))
                 *ret = 0;

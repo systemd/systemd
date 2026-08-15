@@ -38,11 +38,16 @@
         "disable:Disable automatic container start at boot"
         "poweroff:Power off one or more VMs/containers"
         "reboot:Reboot one or more VMs/containers"
+        "restart:Restart one or more VMs/containers (equal to reboot)"
+        "pause:Pause one or more machines"
+        "resume:Resume one or more previously paused machines"
         "terminate:Terminate one or more VMs/containers"
         "kill:Send signal to process or a VM/container"
         "copy-to:Copy files from the host to a container"
         "copy-from:Copy files from a container to the host"
         "bind:Bind mount a path from the host into a container"
+        "bind-volume:Attach a storage volume to a running machine"
+        "unbind-volume:Detach a storage volume from a running machine"
 
         "list-images:Show available container and VM images"
         "image-status:Show image details"
@@ -77,7 +82,7 @@
         start|enable|disable)
             _machinectl_images ;;
 
-        status|show|poweroff|reboot|terminate|kill)
+        status|show|poweroff|reboot|restart|pause|resume|terminate|kill)
             _sd_machines ;;
 
         login|shell)
@@ -110,6 +115,12 @@
         clone|rename)
             if (( CURRENT == 2 )); then _machinectl_images
             elif (( CURRENT == 3 )); then _message "target image"
+            else stop=1
+            fi ;;
+
+        bind-volume|unbind-volume)
+            if (( CURRENT == 2 )); then _sd_machines
+            elif (( CURRENT == 3 )); then _message "volume spec"
             else stop=1
             fi ;;
 

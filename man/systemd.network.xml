@@ -165,6 +165,7 @@
       <xi:include href="systemd.link.xml" xpointer="credential" />
       <xi:include href="systemd.link.xml" xpointer="architecture" />
       <xi:include href="systemd.link.xml" xpointer="firmware" />
+      <xi:include href="systemd.link.xml" xpointer="machine-tag" />
     </variablelist>
   </refsect1>
 
@@ -346,7 +347,7 @@
           required when determining whether the link is online (including when running
           <command>systemd-networkd-wait-online</command>). Takes one of <literal>ipv4</literal>,
           <literal>ipv6</literal>, <literal>both</literal>, or <literal>any</literal>. Defaults to
-          <literal>no</literal>. Note that this option has no effect if
+          <literal>any</literal>. Note that this option has no effect if
           <literal>RequiredForOnline=no</literal>.</para>
 
           <xi:include href="version-info.xml" xpointer="v249"/>
@@ -436,6 +437,26 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>DHCPRelay=</varname></term>
+        <listitem>
+          <para>Takes one of <literal>upstream</literal> or <literal>downstream</literal>. When specified,
+          the host acts as a DHCP relay agent. When set to <literal>upstream</literal>, the interface behaves
+          as an upstream interface of the DHCP relay agent. When set to <literal>downstream</literal>, the
+          interface behaves as a downstream interface of the DHCP relay agent. To make the DHCP relay agent
+          work, at least one upstream interface and one downstream interface must be configured on the host.
+          This requires <varname>ServerAddress=</varname> in the [DHCPRelay] section to be configured in
+          <filename>networkd.conf</filename>. If <varname>ServerAddress=</varname> is not configured, this
+          setting is ignored. See
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for more details about <varname>ServerAddress=</varname> and other host-wide settings.
+          Also, further per-interface settings can be configured in the [DHCPRelay] section described below.
+          Defaults to unset, and the interface is not used for DHCP relay forwarding.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>DHCPServer=</varname></term>
         <listitem>
           <para>Takes a boolean. If set to <literal>yes</literal>, DHCPv4 server will be started.
@@ -444,10 +465,9 @@
 
           <para>Even if this is enabled, the DHCP server will not be started automatically and wait for the
           persistent storage being ready to load/save leases in the storage, unless
-          <varname>RelayTarget=</varname> or <varname>PersistLeases=no/runtime</varname> are specified in the
-          [DHCPServer] section. It will be started after
-          <filename>systemd-networkd-persistent-storage.service</filename> is started, which calls
-          <command>networkctl persistent-storage yes</command>. See
+          <varname>PersistLeases=no/runtime</varname> is specified in the [DHCPServer] section. It will be
+          started after <filename>systemd-networkd-persistent-storage.service</filename> is started, which
+          calls <command>networkctl persistent-storage yes</command>. See
           <citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
           for more details.</para>
 
@@ -818,6 +838,9 @@ DuplicateAddressDetection=none</programlisting></para>
           Domain name routing has no equivalent in the traditional glibc API, which has no concept of
           domain name servers limited to a specific link.</para>
 
+          <para>This option may be specified more than once. If an empty string is assigned,
+          then the all previous assignments are cleared.</para>
+
           <xi:include href="version-info.xml" xpointer="v216"/>
         </listitem>
       </varlistentry>
@@ -1087,6 +1110,19 @@ DuplicateAddressDetection=none</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>IPv4SrcValidMark=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When enabled, the packet's firewall mark (fwmark) is included in the
+          reverse path filter route lookup for source address validation on this interface. This is
+          particularly useful for policy routing setups where packets may arrive with source addresses
+          that are only valid in routing tables selected by their fwmark. When unset, the kernel's
+          default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>IPv4ProxyARP=</varname></term>
         <listitem>
           <para>Takes a boolean. Configures proxy ARP for IPv4. Proxy ARP is the technique in which one
@@ -1111,6 +1147,25 @@ DuplicateAddressDetection=none</programlisting></para>
           <para>See <ulink url="https://tools.ietf.org/html/rfc3069">RFC 3069</ulink>. When unset,
           the kernel's default will be used.</para>
           <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IPv4ProxyARPAddress=</varname></term>
+        <listitem>
+          <para>An IPv4 address, for which ARP requests will be proxied. This option may be specified
+          more than once. <command>systemd-networkd</command> will add the
+          <varname>IPv4ProxyARPAddress=</varname> entries to the kernel's IPv4 neighbor proxy table.
+          When <varname>IPv4ProxyARP=</varname> is unset, this setting implies
+          <varname>IPv4ProxyARP=yes</varname>: the per-interface <literal>proxy_arp</literal> sysctl
+          is enabled automatically, which also activates automatic proxy ARP for every address the
+          interface has a route toward on connected subnets, in addition to answering the listed
+          entries. If <varname>IPv4ProxyARP=</varname> has been set to false, the
+          <varname>IPv4ProxyARPAddress=</varname> entries listed here are discarded and not
+          programmed into the kernel. This mirrors the behaviour of
+          <varname>IPv6ProxyNDPAddress=</varname>/<varname>IPv6ProxyNDP=</varname>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/>
         </listitem>
       </varlistentry>
 
@@ -1246,10 +1301,10 @@ DuplicateAddressDetection=none</programlisting></para>
         <term><varname>VXLAN=</varname></term>
         <term><varname>Xfrm=</varname></term>
         <listitem>
-          <para>The name of an IPoIB, IPVLAN, IPVTAP, MACsec, MACVLAN, MACVTAP, tunnel, VLAN,
-          VXLAN, or Xfrm to be created on the link. See
+          <para>Takes a space-separated list of stacked netdevs to be created on the interface. See
           <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-          This option may be specified more than once.</para>
+          This option may be specified more than once. If an empty string is specified, previous assignments
+          for all netdev types are cleared.</para>
 
           <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
@@ -2382,9 +2437,12 @@ MultiPathRoute=2001:db8::1@eth0</programlisting>
         <listitem>
           <para>When true (the default), the machine's hostname (or the value specified with
           <varname>Hostname=</varname>, described below) will be sent to the DHCP server. Note that the
-          hostname must consist only of 7-bit ASCII lower-case characters and no spaces or dots, and be
-          formatted as a valid DNS domain name. Otherwise, the hostname is not sent even if this option
-          is true.</para>
+          hostname must consist only of 7-bit ASCII lower-case characters and no spaces, and be
+          formatted as a valid DNS domain name. A single-label hostname is sent as DHCP option 12
+          (Host Name, <ulink url="https://tools.ietf.org/html/rfc2132">RFC 2132</ulink>);
+          a multi-label hostname (FQDN) is sent instead as DHCP option 81 (Client FQDN,
+          <ulink url="https://tools.ietf.org/html/rfc4702">RFC 4702</ulink>).
+          Otherwise, the hostname is not sent even if this option is true.</para>
 
           <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
@@ -2395,7 +2453,8 @@ MultiPathRoute=2001:db8::1@eth0</programlisting>
         <listitem>
           <para>Use this value for the hostname which is sent to the DHCP server, instead of machine's
           hostname. Note that the specified hostname must consist only of 7-bit ASCII lower-case
-          characters and no spaces or dots, and be formatted as a valid DNS domain name.</para>
+          characters and no spaces, and be formatted as a valid DNS domain name. Multi-label hostnames
+          (FQDNs) are acceptable; see <varname>SendHostname=</varname> above for details.</para>
 
           <xi:include href="version-info.xml" xpointer="v223"/>
         </listitem>
@@ -3172,6 +3231,23 @@ MultiPathRoute=2001:db8::1@eth0</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RouteTable=<replaceable>num</replaceable></varname></term>
+        <listitem>
+          <para>The table identifier for routes installed by the DHCPv6 client, e.g. unreachable
+          routes for delegated prefixes. Takes one of the predefined names <literal>default</literal>,
+          <literal>main</literal>, and <literal>local</literal>, names defined in
+          <varname>RouteTable=</varname> in
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+          or a number between 1…4294967295.</para>
+
+          <para>When used in combination with <varname>VRF=</varname>, the VRF's routing table is
+          used when this parameter is not specified.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>RapidCommit=</varname></term>
         <listitem>
           <para>Takes a boolean. The DHCPv6 client can obtain configuration parameters from a DHCPv6 server
@@ -3464,7 +3540,7 @@ MultiPathRoute=2001:db8::1@eth0</programlisting>
                   generated by using the EUI-64 algorithm. Because the interface identifier is static,
                   if Duplicate Address Detection detects that the computed address is a duplicate
                   (in use by another node on the link), then this mode will fail to provide an address
-                  for that prefix. If an IPv6 address without mode is specified, then
+                  for that prefix. If an IPv6 address without <literal>static</literal> is specified, then
                   <literal>static</literal> mode is assumed.
                 </para>
 
@@ -3835,6 +3911,104 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
   </refsect1>
 
   <refsect1>
+    <title>[DHCPRelay] Section Options</title>
+    <para>The [DHCPRelay] section contains per-interface settings for the DHCP relay agent. The settings in
+    this section are only used when <varname>DHCPRelay=</varname> in the [Network] section is configured.
+    </para>
+
+    <variablelist class='network-directives'>
+
+      <varlistentry>
+        <term><varname>AgentAddress=</varname></term>
+        <listitem>
+          <para>Takes an IPv4 address. The specified address is used as the source IP address of packets
+          forwarded to the upstream DHCP server. The address may also be used for the Server Identifier
+          Override sub-option and the Link Selection sub-option in the Relay Agent Information option
+          appended to DHCP messages forwarded to the upstream DHCP server. This setting applies to both
+          upstream and downstream interfaces. Defaults to unset. If unset, a statically configured IPv4
+          address in the .network file is selected automatically. When multiple static IPv4 addresses are
+          configured, it is recommended to specify this setting explicitly.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>GatewayAddress=</varname></term>
+        <listitem>
+          <para>Takes an IPv4 address. The specified address is set to the <literal>giaddr</literal> field of
+          the DHCP message header when the DHCP message is forwarded to the upstream DHCP server. This is
+          used only when <varname>DHCPRelay=downstream</varname>, and ignored otherwise. Defaults to unset,
+          and the same address specified with <varname>AgentAddress=</varname> will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>CircuitId=</varname></term>
+        <listitem>
+          <para>Specifies the circuit ID of the downstream interface. This is set as the Circuit ID
+          sub-option in the Relay Agent Information option in the forwarded DHCP message. Takes a data type
+          and data separated with a colon
+          (<literal><replaceable>type</replaceable>:<replaceable>value</replaceable></literal>). The type
+          takes one of <literal>uint8</literal>, <literal>uint16</literal>, <literal>uint32</literal>,
+          <literal>ipv4address</literal>, <literal>ipv6address</literal>, or <literal>string</literal>.
+          Special characters in the data string may be escaped using
+          <ulink url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">C-style escapes</ulink>.
+          This is used only when <varname>DHCPRelay=downstream</varname>, and ignored otherwise. If unset,
+          the name of the interface will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>VirtualSubnetSelection=</varname></term>
+        <listitem>
+          <para>Specifies a unique identifier used by the DHCP server to select the downstream subnet
+          independently of giaddr. This value is used as the Virtual Subnet Selection sub-option in the Relay
+          Agent Information option in the forwarded DHCP message. Takes a value in the same format as
+          <varname>CircuitId=</varname>. This is used only when <varname>DHCPRelay=downstream</varname>, and
+          ignored otherwise. Defaults to unset, and the sub-option is not set.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ExtraOption=</varname></term>
+        <listitem>
+          <para>Specifies an extra sub-option in the Relay Agent Information option, which is appended to
+          DHCP messages forwarded to the upstream DHCP server. Takes a sub-option code, data type, and data
+          separated with a colon
+          (<literal><replaceable>code</replaceable>:<replaceable>type</replaceable>:<replaceable>value</replaceable></literal>).
+          The code is an integer in 1…254. See <varname>CircuitId=</varname> in the above for the acceptable
+          type and data. This setting can be specified multiple times. When an empty string is specified,
+          all previous assignments are cleared. This is used only when
+          <varname>DHCPRelay=downstream</varname>, and ignored otherwise. Defaults to unset, and no extra
+          sub-option will be appended.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>InterfacePriority=</varname></term>
+        <listitem>
+          <para>Specifies the priority of the upstream interface. Takes an integer value. When the host has
+          multiple upstream interfaces, the upstream interface with the highest (largest) priority will be
+          used for forwarding DHCP messages to the upstream DHCP server. When multiple interfaces have the
+          same priority, which interface is used is unspecified. This is used only when
+          <varname>DHCPRelay=upstream</varname>, and ignored otherwise. Defaults to zero.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>[DHCPServer] Section Options</title>
     <para>The [DHCPServer] section contains settings for the DHCP server, if enabled via the
     <varname>DHCPServer=</varname> option described above:</para>
@@ -4127,52 +4301,6 @@ ServerAddress=192.168.0.1/24</programlisting>
           <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
-      <varlistentry>
-        <term><varname>BindToInterface=</varname></term>
-        <listitem>
-          <para>Takes a boolean value. When <literal>yes</literal>, DHCP server socket will be bound
-          to its network interface and all socket communication will be restricted to this interface.
-          Defaults to <literal>yes</literal>, except if <varname>RelayTarget=</varname> is used (see below),
-          in which case it defaults to <literal>no</literal>.</para>
-
-        <xi:include href="version-info.xml" xpointer="v249"/>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><varname>RelayTarget=</varname></term>
-        <listitem>
-          <para>Takes an IPv4 address, which must be in the format described in
-          <citerefentry project='man-pages'><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-          Turns this DHCP server into a DHCP relay agent. See <ulink url="https://tools.ietf.org/html/rfc1542">RFC 1542</ulink>.
-          The address is the address of DHCP server or another relay agent to forward DHCP messages to and from.</para>
-
-          <xi:include href="version-info.xml" xpointer="v249"/>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><varname>RelayAgentCircuitId=</varname></term>
-        <listitem>
-          <para>Specifies value for Agent Circuit ID suboption of Relay Agent Information option.
-          Takes a string, which must be in the format <literal>string:<replaceable>value</replaceable></literal>,
-          where <literal><replaceable>value</replaceable></literal> should be replaced with the value of the suboption.
-          Defaults to unset (means no Agent Circuit ID suboption is generated).
-          Ignored if <varname>RelayTarget=</varname> is not specified.</para>
-
-          <xi:include href="version-info.xml" xpointer="v249"/>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><varname>RelayAgentRemoteId=</varname></term>
-        <listitem>
-          <para>Specifies value for Agent Remote ID suboption of Relay Agent Information option.
-          Takes a string, which must be in the format <literal>string:<replaceable>value</replaceable></literal>,
-          where <literal><replaceable>value</replaceable></literal> should be replaced with the value of the suboption.
-          Defaults to unset (means no Agent Remote ID suboption is generated).
-          Ignored if <varname>RelayTarget=</varname> is not specified.</para>
-
-          <xi:include href="version-info.xml" xpointer="v249"/>
-        </listitem>
-      </varlistentry>
 
       <varlistentry>
         <term><varname>RapidCommit=</varname></term>
@@ -4203,9 +4331,6 @@ ServerAddress=192.168.0.1/24</programlisting>
           When unspecified, the value specified in the same setting in
           <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
           which defaults to <literal>yes</literal>, will be used.</para>
-
-          <para>When <varname>RelayTarget=</varname> is specified, this setting will be ignored and no leases
-          will be saved, as there will be no bound lease on the server.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
@@ -6445,12 +6570,12 @@ ServerAddress=192.168.0.1/24</programlisting>
   </refsect1>
 
   <refsect1>
-    <title>[ModemManager] Section Options</title>
+    <title>[MobileNetwork] Section Options</title>
 
     <para>This section configures the default setting of the ModemManager integration. See
     <ulink url="https://modemmanager.org/docs/modemmanager/" /> for more information about ModemManager.</para>
 
-    <para>Regardless of the [ModemManager] section settings consider using the following for LTE modems (take into account
+    <para>Regardless of the [MobileNetwork] section settings consider using the following for LTE modems (take into account
     that LTE modems do not typically support LLDP because LLDP is a Layer 2 protocol for Ethernet networks and an LTE
     modem connects to a cellular network, not a local Ethernet LAN):
       <programlisting>[Network]
@@ -6460,75 +6585,89 @@ IPv6AcceptRA=no
       </programlisting>
     </para>
 
-    <para>The following options are available in the [ModemManager] section:</para>
+    <para>The following options are available in the [MobileNetwork] section:</para>
     <variablelist class='network-directives'>
       <varlistentry>
-        <term><varname>SimpleConnectProperties=</varname></term>
+        <term><varname>APN=</varname></term>
         <listitem>
-          <para>Specifies the white-space separated list of simple connect properties used to connect a modem. See
-          <ulink url="https://www.freedesktop.org/software/ModemManager/man/latest/mmcli.1.html" /> for more
-          information about simple connect. If no properties provided then the connection is not initiated.</para>
+          <para>An Access Point Name (APN) is the name of a gateway between a mobile network
+          (GSM, GPRS, 3G, 4G and 5G) and another computer network. Required in 3GPP.
+          Defaults to unset and no attempt to establish the connection is made.</para>
 
-          <varlistentry>
-            <term><option>apn</option>=<replaceable>NAME</replaceable></term>
-            <listitem><para>An Access Point Name (APN) is the name of a gateway between a mobile network
-            (GSM, GPRS, 3G, 4G and 5G) and another computer network. Required in 3GPP.</para>
+          <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
 
-            <xi:include href="version-info.xml" xpointer="v260"/></listitem>
-          </varlistentry>
+      <varlistentry>
+        <term><varname>AllowedAuthenticationMechanisms=</varname></term>
+        <listitem>
+          <para>Authentication method to use. Specifies the white-space separated list of
+          <literal>none</literal>, <literal>pap</literal>, <literal>chap</literal>,
+          <literal>mschap</literal>, <literal>mschapv2</literal>, or <literal>eap</literal>
+          methods. Optional in 3GPP. Defaults to unset and an automatically picked
+          authentication method will be used.</para>
 
-          <varlistentry>
-            <term><option>allowed-auth</option>=<replaceable>METHOD</replaceable></term>
-            <listitem><para>Authentication method to use. Takes one of "none", "pap", "chap", "mschap", "mschapv2" or "eap".
-            Optional in 3GPP.</para>
+          <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
 
-            <xi:include href="version-info.xml" xpointer="v260"/></listitem>
-          </varlistentry>
+      <varlistentry>
+        <term><varname>User=</varname></term>
+        <listitem>
+          <para>User name (if any) required by the network. Optional in 3GPP.
+          Defaults to unset.</para>
 
-          <varlistentry>
-            <term><option>user</option>=<replaceable>NAME</replaceable></term>
-            <listitem><para>User name (if any) required by the network. Optional in 3GPP.</para>
+          <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
 
-            <xi:include href="version-info.xml" xpointer="v260"/></listitem>
-          </varlistentry>
+      <varlistentry>
+        <term><varname>Password=</varname></term>
+        <listitem>
+          <para>Password (if any) required by the network. Optional in 3GPP.
+          Defaults to unset.</para>
 
-          <varlistentry>
-            <term><option>password</option>=<replaceable>PASSWORD</replaceable></term>
-            <listitem><para>Password (if any) required by the network. Optional in 3GPP.</para>
+          <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
 
-            <xi:include href="version-info.xml" xpointer="v260"/></listitem>
-          </varlistentry>
+      <varlistentry>
+        <term><varname>IPFamily=</varname></term>
+        <listitem>
+          <para>Addressing type. Takes one of <literal>ipv4</literal>, <literal>ipv6</literal>,
+          <literal>both</literal>, or <literal>any</literal>. Optional in 3GPP and CDMA.
+          Defaults to unset and automatically selected.</para>
 
-          <varlistentry>
-            <term><option>ip-type</option>=<replaceable>TYPE</replaceable></term>
-            <listitem><para>Addressing type. Takes one of "none", "ipv4", "ipv6", "ipv4v6" or "any".
-            Optional in 3GPP and CDMA.</para>
+          <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
 
-            <xi:include href="version-info.xml" xpointer="v260"/></listitem>
-          </varlistentry>
+      <varlistentry>
+        <term><varname>AllowRoaming=</varname></term>
+        <listitem>
+          <para>A boolean. When true, connection is allowed during roaming. When false,
+          connection is not allowed during roaming.
+          Optional in 3GPP. Defaults to <literal>yes</literal>.</para>
 
-          <varlistentry>
-            <term><option>allow-roaming</option>=<replaceable>BOOL</replaceable></term>
-            <listitem><para>A boolean. When true, connection is allowed during roaming. When false,
-            connection is not allowed during roaming. Optional in 3GPP.</para>
+          <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
 
-            <xi:include href="version-info.xml" xpointer="v260"/></listitem>
-          </varlistentry>
+      <varlistentry>
+        <term><varname>PIN=</varname></term>
+        <listitem>
+          <para>SIM-PIN unlock code. Defaults to unset.</para>
 
-          <varlistentry>
-            <term><option>pin</option>=<replaceable>PIN</replaceable></term>
-            <listitem><para>SIM-PIN unlock code.</para>
+          <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
 
-            <xi:include href="version-info.xml" xpointer="v260"/></listitem>
-          </varlistentry>
+      <varlistentry>
+        <term><varname>OperatorId=</varname></term>
+        <listitem>
+          <para>ETSI MCC-MNC of a network to force registration. Defaults to unset.</para>
 
-          <varlistentry>
-            <term><option>operator-id</option>=<replaceable>ID</replaceable></term>
-            <listitem><para>ETSI MCC-MNC of a network to force registration.</para>
-
-            <xi:include href="version-info.xml" xpointer="v260"/></listitem>
-          </varlistentry>
-
+          <xi:include href="version-info.xml" xpointer="v260"/>
         </listitem>
       </varlistentry>
 
@@ -6896,14 +7035,23 @@ LLDP=no
 LinkLocalAddressing=no
 IPv6AcceptRA=no
 
-[ModemManager]
-SimpleConnectProperties=apn=internet pin=1111
+[MobileNetwork]
+APN=internet
+AllowedAuthenticationMechanisms=none pap chap
+User=user
+Password=pass
+IPFamily=both
+AllowRoaming=no
+PIN=1111
+OperatorId=25503
 RouteMetric=30
 UseGateway=yes</programlisting>
 
       <para>This connects a cellular modem to a broadband network matched with the network interface <literal>wwan0</literal>,
-      with APN name <literal>internet</literal>, SIM card pin unlock code <literal>1111</literal> and sets up a default
-      gateway with route metric of 30.
+      with APN name <literal>internet</literal>, allowed authentication <literal>none</literal>, <literal>pcap</literal>, or
+      <literal>chap</literal>, user name <literal>user</literal>, their password <literal>pass</literal>, allows both IPv4 and IPv6,
+      does not allow roaming, SIM card pin unlock code <literal>1111</literal>, only allows connecting to operator with
+      MCC <literal>25503</literal>, and sets up a default gateway with route metric of 30.
       </para>
     </example>
   </refsect1>

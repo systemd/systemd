@@ -52,6 +52,7 @@ enum JobType {
 typedef enum JobState {
         JOB_WAITING,
         JOB_RUNNING,
+        JOB_FINISHED,
         _JOB_STATE_MAX,
         _JOB_STATE_INVALID = -EINVAL,
 } JobState;
@@ -106,7 +107,6 @@ typedef struct Job {
 
         JobType type;
         JobState state;
-
         JobResult result;
 
         unsigned run_queue_idx;
@@ -125,6 +125,9 @@ typedef struct Job {
         sd_bus_track *bus_track;
         char **deserialized_clients;
 
+        /* If non-NULL, a varlink connection streaming updates. */
+        sd_varlink *varlink;
+
         /* If the job had a specific trigger that needs to be advertised (eg: a path unit), store it. */
         ActivationDetails *activation_details;
 
@@ -142,6 +145,8 @@ typedef struct Job {
         bool ref_by_private_bus:1;
 
         bool in_gc_queue:1;
+
+        bool varlink_notify_job_changes:1;
 } Job;
 
 Job* job_new(Unit *unit, JobType type);

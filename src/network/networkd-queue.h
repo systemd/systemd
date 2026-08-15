@@ -13,12 +13,13 @@ typedef enum RequestType {
         REQUEST_TYPE_ADDRESS_LABEL,
         REQUEST_TYPE_BRIDGE_FDB,
         REQUEST_TYPE_BRIDGE_MDB,
+        REQUEST_TYPE_DHCP_RELAY,
         REQUEST_TYPE_DHCP_SERVER,
         REQUEST_TYPE_DHCP4_CLIENT,
         REQUEST_TYPE_DHCP6_CLIENT,
-        REQUEST_TYPE_IPV6_PROXY_NDP,
         REQUEST_TYPE_NDISC,
         REQUEST_TYPE_NEIGHBOR,
+        REQUEST_TYPE_NEIGHBOR_PROXY,
         REQUEST_TYPE_NETDEV_INDEPENDENT,
         REQUEST_TYPE_NETDEV_STACKED,
         REQUEST_TYPE_NEXTHOP,
@@ -79,6 +80,7 @@ typedef struct Request {
          * request, and pass this request to the netlink_call_async(), and set the destroy function
          * to the slot. */
         request_netlink_handler_t netlink_handler;
+        sd_netlink_slot *netlink_slot;
 
         bool waiting_reply;
 } Request;

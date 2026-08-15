@@ -2,23 +2,15 @@
 
 #include "efi-efivars.h"
 #include "efi-log.h"
-#include "memory-util-fundamental.h"
+#include "memory-util.h"
 #include "proto/rng.h"
 #include "random-seed.h"
 #include "secure-boot.h"
-#include "sha256-fundamental.h"
+#include "sha256.h"
 #include "util.h"
 
 #define RANDOM_MAX_SIZE_MIN (32U)
 #define RANDOM_MAX_SIZE_MAX (32U*1024U)
-
-struct linux_efi_random_seed {
-        uint32_t size;
-        uint8_t seed[];
-};
-
-#define LINUX_EFI_RANDOM_SEED_TABLE_GUID \
-        { 0x1ce1e5bc, 0x7ceb, 0x42f2, { 0x81, 0xe5, 0x8a, 0xad, 0xf1, 0x80, 0xf5, 0x7b } }
 
 /* SHA256 gives us 256/8=32 bytes */
 #define HASH_VALUE_SIZE 32
@@ -28,6 +20,8 @@ struct linux_efi_random_seed {
 
 /* Some basic domain separation in case somebody uses this data elsewhere */
 #define HASH_LABEL "systemd-boot random seed label v1"
+
+#define RANDOM_SEED_PATH u"\\loader\\random-seed"
 
 static EFI_STATUS acquire_rng(void *ret, size_t size) {
         EFI_RNG_PROTOCOL *rng;
@@ -117,6 +111,31 @@ static void validate_sha256(void) {
 #endif
 }
 
+static bool random_seed_file_read_only(EFI_FILE *root_dir) {
+        _cleanup_file_close_ EFI_FILE *handle = NULL;
+        _cleanup_free_ EFI_FILE_INFO *info = NULL;
+        EFI_STATUS err;
+
+        assert(root_dir);
+
+        /* Checks whether the random seed file exists and has the read-only file attribute set. */
+
+        err = root_dir->Open(root_dir, &handle, (char16_t *) RANDOM_SEED_PATH, EFI_FILE_MODE_READ, 0);
+        if (err != EFI_SUCCESS) {
+                if (err != EFI_NOT_FOUND)
+                        log_debug_status(err, "Failed to open random seed file for reading, ignoring: %m");
+                return false;
+        }
+
+        err = get_file_info(handle, &info, /* ret_size= */ NULL);
+        if (err != EFI_SUCCESS) {
+                log_debug_status(err, "Failed to get file info of random seed file, ignoring: %m");
+                return false;
+        }
+
+        return FLAGS_SET(info->Attribute, EFI_FILE_READ_ONLY);
+}
+
 EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
         uint8_t random_bytes[DESIRED_SEED_SIZE], hash_key[HASH_VALUE_SIZE];
         _cleanup_free_ struct linux_efi_random_seed *new_seed_table = NULL;
@@ -139,6 +158,24 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
         assert_cc(DESIRED_SEED_SIZE == HASH_VALUE_SIZE);
 
         validate_sha256();
+
+        /* If the volume is read-only we cannot update the random seed, but if we cannot update it, then we
+         * really don't want to use it since it would be the same on every boot. */
+        bool volume_ro;
+        err = get_volume_ro(root_dir, &volume_ro);
+        if (err != EFI_SUCCESS)
+                log_debug_status(err, "Failed to determine if volume is read-only, assuming not: %m");
+        else if (volume_ro) {
+                log_debug("Volume is read-only, not updating random seed.");
+                return EFI_SUCCESS;
+        }
+
+        /* Similarly, if the random seed file is marked read-only, take this as a hint that the seed shall
+         * not be updated — and hence not be used either, since a seed we cannot update would be the same on
+         * every boot. This provides a way to explicitly turn off random seed handling, for example for
+         * pre-built OS images replicated to many systems. */
+        if (random_seed_file_read_only(root_dir))
+                goto read_only;
 
         /* hash = LABEL || sizeof(input1) || input1 || ... || sizeof(inputN) || inputN */
         sha256_init_ctx(&hash);
@@ -193,46 +230,97 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
                 explicit_bzero_safe(system_token, size);
         }
 
+        bool created = false;
         err = root_dir->Open(
                         root_dir,
                         &handle,
-                        (char16_t *) u"\\loader\\random-seed",
+                        (char16_t *) RANDOM_SEED_PATH,
                         EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE,
                         0);
-        if (err != EFI_SUCCESS) {
-                if (!IN_SET(err, EFI_NOT_FOUND, EFI_WRITE_PROTECTED))
-                        log_error_status(err, "Failed to open random seed file: %m");
-                return err;
+        if (err == EFI_NOT_FOUND && seeded_by_efi) {
+
+                /* If the file does not exist, but we are reasonably well seeded, create the seed
+                 * file. Get a handle to the \loader\ directory — open it read-only if it already
+                 * exists, or create it (requiring write access) only when it is missing (e.g. on
+                 * systems using UKI+EFISTUB without systemd-boot installed). We avoid requesting
+                 * write access on an already-present directory because some firmware
+                 * implementations refuse it, which would abort seed creation unnecessarily. */
+                _cleanup_file_close_ EFI_FILE *dir_handle = NULL;
+                err = root_dir->Open(
+                                root_dir,
+                                &dir_handle,
+                                (char16_t *) u"\\loader",
+                                EFI_FILE_MODE_READ,
+                                0);
+                if (err == EFI_NOT_FOUND)
+                        err = root_dir->Open(
+                                        root_dir,
+                                        &dir_handle,
+                                        (char16_t *) u"\\loader",
+                                        EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE | EFI_FILE_MODE_CREATE,
+                                        EFI_FILE_DIRECTORY);
+                if (err != EFI_SUCCESS)
+                        return log_full(err,
+                                        EFI_STATUS_IS_WRITE_REFUSED(err) ? LOG_DEBUG : LOG_ERR,
+                                        "Failed to open or create loader directory: %m");
+
+                err = dir_handle->Open(
+                                dir_handle,
+                                &handle,
+                                (char16_t *) u"random-seed",
+                                EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE | EFI_FILE_MODE_CREATE,
+                                0);
+                if (err != EFI_SUCCESS)
+                        return log_full(err,
+                                        EFI_STATUS_IS_WRITE_REFUSED(err) ? LOG_DEBUG : LOG_ERR,
+                                        "Failed to open random seed file: %m");
+                created = true;
+
+        } else if (err != EFI_SUCCESS)
+                return log_full(err,
+                                err == EFI_NOT_FOUND || EFI_STATUS_IS_WRITE_REFUSED(err) ? LOG_DEBUG : LOG_ERR,
+                                "Failed to open random seed file: %m");
+
+        if (!created) {
+                err = get_file_info(handle, &info, /* ret_size= */ NULL);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Failed to get file info for random seed: %m");
+
+                if (FLAGS_SET(info->Attribute, EFI_FILE_READ_ONLY))
+                        goto read_only;
+
+                /* Treat a short file just like a freshly created one for robustness reasons: consider a case
+                 * where in a previous run a file was just created and the system was then powered off. In
+                 * such a case the file will already exist, but be too short. */
+                created = info->FileSize < RANDOM_MAX_SIZE_MIN;
         }
 
-        err = get_file_info(handle, &info, NULL);
-        if (err != EFI_SUCCESS)
-                return log_error_status(err, "Failed to get file info for random seed: %m");
+        if (created) {
+                size = 0;
+                sha256_process_bytes(&size, sizeof(size), &hash);
+        } else {
+                size = info->FileSize;
+                if (size > RANDOM_MAX_SIZE_MAX)
+                        return log_error_status(EFI_INVALID_PARAMETER, "Random seed file is too large.");
 
-        size = info->FileSize;
-        if (size < RANDOM_MAX_SIZE_MIN)
-                return log_error_status(EFI_INVALID_PARAMETER, "Random seed file is too short.");
+                seed = xmalloc(size);
+                rsize = size;
+                err = handle->Read(handle, &rsize, seed);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Failed to read random seed file: %m");
+                if (rsize != size) {
+                        explicit_bzero_safe(seed, rsize);
+                        return log_error_status(EFI_PROTOCOL_ERROR, "Short read on random seed file.");
+                }
 
-        if (size > RANDOM_MAX_SIZE_MAX)
-                return log_error_status(EFI_INVALID_PARAMETER, "Random seed file is too large.");
+                sha256_process_bytes(&size, sizeof(size), &hash);
+                sha256_process_bytes(seed, size, &hash);
+                explicit_bzero_safe(seed, size);
 
-        seed = xmalloc(size);
-        rsize = size;
-        err = handle->Read(handle, &rsize, seed);
-        if (err != EFI_SUCCESS)
-                return log_error_status(err, "Failed to read random seed file: %m");
-        if (rsize != size) {
-                explicit_bzero_safe(seed, rsize);
-                return log_error_status(EFI_PROTOCOL_ERROR, "Short read on random seed file.");
+                err = handle->SetPosition(handle, 0);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Failed to seek to beginning of random seed file: %m");
         }
-
-        sha256_process_bytes(&size, sizeof(size), &hash);
-        sha256_process_bytes(seed, size, &hash);
-        explicit_bzero_safe(seed, size);
-
-        err = handle->SetPosition(handle, 0);
-        if (err != EFI_SUCCESS)
-                return log_error_status(err, "Failed to seek to beginning of random seed file: %m");
 
         /* Let's also include the UEFI monotonic counter (which is supposedly increasing on every single
          * boot) in the hash, so that even if the changes to the ESP for some reason should not be
@@ -261,19 +349,23 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
 
         size = sizeof(random_bytes);
         /* If the file size is too large, zero out the remaining bytes on disk. */
-        if (size < info->FileSize) {
+        if (!created && size < info->FileSize) {
                 err = handle->SetPosition(handle, size);
                 if (err != EFI_SUCCESS)
                         return log_error_status(err, "Failed to seek to offset of random seed file: %m");
                 wsize = info->FileSize - size;
                 err = handle->Write(handle, &wsize, seed /* All zeros now */);
                 if (err != EFI_SUCCESS)
-                        return log_error_status(err, "Failed to write random seed file: %m");
+                        return log_full(err,
+                                        EFI_STATUS_IS_WRITE_REFUSED(err) ? LOG_DEBUG : LOG_ERR,
+                                        "Failed to write random seed file: %m");
                 if (wsize != info->FileSize - size)
                         return log_error_status(EFI_PROTOCOL_ERROR, "Short write on random seed file.");
                 err = handle->Flush(handle);
                 if (err != EFI_SUCCESS)
-                        return log_error_status(err, "Failed to flush random seed file: %m");
+                        return log_full(err,
+                                        EFI_STATUS_IS_WRITE_REFUSED(err) ? LOG_DEBUG : LOG_ERR,
+                                        "Failed to flush random seed file: %m");
                 err = handle->SetPosition(handle, 0);
                 if (err != EFI_SUCCESS)
                         return log_error_status(err, "Failed to seek to beginning of random seed file: %m");
@@ -289,16 +381,21 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
                  * flimsy. So instead we rely on userspace eventually truncating this when it writes a new
                  * seed. For now the best we do is zero it. */
         }
+
         /* Update the random seed on disk before we use it */
         wsize = size;
         err = handle->Write(handle, &wsize, random_bytes);
         if (err != EFI_SUCCESS)
-                return log_error_status(err, "Failed to write random seed file: %m");
+                return log_full(err,
+                                EFI_STATUS_IS_WRITE_REFUSED(err) ? LOG_DEBUG : LOG_ERR,
+                                "Failed to write random seed file: %m");
         if (wsize != size)
                 return log_error_status(EFI_PROTOCOL_ERROR, "Short write on random seed file.");
         err = handle->Flush(handle);
         if (err != EFI_SUCCESS)
-                return log_error_status(err, "Failed to flush random seed file: %m");
+                return log_full(err,
+                                EFI_STATUS_IS_WRITE_REFUSED(err) ? LOG_DEBUG : LOG_ERR,
+                                "Failed to flush random seed file: %m");
 
         err = BS->AllocatePool(EfiACPIReclaimMemory,
                                offsetof(struct linux_efi_random_seed, seed) + DESIRED_SEED_SIZE,
@@ -326,5 +423,9 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
                 free(previous_seed_table);
         }
 
+        return EFI_SUCCESS;
+
+read_only:
+        log_debug("Random seed file is read-only, not updating random seed.");
         return EFI_SUCCESS;
 }

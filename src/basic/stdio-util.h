@@ -4,7 +4,7 @@
 #include <printf.h>
 #include <stdio.h>
 
-#include "basic-forward.h"
+#include "forward.h"
 
 _printf_(3, 4)
 static inline char* snprintf_ok(char *buf, size_t len, const char *format, ...) {
@@ -20,6 +20,8 @@ static inline char* snprintf_ok(char *buf, size_t len, const char *format, ...) 
 
 #define xsprintf(buf, fmt, ...) \
         assert_message_se(snprintf_ok(buf, ELEMENTSOF(buf), fmt, ##__VA_ARGS__), "xsprintf: buffer too small")
+
+char* asprintf_safe(const char *restrict fmt, ...) _printf_(1, 2);
 
 #define VA_FORMAT_ADVANCE(format, ap)                                   \
 do {                                                                    \

@@ -34,7 +34,7 @@ static int dump_malloc_info(sd_bus *bus, char *service) {
         return bus_message_dump_fd(reply);
 }
 
-int verb_malloc(int argc, char *argv[], void *userdata) {
+int verb_malloc(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         char **services = STRV_MAKE("org.freedesktop.systemd1");
         int r;

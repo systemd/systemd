@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "alloc-util.h"
 #include "gpt.h"
 #include "string-table.h"
@@ -390,4 +392,87 @@ bool gpt_header_has_signature(const GptHeader *p) {
                 return false;
 
         return true;
+}
+
+ssize_t gpt_probe(
+                int fd,
+                GptHeader *ret_header,
+                void **ret_entries,
+                uint32_t *ret_n_entries,
+                uint32_t *ret_entry_size) {
+
+        assert(fd >= 0);
+
+        /* Disk images might be for 512B or for 4096 sector sizes, let's try to auto-detect that by searching
+         * for the GPT headers at the relevant byte offsets. */
+
+        assert_cc(sizeof(GptHeader) == 92);
+
+        /* We expect a sector size in the range 512…4096. The GPT header is located in the second
+         * sector. Hence it could be at byte 512 at the earliest, and at byte 4096 at the latest. And we must
+         * read with granularity of the largest sector size we care about. Which means 8K. */
+        uint8_t sectors[2 * 4096];
+
+        ssize_t n = pread(fd, sectors, sizeof(sectors), 0);
+        if (n < 0)
+                return -errno;
+        if ((size_t) n < sizeof(sectors))
+                return 0; /* too short */
+
+        /* Let's see if we find the GPT partition header with various expected sector sizes */
+        uint32_t found = 0;
+        for (uint32_t sz = 512; sz <= 4096; sz <<= 1) {
+                const GptHeader *p = (const GptHeader *) (sectors + sz);
+
+                if (!gpt_header_has_signature(p))
+                        continue;
+
+                if (found != 0)
+                        return -ENOTUNIQ;
+
+                found = sz;
+        }
+
+        if (found == 0)
+                return 0;
+
+        const GptHeader *h = (const GptHeader *) (sectors + found);
+
+        uint32_t entry_sz = le32toh(h->size_of_partition_entry);
+        uint32_t entry_count = le32toh(h->number_of_partition_entries);
+
+        if (ret_entries) {
+                uint64_t entry_lba = le64toh(h->partition_entry_lba);
+                if (entry_lba > (uint64_t) INT64_MAX / found)
+                        return -EBADMSG;
+
+                uint64_t entry_offset = entry_lba * found;
+
+                if (entry_sz < sizeof(GptPartitionEntry) || entry_count == 0 || entry_count > 1024)
+                        return -EBADMSG;
+                if (entry_sz > SIZE_MAX / entry_count)
+                        return -EBADMSG;
+
+                size_t entries_size = (size_t) entry_sz * entry_count;
+                _cleanup_free_ void *entries = malloc(entries_size);
+                if (!entries)
+                        return -ENOMEM;
+
+                n = pread(fd, entries, entries_size, entry_offset);
+                if (n < 0)
+                        return -errno;
+                if ((size_t) n < entries_size)
+                        return -EBADMSG;
+
+                *ret_entries = TAKE_PTR(entries);
+        }
+
+        if (ret_header)
+                *ret_header = *h;
+        if (ret_n_entries)
+                *ret_n_entries = entry_count;
+        if (ret_entry_size)
+                *ret_entry_size = entry_sz;
+
+        return found; /* sector size */
 }

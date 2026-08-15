@@ -178,6 +178,8 @@ void cgroup_context_init(CGroupContext *c) {
 
                 .tasks_max = CGROUP_TASKS_MAX_UNSET,
 
+                .cpuset_partition = _CPUSET_PARTITION_INVALID,
+
                 .moom_swap = MANAGED_OOM_AUTO,
                 .moom_mem_pressure = MANAGED_OOM_AUTO,
                 .moom_preference = MANAGED_OOM_PREFERENCE_NONE,
@@ -185,8 +187,11 @@ void cgroup_context_init(CGroupContext *c) {
                  * moom_mem_pressure_duration_usec is set to infinity. */
                 .moom_mem_pressure_duration_usec = USEC_INFINITY,
 
-                .memory_pressure_watch = _CGROUP_PRESSURE_WATCH_INVALID,
-                .memory_pressure_threshold_usec = USEC_INFINITY,
+                .pressure = {
+                        [PRESSURE_MEMORY] = { .watch = _CGROUP_PRESSURE_WATCH_INVALID, .threshold_usec = USEC_INFINITY },
+                        [PRESSURE_CPU]    = { .watch = _CGROUP_PRESSURE_WATCH_INVALID, .threshold_usec = USEC_INFINITY },
+                        [PRESSURE_IO]     = { .watch = _CGROUP_PRESSURE_WATCH_INVALID, .threshold_usec = USEC_INFINITY },
+                },
         };
 }
 
@@ -279,6 +284,8 @@ void cgroup_context_done(CGroupContext *c) {
 
         c->delegate_subgroup = mfree(c->delegate_subgroup);
 
+        c->moom_rules = strv_free(c->moom_rules);
+
         nft_set_context_clear(&c->nft_set_context);
 }
 
@@ -313,6 +320,8 @@ static int unit_compare_memory_limit(Unit *u, const char *property_name, uint64_
          * - ret_kernel_value will contain the actual value presented by the kernel. */
 
         assert(u);
+        assert(ret_unit_value);
+        assert(ret_kernel_value);
 
         /* The root slice doesn't have any controller files, so we can't compare anything. */
         if (unit_has_name(u, SPECIAL_ROOT_SLICE))
@@ -503,6 +512,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sStartupAllowedCPUs: %s\n"
                 "%sAllowedMemoryNodes: %s\n"
                 "%sStartupAllowedMemoryNodes: %s\n"
+                "%sCPUSetPartition: %s\n"
                 "%sIOWeight: %" PRIu64 "\n"
                 "%sStartupIOWeight: %" PRIu64 "\n"
                 "%sMemoryMin: %" PRIu64 "%s\n"
@@ -526,6 +536,8 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sManagedOOMMemoryPressureLimit: " PERMYRIAD_AS_PERCENT_FORMAT_STR "\n"
                 "%sManagedOOMPreference: %s\n"
                 "%sMemoryPressureWatch: %s\n"
+                "%sCPUPressureWatch: %s\n"
+                "%sIOPressureWatch: %s\n"
                 "%sCoredumpReceive: %s\n",
                 prefix, yes_no(c->io_accounting),
                 prefix, yes_no(c->memory_accounting),
@@ -539,6 +551,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, strempty(startup_cpuset_cpus),
                 prefix, strempty(cpuset_mems),
                 prefix, strempty(startup_cpuset_mems),
+                prefix, strna(cpuset_partition_to_string(c->cpuset_partition)),
                 prefix, c->io_weight,
                 prefix, c->startup_io_weight,
                 prefix, c->memory_min, format_cgroup_memory_limit_comparison(u, "MemoryMin", cda, sizeof(cda)),
@@ -561,7 +574,9 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, managed_oom_mode_to_string(c->moom_mem_pressure),
                 prefix, PERMYRIAD_AS_PERCENT_FORMAT_VAL(UINT32_SCALE_TO_PERMYRIAD(c->moom_mem_pressure_limit)),
                 prefix, managed_oom_preference_to_string(c->moom_preference),
-                prefix, cgroup_pressure_watch_to_string(c->memory_pressure_watch),
+                prefix, cgroup_pressure_watch_to_string(c->pressure[PRESSURE_MEMORY].watch),
+                prefix, cgroup_pressure_watch_to_string(c->pressure[PRESSURE_CPU].watch),
+                prefix, cgroup_pressure_watch_to_string(c->pressure[PRESSURE_IO].watch),
                 prefix, yes_no(c->coredump_receive));
 
         if (c->delegate_subgroup)
@@ -572,9 +587,17 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 fprintf(f, "%sBindNetworkInterface: %s\n",
                         prefix, c->bind_network_interface);
 
-        if (c->memory_pressure_threshold_usec != USEC_INFINITY)
+        if (c->pressure[PRESSURE_MEMORY].threshold_usec != USEC_INFINITY)
                 fprintf(f, "%sMemoryPressureThresholdSec: %s\n",
-                        prefix, FORMAT_TIMESPAN(c->memory_pressure_threshold_usec, 1));
+                        prefix, FORMAT_TIMESPAN(c->pressure[PRESSURE_MEMORY].threshold_usec, 1));
+
+        if (c->pressure[PRESSURE_CPU].threshold_usec != USEC_INFINITY)
+                fprintf(f, "%sCPUPressureThresholdSec: %s\n",
+                        prefix, FORMAT_TIMESPAN(c->pressure[PRESSURE_CPU].threshold_usec, 1));
+
+        if (c->pressure[PRESSURE_IO].threshold_usec != USEC_INFINITY)
+                fprintf(f, "%sIOPressureThresholdSec: %s\n",
+                        prefix, FORMAT_TIMESPAN(c->pressure[PRESSURE_IO].threshold_usec, 1));
 
         if (c->moom_mem_pressure_duration_usec != USEC_INFINITY)
                 fprintf(f, "%sManagedOOMMemoryPressureDurationSec: %s\n",
@@ -649,6 +672,9 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
         FOREACH_ARRAY(nft_set, c->nft_set_context.sets, c->nft_set_context.n_sets)
                 fprintf(f, "%sNFTSet: %s:%s:%s:%s\n", prefix, nft_set_source_to_string(nft_set->source),
                         nfproto_to_string(nft_set->nfproto), nft_set->table, nft_set->set);
+
+        STRV_FOREACH(rule, c->moom_rules)
+                fprintf(f, "%sOOMRules: %s\n", prefix, *rule);
 }
 
 void cgroup_context_dump_socket_bind_item(const CGroupSocketBindItem *item, FILE *f) {
@@ -1103,7 +1129,7 @@ static void cgroup_apply_cpu_quota(Unit *u, usec_t quota, usec_t period) {
         (void) set_attribute_and_warn(u, "cpu.max", buf);
 }
 
-static void cgroup_apply_cpuset(Unit *u, const CPUSet *cpus, const char *name) {
+static void cgroup_apply_cpuset(Unit *u, const char *name, const CPUSet *cpus) {
         _cleanup_free_ char *buf = NULL;
 
         buf = cpu_set_to_range_string(cpus);
@@ -1113,6 +1139,53 @@ static void cgroup_apply_cpuset(Unit *u, const CPUSet *cpus, const char *name) {
         }
 
         (void) set_attribute_and_warn(u, name, buf);
+}
+
+static int cgroup_cpuset_partition_invalid(const char *partition) {
+        _cleanup_free_ char *part_str = NULL, *invalid = NULL;
+        int r;
+
+        assert(partition);
+
+        /* An invalid line looks like <partition> invalid (<reason>) */
+        r = extract_many_words(&partition, /* separators= */ NULL, /* flags= */ 0, &part_str, &invalid);
+        if (r < 0)
+                return r;
+        if (r < 2)
+                return false;
+
+        return streq_ptr(invalid, "invalid");
+}
+
+static void cgroup_apply_cpuset_partition(Unit *u, const char *name, const char *partition) {
+        _cleanup_free_ char *buf = NULL;
+        CGroupRuntime *crt;
+        int r;
+
+        assert(u);
+        assert(name);
+        assert(partition);
+
+        if (set_attribute_and_warn(u, name, partition) < 0)
+                return;
+
+        /* We are writing and then reading back, crt is already checked while writing */
+        crt = ASSERT_PTR(unit_get_cgroup_runtime(u));
+
+        r = cg_get_attribute(crt->cgroup_path, name, &buf);
+        if (r < 0) {
+                log_unit_full_errno(u, LOG_LEVEL_CGROUP_WRITE(r), r, "Failed to read back '%s' attribute on '%s' as '%.*s': %m",
+                                    name, empty_to_root(crt->cgroup_path), (int) strcspn(partition, NEWLINE), partition);
+                return;
+        }
+
+        r = cgroup_cpuset_partition_invalid(buf);
+        if (r < 0)
+                log_unit_full_errno(u, LOG_LEVEL_CGROUP_WRITE(r), r, "Failed to read back '%s' attribute on '%s' as '%.*s': %m",
+                                    name, empty_to_root(crt->cgroup_path), (int) strcspn(partition, NEWLINE), partition);
+        else if (r)
+                log_unit_warning(u, "Failed to set '%s' attribute on '%s' to '%.*s': %s",
+                                 name, empty_to_root(crt->cgroup_path), (int) strcspn(partition, NEWLINE), partition, buf);
 }
 
 static bool cgroup_context_has_io_config(CGroupContext *c) {
@@ -1276,17 +1349,17 @@ static void unit_modify_nft_set(Unit *u, bool add) {
         if (!crt || crt->cgroup_id == 0)
                 return;
 
-        if (!u->manager->nfnl) {
-                r = sd_nfnl_socket_open(&u->manager->nfnl);
-                if (r < 0)
-                        return;
-        }
-
         CGroupContext *c = ASSERT_PTR(unit_get_cgroup_context(u));
 
         FOREACH_ARRAY(nft_set, c->nft_set_context.sets, c->nft_set_context.n_sets) {
                 if (nft_set->source != NFT_SET_SOURCE_CGROUP)
                         continue;
+
+                if (!u->manager->nfnl) {
+                        r = sd_nfnl_socket_open(&u->manager->nfnl);
+                        if (r < 0)
+                                return (void) log_once_errno(LOG_WARNING, r, "Failed to open NETLINK_NETFILTER socket, ignoring: %m");
+                }
 
                 uint64_t element = crt->cgroup_id;
 
@@ -1445,8 +1518,11 @@ static void cgroup_context_apply(
         }
 
         if ((apply_mask & CGROUP_MASK_CPUSET) && !is_local_root) {
-                cgroup_apply_cpuset(u, cgroup_context_allowed_cpus(c, state), "cpuset.cpus");
-                cgroup_apply_cpuset(u, cgroup_context_allowed_mems(c, state), "cpuset.mems");
+                cgroup_apply_cpuset(u, "cpuset.cpus", cgroup_context_allowed_cpus(c, state));
+                cgroup_apply_cpuset(u, "cpuset.mems", cgroup_context_allowed_mems(c, state));
+
+                if (c->cpuset_partition >= 0)
+                        cgroup_apply_cpuset_partition(u, "cpuset.cpus.partition", cpuset_partition_to_string(c->cpuset_partition));
         }
 
         /* The 'io' controller attributes are not exported on the host's root cgroup (being a pure cgroup v2
@@ -2105,22 +2181,24 @@ static int unit_update_cgroup(
         cgroup_context_apply(u, target_mask, state);
         cgroup_xattr_apply(u);
 
-        /* For most units we expect that memory monitoring is set up before the unit is started and we won't
-         * touch it after. For PID 1 this is different though, because we couldn't possibly do that given
-         * that PID 1 runs before init.scope is even set up. Hence, whenever init.scope is realized, let's
-         * try to open the memory pressure interface anew. */
+        /* For most units we expect that pressure monitoring is set up before the unit is started and we
+         * won't touch it after. For PID 1 this is different though, because we couldn't possibly do that
+         * given that PID 1 runs before init.scope is even set up. Hence, whenever init.scope is realized,
+         * let's try to open the pressure interfaces anew. */
         if (unit_has_name(u, SPECIAL_INIT_SCOPE))
-                (void) manager_setup_memory_pressure_event_source(u->manager);
+                for (PressureResource t = 0; t < _PRESSURE_RESOURCE_MAX; t++)
+                        (void) manager_setup_pressure_event_source(u->manager, t);
 
         return 0;
 }
 
-static int unit_attach_pid_to_cgroup_via_bus(Unit *u, pid_t pid, const char *suffix_path) {
+static int unit_attach_pid_to_cgroup_via_bus(Unit *u, const char *cgroup_path, pid_t pid) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        char *pp;
         int r;
 
         assert(u);
+        assert(cgroup_path);
+        assert(pid_is_valid(pid));
 
         if (MANAGER_IS_SYSTEM(u->manager))
                 return -EINVAL;
@@ -2128,17 +2206,12 @@ static int unit_attach_pid_to_cgroup_via_bus(Unit *u, pid_t pid, const char *suf
         if (!u->manager->system_bus)
                 return -EIO;
 
-        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-        if (!crt || !crt->cgroup_path)
-                return -EOWNERDEAD;
-
         /* Determine this unit's cgroup path relative to our cgroup root */
-        pp = path_startswith(crt->cgroup_path, u->manager->cgroup_root);
+        const char *pp = path_startswith_full(cgroup_path,
+                                              u->manager->cgroup_root,
+                                              PATH_STARTSWITH_RETURN_LEADING_SLASH|PATH_STARTSWITH_REFUSE_DOT_DOT);
         if (!pp)
                 return -EINVAL;
-
-        pp = strjoina("/", pp, suffix_path);
-        path_simplify(pp);
 
         r = bus_call_method(u->manager->system_bus,
                             bus_systemd_mgr,
@@ -2172,8 +2245,10 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
         CGroupRuntime *crt = ASSERT_PTR(unit_get_cgroup_runtime(u));
 
         if (isempty(suffix_path))
-                p = crt->cgroup_path;
+                p = empty_to_root(crt->cgroup_path);
         else {
+                assert(path_is_absolute(suffix_path));
+
                 joined = path_join(crt->cgroup_path, suffix_path);
                 if (!joined)
                         return -ENOMEM;
@@ -2189,7 +2264,7 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
                  * before we use it */
                 r = pidref_verify(pid);
                 if (r < 0) {
-                        log_unit_info_errno(u, r, "PID " PID_FMT " vanished before we could move it to target cgroup '%s', skipping: %m", pid->pid, empty_to_root(p));
+                        log_unit_info_errno(u, r, "PID " PID_FMT " vanished before we could move it to target cgroup '%s', skipping: %m", pid->pid, p);
                         continue;
                 }
 
@@ -2199,7 +2274,7 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
 
                         log_unit_full_errno(u, again ? LOG_DEBUG : LOG_INFO,  r,
                                             "Couldn't move process "PID_FMT" to%s requested cgroup '%s': %m",
-                                            pid->pid, again ? " directly" : "", empty_to_root(p));
+                                            pid->pid, again ? " directly" : "", p);
 
                         if (again) {
                                 int z;
@@ -2209,11 +2284,11 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
                                  * Since it's more privileged it might be able to move the process across the
                                  * leaves of a subtree whose top node is not owned by us. */
 
-                                z = unit_attach_pid_to_cgroup_via_bus(u, pid->pid, suffix_path);
+                                z = unit_attach_pid_to_cgroup_via_bus(u, p, pid->pid);
                                 if (z >= 0)
                                         goto success;
 
-                                log_unit_info_errno(u, z, "Couldn't move process "PID_FMT" to requested cgroup '%s' (directly or via the system bus): %m", pid->pid, empty_to_root(p));
+                                log_unit_info_errno(u, z, "Couldn't move process "PID_FMT" to requested cgroup '%s' (directly or via the system bus): %m", pid->pid, p);
                         }
 
                         RET_GATHER(ret, r);
@@ -2980,9 +3055,8 @@ int unit_check_oomd_kill(Unit *u) {
 }
 
 int unit_check_oom(Unit *u) {
-        _cleanup_free_ char *oom_kill = NULL;
         bool increased;
-        uint64_t c;
+        uint64_t c = 0;
         int r;
 
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
@@ -2997,31 +3071,23 @@ int unit_check_oom(Unit *u) {
          * back to reading oom_kill if we can't find the file or field. */
 
         if (ctx->memory_oom_group) {
-                r = cg_get_keyed_attribute(
+                r = cg_get_keyed_attribute_uint64(
                                 crt->cgroup_path,
                                 "memory.events.local",
-                                STRV_MAKE("oom_group_kill"),
-                                &oom_kill);
+                                "oom_group_kill",
+                                &c);
                 if (r < 0 && !IN_SET(r, -ENOENT, -ENXIO))
                         return log_unit_debug_errno(u, r, "Failed to read oom_group_kill field of memory.events.local cgroup attribute, ignoring: %m");
         }
 
-        if (isempty(oom_kill)) {
-                r = cg_get_keyed_attribute(
+        if (!ctx->memory_oom_group || r < 0) {
+                r = cg_get_keyed_attribute_uint64(
                                 crt->cgroup_path,
                                 "memory.events",
-                                STRV_MAKE("oom_kill"),
-                                &oom_kill);
+                                "oom_kill",
+                                &c);
                 if (r < 0 && !IN_SET(r, -ENOENT, -ENXIO))
                         return log_unit_debug_errno(u, r, "Failed to read oom_kill field of memory.events cgroup attribute: %m");
-        }
-
-        if (!oom_kill)
-                c = 0;
-        else {
-                r = safe_atou64(oom_kill, &c);
-                if (r < 0)
-                        return log_unit_debug_errno(u, r, "Failed to parse memory.events cgroup oom field: %m");
         }
 
         increased = c > crt->oom_kill_last;
@@ -3190,6 +3256,8 @@ static int on_cgroup_inotify_event(sd_event_source *s, int fd, uint32_t revents,
 static int cg_bpf_mask_supported(CGroupMask *ret) {
         CGroupMask mask = 0;
         int r;
+
+        assert(ret);
 
         /* BPF-based firewall, device access control, and pinned foreign prog */
         if (bpf_program_supported() > 0)
@@ -3567,14 +3635,9 @@ static int unit_get_cpu_usage_raw(const Unit *u, const CGroupRuntime *crt, nsec_
         if (unit_has_host_root_cgroup(u))
                 return procfs_cpu_get_usage(ret);
 
-        _cleanup_free_ char *val = NULL;
         uint64_t us;
 
-        r = cg_get_keyed_attribute(crt->cgroup_path, "cpu.stat", STRV_MAKE("usage_usec"), &val);
-        if (r < 0)
-                return r;
-
-        r = safe_atou64(val, &us);
+        r = cg_get_keyed_attribute_uint64(crt->cgroup_path, "cpu.stat", "usage_usec", &us);
         if (r < 0)
                 return r;
 
@@ -3982,6 +4045,29 @@ bool unit_cgroup_delegate(Unit *u) {
                 return false;
 
         return c->delegate;
+}
+
+void unit_cgroup_disable_all_controllers(Unit *u) {
+        int r;
+
+        assert(u);
+
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+        if (!crt || !crt->cgroup_path)
+                return;
+
+        if (!unit_cgroup_delegate(u))
+                return;
+
+        /* For delegated units, the previous payload may have enabled controllers (e.g. "pids") in
+         * cgroup.subtree_control. These persist after the service stops and turn the cgroup into an
+         * "internal node", causing clone3(CLONE_INTO_CGROUP) to fail with EBUSY. Clear them now, right
+         * before the new start, so that resource control is preserved for lingering processes as long as
+         * possible. Ignore errors — if sub-cgroups still have live processes the write will fail, but so
+         * will the upcoming spawn. */
+        r = cg_enable(u->manager->cgroup_supported, /* mask= */ 0, crt->cgroup_path, &crt->cgroup_enabled_mask);
+        if (r < 0)
+                log_unit_debug_errno(u, r, "Failed to disable controllers on cgroup %s, ignoring: %m", empty_to_root(crt->cgroup_path));
 }
 
 void manager_invalidate_startup_units(Manager *m) {
@@ -4554,6 +4640,14 @@ static const char* const cgroup_device_policy_table[_CGROUP_DEVICE_POLICY_MAX] =
 };
 
 DEFINE_STRING_TABLE_LOOKUP(cgroup_device_policy, CGroupDevicePolicy);
+
+static const char* const cpuset_partition_table[_CPUSET_PARTITION_MAX] = {
+        [CPUSET_PARTITION_MEMBER]   = "member",
+        [CPUSET_PARTITION_ROOT]     = "root",
+        [CPUSET_PARTITION_ISOLATED] = "isolated",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(cpuset_partition, CPUSetPartition);
 
 static const char* const cgroup_pressure_watch_table[_CGROUP_PRESSURE_WATCH_MAX] = {
         [CGROUP_PRESSURE_WATCH_NO]   = "no",

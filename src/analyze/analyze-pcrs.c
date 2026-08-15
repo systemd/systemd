@@ -96,13 +96,13 @@ static int add_pcr_to_table(Table *table, const char *alg, uint32_t pcr) {
         return 0;
 }
 
-int verb_pcrs(int argc, char *argv[], void *userdata) {
+int verb_pcrs(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
         const char *alg = NULL;
         int r;
 
-        if (!tpm2_is_fully_supported())
-                log_notice("System lacks full TPM2 support, not showing PCR state.");
+        if (!tpm2_is_mostly_supported())
+                log_notice("System lacks sufficient TPM2 support, not showing PCR state.");
         else {
                 r = get_pcr_alg(&alg);
                 if (r < 0)

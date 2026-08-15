@@ -23,7 +23,7 @@ int ipe_setup(void) {
         _cleanup_strv_free_ char **policies = NULL;
         int r;
 
-        /* Very quick smoke tests first: this is in the citical, sequential boot path, and in most cases it
+        /* Very quick smoke tests first: this is in the critical, sequential boot path, and in most cases it
          * is unlikely this will be configured, so do the fastest existence checks first and immediately
          * return if there's nothing to do. */
 

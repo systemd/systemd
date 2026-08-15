@@ -251,6 +251,24 @@ cgroupfs_supports_user_xattrs() {
     [[ "$(getfattr --name="$xattr" --absolute-names --only-values /sys/fs/cgroup)" -eq 254 ]]
 }
 
+socket_inode_supports_user_xattrs() {
+    local socket xattr
+
+    # The XAttr*= socket settings and "varlinkctl list-sockets" rely on extended
+    # attributes on socket inodes. This needs a sufficiently new kernel, but the
+    # kernel version alone is not a reliable indicator: some kernels that report
+    # >= 7.0 still reject user.* xattrs on socket inodes (with EPERM/EOPNOTSUPP).
+    # Hence probe for actual support, mirroring socket_xattr_supported() in the
+    # C code, by binding a throwaway socket and trying to tag it.
+    socket="$(mktemp -u /run/socket-xattr-probe.XXXXXX.sock)"
+    xattr="user.probe_$RANDOM"
+    # shellcheck disable=SC2064
+    trap "rm -f '$socket'" RETURN
+
+    python3 -c 'import socket, sys; socket.socket(socket.AF_UNIX).bind(sys.argv[1])' "$socket" || return 1
+    setfattr --name="$xattr" --value=1 "$socket" 2>/dev/null
+}
+
 tpm_has_pcr() {
     local algorithm="${1:?}"
     local pcr="${2:?}"
@@ -401,6 +419,18 @@ EOF
         echo MARKER=1 >"$initdir/usr/lib/systemd/system/other_file"
         mksquashfs "$initdir" /tmp/app1.raw -noappend
 
+        # Create a data-only extension image (no unit files) to test that
+        # ExtensionImages= is added to the drop-in even when the extension
+        # does not carry any units.
+        initdir="/var/tmp/app-data-only"
+        mkdir -p "$initdir/usr/lib/extension-release.d" "$initdir/opt"
+        (
+            echo "ID=_any"
+            echo "ARCHITECTURE=_any"
+        ) >"$initdir/usr/lib/extension-release.d/extension-release.app-data-only"
+        echo "MARKER_DATA_ONLY=1" >"$initdir/opt/data-file"
+        mksquashfs "$initdir" /tmp/app-data-only.raw -noappend
+
         initdir="/var/tmp/app-nodistro"
         mkdir -p "$initdir/usr/lib/extension-release.d" "$initdir/usr/lib/systemd/system"
         (
@@ -513,3 +543,36 @@ check_nss_module() (
 
     return 0
 )
+
+find_qemu_binary() {
+    # Mirrors find_qemu_binary() from src/vmspawn/vmspawn-util.c.
+    # Returns 0 if a usable QEMU binary exists, 1 otherwise.
+    for binary in qemu qemu-kvm; do
+        if command -v "$binary" >/dev/null 2>&1; then
+            return 0
+        fi
+    done
+
+    if test -x /usr/libexec/qemu-kvm; then
+        return 0
+    fi
+
+    local arch
+    case "$(uname -m)" in
+        x86_64)      arch=x86_64 ;;
+        i?86)        arch=i386 ;;
+        aarch64)     arch=aarch64 ;;
+        armv*l|arm*) arch=arm ;;
+        alpha)       arch=alpha ;;
+        loongarch64) arch=loongarch64 ;;
+        mips*)       arch=mips ;;
+        parisc*)     arch=hppa ;;
+        ppc64*|ppc*) arch=ppc ;;
+        riscv32)     arch=riscv32 ;;
+        riscv64)     arch=riscv64 ;;
+        s390x)       arch=s390x ;;
+        *)           return 1 ;;
+    esac
+
+    command -v "qemu-system-$arch" >/dev/null 2>&1
+}

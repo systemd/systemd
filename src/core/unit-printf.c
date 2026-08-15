@@ -50,6 +50,8 @@ static int specifier_last_component(char specifier, const void *data, const char
         char *dash;
         int r;
 
+        assert(ret);
+
         r = unit_name_to_prefix(u->id, &prefix);
         if (r < 0)
                 return r;

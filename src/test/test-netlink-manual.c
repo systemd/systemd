@@ -15,9 +15,9 @@ static int load_module(const char *mod_name) {
         struct kmod_list *l;
         int r;
 
-        r = dlopen_libkmod();
+        r = dlopen_libkmod(LOG_ERR);
         if (r < 0)
-                return log_error_errno(r, "Failed to load libkmod: %m");
+                return r;
 
         ctx = sym_kmod_new(NULL, NULL);
         if (!ctx)

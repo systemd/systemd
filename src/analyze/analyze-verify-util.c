@@ -157,8 +157,11 @@ int verify_set_unit_path(char **filenames) {
          * otherwise use the defaults. Any duplicates will be filtered out in path-lookup.c.
          * Treat explicit empty path to mean that nothing should be appended. */
         old = getenv("SYSTEMD_UNIT_PATH");
+        if (!path_is_valid_search_path(old))
+                return -EINVAL;
+
         if (!streq_ptr(old, "") &&
-            !strextend_with_separator(&joined, ":", strempty(old)))
+            !strextend_with_separator(&joined, ":", streq_ptr(old, ":") ? "" : strempty(old)))
                 return -ENOMEM;
 
         assert_se(setenv_unit_path(joined) >= 0);
@@ -268,6 +271,8 @@ static int verify_unit(Unit *u, bool check_man, const char *root) {
 }
 
 static void set_destroy_ignore_pointer_max(Set **s) {
+        assert(s);
+
         if (*s == POINTER_MAX)
                 return;
         set_free(*s);
@@ -313,7 +318,7 @@ int verify_units(
 
         log_debug("Starting manager...");
 
-        r = manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, root);
+        r = manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, root);
         if (r < 0)
                 return r;
 
@@ -333,7 +338,7 @@ int verify_units(
                         continue;
                 }
 
-                k = manager_load_startable_unit_or_warn(m, NULL, prepared, &units[count]);
+                k = manager_load_startable_unit_or_warn(m, /* name= */ NULL, prepared, LOG_ERR, &units[count]);
                 if (k < 0) {
                         RET_GATHER(r, k);
                         continue;

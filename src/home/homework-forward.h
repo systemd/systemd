@@ -3,9 +3,10 @@
 
 /* IWYU pragma: always_keep */
 
-#include "shared-forward.h" /* IWYU pragma: export */
+#include "forward.h" /* IWYU pragma: export */
 
 typedef enum HomeSetupFlags HomeSetupFlags;
 
 typedef struct PasswordCache PasswordCache;
 typedef struct HomeSetup HomeSetup;
+typedef struct FscryptV2KeyUndo FscryptV2KeyUndo;

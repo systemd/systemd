@@ -86,6 +86,7 @@ static int netdev_create_fou_tunnel_message(NetDev *netdev, sd_netlink_message *
 
         assert(netdev);
         assert(netdev->manager);
+        assert(ret);
 
         r = sd_genl_message_new(netdev->manager->genl, FOU_GENL_NAME, FOU_CMD_ADD, &m);
         if (r < 0)

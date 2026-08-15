@@ -406,8 +406,9 @@ int cg_kill_recursive(
         return ret;
 }
 
-int cg_kill_kernel_sigkill(const char *path) {
+int cg_kill_kernel_sigkill(const char *path, uint64_t *ret_n_pids_killed) {
         _cleanup_free_ char *killfile = NULL;
+        uint64_t n_pids = UINT64_MAX;
         int r;
 
         /* Kills the cgroup at `path` directly by writing to its cgroup.kill file.  This sends SIGKILL to all
@@ -422,9 +423,21 @@ int cg_kill_kernel_sigkill(const char *path) {
         if (r < 0)
                 return r;
 
+        if (ret_n_pids_killed) {
+                /* This is not and cannot be atomic so there is a chance the counter might not be accurate
+                 * if a process starts/stops between this read and the next write, but this is used for
+                 * informational purposes so that's ok. */
+                r = cg_get_attribute_as_uint64(path, "pids.current", &n_pids);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to read pids.current from cgroup '%s', ignoring: %m", path);
+        }
+
         r = write_string_file(killfile, "1", WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 return log_debug_errno(r, "Failed to write to cgroup.kill for cgroup '%s': %m", path);
+
+        if (ret_n_pids_killed)
+                *ret_n_pids_killed = n_pids;
 
         return 0;
 }
@@ -1256,6 +1269,8 @@ bool cg_needs_escape(const char *p) {
 int cg_escape(const char *p, char **ret) {
         _cleanup_free_ char *n = NULL;
 
+        assert(ret);
+
         /* This implements very minimal escaping for names to be used as file names in the cgroup tree: any
          * name which might conflict with a kernel name or is prefixed with '_' is prefixed with a '_'. That
          * way, when reading cgroup names it is sufficient to remove a single prefixing underscore if there
@@ -1560,6 +1575,24 @@ fail:
         return r;
 }
 
+int cg_get_keyed_attribute_uint64(const char *path, const char *attribute, const char *key, uint64_t *ret) {
+        _cleanup_free_ char *val = NULL;
+        int r;
+
+        assert(key);
+        assert(ret);
+
+        r = cg_get_keyed_attribute(path, attribute, STRV_MAKE(key), &val);
+        if (r < 0)
+                return r;
+
+        r = safe_atou64(val, ret);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse value '%s' of key '%s' in cgroup attribute '%s': %m", val, key, attribute);
+
+        return 0;
+}
+
 int cg_mask_to_string(CGroupMask mask, char **ret) {
         _cleanup_free_ char *s = NULL;
         bool space = false;
@@ -1633,6 +1666,8 @@ int cg_mask_from_string(const char *s, CGroupMask *ret) {
 int cg_mask_supported_subtree(const char *root, CGroupMask *ret) {
         CGroupMask mask;
         int r;
+
+        assert(ret);
 
         /* Determines the mask of supported cgroup controllers. Only includes controllers we can make sense of and that
          * are actually accessible. Only covers real controllers, i.e. not the CGROUP_CONTROLLER_BPF_xyz

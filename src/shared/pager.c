@@ -322,11 +322,10 @@ int show_man_page(const char *desc, bool null_stdio) {
         } else
                 args[1] = desc;
 
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork(
                         "(man)",
                         FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|(null_stdio ? FORK_REARRANGE_STDIO : 0)|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG|FORK_WAIT,
-                        &pidref);
+                        /* ret = */ NULL);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -336,5 +335,5 @@ int show_man_page(const char *desc, bool null_stdio) {
                 _exit(EXIT_FAILURE);
         }
 
-        return pidref_wait_for_terminate_and_check(NULL, &pidref, 0);
+        return 0;
 }

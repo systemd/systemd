@@ -17,7 +17,7 @@ udevadm_sources = files(
         'udevadm.c',
         'udevd.c',
 )
-udevadm_extract_sources = files(
+udevadm_export_sources = files(
         'net/link-config.c',
         'udev-builtin.c',
         'udev-builtin-btrfs.c',
@@ -32,13 +32,11 @@ udevadm_extract_sources = files(
         'udev-builtin-path_id.c',
         'udev-builtin-usb_id.c',
         'udev-config.c',
-        'udev-ctrl.c',
         'udev-dump.c',
         'udev-error.c',
         'udev-event.c',
         'udev-format.c',
         'udev-manager.c',
-        'udev-manager-ctrl.c',
         'udev-node.c',
         'udev-rules.c',
         'udev-spawn.c',
@@ -48,15 +46,19 @@ udevadm_extract_sources = files(
 )
 
 if conf.get('HAVE_KMOD') == 1
-        udevadm_extract_sources += files('udev-builtin-kmod.c')
+        udevadm_export_sources += files('udev-builtin-kmod.c')
 endif
 
 if conf.get('HAVE_BLKID') == 1
-        udevadm_extract_sources += files('udev-builtin-blkid.c')
+        udevadm_export_sources += files('udev-builtin-blkid.c')
 endif
 
 if conf.get('HAVE_ACL') == 1
-        udevadm_extract_sources += files('udev-builtin-uaccess.c')
+        udevadm_export_sources += files('udev-builtin-uaccess.c')
+endif
+
+if conf.get('HAVE_TPM2') == 1
+        udevadm_export_sources += files('udev-builtin-tpm2_id.c')
 endif
 
 ############################################################
@@ -97,19 +99,8 @@ link_config_gperf_c = custom_target(
         output : 'link-config-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
-udevadm_extract_sources += link_config_gperf_c
+udevadm_export_sources += link_config_gperf_c
 generated_sources += link_config_gperf_c
-
-############################################################
-
-if get_option('link-udev-shared')
-        udev_link_with = [libshared]
-        udev_rpath = pkglibdir
-else
-        udev_link_with = [libshared_static,
-                          libsystemd_static]
-        udev_rpath = ''
-endif
 
 ############################################################
 
@@ -118,23 +109,23 @@ udev_dependencies = [
         libblkid_cflags,
         libkmod_cflags,
         libmount_cflags,
-        threads,
+        libopenssl_cflags,
+        libselinux_cflags,
+        tpm2_cflags,
 ]
 
 udev_plugin_template = executable_template + {
         'public' : true,
-        'link_with' : udev_link_with,
-        'install_rpath' : udev_rpath,
+        'install' : get_option('link-udev-shared') ? 'yes' : 'static',
         'install_dir' : udevlibexecdir,
         'install_tag' : 'udev',
 }
 
 udev_common_template = {
-        'objects' : ['udevadm'],
+        'import' : ['udevadm'],
         'dependencies' : [
                 libacl_cflags,
                 libblkid_cflags,
-                threads,
         ],
 }
 udev_test_template = test_template + udev_common_template
@@ -146,14 +137,13 @@ udev_binaries_dict = [
                 'public' : true,
                 'sources' : udevadm_sources +
                             keyboard_keys_from_name_inc,
-                'extract' : udevadm_extract_sources,
+                'export' : udevadm_export_sources,
                 'include_directories' : [
-                        libexec_template['include_directories'],
                         include_directories('.', 'net'),
+                        libexec_template['include_directories'],
                 ],
                 'dependencies' : udev_dependencies,
-                'link_with' : udev_link_with,
-                'install_rpath' : udev_rpath,
+                'install' : get_option('link-udev-shared') ? 'yes' : 'static',
                 'install_tag' : 'udev',
         },
         udev_plugin_template + {
@@ -172,7 +162,7 @@ udev_binaries_dict = [
         udev_plugin_template + {
                 'name' : 'fido_id',
                 'sources' : files('fido_id/fido_id.c'),
-                'extract' : files('fido_id/fido_id_desc.c'),
+                'export' : files('fido_id/fido_id_desc.c'),
         },
         udev_plugin_template + {
                 'name' : 'iocost',
@@ -207,11 +197,11 @@ executables += udev_binaries_dict
 executables += [
         test_template + {
                 'sources' : files('fido_id/test-fido-id-desc.c'),
-                'objects' : ['fido_id'],
+                'import' : ['fido_id'],
                 'suite' : 'udev',
         },
         udev_test_template + {
-                'sources' : files('net/test-link-config-tables.c'),
+                'sources' : files('net/test-link.c'),
                 'suite' : 'udev',
         },
         udev_test_template + {
@@ -241,7 +231,7 @@ executables += [
         },
         fuzz_template + {
                 'sources' : files('fido_id/fuzz-fido-id-desc.c'),
-                'objects' : ['fido_id'],
+                'import' : ['fido_id'],
         },
         udev_fuzz_template + {
                 'sources' : files('net/fuzz-link-parser.c'),

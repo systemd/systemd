@@ -40,6 +40,7 @@ Match.Version,                             config_parse_net_condition,          
 Match.Credential,                          config_parse_net_condition,            CONDITION_CREDENTIAL,          offsetof(LinkConfig, conditions)
 Match.Architecture,                        config_parse_net_condition,            CONDITION_ARCHITECTURE,        offsetof(LinkConfig, conditions)
 Match.Firmware,                            config_parse_net_condition,            CONDITION_FIRMWARE,            offsetof(LinkConfig, conditions)
+Match.MachineTag,                          config_parse_net_condition,            CONDITION_MACHINE_TAG,         offsetof(LinkConfig, conditions)
 Link.Description,                          config_parse_string,                   0,                             offsetof(LinkConfig, description)
 /* udev property */
 Link.Property,                             config_parse_udev_property,            0,                             offsetof(LinkConfig, properties)
@@ -132,6 +133,10 @@ Link.TxMaxCoalescedHighFrames,             config_parse_coalesce_u32,           
 Link.CoalescePacketRateSampleIntervalSec,  config_parse_coalesce_sec,             0,                             offsetof(LinkConfig, coalesce.rate_sample_interval)
 /* Rx RPS CPU mask */
 Link.ReceivePacketSteeringCPUMask,         config_parse_rps_cpu_mask,             0,                             offsetof(LinkConfig, rps_cpu_mask)
+/* IRQ affinity settings */
+Link.IRQAffinityPolicy,                    config_parse_irq_affinity_policy,      0,                             offsetof(LinkConfig, irq_affinity_policy)
+Link.IRQAffinity,                          config_parse_cpu_set,                  0,                             offsetof(LinkConfig, irq_affinity_cpus)
+Link.IRQAffinityNUMA,                      config_parse_irq_affinity_numa,        0,                             offsetof(LinkConfig, irq_affinity_numa)
 /* SR-IOV settings */
 Link.SR-IOVVirtualFunctions,               config_parse_sr_iov_num_vfs,           0,                             offsetof(LinkConfig, sr_iov_num_vfs)
 SR-IOV.VirtualFunction,                    config_parse_sr_iov_uint32,            0,                             offsetof(LinkConfig, sr_iov_by_section)

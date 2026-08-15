@@ -1004,7 +1004,12 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
         assert(j);
         assert(f);
 
-        (void) journal_file_read_tail_timestamp(j, f);
+        /* Rate-limit tail timestamp refreshes during iteration. Calling this unconditionally is
+         * O(N x files) volatile mmap overhead that makes large 'journalctl -n N' queries unusably
+         * slow. Periodic refresh keeps cross-boot ordering reasonably fresh and provides a fallback
+         * for any missed inotify events. */
+        if (ratelimit_below(&f->tail_timestamp_ratelimit))
+                (void) journal_file_read_tail_timestamp(j, f);
 
         n_entries = le64toh(f->header->n_entries);
 
@@ -1122,7 +1127,7 @@ static int compare_locations(sd_journal *j, JournalFile *af, JournalFile *bf) {
 }
 
 static int real_journal_next(sd_journal *j, direction_t direction) {
-        JournalFile *new_file = NULL;
+        JournalFile *new_file = NULL, *exact_match = NULL;
         unsigned n_files;
         const void **files;
         Object *o;
@@ -1158,7 +1163,22 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
 
                 if (found)
                         new_file = f;
+
+                /* Track the file that holds the cursor's exact entry (matching seqnum_id and seqnum). On
+                 * systems without a reliable (or missing) RTC, compare_boot_ids() can produce incorrect
+                 * cross-boot ordering causing compare_locations() above to prefer a wrong file. We detect
+                 * this after the loop and override the choice if needed.
+                 *
+                 * See https://github.com/systemd/systemd/issues/31516 */
+                if (j->current_location.type == LOCATION_SEEK &&
+                    j->current_location.seqnum_set &&
+                    sd_id128_equal(f->header->seqnum_id, j->current_location.seqnum_id) &&
+                    f->current_seqnum == j->current_location.seqnum)
+                        exact_match = f;
         }
+
+        if (exact_match)
+                new_file = exact_match;
 
         if (!new_file)
                 return 0;
@@ -2456,7 +2476,6 @@ _public_ int sd_journal_open_files(sd_journal **ret, const char **paths, int fla
 
 _public_ int sd_journal_open_directory_fd(sd_journal **ret, int fd, int flags) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
-        struct stat st;
         bool take_fd;
         int r;
 
@@ -2464,11 +2483,9 @@ _public_ int sd_journal_open_directory_fd(sd_journal **ret, int fd, int flags) {
         assert_return(fd >= 0, -EBADF);
         assert_return((flags & ~OPEN_DIRECTORY_FD_ALLOWED_FLAGS) == 0, -EINVAL);
 
-        if (fstat(fd, &st) < 0)
-                return -errno;
-
-        if (!S_ISDIR(st.st_mode))
-                return -EBADFD;
+        r = fd_verify_directory(fd);
+        if (r < 0)
+                return r;
 
         take_fd = FLAGS_SET(flags, SD_JOURNAL_TAKE_DIRECTORY_FD);
         j = journal_new(flags & ~SD_JOURNAL_TAKE_DIRECTORY_FD, NULL, NULL);
@@ -2581,6 +2598,44 @@ _public_ void sd_journal_close(sd_journal *j) {
         free(j);
 }
 
+static int journal_file_entry_get_machine_id(JournalFile *f, Object *o, sd_id128_t *ret) {
+        assert(f);
+        assert(o);
+        assert(o->object.type == OBJECT_ENTRY);
+        assert(ret);
+
+        uint64_t n = journal_file_entry_n_items(f, o);
+        for (uint64_t i = 0; i < n; i++) {
+                uint64_t p;
+                void *d;
+                size_t l;
+                int r;
+
+                p = journal_file_entry_item_object_offset(f, o, i);
+                r = journal_file_data_payload(f, /* o= */ NULL, p, "_MACHINE_ID", STRLEN("_MACHINE_ID"),
+                                              SIZE_MAX, &d, &l);
+                if (r == 0)
+                        continue;
+                if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
+                        log_debug_errno(r, "Entry item %"PRIu64" data object is bad, skipping over it: %m", i);
+                        continue;
+                }
+                if (r < 0)
+                        return r;
+
+                if (l != STRLEN("_MACHINE_ID=") + SD_ID128_STRING_MAX - 1)
+                        return -EBADMSG;
+
+                /* The data payload is not null-terminated, copy the hex ID to a local buffer. */
+                char id_string[SD_ID128_STRING_MAX] = {};
+                memcpy(id_string, (const char*) d + STRLEN("_MACHINE_ID="), SD_ID128_STRING_MAX - 1);
+
+                return id128_from_string_nonzero(id_string, ret);
+        }
+
+        return -ENOENT;
+}
+
 static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
         uint64_t offset, mo, rt;
         sd_id128_t id;
@@ -2659,9 +2714,27 @@ static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
         if (mo > rt) /* monotonic clock is further ahead than realtime? that's weird, refuse to use the data */
                 return -ENODATA;
 
+        /* Try to get the machine ID from the tail entry's _MACHINE_ID= field rather than from the file
+         * header, as the header always reflects the machine that *wrote* the file, not necessarily the
+         * machine that *originated* the entries. This distinction matters for journal files created by
+         * systemd-journal-remote, which stamps all files with the receiving machine's ID while the entries
+         * inside carry the source machine's _MACHINE_ID=. Without this, compare_boot_ids() would
+         * incorrectly consider boot IDs from different source machines as comparable (since they'd all
+         * share the receiver's machine ID), leading to boot-grouped rather than realtime-interleaved
+         * iteration order when merging cross-machine journals.
+         *
+         * If we don't have an entry object (header-only fallback for archived files) or the entry lacks
+         * the _MACHINE_ID= field (older journals), fall back to the header's machine_id. */
+        sd_id128_t mid = f->header->machine_id;
+        if (o && o->object.type == OBJECT_ENTRY) {
+                r = journal_file_entry_get_machine_id(f, o, &mid);
+                if (r < 0 && r != -ENOENT)
+                        log_debug_errno(r, "Failed to read _MACHINE_ID from tail entry, using header value: %m");
+        }
+
         if (offset == f->newest_entry_offset) {
                 /* Cached data and the current one should be equivalent. */
-                if (!sd_id128_equal(f->newest_machine_id, f->header->machine_id) ||
+                if (!sd_id128_equal(f->newest_machine_id, mid) ||
                     !sd_id128_equal(f->newest_boot_id, id) ||
                     f->newest_monotonic_usec != mo ||
                     f->newest_realtime_usec != rt)
@@ -2676,7 +2749,7 @@ static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
         f->newest_boot_id = id;
         f->newest_monotonic_usec = mo;
         f->newest_realtime_usec = rt;
-        f->newest_machine_id = f->header->machine_id;
+        f->newest_machine_id = mid;
         f->newest_entry_offset = offset;
         f->newest_state = f->header->state;
 
@@ -2822,8 +2895,6 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
         assert_return(j, -EINVAL);
         assert_return(!journal_origin_changed(j), -ECHILD);
         assert_return(field, -EINVAL);
-        assert_return(ret_data, -EINVAL);
-        assert_return(ret_size, -EINVAL);
         assert_return(field_is_valid(field), -EINVAL);
 
         f = j->current_file;
@@ -2846,7 +2917,8 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
                 size_t l;
 
                 p = journal_file_entry_item_object_offset(f, o, i);
-                r = journal_file_data_payload(f, NULL, p, field, field_length, j->data_threshold, &d, &l);
+                r = journal_file_data_payload(f, NULL, p, field, field_length, j->data_threshold,
+                                              ret_data ? &d : NULL, ret_size ? &l : NULL);
                 if (r == 0)
                         continue;
                 if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
@@ -2856,8 +2928,10 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
                 if (r < 0)
                         return r;
 
-                *ret_data = d;
-                *ret_size = l;
+                if (ret_data)
+                        *ret_data = d;
+                if (ret_size)
+                        *ret_size = l;
 
                 return 0;
         }
@@ -3164,7 +3238,7 @@ _public_ int sd_journal_wait(sd_journal *j, uint64_t timeout_usec) {
                 if (r < 0)
                         return r;
 
-                /* Server might have done some vacuuming while we weren't watching. Get rid of the deleted
+                /* journald might have done some vacuuming while we weren't watching. Get rid of the deleted
                  * files now so they don't stay around indefinitely. */
                 ORDERED_HASHMAP_FOREACH(f, j->files) {
                         r = journal_file_fstat(f);

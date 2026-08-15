@@ -422,6 +422,17 @@ evdev:name:Atmel maXTouch Touch*:dmi:bvn*:bvr*:bd*:svnGOOGLE:pnSamus:*
  EVDEV_ABS_36=::10
 
 #########################################
+# Goodix
+#########################################
+
+# Goodix GXTP5100 Forcepad (Lenovo ThinkBook 16 G7+ IAH, ThinkPad X9 15 Gen 1)
+# The kernel hid-multitouch driver reports ABS_PRESSURE with min==max==0,
+# an invalid range that causes libinput to reject the device entirely.
+# Override ABS_PRESSURE (axis 0x18=24) to a valid range.
+evdev:input:b0018v27C6p01E9*
+ EVDEV_ABS_18=0:255:0:0
+
+#########################################
 # Granite Devices Simucube wheel bases
 #########################################
 
@@ -541,8 +552,29 @@ evdev:input:b0003v256Cp006B*
  EVDEV_ABS_36=::42
 
 #########################################
+# Infinix
+#########################################
+
+# Infinix Y3 Max YL-613
+evdev:name:SYNA3602:00 093A:35ED Touchpad:dmi:*svnInfinix:*pnY3Max**
+ EVDEV_ABS_00=::12
+ EVDEV_ABS_01=::12
+ EVDEV_ABS_35=::12
+ EVDEV_ABS_36=::12
+
+#########################################
 # Lenovo
 #########################################
+
+# Lenovo B570e
+# Fixes wrong touchpad edge-scroll area: without this override the
+# kernel reports wider ABS ranges, making edge scrolling trigger across the
+# right half of the touchpad.
+evdev:name:ETPS/2 Elantech Touchpad:dmi:*svnLENOVO*:pvrLenovoB570e:*
+ EVDEV_ABS_00=0:2934:29
+ EVDEV_ABS_01=-652:652:26
+ EVDEV_ABS_35=0:2934:29
+ EVDEV_ABS_36=-652:652:26
 
 # Lenovo B590
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pvrLenovoB590:*

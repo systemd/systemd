@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/ioctl.h>
-#include <sys/prctl.h>
+#include <sys/prctl.h> /* IWYU pragma: keep */
 #include <sys/reboot.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -18,15 +18,18 @@
 
 static int reset_environ(const char *new_environment, size_t length) {
         unsigned long start, end;
+        int r;
 
         start = (unsigned long) new_environment;
         end = start + length;
 
-        if (prctl(PR_SET_MM, PR_SET_MM_ENV_START, start, 0, 0) < 0)
-                return -errno;
+        r = prctl_safe(PR_SET_MM, PR_SET_MM_ENV_START, start, 0, 0);
+        if (r < 0)
+                return r;
 
-        if (prctl(PR_SET_MM, PR_SET_MM_ENV_END, end, 0, 0) < 0)
-                return -errno;
+        r = prctl_safe(PR_SET_MM, PR_SET_MM_ENV_END, end, 0, 0);
+        if (r < 0)
+                return r;
 
         return 0;
 }

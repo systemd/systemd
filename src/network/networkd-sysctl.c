@@ -5,7 +5,7 @@
 #include "sd-messages.h"
 
 #include "af-list.h"
-#include "bpf-dlopen.h"
+#include "bpf-util.h"
 #include "conf-parser.h"
 #include "alloc-util.h"
 #include "cgroup-util.h"
@@ -18,10 +18,10 @@
 #include "networkd-lldp-tx.h"
 #include "networkd-manager.h"
 #include "networkd-ndisc.h"
+#include "networkd-neighbor-proxy.h"
 #include "networkd-network.h"
 #include "networkd-sysctl.h"
 #include "path-util.h"
-#include "set.h"
 #include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -30,8 +30,8 @@
 #if ENABLE_SYSCTL_BPF
 
 #include "bpf-link.h"
-#include "bpf/sysctl-monitor/sysctl-monitor-skel.h"
-#include "bpf/sysctl-monitor/sysctl-write-event.h"
+#include "sysctl-monitor-skel.h"
+#include "sysctl-write-event.h"
 
 static struct sysctl_monitor_bpf* sysctl_monitor_bpf_free(struct sysctl_monitor_bpf *obj) {
         sysctl_monitor_bpf__destroy(obj);
@@ -108,7 +108,8 @@ int manager_install_sysctl_monitor(Manager *manager) {
 
         assert(manager);
 
-        r = dlopen_bpf();
+        LIBBPF_NOTE(recommended);
+        r = dlopen_bpf(LOG_DEBUG);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 return log_debug_errno(r, "sysctl monitor disabled, as BPF support is not available.");
         if (r < 0)
@@ -270,16 +271,25 @@ static int link_update_ipv6_sysctl(Link *link) {
 }
 
 static int link_set_proxy_arp(Link *link) {
+        bool v;
+
         assert(link);
         assert(link->manager);
 
         if (!link_is_configured_for_family(link, AF_INET))
                 return 0;
 
-        if (link->network->proxy_arp < 0)
+        if (link->network->proxy_arp >= 0)
+                v = link->network->proxy_arp;
+        else if (network_has_neighbor_proxy_address(link->network, AF_INET))
+                /* If IPv4ProxyARP= is not explicitly set, but per-address IPv4ProxyARPAddress=
+                 * entries are configured, implicitly enable the proxy_arp sysctl. This matches
+                 * the behavior of IPv6ProxyNDPAddress= which implies IPv6ProxyNDP=yes. */
+                v = true;
+        else
                 return 0;
 
-        return sysctl_write_ip_property_boolean(AF_INET, link->ifname, "proxy_arp", link->network->proxy_arp > 0, manager_get_sysctl_shadow(link->manager));
+        return sysctl_write_ip_property_boolean(AF_INET, link->ifname, "proxy_arp", v, manager_get_sysctl_shadow(link->manager));
 }
 
 static int link_set_proxy_arp_pvlan(Link *link) {
@@ -513,7 +523,7 @@ static int link_set_ipv6_proxy_ndp(Link *link) {
         if (link->network->ipv6_proxy_ndp >= 0)
                 v = link->network->ipv6_proxy_ndp;
         else
-                v = !set_isempty(link->network->ipv6_proxy_ndp_addresses);
+                v = network_has_neighbor_proxy_address(link->network, AF_INET6);
 
         return sysctl_write_ip_property_boolean(AF_INET6, link->ifname, "proxy_ndp", v, manager_get_sysctl_shadow(link->manager));
 }
@@ -545,11 +555,11 @@ int link_set_ipv6_mtu(Link *link, int log_level) {
         if (mtu == 0)
                 return 0;
 
-        if (mtu > link->max_mtu) {
+        if (mtu > link->mtu) {
                 log_link_full(link, log_level,
                               "Reducing requested IPv6 MTU %"PRIu32" to the interface's maximum MTU %"PRIu32".",
-                              mtu, link->max_mtu);
-                mtu = link->max_mtu;
+                              mtu, link->mtu);
+                mtu = link->mtu;
         }
 
         r = sysctl_write_ip_property_uint32(AF_INET6, link->ifname, "mtu", mtu, manager_get_sysctl_shadow(link->manager));
@@ -662,6 +672,20 @@ static int link_set_ipv4_route_localnet(Link *link) {
         return sysctl_write_ip_property_boolean(AF_INET, link->ifname, "route_localnet", link->network->ipv4_route_localnet > 0, manager_get_sysctl_shadow(link->manager));
 }
 
+static int link_set_ipv4_src_valid_mark(Link *link) {
+        assert(link);
+        assert(link->manager);
+        assert(link->network);
+
+        if (!link_is_configured_for_family(link, AF_INET))
+                return 0;
+
+        if (link->network->ipv4_src_valid_mark < 0)
+                return 0;
+
+        return sysctl_write_ip_property_boolean(AF_INET, link->ifname, "src_valid_mark", link->network->ipv4_src_valid_mark > 0, manager_get_sysctl_shadow(link->manager));
+}
+
 static int link_set_ipv4_promote_secondaries(Link *link) {
         assert(link);
         assert(link->manager);
@@ -749,6 +773,10 @@ int link_set_sysctl(Link *link) {
         r = link_set_ipv4_route_localnet(link);
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot set IPv4 route_localnet flag for interface, ignoring: %m");
+
+        r = link_set_ipv4_src_valid_mark(link);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Cannot set IPv4 src_valid_mark flag for interface, ignoring: %m");
 
         r = link_set_ipv4_rp_filter(link);
         if (r < 0)

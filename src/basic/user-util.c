@@ -185,7 +185,7 @@ const char* default_root_shell_at(int rfd) {
 
         assert(rfd >= 0 || rfd == AT_FDCWD);
 
-        int r = chaseat(rfd, DEFAULT_USER_SHELL, CHASE_AT_RESOLVE_IN_ROOT, NULL, NULL);
+        int r = chaseat(rfd, rfd, DEFAULT_USER_SHELL, /* flags= */ 0, NULL, NULL);
         if (r < 0 && r != -ENOENT)
                 log_debug_errno(r, "Failed to look up shell '%s': %m", DEFAULT_USER_SHELL);
         if (r > 0)
@@ -204,67 +204,97 @@ const char* default_root_shell(const char *root) {
         return default_root_shell_at(rfd);
 }
 
-static int synthesize_user_creds(
-                const char **username,
+static int return_user_creds(
+                const char *username,
+                uid_t uid, gid_t gid,
+                const char *home,
+                const char *shell,
+                char **ret_username,
                 uid_t *ret_uid, gid_t *ret_gid,
-                const char **ret_home,
-                const char **ret_shell,
-                UserCredsFlags flags) {
+                char **ret_home,
+                char **ret_shell) {
+        /* Helper function to help with the strdups and atomic setting of return params. */
 
+        _cleanup_free_ char *s1 = NULL, *s2 = NULL, *s3 = NULL;
+        int r;
+
+        if (ret_username) {
+                r = strdup_to(&s1, username);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_home) {
+                r = strdup_to(&s2, home);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_shell) {
+                r = strdup_to(&s3, shell);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_username)
+                *ret_username = TAKE_PTR(s1);
+        if (ret_uid)
+                *ret_uid = uid;
+        if (ret_gid)
+                *ret_gid = gid;
+        if (ret_home)
+                *ret_home = TAKE_PTR(s2);
+        if (ret_shell)
+                *ret_shell = TAKE_PTR(s3);
+        return 0;
+}
+
+static int synthesize_user_creds(
+                const char *username,
+                UserCredsFlags flags,
+                char **ret_username,
+                uid_t *ret_uid, gid_t *ret_gid,
+                char **ret_home,
+                char **ret_shell) {
         assert(username);
-        assert(*username);
 
-        /* We enforce some special rules for uid=0 and uid=65534: in order to avoid NSS lookups for root we hardcode
-         * their user record data. */
+        /* We enforce some special rules for uid=0 and uid=65534: in order to avoid nss lookups for root we
+         * hardcode their user record data. */
+        if (STR_IN_SET(username, "root", "0"))
+                return return_user_creds("root", 0, 0,
+                                         "/root",
+                                         ret_shell ? default_root_shell(NULL) : NULL,
+                                         ret_username,
+                                         ret_uid, ret_gid,
+                                         ret_home,
+                                         ret_shell);
 
-        if (STR_IN_SET(*username, "root", "0")) {
-                *username = "root";
-
-                if (ret_uid)
-                        *ret_uid = 0;
-                if (ret_gid)
-                        *ret_gid = 0;
-                if (ret_home)
-                        *ret_home = "/root";
-                if (ret_shell)
-                        *ret_shell = default_root_shell(NULL);
-
-                return 0;
-        }
-
-        if (STR_IN_SET(*username, NOBODY_USER_NAME, "65534") &&
-            synthesize_nobody()) {
-                *username = NOBODY_USER_NAME;
-
-                if (ret_uid)
-                        *ret_uid = UID_NOBODY;
-                if (ret_gid)
-                        *ret_gid = GID_NOBODY;
-                if (ret_home)
-                        *ret_home = FLAGS_SET(flags, USER_CREDS_SUPPRESS_PLACEHOLDER) ? NULL : "/";
-                if (ret_shell)
-                        *ret_shell = FLAGS_SET(flags, USER_CREDS_SUPPRESS_PLACEHOLDER) ? NULL : NOLOGIN;
-
-                return 0;
-        }
+        if (STR_IN_SET(username, NOBODY_USER_NAME, "65534") &&
+            synthesize_nobody())
+                return return_user_creds(NOBODY_USER_NAME, UID_NOBODY, GID_NOBODY,
+                                         FLAGS_SET(flags, USER_CREDS_SUPPRESS_PLACEHOLDER) ? NULL : "/",
+                                         FLAGS_SET(flags, USER_CREDS_SUPPRESS_PLACEHOLDER) ? NULL : NOLOGIN,
+                                         ret_username,
+                                         ret_uid, ret_gid,
+                                         ret_home,
+                                         ret_shell);
 
         return -ENOMEDIUM;
 }
 
 int get_user_creds(
-                const char **username,
+                const char *username,
+                UserCredsFlags flags,
+                char **ret_username,
                 uid_t *ret_uid, gid_t *ret_gid,
-                const char **ret_home,
-                const char **ret_shell,
-                UserCredsFlags flags) {
+                char **ret_home,
+                char **ret_shell) {
 
-        bool patch_username = false;
         uid_t u = UID_INVALID;
-        struct passwd *p;
+        _cleanup_free_ struct passwd *pw = NULL;
         int r;
 
         assert(username);
-        assert(*username);
         assert((ret_home || ret_shell) || !(flags & (USER_CREDS_SUPPRESS_PLACEHOLDER|USER_CREDS_CLEAN)));
 
         if (!FLAGS_SET(flags, USER_CREDS_PREFER_NSS) ||
@@ -279,164 +309,134 @@ int get_user_creds(
                  * of the relevant users, but changing the UID/GID mappings for them is something we explicitly don't
                  * support. */
 
-                r = synthesize_user_creds(username, ret_uid, ret_gid, ret_home, ret_shell, flags);
+                r = synthesize_user_creds(username, flags, ret_username, ret_uid, ret_gid, ret_home, ret_shell);
                 if (r >= 0)
                         return 0;
                 if (r != -ENOMEDIUM) /* not a username we can synthesize */
                         return r;
         }
 
-        if (parse_uid(*username, &u) >= 0) {
-                errno = 0;
-                p = getpwuid(u);
+        if (parse_uid(username, &u) >= 0) {
+                r = getpwuid_malloc(u, &pw);
 
                 /* If there are multiple users with the same id, make sure to leave $USER to the configured value
                  * instead of the first occurrence in the database. However if the uid was configured by a numeric uid,
                  * then let's pick the real username from /etc/passwd. */
-                if (p)
-                        patch_username = true;
-                else if (FLAGS_SET(flags, USER_CREDS_ALLOW_MISSING) && !ret_gid && !ret_home && !ret_shell) {
+                if (r >= 0)
+                        username = pw->pw_name;
 
+                else if (FLAGS_SET(flags, USER_CREDS_ALLOW_MISSING) && !ret_gid && !ret_home && !ret_shell) {
                         /* If the specified user is a numeric UID and it isn't in the user database, and the caller
                          * passed USER_CREDS_ALLOW_MISSING and was only interested in the UID, then just return that
                          * and don't complain. */
-
+                        if (ret_username)
+                                *ret_username = NULL;
                         if (ret_uid)
                                 *ret_uid = u;
-
                         return 0;
                 }
-        } else {
-                errno = 0;
-                p = getpwnam(*username);
-        }
-        if (!p) {
-                /* getpwnam() may fail with ENOENT if /etc/passwd is missing.
-                 * For us that is equivalent to the name not being defined. */
-                r = IN_SET(errno, 0, ENOENT) ? -ESRCH : -errno;
+        } else
+                r = getpwnam_malloc(username, &pw);
 
+        if (r < 0) {
                 /* If the user requested that we only synthesize as fallback, do so now */
-                if (FLAGS_SET(flags, USER_CREDS_PREFER_NSS))
-                        if (synthesize_user_creds(username, ret_uid, ret_gid, ret_home, ret_shell, flags) >= 0)
-                                return 0;
+                if (FLAGS_SET(flags, USER_CREDS_PREFER_NSS) &&
+                    synthesize_user_creds(username, flags, ret_username, ret_uid, ret_gid, ret_home, ret_shell) >= 0)
+                        return 0;
 
                 return r;
         }
 
-        if (ret_uid && !uid_is_valid(p->pw_uid))
+        if (ret_uid && !uid_is_valid(pw->pw_uid))
                 return -EBADMSG;
 
-        if (ret_gid && !gid_is_valid(p->pw_gid))
+        if (ret_gid && !gid_is_valid(pw->pw_gid))
                 return -EBADMSG;
 
-        if (ret_uid)
-                *ret_uid = p->pw_uid;
+        /* Note: we don't insist on normalized paths, since there are setups that have /./ in the path */
+        const char *h =
+                (FLAGS_SET(flags, USER_CREDS_SUPPRESS_PLACEHOLDER) && empty_or_root(pw->pw_dir)) ||
+                (FLAGS_SET(flags, USER_CREDS_CLEAN) && (!path_is_valid(pw->pw_dir) || !path_is_absolute(pw->pw_dir)))
+                ? NULL : pw->pw_dir;
 
+        const char *s =
+                (FLAGS_SET(flags, USER_CREDS_SUPPRESS_PLACEHOLDER) && shell_is_placeholder(pw->pw_shell)) ||
+                (FLAGS_SET(flags, USER_CREDS_CLEAN) && (!path_is_valid(pw->pw_shell) || !path_is_absolute(pw->pw_shell)))
+                ? NULL : pw->pw_shell;
+
+        return return_user_creds(username, pw->pw_uid, pw->pw_gid, h, s,
+                                 ret_username, ret_uid, ret_gid, ret_home, ret_shell);
+}
+
+static int synthesize_group_creds(const char *groupname, char **ret_name, gid_t *ret_gid) {
+        assert(groupname);
+
+        gid_t id;
+        const char *n;
+        int r;
+
+        if (STR_IN_SET(groupname, "root", "0")) {
+                id = 0;
+                n = "root";
+        } else if (STR_IN_SET(groupname, NOBODY_GROUP_NAME, "65534") &&
+                   synthesize_nobody()) {
+                id = GID_NOBODY;
+                n = NOBODY_GROUP_NAME;
+        } else
+                return -ENOMEDIUM;
+
+        r = strdup_to_full(ret_name, n);
+        if (r < 0)
+                return r;
         if (ret_gid)
-                *ret_gid = p->pw_gid;
-
-        if (ret_home)
-                /* Note: we don't insist on normalized paths, since there are setups that have /./ in the path */
-                *ret_home = (FLAGS_SET(flags, USER_CREDS_SUPPRESS_PLACEHOLDER) && empty_or_root(p->pw_dir)) ||
-                            (FLAGS_SET(flags, USER_CREDS_CLEAN) && (!path_is_valid(p->pw_dir) || !path_is_absolute(p->pw_dir)))
-                            ? NULL : p->pw_dir;
-
-        if (ret_shell)
-                *ret_shell = (FLAGS_SET(flags, USER_CREDS_SUPPRESS_PLACEHOLDER) && shell_is_placeholder(p->pw_shell)) ||
-                             (FLAGS_SET(flags, USER_CREDS_CLEAN) && (!path_is_valid(p->pw_shell) || !path_is_absolute(p->pw_shell)))
-                             ? NULL : p->pw_shell;
-
-        if (patch_username)
-                *username = p->pw_name;
-
+                *ret_gid = id;
         return 0;
 }
 
-static int synthesize_group_creds(
-                const char **groupname,
-                gid_t *ret_gid) {
-
-        assert(groupname);
-        assert(*groupname);
-
-        if (STR_IN_SET(*groupname, "root", "0")) {
-                *groupname = "root";
-
-                if (ret_gid)
-                        *ret_gid = 0;
-
-                return 0;
-        }
-
-        if (STR_IN_SET(*groupname, NOBODY_GROUP_NAME, "65534") &&
-            synthesize_nobody()) {
-                *groupname = NOBODY_GROUP_NAME;
-
-                if (ret_gid)
-                        *ret_gid = GID_NOBODY;
-
-                return 0;
-        }
-
-        return -ENOMEDIUM;
-}
-
-int get_group_creds(const char **groupname, gid_t *ret_gid, UserCredsFlags flags) {
-        bool patch_groupname = false;
-        struct group *g;
+int get_group_creds(const char *groupname, UserCredsFlags flags, char **ret_name, gid_t *ret_gid) {
+        _cleanup_free_ struct group *gr = NULL;
         gid_t id;
         int r;
 
         assert(groupname);
-        assert(*groupname);
 
         if (!FLAGS_SET(flags, USER_CREDS_PREFER_NSS)) {
-                r = synthesize_group_creds(groupname, ret_gid);
+                r = synthesize_group_creds(groupname, ret_name, ret_gid);
                 if (r >= 0)
                         return 0;
                 if (r != -ENOMEDIUM) /* not a groupname we can synthesize */
                         return r;
         }
 
-        if (parse_gid(*groupname, &id) >= 0) {
-                errno = 0;
-                g = getgrgid(id);
-
-                if (g)
-                        patch_groupname = true;
+        if (parse_gid(groupname, &id) >= 0) {
+                r = getgrgid_malloc(id, &gr);
+                if (r >= 0)
+                        groupname = gr->gr_name;
                 else if (FLAGS_SET(flags, USER_CREDS_ALLOW_MISSING)) {
                         if (ret_gid)
                                 *ret_gid = id;
-
+                        if (ret_name)
+                                *ret_name = NULL;
                         return 0;
                 }
-        } else {
-                errno = 0;
-                g = getgrnam(*groupname);
-        }
+        } else
+                r = getgrnam_malloc(groupname, &gr);
 
-        if (!g) {
-                /* getgrnam() may fail with ENOENT if /etc/group is missing.
-                 * For us that is equivalent to the name not being defined. */
-                r = IN_SET(errno, 0, ENOENT) ? -ESRCH : -errno;
-
-                if (FLAGS_SET(flags, USER_CREDS_PREFER_NSS))
-                        if (synthesize_group_creds(groupname, ret_gid) >= 0)
-                                return 0;
-
+        if (r < 0) {
+                if (FLAGS_SET(flags, USER_CREDS_PREFER_NSS) &&
+                    synthesize_group_creds(groupname, ret_name, ret_gid) >= 0)
+                        return 0;
                 return r;
         }
 
-        if (ret_gid) {
-                if (!gid_is_valid(g->gr_gid))
-                        return -EBADMSG;
+        if (ret_gid && !gid_is_valid(gr->gr_gid))
+                return -EBADMSG;
 
-                *ret_gid = g->gr_gid;
-        }
-
-        if (patch_groupname)
-                *groupname = g->gr_name;
-
+        r = strdup_to_full(ret_name, groupname);
+        if (r < 0)
+                return r;
+        if (ret_gid)
+                *ret_gid = gr->gr_gid;
         return 0;
 }
 
@@ -521,7 +521,7 @@ int in_group(const char *name) {
         int r;
         gid_t gid;
 
-        r = get_group_creds(&name, &gid, 0);
+        r = get_group_creds(name, /* flags= */ 0, /* ret_name= */ NULL, &gid);
         if (r < 0)
                 return r;
 
@@ -530,6 +530,9 @@ int in_group(const char *name) {
 
 int merge_gid_lists(const gid_t *list1, size_t size1, const gid_t *list2, size_t size2, gid_t **ret) {
         size_t nresult = 0;
+
+        assert(size1 == 0 || list1);
+        assert(size2 == 0 || list2);
         assert(ret);
 
         if (size2 > INT_MAX - size1)
@@ -762,18 +765,17 @@ bool valid_user_group_name(const char *u, ValidUserFlags flags) {
                                        * don't allow slashes. */
                         return false;
 
-                if (in_charset(u, "0123456789")) /* Don't allow fully numeric strings, they might be confused
-                                                  * with UIDs (note that this test is more broad than
-                                                  * the parse_uid() test above, as it will cover more than
-                                                  * the 32-bit range, and it will detect 65535 (which is in
-                                                  * invalid UID, even though in the unsigned 32 bit range) */
+                if (in_charset(u, DIGITS)) /* Don't allow fully numeric strings, they might be confused with
+                                            * UIDs (note that this test is more broad than the parse_uid()
+                                            * test above, as it will cover more than the 32-bit range, and it
+                                            * will detect 65535 (which is in invalid UID, even though in the
+                                            * unsigned 32 bit range) */
                         return false;
 
-                if (u[0] == '-' && in_charset(u + 1, "0123456789")) /* Don't allow negative fully numeric
-                                                                     * strings either. After all some people
-                                                                     * write 65535 as -1 (even though that's
-                                                                     * not even true on 32-bit uid_t
-                                                                     * anyway) */
+                if (u[0] == '-' && in_charset(u + 1, DIGITS)) /* Don't allow negative fully numeric strings
+                                                               * either. After all some people write 65535 as
+                                                               * -1 (even though that's not even true on
+                                                               * 32-bit uid_t anyway) */
                         return false;
 
                 if (dot_or_dot_dot(u)) /* User names typically become home directory names, and these two are
@@ -1072,7 +1074,7 @@ int is_this_me(const char *username) {
 
         /* Checks if the specified username is our current one. Passed string might be a UID or a user name. */
 
-        r = get_user_creds(&username, &uid, NULL, NULL, NULL, USER_CREDS_ALLOW_MISSING);
+        r = get_user_creds(username, /* flags= */ USER_CREDS_ALLOW_MISSING, NULL, &uid, NULL, NULL, NULL);
         if (r < 0)
                 return r;
 
@@ -1080,15 +1082,97 @@ int is_this_me(const char *username) {
 }
 
 const char* get_home_root(void) {
-        const char *e;
-
         /* For debug purposes allow overriding where we look for home dirs */
-        e = secure_getenv("SYSTEMD_HOME_ROOT");
+        const char *e = secure_getenv("SYSTEMD_HOME_ROOT");
         if (e && path_is_absolute(e) && path_is_normalized(e))
                 return e;
 
         return "/home";
 }
+
+static int copy_struct_passwd(const struct passwd *pw, struct passwd **ret) {
+        assert(pw);
+        assert(ret);
+
+        size_t need_bytes = sizeof(struct passwd)
+                + strlen_ptr(pw->pw_name) + 1
+                + strlen_ptr(pw->pw_passwd) + 1
+                + strlen_ptr(pw->pw_gecos) + 1
+                + strlen_ptr(pw->pw_dir) + 1
+                + strlen_ptr(pw->pw_shell) + 1;
+
+        char *buf = malloc(need_bytes);
+        if (!buf)
+                return -ENOMEM;
+
+        struct passwd *newpw = (struct passwd *) buf;
+
+        /* The layout in our buffer:
+         * struct passwd, and then individual strings. */
+        char *p = buf + sizeof(struct passwd);
+
+        newpw->pw_name = p;
+        p = stpcpy(p, strempty(pw->pw_name)) + 1;
+
+        newpw->pw_passwd = p;
+        p = stpcpy(p, strempty(pw->pw_passwd)) + 1;
+
+        newpw->pw_uid = pw->pw_uid;
+        newpw->pw_gid = pw->pw_gid;
+
+        newpw->pw_gecos = p;
+        p = stpcpy(p, strempty(pw->pw_gecos)) + 1;
+
+        newpw->pw_dir = p;
+        p = stpcpy(p, strempty(pw->pw_dir)) + 1;
+
+        newpw->pw_shell = p;
+        p = stpcpy(p, strempty(pw->pw_shell)) + 1;
+
+        *ret = newpw;
+        return 0;
+}
+
+/* Iterate the given list of passwd-format files looking for an entry matching the predicate (by
+ * name if 'name' is non-NULL and by 'uid' if valid). Returns -ESRCH if no entry is found. */
+int lookup_pwent_in_files(
+                char * const *files,
+                const char *name,
+                uid_t uid,
+                struct passwd **ret) {
+
+        int r;
+
+        assert(files);
+        assert(name || uid_is_valid(uid));
+
+        STRV_FOREACH(fname, files) {
+                _cleanup_fclose_ FILE *f = NULL;
+                struct passwd *pw;
+
+                r = fopen_unlocked(*fname, "re", &f);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return r;
+
+                while ((r = fgetpwent_sane(f, &pw)) > 0) {
+                        if (name && !streq_ptr(pw->pw_name, name))
+                                continue;
+                        if (uid_is_valid(uid) && pw->pw_uid != uid)
+                                continue;
+                        if (ret)
+                                return copy_struct_passwd(pw, ret);
+                        return 0;
+                }
+                if (r < 0)
+                        return r;
+        }
+
+        return -ESRCH;
+}
+
+#if !BUILD_STATIC
 
 static size_t getpw_buffer_size(void) {
         long bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
@@ -1101,19 +1185,31 @@ static bool errno_is_user_doesnt_exist(int error) {
         return IN_SET(abs(error), ENOENT, ESRCH, EBADF, EPERM);
 }
 
-int getpwnam_malloc(const char *name, struct passwd **ret) {
-        size_t bufsize = getpw_buffer_size();
-        int r;
+#endif
 
-        /* A wrapper around getpwnam_r() that allocates the necessary buffer on the heap. The caller must
-         * free() the returned structures! */
+int getpwnam_malloc(const char *name, struct passwd **ret) {
+        /* For static builds use a very simplistic implementation that looks at 'passwd' in /etc/
+         * and /usr/lib/, and for non-static builds use NSS. The first matching entry wins. The
+         * same logic is implemented in getpwnam_malloc, getpwuid_malloc, getgrnam_malloc, and
+         * getgrgid_malloc. */
 
         if (isempty(name))
                 return -EINVAL;
 
+#if BUILD_STATIC
+        return lookup_pwent_in_files(PASSWD_FILES, name, UID_INVALID, ret);
+#else
+        size_t bufsize = getpw_buffer_size();
+        int r;
+
+        /* A wrapper around getpwnam_r() that allocates the necessary buffer on the heap. The caller must
+         * free() the returned structure! */
+
         for (;;) {
                 _cleanup_free_ void *buf = NULL;
 
+                /* Silence static analyzers */
+                assert(bufsize <= SIZE_MAX - ALIGN(sizeof(struct passwd)));
                 buf = malloc0(ALIGN(sizeof(struct passwd)) + bufsize);
                 if (!buf)
                         return -ENOMEM;
@@ -1143,18 +1239,24 @@ int getpwnam_malloc(const char *name, struct passwd **ret) {
                         return -ENOMEM;
                 bufsize *= 2;
         }
+#endif
 }
 
 int getpwuid_malloc(uid_t uid, struct passwd **ret) {
-        size_t bufsize = getpw_buffer_size();
-        int r;
-
         if (!uid_is_valid(uid))
                 return -EINVAL;
+
+#if BUILD_STATIC
+        return lookup_pwent_in_files(PASSWD_FILES, /* name= */ NULL, uid, ret);
+#else
+        size_t bufsize = getpw_buffer_size();
+        int r;
 
         for (;;) {
                 _cleanup_free_ void *buf = NULL;
 
+                /* Silence static analyzers */
+                assert(bufsize <= SIZE_MAX - ALIGN(sizeof(struct passwd)));
                 buf = malloc0(ALIGN(sizeof(struct passwd)) + bufsize);
                 if (!buf)
                         return -ENOMEM;
@@ -1182,23 +1284,235 @@ int getpwuid_malloc(uid_t uid, struct passwd **ret) {
                         return -ENOMEM;
                 bufsize *= 2;
         }
+#endif
 }
+
+static int copy_struct_group(const struct group *gr, struct group **ret) {
+        assert(gr);
+        assert(ret);
+
+        size_t need_bytes = sizeof(struct group)
+                + strlen_ptr(gr->gr_name) + 1
+                + strlen_ptr(gr->gr_passwd) + 1,
+                n_mem = 0;
+        STRV_FOREACH(s, gr->gr_mem) {
+                need_bytes += sizeof(char*) + strlen(*s) + 1;
+                n_mem++;
+        }
+        need_bytes += sizeof(char*);  /* NULL terminator for gr_mem */
+
+        char *buf = malloc(need_bytes);
+        if (!buf)
+                return -ENOMEM;
+
+        struct group *newgr = (struct group *) buf;
+
+        /* The layout in our buffer:
+         * struct group, ->gr_mem pointers terminated by NULL, ->gr_name, ->gr_passwd, ->gr_mem items */
+        /* The ->gr_mem array is first, because it needs alignment. */
+        assert_cc(sizeof(struct group) % alignof(char*) == 0);
+
+        char *p = buf + sizeof(struct group) + (n_mem + 1) * sizeof(char*);
+
+        newgr->gr_name = p;
+        p = stpcpy(p, strempty(gr->gr_name)) + 1;
+
+        newgr->gr_passwd = p;
+        p = stpcpy(p, strempty(gr->gr_passwd)) + 1;
+
+        newgr->gr_gid = gr->gr_gid;
+
+        newgr->gr_mem = (char**) (buf + sizeof(struct group));
+        for (size_t i = 0; i < n_mem; i++) {
+                newgr->gr_mem[i] = p;
+                p = stpcpy(p, gr->gr_mem[i]) + 1;
+        }
+        newgr->gr_mem[n_mem] = NULL;
+
+        *ret = newgr;
+        return 0;
+}
+
+/* See lookup_pwent_in_files() for the analogous passwd-file version. */
+int lookup_grent_in_files(
+                char * const *files,
+                const char *name,
+                gid_t gid,
+                struct group **ret) {
+
+        int r;
+
+        assert(files);
+        assert(name || gid_is_valid(gid));
+
+        STRV_FOREACH(fname, files) {
+                _cleanup_fclose_ FILE *f = NULL;
+                struct group *gr;
+
+                r = fopen_unlocked(*fname, "re", &f);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return r;
+
+                while ((r = fgetgrent_sane(f, &gr)) > 0) {
+                        if (name && !streq_ptr(gr->gr_name, name))
+                                continue;
+                        if (gid_is_valid(gid) && gr->gr_gid != gid)
+                                continue;
+                        if (ret)
+                                return copy_struct_group(gr, ret);
+                        return 0;
+                }
+                if (r < 0)
+                        return r;
+        }
+
+        return -ESRCH;
+}
+
+int sysconf_ngroups_max(void) {
+        /* Query sysconf _SC_NGROUPS_MAX. Returns an int because the expected value is 64k
+         * and later on this is used as an int with various glibc consumers. */
+
+        errno = 0;
+        long ngroups_max = sysconf(_SC_NGROUPS_MAX);
+        if (ngroups_max <= 0)
+                return errno_or_else(EOPNOTSUPP);
+        if (ngroups_max > INT_MAX)
+                return -ERANGE;
+        return ngroups_max;
+}
+
+ssize_t lookup_groups_in_files(
+                char * const *files,
+                const char *name,
+                gid_t gid,
+                gid_t **ret) {
+
+        _cleanup_free_ gid_t *arr = NULL;
+        ssize_t n_arr = 0;
+        int r;
+
+        assert(files);
+        assert(name);
+        assert(gid_is_valid(gid));
+
+        int ngroups_max = sysconf_ngroups_max();
+        if (ngroups_max < 0)
+                return ngroups_max;
+
+        if (!GREEDY_REALLOC(arr, n_arr + 1))
+                return -ENOMEM;
+        arr[n_arr++] = gid;
+
+        STRV_FOREACH(fname, files) {
+                _cleanup_fclose_ FILE *f = NULL;
+                struct group *gr;
+
+                r = fopen_unlocked(*fname, "re", &f);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return r;
+
+                while ((r = fgetgrent_sane(f, &gr)) > 0) {
+                        if (gid == gr->gr_gid)
+                                continue;
+
+                        /* Deduplicate groups, in case the group is doubly defined in the same or
+                         * different files. */
+                        if (gid_list_has(arr, n_arr, gr->gr_gid))
+                                continue;
+
+                        if (!strv_contains(gr->gr_mem, name))
+                                continue;
+
+                        /* Do not allow more than _SC_NGROUPS_MAX. */
+                        if (n_arr >= ngroups_max)
+                                return -ENOBUFS;
+
+                        if (!GREEDY_REALLOC(arr, n_arr + 1))
+                                return -ENOMEM;
+                        arr[n_arr++] = gr->gr_gid;
+                }
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret)
+                *ret = TAKE_PTR(arr);
+        return n_arr;
+}
+
+int getgrouplist_malloc(const char *user, gid_t gid, gid_t **ret) {
+#if BUILD_STATIC
+        return lookup_groups_in_files(GROUP_FILES, user, gid, ret);
+#else
+        int ngroups_max = sysconf_ngroups_max();
+        if (ngroups_max < 0)
+                return ngroups_max;
+
+        _cleanup_free_ gid_t *gids = new(gid_t, ngroups_max);
+        if (!gids)
+                return -ENOMEM;
+
+        int k = ngroups_max;
+        if (getgrouplist(user, gid, gids, &k) < 0)
+                return -EIO;  /* getgrouplist does not set errno */
+
+        if (ret)
+                *ret = TAKE_PTR(gids);
+        return k;
+#endif
+}
+
+int initgroups_wrapper(const char *user, gid_t gid) {
+#if BUILD_STATIC
+        _cleanup_free_ gid_t *groups = NULL;
+        int r, n_groups;
+
+        n_groups = getgrouplist_malloc(user, gid, &groups);
+        if (n_groups <= 0)
+                return n_groups;
+
+        /* Try to set the maximum number of groups the kernel can handle. This is what glibc does. */
+        for (; n_groups > 0; n_groups--) {
+                r = RET_NERRNO(setgroups(n_groups, groups));
+                if (r != -EINVAL)
+                        break;
+        }
+
+        return r;
+#else
+        return RET_NERRNO(initgroups(user, gid));
+#endif
+}
+
+#if !BUILD_STATIC
 
 static size_t getgr_buffer_size(void) {
         long bufsize = sysconf(_SC_GETGR_R_SIZE_MAX);
         return bufsize <= 0 ? 4096U : (size_t) bufsize;
 }
 
-int getgrnam_malloc(const char *name, struct group **ret) {
-        size_t bufsize = getgr_buffer_size();
-        int r;
+#endif
 
+int getgrnam_malloc(const char *name, struct group **ret) {
         if (isempty(name))
                 return -EINVAL;
+
+#if BUILD_STATIC
+        return lookup_grent_in_files(GROUP_FILES, name, GID_INVALID, ret);
+#else
+        size_t bufsize = getgr_buffer_size();
+        int r;
 
         for (;;) {
                 _cleanup_free_ void *buf = NULL;
 
+                /* Silence static analyzers */
+                assert(bufsize <= SIZE_MAX - ALIGN(sizeof(struct group)));
                 buf = malloc0(ALIGN(sizeof(struct group)) + bufsize);
                 if (!buf)
                         return -ENOMEM;
@@ -1226,18 +1540,24 @@ int getgrnam_malloc(const char *name, struct group **ret) {
                         return -ENOMEM;
                 bufsize *= 2;
         }
+#endif
 }
 
 int getgrgid_malloc(gid_t gid, struct group **ret) {
-        size_t bufsize = getgr_buffer_size();
-        int r;
-
         if (!gid_is_valid(gid))
                 return -EINVAL;
+
+#if BUILD_STATIC
+        return lookup_grent_in_files(GROUP_FILES, /* name= */ NULL, gid, ret);
+#else
+        size_t bufsize = getgr_buffer_size();
+        int r;
 
         for (;;) {
                 _cleanup_free_ void *buf = NULL;
 
+                /* Silence static analyzers */
+                assert(bufsize <= SIZE_MAX - ALIGN(sizeof(struct group)));
                 buf = malloc0(ALIGN(sizeof(struct group)) + bufsize);
                 if (!buf)
                         return -ENOMEM;
@@ -1265,4 +1585,5 @@ int getgrgid_malloc(gid_t gid, struct group **ret) {
                         return -ENOMEM;
                 bufsize *= 2;
         }
+#endif
 }

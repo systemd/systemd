@@ -444,6 +444,14 @@
 
     <variablelist>
       <varlistentry>
+        <term><option>--full</option></term>
+
+        <listitem><para>Show full hash value instead of abbreviating to 7 characters.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--raw-description</option></term>
 
         <listitem><para>When displaying the TPM2 event log do not attempt to decode the records to provide a
@@ -591,6 +599,15 @@
         <command>is-supported</command>.</para>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--strict=</option></term>
+
+        <listitem><para>Takes a boolean. Defaults to false. Honoured by <command>make-policy</command> and <command>predict</command>. If
+        true all specified PCRs must be included in the policy otherwise the command returns failure.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="json" />

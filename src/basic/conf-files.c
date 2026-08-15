@@ -33,12 +33,7 @@ ConfFile* conf_file_free(ConfFile *c) {
         return mfree(c);
 }
 
-void conf_file_free_many(ConfFile **array, size_t n) {
-        FOREACH_ARRAY(i, array, n)
-                conf_file_free(*i);
-
-        free(array);
-}
+DEFINE_POINTER_ARRAY_FREE_FUNC(ConfFile*, conf_file_free);
 
 static int conf_files_log_level(ConfFilesFlags flags) {
         return FLAGS_SET(flags, CONF_FILES_WARN) ? LOG_WARNING : LOG_DEBUG;
@@ -107,6 +102,9 @@ static int conf_file_prefix_root(ConfFile *c, const char *root, ConfFilesFlags f
 
         assert(c);
 
+        if (FLAGS_SET(flags, CONF_FILES_DONT_PREFIX_ROOT))
+                return 0;
+
         int log_level = conf_files_log_level(flags);
 
         r = chaseat_prefix_root(c->result, root, &p);
@@ -133,7 +131,7 @@ static bool conf_files_need_stat(ConfFilesFlags flags) {
 }
 
 static ChaseFlags conf_files_chase_flags(ConfFilesFlags flags) {
-        ChaseFlags chase_flags = CHASE_AT_RESOLVE_IN_ROOT;
+        ChaseFlags chase_flags = 0;
 
         if (!conf_files_need_stat(flags) || FLAGS_SET(flags, CONF_FILES_FILTER_MASKED_BY_SYMLINK))
                 /* Even if no verification is requested, let's unconditionally call chaseat(),
@@ -160,7 +158,7 @@ static int conf_file_chase_and_verify(
         struct stat st = {};
         int r;
 
-        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(rfd));
         assert(original_path);
         assert(path);
         assert(name);
@@ -169,7 +167,7 @@ static int conf_file_chase_and_verify(
 
         root = empty_to_root(root);
 
-        r = chaseat(rfd, path, conf_files_chase_flags(flags), &resolved_path, &fd);
+        r = chaseat(rfd, rfd, path, conf_files_chase_flags(flags), &resolved_path, &fd);
         if (r < 0)
                 return log_full_errno(log_level, r, "Failed to chase '%s%s': %m",
                                       root, skip_leading_slash(original_path));
@@ -279,7 +277,7 @@ int conf_file_new_at(
         int r;
 
         assert(path);
-        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(rfd));
         assert(ret);
 
         int log_level = conf_files_log_level(flags);
@@ -311,7 +309,7 @@ int conf_file_new_at(
         if (r < 0 && r != -EDESTADDRREQ)
                 return log_full_errno(log_level, r, "Failed to extract directory from '%s': %m", path);
         if (r >= 0) {
-                r = chaseat(rfd, dirpath,
+                r = chaseat(rfd, rfd, dirpath,
                             CHASE_MUST_BE_DIRECTORY | conf_files_chase_flags(flags),
                             &resolved_dirpath, /* ret_fd= */ NULL);
                 if (r < 0)
@@ -395,7 +393,7 @@ static int files_add(
         assert(dir);
         assert(original_dirpath);
         assert(resolved_dirpath);
-        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(rfd));
         assert(files);
         assert(masked);
 
@@ -485,7 +483,7 @@ static int dump_files(Hashmap *fh, const char *root, ConfFilesFlags flags, ConfF
         size_t n_files = 0;
         int r;
 
-        CLEANUP_ARRAY(files, n_files, conf_file_free_many);
+        CLEANUP_ARRAY(files, n_files, conf_file_free_array);
 
         assert(ret_files);
         assert(ret_n_files);
@@ -528,7 +526,7 @@ static int copy_and_sort_files_from_hashmap(
         int log_level = conf_files_log_level(flags);
 
         /* The entries in the array given by hashmap_dump_sorted() are still owned by the hashmap.
-         * Hence, do not use conf_file_free_many() for 'entries' */
+         * Hence, do not use conf_file_free_array() for 'entries' */
         r = hashmap_dump_sorted(fh, (void***) &files, &n_files);
         if (r < 0)
                 return log_oom_full(log_level);
@@ -627,7 +625,7 @@ static int conf_files_list_impl(
         const ConfFile *inserted = NULL;
         int r;
 
-        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(rfd));
         assert(ret);
 
         root = empty_to_root(root);
@@ -642,7 +640,7 @@ static int conf_files_list_impl(
                 _cleanup_closedir_ DIR *dir = NULL;
                 _cleanup_free_ char *path = NULL;
 
-                r = chase_and_opendirat(rfd, *p, CHASE_AT_RESOLVE_IN_ROOT, &path, &dir);
+                r = chase_and_opendirat(rfd, rfd, *p, 0, &path, &dir);
                 if (r < 0) {
                         if (r != -ENOENT)
                                 log_full_errno(conf_files_log_level(flags), r,
@@ -741,7 +739,7 @@ int conf_files_list_strv_at(
         _cleanup_free_ char *root = NULL;
         int r;
 
-        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(rfd));
         assert(ret);
 
         if (DEBUG_LOGGING)
@@ -766,7 +764,7 @@ int conf_files_list_strv_at_full(
         _cleanup_free_ char *root = NULL;
         int r;
 
-        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(rfd));
         assert(ret_files);
         assert(ret_n_files);
 

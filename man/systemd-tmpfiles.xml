@@ -203,11 +203,21 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-n</option></term>
         <term><option>--dry-run</option></term>
         <listitem><para>Process the configuration and print what operations would be performed, but do not
-        actually change anything in the file system.</para>
+        actually change anything in the file system. The short option <option>-n</option> was added in
+        version 262.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--inline</option></term>
+        <listitem><para>Treat each positional argument as a separate configuration
+        line instead of a file name.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -253,6 +263,10 @@
         <para>Consider combining this with <option>-E</option> to ensure the invocation does not create files
         or directories below mount points in the OS image operated on that are typically overmounted during
         runtime.</para>
+
+        <para>Note that this is not a sandboxing or security feature.
+        <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        definitions are potentially not processed in a hermetic fashion to the specified root.</para>
 
         <xi:include href="version-info.xml" xpointer="v212"/></listitem>
       </varlistentry>

@@ -3,7 +3,7 @@
 
 #include <sys/uio.h>
 
-#include "shared-forward.h"
+#include "forward.h"
 
 int acquire_tpm2_key(
                 const char *volume_name,
@@ -11,6 +11,7 @@ int acquire_tpm2_key(
                 uint32_t hash_pcr_mask,
                 uint16_t pcr_bank,
                 const struct iovec *pubkey,
+                const char *pubkey_policy_ref,
                 uint32_t pubkey_pcr_mask,
                 const char *signature_path,
                 const char *pcrlock_path,
@@ -29,6 +30,7 @@ int acquire_tpm2_key(
                 usec_t until,
                 const char *askpw_credential,
                 AskPasswordFlags askpw_flags,
+                const Argon2IdParameters *argon2id_params,
                 struct iovec *ret_decrypted_key);
 
 int find_tpm2_auto_data(
@@ -38,6 +40,7 @@ int find_tpm2_auto_data(
                 uint32_t *ret_hash_pcr_mask,
                 uint16_t *ret_pcr_bank,
                 struct iovec *ret_pubkey,
+                char **ret_pubkey_policy_ref,
                 uint32_t *ret_pubkey_pcr_mask,
                 uint16_t *ret_primary_alg,
                 struct iovec **ret_blobs,
@@ -49,4 +52,5 @@ int find_tpm2_auto_data(
                 struct iovec *ret_pcrlock_nv,
                 TPM2Flags *ret_flags,
                 int *ret_keyslot,
-                int *ret_token);
+                int *ret_token,
+                Argon2IdParameters *ret_argon2id_params);

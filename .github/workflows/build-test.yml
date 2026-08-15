@@ -39,6 +39,12 @@ jobs:
           - env: { COMPILER: "gcc",   COMPILER_VERSION: "13", LINKER: "mold"  }
             runner: [ ubuntu-24.04-arm ]
             python-version: ''
+          - env: { COMPILER: "gcc",   COMPILER_VERSION: "13", LINKER: "bfd", CROSS_ARCH: "armhf"  }
+            runner: [ ubuntu-24.04-arm ]
+            python-version: ''
+          - env: { COMPILER: "gcc",   COMPILER_VERSION: "13", LINKER: "bfd", CROSS_ARCH: "riscv64"  }
+            runner: [ ubuntu-24.04-arm ]
+            python-version: ''
           - env: { COMPILER: "clang", COMPILER_VERSION: "18", LINKER: "lld"  }
             runner: [ ubuntu-24.04-s390x ]
             python-version: ''
@@ -51,11 +57,11 @@ jobs:
     env: ${{ matrix.env }}
     steps:
       - name: Repository checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
       - name: Setup python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
           python-version: ${{ matrix.python-version }}
       - name: Build check

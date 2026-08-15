@@ -21,10 +21,24 @@
 #   SOUND_FORM_FACTOR
 
 ###########################################################
+# Bestechnic (Edifier)
+###########################################################
+# Edifier M60
+usb:v2D99pA094*
+ SOUND_FORM_FACTOR=speaker
+
+###########################################################
 # Corsair
 ###########################################################
 # Void Headsets
 usb:v1B1Cp0A51*
+ SOUND_FORM_FACTOR=headset
+
+###########################################################
+# Fractal
+###########################################################
+# Fractal Scape Dongle
+usb:v36BCp0001*
  SOUND_FORM_FACTOR=headset
 
 ###########################################################
@@ -36,6 +50,26 @@ usb:v045Ep02FE*
 usb:v045Ep02F9*
 usb:v045Ep091E*
  SOUND_FORM_FACTOR=headset
+
+###########################################################
+# Razer
+###########################################################
+# BlackShark V3 Pro
+usb:v1532p0577*
+ SOUND_FORM_FACTOR=headset
+
+###########################################################
+# Sony
+###########################################################
+# DualSense (PS5)
+usb:v054Cp0CE6*
+# DualSense Edge (PS5)
+usb:v054Cp0DF2*
+# DualShock 4 [CUH-ZCT1x]
+usb:v054Cp05C4*
+# DualShock 4 [CUH-ZCT2x]
+usb:v054Cp09CC*
+ SOUND_FORM_FACTOR=controller
 
 ###########################################################
 # Steelseries
@@ -55,6 +89,7 @@ usb:v1038p2216*
 usb:v1038p2236*
 usb:v1038p12C2*
 usb:v1038p1290*
+usb:v1038p1294*
 usb:v1038p12EC*
 usb:v1038p2269*
 usb:v1038p226D*
@@ -69,6 +104,11 @@ usb:v1038p227A*
 usb:v1038p22A1*
 usb:v1038p227E*
 usb:v1038p229E*
+usb:v1038p22AD*
+usb:v1038p22A9*
+usb:v1038p22A4*
+usb:v1038p22A5*
+usb:v1038p22A7*
 usb:v1038p12E0*
 usb:v1038p12E5*
  SOUND_FORM_FACTOR=headset

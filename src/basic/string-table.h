@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 
-#include "basic-forward.h"
+#include "forward.h"
 
 const char* string_table_lookup_to_string(const char * const *table, size_t len, ssize_t i) _const_;
 

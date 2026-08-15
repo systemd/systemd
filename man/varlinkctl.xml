@@ -64,13 +64,33 @@
     <cmdsynopsis>
       <command>varlinkctl</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
-      <arg choice="plain">--exec call</arg>
+      <arg choice="plain">--exec</arg>
       <arg choice="plain">call</arg>
       <arg choice="plain"><replaceable>ADDRESS</replaceable></arg>
       <arg choice="plain"><replaceable>METHOD</replaceable></arg>
       <arg choice="plain"><replaceable>ARGUMENTS</replaceable></arg>
       <arg choice="plain">--</arg>
       <arg choice="plain"><replaceable>CMDLINE</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>varlinkctl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">serve</arg>
+      <arg choice="plain"><replaceable>METHOD</replaceable></arg>
+      <arg choice="req" rep="repeat"><replaceable>CMDLINE</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>varlinkctl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">list-registry</arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>varlinkctl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">list-sockets</arg>
     </cmdsynopsis>
 
     <cmdsynopsis>
@@ -182,6 +202,28 @@
       </varlistentry>
 
       <varlistentry>
+        <term><command>serve</command> <replaceable>METHOD</replaceable> <replaceable>CMDLINE…</replaceable></term>
+
+        <listitem><para>Run a Varlink server that accepts protocol upgrade requests for the specified method
+        and connects the upgraded connection to the standard input and output of the specified command. This
+        can act as a server-side counterpart to <command>call</command> <option>--upgrade</option>.</para>
+
+        <para>The listening socket must be passed via socket activation (i.e. the
+        <varname>$LISTEN_FDS</varname> protocol), making this command suitable for use in socket-activated
+        service units. When a client calls the specified method with the upgrade flag, the server sends a
+        reply confirming the upgrade, then forks and executes the given command line with the upgraded
+        connection on its standard input and output.</para>
+
+        <para>This effectively turns any command that speaks a protocol over standard input/output into a
+        Varlink service, discoverable via the service registry and authenticated via socket credentials.
+        Because each connection is handled by a forked child process, the service unit can apply systemd's
+        sandboxing options (such as <varname>ProtectSystem=</varname>, etc.) and does not operate in the
+        caller's environment.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><command>list-registry</command></term>
 
         <listitem><para>Shows a list of Varlink services currently registered in the service registry, plus
@@ -189,6 +231,23 @@
         <filename>/run/varlink/registry/</filename>, see below.)</para>
 
         <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>list-sockets</command></term>
+
+        <listitem><para>Shows a list of listening <constant>AF_UNIX</constant> stream sockets on the local
+        system that are marked as Varlink entrypoints, along with whether the calling user has write (i.e.
+        connect) access to each of them. A socket is considered a Varlink entrypoint if its inode carries the
+        <varname>user.varlink</varname> extended attribute set to <literal>entrypoint</literal>.</para>
+
+        <para>Sockets are enumerated via the kernel's <constant>sock_diag</constant> netlink interface, and
+        hence this is not restricted to sockets in <filename>/run/varlink/registry/</filename> (as
+        <command>list-registry</command> is), but covers all file-system bound listening Varlink sockets,
+        regardless of their location. This requires kernel support for extended attributes on socket inodes,
+        which is available since Linux 7.0.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -270,6 +329,30 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--upgrade</option></term>
+
+        <listitem><para>When used with <command>call</command>: request a protocol upgrade. The method call
+        is sent with the <constant>upgrade</constant> flag set. The service is expected to send a single
+        reply confirming the upgrade. After the reply, the Varlink protocol is no longer in effect on
+        the connection.</para>
+
+        <para>If <option>--exec</option> is not specified, <command>varlinkctl</command> acts as a
+        bidirectional proxy: data read from standard input is forwarded to the upgraded connection, and data
+        received from the connection is written to standard output.</para>
+
+        <para>If <option>--exec</option> is specified, the upgraded connection socket is placed on both
+        standard input and standard output of the invoked process. This is similar to the regular
+        <option>--exec</option> behavior (without <option>--upgrade</option>), which places the method call
+        reply on standard input. The invoked process can thus simply read from and write to
+        stdin/stdout to communicate over the upgraded protocol.</para>
+
+        <para>This option may not be combined with <option>--more</option>, <option>--oneway</option>,
+        <option>--collect</option>, <option>--graceful=</option>, or <option>--push-fd=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--json=<replaceable>MODE</replaceable></option></term>
 
         <listitem>
@@ -341,7 +424,7 @@
           functionality may be used to consume replies that come with associated file descriptors in a
           reasonable way.</para>
 
-          <para>Now that if <option>--exec</option> is specified the the third parameter to
+          <para>Now that if <option>--exec</option> is specified the third parameter to
           <command>call</command> is not optional (i.e. the method call parameters).</para>
 
           <xi:include href="version-info.xml" xpointer="v258"/>
@@ -507,6 +590,46 @@ method Extend(
       via <constant>AF_UNIX</constant> can be done like this:</para>
 
       <programlisting># varlinkctl call ssh-exec:somehost:systemd-creds org.varlink.service.GetInfo '{}'</programlisting>
+    </example>
+
+    <example>
+      <title>Serving a Sandboxed Decompressor via Protocol Upgrade</title>
+
+      <para>The following socket and service units expose <command>xz</command> decompression as a Varlink
+      service. Clients connect and send compressed data over the upgraded connection, receiving decompressed
+      output in return.</para>
+
+      <programlisting># /etc/systemd/system/varlink-decompress-xz.socket
+[Socket]
+ListenStream=/run/varlink/registry/com.example.Decompress.XZ
+
+[Install]
+WantedBy=sockets.target
+
+# /etc/systemd/system/varlink-decompress-xz.service
+[Service]
+ExecStart=varlinkctl serve com.example.Decompress.XZ xz -d
+DynamicUser=yes
+PrivateNetwork=yes
+ProtectSystem=strict
+ProtectHome=yes
+NoNewPrivileges=yes
+SystemCallFilter=~@privileged @resources
+MemoryMax=256M</programlisting>
+
+      <para>A client can then decompress data through this service:</para>
+
+      <programlisting>$ echo "hello" | xz | varlinkctl call --upgrade \
+        unix:/run/varlink/registry/com.example.Decompress.XZ \
+        com.example.Decompress.XZ '{}'
+hello</programlisting>
+
+      <para>For quick testing without unit files, <command>systemd-socket-activate</command> can be used
+      to provide the listening socket:</para>
+
+      <programlisting>$ systemd-socket-activate -l /tmp/decompress.sock -- varlinkctl serve com.example.Decompress.XZ xz -d &amp;
+$ echo "hello" | xz | varlinkctl call --upgrade unix:/tmp/decompress.sock com.example.Decompress.XZ '{}'
+hello</programlisting>
     </example>
 
   </refsect1>

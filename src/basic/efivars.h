@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "basic-forward.h"
+#include "forward.h"
 
 #include "sd-id128.h"
 
-#include "efivars-fundamental.h"        /* IWYU pragma: export */
+#include "../fundamental/efivars.h"        /* IWYU pragma: export */
 
 #define EFI_VENDOR_LOADER       SD_ID128_MAKE(4a,67,b0,82,0a,4c,41,cf,b6,c7,44,0b,29,bb,8c,4f)
 #define EFI_VENDOR_LOADER_STR   SD_ID128_MAKE_UUID_STR(4a,67,b0,82,0a,4c,41,cf,b6,c7,44,0b,29,bb,8c,4f)
@@ -45,6 +45,7 @@ int efi_get_variable_path(const char *variable, char **ret);
 int efi_set_variable(const char *variable, const void *value, size_t size) _nonnull_if_nonzero_(2, 3);
 int efi_set_variable_string(const char *variable, const char *value);
 
+bool set_efi_boot(bool b);
 bool is_efi_boot(void);
 bool is_efi_secure_boot(void);
 SecureBootMode efi_get_secure_boot_mode(void);
@@ -69,6 +70,10 @@ static inline int efi_set_variable(const char *variable, const void *value, size
 
 static inline int efi_set_variable_string(const char *variable, const char *p) {
         return -EOPNOTSUPP;
+}
+
+static inline bool set_efi_boot(bool b) {
+        return false;
 }
 
 static inline bool is_efi_boot(void) {

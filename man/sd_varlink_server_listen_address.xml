@@ -1,0 +1,181 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd_varlink_server_listen_address" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_varlink_server_listen_address</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_varlink_server_listen_address</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_varlink_server_listen_address</refname>
+    <refname>sd_varlink_server_listen_fd</refname>
+    <refname>sd_varlink_server_listen_name</refname>
+    <refname>sd_varlink_server_listen_auto</refname>
+
+    <refpurpose>Bind a Varlink server object to listening sockets</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-varlink.h&gt;</funcsynopsisinfo>
+
+      <funcsynopsisinfo>#define SD_VARLINK_SERVER_MODE_MKDIR_0755 …</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_server_listen_address</function></funcdef>
+        <paramdef>sd_varlink_server* <parameter>server</parameter></paramdef>
+        <paramdef>const char* <parameter>address</parameter></paramdef>
+        <paramdef>mode_t <parameter>mode</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_server_listen_fd</function></funcdef>
+        <paramdef>sd_varlink_server* <parameter>server</parameter></paramdef>
+        <paramdef>int <parameter>fd</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_server_listen_name</function></funcdef>
+        <paramdef>sd_varlink_server* <parameter>server</parameter></paramdef>
+        <paramdef>const char* <parameter>name</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_server_listen_auto</function></funcdef>
+        <paramdef>sd_varlink_server* <parameter>server</parameter></paramdef>
+      </funcprototype>
+
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>These functions add listening sockets to a Varlink server object, as previously allocated with
+    <citerefentry><refentrytitle>sd_varlink_server_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    Once the server object is attached to an event loop (see
+    <function>sd_varlink_server_attach_event()</function>) it will accept incoming connections on the
+    configured sockets and dispatch the registered method calls.</para>
+
+    <para><function>sd_varlink_server_listen_address()</function> allocates a new
+    <constant>AF_UNIX</constant> socket, binds it to the specified <parameter>address</parameter>, and starts
+    listening on it. The <parameter>address</parameter> is a file system path of the socket to bind to. (Use
+    <function>sd_varlink_server_listen_fd()</function> below for sockets in the abstract namespace, in foreign
+    address families, or that are otherwise already allocated.)</para>
+
+    <para>The <parameter>mode</parameter> parameter specifies the file system access mode to apply to the
+    socket inode, i.e. a bit mask of permission bits as in
+    <citerefentry project='man-pages'><refentrytitle>chmod</refentrytitle><manvolnum>2</manvolnum></citerefentry>.
+    Only the lower nine bits (<constant>0777</constant>) are permitted. The special value
+    <constant>(mode_t) -1</constant> may be specified to pick a suitable default: this is
+    <constant>0666</constant> in the general case, but <constant>0644</constant> if the server was allocated
+    with the <constant>SD_VARLINK_SERVER_ROOT_ONLY</constant> or
+    <constant>SD_VARLINK_SERVER_MYSELF_ONLY</constant> flags (the reason being that it is the
+    <literal>w</literal> bit that controls
+    <citerefentry project='man-pages'><refentrytitle>connect</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+    access, while leaving the <literal>r</literal> bit on permits other users to read the socket's extended
+    attributes, which makes the socket recognizable as a Varlink entrypoint, see
+    <citerefentry><refentrytitle>sd-varlink</refentrytitle><manvolnum>3</manvolnum></citerefentry>).</para>
+
+    <para>The constant <constant>SD_VARLINK_SERVER_MODE_MKDIR_0755</constant> may be OR-ed into the
+    <parameter>mode</parameter> parameter (this is not supported if the mode is specified as
+    <constant>(mode_t) -1</constant>). If specified, and <parameter>address</parameter> is an absolute path,
+    the leading directories of the socket path are automatically created (with access mode
+    <constant>0755</constant>) if they are missing.</para>
+
+    <para><function>sd_varlink_server_listen_fd()</function> adds an already allocated and listening socket to
+    the server object, referenced by the file descriptor <parameter>fd</parameter>. This is typically used in
+    conjunction with socket activation, to make use of a listening socket passed in from the service manager,
+    see
+    <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>. The
+    file descriptor is automatically switched to non-blocking mode and the close-on-exec flag is set on
+    it.</para>
+
+    <para><function>sd_varlink_server_listen_name()</function> picks up sockets passed in via the socket
+    activation protocol whose name (as set via <varname>$LISTEN_FDNAMES</varname>, i.e. via the
+    <varname>FileDescriptorName=</varname> setting of the
+    <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry> unit)
+    matches the specified <parameter>name</parameter>. For each matching file descriptor that refers to a
+    listening socket <function>sd_varlink_server_listen_fd()</function> is invoked; file descriptors that
+    refer to an already accepted connection are added as connections via
+    <function>sd_varlink_server_add_connection()</function> instead.</para>
+
+    <para><function>sd_varlink_server_listen_auto()</function> is a convenience wrapper that automatically
+    determines the sockets to listen on. It first picks up all socket activation file descriptors named
+    <literal>varlink</literal> (by calling <function>sd_varlink_server_listen_name()</function> with that
+    name). In addition, if the <varname>$SYSTEMD_VARLINK_LISTEN</varname> environment variable is set, it is
+    used as an additional address to listen on: if set to <literal>-</literal> the Varlink protocol is spoken
+    on standard input and output (see <function>sd_varlink_server_add_connection_stdio()</function>),
+    otherwise the value is passed to <function>sd_varlink_server_listen_address()</function>. This is the
+    recommended way for a Varlink service to set up its listening sockets, as it transparently supports both
+    socket activation and direct invocation (for testing and debugging).</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, <function>sd_varlink_server_listen_address()</function> and
+    <function>sd_varlink_server_listen_fd()</function> return a non-negative integer.
+    <function>sd_varlink_server_listen_name()</function> and
+    <function>sd_varlink_server_listen_auto()</function> return the number of sockets and file descriptors
+    they added to the server object (which may be zero). On failure, these calls return a negative errno-style
+    error code.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>An argument is invalid. This is also returned by
+          <function>sd_varlink_server_listen_address()</function> if the <parameter>mode</parameter> parameter
+          contains bits other than the permission bits and
+          <constant>SD_VARLINK_SERVER_MODE_MKDIR_0755</constant>.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EBADF</constant></term>
+
+          <listitem><para>The file descriptor passed to <function>sd_varlink_server_listen_fd()</function> is
+          negative.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>History</title>
+    <para><function>sd_varlink_server_listen_address()</function>,
+    <function>sd_varlink_server_listen_fd()</function>, and
+    <function>sd_varlink_server_listen_auto()</function> were added in version 257.</para>
+    <para><function>sd_varlink_server_listen_name()</function> was added in version 258.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-varlink</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_varlink_server_new</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

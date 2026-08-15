@@ -115,9 +115,9 @@ static int output_jobs_list(sd_bus *bus, const struct job_info* jobs, unsigned n
                         output_waiting_jobs(bus, table, j->id, "GetJobBefore", "\twaiting for job");
         }
 
-        r = table_print(table, NULL);
+        r = table_print_or_warn(table);
         if (r < 0)
-                return log_error_errno(r, "Failed to print the table: %m");
+                return r;
 
         if (arg_legend != 0) {
                 on = ansi_highlight();
@@ -133,7 +133,7 @@ static bool output_show_job(struct job_info *job, char **patterns) {
         return strv_fnmatch_or_empty(patterns, job->name, FNM_NOESCAPE);
 }
 
-int verb_list_jobs(int argc, char *argv[], void *userdata) {
+int verb_list_jobs(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ struct job_info *jobs = NULL;

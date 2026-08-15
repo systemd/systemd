@@ -1,0 +1,31 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Namespace Resource Manager Socket
+Documentation=man:systemd-nsresourced.service(8)
+DefaultDependencies=no
+Conflicts=shutdown.target
+Before=sockets.target shutdown.target
+ConditionPathExists=!/run/host/io.systemd.NamespaceResource
+
+[Socket]
+ListenStream=/run/systemd/io.systemd.NamespaceResource
+Symlinks=/run/systemd/userdb/io.systemd.NamespaceResource /run/varlink/registry/io.systemd.NamespaceResource
+FileDescriptorName=varlink
+SocketMode=0666
+XAttrEntryPoint=user.varlink=entrypoint
+XAttrListen=user.varlink=listen
+XAttrEntryPoint=user.userdb.uid={{DYNAMIC_UID_MIN}}-{{DYNAMIC_UID_MAX}},{{CONTAINER_UID_BASE_MIN}}-{{CONTAINER_UID_BASE_MAX+65535}}
+XAttrEntryPoint=user.userdb.gid={{DYNAMIC_UID_MIN}}-{{DYNAMIC_UID_MAX}},{{CONTAINER_UID_BASE_MIN}}-{{CONTAINER_UID_BASE_MAX+65535}}
+XAttrEntryPoint=user.userdb.username=ns-*
+XAttrEntryPoint=user.userdb.groupname=ns-*
+
+[Install]
+WantedBy=sockets.target

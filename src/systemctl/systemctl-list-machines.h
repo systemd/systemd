@@ -2,9 +2,9 @@
 #pragma once
 
 #include "bus-map-properties.h"
-#include "shared-forward.h"
+#include "forward.h"
 
-int verb_list_machines(int argc, char *argv[], void *userdata);
+int verb_list_machines(int argc, char *argv[], uintptr_t _data, void *userdata);
 
 struct machine_info {
         bool is_host;

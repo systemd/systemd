@@ -14,7 +14,7 @@
 #include "generator.h"
 #include "initrd-util.h"
 #include "log.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -490,9 +490,8 @@ int generator_write_network_device_deps(
 
         assert(dir);
         assert(what);
-        assert(where);
 
-        if (fstab_is_extrinsic(where, opts))
+        if (where && fstab_is_extrinsic(where, opts))
                 return 0;
 
         if (!fstab_test_option(opts, "_netdev\0"))
@@ -818,12 +817,18 @@ int generator_hook_up_quotacheck(
 
         if (isempty(fstype) || streq(fstype, "auto"))
                 return log_warning_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Couldn't determine filesystem type for %s, quota cannot be activated", what);
+        if (fstype_has_internal_quota(fstype)) {
+                log_debug("%s handles quotas internally, skipping quotacheck/quotaon setup for %s", fstype, what);
+                return 0;
+        }
         if (!fstype_needs_quota(fstype))
                 return log_warning_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Quota was requested for %s, but not supported, ignoring: %s", what, fstype);
 
         /* quotacheck unit for system root */
-        if (path_equal(where, "/"))
-                return generator_add_symlink(dir, SPECIAL_LOCAL_FS_TARGET, "wants", SYSTEM_DATA_UNIT_DIR "/" SPECIAL_QUOTACHECK_ROOT_SERVICE);
+        if (path_equal(where, "/")) {
+                r = generator_add_symlink(dir, SPECIAL_LOCAL_FS_TARGET, "wants", SYSTEM_DATA_UNIT_DIR "/" SPECIAL_QUOTACHECK_ROOT_SERVICE);
+                return r < 0 ? r : 1;
+        }
 
         r = unit_name_path_escape(where, &instance);
         if (r < 0)
@@ -839,7 +844,8 @@ int generator_hook_up_quotacheck(
         if (r < 0)
                 return log_error_errno(r, "Failed to make unit name from path '%s': %m", where);
 
-        return generator_add_symlink_full(dir, where_unit, "wants", SYSTEM_DATA_UNIT_DIR "/" SPECIAL_QUOTACHECK_SERVICE, instance);
+        r = generator_add_symlink_full(dir, where_unit, "wants", SYSTEM_DATA_UNIT_DIR "/" SPECIAL_QUOTACHECK_SERVICE, instance);
+        return r < 0 ? r : 1;
 }
 
 int generator_hook_up_quotaon(
@@ -915,7 +921,12 @@ int generator_write_cryptsetup_unit_section(FILE *f, const char *source) {
         fprintf(f,
                 "\n"
                 "DefaultDependencies=no\n"
-                "After=cryptsetup-pre.target systemd-udevd-kernel.socket systemd-tpm2-setup-early.service\n"
+                /* The ordering against systemd-udevd.service is mostly about shutdown, not startup: on stop
+                 * the device is detached via a device-mapper ioctl that carries a udev cookie, and we block in
+                 * dm_udev_wait() until udev releases it (see 95-dm-notify.rules). Ordering After= it means we
+                 * are stopped first, while udevd is still around to service that cookie; otherwise during
+                 * soft-reboot/shutdown udevd may exit first and the detach hangs until the job timeout. */
+                "After=cryptsetup-pre.target systemd-udevd-kernel.socket systemd-udevd.service systemd-tpm2-setup-early.service\n"
                 "Before=blockdev@dev-mapper-%%i.target\n"
                 "Wants=blockdev@dev-mapper-%%i.target\n"
                 "IgnoreOnIsolate=true\n");
@@ -987,7 +998,11 @@ int generator_write_veritysetup_unit_section(FILE *f, const char *source) {
         fprintf(f,
                 "DefaultDependencies=no\n"
                 "IgnoreOnIsolate=true\n"
-                "After=veritysetup-pre.target systemd-udevd-kernel.socket\n"
+                /* The systemd-udevd.service ordering is mostly about shutdown, not startup: on stop the dm
+                 * device is detached via an ioctl carrying a udev cookie that blocks in dm_udev_wait() until
+                 * udev releases it (95-dm-notify.rules). Stopping before udevd keeps it around to service the
+                 * cookie; otherwise during soft-reboot/shutdown udevd may exit first and the detach hangs. */
+                "After=veritysetup-pre.target systemd-udevd-kernel.socket systemd-udevd.service\n"
                 "Before=blockdev@dev-mapper-%%i.target\n"
                 "Wants=blockdev@dev-mapper-%%i.target\n");
 

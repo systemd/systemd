@@ -4,7 +4,7 @@
 /* IWYU pragma: always_keep */
 
 #include "conf-parser-forward.h"        /* IWYU pragma: export */
-#include "shared-forward.h"             /* IWYU pragma: export */
+#include "forward.h"             /* IWYU pragma: export */
 #include "unit-def.h"                   /* IWYU pragma: export */
 
 typedef enum CGroupDevicePermissions CGroupDevicePermissions;
@@ -52,3 +52,4 @@ typedef struct Unit Unit;
 typedef struct UnitRef UnitRef;
 
 struct restrict_fs_bpf;
+struct restrict_fsaccess_bpf;

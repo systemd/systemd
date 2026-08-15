@@ -302,9 +302,9 @@ int ask_password_plymouth(
         _cleanup_close_ int fd = -EBADF, inotify_fd = -EBADF;
         _cleanup_free_ char *packet = NULL;
         ssize_t k;
-        int r, n;
+        int r;
         char buffer[LINE_MAX];
-        size_t p = 0;
+        size_t packet_size, p = 0;
 
         assert(req);
         assert(ret);
@@ -329,13 +329,16 @@ int ask_password_plymouth(
 
         if (FLAGS_SET(flags, ASK_PASSWORD_ACCEPT_CACHED)) {
                 packet = strdup("c");
-                n = 1;
-        } else if (asprintf(&packet, "*\002%c%s%n", (int) (strlen(message) + 1), message, &n) < 0)
-                packet = NULL;
+                packet_size = 2;
+        } else {
+                r = plymouth_build_password_packet(message, &packet, &packet_size);
+                if (r < 0)
+                        return r;
+        }
         if (!packet)
                 return -ENOMEM;
 
-        r = loop_write_full(fd, packet, n + 1, USEC_INFINITY);
+        r = loop_write_full(fd, packet, packet_size, USEC_INFINITY);
         if (r < 0)
                 return r;
 
@@ -416,10 +419,11 @@ int ask_password_plymouth(
                                  * with a normal password request */
                                 packet = mfree(packet);
 
-                                if (asprintf(&packet, "*\002%c%s%n", (int) (strlen(message) + 1), message, &n) < 0)
-                                        return -ENOMEM;
+                                r = plymouth_build_password_packet(message, &packet, &packet_size);
+                                if (r < 0)
+                                        return r;
 
-                                r = loop_write_full(fd, packet, n + 1, USEC_INFINITY);
+                                r = loop_write_full(fd, packet, packet_size, USEC_INFINITY);
                                 if (r < 0)
                                         return r;
 
@@ -824,6 +828,21 @@ static int create_socket(const char *askpwdir, char **ret) {
         return TAKE_FD(fd);
 }
 
+bool ask_password_agent_prompt_fields_are_safe(const AskPasswordRequest *req) {
+        /* These fields end up in single-line "Key=value" assignments in the agent request file, hence a
+         * newline (or any other control character) in them would let the caller add further assignments to
+         * the [Ask] section, which agents then happily honour. Only the characters string_is_safe() rejects
+         * by default matter here, the rest is fine to appear in a prompt. */
+        const StringSafeFlags flags = STRING_ALLOW_EMPTY | STRING_ALLOW_BACKSLASHES |
+                                      STRING_ALLOW_QUOTES | STRING_ALLOW_GLOBS;
+
+        assert(req);
+
+        return (!req->message || string_is_safe(req->message, flags)) &&
+               (!req->icon || string_is_safe(req->icon, flags)) &&
+               (!req->id || string_is_safe(req->id, flags));
+}
+
 int ask_password_agent(
                 const AskPasswordRequest *req,
                 AskPasswordFlags flags,
@@ -845,6 +864,10 @@ int ask_password_agent(
         /* We don't support the flag file concept for now when querying via the agent logic */
         if (req->flag_file)
                 return -EOPNOTSUPP;
+
+        if (!ask_password_agent_prompt_fields_are_safe(req))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Password request contains unsafe characters, refusing.");
 
         _cleanup_free_ char *askpwdir = NULL;
         r = get_ask_password_directory_for_flags(flags, &askpwdir);

@@ -21,7 +21,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
-#include "tmpfile-util-label.h"
+#include "tmpfile-util.h"
 
 int manager_check_resolv_conf(const Manager *m) {
         struct stat st, own;

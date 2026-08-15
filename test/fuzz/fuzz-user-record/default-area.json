@@ -1,0 +1,16 @@
+{
+    "userName": "areauser",
+    "realName": "Default Area Test User",
+    "uid": 3012,
+    "gid": 3012,
+    "homeDirectory": "/home/areauser",
+    "shell": "/bin/bash",
+    "disposition": "regular",
+    "defaultArea": "work",
+    "perMachine": [
+        {
+            "matchHostname": "personal",
+            "defaultArea": "personal"
+        }
+    ]
+}

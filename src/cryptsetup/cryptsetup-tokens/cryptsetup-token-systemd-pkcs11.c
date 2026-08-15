@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <libcryptsetup.h>
+#include <syslog.h>
 
 #include "sd-json.h"
 
 #include "alloc-util.h"
 #include "cryptsetup-token.h"
 #include "cryptsetup-token-util.h"
+#include "dlopen-note.h"
 #include "luks2-pkcs11.h"
 #include "memory-util.h"
 #include "pkcs11-util.h"
@@ -17,7 +18,11 @@
 #define TOKEN_VERSION_MINOR "0"
 
 /* for libcryptsetup debug purpose */
-_public_ const char *cryptsetup_token_version(void) {
+_public_ const char* cryptsetup_token_version(void) {
+        LIBCRYPTO_NOTE(suggested);
+        LIBCRYPTSETUP_NOTE(required);
+        LIBP11KIT_NOTE(suggested);
+
         return TOKEN_VERSION_MAJOR "." TOKEN_VERSION_MINOR " systemd-v" PROJECT_VERSION_FULL " (" GIT_VERSION ")";
 }
 
@@ -36,8 +41,12 @@ _public_ int cryptsetup_token_open_pin(
         assert(pin || pin_size == 0);
         assert(token >= 0);
 
+        r = dlopen_cryptsetup(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
         /* This must not fail at this moment (internal error) */
-        r = crypt_token_json_get(cd, token, &json);
+        r = sym_crypt_token_json_get(cd, token, &json);
         /* Use assert_se() here to avoid emitting warning with -DNDEBUG */
         assert_se(token == r);
         assert(json);
@@ -88,8 +97,12 @@ _public_ void cryptsetup_token_dump(
         size_t pkcs11_key_size;
         _cleanup_free_ char *pkcs11_uri = NULL, *key_str = NULL;
         _cleanup_free_ void *pkcs11_key = NULL;
+        Pkcs11RsaPadding rsa_padding = PKCS11_RSA_PADDING_PKCS1V15;
 
-        r = parse_luks2_pkcs11_data(cd, json, &pkcs11_uri, &pkcs11_key, &pkcs11_key_size);
+        if (dlopen_cryptsetup(LOG_DEBUG) < 0)
+                return;
+
+        r = parse_luks2_pkcs11_data(cd, json, &pkcs11_uri, &pkcs11_key, &pkcs11_key_size, &rsa_padding);
         if (r < 0)
                 return (void) crypt_log_debug_errno(cd, r, "Failed to parse " TOKEN_NAME " metadata: %m.");
 
@@ -99,6 +112,7 @@ _public_ void cryptsetup_token_dump(
 
         crypt_log(cd, "\tpkcs11-uri: %s\n", pkcs11_uri);
         crypt_log(cd, "\tpkcs11-key: %s\n", key_str);
+        crypt_log(cd, "\tpkcs11-padding: %s\n", pkcs11_rsa_padding_to_string(rsa_padding));
 }
 
 /*
@@ -115,7 +129,11 @@ _public_ int cryptsetup_token_validate(
         sd_json_variant *w;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
-        r = sd_json_parse(json, 0, &v, NULL, NULL);
+        r = dlopen_cryptsetup(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        r = sd_json_parse(json, SD_JSON_PARSE_MUST_BE_OBJECT, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (r < 0)
                 return crypt_log_debug_errno(cd, r, "Could not parse " TOKEN_NAME " json object: %m.");
 
@@ -139,6 +157,20 @@ _public_ int cryptsetup_token_validate(
         r = sd_json_variant_unbase64(w, NULL, NULL);
         if (r < 0)
                 return crypt_log_debug_errno(cd, r, "Failed to decode base64 encoded key: %m.");
+
+        /* Optional 'pkcs11-padding' field: must be a known padding scheme string if present. Older systemd
+         * versions will just ignore this field entirely and assume PKCS#1 v1.5. */
+        w = sd_json_variant_by_key(v, "pkcs11-padding");
+        if (w) {
+                if (!sd_json_variant_is_string(w)) {
+                        crypt_log_debug(cd, "PKCS#11 token field 'pkcs11-padding' is not a string.");
+                        return 1;
+                }
+                if (pkcs11_rsa_padding_from_string(sd_json_variant_string(w)) < 0) {
+                        crypt_log_debug(cd, "PKCS#11 token field 'pkcs11-padding' has unsupported value.");
+                        return 1;
+                }
+        }
 
         return 0;
 }

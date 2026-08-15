@@ -1,11 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <time.h>
+
 #include "sd-id128.h"
 
 #include "bitfield.h"
+#include "forward.h"
+#include "pkcs11-padding.h"
 #include "rlimit-util.h"
-#include "shared-forward.h"
 
 typedef enum UserDisposition {
         USER_INTRINSIC,   /* root and nobody */
@@ -187,6 +190,10 @@ typedef struct Pkcs11EncryptedKey {
         /* Where to find the private key to decrypt the encrypted passphrase above */
         char *uri;
 
+        /* Which RSA padding scheme was used to wrap the encrypted passphrase. Defaults to PKCS#1 v1.5 for
+         * legacy records that omit the field; new enrollments use RSA-OAEP with SHA-256 or SHA-1. */
+        Pkcs11RsaPadding padding;
+
         /* What to test the decrypted passphrase against to allow access (classic UNIX password hash).  Note
          * that the decrypted passphrase is also used for unlocking LUKS and fscrypt, and if the account is
          * backed by LUKS or fscrypt the hashed password is only an additional layer of authentication, not
@@ -266,6 +273,7 @@ typedef struct UserRecord {
         char *password_hint;
         char *icon_name;
         char *location;
+        struct tm birth_date;
 
         char *blob_directory;
         Hashmap *blob_manifest;
@@ -538,6 +546,7 @@ bool userdb_match_is_set(const UserDBMatch *match) _pure_;
 
 void userdb_match_done(UserDBMatch *match);
 
+bool record_name_matches_alias_realm(const char *name, char * const *aliases, const char *realm);
 bool user_name_fuzzy_match(const char *names[], size_t n_names, char **matches);
 bool user_record_match(UserRecord *u, const UserDBMatch *match);
 

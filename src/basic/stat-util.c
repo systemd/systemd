@@ -32,7 +32,7 @@ static int verify_stat_at(
         struct stat st;
         int r;
 
-        assert(fd >= 0 || IN_SET(fd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(fd));
         assert(!isempty(path) || !follow);
         assert(verify_func);
 
@@ -49,22 +49,35 @@ static int verify_stat_at(
         return verify ? r : r >= 0;
 }
 
+static int mode_verify_regular(mode_t mode) {
+        if (S_ISDIR(mode))
+                return -EISDIR;
+
+        if (S_ISLNK(mode))
+                return -ELOOP;
+
+        if (!S_ISREG(mode))
+                return -EBADFD;
+
+        return 0;
+}
+
 int stat_verify_regular(const struct stat *st) {
         assert(st);
 
         /* Checks whether the specified stat() structure refers to a regular file. If not returns an
          * appropriate error code. */
 
-        if (S_ISDIR(st->st_mode))
-                return -EISDIR;
+        return mode_verify_regular(st->st_mode);
+}
 
-        if (S_ISLNK(st->st_mode))
-                return -ELOOP;
+int statx_verify_regular(const struct statx *stx) {
+        assert(stx);
 
-        if (!S_ISREG(st->st_mode))
-                return -EBADFD;
+        if (!FLAGS_SET(stx->stx_mask, STATX_TYPE))
+                return -ENODATA;
 
-        return 0;
+        return mode_verify_regular(stx->stx_mode);
 }
 
 int verify_regular_at(int fd, const char *path, bool follow) {
@@ -78,16 +91,20 @@ int fd_verify_regular(int fd) {
         return verify_regular_at(fd, /* path= */ NULL, /* follow= */ false);
 }
 
-int stat_verify_directory(const struct stat *st) {
-        assert(st);
-
-        if (S_ISLNK(st->st_mode))
+static int mode_verify_directory(mode_t mode) {
+        if (S_ISLNK(mode))
                 return -ELOOP;
 
-        if (!S_ISDIR(st->st_mode))
+        if (!S_ISDIR(mode))
                 return -ENOTDIR;
 
         return 0;
+}
+
+int stat_verify_directory(const struct stat *st) {
+        assert(st);
+
+        return mode_verify_directory(st->st_mode);
 }
 
 int statx_verify_directory(const struct statx *stx) {
@@ -96,13 +113,7 @@ int statx_verify_directory(const struct statx *stx) {
         if (!FLAGS_SET(stx->stx_mask, STATX_TYPE))
                 return -ENODATA;
 
-        if (S_ISLNK(stx->stx_mode))
-                return -ELOOP;
-
-        if (!S_ISDIR(stx->stx_mode))
-                return -ENOTDIR;
-
-        return 0;
+        return mode_verify_directory(stx->stx_mode);
 }
 
 int fd_verify_directory(int fd) {
@@ -134,6 +145,9 @@ int stat_verify_symlink(const struct stat *st) {
 }
 
 int fd_verify_symlink(int fd) {
+        if (IN_SET(fd, AT_FDCWD, XAT_FDROOT))
+                return -EISDIR;
+
         return verify_stat_at(fd, /* path= */ NULL, /* follow= */ false, stat_verify_symlink, /* verify= */ true);
 }
 
@@ -142,19 +156,36 @@ int is_symlink(const char *path) {
         return verify_stat_at(AT_FDCWD, path, false, stat_verify_symlink, false);
 }
 
-int stat_verify_socket(const struct stat *st) {
-        assert(st);
-
-        if (S_ISLNK(st->st_mode))
-                return -ELOOP;
-
-        if (S_ISDIR(st->st_mode))
+static int mode_verify_socket(mode_t mode) {
+        if (S_ISDIR(mode))
                 return -EISDIR;
 
-        if (!S_ISSOCK(st->st_mode))
+        if (S_ISLNK(mode))
+                return -ELOOP;
+
+        if (!S_ISSOCK(mode))
                 return -ENOTSOCK;
 
         return 0;
+}
+
+int stat_verify_socket(const struct stat *st) {
+        assert(st);
+
+        return mode_verify_socket(st->st_mode);
+}
+
+int statx_verify_socket(const struct statx *stx) {
+        assert(stx);
+
+        return mode_verify_socket(stx->stx_mode);
+}
+
+int fd_verify_socket(int fd) {
+        if (IN_SET(fd, AT_FDCWD, XAT_FDROOT))
+                return -EISDIR;
+
+        return verify_stat_at(fd, /* path= */ NULL, /* follow= */ false, stat_verify_socket, /* verify= */ true);
 }
 
 int is_socket(const char *path) {
@@ -179,14 +210,51 @@ int fd_verify_linked(int fd) {
         return verify_stat_at(fd, NULL, false, stat_verify_linked, true);
 }
 
-int stat_verify_device_node(const struct stat *st) {
+int stat_verify_block(const struct stat *st) {
         assert(st);
+
+        if (S_ISDIR(st->st_mode))
+                return -EISDIR;
 
         if (S_ISLNK(st->st_mode))
                 return -ELOOP;
 
+        if (!S_ISBLK(st->st_mode))
+                return -ENOTBLK;
+
+        return 0;
+}
+
+int fd_verify_block(int fd) {
+        if (IN_SET(fd, AT_FDCWD, XAT_FDROOT))
+                return -EISDIR;
+
+        return verify_stat_at(fd, /* path= */ NULL, /* follow= */ false, stat_verify_block, /* verify= */ true);
+}
+
+int stat_verify_char(const struct stat *st) {
+        assert(st);
+
         if (S_ISDIR(st->st_mode))
                 return -EISDIR;
+
+        if (S_ISLNK(st->st_mode))
+                return -ELOOP;
+
+        if (!S_ISCHR(st->st_mode))
+                return -EBADFD;
+
+        return 0;
+}
+
+int stat_verify_device_node(const struct stat *st) {
+        assert(st);
+
+        if (S_ISDIR(st->st_mode))
+                return -EISDIR;
+
+        if (S_ISLNK(st->st_mode))
+                return -ELOOP;
 
         if (!S_ISBLK(st->st_mode) && !S_ISCHR(st->st_mode))
                 return -ENOTTY;
@@ -197,6 +265,28 @@ int stat_verify_device_node(const struct stat *st) {
 int is_device_node(const char *path) {
         assert(!isempty(path));
         return verify_stat_at(AT_FDCWD, path, false, stat_verify_device_node, false);
+}
+
+int stat_verify_regular_or_block(const struct stat *st) {
+        assert(st);
+
+        if (S_ISDIR(st->st_mode))
+                return -EISDIR;
+
+        if (S_ISLNK(st->st_mode))
+                return -ELOOP;
+
+        if (!S_ISREG(st->st_mode) && !S_ISBLK(st->st_mode))
+                return -EBADFD;
+
+        return 0;
+}
+
+int fd_verify_regular_or_block(int fd) {
+        if (IN_SET(fd, AT_FDCWD, XAT_FDROOT))
+                return -EISDIR;
+
+        return verify_stat_at(fd, /* path= */ NULL, /* follow= */ false, stat_verify_regular_or_block, /* verify= */ true);
 }
 
 int dir_is_empty_at(int dir_fd, const char *path, bool ignore_hidden_or_backup) {
@@ -307,7 +397,8 @@ DEFINE_STATX_BITS_TO_STRING(statx_attributes, uint64_t, statx_attribute_to_name,
 
 int xstatx_full(int fd,
                 const char *path,
-                int flags,
+                int statx_flags,
+                XStatXFlags xstatx_flags,
                 unsigned mandatory_mask,
                 unsigned optional_mask,
                 uint64_t mandatory_attributes,
@@ -323,10 +414,13 @@ int xstatx_full(int fd,
          * 3. Takes separate mandatory and optional mask params, plus mandatory attributes.
          *    Returns -EUNATCH if statx() does not return all masks specified as mandatory,
          *    > 0 if all optional masks are supported, 0 otherwise.
+         * 4. Supports a new flag XSTATX_MNT_ID_BEST which acquires STATX_MNT_ID_UNIQUE if available and
+         *    STATX_MNT_ID if not.
          */
 
-        assert(fd >= 0 || IN_SET(fd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(fd));
         assert((mandatory_mask & optional_mask) == 0);
+        assert(!FLAGS_SET(xstatx_flags, XSTATX_MNT_ID_BEST) || !((mandatory_mask|optional_mask) & (STATX_MNT_ID|STATX_MNT_ID_UNIQUE)));
         assert(ret);
 
         _cleanup_free_ char *p = NULL;
@@ -334,11 +428,20 @@ int xstatx_full(int fd,
         if (r < 0)
                 return r;
 
-        if (statx(fd, strempty(path),
-                  flags|(isempty(path) ? AT_EMPTY_PATH : 0),
-                  mandatory_mask|optional_mask,
+        unsigned request_mask = mandatory_mask|optional_mask;
+        if (FLAGS_SET(xstatx_flags, XSTATX_MNT_ID_BEST))
+                request_mask |= STATX_MNT_ID|STATX_MNT_ID_UNIQUE;
+
+        if (statx(fd,
+                  strempty(path),
+                  statx_flags|(isempty(path) ? AT_EMPTY_PATH : 0),
+                  request_mask,
                   &sx) < 0)
                 return negative_errno();
+
+        if (FLAGS_SET(xstatx_flags, XSTATX_MNT_ID_BEST) &&
+            !(sx.stx_mask & (STATX_MNT_ID|STATX_MNT_ID_UNIQUE)))
+                return log_debug_errno(SYNTHETIC_ERRNO(EUNATCH), "statx() did not return either STATX_MNT_ID or STATX_MNT_ID_UNIQUE.");
 
         if (!FLAGS_SET(sx.stx_mask, mandatory_mask)) {
                 if (DEBUG_LOGGING) {
@@ -377,7 +480,7 @@ static int xfstatfs(int fd, struct statfs *ret) {
 int xstatfsat(int dir_fd, const char *path, struct statfs *ret) {
         _cleanup_close_ int fd = -EBADF;
 
-        assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(dir_fd));
         assert(ret);
 
         if (!isempty(path)) {
@@ -482,15 +585,17 @@ int inode_same_at(int fda, const char *filea, int fdb, const char *fileb, int fl
 
                         goto fallback;
                 }
-                if (r == 0)
+                bool have_unique_mntid = r > 0;
+
+                if (!have_unique_mntid)
                         mntida = _mntida;
 
                 r = name_to_handle_at_try_fid(
                                 fdb,
                                 fileb,
                                 &hb,
-                                r > 0 ? NULL : &_mntidb, /* if we managed to get unique mnt id for a, insist on that for b */
-                                r > 0 ? &mntidb : NULL,
+                                have_unique_mntid ? NULL : &_mntidb, /* if we managed to get unique mnt id for a, insist on that for b */
+                                have_unique_mntid ? &mntidb : NULL,
                                 ntha_flags);
                 if (r < 0) {
                         if (is_name_to_handle_at_fatal_error(r))
@@ -498,8 +603,10 @@ int inode_same_at(int fda, const char *filea, int fdb, const char *fileb, int fl
 
                         goto fallback;
                 }
-                if (r == 0)
+                if (r == 0) {
+                        assert(!have_unique_mntid); /* _mntidb was initialized by name_to_handle_at_try_fid() */
                         mntidb = _mntidb;
+                }
 
                 /* Now compare the two file handles */
                 if (!file_handle_equal(ha, hb))
@@ -630,6 +737,9 @@ bool stat_inode_unmodified(const struct stat *a, const struct stat *b) {
          * about contents of the file. The purpose here is to detect file contents changes, and nothing
          * else. */
 
+        assert(a);
+        assert(b);
+
         return stat_inode_same(a, b) &&
                 a->st_mtim.tv_sec == b->st_mtim.tv_sec &&
                 a->st_mtim.tv_nsec == b->st_mtim.tv_nsec &&
@@ -654,39 +764,113 @@ bool statx_inode_same(const struct statx *a, const struct statx *b) {
                 a->stx_ino == b->stx_ino;
 }
 
-bool statx_mount_same(const struct statx *a, const struct statx *b) {
+int statx_mount_same(const struct statx *a, const struct statx *b) {
         if (!statx_is_set(a) || !statx_is_set(b))
                 return false;
 
-        assert(FLAGS_SET(a->stx_mask, STATX_MNT_ID));
-        assert(FLAGS_SET(b->stx_mask, STATX_MNT_ID));
+        if ((FLAGS_SET(a->stx_mask, STATX_MNT_ID) && FLAGS_SET(b->stx_mask, STATX_MNT_ID)) ||
+            (FLAGS_SET(a->stx_mask, STATX_MNT_ID_UNIQUE) && FLAGS_SET(b->stx_mask, STATX_MNT_ID_UNIQUE)))
+                return a->stx_mnt_id == b->stx_mnt_id;
 
-        return a->stx_mnt_id == b->stx_mnt_id;
+        return -ENODATA;
 }
 
 usec_t statx_timestamp_load(const struct statx_timestamp *ts) {
+        assert(ts);
         return timespec_load(&(const struct timespec) { .tv_sec = ts->tv_sec, .tv_nsec = ts->tv_nsec });
 }
 nsec_t statx_timestamp_load_nsec(const struct statx_timestamp *ts) {
+        assert(ts);
         return timespec_load_nsec(&(const struct timespec) { .tv_sec = ts->tv_sec, .tv_nsec = ts->tv_nsec });
 }
 
 void inode_hash_func(const struct stat *q, struct siphash *state) {
+        assert(q);
+
         siphash24_compress_typesafe(q->st_dev, state);
         siphash24_compress_typesafe(q->st_ino, state);
+
+        /* Also include inode type, to mirror stat_inode_same() */
+        mode_t type = q->st_mode & S_IFMT;
+        siphash24_compress_typesafe(type, state);
 }
 
 int inode_compare_func(const struct stat *a, const struct stat *b) {
         int r;
 
+        assert(a);
+        assert(b);
+
         r = CMP(a->st_dev, b->st_dev);
         if (r != 0)
                 return r;
 
-        return CMP(a->st_ino, b->st_ino);
+        r = CMP(a->st_ino, b->st_ino);
+        if (r != 0)
+                return r;
+
+        return CMP(a->st_mode & S_IFMT, b->st_mode & S_IFMT);
 }
 
 DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(inode_hash_ops, struct stat, inode_hash_func, inode_compare_func, free);
+
+void inode_unmodified_hash_func(const struct stat *q, struct siphash *state) {
+        assert(q);
+
+        inode_hash_func(q, state);
+
+        siphash24_compress_typesafe(q->st_mtim.tv_sec, state);
+        siphash24_compress_typesafe(q->st_mtim.tv_nsec, state);
+
+        if (S_ISREG(q->st_mode))
+                siphash24_compress_typesafe(q->st_size, state);
+        else {
+                uint64_t invalid = UINT64_MAX;
+                siphash24_compress_typesafe(invalid, state);
+        }
+
+        if (S_ISCHR(q->st_mode) || S_ISBLK(q->st_mode))
+                siphash24_compress_typesafe(q->st_rdev, state);
+        else {
+                dev_t invalid = (dev_t) -1;
+                siphash24_compress_typesafe(invalid, state);
+        }
+}
+
+int inode_unmodified_compare_func(const struct stat *a, const struct stat *b) {
+        int r;
+
+        assert(a);
+        assert(b);
+
+        r = inode_compare_func(a, b);
+        if (r != 0)
+                return r;
+
+        r = CMP(a->st_mtim.tv_sec, b->st_mtim.tv_sec);
+        if (r != 0)
+                return r;
+
+        r = CMP(a->st_mtim.tv_nsec, b->st_mtim.tv_nsec);
+        if (r != 0)
+                return r;
+
+        if (S_ISREG(a->st_mode)) {
+                r = CMP(a->st_size, b->st_size);
+                if (r != 0)
+                        return r;
+        }
+
+        if (S_ISCHR(a->st_mode) || S_ISBLK(a->st_mode)) {
+                r = CMP(a->st_rdev, b->st_rdev);
+                if (r != 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(inode_unmodified_hash_ops, struct stat, inode_unmodified_hash_func, inode_unmodified_compare_func, free);
 
 const char* inode_type_to_string(mode_t m) {
 
@@ -735,4 +919,21 @@ mode_t inode_type_from_string(const char *s) {
                 return S_IFSOCK;
 
         return MODE_INVALID;
+}
+
+int vfs_free_bytes(int fd, uint64_t *ret) {
+        assert(fd >= 0);
+        assert(ret);
+
+        /* Safely returns the current available disk space (for root, i.e. including any space reserved for
+         * root) of the disk referenced by the fd, converted to bytes. */
+
+        struct statvfs sv;
+        if (fstatvfs(fd, &sv) < 0)
+                return -errno;
+
+        if (!MUL_SAFE(ret, (uint64_t) sv.f_frsize, (uint64_t) sv.f_bfree))
+                return -ERANGE;
+
+        return 0;
 }

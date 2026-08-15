@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 
 #include "sd-bus.h"
+#include "sd-dhcp-relay.h"
 #include "sd-event.h"
 #include "sd-netlink.h"
 #include "sd-resolve.h"
@@ -25,6 +26,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "initrd-util.h"
+#include "iovec-util.h"
 #include "mount-util.h"
 #include "netlink-internal.h"
 #include "netlink-util.h"
@@ -533,7 +535,7 @@ static int signal_restart_callback(sd_event_source *s, const struct signalfd_sig
 static int signal_reload_callback(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
 
-        (void) manager_reload(m, /* message= */ NULL);
+        (void) manager_reload(m, /* message= */ NULL, /* varlink= */ NULL, /* reconfigure_links= */ true);
 
         return 0;
 }
@@ -677,6 +679,8 @@ static int persistent_storage_open(void) {
 int manager_new(Manager **ret, bool test_mode) {
         _cleanup_(manager_freep) Manager *m = NULL;
 
+        assert(ret);
+
         m = new(Manager, 1);
         if (!m)
                 return -ENOMEM;
@@ -699,6 +703,7 @@ int manager_new(Manager **ret, bool test_mode) {
                 .dhcp_duid.type = DUID_TYPE_EN,
                 .dhcp6_duid.type = DUID_TYPE_EN,
                 .duid_product_uuid.type = DUID_TYPE_UUID,
+                .dhcp_relay_extra_options = TLV_INIT(TLV_DHCP4_SUBOPTION),
                 .dhcp_server_persist_leases = DHCP_SERVER_PERSIST_LEASES_YES,
                 .serialization_fd = -EBADF,
                 .ip_forwarding = { -1, -1, },
@@ -757,6 +762,10 @@ Manager* manager_free(Manager *m) {
         sd_netlink_unref(m->genl);
         sd_netlink_unref(m->nfnl);
         sd_resolve_unref(m->resolve);
+
+        iovec_done(&m->dhcp_relay_remote_id);
+        tlv_done(&m->dhcp_relay_extra_options);
+        sd_dhcp_relay_unref(m->dhcp_relay);
 
         m->routes = set_free(m->routes);
 
@@ -1257,11 +1266,12 @@ int manager_set_timezone(Manager *m, const char *tz) {
         return 0;
 }
 
-int manager_reload(Manager *m, sd_bus_message *message) {
+int manager_reload(Manager *m, sd_bus_message *message, sd_varlink *varlink, bool reconfigure_links) {
         Link *link;
         int r;
 
         assert(m);
+        assert(!message || !varlink); /* D-Bus and Varlink callers are mutually exclusive */
 
         log_debug("Reloading...");
         (void) notify_reloading();
@@ -1278,9 +1288,14 @@ int manager_reload(Manager *m, sd_bus_message *message) {
                 goto finish;
         }
 
-        HASHMAP_FOREACH(link, m->links_by_index)
-                (void) link_reconfigure_full(link, /* flags= */ 0, message,
-                                             /* counter= */ message ? &m->reloading : NULL);
+        if (reconfigure_links)
+                HASHMAP_FOREACH(link, m->links_by_index)
+                        (void) link_reconfigure_full(
+                                        link,
+                                        /* flags= */ 0,
+                                        message,
+                                        varlink,
+                                        /* counter= */ (message || varlink) ? &m->reloading : NULL);
 
         log_debug("Reloaded.");
         r = 0;

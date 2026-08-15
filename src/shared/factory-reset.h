@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
+#include "forward.h"
 
 typedef enum FactoryResetMode {
         FACTORY_RESET_UNSUPPORTED,    /* feature not available on this OS */

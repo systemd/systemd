@@ -3,7 +3,7 @@
 
 #include <linux/capability.h>   /* IWYU pragma: export */
 
-#include "basic-forward.h"
+#include "forward.h"
 
 /* Special marker used when storing a capabilities mask as "unset". This would need to be updated as soon as
  * Linux learns more than 63 caps. */

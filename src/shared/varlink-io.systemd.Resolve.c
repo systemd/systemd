@@ -67,6 +67,7 @@ SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(rname, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(serial, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(refresh, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(retry, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(expire, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(minimum, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(exchange, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
@@ -337,6 +338,7 @@ static SD_VARLINK_DEFINE_ERROR(StubLoop);
 static SD_VARLINK_DEFINE_ERROR(
                 DNSError,
                 SD_VARLINK_DEFINE_FIELD(rcode, SD_VARLINK_INT, 0),
+                SD_VARLINK_DEFINE_FIELD(queryString, SD_VARLINK_STRING, 0),
                 SD_VARLINK_DEFINE_FIELD(extendedDNSErrorCode, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(extendedDNSErrorMessage, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 static SD_VARLINK_DEFINE_ERROR(CNAMELoop);
@@ -345,6 +347,7 @@ static SD_VARLINK_DEFINE_ERROR(ResourceRecordTypeInvalidForQuery);
 static SD_VARLINK_DEFINE_ERROR(ZoneTransfersNotPermitted);
 static SD_VARLINK_DEFINE_ERROR(ResourceRecordTypeObsolete);
 static SD_VARLINK_DEFINE_ERROR(InconsistentServiceRecords);
+static SD_VARLINK_DEFINE_ERROR(ServiceNotProvided);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Resolve,
@@ -415,4 +418,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_error_ZoneTransfersNotPermitted,
                 &vl_error_ResourceRecordTypeObsolete,
                 SD_VARLINK_SYMBOL_COMMENT("The DNS resource records of the specified service are not consistent (e.g. lacks a DNS-SD service type when resolved)."),
-                &vl_error_InconsistentServiceRecords);
+                &vl_error_InconsistentServiceRecords,
+                SD_VARLINK_SYMBOL_COMMENT("The service is explicitly not provided on the queried domain (RFC 2782 root domain SRV record)."),
+                &vl_error_ServiceNotProvided);

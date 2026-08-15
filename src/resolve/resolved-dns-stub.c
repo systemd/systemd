@@ -81,9 +81,9 @@ int dns_stub_listener_extra_new(
                 Manager *m,
                 DnsStubListenerExtra **ret) {
 
-        DnsStubListenerExtra *l;
+        assert(ret);
 
-        l = new(DnsStubListenerExtra, 1);
+        DnsStubListenerExtra *l = new(DnsStubListenerExtra, 1);
         if (!l)
                 return -ENOMEM;
 
@@ -101,6 +101,19 @@ DnsStubListenerExtra *dns_stub_listener_extra_free(DnsStubListenerExtra *p) {
 
         p->udp_event_source = sd_event_source_disable_unref(p->udp_event_source);
         p->tcp_event_source = sd_event_source_disable_unref(p->tcp_event_source);
+
+        assert(p->manager);
+
+        /* Detach the raw back-pointers that DnsStream and DnsQuery objects keep to this listener before we
+         * free it. Otherwise a later dns_stream_complete()/dns_query_free() during the same reload would
+         * dereference the freed slab: dns_query_free() reads q->stub_listener_extra->queries_by_packet. */
+        LIST_FOREACH(streams, s, p->manager->dns_streams)
+                if (s->stub_listener_extra == p)
+                        s->stub_listener_extra = NULL;
+
+        LIST_FOREACH(queries, q, p->manager->dns_queries)
+                if (q->stub_listener_extra == p)
+                        q->stub_listener_extra = NULL;
 
         hashmap_free(p->queries_by_packet);
 
@@ -146,7 +159,7 @@ static int stub_packet_compare_func(const DnsPacket *x, const DnsPacket *y) {
         return memcmp(DNS_PACKET_HEADER(x), DNS_PACKET_HEADER(y), sizeof(DnsPacketHeader));
 }
 
-DEFINE_HASH_OPS(stub_packet_hash_ops, DnsPacket, stub_packet_hash_func, stub_packet_compare_func);
+DEFINE_PRIVATE_HASH_OPS(stub_packet_hash_ops, DnsPacket, stub_packet_hash_func, stub_packet_compare_func);
 
 static int reply_add_with_rrsig(
                 DnsAnswer **reply,

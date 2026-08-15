@@ -34,6 +34,7 @@ _regex_words varlink-commands 'varlink command' \
     'introspect:show an interface definition:$varlink_interface' \
     'call:invoke a method:$varlink_call' \
     'validate-idl:validate an interface description:$varlink_idl' \
+    'list-sockets:List listening Varlink entrypoint sockets' \
     'help:show a help message'
 
 local -a varlinkcmd=( /$'[^\0]#\0'/ "$reply[@]" )
@@ -65,6 +66,7 @@ local -a opts=(
     '--no-pager[Do not pipe output to a pager]'
     '--more[Request multiple responses]'
     '--collect[Collect multiple responses in a JSON array]'
+    '--upgrade[Upgrade connection to raw protocol after method call]'
     {-j+,--json=}'[Output as json]:json-mode:(pretty short)'
 )
 _arguments -S $opts '*:: := _varlinkctl_command'

@@ -101,6 +101,8 @@ int fmkostemp_safe(char *pattern, const char *mode, FILE **ret_f) {
         _cleanup_close_ int fd = -EBADF;
         FILE *f;
 
+        assert(ret_f);
+
         fd = mkostemp_safe(pattern);
         if (fd < 0)
                 return fd;
@@ -294,7 +296,8 @@ int open_tmpfile_linkable_at(int dir_fd, const char *target, int flags, char **r
                 return fd;
         }
 
-        log_debug_errno(fd, "Failed to use O_TMPFILE for %s: %m", target);
+        if (!ERRNO_IS_NEG_NOT_SUPPORTED(fd))
+                log_debug_errno(fd, "Failed to use O_TMPFILE for %s: %m", target);
 
         _cleanup_free_ char *tmp = NULL;
         r = tempfn_random(target, NULL, &tmp);

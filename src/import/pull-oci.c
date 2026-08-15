@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "sd-event.h"
 #include "sd-json.h"
 #include "sd-varlink.h"
@@ -19,16 +21,18 @@
 #include "install-file.h"
 #include "io-util.h"
 #include "json-util.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "oci-util.h"
 #include "ordered-set.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
 #include "pull-common.h"
+#include "pull-job.h"
 #include "pull-oci.h"
 #include "rm-rf.h"
 #include "set.h"
+#include "sha256.h"
 #include "signal-util.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -192,15 +196,12 @@ int oci_pull_new(
                 .userns_fd = -EBADF,
         };
 
-        i->glue->on_finished = pull_job_curl_on_finished;
-        i->glue->userdata = i;
-
         *ret = TAKE_PTR(i);
 
         return 0;
 }
 
-static int pull_job_payload_as_json(PullJob *j, sd_json_variant **ret) {
+static int pull_job_payload_as_json_object(PullJob *j, sd_json_variant **ret) {
         int r;
 
         assert(j);
@@ -214,7 +215,7 @@ static int pull_job_payload_as_json(PullJob *j, sd_json_variant **ret) {
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         unsigned line = 0, column = 0;
-        r = sd_json_parse((char*) j->payload.iov_base, /* flags= */ 0, &v, &line, &column);
+        r = sd_json_parse((char*) j->payload.iov_base, SD_JSON_PARSE_MUST_BE_OBJECT, &v, &line, &column);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse JSON at position %u:%u: %m", line, column);
 
@@ -365,7 +366,7 @@ static int oci_pull_redirect_manifest(OciPull *i, const OciIndexEntry *entry) {
 
         j->on_finished = oci_pull_job_on_finished_manifest;
         j->calc_checksum = true;
-        if (!iovec_memdup(&entry->digest, &j->checksum))
+        if (!iovec_memdup(&entry->digest, &j->expected_checksum))
                 return -ENOMEM;
 
         j->description = strjoin("Image Manifest (", url, ")");
@@ -391,7 +392,7 @@ static int oci_pull_process_index(OciPull *i, PullJob *j) {
          * https://github.com/opencontainers/image-spec/blob/main/image-index.md */
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        r = pull_job_payload_as_json(j, &v);
+        r = pull_job_payload_as_json_object(j, &v);
         if (r < 0)
                 return r;
 
@@ -489,7 +490,7 @@ static int oci_pull_job_on_open_disk(PullJob *j) {
                                 DISSECT_IMAGE_FOREIGN_UID,
                                 &st->tree_fd);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to mount directory via mountsd: %m");
+                        return log_error_errno(r, "Failed to mount directory via mountfsd: %m");
         } else {
                 if (i->flags & IMPORT_BTRFS_SUBVOL)
                         r = btrfs_subvol_make_fallback(AT_FDCWD, st->temp_path, 0755);
@@ -783,7 +784,7 @@ static int oci_pull_process_manifest(OciPull *i, PullJob *j) {
          * https://github.com/opencontainers/image-spec/blob/main/manifest.md */
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        r = pull_job_payload_as_json(j, &v);
+        r = pull_job_payload_as_json_object(j, &v);
         if (r < 0)
                 return r;
 
@@ -958,7 +959,7 @@ static int oci_pull_save_nspawn_settings(OciPull *i) {
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         unsigned line = 0, column = 0;
-        r = sd_json_parse((char*) i->config.iov_base, /* flags= */ 0, &v, &line, &column);
+        r = sd_json_parse((char*) i->config.iov_base, SD_JSON_PARSE_MUST_BE_OBJECT, &v, &line, &column);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse JSON config data at position %u:%u: %m", line, column);
 
@@ -997,7 +998,7 @@ static int oci_pull_save_nspawn_settings(OciPull *i) {
                 return log_oom();
 
         _cleanup_free_ char *j = path_join(i->image_root, fn);
-        if (!fn)
+        if (!j)
                 return log_oom();
 
         _cleanup_fclose_ FILE *f = NULL;
@@ -1066,7 +1067,9 @@ static int oci_pull_save_nspawn_settings(OciPull *i) {
                 fprintf(f, "Parameters=%s\n", ej);
         }
 
-        r = flink_tmpfile(f, tmpfile, j, LINK_TMPFILE_REPLACE);
+        r = flink_tmpfile(f, tmpfile, j,
+                          LINK_TMPFILE_REPLACE|
+                          (i->flags & IMPORT_SYNC ? LINK_TMPFILE_SYNC : 0));
         if (r < 0)
                 return log_error_errno(r, "Failed to move '%s' into place: %m", j);
 
@@ -1085,7 +1088,7 @@ static int oci_pull_save_oci_config(OciPull *i) {
                 return log_oom();
 
         _cleanup_free_ char *j = path_join(i->image_root, fn);
-        if (!fn)
+        if (!j)
                 return log_oom();
 
         _cleanup_close_ int fd = -EBADF;
@@ -1098,7 +1101,9 @@ static int oci_pull_save_oci_config(OciPull *i) {
         if (r < 0)
                 return log_error_errno(r, "Failed to write '%s': %m", j);
 
-        r = link_tmpfile(fd, tmpfile, j, LINK_TMPFILE_REPLACE);
+        r = link_tmpfile(fd, tmpfile, j,
+                         LINK_TMPFILE_REPLACE|
+                         (i->flags & IMPORT_SYNC ? LINK_TMPFILE_SYNC : 0));
         if (r < 0)
                 return log_error_errno(r, "Failed to move '%s' into place: %m", j);
 
@@ -1116,7 +1121,7 @@ static int oci_pull_save_mstack(OciPull *i) {
                 return log_oom();
 
         _cleanup_free_ char *j = path_join(i->image_root, dn);
-        if (!dn)
+        if (!j)
                 return log_oom();
 
         log_notice("Creating '%s'", j);
@@ -1173,8 +1178,13 @@ static int oci_pull_save_mstack(OciPull *i) {
                 }
         }
 
-        if (rename(jt, j) < 0)
-                return log_error_errno(errno, "Failed to move '%s' into place: %m", j);
+        r = install_file(
+                        AT_FDCWD, jt,
+                        AT_FDCWD, j,
+                        (i->flags & IMPORT_FORCE ? INSTALL_REPLACE : 0) |
+                        (i->flags & IMPORT_SYNC ? INSTALL_SYNCFS|INSTALL_GRACEFUL : 0));
+        if (r < 0)
+                return log_error_errno(r, "Failed to move '%s' into place: %m", j);
 
         jt = mfree(jt); /* Disarm rm_rf_physical_and_free() */
 
@@ -1193,7 +1203,7 @@ static int oci_pull_make_local(OciPull *i) {
                 return r;
 
         if (!iovec_is_set(&i->config) ||
-            iovec_memcmp(&i->config, &IOVEC_MAKE_STRING("{}")) == 0)
+            iovec_equal(&i->config, &IOVEC_MAKE_STRING("{}")))
                 log_info("Image has no configuration, not saving.");
         else {
                 r = oci_pull_save_nspawn_settings(i);
@@ -1283,7 +1293,7 @@ static void oci_pull_job_on_finished_layer(PullJob *j) {
                 goto finish;
         }
 
-        assert(set_remove(i->active_layer_jobs, j) == j);
+        assert_se(set_remove(i->active_layer_jobs, j) == j);
 
         r = oci_pull_work(i);
         if (r <= 0)
@@ -1340,7 +1350,7 @@ static void oci_pull_job_on_finished_bearer_token(PullJob *j) {
                 goto finish;
         }
 
-        r = pull_job_payload_as_json(j, &v);
+        r = pull_job_payload_as_json_object(j, &v);
         if (r < 0)
                 goto finish;
 

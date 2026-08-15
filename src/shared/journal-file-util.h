@@ -1,12 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "forward.h"
 #include "journal-file.h" /* IWYU pragma: export */
-#include "shared-forward.h"
 
 int journal_file_set_offline(JournalFile *f, bool wait);
 bool journal_file_is_offlining(JournalFile *f);
-void journal_file_write_final_tag(JournalFile *f);
 JournalFile* journal_file_offline_close(JournalFile *f);
 DEFINE_TRIVIAL_CLEANUP_FUNC(JournalFile*, journal_file_offline_close);
 

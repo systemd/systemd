@@ -79,6 +79,11 @@ TEST(vconsole_convert_to_x11) {
         ASSERT_OK(vconsole_convert_to_x11(&vc, x11_context_verify, &xc));
         ASSERT_TRUE(x11_context_isempty(&xc));
 
+        log_info("/* test leading-dash keymap */");
+        ASSERT_OK(free_and_strdup(&vc.keymap, "-foo"));
+        ASSERT_ERROR(vconsole_convert_to_x11(&vc, x11_context_verify, &xc), EINVAL);
+        ASSERT_TRUE(x11_context_isempty(&xc));
+
         log_info("/* test without variant, new mapping (es:) */");
         ASSERT_OK(free_and_strdup(&vc.keymap, "es"));
         ASSERT_OK(vconsole_convert_to_x11(&vc, x11_context_verify, &xc));
@@ -146,6 +151,11 @@ TEST(x11_convert_to_vconsole) {
 
         log_info("/* test empty layout (:) */");
         ASSERT_OK(x11_convert_to_vconsole(&xc, &vc));
+        ASSERT_TRUE(vc_context_isempty(&vc));
+
+        log_info("/* test leading-comma layout */");
+        ASSERT_OK(free_and_strdup(&xc.layout, ",us"));
+        ASSERT_ERROR(x11_convert_to_vconsole(&xc, &vc), EINVAL);
         ASSERT_TRUE(vc_context_isempty(&vc));
 
         log_info("/* test without variant, new mapping (es:) */");
@@ -219,6 +229,33 @@ TEST(x11_convert_to_vconsole) {
         ASSERT_OK(free_and_strdup(&xc.variant, NULL));
         ASSERT_OK(x11_convert_to_vconsole(&xc, &vc));
         ASSERT_STREQ(vc.keymap, "ru");
+}
+
+TEST(x11_context_normalize) {
+        _cleanup_(x11_context_clear) X11Context xc = {};
+
+        /* x11_read_data() parses 'Option "XkbVariant" ""' into a non-NULL
+         * empty string. x11_context_normalize() converts empty strings back
+         * to NULL (with freeing), so that x11_context_is_safe() and
+         * x11_context_equal() treat them as unset. See issue #43007. */
+
+        /* Empty fields are normalized to NULL. */
+        ASSERT_OK(free_and_strdup(&xc.layout, "gb"));
+        ASSERT_OK(free_and_strdup(&xc.variant, ""));
+        ASSERT_OK(free_and_strdup(&xc.options, ""));
+        x11_context_normalize(&xc);
+        ASSERT_STREQ(xc.layout, "gb");
+        ASSERT_NULL(xc.variant);
+        ASSERT_NULL(xc.options);
+        ASSERT_TRUE(x11_context_is_safe(&xc));
+        ASSERT_OK(x11_context_verify(&xc));
+
+        /* An empty layout leaves the context empty, not unsafe. */
+        x11_context_clear(&xc);
+        ASSERT_OK(free_and_strdup(&xc.layout, ""));
+        x11_context_normalize(&xc);
+        ASSERT_NULL(xc.layout);
+        ASSERT_TRUE(x11_context_isempty(&xc));
 }
 
 static int intro(void) {

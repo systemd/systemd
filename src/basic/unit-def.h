@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "basic-forward.h"
+#include "forward.h"
 
 /* The enum order is used to order unit jobs in the job queue
  * when other criteria (cpu weight, nice level) are identical.
@@ -62,6 +62,8 @@ typedef enum FreezerState {
 typedef enum UnitMarker {
         UNIT_MARKER_NEEDS_RELOAD,
         UNIT_MARKER_NEEDS_RESTART,
+        UNIT_MARKER_NEEDS_STOP,
+        UNIT_MARKER_NEEDS_START,
         _UNIT_MARKER_MAX,
         _UNIT_MARKER_INVALID = -EINVAL,
 } UnitMarker;
@@ -319,6 +321,7 @@ void unit_types_list(void);
 
 DECLARE_STRING_TABLE_LOOKUP(unit_load_state, UnitLoadState);
 DECLARE_STRING_TABLE_LOOKUP(unit_active_state, UnitActiveState);
+const char* unit_type_to_capitalized_string(UnitType t);
 
 DECLARE_STRING_TABLE_LOOKUP(freezer_state, FreezerState);
 FreezerState freezer_state_finish(FreezerState state) _const_;

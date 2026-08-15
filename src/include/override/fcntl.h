@@ -2,6 +2,8 @@
 #pragma once
 
 #include_next <fcntl.h>         /* IWYU pragma: export */
+#include <linux/openat2.h>      /* IWYU pragma: export */
+#include <stddef.h>
 
 /* This is defined since glibc-2.41. */
 #ifndef F_DUPFD_QUERY
@@ -22,3 +24,12 @@
 #ifndef AT_HANDLE_MNT_ID_UNIQUE
 #define AT_HANDLE_MNT_ID_UNIQUE 0x001  /* Return the u64 unique mount ID. */
 #endif
+
+#ifndef FD_NSFS_ROOT
+#define FD_NSFS_ROOT -10003 /* Root of the nsfs filesystem */
+#endif
+
+/* Defined since glibc-2.42.
+ * Supported since kernel v5.6 (fddb5d430ad9fa91b49b1d34d0202ffe2fa0e179). */
+int openat2_shim(int dfd, const char *filename, const struct open_how *how, size_t usize);
+#define openat2 openat2_shim

@@ -71,8 +71,8 @@ varlinkctl call --more /run/systemd/io.systemd.Import io.systemd.Import.ListTran
 varlinkctl call --more /run/systemd/io.systemd.Import io.systemd.Import.Pull '{"class":"confext","remote":"file:///var/tmp/importtest.tar.gz","local":"importtest8","type":"tar","verify":"no"}'
 cmp /var/tmp/importtest /var/lib/confexts/importtest8/importtest
 
-echo -n "systemd.pull=tar,confext,verify=no:importtest9:file:///var/tmp/importtest.tar.gz " > "$TEST_CMDLINE"
-cat /proc/cmdline >> "$TEST_CMDLINE"
+echo -n "systemd.pull=tar,confext,verify=no:importtest9:file:///var/tmp/importtest.tar.gz " >"$TEST_CMDLINE"
+cat /proc/cmdline >>"$TEST_CMDLINE"
 mount --bind "$TEST_CMDLINE" /proc/cmdline
 
 cat /proc/cmdline

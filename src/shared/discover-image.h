@@ -3,7 +3,7 @@
 
 #include "sd-id128.h"
 
-#include "shared-forward.h"
+#include "forward.h"
 #include "os-util.h"
 
 typedef enum ImageType {

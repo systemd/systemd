@@ -1,9 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
+#include "dlopen-note.h"
+#include "forward.h"
 
 #if HAVE_LIBMOUNT
+#ifndef SYSTEMD_CFLAGS_MARKER_LIBMOUNT
+#  error "missing libmount_cflags in meson dependency."
+#endif
 
 /* This needs to be after sys/mount.h */
 #include <libmount.h> /* IWYU pragma: export */
@@ -42,8 +46,6 @@ extern DLSYM_PROTOTYPE(mnt_table_parse_stream);
 extern DLSYM_PROTOTYPE(mnt_table_parse_swaps);
 extern DLSYM_PROTOTYPE(mnt_unref_monitor);
 
-int dlopen_libmount(void);
-
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct libmnt_table*, sym_mnt_free_table, mnt_free_tablep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct libmnt_iter*, sym_mnt_free_iter, mnt_free_iterp, NULL);
 
@@ -75,13 +77,11 @@ int libmount_is_leaf(
                 struct libmnt_table *table,
                 struct libmnt_fs *fs);
 
+int libmount_fs_id_matches_path(struct libmnt_fs *fs, const char *path);
+
 #else
 
 struct libmnt_monitor;
-
-static inline int dlopen_libmount(void) {
-        return -EOPNOTSUPP;
-}
 
 static inline void* sym_mnt_unref_monitor(struct libmnt_monitor *p) {
         assert(p == NULL);
@@ -89,3 +89,5 @@ static inline void* sym_mnt_unref_monitor(struct libmnt_monitor *p) {
 }
 
 #endif
+
+int dlopen_libmount(int log_level) _dlopen_loader_;

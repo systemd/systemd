@@ -36,8 +36,7 @@ static int normalize_and_maybe_pin_inode(
         assert(ret_tfd);
         assert(ret_opath);
 
-        if (isempty(*path))
-                *path = NULL; /* Normalize "" to NULL */
+        *path = empty_to_null(*path); /* Normalize "" to NULL */
 
         if (*fd == AT_FDCWD) {
                 if (!*path) /* Both unspecified? Then operate on current working directory */
@@ -301,6 +300,18 @@ int xsetxattr_full(
         if (size == SIZE_MAX)
                 size = strlen(value);
 
+        /* Skip the write if the xattr already has the correct value, to avoid
+         * unnecessary timestamp changes on the file. Only do this for plain
+         * replace mode (xattr_flags == 0) — XATTR_CREATE callers expect
+         * -EEXIST when the xattr already exists. */
+        _cleanup_free_ char *old_value = NULL;
+        size_t old_size;
+
+        if (xattr_flags == 0 &&
+            getxattr_at_malloc(fd, path, name, at_flags, &old_value, &old_size) >= 0 &&
+            memcmp_nn(old_value, old_size, value, size) == 0)
+                return 0;
+
         if (have_xattrat && !isempty(path)) {
                 struct xattr_args args = {
                         .value = PTR_TO_UINT64(value),
@@ -429,11 +440,13 @@ int getcrtime_at(
          * concept is useful for determining how "old" a file really is, and hence using the older of the two makes
          * most sense. */
 
-        r = xstatx_full(fd, path,
+        r = xstatx_full(fd,
+                        path,
                         at_flags_normalize_nofollow(at_flags)|AT_STATX_DONT_SYNC,
-                        /* mandatory_mask = */ 0,
+                        /* xstatx_flags= */ 0,
+                        /* mandatory_mask= */ 0,
                         STATX_BTIME,
-                        /* mandatory_attributes = */ 0,
+                        /* mandatory_attributes= */ 0,
                         &sx);
         if (r > 0 && sx.stx_btime.tv_sec != 0) /* > 0: all optional masks are supported */
                 a = statx_timestamp_load(&sx.stx_btime);

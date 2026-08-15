@@ -26,10 +26,10 @@
 #
 # Permitted keys:
 #   Specify if a joystick is a built-in one or external:
-#   ID_INPUT_JOYSTICK_INTEGRATION=internal|external
+#   ID_INTEGRATION=internal|external
 #
 #   If the property is missing, user-space can assume:
-#   ID_INPUT_JOYSTICK_INTEGRATION=external
+#   ID_INTEGRATION=external
 #
 #   By default i8042, i2c, and rmi devices are assumed to be internal,
 #   bluetooth devices are assumed to be external, usb devices are assumed
@@ -38,4 +38,4 @@
 # Example entry; vid: ffff, pid: 0000; both must be lowercase.
 # this will make this usb joystick to behave as internal.
 #joystick:usb:vffffp0000*
-# ID_INPUT_JOYSTICK_INTEGRATION=internal
+# ID_INTEGRATION=internal

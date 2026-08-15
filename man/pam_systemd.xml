@@ -239,6 +239,33 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>inhibit=</varname></term>
+
+        <listitem><para>Takes a colon-separated list of inhibitor lock types to acquire for the duration of
+        the session. The <varname>XDG_SESSION_INHIBIT</varname> environment variable (see below) takes
+        precedence. Inhibitor locks prevent the system from performing certain actions, such as sleeping.
+        The supported lock types are the same as for the
+        <citerefentry><refentrytitle>systemd-inhibit</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        command, e.g. <constant>shutdown</constant>, <constant>sleep</constant>, <constant>idle</constant>.
+        If not set, no inhibitor lock is acquired. The lock is taken in block mode, the requested
+        actions are fully inhibited as long as the session is active.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>inhibit-why=</varname></term>
+
+        <listitem><para>Takes a short human-readable string describing the reason for the inhibitor lock
+        acquired via <varname>inhibit=</varname>. The <varname>XDG_SESSION_INHIBIT_WHY</varname>
+        environment variable (see below) takes precedence. Defaults to <literal>Active PAM session</literal>
+        if not set. Only has an effect if <varname>inhibit=</varname> or
+        <varname>XDG_SESSION_INHIBIT</varname> is set.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>default-capability-bounding-set=</varname></term>
         <term><varname>default-capability-ambient-set=</varname></term>
 
@@ -414,6 +441,25 @@
 
         <xi:include href="version-info.xml" xpointer="v260"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>$XDG_SESSION_INHIBIT</varname></term>
+
+        <listitem><para>The inhibitor lock types to acquire for the duration of the session, as a
+        colon-separated list. This may be used instead of <varname>inhibit=</varname> on the module
+        parameter line.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$XDG_SESSION_INHIBIT_WHY</varname></term>
+
+        <listitem><para>The reason string for the inhibitor lock. This may be used instead of
+        <varname>inhibit-why=</varname> on the module parameter line.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
     </variablelist>
 
     <para>If not set, <command>pam_systemd</command> will initialize
@@ -528,6 +574,7 @@ session   required   pam_unix.so</programlisting>
       <member><citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>loginctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>pam_systemd_home</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-inhibit</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry project='man-pages'><refentrytitle>pam.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry project='man-pages'><refentrytitle>pam.d</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry project='man-pages'><refentrytitle>pam</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>

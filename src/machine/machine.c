@@ -26,7 +26,7 @@
 #include "machine-dbus.h"
 #include "machined-resolve-hook.h"
 #include "machined.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "namespace-util.h"
 #include "operation.h"
 #include "parse-util.h"
@@ -154,6 +154,7 @@ Machine* machine_free(Machine *m) {
         free(m->netif);
         free(m->ssh_address);
         free(m->ssh_private_key_path);
+        free(m->control_address);
 
         return mfree(m);
 }
@@ -245,6 +246,7 @@ int machine_save(Machine *m) {
 
         env_file_fputs_assignment(f, "SSH_ADDRESS=", m->ssh_address);
         env_file_fputs_assignment(f, "SSH_PRIVATE_KEY_PATH=", m->ssh_private_key_path);
+        env_file_fputs_assignment(f, "CONTROL_ADDRESS=", m->control_address);
 
         r = flink_tmpfile(f, temp_path, m->state_file, LINK_TMPFILE_REPLACE);
         if (r < 0)
@@ -338,6 +340,7 @@ int machine_load(Machine *m) {
                            "VSOCK_CID",            &vsock_cid,
                            "SSH_ADDRESS",          &m->ssh_address,
                            "SSH_PRIVATE_KEY_PATH", &m->ssh_private_key_path,
+                           "CONTROL_ADDRESS",      &m->control_address,
                            "UID",                  &uid);
         if (r == -ENOENT)
                 return 0;
@@ -1103,11 +1106,10 @@ int machine_start_shell(
 
 char** machine_default_shell_args(const char *user) {
         _cleanup_strv_free_ char **args = NULL;
-        int r;
 
         assert(user);
 
-        args = new0(char*, 3 + 1);
+        args = new0(char*, 5 + 1);
         if (!args)
                 return NULL;
 
@@ -1119,14 +1121,19 @@ char** machine_default_shell_args(const char *user) {
         if (!args[1])
                 return NULL;
 
-        r = asprintf(&args[2],
-                     "shell=$(getent passwd %s 2>/dev/null | { IFS=: read _ _ _ _ _ _ x; echo \"$x\"; })\n"\
-                     "exec \"${shell:-/bin/sh}\" -l", /* -l is means --login */
-                     user);
-        if (r < 0) {
-                args[2] = NULL;
+        args[2] = strdup(
+                     "shell=$(getent passwd \"$1\" 2>/dev/null | { IFS=: read _ _ _ _ _ _ x; echo \"$x\"; })\n"
+                     "exec \"${shell:-/bin/sh}\" -l"); /* -l means --login */
+        if (!args[2])
                 return NULL;
-        }
+
+        args[3] = strdup("sh"); /* $0 placeholder for sh -c */
+        if (!args[3])
+                return NULL;
+
+        args[4] = strdup(user); /* becomes $1 in the script */
+        if (!args[4])
+                return NULL;
 
         return TAKE_PTR(args);
 }

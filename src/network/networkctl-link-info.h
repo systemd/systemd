@@ -5,9 +5,11 @@
 #include <linux/if_link.h>
 #include <linux/nl80211.h>
 
+#include "dhcp-client-id-internal.h"
+#include "dhcp-message.h"
 #include "ether-addr-util.h"
 #include "ethtool-util.h"
-#include "shared-forward.h"
+#include "forward.h"
 #include "in-addr-util.h"
 
 typedef struct VxLanInfo {
@@ -35,6 +37,7 @@ typedef struct LinkInfo {
         char name[IFNAMSIZ+1];
         char *netdev_kind;
         sd_device *sd_device;
+        sd_json_variant *description;
         int ifindex;
         unsigned short iftype;
         struct hw_addr_data hw_address;
@@ -56,6 +59,10 @@ typedef struct LinkInfo {
 
         uint64_t tx_bitrate;
         uint64_t rx_bitrate;
+
+        /* DHCPv4 */
+        sd_dhcp_message *dhcp_message;
+        sd_dhcp_client_id dhcp_client_id;
 
         /* bridge info */
         uint32_t forward_delay;
@@ -133,4 +140,4 @@ typedef struct LinkInfo {
 LinkInfo* link_info_array_free(LinkInfo *array);
 DEFINE_TRIVIAL_CLEANUP_FUNC(LinkInfo*, link_info_array_free);
 
-int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char * const *patterns, LinkInfo **ret);
+int acquire_link_info(sd_varlink *vl, sd_netlink *rtnl, char * const *patterns, LinkInfo **ret);

@@ -25,6 +25,7 @@ char* format_bytes_full(char *buf, size_t l, uint64_t t, FormatBytesFlag flag) {
         const suffix_table *table;
         size_t n;
 
+        assert(buf);
         assert_cc(ELEMENTSOF(table_iec) == ELEMENTSOF(table_si));
 
         if (t == UINT64_MAX)

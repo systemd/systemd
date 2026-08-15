@@ -41,7 +41,7 @@ static int compression_config_put(OrderedHashmap **configs, Compression c, int l
                                 free(ordered_hashmap_remove(*configs, INT_TO_PTR(cc->algorithm)));
         } else
                 /* otherwise, drop 'none' if stored. */
-                free(ordered_hashmap_get(*configs, INT_TO_PTR(COMPRESSION_NONE)));
+                free(ordered_hashmap_remove(*configs, INT_TO_PTR(COMPRESSION_NONE)));
 
         return 1;
 }
@@ -130,7 +130,7 @@ int config_parse_compression(
                         }
                 }
 
-                Compression c = compression_lowercase_from_string(word);
+                Compression c = compression_from_string_harder(word);
                 if (c <= 0 || !compression_supported(c)) {
                         log_syntax(unit, LOG_WARNING, filename, line, c,
                                    "Compression algorithm '%s' is not supported on the system, ignoring.", word);

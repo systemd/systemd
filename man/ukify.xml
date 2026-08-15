@@ -233,6 +233,24 @@
         </varlistentry>
 
         <varlistentry>
+          <term><option>--sign-initrd-pcrs</option></term>
+          <term><option>--no-sign-initrd-pcrs</option></term>
+
+          <listitem><para>Enable or disable signing of additional PCR policies that are bound to the initrd
+          phase (after <literal>enter-initrd</literal> and before <literal>leave-initrd</literal>) and the
+          <literal>initrd</literal> policy reference. These additional signed policies are consumed by
+          <citerefentry><refentrytitle>systemd-tpm2-setup-early.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          to authorize the initialization of NvPCRs. They are also useful for enrolling TPM keyslots to encrypted
+          volumes that can only be unlocked from the initrd with
+          <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+          by using the <option>--tpm2-public-key-policyref=initrd</option> option. The extra signatures reuse
+          the first <varname>PCRPrivateKey=</varname>/<option>--pcr-private-key=</option>, hence one must be
+          specified. Defaults to false.</para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><option>--section=<replaceable>NAME</replaceable>:<replaceable>TEXT</replaceable>|<replaceable>@PATH</replaceable></option></term>
           <term><option>--section=<replaceable>NAME</replaceable>:text|binary<optional>@<replaceable>PATH</replaceable></optional></option></term>
 
@@ -335,7 +353,14 @@
         <varlistentry>
           <term><option>--json</option></term>
 
-          <listitem><para>Generate JSON output (with <command>inspect</command> verb).</para>
+          <listitem><para>Generate JSON output (with <command>inspect</command> verb). The output is an
+          object whose keys are the names of the sections shared between all profiles (i.e. those
+          preceding the first <literal>.profile</literal> section), each mapping to an object describing
+          the section by its <literal>size</literal> and <literal>sha256</literal>, plus a
+          <literal>text</literal> field for textual sections. UKI sections that can occur multiple times
+          (in the same profile) are represented as array. If the image contains profiles, an additional
+          <literal>_profiles</literal> key holds an array with one object per profile, each keyed by
+          section name in the same way (starting with its <literal>.profile</literal> section).</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/></listitem>
         </varlistentry>
@@ -441,17 +466,22 @@
           <term><varname>HWIDs=<replaceable>PATH</replaceable></varname></term>
           <term><option>--hwids=<replaceable>PATH</replaceable></option></term>
 
-          <listitem><para>The hardware ID device table (the <literal>.hwids</literal> section). The argument is a
-          path to a directory with JSON HWID device description files. Each file needs to contain a single JSON object with a <literal>name</literal>, <literal>compatible</literal> and <literal>hwids</literal> keys. The <literal>name</literal> and <literal>compatible</literal> keys must have string values and the <literal>hwids</literal> key must have a list of strings as value, where the strings must be valid UUIDs that represent CHIDs/HWIDs.
+          <listitem><para>The hardware ID device table (the <literal>.hwids</literal> section). The argument
+          is a path to a directory with JSON HWID device description files. Each file needs to contain a
+          single JSON object with a <literal>name</literal>, <literal>compatible</literal> and
+          <literal>hwids</literal> keys. The <literal>name</literal> and <literal>compatible</literal> keys
+          must have string values and the <literal>hwids</literal> key must have a list of strings as value,
+          where the strings must be valid UUIDs that represent CHIDs/HWIDs.
           Example:
           <programlisting><xi:include href="ukify_hwid.json.example" parse="text" /></programlisting>
-          Here <literal>Example Laptop 16 Gen 7</literal> is the device <literal>name</literal> (as defined by the manufacturer),
-          <literal>example,laptop-16-g7</literal> is the <literal>compatible</literal> (as defined by the kernel) and <literal>hwids</literal>
-          is an array of CHIDs/HWIDs (extracted i.e. from <command>fwupdtool hwids</command> output).
-          If not specified, the section will not be present. It is recommended to specify this parameter if automatically
-          selectable DeviceTrees are to be used.
-
-          </para>
+          Here <literal>Example Laptop 16 Gen 7</literal> is the device <literal>name</literal> (as defined
+          by the manufacturer), <literal>example,laptop-16-g7</literal> is the <literal>compatible</literal>
+          (as defined by the kernel) and <literal>hwids</literal> is an array of CHIDs/HWIDs (extracted i.e.
+          from <command>fwupdtool hwids</command> output). If not specified, and the
+          <literal>/usr/lib/systemd/boot/hwids/[EFI_ARCH]/</literal> directory exists, then the section will
+          be automatically populated from that directory (specify an empty string as the parameter for this
+          option to disable this behavior), otherwise it will not be present. It is recommended to specify
+          this parameter if automatically selectable DeviceTrees are to be used.</para>
 
           <xi:include href="version-info.xml" xpointer="v257"/></listitem>
         </varlistentry>
@@ -710,6 +740,25 @@
           the <option>--pcr-private-key=</option> option. </para>
 
           <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>PolicyRef=<replaceable>STRING</replaceable></varname></term>
+          <term><varname>--policyref=<replaceable>STRING</replaceable></varname></term>
+
+          <listitem><para>A policy reference to bind the generated signature to.</para>
+
+          <para>The policy reference is an opaque string that is included in the data that is signed, and is
+          also incorporated into the authorization policy of any TPM2 resource that is locked against these
+          signatures (via the <constant>TPM2_PolicyAuthorize</constant> assertion). As a result, a signed
+          policy is only accepted for a resource whose authorization policy was created with the same
+          policy reference. Signed policies created with a different policy reference are rejected, even if
+          they are produced with the same signing key.</para>
+
+          <para>On the command line, when this argument is present, it must appear the same number of times as
+          the <option>--pcr-private-key=</option> option. </para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>

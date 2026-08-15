@@ -7,7 +7,6 @@
 #include "in-addr-util.h"
 #include "list.h"
 #include "netdev.h"
-#include "networkd-forward.h"
 #include "socket-util.h"
 
 typedef struct WireguardIPmask {

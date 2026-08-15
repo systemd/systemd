@@ -21,12 +21,16 @@
     <refname>systemd-pcrphase-sysinit.service</refname>
     <refname>systemd-pcrphase-initrd.service</refname>
     <refname>systemd-pcrmachine.service</refname>
+    <refname>systemd-pcrosseparator.service</refname>
     <refname>systemd-pcrproduct.service</refname>
+    <refname>systemd-pcrlogin@.service</refname>
     <refname>systemd-pcrfs-root.service</refname>
     <refname>systemd-pcrfs@.service</refname>
     <refname>systemd-pcrnvdone.service</refname>
+    <refname>systemd-pcrphase-factory-reset.service</refname>
+    <refname>systemd-pcrphase-storage-target-mode.service</refname>
     <refname>systemd-pcrextend</refname>
-    <refpurpose>Measure boot phases, machine ID, product UUID and file system identity into TPM PCRs and NvPCRs</refpurpose>
+    <refpurpose>Measure boot phases, machine ID, product UUID, user records and file system identity into TPM PCRs and NvPCRs</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -34,10 +38,14 @@
     <para><filename>systemd-pcrphase-sysinit.service</filename></para>
     <para><filename>systemd-pcrphase-initrd.service</filename></para>
     <para><filename>systemd-pcrmachine.service</filename></para>
+    <para><filename>systemd-pcrosseparator.service</filename></para>
     <para><filename>systemd-pcrproduct.service</filename></para>
+    <para><filename>systemd-pcrlogin@.service</filename></para>
     <para><filename>systemd-pcrfs-root.service</filename></para>
     <para><filename>systemd-pcrfs@.service</filename></para>
     <para><filename>systemd-pcrnvdone.service</filename></para>
+    <para><filename>systemd-pcrphase-factory-reset.service</filename></para>
+    <para><filename>systemd-pcrphase-storage-target-mode.service</filename></para>
     <para><filename>/usr/lib/systemd/systemd-pcrextend</filename> <optional><replaceable>STRING</replaceable></optional></para>
   </refsynopsisdiv>
 
@@ -53,9 +61,28 @@
     (see <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>) into
     PCR 15.</para>
 
+    <para><filename>systemd-pcrosseparator.service</filename> is a system service that measures the word
+    <literal>os-separator</literal> into PCRs 0-7, 9, 12-14. This acts as additional separator measurement
+    separating pre-boot (i.e. firmware + bootloader) measurements from OS measurements, and in particular
+    "seals" off the firmware PCRs.</para>
+
     <para><filename>systemd-pcrproduct.service</filename> is a system service that measures the firmware
     product UUID (as provided by one of SMBIOS, Devicetree, …) into a NvPCR named
     <literal>hardware</literal>.</para>
+
+    <para><filename>systemd-pcrlogin@.service</filename> is a template service that measures the (reduced,
+    canonical JSON) user record of the user indicated by its instance identifier (a UID) into a NvPCR named
+    <literal>login</literal>. It is started by
+    <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    on the user's first login of the current boot, much like
+    <citerefentry><refentrytitle>user-runtime-dir@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    Unlike the latter it is intentionally never stopped again: it is a <varname>Type=oneshot</varname> service
+    with <varname>RemainAfterExit=yes</varname> in <filename>system.slice</filename>, so each user is measured
+    exactly once per boot regardless of how often they log in and out (NvPCR extensions form a hash chain, so
+    measuring the same record twice would otherwise make the NvPCR value unpredictable). The resulting
+    <literal>login</literal> NvPCR (together with the
+    <filename>/run/log/systemd/tpm2-measure.log</filename> event log) thus provides a TPM-backed,
+    append-only record of which user identities were activated during the current boot.</para>
 
     <para><filename>systemd-pcrnvdone.service</filename> is a system service that measures a separator event
     into PCR 9 once all NvPCRs have completed initialization.</para>
@@ -148,7 +175,7 @@
   <refsect1>
     <title>Options</title>
 
-    <para>The <filename>/usr/lib/systemd/system-pcrextend</filename> executable may also be invoked from the
+    <para>The <filename>/usr/lib/systemd/systemd-pcrextend</filename> executable may also be invoked from the
     command line, where it expects the word to extend into a PCR or NvPCR, as well as the following
     switches:</para>
 
@@ -168,7 +195,8 @@
 
         <listitem><para>Takes the index of the PCR to extend. If <option>--machine-id</option> or
         <option>--file-system=</option> are specified defaults to 15, otherwise (and unless
-        <option>--product-id</option> is specified) defaults to 11. May not be combined with
+        <option>--product-id</option> is specified) defaults to 11. May be specified multiple times, in order
+        to measure to multiple PCRs at the same time. May not be combined with
         <option>--nvpcr=</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
@@ -208,17 +236,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--early</option></term>
-
-        <listitem><para>Selects early-boot mode. Specifically this means that the NvPCR anchor secret is not
-        attempted to be written into <filename>/var/lib/</filename> and the boot loader partition in addition
-        to <filename>/run/</filename>. (Unlike the latter the former are generally not mounted and writable
-        during early boot or in the initrd.)</para>
-
-        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><option>--machine-id</option></term>
 
         <listitem><para>Instead of measuring a word specified on the command line into PCR 11, measure the
@@ -237,6 +254,20 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--login=</option></term>
+
+        <listitem><para>Instead of measuring a word specified on the command line into PCR 11, measure the
+        user record of the specified user into an NvPCR named <literal>login</literal>. The parameter must be a
+        user name or numeric UID. The record is reduced to its <literal>regular</literal>,
+        <literal>perMachine</literal> and <literal>binding</literal> sections (i.e. the privileged, secret,
+        status and signature sections are stripped, so that for example password hash changes do not perturb
+        the NvPCR), normalized and serialized to canonical JSON before measurement. This is primarily used by
+        <filename>systemd-pcrlogin@.service</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--file-system=</option></term>
 
         <listitem><para>Instead of measuring a word specified on the command line into PCR 11, measure
@@ -251,8 +282,8 @@
 
         <listitem><para>Set the event log event type for this measurement. Pass <literal>help</literal> for a
         list of currently defined identifiers. Defaults to an appropriate value for
-        <option>--machine-id</option>, <option>--product-id</option>, <option>--file-system=</option>, and
-        otherwise to <literal>phase</literal>.</para>
+        <option>--machine-id</option>, <option>--product-id</option>, <option>--file-system=</option>,
+        <option>--login=</option>, and otherwise to <literal>phase</literal>.</para>
 
         <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>

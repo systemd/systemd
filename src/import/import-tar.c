@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "sd-daemon.h"
 #include "sd-event.h"
@@ -8,18 +9,18 @@
 
 #include "alloc-util.h"
 #include "btrfs-util.h"
+#include "compress.h"
 #include "dissect-image.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "import-common.h"
-#include "import-compress.h"
 #include "import-tar.h"
 #include "import-util.h"
 #include "install-file.h"
 #include "io-util.h"
 #include "log.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "pretty-print.h"
@@ -50,11 +51,11 @@ typedef struct TarImport {
         int tree_fd;
         int userns_fd;
 
-        ImportCompress compress;
+        Compressor *compress;
 
         sd_event_source *input_event_source;
 
-        uint8_t buffer[IMPORT_BUFFER_SIZE];
+        uint8_t buffer[COMPRESS_PIPE_BUFFER_SIZE];
         size_t buffer_size;
 
         uint64_t written_compressed;
@@ -81,7 +82,7 @@ TarImport* tar_import_unref(TarImport *i) {
                 free(i->temp_path);
         }
 
-        import_compress_free(&i->compress);
+        i->compress = compressor_free(i->compress);
 
         sd_event_unref(i->event);
 
@@ -344,13 +345,13 @@ static int tar_import_process(TarImport *i) {
 
         i->buffer_size += l;
 
-        if (i->compress.type == IMPORT_COMPRESS_UNKNOWN) {
+        if (!i->compress) {
 
                 if (l == 0) { /* EOF */
                         log_debug("File too short to be compressed, as no compression signature fits in, thus assuming uncompressed.");
-                        import_uncompress_force_off(&i->compress);
+                        decompressor_force_off(&i->compress);
                 } else {
-                        r = import_uncompress_detect(&i->compress, i->buffer, i->buffer_size);
+                        r = decompressor_detect(&i->compress, i->buffer, i->buffer_size);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to detect file compression: %m");
                                 goto finish;
@@ -364,9 +365,20 @@ static int tar_import_process(TarImport *i) {
                         goto finish;
         }
 
-        r = import_uncompress(&i->compress, i->buffer, i->buffer_size, tar_import_write, i);
+        r = decompressor_push(i->compress, i->buffer, i->buffer_size, tar_import_write, i);
         if (r < 0) {
                 log_error_errno(r, "Failed to decode and write: %m");
+
+                /* Try to check the actual exit code from the child process, to make debugging easier */
+                if (r == -EPIPE && pidref_is_set(&i->tar_pid)) {
+                        int q = pidref_wait_for_terminate_and_check("tar", &i->tar_pid, WAIT_LOG);
+                        pidref_done(&i->tar_pid);
+                        if (q < 0)
+                                r = q;
+                        else if (q != EXIT_SUCCESS)
+                                r = -EPROTO;
+                }
+
                 goto finish;
         }
 

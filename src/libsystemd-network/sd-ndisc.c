@@ -137,7 +137,7 @@ int sd_ndisc_attach_event(sd_ndisc *nd, sd_event *event, int64_t priority) {
         else {
                 r = sd_event_default(&nd->event);
                 if (r < 0)
-                        return 0;
+                        return r;
         }
 
         nd->event_priority = priority;
@@ -345,6 +345,12 @@ static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userda
         r = icmp6_packet_receive(fd, &packet);
         if (r < 0) {
                 log_ndisc_errno(nd, r, "Failed to receive ICMPv6 packet, ignoring: %m");
+                return 0;
+        }
+
+        if (packet->ifindex != nd->ifindex) {
+                log_ndisc(nd, "Received an ICMPv6 packet on interface %i, expected %i, ignoring.",
+                          packet->ifindex, nd->ifindex);
                 return 0;
         }
 

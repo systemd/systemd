@@ -5,7 +5,6 @@
 
 #include "in-addr-util.h"
 #include "netdev.h"
-#include "shared-forward.h"
 
 typedef enum FooOverUDPEncapType {
         NETDEV_FOO_OVER_UDP_ENCAP_UNSPEC = FOU_ENCAP_UNSPEC,

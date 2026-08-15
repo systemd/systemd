@@ -81,6 +81,12 @@ usb:v1C7Ap0571*
  ID_AUTOSUSPEND=1
  ID_PERSIST=0
 
+# Supported by libfprint driver egis_etu905
+usb:v1C7Ap05AE*
+usb:v1C7Ap9201*
+ ID_AUTOSUSPEND=1
+ ID_PERSIST=0
+
 # Supported by libfprint driver egismoc
 usb:v1C7Ap0582*
 usb:v1C7Ap0583*
@@ -166,12 +172,14 @@ usb:v04F3p0C8C*
 usb:v04F3p0C8D*
 usb:v04F3p0C98*
 usb:v04F3p0C99*
+usb:v04F3p0C9C*
 usb:v04F3p0C9D*
 usb:v04F3p0C9F*
 usb:v04F3p0CA3*
 usb:v04F3p0CA7*
 usb:v04F3p0CA8*
 usb:v04F3p0CB0*
+usb:v04F3p0CB2*
  ID_AUTOSUSPEND=1
  ID_PERSIST=0
 
@@ -188,7 +196,12 @@ usb:v2808pA959*
 usb:v2808pA99A*
 usb:v2808pA57A*
 usb:v2808pA78A*
+usb:v2808pA97A*
 usb:v2808p1579*
+usb:v2808p077A*
+usb:v2808p079A*
+usb:v2808p5158*
+usb:v2808p6553*
  ID_AUTOSUSPEND=1
  ID_PERSIST=0
 
@@ -202,12 +215,14 @@ usb:v10A5pD205*
 usb:v10A5p9524*
 usb:v10A5p9544*
 usb:v10A5pC844*
+usb:v10A5p9B24*
  ID_AUTOSUSPEND=1
  ID_PERSIST=0
 
 # Supported by libfprint driver goodixmoc
 usb:v27C6p5840*
 usb:v27C6p6014*
+usb:v27C6p6090*
 usb:v27C6p6092*
 usb:v27C6p6094*
 usb:v27C6p609A*
@@ -237,8 +252,15 @@ usb:v27C6p659A*
 usb:v27C6p659C*
 usb:v27C6p6A94*
 usb:v27C6p6512*
+usb:v27C6p6890*
 usb:v27C6p689A*
 usb:v27C6p66A9*
+usb:v27C6p6984*
+ ID_AUTOSUSPEND=1
+ ID_PERSIST=0
+
+# Supported by libfprint driver mafpmoc
+usb:v3274p8012*
  ID_AUTOSUSPEND=1
  ID_PERSIST=0
 
@@ -251,6 +273,11 @@ usb:v298Dp1010*
 usb:v0BDAp5813*
 usb:v0BDAp5816*
 usb:v2541pFA03*
+ ID_AUTOSUSPEND=1
+ ID_PERSIST=0
+
+# Supported by libfprint driver secugen
+usb:v1162p2200*
  ID_AUTOSUSPEND=1
  ID_PERSIST=0
 
@@ -285,6 +312,7 @@ usb:v06CBp0174*
 usb:v06CBp019D*
 usb:v06CBp019F*
 usb:v06CBp01A0*
+usb:v06CBp01A4*
  ID_AUTOSUSPEND=1
  ID_PERSIST=0
 
@@ -491,7 +519,6 @@ usb:v2808pA553*
 usb:v298Dp2020*
 usb:v298Dp2033*
 usb:v2DF0p0003*
-usb:v3274p8012*
 usb:v3538p0930*
  ID_AUTOSUSPEND=1
  ID_PERSIST=0

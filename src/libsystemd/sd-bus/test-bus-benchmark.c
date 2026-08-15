@@ -27,6 +27,8 @@ typedef enum Type {
 static void server(sd_bus *b, size_t *result) {
         int r;
 
+        assert(result);
+
         for (;;) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 

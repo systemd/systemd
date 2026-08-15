@@ -19,6 +19,7 @@
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "terminal-util.h"
+#include "tpm2-util.h"
 #include "udev-config.h"
 #include "udev-manager.h"
 #include "udevd.h"
@@ -57,10 +58,11 @@ int run_udevd(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to create /run/udev: %m");
 
         /* Load some shared libraries before we fork any workers */
-        (void) dlopen_libacl();
-        (void) dlopen_libblkid();
-        (void) dlopen_libkmod();
-        (void) dlopen_libmount();
+        (void) dlopen_libacl(LOG_DEBUG);
+        (void) dlopen_libblkid(LOG_DEBUG);
+        (void) dlopen_libkmod(LOG_DEBUG);
+        (void) dlopen_libmount(LOG_DEBUG);
+        (void) dlopen_tpm2(LOG_DEBUG);
 
         if (arg_daemonize) {
                 pid_t pid;

@@ -324,6 +324,17 @@ TEST(option_status) {
                 /* PD prefix status option */
                 0x00, 0x0d, 0x00, 0x02, 0x00, 0x00,
         };
+        static const uint8_t option6[] = {
+                /* IA PD */
+                0x00, 0x19, 0x00, 0x29, 0x1a, 0x1d, 0x1a, 0x1d,
+                0x00, 0x01, 0x00, 0x01, 0x00, 0x02, 0x00, 0x02,
+                /* IA PD Prefix, with an invalid prefix length of 0 */
+                0x00, 0x1a, 0x00, 0x19,
+                0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+                0x00, 0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00,
+        };
         _cleanup_(dhcp6_ia_freep) DHCP6IA *ia = NULL;
         DHCP6Option *option;
         be32_t iaid;
@@ -379,6 +390,14 @@ TEST(option_status) {
         assert_se(ia);
         assert_se(ia->addresses);
         ia = dhcp6_ia_free(ia);
+
+        /* An IA_PD whose only prefix carries an invalid (zero) prefix length must be refused, leaving no
+         * valid prefix behind. */
+        option = (DHCP6Option*) option6;
+        assert_se(sizeof(option6) == sizeof(DHCP6Option) + be16toh(option->len));
+        r = dhcp6_option_parse_ia(NULL, iaid, be16toh(option->code), be16toh(option->len), option->data, &ia);
+        assert_se(r == -ENODATA);
+        assert_se(!ia);
 }
 
 TEST(client_parse_message_issue_22099) {

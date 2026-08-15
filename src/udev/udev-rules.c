@@ -849,7 +849,7 @@ static int parse_token(
                 } else
                         r = rule_line_add_token(rule_line, TK_M_ENV, op, value, attr, is_case_insensitive, token_str);
         } else if (streq(key, "CONST")) {
-                if (isempty(attr) || !STR_IN_SET(attr, "arch", "virt"))
+                if (isempty(attr) || !STR_IN_SET(attr, "arch", "virt", "cvm"))
                         return log_line_invalid_attr(rule_line, key);
                 if (!is_match)
                         return log_line_invalid_op(rule_line, key);
@@ -1359,6 +1359,7 @@ static int parse_line(char **line, char **ret_key, char **ret_attr, UdevRuleOper
         assert(line);
         assert(*line);
         assert(ret_key);
+        assert(ret_attr);
         assert(ret_op);
         assert(ret_value);
         assert(ret_is_case_insensitive);
@@ -1840,7 +1841,7 @@ int udev_rules_load(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing
         ConfFile **files = NULL;
         size_t n_files = 0;
 
-        CLEANUP_ARRAY(files, n_files, conf_file_free_many);
+        CLEANUP_ARRAY(files, n_files, conf_file_free_array);
 
         r = conf_files_list_strv_full(".rules", /* root= */ NULL, CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED,
                                       (const char* const*) directories, &files, &n_files);
@@ -2447,11 +2448,12 @@ static int udev_rule_apply_token_to_event(
                                 continue;
 
                         r = device_add_property(dev, key, value);
+                        if (r == -ENOMEM)
+                                return log_oom();
                         if (r < 0)
-                                return log_event_error_errno(event, token, r,
-                                                             "Failed to add property %s=%s: %m",
-                                                             key, value);
-                        log_event_trace(event, token, "Imported property \"%s=%s\".", key, value);
+                                log_event_warning_errno(event, token, r, "Failed to import property \"%s=%s\", ignoring: %m", key, value);
+                        else
+                                log_event_trace(event, token, "Imported property \"%s=%s\".", key, value);
                 }
 
                 assert_not_reached();
@@ -2480,14 +2482,14 @@ static int udev_rule_apply_token_to_event(
 
                         /* Drop the last line. */
                         bool found = false;
-                        for (char *p = PTR_SUB1(buf + strlen(buf), buf); p; p = PTR_SUB1(p, buf))
+                        for (char *p = PTR_SUB1(result + strlen(result), result); p; p = PTR_SUB1(p, result))
                                 if (strchr(NEWLINE, *p)) {
                                         *p = '\0';
                                         found = true;
                                         break;
                                 }
                         if (!found)
-                                buf[0] = '\0';
+                                result[0] = '\0';
                 }
 
                 r = strv_split_newlines_full(&lines, result, EXTRACT_RETAIN_ESCAPE);
@@ -2513,11 +2515,12 @@ static int udev_rule_apply_token_to_event(
                                 continue;
 
                         r = device_add_property(dev, key, value);
+                        if (r == -ENOMEM)
+                                return log_oom();
                         if (r < 0)
-                                return log_event_error_errno(event, token, r,
-                                                             "Failed to add property %s=%s: %m",
-                                                             key, value);
-                        log_event_trace(event, token, "Imported property \"%s=%s\".", key, value);
+                                log_event_warning_errno(event, token, r, "Failed to import property \"%s=%s\", ignoring: %m", key, value);
+                        else
+                                log_event_trace(event, token, "Imported property \"%s=%s\".", key, value);
                 }
 
                 return log_event_result(event, token, token->op == OP_MATCH);
@@ -2567,10 +2570,12 @@ static int udev_rule_apply_token_to_event(
                                                      token->value);
 
                 r = device_add_property(dev, token->value, val);
+                if (r == -ENOMEM)
+                        return log_oom();
                 if (r < 0)
-                        return log_event_error_errno(event, token, r, "Failed to add property \"%s=%s\": %m",
-                                                     token->value, val);
-                log_event_trace(event, token, "Imported property \"%s=%s\".", token->value, val);
+                        log_event_warning_errno(event, token, r, "Failed to import property \"%s=%s\", ignoring: %m", token->value, val);
+                else
+                        log_event_trace(event, token, "Imported property \"%s=%s\".", token->value, val);
 
                 return log_event_result(event, token, token->op == OP_MATCH);
         }
@@ -2587,10 +2592,12 @@ static int udev_rule_apply_token_to_event(
 
                 const char *val = value ?: "1";
                 r = device_add_property(dev, token->value, val);
+                if (r == -ENOMEM)
+                        return log_oom();
                 if (r < 0)
-                        return log_event_error_errno(event, token, r, "Failed to add property \"%s=%s\": %m",
-                                                     token->value, val);
-                log_event_trace(event, token, "Imported property \"%s=%s\".", token->value, val);
+                        log_event_warning_errno(event, token, r, "Failed to import property \"%s=%s\", ignoring: %m", token->value, val);
+                else
+                        log_event_trace(event, token, "Imported property \"%s=%s\".", token->value, val);
 
                 return log_event_result(event, token, token->op == OP_MATCH);
         }
@@ -2613,10 +2620,14 @@ static int udev_rule_apply_token_to_event(
                                 continue;
 
                         r = device_add_property(dev, key, val);
+                        if (r == -ENOMEM)
+                                return log_oom();
                         if (r < 0)
-                                return log_event_error_errno(event, token, r, "Failed to add property \"%s=%s\": %m", key, val);
-                        log_event_trace(event, token, "Imported property \"%s=%s\".", key, val);
-                        have = true;
+                                log_event_warning_errno(event, token, r, "Failed to import property \"%s=%s\", ignoring: %m", key, val);
+                        else {
+                                log_event_trace(event, token, "Imported property \"%s=%s\".", key, val);
+                                have = true;
+                        }
                 }
 
                 return log_event_result(event, token, token->op == (have ? OP_MATCH : OP_NOMATCH));
@@ -2881,9 +2892,12 @@ static int udev_rule_apply_token_to_event(
                         udev_replace_chars_and_log(event, token, p, /* allow= */ NULL, "property value");
 
                 r = device_add_property(dev, name, value_new);
+                if (r == -ENOMEM)
+                        return log_oom();
                 if (r < 0)
-                        return log_event_error_errno(event, token, r, "Failed to set property \"%s=%s\": %m", name, value_new);
-                log_event_trace(event, token, "Set property \"%s=%s\".", name, value_new);
+                        log_event_warning_errno(event, token, r, "Failed to set property \"%s=%s\", ignoring: %m", name, value_new);
+                else
+                        log_event_trace(event, token, "Set property \"%s=%s\".", name, value_new);
                 return true;
         }
         case TK_A_TAG: {
@@ -2900,8 +2914,11 @@ static int udev_rule_apply_token_to_event(
 
                 assert(IN_SET(token->op, OP_ASSIGN, OP_ADD));
 
-                if (token->op == OP_ASSIGN)
-                        device_cleanup_tags(dev);
+                if (token->op == OP_ASSIGN) {
+                        r = device_cleanup_tags(dev, event->dev_db_clone);
+                        if (r < 0)
+                                log_event_warning_errno(event, token, r, "Failed to clear previously assigned tags, ignoring: %m");
+                }
 
                 r = device_add_tag(dev, buf, /* both= */ true);
                 if (r == -ENOMEM)

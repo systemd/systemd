@@ -15,6 +15,7 @@
 #include "chase.h"
 #include "discover-image.h"
 #include "dissect-image.h"
+#include "dlopen-note.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "escape.h"
@@ -158,16 +159,10 @@ static int validate_image_fd(int fd, MountImageParameters *p) {
         assert(fd >= 0);
         assert(p);
 
-        struct stat st;
-        if (fstat(fd, &st) < 0)
-                return -errno;
-        /* Only support regular files and block devices. Let's use stat_verify_regular() here for the nice
-         * error numbers it generates. */
-        if (!S_ISBLK(st.st_mode)) {
-                r = stat_verify_regular(&st);
-                if (r < 0)
-                        return r;
-        }
+        /* Only support regular files and block devices. */
+        r = fd_verify_regular_or_block(fd);
+        if (r < 0)
+                return r;
 
         fl = fd_verify_safe_flags_full(fd, O_NONBLOCK);
         if (fl < 0)
@@ -248,7 +243,7 @@ static int verify_trusted_image_fd_by_path(int fd) {
                         if (!filename_is_valid(e))
                                 continue;
 
-                        r = chaseat(dir_fd, e, CHASE_SAFE|CHASE_TRIGGER_AUTOFS, NULL, &inode_fd);
+                        r = chaseat(XAT_FDROOT, dir_fd, e, CHASE_SAFE|CHASE_TRIGGER_AUTOFS, NULL, &inode_fd);
                         if (r < 0)
                                 return log_error_errno(r, "Couldn't verify that specified image '%s' is in search path '%s': %m", p, s);
 
@@ -508,7 +503,8 @@ static int vl_method_mount_image(
                         polkit_details,
                         /* good_user= */ UID_INVALID,
                         polkit_flags,
-                        polkit_registry);
+                        polkit_registry,
+                        /* ret_admin= */ NULL);
         if (r <= 0)
                 return r;
 
@@ -521,7 +517,7 @@ static int vl_method_mount_image(
 
         r = loop_device_make(
                         image_fd,
-                        p.read_only == 0 ? O_RDONLY : O_RDWR,
+                        p.read_only > 0 ? O_RDONLY : -1,
                         0,
                         UINT64_MAX,
                         UINT32_MAX,
@@ -532,7 +528,7 @@ static int vl_method_mount_image(
                 return r;
 
         DissectImageFlags dissect_flags =
-                (p.read_only == 0 ? DISSECT_IMAGE_READ_ONLY : 0) |
+                (p.read_only > 0 ? DISSECT_IMAGE_READ_ONLY : 0) |
                 (p.growfs != 0 ? DISSECT_IMAGE_GROWFS : 0) |
                 DISSECT_IMAGE_DISCARD_ANY |
                 DISSECT_IMAGE_FSCK |
@@ -547,7 +543,7 @@ static int vl_method_mount_image(
 
         /* Let's see if we have acquired the privilege to mount untrusted images already */
         bool polkit_have_untrusted_action =
-                varlink_has_polkit_action(link, polkit_untrusted_action, polkit_details, polkit_registry);
+                varlink_has_polkit_action(link, polkit_untrusted_action, polkit_details, polkit_registry, /* ret_admin= */ NULL);
 
         for (;;) {
                 use_policy = image_policy_free(use_policy);
@@ -600,7 +596,8 @@ static int vl_method_mount_image(
                                                 polkit_details,
                                                 /* good_user= */ UID_INVALID,
                                                 /* flags= */ 0,                   /* NB: the image cannot be authenticated, hence unless PK is around to allow this anyway, fail! */
-                                                polkit_registry);
+                                                polkit_registry,
+                                                /* ret_admin= */ NULL);
                                 if (r <= 0 && !ERRNO_IS_NEG_PRIVILEGE(r))
                                         return r;
                                 if (r > 0) {
@@ -633,24 +630,77 @@ static int vl_method_mount_image(
         if (r < 0)
                 return r;
 
-        r = dissected_image_decrypt(
-                        di,
-                        /* root= */ NULL,
-                        p.password,
-                        &verity,
-                        use_policy,
-                        dissect_flags);
-        if (r == -ENOKEY) /* new dm-verity userspace returns ENOKEY if the dm-verity signature key is not in
-                           * key chain. That's great. */
-                return sd_varlink_error(link, "io.systemd.MountFileSystem.KeyNotFound", NULL);
-        if (r == -EBUSY) /* DM kernel subsystem is shit with returning useful errors hence we keep retrying
-                          * under the assumption that some errors are transitional. Which the errors might
-                          * not actually be. After all retries failed we return EBUSY. Let's turn that into a
-                          * generic Verity error. It's not very helpful, could mean anything, but at least it
-                          * gives client a clear idea that this has to do with Verity. */
-                return sd_varlink_error(link, "io.systemd.MountFileSystem.VerityFailure", NULL);
-        if (r < 0)
-                return r;
+        for (;;) {
+                use_policy = image_policy_free(use_policy);
+                ps = mfree(ps);
+
+                /* We use the image policy for trusted images if either the path is below a trusted
+                 * directory, or if we have already acquired a PK authentication that tells us that untrusted
+                 * images are OK */
+                bool use_trusted_policy =
+                        image_is_trusted ||
+                        polkit_have_untrusted_action;
+
+                r = determine_image_policy(
+                                image_fd,
+                                use_trusted_policy,
+                                p.image_policy,
+                                &use_policy);
+                if (r < 0)
+                        return r;
+
+                r = image_policy_to_string(use_policy, /* simplify= */ true, &ps);
+                if (r < 0)
+                        return r;
+
+                log_debug("Using image policy: %s", ps);
+
+                r = dissected_image_decrypt(
+                                di,
+                                /* root= */ NULL,
+                                p.password,
+                                &verity,
+                                use_policy,
+                                dissect_flags);
+                if (r == -EDESTADDRREQ) {
+                        /* new dm-verity userspace returns ENOKEY if the dm-verity signature key is not in
+                         * key chain which we mangle to EDESTADDRREQ. That's great. */
+
+                        if (!polkit_have_untrusted_action) {
+                                 log_debug("Missing verity key in kernel and userspace. Trying a stronger polkit authentication before continuing.");
+                                 r = varlink_verify_polkit_async_full(
+                                                 link,
+                                                 /* bus= */ NULL,
+                                                 polkit_untrusted_action,
+                                                 polkit_details,
+                                                 /* good_user= */ UID_INVALID,
+                                                 /* flags= */ 0,                   /* NB: the image cannot be authenticated, hence unless PK is around to allow this anyway, fail! */
+                                                 polkit_registry,
+                                                 /* ret_admin= */ NULL);
+                                 if (r <= 0 && !ERRNO_IS_NEG_PRIVILEGE(r))
+                                         return r;
+                                 if (r > 0) {
+                                         /* Try again, now that we know the client has enough privileges. */
+                                         log_debug("Missing verity key in kernel and userspace, retrying after polkit authentication.");
+                                         polkit_have_untrusted_action = true;
+                                         continue;
+                                 }
+                         }
+
+                        return sd_varlink_error(link, "io.systemd.MountFileSystem.KeyNotFound", NULL);
+                }
+                if (r == -EBUSY) /* DM kernel subsystem is bad at returning useful errors hence we keep retrying
+                                  * under the assumption that some errors are transitional. Which the errors might
+                                  * not actually be. After all retries failed we return EBUSY. Let's turn that into a
+                                  * generic Verity error. It's not very helpful, could mean anything, but at least it
+                                  * gives client a clear idea that this has to do with Verity. */
+                        return sd_varlink_error(link, "io.systemd.MountFileSystem.VerityFailure", NULL);
+                if (r < 0)
+                        return r;
+
+                /* Success */
+                break;
+        }
 
         r = dissected_image_mount(
                         di,
@@ -702,7 +752,7 @@ static int vl_method_mount_image(
 
                 r = sd_json_variant_append_arraybo(
                                 &aj,
-                                SD_JSON_BUILD_PAIR_STRING("designator", partition_designator_to_string(d)),
+                                JSON_BUILD_PAIR_ENUM("designator", partition_designator_to_string(d)),
                                 SD_JSON_BUILD_PAIR_BOOLEAN("writable", pp->rw),
                                 SD_JSON_BUILD_PAIR_BOOLEAN("growFileSystem", pp->growfs),
                                 SD_JSON_BUILD_PAIR_CONDITION(pp->partno > 0, "partitionNumber", SD_JSON_BUILD_INTEGER(pp->partno)),
@@ -727,6 +777,7 @@ static int vl_method_mount_image(
                         SD_JSON_BUILD_PAIR_STRING("imagePolicy", ps),
                         SD_JSON_BUILD_PAIR_UNSIGNED("imageSize", di->image_size),
                         SD_JSON_BUILD_PAIR_UNSIGNED("sectorSize", di->sector_size),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("imageName", di->image_name),
                         SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(di->image_uuid), "imageUuid", SD_JSON_BUILD_UUID(di->image_uuid)));
 }
 
@@ -813,7 +864,8 @@ static DirectoryOwnership validate_directory_fd(
         r = xstatx_full(fd,
                         /* path= */ NULL,
                         AT_EMPTY_PATH,
-                        /* mandatory_mask= */ STATX_TYPE|STATX_UID|STATX_MNT_ID|STATX_INO,
+                        /* xstatx_flags= */ XSTATX_MNT_ID_BEST,
+                        /* mandatory_mask= */ STATX_TYPE|STATX_UID|STATX_INO,
                         /* optional_mask= */ 0,
                         /* mandatory_attributes= */ STATX_ATTR_MOUNT_ROOT,
                         &stx);
@@ -880,7 +932,8 @@ static DirectoryOwnership validate_directory_fd(
                 r = xstatx_full(new_parent_fd,
                                 /* path= */ NULL,
                                 AT_EMPTY_PATH,
-                                /* mandatory_mask= */ STATX_UID|STATX_MNT_ID|STATX_INO,
+                                /* xstatx_flags= */ XSTATX_MNT_ID_BEST,
+                                /* mandatory_mask= */ STATX_UID|STATX_INO,
                                 /* optional_mask= */ 0,
                                 /* mandatory_attributes= */ STATX_ATTR_MOUNT_ROOT,
                                 &new_stx);
@@ -894,7 +947,10 @@ static DirectoryOwnership validate_directory_fd(
                         return DIRECTORY_IS_OTHERWISE_OWNED;
                 }
 
-                if (stx.stx_mnt_id != new_stx.stx_mnt_id) {
+                r = statx_mount_same(&stx, &new_stx);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to compare mount IDs: %m");
+                if (!r) {
                         /* NB, this check is probably redundant, given we also check
                          * STATX_ATTR_MOUNT_ROOT. The only reason we have it here is to provide extra safety
                          * in case the mount tree is rearranged concurrently with our traversal, so that
@@ -1115,7 +1171,8 @@ static int vl_method_mount_directory(
                         polkit_details,
                         /* good_user= */ UID_INVALID,
                         trusted_directory ? polkit_flags : 0,
-                        polkit_registry);
+                        polkit_registry,
+                        /* ret_admin= */ NULL);
         if (r <= 0)
                 return r;
 
@@ -1156,29 +1213,59 @@ static int vl_method_mount_directory(
                 uid_t start;
 
                 if (userns_fd >= 0) {
+                        /* Load ranges without coalescing to preserve the 1:1 correspondence
+                         * between inside and outside entries */
                         _cleanup_(uid_range_freep) UIDRange *uid_range_outside = NULL, *uid_range_inside = NULL, *gid_range_outside = NULL, *gid_range_inside = NULL;
-                        r = uid_range_load_userns_by_fd(userns_fd, UID_RANGE_USERNS_OUTSIDE, &uid_range_outside);
+                        r = uid_range_load_userns_by_fd_full(userns_fd, UID_RANGE_USERNS_OUTSIDE, /* coalesce= */ false, &uid_range_outside);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to load outside UID range of provided userns: %m");
-                        r = uid_range_load_userns_by_fd(userns_fd, UID_RANGE_USERNS_INSIDE, &uid_range_inside);
+
+                        r = uid_range_load_userns_by_fd_full(userns_fd, UID_RANGE_USERNS_INSIDE, /* coalesce= */ false, &uid_range_inside);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to load inside UID range of provided userns: %m");
-                        r = uid_range_load_userns_by_fd(userns_fd, GID_RANGE_USERNS_OUTSIDE, &gid_range_outside);
+
+                        r = uid_range_load_userns_by_fd_full(userns_fd, GID_RANGE_USERNS_OUTSIDE, /* coalesce= */ false, &gid_range_outside);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to load outside GID range of provided userns: %m");
-                        r = uid_range_load_userns_by_fd(userns_fd, GID_RANGE_USERNS_INSIDE, &gid_range_inside);
+
+                        r = uid_range_load_userns_by_fd_full(userns_fd, GID_RANGE_USERNS_INSIDE, /* coalesce= */ false, &gid_range_inside);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to load inside GID range of provided userns: %m");
 
-                        /* Be very strict for now */
+                        /* UID and GID mappings must match */
                         if (!uid_range_equal(uid_range_outside, gid_range_outside) ||
-                            !uid_range_equal(uid_range_inside, gid_range_inside) ||
-                            uid_range_outside->n_entries != 1 ||
-                            uid_range_outside->entries[0].nr != 0x10000 ||
-                            uid_range_inside->n_entries != 1 ||
-                            uid_range_inside->entries[0].start != 0 ||
-                            uid_range_inside->entries[0].nr != 0x10000)
+                            !uid_range_equal(uid_range_inside, gid_range_inside))
                                 return sd_varlink_error_invalid_parameter_name(link, "userNamespaceFileDescriptor");
+
+                        /* Must have at least one entry, and inside/outside must have matching entry counts */
+                        if (uid_range_is_empty(uid_range_outside) ||
+                            uid_range_outside->n_entries != uid_range_inside->n_entries)
+                                return sd_varlink_error_invalid_parameter_name(link, "userNamespaceFileDescriptor");
+
+                        /* The first range must be a root UID in the transient range (i.e. aligned
+                         * to a 64K boundary) and mapped to 0 inside the user namespace (size 65536) */
+                        if (!uid_is_transient(uid_range_outside->entries[0].start) ||
+                            (uid_range_outside->entries[0].start & 0xFFFFU) != 0 ||
+                            uid_range_outside->entries[0].nr != NSRESOURCE_UIDS_64K ||
+                            uid_range_inside->entries[0].start != 0 ||
+                            uid_range_inside->entries[0].nr != NSRESOURCE_UIDS_64K)
+                                return sd_varlink_error_invalid_parameter_name(link, "userNamespaceFileDescriptor");
+
+                        /* All remaining entries must also be root UIDs in the transient range and
+                         * mapped 1:1, which identifies them as delegated ranges. The last entry
+                         * may also be the root UID in the foreign UID range. */
+                        for (size_t i = 1; i < uid_range_outside->n_entries; i++) {
+                                bool is_last = i + 1 == uid_range_outside->n_entries;
+                                uid_t entry_start = uid_range_outside->entries[i].start;
+
+                                if (!(uid_is_transient(entry_start) ||
+                                      (is_last && uid_is_foreign(entry_start))) ||
+                                    (entry_start & 0xFFFFU) != 0 ||
+                                    uid_range_outside->entries[i].nr != NSRESOURCE_UIDS_64K ||
+                                    uid_range_outside->entries[i].start != uid_range_inside->entries[i].start ||
+                                    uid_range_outside->entries[i].nr != uid_range_inside->entries[i].nr)
+                                        return sd_varlink_error_invalid_parameter_name(link, "userNamespaceFileDescriptor");
+                        }
 
                         start = uid_range_outside->entries[0].start;
                 } else
@@ -1280,7 +1367,7 @@ static int vl_method_make_directory(
 
         struct stat parent_stat;
         if (fstat(parent_fd, &parent_stat) < 0)
-                return r;
+                return log_debug_errno(errno, "Failed to fstat parent directory fd: %m");
 
         r = stat_verify_directory(&parent_stat);
         if (r < 0)
@@ -1318,7 +1405,8 @@ static int vl_method_make_directory(
                         polkit_details,
                         /* good_user= */ UID_INVALID,
                         polkit_flags,
-                        polkit_registry);
+                        polkit_registry,
+                        /* ret_admin= */ NULL);
         if (r <= 0)
                 return r;
 
@@ -1401,6 +1489,11 @@ static int run(int argc, char *argv[]) {
         _cleanup_(pidref_done) PidRef parent = PIDREF_NULL;
         unsigned n_iterations = 0;
         int m, listen_fd, r;
+
+        LIBBLKID_NOTE(recommended);
+        LIBCRYPTO_NOTE(suggested);
+        LIBCRYPTSETUP_NOTE(suggested);
+        LIBMOUNT_NOTE(recommended);
 
         log_setup();
 

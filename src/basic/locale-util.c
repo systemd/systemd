@@ -16,6 +16,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "set.h"
+#include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -115,8 +116,9 @@ static int add_locales_from_archive(Set *locales) {
         if (fstat(fd, &st) < 0)
                 return -errno;
 
-        if (!S_ISREG(st.st_mode))
-                return -EBADMSG;
+        r = stat_verify_regular(&st);
+        if (r < 0)
+                return r;
 
         if (st.st_size < (off_t) sizeof(struct locarhead))
                 return -EBADMSG;
@@ -228,6 +230,8 @@ static int add_locales_for_musl(Set *locales) {
 int get_locales(char ***ret) {
         _cleanup_set_free_ Set *locales = NULL;
         int r;
+
+        assert(ret);
 
         locales = set_new(&string_hash_ops_free);
         if (!locales)

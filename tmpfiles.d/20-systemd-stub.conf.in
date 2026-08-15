@@ -12,6 +12,7 @@
 
 C /run/systemd/stub/profile 0444 root root - /.extra/profile
 C /run/systemd/stub/os-release 0444 root root - /.extra/os-release
+C /run/systemd/stub/boot-secret 0400 root root - /.extra/boot-secret
 
 {% if ENABLE_TPM %}
 C /run/systemd/tpm2-pcr-signature.json 0444 root root - /.extra/tpm2-pcr-signature.json

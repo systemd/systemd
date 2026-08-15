@@ -49,6 +49,7 @@
 #include "resolved-mdns.h"
 #include "resolved-resolv-conf.h"
 #include "resolved-socket-graveyard.h"
+#include "resolved-static-records.h"
 #include "resolved-util.h"
 #include "resolved-varlink.h"
 #include "set.h"
@@ -368,7 +369,7 @@ static int manager_network_monitor_listen(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_event_source_set_priority(m->network_event_source, SD_EVENT_PRIORITY_IMPORTANT+5);
+        r = sd_event_source_set_priority(m->network_event_source, SD_EVENT_PRIORITY_IMPORTANT-5);
         if (r < 0)
                 return r;
 
@@ -637,8 +638,11 @@ static void manager_set_defaults(Manager *m) {
         m->enable_cache = DNS_CACHE_MODE_YES;
         m->dns_stub_listener_mode = DNS_STUB_LISTENER_YES;
         m->read_etc_hosts = true;
+        m->read_static_records = true;
         m->resolve_unicast_single_label = false;
         m->cache_from_localhost = false;
+        for (DnsProtocol p = 0; p < _DNS_PROTOCOL_MAX; p++)
+                m->cache_max[p] = DEFAULT_CACHE_MAX;
         m->stale_retention_usec = 0;
         m->refuse_record_types = set_free(m->refuse_record_types);
         m->resolv_conf_stat = (struct stat) {};
@@ -659,6 +663,11 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
         m->unicast_scope = dns_scope_free(m->unicast_scope);
         m->delegates = hashmap_free(m->delegates);
         dns_trust_anchor_flush(&m->trust_anchor);
+        manager_etc_hosts_flush(m);
+        manager_static_records_flush(m);
+
+        m->etc_hosts_last = USEC_INFINITY;
+        m->static_records_last = USEC_INFINITY;
 
         manager_set_defaults(m);
 
@@ -729,6 +738,7 @@ int manager_new(Manager **ret) {
                 .read_resolv_conf = true,
                 .need_builtin_fallbacks = true,
                 .etc_hosts_last = USEC_INFINITY,
+                .static_records_last = USEC_INFINITY,
 
                 .sigrtmin18_info.memory_pressure_handler = manager_memory_pressure,
                 .sigrtmin18_info.memory_pressure_userdata = m,
@@ -743,12 +753,6 @@ int manager_new(Manager **ret) {
         r = manager_parse_config_file(m);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse configuration file, ignoring: %m");
-
-#if ENABLE_DNS_OVER_TLS
-        r = dnstls_manager_init(m);
-        if (r < 0)
-                return r;
-#endif
 
         r = sd_event_default(&m->event);
         if (r < 0)
@@ -917,6 +921,7 @@ Manager* manager_free(Manager *m) {
 
         dns_trust_anchor_flush(&m->trust_anchor);
         manager_etc_hosts_flush(m);
+        manager_static_records_flush(m);
 
         while ((sb = hashmap_first(m->dns_service_browsers)))
                 dns_service_browser_free(sb);
@@ -1454,6 +1459,8 @@ static int manager_next_random_name(const char *old, char **ret_new) {
         const char *p;
         uint64_t u, a;
         char *n;
+
+        assert(ret_new);
 
         p = strchr(old, 0);
         assert(p);
@@ -2145,9 +2152,9 @@ static int dns_configuration_json_append(
                         JSON_BUILD_PAIR_CONDITION_BOOLEAN(dnssec_mode >= 0, "dnssecSupported", dnssec_supported),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("dnssec", dnssec_mode_to_string(dnssec_mode)),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("dnsOverTLS", dns_over_tls_mode_to_string(dns_over_tls_mode)),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("llmnr", resolve_support_to_string(llmnr_support)),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("mDNS", resolve_support_to_string(mdns_support)),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("resolvConfMode", resolv_conf_mode_to_string(resolv_conf_mode)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY_UNDERSCORIFY("llmnr", resolve_support_to_string(llmnr_support)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY_UNDERSCORIFY("mDNS", resolve_support_to_string(mdns_support)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY_UNDERSCORIFY("resolvConfMode", resolv_conf_mode_to_string(resolv_conf_mode)),
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("scopes", scopes_json));
 }
 
@@ -2324,7 +2331,7 @@ int manager_send_dns_configuration_changed(Manager *m, Link *l, bool reset) {
         if (sd_json_variant_equal(configuration, m->dns_configuration_json))
                 return 0;
 
-        JSON_VARIANT_REPLACE(m->dns_configuration_json, TAKE_PTR(configuration));
+        json_variant_unref_and_replace(m->dns_configuration_json, configuration);
 
         r = varlink_many_notify(m->varlink_dns_configuration_subscription, m->dns_configuration_json);
         if (r < 0)

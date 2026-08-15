@@ -3,7 +3,7 @@
 
 /* IWYU pragma: always_keep */
 
-#include "shared-forward.h" /* IWYU pragma: export */
+#include "forward.h" /* IWYU pragma: export */
 
 typedef struct Machine Machine;
 typedef struct Manager Manager;

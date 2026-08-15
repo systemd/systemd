@@ -3,7 +3,7 @@
 
 #include <pthread.h> /* IWYU pragma: export */
 
-#include "basic-forward.h"
+#include "forward.h"
 
 static inline pthread_mutex_t* pthread_mutex_lock_assert(pthread_mutex_t *mutex) {
         assert_se(pthread_mutex_lock(mutex) == 0);

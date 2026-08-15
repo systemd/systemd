@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "basic-forward.h"
+#include "forward.h"
 
 /* What characters are special in the shell? */
 /* must be escaped outside and inside double-quotes */
@@ -59,7 +59,10 @@ char* xescape_full(const char *s, const char *bad, size_t console_width, XEscape
 static inline char* xescape(const char *s, const char *bad) {
         return xescape_full(s, bad, SIZE_MAX, 0);
 }
-char* octescape(const char *s, size_t len);
+char* octescape_full(const char *s, size_t len, const char *bad);
+static inline char* octescape(const char *s, size_t len) {
+        return octescape_full(s, len, NULL);
+}
 char* decescape(const char *s, size_t len, const char *bad) _nonnull_if_nonzero_(1, 2);
 char* escape_non_printable_full(const char *str, size_t console_width, XEscapeFlags flags);
 

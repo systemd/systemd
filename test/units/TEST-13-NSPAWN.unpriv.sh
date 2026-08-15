@@ -21,15 +21,23 @@ at_exit() {
     rm -rf /home/testuser/.local/state/machines/wamms ||:
     rm -rf /home/testuser/.local/state/machines/inodetest ||:
     rm -rf /home/testuser/.local/state/machines/inodetest2 ||:
+    rm -rf /home/testuser/.local/state/machines/mangletest ||:
+    rm -rf /home/testuser/.local/state/machines/fdstore ||:
     machinectl terminate zurps ||:
+    machinectl terminate exfiltrate ||:
+    systemctl --user --machine testuser@ stop exfiltrate.service ||:
+    systemctl --user --machine testuser@ stop systemd-nspawn@fdstore.service ||:
     rm -f /etc/polkit-1/rules.d/registermachinetest.rules
     machinectl terminate nurps ||:
     machinectl terminate kurps ||:
     machinectl terminate wumms ||:
     machinectl terminate wamms ||:
+    machinectl terminate fdstore ||:
     rm -f /usr/share/polkit-1/rules.d/registermachinetest.rules
     rm -rf /var/tmp/mangletest
     rm -f /var/tmp/mangletest.tar.gz
+    rm -f /shouldnotwork
+    loginctl disable-linger testuser
 }
 
 trap at_exit EXIT
@@ -60,7 +68,7 @@ EOF
 loginctl enable-linger testuser
 
 run0 -u testuser mkdir -p .config/systemd/nspawn/
-run0 -u testuser -i "echo -e \"[Exec]\nKillSignal=SIGKILL\n\" > .config/systemd/nspawn/zurps.nspawn"
+run0 -u testuser -i "echo -e \"[Exec]\nKillSignal=SIGKILL\n\" >.config/systemd/nspawn/zurps.nspawn"
 run0 -u testuser systemctl start --user systemd-nspawn@zurps.service
 
 machinectl status zurps
@@ -103,18 +111,98 @@ run0 -u testuser \
 (! run0 -u testuser machinectl shell 0@shouldnotwork2 /usr/bin/id -u)
 (! run0 -u testuser machinectl shell testuser@shouldnotwork2 /usr/bin/id -u)
 
+run0 -u testuser \
+    systemd-run --unit sleep.service --user sleep infinity
+sleep_pid="$(run0 -u testuser systemctl show --user -P MainPID sleep.service)"
+run0 -u testuser  \
+    varlinkctl \
+        call \
+        /run/systemd/machine/io.systemd.Machine \
+        io.systemd.Machine.Register \
+        "{\"name\":\"shouldnotwork3\", \"class\":\"container\", \"leader\": $sleep_pid}"
+(! run0 -u testuser \
+    varlinkctl \
+        call \
+        /run/systemd/machine/io.systemd.Machine \
+        io.systemd.Machine.Open \
+        '{"name":"shouldnotwork3", "mode": "shell", "user":"root","path":"/usr/bin/bash","args":["bash","-c","''touch /shouldnotwork; sleep 20''"]}')
+(! varlinkctl \
+    call \
+    /run/systemd/machine/io.systemd.Machine \
+    io.systemd.Machine.Register \
+    "{\"name\":\"shouldnotwork4\", \"class\":\"host\", \"leader\": $sleep_pid}")
+(! machinectl list | grep shouldnotwork4)
+(! run0 -u testuser  \
+    varlinkctl \
+        call \
+        /run/systemd/machine/io.systemd.Machine \
+        io.systemd.Machine.Register \
+        "{\"name\":\"shouldnotwork5\", \"class\":\"host\", \"leader\": $sleep_pid}")
+(! machinectl list | grep shouldnotwork5)
+(! busctl call \
+    org.freedesktop.machine1 \
+    /org/freedesktop/machine1 \
+    org.freedesktop.machine1.Manager \
+    RegisterMachine \
+    'sayssus' \
+    shouldnotwork6 \
+    0 \
+    "" \
+    host \
+    0 \
+    "")
+(! machinectl list | grep shouldnotwork6)
+(! run0 -u testuser \
+    busctl call \
+        org.freedesktop.machine1 \
+        /org/freedesktop/machine1 \
+        org.freedesktop.machine1.Manager \
+        RegisterMachine \
+        'sayssus' \
+        shouldnotwork7 \
+        0 \
+        "" \
+        host \
+        0 \
+        "")
+(! machinectl list | grep shouldnotwork7)
+systemctl --user --machine testuser@ stop sleep.service
+test ! -f /shouldnotwork
+
+echo FOO=bar >/tmp/foo
+chmod 600 /tmp/foo
+run0 -u testuser \
+    systemd-run --unit exfiltrate.service --service-type notify --property NotifyAccess=all --user \
+        unshare --map-root-user --user --mount \
+            bash -c 'mount --bind /tmp/foo /usr/lib/os-release; systemd-notify --ready; exec sleep infinity'
+exfiltrate_pid="$(systemctl --machine testuser@.host show --user -P MainPID exfiltrate.service)"
+run0 -u testuser \
+    varlinkctl \
+        call \
+        /run/systemd/machine/io.systemd.Machine \
+        io.systemd.Machine.Register \
+        "{\"name\":\"exfiltrate\", \"class\":\"container\", \"leader\": $exfiltrate_pid}"
+exfiltrate_output="$(run0 -u testuser \
+    varlinkctl \
+        call \
+        /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List \
+        "{\"name\":\"exfiltrate\",\"acquireMetadata\":\"graceful\"}" 2>&1)" || true
+(! echo "$exfiltrate_output" | grep '"name".*"exfiltrate"' >/dev/null)
+(! echo "$exfiltrate_output" | grep "FOO=bar" >/dev/null)
+systemctl --user --machine testuser@ stop exfiltrate.service
+
 run0 -u testuser mkdir /var/tmp/image-tar
 run0 -u testuser importctl --user export-tar zurps /var/tmp/image-tar/kurps.tar.gz -m
 run0 -u testuser importctl --user import-tar /var/tmp/image-tar/kurps.tar.gz -m
 
-run0 -u testuser -i "echo -e \"[Exec]\nKillSignal=SIGKILL\n\" > .config/systemd/nspawn/kurps.nspawn"
+run0 -u testuser -i "echo -e \"[Exec]\nKillSignal=SIGKILL\n\" >.config/systemd/nspawn/kurps.nspawn"
 run0 -u testuser systemctl start --user systemd-nspawn@kurps.service
 machinectl terminate kurps
 
-run0 -u testuser -D /var/tmp/image-tar/ bash -c 'sha256sum kurps.tar.gz > SHA256SUMS'
+run0 -u testuser -D /var/tmp/image-tar/ bash -c 'sha256sum kurps.tar.gz >SHA256SUMS'
 run0 -u testuser importctl --user pull-tar file:///var/tmp/image-tar/kurps.tar.gz nurps --verify=checksum -m
 
-run0 -u testuser -i "echo -e \"[Exec]\nKillSignal=SIGKILL\n\" > .config/systemd/nspawn/nurps.nspawn"
+run0 -u testuser -i "echo -e \"[Exec]\nKillSignal=SIGKILL\n\" >.config/systemd/nspawn/nurps.nspawn"
 run0 -u testuser systemctl start --user systemd-nspawn@nurps.service
 machinectl terminate nurps
 
@@ -147,7 +235,7 @@ assert_in 'wamms' "$(run0 -u testuser machinectl --user list-images)"
 run0 -u testuser machinectl --user image-status wamms
 run0 -u testuser machinectl --user show-image wamms
 
-run0 -u testuser -i "echo -e \"[Exec]\nKillSignal=SIGKILL\n\" > .config/systemd/nspawn/wamms.nspawn"
+run0 -u testuser -i "echo -e \"[Exec]\nKillSignal=SIGKILL\n\" >.config/systemd/nspawn/wamms.nspawn"
 run0 -u testuser systemctl start --user systemd-nspawn@wamms.service
 
 run0 -u testuser systemctl stop --user systemd-nspawn@zurps.service
@@ -223,4 +311,101 @@ tar -C /var/tmp/mangletest/ -cvzf /var/tmp/mangletest.tar.gz mangletest-0.1
 run0 --pipe -u testuser importctl -m --user import-tar /var/tmp/mangletest.tar.gz
 cmp /var/tmp/mangletest/mangletest-0.1/usr/lib/os-release /home/testuser/.local/state/machines/mangletest/usr/lib/os-release
 
-loginctl disable-linger testuser
+# Verify the fd-store preservation chain works end-to-end across:
+#   payload (inside container) -> systemd-nspawn (user manager) -> user manager
+#   -> system PID 1 (user@<UID>.service fd store)
+# Then restart the nspawn service and verify the inner payload actually
+# receives the preserved fds back via LISTEN_FDS, with their original content.
+create_dummy_container /home/testuser/.local/state/machines/fdstore
+if [[ ! -x /home/testuser/.local/state/machines/fdstore/usr/bin/test-fdstore ]]; then
+    echo >&2 "test-fdstore not available in the minimal container, skipping fdstore tests"
+    exit 0
+fi
+# The container init execs the helper directly so the FDSTORE notification is
+# sent from PID 1 (nspawn rejects notify messages from anyone but the inner
+# payload's init). The helper itself execs sleep on success to keep the
+# container alive, and on failure it exits non-zero making the systemd-nspawn
+# service fail.
+cat >/home/testuser/.local/state/machines/fdstore/sbin/init <<'EOF'
+#!/usr/bin/env bash
+set -e
+if [[ "${LISTEN_FDS:-0}" -gt 0 ]]; then
+    exec /usr/bin/test-fdstore check
+else
+    exec /usr/bin/test-fdstore store
+fi
+EOF
+chmod +x /home/testuser/.local/state/machines/fdstore/sbin/init
+systemd-dissect --shift /home/testuser/.local/state/machines/fdstore foreign
+
+run0 -u testuser mkdir -p .config/systemd/nspawn/
+run0 -u testuser -i "cat >.config/systemd/nspawn/fdstore.nspawn <<EOF
+[Exec]
+KillSignal=SIGTERM
+EOF"
+
+run0 -u testuser mkdir -p ".config/systemd/user/systemd-nspawn@fdstore.service.d/"
+run0 -u testuser -i "cat >.config/systemd/user/systemd-nspawn@fdstore.service.d/fdstore.conf <<EOF
+[Service]
+FileDescriptorStoreMax=8
+FileDescriptorStorePreserve=on-success
+EOF"
+run0 -u testuser systemctl --user daemon-reload
+
+run0 -u testuser systemctl start --user systemd-nspawn@fdstore.service
+timeout 30s bash -c \
+    "until [[ \"\$(run0 -u testuser systemctl --user show -P NFileDescriptorStore systemd-nspawn@fdstore.service)\" -ge 2 ]]; do sleep 0.5; done"
+
+# 1) Payload -> nspawn (user-side systemd-nspawn@fdstore.service fd store)
+n_nspawn_fds=$(run0 -u testuser systemctl --user show -P NFileDescriptorStore systemd-nspawn@fdstore.service)
+test "${n_nspawn_fds}" -ge 2
+
+# 2) nspawn -> user manager -> system PID 1 (user@<UID>.service fd store)
+TESTUSER_UID=$(id -u testuser)
+timeout 30s bash -c \
+    "until [[ \"\$(systemctl show -P NFileDescriptorStore user@${TESTUSER_UID}.service)\" -ge 2 ]]; do sleep 0.5; done"
+n_user_at_fds=$(systemctl show -P NFileDescriptorStore "user@${TESTUSER_UID}.service")
+test "${n_user_at_fds}" -ge 2
+
+# 3) Stop the nspawn service: payload is gone but FileDescriptorStorePreserve=on-success
+# must keep the fds in the user-side fdstore (and propagated copy in PID 1).
+run0 -u testuser systemctl --user stop systemd-nspawn@fdstore.service
+n_nspawn_fds=$(run0 -u testuser systemctl --user show -P NFileDescriptorStore systemd-nspawn@fdstore.service)
+test "${n_nspawn_fds}" -ge 2
+
+# 4) Restart the service: nspawn must receive the preserved fds via LISTEN_FDS
+# and forward them into the inner payload, which verifies the content matches.
+run0 -u testuser systemctl start --user systemd-nspawn@fdstore.service
+run0 -u testuser systemctl is-active --user systemd-nspawn@fdstore.service
+
+# 5) Stop the nspawn service and the user session
+run0 -u testuser systemctl --user stop systemd-nspawn@fdstore.service
+n_nspawn_fds=$(run0 -u testuser systemctl --user show -P NFileDescriptorStore systemd-nspawn@fdstore.service)
+test "${n_nspawn_fds}" -ge 2
+systemctl stop "user@${TESTUSER_UID}.service"
+n_user_at_fds=$(systemctl show -P NFileDescriptorStore "user@${TESTUSER_UID}.service")
+test "${n_user_at_fds}" -ge 2
+
+# 6) Restart the user session and container payload
+systemctl start "user@${TESTUSER_UID}.service"
+timeout 30s bash -c \
+    "until systemctl is-active 'user@${TESTUSER_UID}.service' >/dev/null; do sleep 0.5; done"
+run0 -u testuser systemctl --user start systemd-nspawn@fdstore.service
+run0 -u testuser systemctl is-active --user systemd-nspawn@fdstore.service
+
+# 7) Failure case: with FileDescriptorStorePreserve=on-success, the fdstore must
+# be dropped once the unit enters the permanent failed state (i.e. once all
+# automated restart attempts driven by Restart= are exhausted). The
+# systemd-nspawn@.service template doesn't set Restart=, so killing the inner
+# payload with SIGKILL forces the unit straight into 'failed'.
+timeout 30s bash -c \
+    "until [[ \"\$(run0 -u testuser systemctl --user show -P NFileDescriptorStore systemd-nspawn@fdstore.service)\" -ge 2 ]]; do sleep 0.5; done"
+run0 -u testuser systemctl --user kill --kill-whom=all -s SIGKILL systemd-nspawn@fdstore.service
+timeout 30s bash -c \
+    "until [[ \"\$(run0 -u testuser systemctl --user show -P ActiveState systemd-nspawn@fdstore.service)\" == failed ]]; do sleep 0.5; done"
+# The fdstore must be discarded once the failed state is reached.
+assert_eq "$(run0 -u testuser systemctl --user show -P NFileDescriptorStore systemd-nspawn@fdstore.service)" 0
+assert_eq "$(run0 -u testuser systemctl --user show -P SubState systemd-nspawn@fdstore.service)" failed
+run0 -u testuser systemctl --user reset-failed systemd-nspawn@fdstore.service
+
+machinectl terminate fdstore 2>/dev/null || true

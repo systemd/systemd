@@ -140,6 +140,7 @@ int parse_env_extension_hierarchies(char ***ret_hierarchies, const char *hierarc
         _cleanup_free_ char **l = NULL;
         int r;
 
+        assert(ret_hierarchies);
         assert(hierarchy_env);
         r = getenv_path_list(hierarchy_env, &l);
         if (r == -ENXIO) {

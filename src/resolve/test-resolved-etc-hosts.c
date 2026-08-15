@@ -92,7 +92,7 @@ TEST(parse_etc_hosts) {
 
         /* See https://tools.ietf.org/html/rfc1035#section-2.3.1 */
         FOREACH_STRING(s, "bad-dash-", "-bad-dash", "-bad-dash.bad-")
-                assert_se(!hashmap_get(hosts.by_name, s));
+                ASSERT_FALSE(hashmap_contains(hosts.by_name, s));
 
         assert_se(bn = hashmap_get(hosts.by_name, "before.comment"));
         assert_se(set_size(bn->addresses) == 4);
@@ -101,17 +101,17 @@ TEST(parse_etc_hosts) {
         assert_se(has_4(bn->addresses, "1.2.3.11"));
         assert_se(has_4(bn->addresses, "1.2.3.12"));
 
-        assert_se(!hashmap_get(hosts.by_name, "within.comment"));
-        assert_se(!hashmap_get(hosts.by_name, "within.comment2"));
-        assert_se(!hashmap_get(hosts.by_name, "within.comment3"));
-        assert_se(!hashmap_get(hosts.by_name, "#"));
+        ASSERT_FALSE(hashmap_contains(hosts.by_name, "within.comment"));
+        ASSERT_FALSE(hashmap_contains(hosts.by_name, "within.comment2"));
+        ASSERT_FALSE(hashmap_contains(hosts.by_name, "within.comment3"));
+        ASSERT_FALSE(hashmap_contains(hosts.by_name, "#"));
 
-        assert_se(!hashmap_get(hosts.by_name, "short.address"));
-        assert_se(!hashmap_get(hosts.by_name, "long.address"));
-        assert_se(!hashmap_get(hosts.by_name, "multi.colon"));
-        assert_se(!set_contains(hosts.no_address, "short.address"));
-        assert_se(!set_contains(hosts.no_address, "long.address"));
-        assert_se(!set_contains(hosts.no_address, "multi.colon"));
+        ASSERT_FALSE(hashmap_contains(hosts.by_name, "short.address"));
+        ASSERT_FALSE(hashmap_contains(hosts.by_name, "long.address"));
+        ASSERT_FALSE(hashmap_contains(hosts.by_name, "multi.colon"));
+        ASSERT_FALSE(set_contains(hosts.no_address, "short.address"));
+        ASSERT_FALSE(set_contains(hosts.no_address, "long.address"));
+        ASSERT_FALSE(set_contains(hosts.no_address, "multi.colon"));
 
         assert_se(bn = hashmap_get(hosts.by_name, "some.other"));
         assert_se(set_size(bn->addresses) == 1);

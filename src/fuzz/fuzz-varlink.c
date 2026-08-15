@@ -41,7 +41,7 @@ static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userd
                         else
                                 assert_se(errno == EAGAIN);
                 } else
-                        iovec_increment(iov, 1, n);
+                        iovec_inc(iov, n);
         }
 
         if (revents & EPOLLIN) {

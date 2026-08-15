@@ -18,6 +18,7 @@
 #include "socket-label.h"
 #include "socket-netlink.h"
 #include "socket-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 
 int socket_address_parse(SocketAddress *a, const char *s) {
@@ -97,6 +98,8 @@ int socket_address_parse(SocketAddress *a, const char *s) {
 int socket_address_parse_and_warn(SocketAddress *a, const char *s) {
         SocketAddress b;
         int r;
+
+        assert(a);
 
         /* Similar to socket_address_parse() but warns for IPv6 sockets when we don't support them. */
 
@@ -195,7 +198,9 @@ int make_socket_fd(int log_level, const char* address, int type, int flags) {
                         0755,
                         0644,
                         /* selinux_label= */ NULL,
-                        /* smack_label= */ NULL);
+                        /* smack_label= */ NULL,
+                        /* xattr_entrypoint= */ NULL,
+                        /* xattr_listen= */ NULL);
         if (fd < 0 || log_get_max_level() >= log_level) {
                 _cleanup_free_ char *p = NULL;
 
@@ -348,7 +353,7 @@ int in_addr_port_ifindex_name_from_string_auto(
         return r;
 }
 
-struct in_addr_full *in_addr_full_free(struct in_addr_full *a) {
+struct in_addr_full* in_addr_full_free(struct in_addr_full *a) {
         if (!a)
                 return NULL;
 
@@ -357,14 +362,7 @@ struct in_addr_full *in_addr_full_free(struct in_addr_full *a) {
         return mfree(a);
 }
 
-void in_addr_full_array_free(struct in_addr_full *addrs[], size_t n) {
-        assert(addrs || n == 0);
-
-        FOREACH_ARRAY(a, addrs, n)
-                in_addr_full_freep(a);
-
-        free(addrs);
-}
+DEFINE_POINTER_ARRAY_FREE_FUNC(struct in_addr_full*, in_addr_full_free);
 
 int in_addr_full_new(
                 int family,
@@ -377,6 +375,7 @@ int in_addr_full_new(
         _cleanup_free_ char *name = NULL;
         struct in_addr_full *x;
 
+        assert(a);
         assert(ret);
 
         if (!isempty(server_name)) {
@@ -502,8 +501,9 @@ int af_unix_get_qlen(int fd, uint32_t *ret) {
         struct stat st;
         if (fstat(fd, &st) < 0)
                 return -errno;
-        if (!S_ISSOCK(st.st_mode))
-                return -ENOTSOCK;
+        r = stat_verify_socket(&st);
+        if (r < 0)
+                return r;
 
         _cleanup_(sd_netlink_unrefp) sd_netlink *nl = NULL;
         r = sd_sock_diag_socket_open(&nl);

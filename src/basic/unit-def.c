@@ -24,6 +24,8 @@ int unit_name_from_dbus_path(const char *path, char **name) {
         const char *e;
         char *n;
 
+        assert(name);
+
         e = startswith(path, "/org/freedesktop/systemd1/unit/");
         if (!e)
                 return -EINVAL;
@@ -68,6 +70,14 @@ const char* unit_dbus_interface_from_name(const char *name) {
                 return NULL;
 
         return unit_dbus_interface_from_type(t);
+}
+
+const char* unit_type_to_capitalized_string(UnitType t) {
+        const char *di = unit_dbus_interface_from_type(t);
+        if (!di)
+                return NULL;
+
+        return ASSERT_PTR(startswith(di, "org.freedesktop.systemd1."));
 }
 
 static const char* const unit_type_table[_UNIT_TYPE_MAX] = {
@@ -155,6 +165,8 @@ FreezerState freezer_state_objective(FreezerState state) {
 static const char* const unit_marker_table[_UNIT_MARKER_MAX] = {
         [UNIT_MARKER_NEEDS_RELOAD]  = "needs-reload",
         [UNIT_MARKER_NEEDS_RESTART] = "needs-restart",
+        [UNIT_MARKER_NEEDS_STOP]    = "needs-stop",
+        [UNIT_MARKER_NEEDS_START]   = "needs-start",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_marker, UnitMarker);

@@ -5,8 +5,10 @@ lib_cryptsetup_token_common = static_library(
         'cryptsetup-token-util.c',
         include_directories : includes,
         implicit_include_directories : false,
-        dependencies : userspace,
-        link_with : libshared,
+        dependencies : [
+                libcryptsetup_cflags,
+                userspace,
+        ],
         build_by_default : false)
 
 cryptsetup_token_systemd_tpm2_sources = files(
@@ -45,8 +47,9 @@ modules += [
                 ],
                 'sources' : cryptsetup_token_systemd_tpm2_sources,
                 'dependencies' : [
-                        libcryptsetup,
-                        tpm2,
+                        libcryptsetup_cflags,
+                        libopenssl_cflags,
+                        tpm2_cflags,
                 ],
         },
         template + {
@@ -57,8 +60,8 @@ modules += [
                 ],
                 'sources' : cryptsetup_token_systemd_fido2_sources,
                 'dependencies' : [
-                        libcryptsetup,
-                        libfido2,
+                        libcryptsetup_cflags,
+                        libfido2_cflags,
                 ],
         },
         template + {
@@ -69,7 +72,7 @@ modules += [
                 ],
                 'sources' : cryptsetup_token_systemd_pkcs11_sources,
                 'dependencies' : [
-                        libcryptsetup,
+                        libcryptsetup_cflags,
                         libp11kit_cflags,
                 ],
         },

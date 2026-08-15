@@ -1,13 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <linux/if_ether.h>
-
 #include "sd-dhcp-client-id.h"
 
 #include "dhcp-duid-internal.h"
-#include "sd-forward.h"
-#include "sparse-endian.h"
+#include "dhcp-forward.h"
+#include "ether-addr-util.h"
 
 /* RFC 2132 section 9.14: its minimum length is 2.
  * Note, its maximum is not mentioend in the RFC. Hence, 255. */

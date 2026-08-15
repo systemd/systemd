@@ -24,7 +24,8 @@ RemoteSource* source_free(RemoteSource *source) {
 
 /**
  * Initialize zero-filled source with given values. On success, takes
- * ownership of fd, name, and writer, otherwise does not touch them.
+ * ownership of fd and writer, otherwise does not touch them. Always takes
+ * ownership of name, even on failure.
  */
 RemoteSource* source_new(int fd, bool passive_fd, char *name, Writer *writer) {
         RemoteSource *source;
@@ -35,8 +36,10 @@ RemoteSource* source_new(int fd, bool passive_fd, char *name, Writer *writer) {
         assert(fd >= 0);
 
         source = new0(RemoteSource, 1);
-        if (!source)
+        if (!source) {
+                free(name);
                 return NULL;
+        }
 
         source->importer = JOURNAL_IMPORTER_MAKE(fd);
         source->importer.passive_fd = passive_fd;

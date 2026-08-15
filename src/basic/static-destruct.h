@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "basic-forward.h"
+#include "forward.h"
 
 typedef void (*free_func_t)(void *p);
 
@@ -12,8 +12,6 @@ typedef void (*free_func_t)(void *p);
  * variables declared in .so's, as the list is private to the same linking unit. But maybe that's a good thing. */
 
 #define _common_static_destruct_attrs_                                  \
-        /* Older compilers don't know "retain" attribute. */            \
-        _Pragma("GCC diagnostic ignored \"-Wattributes\"")              \
         /* The actual destructor structure we place in a special section to find it. */ \
         _section_("SYSTEMD_STATIC_DESTRUCT")                            \
         /* Use pointer alignment, since that is apparently what gcc does for static variables. */ \
@@ -38,13 +36,16 @@ typedef struct SimpleCleanup {
         free_func_t destroy;
 } SimpleCleanup;
 
-typedef struct StaticDestructor {
+/* Note: see the comment on struct Option in options.h for why _alignptr_ is required here. */
+typedef struct _alignptr_ StaticDestructor {
         StaticDestructorType type;
         union {
                 SimpleCleanup simple;
                 ArrayCleanup array;
         };
 } StaticDestructor;
+
+assert_cc(sizeof(StaticDestructor) % sizeof(void*) == 0);
 
 #define STATIC_DESTRUCTOR_REGISTER(variable, func) \
         _STATIC_DESTRUCTOR_REGISTER(UNIQ, variable, func)

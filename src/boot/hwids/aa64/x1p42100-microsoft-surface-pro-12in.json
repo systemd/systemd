@@ -1,0 +1,20 @@
+{
+    "type": "devicetree",
+    "name": "Microsoft Corporation Surface",
+    "compatible": "microsoft,sp12",
+    "hwids": [
+        "38f75a5d-c3fc-5306-bb2e-bbb516e1ea91",
+        "57ba7c1d-8e88-59a9-82c9-044e765788e7",
+        "10cb324b-df3c-5081-bc7d-b5cc6795eeef",
+        "7c967d92-123c-5bfc-9fe8-430e6bba5ecb",
+        "277a48e4-924d-5ab0-81b9-d29c2ff47ad5",
+        "0a3f15dc-fcde-5159-baf8-1b55f5e1ae57",
+        "d17ea34a-39dc-5a14-8046-f47f082b4065",
+        "94996ddd-cdc3-5617-a625-3052726c4654",
+        "ef716fc4-b1b0-595c-b66e-1e3df6a0dc1d",
+        "b3930262-2a19-5f3f-adf0-b34629632fbb",
+        "2cdac0d6-d408-54ab-bf1e-a124b6c5425b",
+        "abbf3314-7dde-5966-980c-a1be8cf163b8",
+        "587dab3d-0f40-5962-b043-6fc86e41cba2"
+    ]
+}

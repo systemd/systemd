@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "basic-forward.h"
+#include "forward.h"
 
 /* Erase characters until the end of the line */
 #define ANSI_ERASE_TO_END_OF_LINE "\x1B[K"
@@ -88,9 +88,15 @@ int chvt(int vt);
 int read_one_char(FILE *f, char *ret, usec_t timeout, bool echo, bool *need_nl);
 int ask_char(char *ret, const char *replies, const char *fmt, ...) _printf_(3, 4);
 
-typedef int (*GetCompletionsCallback)(const char *key, char ***ret_list, void *userdata);
-int ask_string_full(char **ret, GetCompletionsCallback get_completions, void *userdata, const char *text, ...) _printf_(4, 5);
-#define ask_string(ret, text, ...) ask_string_full(ret, NULL, NULL, text, ##__VA_ARGS__)
+typedef enum GetCompletionsFlags {
+        /* Only return the items subject to preselection: typically you want to suppress meta entries such as
+         * "list" or alias entries if this flag is set. */
+        GET_COMPLETIONS_PRESELECT = 1 << 0,
+} GetCompletionsFlags;
+
+typedef int (*GetCompletionsCallback)(const char *key, GetCompletionsFlags flags, char ***ret_list, void *userdata);
+int ask_string_full(char **ret, const char *prefill, GetCompletionsCallback get_completions, void *userdata, const char *text, ...) _printf_(5, 6);
+#define ask_string(ret, text, ...) ask_string_full(ret, NULL, NULL, NULL, text, ##__VA_ARGS__)
 
 bool any_key_to_proceed(void);
 int show_menu(char **x, size_t n_columns, size_t column_width, unsigned ellipsize_percentage, const char *grey_prefix, bool with_numbers);
@@ -118,6 +124,7 @@ void columns_lines_cache_reset(int _unused_ signum);
 void reset_terminal_feature_caches(void);
 
 bool on_tty(void);
+bool term_env_valid(const char *term);
 bool getenv_terminal_is_dumb(void);
 bool terminal_is_dumb(void);
 
@@ -145,12 +152,34 @@ assert_cc((TTY_MODE & 0711) == 0600);
 
 void termios_disable_echo(struct termios *termios);
 
+/* A termios sentinel with all flag fields set to all-ones-bits. No real tcgetattr() result will ever
+ * match this because no real terminal configuration uses all-ones in every flag field simultaneously. */
+#define TERMIOS_NULL (struct termios) {         \
+        .c_iflag = UINT_MAX,                    \
+        .c_oflag = UINT_MAX,                    \
+        .c_cflag = UINT_MAX,                    \
+        .c_lflag = UINT_MAX,                    \
+}
+
+typedef struct TermiosResetContext {
+        int *fd;
+        struct termios *termios;
+} TermiosResetContext;
+
+void termios_reset(const TermiosResetContext *c);
+
+#define CLEANUP_TERMIOS_RESET(_fd, _termios)                                   \
+        _cleanup_(termios_reset) _unused_ const TermiosResetContext            \
+                CONCATENATE(_cleanup_termios_, UNIQ) = {                       \
+                        .fd = &(_fd),                                          \
+                        .termios = &(_termios),                                \
+                }
+
 /* The $TERM value we use for terminals other than the Linux console */
 #define FALLBACK_TERM "vt220"
 
 int get_default_background_color(double *ret_red, double *ret_green, double *ret_blue);
-int terminal_get_size_by_dsr(int input_fd, int output_fd, unsigned *ret_rows, unsigned *ret_columns);
-int terminal_get_size_by_csi18(int input_fd, int output_fd, unsigned *ret_rows, unsigned *ret_columns);
+int terminal_get_size(int input_fd, int output_fd, unsigned *ret_rows, unsigned *ret_columns, bool try_dsr, bool try_csi18);
 int terminal_fix_size(int input_fd, int output_fd);
 
 int terminal_get_terminfo_by_dcs(int fd, char **ret_name);

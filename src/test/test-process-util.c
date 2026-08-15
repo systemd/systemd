@@ -7,7 +7,6 @@
 #include <sys/eventfd.h>
 #include <sys/mount.h>
 #include <sys/personality.h>
-#include <sys/prctl.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -28,7 +27,6 @@
 #include "log.h"
 #include "namespace-util.h"
 #include "parse-util.h"
-#include "pidfd-util.h"
 #include "pidref.h"
 #include "process-util.h"
 #include "procfs-util.h"
@@ -175,7 +173,7 @@ static void test_pid_get_comm_escape_one(const char *input, const char *output) 
 
         log_debug("input: <%s> — output: <%s>", input, output);
 
-        ASSERT_OK_ERRNO(prctl(PR_SET_NAME, input));
+        ASSERT_OK(proc_set_comm(input));
         ASSERT_OK(pid_get_comm(0, &n));
 
         log_debug("got: <%s>", n);
@@ -199,7 +197,7 @@ TEST(pid_get_comm_escape) {
         test_pid_get_comm_escape_one("xxxxäöüß", "xxxx\\303\\244\\303\\266\\303\\274\\303\\237");
         test_pid_get_comm_escape_one("xxxxxäöüß", "xxxxx\\303\\244\\303\\266\\303\\274\\303\\237");
 
-        ASSERT_OK_ERRNO(prctl(PR_SET_NAME, saved));
+        ASSERT_OK(proc_set_comm(saved));
 }
 
 TEST(pid_is_unwaited) {
@@ -314,7 +312,7 @@ TEST(pid_get_cmdline_harder) {
 
                 ASSERT_OK_ERRNO(unlink(path));
 
-                ASSERT_OK_ERRNO(prctl(PR_SET_NAME, "testa"));
+                ASSERT_OK(proc_set_comm("testa"));
 
                 ASSERT_ERROR(pid_get_cmdline(0, SIZE_MAX, 0, &line), ENOENT);
 
@@ -477,7 +475,7 @@ TEST(pid_get_cmdline_harder) {
                 args = strv_free(args);
 
                 ASSERT_OK_ERRNO(ftruncate(fd, 0));
-                ASSERT_OK_ERRNO(prctl(PR_SET_NAME, "aaaa bbbb cccc"));
+                ASSERT_OK(proc_set_comm("aaaa bbbb cccc"));
 
                 ASSERT_ERROR(pid_get_cmdline(0, SIZE_MAX, 0, &line), ENOENT);
 
@@ -1076,21 +1074,6 @@ TEST(pidref_from_same_root_fs) {
         ASSERT_OK_ZERO(pidref_from_same_root_fs(&child2, &self));
 }
 
-TEST(pidfd_get_inode_id_self_cached) {
-        int r;
-
-        log_info("pid=" PID_FMT, getpid_cached());
-
-        uint64_t id;
-        r = pidfd_get_inode_id_self_cached(&id);
-        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                log_info("pidfdid not supported");
-        else {
-                assert(r >= 0);
-                log_info("pidfdid=%" PRIu64, id);
-        }
-}
-
 TEST(getenv_for_pid) {
         _cleanup_strv_free_ char **copy_env = NULL;
         pid_t pid = getpid_cached();
@@ -1123,6 +1106,21 @@ TEST(getenv_for_pid) {
 
                 _exit(EXIT_SUCCESS);
         }
+}
+
+TEST(invoked_as) {
+        ASSERT_FALSE(invoked_as(NULL, "foobar"));
+        ASSERT_FALSE(invoked_as(NULL, "barbar"));
+
+        ASSERT_EQ(setenv("SYSTEMD_INVOKED_AS", "/usr/bin/foobar", 1), 0);
+
+        ASSERT_TRUE(invoked_as(NULL, "foobar"));
+        ASSERT_FALSE(invoked_as(NULL, "barbar"));
+        ASSERT_TRUE(invoked_as(NULL, "foo"));
+        ASSERT_TRUE(invoked_as(STRV_MAKE("barbar", "barbar", "y"), "foobar"));
+        ASSERT_FALSE(invoked_as(STRV_MAKE("barbar", "barbar", "y"), "barbar"));
+
+        ASSERT_EQ(unsetenv("SYSTEMD_INVOKED_AS"), 0);
 }
 
 static int intro(void) {

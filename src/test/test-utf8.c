@@ -167,6 +167,15 @@ TEST(utf8_escape_non_printable_full) {
                 }
 }
 
+TEST(utf8_escape_non_printable_full_ellipsis) {
+        _cleanup_free_ char *p = NULL;
+
+        /* Every byte escapes to four columns, so the escaped output fills strlen*4 bytes and the
+         * forced ellipsis used to be written past the end of the buffer. */
+        assert_se(p = utf8_escape_non_printable_full("\001\001\001", 80, /* force_ellipsis= */ true));
+        ASSERT_STREQ(p, "\\x01\\x01\\x01…");
+}
+
 TEST(utf16_to_utf8) {
         const char16_t utf16[] = { htole16('a'), htole16(0xd800), htole16('b'), htole16(0xdc00), htole16('c'), htole16(0xd801), htole16(0xdc37) };
         static const char utf8[] = { 'a', 'b', 'c', 0xf0, 0x90, 0x90, 0xb7 };

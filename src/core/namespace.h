@@ -232,10 +232,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path);
 char* namespace_cleanup_tmpdir(char *p);
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, namespace_cleanup_tmpdir);
 
-int setup_tmp_dirs(
-                const char *id,
-                char **tmp_dir,
-                char **var_tmp_dir);
+int setup_tmp_dir_one(const char *id, const char *prefix, char **ret_path);
 
 int setup_shareable_ns(int ns_storage_socket[static 2], unsigned long nsflag);
 int open_shareable_ns_path(int netns_storage_socket[static 2], const char *path, unsigned long nsflag);
@@ -306,7 +303,7 @@ DECLARE_STRING_TABLE_LOOKUP(private_pids, PrivatePIDs);
 void bind_mount_free_many(BindMount *b, size_t n);
 int bind_mount_add(BindMount **b, size_t *n, const BindMount *item);
 
-void mount_image_free_many(MountImage *m, size_t n);
+void mount_image_free_array(MountImage *array, size_t n);
 int mount_image_add(MountImage **m, size_t *n, const MountImage *item);
 
 void temporary_filesystem_free_many(TemporaryFileSystem *t, size_t n);

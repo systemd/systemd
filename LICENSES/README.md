@@ -57,6 +57,7 @@ The following exceptions apply:
  * the following sources are licensed under the **MIT-0** license:
    - all examples under man/
    - config files and examples under /network
+   - src/systemd/sd-dlopen.h
  * the following sources are under **Public Domain** (LicenseRef-murmurhash2-public-domain):
    - src/basic/MurmurHash2.c
    - src/basic/MurmurHash2.h
@@ -66,8 +67,8 @@ The following exceptions apply:
  * the tools/chromiumos/gen_autosuspend_rules.py script is licensed under the
    **BSD-3-Clause** license.
  * the following sources are under **Public Domain** (LicenseRef-alg-sha1-public-domain):
-   - src/fundamental/sha1-fundamental.c
-   - src/fundamental/sha1-fundamental.h
+   - src/fundamental/sha1.c
+   - src/fundamental/sha1.h
  * the following files are licensed under **BSD-3-Clause** license:
    - src/boot/chid.c
    - src/boot/chid.h

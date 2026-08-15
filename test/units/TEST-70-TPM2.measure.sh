@@ -14,6 +14,31 @@ if [[ ! -x "${SD_MEASURE:?}" ]]; then
     exit 0
 fi
 
+at_exit() {
+    set +e
+
+    systemd-cryptsetup detach test-volume2
+    rm -f "${IMAGE:-}" \
+        /tmp/passphrase \
+        /tmp/pcrsign-private.pem \
+        /tmp/pcrsign-public.pem \
+        /tmp/pcrsign.sig \
+        /tmp/pcrsign.sig2 \
+        /tmp/pcrsign.sig3 \
+        /tmp/pcrsign.sig4 \
+        /tmp/pcrsign.sig5 \
+        /tmp/pcrsign.sig6 \
+        /tmp/pcrsign.sig7 \
+        /tmp/pcrtestdata \
+        /tmp/pcrtestdata.encrypted \
+        /tmp/result \
+        /tmp/result.json \
+        /tmp/tpmdata1 \
+        /tmp/tpmdata2
+}
+
+trap at_exit EXIT
+
 IMAGE="$(mktemp /tmp/systemd-measure-XXX.image)"
 
 echo HALLO >/tmp/tpmdata1
@@ -45,6 +70,12 @@ cat >/tmp/result.json <<EOF
 EOF
 "$SD_MEASURE" calculate --linux=/tmp/tpmdata1 --initrd=/tmp/tpmdata2 --bank=sha1 --bank=sha256 --bank=sha384 --bank=sha512 --phase=foo -j | diff -u - /tmp/result.json
 
+cat >/tmp/result <<EOF
+11:sha1=8a625cbc3c497b9a86dcf4f6a32582895ce969bb
+EOF
+"$SD_MEASURE" calculate \
+              --{linux,osrel,cmdline,initrd,ucode,splash,dtb,dtbauto,uname,sbat,pcrpkey,profile,hwids,efifw}=/tmp/tpmdata1 \
+              --bank=sha1 --phase=foo | cmp - /tmp/result
 rm /tmp/result /tmp/result.json
 
 # Generate key pair
@@ -97,6 +128,7 @@ tpm2_pcrextend 11:sha256=0000000000000000000000000000000000000000000000000000000
 systemd-creds decrypt /tmp/pcrtestdata.encrypted - --tpm2-signature="/tmp/pcrsign.sig2" | cmp - /tmp/pcrtestdata
 
 # Now, do the same, but with a cryptsetup binding
+dd if=/dev/urandom of=/tmp/passphrase bs=32 count=1
 truncate -s 20M "$IMAGE"
 cryptsetup luksFormat -q --pbkdf pbkdf2 --pbkdf-force-iterations 1000 --use-urandom "$IMAGE" /tmp/passphrase
 # Ensure that an unrelated signature, when not requested, is not used
@@ -143,5 +175,29 @@ systemd-cryptsetup detach test-volume2
 "$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: --append="/tmp/pcrsign.sig5" >"/tmp/pcrsign.sig6"
 "$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=quux:waldo --append="/tmp/pcrsign.sig6" >"/tmp/pcrsign.sig7"
 cmp "/tmp/pcrsign.sig5" "/tmp/pcrsign.sig7"
+
+# Enroll a keyslot bound to a policyref
+systemd-cryptenroll --wipe-slot=tpm2 "$IMAGE"
+systemd-cryptenroll --unlock-key-file=/tmp/passphrase --tpm2-device=auto --tpm2-public-key="/tmp/pcrsign-public.pem" --tpm2-public-key-policyref="foo" "$IMAGE"
+
+# Unlocking should fail initially as there is no signature for this policyref
+(! SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig3",headless=1)
+(! SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig3",headless=1)
+
+# Create a signature for a new phase with the enrolled policyref
+"$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: --policyref="foo" --append="/tmp/pcrsign.sig3" >"/tmp/pcrsign.sig8"
+(! cmp "/tmp/pcrsign.sig3" "/tmp/pcrsign.sig8")
+
+# Unlocking should work now
+SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig8",headless=1
+SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup detach test-volume2
+
+SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig8",headless=1
+SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 systemd-cryptsetup detach test-volume2
+
+# After extending the PCR things should fail
+tpm2_pcrextend 11:sha256=0000000000000000000000000000000000000000000000000000000000000000
+(! SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig8",headless=1)
+(! SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig8",headless=1)
 
 rm -f "$IMAGE"

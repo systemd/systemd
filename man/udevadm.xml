@@ -158,6 +158,9 @@
           <listitem>
             <para>When showing device properties using the <option>--query=property</option>
             option, print only their values, and skip the property name and <literal>=</literal>.</para>
+            <para>When showing device symlinks using the <option>--query=symlink</option> option,
+            print one path per line instead of separating paths with spaces. An empty line is printed
+            after each device, including the last one.</para>
             <para>Cannot be used together with <option>-x/--export</option> or
             <option>-P/--export-prefix</option>.</para>
 
@@ -240,7 +243,7 @@
           <term><option>--device-id-of-file=<replaceable>FILE</replaceable></option></term>
           <listitem>
             <para>Print major/minor numbers of the underlying device, where the file lives on.
-            If this is specified, all positional arguments are ignored.</para>
+            If this is specified, no positional arguments are accepted.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -713,7 +716,7 @@
             Note that <filename>systemd-udevd.service</filename> contains
             <option>Restart=always</option> and so as a result, this option restarts systemd-udevd.
             If you want to stop <filename>systemd-udevd.service</filename>, please use the following:
-            <programlisting>systemctl stop systemd-udevd-control.socket systemd-udevd-kernel.socket systemd-udevd-varlink.socket systemd-udevd.service</programlisting>
+            <programlisting>systemctl stop systemd-udevd-kernel.socket systemd-udevd-varlink.socket systemd-udevd.service</programlisting>
             </para>
           </listitem>
         </varlistentry>

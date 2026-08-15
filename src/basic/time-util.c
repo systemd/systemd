@@ -49,7 +49,15 @@ usec_t now(clockid_t clock_id) {
 
         assert_se(clock_gettime(map_clock_id(clock_id), &ts) == 0);
 
-        return timespec_load(&ts);
+        usec_t n = timespec_load(&ts);
+
+        /* We use both 0 and USEC_INFINITY as niche values. If the current time collides with either, things are
+         * really weird and really broken. Let's not allow this to go through, it would break too many of our
+         * assumptions in code. */
+        assert(n > 0);
+        assert(n < USEC_INFINITY);
+
+        return n;
 }
 
 nsec_t now_nsec(clockid_t clock_id) {
@@ -57,7 +65,12 @@ nsec_t now_nsec(clockid_t clock_id) {
 
         assert_se(clock_gettime(map_clock_id(clock_id), &ts) == 0);
 
-        return timespec_load_nsec(&ts);
+        nsec_t n = timespec_load_nsec(&ts);
+
+        assert(n > 0);
+        assert(n < NSEC_INFINITY);
+
+        return n;
 }
 
 dual_timestamp* dual_timestamp_now(dual_timestamp *ts) {
@@ -308,24 +321,26 @@ struct timeval *timeval_store(struct timeval *tv, usec_t u) {
         return tv;
 }
 
+/* Returns the abbreviated English weekday name for wd in Mon=0 … Sun=6 order.
+ * We use non-localized (English) form so that timestamps can be parsed with
+ * parse_timestamp() and always read the same regardless of locale. */
+static const char *const weekday_table[_WEEKDAY_MAX] = {
+        [WEEKDAY_MON] = "Mon",
+        [WEEKDAY_TUE] = "Tue",
+        [WEEKDAY_WED] = "Wed",
+        [WEEKDAY_THU] = "Thu",
+        [WEEKDAY_FRI] = "Fri",
+        [WEEKDAY_SAT] = "Sat",
+        [WEEKDAY_SUN] = "Sun",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(weekday, int);
+
 char* format_timestamp_style(
                 char *buf,
                 size_t l,
                 usec_t t,
                 TimestampStyle style) {
-
-        /* The weekdays in non-localized (English) form. We use this instead of the localized form, so that
-         * our generated timestamps may be parsed with parse_timestamp(), and always read the same. */
-        static const char * const weekdays[] = {
-                [0] = "Sun",
-                [1] = "Mon",
-                [2] = "Tue",
-                [3] = "Wed",
-                [4] = "Thu",
-                [5] = "Fri",
-                [6] = "Sat",
-        };
-
         struct tm tm;
         bool utc, us;
         size_t n;
@@ -374,8 +389,9 @@ char* format_timestamp_style(
                 return NULL;
 
         /* Start with the week day */
-        assert((size_t) tm.tm_wday < ELEMENTSOF(weekdays));
-        memcpy(buf, weekdays[tm.tm_wday], 4);
+        const char *weekday = weekday_to_string(tm.tm_wday == 0 ? 6 : tm.tm_wday - 1);
+        assert(weekday);
+        memcpy(buf, weekday, 4);
 
         if (style == TIMESTAMP_DATE) {
                 /* Special format string if only date should be shown. */
@@ -1684,6 +1700,16 @@ int get_timezone(char **ret) {
         return strdup_to(ret, e);
 }
 
+int get_timezone_prefer_env(char **ret) {
+        assert(ret);
+
+        const char *e = getenv("TZ");
+        if (e && e[0] == ':' && timezone_is_valid(e + 1, LOG_DEBUG))
+                return strdup_to(ret, e + 1);
+
+        return get_timezone(ret);
+}
+
 const char* etc_localtime(void) {
         static const char *cached = NULL;
 
@@ -1743,27 +1769,26 @@ int localtime_or_gmtime_usec(
         return 0;
 }
 
-static uint32_t sysconf_clock_ticks_cached(void) {
-        static thread_local uint32_t hz = 0;
-        long r;
+uint64_t sysconf_clock_ticks_cached(void) {
+        static thread_local uint64_t hz = 0;
 
-        if (hz == 0) {
-                r = sysconf(_SC_CLK_TCK);
+        if (hz != 0)
+                return hz;
 
-                assert(r > 0);
-                hz = r;
-        }
+        long t = sysconf(_SC_CLK_TCK);
+        assert(t > 0);
+        hz = (uint64_t) t;
 
         return hz;
 }
 
 uint32_t usec_to_jiffies(usec_t u) {
-        uint32_t hz = sysconf_clock_ticks_cached();
+        uint64_t hz = sysconf_clock_ticks_cached();
         return DIV_ROUND_UP(u, USEC_PER_SEC / hz);
 }
 
 usec_t jiffies_to_usec(uint32_t j) {
-        uint32_t hz = sysconf_clock_ticks_cached();
+        uint64_t hz = sysconf_clock_ticks_cached();
         return DIV_ROUND_UP(j * USEC_PER_SEC, hz);
 }
 
@@ -1891,4 +1916,52 @@ TimestampStyle timestamp_style_from_string(const char *s) {
         if (STRPTR_IN_SET(s, "µs+utc", "μs+utc"))
                 return TIMESTAMP_US_UTC;
         return t;
+}
+
+int parse_calendar_date_full(const char *s, bool allow_pre_epoch, usec_t *ret_usec, struct tm *ret_tm) {
+        struct tm parsed_tm = {}, copy_tm;
+        const char *k;
+        int r;
+
+        assert(s);
+
+        k = strptime(s, "%Y-%m-%d", &parsed_tm);
+        if (!k || *k)
+                return -EINVAL;
+
+        copy_tm = parsed_tm;
+
+        usec_t usec = USEC_INFINITY;
+
+        if (allow_pre_epoch) {
+                /* For birth dates we use timegm() directly since we need to accept pre-epoch dates.
+                 * timegm() returns (time_t) -1 both on error and for one second before the epoch.
+                 * Initialize wday to -1 beforehand: if it remains -1 after the call, it's a genuine
+                 * error; if timegm() changed it, the date was successfully normalized. */
+                copy_tm.tm_wday = -1;
+                if (timegm(&copy_tm) == (time_t) -1 && copy_tm.tm_wday == -1)
+                        return -EINVAL;
+        } else {
+                r = mktime_or_timegm_usec(&copy_tm, /* utc= */ true, &usec);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Refuse non-normalized dates, e.g. Feb 30 */
+        if (copy_tm.tm_mday != parsed_tm.tm_mday ||
+            copy_tm.tm_mon  != parsed_tm.tm_mon  ||
+            copy_tm.tm_year != parsed_tm.tm_year)
+                return -EINVAL;
+
+        if (ret_usec)
+                *ret_usec = usec;
+        if (ret_tm) {
+                /* Reset to unset, then fill in only the date fields we parsed and validated */
+                *ret_tm = BIRTH_DATE_UNSET;
+                ret_tm->tm_mday = parsed_tm.tm_mday;
+                ret_tm->tm_mon = parsed_tm.tm_mon;
+                ret_tm->tm_year = parsed_tm.tm_year;
+        }
+
+        return 0;
 }

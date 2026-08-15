@@ -104,9 +104,9 @@ static void test_log_format_iovec_sentinel(
 
         for (size_t i = 0; i < n; i++)
                 if (i < m)
-                        ASSERT_EQ(iovec_memcmp(&iovec[i], &IOVEC_MAKE_STRING(v[i])), 0);
+                        ASSERT_TRUE(iovec_equal(&iovec[i], &IOVEC_MAKE_STRING(v[i])));
                 else {
-                        ASSERT_EQ(iovec_memcmp(&iovec[i], &IOVEC_MAKE_STRING(expected[i - m])), 0);
+                        ASSERT_TRUE(iovec_equal(&iovec[i], &IOVEC_MAKE_STRING(expected[i - m])));
                         free(iovec[i].iov_base);
                 }
 
@@ -122,12 +122,12 @@ static void test_log_format_iovec_sentinel(
 
         for (size_t i = 0; i < n; i++)
                 if (i < m)
-                        ASSERT_EQ(iovec_memcmp(&iovec[i], &IOVEC_MAKE_STRING(v[i])), 0);
+                        ASSERT_TRUE(iovec_equal(&iovec[i], &IOVEC_MAKE_STRING(v[i])));
                 else if ((i - m) % 2 == 0) {
-                        ASSERT_EQ(iovec_memcmp(&iovec[i], &IOVEC_MAKE_STRING(expected[(i - m) / 2])), 0);
+                        ASSERT_TRUE(iovec_equal(&iovec[i], &IOVEC_MAKE_STRING(expected[(i - m) / 2])));
                         free(iovec[i].iov_base);
                 } else
-                        ASSERT_EQ(iovec_memcmp(&iovec[i], &IOVEC_MAKE_STRING("\n")), 0);
+                        ASSERT_TRUE(iovec_equal(&iovec[i], &IOVEC_MAKE_STRING("\n")));
 }
 
 #define test_log_format_iovec_one(...)                 \
@@ -143,6 +143,28 @@ TEST(log_format_iovec) {
                                   LOG_MESSAGE("hoge: %i-%c", 10, 'a'),
                                   LOG_ITEM("HOGEHOGE=%zu-%s", (size_t) 100, "string"),
                                   LOG_ITEM("FOOFOO=%hu-%llu", (unsigned short) 4, (long long unsigned) 3));
+}
+
+TEST(log_struct_iovec_many_fields) {
+        LogTarget old_target = log_get_target();
+        struct iovec iovec[1024];
+
+        log_set_target(LOG_TARGET_JOURNAL);
+        log_open();
+        if (log_on_console()) {
+                log_set_target(old_target);
+                log_open();
+                return (void) log_tests_skipped("journal socket is not available");
+        }
+
+        iovec[0] = IOVEC_MAKE_STRING("MESSAGE=many fields");
+        for (size_t i = 1; i < ELEMENTSOF(iovec); i++)
+                iovec[i] = IOVEC_MAKE_STRING("FIELD=value");
+
+        ASSERT_OK(log_struct_iovec(LOG_INFO, iovec, ELEMENTSOF(iovec)));
+
+        log_set_target(old_target);
+        log_open();
 }
 
 static void test_log_struct(void) {
@@ -261,13 +283,12 @@ static void test_log_context(void) {
                         IOVEC_MAKE_STRING("ABC=def"),
                         IOVEC_MAKE_STRING("GHI=jkl"),
                 };
-                _cleanup_free_ struct iovec_wrapper *iovw = NULL;
-                ASSERT_NOT_NULL(iovw = iovw_new());
-                ASSERT_OK(iovw_consume(iovw, strdup("MNO=pqr"), STRLEN("MNO=pqr") + 1));
+                struct iovec_wrapper iovw = {};
+                ASSERT_OK(iovw_consume(&iovw, strdup("MNO=pqr"), STRLEN("MNO=pqr") + 1));
 
                 LOG_CONTEXT_PUSH_IOV(iov, ELEMENTSOF(iov));
                 LOG_CONTEXT_PUSH_IOV(iov, ELEMENTSOF(iov));
-                LOG_CONTEXT_CONSUME_IOV(iovw->iovec, iovw->count);
+                LOG_CONTEXT_CONSUME_IOV(iovw.iovec, iovw.count);
                 LOG_CONTEXT_PUSH("STU=vwx");
 
                 ASSERT_EQ(log_context_num_contexts(), 3U);

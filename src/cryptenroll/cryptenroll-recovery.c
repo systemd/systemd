@@ -12,8 +12,10 @@
 #include "recovery-key.h"
 
 int enroll_recovery(
+                const EnrollContext *c,
                 struct crypt_device *cd,
-                const struct iovec *volume_key) {
+                const struct iovec *volume_key,
+                char **ret_recovery_key) {
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_(erase_and_freep) char *password = NULL;
@@ -21,10 +23,11 @@ int enroll_recovery(
         int keyslot, r, q;
         const char *node;
 
+        assert_se(c);
         assert_se(cd);
         assert_se(iovec_is_set(volume_key));
 
-        assert_se(node = crypt_get_device_name(cd));
+        assert_se(node = sym_crypt_get_device_name(cd));
 
         r = make_recovery_key(&password);
         if (r < 0)
@@ -34,7 +37,7 @@ int enroll_recovery(
         if (r < 0)
                 return log_error_errno(r, "Failed to set minimal PBKDF: %m");
 
-        keyslot = crypt_keyslot_add_by_volume_key(
+        keyslot = sym_crypt_keyslot_add_by_volume_key(
                         cd,
                         CRYPT_ANY_SLOT,
                         volume_key->iov_base,
@@ -44,31 +47,33 @@ int enroll_recovery(
         if (keyslot < 0)
                 return log_error_errno(keyslot, "Failed to add new recovery key to %s: %m", node);
 
-        fflush(stdout);
-        fprintf(stderr,
-                "A secret recovery key has been generated for this volume:\n\n"
-                "    %s%s%s",
-                emoji_enabled() ? glyph(GLYPH_LOCK_AND_KEY) : "",
-                emoji_enabled() ? " " : "",
-                ansi_highlight());
-        fflush(stderr);
+        if (c->interactive) {
+                fflush(stdout);
+                fprintf(stderr,
+                        "A secret recovery key has been generated for this volume:\n\n"
+                        "    %s%s%s",
+                        emoji_enabled() ? glyph(GLYPH_LOCK_AND_KEY) : "",
+                        emoji_enabled() ? " " : "",
+                        ansi_highlight());
+                fflush(stderr);
 
-        fputs(password, stdout);
-        fflush(stdout);
+                fputs(password, stdout);
+                fflush(stdout);
 
-        fputs(ansi_normal(), stderr);
-        fflush(stderr);
+                fputs(ansi_normal(), stderr);
+                fflush(stderr);
 
-        fputc('\n', stdout);
-        fflush(stdout);
+                fputc('\n', stdout);
+                fflush(stdout);
 
-        fputs("\nPlease save this secret recovery key at a secure location. It may be used to\n"
-              "regain access to the volume if the other configured access credentials have\n"
-              "been lost or forgotten. The recovery key may be entered in place of a password\n"
-              "whenever authentication is requested.\n", stderr);
-        fflush(stderr);
+                fputs("\nPlease save this secret recovery key at a secure location. It may be used to\n"
+                      "regain access to the volume if the other configured access credentials have\n"
+                      "been lost or forgotten. The recovery key may be entered in place of a password\n"
+                      "whenever authentication is requested.\n", stderr);
+                fflush(stderr);
 
-        (void) print_qrcode(stderr, "Optionally scan the recovery key for safekeeping", password);
+                (void) print_qrcode(stderr, "Optionally scan the recovery key for safekeeping", password);
+        }
 
         if (asprintf(&keyslot_as_string, "%i", keyslot) < 0) {
                 r = log_oom();
@@ -89,11 +94,16 @@ int enroll_recovery(
                 goto rollback;
         }
 
-        log_info("New recovery key enrolled as key slot %i.", keyslot);
+        if (c->interactive)
+                log_info("New recovery key enrolled as key slot %i.", keyslot);
+
+        if (ret_recovery_key)
+                *ret_recovery_key = TAKE_PTR(password);
+
         return keyslot;
 
 rollback:
-        q = crypt_keyslot_destroy(cd, keyslot);
+        q = sym_crypt_keyslot_destroy(cd, keyslot);
         if (q < 0)
                 log_debug_errno(q, "Unable to remove key slot we just added again, can't rollback, sorry: %m");
 

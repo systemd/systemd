@@ -15,14 +15,17 @@ class CustomResolver(tree.Resolver):
 
         return None
 
+
 _parser = tree.XMLParser()
 # pylint: disable=no-member
 _parser.resolvers.add(CustomResolver())
+
 
 def xml_parse(page):
     doc = tree.parse(page, _parser)
     doc.xinclude()
     return doc
+
 
 def xml_print(xml):
     return tree.tostring(xml, pretty_print=True, encoding='utf-8')

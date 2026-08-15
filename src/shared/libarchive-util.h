@@ -1,13 +1,28 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
+#include "dlopen-note.h"
+#include "forward.h"
 
 #if HAVE_LIBARCHIVE
+#ifndef SYSTEMD_CFLAGS_MARKER_LIBARCHIVE
+#  error "missing libarchive_cflags in meson dependency."
+#endif
+
 #include <archive.h>            /* IWYU pragma: export */
 #include <archive_entry.h>      /* IWYU pragma: export */
 
 #include "dlfcn-util.h"
+
+/* Newer symbols that might not be in the header we build against. Always redeclare so DLSYM_PROTOTYPE's
+ * typeof() resolves; suppress the warning when newer libarchive already declared them. */
+DISABLE_WARNING_REDUNDANT_DECLS;
+/* NOLINTBEGIN(readability-redundant-declaration) */
+extern int archive_entry_gid_is_set(struct archive_entry *e);
+extern int archive_entry_hardlink_is_set(struct archive_entry *e);
+extern int archive_entry_uid_is_set(struct archive_entry *e);
+/* NOLINTEND(readability-redundant-declaration) */
+REENABLE_WARNING;
 
 extern DLSYM_PROTOTYPE(archive_entry_acl_add_entry);
 extern DLSYM_PROTOTYPE(archive_entry_acl_next);
@@ -16,19 +31,9 @@ extern DLSYM_PROTOTYPE(archive_entry_fflags);
 extern DLSYM_PROTOTYPE(archive_entry_filetype);
 extern DLSYM_PROTOTYPE(archive_entry_free);
 extern DLSYM_PROTOTYPE(archive_entry_gid);
-#if HAVE_ARCHIVE_ENTRY_GID_IS_SET
 extern DLSYM_PROTOTYPE(archive_entry_gid_is_set);
-#else
-int sym_archive_entry_gid_is_set(struct archive_entry *e);
-#endif
 extern DLSYM_PROTOTYPE(archive_entry_hardlink);
-#if HAVE_ARCHIVE_ENTRY_HARDLINK_IS_SET
 extern DLSYM_PROTOTYPE(archive_entry_hardlink_is_set);
-#else
-static inline int sym_archive_entry_hardlink_is_set(struct archive_entry *e) {
-        return !!sym_archive_entry_hardlink(e);
-}
-#endif
 extern DLSYM_PROTOTYPE(archive_entry_mode);
 extern DLSYM_PROTOTYPE(archive_entry_mtime);
 extern DLSYM_PROTOTYPE(archive_entry_mtime_is_set);
@@ -53,11 +58,7 @@ extern DLSYM_PROTOTYPE(archive_entry_set_uid);
 extern DLSYM_PROTOTYPE(archive_entry_sparse_add_entry);
 extern DLSYM_PROTOTYPE(archive_entry_symlink);
 extern DLSYM_PROTOTYPE(archive_entry_uid);
-#if HAVE_ARCHIVE_ENTRY_UID_IS_SET
 extern DLSYM_PROTOTYPE(archive_entry_uid_is_set);
-#else
-int sym_archive_entry_uid_is_set(struct archive_entry *e);
-#endif
 extern DLSYM_PROTOTYPE(archive_entry_xattr_add_entry);
 extern DLSYM_PROTOTYPE(archive_entry_xattr_next);
 extern DLSYM_PROTOTYPE(archive_entry_xattr_reset);
@@ -79,16 +80,9 @@ extern DLSYM_PROTOTYPE(archive_write_open_fd);
 extern DLSYM_PROTOTYPE(archive_write_set_format_filter_by_ext);
 extern DLSYM_PROTOTYPE(archive_write_set_format_pax);
 
-int dlopen_libarchive(void);
-
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct archive_entry*, sym_archive_entry_free, archive_entry_freep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct archive*, sym_archive_write_free, archive_write_freep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct archive*, sym_archive_read_free, archive_read_freep, NULL);
-
-#else
-
-static inline int dlopen_libarchive(void) {
-        return -EOPNOTSUPP;
-}
-
 #endif
+
+int dlopen_libarchive(int log_level) _dlopen_loader_;

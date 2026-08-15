@@ -22,6 +22,7 @@ static Request* request_detach_impl(Request *req) {
 
         ordered_set_remove(req->manager->request_queue, req);
         req->manager = NULL;
+        req->netlink_slot = sd_netlink_slot_unref(req->netlink_slot);
         return req;
 }
 
@@ -328,6 +329,10 @@ int manager_process_requests(Manager *manager) {
 static int request_netlink_handler(sd_netlink *nl, sd_netlink_message *m, Request *req) {
         assert(req);
 
+        assert(req->netlink_slot);
+        assert_se(sd_netlink_slot_set_floating(req->netlink_slot, true) >= 0);
+        req->netlink_slot = sd_netlink_slot_unref(req->netlink_slot);
+
         if (req->counter) {
                 assert(*req->counter > 0);
                 (*req->counter)--;
@@ -350,7 +355,7 @@ int request_call_netlink_async(sd_netlink *nl, sd_netlink_message *m, Request *r
         assert(m);
         assert(req);
 
-        r = netlink_call_async(nl, NULL, m, request_netlink_handler, request_destroy_callback, req);
+        r = netlink_call_async(nl, &req->netlink_slot, m, request_netlink_handler, request_destroy_callback, req);
         if (r < 0)
                 return r;
 
@@ -365,12 +370,13 @@ static const char *const request_type_table[_REQUEST_TYPE_MAX] = {
         [REQUEST_TYPE_ADDRESS_LABEL]                    = "address label",
         [REQUEST_TYPE_BRIDGE_FDB]                       = "bridge FDB",
         [REQUEST_TYPE_BRIDGE_MDB]                       = "bridge MDB",
+        [REQUEST_TYPE_DHCP_RELAY]                       = "DHCP relay agent",
         [REQUEST_TYPE_DHCP_SERVER]                      = "DHCP server",
         [REQUEST_TYPE_DHCP4_CLIENT]                     = "DHCPv4 client",
         [REQUEST_TYPE_DHCP6_CLIENT]                     = "DHCPv6 client",
-        [REQUEST_TYPE_IPV6_PROXY_NDP]                   = "IPv6 proxy NDP",
         [REQUEST_TYPE_NDISC]                            = "NDisc",
         [REQUEST_TYPE_NEIGHBOR]                         = "neighbor",
+        [REQUEST_TYPE_NEIGHBOR_PROXY]                   = "neighbor proxy",
         [REQUEST_TYPE_NETDEV_INDEPENDENT]               = "independent netdev",
         [REQUEST_TYPE_NETDEV_STACKED]                   = "stacked netdev",
         [REQUEST_TYPE_NEXTHOP]                          = "nexthop",

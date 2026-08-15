@@ -98,8 +98,8 @@ typedef struct Link {
         unsigned static_address_label_messages;
         unsigned static_bridge_fdb_messages;
         unsigned static_bridge_mdb_messages;
-        unsigned static_ipv6_proxy_ndp_messages;
         unsigned static_neighbor_messages;
+        unsigned static_neighbor_proxy_messages;
         unsigned static_nexthop_messages;
         unsigned static_route_messages;
         unsigned static_routing_policy_rule_messages;
@@ -117,7 +117,6 @@ typedef struct Link {
 
         sd_dhcp_client *dhcp_client;
         sd_dhcp_lease *dhcp_lease;
-        char *lease_file;
         unsigned dhcp4_messages;
         bool dhcp4_configured;
         char *dhcp4_6rd_tunnel_name;
@@ -131,8 +130,8 @@ typedef struct Link {
         bool static_address_labels_configured:1;
         bool static_bridge_fdb_configured:1;
         bool static_bridge_mdb_configured:1;
-        bool static_ipv6_proxy_ndp_configured:1;
         bool static_neighbors_configured:1;
+        bool static_neighbor_proxy_configured:1;
         bool static_nexthops_configured:1;
         bool static_routes_configured:1;
         bool static_routing_policy_rules_configured:1;
@@ -144,6 +143,8 @@ typedef struct Link {
         bool bridge_vlan_set:1;
         bool bearer_configured:1;
 
+        sd_dhcp_relay_interface *dhcp_relay_interface;
+        sd_dhcp_relay_interface *dhcp_relay_interface_compat;
         sd_dhcp_server *dhcp_server;
 
         sd_ndisc *ndisc;
@@ -229,10 +230,12 @@ void link_check_ready(Link *link);
 void link_update_operstate(Link *link, bool also_update_master);
 
 bool link_has_carrier(Link *link);
+bool link_is_up(Link *link);
 bool link_multicast_enabled(Link *link);
 
 bool link_ipv6_enabled(Link *link);
 int link_ipv6ll_gained(Link *link);
+int link_ipv6ll_lost(Link *link, const struct in6_addr *dropped_ipv6ll, bool has_replacement);
 bool link_has_ipv6_connectivity(Link *link);
 
 int link_stop_engines(Link *link, bool may_keep_dynamic);
@@ -242,9 +245,9 @@ DECLARE_STRING_TABLE_LOOKUP(link_state, LinkState);
 int link_request_stacked_netdevs(Link *link, NetDevLocalAddressType type);
 
 int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags);
-int link_reconfigure_full(Link *link, LinkReconfigurationFlag flags, sd_bus_message *message, unsigned *counter);
+int link_reconfigure_full(Link *link, LinkReconfigurationFlag flags, sd_bus_message *message, sd_varlink *varlink, unsigned *counter);
 static inline int link_reconfigure(Link *link, LinkReconfigurationFlag flags) {
-        return link_reconfigure_full(link, flags, NULL, NULL);
+        return link_reconfigure_full(link, flags, NULL, NULL, NULL);
 }
 
 int link_check_initialized(Link *link);

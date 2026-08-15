@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/mount.h>
-#include <sys/prctl.h>
+#include <sys/prctl.h> /* IWYU pragma: keep */
 #include <unistd.h>
 
 #include "sd-event.h"
@@ -78,20 +78,29 @@ static void wait_for_service_finish(Manager *m, Unit *unit) {
 
         ASSERT_NOT_NULL(m);
 
-        /* Bump the timeout when running in plain QEMU, as some more involved tests might start hitting the
-         * default 2m timeout (like exec-dynamicuser-statedir.service) */
-        if (detect_virtualization() == VIRTUALIZATION_QEMU)
+        /* Bump the timeout when running in plain QEMU or in CI, as some more involved tests might start
+         * hitting the default 2m timeout (like exec-dynamicuser-statedir.service). */
+        if (detect_virtualization() == VIRTUALIZATION_QEMU || ci_environment())
                 timeout *= 2;
 
         printf("%s\n", unit->id);
         exec_context_dump(&service->exec_context, stdout, "\t");
 
+        /* Use a per-Exec timeout rather than a service timeout, as especially under sanitizers some test
+         * units running many commands can hit the service timeout. */
         _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
         ASSERT_OK(sd_event_add_time_relative(m->event, &s, CLOCK_MONOTONIC, timeout, 0, time_handler, unit));
 
         /* Here, sd_event_loop() cannot be used, as the sd_event object will be reused in the next test case. */
-        while (!IN_SET(service->state, SERVICE_DEAD, SERVICE_FAILED))
+        ExecCommand *last_command = service->main_command;
+        while (!IN_SET(service->state, SERVICE_DEAD, SERVICE_FAILED)) {
                 ASSERT_OK(sd_event_run(m->event, 100 * USEC_PER_MSEC));
+
+                if (service->main_command != last_command) {
+                        last_command = service->main_command;
+                        ASSERT_OK(sd_event_source_set_time_relative(s, timeout));
+                }
+        }
 }
 
 static void check_main_result(const char *file, unsigned line, const char *func,
@@ -295,7 +304,7 @@ static void _test(const char *file, unsigned line, const char *func,
 
         ASSERT_NOT_NULL(unit_name);
 
-        ASSERT_OK(manager_load_startable_unit_or_warn(m, unit_name, NULL, &unit));
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, unit_name, NULL, LOG_ERR, &unit));
         /* We need to start the slices as well otherwise the slice cgroups might be pruned
          * in on_cgroup_empty_event. */
         start_parent_slices(unit);
@@ -313,7 +322,7 @@ static void _test_service(const char *file, unsigned line, const char *func,
 
         ASSERT_NOT_NULL(unit_name);
 
-        ASSERT_OK(manager_load_startable_unit_or_warn(m, unit_name, NULL, &unit));
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, unit_name, NULL, LOG_ERR, &unit));
         ASSERT_OK(unit_start(unit, NULL));
         check_service_result(file, line, func, m, unit, result_expected);
 }
@@ -323,11 +332,27 @@ static void _test_service(const char *file, unsigned line, const char *func,
 static void test_exec_bindpaths(Manager *m) {
         ASSERT_OK(mkdir_p("/tmp/test-exec-bindpaths", 0755));
         ASSERT_OK(mkdir_p("/tmp/test-exec-bindreadonlypaths", 0755));
+        ASSERT_OK(mkdir_p("/tmp/test-exec-bindpaths source", 0755));
+        ASSERT_OK(mkdir_p("/tmp/test-exec-bindpaths destination", 0755));
+        ASSERT_OK(mkdir_p("/tmp/test-exec-bindpaths:source", 0755));
+        ASSERT_OK(mkdir_p("/tmp/test-exec-bindpaths:destination", 0755));
+        ASSERT_OK(mkdir_p("/tmp/test-exec-bindreadonlypaths source", 0755));
+        ASSERT_OK(mkdir_p("/tmp/test-exec-bindreadonlypaths destination", 0755));
+        ASSERT_OK(mkdir_p("/tmp/test-exec-bindreadonlypaths:source", 0755));
+        ASSERT_OK(mkdir_p("/tmp/test-exec-bindreadonlypaths:destination", 0755));
 
         test(m, "exec-bindpaths.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
 
         (void) rm_rf("/tmp/test-exec-bindpaths", REMOVE_ROOT|REMOVE_PHYSICAL);
         (void) rm_rf("/tmp/test-exec-bindreadonlypaths", REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf("/tmp/test-exec-bindpaths source", REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf("/tmp/test-exec-bindpaths destination", REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf("/tmp/test-exec-bindpaths:source", REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf("/tmp/test-exec-bindpaths:destination", REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf("/tmp/test-exec-bindreadonlypaths source", REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf("/tmp/test-exec-bindreadonlypaths destination", REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf("/tmp/test-exec-bindreadonlypaths:source", REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf("/tmp/test-exec-bindreadonlypaths:destination", REMOVE_ROOT|REMOVE_PHYSICAL);
 }
 
 static void test_exec_cpuaffinity(Manager *m) {
@@ -1027,11 +1052,6 @@ static void test_exec_dynamicuser(Manager *m) {
                 return;
         }
 
-        if (strstr_ptr(ci_environment(), "github-actions")) {
-                log_notice("%s: skipping test on GH Actions because of systemd/systemd#10337", __func__);
-                return;
-        }
-
         int status = can_unshare ? 0 : EXIT_NAMESPACE;
 
         test(m, "exec-dynamicuser-fixeduser.service", status, CLD_EXITED);
@@ -1136,6 +1156,10 @@ static void test_exec_runtimedirectory(Manager *m) {
         test(m, "exec-runtimedirectory.service", 0, CLD_EXITED);
         (void) rm_rf("/run/test-exec_runtimedirectory2", REMOVE_ROOT|REMOVE_PHYSICAL);
 
+        (void) rm_rf("/run/test-exec_runtimedirectory-escape", REMOVE_ROOT|REMOVE_PHYSICAL);
+        test(m, "exec-runtimedirectory@foo\\x2dv1.service", 0, CLD_EXITED);
+        (void) rm_rf("/run/test-exec_runtimedirectory-escape", REMOVE_ROOT|REMOVE_PHYSICAL);
+
         test(m, "exec-runtimedirectory-mode.service", 0, CLD_EXITED);
         test(m, "exec-runtimedirectory-owner.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 
@@ -1191,8 +1215,8 @@ static void test_exec_ambientcapabilities(Manager *m) {
          * the tests only if that's the case. Clearing all ambient
          * capabilities is fine, since we are expecting them to be unset
          * in the first place for the tests. */
-        r = prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL, 0, 0, 0);
-        if (r < 0 && IN_SET(errno, EINVAL, EOPNOTSUPP, ENOSYS)) {
+        r = prctl_safe(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL, 0, 0, 0);
+        if (r < 0 && IN_SET(r, -EINVAL, -EOPNOTSUPP, -ENOSYS)) {
                 log_notice("Skipping %s, the kernel does not support ambient capabilities", __func__);
                 return;
         }
@@ -1435,7 +1459,7 @@ static void run_tests(RuntimeScope scope, char **patterns) {
         ASSERT_OK(r);
 
         m->defaults.std_output = EXEC_OUTPUT_INHERIT; /* don't rely on host journald */
-        ASSERT_OK(manager_startup(m, NULL, NULL, NULL));
+        ASSERT_OK(manager_startup(m, NULL, NULL, NULL, NULL));
 
         /* Uncomment below if you want to make debugging logs stored to journal. */
         //manager_override_log_target(m, LOG_TARGET_AUTO);
@@ -1616,10 +1640,6 @@ TEST(run_tests_unprivileged) {
 static int intro(void) {
         int r;
 
-#if HAS_FEATURE_ADDRESS_SANITIZER
-        if (strstr_ptr(ci_environment(), "travis") || strstr_ptr(ci_environment(), "github-actions"))
-                return log_tests_skipped("Running on Travis CI/GH Actions under ASan, see https://github.com/systemd/systemd/issues/10696");
-#endif
         /* It is needed otherwise cgroup creation fails */
         if (geteuid() != 0 || have_effective_cap(CAP_SYS_ADMIN) <= 0)
                 return log_tests_skipped("not privileged");
@@ -1633,7 +1653,7 @@ static int intro(void) {
         if (path_is_read_only_fs("/sys") > 0)
                 return log_tests_skipped("/sys is mounted read-only");
 
-        r = dlopen_libmount();
+        r = dlopen_libmount(LOG_DEBUG);
         if (r < 0)
                 return log_tests_skipped("libmount not available.");
 

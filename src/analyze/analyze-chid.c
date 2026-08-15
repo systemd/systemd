@@ -6,9 +6,9 @@
 #include "analyze.h"
 #include "analyze-chid.h"
 #include "ansi-color.h"
-#include "chid-fundamental.h"
+#include "chid.h"
 #include "device-util.h"
-#include "edid-fundamental.h"
+#include "edid.h"
 #include "efi-api.h"
 #include "errno-util.h"
 #include "escape.h"
@@ -338,7 +338,7 @@ static int edid_search(char16_t **ret_panel) {
         return -ENOTUNIQ;
 }
 
-int verb_chid(int argc, char *argv[], void *userdata) {
+int verb_chid(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         _cleanup_(table_unrefp) Table *table = NULL;
         int r;

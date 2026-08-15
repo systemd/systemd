@@ -4,7 +4,7 @@
 #include <unistd.h>
 
 #include "errno-list.h"
-#include "shared-forward.h"
+#include "forward.h"
 #include "log.h"
 #include "log-assert-critical.h"
 #include "static-destruct.h"            /* IWYU pragma: keep */
@@ -89,7 +89,8 @@ int define_hex_ptr_internal(const char *hex, void **name, size_t *name_len);
 /* Provide a convenient way to check if we're running in CI. */
 const char* ci_environment(void);
 
-typedef struct TestFunc {
+/* Note: see the comment on struct Option in options.h for why _alignptr_ is required here. */
+typedef struct _alignptr_ TestFunc {
         union f {
                 void (*void_func)(void);
                 int (*int_func)(void);
@@ -98,10 +99,10 @@ typedef struct TestFunc {
         bool has_ret:1;
         bool sd_booted:1;
 } TestFunc;
+assert_cc(sizeof(TestFunc) % sizeof(void*) == 0);
 
 /* See static-destruct.h for an explanation of how this works. */
 #define REGISTER_TEST(func, ...)                                                                        \
-        _Pragma("GCC diagnostic ignored \"-Wattributes\"")                                              \
         _section_("SYSTEMD_TEST_TABLE") _alignptr_ _used_ _retain_ _variable_no_sanitize_address_       \
         static const TestFunc UNIQ_T(static_test_table_entry, UNIQ) = {                                 \
                 .f = (union f) &(func),                                                                 \
@@ -110,8 +111,8 @@ typedef struct TestFunc {
                 ##__VA_ARGS__                                                                           \
         }
 
-extern const TestFunc _weak_ __start_SYSTEMD_TEST_TABLE[];
-extern const TestFunc _weak_ __stop_SYSTEMD_TEST_TABLE[];
+extern const TestFunc __start_SYSTEMD_TEST_TABLE[];
+extern const TestFunc __stop_SYSTEMD_TEST_TABLE[];
 
 #define TEST(name, ...)                            \
         static void test_##name(void);             \
@@ -269,6 +270,29 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
                                         #expr1, (intmax_t) _expr1, ERRNO_NAME(_expr1));                         \
                 if (_expr1 != _expr2)                                                                           \
                         log_test_failed("Expected \"%s == %s\", got %"PRIiMAX" != %"PRIiMAX,                    \
+                                        #expr1, #expr2, (intmax_t) _expr1, (intmax_t) _expr2);                  \
+                _expr1;                                                                                         \
+        })
+#endif
+
+#ifdef __COVERITY__
+#  define ASSERT_OK_NE(expr1, expr2)                                                                            \
+        ({                                                                                                      \
+                typeof(expr1) _expr1 = (expr1);                                                                 \
+                typeof(expr2) _expr2 = (expr2);                                                                 \
+                __coverity_check__(_expr1 != _expr2);                                                           \
+                _expr1;                                                                                         \
+        })
+#else
+#  define ASSERT_OK_NE(expr1, expr2)                                                                            \
+        ({                                                                                                      \
+                typeof(expr1) _expr1 = (expr1);                                                                 \
+                typeof(expr2) _expr2 = (expr2);                                                                 \
+                if (_expr1 < 0)                                                                                 \
+                        log_test_failed("Expected \"%s\" to succeed, but got error: %"PRIiMAX"/%s",             \
+                                        #expr1, (intmax_t) _expr1, ERRNO_NAME(_expr1));                         \
+                if (_expr1 == _expr2)                                                                           \
+                        log_test_failed("Expected \"%s != %s\", got %"PRIiMAX" != %"PRIiMAX,                    \
                                         #expr1, #expr2, (intmax_t) _expr1, (intmax_t) _expr2);                  \
                 _expr1;                                                                                         \
         })
@@ -450,6 +474,18 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
         ({                                                                                                      \
                 const char *_expr1 = (expr1), *_expr2 = (expr2);                                                \
                 if (!streq_ptr(_expr1, _expr2))                                                                 \
+                        log_test_failed("Expected \"%s == %s\", got \"%s != %s\"",                              \
+                                        #expr1, #expr2, strnull(_expr1), strnull(_expr2));                      \
+        })
+#endif
+
+#ifdef __COVERITY__
+#  define ASSERT_PATH_EQ(expr1, expr2) __coverity_check__(path_equal((expr1), (expr2)))
+#else
+#  define ASSERT_PATH_EQ(expr1, expr2)                                                                          \
+        ({                                                                                                      \
+                const char *_expr1 = (expr1), *_expr2 = (expr2);                                                \
+                if (!path_equal(_expr1, _expr2))                                                                 \
                         log_test_failed("Expected \"%s == %s\", got \"%s != %s\"",                              \
                                         #expr1, #expr2, strnull(_expr1), strnull(_expr2));                      \
         })

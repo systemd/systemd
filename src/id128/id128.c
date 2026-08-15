@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <stdio.h>
+
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "build.h"
@@ -11,8 +12,8 @@
 #include "id128-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "options.h"
 #include "parse-argument.h"
-#include "pretty-print.h"
 #include "string-util.h"
 #include "strv.h"
 #include "verbs.h"
@@ -24,11 +25,52 @@ static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 
-static int verb_new(int argc, char **argv, void *userdata) {
-        return id128_print_new(arg_mode);
+COMMAND(
+        "systemd-id128\0",
+        "Generate and print 128-bit identifiers.",
+        .man_pages = "systemd-id128.1\0",
+        .pager_flags = &arg_pager_flags,
+);
+
+static int print_id(sd_id128_t id) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+        int r;
+
+        if (!sd_json_format_enabled(arg_json_format_flags))
+                return id128_pretty_print(id, arg_mode);
+
+        if (arg_mode == ID128_PRINT_ID128)
+                r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_ID128("id", id));
+        else
+                r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_UUID("id", id));
+        if (r < 0)
+                return log_error_errno(r, "Failed to create JSON: %m");
+
+        r = sd_json_variant_dump(json, arg_json_format_flags, stdout, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to print JSON: %m");
+
+        return 0;
 }
 
-static int verb_machine_id(int argc, char **argv, void *userdata) {
+VERB_NOARG(verb_new, "new", "Generate a new ID");
+static int verb_new(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        sd_id128_t id;
+        int r;
+
+        if (!sd_id128_is_null(arg_app))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Verb \"new\" cannot be combined with --app-specific=.");
+
+        r = sd_id128_randomize(&id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate ID: %m");
+
+        return print_id(id);
+}
+
+VERB_NOARG(verb_machine_id, "machine-id", "Print the ID of current machine");
+static int verb_machine_id(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_id128_t id;
         int r;
 
@@ -40,10 +82,11 @@ static int verb_machine_id(int argc, char **argv, void *userdata) {
                 return log_error_errno(r, "Failed to get %smachine-ID: %m",
                                        sd_id128_is_null(arg_app) ? "" : "app-specific ");
 
-        return id128_pretty_print(id, arg_mode);
+        return print_id(id);
 }
 
-static int verb_boot_id(int argc, char **argv, void *userdata) {
+VERB_NOARG(verb_boot_id, "boot-id", "Print the ID of current boot");
+static int verb_boot_id(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_id128_t id;
         int r;
 
@@ -55,10 +98,11 @@ static int verb_boot_id(int argc, char **argv, void *userdata) {
                 return log_error_errno(r, "Failed to get %sboot-ID: %m",
                                        sd_id128_is_null(arg_app) ? "" : "app-specific ");
 
-        return id128_pretty_print(id, arg_mode);
+        return print_id(id);
 }
 
-static int verb_invocation_id(int argc, char **argv, void *userdata) {
+VERB_NOARG(verb_invocation_id, "invocation-id", "Print the ID of current invocation");
+static int verb_invocation_id(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_id128_t id;
         int r;
 
@@ -70,10 +114,11 @@ static int verb_invocation_id(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get invocation-ID: %m");
 
-        return id128_pretty_print(id, arg_mode);
+        return print_id(id);
 }
 
-static int verb_var_uuid(int argc, char **argv, void *userdata) {
+VERB_NOARG(verb_var_uuid, "var-partition-uuid", "Print the UUID for the /var/ partition");
+static int verb_var_uuid(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_id128_t id;
         int r;
 
@@ -86,7 +131,7 @@ static int verb_var_uuid(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to generate machine-specific /var/ UUID: %m");
 
-        return id128_pretty_print(id, arg_mode);
+        return print_id(id);
 }
 
 static int show_one(Table **table, const char *name, sd_id128_t uuid, bool first) {
@@ -115,7 +160,7 @@ static int show_one(Table **table, const char *name, sd_id128_t uuid, bool first
         }
 
         if (arg_value)
-                return id128_pretty_print(uuid, arg_mode);
+                return print_id(uuid);
 
         if (!*table) {
                 *table = table_new("name", "id");
@@ -130,11 +175,16 @@ static int show_one(Table **table, const char *name, sd_id128_t uuid, bool first
                               arg_mode == ID128_PRINT_ID128 ? TABLE_ID128 : TABLE_UUID, uuid);
 }
 
-static int verb_show(int argc, char **argv, void *userdata) {
+VERB(verb_show, "show", "[NAME|UUID]", VERB_ANY, VERB_ANY, 0, "Print one or more UUIDs");
+static int verb_show(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
         int r;
 
         argv = strv_skip(argv, 1);
+        if (arg_value && sd_json_format_enabled(arg_json_format_flags) && strv_length(argv) != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "'show --value --json=' requires exactly one argument.");
+
         if (argv)
                 STRV_FOREACH(p, argv) {
                         sd_id128_t uuid;
@@ -184,148 +234,75 @@ static int verb_show(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
+VERB_COMMON_HELP_AUTO("systemd-id128");
+
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
         int r;
-
-        r = terminal_urlify_man("systemd-id128", "1", &link);
-        if (r < 0)
-                return log_oom();
-
-        printf("%s [OPTIONS...] COMMAND\n\n"
-               "%sGenerate and print 128-bit identifiers.%s\n"
-               "\nCommands:\n"
-               "  new                     Generate a new ID\n"
-               "  machine-id              Print the ID of current machine\n"
-               "  boot-id                 Print the ID of current boot\n"
-               "  invocation-id           Print the ID of current invocation\n"
-               "  var-partition-uuid      Print the UUID for the /var/ partition\n"
-               "  show [NAME|UUID]        Print one or more UUIDs\n"
-               "  help                    Show this help\n"
-               "\nOptions:\n"
-               "  -h --help               Show this help\n"
-               "     --no-pager           Do not pipe output into a pager\n"
-               "     --no-legend          Do not show the headers and footers\n"
-               "     --json=FORMAT        Output inspection data in JSON (takes one of\n"
-               "                          pretty, short, off)\n"
-               "  -j                      Equivalent to --json=pretty (on TTY) or\n"
-               "                          --json=short (otherwise)\n"
-               "  -p --pretty             Generate samples of program code\n"
-               "  -P --value              Only print the value\n"
-               "  -a --app-specific=ID    Generate app-specific IDs\n"
-               "  -u --uuid               Output in UUID format\n"
-               "\nSee the %s for details.\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal(),
-               link);
-
-        return 0;
-}
-
-static int verb_help(int argc, char **argv, void *userdata) {
-        return help();
-}
-
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_PAGER,
-                ARG_NO_LEGEND,
-                ARG_JSON,
-        };
-
-        static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'              },
-                { "version",      no_argument,       NULL, ARG_VERSION      },
-                { "no-pager",     no_argument,       NULL, ARG_NO_PAGER     },
-                { "no-legend",    no_argument,       NULL, ARG_NO_LEGEND    },
-                { "json",         required_argument, NULL, ARG_JSON         },
-                { "pretty",       no_argument,       NULL, 'p'              },
-                { "value",        no_argument,       NULL, 'P'              },
-                { "app-specific", required_argument, NULL, 'a'              },
-                { "uuid",         no_argument,       NULL, 'u'              },
-                {},
-        };
-
-        int c, r;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hpa:uPj", options, NULL)) >= 0)
+        OptionParser opts = { argc, argv };
+
+        FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
+                OPTION_COMMON_HELP:
+                        return command_print_help("systemd-id128");
 
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_NO_PAGER:
+                OPTION_COMMON_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
 
-                case ARG_NO_LEGEND:
+                OPTION_COMMON_NO_LEGEND:
                         arg_legend = false;
                         break;
 
-                case 'j':
+                OPTION_LONG("json", "FORMAT",
+                            "Output inspection data in JSON (takes one of pretty, short, off)"):
+                        r = parse_json_argument(opts.arg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+                        break;
+
+                OPTION_COMMON_LOWERCASE_J:
                         arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
                         break;
 
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
-                        if (r <= 0)
-                                return r;
-
-                        break;
-                case 'p':
+                OPTION('p', "pretty", NULL, "Generate samples of program code"):
                         arg_mode = ID128_PRINT_PRETTY;
                         arg_value = false;
                         break;
 
-                case 'P':
+                OPTION('P', "value", NULL, "Only print the value"):
                         arg_value = true;
                         if (arg_mode == ID128_PRINT_PRETTY)
                                 arg_mode = ID128_PRINT_ID128;
                         break;
 
-                case 'a':
-                        r = id128_from_string_nonzero(optarg, &arg_app);
+                OPTION('a', "app-specific", "ID", "Generate app-specific IDs"):
+                        r = id128_from_string_nonzero(opts.arg, &arg_app);
                         if (r == -ENXIO)
                                 return log_error_errno(r, "Application ID cannot be all zeros.");
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse \"%s\" as application-ID: %m", optarg);
+                                return log_error_errno(r, "Failed to parse \"%s\" as application ID: %m", opts.arg);
                         break;
 
-                case 'u':
+                OPTION('u', "uuid", NULL, "Output in UUID format"):
                         arg_mode = ID128_PRINT_UUID;
                         break;
 
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
                 }
 
+        if (arg_mode == ID128_PRINT_PRETTY && sd_json_format_enabled(arg_json_format_flags))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--pretty cannot be combined with --json=.");
+
+        *ret_args = option_parser_get_args(&opts);
         return 1;
-}
-
-static int id128_main(int argc, char *argv[]) {
-        static const Verb verbs[] = {
-                { "new",                VERB_ANY, 1,        0,  verb_new           },
-                { "machine-id",         VERB_ANY, 1,        0,  verb_machine_id    },
-                { "boot-id",            VERB_ANY, 1,        0,  verb_boot_id       },
-                { "invocation-id",      VERB_ANY, 1,        0,  verb_invocation_id },
-                { "var-partition-uuid", VERB_ANY, 1,        0,  verb_var_uuid      },
-                { "show",               VERB_ANY, VERB_ANY, 0,  verb_show          },
-                { "help",               VERB_ANY, VERB_ANY, 0,  verb_help          },
-                {}
-        };
-
-        return dispatch_verb(argc, argv, verbs, NULL);
 }
 
 static int run(int argc, char *argv[]) {
@@ -333,11 +310,12 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        char **args = NULL;  /* unnecessary initialization to appease gcc <= 13 */
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
-        return id128_main(argc, argv);
+        return dispatch_verb(args, NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);

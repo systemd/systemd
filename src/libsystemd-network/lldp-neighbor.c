@@ -408,6 +408,7 @@ static int format_mac_address(const void *data, size_t sz, char **ret) {
         char *k;
 
         assert(data || sz <= 0);
+        assert(ret);
 
         if (sz != 7)
                 return 0;

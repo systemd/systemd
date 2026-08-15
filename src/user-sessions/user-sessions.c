@@ -2,6 +2,7 @@
 
 #include <sys/stat.h>
 
+#include "dlopen-note.h"
 #include "fs-util.h"
 #include "label-util.h"
 #include "log.h"
@@ -11,6 +12,8 @@
 
 static int run(int argc, char *argv[]) {
         int r;
+
+        LIBSELINUX_NOTE(recommended);
 
         if (argc != 2)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),

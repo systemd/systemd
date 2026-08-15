@@ -51,12 +51,15 @@ bool oci_image_is_valid(const char *n) {
 int oci_registry_is_valid(const char *n) {
         int r;
 
-        if (!n)
+        if (isempty(n))
                 return false;
 
         const char *colon = strchr(n, ':');
         if (!colon)
                 return dns_name_is_valid(n);
+
+        if (colon == n)  /* empty host, e.g. ":5000" */
+                return false;
 
         _cleanup_free_ char *s = strndup(n, colon - n);
         if (!s)
@@ -67,7 +70,10 @@ int oci_registry_is_valid(const char *n) {
                 return r;
 
         uint16_t port;
-        return safe_atou16(s, &port) >= 0 && port != 0;
+        return safe_atou16_full(colon + 1,
+                                10 | SAFE_ATO_REFUSE_LEADING_WHITESPACE |
+                                SAFE_ATO_REFUSE_PLUS_MINUS | SAFE_ATO_REFUSE_LEADING_ZERO,
+                                &port) >= 0 && port != 0;
 }
 
 bool oci_tag_is_valid(const char *n) {
@@ -79,10 +85,10 @@ bool oci_tag_is_valid(const char *n) {
          * [a-zA-Z0-9_][a-zA-Z0-9._-]{0,127}
          */
 
-        if (!strchr(LETTERS DIGITS "_", n[0]))
+        if (!strchr(ALPHANUMERICAL "_", n[0]))
                 return false;
 
-        size_t l = strspn(n + 1, LETTERS DIGITS "._-");
+        size_t l = strspn(n + 1, ALPHANUMERICAL "._-");
         if (l > 126)
                 return false;
         if (n[1+l] != 0)
@@ -153,7 +159,8 @@ int oci_ref_normalize(char **protocol, char **registry, char **image, char **tag
 
         assert(protocol);
         assert(registry);
-        assert(image && *image);
+        assert(image);
+        assert(*image);
         assert(tag);
 
         /* OCI container reference are supposed to have the form <registry>/<name>:<tag>. Except that it's
@@ -209,7 +216,7 @@ int oci_ref_normalize(char **protocol, char **registry, char **image, char **tag
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *path = NULL;
         r = search_and_fopen_nulstr(fn, "re", /* root= */ NULL, CONF_PATHS_NULSTR("systemd/oci-registry"), &f, &path);
-        if (r == -ENOENT)
+        if (r == -ENOENT && isempty(*registry))
                 r = search_and_fopen_nulstr("default.oci-registry", "re", /* root= */ NULL, CONF_PATHS_NULSTR("systemd/oci-registry"), &f, &path);
         if (r < 0 && r != -ENOENT)
                 return log_debug_errno(r, "Failed to find suitable OCI registry file: %m");
@@ -379,6 +386,7 @@ static const char *const go_arch_table[_ARCHITECTURE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(go_arch, Architecture);
 
 char* urlescape(const char *s) {
+        POINTER_MAY_BE_NULL(s);
         size_t l = strlen_ptr(s);
 
         _cleanup_free_ char *t = new(char, l * 3 + 1);
@@ -387,7 +395,7 @@ char* urlescape(const char *s) {
 
         char *p = t;
         for (; s && *s; s++) {
-                if (strchr(LETTERS DIGITS ".-_", *s))
+                if (strchr(ALPHANUMERICAL ".-_", *s))
                         *(p++) = *s;
                 else {
                         *(p++) = '%';

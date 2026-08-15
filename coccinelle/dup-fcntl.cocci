@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
-@@
 /* We want to stick with dup() in test-fd-util.c */
-position p : script:python() { p[0].file != "src/test/test-fd-util.c" };
+@ depends on !(file in "src/test/test-fd-util.c") @
 expression fd;
 @@
-- dup@p(fd)
+- dup(fd)
 + fcntl(fd, F_DUPFD, 3)

@@ -1,15 +1,38 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+systemd_sources = files(
+        'apparmor-setup.c',
+        'clock-warp.c',
+        'crash-handler.c',
+        'efi-random.c',
+        'ima-setup.c',
+        'import-creds.c',
+        'ipe-setup.c',
+        'kmod-setup.c',
+        'main.c',
+        'smack-setup.c',
+)
+
+if conf.get('HAVE_SELINUX') == 1
+        systemd_sources += files('selinux-setup.c')
+endif
+
+systemd_executor_sources = files(
+        'executor.c',
+        'exec-invoke.c',
+)
+
 libcore_sources = files(
         'audit-fd.c',
         'automount.c',
+        'bpf-bind-iface.c',
         'bpf-devices.c',
         'bpf-firewall.c',
         'bpf-foreign.c',
         'bpf-restrict-fs.c',
+        'bpf-restrict-fsaccess.c',
         'bpf-restrict-ifaces.c',
         'bpf-socket-bind.c',
-        'bpf-bind-iface.c',
         'cgroup.c',
         'dbus-automount.c',
         'dbus-cgroup.c',
@@ -37,11 +60,11 @@ libcore_sources = files(
         'execute.c',
         'execute-serialize.c',
         'generator-setup.c',
-        'import-creds.c',
         'job.c',
         'kill.c',
         'load-dropin.c',
         'load-fragment.c',
+        'luo.c',
         'manager-dump.c',
         'manager-serialize.c',
         'manager.c',
@@ -64,26 +87,33 @@ libcore_sources = files(
         'unit-serialize.c',
         'unit.c',
         'varlink.c',
+        'varlink-automount.c',
         'varlink-cgroup.c',
         'varlink-common.c',
         'varlink-dynamic-user.c',
         'varlink-execute.c',
+        'varlink-job.c',
+        'varlink-kill.c',
         'varlink-manager.c',
         'varlink-metrics.c',
+        'varlink-mount.c',
+        'varlink-path.c',
+        'varlink-scope.c',
+        'varlink-service.c',
+        'varlink-socket.c',
+        'varlink-swap.c',
+        'varlink-timer.c',
         'varlink-unit.c',
 )
 
-subdir('bpf/socket-bind')
-subdir('bpf/restrict-fs')
-subdir('bpf/restrict-ifaces')
-subdir('bpf/bind-iface')
-
 if conf.get('BPF_FRAMEWORK') == 1
-        libcore_sources += [
-                socket_bind_skel_h,
-                restrict_fs_skel_h,
-                restrict_ifaces_skel_h,
-                bind_network_interface_skel_h]
+        foreach name : ['socket-bind', 'restrict-fs', 'restrict-ifaces', 'bind-iface']
+                libcore_sources += bpf_programs_by_name[name]
+        endforeach
+endif
+
+if conf.get('HAVE_LSM_INTEGRITY_TYPE') == 1
+        libcore_sources += bpf_programs_by_name['restrict-fsaccess']
 endif
 
 sources += libcore_sources
@@ -103,6 +133,13 @@ load_fragment_gperf_nulstr_c = custom_target(
         input : [awkscript, load_fragment_gperf_gperf],
         output : 'load-fragment-gperf-nulstr.c',
         command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
+        capture : true)
+
+generate_builtin_units = files('generate-builtin-units.py')
+builtin_units_inc = custom_target(
+        input : [generate_builtin_units, embedded_units],
+        output : 'builtin-units.inc',
+        command : [python, generate_builtin_units, embedded_units],
         capture : true)
 
 generate_bpf_delegate_configs = files('generate-bpf-delegate-configs.py')
@@ -125,11 +162,11 @@ bpf_delegate_xml = custom_target(
         capture : true)
 man_page_depends += bpf_delegate_xml
 
-generated_sources += [load_fragment_gperf_c, load_fragment_gperf_nulstr_c, bpf_delegate_configs_inc]
-libcore_sources += [load_fragment_gperf_c, load_fragment_gperf_nulstr_c, bpf_delegate_configs_inc]
+generated_sources += [load_fragment_gperf_c, load_fragment_gperf_nulstr_c, bpf_delegate_configs_inc, builtin_units_inc]
+libcore_sources += [load_fragment_gperf_c, load_fragment_gperf_nulstr_c, bpf_delegate_configs_inc, builtin_units_inc]
 libcore_build_dir = meson.current_build_dir()
 libcore_name = 'systemd-core-@0@'.format(shared_lib_tag)
-core_includes = [includes, include_directories('.')]
+core_includes = [include_directories('.'), includes]
 
 libcore_static = static_library(
         libcore_name,
@@ -137,17 +174,18 @@ libcore_static = static_library(
         include_directories : core_includes,
         implicit_include_directories : false,
         c_args : ['-fvisibility=default'],
-        dependencies : [libaudit_cflags,
-                        libbpf_cflags,
-                        libcryptsetup_cflags,
-                        libdl,
-                        libm,
-                        libmount_cflags,
-                        librt,
-                        libseccomp_cflags,
-                        libselinux_cflags,
-                        threads,
-                        userspace],
+        dependencies : [
+                libacl_cflags,
+                libaudit_cflags,
+                libbpf_cflags,
+                libcryptsetup_cflags,
+                libm,
+                libmount_cflags,
+                libpcre2_cflags,
+                libseccomp_cflags,
+                libselinux_cflags,
+                userspace,
+        ],
         build_by_default : false)
 
 libcore = shared_library(
@@ -162,35 +200,24 @@ libcore = shared_library(
         install : true,
         install_dir : pkglibdir)
 
-systemd_sources = files(
-        'main.c',
-        'crash-handler.c',
-        'clock-warp.c',
-        'kmod-setup.c',
-        'apparmor-setup.c',
-        'ima-setup.c',
-        'ipe-setup.c',
-        'selinux-setup.c',
-        'smack-setup.c',
-        'efi-random.c',
-)
+systemd_deps = [
+        libapparmor_cflags,
+        libaudit_cflags,
+        libkmod_cflags,
+        libmount_cflags,
+        libseccomp_cflags,
+        libselinux_cflags,
+]
 
-systemd_executor_sources = files(
-        'executor.c',
-        'exec-invoke.c',
-)
-
-executor_libs = get_option('link-executor-shared') ? \
-        [
-                libcore,
-                libshared,
-        ] : [
-                libc_wrapper_static,
-                libcore_static,
-                libshared_static,
-                libbasic_static,
-                libsystemd_static,
+if conf.get('SYSTEMD_MULTICALL_BINARY') == 1
+        systemd_sources += systemd_executor_sources
+        systemd_deps += [
+                libbpf_cflags,
+                libcryptsetup_cflags,
+                libopenssl_cflags,
+                libpam_cflags,
         ]
+endif
 
 executables += [
         libexec_template + {
@@ -198,38 +225,20 @@ executables += [
                 'dbus' : true,
                 'public' : true,
                 'sources' : systemd_sources,
+                'link_args_static' : get_option('build-static') ? ['-static'] : [],
                 'link_with' : [
                         libcore,
                         libshared,
                 ],
-                'dependencies' : [
-                        libapparmor_cflags,
-                        libkmod_cflags,
-                        libmount_cflags,
-                        libseccomp_cflags,
-                        libselinux_cflags,
-                ],
+                'dependencies' : systemd_deps,
+                'install' : get_option('build-static') ? 'static' : 'yes',
         },
-        libexec_template + {
-                'name' : 'systemd-executor',
-                'public' : true,
-                'sources' : systemd_executor_sources,
-                'link_with' : executor_libs,
-                'dependencies' : [
-                        libapparmor_cflags,
-                        libbpf_cflags,
-                        libcryptsetup_cflags,
-                        libmount_cflags,
-                        libpam_cflags,
-                        libseccomp_cflags,
-                        libselinux_cflags,
-                ],
-        },
+
         fuzz_template + {
                 'sources' : files('fuzz-unit-file.c'),
                 'link_with' : [
                         libcore,
-                        libshared
+                        libshared,
                 ],
                 'dependencies' : libmount_cflags,
         },
@@ -237,17 +246,47 @@ executables += [
                 'sources' : files('fuzz-manager-serialize.c'),
                 'link_with' : [
                         libcore,
-                        libshared
+                        libshared,
                 ],
         },
         fuzz_template + {
                 'sources' : files('fuzz-execute-serialize.c'),
                 'link_with' : [
                         libcore,
-                        libshared
+                        libshared,
                 ],
         },
 ]
+
+if conf.get('SYSTEMD_MULTICALL_BINARY') == 1
+        # Symlink for external callers
+        install_symlink('systemd-executor',
+                        pointing_to : 'systemd',
+                        install_dir : libexecdir)
+else
+        executables += [
+                libexec_template + {
+                        'name' : 'systemd-executor',
+                        'public' : true,
+                        'sources' : systemd_executor_sources,
+                        'link_with' : [
+                                libcore,
+                                libshared,
+                        ],
+                        'dependencies' : [
+                                libapparmor_cflags,
+                                libbpf_cflags,
+                                libcryptsetup_cflags,
+                                libmount_cflags,
+                                libopenssl_cflags,
+                                libpam_cflags,
+                                libseccomp_cflags,
+                                libselinux_cflags,
+                        ],
+                        'install' : get_option('link-executor-shared') ? 'yes' : 'static',
+                },
+        ]
+endif
 
 in_files = [['system.conf',                     pkgconfigfiledir],
             ['user.conf',                       pkgconfigfiledir],

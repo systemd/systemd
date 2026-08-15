@@ -1,5 +1,6 @@
 {
     "name" : "verity",
     "algorithm" : "sha256",
-    "nvIndex" : {{TPM2_NVPCR_BASE + 2}}
+    "nvIndex" : {{TPM2_NVPCR_BASE + 2}},
+    "priority" : 300
 }

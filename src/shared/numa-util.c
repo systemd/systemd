@@ -26,7 +26,7 @@ bool numa_policy_is_valid(const NUMAPolicy *policy) {
 
         if (policy->nodes.set &&
             numa_policy_get_type(policy) == MPOL_PREFERRED &&
-            CPU_COUNT_S(policy->nodes.allocated, policy->nodes.set) != 1)
+            cpu_set_count(&policy->nodes) != 1)
                 return false;
 
         return true;
@@ -73,7 +73,11 @@ int apply_numa_policy(const NUMAPolicy *policy) {
         assert(policy);
 
         if (get_mempolicy(NULL, NULL, 0, NULL, 0) < 0 && errno == ENOSYS)
-                return -EOPNOTSUPP;
+                /* NUMA syscall interface not available (kernel compiled without NUMA support).
+                 * Return -ENOSYS so callers can distinguish this from -EOPNOTSUPP, which we
+                 * return below when the syscall interface exists but the requested policy is
+                 * not supported by this kernel version. */
+                return -ENOSYS;
 
         if (!numa_policy_is_valid(policy))
                 return -EINVAL;
@@ -83,10 +87,32 @@ int apply_numa_policy(const NUMAPolicy *policy) {
                 return r;
 
         r = set_mempolicy(numa_policy_get_type(policy), nodes, maxnode);
-        if (r < 0)
+        if (r < 0) {
+                // FIXME: This compatibility code path shall be removed once kernel 6.9
+                //        becomes the new minimal baseline (MPOL_WEIGHTED_INTERLEAVE).
+                if (errno == EINVAL && IN_SET(numa_policy_get_type(policy),
+                                             MPOL_PREFERRED_MANY, MPOL_WEIGHTED_INTERLEAVE))
+                        return -EOPNOTSUPP;
                 return -errno;
+        }
 
         return 0;
+}
+
+int numa_node_get_cpus(size_t node, CPUSet *ret) {
+        char p[STRLEN("/sys/devices/system/node/node//cpulist") + DECIMAL_STR_MAX(size_t) + 1];
+        _cleanup_free_ char *cpulist = NULL;
+        int r;
+
+        assert(ret);
+
+        xsprintf(p, "/sys/devices/system/node/node%zu/cpulist", node);
+
+        r = read_virtual_file(p, SIZE_MAX, &cpulist, /* ret_size= */ NULL);
+        if (r < 0)
+                return r;
+
+        return parse_cpu_set(cpulist, ret);
 }
 
 int numa_to_cpu_set(const NUMAPolicy *policy, CPUSet *ret) {
@@ -97,20 +123,11 @@ int numa_to_cpu_set(const NUMAPolicy *policy, CPUSet *ret) {
         assert(ret);
 
         for (size_t i = 0; i < policy->nodes.allocated * 8; i++) {
-                _cleanup_free_ char *l = NULL;
-                char p[STRLEN("/sys/devices/system/node/node//cpulist") + DECIMAL_STR_MAX(size_t) + 1];
-
                 if (!CPU_ISSET_S(i, policy->nodes.allocated, policy->nodes.set))
                         continue;
 
-                xsprintf(p, "/sys/devices/system/node/node%zu/cpulist", i);
-
-                r = read_one_line_file(p, &l);
-                if (r < 0)
-                        return r;
-
                 _cleanup_(cpu_set_done) CPUSet part = {};
-                r = parse_cpu_set(l, &part);
+                r = numa_node_get_cpus(i, &part);
                 if (r < 0)
                         return r;
 
@@ -154,6 +171,63 @@ static int numa_max_node(void) {
         return max_node;
 }
 
+int numa_get_node_from_cpu(unsigned cpu, unsigned *ret) {
+        _cleanup_closedir_ DIR *d = NULL;
+        int r;
+
+        assert(ret);
+
+        d = opendir("/sys/devices/system/node");
+        if (!d)
+                return -errno;
+
+        FOREACH_DIRENT(de, d, break) {
+                char p[STRLEN("/sys/devices/system/node/node/cpulist") + DECIMAL_STR_MAX(unsigned) + 1];
+                _cleanup_(cpu_set_done) CPUSet cpus = {};
+                _cleanup_free_ char *cpulist = NULL;
+                const char *n;
+                unsigned node;
+
+                if (de->d_type != DT_DIR)
+                        continue;
+
+                n = startswith(de->d_name, "node");
+                if (!n)
+                        continue;
+
+                r = safe_atou(n, &node);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to parse node number %s to unsigned, ignoring: %m", n);
+                        continue;
+                }
+
+                xsprintf(p, "/sys/devices/system/node/node%u/cpulist", node);
+
+                r = read_virtual_file(p, SIZE_MAX, &cpulist, /* ret_size= */ NULL);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to read %s, ignoring: %m", p);
+                        continue;
+                }
+
+                r = parse_cpu_set(cpulist, &cpus);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to parse cpu set %s, ignoring: %m", cpulist);
+                        continue;
+                }
+
+                if (CPU_ISSET_S(cpu, cpus.allocated, cpus.set)) {
+                        *ret = node;
+                        return 0;
+                }
+        }
+
+        /* CPU not found in any NUMA node, assume node 0 */
+        log_debug("CPU %u not found in any NUMA node, assuming node 0.", cpu);
+        *ret = 0;
+
+        return 0;
+}
+
 int numa_mask_add_all(CPUSet *mask) {
         int m;
 
@@ -177,11 +251,13 @@ int numa_mask_add_all(CPUSet *mask) {
 }
 
 static const char* const mpol_table[] = {
-        [MPOL_DEFAULT]    = "default",
-        [MPOL_PREFERRED]  = "preferred",
-        [MPOL_BIND]       = "bind",
-        [MPOL_INTERLEAVE] = "interleave",
-        [MPOL_LOCAL]      = "local",
+        [MPOL_DEFAULT]             = "default",
+        [MPOL_PREFERRED]           = "preferred",
+        [MPOL_BIND]                = "bind",
+        [MPOL_INTERLEAVE]          = "interleave",
+        [MPOL_LOCAL]               = "local",
+        [MPOL_PREFERRED_MANY]      = "preferred-many",
+        [MPOL_WEIGHTED_INTERLEAVE] = "weighted-interleave",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(mpol, int);

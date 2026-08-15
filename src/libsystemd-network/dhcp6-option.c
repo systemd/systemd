@@ -250,6 +250,8 @@ int dhcp6_option_append(
 
         int r;
 
+        assert(buf);
+        assert(offset);
         assert(optval || optlen == 0);
 
         r = option_append_hdr(buf, offset, code, optlen);
@@ -546,7 +548,7 @@ int dhcp6_option_parse_string(const uint8_t *data, size_t data_len, char **ret) 
                 return 0;
         }
 
-        r = make_cstring((const char *) data, data_len, MAKE_CSTRING_REFUSE_TRAILING_NUL, &string);
+        r = make_cstring(data, data_len, MAKE_CSTRING_REFUSE_TRAILING_NUL, &string);
         if (r < 0)
                 return r;
 
@@ -669,6 +671,13 @@ static int dhcp6_option_parse_ia_pdprefix(sd_dhcp6_client *client, DHCP6IA *ia, 
                                               "larger than valid lifetime %s, ignoring.",
                                               FORMAT_TIMESPAN(lt_pref, USEC_PER_SEC),
                                               FORMAT_TIMESPAN(lt_valid, USEC_PER_SEC));
+
+        /* RFC 8415 defines the prefix length as 1…128; reject the out-of-range values the sender-side
+         * counterpart option_append_pd_prefix() also refuses. */
+        if (a->iapdprefix.prefixlen == 0 || a->iapdprefix.prefixlen > 128)
+                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
+                                              "Received a PD prefix with invalid prefix length %u, ignoring.",
+                                              a->iapdprefix.prefixlen);
 
         if (len > sizeof(struct iapdprefix)) {
                 r = dhcp6_option_parse_ia_options(client, data + sizeof(struct iapdprefix), len - sizeof(struct iapdprefix));

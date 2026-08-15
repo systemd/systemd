@@ -3,7 +3,7 @@
 
 #include <sys/ioprio.h>         /* IWYU pragma: export */
 
-#include "shared-forward.h"
+#include "forward.h"
 
 static inline int ioprio_prio_class(int value) {
         return IOPRIO_PRIO_CLASS(value);

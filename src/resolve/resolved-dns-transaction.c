@@ -326,6 +326,8 @@ int dns_transaction_new(
                 r = hashmap_replace(s->transactions_by_key, first->key, first);
                 if (r < 0) {
                         LIST_REMOVE(transactions_by_key, first, t);
+                        hashmap_remove(s->manager->dns_transactions, UINT_TO_PTR(t->id));
+                        t->id = 0;
                         return r;
                 }
         }
@@ -786,8 +788,20 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
 
                         assert(t->server);
                         r = dnstls_stream_connect_tls(s, t->server);
-                        if (r < 0)
+                        if (r < 0) {
+                                /* If libcrypto is not available treat this like a TLS connection loss, so
+                                 * that opportunistic DNS-over-TLS downgrades to plaintext instead of
+                                 * re-selecting a TLS feature level and failing on every attempt. */
+                                if (r == -EOPNOTSUPP) {
+                                        log_struct_once(LOG_WARNING,
+                                                        LOG_MESSAGE_ID(SD_MESSAGE_MISSING_DEPENDENCY_STR),
+                                                        LOG_ITEM("FEATURE=DNS-over-TLS"),
+                                                        LOG_MESSAGE("DNS-over-TLS has been requested but the required TLS libraries (libssl/libcrypto) are not installed."));
+                                        dns_server_packet_lost(t->server, IPPROTO_TCP, t->current_feature_level);
+                                        return -ECONNREFUSED;
+                                }
                                 return r;
+                        }
                 }
 #endif
 
@@ -2621,7 +2635,10 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                                         continue;
 
                                 /* If we were looking for the DS RR, don't request it again. */
-                                if (dns_transaction_key(t)->type == DNS_TYPE_DS)
+                                r = dns_name_equal(dns_resource_key_name(dns_transaction_key(t)), dns_resource_key_name(rr->key));
+                                if (r < 0)
+                                        return r;
+                                if (r > 0 && dns_transaction_key(t)->type == DNS_TYPE_DS)
                                         continue;
                         }
 
@@ -2836,13 +2853,18 @@ static int dns_transaction_validate_dnskey_by_ds(DnsTransaction *t) {
         DNS_ANSWER_FOREACH_ITEM(item, t->answer) {
 
                 r = dnssec_verify_dnskey_by_ds_search(item->rr, t->validated_keys);
-                if (r < 0)
+                if (r < 0 && r != -EOPNOTSUPP)
                         return r;
                 if (r == 0)
                         continue;
 
-                /* If so, the DNSKEY is validated too. */
-                r = dns_answer_add_extend(&t->validated_keys, item->rr, item->ifindex, item->flags|DNS_ANSWER_AUTHENTICATED, item->rrsig);
+                /* If so, the DNSKEY is validated too, but only mark it authenticated if the DS verification
+                 * succeeded with a known algorithm. */
+                if (r == -EOPNOTSUPP)
+                        r = dns_answer_add_extend(&t->validated_keys, item->rr, item->ifindex, item->flags, NULL);
+                else
+                        r = dns_answer_add_extend(&t->validated_keys, item->rr, item->ifindex, item->flags|DNS_ANSWER_AUTHENTICATED, item->rrsig);
+
                 if (r < 0)
                         return r;
         }
@@ -3259,6 +3281,12 @@ static int dns_transaction_copy_validated(DnsTransaction *t) {
                 if (DNS_TRANSACTION_IS_LIVE(dt->state))
                         continue;
 
+                /* Some of the validated keys may not be authenticated, but are still useful to report
+                 * insecure answers when the domain is signed only by unsupported algorithms. */
+                r = dns_answer_extend(&t->validated_keys, dt->validated_keys);
+                if (r < 0)
+                        return r;
+
                 if (!FLAGS_SET(dt->answer_query_flags, SD_RESOLVED_AUTHENTICATED))
                         continue;
 
@@ -3286,7 +3314,9 @@ static int dnssec_validate_records(
         DnsResourceRecord *rr;
         int r;
 
+        assert(have_nsec);
         assert(nvalidations);
+        assert(validated);
 
         /* Returns negative on error, 0 if validation failed, 1 to restart validation, 2 when finished. */
 
@@ -3478,6 +3508,23 @@ static int dnssec_validate_records(
 
                 /* https://datatracker.ietf.org/doc/html/rfc6840#section-5.2 */
                 if (result == DNSSEC_UNSUPPORTED_ALGORITHM) {
+                        if (rr->key->type == DNS_TYPE_DNSKEY) {
+                                /* This is a DNSKEY we cannot authenticate, but it might still be the best
+                                 * offer from the resolver. Add it to the validated keys in case it's the
+                                 * best we can find, but do not mark it as authenticated.
+                                 */
+
+                                r = dns_answer_copy_by_key(&t->validated_keys, t->answer, rr->key, 0, NULL);
+                                if (r < 0)
+                                        return r;
+
+                                /* Some of the DNSKEYs we just added might already have been revoked,
+                                 * remove them again in that case. */
+                                r = dns_transaction_invalidate_revoked_keys(t);
+                                if (r < 0)
+                                        return r;
+                        }
+
                         r = dns_answer_move_by_key(validated, &t->answer, rr->key, 0, NULL);
                         if (r < 0)
                                 return r;

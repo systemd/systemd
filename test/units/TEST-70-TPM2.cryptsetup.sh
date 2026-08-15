@@ -31,10 +31,23 @@ tpm_check_failure_with_wrong_pin() {
 }
 
 at_exit() {
+    set +e
+
+    umount /tmp/dditest.mnt
+    systemd-cryptsetup detach test-volume
+    systemd-cryptsetup detach dditest
+
     # Evict the TPM primary key that we persisted
     if [[ -n "${PERSISTENT_HANDLE:-}" ]]; then
         tpm2_evictcontrol -c "$PERSISTENT_HANDLE"
     fi
+
+    if [[ -n "${DEVICE:-}" ]]; then
+        systemd-dissect --detach "$DEVICE"
+    fi
+
+    rm -rf /tmp/dditest /tmp/dditest.mnt
+    rm -f /tmp/dditest.raw "${IMAGE:-}" "${PRIMARY:-}" /tmp/passphrase /tmp/pcr.dat /tmp/srk.pub /tmp/srk2.pub
 }
 
 trap at_exit EXIT
@@ -44,15 +57,16 @@ IMAGE="$(mktemp /tmp/systemd-cryptsetup-XXX.IMAGE)"
 
 truncate -s 20M "$IMAGE"
 echo -n passphrase >/tmp/passphrase
+echo -n wrong_passphrase >/tmp/wrong_passphrase
 # Change file mode to avoid "/tmp/passphrase has 0644 mode that is too permissive" messages
-chmod 0600 /tmp/passphrase
+chmod 0600 /tmp/passphrase /tmp/wrong_passphrase
 cryptsetup luksFormat -q --pbkdf pbkdf2 --pbkdf-force-iterations 1000 --use-urandom "$IMAGE" /tmp/passphrase
 
 # Unlocking via keyfile
-systemd-cryptenroll --unlock-key-file=/tmp/passphrase --tpm2-device=auto --tpm2-pcrs=7 "$IMAGE"
+systemd-cryptenroll --unlock-key-file=/tmp/passphrase --tpm2-device=auto --tpm2-public-key= --tpm2-pcrs=7 "$IMAGE"
 
 # Enroll unlock with SecureBoot (PCR 7) PCR policy
-PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=7 "$IMAGE"
+PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-public-key= --tpm2-pcrs=7 "$IMAGE"
 systemd-cryptsetup attach test-volume "$IMAGE" - tpm2-device=auto,headless=1
 systemd-cryptsetup detach test-volume
 
@@ -62,7 +76,7 @@ tpm2_pcrextend 7:sha256=00000000000000000000000000000000000000000000000000000000
 
 # Enroll unlock with PCR+PIN policy
 systemd-cryptenroll --wipe-slot=tpm2 "$IMAGE"
-PASSWORD=passphrase NEWPIN=123456 systemd-cryptenroll --tpm2-device=auto --tpm2-with-pin=true --tpm2-pcrs=7 "$IMAGE"
+PASSWORD=passphrase NEWPIN=123456 systemd-cryptenroll --tpm2-device=auto --tpm2-public-key= --tpm2-with-pin=true --tpm2-pcrs=7 "$IMAGE"
 PIN=123456 systemd-cryptsetup attach test-volume "$IMAGE" - tpm2-device=auto,headless=1
 systemd-cryptsetup detach test-volume
 
@@ -90,7 +104,7 @@ tpm2_pcrextend 7:sha256=00000000000000000000000000000000000000000000000000000000
 
 # Enroll unlock with PCR 0+7
 systemd-cryptenroll --wipe-slot=tpm2 "$IMAGE"
-PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=0+7 "$IMAGE"
+PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-public-key= --tpm2-pcrs=0+7 "$IMAGE"
 systemd-cryptsetup attach test-volume "$IMAGE" - tpm2-device=auto,headless=1
 systemd-cryptsetup detach test-volume
 
@@ -102,21 +116,21 @@ if tpm_has_pcr sha256 12; then
     # Enroll using an explicit PCR value (that does match current PCR value)
     systemd-cryptenroll --wipe-slot=tpm2 "$IMAGE"
     EXPECTED_PCR_VALUE=$(cat /sys/class/tpm/tpm0/pcr-sha256/12)
-    PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs="12:sha256=$EXPECTED_PCR_VALUE" "$IMAGE"
+    PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-public-key= --tpm2-pcrs="12:sha256=$EXPECTED_PCR_VALUE" "$IMAGE"
     systemd-cryptsetup attach test-volume "$IMAGE" - tpm2-device=auto,headless=1
     systemd-cryptsetup detach test-volume
 
     # Same as above plus more PCRs without the value or alg specified
     systemd-cryptenroll --wipe-slot=tpm2 "$IMAGE"
     EXPECTED_PCR_VALUE=$(cat /sys/class/tpm/tpm0/pcr-sha256/12)
-    PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs="1,12:sha256=$EXPECTED_PCR_VALUE,3" "$IMAGE"
+    PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-public-key= --tpm2-pcrs="1,12:sha256=$EXPECTED_PCR_VALUE,3" "$IMAGE"
     systemd-cryptsetup attach test-volume "$IMAGE" - tpm2-device=auto,headless=1
     systemd-cryptsetup detach test-volume
 
     # Same as above plus more PCRs with hash alg specified but hash value not specified
     systemd-cryptenroll --wipe-slot=tpm2 "$IMAGE"
     EXPECTED_PCR_VALUE=$(cat /sys/class/tpm/tpm0/pcr-sha256/12)
-    PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs="1:sha256,12:sha256=$EXPECTED_PCR_VALUE,3" "$IMAGE"
+    PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-public-key= --tpm2-pcrs="1:sha256,12:sha256=$EXPECTED_PCR_VALUE,3" "$IMAGE"
     systemd-cryptsetup attach test-volume "$IMAGE" - tpm2-device=auto,headless=1
     systemd-cryptsetup detach test-volume
 
@@ -125,7 +139,7 @@ if tpm_has_pcr sha256 12; then
     tpm2_pcrread -Q -o /tmp/pcr.dat sha256:12
     CURRENT_PCR_VALUE=$(cat /sys/class/tpm/tpm0/pcr-sha256/12)
     EXPECTED_PCR_VALUE=$(cat /tmp/pcr.dat /tmp/pcr.dat | openssl dgst -sha256 -r | cut -d ' ' -f 1)
-    PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs="12:sha256=$EXPECTED_PCR_VALUE" "$IMAGE"
+    PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-public-key= --tpm2-pcrs="12:sha256=$EXPECTED_PCR_VALUE" "$IMAGE"
     (! systemd-cryptsetup attach test-volume "$IMAGE" - tpm2-device=auto,headless=1)
     tpm2_pcrextend "12:sha256=$CURRENT_PCR_VALUE"
     systemd-cryptsetup attach test-volume "$IMAGE" - tpm2-device=auto,headless=1
@@ -143,7 +157,7 @@ if tpm_has_pcr sha256 12; then
 
     # --tpm2-device-key= requires OpenSSL >= 3 with KDF-SS
     if openssl_supports_kdf SSKDF; then
-        PASSWORD=passphrase systemd-cryptenroll --tpm2-device-key=/tmp/srk.pub --tpm2-pcrs="12:sha256=$CURRENT_PCR_VALUE" "$IMAGE"
+        PASSWORD=passphrase systemd-cryptenroll --tpm2-device-key=/tmp/srk.pub --tpm2-public-key= --tpm2-pcrs="12:sha256=$CURRENT_PCR_VALUE" "$IMAGE"
         systemd-cryptsetup attach test-volume "$IMAGE" - tpm2-device=auto,headless=1
         systemd-cryptsetup detach test-volume
     fi
@@ -153,23 +167,23 @@ fi
 
 # Use default (0) seal key handle
 systemd-cryptenroll --wipe-slot=tpm2 "$IMAGE"
-PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-seal-key-handle=0 "$IMAGE"
+PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-public-key= --tpm2-seal-key-handle=0 "$IMAGE"
 systemd-cryptsetup attach test-volume "$IMAGE" - tpm2-device=auto,headless=1
 systemd-cryptsetup detach test-volume
 
 systemd-cryptenroll --wipe-slot=tpm2 "$IMAGE"
-PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-seal-key-handle=0x0 "$IMAGE"
+PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-public-key= --tpm2-seal-key-handle=0x0 "$IMAGE"
 systemd-cryptsetup attach test-volume "$IMAGE" - tpm2-device=auto,headless=1
 systemd-cryptsetup detach test-volume
 
 # Use SRK seal key handle
 systemd-cryptenroll --wipe-slot=tpm2 "$IMAGE"
-PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-seal-key-handle=81000001 "$IMAGE"
+PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-public-key= --tpm2-seal-key-handle=81000001 "$IMAGE"
 systemd-cryptsetup attach test-volume "$IMAGE" - tpm2-device=auto,headless=1
 systemd-cryptsetup detach test-volume
 
 systemd-cryptenroll --wipe-slot=tpm2 "$IMAGE"
-PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-seal-key-handle=0x81000001 "$IMAGE"
+PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-public-key= --tpm2-seal-key-handle=0x81000001 "$IMAGE"
 systemd-cryptsetup attach test-volume "$IMAGE" - tpm2-device=auto,headless=1
 systemd-cryptsetup detach test-volume
 
@@ -189,12 +203,12 @@ PERSISTENT_HANDLE="0x${PERSISTENT_LINE##*0x}"
 tpm2_flushcontext -t
 
 systemd-cryptenroll --wipe-slot=tpm2 "$IMAGE"
-PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-seal-key-handle="${PERSISTENT_HANDLE#0x}" "$IMAGE"
+PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-public-key= --tpm2-seal-key-handle="${PERSISTENT_HANDLE#0x}" "$IMAGE"
 systemd-cryptsetup attach test-volume "$IMAGE" - tpm2-device=auto,headless=1
 systemd-cryptsetup detach test-volume
 
 systemd-cryptenroll --wipe-slot=tpm2 "$IMAGE"
-PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-seal-key-handle="$PERSISTENT_HANDLE" "$IMAGE"
+PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-public-key= --tpm2-seal-key-handle="$PERSISTENT_HANDLE" "$IMAGE"
 systemd-cryptsetup attach test-volume "$IMAGE" - tpm2-device=auto,headless=1
 systemd-cryptsetup detach test-volume
 
@@ -210,7 +224,8 @@ Format=ext4
 CopyFiles=/tmp/dditest:/
 Encrypt=tpm2
 EOF
-    PASSWORD=passphrase systemd-repart --tpm2-device-key=/tmp/srk.pub --definitions=/tmp/dditest --empty=create --size=80M /tmp/dditest.raw --tpm2-pcrs=
+    # Use --tpm2-public-key-pcrs= to suppress auto-loading of the system PCR public key
+    PASSWORD=passphrase systemd-repart --tpm2-device-key=/tmp/srk.pub --tpm2-public-key-pcrs= --definitions=/tmp/dditest --empty=create --size=80M /tmp/dditest.raw --tpm2-pcrs=
     DEVICE="$(systemd-dissect --attach /tmp/dditest.raw)"
     udevadm wait --settle --timeout=10 "$DEVICE"p1
     systemd-cryptsetup attach dditest "$DEVICE"p1 - tpm2-device=auto,headless=yes
@@ -224,4 +239,55 @@ EOF
     rmdir /tmp/dditest
 fi
 
-rm -f "$IMAGE" "$PRIMARY"
+# Key file can contain a TPM blob but in case it doesn't fallback should also work.
+systemd-cryptsetup attach test-volume "$IMAGE" /tmp/passphrase tpm2-device=auto,headless=1
+systemd-cryptsetup detach test-volume
+
+# Negative test: invalid passphrase should not work.
+(! systemd-cryptsetup attach test-volume "$IMAGE" /tmp/wrong_passphrase tpm2-device=auto,headless=1)
+
+# Ensure we iterate over foreign tokens, e.g., other PCR signing keys or LUKS
+# slots for other TPMs (e.g., external drives). This test makes it so that the
+# first tokens don't unseal but the last one will. This way we check that
+# iteration works.
+if openssl_supports_kdf SSKDF; then
+    # Foreign PCR-policy pubkeys (no matching signatures will be available)
+    openssl genpkey -algorithm RSA -out /tmp/unknown1.priv.pem -pkeyopt rsa_keygen_bits:2048
+    openssl rsa -in /tmp/unknown1.priv.pem -pubout -out /tmp/unknown1.pem
+    openssl genpkey -algorithm RSA -out /tmp/unknown2.priv.pem -pkeyopt rsa_keygen_bits:2048
+    openssl rsa -in /tmp/unknown2.priv.pem -pubout -out /tmp/unknown2.pem
+
+    # Foreign TPM pub key, created from random transient primary under the null hierarchy.
+    # Note: This hits TPM2_RC_SIZE not TPM2_RC_INTEGRITY but both are handled the same.
+    tpm2_createprimary -C n -c /tmp/unknown-srk.ctx
+    tpm2_readpublic -c /tmp/unknown-srk.ctx -o /tmp/unknown-srk.pub
+    tpm2_flushcontext -t
+
+    # Empty signature meaning nothing is found for the foreign PCR-policy pubkeys
+    echo '{}' > /tmp/empty-pcrsig.json
+
+    systemd-cryptenroll --wipe-slot=tpm2 "$IMAGE"
+    # Token 1: unknown pubkey, unseal fails at signature lookup (ENXIO)
+    PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-pcrlock= \
+        --tpm2-public-key=/tmp/unknown1.pem --tpm2-public-key-pcrs=11 "$IMAGE"
+    # Token 2: unknown pubkey and unknown SRK (EREMOTE)
+    PASSWORD=passphrase systemd-cryptenroll --tpm2-device-key=/tmp/unknown-srk.pub --tpm2-pcrlock= \
+        --tpm2-public-key=/tmp/unknown2.pem --tpm2-public-key-pcrs=11 "$IMAGE"
+    # Token 3: no pubkey, current-PCR-7 policy, unseals successfully
+    PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-pcrlock= --tpm2-public-key= --tpm2-pcrs=7 "$IMAGE"
+    # Note: Not covered yet is a plain PCR mismatch, the NV index missing/corrupted, and different PCR masks.
+
+    # This should iterate over the tokens reporting failures until we reach token 3.
+    # Do it for both the token module and fallback path because iteration differs there.
+    for mod in 1 0; do
+        SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=$mod \
+            systemd-cryptsetup attach test-volume "$IMAGE" - \
+            tpm2-device=auto,tpm2-signature=/tmp/empty-pcrsig.json,headless=1
+        systemd-cryptsetup detach test-volume
+    done
+
+    rm -f /tmp/unknown1.priv.pem /tmp/unknown1.pem /tmp/unknown2.priv.pem /tmp/unknown2.pem \
+          /tmp/unknown-srk.pub /tmp/unknown-srk.ctx /tmp/empty-pcrsig.json
+fi
+
+rm -f "$IMAGE" "$PRIMARY" /tmp/passphrase /tmp/wrong_passphrase

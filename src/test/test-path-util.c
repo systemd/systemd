@@ -24,8 +24,12 @@ TEST(print_paths) {
 }
 
 TEST(path) {
+        assert_se(!path_is_absolute(NULL));
+        assert_se(!path_is_absolute(""));
         assert_se( path_is_absolute("/"));
+        assert_se( path_is_absolute("//"));
         assert_se(!path_is_absolute("./"));
+        assert_se(!path_is_absolute("foo/bar"));
 
         assert_se( PATH_IN_SET("/bin", "/", "/bin", "/foo"));
         assert_se( PATH_IN_SET("/bin", "/bin"));
@@ -40,6 +44,21 @@ TEST(path) {
         assert_se(!path_equal(NULL, "/a"));
         assert_se(!path_equal("a", NULL));
         assert_se(!path_equal(NULL, "a"));
+}
+
+TEST(path_is_normalized) {
+        assert_se( path_is_normalized("/"));
+        assert_se( path_is_normalized("/usr/bin"));
+        assert_se( path_is_normalized("usr/bin"));
+
+        assert_se(!path_is_normalized(""));
+        assert_se(!path_is_normalized("."));
+        assert_se(!path_is_normalized("./usr/bin"));
+        assert_se(!path_is_normalized("/usr//bin"));
+        assert_se(!path_is_normalized("/usr/./bin"));
+        assert_se(!path_is_normalized("/usr/bin/."));
+        assert_se(!path_is_normalized("../usr/bin"));
+        assert_se(!path_is_normalized("/usr/../bin"));
 }
 
 TEST(is_path) {
@@ -760,6 +779,9 @@ TEST(path_startswith) {
         test_path_startswith_one("/foo/bar/barfoo/", "/foo/bar/barfo", NULL, NULL);
         test_path_startswith_one("/foo/bar/barfoo/", "/foo/bar/bar", NULL, NULL);
         test_path_startswith_one("/foo/bar/barfoo/", "/fo", NULL, NULL);
+        test_path_startswith_one("/usr/binary", "/usr/bin", NULL, NULL);
+        test_path_startswith_one("/foo/barista", "/foo/bar", NULL, NULL);
+        test_path_startswith_one("foo/barista", "foo/bar", NULL, NULL);
 }
 
 static void test_path_startswith_return_leading_slash_one(const char *path, const char *prefix, const char *expected) {

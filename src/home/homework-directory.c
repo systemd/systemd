@@ -7,6 +7,7 @@
 #include "fd-util.h"
 #include "homework-blob.h"
 #include "homework-directory.h"
+#include "homework-fscrypt.h"
 #include "homework-mount.h"
 #include "homework-quota.h"
 #include "log.h"
@@ -102,6 +103,11 @@ int home_activate_directory(
                 return r;
 
         setup->undo_mount = false;
+
+        /* The home is now activated and staying mounted, so it owns any v2 fscrypt master key
+         * home_setup() installed. Disarm the rollback so home_setup_done() doesn't remove the key out
+         * from under the live mount. (No-op for v1 or non-fscrypt storage.) */
+        fscrypt_v2_key_undo_disarm(&setup->fscrypt_v2_key_undo);
 
         setup->do_drop_caches = false;
 

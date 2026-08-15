@@ -20,6 +20,9 @@ static int ifindex_str_compare_func(char * const *a, char * const *b) {
         size_t al, bl;
         int r;
 
+        assert(a);
+        assert(b);
+
         al = strlen_ptr(*a);
         bl = strlen_ptr(*b);
 
@@ -91,7 +94,7 @@ int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
         if (r < 0)
                 return table_log_add_error(r);
 
-        r = dump_addresses(rtnl, NULL, table, 0);
+        r = dump_addresses(rtnl, /* message= */ NULL, table, /* ifindex= */ 0);
         if (r < 0)
                 return r;
 
@@ -123,9 +126,9 @@ int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
                on_color_operational, glyph(GLYPH_BLACK_CIRCLE), off_color_operational,
                strna(netifs_joined));
 
-        r = table_print(table, NULL);
+        r = table_print_or_warn(table);
         if (r < 0)
-                return table_log_print_error(r);
+                return r;
 
         return show_logs(0, NULL);
 }

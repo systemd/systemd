@@ -7,10 +7,12 @@
 #include "sd-bus.h"
 #include "sd-id128.h"
 #include "sd-messages.h"
+#include "sd-varlink.h"
 
 #include "all-units.h"
 #include "alloc-util.h"
 #include "ansi-color.h"
+#include "bitfield.h"
 #include "bpf-restrict-fs.h"
 #include "bus-common-errors.h"
 #include "bus-internal.h"
@@ -38,7 +40,7 @@
 #include "load-fragment.h"
 #include "log.h"
 #include "logarithm.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "manager.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -131,6 +133,8 @@ int unit_new_for_name(Manager *m, size_t size, const char *name, Unit **ret) {
         _cleanup_(unit_freep) Unit *u = NULL;
         int r;
 
+        assert(ret);
+
         u = unit_new(m, size);
         if (!u)
                 return -ENOMEM;
@@ -177,8 +181,9 @@ static void unit_init(Unit *u) {
                 if (u->type != UNIT_SLICE)
                         cc->tasks_max = u->manager->defaults.tasks_max;
 
-                cc->memory_pressure_watch = u->manager->defaults.memory_pressure_watch;
-                cc->memory_pressure_threshold_usec = u->manager->defaults.memory_pressure_threshold_usec;
+                cc->memory_zswap_writeback = u->manager->defaults.memory_zswap_writeback;
+
+                memcpy(cc->pressure, u->manager->defaults.pressure, sizeof(cc->pressure));
         }
 
         ec = unit_get_exec_context(u);
@@ -479,6 +484,9 @@ bool unit_may_gc(Unit *u) {
         if (r <= 0 && !IN_SET(r, -ENXIO, -EOWNERDEAD))
                 return false; /* ENXIO/EOWNERDEAD means: currently not realized */
 
+        if (unit_can_start(u) && BIT_SET(u->markers, UNIT_MARKER_NEEDS_START))
+                return false;
+
         if (!UNIT_VTABLE(u)->may_gc)
                 return true;
 
@@ -673,6 +681,8 @@ static void unit_remove_transient(Unit *u) {
         if (!u->transient)
                 return;
 
+        const char *dropin_directory = strjoina(u->id, ".d");
+
         STRV_FOREACH(i, u->dropin_paths) {
                 _cleanup_free_ char *p = NULL, *pp = NULL;
 
@@ -685,6 +695,10 @@ static void unit_remove_transient(Unit *u) {
                 /* Only drop transient drop-ins */
                 if (!path_equal(u->manager->lookup_paths.transient, pp))
                         continue;
+
+                /* Drop the transient drop-in directory also from unit path cache. */
+                if (path_equal(last_path_component(p), dropin_directory))
+                        free(set_remove(u->manager->unit_path_cache, p));
 
                 (void) unlink(*i);
                 (void) rmdir(p);
@@ -778,6 +792,7 @@ Unit* unit_free(Unit *u) {
 
         u->match_bus_slot = sd_bus_slot_unref(u->match_bus_slot);
         u->bus_track = sd_bus_track_unref(u->bus_track);
+        u->varlink_unit_change = sd_varlink_unref(u->varlink_unit_change);
         u->deserialized_refs = strv_free(u->deserialized_refs);
         u->pending_freezer_invocation = sd_bus_message_unref(u->pending_freezer_invocation);
 
@@ -1180,6 +1195,8 @@ int unit_merge(Unit *u, Unit *other) {
         if (r < 0)
                 return r;
 
+        UnitLoadState saved_load_state = other->load_state;
+
         other->load_state = UNIT_MERGED;
         other->merged_into = u;
 
@@ -1188,7 +1205,7 @@ int unit_merge(Unit *u, Unit *other) {
 
         /* If there is still some data attached to the other node, we
          * don't need it anymore, and can free it. */
-        if (other->load_state != UNIT_STUB)
+        if (saved_load_state != UNIT_STUB)
                 if (UNIT_VTABLE(other)->done)
                         UNIT_VTABLE(other)->done(other);
 
@@ -1306,24 +1323,25 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
         assert(c->private_var_tmp >= 0 && c->private_var_tmp < _PRIVATE_TMP_MAX);
 
         if (c->private_tmp == PRIVATE_TMP_CONNECTED) {
-                assert(c->private_var_tmp == PRIVATE_TMP_CONNECTED);
-
                 r = unit_add_mounts_for(u, "/tmp/", UNIT_DEPENDENCY_FILE, UNIT_MOUNT_WANTS);
                 if (r < 0)
                         return r;
+        }
 
+        if (c->private_var_tmp == PRIVATE_TMP_CONNECTED) {
                 r = unit_add_mounts_for(u, "/var/tmp/", UNIT_DEPENDENCY_FILE, UNIT_MOUNT_WANTS);
                 if (r < 0)
                         return r;
-
-                r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_TMPFILES_SETUP_SERVICE, true, UNIT_DEPENDENCY_FILE);
-                if (r < 0)
-                        return r;
-
         } else if (c->private_var_tmp == PRIVATE_TMP_DISCONNECTED && !exec_context_with_rootfs(c)) {
                 /* Even if PrivateTmp=disconnected, we still require /var/tmp/ mountpoint to be present,
                  * i.e. /var/ needs to be mounted. See comments in unit_patch_contexts(). */
                 r = unit_add_mounts_for(u, "/var/", UNIT_DEPENDENCY_FILE, UNIT_MOUNT_WANTS);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->private_tmp == PRIVATE_TMP_CONNECTED || c->private_var_tmp == PRIVATE_TMP_CONNECTED) {
+                r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_TMPFILES_SETUP_SERVICE, true, UNIT_DEPENDENCY_FILE);
                 if (r < 0)
                         return r;
         }
@@ -1610,7 +1628,7 @@ static int unit_add_oomd_dependencies(Unit *u) {
         if (!c)
                 return 0;
 
-        bool wants_oomd = c->moom_swap == MANAGED_OOM_KILL || c->moom_mem_pressure == MANAGED_OOM_KILL;
+        bool wants_oomd = c->moom_swap == MANAGED_OOM_KILL || c->moom_mem_pressure == MANAGED_OOM_KILL || !strv_isempty(c->moom_rules);
         if (!wants_oomd)
                 return 0;
 
@@ -2015,6 +2033,10 @@ int unit_start(Unit *u, ActivationDetails *details) {
                          * the queue */
                         if (slice_concurrency_soft_max_reached(slice, u))
                                 return -EAGAIN; /* Try again, keep in queue */
+
+                        /* Check activating concurrency limit to pace concurrent startups */
+                        if (slice_activating_concurrency_max_reached(slice, u))
+                                return -EAGAIN; /* Try again, keep in queue */
                 }
         }
 
@@ -2322,7 +2344,7 @@ static void retroactively_stop_dependencies(Unit *u) {
 
 void unit_start_on_termination_deps(Unit *u, UnitDependencyAtom atom) {
         const char *dependency_name = NULL;
-        JobMode job_mode;
+        JobMode job_mode = _JOB_MODE_INVALID;
         unsigned n_jobs = 0;
         int r;
 
@@ -2695,20 +2717,21 @@ static void unit_check_concurrency_limit(Unit *u) {
         if (!slice)
                 return;
 
-        /* If a unit was stopped, maybe it has pending siblings (or children thereof) that can be started now */
+        /* If a unit was stopped, maybe it has pending siblings (or children thereof) that can be started now.
+         * Walk up the slice hierarchy and re-dispatch for each ancestor that has a limit configured. */
 
-        if (SLICE(slice)->concurrency_soft_max != UINT_MAX) {
-                Unit *sibling;
-                UNIT_FOREACH_DEPENDENCY(sibling, slice, UNIT_ATOM_SLICE_OF) {
-                        if (sibling == u)
-                                continue;
+        for (Unit *s = slice; s; s = UNIT_GET_SLICE(s)) {
+                if (SLICE(s)->concurrency_soft_max != UINT_MAX ||
+                    SLICE(s)->activating_concurrency_max != UINT_MAX) {
+                        Unit *member;
+                        UNIT_FOREACH_DEPENDENCY(member, s, UNIT_ATOM_SLICE_OF) {
+                                if (member == u)
+                                        continue;
 
-                        unit_recursive_add_to_run_queue(sibling);
+                                unit_recursive_add_to_run_queue(member);
+                        }
                 }
         }
-
-        /* Also go up the tree. */
-        unit_check_concurrency_limit(slice);
 }
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_success) {
@@ -2758,11 +2781,13 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         /* Make sure the cgroup and state files are always removed when we become inactive */
         if (UNIT_IS_INACTIVE_OR_FAILED(ns)) {
                 SET_FLAG(u->markers,
-                         (1u << UNIT_MARKER_NEEDS_RELOAD)|(1u << UNIT_MARKER_NEEDS_RESTART),
+                         (1u << UNIT_MARKER_NEEDS_RELOAD)|(1u << UNIT_MARKER_NEEDS_RESTART)|(1u << UNIT_MARKER_NEEDS_STOP),
                          false);
                 unit_prune_cgroup(u);
                 unit_unlink_state_files(u);
-        } else if (ns != os && ns == UNIT_RELOADING)
+        } else if (UNIT_IS_ACTIVE_OR_ACTIVATING(ns))
+                SET_FLAG(u->markers, 1u << UNIT_MARKER_NEEDS_START, false);
+        else if (ns != os && ns == UNIT_RELOADING)
                 SET_FLAG(u->markers, 1u << UNIT_MARKER_NEEDS_RELOAD, false);
 
         unit_update_on_console(u);
@@ -2862,7 +2887,15 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                  * when something BindsTo= to a Type=oneshot unit, as these units go directly from starting to
                  * inactive, without ever entering started.) */
                 unit_submit_to_stop_when_bound_queue(u);
+
+                /* Maybe the activating concurrency limits now allow dispatching of another start job in this slice? */
+                unit_check_concurrency_limit(u);
         }
+
+        /* When a unit leaves the activating state (to deactivating, inactive, or active), it frees up a slot for
+         * ActivatingConcurrencyMax. Re-dispatch queued starts. */
+        if (os == UNIT_ACTIVATING && ns != UNIT_ACTIVATING)
+                unit_check_concurrency_limit(u);
 }
 
 int unit_watch_pidref(Unit *u, const PidRef *pid, bool exclusive) {
@@ -4140,7 +4173,7 @@ int unit_kill(
                         }
 
                         if (signo == SIGKILL) {
-                                r = cg_kill_kernel_sigkill(p);
+                                r = cg_kill_kernel_sigkill(p, /* ret_n_pids_killed= */ NULL);
                                 if (r >= 0) {
                                         killed = true;
                                         log_unit_info(u, "Killed unit cgroup '%s' with SIGKILL on client request.", p);
@@ -4287,6 +4320,9 @@ static int user_from_unit_name(Unit *u, char **ret) {
         _cleanup_free_ char *n = NULL;
         int r;
 
+        assert(u);
+        assert(ret);
+
         r = unit_name_to_prefix(u->id, &n);
         if (r < 0)
                 return r;
@@ -4317,19 +4353,25 @@ static int unit_verify_contexts(const Unit *u) {
                 return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "WorkingDirectory=~ is not allowed under DynamicUser=yes. Refusing.");
 
         if (ec->working_directory && path_below_api_vfs(ec->working_directory) &&
-            exec_needs_mount_namespace(ec, /* params= */ NULL, /* runtime= */ NULL))
+            exec_needs_mount_namespace(ec, /* params= */ NULL))
                 return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "WorkingDirectory= may not be below /proc/, /sys/ or /dev/ when using mount namespacing. Refusing.");
 
         if (exec_needs_pid_namespace(ec, /* params= */ NULL) && !UNIT_VTABLE(u)->notify_pidref)
                 return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "PrivatePIDs= setting is only supported for service units. Refusing.");
 
+        if ((ec->user || ec->dynamic_user || ec->group || ec->pam_name) && ec->private_users == PRIVATE_USERS_MANAGED)
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "PrivateUsers=managed may not be used in combination with User=/DynamicUser=/Group=/PAMName=. Refusing.");
+
+        if (ec->user_namespace_path && ec->private_users != PRIVATE_USERS_NO)
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "PrivateUsers= may not be used with custom UserNamespacePath=. Refusing.");
+
+        if (ec->private_pids != PRIVATE_PIDS_NO && ec->pam_name)
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "PAM is not supported under PrivatePIDs=. Refusing.");
+
         const KillContext *kc = unit_get_kill_context(u);
 
         if (ec->pam_name && kc && !IN_SET(kc->kill_mode, KILL_CONTROL_GROUP, KILL_MIXED))
                 return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "Unit has PAM enabled. Kill mode must be set to 'control-group' or 'mixed'. Refusing.");
-
-        if ((ec->user || ec->dynamic_user || ec->group || ec->pam_name) && ec->private_users == PRIVATE_USERS_MANAGED)
-                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "PrivateUsers=managed may not be used in combination with User=/DynamicUser=/Group=/PAMName=, refusing.");
 
         return 0;
 }
@@ -4340,8 +4382,8 @@ static PrivateTmp unit_get_private_var_tmp(const Unit *u, const ExecContext *c) 
         assert(c->private_tmp >= 0 && c->private_tmp < _PRIVATE_TMP_MAX);
 
         /* Disable disconnected private tmpfs on /var/tmp/ when DefaultDependencies=no and
-         * RootImage=/RootDirectory= are not set, as /var/ may be a separated partition.
-         * See issue #37258. */
+         * RootImage=/RootDirectory= are not set, as /var/ may be a separate partition.
+         * See https://github.com/systemd/systemd/issues/37258. */
 
         /* PrivateTmp=yes/no also enables/disables private tmpfs on /var/tmp/. */
         if (c->private_tmp != PRIVATE_TMP_DISCONNECTED)
@@ -4363,20 +4405,48 @@ static PrivateTmp unit_get_private_var_tmp(const Unit *u, const ExecContext *c) 
                 if (hashmap_contains(u->mounts_for[t], "/var/"))
                         return PRIVATE_TMP_DISCONNECTED;
 
-        /* Check the same but for After= with Requires=/Requisite=/Wants= or friends. */
+        /* Check the same but for After=. */
         Unit *m = manager_get_unit(u->manager, "var.mount");
-        if (!m)
-                return PRIVATE_TMP_NO;
-
-        if (!unit_has_dependency(u, UNIT_ATOM_AFTER, m))
-                return PRIVATE_TMP_NO;
-
-        if (unit_has_dependency(u, UNIT_ATOM_PULL_IN_START, m) ||
-            unit_has_dependency(u, UNIT_ATOM_PULL_IN_VERIFY, m) ||
-            unit_has_dependency(u, UNIT_ATOM_PULL_IN_START_IGNORED, m))
+        if (m && unit_has_dependency(u, UNIT_ATOM_AFTER, m))
                 return PRIVATE_TMP_DISCONNECTED;
 
         return PRIVATE_TMP_NO;
+}
+
+static PrivateTmp unit_get_private_tmp(const Unit *u, const ExecContext *c) {
+        assert(u);
+        assert(c);
+        assert(c->private_tmp >= 0 && c->private_tmp < _PRIVATE_TMP_MAX);
+
+        /* Upgrade "PrivateTmp=yes" (a.k.a. 'connected') to 'disconnected' when
+         * DefaultDependencies=no and RootImage=/RootDirectory= are not set, as /tmp/ may be a
+         * separate partition. See https://github.com/systemd/systemd/issues/28515.
+         *
+         * Note that the change goes in the opposite direction than unit_get_private_var_tmp()
+         * above. For /var/tmp/, we need to disable the setting, because we don't want to create
+         * the /var/tmp/ directory if /var/ is a mount point. We don't have this problem with
+         * /tmp/ because there is no nesting. */
+
+        if (c->private_tmp != PRIVATE_TMP_CONNECTED ||
+            u->default_dependencies ||
+            exec_context_with_rootfs(c))
+                return c->private_tmp;
+
+        /* Even if DefaultDependencies=no, honour tmpfs setting when
+         * RequiresMountsFor=/WantsMountsFor=/tmp/ is explicitly set. */
+        for (UnitMountDependencyType t = 0; t < _UNIT_MOUNT_DEPENDENCY_TYPE_MAX; t++)
+                if (hashmap_contains(u->mounts_for[t], "/tmp/"))
+                        return c->private_tmp;
+
+        /* Check the same but for After=. */
+        Unit *m = manager_get_unit(u->manager, "tmp.mount");
+        if (!m)
+                return c->private_tmp;
+
+        if (unit_has_dependency(u, UNIT_ATOM_AFTER, m))
+                return c->private_tmp;
+
+        return PRIVATE_TMP_DISCONNECTED;
 }
 
 int unit_patch_contexts(Unit *u) {
@@ -4455,7 +4525,14 @@ int unit_patch_contexts(Unit *u) {
                         ec->restrict_suid_sgid = true;
                 }
 
+                /* Table of possible combinations:
+                 *                           /var/tmp          /tmp
+                 * PrivateTmp=no             no                no
+                 * PrivateTmp=connected      connected         connected,disconnected
+                 * PrivateTmp=disconnected   disconnected,no   disconnected
+                 */
                 ec->private_var_tmp = unit_get_private_var_tmp(u, ec);
+                ec->private_tmp = unit_get_private_tmp(u, ec);
 
                 FOREACH_ARRAY(d, ec->directories, _EXEC_DIRECTORY_TYPE_MAX)
                         exec_directory_sort(d);
@@ -4836,6 +4913,42 @@ int unit_make_transient(Unit *u) {
         return 0;
 }
 
+int manager_setup_transient_unit(Manager *m, const char *name, Unit **ret, sd_bus_error *reterr_error) {
+        Unit *u;
+        int r;
+
+        assert(m);
+        assert(name);
+        assert(ret);
+
+        UnitType t = unit_name_to_type(name);
+        if (t < 0)
+                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
+                                         "Invalid unit name or type: %s", name);
+
+        if (!unit_vtable[t]->can_transient)
+                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
+                                         "Unit type %s does not support transient units.",
+                                         unit_type_to_string(t));
+
+        r = manager_load_unit(m, name, /* path= */ NULL, reterr_error, &u);
+        if (r < 0)
+                return r;
+
+        if (!unit_is_pristine(u))
+                return sd_bus_error_setf(reterr_error, BUS_ERROR_UNIT_EXISTS,
+                                         "Unit %s was already loaded or has a fragment file.", name);
+
+        /* OK, the unit failed to load and is unreferenced, now let's
+         * fill in the transient data instead */
+        r = unit_make_transient(u);
+        if (r < 0)
+                return r;
+
+        *ret = u;
+        return 0;
+}
+
 static bool ignore_leftover_process(const char *comm) {
         return comm && comm[0] == '('; /* Most likely our own helper process (PAM?), ignore */
 }
@@ -4932,6 +5045,35 @@ static int unit_kill_context_one(
         return !is_alien;
 }
 
+typedef struct PidsMaxRestore {
+        const char *cgroup_path;
+        uint64_t max;
+        Unit *unit;
+} PidsMaxRestore;
+
+static void pids_max_restore(PidsMaxRestore *p) {
+        int r;
+
+        assert(p);
+        assert(p->unit);
+
+        if (!p->cgroup_path)
+                return;
+
+        char value[DECIMAL_STR_MAX(uint64_t) + 1] = "max";
+        if (p->max != CGROUP_LIMIT_MAX)
+                xsprintf(value, "%" PRIu64, p->max);
+
+        r = cg_set_attribute(p->cgroup_path, "pids.max", value);
+        if (r < 0)
+                log_unit_warning_errno(p->unit,
+                                       r,
+                                       "Failed to restore pids.max to %s for control group %s, ignoring: %m",
+                                       value, empty_to_root(p->cgroup_path));
+
+        p->cgroup_path = NULL;
+}
+
 int unit_kill_context(Unit *u, KillOperation k) {
         bool wait_for_exit = false, send_sighup;
         cg_kill_log_func_t log_func = NULL;
@@ -4968,7 +5110,31 @@ int unit_kill_context(Unit *u, KillOperation k) {
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
         if (crt && crt->cgroup_path &&
             (c->kill_mode == KILL_CONTROL_GROUP || (c->kill_mode == KILL_MIXED && k == KILL_KILL))) {
+                _cleanup_(pids_max_restore) PidsMaxRestore state = {
+                        .unit = u,
+                };
                 _cleanup_set_free_ Set *pid_set = NULL;
+
+                /* Stop more processes from being spawned when zapping the cgroup. Restore previous state
+                 * before returning. */
+                if (sig == SIGKILL) {
+                        r = cg_get_attribute_as_uint64(crt->cgroup_path, "pids.max", &state.max);
+                        if (r < 0)
+                                log_unit_warning_errno(u,
+                                                       r,
+                                                       "Failed to read pids.max for control group %s, ignoring: %m",
+                                                       empty_to_root(crt->cgroup_path));
+                        else {
+                                r = cg_set_attribute(crt->cgroup_path, "pids.max", "0");
+                                if (r < 0)
+                                        log_unit_warning_errno(u,
+                                                               r,
+                                                               "Failed to set pids.max to 0 for control group %s, ignoring: %m",
+                                                               empty_to_root(crt->cgroup_path));
+                                else
+                                        state.cgroup_path = crt->cgroup_path;
+                        }
+                }
 
                 /* Exclude the main/control pids from being killed via the cgroup */
                 r = unit_pid_set(u, &pid_set);
@@ -5298,15 +5464,15 @@ static void unit_modify_user_nft_set(Unit *u, bool add, NFTSetSource source, uin
         if (!c)
                 return;
 
-        if (!u->manager->nfnl) {
-                r = sd_nfnl_socket_open(&u->manager->nfnl);
-                if (r < 0)
-                        return;
-        }
-
         FOREACH_ARRAY(nft_set, c->nft_set_context.sets, c->nft_set_context.n_sets) {
                 if (nft_set->source != source)
                         continue;
+
+                if (!u->manager->nfnl) {
+                        r = sd_nfnl_socket_open(&u->manager->nfnl);
+                        if (r < 0)
+                                return (void) log_once_errno(LOG_WARNING, r, "Failed to open NETLINK_NETFILTER socket, ignoring: %m");
+                }
 
                 r = nft_set_element_modify_any(u->manager->nfnl, add, nft_set->nfproto, nft_set->table, nft_set->set, &element, sizeof(element));
                 if (r < 0)
@@ -5778,12 +5944,6 @@ static int unit_export_log_level_max(Unit *u, int log_level_max, bool overwrite)
 }
 
 static int unit_export_log_extra_fields(Unit *u, const ExecContext *c) {
-        _cleanup_close_ int fd = -EBADF;
-        struct iovec *iovec;
-        const char *p;
-        char *pattern;
-        le64_t *sizes;
-        ssize_t n;
         int r;
 
         if (u->exported_log_extra_fields)
@@ -5792,8 +5952,10 @@ static int unit_export_log_extra_fields(Unit *u, const ExecContext *c) {
         if (c->n_log_extra_fields <= 0)
                 return 0;
 
-        sizes = newa(le64_t, c->n_log_extra_fields);
-        iovec = newa(struct iovec, c->n_log_extra_fields * 2);
+        assert(c->n_log_extra_fields <= LOG_EXTRA_FIELDS_MAX);
+
+        le64_t *sizes = newa(le64_t, c->n_log_extra_fields);
+        struct iovec *iovec = newa(struct iovec, c->n_log_extra_fields * 2);
 
         for (size_t i = 0; i < c->n_log_extra_fields; i++) {
                 sizes[i] = htole64(c->log_extra_fields[i].iov_len);
@@ -5802,15 +5964,14 @@ static int unit_export_log_extra_fields(Unit *u, const ExecContext *c) {
                 iovec[i*2+1] = c->log_extra_fields[i];
         }
 
-        p = strjoina("/run/systemd/units/log-extra-fields:", u->id);
-        pattern = strjoina(p, ".XXXXXX");
+        const char *p = strjoina("/run/systemd/units/log-extra-fields:", u->id);
+        char *pattern = strjoina(p, ".XXXXXX");
 
-        fd = mkostemp_safe(pattern);
+        _cleanup_close_ int fd = mkostemp_safe(pattern);
         if (fd < 0)
                 return log_unit_debug_errno(u, fd, "Failed to create extra fields file %s: %m", p);
 
-        n = writev(fd, iovec, c->n_log_extra_fields*2);
-        if (n < 0) {
+        if (writev(fd, iovec, c->n_log_extra_fields * 2) < 0) {
                 r = log_unit_debug_errno(u, errno, "Failed to write extra fields: %m");
                 goto fail;
         }
@@ -5831,8 +5992,6 @@ fail:
 }
 
 static int unit_export_log_ratelimit_interval(Unit *u, const ExecContext *c) {
-        _cleanup_free_ char *buf = NULL;
-        const char *p;
         int r;
 
         assert(u);
@@ -5844,10 +6003,10 @@ static int unit_export_log_ratelimit_interval(Unit *u, const ExecContext *c) {
         if (c->log_ratelimit.interval == 0)
                 return 0;
 
-        p = strjoina("/run/systemd/units/log-rate-limit-interval:", u->id);
+        const char *p = strjoina("/run/systemd/units/log-rate-limit-interval:", u->id);
 
-        if (asprintf(&buf, "%" PRIu64, c->log_ratelimit.interval) < 0)
-                return log_oom();
+        char buf[DECIMAL_STR_MAX(c->log_ratelimit.interval)];
+        xsprintf(buf, "%" PRIu64, c->log_ratelimit.interval);
 
         r = symlink_atomic(buf, p);
         if (r < 0)
@@ -5858,8 +6017,6 @@ static int unit_export_log_ratelimit_interval(Unit *u, const ExecContext *c) {
 }
 
 static int unit_export_log_ratelimit_burst(Unit *u, const ExecContext *c) {
-        _cleanup_free_ char *buf = NULL;
-        const char *p;
         int r;
 
         assert(u);
@@ -5871,10 +6028,10 @@ static int unit_export_log_ratelimit_burst(Unit *u, const ExecContext *c) {
         if (c->log_ratelimit.burst == 0)
                 return 0;
 
-        p = strjoina("/run/systemd/units/log-rate-limit-burst:", u->id);
+        const char *p = strjoina("/run/systemd/units/log-rate-limit-burst:", u->id);
 
-        if (asprintf(&buf, "%u", c->log_ratelimit.burst) < 0)
-                return log_oom();
+        char buf[DECIMAL_STR_MAX(c->log_ratelimit.burst)];
+        xsprintf(buf, "%u", c->log_ratelimit.burst);
 
         r = symlink_atomic(buf, p);
         if (r < 0)
@@ -6335,6 +6492,7 @@ int unit_clean(Unit *u, ExecCleanMask mask) {
 
 int unit_can_clean(Unit *u, ExecCleanMask *ret) {
         assert(u);
+        assert(ret);
 
         if (!UNIT_VTABLE(u)->clean ||
             u->load_state != UNIT_LOADED) {
@@ -7086,8 +7244,45 @@ int parse_unit_marker(const char *marker, unsigned *settings, unsigned *mask) {
         if (m < 0)
                 return -EINVAL;
 
+        /* When +- are not used, last one wins, so reset the bitmask before storing the new result */
+        if (!some_plus_minus)
+                *settings = 0;
+
         SET_FLAG(*settings, 1u << m, b);
         SET_FLAG(*mask, 1u << m, true);
 
         return some_plus_minus;
+}
+
+unsigned unit_normalize_markers(unsigned existing_markers, unsigned new_markers) {
+        /* Follow the job merging logic: when new markers conflict with existing ones, the new marker
+         * takes precedence and clears out conflicting existing markers. Then standard normalization
+         * resolves any remaining conflicts. */
+
+        /* New stop wins against all existing markers */
+        if (BIT_SET(new_markers, UNIT_MARKER_NEEDS_STOP))
+                CLEAR_BITS(existing_markers, UNIT_MARKER_NEEDS_RESTART, UNIT_MARKER_NEEDS_START, UNIT_MARKER_NEEDS_RELOAD);
+        /* New start wins against existing stop */
+        if (BIT_SET(new_markers, UNIT_MARKER_NEEDS_START))
+                CLEAR_BIT(existing_markers, UNIT_MARKER_NEEDS_STOP);
+        /* New restart wins against existing start and reload */
+        if (BIT_SET(new_markers, UNIT_MARKER_NEEDS_RESTART))
+                CLEAR_BITS(existing_markers, UNIT_MARKER_NEEDS_START, UNIT_MARKER_NEEDS_RELOAD);
+
+        unsigned markers = existing_markers | new_markers;
+
+        /* Standard normalization: reload loses against everything */
+        if (BIT_SET(markers, UNIT_MARKER_NEEDS_RESTART) || BIT_SET(markers, UNIT_MARKER_NEEDS_START) || BIT_SET(markers, UNIT_MARKER_NEEDS_STOP))
+                CLEAR_BIT(markers, UNIT_MARKER_NEEDS_RELOAD);
+        /* Stop wins against restart and reload */
+        if (BIT_SET(markers, UNIT_MARKER_NEEDS_STOP))
+                CLEAR_BITS(markers, UNIT_MARKER_NEEDS_RESTART, UNIT_MARKER_NEEDS_RELOAD);
+        /* Start wins against stop */
+        if (BIT_SET(markers, UNIT_MARKER_NEEDS_START))
+                CLEAR_BIT(markers, UNIT_MARKER_NEEDS_STOP);
+        /* Restart wins against start */
+        if (BITS_SET(markers, UNIT_MARKER_NEEDS_RESTART, UNIT_MARKER_NEEDS_START))
+                CLEAR_BIT(markers, UNIT_MARKER_NEEDS_START);
+
+        return markers;
 }

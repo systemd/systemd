@@ -3,7 +3,7 @@
 
 #include <sys/stat.h>
 
-#include "basic-forward.h"
+#include "forward.h"
 
 static inline void umaskp(mode_t *u) {
         umask(*u);

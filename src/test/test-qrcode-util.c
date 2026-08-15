@@ -7,13 +7,17 @@
 #include "tests.h"
 
 static int run(int argc, char **argv) {
+        const char *arg = argv[1] ?: "TEST";
+        _cleanup_free_ char *header = NULL;
         int r;
 
         test_setup_logging(LOG_DEBUG);
 
-        assert_se(setenv("SYSTEMD_COLORS", "24bit", 1) == 0); /* Force the qrcode to be printed */
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_COLORS", "24bit", 1)); /* Force the qrcode to be printed */
 
-        r = print_qrcode(stdout, "This should say \"TEST\"", "TEST");
+        ASSERT_OK_POSITIVE(asprintf(&header, "This should say \"%s\"", arg));
+
+        r = print_qrcode(stdout, header, arg);
         if (r == -EOPNOTSUPP)
                 return log_tests_skipped("not supported");
         if (r < 0)

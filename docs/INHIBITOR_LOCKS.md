@@ -26,14 +26,12 @@ Seven distinct inhibitor lock types may be taken, or a combination of them:
 1. _sleep_ inhibits system suspend and hibernation requested by (unprivileged) **users**
 2. _shutdown_ inhibits high-level system power-off and reboot requested by (unprivileged) **users**
 3. _idle_ inhibits that the system goes into idle mode, possibly resulting in **automatic** system suspend or shutdown depending on configuration.
+4. _handle-power-key_ inhibits the low-level (i.e. logind-internal) handling of the system power **hardware** key, allowing (possibly unprivileged) external code to handle the event instead.
+5. Similar, _handle-suspend-key_ inhibits the low-level handling of the system **hardware** suspend key.
+6. Similar, _handle-hibernate-key_ inhibits the low-level handling of the system **hardware** hibernate key.
+7. Similar, _handle-lid-switch_ inhibits the low-level handling of the systemd **hardware** lid switch.
 
-- _handle-power-key_ inhibits the low-level (i.e. logind-internal) handling of the system power **hardware** key, allowing (possibly unprivileged) external code to handle the event instead.
-
-4. Similar, _handle-suspend-key_ inhibits the low-level handling of the system **hardware** suspend key.
-5. Similar, _handle-hibernate-key_ inhibits the low-level handling of the system **hardware** hibernate key.
-6. Similar, _handle-lid-switch_ inhibits the low-level handling of the systemd **hardware** lid switch.
-
-Two different modes of locks are supported:
+Three different modes of locks are supported:
 
 1. _block_ inhibits operations entirely until the lock is released.
 If such a lock is taken the operation will fail (but still may be overridden if the user possesses the necessary privileges).

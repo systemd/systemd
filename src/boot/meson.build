@@ -12,8 +12,8 @@ libefitest = static_library(
         ),
         build_by_default : false,
         include_directories : [
-                basic_includes,
                 include_directories('.'),
+                basic_includes,
         ],
         implicit_include_directories : false,
         dependencies : userspace)
@@ -29,12 +29,15 @@ efi_fuzz_template = fuzz_template + efitest_base
 
 if conf.get('ENABLE_UKIFY') == 1
         test_hwids_section_c = custom_target(
-                input : ['hwids/device1.json', 'hwids/device2.json', 'hwids/device3.json', 'hwids/device4.json'],
+                input : ['hwids/test/device1.json', 'hwids/test/device2.json', 'hwids/test/device3.json', 'hwids/test/device4.json'],
                 output : 'test-hwids-section.c',
                 command : [files('generate-hwids-section.py'),
-                           meson.current_source_dir()/'hwids'],
+                           meson.current_source_dir()/'hwids/test'],
                 capture : true,
                 build_by_default : want_tests != 'false')
+        install_subdir('hwids',
+                       install_dir : libexecdir / 'boot/',
+                       exclude_directories : ['test'])
 else
         test_hwids_section_c = []
 endif
@@ -77,8 +80,14 @@ endif
 efi_conf = configuration_data()
 
 # import several configs from userspace
-foreach name : ['HAVE_WARNING_ZERO_LENGTH_BOUNDS', 'HAVE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT']
-        efi_conf.set10(name, conf.get(name) == 1)
+foreach name : ['HAVE_WARNING_ZERO_LENGTH_BOUNDS',
+                'HAVE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT']
+        efi_conf.set(name, conf.get(name))
+endforeach
+
+foreach attr : possible_c_attributes
+        name = 'HAVE_ATTRIBUTE_' + attr.to_upper()
+        efi_conf.set(name, conf.get(name))
 endforeach
 
 efi_conf.set10('ENABLE_TPM', get_option('tpm'))
@@ -155,8 +164,8 @@ configure_file(
 ############################################################
 
 efi_includes = [
-        fundamental_include,
         include_directories('.'),
+        fundamental_include,
         version_include,
 ]
 
@@ -261,6 +270,9 @@ efi_arch_c_args = {
         'arm'         : ['-mgeneral-regs-only'],
         # Until -mgeneral-regs-only is supported in LoongArch, use the following option instead:
         'loongarch64' : ['-mno-lsx', '-mno-lasx'],
+        # Assume F/D is usable on RISC-V because they're difficult to disable
+        'riscv32'     : ['-march=rv32imafdc_zicsr_zifencei'],
+        'riscv64'     : ['-march=rv64imafdc_zicsr_zifencei'],
         # Pass -m64/32 explicitly to make building on x32 work.
         'x86_64'      : ['-m64', '-march=x86-64', '-mno-red-zone', '-mgeneral-regs-only'],
         'x86'         : ['-m32', '-march=i686', '-mgeneral-regs-only', '-malign-double'],
@@ -300,6 +312,7 @@ endif
 libefi_sources = files(
         'chid.c',
         'console.c',
+        'cpio.c',
         'device-path-util.c',
         'devicetree.c',
         'drivers.c',
@@ -310,8 +323,10 @@ libefi_sources = files(
         'efi-string.c',
         'export-vars.c',
         'graphics.c',
+        'hii.c',
         'initrd.c',
         'measure.c',
+        'measure-smbios.c',
         'part-discovery.c',
         'pe.c',
         'random-seed.c',
@@ -331,7 +346,7 @@ systemd_boot_sources = files(
 )
 
 stub_sources = files(
-        'cpio.c',
+        'boot-secret.c',
         'linux.c',
         'splash.c',
         'stub.c',

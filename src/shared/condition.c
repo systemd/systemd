@@ -33,7 +33,9 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "glob-util.h"
+#include "hmac.h"
 #include "hostname-setup.h"
+#include "hostname-util.h"
 #include "id128-util.h"
 #include "ima-util.h"
 #include "initrd-util.h"
@@ -62,6 +64,7 @@
 #include "tomoyo-util.h"
 #include "tpm2-util.h"
 #include "uid-classification.h"
+#include "unaligned.h"
 #include "user-util.h"
 #include "virt.h"
 
@@ -82,11 +85,9 @@ Condition* condition_new(ConditionType type, const char *parameter, bool trigger
                 .negate = negate,
         };
 
-        if (parameter) {
-                c->parameter = strdup(parameter);
-                if (!c->parameter)
-                        return mfree(c);
-        }
+        c->parameter = strdup(parameter);
+        if (!c->parameter)
+                return mfree(c);
 
         return c;
 }
@@ -316,6 +317,37 @@ static int condition_test_osrelease(Condition *c, char **env) {
         return true;
 }
 
+static int condition_test_machine_tag(Condition *c, char **env) {
+        int r;
+
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_MACHINE_TAG);
+
+        _cleanup_free_ char *tags = NULL;
+        r = parse_env_file(
+                        /* f= */ NULL, etc_machine_info(),
+                        "TAGS", &tags);
+        if (r < 0 && r != -ENOENT) {
+                log_debug_errno(r, "Failed to read /etc/machine-info, ignoring: %m");
+                return false;
+        }
+
+        /* Silently ignore invalid tags, matching the Tags D-Bus property */
+        _cleanup_strv_free_ char **l = NULL;
+        r = machine_tags_from_string(tags, /* graceful= */ true, &l);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to parse machine tags '%s', ignoring: %m", tags);
+                return false;
+        }
+
+        STRV_FOREACH(i, l)
+                if (fnmatch(c->parameter, *i, /* flags= */ 0) == 0)
+                        return true;
+
+        return false;
+}
+
 static int condition_test_memory(Condition *c, char **env) {
         CompareOperator operator;
         uint64_t m, k;
@@ -398,8 +430,7 @@ static int condition_test_user(Condition *c, char **env) {
         if (streq(username, c->parameter))
                 return 1;
 
-        const char *u = c->parameter;
-        r = get_user_creds(&u, &id, NULL, NULL, NULL, USER_CREDS_ALLOW_MISSING);
+        r = get_user_creds(c->parameter, USER_CREDS_ALLOW_MISSING, NULL, &id, NULL, NULL, NULL);
         if (r < 0)
                 return 0;
 
@@ -485,26 +516,32 @@ static int condition_test_virtualization(Condition *c, char **env) {
         return v != VIRTUALIZATION_NONE && streq(c->parameter, virtualization_to_string(v));
 }
 
-static int condition_test_architecture(Condition *c, char **env) {
+static int condition_test_architecture_parameter(const char *parameter) {
         Architecture a, b;
 
-        assert(c);
-        assert(c->parameter);
-        assert(c->type == CONDITION_ARCHITECTURE);
+        assert(parameter);
 
         a = uname_architecture();
         if (a < 0)
                 return a;
 
-        if (streq(c->parameter, "native"))
+        if (streq(parameter, "native"))
                 b = native_architecture();
         else {
-                b = architecture_from_string(c->parameter);
+                b = architecture_from_string(parameter);
                 if (b < 0) /* unknown architecture? Then it's definitely not ours */
                         return false;
         }
 
         return a == b;
+}
+
+static int condition_test_architecture(Condition *c, char **env) {
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_ARCHITECTURE);
+
+        return condition_test_architecture_parameter(c->parameter);
 }
 
 #define DTCOMPAT_FILE "/proc/device-tree/compatible"
@@ -692,6 +729,82 @@ static int condition_test_host(Condition *c, char **env) {
         return true;
 }
 
+static uint32_t condition_fraction_value(sd_id128_t machine_id, const char *text) {
+        /* Maps (machine ID, text) to a value uniformly distributed over [0, UINT32_MAX], via
+         * HMAC-SHA256 keyed by the machine ID over 'text'. The machine ID keys the hash, so each
+         * machine lands at a stable but unpredictable point; 'text' selects the subset, so that
+         * distinct rollouts (different texts) pick independent subsets of a fleet. */
+        assert(text);
+
+        uint8_t res[SHA256_DIGEST_SIZE];
+        hmac_sha256(&machine_id, sizeof(machine_id), text, strlen(text), res);
+
+        return unaligned_read_le32(res);
+}
+
+static int condition_test_fraction(Condition *c, char **env) {
+        int r;
+
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_FRACTION);
+
+        /* Expected syntax: "[TAG ]PERCENT". The percentage is mandatory; the optional leading tag is used as
+         * a hash salt, so that distinct staged rollouts select independent subsets of a fleet. The condition
+         * is true for approximately PERCENT of all machines — on a given machine when its derived value
+         * falls below the threshold. This is useful for staged rollouts: hand the same unit to a whole fleet
+         * and only a fraction of it will be enabled, with each machine deciding locally and stably (no
+         * coordination required). */
+
+        const char *p = c->parameter;
+        _cleanup_free_ char *first = NULL, *second = NULL;
+
+        r = extract_first_word(&p, &first, /* separators=*/ NULL, /* flags= */ 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse ConditionFraction=%s: %m", c->parameter);
+        if (r == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "ConditionFraction= value is empty.");
+
+        r = extract_first_word(&p, &second, /* separators= */ NULL, /* flags= */ 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse ConditionFraction=%s: %m", c->parameter);
+
+        const char *tag, *percent;
+        if (r == 0) {
+                /* A single field: it's the percentage, with no tag. */
+                tag = NULL;
+                percent = first;
+        } else if (isempty(p)) {
+                /* Two fields: TAG followed by PERCENT. */
+                tag = first;
+                percent = second;
+        } else
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "ConditionFraction=%s has trailing garbage.", c->parameter);
+
+        int permyriad = parse_permyriad(percent);
+        if (permyriad < 0)
+                return log_debug_errno(permyriad, "Failed to parse percentage in ConditionFraction=%s: %m", c->parameter);
+        if (permyriad == 0)
+                return false;             /* 0% → matches no machine */
+        if (permyriad >= 10000)
+                return true;              /* 100% → matches every machine */
+
+        /* Implicitly prefix the tag with a fixed namespace string, so that an absent or empty tag
+         * still yields a well-defined, non-trivial value (never the HMAC of the empty string), and
+         * so this value space is domain-separated from other uses of the machine ID. */
+        _cleanup_free_ char *text = strjoin("systemd-fraction-", strempty(tag));
+        if (!text)
+                return log_oom_debug();
+
+        sd_id128_t mid;
+        r = sd_id128_get_machine(&mid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get machine ID for ConditionFraction=: %m");
+
+        return condition_fraction_value(mid, text) < UINT32_SCALE_FROM_PERMYRIAD(permyriad);
+}
+
 static int condition_test_ac_power(Condition *c, char **env) {
         int r;
 
@@ -741,6 +854,8 @@ static int condition_test_security(Condition *c, char **env) {
                 return detect_confidential_virtualization() > 0;
         if (streq(c->parameter, "measured-uki"))
                 return efi_measured_uki(LOG_DEBUG);
+        if (streq(c->parameter, "measured-os"))
+                return efi_measured_os(LOG_DEBUG);
 
         return false;
 }
@@ -851,28 +966,6 @@ static int condition_test_needs_update(Condition *c, char **env) {
         return timespec_load_nsec(&usr.st_mtim) > timestamp;
 }
 
-static bool in_first_boot(void) {
-        static int first_boot = -1;
-        int r;
-
-        if (first_boot >= 0)
-                return first_boot;
-
-        const char *e = secure_getenv("SYSTEMD_FIRST_BOOT");
-        if (e) {
-                r = parse_boolean(e);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to parse $SYSTEMD_FIRST_BOOT, ignoring: %m");
-                else
-                        return (first_boot = r);
-        }
-
-        r = RET_NERRNO(access("/run/systemd/first-boot", F_OK));
-        if (r < 0 && r != -ENOENT)
-                log_debug_errno(r, "Failed to check if /run/systemd/first-boot exists, assuming no: %m");
-        return r >= 0;
-}
-
 static int condition_test_first_boot(Condition *c, char **env) {
         int r;
 
@@ -887,7 +980,7 @@ static int condition_test_first_boot(Condition *c, char **env) {
         if (r < 0)
                 return r;
 
-        return in_first_boot() == r;
+        return (in_first_boot() > 0) == r;
 }
 
 static int condition_test_environment(Condition *c, char **env) {
@@ -971,11 +1064,26 @@ static int condition_test_path_is_read_write(Condition *c, char **env) {
 }
 
 static int condition_test_cpufeature(Condition *c, char **env) {
+        _cleanup_free_ char *cpu_arch = NULL, *feature = NULL;
+        int r;
+
         assert(c);
         assert(c->parameter);
         assert(c->type == CONDITION_CPU_FEATURE);
 
-        return has_cpu_with_flag(ascii_strlower(c->parameter));
+        r = split_pair(c->parameter, ".", &cpu_arch, &feature);
+        if (r >= 0) {
+                r = condition_test_architecture_parameter(cpu_arch);
+                if (r <= 0)
+                        return r;
+        } else if (r == -EINVAL) {
+                feature = strdup(c->parameter);
+                if (!feature)
+                        return -ENOMEM;
+        } else
+                return r;
+
+        return has_cpu_with_flag(ascii_strlower(feature));
 }
 
 static int condition_test_path_is_encrypted(Condition *c, char **env) {
@@ -990,6 +1098,14 @@ static int condition_test_path_is_encrypted(Condition *c, char **env) {
                 log_debug_errno(r, "Failed to determine if '%s' is encrypted: %m", c->parameter);
 
         return r > 0;
+}
+
+static int condition_test_path_is_socket(Condition *c, char **env) {
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_PATH_IS_SOCKET);
+
+        return is_socket(c->parameter) > 0;
 }
 
 static int condition_test_directory_not_empty(Condition *c, char **env) {
@@ -1223,9 +1339,45 @@ static int condition_test_kernel_module_loaded(Condition *c, char **env) {
         return true;
 }
 
-int condition_test(Condition *c, char **env) {
+typedef int (*condition_test_func_t)(Condition *c, char **env);
 
-        static int (*const condition_tests[_CONDITION_TYPE_MAX])(Condition *c, char **env) = {
+static int condition_test_impl(Condition *c, char **env, const condition_test_func_t table[]) {
+        int r, b;
+
+        assert(c);
+        assert(c->type >= 0);
+        assert(c->type < _CONDITION_TYPE_MAX);
+        assert(table);
+        assert(table[c->type]);
+
+        r = table[c->type](c, env);
+        if (r < 0) {
+                c->result = CONDITION_ERROR;
+                return r;
+        }
+
+        b = (r > 0) == !c->negate;
+        c->result = b ? CONDITION_SUCCEEDED : CONDITION_FAILED;
+        return b;
+}
+
+static int condition_test_net(Condition *c, char **env) {
+        static const condition_test_func_t table_net[_CONDITION_TYPE_MAX] = {
+                [CONDITION_KERNEL_COMMAND_LINE]      = condition_test_kernel_command_line,
+                [CONDITION_VERSION]                  = condition_test_version,
+                [CONDITION_CREDENTIAL]               = condition_test_credential,
+                [CONDITION_VIRTUALIZATION]           = condition_test_virtualization,
+                [CONDITION_HOST]                     = condition_test_host,
+                [CONDITION_ARCHITECTURE]             = condition_test_architecture,
+                [CONDITION_FIRMWARE]                 = condition_test_firmware,
+                [CONDITION_MACHINE_TAG]              = condition_test_machine_tag,
+        };
+
+        return condition_test_impl(c, env, table_net);
+}
+
+int condition_test(Condition *c, char **env) {
+        static const condition_test_func_t table[_CONDITION_TYPE_MAX] = {
                 [CONDITION_PATH_EXISTS]              = condition_test_path_exists,
                 [CONDITION_PATH_EXISTS_GLOB]         = condition_test_path_exists_glob,
                 [CONDITION_PATH_IS_DIRECTORY]        = condition_test_path_is_directory,
@@ -1233,6 +1385,7 @@ int condition_test(Condition *c, char **env) {
                 [CONDITION_PATH_IS_MOUNT_POINT]      = condition_test_path_is_mount_point,
                 [CONDITION_PATH_IS_READ_WRITE]       = condition_test_path_is_read_write,
                 [CONDITION_PATH_IS_ENCRYPTED]        = condition_test_path_is_encrypted,
+                [CONDITION_PATH_IS_SOCKET]           = condition_test_path_is_socket,
                 [CONDITION_DIRECTORY_NOT_EMPTY]      = condition_test_directory_not_empty,
                 [CONDITION_FILE_NOT_EMPTY]           = condition_test_file_not_empty,
                 [CONDITION_FILE_IS_EXECUTABLE]       = condition_test_file_is_executable,
@@ -1243,6 +1396,7 @@ int condition_test(Condition *c, char **env) {
                 [CONDITION_SECURITY]                 = condition_test_security,
                 [CONDITION_CAPABILITY]               = condition_test_capability,
                 [CONDITION_HOST]                     = condition_test_host,
+                [CONDITION_FRACTION]                 = condition_test_fraction,
                 [CONDITION_AC_POWER]                 = condition_test_ac_power,
                 [CONDITION_ARCHITECTURE]             = condition_test_architecture,
                 [CONDITION_FIRMWARE]                 = condition_test_firmware,
@@ -1256,34 +1410,22 @@ int condition_test(Condition *c, char **env) {
                 [CONDITION_ENVIRONMENT]              = condition_test_environment,
                 [CONDITION_CPU_FEATURE]              = condition_test_cpufeature,
                 [CONDITION_OS_RELEASE]               = condition_test_osrelease,
+                [CONDITION_MACHINE_TAG]              = condition_test_machine_tag,
                 [CONDITION_MEMORY_PRESSURE]          = condition_test_psi,
                 [CONDITION_CPU_PRESSURE]             = condition_test_psi,
                 [CONDITION_IO_PRESSURE]              = condition_test_psi,
                 [CONDITION_KERNEL_MODULE_LOADED]     = condition_test_kernel_module_loaded,
         };
 
-        int r, b;
-
-        assert(c);
-        assert(c->type >= 0);
-        assert(c->type < _CONDITION_TYPE_MAX);
-
-        r = condition_tests[c->type](c, env);
-        if (r < 0) {
-                c->result = CONDITION_ERROR;
-                return r;
-        }
-
-        b = (r > 0) == !c->negate;
-        c->result = b ? CONDITION_SUCCEEDED : CONDITION_FAILED;
-        return b;
+        return condition_test_impl(c, env, table);
 }
 
-bool condition_test_list(
+static bool condition_test_list_impl(
                 Condition *first,
                 char **env,
                 condition_to_string_t to_string,
                 condition_test_logger_t logger,
+                condition_test_func_t tester,
                 void *userdata) {
 
         int triggered = -1;
@@ -1298,7 +1440,7 @@ bool condition_test_list(
         LIST_FOREACH(conditions, c, first) {
                 int r;
 
-                r = condition_test(c, env);
+                r = tester(c, env);
 
                 if (logger) {
                         if (r < 0)
@@ -1328,6 +1470,26 @@ bool condition_test_list(
         return triggered != 0;
 }
 
+bool condition_test_list_net(
+                Condition *first,
+                char **env,
+                condition_to_string_t to_string,
+                condition_test_logger_t logger,
+                void *userdata) {
+
+        return condition_test_list_impl(first, env, to_string, logger, condition_test_net, userdata);
+}
+
+bool condition_test_list(
+                Condition *first,
+                char **env,
+                condition_to_string_t to_string,
+                condition_test_logger_t logger,
+                void *userdata) {
+
+        return condition_test_list_impl(first, env, to_string, logger, condition_test, userdata);
+}
+
 void condition_dump(Condition *c, FILE *f, const char *prefix, condition_to_string_t to_string) {
         assert(c);
         assert(f);
@@ -1355,6 +1517,7 @@ static const char* const _condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_FIRMWARE]                 = "ConditionFirmware",
         [CONDITION_VIRTUALIZATION]           = "ConditionVirtualization",
         [CONDITION_HOST]                     = "ConditionHost",
+        [CONDITION_FRACTION]                 = "ConditionFraction",
         [CONDITION_KERNEL_COMMAND_LINE]      = "ConditionKernelCommandLine",
         [CONDITION_VERSION]                  = "ConditionVersion",
         [CONDITION_CREDENTIAL]               = "ConditionCredential",
@@ -1370,6 +1533,7 @@ static const char* const _condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_PATH_IS_MOUNT_POINT]      = "ConditionPathIsMountPoint",
         [CONDITION_PATH_IS_READ_WRITE]       = "ConditionPathIsReadWrite",
         [CONDITION_PATH_IS_ENCRYPTED]        = "ConditionPathIsEncrypted",
+        [CONDITION_PATH_IS_SOCKET]           = "ConditionPathIsSocket",
         [CONDITION_DIRECTORY_NOT_EMPTY]      = "ConditionDirectoryNotEmpty",
         [CONDITION_FILE_NOT_EMPTY]           = "ConditionFileNotEmpty",
         [CONDITION_FILE_IS_EXECUTABLE]       = "ConditionFileIsExecutable",
@@ -1381,6 +1545,7 @@ static const char* const _condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_ENVIRONMENT]              = "ConditionEnvironment",
         [CONDITION_CPU_FEATURE]              = "ConditionCPUFeature",
         [CONDITION_OS_RELEASE]               = "ConditionOSRelease",
+        [CONDITION_MACHINE_TAG]              = "ConditionMachineTag",
         [CONDITION_MEMORY_PRESSURE]          = "ConditionMemoryPressure",
         [CONDITION_CPU_PRESSURE]             = "ConditionCPUPressure",
         [CONDITION_IO_PRESSURE]              = "ConditionIOPressure",
@@ -1410,6 +1575,7 @@ static const char* const _assert_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_FIRMWARE]                 = "AssertFirmware",
         [CONDITION_VIRTUALIZATION]           = "AssertVirtualization",
         [CONDITION_HOST]                     = "AssertHost",
+        [CONDITION_FRACTION]                 = "AssertFraction",
         [CONDITION_KERNEL_COMMAND_LINE]      = "AssertKernelCommandLine",
         [CONDITION_VERSION]                  = "AssertVersion",
         [CONDITION_CREDENTIAL]               = "AssertCredential",
@@ -1425,6 +1591,7 @@ static const char* const _assert_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_PATH_IS_MOUNT_POINT]      = "AssertPathIsMountPoint",
         [CONDITION_PATH_IS_READ_WRITE]       = "AssertPathIsReadWrite",
         [CONDITION_PATH_IS_ENCRYPTED]        = "AssertPathIsEncrypted",
+        [CONDITION_PATH_IS_SOCKET]           = "AssertPathIsSocket",
         [CONDITION_DIRECTORY_NOT_EMPTY]      = "AssertDirectoryNotEmpty",
         [CONDITION_FILE_NOT_EMPTY]           = "AssertFileNotEmpty",
         [CONDITION_FILE_IS_EXECUTABLE]       = "AssertFileIsExecutable",
@@ -1436,6 +1603,7 @@ static const char* const _assert_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_ENVIRONMENT]              = "AssertEnvironment",
         [CONDITION_CPU_FEATURE]              = "AssertCPUFeature",
         [CONDITION_OS_RELEASE]               = "AssertOSRelease",
+        [CONDITION_MACHINE_TAG]              = "AssertMachineTag",
         [CONDITION_MEMORY_PRESSURE]          = "AssertMemoryPressure",
         [CONDITION_CPU_PRESSURE]             = "AssertCPUPressure",
         [CONDITION_IO_PRESSURE]              = "AssertIOPressure",

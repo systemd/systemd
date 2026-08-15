@@ -19,7 +19,7 @@
 #include "unit-def.h"
 #include "unit-name.h"
 
-int verb_unit_gdb(int argc, char *argv[], void *userdata) {
+int verb_unit_gdb(int argc, char *argv[], uintptr_t _data, void *userdata) {
         static const struct sigaction sa = {
                 .sa_sigaction = sigterm_process_group_handler,
                 .sa_flags = SA_SIGINFO,

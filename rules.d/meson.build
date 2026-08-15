@@ -18,6 +18,7 @@ rules = [
                '60-persistent-alsa.rules',
                '60-persistent-hidraw.rules',
                '60-persistent-input.rules',
+               '60-persistent-media-controller.rules',
                '60-persistent-storage-mtd.rules',
                '60-persistent-storage-tape.rules',
                '60-persistent-v4l.rules',
@@ -39,14 +40,17 @@ rules = [
                '90-iocost.rules',
               )],
 
-        [files('80-drivers.rules'),
-         conf.get('HAVE_KMOD') == 1],
+        [files('60-tpm2-id.rules'),
+         conf.get('HAVE_TPM2') == 1],
 
         [files('70-memory.rules'),
          conf.get('HAVE_DMI') == 1],
 
         [files('70-power-switch.rules'),
-         conf.get('ENABLE_LOGIND') == 1]
+         conf.get('ENABLE_LOGIND') == 1],
+
+        [files('80-drivers.rules'),
+         conf.get('HAVE_KMOD') == 1],
 ]
 
 all_rules = []

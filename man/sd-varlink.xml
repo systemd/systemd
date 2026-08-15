@@ -55,6 +55,84 @@
     makes the functionality implemented by sd-varlink available from the command line.</para>
   </refsect1>
 
+  <refsect1>
+    <title>Recognizing Varlink Socket Inodes</title>
+
+    <para>On kernels that support extended attributes on socket inodes (available since Linux 7.0),
+    sd-varlink automatically tags the <constant>AF_UNIX</constant> socket inodes it creates and manages with
+    the <varname>user.varlink</varname> extended attribute. The attribute records the role the socket plays
+    in the Varlink communication, allowing other processes to discover and classify Varlink sockets, for
+    example via <command>varlinkctl list-sockets</command> (see
+    <citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>).</para>
+
+    <para>Four distinct roles are defined:</para>
+
+    <table>
+      <title><varname>user.varlink</varname> extended attribute roles</title>
+
+      <tgroup cols='2'>
+        <colspec colname='value' />
+        <colspec colname='meaning' />
+        <thead>
+          <row>
+            <entry>Attribute value</entry>
+            <entry>Meaning</entry>
+          </row>
+        </thead>
+        <tbody>
+          <row>
+            <entry><literal>client</literal></entry>
+            <entry>Set on the connecting end of a connection, i.e. a socket created via <function>socket()</function> + <function>connect()</function>. Only for inodes on the anonymous socket file system (<literal>sockfs</literal>).</entry>
+          </row>
+          <row>
+            <entry><literal>server</literal></entry>
+            <entry>Set on the serving end of a connection, i.e. a socket obtained via <function>accept()</function> on a listening socket. Only for inodes on the anonymous socket file system (<literal>sockfs</literal>).</entry>
+          </row>
+          <row>
+            <entry><literal>listen</literal></entry>
+            <entry>Set on a listening socket, i.e. a socket created via <function>socket()</function> + <function>listen()</function>. Only for inodes on the anonymous socket file system (<literal>sockfs</literal>).</entry>
+          </row>
+          <row>
+            <entry><literal>entrypoint</literal></entry>
+            <entry>Set on the entrypoint socket inode, i.e. the socket node bound into the regular file system that clients connect to. Unlike the other three, this attribute lives on a real file-system inode (not on <literal>sockfs</literal>) and is hence visible to any process that can resolve the socket path.</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+
+    <para>Note that for socket activated Varlink services it is recommended to set these extended attributes
+    via <varname>XAttrEntryPoint=</varname>, <varname>XAttrListen=</varname> and
+    <varname>XAttrAccept=</varname> settings on the socket units, see
+    <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details. Specifically, for socket units for which <varname>Accept=no</varname> is set:</para>
+
+    <programlisting>…
+[Socket]
+SocketMode=0644
+XAttrEntryPoint=user.varlink=entrypoint
+XAttrListen=user.varlink=listen
+…</programlisting>
+
+    <para>For socket units which have <varname>Accept=yes</varname>:</para>
+
+    <programlisting>…
+[Socket]
+Accept=yes
+SocketMode=0644
+XAttrEntryPoint=user.varlink=entrypoint
+XAttrListen=user.varlink=listen
+XAttrAccept=user.varlink=server
+…</programlisting>
+
+    <para>Note that for Varlink sockets that shall not be world-accessible it is recommended to unset the
+    relevant "w" bits in the socket access mode, but to keep the relevant "r" bits set. As the access check
+    done by <function>connect()</function> looks for the "w" bits, this does not make the service
+    unnecessarily accessible, however it has the benefit that the extended attributes that identify the
+    socket as Varlink-related may still be read by other users (as that's restricted by the "r" bit). Or in
+    other words, it's recommended to set <literal>SocketMode=0644</literal> for services that shall not be
+    accessible to arbitrary users, rather than <literal>SocketMode=0600</literal>.</para>
+  </refsect1>
+
   <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
@@ -87,6 +165,7 @@
       <member><citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>sd-json</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
       <member><citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
     </simplelist></para>

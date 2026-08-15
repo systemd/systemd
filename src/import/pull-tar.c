@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "sd-daemon.h"
 #include "sd-event.h"
 #include "sd-varlink.h"
@@ -14,7 +16,7 @@
 #include "fs-util.h"
 #include "install-file.h"
 #include "log.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "pretty-print.h"
@@ -151,9 +153,6 @@ int tar_pull_new(
                 .progress_ratelimit = { 100 * USEC_PER_MSEC, 1 },
         };
 
-        p->glue->on_finished = pull_job_curl_on_finished;
-        p->glue->userdata = p;
-
         *ret = TAKE_PTR(p);
 
         return 0;
@@ -280,7 +279,7 @@ static int tar_pull_make_local_copy(TarPull *p) {
                         _cleanup_(sd_varlink_unrefp) sd_varlink *mountfsd_link = NULL;
                         r = mountfsd_connect(&mountfsd_link);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to connect to mountsd: %m");
+                                return log_error_errno(r, "Failed to connect to mountfsd: %m");
 
                         /* Usually, tar_pull_job_on_open_disk_tar() would allocate ->tree_fd for us, but if
                          * already downloaded the image before, and are just making a copy of the original
@@ -344,7 +343,7 @@ static int tar_pull_make_local_copy(TarPull *p) {
                                                 BTRFS_SNAPSHOT_FALLBACK_DIRECTORY|
                                                 BTRFS_SNAPSHOT_RECURSIVE);
                         else
-                                r = copy_tree(p->final_path, t, UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_HARDLINKS, NULL, NULL);
+                                r = copy_tree(p->final_path, t, UID_INVALID, GID_INVALID, COPY_HARDLINKS, NULL, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create original download image: %m");
                 }
@@ -383,7 +382,6 @@ static int tar_pull_make_local_copy(TarPull *p) {
                                         p->settings_path,
                                         local_settings,
                                         0664,
-                                        COPY_REFLINK |
                                         (FLAGS_SET(p->flags, IMPORT_FORCE) ? COPY_REPLACE : 0) |
                                         (FLAGS_SET(p->flags, IMPORT_SYNC) ? COPY_FSYNC_FULL : 0));
                 else
@@ -430,7 +428,7 @@ static void tar_pull_job_on_finished(PullJob *j) {
                 clear_progress_bar(/* prefix= */ NULL);
 
                 if (j == p->tar_job) {
-                        if (j->error == ENOMEDIUM) /* HTTP 404 */
+                        if (j->error == -ENOMEDIUM) /* HTTP 404 */
                                 r = log_error_errno(j->error, "Failed to retrieve image file. (Wrong URL?)");
                         else
                                 r = log_error_errno(j->error, "Failed to retrieve image file.");
@@ -443,7 +441,7 @@ static void tar_pull_job_on_finished(PullJob *j) {
                 else if (j == p->settings_job)
                         log_info_errno(j->error, "Settings file could not be retrieved, proceeding without.");
                 else
-                        assert("unexpected job");
+                        assert_not_reached();
         }
 
         /* This is invoked if either the download completed successfully, or the download was skipped because
@@ -453,24 +451,11 @@ static void tar_pull_job_on_finished(PullJob *j) {
                 return;
 
         if (p->signature_job && p->signature_job->error != 0) {
-                VerificationStyle style;
-
                 assert(p->checksum_job);
 
-                r = verification_style_from_url(p->checksum_job->url, &style);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to determine verification style from checksum URL: %m");
-                        goto finish;
-                }
-
-                if (style == VERIFICATION_PER_DIRECTORY) { /* A failed signature file download only matters
-                                                            * in per-directory verification mode, since only
-                                                            * then the signature is detached, and thus a file
-                                                            * of its own. */
-                        r = log_error_errno(p->signature_job->error,
-                                            "Failed to retrieve signature file, cannot verify. (Try --verify=no?)");
-                        goto finish;
-                }
+                r = log_error_errno(p->signature_job->error,
+                                    "Failed to retrieve signature file, cannot verify. (Try --verify=no?)");
+                goto finish;
         }
 
         pull_job_close_disk_fd(p->tar_job);

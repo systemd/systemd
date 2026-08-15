@@ -25,12 +25,12 @@ jobs:
     steps:
       - id: artifact
         name: Download Pull Request Metadata artifact
-        uses: redhat-plumbers-in-action/download-artifact@103e5f882470b59e9d71c80ecb2d0a0b91a7c43b
+        uses: redhat-plumbers-in-action/download-artifact@03d5b806a9dca9928eb5628833fe81a0558f23bb
         with:
           name: Pull Request Metadata
 
       - name: Repository checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
           persist-credentials: false

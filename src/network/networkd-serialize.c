@@ -5,7 +5,6 @@
 #include "daemon-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "hashmap.h"
 #include "iovec-util.h"
 #include "json-util.h"
@@ -102,28 +101,6 @@ int manager_set_serialization_fd(Manager *manager, int fd, const char *name) {
 }
 
 static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_network_config_source, NetworkConfigSource, network_config_source_from_string);
-
-static int json_dispatch_address_family(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        int r, *i = ASSERT_PTR(userdata);
-        int64_t i64;
-
-        assert_return(variant, -EINVAL);
-
-        if (FLAGS_SET(flags, SD_JSON_RELAX) && sd_json_variant_is_null(variant)) {
-                *i = AF_UNSPEC;
-                return 0;
-        }
-
-        r = sd_json_dispatch_int64(name, variant, flags, &i64);
-        if (r < 0)
-                return r;
-
-        if (!IN_SET(i64, AF_INET, AF_INET6) && !(FLAGS_SET(flags, SD_JSON_RELAX) && i64 == AF_UNSPEC))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE), "JSON field '%s' out of bounds for an address family.", strna(name));
-
-        *i = (int) i64;
-        return 0;
-}
 
 typedef struct AddressParam {
         int family;
@@ -442,16 +419,12 @@ int manager_deserialize(Manager *manager) {
 
         log_debug("Deserializing...");
 
-        _cleanup_fclose_ FILE *f = take_fdopen(&fd, "r");
-        if (!f)
-                return log_debug_errno(errno, "Failed to fdopen() serialization file descriptor: %m");
-
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         unsigned err_line = 0, err_column = 0;
-        r = sd_json_parse_file(
-                        f,
+        r = sd_json_parse_fd(
                         /* path= */ NULL,
-                        /* flags= */ 0,
+                        TAKE_FD(fd),
+                        SD_JSON_PARSE_DONATE_FD,
                         &v,
                         &err_line,
                         &err_column);

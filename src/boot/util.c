@@ -4,10 +4,10 @@
 
 #include "efi-log.h"
 #include "efi-string.h"
-#include "memory-util-fundamental.h"
+#include "memory-util.h"
 #include "proto/device-path.h"
 #include "proto/simple-text-io.h"
-#include "string-util-fundamental.h"
+#include "string-util.h"
 #include "util.h"
 #include "version.h"
 
@@ -195,6 +195,32 @@ EFI_STATUS file_read(
         return file_handle_read(handle, offset, size, ret, ret_size);
 }
 
+EFI_STATUS load_file_from_simple_filesystem(const EFI_DEVICE_PATH *device_path, char **file_buffer, size_t *file_size) {
+        EFI_STATUS err;
+        EFI_HANDLE device_handle;
+        EFI_DEVICE_PATH *file_dp = (EFI_DEVICE_PATH *) device_path;
+
+        assert(device_path);
+        assert(file_buffer);
+        assert(file_size);
+
+        err = BS->LocateDevicePath(MAKE_GUID_PTR(EFI_SIMPLE_FILE_SYSTEM_PROTOCOL), &file_dp, &device_handle);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        _cleanup_file_close_ EFI_FILE *root = NULL;
+        err = open_volume(device_handle, &root);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        _cleanup_free_ char16_t *dp_str = NULL;
+        err = device_path_to_str(file_dp, &dp_str);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        return file_read(root, dp_str, 0, 0, file_buffer, file_size);
+}
+
 void set_attribute_safe(size_t attr) {
         /* Various UEFI implementations suppress color changes from a color to the same color. Often, we want
          * to force out the color change though, hence change the color here once, and then back. We simply
@@ -272,6 +298,28 @@ EFI_STATUS get_file_info(EFI_FILE *handle, EFI_FILE_INFO **ret, size_t *ret_size
         return EFI_SUCCESS;
 }
 
+EFI_STATUS get_volume_ro(EFI_FILE *handle, bool *ret) {
+        size_t size = offsetof(EFI_FILE_SYSTEM_INFO, VolumeLabel) + 256U * sizeof(char16_t);
+        _cleanup_free_ EFI_FILE_SYSTEM_INFO *fsi = NULL;
+        EFI_STATUS err;
+
+        assert(handle);
+        assert(ret);
+
+        fsi = xmalloc(size);
+        err = handle->GetInfo(handle, MAKE_GUID_PTR(EFI_FILE_SYSTEM_INFO), &size, fsi);
+        if (err == EFI_BUFFER_TOO_SMALL) {
+                free(fsi);
+                fsi = xmalloc(size);  /* GetInfo tells us the required size, let's use that now */
+                err = handle->GetInfo(handle, MAKE_GUID_PTR(EFI_FILE_SYSTEM_INFO), &size, fsi);
+        }
+        if (err != EFI_SUCCESS)
+                return err;
+
+        *ret = fsi->ReadOnly;
+        return EFI_SUCCESS;
+}
+
 EFI_STATUS readdir(
                 EFI_FILE *handle,
                 EFI_FILE_INFO **buffer,
@@ -344,6 +392,7 @@ EFI_STATUS open_directory(
         EFI_STATUS err;
 
         assert(root);
+        assert(ret);
 
         /* Opens a file, and then verifies it is actually a directory */
 
@@ -375,6 +424,8 @@ __attribute__((noinline)) void notify_debugger(const char *identity, volatile bo
                 asm volatile("pause");
 #  elif defined(__aarch64__)
                 asm volatile("wfi");
+#  elif defined(__riscv)
+                asm volatile(".insn i 0x0F, 0, x0, x0, 0x010");
 #  else
                 BS->Stall(5000);
 #  endif

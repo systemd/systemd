@@ -4,7 +4,7 @@
 #include <poll.h>
 #include <sys/mman.h>
 #include <sys/mount.h>
-#include <sys/prctl.h>
+#include <sys/prctl.h> /* IWYU pragma: keep */
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -18,11 +18,13 @@
 #include "cgroup-setup.h"
 #include "coredump-util.h"
 #include "cpu-set-util.h"
+#include "creds-util.h"
 #include "dissect-image.h"
 #include "dynamic-user.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "escape.h"
+#include "exec-credential.h"
 #include "execute.h"
 #include "execute-serialize.h"
 #include "fd-util.h"
@@ -55,6 +57,7 @@
 #include "serialize.h"
 #include "set.h"
 #include "sort-util.h"
+#include "specifier.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -113,7 +116,7 @@ int exec_context_apply_tty_size(
         if (rows == UINT_MAX && cols == UINT_MAX &&
             exec_context_shall_ansi_seq_reset(context) &&
             isatty_safe(input_fd)) {
-                r = terminal_get_size_by_dsr(input_fd, output_fd, &rows, &cols);
+                r = terminal_get_size(input_fd, output_fd, &rows, &cols, /* try_dsr= */ true, /* try_csi18= */ false);
                 if (r < 0)
                         log_debug_errno(r, "Failed to get terminal size by DSR, ignoring: %m");
         }
@@ -256,11 +259,7 @@ bool exec_needs_pid_namespace(const ExecContext *context, const ExecParameters *
         return context->private_pids != PRIVATE_PIDS_NO && namespace_type_supported(NAMESPACE_PID);
 }
 
-bool exec_needs_mount_namespace(
-                const ExecContext *context,
-                const ExecParameters *params,
-                const ExecRuntime *runtime) {
-
+bool exec_needs_mount_namespace(const ExecContext *context, const ExecParameters *params) {
         assert(context);
 
         if (context->root_image ||
@@ -295,13 +294,8 @@ bool exec_needs_mount_namespace(
         if (!IN_SET(context->mount_propagation_flag, 0, MS_SHARED))
                 return true;
 
-        if (context->private_tmp == PRIVATE_TMP_DISCONNECTED)
-                return true;
-
-        if (context->private_tmp == PRIVATE_TMP_CONNECTED && runtime && runtime->shared && (runtime->shared->tmp_dir || runtime->shared->var_tmp_dir))
-                return true;
-
         if (context->private_devices ||
+            context->private_tmp != PRIVATE_TMP_NO || /* no need to check for private_var_tmp here, private_tmp is never demoted to "no" */
             context->private_mounts > 0 ||
             (context->private_mounts < 0 && exec_needs_network_namespace(context)) ||
             context->protect_system != PROTECT_SYSTEM_NO ||
@@ -485,7 +479,6 @@ int exec_spawn(
         assert(unit);
         assert(unit->manager);
         assert(unit->manager->executor_fd >= 0);
-        assert(unit->manager->executor_path);
         assert(command);
         assert(context);
         assert(params);
@@ -586,7 +579,7 @@ int exec_spawn(
         /* The executor binary is pinned, to avoid compatibility problems during upgrades. */
         r = posix_spawn_wrapper(
                         FORMAT_PROC_FD_PATH(unit->manager->executor_fd),
-                        STRV_MAKE(unit->manager->executor_path,
+                        STRV_MAKE("systemd-executor",
                                   "--deserialize", serialization_fd_number,
                                   "--log-level", max_log_levels,
                                   "--log-target", log_target_to_string(manager_get_executor_log_target(unit->manager))),
@@ -705,10 +698,10 @@ void exec_context_done(ExecContext *c) {
         bind_mount_free_many(c->bind_mounts, c->n_bind_mounts);
         c->bind_mounts = NULL;
         c->n_bind_mounts = 0;
-        mount_image_free_many(c->mount_images, c->n_mount_images);
+        mount_image_free_array(c->mount_images, c->n_mount_images);
         c->mount_images = NULL;
         c->n_mount_images = 0;
-        mount_image_free_many(c->extension_images, c->n_extension_images);
+        mount_image_free_array(c->extension_images, c->n_extension_images);
         c->extension_images = NULL;
         c->n_extension_images = 0;
         c->extension_directories = strv_free(c->extension_directories);
@@ -760,6 +753,88 @@ void exec_context_done(ExecContext *c) {
         c->extension_image_policy = image_policy_free(c->extension_image_policy);
 
         c->private_hostname = mfree(c->private_hostname);
+}
+
+int exec_context_apply_environment(
+                Unit *u,
+                ExecContext *c,
+                char **env,
+                UnitWriteFlags flags) {
+
+        assert(u);
+        assert(c);
+
+        if (strv_length(env) > ENVIRONMENT_ASSIGNMENTS_MAX)
+                return -E2BIG;
+        if (!strv_env_is_valid(env))
+                return -EINVAL;
+
+        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                if (strv_isempty(env)) {
+                        c->environment = strv_free(c->environment);
+                        unit_write_setting(u, flags, "Environment", "Environment=");
+                } else {
+                        _cleanup_free_ char *joined = unit_concat_strv(env, UNIT_ESCAPE_SPECIFIERS|UNIT_ESCAPE_C);
+                        if (!joined)
+                                return -ENOMEM;
+
+                        char **e = strv_env_merge(c->environment, env);
+                        if (!e)
+                                return -ENOMEM;
+
+                        strv_free_and_replace(c->environment, e);
+                        unit_write_settingf(u, flags, "Environment", "Environment=%s", joined);
+                }
+        }
+
+        return 0;
+}
+
+int exec_context_apply_set_credential(
+                Unit *u,
+                ExecContext *c,
+                const char *id,
+                const void *data,
+                size_t size,
+                bool encrypted,
+                UnitWriteFlags flags,
+                const char **reterr_message) {
+
+        int r;
+
+        assert(u);
+        assert(c);
+        assert(id);
+        assert(data || size == 0);
+
+        if (!credential_name_valid(id)) {
+                if (reterr_message)
+                        *reterr_message = "Credential ID is invalid";
+                return -EINVAL;
+        }
+
+        if (UNIT_WRITE_FLAGS_NOOP(flags))
+                return 0;
+
+        _cleanup_free_ void *copy = memdup(data, size);
+        if (!copy)
+                return -ENOMEM;
+
+        _cleanup_free_ char *escaped_id = specifier_escape(id);
+        if (!escaped_id)
+                return -ENOMEM;
+
+        _cleanup_free_ char *escaped_value = cescape_length(data, size);
+        if (!escaped_value)
+                return -ENOMEM;
+
+        r = exec_context_put_set_credential(c, id, TAKE_PTR(copy), size, encrypted);
+        if (r < 0)
+                return r;
+
+        const char *name = encrypted ? "SetCredentialEncrypted" : "SetCredential";
+        unit_write_settingf(u, flags, name, "%s=%s:%s", name, escaped_id, escaped_value);
+        return 0;
 }
 
 int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_prefix) {
@@ -1152,7 +1227,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 prefix, protect_hostname_to_string(c->protect_hostname), c->private_hostname ? ":" : "", strempty(c->private_hostname),
                 prefix, protect_proc_to_string(c->protect_proc),
                 prefix, proc_subset_to_string(c->proc_subset),
-                prefix, memory_thp_to_string(c->memory_thp),
+                prefix, exec_memory_thp_to_string(c->memory_thp),
                 prefix, private_bpf_to_string(c->private_bpf));
 
         if (c->private_bpf == PRIVATE_BPF_YES) {
@@ -1500,7 +1575,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                         fputc('~', f);
 
 #if HAVE_SECCOMP
-                if (dlopen_libseccomp() >= 0) {
+                if (dlopen_libseccomp(LOG_DEBUG) >= 0) {
                         void *id, *val;
                         bool first = true;
                         HASHMAP_FOREACH_KEY(val, id, c->syscall_filter) {
@@ -1897,9 +1972,11 @@ uint64_t exec_context_get_timer_slack_nsec(const ExecContext *c) {
         if (c->timer_slack_nsec != NSEC_INFINITY)
                 return c->timer_slack_nsec;
 
-        r = prctl(PR_GET_TIMERSLACK);
-        if (r < 0)
+        r = prctl_safe(PR_GET_TIMERSLACK, 0, 0, 0, 0);
+        if (r < 0) {
                 log_debug_errno(r, "Failed to get timer slack, ignoring: %m");
+                return 0;
+        }
 
         return (uint64_t) MAX(r, 0);
 }
@@ -1919,7 +1996,7 @@ char** exec_context_get_syscall_filter(const ExecContext *c) {
         assert(c);
 
 #if HAVE_SECCOMP
-        if (dlopen_libseccomp() < 0)
+        if (dlopen_libseccomp(LOG_DEBUG) < 0)
                 return strv_new(NULL);
 
         void *id, *val;
@@ -1939,14 +2016,12 @@ char** exec_context_get_syscall_filter(const ExecContext *c) {
 
                 if (num >= 0) {
                         e = seccomp_errno_or_action_to_string(num);
-                        if (e) {
+                        if (e)
                                 s = strjoin(name, ":", e);
-                                if (!s)
-                                        return NULL;
-                        } else {
-                                if (asprintf(&s, "%s:%d", name, num) < 0)
-                                        return NULL;
-                        }
+                        else
+                                s = asprintf_safe("%s:%d", name, num);
+                        if (!s)
+                                return NULL;
                 } else
                         s = TAKE_PTR(name);
 
@@ -1990,7 +2065,7 @@ char** exec_context_get_syscall_log(const ExecContext *c) {
         assert(c);
 
 #if HAVE_SECCOMP
-        if (dlopen_libseccomp() < 0)
+        if (dlopen_libseccomp(LOG_DEBUG) < 0)
                 return strv_new(NULL);
 
         void *id, *val;
@@ -2383,6 +2458,8 @@ static int exec_shared_runtime_add(
 
         assert(m);
         assert(id);
+        assert(tmp_dir);
+        assert(var_tmp_dir);
 
         /* tmp_dir, var_tmp_dir, {net,ipc}ns_storage_socket fds are donated on success */
 
@@ -2394,7 +2471,6 @@ static int exec_shared_runtime_add(
         if (r < 0)
                 return r;
 
-        assert(!!rt->tmp_dir == !!rt->var_tmp_dir); /* We require both to be set together */
         rt->tmp_dir = TAKE_PTR(*tmp_dir);
         rt->var_tmp_dir = TAKE_PTR(*var_tmp_dir);
 
@@ -2437,16 +2513,25 @@ static int exec_shared_runtime_make(
         assert(id);
 
         /* It is not necessary to create ExecSharedRuntime object. */
-        if (!exec_needs_network_namespace(c) && !exec_needs_ipc_namespace(c) && c->private_tmp != PRIVATE_TMP_CONNECTED) {
+        if (!c->user_namespace_path && !exec_needs_network_namespace(c) && !exec_needs_ipc_namespace(c) &&
+            c->private_tmp != PRIVATE_TMP_CONNECTED && c->private_var_tmp != PRIVATE_TMP_CONNECTED) {
                 *ret = NULL;
                 return 0;
         }
 
         if (c->private_tmp == PRIVATE_TMP_CONNECTED &&
-            !(prefixed_path_strv_contains(c->inaccessible_paths, "/tmp") &&
-              (prefixed_path_strv_contains(c->inaccessible_paths, "/var/tmp") ||
-               prefixed_path_strv_contains(c->inaccessible_paths, "/var")))) {
-                r = setup_tmp_dirs(id, &tmp_dir, &var_tmp_dir);
+            !prefixed_path_strv_contains(c->inaccessible_paths, "/tmp")) {
+
+                r = setup_tmp_dir_one(id, "/tmp", &tmp_dir);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->private_var_tmp == PRIVATE_TMP_CONNECTED &&
+            !prefixed_path_strv_contains(c->inaccessible_paths, "/var/tmp") &&
+            !prefixed_path_strv_contains(c->inaccessible_paths, "/var")) {
+
+                r = setup_tmp_dir_one(id, "/var/tmp", &var_tmp_dir);
                 if (r < 0)
                         return r;
         }
@@ -2665,7 +2750,8 @@ int exec_shared_runtime_deserialize_compat(Unit *u, const char *key, const char 
 int exec_shared_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds) {
         _cleanup_free_ char *tmp_dir = NULL, *var_tmp_dir = NULL;
         char *id = NULL;
-        int r, userns_fdpair[] = {-1, -1}, netns_fdpair[] = {-1, -1}, ipcns_fdpair[] = {-1, -1};
+        _cleanup_close_pair_ int userns_fdpair[] = EBADF_PAIR, netns_fdpair[] = EBADF_PAIR, ipcns_fdpair[] = EBADF_PAIR;
+        int r;
         const char *p, *v = ASSERT_PTR(value);
         size_t n;
 
@@ -2937,7 +3023,6 @@ void exec_params_deep_clear(ExecParameters *p) {
         p->stdin_fd = safe_close(p->stdin_fd);
         p->stdout_fd = safe_close(p->stdout_fd);
         p->stderr_fd = safe_close(p->stderr_fd);
-        p->root_directory_fd = safe_close(p->root_directory_fd);
 
         p->notify_socket = mfree(p->notify_socket);
 
@@ -3099,9 +3184,10 @@ static const char* const exec_utmp_mode_table[_EXEC_UTMP_MODE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(exec_utmp_mode, ExecUtmpMode);
 
 static const char* const exec_preserve_mode_table[_EXEC_PRESERVE_MODE_MAX] = {
-        [EXEC_PRESERVE_NO]      = "no",
-        [EXEC_PRESERVE_YES]     = "yes",
-        [EXEC_PRESERVE_RESTART] = "restart",
+        [EXEC_PRESERVE_NO]         = "no",
+        [EXEC_PRESERVE_YES]        = "yes",
+        [EXEC_PRESERVE_RESTART]    = "restart",
+        [EXEC_PRESERVE_ON_SUCCESS] = "on-success",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(exec_preserve_mode, ExecPreserveMode, EXEC_PRESERVE_YES);
@@ -3148,11 +3234,11 @@ static const char* const exec_keyring_mode_table[_EXEC_KEYRING_MODE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(exec_keyring_mode, ExecKeyringMode);
 
-static const char* const memory_thp_table[_MEMORY_THP_MAX] = {
-        [MEMORY_THP_INHERIT] = "inherit",
-        [MEMORY_THP_DISABLE] = "disable",
-        [MEMORY_THP_MADVISE] = "madvise",
-        [MEMORY_THP_SYSTEM]  = "system",
+static const char* const exec_memory_thp_table[_EXEC_MEMORY_THP_MAX] = {
+        [EXEC_MEMORY_THP_INHERIT] = "inherit",
+        [EXEC_MEMORY_THP_DISABLE] = "disable",
+        [EXEC_MEMORY_THP_MADVISE] = "madvise",
+        [EXEC_MEMORY_THP_SYSTEM]  = "system",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(memory_thp, MemoryTHP);
+DEFINE_STRING_TABLE_LOOKUP(exec_memory_thp, ExecMemoryTHP);

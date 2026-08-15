@@ -10,6 +10,7 @@ executables += [
                         libblkid_cflags,
                         libcryptsetup_cflags,
                         libmount_cflags,
+                        libselinux_cflags,
                 ],
         },
 ]

@@ -65,6 +65,8 @@ void* mempool_alloc_tile(struct mempool *mp) {
 void* mempool_alloc0_tile(struct mempool *mp) {
         void *p;
 
+        assert(mp);
+
         p = mempool_alloc_tile(mp);
         if (p)
                 memzero(p, mp->tile_size);

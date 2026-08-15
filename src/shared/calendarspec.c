@@ -15,7 +15,7 @@
 #include "strv.h"
 #include "time-util.h"
 
-#define BITS_WEEKDAYS 127
+#define BITS_WEEKDAYS ((1 << _WEEKDAY_MAX) - 1)
 #define MIN_YEAR 1970
 #define MAX_YEAR 2199
 
@@ -39,6 +39,7 @@ static CalendarComponent* chain_free(CalendarComponent *c) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(CalendarComponent*, chain_free);
 
 CalendarSpec* calendar_spec_free(CalendarSpec *c) {
+        POINTER_MAY_BE_NULL(c);
 
         if (!c)
                 return NULL;
@@ -56,6 +57,9 @@ CalendarSpec* calendar_spec_free(CalendarSpec *c) {
 
 static int component_compare(CalendarComponent * const *a, CalendarComponent * const *b) {
         int r;
+
+        assert(a);
+        assert(b);
 
         r = CMP((*a)->start, (*b)->start);
         if (r != 0)
@@ -233,16 +237,6 @@ _pure_ bool calendar_spec_valid(CalendarSpec *c) {
 }
 
 static void format_weekdays(FILE *f, const CalendarSpec *c) {
-        static const char *const days[] = {
-                "Mon",
-                "Tue",
-                "Wed",
-                "Thu",
-                "Fri",
-                "Sat",
-                "Sun",
-        };
-
         int l, x;
         bool need_comma = false;
 
@@ -250,7 +244,7 @@ static void format_weekdays(FILE *f, const CalendarSpec *c) {
         assert(c);
         assert(c->weekdays_bits > 0 && c->weekdays_bits <= BITS_WEEKDAYS);
 
-        for (x = 0, l = -1; x < (int) ELEMENTSOF(days); x++) {
+        for (x = 0, l = -1; x < _WEEKDAY_MAX; x++) {
 
                 if (c->weekdays_bits & (1 << x)) {
 
@@ -260,7 +254,7 @@ static void format_weekdays(FILE *f, const CalendarSpec *c) {
                                 else
                                         need_comma = true;
 
-                                fputs(days[x], f);
+                                fputs(weekday_to_string(x), f);
                                 l = x;
                         }
 
@@ -268,7 +262,7 @@ static void format_weekdays(FILE *f, const CalendarSpec *c) {
 
                         if (x > l + 1) {
                                 fputs(x > l + 2 ? ".." : ",", f);
-                                fputs(days[x-1], f);
+                                fputs(weekday_to_string(x-1), f);
                         }
 
                         l = -1;
@@ -277,7 +271,7 @@ static void format_weekdays(FILE *f, const CalendarSpec *c) {
 
         if (l >= 0 && x > l + 1) {
                 fputs(x > l + 2 ? ".." : ",", f);
-                fputs(days[x-1], f);
+                fputs(weekday_to_string(x-1), f);
         }
 }
 
@@ -487,6 +481,10 @@ static int parse_one_number(const char *p, const char **e, unsigned long *ret) {
         char *ee = NULL;
         unsigned long value;
 
+        assert(p);
+        assert(e);
+        assert(ret);
+
         errno = 0;
         value = strtoul(p, &ee, 10);
         if (errno > 0)
@@ -503,6 +501,9 @@ static int parse_component_decimal(const char **p, bool usec, int *res) {
         unsigned long value;
         const char *e = NULL;
         int r;
+
+        assert(p);
+        assert(res);
 
         if (!ascii_isdigit(**p))
                 return -EINVAL;
@@ -569,6 +570,8 @@ static int calendarspec_from_time_t(CalendarSpec *c, time_t time) {
         struct tm tm;
         int r;
 
+        assert(c);
+
         if ((usec_t) time > USEC_INFINITY / USEC_PER_SEC)
                 return -ERANGE;
 
@@ -616,9 +619,8 @@ static int calendarspec_from_time_t(CalendarSpec *c, time_t time) {
 static int prepend_component(const char **p, bool usec, unsigned nesting, CalendarComponent **c) {
         int r, start, stop = -1, repeat = 0;
         CalendarComponent *cc;
-        const char *e = *p;
+        const char *e = *ASSERT_PTR(p);
 
-        assert(p);
         assert(c);
 
         if (nesting > CALENDARSPEC_COMPONENTS_MAX)
@@ -865,7 +867,7 @@ finish:
         return 0;
 }
 
-int calendar_spec_from_string(const char *p, CalendarSpec **ret) {
+int calendar_spec_from_string_full(const char *p, CalendarSpec **ret, bool warn_on_weekday_mismatch) {
         const char *utc;
         _cleanup_(calendar_spec_freep) CalendarSpec *c = NULL;
         _cleanup_free_ char *p_tmp = NULL;
@@ -1086,6 +1088,15 @@ int calendar_spec_from_string(const char *p, CalendarSpec **ret) {
         if (!calendar_spec_valid(c))
                 return -EINVAL;
 
+        if (warn_on_weekday_mismatch) {
+                int wday;
+                if (calendar_spec_weekday_conflicts(c, &wday))
+                        log_warning("Weekday constraint does not match the fixed date %04d-%02d-%02d "
+                                    "(which is a %s), so this timer will never elapse.",
+                                    c->year->start, c->month->start, c->day->start,
+                                    weekday_to_string(wday));
+        }
+
         if (ret)
                 *ret = TAKE_PTR(c);
         return 0;
@@ -1115,7 +1126,7 @@ static int find_matching_component(
 
         assert(val);
 
-        /* Finds the *earliest* matching time specified by one of the CalendarCompoment items in chain c.
+        /* Finds the *earliest* matching time specified by one of the CalendarComponent items in chain c.
          * If no matches can be found, returns -ENOENT.
          * Otherwise, updates *val to the matching time. 1 is returned if *val was changed, 0 otherwise.
          */
@@ -1149,9 +1160,8 @@ static int find_matching_component(
                 } else if (c->repeat > 0) {
                         int k;
 
-                        k = start + ROUND_UP(*val - start, c->repeat);
-
-                        if ((!d_set || k < d) && (stop < 0 || k <= stop)) {
+                        if (ADD_SAFE(&k, start, ROUND_UP(*val - start, c->repeat)) &&
+                            (!d_set || k < d) && (stop < 0 || k <= stop)) {
                                 d = k;
                                 d_set = true;
                         }
@@ -1217,17 +1227,71 @@ static int tm_within_bounds(struct tm *tm, bool utc) {
 
 static bool matches_weekday(int weekdays_bits, const struct tm *tm, bool utc) {
         struct tm t;
+        usec_t usec;
         int k;
+
+        assert(tm);
 
         if (weekdays_bits < 0 || weekdays_bits >= BITS_WEEKDAYS)
                 return true;
 
         t = *tm;
-        if (mktime_or_timegm_usec(&t, utc, /* ret= */ NULL) < 0)
+        if (mktime_or_timegm_usec(&t, utc, &usec) < 0)
+                return false;
+        if (localtime_or_gmtime_usec(usec, utc, &t) < 0)
                 return false;
 
         k = t.tm_wday == 0 ? 6 : t.tm_wday - 1;
         return (weekdays_bits & (1 << k));
+}
+
+static bool component_is_single_fixed(const CalendarComponent *c) {
+        /* Returns true if the component is a single fixed value: no range, no repeat, no alternatives. */
+        return c && !c->next && c->repeat == 0 && (c->stop < 0 || c->stop == c->start);
+}
+
+bool calendar_spec_weekday_conflicts(const CalendarSpec *spec, int *ret_actual_wday) {
+        assert(spec);
+
+        if (spec->weekdays_bits <= 0 || spec->weekdays_bits >= BITS_WEEKDAYS)
+                return false;
+
+        /* Skip when end_of_month (~) is used: day->start holds an offset, not an
+         * absolute day-of-month, so the real firing date cannot be determined here. */
+        if (spec->end_of_month)
+                return false;
+
+        /* Only detectable when year, month and day are each a single fixed value */
+        if (!component_is_single_fixed(spec->year) ||
+            !component_is_single_fixed(spec->month) ||
+            !component_is_single_fixed(spec->day))
+                return false;
+
+        /* CalendarSpec stores month as 1-12; struct tm uses 0-11 */
+        struct tm tm = {
+                .tm_year = spec->year->start - 1900,
+                .tm_mon  = spec->month->start - 1,
+                .tm_mday = spec->day->start,
+        };
+        struct tm orig = tm;
+
+        /* Compute weekday in UTC to avoid TZ/DST skew; reject dates that would be
+         * silently normalised (e.g. 2027-02-31 → 2027-03-03).
+         *
+         * Do not rely on timegm() to fill tm_wday, since musl does not do that. */
+        usec_t usec;
+        if (mktime_or_timegm_usec(&tm, /* utc= */ true, &usec) < 0 ||
+            localtime_or_gmtime_usec(usec, /* utc= */ true, &tm) < 0 ||
+            tm.tm_year != orig.tm_year || tm.tm_mon != orig.tm_mon ||
+            tm.tm_mday != orig.tm_mday)
+                return false;
+
+        if (matches_weekday(spec->weekdays_bits, &tm, /* utc= */ true))
+                return false; /* no conflict */
+
+        if (ret_actual_wday)
+                *ret_actual_wday = tm.tm_wday == 0 ? 6 : tm.tm_wday - 1;
+        return true;
 }
 
 static int tm_compare(const struct tm *t1, const struct tm *t2) {
@@ -1272,6 +1336,7 @@ static int find_next(const CalendarSpec *spec, struct tm *tm, usec_t *usec) {
 
         assert(spec);
         assert(tm);
+        assert(usec);
 
         c = *tm;
         tm_usec = *usec;

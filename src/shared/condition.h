@@ -1,14 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "forward.h"
 #include "list.h"
-#include "shared-forward.h"
 
 typedef enum ConditionType {
         CONDITION_ARCHITECTURE,
         CONDITION_FIRMWARE,
         CONDITION_VIRTUALIZATION,
         CONDITION_HOST,
+        CONDITION_FRACTION,
         CONDITION_KERNEL_COMMAND_LINE,
         CONDITION_VERSION,
         CONDITION_CREDENTIAL,
@@ -20,6 +21,7 @@ typedef enum ConditionType {
         CONDITION_ENVIRONMENT,
         CONDITION_CPU_FEATURE,
         CONDITION_OS_RELEASE,
+        CONDITION_MACHINE_TAG,
         CONDITION_MEMORY_PRESSURE,
         CONDITION_CPU_PRESSURE,
         CONDITION_IO_PRESSURE,
@@ -34,6 +36,7 @@ typedef enum ConditionType {
         CONDITION_PATH_IS_MOUNT_POINT,
         CONDITION_PATH_IS_READ_WRITE,
         CONDITION_PATH_IS_ENCRYPTED,
+        CONDITION_PATH_IS_SOCKET,
         CONDITION_DIRECTORY_NOT_EMPTY,
         CONDITION_FILE_NOT_EMPTY,
         CONDITION_FILE_IS_EXECUTABLE,
@@ -82,6 +85,7 @@ int condition_test(Condition *c, char **env);
 
 typedef int (*condition_test_logger_t)(void *userdata, int level, int error, const char *file, int line, const char *func, const char *format, ...) _printf_(7, 8);
 typedef const char* (*condition_to_string_t)(ConditionType t) _const_;
+bool condition_test_list_net(Condition *first, char **env, condition_to_string_t to_string, condition_test_logger_t logger, void *userdata);
 bool condition_test_list(Condition *first, char **env, condition_to_string_t to_string, condition_test_logger_t logger, void *userdata);
 
 void condition_dump(Condition *c, FILE *f, const char *prefix, condition_to_string_t to_string);
@@ -104,6 +108,7 @@ static inline bool condition_takes_path(ConditionType t) {
                       CONDITION_PATH_IS_MOUNT_POINT,
                       CONDITION_PATH_IS_READ_WRITE,
                       CONDITION_PATH_IS_ENCRYPTED,
+                      CONDITION_PATH_IS_SOCKET,
                       CONDITION_DIRECTORY_NOT_EMPTY,
                       CONDITION_FILE_NOT_EMPTY,
                       CONDITION_FILE_IS_EXECUTABLE,

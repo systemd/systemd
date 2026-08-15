@@ -7,6 +7,8 @@
         GUID_DEF(0x0964e5b22, 0x6459, 0x11d2, 0x8e, 0x39, 0x00, 0xa0, 0xc9, 0x69, 0x72, 0x3b)
 #define EFI_FILE_INFO_ID \
         GUID_DEF(0x009576e92, 0x6d3f, 0x11d2, 0x8e, 0x39, 0x00, 0xa0, 0xc9, 0x69, 0x72, 0x3b)
+#define EFI_FILE_SYSTEM_INFO_ID \
+        GUID_DEF(0x009576e93, 0x6d3f, 0x11d2, 0x8e, 0x39, 0x00, 0xa0, 0xc9, 0x69, 0x72, 0x3b)
 
 #define EFI_FILE_MODE_READ   0x0000000000000001U
 #define EFI_FILE_MODE_WRITE  0x0000000000000002U
@@ -30,6 +32,15 @@ typedef struct {
         uint64_t Attribute;
         char16_t FileName[];
 } EFI_FILE_INFO;
+
+typedef struct {
+        uint64_t Size;
+        bool ReadOnly;
+        uint64_t VolumeSize;
+        uint64_t FreeSpace;
+        uint32_t BlockSize;
+        char16_t VolumeLabel[];
+} EFI_FILE_SYSTEM_INFO;
 
 /* Some broken firmware violates the EFI spec by still advancing the readdir
  * position when returning EFI_BUFFER_TOO_SMALL, effectively skipping over any files when

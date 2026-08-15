@@ -13,6 +13,7 @@ This index contains {count} entries in {sections} sections,
 referring to {pages} individual manual pages.
 '''
 
+
 def _extract_directives(directive_groups, formatting, page):
     t = xml_parse(page)
     section = t.find('./refmeta/manvolnum').text
@@ -21,12 +22,13 @@ def _extract_directives(directive_groups, formatting, page):
     storopt = directive_groups['options']
     for variablelist in t.iterfind('.//variablelist'):
         klass = variablelist.attrib.get('class')
-        searchpath = variablelist.attrib.get('xpath','./varlistentry/term/varname')
+        searchpath = variablelist.attrib.get('xpath', './varlistentry/term/varname')
         storvar = directive_groups[klass or 'miscellaneous']
         # <option>s go in OPTIONS, unless class is specified
-        for xpath, stor in ((searchpath, storvar),
-                            ('./varlistentry/term/option',
-                             storvar if klass else storopt)):
+        for xpath, stor in (
+            (searchpath, storvar),
+            ('./varlistentry/term/option', storvar if klass else storopt),
+        ):
             for name in variablelist.iterfind(xpath):
                 text = re.sub(r'([= ]).*', r'\1', name.text).rstrip()
                 if text.startswith('-'):
@@ -45,14 +47,16 @@ def _extract_directives(directive_groups, formatting, page):
         if extra:
             stor[extra].append((pagename, section))
             if extra not in formatting:
-                elt = tree.Element("varname")
-                elt.text= extra
+                elt = tree.Element('varname')
+                elt.text = extra
                 formatting[extra] = elt
 
     storfile = directive_groups['filenames']
-    for xpath, absolute_only in (('.//refsynopsisdiv//filename', False),
-                                 ('.//refsynopsisdiv//command', False),
-                                 ('.//filename', True)):
+    for xpath, absolute_only in (
+        ('.//refsynopsisdiv//filename', False),
+        ('.//refsynopsisdiv//command', False),
+        ('.//filename', True),
+    ):
         for name in t.iterfind(xpath):
             if absolute_only and not (name.text and name.text.startswith('/')):
                 continue
@@ -82,7 +86,7 @@ def _extract_directives(directive_groups, formatting, page):
         if name.attrib.get('index') == 'false':
             continue
         name.tail = ''
-        if name.text.startswith('('): # a cast, strip it
+        if name.text.startswith('('):  # a cast, strip it
             name.text = name.text.partition(' ')[2]
         klass = name.attrib.get('class') or 'constants'
         storfile = directive_groups[klass]
@@ -100,6 +104,7 @@ def _extract_directives(directive_groups, formatting, page):
     for name in t.iterfind(".//literal[@class='specifiers']"):
         storfile[name.text].append((pagename, section))
         formatting[name.text] = name
+
 
 def _make_section(template, name, directives, formatting):
     varlist = template.find(f".//*[@id='{name}']")
@@ -123,6 +128,7 @@ def _make_section(template, name, directives, formatting):
             d.text = manvolume
         entry.tail = '\n\n'
 
+
 def _make_colophon(template, groups):
     count = 0
     pages = set()
@@ -132,9 +138,8 @@ def _make_colophon(template, groups):
             pages |= set(pagelist)
 
     para = template.find(".//para[@id='colophon']")
-    para.text = COLOPHON.format(count=count,
-                                sections=len(groups),
-                                pages=len(pages))
+    para.text = COLOPHON.format(count=count, sections=len(groups), pages=len(pages))
+
 
 def _make_page(template, directive_groups, formatting):
     """Create an XML tree from directive_groups.
@@ -152,20 +157,21 @@ def _make_page(template, directive_groups, formatting):
 
     return template
 
+
 def make_page(template_path, xml_files):
     "Extract directives from xml_files and return XML index tree."
     template = xml_parse(template_path)
     names = [vl.get('id') for vl in template.iterfind('.//variablelist')]
-    directive_groups = {name:collections.defaultdict(list)
-                        for name in names}
+    directive_groups = {name: collections.defaultdict(list) for name in names}
     formatting = {}
     for page in xml_files:
         try:
             _extract_directives(directive_groups, formatting, page)
         except Exception as e:
-            raise ValueError("failed to process " + page) from e
+            raise ValueError('failed to process ' + page) from e
 
     return _make_page(template, directive_groups, formatting)
+
 
 if __name__ == '__main__':
     with open(sys.argv[1], 'wb') as f:

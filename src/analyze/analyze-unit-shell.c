@@ -20,7 +20,7 @@
 #include "unit-def.h"
 #include "unit-name.h"
 
-int verb_unit_shell(int argc, char *argv[], void *userdata) {
+int verb_unit_shell(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;

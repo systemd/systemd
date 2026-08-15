@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+[Unit]
+Description=Relabel /sysroot for SELinux
+
+DefaultDependencies=no
+ConditionPathExists=/sysroot/etc/selinux/config
+After=initrd-root-fs.target
+After=initrd.target initrd-parse-etc.service remote-fs.target
+Before=initrd-cleanup.service
+
+[Service]
+Type=oneshot
+ExecStart=sh -c '. /sysroot/etc/selinux/config && [ -n "$${SELINUXTYPE}" ] && setfiles -mFr /sysroot -T0 -c /sysroot/etc/selinux/$${SELINUXTYPE}/policy/policy.* /sysroot/etc/selinux/$${SELINUXTYPE}/contexts/files/file_contexts /sysroot'

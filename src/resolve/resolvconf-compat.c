@@ -1,18 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <stdlib.h>
+
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "build.h"
 #include "extract-word.h"
 #include "fileio.h"
 #include "log.h"
-#include "pretty-print.h"
 #include "resolvconf-compat.h"
 #include "resolvectl.h"
 #include "string-util.h"
 #include "strv.h"
+#include "verbs.h"
 
 typedef enum LookupType  {
         LOOKUP_TYPE_REGULAR,
@@ -20,39 +21,22 @@ typedef enum LookupType  {
         LOOKUP_TYPE_EXCLUSIVE, /* -x */
 } LookupType;
 
-static int resolvconf_help(void) {
-        _cleanup_free_ char *link = NULL;
-        int r;
-
-        r = terminal_urlify_man("resolvectl", "1", &link);
-        if (r < 0)
-                return log_oom();
-
-        printf("%1$s -a INTERFACE < FILE\n"
-               "%1$s -d INTERFACE\n"
-               "\n"
-               "Register DNS server and domain configuration with systemd-resolved.\n\n"
-               "  -h --help     Show this help\n"
-               "     --version  Show package version\n"
-               "  -a            Register per-interface DNS server and domain data\n"
-               "  -d            Unregister per-interface DNS server and domain data\n"
-               "  -p            Do not use this interface as default route\n"
-               "  -f            Ignore if specified interface does not exist\n"
-               "  -x            Send DNS traffic preferably over this interface\n"
-               "\n"
-               "This is a compatibility alias for the resolvectl(1) tool, providing native\n"
-               "command line compatibility with the resolvconf(8) tool of various Linux\n"
-               "distributions and BSD systems. Some options supported by other implementations\n"
-               "are not supported and are ignored: -m, -u. Various options supported by other\n"
-               "implementations are not supported and will cause the invocation to fail:\n"
-               "-I, -i, -l, -R, -r, -v, -V, --enable-updates, --disable-updates,\n"
-               "--updates-are-enabled.\n"
-               "\nSee the %2$s for details.\n",
-               program_invocation_short_name,
-               link);
-
-        return 0;
-}
+COMMAND(
+        "resolvconf\0",
+        "Register DNS server and domain configuration with systemd-resolved.",
+        .man_pages = "resolvectl.1\0",
+        .argspec = "-a INTERFACE <FILE\0"
+                   "-d INTERFACE\0",
+        .footer =
+               "This is a compatibility alias for the resolvectl(1) tool, providing native "
+               "command line compatibility with the resolvconf(8) tool of various Linux "
+               "distributions and BSD systems. Some options supported by other implementations "
+               "are not supported and are ignored: -m, -u. Various options supported by other "
+               "implementations are not supported and will cause the invocation to fail: "
+               "-I, -i, -l, -R, -r, -v, -V, --enable-updates, --disable-updates, "
+               "--updates-are-enabled.",
+        .option_namespace = "resolvconf",
+);
 
 static int parse_nameserver(const char *string) {
         int r;
@@ -119,7 +103,9 @@ static int parse_stdin(LookupType lookup_type) {
 
                 a = first_word(line, "nameserver");
                 if (a) {
-                        (void) parse_nameserver(a);
+                        r = parse_nameserver(a);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse resolv.conf nameserver line: %m");
                         continue;
                 }
 
@@ -127,7 +113,9 @@ static int parse_stdin(LookupType lookup_type) {
                 if (!a)
                         a = first_word(line, "search");
                 if (a) {
-                        (void) parse_search_domain(a);
+                        r = parse_search_domain(a);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse resolv.conf domain/search line: %m");
                         continue;
                 }
 
@@ -170,26 +158,7 @@ static int parse_stdin(LookupType lookup_type) {
 }
 
 int resolvconf_parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_ENABLE_UPDATES,
-                ARG_DISABLE_UPDATES,
-                ARG_UPDATES_ARE_ENABLED,
-        };
-
-        static const struct option options[] = {
-                { "help",                no_argument, NULL, 'h'                     },
-                { "version",             no_argument, NULL, ARG_VERSION             },
-
-                /* The following are specific to Debian's original resolvconf */
-                { "enable-updates",      no_argument, NULL, ARG_ENABLE_UPDATES      },
-                { "disable-updates",     no_argument, NULL, ARG_DISABLE_UPDATES     },
-                { "updates-are-enabled", no_argument, NULL, ARG_UPDATES_ARE_ENABLED },
-                {}
-        };
-
-        int c, r;
+        int r;
 
         assert(argc >= 0);
         assert(argv);
@@ -204,89 +173,89 @@ int resolvconf_parse_argv(int argc, char *argv[]) {
 
         arg_mode = _MODE_INVALID;
 
-        while ((c = getopt_long(argc, argv, "hadxpfm:uIi:l:Rr:vV", options, NULL)) >= 0)
+        OptionParser opts = { argc, argv, .namespace = "resolvconf" };
+
+        FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
-                case 'h':
-                        return resolvconf_help();
+                OPTION_NAMESPACE("resolvconf"): {}
 
-                case ARG_VERSION:
+                OPTION_COMMON_HELP:
+                        return command_print_help("resolvconf");
+
+                OPTION_COMMON_VERSION:
                         return version();
 
                 /* -a and -d is what everybody can agree on */
-                case 'a':
+                OPTION_SHORT('a', NULL, "Register per-interface DNS server and domain data"):
                         arg_mode = MODE_SET_LINK;
                         break;
 
-                case 'd':
+                OPTION_SHORT('d', NULL, "Unregister per-interface DNS server and domain data"):
                         arg_mode = MODE_REVERT_LINK;
                         break;
 
-                /* The exclusive/private/force stuff is an openresolv invention, we support in some skewed way */
-                case 'x':
-                        lookup_type = LOOKUP_TYPE_EXCLUSIVE;
-                        break;
-
-                case 'p':
+                OPTION_SHORT('p', NULL, "Do not use this interface as default route"):
                         lookup_type = LOOKUP_TYPE_PRIVATE;
                         break;
 
-                case 'f':
+                OPTION_SHORT('f', NULL, "Ignore if specified interface does not exist"):
                         arg_ifindex_permissive = true;
                         break;
 
+                /* The exclusive/private/force stuff is an openresolv invention, we support in some skewed way */
+                OPTION_SHORT('x', NULL, "Send DNS traffic preferably over this interface"):
+                        lookup_type = LOOKUP_TYPE_EXCLUSIVE;
+                        break;
+
                 /* The metrics stuff is an openresolv invention we ignore (and don't really need) */
-                case 'm':
-                        log_debug("Switch -%c ignored.", c);
+                OPTION_SHORT('m', "ARG", /* help= */ NULL):
+                        log_debug("Switch -%c ignored.", opts.opt->short_code);
                         break;
 
                 /* -u supposedly should "update all subscribers". We have no subscribers, hence let's make
                     this a NOP, and exit immediately, cleanly. */
-                case 'u':
-                        log_info("Switch -%c ignored.", c);
+                OPTION_SHORT('u', NULL, /* help= */ NULL):
+                        log_info("Switch -%c ignored.", opts.opt->short_code);
                         return 0;
 
                 /* The following options are openresolv inventions we don't support. */
-                case 'I':
-                case 'i':
-                case 'l':
-                case 'R':
-                case 'r':
-                case 'v':
-                case 'V':
+                OPTION_SHORT('I', NULL,  /* help= */ NULL): {}
+                OPTION_SHORT('i', "ARG", /* help= */ NULL): {}
+                OPTION_SHORT('l', "ARG", /* help= */ NULL): {}
+                OPTION_SHORT('R', NULL,  /* help= */ NULL): {}
+                OPTION_SHORT('r', "ARG", /* help= */ NULL): {}
+                OPTION_SHORT('v', NULL,  /* help= */ NULL): {}
+                OPTION_SHORT('V', NULL,  /* help= */ NULL):
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Switch -%c not supported.", c);
+                                               "Switch -%c not supported.", opts.opt->short_code);
 
                 /* The Debian resolvconf commands we don't support. */
-                case ARG_ENABLE_UPDATES:
+                OPTION_LONG("enable-updates", NULL, /* help= */ NULL):
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Switch --enable-updates not supported.");
-                case ARG_DISABLE_UPDATES:
+                OPTION_LONG("disable-updates", NULL, /* help= */ NULL):
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Switch --disable-updates not supported.");
-                case ARG_UPDATES_ARE_ENABLED:
+                OPTION_LONG("updates-are-enabled", NULL, /* help= */ NULL):
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Switch --updates-are-enabled not supported.");
 
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (arg_mode == _MODE_INVALID)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Expected either -a or -d on the command line.");
 
-        if (optind+1 != argc)
+        if (option_parser_get_n_args(&opts) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Expected interface name as argument.");
 
-        r = ifname_resolvconf_mangle(argv[optind]);
+        r = ifname_resolvconf_mangle(option_parser_get_arg(&opts, 0));
         if (r <= 0)
                 return r;
-        optind++;
 
         if (arg_mode == MODE_SET_LINK) {
                 r = parse_stdin(lookup_type);

@@ -195,6 +195,8 @@ static int find_build_dir_binary(const char *fn, char **ret) {
 
 static int find_environment_binary(const char *fn, const char **ret) {
 
+        assert(ret);
+
         /* If a path such as /usr/lib/systemd/systemd-foobar is specified, then this will check for an
          * environment variable SYSTEMD_FOOBAR_PATH and return it if set. */
 

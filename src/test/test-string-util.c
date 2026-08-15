@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/utsname.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -8,6 +9,18 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "version.h"
+
+TEST(ellipsize_mem_ansi_short) {
+        _cleanup_free_ char *a = ellipsize_mem("X\x1b[m", 4, 1, 50);
+        assert_se(a);
+
+        _cleanup_free_ char *b = ellipsize_mem(" \x1b[A", 4, 1, 0);
+        assert_se(b);
+
+        _cleanup_free_ char *c = ellipsize_mem("\x1b[m", 3, 1, 50);
+        assert_se(c);
+}
 
 TEST(xsprintf) {
         char buf[5];
@@ -325,6 +338,8 @@ TEST(strrep) {
 
         ASSERT_STREQ(onea, "waldo");
         ASSERT_STREQ(threea, "waldowaldowaldo");
+
+        ASSERT_NULL(strrep("waldo", SIZE_MAX - 1));
 }
 
 TEST(string_has_cc) {
@@ -533,6 +548,29 @@ TEST(endswith_no_case) {
         assert_se(!endswith_no_case("foobar", "FOOBARFOOFOO"));
 }
 
+TEST(strrstr_no_case) {
+        ASSERT_STREQ(strrstr_no_case("fooBARfoobar", "bar"), "bar");
+        ASSERT_STREQ(strrstr_no_case("fooBARfoobar", "BAR"), "bar");
+        ASSERT_STREQ(strrstr_no_case("fooBARfoobar", "bAR"), "bar");
+        ASSERT_STREQ(strrstr_no_case("fooBARfoobar", "FOO"), "foobar");
+        ASSERT_STREQ(strrstr_no_case("fooBARfoobar", "foo"), "foobar");
+        ASSERT_STREQ(strrstr_no_case("fooBARfoobar", "FoO"), "foobar");
+        ASSERT_STREQ(strrstr_no_case("aXaXa", "x"), "Xa");
+        ASSERT_STREQ(strrstr_no_case("aXaXa", "X"), "Xa");
+        ASSERT_STREQ(strrstr_no_case("xHello", "hello"), "Hello");
+        ASSERT_STREQ(strrstr_no_case("Hello", "l"), "lo");
+        ASSERT_STREQ(strrstr_no_case("Hello", ""), "");
+        ASSERT_STREQ(strrstr_no_case("", ""), "");
+        ASSERT_STREQ(strrstr_no_case("FOO", "foo"), "FOO");
+        ASSERT_STREQ(strrstr_no_case("hello", "hello"), "hello");
+        ASSERT_STREQ(strrstr_no_case("X", "x"), "X");
+
+        ASSERT_NULL(strrstr_no_case("hello", "xyz"));
+        ASSERT_NULL(strrstr_no_case("", "x"));
+        ASSERT_NULL(strrstr_no_case(NULL, "x"));
+        ASSERT_NULL(strrstr_no_case("x", NULL));
+}
+
 TEST(delete_chars) {
         char *s, input[] = "   hello, waldo.   abc";
 
@@ -615,6 +653,45 @@ TEST(split_pair) {
         ASSERT_OK(split_pair("===", "==", &a, &b));
         ASSERT_STREQ(a, "");
         ASSERT_STREQ(b, "=");
+        a = mfree(a);
+        b = mfree(b);
+
+        /* The output parameters are optional */
+        ASSERT_OK(split_pair("foo=bar", "=", NULL, &b));
+        ASSERT_NULL(a);
+        ASSERT_STREQ(b, "bar");
+        b = mfree(b);
+        ASSERT_OK(split_pair("foo=bar", "=", &a, NULL));
+        ASSERT_STREQ(a, "foo");
+        ASSERT_NULL(b);
+        a = mfree(a);
+        ASSERT_OK(split_pair("foo=bar", "=", NULL, NULL));
+        ASSERT_NULL(a);
+        ASSERT_NULL(b);
+        /* ... but the separator must still be present */
+        ASSERT_ERROR(split_pair("foo", "=", NULL, NULL), EINVAL);
+}
+
+TEST(empty_to_null) {
+        const char *s = "asdf", *n = NULL, *e = "";
+        char *t = (char*) "asdf";
+        const char p[] = "asdf";
+        char q[] = "asdf";
+
+        /* empty_to_null cannot be used with constant strings, e.g.
+         * empty_to_null("") fails with 'error: cast specifies array type'. */
+
+        ASSERT_NULL(empty_to_null(NULL));
+        ASSERT_NULL(empty_to_null(n));
+        ASSERT_NULL(empty_to_null(e));
+        ASSERT_STREQ(empty_to_null(s), "asdf");
+        ASSERT_NULL(empty_to_null(s + 4));
+        ASSERT_STREQ(empty_to_null(t), "asdf");
+        ASSERT_NULL(empty_to_null(t + 4));
+        ASSERT_STREQ(empty_to_null(&p[0]), "asdf");
+        ASSERT_NULL(empty_to_null(&p[0] + 4));
+        ASSERT_STREQ(empty_to_null(&q[0]), "asdf");
+        ASSERT_NULL(empty_to_null(&q[0] + 4));
 }
 
 TEST(first_word) {
@@ -1211,6 +1288,26 @@ TEST(strspn_from_end) {
         assert_se(strspn_from_end("aaa12aa34", DIGITS) == 2);
 }
 
+TEST(strnspn) {
+        assert_se(strnspn(NULL, WHITESPACE, 0) == 0);
+        assert_se(strnspn("", WHITESPACE, 0) == 0);
+        assert_se(strnspn("hoge", WHITESPACE, 0) == 0);
+        assert_se(strnspn("hoge", WHITESPACE, 4) == 0);
+        assert_se(strnspn("   hoge", WHITESPACE, 7) == 3);
+        assert_se(strnspn("   hoge", WHITESPACE, 2) == 2);
+        assert_se(strnspn("    ", WHITESPACE, 4) == 4);
+
+        /* 'str' is all whitespace and not NUL terminated within 'n': at most 'n' bytes may be read,
+         * otherwise this reads off the end of the buffer (caught by the sanitizers). */
+        for (size_t n = 1; n <= 64; n++) {
+                _cleanup_free_ char *str = NULL;
+
+                assert_se(str = new(char, n));
+                memset(str, ' ', n);
+                assert_se(strnspn(str, WHITESPACE, n) == n);
+        }
+}
+
 TEST(streq_skip_trailing_chars) {
         /* NULL is WHITESPACE by default */
         assert_se(streq_skip_trailing_chars("foo bar", "foo bar", NULL));
@@ -1333,13 +1430,67 @@ TEST(strstrafter) {
 }
 
 TEST(version_is_valid) {
-        assert_se(!version_is_valid(NULL));
-        assert_se(!version_is_valid(""));
-        assert_se(version_is_valid("0"));
-        assert_se(version_is_valid("5"));
-        assert_se(version_is_valid("999999"));
-        assert_se(version_is_valid("999999.5"));
-        assert_se(version_is_valid("6.2.12-300.fc38.x86_64"));
+        ASSERT_FALSE(version_is_valid(NULL, /* flags= */ 0));
+        ASSERT_FALSE(version_is_valid("", /* flags= */ 0));
+        ASSERT_TRUE(version_is_valid("0", /* flags= */ 0));
+        ASSERT_TRUE(version_is_valid("5", /* flags= */ 0));
+        ASSERT_TRUE(version_is_valid("999999", /* flags= */ 0));
+        ASSERT_TRUE(version_is_valid("999999.5", /* flags= */ 0));
+        ASSERT_TRUE(version_is_valid("6.2.12-300.fc38.x86_64", VERSION_ALLOW_UNDERSCORE));
+        ASSERT_TRUE(version_is_valid("6.2.12-300.fc38.x86_64", VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS));
+        ASSERT_FALSE(version_is_valid("6.2.12-300.fc38.x86_64", VERSION_ALLOW_PLUS));
+        ASSERT_FALSE(version_is_valid("6.2.12-300.fc38.x86_64", /* flags= */ 0));
+
+        struct utsname u;
+        ASSERT_OK_ERRNO(uname(&u));
+        ASSERT_TRUE(version_is_valid(u.release, VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS));
+
+        ASSERT_TRUE(version_is_valid(GIT_VERSION, VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS));
+        ASSERT_TRUE(version_is_valid(PROJECT_VERSION_STR, /* flags= */ 0));
+
+        /* VERSION_ALLOW_EMPTY permits the empty string, but never NULL */
+        ASSERT_TRUE(version_is_valid("", VERSION_ALLOW_EMPTY));
+        ASSERT_TRUE(version_is_valid("", VERSION_ALLOW_EMPTY|VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS));
+        ASSERT_FALSE(version_is_valid("", VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS));
+        ASSERT_FALSE(version_is_valid(NULL, VERSION_ALLOW_EMPTY));
+        ASSERT_FALSE(version_is_valid(NULL, VERSION_ALLOW_EMPTY|VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS));
+
+        /* The full UAPI.10 charset, including "~" and "^", is accepted regardless of flags */
+        ASSERT_TRUE(version_is_valid("1.2~rc1^5", /* flags= */ 0));
+        ASSERT_TRUE(version_is_valid("1.2~rc1^5", VERSION_ALLOW_EMPTY|VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS));
+
+        /* "_" and "+" require their respective flag, the other flags won't do */
+        ASSERT_FALSE(version_is_valid("1_2", /* flags= */ 0));
+        ASSERT_TRUE(version_is_valid("1_2", VERSION_ALLOW_UNDERSCORE));
+        ASSERT_FALSE(version_is_valid("1_2", VERSION_ALLOW_PLUS));
+        ASSERT_FALSE(version_is_valid("1_2", VERSION_ALLOW_EMPTY));
+        ASSERT_FALSE(version_is_valid("1+2", /* flags= */ 0));
+        ASSERT_TRUE(version_is_valid("1+2", VERSION_ALLOW_PLUS));
+        ASSERT_FALSE(version_is_valid("1+2", VERSION_ALLOW_UNDERSCORE));
+        ASSERT_FALSE(version_is_valid("1+2", VERSION_ALLOW_EMPTY));
+        ASSERT_FALSE(version_is_valid("1_2+3", VERSION_ALLOW_UNDERSCORE));
+        ASSERT_FALSE(version_is_valid("1_2+3", VERSION_ALLOW_PLUS));
+        ASSERT_TRUE(version_is_valid("1_2+3", VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS));
+
+        /* Characters outside the charset are refused, no matter which flags are set */
+        ASSERT_FALSE(version_is_valid("1 2", VERSION_ALLOW_EMPTY|VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS));
+        ASSERT_FALSE(version_is_valid("1/2", VERSION_ALLOW_EMPTY|VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS));
+        ASSERT_FALSE(version_is_valid("1=2", VERSION_ALLOW_EMPTY|VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS));
+        ASSERT_FALSE(version_is_valid("1\n2", VERSION_ALLOW_EMPTY|VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS));
+        ASSERT_FALSE(version_is_valid("©", VERSION_ALLOW_EMPTY|VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS));
+
+        /* "." and ".." pass the charset check and are OK as *part* of a filename, hence accepted */
+        ASSERT_TRUE(version_is_valid(".", /* flags= */ 0));
+        ASSERT_TRUE(version_is_valid("..", /* flags= */ 0));
+
+        /* Version strings must fit in a filename, i.e. no longer than NAME_MAX, no matter the flags */
+        _cleanup_free_ char *x = strrep("0", NAME_MAX);
+        ASSERT_NOT_NULL(x);
+        ASSERT_TRUE(version_is_valid(x, /* flags= */ 0));
+        _cleanup_free_ char *y = strrep("0", NAME_MAX+1);
+        ASSERT_NOT_NULL(y);
+        ASSERT_FALSE(version_is_valid(y, /* flags= */ 0));
+        ASSERT_FALSE(version_is_valid(y, VERSION_ALLOW_EMPTY|VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS));
 }
 
 TEST(strextendn) {
@@ -1446,6 +1597,200 @@ TEST(str_common_prefix) {
         ASSERT_EQ(str_common_prefix("systemd-networkd", "s"), 1U);
         ASSERT_EQ(str_common_prefix("", "systemd-networkd"), 0U);
         ASSERT_EQ(str_common_prefix("systemd-networkd", ""), 0U);
+}
+
+TEST(string_is_safe) {
+        /* NULL is always rejected, regardless of flags. */
+        ASSERT_FALSE(string_is_safe(NULL, 0));
+        ASSERT_FALSE(string_is_safe(NULL, STRING_ALLOW_EMPTY));
+        ASSERT_FALSE(string_is_safe(NULL, STRING_ASCII));
+        ASSERT_FALSE(string_is_safe(NULL, STRING_ALLOW_BACKSLASHES));
+        ASSERT_FALSE(string_is_safe(NULL, STRING_ALLOW_QUOTES));
+        ASSERT_FALSE(string_is_safe(NULL, STRING_ALLOW_GLOBS));
+        ASSERT_FALSE(string_is_safe(NULL, STRING_FILENAME));
+
+        /* Baseline (flags=0): rejects empty, backslashes, quotes, globs, control chars and invalid UTF-8.
+         * Plain alphanumerics/whitespace and valid UTF-8 accepted. */
+        ASSERT_TRUE(string_is_safe("hello", 0));
+        ASSERT_TRUE(string_is_safe("hello world", 0));
+        ASSERT_TRUE(string_is_safe("über", 0));             /* valid UTF-8 allowed */
+        ASSERT_TRUE(string_is_safe("ünïcödé", 0));
+
+        ASSERT_FALSE(string_is_safe("", 0));                /* empty rejected by default */
+        ASSERT_FALSE(string_is_safe("a\\b", 0));            /* backslash rejected by default */
+        ASSERT_FALSE(string_is_safe("\"", 0));              /* double quote rejected by default */
+        ASSERT_FALSE(string_is_safe("'", 0));               /* single quote rejected by default */
+        ASSERT_FALSE(string_is_safe("*", 0));               /* glob rejected by default */
+        ASSERT_FALSE(string_is_safe("?", 0));               /* glob rejected by default */
+        ASSERT_FALSE(string_is_safe("[", 0));               /* glob rejected by default */
+        ASSERT_FALSE(string_is_safe("abc\x01", 0));         /* control char */
+        ASSERT_FALSE(string_is_safe("\t", 0));
+        ASSERT_FALSE(string_is_safe("\n", 0));
+        ASSERT_FALSE(string_is_safe("abc\x1f", 0));
+        ASSERT_FALSE(string_is_safe("abc\x7f", 0));         /* DEL */
+        ASSERT_FALSE(string_is_safe("ab\xc3\x28", 0));      /* invalid UTF-8 continuation */
+        ASSERT_FALSE(string_is_safe("\xff", 0));            /* not valid UTF-8 */
+
+        /* STRING_ALLOW_EMPTY. */
+        ASSERT_TRUE(string_is_safe("", STRING_ALLOW_EMPTY));
+        ASSERT_TRUE(string_is_safe("x", STRING_ALLOW_EMPTY));
+        ASSERT_TRUE(string_is_safe("hello", STRING_ALLOW_EMPTY));
+        ASSERT_FALSE(string_is_safe(NULL, STRING_ALLOW_EMPTY));
+
+        /* STRING_ASCII: high bytes rejected, low ASCII accepted, control chars still rejected.
+         * Empty is still rejected by default; backslashes/quotes/globs still rejected by default. */
+        ASSERT_TRUE(string_is_safe("hello", STRING_ASCII));
+        ASSERT_TRUE(string_is_safe("hello world 123!@#$%^&()", STRING_ASCII));
+        ASSERT_FALSE(string_is_safe("", STRING_ASCII));
+        ASSERT_FALSE(string_is_safe("über", STRING_ASCII));
+        ASSERT_FALSE(string_is_safe("\x80", STRING_ASCII));
+        ASSERT_FALSE(string_is_safe("\xff", STRING_ASCII));
+        ASSERT_FALSE(string_is_safe("abc\x01", STRING_ASCII));
+        ASSERT_FALSE(string_is_safe("abc\x7f", STRING_ASCII));
+        ASSERT_FALSE(string_is_safe("a\\b", STRING_ASCII));
+        ASSERT_FALSE(string_is_safe("a\"b", STRING_ASCII));
+        ASSERT_FALSE(string_is_safe("a*b", STRING_ASCII));
+
+        /* STRING_ALLOW_NEWLINES: newlines allowed, quotes/globs still rejected. */
+        ASSERT_TRUE(string_is_safe("hello", STRING_ALLOW_NEWLINES));
+        ASSERT_TRUE(string_is_safe("hello world", STRING_ALLOW_NEWLINES));
+        ASSERT_TRUE(string_is_safe("\n", STRING_ALLOW_NEWLINES));
+        ASSERT_TRUE(string_is_safe("a\nb", STRING_ALLOW_NEWLINES));
+        ASSERT_TRUE(string_is_safe("foo\n", STRING_ALLOW_NEWLINES));
+        ASSERT_TRUE(string_is_safe("\nfoo", STRING_ALLOW_NEWLINES));
+        ASSERT_TRUE(string_is_safe("foo\nbar", STRING_ALLOW_NEWLINES));
+        ASSERT_FALSE(string_is_safe("foo\\nbar", STRING_ALLOW_NEWLINES)); /* literal backslash, not newline, rejected */
+        ASSERT_FALSE(string_is_safe("\"", STRING_ALLOW_NEWLINES));        /* quotes still rejected */
+        ASSERT_FALSE(string_is_safe("*", STRING_ALLOW_NEWLINES));         /* globs still rejected */
+
+        /* STRING_ALLOW_BACKSLASHES: backslashes allowed, quotes/globs still rejected. */
+        ASSERT_TRUE(string_is_safe("hello", STRING_ALLOW_BACKSLASHES));
+        ASSERT_TRUE(string_is_safe("hello world", STRING_ALLOW_BACKSLASHES));
+        ASSERT_TRUE(string_is_safe("\\", STRING_ALLOW_BACKSLASHES));
+        ASSERT_TRUE(string_is_safe("a\\b", STRING_ALLOW_BACKSLASHES));
+        ASSERT_TRUE(string_is_safe("foo\\", STRING_ALLOW_BACKSLASHES));
+        ASSERT_TRUE(string_is_safe("\\foo", STRING_ALLOW_BACKSLASHES));
+        ASSERT_TRUE(string_is_safe("foo\\nbar", STRING_ALLOW_BACKSLASHES)); /* literal backslash, not newline */
+        ASSERT_FALSE(string_is_safe("foo\nbar", STRING_ALLOW_BACKSLASHES)); /* newline still rejected */
+        ASSERT_FALSE(string_is_safe("\"", STRING_ALLOW_BACKSLASHES));       /* quotes still rejected */
+        ASSERT_FALSE(string_is_safe("*", STRING_ALLOW_BACKSLASHES));        /* globs still rejected */
+
+        /* STRING_ALLOW_QUOTES: quotes allowed, backslashes/globs still rejected. */
+        ASSERT_TRUE(string_is_safe("hello", STRING_ALLOW_QUOTES));
+        ASSERT_TRUE(string_is_safe("hello world", STRING_ALLOW_QUOTES));
+        ASSERT_TRUE(string_is_safe("\"", STRING_ALLOW_QUOTES));
+        ASSERT_TRUE(string_is_safe("'", STRING_ALLOW_QUOTES));
+        ASSERT_TRUE(string_is_safe("hello\"world", STRING_ALLOW_QUOTES));
+        ASSERT_TRUE(string_is_safe("it's", STRING_ALLOW_QUOTES));
+        ASSERT_FALSE(string_is_safe("a\nb", STRING_ALLOW_QUOTES));          /* newline still rejected */
+        ASSERT_FALSE(string_is_safe("a\\b", STRING_ALLOW_QUOTES));          /* backslashes still rejected */
+        ASSERT_FALSE(string_is_safe("*", STRING_ALLOW_QUOTES));             /* globs still rejected */
+
+        /* STRING_ALLOW_GLOBS: globs allowed, backslashes/quotes still rejected. */
+        ASSERT_TRUE(string_is_safe("hello", STRING_ALLOW_GLOBS));
+        ASSERT_TRUE(string_is_safe("ab]c", STRING_ALLOW_GLOBS));            /* ']' is not in GLOB_CHARS anyway */
+        ASSERT_TRUE(string_is_safe("*", STRING_ALLOW_GLOBS));
+        ASSERT_TRUE(string_is_safe("?", STRING_ALLOW_GLOBS));
+        ASSERT_TRUE(string_is_safe("[", STRING_ALLOW_GLOBS));
+        ASSERT_TRUE(string_is_safe("foo*bar", STRING_ALLOW_GLOBS));
+        ASSERT_TRUE(string_is_safe("foo?bar", STRING_ALLOW_GLOBS));
+        ASSERT_TRUE(string_is_safe("foo[bar", STRING_ALLOW_GLOBS));
+        ASSERT_FALSE(string_is_safe("foo\nbar", STRING_ALLOW_GLOBS));       /* newline still rejected */
+        ASSERT_FALSE(string_is_safe("\"", STRING_ALLOW_GLOBS));             /* quotes still rejected */
+        ASSERT_FALSE(string_is_safe("a\\b", STRING_ALLOW_GLOBS));           /* backslashes still rejected */
+
+        /* STRING_FILENAME: rejects empty, ".", "..", and strings with '/'. */
+        ASSERT_TRUE(string_is_safe("hello", STRING_FILENAME));
+        ASSERT_TRUE(string_is_safe("hello.txt", STRING_FILENAME));
+        ASSERT_TRUE(string_is_safe("...", STRING_FILENAME));
+        ASSERT_TRUE(string_is_safe(".hidden", STRING_FILENAME));
+        ASSERT_FALSE(string_is_safe("", STRING_FILENAME));
+        ASSERT_FALSE(string_is_safe(".", STRING_FILENAME));
+        ASSERT_FALSE(string_is_safe("..", STRING_FILENAME));
+        ASSERT_FALSE(string_is_safe("/", STRING_FILENAME));
+        ASSERT_FALSE(string_is_safe("/foo", STRING_FILENAME));
+        ASSERT_FALSE(string_is_safe("foo/bar", STRING_FILENAME));
+
+        /* STRING_DISALLOW_WHITESPACE: rejects whitespace (space, tab, newline, carriage return). */
+        ASSERT_TRUE(string_is_safe("hello", STRING_DISALLOW_WHITESPACE));
+        ASSERT_TRUE(string_is_safe("foo-bar_baz", STRING_DISALLOW_WHITESPACE));
+        ASSERT_TRUE(string_is_safe("über", STRING_DISALLOW_WHITESPACE));     /* valid UTF-8 still allowed */
+        ASSERT_TRUE(string_is_safe("hello world", 0));                       /* space accepted by default */
+        ASSERT_FALSE(string_is_safe("hello world", STRING_DISALLOW_WHITESPACE)); /* but not with the flag */
+        ASSERT_FALSE(string_is_safe(" ", STRING_DISALLOW_WHITESPACE));
+        ASSERT_FALSE(string_is_safe("foo ", STRING_DISALLOW_WHITESPACE));
+        ASSERT_FALSE(string_is_safe(" foo", STRING_DISALLOW_WHITESPACE));
+        ASSERT_FALSE(string_is_safe("a\tb", STRING_DISALLOW_WHITESPACE));
+        ASSERT_FALSE(string_is_safe("a\rb", STRING_DISALLOW_WHITESPACE));
+        /* The flag overrides STRING_ALLOW_NEWLINES for the newline character, which is whitespace too. */
+        ASSERT_TRUE(string_is_safe("a\nb", STRING_ALLOW_NEWLINES));
+        ASSERT_FALSE(string_is_safe("a\nb", STRING_ALLOW_NEWLINES | STRING_DISALLOW_WHITESPACE));
+
+        /* STRING_FILENAME_PART: like STRING_FILENAME, but "." and ".." are accepted; '/' still rejected. */
+        ASSERT_TRUE(string_is_safe("hello", STRING_FILENAME_PART));
+        ASSERT_TRUE(string_is_safe("hello.txt", STRING_FILENAME_PART));
+        ASSERT_TRUE(string_is_safe("...", STRING_FILENAME_PART));
+        ASSERT_TRUE(string_is_safe(".hidden", STRING_FILENAME_PART));
+        ASSERT_TRUE(string_is_safe(".", STRING_FILENAME_PART));             /* accepted, unlike STRING_FILENAME */
+        ASSERT_TRUE(string_is_safe("..", STRING_FILENAME_PART));            /* accepted, unlike STRING_FILENAME */
+        ASSERT_FALSE(string_is_safe("", STRING_FILENAME_PART));             /* empty still rejected by default */
+        ASSERT_TRUE(string_is_safe("", STRING_FILENAME_PART | STRING_ALLOW_EMPTY)); /* ... unless explicitly allowed */
+        ASSERT_FALSE(string_is_safe("/", STRING_FILENAME_PART));
+        ASSERT_FALSE(string_is_safe("/foo", STRING_FILENAME_PART));
+        ASSERT_FALSE(string_is_safe("foo/bar", STRING_FILENAME_PART));
+        ASSERT_FALSE(string_is_safe("foo/", STRING_FILENAME_PART));
+
+        /* Pairwise combinations. */
+        ASSERT_TRUE(string_is_safe("", STRING_ALLOW_EMPTY | STRING_ASCII));
+        ASSERT_FALSE(string_is_safe("über", STRING_ALLOW_EMPTY | STRING_ASCII));
+        ASSERT_TRUE(string_is_safe("hello", STRING_ALLOW_EMPTY | STRING_ASCII));
+
+        ASSERT_TRUE(string_is_safe("ab\"cd", STRING_ALLOW_QUOTES | STRING_ALLOW_GLOBS));
+        ASSERT_TRUE(string_is_safe("ab*cd", STRING_ALLOW_QUOTES | STRING_ALLOW_GLOBS));
+        ASSERT_TRUE(string_is_safe("ab'*cd", STRING_ALLOW_QUOTES | STRING_ALLOW_GLOBS));
+        ASSERT_FALSE(string_is_safe("ab\\cd", STRING_ALLOW_QUOTES | STRING_ALLOW_GLOBS)); /* backslash still rejected */
+
+        ASSERT_TRUE(string_is_safe("hello.txt", STRING_FILENAME));
+        ASSERT_FALSE(string_is_safe("", STRING_FILENAME));
+        ASSERT_FALSE(string_is_safe("foo/bar", STRING_FILENAME));
+
+        ASSERT_TRUE(string_is_safe("foo?bar", STRING_ASCII | STRING_ALLOW_GLOBS));
+        ASSERT_FALSE(string_is_safe("foo\"bar", STRING_ASCII | STRING_ALLOW_GLOBS));      /* quotes still rejected */
+        ASSERT_FALSE(string_is_safe("über", STRING_ASCII | STRING_ALLOW_GLOBS));
+
+        ASSERT_TRUE(string_is_safe("foo\\bar", STRING_ALLOW_BACKSLASHES));
+        ASSERT_FALSE(string_is_safe("foo\"bar", STRING_ALLOW_BACKSLASHES));               /* quotes still rejected */
+        ASSERT_FALSE(string_is_safe("foo*bar", STRING_ALLOW_BACKSLASHES));                /* globs still rejected */
+        ASSERT_TRUE(string_is_safe("foo\\\"bar", STRING_ALLOW_BACKSLASHES | STRING_ALLOW_QUOTES));
+        ASSERT_TRUE(string_is_safe("foo\\bar", STRING_ALLOW_BACKSLASHES | STRING_ALLOW_QUOTES));
+        ASSERT_TRUE(string_is_safe("foo\"bar", STRING_ALLOW_BACKSLASHES | STRING_ALLOW_QUOTES));
+
+        /* All allow flags combined: only baseline (control chars, invalid UTF-8) and STRING_FILENAME apply. */
+        StringSafeFlags all =
+                STRING_ASCII |
+                STRING_ALLOW_EMPTY |
+                STRING_ALLOW_NEWLINES |
+                STRING_ALLOW_BACKSLASHES |
+                STRING_ALLOW_QUOTES |
+                STRING_ALLOW_GLOBS |
+                STRING_FILENAME;
+        ASSERT_TRUE(string_is_safe("hello.txt", all));
+        ASSERT_TRUE(string_is_safe("foo-bar_baz.conf", all));
+        ASSERT_TRUE(string_is_safe("a", all));
+        ASSERT_TRUE(string_is_safe("foo\nbar", all));            /* newline allowed */
+        ASSERT_TRUE(string_is_safe("foo\\bar", all));            /* backslash allowed */
+        ASSERT_TRUE(string_is_safe("foo\"bar", all));            /* quote allowed */
+        ASSERT_TRUE(string_is_safe("foo'bar", all));             /* quote allowed */
+        ASSERT_TRUE(string_is_safe("foo*bar", all));             /* glob allowed */
+        ASSERT_TRUE(string_is_safe("foo?bar", all));             /* glob allowed */
+        ASSERT_TRUE(string_is_safe("foo[bar", all));             /* glob allowed */
+        ASSERT_FALSE(string_is_safe("", all));                   /* fails STRING_FILENAME */
+        ASSERT_FALSE(string_is_safe("über", all));               /* fails STRING_ASCII */
+        ASSERT_FALSE(string_is_safe("foo/bar", all));            /* fails STRING_FILENAME */
+        ASSERT_FALSE(string_is_safe(".", all));                  /* fails STRING_FILENAME */
+        ASSERT_FALSE(string_is_safe("..", all));                 /* fails STRING_FILENAME */
+        ASSERT_FALSE(string_is_safe("foo\x01""bar", all));       /* fails baseline control-char check */
+        ASSERT_FALSE(string_is_safe(NULL, all));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

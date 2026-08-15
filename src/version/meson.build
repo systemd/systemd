@@ -14,3 +14,4 @@ version_h = custom_target('version',
         ])
 version_include = include_directories('.')
 userspace_sources += [version_h]
+generated_sources += [version_h]

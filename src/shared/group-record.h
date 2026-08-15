@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
+#include "forward.h"
 #include "user-record.h"
 
 typedef struct GroupRecord {
@@ -12,6 +12,7 @@ typedef struct GroupRecord {
         char *group_name;
         char *realm;
         char *group_name_and_realm_auto;
+        char **aliases;
         sd_id128_t uuid;
 
         char *description;

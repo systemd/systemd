@@ -80,7 +80,11 @@ static int create_disk(
                 "SourcePath=%s\n"
                 "DefaultDependencies=no\n"
                 "IgnoreOnIsolate=true\n"
-                "After=integritysetup-pre.target systemd-udevd-kernel.socket\n"
+                /* The systemd-udevd.service ordering is mostly about shutdown, not startup: on stop the dm
+                 * device is detached via an ioctl carrying a udev cookie that blocks in dm_udev_wait() until
+                 * udev releases it (95-dm-notify.rules). Stopping before udevd keeps it around to service the
+                 * cookie; otherwise during soft-reboot/shutdown udevd may exit first and the detach hangs. */
+                "After=integritysetup-pre.target systemd-udevd-kernel.socket systemd-udevd.service\n"
                 "Before=blockdev@dev-mapper-%%i.target\n"
                 "Wants=blockdev@dev-mapper-%%i.target\n"
                 "Conflicts=umount.target\n"

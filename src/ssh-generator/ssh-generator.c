@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "creds-util.h"
+#include "dlopen-note.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -109,15 +110,20 @@ static int make_sshd_template_unit(
                 if (r < 0)
                         return r;
 
+                /* sshd reads AuthorizedKeysFile after dropping to the authenticating user's UID, so the
+                 * 0400 credential file under $CREDENTIALS_DIRECTORY is unreadable for non-root users.
+                 * Materialize a 0444 copy in a RuntimeDirectory so the ephemeral key works for any user. */
                 fprintf(f,
                         "[Unit]\n"
                         "Description=OpenSSH Per-Connection Server Daemon\n"
                         "Documentation=man:systemd-ssh-generator(8) man:sshd(8)\n"
                         "\n"
                         "[Service]\n"
-                        "ExecStart=-%s -i -o \"AuthorizedKeysFile ${CREDENTIALS_DIRECTORY}/ssh.ephemeral-authorized_keys-all .ssh/authorized_keys\"\n"
+                        "ExecStartPre=systemd-tmpfiles --create --inline 'f^ /run/sshd-generated-%%i/authorized_keys 0444 root root - ssh.ephemeral-authorized_keys-all'\n"
+                        "ExecStart=-%s -i -o \"AuthorizedKeysFile /run/sshd-generated-%%i/authorized_keys .ssh/authorized_keys\"\n"
                         "StandardInput=socket\n"
-                        "ImportCredential=ssh.ephemeral-authorized_keys-all\n",
+                        "ImportCredential=ssh.ephemeral-authorized_keys-all\n"
+                        "RuntimeDirectory=sshd-generated-%%i\n",
                         sshd_binary);
 
                 r = fflush_and_check(f);
@@ -238,8 +244,8 @@ static int add_vsock_socket(
                         "sshd-vsock.socket",
                         "vsock::22",
                         "AF_VSOCK",
-                        "ExecStartPost=-/usr/lib/systemd/systemd-ssh-issue --make-vsock\n"
-                        "ExecStopPre=-/usr/lib/systemd/systemd-ssh-issue --rm-vsock\n",
+                        "ExecStartPost=-/usr/lib/systemd/systemd-ssh-issue make-vsock\n"
+                        "ExecStopPre=-/usr/lib/systemd/systemd-ssh-issue rm-vsock\n",
                         /* with_ssh_access_target_dependency= */ true);
         if (r < 0)
                 return r;
@@ -338,7 +344,7 @@ static int add_export_unix_socket(
                 return r;
 
         log_debug("Binding SSH to AF_UNIX socket /run/host/unix-export/ssh\n"
-                  "→ connect via 'ssh unix/run/systemd/nspawn/unix-export/\?\?\?/ssh' from host");
+                  "→ connect via 'ssh unix/run/systemd/nspawn/\?\?\?/unix-export/ssh' from host");
 
         return 0;
 }
@@ -444,6 +450,9 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         int r;
 
         assert(dest);
+
+        LIBCRYPTO_NOTE(suggested);
+        TPM2_NOTE(suggested);
 
         r = proc_cmdline_parse(parse_proc_cmdline_item, /* userdata= */ NULL, /* flags= */ 0);
         if (r < 0)

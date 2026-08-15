@@ -3,6 +3,6 @@
 
 #include <sched.h>              /* IWYU pragma: export */
 
-#include "basic-forward.h"
+#include "forward.h"
 
 pid_t raw_clone(unsigned long flags);

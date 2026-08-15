@@ -16,3 +16,5 @@ StopWhenUnneeded=yes
 Service=systemd-journald@%i.service
 ListenStream=/run/systemd/journal.%i/io.systemd.journal
 SocketMode=0666
+XAttrEntryPoint=user.varlink=entrypoint
+XAttrListen=user.varlink=listen

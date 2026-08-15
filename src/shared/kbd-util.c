@@ -5,12 +5,10 @@
 #include "errno-util.h"
 #include "kbd-util.h"
 #include "log.h"
-#include "path-util.h"
 #include "recurse-dir.h"
 #include "set.h"
 #include "string-util.h"
 #include "strv.h"
-#include "utf8.h"
 
 #define KBD_KEYMAP_DIRS                         \
         "/usr/share/keymaps/",                  \
@@ -129,19 +127,10 @@ int get_keymaps(char ***ret) {
 }
 
 bool keymap_is_valid(const char *name) {
-        if (isempty(name))
+        if (!string_is_safe(name, STRING_FILENAME))
                 return false;
 
         if (strlen(name) >= 128)
-                return false;
-
-        if (!utf8_is_valid(name))
-                return false;
-
-        if (!filename_is_valid(name))
-                return false;
-
-        if (!string_is_safe(name))
                 return false;
 
         return true;

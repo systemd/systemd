@@ -3,7 +3,7 @@
 
 #include "conf-parser-forward.h"
 #include "dissect-image.h"
-#include "shared-forward.h"
+#include "forward.h"
 #include "gpt.h"
 
 typedef enum PartitionPolicyFlags {
@@ -118,6 +118,8 @@ ImagePolicy* image_policy_new_from_dissected(const DissectedImage *image, const 
 ImagePolicy* image_policy_free(ImagePolicy *p);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(ImagePolicy*, image_policy_free);
+
+ImagePolicy* image_policy_copy(const ImagePolicy *p);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_image_policy);
 int parse_image_policy_argument(const char *s, ImagePolicy **policy);

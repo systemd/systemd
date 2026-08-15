@@ -6,7 +6,9 @@
 #include "condition.h"
 #include "conf-files.h"
 #include "conf-parser.h"
+#include "extract-word.h"
 #include "in-addr-util.h"
+#include "iovec-util.h"
 #include "net-condition.h"
 #include "netdev/macvlan.h"
 #include "netif-sriov.h"
@@ -17,10 +19,10 @@
 #include "networkd-bridge-mdb.h"
 #include "networkd-dhcp-common.h"
 #include "networkd-dhcp-server-static-lease.h"
-#include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-manager.h"
 #include "networkd-ndisc.h"
 #include "networkd-neighbor.h"
+#include "networkd-neighbor-proxy.h"
 #include "networkd-network.h"
 #include "networkd-nexthop.h"
 #include "networkd-radv.h"
@@ -137,7 +139,7 @@ int network_verify(Network *network) {
                                          network->filename);
 
         /* skip out early if configuration does not match the environment */
-        if (!condition_test_list(network->conditions, environ, NULL, NULL, NULL))
+        if (!condition_test_list_net(network->conditions, environ, NULL, NULL, NULL))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "%s: Conditions in the file do not match the system environment, skipping.",
                                        network->filename);
@@ -229,7 +231,7 @@ int network_verify(Network *network) {
             network->ipv6ll_address_gen_mode < 0)
                 network->ipv6ll_address_gen_mode = IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_STABLE_PRIVACY;
 
-        network_adjust_ipv6_proxy_ndp(network);
+        network_adjust_neighbor_proxy(network);
         network_adjust_ndisc(network);
         network_adjust_dhcp(network);
         network_adjust_radv(network);
@@ -397,11 +399,14 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_use_gateway = -1,
                 .dhcp_send_hostname = true,
                 .dhcp_send_release = true,
+                .dhcp_extra_options = TLV_INIT(TLV_DHCP4),
+                .dhcp_vendor_options = TLV_INIT(TLV_DHCP4_SUBOPTION),
                 .dhcp_route_metric = DHCP_ROUTE_METRIC,
                 .dhcp_use_rapid_commit = -1,
                 .dhcp_client_identifier = _DHCP_CLIENT_ID_INVALID,
                 .dhcp_route_table = RT_TABLE_MAIN,
                 .dhcp_ip_service_type = -1,
+                .dhcp_socket_priority = -1,
                 .dhcp_broadcast = -1,
                 .dhcp_ipv6_only_mode = -1,
                 .dhcp_6rd_prefix_route_type = RTN_UNREACHABLE,
@@ -421,6 +426,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp6_client_start_mode = _DHCP6_CLIENT_START_MODE_INVALID,
                 .dhcp6_send_release = true,
                 .dhcp6_pd_prefix_route_type = RTN_UNREACHABLE,
+                .dhcp6_route_table = RT_TABLE_MAIN,
 
                 .dhcp_pd = -1,
                 .dhcp_pd_announce = true,
@@ -429,13 +435,17 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_pd_subnet_id = -1,
                 .dhcp_pd_route_metric = DHCP6PD_ROUTE_METRIC,
 
-                .dhcp_server_bind_to_interface = true,
+                .dhcp_relay_interface_mode = _DHCP_RELAY_INTERFACE_INVALID,
+                .dhcp_relay_extra_options = TLV_INIT(TLV_DHCP4_SUBOPTION),
+
                 .dhcp_server_emit[SD_DHCP_LEASE_DNS].emit = true,
                 .dhcp_server_emit[SD_DHCP_LEASE_NTP].emit = true,
                 .dhcp_server_emit[SD_DHCP_LEASE_SIP].emit = true,
                 .dhcp_server_emit_router = true,
                 .dhcp_server_emit_timezone = true,
                 .dhcp_server_rapid_commit = true,
+                .dhcp_server_extra_options = TLV_INIT(TLV_DHCP4),
+                .dhcp_server_vendor_options = TLV_INIT(TLV_DHCP4_SUBOPTION),
                 .dhcp_server_persist_leases = _DHCP_SERVER_PERSIST_LEASES_INVALID,
 
                 .router_lifetime_usec = RADV_DEFAULT_ROUTER_LIFETIME_USEC,
@@ -479,6 +489,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .ip_forwarding = { -1, -1, },
                 .ipv4_accept_local = -1,
                 .ipv4_route_localnet = -1,
+                .ipv4_src_valid_mark = -1,
                 .ipv6_privacy_extensions = _IPV6_PRIVACY_EXTENSIONS_INVALID,
                 .ipv6_dad_transmits = -1,
                 .ipv6_proxy_ndp = -1,
@@ -513,6 +524,9 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .ipoib_mode = _IP_OVER_INFINIBAND_MODE_INVALID,
                 .ipoib_umcast = -1,
 
+                .mm_allow_roaming = true,
+                .mm_allowed_auth = MM_BEARER_ALLOWED_AUTH_UNKNOWN,
+                .mm_ip_family = MM_BEARER_IP_FAMILY_NONE,
                 .mm_use_gateway = -1,
         };
 
@@ -537,10 +551,10 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         "DHCPv6\0"
                         "DHCPv6PrefixDelegation\0" /* compat */
                         "DHCPPrefixDelegation\0"
+                        "DHCPRelay\0"
                         "DHCPServer\0"
                         "DHCPServerStaticLease\0"
                         "IPv6AcceptRA\0"
-                        "IPv6NDPProxyAddress\0"
                         "Bridge\0"
                         "BridgeFDB\0"
                         "BridgeMDB\0"
@@ -553,7 +567,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         "LLDP\0"
                         "TrafficControlQueueingDiscipline\0"
                         "CAN\0"
-                        "ModemManager\0"
+                        "MobileNetwork\0"
                         "QDisc\0"
                         "BFIFO\0"
                         "CAKE\0"
@@ -757,9 +771,13 @@ static Network *network_free(Network *network) {
         ordered_set_free(network->route_domains);
         set_free(network->dnssec_negative_trust_anchors);
 
+        /* DHCP relay agent */
+        iovec_done(&network->dhcp_relay_remote_id);
+        iovec_done(&network->dhcp_relay_circuit_id);
+        iovec_done(&network->dhcp_relay_vss);
+        tlv_done(&network->dhcp_relay_extra_options);
+
         /* DHCP server */
-        free(network->dhcp_server_relay_agent_circuit_id);
-        free(network->dhcp_server_relay_agent_remote_id);
         free(network->dhcp_server_boot_server_name);
         free(network->dhcp_server_boot_filename);
         free(network->dhcp_server_timezone);
@@ -767,8 +785,8 @@ static Network *network_free(Network *network) {
         free(network->dhcp_server_uplink_name);
         for (sd_dhcp_lease_server_type_t t = 0; t < _SD_DHCP_LEASE_SERVER_TYPE_MAX; t++)
                 free(network->dhcp_server_emit[t].addresses);
-        ordered_hashmap_free(network->dhcp_server_send_options);
-        ordered_hashmap_free(network->dhcp_server_send_vendor_options);
+        tlv_done(&network->dhcp_server_extra_options);
+        tlv_done(&network->dhcp_server_vendor_options);
         free(network->dhcp_server_local_lease_domain);
 
         /* DHCP client */
@@ -778,10 +796,10 @@ static Network *network_free(Network *network) {
         free(network->dhcp_label);
         set_free(network->dhcp_deny_listed_ip);
         set_free(network->dhcp_allow_listed_ip);
-        strv_free(network->dhcp_user_class);
+        iovw_done_free(&network->dhcp_user_class);
         set_free(network->dhcp_request_options);
-        ordered_hashmap_free(network->dhcp_client_send_options);
-        ordered_hashmap_free(network->dhcp_client_send_vendor_options);
+        tlv_done(&network->dhcp_extra_options);
+        tlv_done(&network->dhcp_vendor_options);
         free(network->dhcp_netlabel);
         nft_set_context_clear(&network->dhcp_nft_set_context);
 
@@ -833,7 +851,7 @@ static Network *network_free(Network *network) {
         hashmap_free(network->stacked_netdevs);
 
         /* static configs */
-        set_free(network->ipv6_proxy_ndp_addresses);
+        set_free(network->neighbor_proxy_addresses);
         ordered_hashmap_free(network->addresses_by_section);
         hashmap_free(network->routes_by_section);
         ordered_hashmap_free(network->nexthops_by_section);
@@ -851,7 +869,11 @@ static Network *network_free(Network *network) {
         hashmap_free(network->tclasses_by_section);
 
         /* ModemManager */
-        strv_free(network->mm_simple_connect_props);
+        free(network->mm_apn);
+        free(network->mm_operator_id);
+        free(network->mm_user);
+        free(network->mm_password);
+        free(network->mm_pin);
 
         return mfree(network);
 }
@@ -930,7 +952,6 @@ int config_parse_stacked_netdev(
                 void *data,
                 void *userdata) {
 
-        _cleanup_free_ char *name = NULL;
         NetDevKind kind = ltype;
         Hashmap **h = ASSERT_PTR(data);
         int r;
@@ -950,29 +971,38 @@ int config_parse_stacked_netdev(
                       NETDEV_KIND_XFRM,
                       _NETDEV_KIND_TUNNEL));
 
-        if (!ifname_valid(rvalue)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid netdev name in %s=, ignoring assignment: %s", lvalue, rvalue);
+        if (isempty(rvalue)) {
+                *h = hashmap_free(*h);
                 return 0;
         }
 
-        name = strdup(rvalue);
-        if (!name)
-                return log_oom();
+        for (const char *p = rvalue;;) {
+                _cleanup_free_ char *name = NULL;
 
-        r = hashmap_ensure_put(h, &string_hash_ops_free, name, INT_TO_PTR(kind));
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r < 0)
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Cannot add NetDev '%s' to network, ignoring assignment: %m", name);
-        else if (r == 0)
-                log_syntax(unit, LOG_DEBUG, filename, line, r,
-                           "NetDev '%s' specified twice, ignoring.", name);
-        else
-                TAKE_PTR(name);
+                r = extract_first_word(&p, &name, /* separators= */ NULL, /* flags= */ 0);
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+                if (r == 0)
+                        return 0;
 
-        return 0;
+                if (!ifname_valid(name)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Invalid netdev name in %s=, ignoring assignment: %s", lvalue, name);
+                        continue;
+                }
+
+                r = hashmap_ensure_put(h, &string_hash_ops_free, name, INT_TO_PTR(kind));
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0)
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Cannot add NetDev '%s' to network, ignoring assignment: %m", name);
+                else if (r == 0)
+                        log_syntax(unit, LOG_DEBUG, filename, line, r,
+                                   "NetDev '%s' specified twice, ignoring.", name);
+                else
+                        TAKE_PTR(name);
+        }
 }
 
 int config_parse_required_for_online(

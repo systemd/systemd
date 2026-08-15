@@ -63,15 +63,26 @@
 
       <listitem><para>Units with <varname>PrivateTmp=yes</varname> automatically gain dependencies of type
       <varname>Wants=</varname> and <varname>After=</varname> on all mounts required to access
-      <filename>/tmp/</filename> and <filename>/var/tmp/</filename>. They will also gain an automatic
+      <filename>/tmp/</filename> and <filename>/var/tmp/</filename> and an automatic
       <varname>After=</varname> dependency on
-      <citerefentry><refentrytitle>systemd-tmpfiles-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-      </para></listitem>
+      <citerefentry><refentrytitle>systemd-tmpfiles-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      unless <varname>DefaultDependencies=no</varname> is specified. If
+      <varname>DefaultDependencies=no</varname> is specified, and a
+      <varname>RequiresMountsFor=/tmp/</varname>, <varname>WantsMountsFor=/tmp/</varname>,
+      <varname>After=tmp.mount</varname>, or <varname>RootDirectory=</varname>/<varname>RootImage=</varname>
+      are not specified, <varname>PrivateTmp=yes</varname> is converted to
+      <varname>PrivateTmp=disconnected</varname>.</para></listitem>
 
       <listitem><para>Units with <varname>PrivateTmp=disconnected</varname> automatically gain dependencies
       of type <varname>Wants=</varname> and <varname>After=</varname> on the mount required to access
       <filename>/var/</filename>, unless <varname>DefaultDependencies=no</varname> and/or
-      <varname>RootDirectory=/RootImage=</varname> are specified.</para></listitem>
+      <varname>RootDirectory=</varname>/<varname>RootImage=</varname> are specified. If
+      <varname>DefaultDependencies=no</varname> is specified, and a
+      <varname>RequiresMountsFor=/var/</varname>, <varname>WantsMountsFor=/var/</varname>,
+      <varname>After=var.mount</varname>, <varname>RootDirectory=</varname>/<varname>RootImage=</varname> are
+      not specified, the private mount on <filename>/tmp/</filename> is reused for
+      <filename>/var/tmp/</filename> by setting <varname>$TMPDIR</varname> appropriately.</para>
+      </listitem>
 
       <listitem><para>Units whose standard output or error output is connected to <option>journal</option> or
       <option>kmsg</option> (or their combinations with console output, see below) automatically acquire
@@ -942,11 +953,15 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
 
         <listitem><para>Controls the secure bits set for the executed process. Takes a space-separated combination of
         options from the following list: <option>keep-caps</option>, <option>keep-caps-locked</option>,
-        <option>no-setuid-fixup</option>, <option>no-setuid-fixup-locked</option>, <option>noroot</option>, and
-        <option>noroot-locked</option>. This option may appear more than once, in which case the secure bits are
+        <option>no-setuid-fixup</option>, <option>no-setuid-fixup-locked</option>, <option>noroot</option>,
+        <option>noroot-locked</option>, <option>no-cap-ambient-raise</option>, <option>no-cap-ambient-raise-locked</option>,
+        <option>exec-restrict-file</option>, <option>exec-restrict-file-locked</option>,
+        <option>exec-deny-interactive</option>, and <option>exec-deny-interactive-locked</option>.
+        This option may appear more than once, in which case the secure bits are
         ORed. If the empty string is assigned to this option, the bits are reset to 0. This does not affect commands
         prefixed with <literal>+</literal>. See <citerefentry
-        project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        and <ulink url="https://docs.kernel.org/userspace-api/check_exec.html">Executability check</ulink> for
         details.</para></listitem>
       </varlistentry>
 
@@ -1397,12 +1412,16 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <term><varname>NUMAPolicy=</varname></term>
 
         <listitem><para>Controls the NUMA memory policy of the executed processes. Takes a policy type, one of:
-        <option>default</option>, <option>preferred</option>, <option>bind</option>, <option>interleave</option> and
-        <option>local</option>. A list of NUMA nodes that should be associated with the policy must be specified
-        in <varname>NUMAMask=</varname>. For more details on each policy please see,
+        <option>default</option>, <option>preferred</option>, <option>bind</option>, <option>interleave</option>,
+        <option>local</option>, <option>preferred-many</option> (requires Linux 5.15 or newer) and
+        <option>weighted-interleave</option> (requires Linux 6.9 or newer, weights are configured via
+        <filename>/sys/kernel/mm/mempolicy/weighted_interleave/</filename>). A list of NUMA nodes that should be
+        associated with the policy must be specified in <varname>NUMAMask=</varname>. For more details on each
+        policy please see,
         <citerefentry><refentrytitle>set_mempolicy</refentrytitle><manvolnum>2</manvolnum></citerefentry>. For overall
         overview of NUMA support in Linux see,
         <citerefentry project='man-pages'><refentrytitle>numa</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        If the kernel does not support the requested policy, a warning is logged and the setting is ignored.
         </para>
 
         <xi:include href="version-info.xml" xpointer="v243"/></listitem>
@@ -1526,6 +1545,9 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         actually require access to the user's private data. This setting is implied if
         <varname>DynamicUser=</varname> is set. This setting cannot ensure protection in all cases. In
         general it has the same limitations as <varname>ReadOnlyPaths=</varname>, see below.</para>
+
+        <para>Note that this setting provides no protection if home directories are placed at a non-standard
+        location, i.e. outside of the hierarchies listed above.</para>
 
         <xi:include href="system-or-user-ns.xml" xpointer="singular"/>
 
@@ -1758,6 +1780,15 @@ StateDirectory=aaa/bbb ccc</programlisting>
         stopped. Note that since the runtime directory <filename>/run/</filename> is a mount point of
         <literal>tmpfs</literal>, then for system services the directories specified in
         <varname>RuntimeDirectory=</varname> are removed when the system is rebooted.</para>
+
+        <para>If <varname>DynamicUser=</varname> is used together with
+        <varname>RuntimeDirectoryPreserve=</varname> set to values other than <option>no</option>, the logic
+        is slightly altered: the <varname>RuntimeDirectory=</varname> directories are created below
+        <filename>/run/private/</filename>, which is a host directory made inaccessible to unprivileged
+        users, which ensures that access to these directories cannot be gained through dynamic user ID
+        recycling. Symbolic links are created to hide this difference in behaviour. Both from the
+        perspective of the host and from inside the unit, the relevant directories hence always appear
+        directly below <filename>/run/</filename>.</para>
 
         <xi:include href="version-info.xml" xpointer="v235"/></listitem>
       </varlistentry>
@@ -2791,6 +2822,11 @@ RestrictNamespaces=~cgroup net</programlisting>
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, which
         defaults to off.</para>
 
+        <para>This setting is implemented using seccomp filtering. For system calls where the mode bits are
+        passed directly as arguments, the call is denied only when the SUID or SGID bits are set. For system
+        calls where those bits are passed indirectly and cannot be inspected by the filter, such as
+        <function>openat2()</function>, the call is blocked entirely, regardless of the requested mode.</para>
+
         <xi:include href="version-info.xml" xpointer="v242"/></listitem>
       </varlistentry>
 
@@ -3270,6 +3306,10 @@ SystemCallErrorNumber=EPERM</programlisting>
         silently ignored. This option may be specified more than once in which case all specified files are read.
         If the empty string is assigned to this option, the list of files to read is reset, all prior assignments
         have no effect.</para>
+
+        <para>Note that shell variables such as <literal>$HOME</literal> are not expanded in this path.
+        Use <literal>%</literal>-specifiers instead; for example, <literal>%h</literal> expands to the
+        user's home directory.</para>
 
         <para>The files listed with this directive will be read shortly before the process is executed (more
         specifically, after all processes from a previous unit state terminated. This means you can generate these
@@ -4675,11 +4715,35 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           <term><varname>$MEMORY_PRESSURE_WRITE</varname></term>
 
           <listitem><para>If memory pressure monitoring is enabled for this service unit, the path to watch
-          and the data to write into it. See <ulink url="https://systemd.io/MEMORY_PRESSURE">Memory Pressure
+          and the data to write into it. See <ulink url="https://systemd.io/PRESSURE">Resource Pressure
           Handling</ulink> for details about these variables and the service protocol data they
           convey.</para>
 
           <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>$CPU_PRESSURE_WATCH</varname></term>
+          <term><varname>$CPU_PRESSURE_WRITE</varname></term>
+
+          <listitem><para>If CPU pressure monitoring is enabled for this service unit, the path to watch
+          and the data to write into it. See <ulink url="https://systemd.io/PRESSURE">Resource Pressure
+          Handling</ulink> for details about these variables and the service protocol data they
+          convey.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>$IO_PRESSURE_WATCH</varname></term>
+          <term><varname>$IO_PRESSURE_WRITE</varname></term>
+
+          <listitem><para>If IO pressure monitoring is enabled for this service unit, the path to watch
+          and the data to write into it. See <ulink url="https://systemd.io/PRESSURE">Resource Pressure
+          Handling</ulink> for details about these variables and the service protocol data they
+          convey.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/></listitem>
         </varlistentry>
 
         <varlistentry>

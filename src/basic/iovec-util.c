@@ -16,40 +16,55 @@ const struct iovec iovec_empty = {
         .iov_len = 0,
 };
 
+int iovec_alloc(size_t n, struct iovec *ret) {
+        assert(ret);
+
+        void *buf = malloc(n ?: 1);
+        if (!buf)
+                return -ENOMEM;
+
+        *ret = IOVEC_MAKE(buf, n);
+        return 0;
+}
+
 size_t iovec_total_size(const struct iovec *iovec, size_t n) {
         size_t sum = 0;
 
         assert(iovec || n == 0);
 
-        FOREACH_ARRAY(j, iovec, n)
+        FOREACH_ARRAY(j, iovec, n) {
+                if (j->iov_len > SIZE_MAX - sum)
+                        return SIZE_MAX; /* Indicate overflow. */
                 sum += j->iov_len;
+        }
 
         return sum;
 }
 
-bool iovec_increment(struct iovec *iovec, size_t n, size_t k) {
+bool iovec_inc_many(struct iovec *iovec, size_t n, size_t k) {
         assert(iovec || n == 0);
 
         /* Returns true if there is nothing else to send (bytes written cover all of the iovec),
          * false if there's still work to do. */
 
+        bool have = false;
         FOREACH_ARRAY(j, iovec, n) {
-                size_t sub;
-
                 if (j->iov_len == 0)
                         continue;
                 if (k == 0)
                         return false;
 
-                sub = MIN(j->iov_len, k);
-                j->iov_len -= sub;
-                j->iov_base = (uint8_t*) j->iov_base + sub;
+                size_t sub = MIN(j->iov_len, k);
+                iovec_inc(j, sub);
                 k -= sub;
+
+                have = have || iovec_is_set(j);
         }
 
         assert(k == 0); /* Anything else would mean that we wrote more bytes than available,
                          * or the kernel reported writing more bytes than sent. */
-        return true;
+
+        return !have;
 }
 
 struct iovec* iovec_make_string(struct iovec *iovec, const char *s) {
@@ -57,6 +72,15 @@ struct iovec* iovec_make_string(struct iovec *iovec, const char *s) {
 
         *iovec = IOVEC_MAKE(s, strlen_ptr(s));
         return iovec;
+}
+
+void iovec_erase(struct iovec *iovec) {
+        assert(iovec);
+
+        /* Unlike iovec_done_erase(), which derives the buffer size with MALLOC_SIZEOF_SAFE(), this uses
+         * iov_len as the buffer size. Hence, it can be used with iovec referring to a static array or a
+         * buffer allocated on the stack. */
+        explicit_bzero_safe(iovec->iov_base, iovec->iov_len);
 }
 
 void iovec_done_erase(struct iovec *iovec) {
@@ -123,6 +147,21 @@ struct iovec* iovec_memdup(const struct iovec *source, struct iovec *ret) {
         }
 
         return ret;
+}
+
+int iovec_done_and_memdup(struct iovec *iovec, const struct iovec *source) {
+        assert(iovec);
+
+        if (iovec_equal(iovec, source))
+                return 0;
+
+        struct iovec copy;
+        if (!iovec_memdup(source, &copy))
+                return -ENOMEM;
+
+        iovec_done(iovec);
+        *iovec = copy;
+        return 1;
 }
 
 struct iovec* iovec_append(struct iovec *iovec, const struct iovec *append) {

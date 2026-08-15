@@ -17,15 +17,18 @@
 #include "strv.h"
 #include "varlink-util.h"
 
-static int bus_message_check_good_user(sd_bus_message *m, uid_t good_user) {
+static int bus_message_check_good_user(sd_bus_message *m, uid_t good_user, bool *ret_admin) {
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         uid_t sender_uid;
         int r;
 
         assert(m);
 
-        if (good_user == UID_INVALID)
+        if (good_user == UID_INVALID) {
+                if (ret_admin)
+                        *ret_admin = false;
                 return false;
+        }
 
         r = sd_bus_query_sender_creds(m, SD_BUS_CREDS_EUID, &creds);
         if (r < 0)
@@ -37,6 +40,9 @@ static int bus_message_check_good_user(sd_bus_message *m, uid_t good_user) {
         r = sd_bus_creds_get_euid(creds, &sender_uid);
         if (r < 0)
                 return r;
+
+        if (ret_admin)
+                *ret_admin = sender_uid == 0;
 
         return sender_uid == good_user;
 }
@@ -121,7 +127,7 @@ int bus_test_polkit(
 
         /* Tests non-interactively! */
 
-        r = bus_message_check_good_user(call, good_user);
+        r = bus_message_check_good_user(call, good_user, /* ret_admin= */ NULL);
         if (r != 0)
                 return r;
 
@@ -178,6 +184,7 @@ int bus_test_polkit(
 typedef struct AsyncPolkitQueryAction {
         char *action;
         char **details;
+        bool admin; /* true when the action was authorized by auth_admin/auth_admin_keep (i.e.: by a privileged user) */
 
         LIST_FIELDS(struct AsyncPolkitQueryAction, authorized);
 } AsyncPolkitQueryAction;
@@ -250,13 +257,10 @@ static AsyncPolkitQuery* async_polkit_query_free(AsyncPolkitQuery *q) {
 DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(AsyncPolkitQuery, async_polkit_query, async_polkit_query_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(AsyncPolkitQuery*, async_polkit_query_unref);
 
-DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 async_polkit_query_hash_ops,
-                void,
-                trivial_hash_func,
-                trivial_compare_func,
-                AsyncPolkitQuery,
-                async_polkit_query_unref);
+                void, trivial_hash_func, trivial_compare_func,
+                AsyncPolkitQuery, async_polkit_query_unref);
 
 static int async_polkit_defer(sd_event_source *s, void *userdata) {
         AsyncPolkitQuery *q = ASSERT_PTR(userdata);
@@ -315,8 +319,41 @@ static int async_polkit_read_reply(sd_bus_message *reply, AsyncPolkitQuery *q) {
         }
 
         r = sd_bus_message_enter_container(reply, 'r', "bba{ss}");
-        if (r >= 0)
-                r = sd_bus_message_read(reply, "bb", &authorized, &challenge);
+        if (r < 0)
+                return r;
+        r = sd_bus_message_read(reply, "bb", &authorized, &challenge);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_enter_container(reply, 'a', "{ss}");
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                const char *k, *v;
+
+                r = sd_bus_message_enter_container(reply, 'e', "ss");
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                r = sd_bus_message_read(reply, "ss", &k, &v);
+                if (r < 0)
+                        return r;
+                if (r > 0 && streq(k, "polkit.result") && STR_IN_SET(v, "auth_admin_keep", "auth_admin"))
+                        a->admin = true;
+
+                r = sd_bus_message_exit_container(reply);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_exit_container(reply);
         if (r < 0)
                 return r;
 
@@ -349,7 +386,7 @@ static int async_polkit_process_reply(sd_bus_message *reply, AsyncPolkitQuery *q
         if (r < 0)
                 return r;
 
-        /* Now, let's dispatch the original message a second time be re-enqueing. This will then traverse the
+        /* Now, let's dispatch the original message a second time be re-enqueuing. This will then traverse the
          * whole message processing again, and thus re-validating and re-retrieving the "userdata" field
          * again.
          *
@@ -414,14 +451,22 @@ static int async_polkit_callback(sd_bus_message *reply, void *userdata, sd_bus_e
 static bool async_polkit_query_have_action(
                 AsyncPolkitQuery *q,
                 const char *action,
-                const char **details) {
+                const char **details,
+                /* Reports whether the subject authenticated as admin, instead of a regular user */
+                bool *ret_admin) {
 
         assert(q);
         assert(action);
 
         LIST_FOREACH(authorized, a, q->authorized_actions)
-                if (streq(a->action, action) && strv_equal(a->details, (char**) details))
+                if (streq(a->action, action) && strv_equal(a->details, (char**) details)) {
+                        if (ret_admin)
+                                *ret_admin = a->admin;
                         return true;
+                }
+
+        if (ret_admin)
+                *ret_admin = false;
 
         return false;
 }
@@ -431,13 +476,19 @@ static int async_polkit_query_check_action(
                 const char *action,
                 const char **details,
                 PolkitFlags flags,
+                bool *ret_admin,
                 sd_bus_error *reterr_error) {
+
+        bool admin = false; /* Not privileged until proven otherwise */
 
         assert(q);
         assert(action);
 
-        if (async_polkit_query_have_action(q, action, details))
+        if (async_polkit_query_have_action(q, action, details, &admin)) {
+                if (ret_admin)
+                        *ret_admin = admin;
                 return 1; /* Allow! */
+        }
 
         if (q->error_action && streq(q->error_action->action, action))
                 return sd_bus_error_copy(reterr_error, &q->error);
@@ -445,12 +496,20 @@ static int async_polkit_query_check_action(
         if (q->denied_action && streq(q->denied_action->action, action))
                 return -EACCES; /* Deny! */
 
-        if (q->absent_action)
-                return FLAGS_SET(flags, POLKIT_DEFAULT_ALLOW) ? 1 /* Allow! */ : -EACCES /* Deny! */;
+        if (q->absent_action) {
+                if (!FLAGS_SET(flags, POLKIT_DEFAULT_ALLOW))
+                        return -EACCES;
+                if (ret_admin)
+                        *ret_admin = admin;
+                return 1;
+        }
 
         /* Also deny if we've got an auth. failure for a previous action */
         if (q->denied_action || q->error_action)
                 return -EBUSY;
+
+        if (ret_admin)
+                *ret_admin = admin;
 
         return 0; /* no reply yet */
 }
@@ -485,9 +544,9 @@ static int async_polkit_query_check_action(
  *     processed and the polkit action to verify.
  * 2.  bus_verify_polkit_async() checks the registry for an existing query object associated with the
  *     message. Let's assume this is the first call, so it finds nothing.
- * 3.  A new AsyncPolkitQuery object is created and an async. D-Bus call to polkit is made. The
+ * 3.  A new AsyncPolkitQuery object is created and an async D-Bus call to polkit is made. The
  *     function then returns 0. The method handler returns 1 to tell sd-bus that the processing of
- *    the message has been interrupted.
+ *     the message has been interrupted.
  * 4.  (Later) A reply from polkit is received and async_polkit_callback() is called.
  * 5.  async_polkit_callback() reads the reply and stores its result in the passed query.
  * 6.  async_polkit_callback() enqueues the original message again.
@@ -544,8 +603,10 @@ int bus_verify_polkit_async_full(
                 uid_t good_user,
                 PolkitFlags flags,
                 Hashmap **registry,
+                bool *ret_admin,
                 sd_bus_error *reterr_error) {
 
+        bool admin = false; /* Not privileged until proven otherwise */
         int r;
 
         assert(call);
@@ -554,9 +615,12 @@ int bus_verify_polkit_async_full(
 
         log_debug("Trying to acquire polkit authentication for '%s'.", action);
 
-        r = bus_message_check_good_user(call, good_user);
-        if (r != 0)
+        r = bus_message_check_good_user(call, good_user, &admin);
+        if (r != 0) {
+                if (r > 0 && ret_admin)
+                        *ret_admin = admin;
                 return r;
+        }
 
 #if ENABLE_POLKIT
         _cleanup_(async_polkit_query_unrefp) AsyncPolkitQuery *q = NULL;
@@ -565,8 +629,10 @@ int bus_verify_polkit_async_full(
         /* This is a repeated invocation of this function, hence let's check if we've already got
          * a response from polkit for this action */
         if (q) {
-                r = async_polkit_query_check_action(q, action, details, flags, reterr_error);
+                r = async_polkit_query_check_action(q, action, details, flags, &admin, reterr_error);
                 if (r != 0) {
+                        if (r > 0 && ret_admin)
+                                *ret_admin = admin;
                         log_debug("Found matching previous polkit authentication for '%s'.", action);
                         return r;
                 }
@@ -578,8 +644,11 @@ int bus_verify_polkit_async_full(
                 r = sd_bus_query_sender_privilege(call, /* capability= */ -1);
                 if (r < 0)
                         return r;
-                if (r > 0)
+                if (r > 0) {
+                        if (ret_admin)
+                                *ret_admin = true;
                         return 1;
+                }
 #if ENABLE_POLKIT
         }
 
@@ -632,24 +701,37 @@ int bus_verify_polkit_async_full(
 
         TAKE_PTR(q);
 
+        if (ret_admin)
+                *ret_admin = admin;
+
         return 0;
 #else
-        return FLAGS_SET(flags, POLKIT_DEFAULT_ALLOW) ? 1 : -EACCES;
+        if (!FLAGS_SET(flags, POLKIT_DEFAULT_ALLOW))
+                return -EACCES;
+        if (ret_admin)
+                *ret_admin = admin;
+        return 1;
 #endif
 }
 
-static int varlink_check_good_user(sd_varlink *link, uid_t good_user) {
+static int varlink_check_good_user(sd_varlink *link, uid_t good_user, bool *ret_admin) {
         int r;
 
         assert(link);
 
-        if (good_user == UID_INVALID)
+        if (good_user == UID_INVALID) {
+                if (ret_admin)
+                        *ret_admin = false;
                 return false;
+        }
 
         uid_t peer_uid;
         r = sd_varlink_get_peer_uid(link, &peer_uid);
         if (r < 0)
                 return r;
+
+        if (ret_admin)
+                *ret_admin = peer_uid == 0;
 
         return good_user == peer_uid;
 }
@@ -765,8 +847,10 @@ int varlink_verify_polkit_async_full(
                 const char **details,
                 uid_t good_user,
                 PolkitFlags flags,
-                Hashmap **registry) {
+                Hashmap **registry,
+                bool *ret_admin) {
 
+        bool admin = false; /* Not privileged until proven otherwise */
         int r;
 
         assert(link);
@@ -777,16 +861,22 @@ int varlink_verify_polkit_async_full(
         /* This is the same as bus_verify_polkit_async_full(), but authenticates the peer of a varlink
          * connection rather than the sender of a bus message. */
 
-        r = varlink_check_good_user(link, good_user);
-        if (r != 0)
+        r = varlink_check_good_user(link, good_user, &admin);
+        if (r != 0) {
+                if (r > 0 && ret_admin)
+                        *ret_admin = admin;
                 return r;
+        }
 
 #if ENABLE_POLKIT
         if (!FLAGS_SET(flags, POLKIT_ALWAYS_QUERY)) {
 #endif
                 r = varlink_check_peer_privilege(link);
-                if (r != 0)
+                if (r != 0) {
+                        if (r > 0 && ret_admin)
+                                *ret_admin = true;
                         return r;
+                }
 #if ENABLE_POLKIT
         }
 
@@ -797,7 +887,7 @@ int varlink_verify_polkit_async_full(
          * a response from polkit for this action */
         if (q) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                r = async_polkit_query_check_action(q, action, details, flags, &error);
+                r = async_polkit_query_check_action(q, action, details, flags, &admin, &error);
                 if (r != 0)
                         log_debug("Found matching previous polkit authentication for '%s'.", action);
                 if (r < 0) {
@@ -811,8 +901,11 @@ int varlink_verify_polkit_async_full(
 
                         return r;
                 }
-                if (r > 0)
+                if (r > 0) {
+                        if (ret_admin)
+                                *ret_admin = admin;
                         return r;
+                }
         }
 
         _cleanup_(sd_bus_unrefp) sd_bus *mybus = NULL;
@@ -874,13 +967,20 @@ int varlink_verify_polkit_async_full(
 
         TAKE_PTR(q);
 
+        if (ret_admin)
+                *ret_admin = admin;
+
         return 0;
 #else
-        return FLAGS_SET(flags, POLKIT_DEFAULT_ALLOW) ? 1 : -EACCES;
+        if (!FLAGS_SET(flags, POLKIT_DEFAULT_ALLOW))
+                return -EACCES;
+        if (ret_admin)
+                *ret_admin = admin;
+        return 1;
 #endif
 }
 
-bool varlink_has_polkit_action(sd_varlink *link, const char *action, const char **details, Hashmap **registry) {
+bool varlink_has_polkit_action(sd_varlink *link, const char *action, const char **details, Hashmap **registry, bool *ret_admin) {
         assert(link);
         assert(action);
         assert(registry);
@@ -892,8 +992,10 @@ bool varlink_has_polkit_action(sd_varlink *link, const char *action, const char 
         if (!q)
                 return false;
 
-        return async_polkit_query_have_action(q, action, details);
+        return async_polkit_query_have_action(q, action, details, ret_admin);
 #else
+        if (ret_admin)
+                *ret_admin = false; /* Not privileged until proven otherwise */
         return false;
 #endif
 }

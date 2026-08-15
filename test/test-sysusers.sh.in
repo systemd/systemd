@@ -23,7 +23,7 @@ prepare_testdir() {
     mkdir -p "$TESTDIR/etc/sysusers.d/"
     mkdir -p "$TESTDIR/usr/lib/sysusers.d/"
     rm -f "$TESTDIR"/etc/*{passwd,group,shadow}
-    for i in $1.initial-{passwd,group,shadow}; do
+    for i in $1.initial-{passwd,group,shadow,gshadow}; do
         test -f "$i" && cp "$i" "$TESTDIR/etc/${i#*.initial-}"
     done
     return 0

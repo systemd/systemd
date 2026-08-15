@@ -3,7 +3,7 @@
 
 /* IWYU pragma: always_keep */
 
-#include "sd-forward.h"         /* IWYU pragma: export */
+#include "forward.h"         /* IWYU pragma: export */
 
 typedef enum BusAuth BusAuth;
 typedef enum BusSlotType BusSlotType;

@@ -17,7 +17,7 @@ static void load_bcd(const char *path, void **ret_bcd, size_t *ret_bcd_len) {
 
         assert_se(get_testdata_dir(path, &fn) >= 0);
         assert_se(read_full_file_full(AT_FDCWD, fn, UINT64_MAX, SIZE_MAX, 0, NULL, &compressed, &len) >= 0);
-        assert_se(decompress_blob_zstd(compressed, len, ret_bcd, ret_bcd_len, SIZE_MAX) >= 0);
+        assert_se(decompress_blob(COMPRESSION_ZSTD, compressed, len, ret_bcd, ret_bcd_len, SIZE_MAX) >= 0);
 }
 
 static void test_get_bcd_title_one(
@@ -88,6 +88,16 @@ TEST(base_block) {
         bcd->primary_seqnum++;
         assert_se(!get_bcd_title(bcd_base, len));
         *bcd = backup;
+}
+
+TEST(offset_bounds) {
+        assert_se(!bad_offset(0, sizeof(Key), sizeof(Key)));
+        assert_se(!BAD_STRUCT(Key, 0, sizeof(Key)));
+        assert_se(!BAD_ARRAY(Key, key_name, 0, 0, sizeof(Key)));
+
+        assert_se(bad_offset(0, sizeof(Key) + 1, sizeof(Key)));
+        assert_se(bad_offset(sizeof(Key) + 1, 0, sizeof(Key)));
+        assert_se(bad_offset(UINT32_MAX, 2, UINT32_MAX));
 }
 
 TEST(bad_bcd) {

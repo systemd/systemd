@@ -63,6 +63,15 @@ TEST(xescape_full) {
         test_xescape_full_one(true);
 }
 
+TEST(xescape_full_ellipsis) {
+        _cleanup_free_ char *t = NULL;
+
+        /* Every byte escapes to four columns, so the escaped output fills strlen*4 bytes and the
+         * forced ellipsis used to be written past the end of the buffer. */
+        assert_se(t = xescape_full("\001\001\001", /* bad= */ NULL, 80, XESCAPE_FORCE_ELLIPSIS));
+        ASSERT_STREQ(t, "\\x01\\x01\\x01...");
+}
+
 TEST(cunescape) {
         _cleanup_free_ char *unescaped = NULL;
 
@@ -100,6 +109,21 @@ TEST(cunescape) {
         assert_se(cunescape("\\u0000", 0, &unescaped) < 0);
         assert_se(cunescape("\\u00DF\\U000000df\\u03a0\\U00000041", UNESCAPE_RELAX, &unescaped) >= 0);
         ASSERT_STREQ(unescaped, "ßßΠA");
+        unescaped = mfree(unescaped);
+
+        /* UTF-16 surrogates cannot be encoded as valid UTF-8 and must be rejected */
+        ASSERT_ERROR(cunescape("\\ud800", 0, &unescaped), EINVAL);
+        ASSERT_ERROR(cunescape("\\udfff", 0, &unescaped), EINVAL);
+
+        /* The code points immediately outside the surrogate range must still decode */
+        ASSERT_OK(cunescape("\\ud7ff", 0, &unescaped));
+        unescaped = mfree(unescaped);
+        ASSERT_OK(cunescape("\\ue000", 0, &unescaped));
+        unescaped = mfree(unescaped);
+
+        /* Noncharacters (e.g. U+FFFE) are valid scalar values, encode fine as UTF-8, and are
+         * relied upon by callers (systemd.mount-extra=), so unlike \U they stay accepted here */
+        ASSERT_OK(cunescape("\\ufffe", 0, &unescaped));
         unescaped = mfree(unescaped);
 
         assert_se(cunescape("\\073", 0, &unescaped) >= 0);

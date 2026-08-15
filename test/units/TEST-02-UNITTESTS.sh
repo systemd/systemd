@@ -24,7 +24,7 @@ if [[ -z "${TEST_MATCH_SUBTEST:-}" ]]; then
     # in QEMU to only those that can't run in a container to avoid running
     # the same tests again in a, most likely, very slow environment
     if ! systemd-detect-virt -qc && [[ "${TEST_PREFER_NSPAWN:-0}" -ne 0 ]]; then
-        TEST_MATCH_SUBTEST="test-loop-block"
+        TEST_MATCH_SUBTEST="test-loop-util"
     else
         TEST_MATCH_SUBTEST="test-*"
     fi
@@ -80,7 +80,7 @@ run_test() {
         --unit="$name" \
         --wait "$test" && ret=0 || ret=$?
 
-    exec {LOCK_FD}> /lock
+    exec {LOCK_FD}>/lock
     flock --exclusive ${LOCK_FD}
 
     if [[ $ret -eq 77 ]] || [[ $ret -eq 127 ]]; then

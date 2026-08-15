@@ -17,7 +17,7 @@
 #include "kbd-util.h"
 #include "localed-util.h"
 #include "log.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -142,8 +142,6 @@ int locale_read_data(Context *c, sd_bus_message *m) {
 }
 
 int vconsole_read_data(Context *c, sd_bus_message *m) {
-        _cleanup_close_ int fd = -EBADF;
-        struct stat st;
         int r;
 
         assert(c);
@@ -157,7 +155,7 @@ int vconsole_read_data(Context *c, sd_bus_message *m) {
                 c->vc_cache = sd_bus_message_ref(m);
         }
 
-        fd = RET_NERRNO(open(etc_vconsole_conf(), O_CLOEXEC | O_PATH));
+        _cleanup_close_ int fd = RET_NERRNO(open(etc_vconsole_conf(), O_CLOEXEC | O_PATH));
         if (fd == -ENOENT) {
                 c->vc_stat = (struct stat) {};
                 vc_context_clear(&c->vc);
@@ -167,6 +165,7 @@ int vconsole_read_data(Context *c, sd_bus_message *m) {
         if (fd < 0)
                 return fd;
 
+        struct stat st;
         if (fstat(fd, &st) < 0)
                 return -errno;
 
@@ -174,35 +173,34 @@ int vconsole_read_data(Context *c, sd_bus_message *m) {
         if (stat_inode_unmodified(&c->vc_stat, &st))
                 return 0;
 
-        c->vc_stat = st;
-        vc_context_clear(&c->vc);
-        x11_context_clear(&c->x11_from_vc);
-
+        _cleanup_(vc_context_clear) VCContext vc = {};
+        _cleanup_(x11_context_clear) X11Context xc = {};
         r = parse_env_file_fd(
                         fd, etc_vconsole_conf(),
-                        "KEYMAP",        &c->vc.keymap,
-                        "KEYMAP_TOGGLE", &c->vc.toggle,
-                        "XKBLAYOUT",     &c->x11_from_vc.layout,
-                        "XKBMODEL",      &c->x11_from_vc.model,
-                        "XKBVARIANT",    &c->x11_from_vc.variant,
-                        "XKBOPTIONS",    &c->x11_from_vc.options);
+                        "KEYMAP",        &vc.keymap,
+                        "KEYMAP_TOGGLE", &vc.toggle,
+                        "XKBLAYOUT",     &xc.layout,
+                        "XKBMODEL",      &xc.model,
+                        "XKBVARIANT",    &xc.variant,
+                        "XKBOPTIONS",    &xc.options);
         if (r < 0)
                 return r;
 
-        if (vc_context_verify(&c->vc) < 0)
-                vc_context_clear(&c->vc);
+        /* Do not fail when the .conf file contains an invalid setting, but discard the stored settings and
+         * save the stat to avoid re-reading it in the future. */
+        if (vc_context_verify(&vc) < 0)
+                vc_context_clear(&vc);
 
-        if (x11_context_verify(&c->x11_from_vc) < 0)
-                x11_context_clear(&c->x11_from_vc);
+        if (x11_context_verify(&xc) < 0)
+                x11_context_clear(&xc);
 
+        c->vc_stat = st;
+        vc_context_replace(&c->vc, &vc);
+        x11_context_replace(&c->x11_from_vc, &xc);
         return 0;
 }
 
 int x11_read_data(Context *c, sd_bus_message *m) {
-        _cleanup_close_ int fd = -EBADF;
-        _cleanup_fclose_ FILE *f = NULL;
-        bool in_section = false;
-        struct stat st;
         int r;
 
         assert(c);
@@ -216,7 +214,7 @@ int x11_read_data(Context *c, sd_bus_message *m) {
                 c->x11_cache = sd_bus_message_ref(m);
         }
 
-        fd = RET_NERRNO(open("/etc/X11/xorg.conf.d/00-keyboard.conf", O_CLOEXEC | O_PATH));
+        _cleanup_close_ int fd = RET_NERRNO(open("/etc/X11/xorg.conf.d/00-keyboard.conf", O_CLOEXEC | O_PATH));
         if (fd == -ENOENT) {
                 c->x11_stat = (struct stat) {};
                 x11_context_clear(&c->x11_from_xorg);
@@ -225,6 +223,7 @@ int x11_read_data(Context *c, sd_bus_message *m) {
         if (fd < 0)
                 return fd;
 
+        struct stat st;
         if (fstat(fd, &st) < 0)
                 return -errno;
 
@@ -232,13 +231,13 @@ int x11_read_data(Context *c, sd_bus_message *m) {
         if (stat_inode_unmodified(&c->x11_stat, &st))
                 return 0;
 
-        c->x11_stat = st;
-        x11_context_clear(&c->x11_from_xorg);
-
+        _cleanup_fclose_ FILE *f = NULL;
         r = fdopen_independent(fd, "re", &f);
         if (r < 0)
                 return r;
 
+        _cleanup_(x11_context_clear) X11Context xc = {};
+        bool in_section = false;
         for (;;) {
                 _cleanup_free_ char *line = NULL;
 
@@ -262,13 +261,13 @@ int x11_read_data(Context *c, sd_bus_message *m) {
                                 char **p = NULL;
 
                                 if (streq(a[1], "XkbLayout"))
-                                        p = &c->x11_from_xorg.layout;
+                                        p = &xc.layout;
                                 else if (streq(a[1], "XkbModel"))
-                                        p = &c->x11_from_xorg.model;
+                                        p = &xc.model;
                                 else if (streq(a[1], "XkbVariant"))
-                                        p = &c->x11_from_xorg.variant;
+                                        p = &xc.variant;
                                 else if (streq(a[1], "XkbOptions"))
-                                        p = &c->x11_from_xorg.options;
+                                        p = &xc.options;
 
                                 if (p)
                                         free_and_replace(*p, a[2]);
@@ -288,9 +287,15 @@ int x11_read_data(Context *c, sd_bus_message *m) {
                         in_section = false;
         }
 
-        if (x11_context_verify(&c->x11_from_xorg) < 0)
-                x11_context_clear(&c->x11_from_xorg);
+        x11_context_normalize(&xc);
 
+        /* Do not fail when the .conf file contains an invalid setting, but discard the stored settings and
+         * save the stat to avoid re-reading it in the future. */
+        if (x11_context_verify(&xc) < 0)
+                x11_context_clear(&xc);
+
+        c->x11_stat = st;
+        x11_context_replace(&c->x11_from_xorg, &xc);
         return 0;
 }
 
@@ -319,7 +324,7 @@ int vconsole_write_data(Context *c) {
                 return 0;
         }
 
-        r = write_vconsole_conf(AT_FDCWD, "/etc/vconsole.conf", l);
+        r = write_vconsole_conf(AT_FDCWD, etc_vconsole_conf(), l);
         if (r < 0)
                 return r;
 
@@ -412,7 +417,7 @@ static bool locale_encoding_is_utf8_or_unspecified(const char *locale) {
 }
 
 static int locale_gen_locale_supported(const char *locale_entry) {
-        /* Returns an error valus <= 0 if the locale-gen entry is invalid or unsupported,
+        /* Returns an error value <= 0 if the locale-gen entry is invalid or unsupported,
          * 1 in case the locale entry is valid, and -EOPNOTSUPP specifically in case
          * the distributor has not provided us with a SUPPORTED file to check
          * locale for validity. */

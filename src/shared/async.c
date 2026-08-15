@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sched.h>
-#include <sys/prctl.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -64,7 +63,7 @@ int asynchronous_fsync(int fd, PidRef *ret_pid) {
 static int close_func(void *p) {
         unsigned v = PTR_TO_UINT(p);
 
-        (void) prctl(PR_SET_NAME, (unsigned long*) "(sd-close)");
+        (void) proc_set_comm("(sd-close)");
 
         /* Note: 💣 This function is invoked in a child process created via glibc's clone() wrapper. In such
          *       children memory allocation is not allowed, since glibc does not release malloc mutexes in

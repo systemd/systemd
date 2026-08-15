@@ -25,6 +25,7 @@ typedef struct Manager {
         DnssecMode dnssec_mode;
         DnsOverTlsMode dns_over_tls_mode;
         DnsCacheMode enable_cache;
+        unsigned cache_max[_DNS_PROTOCOL_MAX];
         bool cache_from_localhost;
         DnsStubListenerMode dns_stub_listener_mode;
         usec_t stale_retention_usec;
@@ -122,6 +123,12 @@ typedef struct Manager {
         usec_t etc_hosts_last;
         struct stat etc_hosts_stat;
         bool read_etc_hosts;
+
+        /* Data from {/etc,/run,/usr/local/lib,/usr/lib}/systemd/resolve/static.d/ */
+        Hashmap *static_records;
+        usec_t static_records_last;
+        Set *static_records_stat;
+        bool read_static_records;
 
         /* List of refused DNS Record Types */
         Set *refuse_record_types;

@@ -177,6 +177,14 @@ size_t log_context_num_fields(void) {
         return _log_context_num_fields;
 }
 
+void log_context_swap(LogContext **log_context, size_t *num_fields) {
+        assert(log_context);
+        assert(num_fields);
+
+        SWAP_TWO(_log_context, *log_context);
+        SWAP_TWO(_log_context_num_fields, *num_fields);
+}
+
 void _reset_log_level(int *saved_log_level) {
         assert(saved_log_level);
 

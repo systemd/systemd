@@ -525,9 +525,9 @@
         in the container's file system namespace.</para>
 
         <para>This is for containers which have several bootable directories in them; for example, several
-        <ulink url="https://ostree.readthedocs.io/en/latest/">OSTree</ulink> deployments. It emulates the
-        behavior of the boot loader and the initrd which normally select which directory to mount as the root
-        and start the container's PID 1 in.</para>
+        <citerefentry><refentrytitle>ostree</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        deployments. It emulates the behavior of the boot loader and the initrd which normally select which
+        directory to mount as the root and start the container's PID 1 in.</para>
 
         <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
@@ -602,6 +602,14 @@
 
         <para>Note that <option>--boot</option> is the default mode of operation if the
         <filename>systemd-nspawn@.service</filename> template unit file is used.</para>
+
+        <para>When <option>--boot</option> is used, the passed parameters are processed the same way the
+        kernel processes its command line before handing it to PID 1: any <literal>KEY=VALUE</literal>
+        assignment whose <literal>KEY</literal> does not contain a <literal>.</literal> is exported as
+        an environment variable for PID 1 (with <literal>-</literal> in the key replaced by
+        <literal>_</literal>, as if specified via <option>--setenv=</option>), while all other
+        parameters (including <literal>systemd.*=</literal> assignments) are passed as arguments to the
+        init program.</para>
         </listitem>
       </varlistentry>
 
@@ -629,13 +637,16 @@
 
       <varlistentry>
         <term><option>-u</option></term>
-        <term><option>--user=</option></term>
+        <term><option>--uid=</option></term>
 
         <listitem><para>After transitioning into the container, change to the specified user defined in the
         container's user database. Like all other systemd-nspawn features, this is not a security feature and
-        provides protection against accidental destructive operations only.</para>
+        provides protection against accidental destructive operations only. This option was previously named
+        <option>--user=</option>. The old name is still accepted but deprecated. The short option
+        <option>-u</option> is compatible with both old and new versions of
+        <command>systemd-nspawn</command>.</para>
 
-        <para>Note that if credentials are used in combination with a non-root <option>--user=</option>
+        <para>Note that if credentials are used in combination with a non-root <option>--uid=</option>
         (e.g.: <option>--set-credential=</option> or <option>--load-credential=</option>), then
         <option>--no-new-privileges=yes</option> must be used, and <option>--boot</option> or
         <option>--as-pid2</option> must not be used, as the credentials would otherwise be unreadable
@@ -660,7 +671,7 @@
         <term><option>--notify-ready=</option></term>
 
         <listitem><para>Configures support for notifications from the container's init process.
-        <option>--notify-ready=</option> takes a boolean. If false <command>systemd-vmpawn</command>
+        <option>--notify-ready=</option> takes a boolean. If false <command>systemd-nspawn</command>
         notifies the calling service manager with a <literal>READY=1</literal> message when the init process is
         created. If true it waits for a <literal>READY=1</literal> message from the init process in the VM
         before sending its own to the service manager. For more details about notifications see
@@ -669,6 +680,20 @@
         <para>Defaults to false. (Note that this is unlike the option of the same name to
         <citerefentry><refentrytitle>systemd-vmspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         that defaults to true.)</para>
+
+        <para>If <command>systemd-nspawn</command> itself is invoked with a <varname>$NOTIFY_SOCKET</varname>
+        set in its environment (i.e. it is itself supervised by a service manager that uses the
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        protocol), <literal>FDSTORE=1</literal> and <literal>FDSTOREREMOVE=1</literal> messages received
+        from the container payload (along with any accompanying file descriptors and
+        <literal>FDNAME=</literal> tag) are forwarded one level up to the enveloping service manager. This
+        allows the file descriptor store of services running inside the container to be preserved across
+        container restarts (and, transitively, across restarts, re-execs, soft-reboots and LUO-based kexecs
+        of any outer service manager), provided
+        <varname>FileDescriptorStoreMax=</varname>/<varname>FileDescriptorStorePreserve=yes</varname> are
+        configured on the unit running <command>systemd-nspawn</command>. See the
+        <ulink url="https://systemd.io/FILE_DESCRIPTOR_STORE">File Descriptor Store</ulink> documentation
+        for details.</para>
 
         <xi:include href="version-info.xml" xpointer="v231"/></listitem>
       </varlistentry>
@@ -781,14 +806,14 @@
 
         <listitem><para>Controls whether the container is registered with
         <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>8</manvolnum></citerefentry>.  Takes a
-        boolean argument, which defaults to <literal>yes</literal>.  This option should be enabled when the container
-        runs a full Operating System (more specifically: a system and service manager as PID 1), and is useful to
-        ensure that the container is accessible via
+        boolean argument or <literal>auto</literal>, and defaults to <literal>auto</literal>.  This option should be
+        enabled when the container runs a full Operating System (more specifically: a system and service manager as
+        PID 1), and is useful to ensure that the container is accessible via
         <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry> and shown by
         tools such as <citerefentry
         project='man-pages'><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>.  If the container
-        does not run a service manager, it is recommended to set this option to
-        <literal>no</literal>.</para>
+        does not run a service manager, it is recommended to set this option to <literal>no</literal>.  When set to
+        <literal>auto</literal>, registration is attempted but failures are ignored.</para>
 
         <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
@@ -936,6 +961,33 @@
         specific container UID/GID base outside of any <command>systemd-nspawn</command> invocation.</para>
 
         <xi:include href="version-info.xml" xpointer="v230"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--private-users-delegate=</option></term>
+
+        <listitem><para>Takes a non-negative integer. Requests that the specified number of additional 64K
+        UID/GID ranges are delegated into the container's user namespace. These delegated ranges are mapped
+        1:1 (i.e. the same UID/GID values are used inside and outside the user namespace) and can be used by
+        nested containers to allocate their own transient UID/GID ranges via
+        <citerefentry><refentrytitle>systemd-nsresourced.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <para>This option requires <option>--private-users=managed</option>, as the delegation is performed
+        by
+        <citerefentry><refentrytitle>systemd-nsresourced.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        as part of the user namespace allocation. The maximum number of delegated ranges is 16. Defaults to
+        0, i.e. no delegation.</para>
+
+        <para>When this option is used with a non-zero value, the
+        <citerefentry><refentrytitle>systemd-nsresourced.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        Varlink socket (<filename>/run/systemd/io.systemd.NamespaceResource</filename>) is automatically
+        bind-mounted into the container along with the necessary discovery symlinks in
+        <filename>/run/systemd/userdb/</filename> and <filename>/run/varlink/registry/</filename>. This
+        allows processes inside the container to contact
+        <command>systemd-nsresourced</command> on the host in order to allocate nested user namespaces from
+        the delegated ranges.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1311,6 +1363,28 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><option>--restrict-address-families=</option></term>
+
+        <listitem><para>Restrict the socket address families accessible to the container. Takes a
+        space-separated list of address family names, such as <constant>AF_INET</constant>,
+        <constant>AF_INET6</constant> or <constant>AF_UNIX</constant>. When prefixed with
+        <literal>~</literal> the listed address families will be prohibited, otherwise they will be permitted
+        (allowlisted). Use the special value <literal>none</literal> to prohibit all address families. This
+        option may be specified more than once, in which case the configured lists are combined. If both a
+        positive and a negative list are configured, the negative list takes precedence over the positive
+        list.</para>
+
+        <para>Note that currently this option defaults to no restrictions, i.e. all address families are
+        accessible. In a future version of systemd, the default will be changed to restrict address families to
+        <constant>AF_INET</constant>, <constant>AF_INET6</constant> and <constant>AF_UNIX</constant>. Use
+        <option>--restrict-address-families=</option> (with an empty argument) or set
+        <varname>RestrictAddressFamilies=</varname> in a <filename>.nspawn</filename> file to opt out of
+        filtering explicitly.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-Z</option></term>
         <term><option>--selinux-context=</option></term>
 
@@ -1536,6 +1610,36 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         <option>--link-journal=try-guest</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v187"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--forward-journal=</option></term>
+
+        <listitem><para>Forward the container's journal to the host by starting
+        <citerefentry><refentrytitle>systemd-journal-remote</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        listening on a Unix socket that is bind-mounted into the container. The container's
+        <citerefentry><refentrytitle>systemd-journald</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        connects to the socket via the <varname>journal.forward_to_socket</varname> credential and streams
+        journal entries to the host in real-time. Takes a path to a journal file or directory where the received
+        entries will be stored. If the path ends in <literal>.journal</literal>, entries are written to a single
+        file; otherwise, entries are split per host into the specified directory.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--forward-journal-max-use=<replaceable>BYTES</replaceable></option></term>
+        <term><option>--forward-journal-keep-free=<replaceable>BYTES</replaceable></option></term>
+        <term><option>--forward-journal-max-file-size=<replaceable>BYTES</replaceable></option></term>
+        <term><option>--forward-journal-max-files=<replaceable>N</replaceable></option></term>
+
+        <listitem><para>These options configure the corresponding settings of
+        <citerefentry><refentrytitle>systemd-journal-remote</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        when forwarding journal entries from the container. See
+        <citerefentry><refentrytitle>journal-remote.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for the descriptions of these settings.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
       </varlistentry>
 
     </variablelist>
@@ -1895,6 +1999,23 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
     <title>Other</title>
 
     <variablelist>
+      <varlistentry>
+        <term><option>--system</option></term>
+        <term><option>--user</option></term>
+
+        <listitem><para>Specify whether to run in system or user scope. This controls which service manager and
+        machined instance to interact with, as well as operational defaults such as user namespace mode and
+        private networking. If neither is specified, <option>--system</option> is implied when running as
+        root, <option>--user</option> otherwise.</para>
+
+        <para>Note: for backwards compatibility, <option>--user</option> followed by a positional argument
+        is interpreted as the deprecated <option>--user=<replaceable>NAME</replaceable></option> form (now
+        <option>--uid=</option>). To use <option>--user</option> for scope selection when positional
+        arguments follow, separate them with <literal>--</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />

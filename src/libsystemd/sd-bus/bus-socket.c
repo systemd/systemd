@@ -35,6 +35,7 @@
 #define SNDBUF_SIZE (8*1024*1024)
 
 static void iovec_advance(struct iovec iov[], unsigned *idx, size_t size) {
+        assert(idx);
 
         while (size > 0) {
                 struct iovec *i = iov + *idx;
@@ -676,6 +677,8 @@ static int bus_socket_read_auth(sd_bus *b) {
                 return -ECONNRESET;
         }
 
+        /* Silence static analyzers, k is bounded by iov size: n - rbuffer_size */
+        assert((size_t) k <= n - b->rbuffer_size);
         b->rbuffer_size += k;
 
         if (handle_cmsg) {
@@ -786,7 +789,7 @@ int bus_socket_start_auth(sd_bus *b) {
         bus_get_peercred(b);
 
         bus_set_state(b, BUS_AUTHENTICATING);
-        b->auth_timeout = now(CLOCK_MONOTONIC) + BUS_AUTH_TIMEOUT;
+        b->auth_timeout = usec_add(now(CLOCK_MONOTONIC), BUS_AUTH_TIMEOUT);
 
         if (sd_is_socket(b->input_fd, AF_UNIX, 0, 0) <= 0)
                 b->accept_fd = false;
@@ -1235,7 +1238,6 @@ int bus_socket_take_fd(sd_bus *b) {
 int bus_socket_write_message(sd_bus *bus, sd_bus_message *m, size_t *idx) {
         struct iovec *iov;
         ssize_t k;
-        size_t n;
         unsigned j;
         int r;
 
@@ -1251,9 +1253,8 @@ int bus_socket_write_message(sd_bus *bus, sd_bus_message *m, size_t *idx) {
         if (r < 0)
                 return r;
 
-        n = m->n_iovec * sizeof(struct iovec);
-        iov = newa(struct iovec, n);
-        memcpy_safe(iov, m->iovec, n);
+        iov = newa(struct iovec, m->n_iovec);
+        memcpy_safe(iov, m->iovec, sizeof(struct iovec) * m->n_iovec);
 
         j = 0;
         iovec_advance(iov, &j, *idx);
@@ -1453,6 +1454,8 @@ int bus_socket_read_message(sd_bus *bus) {
                 return -EXFULL;
         }
 
+        /* Silence static analyzers, k is bounded by iov size: need - rbuffer_size */
+        assert((size_t) k <= need - bus->rbuffer_size);
         bus->rbuffer_size += k;
 
         if (handle_cmsg) {

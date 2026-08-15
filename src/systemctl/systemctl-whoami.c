@@ -11,7 +11,7 @@
 #include "systemctl-util.h"
 #include "systemctl-whoami.h"
 
-int verb_whoami(int argc, char *argv[], void *userdata) {
+int verb_whoami(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus;
         int r, ret = 0;
 

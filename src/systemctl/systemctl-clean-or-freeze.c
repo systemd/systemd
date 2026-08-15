@@ -13,7 +13,7 @@
 #include "systemctl-clean-or-freeze.h"
 #include "systemctl-util.h"
 
-int verb_clean_or_freeze(int argc, char *argv[], void *userdata) {
+int verb_clean_or_freeze(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(bus_wait_for_units_freep) BusWaitForUnits *w = NULL;
         _cleanup_strv_free_ char **names = NULL;
         int r, ret = EXIT_SUCCESS;
@@ -83,10 +83,9 @@ int verb_clean_or_freeze(int argc, char *argv[], void *userdata) {
                 r = sd_bus_call(bus, m, 0, &error, NULL);
                 if (r < 0) {
                         log_error_errno(r, "Failed to %s unit %s: %s", argv[0], *name, bus_error_message(&error, r));
-                        if (ret == EXIT_SUCCESS) {
+                        if (ret == EXIT_SUCCESS)
                                 ret = r;
-                                continue;
-                        }
+                        continue;
                 }
 
                 if (w) {

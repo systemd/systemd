@@ -1,0 +1,20 @@
+{
+    "type": "devicetree",
+    "name": "MEDION SPRCHRGD",
+    "compatible": "medion,sprchrgd14s1",
+    "hwids": [
+        "e72ceeaf-45c6-50f5-9a8d-f3af93228f05",
+        "0f49db05-25d9-5f1a-a633-40b358f6f6d2",
+        "f6304115-77d2-52ef-b050-77b79c416b76",
+        "7cbb6d59-d341-5ef2-ba12-dd3bc4a41df6",
+        "2fee1e80-b28f-51f2-8421-f0c39aa97516",
+        "2904a882-918e-5f0b-9ac6-6a9737e685c9",
+        "ba6260c3-a098-59ba-b999-2783726d1e44",
+        "3713fa68-5f78-5538-b954-5e82e6c25646",
+        "f3ceb2c3-66db-5519-98bc-d62cba323666",
+        "9eb99973-f4f7-53b2-8682-faafa5f8ad1f",
+        "ec048a86-f99a-5f29-a128-04d9254808ba",
+        "6b54ec94-c2bb-5008-abe3-975b26e8a371",
+        "776dd828-0ea0-52b3-93d9-b4f97ac0e7e1"
+    ]
+}

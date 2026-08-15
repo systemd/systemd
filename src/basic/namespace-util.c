@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <linux/magic.h>
 #include <linux/nsfs.h>
+#include <linux/sockios.h>
 #include <sched.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
@@ -23,6 +24,7 @@
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "uid-range.h"
+#include "unaligned.h"
 #include "user-util.h"
 
 const struct namespace_info namespace_info[_NAMESPACE_TYPE_MAX + 1] = {
@@ -358,7 +360,7 @@ int is_our_namespace(int fd, NamespaceType type) {
         int r;
 
         assert(fd >= 0);
-        assert(type < _NAMESPACE_TYPE_MAX);
+        assert(type >= 0 && type < _NAMESPACE_TYPE_MAX);
 
         r = fd_is_namespace(fd, type);
         if (r < 0)
@@ -409,11 +411,47 @@ int are_our_namespaces(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, 
         return true;
 }
 
+int network_namespace_is_init(int socket_fd) {
+        struct stat a, b;
+        int r;
+
+        /* This works only when privileged. */
+
+        r = RET_NERRNO(stat(pid_namespace_path(1, NAMESPACE_NET), &a));
+        if (r == -ENOENT) {
+                /* If the /proc/ns/<type> API is not around in /proc/ then ns is off in the kernel and we are in the init ns */
+                r = proc_mounted();
+                if (r < 0)
+                        return -ENOENT; /* If we can't determine if /proc/ is mounted propagate original error */
+
+                return r ? true : -ENOSYS;
+        }
+        if (r < 0)
+                return r;
+
+        if (socket_fd >= 0) {
+                _cleanup_close_ int netns = ioctl(socket_fd, SIOCGSKNS);
+                if (netns < 0)
+                        return -errno;
+
+                if (fstat(netns, &b) < 0)
+                        return -errno;
+        } else {
+                if (stat(pid_namespace_path(0, NAMESPACE_NET), &b) < 0)
+                        return -errno;
+        }
+
+        return stat_inode_same(&a, &b);
+}
+
 int namespace_is_init(NamespaceType type) {
         int r;
 
         assert(type >= 0);
         assert(type < _NAMESPACE_TYPE_MAX);
+
+        if (type == NAMESPACE_NET)
+                return network_namespace_is_init(/* socket_fd= */ -EBADF);
 
         if (namespace_info[type].root_inode == 0)
                 return -EBADR; /* Cannot answer this question */
@@ -804,16 +842,19 @@ int process_is_owned_by_uid(const PidRef *pidref, uid_t uid) {
         uid_t process_uid;
         r = pidref_get_uid(pidref, &process_uid);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to get UID of process " PID_FMT ": %m", pidref ? pidref->pid : 0);
         if (process_uid == uid)
                 return true;
+
+        log_debug("Process " PID_FMT " has UID " UID_FMT ", which doesn't match expected UID " UID_FMT ", checking user namespace ownership.",
+                  pidref->pid, process_uid, uid);
 
         _cleanup_close_ int userns_fd = -EBADF;
         userns_fd = pidref_namespace_open_by_type(pidref, NAMESPACE_USER);
         if (userns_fd == -ENOPKG) /* If userns is not supported, then they don't matter for ownership */
                 return false;
         if (userns_fd < 0)
-                return userns_fd;
+                return log_debug_errno(userns_fd, "Failed to open user namespace of process " PID_FMT ": %m", pidref->pid);
 
         for (unsigned iteration = 0;; iteration++) {
                 uid_t ns_uid;
@@ -822,14 +863,21 @@ int process_is_owned_by_uid(const PidRef *pidref, uid_t uid) {
                  * themselves matter. */
                 r = is_our_namespace(userns_fd, NAMESPACE_USER);
                 if (r < 0)
-                        return r;
-                if (r > 0)
+                        return log_debug_errno(r, "Failed to check if user namespace of process " PID_FMT " is our own (iteration %u): %m", pidref->pid, iteration);
+                if (r > 0) {
+                        log_debug("User namespace of process " PID_FMT " is our own namespace (iteration %u), not owned by expected UID.", pidref->pid, iteration);
                         return false;
+                }
 
                 if (ioctl(userns_fd, NS_GET_OWNER_UID, &ns_uid) < 0)
-                        return -errno;
-                if (ns_uid == uid)
+                        return log_debug_errno(errno, "Failed to get owner UID of user namespace of process " PID_FMT " (iteration %u): %m", pidref->pid, iteration);
+                if (ns_uid == uid) {
+                        log_debug("User namespace of process " PID_FMT " is owned by UID " UID_FMT " (iteration %u), ownership check passed.", pidref->pid, uid, iteration);
                         return true;
+                }
+
+                log_debug("User namespace of process " PID_FMT " is owned by UID " UID_FMT ", expected UID " UID_FMT " (iteration %u), going up the tree.",
+                          pidref->pid, ns_uid, uid, iteration);
 
                 /* Paranoia check */
                 if (iteration > 16)
@@ -838,14 +886,80 @@ int process_is_owned_by_uid(const PidRef *pidref, uid_t uid) {
                 /* Go up the tree */
                 _cleanup_close_ int parent_fd = ioctl(userns_fd, NS_GET_USERNS);
                 if (parent_fd < 0) {
-                        if (errno == EPERM) /* EPERM means we left our own userns */
+                        if (errno == EPERM) { /* EPERM means we left our own userns */
+                                log_debug("NS_GET_USERNS ioctl returned EPERM for process " PID_FMT " (iteration %u), left our own userns.", pidref->pid, iteration);
                                 return false;
+                        }
 
-                        return -errno;
+                        return log_debug_errno(errno, "NS_GET_USERNS ioctl failed for process " PID_FMT " (iteration %u): %m", pidref->pid, iteration);
                 }
 
                 close_and_replace(userns_fd, parent_fd);
         }
+}
+
+int namespace_open_by_id(uint64_t ns_id) {
+        int r;
+
+        /* Looks up a namespace by its unique boot-stable identifier and returns an O_PATH fd to it.
+         * Requires kernel ≥ 6.13.
+         *
+         * Returns -ESTALE if the namespace no longer exists, or if the kernel refuses the lookup
+         * for permission reasons. The latter happens outside the initial user namespace: the
+         * kernel only permits open_by_handle_at() on nsfs when the caller is in the initial user
+         * and pid namespaces with CAP_SYS_ADMIN, with a narrow exception for lookups of the
+         * caller's own user namespace and its ancestors. To avoid conflating "namespace is dead"
+         * with "kernel refused us", we refuse early with -EPERM when we aren't in the initial
+         * user/pid namespace or missing CAP_SYS_ADMIN and let the caller skip the check. */
+
+        if (ns_id == 0)
+                return -EINVAL;
+
+        r = namespace_is_init(NAMESPACE_USER);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EPERM;
+
+        r = namespace_is_init(NAMESPACE_PID);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EPERM;
+
+        r = have_effective_cap(CAP_SYS_ADMIN);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EPERM;
+
+        /* The natural way to write this would be a compound designated initializer:
+         *
+         *         union { ... } fh = {
+         *                 .file_handle.handle_bytes = sizeof(struct nsfs_file_handle),
+         *                 .file_handle.handle_type = FILEID_NSFS,
+         *         };
+         *
+         * but that only zero-initializes the named struct members of struct file_handle.
+         * struct file_handle ends with a flexible array (`unsigned char f_handle[]`), whose
+         * storage comes from the overlapping `space[]` member of the union. Bytes in that storage
+         * are not covered by the partial struct initializer and end up as stack garbage. Zero the
+         * entire union first, then fill in the fields explicitly. */
+
+        union {
+                struct file_handle file_handle;
+                uint8_t space[offsetof(struct file_handle, f_handle) + sizeof(struct nsfs_file_handle)];
+        } fh = {};
+        fh.file_handle.handle_bytes = sizeof(struct nsfs_file_handle);
+        fh.file_handle.handle_type = FILEID_NSFS;
+
+        /* The first 8 bytes of struct nsfs_file_handle (see <linux/nsfs.h>, uapi since kernel v6.18)
+         * are __u64 ns_id; the remaining ns_type/ns_inum fields stay zero so the kernel looks up by
+         * id alone. The kernel made lookup-by-id-only an explicit ABI guarantee in v6.19 via commit
+         * 04173501a69e ("nstree: allow lookup solely based on inode"). */
+        unaligned_write_ne64(fh.file_handle.f_handle, ns_id);
+
+        return RET_NERRNO(open_by_handle_at(FD_NSFS_ROOT, &fh.file_handle, O_PATH|O_CLOEXEC));
 }
 
 int is_idmapping_supported(const char *path) {

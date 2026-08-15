@@ -82,6 +82,9 @@ static int list_dependencies_print(const char *name, UnitActiveState state, int 
 }
 
 static int list_dependencies_compare(char * const *a, char * const *b) {
+        assert(a);
+        assert(b);
+
         if (unit_name_to_type(*a) == UNIT_TARGET && unit_name_to_type(*b) != UNIT_TARGET)
                 return 1;
         if (unit_name_to_type(*a) != UNIT_TARGET && unit_name_to_type(*b) == UNIT_TARGET)
@@ -167,7 +170,7 @@ static int list_dependencies_one(
         return 0;
 }
 
-int verb_list_dependencies(int argc, char *argv[], void *userdata) {
+int verb_list_dependencies(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_strv_free_ char **units = NULL, **done = NULL;
         char **patterns;
         sd_bus *bus;

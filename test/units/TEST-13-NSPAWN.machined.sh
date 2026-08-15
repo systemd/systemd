@@ -44,21 +44,27 @@ set -x
 
 PID=0
 
-trap 'touch /terminate; kill 0' RTMIN+3
-trap 'touch /poweroff' RTMIN+4
-trap 'touch /reboot' INT
-trap 'touch /trap' TRAP
+# Use only builtins in trap handlers to avoid forking. External commands
+# (like touch) cause bash to enter wait_for() for the child, and a nested
+# signal arriving during that wait triggers a bash bug where
+# run_interrupt_trap() clears catch_flag while other traps are still
+# pending, creating an orphaned pending_traps[] entry that makes 'wait'
+# busy-loop indefinitely.
+trap ': >/terminate; kill 0' RTMIN+3
+trap ': >/poweroff' RTMIN+4
+trap ': >/reboot' INT
+trap ': >/trap' TRAP
 trap 'exit 0' TERM
 trap 'kill $PID' EXIT
 
 # We need to wait for the sleep process asynchronously in order to allow
 # bash to process signals
 sleep infinity &
+PID=$!
 
 # notify that the process is ready
-touch /ready
+: >/ready
 
-PID=$!
 while :; do
     wait || :
 done
@@ -114,6 +120,7 @@ machinectl disable long-running long-running long-running container1
 
 [[ "$(TERM=dumb machinectl shell testuser@ /usr/bin/bash -c 'echo -ne $FOO')" == "" ]]
 [[ "$(TERM=dumb machinectl shell --setenv=FOO=bar testuser@ /usr/bin/bash -c 'echo -ne $FOO')" == "bar" ]]
+[[ "$(TERM=dumb machinectl shell testuser@ --setenv=FOO=bar /usr/bin/bash -c 'echo -ne $FOO')" == "bar" ]]
 
 [[ "$(machinectl show --property=State --value long-running)" == "running" ]]
 # Equivalent to machinectl kill --signal=SIGRTMIN+4 --kill-whom=leader
@@ -221,6 +228,16 @@ machinectl import-fs /var/tmp/container.dir container-dir
 [[ "$(machinectl show-image --property=Type --value container-dir)" =~ directory|subvolume ]]
 machinectl start container-dir
 rm -fr /var/tmp/container.dir
+
+# Check if machinectl can properly work with symlinks to raw images
+touch /var/lib/machines/linked.squashfs
+ln -svrf /var/lib/machines/linked.squashfs /var/lib/machines/linked.raw
+ls -la /var/lib/machines/
+machinectl list-images | tee /tmp/out.log
+grep -E "linked\s+raw" /tmp/out.log
+(! grep -E "squashfs" /tmp/out.log)
+[[ "$(machinectl show-image --property=Type --value linked)" == "raw" ]]
+rm -f /var/lib/machines/linked.{squashfs,raw} /tmp/out.log
 
 timeout 30 bash -c "until machinectl clean --all; do sleep .5; done"
 
@@ -332,11 +349,11 @@ trap 'kill $PID' EXIT
 # We need to wait for the sleep process asynchronously in order to allow
 # bash to process signals
 sleep infinity &
+PID=$!
 
 # notify that the process is ready
-touch /ready
+: >/ready
 
-PID=$!
 while :; do
     wait || :
 done

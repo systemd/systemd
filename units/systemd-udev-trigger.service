@@ -12,7 +12,7 @@ Description=Coldplug All udev Devices
 Documentation=man:udev(7) man:systemd-udevd.service(8)
 DefaultDependencies=no
 Wants=systemd-udevd.service
-After=systemd-udevd-kernel.socket systemd-udevd-control.socket systemd-udevd-varlink.socket
+After=systemd-udevd-kernel.socket systemd-udevd-varlink.socket
 Before=sysinit.target
 ConditionPathIsReadWrite=/sys
 

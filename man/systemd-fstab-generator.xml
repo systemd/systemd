@@ -105,7 +105,12 @@
 
         <para>Use <literal>bind:…</literal> to bind mount another directory as operating system root
         filesystems (added in v258). Expects an absolute path name referencing an existing directory within the initrd's file
-        hierarchy to boot into.</para>
+        hierarchy to boot into. Since the resulting root file system is supposed to behave like a regular OS
+        root, the bind mount is established with the <option>dev</option>, <option>suid</option> and
+        <option>exec</option> options (i.e. the <option>nodev</option>, <option>nosuid</option> and
+        <option>noexec</option> flags that would otherwise be inherited from the file system the source
+        directory resides on, such as <filename>/run/</filename>, are cleared), unless overridden via
+        <varname>rootflags=</varname>.</para>
 
         <para>Set to <literal>off</literal> to turn off mounting of a root file system.</para>
 
@@ -144,7 +149,7 @@
 
         <listitem><para>Takes the <filename>/usr/</filename> filesystem to be mounted by the initrd. If
         <varname>mount.usrfstype=</varname> or <varname>mount.usrflags=</varname> is set, then the mount
-        configured via <varname>mount.usr=</varname> will default to the the same value set in
+        configured via <varname>mount.usr=</varname> will default to the same value set in
         <varname>root=</varname>.</para>
 
         <para>Set to <literal>dissect</literal> to explicitly request automatic <filename>/usr/</filename>
@@ -214,12 +219,12 @@
         <term><varname>systemd.volatile=</varname></term>
 
         <listitem><para>Controls whether the system shall boot up in volatile mode. Takes a boolean argument or the
-        special value <option>state</option>.</para>
+        special values <literal>state</literal> and <literal>overlay</literal>.</para>
 
-        <para>If false (the default), this generator makes no changes to the mount tree and the system is booted up in
-        normal mode.</para>
+        <para>If <literal>no</literal> (the default), this generator makes no changes to the mount tree and the system
+        is booted up in normal mode.</para>
 
-        <para>If true the generator ensures
+        <para>If <literal>yes</literal> the generator ensures
         <citerefentry><refentrytitle>systemd-volatile-root.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         is run in the initrd. This service changes the mount table before transitioning to the host system,
         so that a volatile memory file system (<literal>tmpfs</literal>) is used as root directory, with only
@@ -228,7 +233,7 @@
         and lost at shutdown, as <filename>/etc/</filename> and <filename>/var/</filename> will be served
         from the (initially unpopulated) volatile memory file system.</para>
 
-        <para>If set to <option>state</option> the generator will leave the root directory mount point unaltered,
+        <para>If set to <literal>state</literal> the generator will leave the root directory mount point unaltered,
         however will mount a <literal>tmpfs</literal> file system to <filename>/var/</filename>. In this mode the normal
         system configuration (i.e. the contents of <literal>/etc/</literal>) is in effect (and may be modified during
         system runtime), however the system state (i.e. the contents of <literal>/var/</literal>) is reset at boot and

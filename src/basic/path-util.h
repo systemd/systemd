@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "basic-forward.h"
+#include "forward.h"
 
 #define PATH_SPLIT_BIN(x) x "sbin:" x "bin"
 #define PATH_SPLIT_BIN_NULSTR(x) x "sbin\0" x "bin\0"
@@ -104,8 +104,6 @@ int find_executable_full(
 static inline int find_executable(const char *name, char **ret_filename) {
         return find_executable_full(name, /* root= */ NULL, NULL, true, ret_filename, NULL);
 }
-
-bool paths_check_timestamp(const char* const* paths, usec_t *paths_ts_usec, bool update);
 
 int fsck_exists(void);
 int fsck_exists_for_fstype(const char *fstype);

@@ -8,14 +8,13 @@
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "log.h"                /* IWYU pragma: keep */
 #include "set.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
 
 #if HAVE_ACL
-static void *libacl_dl = NULL;
-
 DLSYM_PROTOTYPE(acl_add_perm);
 DLSYM_PROTOTYPE(acl_calc_mask);
 DLSYM_PROTOTYPE(acl_copy_entry);
@@ -42,17 +41,18 @@ DLSYM_PROTOTYPE(acl_set_permset);
 DLSYM_PROTOTYPE(acl_set_qualifier);
 DLSYM_PROTOTYPE(acl_set_tag_type);
 DLSYM_PROTOTYPE(acl_to_any_text);
+#endif
 
-int dlopen_libacl(void) {
-        ELF_NOTE_DLOPEN("acl",
-                        "Support for file Access Control Lists (ACLs)",
-                        ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
-                        "libacl.so.1");
+int dlopen_libacl(int log_level) {
+#if HAVE_ACL
+        static void *libacl_dl = NULL;
+
+        LIBACL_NOTE(suggested);
 
         return dlopen_many_sym_or_warn(
                         &libacl_dl,
                         "libacl.so.1",
-                        LOG_DEBUG,
+                        log_level,
                         DLSYM_ARG(acl_add_perm),
                         DLSYM_ARG(acl_calc_mask),
                         DLSYM_ARG(acl_copy_entry),
@@ -79,8 +79,13 @@ int dlopen_libacl(void) {
                         DLSYM_ARG(acl_set_qualifier),
                         DLSYM_ARG(acl_set_tag_type),
                         DLSYM_ARG(acl_to_any_text));
+#else
+        return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                              "libacl support is not compiled in.");
+#endif
 }
 
+#if HAVE_ACL
 int devnode_acl(int fd, const Set *uids) {
         _cleanup_set_free_ Set *found = NULL;
         bool changed = false;
@@ -88,7 +93,7 @@ int devnode_acl(int fd, const Set *uids) {
 
         assert(fd >= 0);
 
-        r = dlopen_libacl();
+        r = dlopen_libacl(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -333,7 +338,7 @@ int acl_search_groups(const char *path, char ***ret_groups) {
 
         assert(path);
 
-        r = dlopen_libacl();
+        r = dlopen_libacl(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -410,7 +415,7 @@ int parse_acl(
         if (!split)
                 return -ENOMEM;
 
-        r = dlopen_libacl();
+        r = dlopen_libacl(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -588,7 +593,7 @@ int acls_for_file(const char *path, acl_type_t type, acl_t acl, acl_t *ret) {
 
         assert(path);
 
-        r = dlopen_libacl();
+        r = dlopen_libacl(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -647,7 +652,7 @@ int fd_add_uid_acl_permission(
         assert(fd >= 0);
         assert(uid_is_valid(uid));
 
-        r = dlopen_libacl();
+        r = dlopen_libacl(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -713,7 +718,7 @@ int fd_acl_make_read_only(int fd) {
         /* Safely drops all W bits from all relevant ACL entries of the file, without changing entries which
          * are masked by the ACL mask */
 
-        r = dlopen_libacl();
+        r = dlopen_libacl(LOG_DEBUG);
         if (r < 0)
                 goto maybe_fallback;
 
@@ -801,7 +806,7 @@ int fd_acl_make_writable(int fd) {
         /* Safely adds the writable bit to the owner's ACL entry of this inode. (And only the owner's! – This
          * not the obvious inverse of fd_acl_make_read_only() hence!) */
 
-        r = dlopen_libacl();
+        r = dlopen_libacl(LOG_DEBUG);
         if (r < 0)
                 goto maybe_fallback;
 

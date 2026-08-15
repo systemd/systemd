@@ -264,7 +264,7 @@ TEST(hashmap_remove1) {
 
         r = hashmap_get(m, "key 2");
         ASSERT_STREQ(r, "val 2");
-        assert_se(!hashmap_get(m, "key 1"));
+        ASSERT_FALSE(hashmap_contains(m, "key 1"));
 }
 
 TEST(hashmap_remove2) {
@@ -295,7 +295,7 @@ TEST(hashmap_remove2) {
 
         r = hashmap_get(m, key2);
         ASSERT_STREQ(r, val2);
-        assert_se(!hashmap_get(m, key1));
+        ASSERT_FALSE(hashmap_contains(m, key1));
 }
 
 TEST(hashmap_remove_value) {
@@ -322,14 +322,14 @@ TEST(hashmap_remove_value) {
 
         r = hashmap_get(m, "key 2");
         ASSERT_STREQ(r, "val 2");
-        assert_se(!hashmap_get(m, "key 1"));
+        ASSERT_FALSE(hashmap_contains(m, "key 1"));
 
         r = hashmap_remove_value(m, "key 2", val1);
         ASSERT_NULL(r);
 
         r = hashmap_get(m, "key 2");
         ASSERT_STREQ(r, "val 2");
-        assert_se(!hashmap_get(m, "key 1"));
+        ASSERT_FALSE(hashmap_contains(m, "key 1"));
 }
 
 TEST(hashmap_remove_and_put) {
@@ -354,7 +354,7 @@ TEST(hashmap_remove_and_put) {
 
         r = hashmap_get(m, "key 2");
         ASSERT_STREQ(r, "val 2");
-        assert_se(!hashmap_get(m, "key 1"));
+        ASSERT_FALSE(hashmap_contains(m, "key 1"));
 
         valid = hashmap_put(m, "key 3", (void*) (const char *) "val 3");
         assert_se(valid == 1);
@@ -388,7 +388,7 @@ TEST(hashmap_remove_and_replace) {
 
         r = hashmap_get(m, key2);
         assert_se(r == key2);
-        assert_se(!hashmap_get(m, key1));
+        ASSERT_FALSE(hashmap_contains(m, key1));
 
         valid = hashmap_put(m, key3, key3);
         assert_se(valid == 1);
@@ -396,7 +396,7 @@ TEST(hashmap_remove_and_replace) {
         assert_se(valid == 0);
         r = hashmap_get(m, key2);
         assert_se(r == key2);
-        assert_se(!hashmap_get(m, key3));
+        ASSERT_FALSE(hashmap_contains(m, key3));
 
         /* Repeat this test several times to increase the chance of hitting
          * the less likely case in hashmap_remove_and_replace where it
@@ -410,7 +410,7 @@ TEST(hashmap_remove_and_replace) {
                                                    UINT_TO_PTR(10*i + 2),
                                                    UINT_TO_PTR(10*i + 2));
                 assert_se(valid == 0);
-                assert_se(!hashmap_get(m, UINT_TO_PTR(10*i + 1)));
+                ASSERT_FALSE(hashmap_contains(m, UINT_TO_PTR(10*i + 1)));
                 for (j = 2; j < 7; j++) {
                         r = hashmap_get(m, UINT_TO_PTR(10*i + j));
                         assert_se(r == UINT_TO_PTR(10*i + j));
@@ -914,10 +914,10 @@ TEST(path_hashmap) {
         assert_se(hashmap_get(h, "/.///./foox//.//") == INT_TO_PTR(4));
         assert_se(hashmap_get(h, "/foox/") == INT_TO_PTR(4));
         assert_se(hashmap_get(h, "/foox") == INT_TO_PTR(4));
-        assert_se(!hashmap_get(h, "foox"));
+        ASSERT_FALSE(hashmap_contains(h, "foox"));
         assert_se(hashmap_get(h, "foo/bar/quux") == INT_TO_PTR(6));
         assert_se(hashmap_get(h, "foo////bar////quux/////") == INT_TO_PTR(6));
-        assert_se(!hashmap_get(h, "/foo////bar////quux/////"));
+        ASSERT_FALSE(hashmap_contains(h, "/foo////bar////quux/////"));
         assert_se(hashmap_get(h, "foo././//ba.r////.quux///.//.") == INT_TO_PTR(9));
 }
 
@@ -950,14 +950,14 @@ TEST(string_strv_hashmap) {
         ASSERT_TRUE(strv_equal(s, STRV_MAKE("BAR")));
 
         string_strv_hashmap_remove(m, "foo", "BAR");
-        ASSERT_NULL(hashmap_get(m, "foo"));
+        ASSERT_FALSE(hashmap_contains(m, "foo"));
 
         string_strv_hashmap_remove(m, "xxx", "BAR");
         ASSERT_NOT_NULL((s = hashmap_get(m, "xxx")));
         ASSERT_TRUE(strv_equal(s, STRV_MAKE("bar")));
 
         string_strv_hashmap_remove(m, "xxx", "bar");
-        ASSERT_NULL(hashmap_get(m, "xxx"));
+        ASSERT_FALSE(hashmap_contains(m, "xxx"));
 
         ASSERT_TRUE(hashmap_isempty(m));
 }

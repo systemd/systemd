@@ -3,7 +3,7 @@
 
 #include "sd-daemon.h" /* IWYU pragma: export */
 
-#include "shared-forward.h"
+#include "forward.h"
 
 #define NOTIFY_READY_MESSAGE "READY=1\n" "STATUS=Processing requests..."
 #define NOTIFY_STOPPING_MESSAGE "STOPPING=1\n" "STATUS=Shutting down..."
@@ -26,6 +26,8 @@ int notify_remove_fd_warnf(const char *format, ...) _printf_(1, 2);
 int close_and_notify_warn(int fd, const char *name);
 int notify_push_fd(int fd, const char *name);
 int notify_push_fdf(int fd, const char *format, ...) _printf_(2, 3);
+
+bool fdstore_detected(void);
 
 int notify_reloading_full(const char *status);
 static inline int notify_reloading(void) {

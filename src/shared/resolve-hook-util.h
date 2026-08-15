@@ -3,7 +3,7 @@
 
 #include "sd-json.h"
 
-#include "shared-forward.h"
+#include "forward.h"
 
 typedef struct ResolveRecordParameters {
         DnsQuestion *question;

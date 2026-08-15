@@ -98,14 +98,11 @@ ELAPSED=$((END_SEC-START_SEC))
 
 # Test time-limited scopes
 START_SEC=$(date -u '+%s')
-set +e
-systemd-run --scope --property=RuntimeMaxSec=3s sleep 30
-RESULT=$?
+(! systemd-run --scope --property=RuntimeMaxSec=3s sleep 30)
 END_SEC=$(date -u '+%s')
 ELAPSED=$((END_SEC-START_SEC))
 [[ "$ELAPSED" -ge 3 ]]
 [[ "$ELAPSED" -le 10 ]]
-[[ "$RESULT" -ne 0 ]]
 
 # Test transactions with cycles
 # Provides coverage for issues like https://github.com/systemd/systemd/issues/26872
@@ -121,12 +118,15 @@ EOF
 done
 systemctl daemon-reload
 for i in {0..19}; do
-    systemctl start "transaction-cycle$i.service"
+    # This intentionally fails with:
+    #   Failed to start transaction-cycle0.service: Transaction order is cyclic. See system logs for details.
+    systemctl start "transaction-cycle$i.service" || :
 done
 
 IDS_FILE="/tmp/TEST-03-JOBS-CYCLE-IDS-$RANDOM"
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Describe '{}' | jq '.runtime.TransactionsWithOrderingCycle' >"$IDS_FILE"
 [[ "$(jq length "$IDS_FILE")" -ge 20 ]]
+journalctl --sync
 for i in {0..19}; do
     journalctl -b TRANSACTION_ID="$(jq -r ".[$i]" "$IDS_FILE")" --grep "cycle starting with"
 done
@@ -146,7 +146,7 @@ systemctl --quiet is-active sleep-infinity-simple.service
 systemctl restart propagatestopto-only.target
 assert_rc 3 systemctl --quiet is-active sleep-infinity-simple.service
 
-systemctl start propagatesstopto-indirect.target propagatestopto-and-pullin.target
+systemctl start propagatestopto-indirect.target propagatestopto-and-pullin.target
 systemctl --quiet is-active propagatestopto-indirect.target
 systemctl --quiet is-active propagatestopto-and-pullin.target
 
@@ -168,6 +168,8 @@ assert_rc 3 systemctl --quiet is-active succeeds-on-restart.target
 systemctl start fails-on-restart.target || :
 assert_rc 3 systemctl --quiet is-active fails-on-restart.target
 
+systemctl stop fails-on-restart.service
+
 COUNTER_FILE=/tmp/test-03-restart-counter
 export FAILURE_FLAG_FILE=/tmp/test-03-restart-failure-flag
 
@@ -175,6 +177,7 @@ assert_rc 3 systemctl --quiet is-active sleep-infinity-restart-normal.service
 assert_rc 3 systemctl --quiet is-active sleep-infinity-restart-direct.service
 assert_rc 3 systemctl --quiet is-active counter.service
 echo 0 >"$COUNTER_FILE"
+rm -f "$FAILURE_FLAG_FILE"
 
 systemctl start counter.service
 assert_eq "$(cat "$COUNTER_FILE")" "1"
@@ -182,15 +185,32 @@ systemctl --quiet is-active sleep-infinity-restart-normal.service
 systemctl --quiet is-active sleep-infinity-restart-direct.service
 systemctl --quiet is-active counter.service
 
-systemctl kill --signal=KILL sleep-infinity-restart-direct.service
-systemctl --quiet is-active counter.service
-assert_eq "$(cat "$COUNTER_FILE")" "1"
-[[ ! -f "$FAILURE_FLAG_FILE" ]]
-
-systemctl kill --signal=KILL sleep-infinity-restart-normal.service
-timeout 10 bash -c 'while [[ ! -f $FAILURE_FLAG_FILE ]]; do sleep .5; done'
+# RestartMode=direct + restart: explicit restart should get propagated as TRY_RESTART to the still active
+# counter.service
+systemctl restart sleep-infinity-restart-direct.service
 timeout 10 bash -c 'while ! systemctl --quiet is-active counter.service; do sleep .5; done'
 assert_eq "$(cat "$COUNTER_FILE")" "2"
+[[ ! -f "$FAILURE_FLAG_FILE" ]]
+
+# RestartMode=direct + kill: the fail/inactive state shouldn't get propagated to the counter.service
+systemctl kill --signal=KILL sleep-infinity-restart-direct.service
+systemctl --quiet is-active counter.service
+assert_eq "$(cat "$COUNTER_FILE")" "2"
+[[ ! -f "$FAILURE_FLAG_FILE" ]]
+
+# RestartMode=normal + restart: explicit restart should get propagated as TRY_RESTART to the still active
+# counter.service
+systemctl restart sleep-infinity-restart-normal.service
+timeout 10 bash -c 'while ! systemctl --quiet is-active counter.service; do sleep .5; done'
+assert_eq "$(cat "$COUNTER_FILE")" "3"
+[[ ! -f "$FAILURE_FLAG_FILE" ]]
+
+# RestartMode=normal + kill: the fail/inactive state should get propagated to the counter.service, which in
+# turn should be stopped
+systemctl kill --signal=KILL sleep-infinity-restart-normal.service
+timeout 10 bash -c 'while [[ ! -f $FAILURE_FLAG_FILE ]]; do sleep .5; done'
+timeout 10 bash -c 'while systemctl --quiet is-active counter.service; do sleep .5; done'
+assert_eq "$(cat "$COUNTER_FILE")" "3"
 
 # Test shortcutting auto restart
 
@@ -217,5 +237,77 @@ assert_eq "$(systemctl show "$UNIT_NAME" -P NRestarts)" "1"
 [[ ! -f "$TMP_FILE" ]]
 
 rm /run/systemd/system/"$UNIT_NAME"
+
+# Test RestartRandomizedDelaySec=
+
+export UNIT_NAME="TEST-03-JOBS-restart-randomized-delay.service"
+
+cat >"/run/systemd/system/$UNIT_NAME" <<EOF
+[Service]
+Type=simple
+ExecStart=false
+Restart=on-failure
+RestartSec=1
+RestartRandomizedDelaySec=1
+StartLimitIntervalSec=0
+EOF
+
+systemctl daemon-reload
+
+# The option should be parsed and exposed on the bus in usec.
+assert_eq "$(systemctl show "$UNIT_NAME" -P RestartRandomizedDelayUSec)" "1s"
+
+# The chosen delay is logged at debug level when the unit enters auto-restart, so we can read it without
+# waiting for the delay to elapse.
+PREV_LOG_LEVEL="$(systemctl log-level)"
+
+restart_randomized_delay_cleanup() {
+    set +e
+    systemctl log-level "$PREV_LOG_LEVEL"
+    systemctl stop "$UNIT_NAME"
+    rm -f /run/systemd/system/"$UNIT_NAME"
+    systemctl daemon-reload
+}
+trap restart_randomized_delay_cleanup EXIT
+
+systemctl log-level debug
+
+get_restart_interval() {
+    # Enter auto-restart once, read the logged "<total>|<delay>", then stop again so it never has to elapse.
+    systemctl start --no-block "$UNIT_NAME"
+    timeout 10 bash -c 'while [[ "$(systemctl show "'"$UNIT_NAME"'" -P SubState)" != "auto-restart" ]]; do sleep .2; done'
+    systemctl stop "$UNIT_NAME"
+    journalctl --sync
+    # needed because of -o pipefail
+    { journalctl -q --no-pager -o cat -b -u "$UNIT_NAME" --grep="Next restart interval calculated as" || true; } |
+        sed -n 's/.*calculated as: \(.*\) (randomized delay: \(.*\))$/\1|\2/p' | tail -n1
+}
+
+# Several samples + "not all equal": two draws could rarely render identically (~1e-6) and falsely fail.
+DELAYS=()
+TOTALS=()
+for _ in {1..4}; do
+    IFS='|' read -r total delay <<<"$(get_restart_interval)"
+    TOTALS+=("$total")
+    DELAYS+=("$delay")
+done
+
+systemctl log-level "$PREV_LOG_LEVEL"
+
+: "Chosen randomized restart delays: ${DELAYS[*]} (totals: ${TOTALS[*]})"
+for delay in "${DELAYS[@]}"; do
+    assert_neq "$delay" ""
+    # Within bound: a value below 1s never renders a bare "<digit>s" token (only ms/us).
+    if [[ "$delay" =~ [0-9]s ]]; then
+        echo "FAIL: randomized restart delay '$delay' exceeds the configured 1s bound" >&2
+        exit 1
+    fi
+done
+# Total must vary, proving the jitter is folded into the armed timer (not merely logged).
+all_equal=1
+for total in "${TOTALS[@]}"; do
+    [[ "$total" == "${TOTALS[0]}" ]] || all_equal=0
+done
+assert_eq "$all_equal" "0"
 
 touch /testok

@@ -25,6 +25,7 @@
 #include "notify-recv.h"
 #include "parse-helpers.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "percent-util.h"
 #include "pidref.h"
 #include "process-util.h"
@@ -35,6 +36,8 @@
 #include "strv.h"
 #include "sync-util.h"
 #include "sysupdate.h"
+#include "sysupdate-cleanup.h"
+#include "sysupdate-config.h"
 #include "sysupdate-feature.h"
 #include "sysupdate-instance.h"
 #include "sysupdate-pattern.h"
@@ -45,6 +48,11 @@
 
 /* Default value for InstancesMax= for fs object targets */
 #define DEFAULT_FILE_INSTANCES_MAX 3
+
+enum {
+        MATCH_PATTERN_SOURCE,
+        MATCH_PATTERN_TARGET,
+};
 
 Transfer* transfer_free(Transfer *t) {
         if (!t)
@@ -121,18 +129,24 @@ static int config_parse_protect_version(
 
         _cleanup_free_ char *resolved = NULL;
         char ***protected_versions = ASSERT_PTR(data);
+        Transfer *t = ASSERT_PTR(userdata);
         int r;
 
         assert(rvalue);
 
-        r = specifier_printf(rvalue, NAME_MAX, specifier_table, arg_root, NULL, &resolved);
+        if (isempty(rvalue)) {
+                *protected_versions = strv_free(*protected_versions);
+                return 0;
+        }
+
+        r = specifier_printf(rvalue, NAME_MAX, system_and_tmp_specifier_table, t->context->root, NULL, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to expand specifiers in ProtectVersion=, ignoring: %s", rvalue);
                 return 0;
         }
 
-        if (!version_is_valid(resolved))  {
+        if (!version_is_valid(resolved, VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS))  {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "ProtectVersion= string is not valid, ignoring: %s", resolved);
                 return 0;
@@ -159,18 +173,24 @@ static int config_parse_min_version(
 
         _cleanup_free_ char *resolved = NULL;
         char **version = ASSERT_PTR(data);
+        Transfer *t = ASSERT_PTR(userdata);
         int r;
 
         assert(rvalue);
 
-        r = specifier_printf(rvalue, NAME_MAX, specifier_table, arg_root, NULL, &resolved);
+        if (isempty(rvalue)) {
+                *version = mfree(*version);
+                return 0;
+        }
+
+        r = specifier_printf(rvalue, NAME_MAX, system_and_tmp_specifier_table, t->context->root, NULL, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to expand specifiers in MinVersion=, ignoring: %s", rvalue);
                 return 0;
         }
 
-        if (!version_is_valid(rvalue)) {
+        if (!version_is_valid(resolved, VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "MinVersion= string is not valid, ignoring: %s", resolved);
                 return 0;
@@ -179,7 +199,7 @@ static int config_parse_min_version(
         return free_and_replace(*version, resolved);
 }
 
-static int config_parse_url_specifiers(
+static int config_parse_transfer_url_specifiers_many(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -190,35 +210,13 @@ static int config_parse_url_specifiers(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
-        char ***s = ASSERT_PTR(data);
-        _cleanup_free_ char *resolved = NULL;
-        int r;
 
-        assert(rvalue);
+        Transfer *t = ASSERT_PTR(userdata);
 
-        if (isempty(rvalue)) {
-                *s = strv_free(*s);
-                return 0;
-        }
+        /* Here we expect userdata to point to our Transfer object, but config_parse_url_specifiers() wants
+         * the root dir there, hence fix this up */
 
-        r = specifier_printf(rvalue, NAME_MAX, specifier_table, arg_root, NULL, &resolved);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to expand specifiers in %s=, ignoring: %s", lvalue, rvalue);
-                return 0;
-        }
-
-        if (!http_url_is_valid(resolved)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "%s= URL is not valid, ignoring: %s", lvalue, rvalue);
-                return 0;
-        }
-
-        r = strv_push(s, TAKE_PTR(resolved));
-        if (r < 0)
-                return log_oom();
-
-        return 0;
+        return config_parse_url_specifiers_many(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, t->context->root);
 }
 
 static int config_parse_current_symlink(
@@ -235,11 +233,17 @@ static int config_parse_current_symlink(
 
         _cleanup_free_ char *resolved = NULL;
         char **current_symlink = ASSERT_PTR(data);
+        Transfer *t = ASSERT_PTR(userdata);
         int r;
 
         assert(rvalue);
 
-        r = specifier_printf(rvalue, NAME_MAX, specifier_table, arg_root, NULL, &resolved);
+        if (isempty(rvalue)) {
+                *current_symlink = mfree(*current_symlink);
+                return 0;
+        }
+
+        r = specifier_printf(rvalue, PATH_MAX-1, system_and_tmp_specifier_table, t->context->root, NULL, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to expand specifiers in CurrentSymlink=, ignoring: %s", rvalue);
@@ -306,6 +310,8 @@ static int config_parse_resource_pattern(
                 void *userdata) {
 
         char ***patterns = ASSERT_PTR(data);
+        Transfer *t = ASSERT_PTR(userdata);
+        bool is_source = ltype == MATCH_PATTERN_SOURCE;
         int r;
 
         assert(rvalue);
@@ -317,6 +323,7 @@ static int config_parse_resource_pattern(
 
         for (;;) {
                 _cleanup_free_ char *word = NULL, *resolved = NULL;
+                const char *body;
 
                 r = extract_first_word(&rvalue, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_RELAX);
                 if (r < 0) {
@@ -327,15 +334,30 @@ static int config_parse_resource_pattern(
                 if (r == 0)
                         break;
 
-                r = specifier_printf(word, NAME_MAX, specifier_table, arg_root, NULL, &resolved);
+                r = specifier_printf(word, NAME_MAX, system_and_tmp_specifier_table, t->context->root, NULL, &resolved);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to expand specifiers in MatchPattern=, ignoring: %s", rvalue);
                         return 0;
                 }
 
-                if (!pattern_valid(resolved))
-                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                /* The glob directory prefix on a source MatchPattern= means "match the rest against the
+                 * basename" thus the remainder must be a valid filename (no slashes).
+                 * Target patterns can not use it. */
+                body = resolved;
+                if (pattern_skip_glob_directory_prefix(&body)) {
+                        if (!is_source)
+                                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                                  "'**/' prefix is only supported in a source MatchPattern=, refusing: %s", resolved);
+                        if (!filename_is_valid(body))
+                                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                                  "The pattern after a '**/' prefix must be a valid filename, refusing: %s", resolved);
+                }
+
+                /* The glob directory prefix is not allowed in the remainder and pattern_valid will catch this. */
+                r = pattern_valid(body);
+                if (r <= 0)
+                        return log_syntax(unit, LOG_ERR, filename, line, r < 0 ? r : SYNTHETIC_ERRNO(EINVAL),
                                           "MatchPattern= string is not valid, refusing: %s", resolved);
 
                 r = strv_consume(patterns, TAKE_PTR(resolved));
@@ -360,6 +382,7 @@ static int config_parse_resource_path(
                 void *userdata) {
         _cleanup_free_ char *resolved = NULL;
         Resource *rr = ASSERT_PTR(data);
+        Transfer *t = ASSERT_PTR(userdata);
         int r;
 
         assert(rvalue);
@@ -370,7 +393,7 @@ static int config_parse_resource_path(
                 return 0;
         }
 
-        r = specifier_printf(rvalue, PATH_MAX-1, specifier_table, arg_root, NULL, &resolved);
+        r = specifier_printf(rvalue, PATH_MAX-1, system_and_tmp_specifier_table, t->context->root, NULL, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to expand specifiers in Path=, ignoring: %s", rvalue);
@@ -407,6 +430,12 @@ static int config_parse_resource_ptype(
 
         assert(rvalue);
 
+        if (isempty(rvalue)) {
+                rr->partition_type = (GptPartitionType) {};
+                rr->partition_type_set = false;
+                return 0;
+        }
+
         r = gpt_partition_type_from_string(rvalue, &rr->partition_type);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
@@ -434,6 +463,12 @@ static int config_parse_partition_uuid(
         int r;
 
         assert(rvalue);
+
+        if (isempty(rvalue)) {
+                t->partition_uuid = SD_ID128_NULL;
+                t->partition_uuid_set = false;
+                return 0;
+        }
 
         r = sd_id128_from_string(rvalue, &t->partition_uuid);
         if (r < 0) {
@@ -463,7 +498,13 @@ static int config_parse_partition_flags(
 
         assert(rvalue);
 
-        r = safe_atou64(rvalue, &t->partition_flags);
+        if (isempty(rvalue)) {
+                t->partition_flags = 0;
+                t->partition_flags_set = false;
+                return 0;
+        }
+
+        r = safe_atoux64(rvalue, &t->partition_flags);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse partition flags, ignoring: %s", rvalue);
@@ -503,33 +544,33 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
         assert(t);
 
         ConfigTableItem table[] = {
-                { "Transfer",    "MinVersion",              config_parse_min_version,          0, &t->min_version             },
-                { "Transfer",    "ProtectVersion",          config_parse_protect_version,      0, &t->protected_versions      },
-                { "Transfer",    "Verify",                  config_parse_bool,                 0, &t->verify                  },
-                { "Transfer",    "ChangeLog",               config_parse_url_specifiers,       0, &t->changelog               },
-                { "Transfer",    "AppStream",               config_parse_url_specifiers,       0, &t->appstream               },
-                { "Transfer",    "Features",                config_parse_strv,                 0, &t->features                },
-                { "Transfer",    "RequisiteFeatures",       config_parse_strv,                 0, &t->requisite_features      },
-                { "Source",      "Type",                    config_parse_resource_type,        0, &t->source.type             },
-                { "Source",      "Path",                    config_parse_resource_path,        0, &t->source                  },
-                { "Source",      "PathRelativeTo",          config_parse_resource_path_relto,  0, &t->source.path_relative_to },
-                { "Source",      "MatchPattern",            config_parse_resource_pattern,     0, &t->source.patterns         },
-                { "Target",      "Type",                    config_parse_resource_type,        0, &t->target.type             },
-                { "Target",      "Path",                    config_parse_resource_path,        0, &t->target                  },
-                { "Target",      "PathRelativeTo",          config_parse_resource_path_relto,  0, &t->target.path_relative_to },
-                { "Target",      "MatchPattern",            config_parse_resource_pattern,     0, &t->target.patterns         },
-                { "Target",      "MatchPartitionType",      config_parse_resource_ptype,       0, &t->target                  },
-                { "Target",      "PartitionUUID",           config_parse_partition_uuid,       0, t                           },
-                { "Target",      "PartitionFlags",          config_parse_partition_flags,      0, t                           },
-                { "Target",      "PartitionNoAuto",         config_parse_tristate,             0, &t->no_auto                 },
-                { "Target",      "PartitionGrowFileSystem", config_parse_tristate,             0, &t->growfs                  },
-                { "Target",      "ReadOnly",                config_parse_tristate,             0, &t->read_only               },
-                { "Target",      "Mode",                    config_parse_mode,                 0, &t->mode                    },
-                { "Target",      "TriesLeft",               config_parse_uint64,               0, &t->tries_left              },
-                { "Target",      "TriesDone",               config_parse_uint64,               0, &t->tries_done              },
-                { "Target",      "InstancesMax",            config_parse_instances_max,        0, &t->instances_max           },
-                { "Target",      "RemoveTemporary",         config_parse_bool,                 0, &t->remove_temporary        },
-                { "Target",      "CurrentSymlink",          config_parse_current_symlink,      0, &t->current_symlink         },
+                { "Transfer",    "MinVersion",              config_parse_min_version,                  0,                    &t->min_version             },
+                { "Transfer",    "ProtectVersion",          config_parse_protect_version,              0,                    &t->protected_versions      },
+                { "Transfer",    "Verify",                  config_parse_bool,                         0,                    &t->verify                  },
+                { "Transfer",    "ChangeLog",               config_parse_transfer_url_specifiers_many, 0,                    &t->changelog               },
+                { "Transfer",    "AppStream",               config_parse_transfer_url_specifiers_many, 0,                    &t->appstream               },
+                { "Transfer",    "Features",                config_parse_strv,                         0,                    &t->features                },
+                { "Transfer",    "RequisiteFeatures",       config_parse_strv,                         0,                    &t->requisite_features      },
+                { "Source",      "Type",                    config_parse_resource_type,                0,                    &t->source.type             },
+                { "Source",      "Path",                    config_parse_resource_path,                0,                    &t->source                  },
+                { "Source",      "PathRelativeTo",          config_parse_resource_path_relto,          0,                    &t->source.path_relative_to },
+                { "Source",      "MatchPattern",            config_parse_resource_pattern,             MATCH_PATTERN_SOURCE, &t->source.patterns         },
+                { "Target",      "Type",                    config_parse_resource_type,                0,                    &t->target.type             },
+                { "Target",      "Path",                    config_parse_resource_path,                0,                    &t->target                  },
+                { "Target",      "PathRelativeTo",          config_parse_resource_path_relto,          0,                    &t->target.path_relative_to },
+                { "Target",      "MatchPattern",            config_parse_resource_pattern,             MATCH_PATTERN_TARGET, &t->target.patterns         },
+                { "Target",      "MatchPartitionType",      config_parse_resource_ptype,               0,                    &t->target                  },
+                { "Target",      "PartitionUUID",           config_parse_partition_uuid,               0,                    t                           },
+                { "Target",      "PartitionFlags",          config_parse_partition_flags,              0,                    t                           },
+                { "Target",      "PartitionNoAuto",         config_parse_tristate,                     0,                    &t->no_auto                 },
+                { "Target",      "PartitionGrowFileSystem", config_parse_tristate,                     0,                    &t->growfs                  },
+                { "Target",      "ReadOnly",                config_parse_tristate,                     0,                    &t->read_only               },
+                { "Target",      "Mode",                    config_parse_mode,                         0,                    &t->mode                    },
+                { "Target",      "TriesLeft",               config_parse_uint64,                       0,                    &t->tries_left              },
+                { "Target",      "TriesDone",               config_parse_uint64,                       0,                    &t->tries_done              },
+                { "Target",      "InstancesMax",            config_parse_instances_max,                0,                    &t->instances_max           },
+                { "Target",      "RemoveTemporary",         config_parse_bool,                         0,                    &t->remove_temporary        },
+                { "Target",      "CurrentSymlink",          config_parse_current_symlink,              0,                    &t->current_symlink         },
                 {}
         };
 
@@ -548,16 +589,16 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
                         STRV_MAKE_CONST(path),
                         dirs,
                         strjoina(filename, ".d"),
-                        arg_root,
+                        t->context->root,
                         /* root_fd= */ -EBADF,
                         "Transfer\0"
                         "Source\0"
                         "Target\0",
                         config_item_table_lookup, table,
                         CONFIG_PARSE_WARN,
-                        /* userdata= */ NULL,
-                        /* stats_by_path= */ NULL,
-                        /* drop_in_files= */ NULL);
+                        t,
+                        /* ret_stats_by_path= */ NULL,
+                        /* ret_drop_in_files= */ NULL);
         if (r < 0)
                 return r;
 
@@ -600,6 +641,11 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Target Type= must be one of partition, regular-file, directory, subvolume.");
 
+        if (t->target.type == RESOURCE_PARTITION && !t->target.partition_type_set) {
+                t->target.partition_type = gpt_partition_type_from_uuid(SD_GPT_LINUX_GENERIC);
+                t->target.partition_type_set = true;
+        }
+
         if ((IN_SET(t->source.type, RESOURCE_URL_FILE, RESOURCE_PARTITION, RESOURCE_REGULAR_FILE) &&
              !IN_SET(t->target.type, RESOURCE_PARTITION, RESOURCE_REGULAR_FILE)) ||
             (IN_SET(t->source.type, RESOURCE_URL_TAR, RESOURCE_TAR, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME) &&
@@ -612,7 +658,7 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Source specification lacks Path=.");
 
-        if (t->source.path_relative_to == PATH_RELATIVE_TO_EXPLICIT && !arg_transfer_source)
+        if (t->source.path_relative_to == PATH_RELATIVE_TO_EXPLICIT && !t->context->transfer_source)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "PathRelativeTo=explicit requires --transfer-source= to be specified.");
 
@@ -639,6 +685,11 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Source specification lacks MatchPattern=.");
 
+        if (IN_SET(t->source.type, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME) &&
+            resource_has_glob_directory_pattern(&t->source))
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                  "MatchPattern= with '**/' prefix is not supported for source Type=directory and Type=subvolume, refusing.");
+
         if (!t->target.path && !t->target.path_auto)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Target specification lacks Path= field.");
@@ -654,6 +705,19 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
                 t->target.patterns = strv_copy(t->source.patterns);
                 if (!t->target.patterns)
                         return log_oom();
+
+                /* Strip any glob directory prefix when inheriting from source because it's only used for finding and
+                 * not to replicate the same directory layout at the target, so we don't support it there. */
+                STRV_FOREACH(p, t->target.patterns) {
+                        const char *body = *p;
+
+                        if (pattern_skip_glob_directory_prefix(&body))
+                                memmove(*p, body, strlen(body) + 1);
+                }
+
+                /* Stripping the glob directory prefix can turn distinct source patterns into duplicates,
+                 * so re-uniq for parity with the source side. */
+                strv_uniq(t->target.patterns);
         }
 
         if (t->current_symlink && !RESOURCE_IS_FILESYSTEM(t->target.type) && !path_is_absolute(t->current_symlink))
@@ -681,7 +745,7 @@ int transfer_resolve_paths(
 
         assert(t);
 
-        r = resource_resolve_path(&t->source, root, arg_transfer_source, node);
+        r = resource_resolve_path(&t->source, root, t->context->transfer_source, node);
         if (r < 0)
                 return r;
 
@@ -704,7 +768,8 @@ static void transfer_remove_temporary(Transfer *t) {
         if (!IN_SET(t->target.type, RESOURCE_REGULAR_FILE, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME))
                 return;
 
-        /* Removes all temporary files/dirs from previous runs in the target directory, i.e. all those starting with '.#' */
+        /* Removes all incomplete files/dirs from previous runs in the target directory. Clean both the
+         * current partial sysupdate prefix and the legacy '.#' prefix. */
 
         d = opendir(t->target.path);
         if (!d) {
@@ -726,7 +791,7 @@ static void transfer_remove_temporary(Transfer *t) {
                         break;
                 }
 
-                if (!startswith(de->d_name, ".#"))
+                if (!STARTSWITH_SET(de->d_name, ".#", ".sysupdate.partial."))
                         continue;
 
                 r = rm_rf_child(dirfd(d), de->d_name, REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_CHMOD);
@@ -816,10 +881,13 @@ int transfer_vacuum(
                         continue;
                 }
 
-                /* If this is listed among the protected versions, then let's not remove it */
-                if (strv_contains(t->protected_versions, instance->metadata.version) ||
-                    (extra_protected_version && streq(extra_protected_version, instance->metadata.version))) {
-                        log_debug("Version '%s' is pending/partial but protected, not removing.", instance->metadata.version);
+                /* If this is pending and listed among the protected versions, then let's not remove it.
+                 * In future, we will also want to keep partial protected versions, but that’s only useful
+                 * once we support resuming downloads. */
+                if (instance->is_pending &&
+                    (strv_contains(t->protected_versions, instance->metadata.version) ||
+                     (extra_protected_version && streq(extra_protected_version, instance->metadata.version)))) {
+                        log_debug("Version '%s' is pending but protected, not removing.", instance->metadata.version);
                         i++;
                         continue;
                 }
@@ -834,7 +902,7 @@ int transfer_vacuum(
 
                 r = transfer_instance_vacuum(t, instance);
                 if (r < 0)
-                        return 0;
+                        return r;
 
                 instance_free(instance);
                 memmove(t->target.instances + i, t->target.instances + i + 1, (t->target.n_instances - i - 1) * sizeof(Instance*));
@@ -845,7 +913,7 @@ int transfer_vacuum(
 
         /* Second, calculate how many instances to keep, based on the instance limit — but keep at least one */
 
-        instances_max = arg_instances_max != UINT64_MAX ? arg_instances_max : t->instances_max;
+        instances_max = t->context->instances_max != UINT64_MAX ? t->context->instances_max : t->instances_max;
         assert(instances_max >= 1);
         if (instances_max == UINT64_MAX) /* Keep infinite instances? */
                 limit = UINT64_MAX;
@@ -933,7 +1001,7 @@ int transfer_vacuum(
 
                 r = transfer_instance_vacuum(t, oldest);
                 if (r < 0)
-                        return 0;
+                        return r;
 
                 instance_free(oldest);
                 memmove(t->target.instances + p, t->target.instances + p + 1, (t->target.n_instances - p - 1) * sizeof(Instance*));
@@ -1009,6 +1077,7 @@ static int callout_context_new(const Transfer *t, const Instance *i, TransferPro
         assert(t);
         assert(i);
         assert(cb);
+        assert(ret);
 
         ctx = new(CalloutContext, 1);
         if (!ctx)
@@ -1239,8 +1308,7 @@ int transfer_compute_temporary_paths(Transfer *t, Instance *i, InstanceMetadata 
                 if (!r)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Formatted pattern is not suitable as GPT partition label, refusing: %s", formatted_pattern);
 
-                if (!t->target.partition_type_set)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Partition type must be set for partition targets.");
+                assert(t->target.partition_type_set);
 
                 /* Derive temporary partition type UUIDs for partial/pending states from the configured
                  * partition type. This avoids the need for label prefixes. */
@@ -1339,7 +1407,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                  * download. */
 
                 if (!i->metadata.sha256sum_set)
-                        return log_error_errno(r, "SHA256 checksum not known for download '%s', refusing.", i->path);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "SHA256 checksum not known for download '%s', refusing.", i->path);
 
                 digest = hexmem(i->metadata.sha256sum, sizeof(i->metadata.sha256sum));
                 if (!digest)
@@ -1364,7 +1432,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                                                SYSTEMD_IMPORT_PATH,
                                                "raw",
                                                "--direct",          /* just copy/unpack the specified file, don't do anything else */
-                                               arg_sync ? "--sync=yes" : "--sync=no",
+                                               t->context->sync ? "--sync=yes" : "--sync=no",
                                                i->path,
                                                t->temporary_partial_path),
                                         t, i, cb, userdata);
@@ -1381,7 +1449,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                                                "--direct",          /* just copy/unpack the specified file, don't do anything else */
                                                "--offset", offset,
                                                "--size-max", max_size,
-                                               arg_sync ? "--sync=yes" : "--sync=no",
+                                               t->context->sync ? "--sync=yes" : "--sync=no",
                                                i->path,
                                                t->target.path),
                                         t, i, cb, userdata);
@@ -1404,7 +1472,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                                        SYSTEMD_IMPORT_FS_PATH,
                                        "run",
                                        "--direct",          /* just untar the specified file, don't do anything else */
-                                       arg_sync ? "--sync=yes" : "--sync=no",
+                                       t->context->sync ? "--sync=yes" : "--sync=no",
                                        t->target.type == RESOURCE_SUBVOLUME ? "--btrfs-subvol=yes" : "--btrfs-subvol=no",
                                        i->path,
                                        t->temporary_partial_path),
@@ -1421,7 +1489,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                                        SYSTEMD_IMPORT_PATH,
                                        "tar",
                                        "--direct",          /* just untar the specified file, don't do anything else */
-                                       arg_sync ? "--sync=yes" : "--sync=no",
+                                       t->context->sync ? "--sync=yes" : "--sync=no",
                                        t->target.type == RESOURCE_SUBVOLUME ? "--btrfs-subvol=yes" : "--btrfs-subvol=no",
                                        i->path,
                                        t->temporary_partial_path),
@@ -1442,7 +1510,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                                                "raw",
                                                "--direct",          /* just download the specified URL, don't download anything else */
                                                "--verify", digest,  /* validate by explicit SHA256 sum */
-                                               arg_sync ? "--sync=yes" : "--sync=no",
+                                               t->context->sync ? "--sync=yes" : "--sync=no",
                                                i->path,
                                                t->temporary_partial_path),
                                         t, i, cb, userdata);
@@ -1460,7 +1528,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                                                "--verify", digest,      /* validate by explicit SHA256 sum */
                                                "--offset", offset,
                                                "--size-max", max_size,
-                                               arg_sync ? "--sync=yes" : "--sync=no",
+                                               t->context->sync ? "--sync=yes" : "--sync=no",
                                                i->path,
                                                t->target.path),
                                         t, i, cb, userdata);
@@ -1482,7 +1550,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                                        "--direct",          /* just download the specified URL, don't download anything else */
                                        "--verify", digest,  /* validate by explicit SHA256 sum */
                                        t->target.type == RESOURCE_SUBVOLUME ? "--btrfs-subvol=yes" : "--btrfs-subvol=no",
-                                       arg_sync ? "--sync=yes" : "--sync=no",
+                                       t->context->sync ? "--sync=yes" : "--sync=no",
                                        i->path,
                                        t->temporary_partial_path),
                                 t, i, cb, userdata);
@@ -1523,7 +1591,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                 }
 
                 /* Synchronize */
-                if (arg_sync && need_sync) {
+                if (t->context->sync && need_sync) {
                         if (t->target.type == RESOURCE_REGULAR_FILE)
                                 r = fsync_path_and_parent_at(AT_FDCWD, t->temporary_partial_path);
                         else {
@@ -1609,8 +1677,10 @@ int transfer_process_partial_and_pending_instance(Transfer *t, Instance *i) {
 
         /* Does this instance already exist in the target but isn’t pending? */
         existing = resource_find_instance(&t->target, i->metadata.version);
-        if (existing && !existing->is_pending)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to acquire '%s', instance is already in the target but is not pending.", i->path);
+        if (existing && !existing->is_pending) {
+                log_info("Resource '%s' instance is already in the target but is not pending.", i->path);
+                return 0;
+        }
 
         /* All we need to do is compute the temporary paths. We don’t need to do any of the other work in
          * transfer_acquire_instance(). */
@@ -1666,6 +1736,8 @@ int transfer_install_instance(
                          resource_type_to_string(t->target.type));
 
                 t->temporary_pending_path = mfree(t->temporary_pending_path);
+
+                (void) context_installdb_record(t->context, t->target.path, t->target.patterns);
         }
 
         if (t->final_partition_label) {
@@ -1743,6 +1815,10 @@ int transfer_install_instance(
                         r = path_make_relative(parent, link_target, &relative);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to make symlink path '%s' relative to '%s': %m", link_target, parent);
+
+                        r = mkdir_parents(link_path, 0755);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to create directory for current symlink '%s': %m", link_path);
 
                         r = symlink_atomic(relative, link_path);
                         if (r < 0)

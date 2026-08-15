@@ -273,6 +273,7 @@ typedef struct UnitStatusInfo {
         /* Slice */
         unsigned concurrency_hard_max;
         unsigned concurrency_soft_max;
+        unsigned activating_concurrency_max;
         unsigned n_currently_active;
 
         /* CGroup */
@@ -320,6 +321,9 @@ static void unit_status_info_done(UnitStatusInfo *info) {
 }
 
 static void format_active_state(const char *active_state, const char **active_on, const char **active_off) {
+        assert(active_on);
+        assert(active_off);
+
         if (streq_ptr(active_state, "failed")) {
                 *active_on = ansi_highlight_red();
                 *active_off = ansi_normal();
@@ -755,16 +759,21 @@ static void print_status_info(
         if (endswith(i->id, ".slice")) {
                 printf(" Act. Units: %u", i->n_currently_active);
 
-                if (i->concurrency_soft_max != UINT_MAX || i->concurrency_hard_max != UINT_MAX) {
+                if (i->concurrency_soft_max != UINT_MAX || i->concurrency_hard_max != UINT_MAX || i->activating_concurrency_max != UINT_MAX) {
                         fputs(" (", stdout);
 
                         if (i->concurrency_soft_max != UINT_MAX && i->concurrency_soft_max < i->concurrency_hard_max) {
                                 printf("soft limit: %u", i->concurrency_soft_max);
-                                if (i->concurrency_hard_max != UINT_MAX)
+                                if (i->concurrency_hard_max != UINT_MAX || i->activating_concurrency_max != UINT_MAX)
                                         fputs("; ", stdout);
                         }
-                        if (i->concurrency_hard_max != UINT_MAX)
+                        if (i->concurrency_hard_max != UINT_MAX) {
                                 printf("hard limit: %u", i->concurrency_hard_max);
+                                if (i->activating_concurrency_max != UINT_MAX)
+                                        fputs("; ", stdout);
+                        }
+                        if (i->activating_concurrency_max != UINT_MAX)
+                                printf("activating limit: %u", i->activating_concurrency_max);
 
                         putchar(')');
                 }
@@ -1166,9 +1175,14 @@ static int map_quota(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_
         return 0;
 }
 
-static int print_property(const char *name, const char *expected_value, sd_bus_message *m, BusPrintPropertyFlags flags) {
-        char bus_type;
-        const char *contents;
+static int print_property(
+                const char *name,
+                const char *expected_value,
+                char type,
+                const char *contents,
+                sd_bus_message *m,
+                BusPrintPropertyFlags flags) {
+
         int r;
 
         assert(name);
@@ -1176,17 +1190,13 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
 
         /* This is a low-level property printer, see print_status_info() for the nicer output */
 
-        r = sd_bus_message_peek_type(m, &bus_type, &contents);
-        if (r < 0)
-                return r;
-
-        switch (bus_type) {
+        switch (type) {
 
         case SD_BUS_TYPE_INT32:
                 if (endswith(name, "ActionExitStatus")) {
                         int32_t i;
 
-                        r = sd_bus_message_read_basic(m, bus_type, &i);
+                        r = sd_bus_message_read_basic(m, type, &i);
                         if (r < 0)
                                 return r;
 
@@ -1199,7 +1209,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                 } else if (streq(name, "NUMAPolicy")) {
                         int32_t i;
 
-                        r = sd_bus_message_read_basic(m, bus_type, &i);
+                        r = sd_bus_message_read_basic(m, type, &i);
                         if (r < 0)
                                 return r;
 
@@ -1213,7 +1223,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                 if (bus_property_is_timestamp(name)) {
                         uint64_t timestamp;
 
-                        r = sd_bus_message_read_basic(m, bus_type, &timestamp);
+                        r = sd_bus_message_read_basic(m, type, &timestamp);
                         if (r < 0)
                                 return r;
 
@@ -1429,14 +1439,14 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         return 1;
 
                 } else if (contents[0] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "Paths")) {
-                        const char *type, *path;
+                        const char *entry_type, *path;
 
                         r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(ss)");
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        while ((r = sd_bus_message_read(m, "(ss)", &type, &path)) > 0)
-                                bus_print_property_valuef(name, expected_value, flags, "%s (%s)", path, type);
+                        while ((r = sd_bus_message_read(m, "(ss)", &entry_type, &path)) > 0)
+                                bus_print_property_valuef(name, expected_value, flags, "%s (%s)", path, entry_type);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -1447,14 +1457,33 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         return 1;
 
                 } else if (contents[0] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "Listen")) {
-                        const char *type, *path;
+                        const char *entry_type, *path;
 
                         r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(ss)");
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        while ((r = sd_bus_message_read(m, "(ss)", &type, &path)) > 0)
-                                bus_print_property_valuef(name, expected_value, flags, "%s (%s)", path, type);
+                        while ((r = sd_bus_message_read(m, "(ss)", &entry_type, &path)) > 0)
+                                bus_print_property_valuef(name, expected_value, flags, "%s (%s)", path, entry_type);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        return 1;
+
+                } else if (contents[0] == SD_BUS_TYPE_STRUCT_BEGIN &&
+                           STR_IN_SET(name, "XAttrEntryPoint", "XAttrListen", "XAttrAccept")) {
+                        const char *xname, *xvalue;
+
+                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(ss)");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        while ((r = sd_bus_message_read(m, "(ss)", &xname, &xvalue)) > 0)
+                                bus_print_property_valuef(name, expected_value, flags, "%s=%s", xname, xvalue);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -2201,7 +2230,7 @@ static int show_one(
                 { "ActiveExitTimestamp",            "t",               NULL,           offsetof(UnitStatusInfo, active_exit_timestamp)             },
                 { "InactiveEnterTimestamp",         "t",               NULL,           offsetof(UnitStatusInfo, inactive_enter_timestamp)          },
                 { "RuntimeMaxUSec",                 "t",               NULL,           offsetof(UnitStatusInfo, runtime_max_sec)                   },
-                { "InvocationID",                   "s",               bus_map_id128,  offsetof(UnitStatusInfo, invocation_id)                     },
+                { "InvocationID",                   "ay",              bus_map_id128,  offsetof(UnitStatusInfo, invocation_id)                     },
                 { "NeedDaemonReload",               "b",               NULL,           offsetof(UnitStatusInfo, need_daemon_reload)                },
                 { "Transient",                      "b",               NULL,           offsetof(UnitStatusInfo, transient)                         },
                 { "ExecMainPID",                    "u",               NULL,           offsetof(UnitStatusInfo, main_pid)                          },
@@ -2237,6 +2266,7 @@ static int show_one(
                 { "What",                           "s",               NULL,           offsetof(UnitStatusInfo, what)                              },
                 { "ConcurrencyHardMax",             "u",               NULL,           offsetof(UnitStatusInfo, concurrency_hard_max)              },
                 { "ConcurrencySoftMax",             "u",               NULL,           offsetof(UnitStatusInfo, concurrency_soft_max)              },
+                { "ActivatingConcurrencyMax",       "u",               NULL,           offsetof(UnitStatusInfo, activating_concurrency_max)        },
                 { "NCurrentlyActive",               "u",               NULL,           offsetof(UnitStatusInfo, n_currently_active)                },
                 { "MemoryCurrent",                  "t",               NULL,           offsetof(UnitStatusInfo, memory_current)                    },
                 { "MemoryPeak",                     "t",               NULL,           offsetof(UnitStatusInfo, memory_peak)                       },
@@ -2313,7 +2343,11 @@ static int show_one(
                 .ip_egress_bytes = UINT64_MAX,
                 .io_read_bytes = UINT64_MAX,
                 .io_write_bytes = UINT64_MAX,
+                .concurrency_soft_max = UINT_MAX,
+                .concurrency_hard_max = UINT_MAX,
+                .activating_concurrency_max = UINT_MAX,
         };
+        bool collect_found_properties;
         int r;
 
         assert(path);
@@ -2365,13 +2399,18 @@ static int show_one(
         if (r < 0)
                 return log_error_errno(r, "Failed to rewind: %s", bus_error_message(&error, r));
 
-        r = bus_message_print_all_properties(reply, print_property, arg_properties, arg_print_flags, &found_properties);
+        /* The found properties set is expensive and only used for debug logging, so collect it only when needed. */
+        collect_found_properties = DEBUG_LOGGING && !strv_isempty(arg_properties);
+
+        r = bus_message_print_all_properties(reply, print_property, arg_properties, arg_print_flags,
+                                             collect_found_properties ? &found_properties : NULL);
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        STRV_FOREACH(pp, arg_properties)
-                if (!set_contains(found_properties, *pp))
-                        log_debug("Property %s does not exist.", *pp);
+        if (collect_found_properties)
+                STRV_FOREACH(pp, arg_properties)
+                        if (!set_contains(found_properties, *pp))
+                                log_debug("Property %s does not exist.", *pp);
 
         return 0;
 }
@@ -2482,7 +2521,7 @@ static int show_system_status(sd_bus *bus) {
         return 0;
 }
 
-int verb_show(int argc, char *argv[], void *userdata) {
+int verb_show(int argc, char *argv[], uintptr_t _data, void *userdata) {
         bool new_line = false, ellipsized = false;
         SystemctlShowMode show_mode;
         int r, ret = 0;

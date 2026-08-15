@@ -4,35 +4,27 @@ if conf.get('ENABLE_IMPORTD') != 1
         subdir_done()
 endif
 
-common_deps = [
-        libbzip2,
-        libcurl,
-        libxz,
-        libz,
-        libzstd,
-]
-
 executables += [
         libexec_template + {
                 'name' : 'systemd-importd',
                 'dbus' : true,
                 'sources' : files(
                         'importd.c',
-                        'oci-util.c',
                 ),
-                'extract' : files(
+                'export' : files(
                         'oci-util.c',
                         'import-common.c',
-                        'import-compress.c',
                         'qcow2-util.c',
                 ),
-                'dependencies' : [common_deps, threads],
+                'dependencies' : [
+                        libarchive_cflags,
+                        libselinux_cflags,
+                ],
         },
         libexec_template + {
                 'name' : 'systemd-pull',
                 'public' : true,
                 'sources' : files(
-                        'curl-util.c',
                         'pull.c',
                         'pull-common.c',
                         'pull-job.c',
@@ -40,9 +32,10 @@ executables += [
                         'pull-raw.c',
                         'pull-tar.c',
                 ),
-                'objects' : ['systemd-importd'],
-                'dependencies' : common_deps + [
-                        libopenssl,
+                'import' : ['systemd-importd'],
+                'dependencies' : [
+                        libcurl_cflags,
+                        libopenssl_cflags,
                 ],
         },
         libexec_template + {
@@ -53,8 +46,7 @@ executables += [
                         'import-raw.c',
                         'import-tar.c',
                 ),
-                'objects' : ['systemd-importd'],
-                'dependencies' : common_deps,
+                'import' : ['systemd-importd'],
         },
         libexec_template + {
                 'name' : 'systemd-import-fs',
@@ -62,8 +54,7 @@ executables += [
                 'sources' : files(
                         'import-fs.c',
                 ),
-                'objects' : ['systemd-importd'],
-                'dependencies' : common_deps,
+                'import' : ['systemd-importd'],
         },
         libexec_template + {
                 'name' : 'systemd-export',
@@ -73,34 +64,33 @@ executables += [
                         'export-tar.c',
                         'export-raw.c',
                 ),
-                'objects' : ['systemd-importd'],
-                'dependencies' : common_deps,
+                'import' : ['systemd-importd'],
         },
         executable_template + {
                 'name' : 'importctl',
                 'public' : true,
                 'sources' : files('importctl.c'),
-                'objects': ['systemd-importd'],
-                'dependencies' : common_deps,
+                'import' : ['systemd-importd'],
         },
         generator_template + {
                 'name' : 'systemd-import-generator',
                 'sources' : files('import-generator.c'),
         },
         test_template + {
-                'sources' : files('test-tar-extract.c'),
+                'sources' : files('test-tar.c'),
                 'type' : 'manual',
+                'dependencies' : [
+                        libarchive_cflags,
+                ],
         },
         test_template + {
                 'sources' : files('test-qcow2.c'),
-                'objects' : ['systemd-importd'],
-                'dependencies' : common_deps,
+                'import' : ['systemd-importd'],
                 'type' : 'manual',
         },
         test_template + {
                 'sources' : files('test-oci-util.c'),
-                'objects': ['systemd-importd'],
-                'dependencies' : common_deps,
+                'import' : ['systemd-importd'],
         },
 ]
 

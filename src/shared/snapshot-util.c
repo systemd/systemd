@@ -23,6 +23,8 @@ int create_ephemeral_snapshot(
         _cleanup_free_ char *np = NULL;
         int r;
 
+        assert(ret_new_path);
+
         /* If the specified path is a mount point we generate the new snapshot immediately
          * inside it under a random name. However if the specified is not a mount point we
          * create the new snapshot in the parent directory, just next to it. */

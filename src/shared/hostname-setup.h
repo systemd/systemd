@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
+#include "forward.h"
 
 typedef enum HostnameSource {
         HOSTNAME_STATIC,     /* from /etc/hostname */
@@ -22,7 +22,7 @@ int read_etc_hostname(const char *path, bool substitute_wildcards, char **ret);
 void hostname_update_source_hint(const char *hostname, HostnameSource source);
 int hostname_setup(bool really);
 
-int hostname_substitute_wildcards(char *name);
+int hostname_substitute_wildcards(const char *name, char **ret);
 
 char* get_default_hostname(void);
 

@@ -26,14 +26,7 @@ sd_dns_resolver *sd_dns_resolver_unref(sd_dns_resolver *res) {
         return mfree(res);
 }
 
-void dns_resolver_done_many(sd_dns_resolver resolvers[], size_t n) {
-        assert(resolvers || n == 0);
-
-        FOREACH_ARRAY(res, resolvers, n)
-                sd_dns_resolver_done(res);
-
-        free(resolvers);
-}
+DEFINE_ARRAY_FREE_FUNC(dns_resolver_free_array, sd_dns_resolver, sd_dns_resolver_done);
 
 int dns_resolver_prio_compare(const sd_dns_resolver *a, const sd_dns_resolver *b) {
         return CMP(ASSERT_PTR(a)->priority, ASSERT_PTR(b)->priority);
@@ -259,8 +252,8 @@ int dnr_parse_svc_params(const uint8_t *option, size_t len, sd_dns_resolver *res
                         return -EBADMSG;
 
                 case DNS_SVC_PARAM_KEY_DOHPATH:
-                        r = make_cstring((const char*) &option[offset], plen,
-                                        MAKE_CSTRING_REFUSE_TRAILING_NUL, &dohpath);
+                        r = make_cstring(&option[offset], plen,
+                                         MAKE_CSTRING_REFUSE_TRAILING_NUL, &dohpath);
                         if (ERRNO_IS_NEG_RESOURCE(r))
                                 return r;
                         if (r < 0)
@@ -306,7 +299,7 @@ int dns_resolvers_to_dot_addrs(const sd_dns_resolver *resolvers, size_t n_resolv
 
         struct in_addr_full **addrs = NULL;
         size_t n = 0;
-        CLEANUP_ARRAY(addrs, n, in_addr_full_array_free);
+        CLEANUP_ARRAY(addrs, n, in_addr_full_free_array);
 
         FOREACH_ARRAY(res, resolvers, n_resolvers) {
                 if (!FLAGS_SET(res->transports, SD_DNS_ALPN_DOT))
@@ -347,7 +340,7 @@ int dns_resolvers_to_dot_strv(const sd_dns_resolver *resolvers, size_t n_resolve
 
         struct in_addr_full **addrs = NULL;
         size_t n = 0;
-        CLEANUP_ARRAY(addrs, n, in_addr_full_array_free);
+        CLEANUP_ARRAY(addrs, n, in_addr_full_free_array);
 
         r = dns_resolvers_to_dot_addrs(resolvers, n_resolvers, &addrs, &n);
         if (r < 0)

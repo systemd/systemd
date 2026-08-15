@@ -1180,7 +1180,7 @@ static DnsSvcParam* add_svcb_param(DnsResourceRecord *rr, uint16_t key, const ch
         param->key = key;
         param->length = len;
 
-        if (value != NULL)
+        if (value)
                 memcpy(param->value, value, len);
 
         LIST_APPEND(params, rr->svcb.params, param);

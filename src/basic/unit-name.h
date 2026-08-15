@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "basic-forward.h"
+#include "forward.h"
 
 #define UNIT_NAME_MAX 256
 
@@ -56,8 +56,9 @@ int unit_name_from_path_instance(const char *prefix, const char *path, const cha
 int unit_name_to_path(const char *name, char **ret);
 
 typedef enum UnitNameMangle {
-        UNIT_NAME_MANGLE_GLOB = 1 << 0,
-        UNIT_NAME_MANGLE_WARN = 1 << 1,
+        UNIT_NAME_MANGLE_GLOB   = 1 << 0,
+        UNIT_NAME_MANGLE_WARN   = 1 << 1,
+        UNIT_NAME_MANGLE_STRICT = 1 << 2, /* Refuse if the resolved unit type doesn't match the requested suffix */
 } UnitNameMangle;
 
 int unit_name_mangle_with_suffix(const char *name, const char *operation, UnitNameMangle flags, const char *suffix, char **ret);

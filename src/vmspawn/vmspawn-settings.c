@@ -3,13 +3,6 @@
 #include "string-table.h"
 #include "vmspawn-settings.h"
 
-static const char *const image_format_table[_IMAGE_FORMAT_MAX] = {
-        [IMAGE_FORMAT_RAW]   = "raw",
-        [IMAGE_FORMAT_QCOW2] = "qcow2",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(image_format, ImageFormat);
-
 void extra_drive_context_done(ExtraDriveContext *ctx) {
         assert(ctx);
 
@@ -24,6 +17,30 @@ static const char *const console_mode_table[_CONSOLE_MODE_MAX] = {
         [CONSOLE_READ_ONLY]   = "read-only",
         [CONSOLE_NATIVE]      = "native",
         [CONSOLE_GUI]         = "gui",
+        [CONSOLE_HEADLESS]    = "headless",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(console_mode, ConsoleMode);
+
+static const char *const console_transport_table[_CONSOLE_TRANSPORT_MAX] = {
+        [CONSOLE_TRANSPORT_VIRTIO] = "virtio",
+        [CONSOLE_TRANSPORT_SERIAL] = "serial",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(console_transport, ConsoleTransport);
+
+static const char *const firmware_table[_FIRMWARE_MAX] = {
+        [FIRMWARE_UEFI] = "uefi",
+        [FIRMWARE_BIOS] = "bios",
+        [FIRMWARE_NONE] = "none",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(firmware, Firmware);
+
+static const char *const confidential_computing_table[_COCO_MAX] = {
+        [COCO_NO]          = "no",
+        [COCO_AMD_SEV_SNP] = "sev-snp",
+        [COCO_INTEL_TDX]   = "tdx",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(confidential_computing, ConfidentialComputing);

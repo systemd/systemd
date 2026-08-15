@@ -76,15 +76,16 @@
 # be identical to the display-accelerometer's readings (when the lid is
 # closed).
 #
-# Sort by brand, model (groupped by same matrices)
+# Sort by brand, model (grouped by same matrices)
 
 #########################################
 # Acer
 #########################################
-# Acer most reliable way to match is by system manufacturer and board product
-# name because system product name can have different formats like SW5-017,
-# TP-SW5-017-17BU for a device and board manufaturer can vary Acer, APL, GLK.
-# Always comment the product to be able to identify them.
+# For Acer products most reliable way to match is by the system manufacturer
+# and the board product name, because the system product name can have
+# different formats like SW5-017, TP-SW5-017-17BU for a device, and the board
+# manufacturer can vary: Acer, APL, GLK. Always mention the product in a
+# comment to be able to identify them.
 
 sensor:modalias:acpi:BOSC0200:*:dmi:*:svnAcer:*:rnAlien_AP:*    # Spin 1 (SP111-32N)
 sensor:modalias:acpi:BOSC0200:*:dmi:*:svnAcer:*:rnHamm_GL:*     # Spin 1 (SP111-33)
@@ -109,14 +110,21 @@ sensor:modalias:acpi:BMA250E:*:dmi:*:svnAcer:*:rnAigner:*       # Iconia Tab 8W 
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 #########################################
+# Advan
+#########################################
+
+sensor:modalias:acpi:NSA2513:*:dmi*:svnADVAN*:pn1301:*          # Evo-X 13 (Intel N150)
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, 1
+
+#########################################
 # Aquarius
 #########################################
 
 sensor:modalias:acpi:MXC6655:*:dmi:*:svnAquarius:pnNS483:*       # Cmp NS483
-sensor:modalias:acpi:MXC4005:*:dmi:*:svnAquarius:pnCmpNS483:*    # Cmp NS483 v2
+sensor:modalias:acpi:MXC4005:*:dmi:*:svnAquarius:pnCmpNS483:*    # Cmp NS483 v2 (MXC4005 accel)
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
-sensor:modalias:acpi:MXC6655:*:dmi:*:svnAquarius:pnCmpNS483:*    # Cmp NS483 v2
+sensor:modalias:acpi:MXC6655:*:dmi:*:svnAquarius:pnCmpNS483:*    # Cmp NS483 v2 (MXC6655 accel)
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, 1
 
 #########################################
@@ -205,13 +213,13 @@ sensor:modalias:acpi:BOSC0200:*:dmi:*:svnAYANEO:pnAIRPlus*:*    # AIR Plus AMD, 
 #########################################
 
 # FIXME: location could be not needed because correctly detected, base sensor is acpi:KIOX020A:*
-# this should requiere good testing of both accels to match their lid close position.
+# this should require good testing of both accels to match their lid close position.
 sensor:modalias:acpi:KIOX010A:*:dmi:*:svnAMI:*:skuH2M6:*    # MaxBook Y13
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, -1
  ACCEL_LOCATION=display
 
 # FIXME: location could be not needed because correctly detected, base sensor is acpi:KIOX020A:*
-# this should requiere good testing of both accels to match their lid close position.
+# this should require good testing of both accels to match their lid close position.
 sensor:modalias:acpi:KIOX010A:*:dmi:*:svnAMI:*:skuH8Y6:*    # MaxBook Y14
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, 1
  ACCEL_LOCATION=display
@@ -220,8 +228,8 @@ sensor:modalias:acpi:KIOX010A:*:dmi:*:svnAMI:*:skuH8Y6:*    # MaxBook Y14
 # BNCF
 #########################################
 
-sensor:modalias:acpi:NSA2513:NSA2513*:dmi:*svnBNCF:pnNewBook11* # NewBook 11 2-in-1
- ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, -1
+sensor:modalias:acpi:NSA2513:*:dmi:*:svnBNCF:pnNewBook11:*    # NewBook 11 2-in-1: Panel at -90 degrees. No ACPI in_mount_matrix.
+ ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, 1
 
 #########################################
 # BUSH
@@ -342,7 +350,7 @@ sensor:modalias:acpi:KIOX000A:*:dmi:*:rvnDefaultstring:rnCherryTrailCR:*:sku2017
 # Cytrix (Mytrix)
 #########################################
 
-sensor:modalias:acpi:KIOX000A:*:dmi:svnCytrixTechnology:pnComplex11t:*    # Complex 11t
+sensor:modalias:acpi:KIOX000A:*:dmi:*:svnCytrixTechnology:pnComplex11t:*    # Complex 11t
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
 #########################################
@@ -496,7 +504,7 @@ sensor:modalias:acpi:KIOX000A:*:dmi:bvnINSYDECorp.:bvrBYT70A.YNCHENG.WIN.007:*:s
 # GPD
 #########################################
 
-# TODO: Now that we can match sku, try to search if it could be a better mach. 
+# TODO: Now that we can match sku, try to search if it could be a better match.
 # GPD win (version 1, with the X5-Z8750 CPU)
 # Note we match all dmi fields including the BIOS date checking for all known
 # BIOS dates, since the strings are unfortunately very generic.
@@ -514,15 +522,12 @@ sensor:modalias:acpi:KIOX000A:*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd03/20/20
 sensor:modalias:acpi:KIOX000A:*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd05/25/2017:*:svnDefaultstring:pnDefaultstring:pvrDefaultstring:rvnAMICorporation:rnDefaultstring:rvrDefaultstring:cvnDefaultstring:ct3:cvrDefaultstring:*
  ACCEL_LOCATION=base
 
-sensor:modalias:acpi:MXC6655:*:dmi:*:svnGPD:pnG1621-02:*    # Pocket 3
-sensor:modalias:acpi:MXC6655:*:dmi:*:svnGPD:pnG1628-04:*    # Pocket 4
- ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
-
-sensor:modalias:acpi:BMI0160:*:dmi:*:svnGPD:pnG1619*:*      # WinMax2
+sensor:modalias:acpi:BMI0160:*:dmi:*:svnGPD:pnG1618-05:*    # WIN 5
+sensor:modalias:acpi:BMI0160:*:dmi:*:svnGPD:pnG1619-04:*    # Win Max 2
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
-sensor:modalias:acpi:MXC6655:*:dmi:*:svnGPD:pnG1688-*:*     # MicroPC 2
- ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, -1
+sensor:modalias:acpi:MXC6655:*:dmi:*:svnGPD:pnG1688-08:*    # MicroPC 2
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, -1
 
 #########################################
 # Hometech
@@ -619,6 +624,14 @@ sensor:modalias:acpi:KIOX0009:*:dmi:*:bvrJumper12x.WJ2012.bsBKRCP*:svnJumper:pnE
 # EZpad Go
 sensor:modalias:acpi:KIOX000A:*:dmi:bvnAmericanMegatrendsInc.:bvrZB-BI-11.6-SF133AR200-059-J:*:svnjumper:pnEZpad:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
+
+#########################################
+# Juno Computers
+#########################################
+
+# Juno Tablet 4 (Wifi)
+sensor:modalias:acpi:MXC6655*:dmi:bvnAMI:bvr*:svnJunoComputers:pnjunotab4-wifi:*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, 1
 
 #########################################
 # Kazam
@@ -718,7 +731,7 @@ sensor:modalias:acpi:KIOX000A:*:dmi:*:svnLINX:pnVISION004:*    # Vision 8
 #########################################
 # Mediacom
 #########################################
- 
+
 sensor:modalias:acpi:BMA250:*:dmi:*:svnMEDIACOM:pnWinPad7W10-WPW700:*    # Winpad 7.0 W700
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
@@ -825,6 +838,9 @@ sensor:modalias:acpi:KIOX000A:*:dmi:*:svnTMAX:pnTM101W610L:*    # Solo 10 Draw. 
 sensor:modalias:acpi:BOSC0200:*:dmi:bvnINSYDECorp.:bvrODYS.FUSIONWIN12:*    # Fusion Win 12 2in1
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
+sensor:modalias:acpi:SMO8500:*:dmi:*:svnAXDIAInternationalGmbH:pnWindeskX10:*    # Windesk X10
+ ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
+
 #########################################
 # Onda
 #########################################
@@ -859,6 +875,10 @@ sensor:modalias:acpi:BOSC0200:*:dmi:bvnAmericanMegatrendsInc.:bvr5.12:bd07/17/20
 # One-Netbook OneXPlayer Mini (and maybe others)
 sensor:modalias:acpi:BMI0160:*:dmi:*:rnONEXPLAYER:rvrV01:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, -1
+
+# One-Netbook OneXPlayer Super X
+sensor:modalias:acpi:BMI0160:*:dmi:*:svnONE-NETBOOK:pnONEXPLAYERSUPERX:*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, 1
 
 #########################################
 # OrangePi
@@ -982,6 +1002,13 @@ sensor:modalias:acpi:BOSC0200*:dmi:bvnAmericanMegatrendsInc.:bvrSCH12i.WJ210Z.Kt
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
 #########################################
+# Shift
+#########################################
+
+sensor:modalias:acpi:SMOCF00:*:dmi:*:svnSHIFT:pnSHIFT13mi:*    # SHIFTbook 1
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
+
+#########################################
 # Teclast
 #########################################
 
@@ -1086,6 +1113,14 @@ sensor:modalias:acpi:SMO8500*:dmi:*:svnUMAX:pnVisionBook10WiPlus:*
 
 sensor:modalias:acpi:MXC6655*:dmi:*:svnUMAX:pnVisionbook12WrTab:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
+
+#########################################
+# Valve
+#########################################
+
+# Lizard mode must be off for the IMU to activate
+evdev:input:b0003v28DEp1205*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, 1
 
 #########################################
 # Voyo

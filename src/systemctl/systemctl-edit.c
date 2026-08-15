@@ -20,7 +20,7 @@
 #include "terminal-util.h"
 #include "unit-name.h"
 
-int verb_cat(int argc, char *argv[], void *userdata) {
+int verb_cat(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_hashmap_free_ Hashmap *cached_id_map = NULL, *cached_name_map = NULL;
         _cleanup_(lookup_paths_done) LookupPaths lp = {};
         _cleanup_strv_free_ char **names = NULL;
@@ -324,7 +324,7 @@ static int find_paths_to_edit(
         return 0;
 }
 
-int verb_edit(int argc, char *argv[], void *userdata) {
+int verb_edit(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(edit_file_context_done) EditFileContext context = {
                 .marker_start = DROPIN_MARKER_START,
                 .marker_end = DROPIN_MARKER_END,

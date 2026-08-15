@@ -10,7 +10,7 @@
 #include "log.h"
 #include "smbios11.h"
 
-int verb_smbios11(int argc, char *argv[], void *userdata) {
+int verb_smbios11(int argc, char *argv[], uintptr_t _data, void *userdata) {
         unsigned n = 0;
         int r;
 

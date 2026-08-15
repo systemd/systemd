@@ -13,7 +13,7 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "log.h"
-#include "macro-fundamental.h"
+#include "macro.h"
 #include "memory-util.h"
 #include "parse-util.h"
 #include "socket-util.h"

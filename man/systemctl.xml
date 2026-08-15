@@ -418,6 +418,13 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <listitem>
             <para>Start (activate) one or more units specified on the command line.</para>
 
+            <para>When more than one unit is specified, the units are enqueued in a single job transaction.
+            This ensures that ordering dependencies (<varname>After=</varname>/<varname>Before=</varname>)
+            configured between the listed units are honored, regardless of the order in which they are given
+            on the command line. The same applies to <command>stop</command>, <command>restart</command> and
+            the reload/restart variants below. If a single transaction cannot be put together, separate
+            transactions will be submitted separately instead as a fallback.</para>
+
             <para>Note that unit glob patterns expand to names of units currently in memory. Units which are
             not active and are not in a failed state usually are not in memory, and will not be matched by
             any pattern. In addition, in case of instantiated units, systemd is often unaware of the instance
@@ -499,6 +506,26 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
                  do not document that. -->
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><command>enqueue-marked</command></term>
+
+          <listitem><para>Enqueue start/stop/restart/reload jobs for all units that have the respective
+          <literal>needs-*</literal> markers set. When a unit marked for reload does not support reload,
+          restart will be queued. Those properties can be set using <command>set-property Markers=…</command>.</para>
+
+          <para>Note that <literal>needs-restart</literal> and <literal>needs-reload</literal> use
+          <command>try-restart</command>/<literal>try-reload</literal> semantics: inactive units are not started.
+          This differs from <command>reload-or-restart</command> without <option>--marked</option>, which
+          starts units that are not yet running. Markers such as <literal>needs-start</literal> still
+          enqueue an unconditional start job.</para>
+
+          <para>Unless <option>--no-block</option> is used, <command>systemctl</command> will wait for the
+          queued jobs to finish.</para>
+
+          <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+        </varlistentry>
+
         <varlistentry>
           <term><command>reload-or-restart <replaceable>PATTERN</replaceable>…</command></term>
 
@@ -506,8 +533,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <para>Reload one or more units if they support it. If not, stop and then start them instead. If the units
             are not running yet, they will be started.</para>
 
-            <para>This has a slightly differing functionality when used in combination with <option>--marked</option>,
-            see below.</para>
+            <para>When used in combination with <option>--marked</option>, it is a deprecated alias of
+            <command>enqueue-marked</command>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1974,7 +2001,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <para>The argument is a comma-separated list of unit types such as <option>service</option> and
           <option>socket</option>. When units are listed with <command>list-units</command>,
           <command>list-dependencies</command>, <command>show</command>, or <command>status</command>,
-          only units of the specified types will be shown. By default, units of all types are shown.</para>
+          only units of the specified types will be shown. By default, units of all types are shown.
+          Use <option>--type=</option> to reset the filter.</para>
 
           <para>As a special case, if one of the arguments is <option>help</option>, a list of allowed values
           will be printed and the program will exit.</para>
@@ -1986,9 +2014,10 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
         <listitem>
           <para>The argument is a comma-separated list of unit LOAD, SUB, or ACTIVE states. When listing
-          units with <command>list-units</command>, <command>list-dependencies</command>, <command>show</command>
-          or <command>status</command>, show only those in the specified states. Use <option>--state=failed</option>
-          or <option>--failed</option> to show only failed units.</para>
+          units with <command>list-units</command>, <command>list-dependencies</command>,
+          <command>show</command> or <command>status</command>, show only those in the specified states. Use
+          <option>--state=failed</option> or <option>--failed</option> to show only failed units. Use
+          <option>--state=</option> to reset the filter.</para>
 
           <para>As a special case, if one of the arguments is <option>help</option>, a list of allowed values
           will be printed and the program will exit.</para>
@@ -2562,10 +2591,12 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <constant>all</constant> as a shortcut for specifying all six resource types. If this option is not
           specified defaults to the combination of <constant>cache</constant>, <constant>runtime</constant>
           and <constant>fdstore</constant>, i.e. the three kinds of resources that are generally considered
-          to be redundant and can be reconstructed on next invocation. Note that the explicit removal of the
-          <constant>fdstore</constant> resource type is only useful if the
-          <varname>FileDescriptorStorePreserve=</varname> option is enabled, since the file descriptor store
-          is otherwise cleaned automatically when the unit is stopped.</para>
+          to be redundant and can be reconstructed on next invocation. The empty argument can be used to
+          reset to this default.</para>
+
+          <para>Note that the explicit removal of the <constant>fdstore</constant> resource type is only
+          useful if the <varname>FileDescriptorStorePreserve=</varname> option is enabled, since the file
+          descriptor store is otherwise cleaned automatically when the unit is stopped.</para>
 
           <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
@@ -2771,6 +2802,50 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
       </varlistentry>
 
       <varlistentry>
+        <term><option>--kernel-cmdline=</option></term>
+
+        <listitem>
+          <para>When used with <command>kexec</command>, append the specified string to the kernel command
+          line options of the kexec kernel. The kernel command line is taken from the boot loader entry of
+          the currently booted kernel (as selected automatically when no kexec kernel is preloaded, see
+          <command>kexec</command> above). This string is appended, separated from the existing
+          options by a single space. This option may be specified more than once, in which case the
+          strings are appended in the order given. <command>systemctl kexec</command> will fail if this
+          option is specified when a kexec kernel is already loaded.</para>
+
+          <para>The kexec kernel command line is assembled in a fixed order, independent of the order in
+          which the options are specified on the command line: first the command line from the boot loader
+          entry, then the command line of the currently running kernel (if
+          <option>--kernel-cmdline-reuse</option> is used), and finally the strings specified with
+          <option>--kernel-cmdline=</option>. Afterwards, arguments that are exactly identical and appear
+          more than once are removed, keeping the last occurrence. Note that only byte-for-byte identical
+          arguments are deduplicated: for example <literal>foo=bar</literal> and
+          <literal>foo=quux</literal> are both kept, as they are not identical (the latter takes effect, as
+          the kernel uses the last assignment of a given parameter).</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--kernel-cmdline-reuse</option></term>
+
+        <listitem>
+          <para>Like <option>--kernel-cmdline=</option>, but instead of taking the string to append as an
+          argument, the command line of the currently running kernel is reused. This is useful to boot the
+          kexec kernel with the same command line options the running system was booted with, including any
+          modifications applied at boot time.
+          As with <option>--kernel-cmdline=</option>, the reused command line is added to the command line
+          taken from the boot loader entry, and <command>systemctl kexec</command> will fail if this option
+          is specified when a kexec kernel is already loaded. This option may be combined with
+          <option>--kernel-cmdline=</option>; see <option>--kernel-cmdline=</option> above for the order in
+          which the various command line sources are combined and deduplicated.</para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--plain</option></term>
 
         <listitem>
@@ -2853,20 +2928,6 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
       </varlistentry>
 
       <varlistentry>
-        <term><option>--marked</option></term>
-
-        <listitem><para>Only allowed with <command>reload-or-restart</command>. Enqueues restart jobs for all
-        units that have the <literal>needs-restart</literal> mark, and reload jobs for units that have the
-        <literal>needs-reload</literal> mark. When a unit marked for reload does not support reload, restart
-        will be queued. Those properties can be set using <command>set-property Markers=…</command>.</para>
-
-        <para>Unless <option>--no-block</option> is used, <command>systemctl</command> will wait for the
-        queued jobs to finish.</para>
-
-        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><option>--read-only</option></term>
 
         <listitem><para>When used with <command>bind</command>, creates a read-only bind mount.</para>
@@ -2897,6 +2958,19 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           action will be shown, which can be canceled by passing an empty string or <literal>cancel</literal>.
           <literal>auto</literal> will schedule the action according to maintenance window or one minute in
           the future.</para>
+
+          <para>The specified timestamp is a lower bound only: it declares the earliest point in time the
+          requested action may take place, i.e. the action is executed as soon as possible, but not before the
+          given timestamp. It is <emphasis>not</emphasis> a condition that is checked, and specifying a
+          timestamp in the past is not an error: the action is then executed immediately. This is intentional,
+          as the alternative would be racy and surprising — consider <option>--when=now</option>, which by the
+          time the request is processed necessarily refers to the past, or
+          <option>--when=+50ms</option>, which might well already have elapsed due to scheduling latencies
+          before the request is dispatched. In both cases the requested action is still carried out, as
+          the user asked for it.</para>
+
+          <para>If a timestamp in the past shall not result in the action being executed, this must be checked
+          for explicitly before invoking <command>systemctl</command>.</para>
 
           <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>

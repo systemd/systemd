@@ -19,9 +19,9 @@ ConditionSecurity=measured-uki
 ListenStream=/run/systemd/io.systemd.PCRLock
 Symlinks=/run/varlink/registry/io.systemd.PCRLock
 FileDescriptorName=varlink
-SocketMode=0600
+SocketMode=0644
 Accept=yes
 MaxConnectionsPerSource=16
-
-[Install]
-WantedBy=sockets.target
+XAttrEntryPoint=user.varlink=entrypoint
+XAttrListen=user.varlink=listen
+XAttrAccept=user.varlink=server

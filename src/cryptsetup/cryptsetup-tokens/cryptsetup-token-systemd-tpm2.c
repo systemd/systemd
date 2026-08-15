@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <libcryptsetup.h>
+#include <syslog.h>
 
 #include "alloc-util.h"
 #include "cryptsetup-token.h"
 #include "cryptsetup-token-util.h"
+#include "dlopen-note.h"
 #include "hexdecoct.h"
 #include "json-util.h"
 #include "luks2-tpm2.h"
@@ -18,18 +19,30 @@
 #define TOKEN_VERSION_MINOR "0"
 
 /* for libcryptsetup debug purpose */
-_public_ const char *cryptsetup_token_version(void) {
+_public_ const char* cryptsetup_token_version(void) {
+        LIBCRYPTO_NOTE(suggested);
+        LIBCRYPTSETUP_NOTE(required);
+        TPM2_NOTE(suggested);
 
         return TOKEN_VERSION_MAJOR "." TOKEN_VERSION_MINOR " systemd-v" PROJECT_VERSION_FULL " (" GIT_VERSION ")";
 }
 
-static int log_debug_open_error(struct crypt_device *cd, int r) {
+static int log_debug_open_error(struct crypt_device *cd, int token, int r) {
         if (r == -EAGAIN)
                 return crypt_log_debug_errno(cd, r, "TPM2 device not found.");
-        if (r == -ENXIO)
-                return crypt_log_debug_errno(cd, r, "No matching TPM2 token data found.");
+        if (r == -ENOSTR) {
+                /* Remap to -EPERM so libcryptsetup's CRYPT_ANY_TOKEN loop keeps iterating. */
+                (void) crypt_log_debug_errno(cd, r, "Token %d: no matching TPM2 token data found.", token);
+                return -EPERM;
+        }
+        if (IN_SET(r, -EREMCHG, -EREMOTE, -EADDRNOTAVAIL)) {
+                /* Remap as above. Note: For now without -EUCLEAN because currently the only error it
+                 * reports won't be solved by moving to another token. */
+                (void) crypt_log_debug_errno(cd, r, "Token %d: TPM policy does not match current system state, skipping.", token);
+                return -EPERM;
+        }
 
-        return crypt_log_debug_errno(cd, r, TOKEN_NAME " open failed: %m.");
+        return crypt_log_debug_errno(cd, r, "Token %d: open failed: %m.", token);
 }
 
 _public_ int cryptsetup_token_open_pin(
@@ -43,6 +56,7 @@ _public_ int cryptsetup_token_open_pin(
 
         _cleanup_(erase_and_freep) char *base64_encoded = NULL, *pin_string = NULL;
         _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
+        _cleanup_free_ char *pubkey_policy_ref = NULL;
         _cleanup_(iovec_done_erase) struct iovec decrypted_key = {};
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         uint32_t hash_pcr_mask, pubkey_pcr_mask;
@@ -60,8 +74,12 @@ _public_ int cryptsetup_token_open_pin(
         assert(ret_password);
         assert(ret_password_len);
 
+        r = dlopen_cryptsetup(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
         /* This must not fail at this moment (internal error) */
-        r = crypt_token_json_get(cd, token, &json);
+        r = sym_crypt_token_json_get(cd, token, &json);
         assert(token == r);
         assert(json);
 
@@ -72,14 +90,21 @@ _public_ int cryptsetup_token_open_pin(
         if (usrptr)
                 params = *(systemd_tpm2_plugin_params *)usrptr;
 
-        r = sd_json_parse(json, 0, &v, NULL, NULL);
-        if (r < 0)
-                return crypt_log_debug_errno(cd, r, "Failed to parse token JSON data: %m");
+        r = sd_json_parse(json, SD_JSON_PARSE_MUST_BE_OBJECT, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
+        if (r == -ENOMEM)
+                return r;
+        if (r < 0) {
+                /* Remap to -EPERM so libcryptsetup keeps iterating past a broken token. */
+                (void) crypt_log_debug_errno(cd, r, "Token %d: failed to parse JSON data: %m", token);
+                return -EPERM;
+        }
 
         struct iovec *blobs = NULL, *policy_hash = NULL;
         size_t n_blobs = 0, n_policy_hash = 0;
         CLEANUP_ARRAY(blobs, n_blobs, iovec_array_free);
         CLEANUP_ARRAY(policy_hash, n_policy_hash, iovec_array_free);
+
+        Argon2IdParameters argon2id_params = {};
 
         r = tpm2_parse_luks2_json(
                         v,
@@ -87,6 +112,7 @@ _public_ int cryptsetup_token_open_pin(
                         &hash_pcr_mask,
                         &pcr_bank,
                         &pubkey,
+                        &pubkey_policy_ref,
                         &pubkey_pcr_mask,
                         &primary_alg,
                         &blobs,
@@ -96,18 +122,23 @@ _public_ int cryptsetup_token_open_pin(
                         &salt,
                         &srk,
                         &pcrlock_nv,
-                        &flags);
+                        &flags,
+                        &argon2id_params);
         if (r < 0)
-                return log_debug_open_error(cd, r);
+                return log_debug_open_error(cd, token, r);
 
-        if (params.search_pcr_mask != UINT32_MAX && hash_pcr_mask != params.search_pcr_mask)
-                return crypt_log_debug_errno(cd, ENXIO, "PCR mask doesn't match expectation (%" PRIu32 " vs. %" PRIu32 ")", hash_pcr_mask, params.search_pcr_mask);
+        if (params.search_pcr_mask != UINT32_MAX && hash_pcr_mask != params.search_pcr_mask) {
+                /* Remap to -EPERM so libcryptsetup keeps iterating to the next token. */
+                crypt_log_debug(cd, "Token %d: PCR mask doesn't match expectation (%" PRIu32 " vs. %" PRIu32 ")", token, hash_pcr_mask, params.search_pcr_mask);
+                return -EPERM;
+        }
 
         r = acquire_luks2_key(
                         params.device,
                         hash_pcr_mask,
                         pcr_bank,
                         &pubkey,
+                        pubkey_policy_ref,
                         pubkey_pcr_mask,
                         params.signature_path,
                         pin_string,
@@ -121,14 +152,15 @@ _public_ int cryptsetup_token_open_pin(
                         &srk,
                         &pcrlock_nv,
                         flags,
+                        /* argon2id_params= */ FLAGS_SET(flags, TPM2_FLAGS_USE_ARGON2ID) ? &argon2id_params : NULL,
                         &decrypted_key);
         if (r < 0)
-                return log_debug_open_error(cd, r);
+                return log_debug_open_error(cd, token, r);
 
         /* Before using this key as passphrase we base64 encode it, for compat with homed */
         base64_encoded_size = base64mem(decrypted_key.iov_base, decrypted_key.iov_len, &base64_encoded);
         if (base64_encoded_size < 0)
-                return log_debug_open_error(cd, base64_encoded_size);
+                return log_debug_open_error(cd, token, base64_encoded_size);
 
         /* free'd automatically by libcryptsetup */
         *ret_password = TAKE_PTR(base64_encoded);
@@ -176,7 +208,7 @@ _public_ void cryptsetup_token_dump(
                 struct crypt_device *cd /* is always LUKS2 context */,
                 const char *json /* validated 'systemd-tpm2' token if cryptsetup_token_validate is defined */) {
 
-        _cleanup_free_ char *hash_pcrs_str = NULL, *pubkey_pcrs_str = NULL, *pubkey_str = NULL;
+        _cleanup_free_ char *hash_pcrs_str = NULL, *pubkey_pcrs_str = NULL, *pubkey_str = NULL, *pubkey_policy_ref = NULL;
         _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         uint32_t hash_pcr_mask, pubkey_pcr_mask;
@@ -186,7 +218,10 @@ _public_ void cryptsetup_token_dump(
 
         assert(json);
 
-        r = sd_json_parse(json, 0, &v, NULL, NULL);
+        if (dlopen_cryptsetup(LOG_DEBUG) < 0)
+                return;
+
+        r = sd_json_parse(json, SD_JSON_PARSE_MUST_BE_OBJECT, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (r < 0)
                 return (void) crypt_log_debug_errno(cd, r, "Failed to parse " TOKEN_NAME " JSON object: %m");
 
@@ -197,10 +232,11 @@ _public_ void cryptsetup_token_dump(
 
         r = tpm2_parse_luks2_json(
                         v,
-                        NULL,
+                        /* ret_keyslot= */ NULL,
                         &hash_pcr_mask,
                         &pcr_bank,
                         &pubkey,
+                        &pubkey_policy_ref,
                         &pubkey_pcr_mask,
                         &primary_alg,
                         &blobs,
@@ -210,7 +246,8 @@ _public_ void cryptsetup_token_dump(
                         &salt,
                         &srk,
                         &pcrlock_nv,
-                        &flags);
+                        &flags,
+                        /* ret_argon2id_params= */ NULL);
         if (r < 0)
                 return (void) crypt_log_debug_errno(cd, r, "Failed to parse " TOKEN_NAME " JSON fields: %m");
 
@@ -229,10 +266,13 @@ _public_ void cryptsetup_token_dump(
         crypt_log(cd, "\ttpm2-hash-pcrs:   %s\n", strna(hash_pcrs_str));
         crypt_log(cd, "\ttpm2-pcr-bank:    %s\n", strna(tpm2_hash_alg_to_string(pcr_bank)));
         crypt_log(cd, "\ttpm2-pubkey:" CRYPT_DUMP_LINE_SEP "%s\n", pubkey_str);
+        crypt_log(cd, "\ttpm2-pubkey-ref:  %s\n", pubkey_policy_ref);
         crypt_log(cd, "\ttpm2-pubkey-pcrs: %s\n", strna(pubkey_pcrs_str));
-        crypt_log(cd, "\ttpm2-primary-alg: %s\n", strna(tpm2_asym_alg_to_string(primary_alg)));
+        if (primary_alg != 0)
+                crypt_log(cd, "\ttpm2-primary-alg: %s\n", strna(tpm2_asym_alg_to_string(primary_alg)));
         crypt_log(cd, "\ttpm2-pin:         %s\n", true_false(flags & TPM2_FLAGS_USE_PIN));
         crypt_log(cd, "\ttpm2-pcrlock:     %s\n", true_false(flags & TPM2_FLAGS_USE_PCRLOCK));
+        crypt_log(cd, "\ttpm2-argon2id:    %s\n", true_false(flags & TPM2_FLAGS_USE_ARGON2ID));
         crypt_log(cd, "\ttpm2-salt:        %s\n", true_false(iovec_is_set(&salt)));
         crypt_log(cd, "\ttpm2-srk:         %s\n", true_false(iovec_is_set(&srk)));
         crypt_log(cd, "\ttpm2-pcrlock-nv:  %s\n", true_false(iovec_is_set(&pcrlock_nv)));
@@ -274,7 +314,11 @@ _public_ int cryptsetup_token_validate(
 
         assert(json);
 
-        r = sd_json_parse(json, 0, &v, NULL, NULL);
+        r = dlopen_cryptsetup(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        r = sd_json_parse(json, SD_JSON_PARSE_MUST_BE_OBJECT, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (r < 0)
                 return crypt_log_debug_errno(cd, r, "Could not parse " TOKEN_NAME " json object: %m");
 

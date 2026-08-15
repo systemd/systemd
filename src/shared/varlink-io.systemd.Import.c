@@ -87,7 +87,7 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(verify, ImageVerify, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("If true, an existing image by the local name is deleted. Defaults to false."),
                 SD_VARLINK_DEFINE_INPUT(force, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Whether to make the image read-only after downloading. Defaults ot false."),
+                SD_VARLINK_FIELD_COMMENT("Whether to make the image read-only after downloading. Defaults to false."),
                 SD_VARLINK_DEFINE_INPUT(readOnly, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Whether to keep a pristine copy of the download separate from the locally installed image. Defaults to false."),
                 SD_VARLINK_DEFINE_INPUT(keepDownload, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
@@ -101,7 +101,10 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("The numeric ID of this download"),
                 SD_VARLINK_DEFINE_OUTPUT(id, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
-static SD_VARLINK_DEFINE_ERROR(AlreadyInProgress);
+static SD_VARLINK_DEFINE_ERROR(
+                AlreadyInProgress,
+                SD_VARLINK_FIELD_COMMENT("The URL of the transfer already in progress."),
+                SD_VARLINK_DEFINE_FIELD(remote, SD_VARLINK_STRING, 0));
 static SD_VARLINK_DEFINE_ERROR(TransferCancelled);
 static SD_VARLINK_DEFINE_ERROR(TransferFailed);
 static SD_VARLINK_DEFINE_ERROR(NoTransfers);

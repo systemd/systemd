@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
+#include "forward.h"
 
 typedef enum PathSimplifyWarnFlags {
         PATH_CHECK_FATAL              = 1 << 0,  /* If not set, then error message is appended with 'ignoring'. */
@@ -19,6 +19,8 @@ int path_simplify_and_warn(
                 const char *filename,
                 unsigned line,
                 const char *lvalue);
+
+int parse_address_families(const char *rvalue, Set **families, bool *is_allowlist);
 
 int parse_socket_bind_item(
                 const char *str,

@@ -10,6 +10,7 @@
 #include "bus-locator.h"
 #include "bus-util.h"
 #include "clean-ipc.h"
+#include "efi-loader.h"
 #include "env-file.h"
 #include "errno-util.h"
 #include "escape.h"
@@ -17,6 +18,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "json-util.h"
 #include "limits-util.h"
 #include "logind-session.h"
 #include "logind.h"
@@ -24,7 +26,7 @@
 #include "logind-seat.h"
 #include "logind-user.h"
 #include "logind-user-dbus.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "parse-util.h"
 #include "percent-util.h"
 #include "serialize.h"
@@ -84,6 +86,10 @@ int user_new(Manager *m, UserRecord *ur, User **ret) {
         if (r < 0)
                 return r;
 
+        r = unit_name_build("systemd-pcrlogin", lu, ".service", &u->measure_unit);
+        if (r < 0)
+                return r;
+
         r = hashmap_put(m->users, UID_TO_PTR(ur->uid), u);
         if (r < 0)
                 return r;
@@ -97,6 +103,10 @@ int user_new(Manager *m, UserRecord *ur, User **ret) {
                 return r;
 
         r = hashmap_put(m->user_units, u->service_manager_unit, u);
+        if (r < 0)
+                return r;
+
+        r = hashmap_put(m->user_units, u->measure_unit, u);
         if (r < 0)
                 return r;
 
@@ -118,15 +128,21 @@ User *user_free(User *u) {
 
         if (u->service_manager_unit) {
                 (void) hashmap_remove_value(u->manager->user_units, u->service_manager_unit, u);
-                free(u->service_manager_job);
                 free(u->service_manager_unit);
         }
+        free(u->service_manager_job);
 
         if (u->runtime_dir_unit) {
                 (void) hashmap_remove_value(u->manager->user_units, u->runtime_dir_unit, u);
-                free(u->runtime_dir_job);
                 free(u->runtime_dir_unit);
         }
+        free(u->runtime_dir_job);
+
+        if (u->measure_unit) {
+                (void) hashmap_remove_value(u->manager->user_units, u->measure_unit, u);
+                free(u->measure_unit);
+        }
+        free(u->measure_job);
 
         if (u->slice) {
                 (void) hashmap_remove_value(u->manager->user_units, u->slice, u);
@@ -177,6 +193,7 @@ static int user_save_internal(User *u) {
         env_file_fputs_assignment(f, "RUNTIME=", u->runtime_path);
         env_file_fputs_assignment(f, "RUNTIME_DIR_JOB=", u->runtime_dir_job);
         env_file_fputs_assignment(f, "SERVICE_JOB=", u->service_manager_job);
+        env_file_fputs_assignment(f, "MEASURE_JOB=", u->measure_job);
         if (u->display)
                 env_file_fputs_assignment(f, "DISPLAY=", u->display->id);
 
@@ -303,6 +320,7 @@ int user_load(User *u) {
         r = parse_env_file(NULL, u->state_file,
                            "RUNTIME_DIR_JOB",        &u->runtime_dir_job,
                            "SERVICE_JOB",            &u->service_manager_job,
+                           "MEASURE_JOB",            &u->measure_job,
                            "STOPPING",               &stopping,
                            "REALTIME",               &realtime,
                            "MONOTONIC",              &monotonic,
@@ -354,6 +372,39 @@ static int user_start_runtime_dir(User *u) {
                 return log_full_errno(sd_bus_error_has_name(&error, BUS_ERROR_UNIT_MASKED) ? LOG_DEBUG : LOG_ERR,
                                       r, "Failed to start user service '%s': %s",
                                       u->runtime_dir_unit, bus_error_message(&error, r));
+
+        return 0;
+}
+
+static int user_start_measure(User *u) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        assert(u);
+        assert(!u->stopping);
+        assert(u->manager);
+        assert(u->measure_unit);
+
+        /* Measures the user's record into the 'login' TPM2 NvPCR on the first login of this boot. This is
+         * strictly best-effort: a measurement failure must never block the login (simply because NvPCRs might
+         * not be available). Unlike the runtime-dir and service-manager units, this one is started but never
+         * stopped (see user_stop_service()): it is a Type=oneshot/RemainAfterExit unit living in
+         * system.slice that stays active until reboot, so a later re-login's StartUnit is a no-op and every
+         * user is measured exactly once per boot.
+         *
+         * Only bother if we're actually running in measured-OS mode. The unit itself also carries
+         * ConditionSecurity=measured-os, but checking here avoids queuing a no-op job on every first login
+         * on systems that don't measure the OS */
+        if (efi_measured_os(LOG_DEBUG) <= 0)
+                return 0;
+
+        u->measure_job = mfree(u->measure_job);
+
+        r = manager_start_unit(u->manager, u->measure_unit, &error, &u->measure_job);
+        if (r < 0)
+                return log_full_errno(sd_bus_error_has_name(&error, BUS_ERROR_UNIT_MASKED) ? LOG_DEBUG : LOG_WARNING,
+                                      r, "Failed to start user measurement service '%s', ignoring: %s",
+                                      u->measure_unit, bus_error_message(&error, r));
 
         return 0;
 }
@@ -512,6 +563,14 @@ int user_start(User *u) {
                 /* Set slice parameters */
                 (void) user_update_slice(u);
 
+                /* Measure the user record into the 'login' NvPCR. We do this *before* starting the runtime dir
+                 * (and, further below, the service manager): manager_start_unit() is synchronous, so by the
+                 * time those units are enqueued the measurement's start job already exists, and their
+                 * After=systemd-pcrlogin@%i.service ordering then guarantees the measurement completes before
+                 * the user's session becomes available. Best-effort and never stopped again, so each user is
+                 * measured exactly once per boot. */
+                (void) user_start_measure(u);
+
                 (void) user_start_runtime_dir(u);
         }
 
@@ -621,7 +680,7 @@ int user_finalize(User *u) {
         return r;
 }
 
-int user_get_idle_hint(User *u, dual_timestamp *t) {
+bool user_get_idle_hint(User *u, dual_timestamp *ret_timestamp) {
         bool idle_hint = true;
         dual_timestamp ts = DUAL_TIMESTAMP_NULL;
 
@@ -629,15 +688,12 @@ int user_get_idle_hint(User *u, dual_timestamp *t) {
 
         LIST_FOREACH(sessions_by_user, s, u->sessions) {
                 dual_timestamp k;
-                int ih;
+                bool ih;
 
                 if (!SESSION_CLASS_CAN_IDLE(s->class))
                         continue;
 
                 ih = session_get_idle_hint(s, &k);
-                if (ih < 0)
-                        return ih;
-
                 if (!ih) {
                         if (!idle_hint) {
                                 if (k.monotonic < ts.monotonic)
@@ -647,14 +703,13 @@ int user_get_idle_hint(User *u, dual_timestamp *t) {
                                 ts = k;
                         }
                 } else if (idle_hint) {
-
                         if (k.monotonic > ts.monotonic)
                                 ts = k;
                 }
         }
 
-        if (t)
-                *t = ts;
+        if (ret_timestamp)
+                *ret_timestamp = ts;
 
         return idle_hint;
 }
@@ -763,8 +818,14 @@ bool user_may_gc(User *u, bool drop_not_started) {
 
         /* Is this a user that shall stay around forever ("linger")? Before we say "no" to GC'ing for lingering users, let's check
          * if any of the three units that we maintain for this user is still around. If none of them is,
-         * there's no need to keep this user around even if lingering is enabled. */
-        if (user_check_linger_file(u) > 0 && user_unit_active(u))
+         * there's no need to keep this user around even if lingering is enabled.
+         *
+         * Exception: at startup-time GC (drop_not_started=false) the per-user units have not yet been
+         * started by manager_startup(), so requiring user_unit_active() here would unconditionally GC
+         * every lingering user before we get a chance to user_start() them. That breaks after a
+         * soft-reboot, where /run/systemd/users is preserved and feeds lingering users into the GC
+         * queue (cold boot is unaffected because /run is empty). See #41789. */
+        if (user_check_linger_file(u) > 0 && (!drop_not_started || user_unit_active(u)))
                 return false;
 
         /* Check if our job is still pending */
@@ -957,6 +1018,77 @@ void user_update_last_session_timer(User *u) {
                 log_debug("Last session of user '%s' logged out, terminating user context in %s.",
                           u->user_record->user_name,
                           FORMAT_TIMESPAN(user_stop_delay, USEC_PER_MSEC));
+}
+
+static int user_sessions_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        User *u = ASSERT_PTR(userdata);
+        int r;
+
+        assert(ret);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        LIST_FOREACH(sessions_by_user, session, u->sessions) {
+                r = sd_json_variant_append_arrayb(&v, SD_JSON_BUILD_STRING(session->id));
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+static int user_context_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        User *u = ASSERT_PTR(userdata);
+
+        assert(ret);
+        assert(u->user_record);
+
+        int linger = user_check_linger_file(u);
+        if (linger == -ENOMEM)
+                return linger;
+        if (linger < 0)
+                log_warning_errno(linger,
+                                  "Failed to check linger file for user '%s', assuming disabled: %m",
+                                  u->user_record->user_name);
+
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_UNSIGNED("UID", u->user_record->uid),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("GID", u->user_record->gid),
+                        SD_JSON_BUILD_PAIR_STRING("Name", u->user_record->user_name),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("Linger", linger > 0),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Service", u->service_manager_unit),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Slice", u->slice),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("RuntimePath", u->runtime_path));
+}
+
+static int user_runtime_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        User *u = ASSERT_PTR(userdata);
+
+        assert(ret);
+
+        dual_timestamp idle_ts;
+        bool idle = user_get_idle_hint(u, &idle_ts);
+
+        return sd_json_buildo(
+                        ret,
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Display", u->display ? u->display->id : NULL),
+                        JSON_BUILD_PAIR_ENUM("State", user_state_to_string(user_get_state(u))),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("Sessions", user_sessions_build_json, u),
+                        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("Timestamp", &u->timestamp),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("IdleHint", idle),
+                        SD_JSON_BUILD_PAIR_CONDITION(idle, "IdleSinceHint", JSON_BUILD_DUAL_TIMESTAMP(&idle_ts)));
+}
+
+int user_build_json(User *u, sd_json_variant **ret) {
+        assert(u);
+        assert(u->user_record);
+        assert(ret);
+
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_CALLBACK("context", user_context_build_json, u),
+                        SD_JSON_BUILD_PAIR_CALLBACK("runtime", user_runtime_build_json, u));
 }
 
 static const char* const user_state_table[_USER_STATE_MAX] = {

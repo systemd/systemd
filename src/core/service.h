@@ -8,6 +8,18 @@
 #include "pidref.h"
 #include "unit.h"
 
+/* FDNAME used to push the JSON mapping memfd that pairs upstream-propagated fdstore indices with
+ * (unit-id, original fdname) tuples. The receiving manager looks for this fdname in LISTEN_FDNAMES
+ * to find the mapping document. */
+#define SERVICE_FDSTORE_MAPPING_FDNAME "systemd-fdstore-mapping"
+
+/* Prefix for the upstream FDNAME used when forwarding individual fd-store entries to a parent
+ * supervisor: the entries are exposed as "sub-fdstore-<index>" so the supervisor's own fd-store
+ * namespace doesn't collide with names a downstream service manager assigns. The trailing index
+ * is matched up with an entry in the SERVICE_FDSTORE_MAPPING_FDNAME memfd to recover the original
+ * (unit, fdname) pair. */
+#define SERVICE_FDSTORE_SUB_FDNAME_PREFIX "sub-fdstore-"
+
 typedef enum ServiceRestart {
         SERVICE_RESTART_NO,
         SERVICE_RESTART_ON_SUCCESS,
@@ -112,6 +124,10 @@ typedef struct ServiceFDStore {
         char *fdname;
         sd_event_source *event_source;
         bool do_poll;
+        /* If non-zero, this fd was forwarded to the NOTIFY_SOCKET supervisor via FDSTORE=1, with the
+         * stringified value of this index as its FDNAME. The originating unit-id and original fdname
+         * are recorded in a JSON mapping memfd that is also pushed upstream. */
+        uint64_t index;
 
         LIST_FIELDS(struct ServiceFDStore, fd_store);
 } ServiceFDStore;
@@ -139,6 +155,8 @@ typedef struct Service {
         unsigned restart_steps;
         usec_t restart_usec;
         usec_t restart_max_delay_usec;
+        usec_t restart_randomized_delay_usec;        /* configured upper bound for the randomized restart delay */
+        usec_t restart_randomized_delay_chosen_usec; /* the value actually picked for the pending auto-restart */
         usec_t timeout_start_usec;
         usec_t timeout_stop_usec;
         usec_t timeout_abort_usec;
@@ -230,6 +248,8 @@ typedef struct Service {
         unsigned n_fd_store_max;
         ExecPreserveMode fd_store_preserve_mode;
 
+        char **luo_sessions; /* LUOSession= setting — list of session names to create/manage */
+
         int stdin_fd;
         int stdout_fd;
         int stderr_fd;
@@ -278,6 +298,12 @@ extern const UnitVTable service_vtable;
 
 int service_set_socket_fd(Service *s, int fd, struct Socket *socket, struct SocketPeer *peer, bool selinux_context_net);
 void service_release_socket_fd(Service *s);
+
+int service_add_fd_store(Service *s, int fd_in, const char *name, bool do_poll, bool propagate_upstream);
+
+int service_propagate_fd_store_mapping_upstream(Manager *m);
+
+ServiceExtraFD* service_extra_fd_free(ServiceExtraFD *fd);
 
 usec_t service_restart_usec_next(const Service *s) _pure_;
 

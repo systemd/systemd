@@ -256,6 +256,26 @@
             command for reloading of the service's configuration.</para>
 
             <para>The signal to send can be tweaked via <varname>ReloadSignal=</varname>, see below.</para>
+
+            <para>For <option>notify-reload</option> services, systemd verifies that the service's main process
+            has actually installed a handler for the configured reload signal (by default
+            <constant>SIGHUP</constant>). This verification checks for both traditional signal handlers (via
+            <citerefentry project="man-pages"><refentrytitle>sigaction</refentrytitle><manvolnum>2</manvolnum></citerefentry>)
+            and blocked signals that are typically handled via
+            <citerefentry project="man-pages"><refentrytitle>signalfd</refentrytitle><manvolnum>2</manvolnum></citerefentry>.
+            This verification is performed at two points:</para>
+
+            <orderedlist>
+              <listitem><para>When the service first sends <literal>READY=1</literal> during initial startup. If no
+              signal handler is detected at this point, the service startup is aborted.</para></listitem>
+
+              <listitem><para>Immediately before sending the reload signal. If the handler is no longer present,
+              systemd logs a warning but the reload signal is still sent.</para></listitem>
+            </orderedlist>
+
+            <para>This prevents accidentally starting services that lack the required signal handler. Services
+            using <option>notify-reload</option> must install their reload signal handler before sending the
+            initial <literal>READY=1</literal> notification.</para>
             </listitem>
 
             <listitem><para>Behavior of <option>idle</option> is very similar to <option>simple</option>; however,
@@ -305,11 +325,11 @@
           <itemizedlist>
             <listitem><para>If set to <option>main</option> (the default), the service manager
             will consider the unit stopped when the main process, which is determined according to the
-            <varname>Type=</varname>, exits. Consequently, it cannot be used with
-            <varname>Type=</varname><option>oneshot</option>.</para></listitem>
+            <varname>Type=</varname>, exits.</para></listitem>
 
             <listitem><para>If set to <option>cgroup</option>, the service will be considered running as long as at
-            least one process in the cgroup has not exited.</para></listitem>
+            least one process in the cgroup has not exited. This option cannot be used with
+            <varname>Type=</varname><option>oneshot</option>.</para></listitem>
           </itemizedlist>
 
           <para>It is generally recommended to use <varname>ExitType=</varname><option>main</option> when a service has
@@ -457,6 +477,15 @@
         signal, etc.), the unit will be considered failed (and remaining commands will be skipped). Exit code of 0 or
         those matching <varname>SuccessExitStatus=</varname> will continue execution to the next commands.</para>
 
+        <para>Note that an <varname>ExecCondition=</varname> skip is <emphasis>not</emphasis> equivalent to a
+        unit-level <varname>Condition…=</varname> or <varname>Assert…=</varname> check failing. Because
+        <varname>ExecCondition=</varname> runs as part of the activation transition, a skip causes the unit to
+        transition from <constant>active</constant> to <constant>inactive</constant>, and consequently
+        <varname>SuccessAction=</varname> (see
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>) will be
+        honored. By contrast, <varname>Condition…=</varname> directives in the <literal>[Unit]</literal> section
+        prevent activation entirely and therefore do not trigger <varname>SuccessAction=</varname>.</para>
+
         <para>The same recommendations about not running long-running processes in <varname>ExecStartPre=</varname>
         also applies to <varname>ExecCondition=</varname>. <varname>ExecCondition=</varname> will also run the commands
         in <varname>ExecStopPost=</varname>, as part of stopping the service, in the case of any non-zero or abnormal
@@ -590,7 +619,29 @@
         <term><varname>RestartSteps=</varname></term>
         <listitem><para>Configures the number of exponential steps to take to increase the interval
         of auto-restarts from <varname>RestartSec=</varname> to <varname>RestartMaxDelaySec=</varname>.
-        Takes a positive integer or 0 to disable it. Defaults to 0.</para>
+        Takes a positive integer or 0 to disable it. Defaults to 0. <emphasis>Hint:</emphasis> values
+        between 3 and 5 are good choices when exponential backoff is desired.</para>
+
+        <para>Example:</para>
+
+        <programlisting>RestartSec=10s
+RestartSteps=4
+RestartMaxDelaySec=160s</programlisting>
+
+        <para>This will produce the following restart intervals: 10s, 20s, 40s, 80s, 160s, 160s, 160s, etc.
+        Notice the geometric interpolation and the resulting constant ratio between intervals; here it is 2.
+        The formula for the <emphasis>ratio</emphasis> is
+        <inlineequation>
+          <mathphrase>
+            (<varname>RestartMaxDelaySec</varname> / <varname>RestartSec</varname>)^(1 / <varname>RestartSteps</varname>)
+          </mathphrase>
+        </inlineequation>. A (repeating) delay equal to <varname>RestartMaxDelaySec=</varname> is always
+        reached after
+        <inlineequation>
+          <mathphrase>
+            <varname>RestartSteps</varname> + 1
+          </mathphrase>
+        </inlineequation> steps.</para>
 
         <para>This setting is effective only if <varname>RestartMaxDelaySec=</varname> is also set and
         <varname>RestartSec=</varname> is not zero.</para>
@@ -609,6 +660,22 @@
         <varname>RestartSec=</varname> is not zero.</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>RestartRandomizedDelaySec=</varname></term>
+        <listitem><para>Delay automatic restarts by a randomly selected, evenly distributed amount of time
+        between 0 and the specified time value, added on top of the delay otherwise configured via
+        <varname>RestartSec=</varname> (and <varname>RestartSteps=</varname>/<varname>RestartMaxDelaySec=</varname>,
+        if used). Takes a value in the same format as <varname>RestartSec=</varname>. Defaults to 0, indicating
+        that no randomized delay shall be applied.</para>
+
+        <para>This setting is useful to stretch out the restarts of similarly configured service instances that
+        fail at the same time, to prevent them from restarting simultaneously and possibly resulting in
+        resource congestion. It is the restart-side analogue of <varname>RandomizedDelaySec=</varname> in
+        <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1223,19 +1290,83 @@
       <varlistentry>
         <term><varname>FileDescriptorStorePreserve=</varname></term>
         <listitem><para>Takes one of <constant>no</constant>, <constant>yes</constant>,
-        <constant>restart</constant> and controls when to release the service's file descriptor store
-        (i.e. when to close the contained file descriptors, if any). If set to <constant>no</constant> the
-        file descriptor store is automatically released when the service is stopped; if
-        <constant>restart</constant> (the default) it is kept around as long as the unit is neither inactive
-        nor failed, or a job is queued for the service, or the service is expected to be restarted. If
-        <constant>yes</constant> the file descriptor store is kept around until the unit is removed from
-        memory (i.e. is not referenced anymore and inactive). The latter is useful to keep entries in the
-        file descriptor store pinned until the service manager exits.</para>
+        <constant>restart</constant>, <constant>on-success</constant> and controls when to release the
+        service's file descriptor store (i.e. when to close the contained file descriptors, if any). If set
+        to <constant>no</constant> the file descriptor store is automatically released when the service is
+        stopped; if <constant>restart</constant> (the default) it is kept around as long as the unit is
+        neither inactive nor failed, or a job is queued for the service, or the service is expected to be
+        restarted. If <constant>yes</constant> the file descriptor store is kept around and garbage
+        collection of the unit is disabled. The latter is useful to keep entries in the file descriptor
+        store pinned until the unit is removed, the service manager exits, or the file descriptors get
+        <constant>EPOLLHUP</constant> or <constant>EPOLLERR</constant>. If <constant>on-success</constant>
+        the behaviour is identical to <constant>yes</constant>, except that the file descriptor store is
+        discarded if the unit enters the permanent <literal>failed</literal> state (i.e. once all automated
+        restart attempts driven by <varname>Restart=</varname> have been exhausted). The store is preserved
+        across the transitionary failed states that precede each individual auto-restart attempt.</para>
+
+        <para>When set to <constant>yes</constant> or <constant>on-success</constant>, and the service is
+        itself running under another service manager (e.g. a service of <filename>user@.service</filename>,
+        or a payload inside
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>),
+        file descriptors pushed into the store are also forwarded one level up via the enveloping manager's
+        <varname>$NOTIFY_SOCKET</varname>, tagged with the originating unit id, so that they are preserved
+        across restarts of the inner manager and handed back to the originating unit when it is started
+        again. For this to take effect, the enveloping unit must itself enable
+        <varname>FileDescriptorStoreMax=</varname> and a non-<constant>no</constant>/<constant>restart</constant>
+        value for <varname>FileDescriptorStorePreserve=</varname>.
+        See the <ulink url="https://systemd.io/FILE_DESCRIPTOR_STORE">File Descriptor Store</ulink>
+        overview for details.</para>
+
+        <para>Setting this to <constant>yes</constant> or <constant>on-success</constant> also ensures the
+        file descriptor store is kept loaded across a <literal>kexec</literal>-based reboot on kernels
+        supporting the <ulink
+        url="https://docs.kernel.org/userspace-api/liveupdate.html">Live Update Orchestrator</ulink>,
+        so that compatible file descriptors (such as <citerefentry
+        project='man-pages'><refentrytitle>memfd_create</refentrytitle><manvolnum>2</manvolnum></citerefentry>)
+        are preserved and handed back to the service on the other side. See the <ulink
+        url="https://systemd.io/FILE_DESCRIPTOR_STORE">File Descriptor Store</ulink> overview for
+        details.</para>
 
         <para>Use <command>systemctl clean --what=fdstore …</command> to release the file descriptor store
         explicitly.</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LUOSession=</varname></term>
+        <listitem><para>Takes a whitespace-separated list of names. For each name, when the service is
+        started the service manager creates a LUO session via the <ulink
+        url="https://docs.kernel.org/userspace-api/liveupdate.html">Live Update Orchestrator</ulink> (LUO,
+        i.e. <filename>/dev/liveupdate</filename>) and hands the resulting session file descriptor to the
+        service through the file descriptor store, using the configured name as its
+        <literal>FDNAME=</literal>. The session is hence passed to the service's processes via
+        <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+        like any other file descriptor store entry. The service may then preserve additional file
+        descriptors (such as <citerefentry
+        project='man-pages'><refentrytitle>memfd_create</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        memory file descriptors) in the session, which survive a <literal>kexec</literal>-based reboot and
+        can be retrieved again on the other side.</para>
+
+        <para>A session is only handed out if one with the same name is not already present in the service's
+        file descriptor store. This way a session handed out on first start, or restored across a
+        <literal>kexec</literal>, is reused on the next start rather than replaced. The kernel-level session
+        name is derived deterministically from the unit name and the configured name, so that it remains
+        stable and unique, and it fits within the length limit imposed by the kernel.</para>
+
+        <para>This setting implies <varname>FileDescriptorStoreMax=</varname> is set to at least the number
+        of configured sessions. To ensure the sessions are kept pinned and preserved across a
+        <literal>kexec</literal>, combine this with <varname>FileDescriptorStorePreserve=yes</varname> (see
+        above). If <filename>/dev/liveupdate</filename> is not available no session is handed out, and the
+        service is started normally. This setting may be specified more than once, in which case the lists
+        are combined. If the empty string is assigned the list is reset and all prior assignments have no
+        effect.</para>
+
+        <para>For further information on the file descriptor store see the <ulink
+        url="https://systemd.io/FILE_DESCRIPTOR_STORE">File Descriptor Store</ulink> overview.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/>
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1507,7 +1638,7 @@ ExecStart=/bin/echo ${ONE} ${TWO} ${THREE}
 ExecStart=/bin/echo $ONE $TWO $THREE</programlisting>
     <para>This results in <filename>/bin/echo</filename> being
     called twice, the first time with arguments
-    <literal>'one'</literal>,
+    <literal>one</literal>,
     <literal>'two two' too</literal>, <literal></literal>,
     and the second time with arguments
     <literal>one</literal>, <literal>two two</literal>,

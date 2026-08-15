@@ -144,6 +144,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_pid_file);
 CONFIG_PARSER_PROTOTYPE(config_parse_exit_status);
 CONFIG_PARSER_PROTOTYPE(config_parse_disable_controllers);
 CONFIG_PARSER_PROTOTYPE(config_parse_oom_policy);
+CONFIG_PARSER_PROTOTYPE(config_parse_managed_oom_rules);
 CONFIG_PARSER_PROTOTYPE(config_parse_numa_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_numa_mask);
 CONFIG_PARSER_PROTOTYPE(config_parse_ip_filter_bpf_progs);
@@ -164,12 +165,15 @@ CONFIG_PARSER_PROTOTYPE(config_parse_watchdog_sec);
 CONFIG_PARSER_PROTOTYPE(config_parse_tty_size);
 CONFIG_PARSER_PROTOTYPE(config_parse_log_filter_patterns);
 CONFIG_PARSER_PROTOTYPE(config_parse_open_file);
-CONFIG_PARSER_PROTOTYPE(config_parse_memory_pressure_watch);
+CONFIG_PARSER_PROTOTYPE(config_parse_pressure_watch);
 CONFIG_PARSER_PROTOTYPE(config_parse_cgroup_nft_set);
 CONFIG_PARSER_PROTOTYPE(config_parse_mount_node);
 CONFIG_PARSER_PROTOTYPE(config_parse_concurrency_max);
 CONFIG_PARSER_PROTOTYPE(config_parse_bind_network_interface);
-CONFIG_PARSER_PROTOTYPE(config_parse_memory_thp);
+CONFIG_PARSER_PROTOTYPE(config_parse_exec_memory_thp);
+CONFIG_PARSER_PROTOTYPE(config_parse_cpuset_partition);
+CONFIG_PARSER_PROTOTYPE(config_parse_luo_sessions);
+CONFIG_PARSER_PROTOTYPE(config_parse_xattr);
 
 /* gperf prototypes */
 const struct ConfigPerfItem* load_fragment_gperf_lookup(const char *key, GPERF_LEN_TYPE length);

@@ -46,7 +46,7 @@ static int process_aliases(char *argv[], char *tempdir, char ***ret) {
                 if (!dst)
                         return -ENOMEM;
 
-                r = copy_file(src, dst, 0, 0644, COPY_REFLINK);
+                r = copy_file(src, dst, 0, 0644, /* copy_flags= */ 0);
                 if (r < 0)
                         return r;
 
@@ -59,7 +59,7 @@ static int process_aliases(char *argv[], char *tempdir, char ***ret) {
         return 0;
 }
 
-int verb_verify(int argc, char *argv[], void *userdata) {
+int verb_verify(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_strv_free_ char **filenames = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *tempdir = NULL;
         int r;

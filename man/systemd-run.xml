@@ -1,6 +1,9 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd-run"
@@ -213,7 +216,9 @@
         <listitem><para>After the service process has terminated, keep the service around until it is explicitly
         stopped. This is useful to collect runtime information about the service after it finished running. Also see
         <varname>RemainAfterExit=</varname> in
-        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>. This
+        option may not be combined with <option>--wait</option>, <option>--scope</option>, <option>--pty</option>,
+        <option>--pty-late</option>, or <option>--pipe</option>.
         </para>
 
         <xi:include href="version-info.xml" xpointer="v207"/>
@@ -435,6 +440,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--output=</option></term>
+
+        <listitem>
+          <para>Controls the formatting of verbose unit log output, see <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> for possible values.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--on-active=</option></term>
         <term><option>--on-boot=</option></term>
         <term><option>--on-startup=</option></term>
@@ -501,7 +516,7 @@
           <para>Do not synchronously wait for the unit start operation to finish. If this option is not specified, the
           start request for the transient unit will be verified, enqueued and <command>systemd-run</command> will wait
           until the unit's start-up is completed. By passing this argument, it is only verified and enqueued. This
-          option may not be combined with <option>--wait</option>.</para>
+          option may not be combined with <option>--wait</option> or <option>--scope</option>.</para>
 
           <xi:include href="version-info.xml" xpointer="v220"/>
         </listitem>
@@ -516,8 +531,9 @@
         completed). On exit, terse information about the unit's runtime is shown, including total runtime (as well as
         CPU, memory, IO, and IP accounting data, if the corresponding cgroup accounting settings are enabled)
         and the exit code and status of the main process. This output may be suppressed with <option>--quiet</option>.
-        This option may not be combined with <option>--no-block</option>, <option>--scope</option> or the various
-        path, socket, or timer options.</para>
+        This option may not be combined with <option>--no-block</option>,
+        <option>--remain-after-exit</option>, <option>--scope</option> or the various path, socket, or timer
+        options.</para>
 
         <xi:include href="version-info.xml" xpointer="v232"/></listitem>
       </varlistentry>
@@ -562,7 +578,7 @@
         <listitem><para>By default, if the specified command fails the invoked unit will be marked failed
         (though possibly still unloaded, see <option>--collect=</option>, above), and this is reported in the
         logs. If this switch is specified this is suppressed and any non-success exit status/code of the
-        command is treated as success.</para>
+        command is treated as success. This option is not supported in <option>--scope</option> mode.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
@@ -602,6 +618,10 @@
         </listitem>
       </varlistentry>
     </variablelist>
+
+    <para><option>--json=</option> may not be combined with <option>--scope</option>,
+    <option>--pty</option>, <option>--pty-late</option>, <option>--pipe</option>,
+    <option>--verbose</option>, or path, socket, or timer options.</para>
 
     <para>All command line arguments after the first non-option argument become part of the command line of
     the launched process.</para>
@@ -698,9 +718,9 @@ There is a screen on:
       and a service unit would be terminated. Running <command>screen</command>
       as a user unit has the advantage that it is not part of the session scope.
       If <varname>KillUserProcesses=yes</varname> is configured in
-      <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      the default, the session scope will be terminated when the user logs
-      out of that session.</para>
+      <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      (defaults to <literal>&KILL_USER_PROCESSES;</literal>), the session scope will be terminated when
+      the user logs out of that session.</para>
 
       <para>The <filename>user@.service</filename> is started automatically
       when the user first logs in, and stays around as long as at least one

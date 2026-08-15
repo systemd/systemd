@@ -15,7 +15,7 @@
 #include "glob-util.h"
 #include "inotify-util.h"
 #include "manager.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "path.h"
 #include "path-util.h"
 #include "serialize.h"
@@ -931,6 +931,7 @@ static int activation_details_path_deserialize(const char *key, const char *valu
 
         assert(key);
         assert(value);
+        POINTER_MAY_BE_NULL(details);
 
         if (!details || !*details)
                 return -EINVAL;

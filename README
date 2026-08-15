@@ -30,7 +30,7 @@ LICENSE:
 
 REQUIREMENTS:
         Linux kernel ≥ 3.15 for timerfd_create() CLOCK_BOOTTIME support
-                     ≥ 3.17 for memfd_create() and getrandom()
+                     ≥ 3.17 for memfd_create(), getrandom(), and kexec_file_load() (x86-64)
                      ≥ 4.3 for ambient capabilities
                      ≥ 4.5 for pids controller in cgroup v2
                      ≥ 4.6 for cgroup namespaces
@@ -46,7 +46,7 @@ REQUIREMENTS:
                      ≥ 5.2 for cgroup freezer and new mount API
                      ≥ 5.3 for bounded loops in BPF program, keyring namespacing,
                                and nexthop support
-                     ≥ 5.4 for pidfd and signed Verity images
+                     ≥ 5.4 for pidfd, signed Verity images, and fscrypt v2 policies
                      ≥ 5.6 for getrandom() GRND_INSECURE
                      ≥ 5.7 for CLONE_INTO_CGROUP, cgroup2fs memory_recursiveprot option,
                                BPF links and the BPF LSM hook
@@ -60,24 +60,25 @@ REQUIREMENTS:
 
         Linux kernel ≥ 5.11 for epoll_pwait2()
                      ≥ 5.12 for idmapped mount (mount_setattr())
-                     ≥ 5.14 for cgroup.kill and quotactl_fd()
+                     ≥ 5.14 for cgroup.kill, quotactl_fd(), and MOUNT_ATTR_NOSYMFOLLOW
 
         ⚠️ Kernel versions below 5.14 ("recommended baseline") have significant gaps
            in functionality and are not recommended for use with this version
            of systemd. Taint flag 'old-kernel' will be set. systemd will most likely
            still function, but upstream support and testing are limited.
 
-        Linux kernel ≥ 6.3 for MFD_EXEC/MFD_NOEXEC_SEAL and tmpfs noswap option
+        Linux kernel ≥ 5.15 for MPOL_PREFERRED_MANY NUMA policy
+                     ≥ 6.3 for MFD_EXEC/MFD_NOEXEC_SEAL and tmpfs noswap option
                      ≥ 6.5 for name_to_handle_at() AT_HANDLE_FID, SO_PEERPIDFD/SO_PASSPIDFD,
                                and MOVE_MOUNT_BENEATH
                      ≥ 6.6 for quota support on tmpfs
                      ≥ 6.7 for cgroup2fs memory_hugetlb_accounting option
                      ≥ 6.8 for STATX_MNT_ID_UNIQUE
-                     ≥ 6.9 for pidfs
+                     ≥ 6.9 for pidfs and MPOL_WEIGHTED_INTERLEAVE NUMA policy
                      ≥ 6.10 for fcntl(F_DUPFD_QUERY), unprivileged linkat(AT_EMPTY_PATH),
                                 and block device 'partscan' sysfs attribute
                      ≥ 6.12 for AT_HANDLE_MNT_ID_UNIQUE
-                     ≥ 6.13 for PIDFD_GET_INFO and {set,remove}xattrat() and
+                     ≥ 6.13 for PIDFD_GET_INFO, {set,remove}xattrat(), and
                                 FSCONFIG_SET_FD support for overlayfs layers
                      ≥ 6.16 for coredump pattern '%F' (pidfd) specifier and SO_PASSRIGHTS
 
@@ -205,8 +206,7 @@ REQUIREMENTS:
           CONFIG_MEMCG
 
         glibc >= 2.34
-        musl >= 1.2.5 with fde29c04adbab9d5b081bf6717b5458188647f1c
-                (required when building systemd with -Dlibc=musl)
+        musl >= 1.2.6 (required when building systemd with -Dlibc=musl)
         libxcrypt >= 4.4.0 (optional)
         libmount >= 2.30 (from util-linux)
                 (util-linux *must* be built without --enable-libmount-support-mtab)
@@ -219,7 +219,7 @@ REQUIREMENTS:
         libacl (optional)
         libbpf >= 0.1.0 (optional),
                >= 1.4.0 is required for using GCC as a bpf compiler
-        libfdisk >= 2.32 (from util-linux) (optional)
+        libfdisk >= 2.35 (from util-linux) (optional)
         libselinux >= 2.1.9 (optional)
         libapparmor >= 2.13 (optional)
         libxenctrl >= 4.9 (optional)
@@ -231,7 +231,6 @@ REQUIREMENTS:
         libarchive >= 3.0 (optional)
         libxkbcommon >= 0.3.0 (optional)
         libpcre2 (optional)
-        libgcrypt (optional)
         libqrencode >= 3 (optional)
         libmicrohttpd >= 0.9.33 (optional)
         libcurl >= 7.32.0 (optional)
@@ -257,20 +256,23 @@ REQUIREMENTS:
         ninja
         gcc >= 8.4
             >= 13.1.0 is required to build BPF program by using GCC
+        binutils >= 2.35
         awk, sed, grep, and similar tools
-        clang >= 10.0, llvm >= 10.0 (optional, required to build BPF programs
-                from source code in C)
+        clang,llvm >= 10 (optional, required to build BPF programs)
+                   >= 13 (optional, required to build the entire project)
 
         During runtime, you need the following additional
         dependencies:
 
-        util-linux >= v2.41 required (including but not limited to: mount,
-                                      umount, swapon, swapoff, sulogin,
-                                      agetty, fsck)
+        util-linux >= v2.27.1 required (including but not limited to: mount,
+                                        umount, swapon, swapoff, sulogin,
+                                        agetty, fsck)
         dbus >= 1.4.0 (strictly speaking optional, but recommended)
                 NOTE: If using dbus < 1.9.18, you should override the default
                 policy directory (--with-dbuspolicydir=/etc/dbus-1/system.d).
         polkit (optional)
+        gnupg >= 2.4 optional (for signature verification in: importctl,
+                               systemd-sysupdate)
 
         To build in directory build/:
           meson setup build/ && ninja -C build/
@@ -329,42 +331,49 @@ POLICY FOR SUPPORT OF DISTRIBUTIONS AND ARCHITECTURES:
         which support has been added. systemd will emit warnings when
         architecture-specific constants are not defined.
 
-STATIC COMPILATION AND "STANDALONE" BINARIES:
-        systemd provides a public shared libraries libsystemd.so and
-        libudev.so. The latter is deprecated, and the sd-device APIs in
-        libsystemd should be used instead for new code. In addition, systemd is
-        built with a private shared library, libsystemd-shared-<suffix>.so,
-        that also includes the libsystemd code, and by default most systemd
-        binaries are linked to it. Using shared libraries saves disk space and
-        memory at runtime, because only one copy of the code is needed.
+STATIC LIBRARIES AND "STANDALONE" BINARIES:
+        systemd provides public shared libraries libsystemd.so and libudev.so.
+        The latter is deprecated, and the sd-device APIs in libsystemd should
+        be used instead for new code. Normally systemd is built with a private
+        shared library, libsystemd-shared-<suffix>.so, that also includes the
+        libsystemd code, and by default most systemd binaries are linked to it.
+        Using shared libraries saves disk space and memory at runtime, because
+        only one copy of the code is needed.
 
         It is possible to build static versions of systemd public shared
         libraries (via the configuration options '-Dstatic-libsystemd' and
         '-Dstatic-libudev'). This allows the libsystemd and libudev code to be
         linked statically into programs. Note that mixing & matching different
         versions of libsystemd and systemd is generally not recommended, since
-        various of its APIs wrap internal state and protocols of systemd
-        (e.g. logind and udev databases), which are not considered
-        stable. Hence, using static libraries is not recommended since it
-        generally means that version of the static libsystemd linked into
-        applications and the host systemd are not in sync, and will thus create
-        compatibility problems.
+        various of its APIs wrap internal state and protocols of systemd (e.g.
+        logind and udev databases), which are not considered stable. Hence,
+        using static libraries is not recommended since it generally means that
+        version of the static libsystemd linked into applications and the host
+        systemd may get out of sync, creating compatibility problems.
 
         In addition, it is possible to disable the use of
         libsystemd-shared-<suffix>.so for various components (via the
         configuration options '-Dlink-*-shared'). In this mode, the libsystemd
-        and libsystemd-shared code is linked statically into selected
-        binaries. This option is intended for systems where some of the
-        components are intended to be delivered independently of the main
-        systemd package. Finally, some binaries can be compiled in a second
-        version (via the configuration option '-Dstandalone-binaries'). The
-        version suffixed with ".standalone" has the libsystemd and
-        libsystemd-shared code linked statically. Those binaries are intended
-        as replacements to be used in limited installations where the full
-        systemd suite is not installed. Yet another option is to rebuild
-        systemd with a different '-Dshared-lib-tag' setting, allowing different
-        systemd binaries to be linked to instances of the private shared
-        library that can be installed in parallel.
+        and libsystemd-shared code is linked statically into selected binaries.
+        This option is intended for systems where some of the components are
+        intended to be delivered independently of the main systemd package.
+
+        In addition, some binaries can be compiled in a second version (via the
+        configuration option '-Dstandalone-binaries'). The version suffixed
+        with ".standalone" has the libsystemd and libsystemd-shared code linked
+        statically. Those binaries are intended as replacements to be used in
+        limited installations where the full systemd suite is not installed. An
+        alternative approach is to rebuild systemd with a different
+        '-Dshared-lib-tag' setting, allowing different systemd binaries to be
+        linked to instances of the private shared library that can be installed
+        in parallel.
+
+        When compiled in one of the modes described in this section, the code
+        has identical functionality (apart from the potential compatibility
+        issues).
+
+        Finally, fully static compilation of systemd (the program) is possible,
+        see next section.
 
         Again: Using the default shared linking is recommended, building static
         or "standalone" versions is not. Mixing versions of systemd components
@@ -372,6 +381,17 @@ STATIC COMPILATION AND "STANDALONE" BINARIES:
         daemons and the manager) is not recommended: we do not test such
         combinations upstream and cannot provide support. Distributors making
         use of those options are responsible if things do not work as expected.
+
+STATIC BINARIES:
+        It is possible to compile systemd (the program) as a static binary with
+        the meson options:
+          --default-library=static --prefer-static -Dbuild-static=true -Dsystemd-multicall-binary=true
+        This results in a static 'systemd' binary that can be used as PID1 in a
+        container. This binary does not use dlopen(3), which means that it
+        cannot dynamically extend its functionality by loading other libraries,
+        even if they were available in the file system. It also does not
+        support NSS and instead uses simplified code that only supports static
+        passwd and group files to resolve users.
 
 USERS AND GROUPS:
         Default udev rules use the following standard system group names, which

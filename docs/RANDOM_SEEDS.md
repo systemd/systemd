@@ -216,6 +216,13 @@ boot, in order to ensure the entropy pool is filled up quickly.
    too), which should be safe even with FAT file system drivers built into
    low-quality EFI firmwares.
 
+   If the random seed file has the read-only FAT file attribute set, or if the
+   ESP file system is read-only as a whole, the seed is neither updated nor
+   used: a seed that cannot be updated would be identical on every boot, and
+   hence must not be credited. Setting the read-only file attribute on
+   `/loader/random-seed` may thus be used to explicitly turn off random seed
+   handling, for example in OS images that are replicated to multiple systems.
+
 4. A kernel command line option `systemd.random_seed=` may be used to pass in a
    base64 encoded seed to initialize the kernel's entropy pool from during
    early service manager initialization.

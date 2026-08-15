@@ -10,21 +10,12 @@ executables += [
         executable_template + {
                 'name' : 'systemd-tmpfiles',
                 'public' : true,
-                'extract' : files('tmpfiles.c') +
+                'export' : files('tmpfiles.c') +
                             offline_passwd_c,
-                'dependencies' : libacl_cflags,
-        },
-        executable_template + {
-                'name' : 'systemd-tmpfiles.standalone',
-                'public' : true,
-                'objects' : ['systemd-tmpfiles'],
-                'link_with' : [
-                        libc_wrapper_static,
-                        libbasic_static,
-                        libshared_static,
-                        libsystemd_static,
+                'dependencies' : [
+                        libacl_cflags,
+                        libselinux_cflags,
                 ],
-                'dependencies' : libacl_cflags,
         },
         test_template + {
                 'sources' : files('test-offline-passwd.c') +

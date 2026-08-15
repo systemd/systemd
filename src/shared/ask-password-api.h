@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
+#include "forward.h"
 
 typedef enum AskPasswordFlags {
         ASK_PASSWORD_ACCEPT_CACHED = 1 << 0,  /* read from kernel keyring */
@@ -32,6 +32,7 @@ typedef struct AskPasswordRequest {
 
 int ask_password_tty(const AskPasswordRequest *req, AskPasswordFlags flags, char ***ret);
 int ask_password_plymouth(const AskPasswordRequest *req, AskPasswordFlags flags, char ***ret);
+bool ask_password_agent_prompt_fields_are_safe(const AskPasswordRequest *req) _pure_;
 int ask_password_agent(const AskPasswordRequest *req, AskPasswordFlags flags, char ***ret);
 int ask_password_auto(const AskPasswordRequest *req, AskPasswordFlags flags, char ***ret);
 

@@ -4,10 +4,12 @@
 #include <sys/stat.h>
 
 #include "sd-device.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
-#include "argv-util.h"
+#include "build.h"
 #include "cryptsetup-util.h"
+#include "dlopen-note.h"
 #include "extract-word.h"
 #include "fileio.h"
 #include "fstab-util.h"
@@ -17,7 +19,6 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pcrextend-util.h"
-#include "pretty-print.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tpm2-util.h"
@@ -48,25 +49,6 @@ STATIC_DESTRUCTOR_REGISTER(arg_uuid, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fec_what, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_hash_signature, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_measure_nvpcr, freep);
-
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-veritysetup@.service", "8", &link);
-        if (r < 0)
-                return log_oom();
-
-        printf("%s attach VOLUME DATADEVICE HASHDEVICE ROOTHASH [OPTIONS]\n"
-               "%s detach VOLUME\n\n"
-               "Attach or detach a verity protected block device.\n"
-               "\nSee the %s for details.\n",
-               program_invocation_short_name,
-               program_invocation_short_name,
-               link);
-
-        return 0;
-}
 
 static int parse_roothashsig_option(const char *option, bool strict) {
         _cleanup_free_ void *rhs = NULL;
@@ -115,6 +97,8 @@ static int parse_roothashsig_option(const char *option, bool strict) {
 static int parse_block_size(const char *t, uint64_t *size) {
         uint64_t u;
         int r;
+
+        assert(size);
 
         r = parse_size(t, 1024, &u);
         if (r < 0)
@@ -219,9 +203,6 @@ static int parse_options(const char *options) {
                         arg_hash_offset = off;
                 } else if ((val = startswith(word, "salt="))) {
 
-                        if (!string_is_safe(val))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "salt= is not valid.");
-
                         if (isempty(val)) {
                                 arg_salt = mfree(arg_salt);
                                 arg_salt_size = 32;
@@ -298,13 +279,13 @@ static int parse_options(const char *options) {
                         r = isempty(val) ? 0 : parse_boolean(val);
                         if (r == 0) {
                                 arg_tpm2_measure_nvpcr = mfree(arg_tpm2_measure_nvpcr);
-                                return 0;
+                                continue;
                         }
                         if (r > 0)
                                 val = "verity";
                         else if (!tpm2_nvpcr_name_is_valid(val)) {
                                 log_warning("Invalid NvPCR name, ignoring: %s", word);
-                                return 0;
+                                continue;
                         }
 
                         if (free_and_strdup(&arg_tpm2_measure_nvpcr, val) < 0)
@@ -316,7 +297,15 @@ static int parse_options(const char *options) {
         return r;
 }
 
-static int verb_attach(int argc, char *argv[], void *userdata) {
+COMMAND(
+        "systemd-veritysetup\0",
+        "Attach or detach a verity-protected block device.",
+        .man_pages = "systemd-veritysetup@.service.8\0",
+);
+
+VERB(verb_attach, "attach", "VOLUME DATADEVICE HASHDEVICE ROOTHASH [OPTIONS]", 5, 6, 0,
+     "Attach a verity-protected block device");
+static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_free_ void *rh = NULL;
         struct crypt_params_verity p = {};
@@ -377,13 +366,13 @@ static int verb_attach(int argc, char *argv[], void *userdata) {
                         return log_error_errno(r, "Failed to decode root hash signature data from udev data device: %m");
         }
 
-        r = crypt_init(&cd, verity_device);
+        r = sym_crypt_init(&cd, verity_device);
         if (r < 0)
                 return log_error_errno(r, "Failed to open verity device %s: %m", verity_device);
 
         cryptsetup_enable_logging(cd);
 
-        status = crypt_status(cd, volume);
+        status = sym_crypt_status(cd, volume);
         if (IN_SET(status, CRYPT_ACTIVE, CRYPT_BUSY)) {
                 log_info("Volume %s already active.", volume);
                 return 0;
@@ -397,7 +386,7 @@ static int verb_attach(int argc, char *argv[], void *userdata) {
                         .fec_roots = arg_fec_roots,
                 };
 
-                r = crypt_load(cd, CRYPT_VERITY, &p);
+                r = sym_crypt_load(cd, CRYPT_VERITY, &p);
                 if (r < 0)
                         return log_error_errno(r, "Failed to load verity superblock: %m");
         } else {
@@ -417,40 +406,44 @@ static int verb_attach(int argc, char *argv[], void *userdata) {
                         .flags = CRYPT_VERITY_NO_HEADER,
                 };
 
-                r = crypt_format(cd, CRYPT_VERITY, NULL, NULL, arg_uuid, NULL, 0, &p);
+                r = sym_crypt_format(cd, CRYPT_VERITY, NULL, NULL, arg_uuid, NULL, 0, &p);
                 if (r < 0)
                         return log_error_errno(r, "Failed to format verity superblock: %m");
         }
 
-        r = crypt_set_data_device(cd, data_device);
+        r = sym_crypt_set_data_device(cd, data_device);
         if (r < 0)
                 return log_error_errno(r, "Failed to configure data device: %m");
 
+        bool signed_activation = false;
         if (arg_root_hash_signature_size > 0) {
-                r = crypt_activate_by_signed_key(cd, volume, rh, rh_size, arg_root_hash_signature, arg_root_hash_signature_size, arg_activate_flags);
+                r = sym_crypt_activate_by_signed_key(cd, volume, rh, rh_size, arg_root_hash_signature, arg_root_hash_signature_size, arg_activate_flags);
                 if (r < 0) {
                         log_info_errno(r, "Unable to activate verity device '%s' with root hash signature (%m), retrying without.", volume);
 
-                        r = crypt_activate_by_volume_key(cd, volume, rh, rh_size, arg_activate_flags);
+                        r = sym_crypt_activate_by_volume_key(cd, volume, rh, rh_size, arg_activate_flags);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to activate verity device '%s' both with and without root hash signature: %m", volume);
 
                         log_info("Activation of verity device '%s' succeeded without root hash signature.", volume);
-                }
+                } else
+                        signed_activation = true;
         } else
-                r = crypt_activate_by_volume_key(cd, volume, rh, rh_size, arg_activate_flags);
+                r = sym_crypt_activate_by_volume_key(cd, volume, rh, rh_size, arg_activate_flags);
         if (r < 0)
                 return log_error_errno(r, "Failed to set up verity device '%s': %m", volume);
 
         (void) pcrextend_verity_now(
                         volume,
                         &IOVEC_MAKE(rh, rh_size),
-                        &IOVEC_MAKE(arg_root_hash_signature, arg_root_hash_signature_size));
+                        signed_activation ? &IOVEC_MAKE(arg_root_hash_signature, arg_root_hash_signature_size) : NULL);
 
         return 0;
 }
 
-static int verb_detach(int argc, char *argv[], void *userdata) {
+VERB(verb_detach, "detach", "VOLUME", 2, 2, 0,
+     "Detach a verity-protected block device");
+static int verb_detach(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         int r;
 
@@ -461,7 +454,7 @@ static int verb_detach(int argc, char *argv[], void *userdata) {
         if (!filename_is_valid(volume))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Volume name '%s' is not valid.", volume);
 
-        r = crypt_init_by_name(&cd, volume);
+        r = sym_crypt_init_by_name(&cd, volume);
         if (r == -ENODEV) {
                 log_info("Volume %s 'already' inactive.", volume);
                 return 0;
@@ -471,30 +464,59 @@ static int verb_detach(int argc, char *argv[], void *userdata) {
 
         cryptsetup_enable_logging(cd);
 
-        r = crypt_deactivate(cd, volume);
+        r = sym_crypt_deactivate(cd, volume);
         if (r < 0)
                 return log_error_errno(r, "Failed to deactivate volume '%s': %m", volume);
 
         return 0;
 }
 
+VERB_COMMON_HELP_AUTO_HIDDEN("systemd-veritysetup");
+
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
+        assert(argc >= 0);
+        assert(argv);
+        assert(ret_args);
+
+        OptionParser opts = { argc, argv };
+
+        FOREACH_OPTION_OR_RETURN(c, &opts)
+                switch (c) {
+
+                OPTION_COMMON_HELP:
+                        return command_print_help("systemd-veritysetup");
+
+                OPTION_COMMON_VERSION:
+                        return version();
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
+                }
+
+        *ret_args = option_parser_get_args(&opts);
+        return 1;
+}
+
 static int run(int argc, char *argv[]) {
-        if (argv_looks_like_help(argc, argv))
-                return help();
+        int r;
+
+        char **args = NULL;
+        r = parse_argv(argc, argv, &args);
+        if (r <= 0)
+                return r;
 
         log_setup();
 
-        cryptsetup_enable_logging(NULL);
+        LIBCRYPTO_NOTE(suggested);
+        LIBCRYPTSETUP_NOTE(required);
+
+        r = dlopen_cryptsetup(LOG_ERR);
+        if (r < 0)
+                return r;
 
         umask(0022);
 
-        static const Verb verbs[] = {
-                { "attach", 5, 6, 0, verb_attach },
-                { "detach", 2, 2, 0, verb_detach },
-                {}
-        };
-
-        return dispatch_verb(argc, argv, verbs, NULL);
+        return dispatch_verb(args, /* userdata= */ NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);

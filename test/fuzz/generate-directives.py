@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+import collections
+import re
 import sys
-import collections, re
 
 d = collections.defaultdict(list)
 for line in open(sys.argv[1]):

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
+#include "forward.h"
 #include "pcre2-util.h"
 
 typedef enum JournalctlAction {
@@ -21,6 +21,7 @@ typedef enum JournalctlAction {
         ACTION_LIST_NAMESPACES,
         ACTION_FLUSH,
         ACTION_RELINQUISH_VAR,
+        ACTION_SMART_RELINQUISH_VAR,
         ACTION_SYNC,
         ACTION_ROTATE,
         ACTION_VACUUM,
@@ -44,6 +45,7 @@ extern bool arg_merge;
 extern int arg_boot;
 extern sd_id128_t arg_boot_id;
 extern int arg_boot_offset;
+extern bool arg_boot_filter;
 extern bool arg_dmesg;
 extern bool arg_no_hostname;
 extern char *arg_cursor;
@@ -56,7 +58,7 @@ extern bool arg_file_stdin;
 extern int arg_priorities;
 extern Set *arg_facilities;
 extern char *arg_verify_key;
-#if HAVE_GCRYPT
+#if HAVE_OPENSSL
 extern usec_t arg_interval;
 extern bool arg_force;
 #endif
@@ -94,3 +96,6 @@ extern bool arg_synchronize_on_exit;
 static inline bool arg_lines_needs_seek_end(void) {
         return arg_lines >= 0 && !arg_lines_oldest;
 }
+
+/* Only used for varlink server invocation */
+extern RuntimeScope arg_varlink_runtime_scope;

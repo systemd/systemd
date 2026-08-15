@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include "sd-daemon.h"
 #include "sd-event.h"
 
 #include "capability-util.h"
@@ -304,6 +305,48 @@ static void test_sd_device_one(sd_device *d) {
                 ASSERT_OK(r = device_get_sysattr_unsigned(d, "nsid", &x));
                 ASSERT_EQ(x > 0, r > 0);
         }
+
+        const char *uevent;
+        if (sd_device_get_sysattr_value(d, "uevent", &uevent) >= 0) {
+                const char *uevent_safe;
+                ASSERT_OK(device_get_sysattr_safe_string(d, "uevent", &uevent_safe));
+                ASSERT_STREQ(uevent, uevent_safe);
+        }
+
+        if (sd_device_get_ifindex(d, &ifindex) >= 0) {
+                int i;
+                ASSERT_OK_POSITIVE(device_get_sysattr_int(d, "ifindex", &i));
+                ASSERT_EQ(i, ifindex);
+
+                unsigned u;
+                ASSERT_OK_POSITIVE(device_get_sysattr_unsigned(d, "ifindex", &u));
+                ASSERT_EQ(u, (unsigned) ifindex);
+
+                uint64_t u64;
+                ASSERT_OK_POSITIVE(device_get_sysattr_u64(d, "ifindex", &u64));
+                ASSERT_EQ(u64, (uint64_t) ifindex);
+
+                uint32_t u32;
+                ASSERT_OK_POSITIVE(device_get_sysattr_u32(d, "ifindex", &u32));
+                ASSERT_EQ(u32, (uint32_t) ifindex);
+
+                if (ifindex <= UINT16_MAX) {
+                        uint16_t u16;
+                        ASSERT_OK_POSITIVE(device_get_sysattr_u16(d, "ifindex", &u16));
+                        ASSERT_EQ(u16, (uint16_t) ifindex);
+                }
+
+                if (ifindex <= UINT8_MAX) {
+                        uint8_t u8;
+                        ASSERT_OK_POSITIVE(device_get_sysattr_u8(d, "ifindex", &u8));
+                        ASSERT_EQ(u8, (uint8_t) ifindex);
+                }
+
+                const char *s;
+                ASSERT_OK(sd_device_get_sysattr_value(d, "ifindex", &s));
+                ASSERT_OK_POSITIVE(device_get_sysattr_streq(d, "ifindex", s));
+                ASSERT_OK_ZERO(device_get_sysattr_streq(d, "ifindex", "hoge"));
+        }
 }
 
 static void exclude_problematic_devices(sd_device_enumerator *e) {
@@ -349,6 +392,9 @@ static void test_sd_device_enumerator_filter_subsystem_one(
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         unsigned n_new_dev = 0, n_removed_dev = 0;
         sd_device *dev;
+
+        assert(ret_n_new_dev);
+        assert(ret_n_removed_dev);
 
         ASSERT_OK(sd_device_enumerator_new(&e));
         ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, subsystem, true));
@@ -465,6 +511,10 @@ TEST(sd_device_enumerator_filter_subsystem) {
                 ASSERT_TRUE(test_sd_device_enumerator_filter_subsystem_trial_many());
                 return;
         }
+
+        /* The rest of this test depends on a full booted system with a working udev and so on */
+        if (!sd_booted())
+                return (void) log_tests_skipped("Test requires fully booted system with udev/etc, skipping to avoid hanging forever.");
 
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         ASSERT_OK(sd_event_default(&event));
@@ -836,13 +886,61 @@ TEST(devname_from_devnum) {
         }
 }
 
+TEST(device_add_property) {
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        const char *val;
+
+        ASSERT_OK(sd_device_new_from_syspath(&dev, "/sys/class/net/lo"));
+
+        /* add a property */
+        ASSERT_OK(device_add_property(dev, "hoge", "foo"));
+        ASSERT_OK(sd_device_get_property_value(dev, "hoge", &val));
+        ASSERT_STREQ(val, "foo");
+
+        /* update an existing property */
+        ASSERT_OK(device_add_property(dev, "hoge", "bar"));
+        ASSERT_OK(sd_device_get_property_value(dev, "hoge", &val));
+        ASSERT_STREQ(val, "bar");
+
+        /* remove an existing property */
+        ASSERT_OK(device_add_property(dev, "hoge", NULL));
+        ASSERT_ERROR(sd_device_get_property_value(dev, "hoge", &val), ENOENT);
+
+        /* add a property again */
+        ASSERT_OK(device_add_property(dev, "hoge", "foo"));
+        ASSERT_OK(sd_device_get_property_value(dev, "hoge", &val));
+        ASSERT_STREQ(val, "foo");
+
+        /* remove it with an empty string */
+        ASSERT_OK(device_add_property(dev, "hoge", ""));
+        ASSERT_ERROR(sd_device_get_property_value(dev, "hoge", &val), ENOENT);
+
+        /* check internal property (starting with dot) */
+        ASSERT_OK(device_add_property(dev, ".hoge", "baz"));
+        ASSERT_OK(sd_device_get_property_value(dev, ".hoge", &val));
+        ASSERT_STREQ(val, "baz");
+
+        /* refuse invalid property names */
+        ASSERT_ERROR(device_add_property(dev, "hoge-hoge", "aaa"), EINVAL);
+        ASSERT_ERROR(device_add_property(dev, "hoge=hoge", "aaa"), EINVAL);
+        ASSERT_ERROR(device_add_property(dev, "hoge hoge", "aaa"), EINVAL);
+        ASSERT_ERROR(device_add_property(dev, "hoge\nhoge", "aaa"), EINVAL);
+        ASSERT_ERROR(device_add_property(dev, "hoge\rhoge", "aaa"), EINVAL);
+        ASSERT_ERROR(device_add_property(dev, "hoge\thoge", "aaa"), EINVAL);
+
+        /* refuse invalid property values */
+        ASSERT_ERROR(device_add_property(dev, "hoge", "aaa\naaa"), EINVAL);
+        ASSERT_ERROR(device_add_property(dev, "hoge", "aaa\raaa"), EINVAL);
+        ASSERT_ERROR(device_add_property(dev, "hoge", "aaa\taaa"), EINVAL);
+}
+
 static int intro(void) {
         int r;
 
         if (path_is_mount_point("/sys") <= 0)
                 return log_tests_skipped("/sys/ is not mounted");
 
-        r = dlopen_libmount();
+        r = dlopen_libmount(LOG_DEBUG);
         if (r < 0)
                 return log_tests_skipped("libmount not available.");
 

@@ -30,7 +30,7 @@
 #include "ip-protocol-list.h"
 #include "log.h"
 #include "manager.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "namespace-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -209,6 +209,10 @@ static void socket_done(Unit *u) {
         s->smack_ip_out = mfree(s->smack_ip_out);
 
         strv_free(s->symlinks);
+
+        strv_free(s->xattr_entrypoint);
+        strv_free(s->xattr_listen);
+        strv_free(s->xattr_accept);
 
         s->user = mfree(s->user);
         s->group = mfree(s->group);
@@ -882,16 +886,14 @@ static int instance_from_socket(
                         a = be32toh(local.in.sin_addr.s_addr),
                         b = be32toh(remote.in.sin_addr.s_addr);
 
-                if (asprintf(&s,
-                             "%u-%" PRIu64 "-%u.%u.%u.%u:%u-%u.%u.%u.%u:%u",
-                             nr,
-                             cookie,
-                             a >> 24, (a >> 16) & 0xFF, (a >> 8) & 0xFF, a & 0xFF,
-                             be16toh(local.in.sin_port),
-                             b >> 24, (b >> 16) & 0xFF, (b >> 8) & 0xFF, b & 0xFF,
-                             be16toh(remote.in.sin_port)) < 0)
-                        return -ENOMEM;
-
+                s = asprintf_safe(
+                                "%u-%" PRIu64 "-%u.%u.%u.%u:%u-%u.%u.%u.%u:%u",
+                                nr,
+                                cookie,
+                                a >> 24, (a >> 16) & 0xFF, (a >> 8) & 0xFF, a & 0xFF,
+                                be16toh(local.in.sin_port),
+                                b >> 24, (b >> 16) & 0xFF, (b >> 8) & 0xFF, b & 0xFF,
+                                be16toh(remote.in.sin_port));
                 break;
         }
 
@@ -906,27 +908,23 @@ static int instance_from_socket(
                                 *a = local.in6.sin6_addr.s6_addr+12,
                                 *b = remote.in6.sin6_addr.s6_addr+12;
 
-                        if (asprintf(&s,
-                                     "%u-%" PRIu64 "-%u.%u.%u.%u:%u-%u.%u.%u.%u:%u",
-                                     nr,
-                                     cookie,
-                                     a[0], a[1], a[2], a[3],
-                                     be16toh(local.in6.sin6_port),
-                                     b[0], b[1], b[2], b[3],
-                                     be16toh(remote.in6.sin6_port)) < 0)
-                                return -ENOMEM;
-                } else {
-                        if (asprintf(&s,
-                                     "%u-%" PRIu64 "-%s:%u-%s:%u",
-                                     nr,
-                                     cookie,
-                                     IN6_ADDR_TO_STRING(&local.in6.sin6_addr),
-                                     be16toh(local.in6.sin6_port),
-                                     IN6_ADDR_TO_STRING(&remote.in6.sin6_addr),
-                                     be16toh(remote.in6.sin6_port)) < 0)
-                                return -ENOMEM;
-                }
-
+                        s = asprintf_safe(
+                                        "%u-%" PRIu64 "-%u.%u.%u.%u:%u-%u.%u.%u.%u:%u",
+                                        nr,
+                                        cookie,
+                                        a[0], a[1], a[2], a[3],
+                                        be16toh(local.in6.sin6_port),
+                                        b[0], b[1], b[2], b[3],
+                                        be16toh(remote.in6.sin6_port));
+                } else
+                        s = asprintf_safe(
+                                        "%u-%" PRIu64 "-%s:%u-%s:%u",
+                                        nr,
+                                        cookie,
+                                        IN6_ADDR_TO_STRING(&local.in6.sin6_addr),
+                                        be16toh(local.in6.sin6_port),
+                                        IN6_ADDR_TO_STRING(&remote.in6.sin6_addr),
+                                        be16toh(remote.in6.sin6_port));
                 break;
         }
 
@@ -939,41 +937,37 @@ static int instance_from_socket(
                         uint64_t pidfd_id;
 
                         if (pidfd >= 0 && pidfd_get_inode_id(pidfd, &pidfd_id) >= 0)
-                                r = asprintf(&s, "%u-%" PRIu64 "-" PID_FMT "_%" PRIu64 "-" UID_FMT,
-                                             nr, cookie, ucred.pid, pidfd_id, ucred.uid);
+                                s = asprintf_safe(
+                                                "%u-%" PRIu64 "-" PID_FMT "_%" PRIu64 "-" UID_FMT,
+                                                nr, cookie, ucred.pid, pidfd_id, ucred.uid);
                         else
-                                r = asprintf(&s, "%u-%" PRIu64 "-" PID_FMT "-" UID_FMT,
-                                             nr, cookie, ucred.pid, ucred.uid);
-                        if (r < 0)
-                                return -ENOMEM;
-                } else if (r == -ENODATA) {
+                                s = asprintf_safe(
+                                                "%u-%" PRIu64 "-" PID_FMT "-" UID_FMT,
+                                                nr, cookie, ucred.pid, ucred.uid);
+                } else if (r == -ENODATA)
                         /* This handles the case where somebody is connecting from another pid/uid namespace
                          * (e.g. from outside of our container). */
-                        if (asprintf(&s,
-                                     "%u-%" PRIu64 "-unknown",
-                                     nr,
-                                     cookie) < 0)
-                                return -ENOMEM;
-                } else
+                        s = asprintf_safe("%u-%" PRIu64 "-unknown", nr, cookie);
+                else
                         return r;
-
                 break;
         }
 
         case AF_VSOCK:
-                if (asprintf(&s,
-                             "%u-%" PRIu64 "-%u:%u-%u:%u",
-                             nr,
-                             cookie,
-                             local.vm.svm_cid, local.vm.svm_port,
-                             remote.vm.svm_cid, remote.vm.svm_port) < 0)
-                        return -ENOMEM;
-
+                s = asprintf_safe(
+                                "%u-%" PRIu64 "-%u:%u-%u:%u",
+                                nr,
+                                cookie,
+                                local.vm.svm_cid, local.vm.svm_port,
+                                remote.vm.svm_cid, remote.vm.svm_port);
                 break;
 
         default:
                 assert_not_reached();
         }
+
+        if (!s)
+                return -ENOMEM;
 
         *ret = s;
         return 0;
@@ -1215,7 +1209,7 @@ static int fifo_address_create(
 
         (void) mkdir_parents_label(path, directory_mode);
 
-        r = mac_selinux_create_file_prepare(path, S_IFIFO);
+        r = mac_selinux_create_file_prepare(path, S_IFIFO, /* label_context= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1347,30 +1341,29 @@ static int mq_address_create(
 }
 
 static int socket_symlink(Socket *s) {
-        const char *p;
         int r;
 
         assert(s);
 
-        p = socket_find_symlink_target(s);
-        if (!p)
+        const char *target = socket_find_symlink_target(s);
+        if (!target)
                 return 0;
 
-        STRV_FOREACH(i, s->symlinks) {
-                (void) mkdir_parents_label(*i, s->directory_mode);
+        STRV_FOREACH(linkpath, s->symlinks) {
+                (void) mkdir_parents_label(*linkpath, s->directory_mode);
 
-                r = symlink_idempotent(p, *i, false);
+                r = symlink_idempotent(target, *linkpath, false);
                 if (r == -EEXIST && s->remove_on_stop) {
-                        /* If there's already something where we want to create the symlink, and the destructive
-                         * RemoveOnStop= mode is set, then we might as well try to remove what already exists and try
-                         * again. */
+                        /* If there's already something where we want to create the symlink, and the
+                         * destructive RemoveOnStop= mode is set, then we might as well try to remove what
+                         * already exists and try again. */
 
-                        if (unlink(*i) >= 0)
-                                r = symlink_idempotent(p, *i, false);
+                        if (unlink(*linkpath) >= 0)
+                                r = symlink_idempotent(target, *linkpath, false);
                 }
                 if (r < 0)
                         log_unit_warning_errno(UNIT(s), r, "Failed to create symlink %s %s %s, ignoring: %m",
-                                               p, glyph(GLYPH_ARROW_RIGHT), *i);
+                                               *linkpath, glyph(GLYPH_ARROW_RIGHT), target);
         }
 
         return 0;
@@ -1521,7 +1514,9 @@ static int socket_address_listen_do(
                         s->directory_mode,
                         s->socket_mode,
                         selinux_label,
-                        s->smack);
+                        s->smack,
+                        s->xattr_entrypoint,
+                        s->xattr_listen);
 }
 
 #define log_address_error_errno(u, address, error, fmt)          \
@@ -2037,6 +2032,7 @@ static int socket_chown(Socket *s, PidRef *ret_pid) {
         int r;
 
         assert(s);
+        assert(ret_pid);
 
         r = socket_arm_timer(s, /* relative= */ true, s->timeout_usec);
         if (r < 0)
@@ -2055,25 +2051,21 @@ static int socket_chown(Socket *s, PidRef *ret_pid) {
                 /* Child */
 
                 if (!isempty(s->user)) {
-                        const char *user = s->user;
-
-                        r = get_user_creds(&user, &uid, &gid, NULL, NULL, 0);
+                        r = get_user_creds(s->user, /* flags= */ 0, NULL, &uid, &gid, NULL, NULL);
                         if (r < 0) {
                                 log_unit_error_errno(UNIT(s), r,
                                                      "Failed to resolve user '%s': %s",
-                                                     user, STRERROR_USER(r));
+                                                     s->user, STRERROR_USER(r));
                                 _exit(EXIT_USER);
                         }
                 }
 
                 if (!isempty(s->group)) {
-                        const char *group = s->group;
-
-                        r = get_group_creds(&group, &gid, 0);
+                        r = get_group_creds(s->group, /* flags= */ 0, /* ret_name= */ NULL, &gid);
                         if (r < 0) {
                                 log_unit_error_errno(UNIT(s), r,
                                                      "Failed to resolve group '%s': %s",
-                                                     group, STRERROR_GROUP(r));
+                                                     s->group, STRERROR_GROUP(r));
                                 _exit(EXIT_GROUP);
                         }
                 }
@@ -3222,6 +3214,7 @@ static int socket_dispatch_io(sd_event_source *source, int fd, uint32_t revents,
                 if (cfd < 0)
                         goto fail;
 
+                (void) socket_set_xattrs(cfd, /* path= */ NULL, p->socket->xattr_accept);
                 socket_apply_socket_options(p->socket, p, cfd);
         }
 
@@ -3536,6 +3529,8 @@ static int socket_get_timeout(Unit *u, usec_t *timeout) {
         usec_t t;
         int r;
 
+        assert(timeout);
+
         if (!s->timer_event_source)
                 return 0;
 
@@ -3734,6 +3729,7 @@ const UnitVTable socket_vtable = {
         .can_transient = true,
         .can_trigger = true,
         .can_fail = true,
+        .track_orphaned = true,
 
         .init = socket_init,
         .done = socket_done,

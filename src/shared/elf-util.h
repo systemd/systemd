@@ -1,10 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
+#include "dlopen-note.h"
+#include "forward.h"
 
-int dlopen_dw(void);
-int dlopen_elf(void);
+int dlopen_dw(int log_level) _dlopen_loader_;
+int dlopen_elf(int log_level) _dlopen_loader_;
+
+bool dlopen_dw_has_dwfl_set_sysroot(void);
 
 /* Parse an ELF object in a forked process, so that errors while iterating over
  * untrusted and potentially malicious data do not propagate to the main caller's process.

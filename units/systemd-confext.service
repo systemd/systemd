@@ -17,6 +17,7 @@ ConditionDirectoryNotEmpty=|/var/lib/confexts
 ConditionDirectoryNotEmpty=|/usr/local/lib/confexts
 ConditionDirectoryNotEmpty=|/usr/lib/confexts
 ConditionPathExists=!/etc/initrd-release
+ConditionKernelCommandLine=!systemd.confext=0
 
 DefaultDependencies=no
 After=local-fs.target

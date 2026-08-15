@@ -54,12 +54,6 @@ systemctl kill -sUSR1 systemd-homed
 testcase_basic() {
     local TMP_SKEL
 
-    . /etc/os-release
-    if [[ "${ID_LIKE:-}" == alpine ]] && ! systemd-detect-virt -cq; then
-        # luks seems to be broken on alpine/postmarketos.
-        return 0
-    fi
-
     TMP_SKEL=$(mktemp -d)
     echo hogehoge >"$TMP_SKEL"/hoge
 
@@ -86,6 +80,29 @@ testcase_basic() {
 
     PASSWORD=xEhErW0ndafV4s homectl update test-user --real-name="Inline test"
     inspect test-user
+
+    # --member-of=
+    systemd-sysusers --inline "g test-group1" "g test-group2"
+    # Single group
+    PASSWORD=xEhErW0ndafV4s homectl update test-user --member-of="test-group1"
+    [[ "$(homectl inspect -j test-user | jq -c .memberOf)" == '["test-group1"]' ]]
+    # Multiple groups
+    PASSWORD=xEhErW0ndafV4s homectl update test-user --member-of="test-group1,test-group2"
+    [[ "$(homectl inspect -j test-user | jq -c .memberOf)" == '["test-group1","test-group2"]' ]]
+    # Empty argument
+    PASSWORD=xEhErW0ndafV4s homectl update test-user --member-of=
+    [[ "$(homectl inspect -j test-user | jq -c .memberOf)" == 'null' ]]
+    # Argument shenanigans
+    #   - only separators
+    (! PASSWORD=xEhErW0ndafV4s homectl update test-user --member-of=",,,,,,,,,,,,,,,,,,")
+    #   - invalid group
+    (! PASSWORD=xEhErW0ndafV4s homectl update test-user --member-of="test-group1,inv@lid.group?")
+    #   - separators & valid groups
+    PASSWORD=xEhErW0ndafV4s homectl update test-user --member-of=",,,,,test-group1,,,,,,,,,,,,,,test-group2,"
+    [[ "$(homectl inspect -j test-user | jq -c .memberOf)" == '["test-group1","test-group2"]' ]]
+    #   - duplicate groups
+    PASSWORD=xEhErW0ndafV4s homectl update test-user --member-of="test-group2,test-group1,test-group1,test-group2"
+    [[ "$(homectl inspect -j test-user | jq -c .memberOf)" == '["test-group1","test-group2"]' ]]
 
     homectl deactivate test-user
     inspect test-user
@@ -251,12 +268,6 @@ testcase_basic() {
 }
 
 testcase_blob() {
-    . /etc/os-release
-    if [[ "${ID_LIKE:-}" == alpine ]] && ! systemd-detect-virt -cq; then
-        # luks seems to be broken on alpine/postmarketos.
-        return 0
-    fi
-
     # blob directory tests
     # See docs/USER_RECORD_BLOB_DIRS.md
     checkblob() {
@@ -562,6 +573,15 @@ EOF
     (! userdbctl ssh-authorized-keys dropin-user --chain)
     (! userdbctl ssh-authorized-keys dropin-user --chain '')
     (! SYSTEMD_LOG_LEVEL=debug userdbctl ssh-authorized-keys dropin-user --chain /usr/bin/false)
+
+    # Check that invocations with --chain work as expected
+    userdbctl ssh-authorized-keys --chain dropin-user /bin/echo --asdf | grep -e --asdf
+    userdbctl ssh-authorized-keys dropin-user --chain /bin/echo --asdf | grep -e --asdf
+    userdbctl ssh-authorized-keys dropin-user /bin/echo --chain --asdf | grep -e --asdf
+    userdbctl ssh-authorized-keys --chain dropin-user -- /bin/echo --asdf | grep -e --asdf
+    userdbctl ssh-authorized-keys --chain -- dropin-user /bin/echo --asdf | grep -e --asdf
+    userdbctl --chain -- ssh-authorized-keys dropin-user /bin/echo --asdf | grep -e --asdf
+    (! userdbctl --chain -- ssh-authorized-keys dropin-user -- /bin/echo --asdf)
 
     (! userdbctl '')
     for opt in json multiplexer output synthesize with-dropin with-nss with-varlink; do
@@ -950,6 +970,211 @@ testcase_match() {
     homectl inspect matchtest
     homectl inspect matchtest | grep "Area: quux3"
     homectl remove matchtest
+}
+
+testcase_fscrypt() {
+    if ! command -v mkfs.ext4 >/dev/null; then
+        echo "e2fsprogs not installed, skipping fscrypt test."
+        return 0
+    fi
+
+    local IMAGE MNT
+    IMAGE="$(mktemp /tmp/fscrypt.XXXXXX.img)"
+    MNT="$(mktemp -d /tmp/fscrypt-mnt.XXXXXX)"
+    # shellcheck disable=SC2064
+    trap "homectl deactivate fscrypttest 2>/dev/null || true; homectl remove fscrypttest 2>/dev/null || true; umount '$MNT' 2>/dev/null || true; rm -rf '$MNT' '$IMAGE'" RETURN ERR
+
+    truncate -s 64M "$IMAGE"
+    if ! mkfs.ext4 -q -O encrypt "$IMAGE"; then
+        echo "mkfs.ext4 -O encrypt unsupported, skipping fscrypt test."
+        return 0
+    fi
+
+    if ! mount -o loop "$IMAGE" "$MNT"; then
+        echo "Cannot loop-mount fscrypt-capable ext4, skipping fscrypt test."
+        return 0
+    fi
+
+    if ! NEWPASSWORD=fsfsfs1234 homectl create fscrypttest \
+            --storage=fscrypt \
+            --image-path="$MNT/fscrypttest" \
+            --rate-limit-interval=1s --rate-limit-burst=1000; then
+        echo "homed fscrypt backend not usable on this kernel, skipping."
+        return 0
+    fi
+
+    inspect fscrypttest
+
+    (! PASSWORD=wrongpass timeout 10s homectl authenticate fscrypttest </dev/null)
+
+    PASSWORD=fsfsfs1234 homectl authenticate fscrypttest
+    PASSWORD=fsfsfs1234 homectl activate fscrypttest
+    inspect fscrypttest
+
+    fscrypt_run0() {
+        run0 --property=SetCredential=pam.authtok.systemd-run0:"$1" -u fscrypttest \
+            bash -c 'keyctl link @u @s; eval "$1"' -- "$2"
+    }
+
+    fscrypt_run0 fsfsfs1234 'echo "hello fscrypt" >/home/fscrypttest/file1'
+    [[ "$(fscrypt_run0 fsfsfs1234 'cat /home/fscrypttest/file1')" == "hello fscrypt" ]]
+    fscrypt_run0 fsfsfs1234 'mkdir /home/fscrypttest/subdir'
+    fscrypt_run0 fsfsfs1234 'dd if=/dev/urandom of=/home/fscrypttest/subdir/blob bs=4096 count=8 status=none'
+    fscrypt_run0 fsfsfs1234 'cp /home/fscrypttest/subdir/blob /home/fscrypttest/subdir/blob.copy && cmp /home/fscrypttest/subdir/blob /home/fscrypttest/subdir/blob.copy'
+    fscrypt_run0 fsfsfs1234 'echo appended >>/home/fscrypttest/file1 && grep -F appended /home/fscrypttest/file1 >/dev/null'
+    fscrypt_run0 fsfsfs1234 'rm /home/fscrypttest/subdir/blob.copy && test ! -e /home/fscrypttest/subdir/blob.copy'
+
+    systemctl stop user@"$(id -u fscrypttest)".service 2>/dev/null || true
+    homectl deactivate fscrypttest 2>/dev/null || true
+    wait_for_state fscrypttest inactive
+
+    # After deactivation the fscrypt-encrypted directory is locked, so cleartext file names should not be visible
+    [[ ! -e "$MNT/fscrypttest/file1" ]]
+
+    # Verify we actually use the v2 format
+    local SLOT
+    SLOT="$(getfattr --absolute-names --only-values -n trusted.fscrypt_slot0 "$MNT/fscrypttest")"
+    [[ "${SLOT:0:4}" == "\$v2:" ]] || {
+        echo "fscrypt slot 0 is not in v2 format: ${SLOT:0:32}"
+        return 1
+    }
+
+    PASSWORD=fsfsfs1234 homectl activate fscrypttest
+    [[ "$(fscrypt_run0 fsfsfs1234 'head -n1 /home/fscrypttest/file1')" == "hello fscrypt" ]]
+    systemctl stop user@"$(id -u fscrypttest)".service 2>/dev/null || true
+    homectl deactivate fscrypttest 2>/dev/null || true
+    wait_for_state fscrypttest inactive
+
+    homectl update fscrypttest --real-name="Fscrypt Test" --offline
+    inspect fscrypttest | grep "Real Name: Fscrypt Test" >/dev/null
+
+    PASSWORD=fsfsfs1234 NEWPASSWORD=newfsfs5678 homectl passwd fscrypttest
+    PASSWORD=newfsfs5678 homectl authenticate fscrypttest
+    (! PASSWORD=fsfsfs1234 timeout 10s homectl authenticate fscrypttest </dev/null)
+
+    PASSWORD=newfsfs5678 homectl activate fscrypttest
+    [[ "$(fscrypt_run0 newfsfs5678 'head -n1 /home/fscrypttest/file1')" == "hello fscrypt" ]]
+    fscrypt_run0 newfsfs5678 'rm -r /home/fscrypttest/subdir /home/fscrypttest/file1'
+    systemctl stop user@"$(id -u fscrypttest)".service 2>/dev/null || true
+    homectl deactivate fscrypttest 2>/dev/null || true
+    wait_for_state fscrypttest inactive
+
+    homectl remove fscrypttest
+}
+
+testcase_deactivate_busy() {
+    # Verify that "homectl deactivate" is robust against transient EBUSY
+    # failures of the umount() inside systemd-homework. This used to make
+    # TEST-46-HOMED occasionally fail when something briefly held a reference
+    # to the home mount at the moment the deactivation tried to unmount it.
+    #
+    # Reproduce the situation deterministically by spawning a background
+    # process whose cwd is the home directory: that holds the mount busy via
+    # the kernel's cwd reference until the process exits, so the initial
+    # umount2() call in homework will fail with EBUSY. homectl is expected to
+    # transparently retry the bus call until it succeeds (once the holder
+    # exits).
+
+    NEWPASSWORD=hunter2 homectl create \
+        --storage=directory \
+        --enforce-password-policy=no \
+        busytest
+    PASSWORD=hunter2 homectl activate busytest
+    inspect busytest
+
+    # Make sure the home is actually mounted before we try to hold it busy,
+    # otherwise the subshell below would silently fail to acquire the cwd
+    # reference.
+    mountpoint /home/busytest
+
+    # Spawn a process whose cwd is inside the home mount. `cd` is a shell
+    # builtin so the subshell process itself acquires the cwd reference, and
+    # `exec sleep` then preserves it across the exec.
+    ( cd /home/busytest && exec sleep 10 ) &
+    local busy_pid=$!
+
+    # Wait until the kernel actually reports the cwd of the background
+    # process as the home directory, so we know the busy reference is in
+    # place before we attempt to deactivate.
+    timeout 5 bash -c "until [[ \"\$(readlink /proc/${busy_pid}/cwd 2>/dev/null)\" == /home/busytest ]]; do sleep 0.1; done"
+
+    # The deactivate must succeed eventually: the first umount2() will fail
+    # with EBUSY, but homectl retries the call for up to 30 seconds, by
+    # which time the background process will have exited and released the
+    # cwd reference.
+    homectl deactivate busytest
+    wait_for_state busytest inactive
+
+    wait "$busy_pid" || true
+    homectl remove busytest
+}
+
+testcase_identity_groups() {
+    NEWPASSWORD=foobar homectl create idgrouptest --storage=directory --shell=/bin/bash --enforce-password-policy=no --rebalance-weight=off
+    PASSWORD=foobar homectl activate idgrouptest
+
+    machinectl shell idgrouptest@ /usr/bin/bash -euxo pipefail -c "jq '.memberOf = ((.memberOf // []) + [\"systemd-journal\"] | unique) | .lastChangeUSec = ((.lastChangeUSec // 0) + 3600000000)' /home/idgrouptest/.identity > /home/idgrouptest/.identity.new && mv -f /home/idgrouptest/.identity.new /home/idgrouptest/.identity"
+    jq -e '.memberOf | index("systemd-journal") != null' /home/idgrouptest/.identity
+
+    PASSWORD=foobar homectl authenticate idgrouptest
+
+    local groups
+    groups="$(machinectl shell idgrouptest@ /usr/bin/groups)"
+    (! grep systemd-journal <<<"$groups" >/dev/null)
+
+    homectl deactivate idgrouptest ||:
+    wait_for_state idgrouptest inactive
+    homectl remove idgrouptest
+
+    # Install a PK rule that allows 'idgrouptest2' user to update homed even
+    # though they are not on an fg console, just for testing
+    mkdir -p /etc/polkit-1/rules.d
+    cat >/etc/polkit-1/rules.d/updatehome.rules <<'EOF'
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.home1.update-home-by-owner" &&
+        subject.user == "idgrouptest2") {
+        return polkit.Result.YES;
+    }
+});
+EOF
+    trap 'rm -f /etc/polkit-1/rules.d/updatehome.rules' RETURN ERR EXIT
+    systemctl try-reload-or-restart polkit.service
+
+    NEWPASSWORD=foobar homectl create idgrouptest2 --storage=directory --shell=/bin/bash --enforce-password-policy=no --rebalance-weight=off
+    PASSWORD=foobar homectl activate idgrouptest2
+
+    cat >/tmp/idgrouptest-add-group.sh <<'EOF'
+#!/bin/bash
+set -exuo pipefail
+
+loginctl show-session "${XDG_SESSION_ID:?}" -p Active --value | grep '^yes$' >/dev/null
+RECORD="$(busctl -j call org.freedesktop.home1 /org/freedesktop/home1 org.freedesktop.home1.Manager GetUserRecordByName s "$USER" | jq -r '.data[0]')"
+TS="$(printf '%s' "$RECORD" | jq '.lastChangeUSec')"
+NEW_TS=$((TS + 172800000000))
+jq --arg g systemd-journal --argjson ts "$NEW_TS" \
+   '.memberOf = ((.memberOf // []) + [$g]) | .lastChangeUSec = $ts' \
+   ~/.identity > ~/.identity.new
+mv -f ~/.identity.new ~/.identity
+# Ensure the identity update is persisted before UpdateHomeEx reads it.
+sync
+
+UPDATE_TS=$((TS + 1))
+UPDATE_RECORD="$(printf '%s' "$RECORD" | jq -c --argjson ts "$UPDATE_TS" --arg p foobar 'del(.binding, .status, .signature) | .lastChangeUSec = $ts | .secret = {password: [$p]}')"
+(! busctl call org.freedesktop.home1 /org/freedesktop/home1 org.freedesktop.home1.Manager UpdateHomeEx "sa{sh}t" "$UPDATE_RECORD" 0 0 )
+EOF
+    chmod +x /tmp/idgrouptest-add-group.sh
+    machinectl shell idgrouptest2@ /tmp/idgrouptest-add-group.sh
+    rm -f /tmp/idgrouptest-add-group.sh
+
+    PASSWORD=foobar homectl authenticate idgrouptest2
+
+    local groups
+    groups="$(machinectl shell idgrouptest2@ /usr/bin/groups)"
+    (! grep systemd-journal <<<"$groups" >/dev/null)
+
+    homectl deactivate idgrouptest2 ||:
+    wait_for_state idgrouptest2 inactive
+    homectl remove idgrouptest2
 }
 
 run_testcases

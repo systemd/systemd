@@ -77,6 +77,8 @@ static int tclass_new(TClassKind kind, TClass **ret) {
         _cleanup_(tclass_unrefp) TClass *tclass = NULL;
         int r;
 
+        assert(ret);
+
         if (kind == _TCLASS_KIND_INVALID) {
                 tclass = new(TClass, 1);
                 if (!tclass)

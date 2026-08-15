@@ -39,7 +39,7 @@
 #include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
-#include "selinux-access.h"
+#include "selinux-access.h"     /* IWYU pragma: keep */
 #include "serialize.h"
 #include "set.h"
 #include "special.h"
@@ -229,6 +229,7 @@ static int find_unit(Manager *m, sd_bus *bus, const char *path, Unit **unit, sd_
         assert(m);
         assert(bus);
         assert(path);
+        assert(unit);
 
         if (streq(path, "/org/freedesktop/systemd1/unit/self")) {
                 _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
@@ -811,7 +812,71 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
         if (r < 0)
                 log_warning_errno(r, "Failed to register MemoryAllocation1, ignoring: %m");
 
+        m->api_bus_ready = true;
+
         log_debug("Successfully connected to API bus.");
+
+        return 0;
+}
+
+static int api_bus_instance_id_reply(sd_bus_message *reply, void *userdata, sd_bus_error *reterr_error) {
+        Manager *m = ASSERT_PTR(userdata);
+        const sd_bus_error *e;
+        sd_bus *bus;
+        const char *id;
+        int r;
+
+        assert(reply);
+        assert_se(bus = sd_bus_message_get_bus(reply));
+
+        /* Whatever the outcome, we get only one shot at coldplugging the saved subscription state onto
+         * this connection: consume it. */
+        _cleanup_strv_free_ char **subscribed_as_strv = TAKE_PTR(m->subscribed_as_strv);
+        sd_id128_t deserialized_bus_id = m->deserialized_bus_id;
+        m->deserialized_bus_id = SD_ID128_NULL;
+
+        e = sd_bus_message_get_error(reply);
+        if (e) {
+                r = sd_bus_error_get_errno(e);
+                log_full_errno(subscribed_as_strv ? LOG_WARNING : LOG_DEBUG, r,
+                               "Failed to query API bus instance ID%s: %s",
+                               subscribed_as_strv ? ", not deserializing subscriptions" : ", ignoring",
+                               bus_error_message(e, r));
+                goto setup_api;
+        }
+
+        r = sd_bus_message_read_basic(reply, 's', &id);
+        if (r < 0) {
+                log_full_errno(subscribed_as_strv ? LOG_WARNING : LOG_DEBUG, r,
+                               "Failed to read API bus instance ID%s: %m",
+                               subscribed_as_strv ? ", not deserializing subscriptions" : ", ignoring");
+                goto setup_api;
+        }
+
+        r = sd_id128_from_string(id, &m->bus_id);
+        if (r < 0) {
+                log_full_errno(subscribed_as_strv ? LOG_WARNING : LOG_DEBUG, r,
+                               "API bus instance ID not in expected format%s: %m",
+                               subscribed_as_strv ? ", not deserializing subscriptions" : ", ignoring");
+                goto setup_api;
+        }
+
+        /* Coldplug the subscriptions deserialized from a previous reload/reexec (or saved when the
+         * previous connection was torn down), but only onto the same bus instance they were recorded on.
+         * If no instance ID was recorded, retain the historical behavior and coldplug without comparison. */
+        if (sd_id128_is_null(deserialized_bus_id) || sd_id128_equal(m->bus_id, deserialized_bus_id))
+                (void) bus_track_coldplug(bus, &m->subscribed, subscribed_as_strv);
+
+setup_api:
+        r = bus_setup_api(m, bus);
+        if (r < 0) {
+                log_error_errno(r, "Failed to set up API bus: %m");
+
+                if (m->system_bus == bus)
+                        bus_done_system(m);
+                if (m->api_bus == bus)
+                        bus_done_api(m);
+        }
 
         return 0;
 }
@@ -845,17 +910,40 @@ int bus_init_api(Manager *m) {
                         return r;
         }
 
-        r = bus_setup_api(m, bus);
-        if (r < 0)
-                return log_error_errno(r, "Failed to set up API bus: %m");
+        /* Query the bus instance ID asynchronously, and let the reply handler decide whether the
+         * subscription state deserialized from a previous reload/reexec (or saved when the previous
+         * connection was torn down) may be coldplugged onto this connection. Set up the API only after the
+         * reply is processed, so new subscriptions cannot be mixed with the pending state before its bus
+         * instance is validated. A synchronous call is not OK here: this is reached on every
+         * (re-)connection attempt, and if the D-Bus socket unit is
+         * listening while the message bus daemon behind it is gone (e.g. it crashed during shutdown while
+         * we still consider its service to be up), a synchronous call over the never-answered connection
+         * blocks the whole manager for BUS_AUTH_TIMEOUT — repeatedly, since every queued bus operation
+         * triggers another reconnection attempt. The previous connection's instance ID is meaningless for
+         * this connection, hence reset it: only ever populate the live ID from the reply, while any pending
+         * validation ID and subscription state remain serializable across a racing reload/reexec. */
+        m->bus_id = SD_ID128_NULL;
+        r = sd_bus_call_method_async(
+                        bus,
+                        /* ret_slot= */ NULL,
+                        "org.freedesktop.DBus",
+                        "/org/freedesktop/DBus",
+                        "org.freedesktop.DBus",
+                        "GetId",
+                        api_bus_instance_id_reply,
+                        m,
+                        /* types= */ NULL);
+        if (r < 0) {
+                log_full_errno(m->subscribed_as_strv ? LOG_WARNING : LOG_DEBUG, r,
+                               "Failed to enqueue API bus instance ID query%s: %m",
+                               m->subscribed_as_strv ? ", not deserializing subscriptions" : ", ignoring");
+                m->subscribed_as_strv = strv_free(m->subscribed_as_strv);
+                m->deserialized_bus_id = SD_ID128_NULL;
 
-        r = bus_get_instance_id(bus, &m->bus_id);
-        if (r < 0)
-                log_warning_errno(r, "Failed to query API bus instance ID, not deserializing subscriptions: %m");
-        else if (sd_id128_is_null(m->deserialized_bus_id) || sd_id128_equal(m->bus_id, m->deserialized_bus_id))
-                (void) bus_track_coldplug(bus, &m->subscribed, m->subscribed_as_strv);
-        m->subscribed_as_strv = strv_free(m->subscribed_as_strv);
-        m->deserialized_bus_id = SD_ID128_NULL;
+                r = bus_setup_api(m, bus);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set up API bus: %m");
+        }
 
         m->api_bus = TAKE_PTR(bus);
         return 0;
@@ -1007,9 +1095,14 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
         if (m->pending_reload_message_dbus && sd_bus_message_get_bus(m->pending_reload_message_dbus) == *bus)
                 m->pending_reload_message_dbus = sd_bus_message_unref(m->pending_reload_message_dbus);
 
-        /* Possibly flush unwritten data, but only if we are
-         * unprivileged, since we don't want to sync here */
-        if (!MANAGER_IS_SYSTEM(m))
+        /* Possibly flush unwritten data, but only if we are unprivileged, since we don't want to sync
+         * here, and only if the connection is currently RUNNING: sd_bus_flush() first drives the
+         * connection to completion via bus_ensure_running(), which blocks us synchronously for up to
+         * BUS_AUTH_TIMEOUT if the peer accepted the connection but never answers authentication (e.g. a
+         * socket-activated D-Bus service that is hung or already gone during session teardown).
+         * sd_bus_flush() only touches the write queue once that step succeeds, so anything queued on a
+         * connection that does not reach RUNNING is discarded either way - not worth blocking for. */
+        if (!MANAGER_IS_SYSTEM(m) && sd_bus_is_ready(*bus) > 0)
                 sd_bus_flush(*bus);
 
         /* And destroy the object */
@@ -1018,6 +1111,8 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
 
 void bus_done_api(Manager *m) {
         destroy_bus(m, &m->api_bus);
+
+        m->api_bus_ready = false;
 }
 
 void bus_done_system(Manager *m) {
@@ -1059,7 +1154,7 @@ int bus_fdset_add_all(Manager *m, FDSet *fds) {
 
         /* When we are about to reexecute we add all D-Bus fds to the
          * set to pass over to the newly executed systemd. They won't
-         * be used there however, except thatt they are closed at the
+         * be used there however, except that they are closed at the
          * very end of deserialization, those making it possible for
          * clients to synchronously wait for systemd to reexec by
          * simply waiting for disconnection */

@@ -5,8 +5,8 @@
 
 #include "dns-def.h"
 #include "dns-type.h"
+#include "forward.h"
 #include "list.h"
-#include "shared-forward.h"
 
 /* DNSKEY RR flags */
 #define DNSKEY_FLAG_SEP            (UINT16_C(1) << 0)
@@ -392,6 +392,7 @@ const char* dns_resource_record_to_string(DnsResourceRecord *rr);
 DnsResourceRecord *dns_resource_record_copy(DnsResourceRecord *rr);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsResourceRecord*, dns_resource_record_unref);
 
+void dns_resource_record_clear_wire_format(DnsResourceRecord *rr);
 int dns_resource_record_to_wire_format(DnsResourceRecord *rr, bool canonical);
 
 int dns_resource_record_signer(DnsResourceRecord *rr, const char **ret);
@@ -419,6 +420,7 @@ int dns_resource_record_new_from_raw(DnsResourceRecord **ret, const void *data, 
 int dns_resource_key_to_json(DnsResourceKey *key, sd_json_variant **ret);
 int dns_resource_key_from_json(sd_json_variant *v, DnsResourceKey **ret);
 int dns_resource_record_to_json(DnsResourceRecord *rr, sd_json_variant **ret);
+int dns_resource_record_from_json(sd_json_variant *v, DnsResourceRecord **ret);
 
 void dns_resource_key_hash_func(const DnsResourceKey *k, struct siphash *state);
 int dns_resource_key_compare_func(const DnsResourceKey *x, const DnsResourceKey *y);

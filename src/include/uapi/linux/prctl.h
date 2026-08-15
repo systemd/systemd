@@ -386,4 +386,34 @@ struct prctl_mm_map {
 # define PR_FUTEX_HASH_SET_SLOTS	1
 # define PR_FUTEX_HASH_GET_SLOTS	2
 
+/* RSEQ time slice extensions */
+#define PR_RSEQ_SLICE_EXTENSION			79
+# define PR_RSEQ_SLICE_EXTENSION_GET		1
+# define PR_RSEQ_SLICE_EXTENSION_SET		2
+/*
+ * Bits for RSEQ_SLICE_EXTENSION_GET/SET
+ * PR_RSEQ_SLICE_EXT_ENABLE:	Enable
+ */
+# define PR_RSEQ_SLICE_EXT_ENABLE		0x01
+
+/*
+ * Get or set the control flow integrity (CFI) configuration for the
+ * current thread.
+ *
+ * Some per-thread control flow integrity settings are not yet
+ * controlled through this prctl(); see for example
+ * PR_{GET,SET,LOCK}_SHADOW_STACK_STATUS
+ */
+#define PR_GET_CFI	80
+#define PR_SET_CFI	81
+/*
+ * Forward-edge CFI variants (excluding ARM64 BTI, which has its own
+ * prctl()s).
+ */
+#define PR_CFI_BRANCH_LANDING_PADS	0
+/* Return and control values for PR_{GET,SET}_CFI */
+# define PR_CFI_ENABLE		_BITUL(0)
+# define PR_CFI_DISABLE		_BITUL(1)
+# define PR_CFI_LOCK		_BITUL(2)
+
 #endif /* _LINUX_PRCTL_H */

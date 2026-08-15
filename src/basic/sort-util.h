@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "basic-forward.h"
+#include "forward.h"
 
 void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
                  comparison_userdata_fn_t compar, void *arg);
@@ -44,3 +44,4 @@ void qsort_r_safe(void *base, size_t nmemb, size_t size, comparison_userdata_fn_
 
 int cmp_int(const int *a, const int *b);
 int cmp_uint16(const uint16_t *a, const uint16_t *b);
+int cmp_unsigned(const unsigned *a, const unsigned *b);

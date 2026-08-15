@@ -111,7 +111,7 @@ static void *tcp_dns_server(void *p) {
         assert_se(setsockopt(bindfd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) >= 0);
         assert_se(bind(bindfd, &server_address.sa, sockaddr_len(&server_address)) >= 0);
         assert_se(listen(bindfd, 1) >= 0);
-        assert_se((acceptfd = accept(bindfd, NULL, NULL)) >= 0);
+        assert_se((acceptfd = accept4(bindfd, NULL, NULL, SOCK_CLOEXEC)) >= 0);
         server_handle(acceptfd);
         return NULL;
 }

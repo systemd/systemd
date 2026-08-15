@@ -5,6 +5,9 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
 rm -fr /tmp/{f,F,w}
 mkdir  /tmp/{f,F,w}
 touch /tmp/file-owned-by-root
@@ -189,6 +192,31 @@ chown -R --no-dereference daemon:daemon /tmp/F/daemon
 F     /tmp/F/daemon/unsafe-symlink/exploit    0644 daemon daemon - -
 EOF
 test ! -e /tmp/F/daemon/unsafe-symlink/exploit
+
+#
+# 'C'
+#
+rm -rf /tmp/C-copy-failure-src /tmp/C-copy-failure-dst
+mkdir /tmp/C-copy-failure-src /tmp/C-copy-failure-dst
+printf payload >/tmp/C-copy-failure-src/file
+chmod 555 /tmp/C-copy-failure-dst
+
+(! runas nobody systemd-tmpfiles --create - <<EOF
+C     /tmp/C-copy-failure-dst    - - - - /tmp/C-copy-failure-src
+EOF
+)
+test ! -e /tmp/C-copy-failure-dst/file
+chmod 755 /tmp/C-copy-failure-dst
+rm -rf /tmp/C-copy-failure-src /tmp/C-copy-failure-dst
+
+rm -f /tmp/C-copy-link-src /tmp/C-copy-link-dst
+ln -s missing-target /tmp/C-copy-link-src
+systemd-tmpfiles --create - <<EOF
+C     /tmp/C-copy-link-dst    - - - - /tmp/C-copy-link-src
+EOF
+test -L /tmp/C-copy-link-dst
+test "$(readlink /tmp/C-copy-link-dst)" = "missing-target"
+rm -f /tmp/C-copy-link-src /tmp/C-copy-link-dst
 
 #
 # 'w'

@@ -19,6 +19,7 @@
 #include "constants.h"
 #include "daemon-util.h"
 #include "discover-image.h"
+#include "dlopen-note.h"
 #include "env-util.h"
 #include "event-util.h"
 #include "fd-util.h"
@@ -418,6 +419,8 @@ static int transfer_on_log(sd_event_source *s, int fd, uint32_t revents, void *u
                 return 0;
         }
 
+        /* Silence static analyzers, l is bounded by read() count: sizeof - log_message_size */
+        assert((size_t) l <= sizeof(t->log_message) - t->log_message_size);
         t->log_message_size += l;
 
         transfer_send_logs(t, false);
@@ -1802,10 +1805,10 @@ static int make_transfer_json(Transfer *t, sd_json_variant **ret) {
 
         r = sd_json_buildo(ret,
                            SD_JSON_BUILD_PAIR_UNSIGNED("id", t->id),
-                           SD_JSON_BUILD_PAIR("type", JSON_BUILD_STRING_UNDERSCORIFY(transfer_type_to_string(t->type))),
+                           JSON_BUILD_PAIR_ENUM("type", transfer_type_to_string(t->type)),
                            SD_JSON_BUILD_PAIR_STRING("remote", t->remote),
                            SD_JSON_BUILD_PAIR_STRING("local", t->local),
-                           SD_JSON_BUILD_PAIR("class", JSON_BUILD_STRING_UNDERSCORIFY(image_class_to_string(t->class))),
+                           JSON_BUILD_PAIR_ENUM("class", image_class_to_string(t->class)),
                            SD_JSON_BUILD_PAIR_REAL("percent", transfer_percent_as_double(t)));
         if (r < 0)
                 return log_error_errno(r, "Failed to build transfer JSON data: %m");
@@ -1837,7 +1840,7 @@ static int vl_method_list_transfers(sd_varlink *link, sd_json_variant *parameter
         if (r != 0)
                 return r;
 
-        r = varlink_set_sentinel(link, "io.systemd.Import.NoTransfers");
+        r = sd_varlink_set_sentinel(link, "io.systemd.Import.NoTransfers");
         if (r < 0)
                 return r;
 
@@ -2078,6 +2081,8 @@ static int run(int argc, char *argv[]) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
         RuntimeScope scope = RUNTIME_SCOPE_SYSTEM;
         int r;
+
+        LIBSELINUX_NOTE(recommended);
 
         log_setup();
 

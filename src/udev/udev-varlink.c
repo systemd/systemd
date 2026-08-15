@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "bus-polkit.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "json-util.h"
 #include "log.h"
 #include "string-util.h"
@@ -18,7 +20,9 @@ static int vl_method_reload(sd_varlink *link, sd_json_variant *parameters, sd_va
 
         assert(link);
 
-        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
+        /* Currently, udevd does not support polkit, but the varlink IDL says that io.systemd.service.Reload
+         * optionally takes the polkit field. Let's silently ignore the field. */
+        r = sd_varlink_dispatch(link, parameters, dispatch_table_polkit_only, /* userdata= */ NULL);
         if (r != 0)
                 return r;
 
@@ -186,13 +190,21 @@ int manager_start_varlink_server(Manager *manager, int fd) {
                 return log_error_errno(r, "Failed to attach Varlink connection to event loop: %m");
 
         if (fd < 0)
-                r = sd_varlink_server_listen_address(v, UDEV_VARLINK_ADDRESS, 0600);
+                r = sd_varlink_server_listen_address(v, UDEV_VARLINK_ADDRESS, 0644);
         else
                 r = sd_varlink_server_listen_fd(v, fd);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind to Varlink socket: %m");
 
         TAKE_FD(fd_close);
+
+        /* For backward compatibility. The existence of the file is used by udevadm settle, sd-device,
+         * libudev, and many external projects for checking if udevd is running. Note, it may be already
+         * created by PID1 through systemd-udevd-varlink.socket. But, we need to explicitly create it here,
+         * to make it created even in systemd-less systems or systemd-less initrd. */
+        r = symlink_idempotent(UDEV_VARLINK_ADDRESS, "/run/udev/control", /* make_relative= */ false);
+        if (r < 0)
+                log_warning_errno(r, "Failed to create symlink /run/udev/control to "UDEV_VARLINK_ADDRESS", ignoring: %m");
 
         r = sd_varlink_server_add_interface_many(
                         v,

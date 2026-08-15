@@ -12,10 +12,15 @@ if want_ukify and want_tests != 'false'
                 args += ['--flakes']
         endif
 
+        efi_addon_for_test = ''
+        if not meson.is_cross_build() and efi_addon.length() > 0
+                efi_addon_for_test = efi_addon[0].full_path()
+        endif
+
         test('test-ukify',
              files('test_ukify.py'),
              args: args,
-             env : test_env + {'EFI_ADDON' : efi_addon.length() > 0 ? efi_addon[0].full_path() : ''},
+             env : test_env + {'EFI_ADDON' : efi_addon_for_test},
              timeout : 120,
              suite : 'ukify',
              depends : efi_addon)

@@ -508,7 +508,7 @@ int unit_find_paths(
          * Finds where the unit is defined on disk. Returns 0 if the unit is not found. Returns 1 if it is
          * found, and sets:
          *
-         * - the path to the unit in *ret_frament_path, if it exists on disk,
+         * - the path to the unit in *ret_fragment_path, if it exists on disk,
          *
          * - and a strv of existing drop-ins in *ret_dropin_paths, if the arg is not NULL and any dropins
          *   were found.
@@ -919,7 +919,7 @@ int output_table(Table *table) {
         if (OUTPUT_MODE_IS_JSON(arg_output))
                 r = table_print_json(table, NULL, output_mode_to_json_format_flags(arg_output) | SD_JSON_FORMAT_COLOR_AUTO);
         else
-                r = table_print(table, NULL);
+                r = table_print(table);
         if (r < 0)
                 return table_log_print_error(r);
 

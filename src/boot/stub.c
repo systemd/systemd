@@ -1,16 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "boot-secret.h"
+#include "console.h"
 #include "cpio.h"
 #include "device-path-util.h"
 #include "devicetree.h"
 #include "efi-efivars.h"
 #include "efi-log.h"
+#include "efi-string.h"
 #include "export-vars.h"
 #include "graphics.h"
-#include "iovec-util-fundamental.h"
+#include "initrd.h"
+#include "iovec-util.h"
 #include "linux.h"
 #include "measure.h"
-#include "memory-util-fundamental.h"
+#include "measure-smbios.h"
+#include "memory-util.h"
 #include "part-discovery.h"
 #include "pe.h"
 #include "proto/shell-parameters.h"
@@ -29,13 +34,10 @@
 
 /* The list of initrds we combine into one, in the order we want to merge them */
 enum {
-        /* The first two are part of the PE binary */
-        INITRD_UCODE,
-        INITRD_BASE,
-
-        /* The rest are dynamically generated, and hence in dynamic memory */
-        _INITRD_DYNAMIC_FIRST,
-        INITRD_CREDENTIAL = _INITRD_DYNAMIC_FIRST,
+        INITRD_UCODE,    /* Part of the PE binary */
+        INITRD_PREVIOUS, /* initrd already configured via the EFI protocol before we were invoked */
+        INITRD_BASE,     /* Part of the PE binary */
+        INITRD_CREDENTIAL,
         INITRD_GLOBAL_CREDENTIAL,
         INITRD_SYSEXT,
         INITRD_GLOBAL_SYSEXT,
@@ -45,8 +47,11 @@ enum {
         INITRD_PCRPKEY,
         INITRD_OSREL,
         INITRD_PROFILE,
+        INITRD_BOOT_SECRET,
         _INITRD_MAX,
 };
+
+#define INITRD_IS_STATIC(idx) IN_SET(idx, INITRD_UCODE, INITRD_BASE)
 
 /* magic string to find in the binary image */
 DECLARE_NOALLOC_SECTION(".sdmagic", "#### LoaderInfo: systemd-stub " GIT_VERSION " ####");
@@ -98,50 +103,6 @@ static void combine_measured_flag(int *value, int measured) {
         *value = *value < 0 ? measured : *value && measured;
 }
 
-/* Combine initrds by concatenation in memory */
-static EFI_STATUS combine_initrds(
-                const struct iovec initrds[], size_t n_initrds,
-                Pages *ret_initrd_pages, size_t *ret_initrd_size) {
-
-        size_t n = 0;
-
-        assert(initrds || n_initrds == 0);
-        assert(ret_initrd_pages);
-        assert(ret_initrd_size);
-
-        FOREACH_ARRAY(i, initrds, n_initrds) {
-                /* some initrds (the ones from UKI sections) need padding, pad all to be safe */
-                size_t initrd_size = ALIGN4(i->iov_len);
-                if (n > SIZE_MAX - initrd_size)
-                        return EFI_OUT_OF_RESOURCES;
-
-                n += initrd_size;
-        }
-
-        _cleanup_pages_ Pages pages = xmalloc_initrd_pages(n);
-        uint8_t *p = PHYSICAL_ADDRESS_TO_POINTER(pages.addr);
-
-        FOREACH_ARRAY(i, initrds, n_initrds) {
-                size_t pad;
-
-                p = mempcpy(p, i->iov_base, i->iov_len);
-
-                pad = ALIGN4(i->iov_len) - i->iov_len;
-                if (pad == 0)
-                        continue;
-
-                memzero(p, pad);
-                p += pad;
-        }
-
-        assert(PHYSICAL_ADDRESS_TO_POINTER(pages.addr + n) == p);
-
-        *ret_initrd_pages = TAKE_STRUCT(pages);
-        *ret_initrd_size = n;
-
-        return EFI_SUCCESS;
-}
-
 static void export_stub_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, unsigned profile) {
         static const uint64_t stub_features =
                 EFI_STUB_FEATURE_REPORT_BOOT_PARTITION |    /* We set LoaderDevicePartUUID */
@@ -156,6 +117,7 @@ static void export_stub_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, unsig
                 EFI_STUB_FEATURE_MULTI_PROFILE_UKI |        /* We grok the "@1" profile command line argument */
                 EFI_STUB_FEATURE_REPORT_STUB_PARTITION |    /* We set StubDevicePartUUID + StubImageIdentifier */
                 EFI_STUB_FEATURE_REPORT_URL |               /* We set StubDeviceURL + LoaderDeviceURL */
+                EFI_STUB_FEATURE_SMBIOS_MEASURED |          /* We measure SMBIOS data into PCR 1 */
                 0;
 
         assert(loaded_image);
@@ -408,14 +370,7 @@ static void named_addon_done(NamedAddon *a) {
         iovec_done(&a->blob);
 }
 
-static void named_addon_free_many(NamedAddon *a, size_t n) {
-        assert(a || n == 0);
-
-        FOREACH_ARRAY(i, a, n)
-                named_addon_done(i);
-
-        free(a);
-}
+static DEFINE_ARRAY_FREE_FUNC(named_addon_free_array, NamedAddon, named_addon_done);
 
 static void install_addon_devicetrees(
                 struct devicetree_state *dt_state,
@@ -553,6 +508,21 @@ static void extend_initrds(
                 iovec_array_extend(all_initrds, n_all_initrds, *i);
 }
 
+static void acquire_previous_initrd(struct iovec initrds[static _INITRD_MAX]) {
+        EFI_STATUS err;
+
+        /* NB: the assumption here is that any previously installed initrd are measured by whatever
+         * registered them, and we just pass them on here. */
+
+        err = initrd_read_previous(initrds + INITRD_PREVIOUS);
+        if (err == EFI_NOT_FOUND)
+                log_debug_status(err, "No previous initrd registered.");
+        else if (err != EFI_SUCCESS)
+                log_warning_status(err, "Failed to read previously registered initrd, ignoring.");
+        else
+                log_debug("Successfully loaded previously registered initrd (%zu bytes).", initrds[INITRD_PREVIOUS].iov_len);
+}
+
 static EFI_STATUS load_addons(
                 EFI_HANDLE stub_image,
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
@@ -626,10 +596,10 @@ static EFI_STATUS load_addons(
                 if (err != EFI_SUCCESS)
                         return log_error_status(err, "Failed to find protocol in %ls: %m", items[i]);
 
-                err = pe_memory_locate_sections(loaded_addon->ImageBase, unified_sections, sections);
+                err = pe_memory_locate_sections(loaded_addon->ImageBase, loaded_addon->ImageSize, unified_sections, sections);
                 if (err != EFI_SUCCESS) {
                         log_error_status(err,
-                                         "Unable to locate embedded .cmdline/.dtb/.dtbauto/.initrd/.ucode sections in %ls, ignoring: %m",
+                                         "Unable to locate embedded .cmdline/.dtb/.dtbauto/.efifw/.initrd/.ucode sections in %ls, ignoring: %m",
                                          items[i]);
                         continue;
                 }
@@ -824,10 +794,11 @@ static void cmdline_append_and_measure_smbios(char16_t **cmdline, int *parameter
 static void initrds_free(struct iovec (*initrds)[_INITRD_MAX]) {
         assert(initrds);
 
-        /* Free the dynamic initrds, but leave the non-dynamic ones around */
+        /* Free the non-static initrds, but leave the static (i.e. PE embedded) ones around */
 
-        for (size_t i = _INITRD_DYNAMIC_FIRST; i < _INITRD_MAX; i++)
-                iovec_done((*initrds) + i);
+        for (size_t i = 0; i < _INITRD_MAX; i++)
+                if (!INITRD_IS_STATIC(i))
+                        iovec_done((*initrds) + i);
 }
 
 static void generate_sidecar_initrds(
@@ -849,10 +820,7 @@ static void generate_sidecar_initrds(
                       /* dropin_dir= */ NULL,
                       u".cred",
                       /* exclude_suffix= */ NULL,
-                      ".extra/credentials",
-                      /* dir_mode= */ 0500,
-                      /* access_mode= */ 0400,
-                      /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
+                      &cpio_target_credentials,
                       u"Credentials initrd",
                       initrds + INITRD_CREDENTIAL,
                       &m) == EFI_SUCCESS)
@@ -862,10 +830,7 @@ static void generate_sidecar_initrds(
                       u"\\loader\\credentials",
                       u".cred",
                       /* exclude_suffix= */ NULL,
-                      ".extra/global_credentials",
-                      /* dir_mode= */ 0500,
-                      /* access_mode= */ 0400,
-                      /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
+                      &cpio_target_global_credentials,
                       u"Global credentials initrd",
                       initrds + INITRD_GLOBAL_CREDENTIAL,
                       &m) == EFI_SUCCESS)
@@ -875,10 +840,7 @@ static void generate_sidecar_initrds(
                       /* dropin_dir= */ NULL,
                       u".raw",         /* ideally we'd pick up only *.sysext.raw here, but for compat we pick up *.raw instead … */
                       u".confext.raw", /* … but then exclude *.confext.raw again */
-                      ".extra/sysext",
-                      /* dir_mode= */ 0555,
-                      /* access_mode= */ 0444,
-                      /* tpm_pcr= */ TPM2_PCR_SYSEXTS,
+                      &cpio_target_sysext,
                       u"System extension initrd",
                       initrds + INITRD_SYSEXT,
                       &m) == EFI_SUCCESS)
@@ -888,10 +850,7 @@ static void generate_sidecar_initrds(
                       u"\\loader\\extensions",
                       u".raw", /* as above */
                       u".confext.raw",
-                      ".extra/global_sysext",
-                      /* dir_mode= */ 0555,
-                      /* access_mode= */ 0444,
-                      /* tpm_pcr= */ TPM2_PCR_SYSEXTS,
+                      &cpio_target_global_sysext,
                       u"Global system extension initrd",
                       initrds + INITRD_GLOBAL_SYSEXT,
                       &m) == EFI_SUCCESS)
@@ -901,10 +860,7 @@ static void generate_sidecar_initrds(
                       /* dropin_dir= */ NULL,
                       u".confext.raw",
                       /* exclude_suffix= */ NULL,
-                      ".extra/confext",
-                      /* dir_mode= */ 0555,
-                      /* access_mode= */ 0444,
-                      /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
+                      &cpio_target_confext,
                       u"Configuration extension initrd",
                       initrds + INITRD_CONFEXT,
                       &m) == EFI_SUCCESS)
@@ -914,10 +870,7 @@ static void generate_sidecar_initrds(
                       u"\\loader\\extensions",
                       u".confext.raw",
                       /* exclude_suffix= */ NULL,
-                      ".extra/global_confext",
-                      /* dir_mode= */ 0555,
-                      /* access_mode= */ 0444,
-                      /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
+                      &cpio_target_global_confext,
                       u"Global configuration extension initrd",
                       initrds + INITRD_GLOBAL_CONFEXT,
                       &m) == EFI_SUCCESS)
@@ -967,15 +920,32 @@ static void generate_embedded_initrds(
                 (void) pack_cpio_literal(
                                 (const uint8_t*) loaded_image->ImageBase + sections[t->section].memory_offset,
                                 sections[t->section].memory_size,
-                                ".extra",
+                                &cpio_target_meta,
                                 t->filename,
-                                /* dir_mode= */ 0555,
-                                /* access_mode= */ 0444,
-                                /* tpm_pcr= */ UINT32_MAX,
                                 /* tpm_description= */ NULL,
                                 initrds + t->initrd_index,
                                 /* ret_measured= */ NULL);
         }
+}
+
+static void generate_boot_secret_initrd(
+                const uint8_t boot_secret[static BOOT_SECRET_SIZE],
+                struct iovec initrds[static _INITRD_MAX]) {
+
+        assert(initrds);
+
+        /* All zero means: no boot secret acquired */
+        if (memeqzero(boot_secret, BOOT_SECRET_SIZE))
+                return;
+
+        (void) pack_cpio_literal(
+                        boot_secret,
+                        BOOT_SECRET_SIZE,
+                        &cpio_target_meta_secret,
+                        u"boot-secret",
+                        /* tpm_description= */ NULL,
+                        initrds + INITRD_BOOT_SECRET,
+                        /* ret_measured= */ NULL);
 }
 
 static void lookup_embedded_initrds(
@@ -1129,8 +1099,8 @@ static EFI_STATUS find_sections(
         assert(sections);
 
         const PeSectionHeader *section_table;
-        size_t n_section_table;
-        err = pe_section_table_from_base(loaded_image->ImageBase, &section_table, &n_section_table);
+        size_t n_section_table, size_in_memory;
+        err = pe_section_table_from_base(loaded_image->ImageBase, loaded_image->ImageSize, &section_table, &n_section_table, &size_in_memory);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Unable to locate PE section table: %m");
 
@@ -1141,6 +1111,7 @@ static EFI_STATUS find_sections(
                         unified_sections,
                         /* profile= */ UINT_MAX,
                         /* validate_base= */ PTR_TO_SIZE(loaded_image->ImageBase),
+                        size_in_memory,
                         sections);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Unable to locate embedded base PE sections: %m");
@@ -1153,6 +1124,7 @@ static EFI_STATUS find_sections(
                                 unified_sections,
                                 profile,
                                 /* validate_base= */ PTR_TO_SIZE(loaded_image->ImageBase),
+                                size_in_memory,
                                 sections);
                 if (err != EFI_SUCCESS && !(err == EFI_NOT_FOUND && profile == 0)) /* the first profile is implied if it doesn't exist */
                         return log_error_status(err, "Unable to locate embedded per-profile PE sections: %m");
@@ -1232,6 +1204,8 @@ static EFI_STATUS run(EFI_HANDLE image) {
         unsigned profile = 0;
         EFI_STATUS err;
 
+        log_set_max_level_from_smbios();
+
         err = BS->HandleProtocol(image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error getting a LoadedImageProtocol handle: %m");
@@ -1254,6 +1228,10 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         refresh_random_seed(loaded_image);
 
+        uint8_t boot_secret[BOOT_SECRET_SIZE] = {}; /* all zeroes means: not acquired */
+        CLEANUP_ERASE(boot_secret);
+        (void) prepare_boot_secret(loaded_image, sections + UNIFIED_SECTION_OSREL, boot_secret);
+
         uname = pe_section_to_str8(loaded_image, sections + UNIFIED_SECTION_UNAME);
 
         /* Let's now check if we actually want to use the command line, measure it if it was passed in. */
@@ -1261,9 +1239,9 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         /* Now that we have the UKI sections loaded, also load global first and then local (per-UKI)
          * addons. The data is loaded at once, and then used later. */
-        CLEANUP_ARRAY(dt_addons, n_dt_addons, named_addon_free_many);
-        CLEANUP_ARRAY(initrd_addons, n_initrd_addons, named_addon_free_many);
-        CLEANUP_ARRAY(ucode_addons, n_ucode_addons, named_addon_free_many);
+        CLEANUP_ARRAY(dt_addons, n_dt_addons, named_addon_free_array);
+        CLEANUP_ARRAY(initrd_addons, n_initrd_addons, named_addon_free_array);
+        CLEANUP_ARRAY(ucode_addons, n_ucode_addons, named_addon_free_array);
         load_all_addons(image, loaded_image, uname, &cmdline_addons, &dt_addons, &n_dt_addons, &initrd_addons, &n_initrd_addons, &ucode_addons, &n_ucode_addons);
 
         /* If we have any extra command line to add via PE addons, load them now and append, and measure the
@@ -1273,16 +1251,24 @@ static EFI_STATUS run(EFI_HANDLE image) {
         cmdline_append_and_measure_addons(cmdline_addons, &cmdline, &parameters_measured);
         cmdline_append_and_measure_smbios(&cmdline, &parameters_measured);
 
+        cmdline_append_console(&cmdline);
+
         export_common_variables(loaded_image);
         export_stub_variables(loaded_image, profile);
+
+        /* Measure SMBIOS data into PCR 1, unless sd-boot already did so in the same boot (tracked via
+         * the LoaderPcrSMBIOS EFI variable). */
+        measure_smbios();
 
         /* First load the base device tree, then fix it up using addons - global first, then per-UKI. */
         install_embedded_devicetree(loaded_image, sections, &dt_state);
         install_addon_devicetrees(&dt_state, dt_addons, n_dt_addons, &parameters_measured);
 
         /* Generate & find all initrds */
+        acquire_previous_initrd(initrds);
         generate_sidecar_initrds(loaded_image, initrds, &parameters_measured, &sysext_measured, &confext_measured);
         generate_embedded_initrds(loaded_image, sections, initrds);
+        generate_boot_secret_initrd(boot_secret, initrds);
         lookup_embedded_initrds(loaded_image, sections, initrds);
 
         /* Add initrds in the right order. Generally, later initrds can overwrite files in earlier ones,
@@ -1290,9 +1276,10 @@ static EFI_STATUS run(EFI_HANDLE image) {
          * We want addons to take precedence over the base initrds, so the order is:
          * 1. Ucode addons
          * 2. UKI ucode
-         * 3. UKI initrd
-         * 4. Generated initrds
-         * 5. initrd addons */
+         * 3. Previous initrds
+         * 4. UKI initrd
+         * 5. Generated initrds
+         * 6. initrd addons */
         measure_and_append_ucode_addons(&all_initrds, &n_all_initrds, ucode_addons, n_ucode_addons, &parameters_measured);
         extend_initrds(initrds, &all_initrds, &n_all_initrds);
         measure_and_append_initrd_addons(&all_initrds, &n_all_initrds, initrd_addons, n_initrd_addons, &parameters_measured);
@@ -1325,4 +1312,5 @@ static EFI_STATUS run(EFI_HANDLE image) {
         return err;
 }
 
+// NOLINTNEXTLINE(misc-use-internal-linkage)
 DEFINE_EFI_MAIN_FUNCTION(run, "systemd-stub", /* wait_for_debugger= */ false);

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "basic-forward.h"
+#include "forward.h"
 
 /* The limit used for /dev itself. 4MB should be enough since device nodes and symlinks don't
  * consume any space and udev isn't supposed to create regular file either. There's no limit on the
@@ -61,10 +61,13 @@ static inline int path_is_mount_point(const char *path) {
 
 bool fstype_is_network(const char *fstype);
 bool fstype_needs_quota(const char *fstype);
+bool fstype_has_internal_quota(const char *fstype);
 bool fstype_is_api_vfs(const char *fstype);
 bool fstype_is_blockdev_backed(const char *fstype);
+bool fstype_is_fuse(const char *fstype);
 bool fstype_is_ro(const char *fsype);
 bool fstype_can_discard(const char *fstype);
+bool fstype_can_ownership(const char *fstype);
 bool fstype_can_uid_gid(const char *fstype);
 bool fstype_can_fmask_dmask(const char *fstype);
 

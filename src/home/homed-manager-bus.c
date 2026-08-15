@@ -12,6 +12,8 @@
 #include "bus-message-util.h"
 #include "bus-object.h"
 #include "bus-polkit.h"
+#include "crypto-util.h"
+#include "errno-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "home-util.h"
@@ -22,7 +24,6 @@
 #include "homed-manager-bus.h"
 #include "homed-operation.h"
 #include "log.h"
-#include "openssl-util.h"
 #include "path-util.h"
 #include "set.h"
 #include "string-util.h"
@@ -936,14 +937,14 @@ static bool manager_has_public_key(Manager *m, EVP_PKEY *needle) {
 
         EVP_PKEY *pkey;
         HASHMAP_FOREACH(pkey, m->public_keys) {
-                r = EVP_PKEY_eq(pkey, needle);
+                r = sym_EVP_PKEY_eq(pkey, needle);
                 if (r > 0)
                         return true;
 
                 /* EVP_PKEY_eq() returns -1 and -2 too under some conditions, which we'll all treat as "not the same" */
         }
 
-        r = EVP_PKEY_eq(m->private_key, needle);
+        r = sym_EVP_PKEY_eq(m->private_key, needle);
         if (r > 0)
                 return true;
 
@@ -983,12 +984,23 @@ static int method_add_signing_key(sd_bus_message *message, void *userdata, sd_bu
         if (r == 0)
                 return 1; /* Will call us back */
 
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
-        r = openssl_pubkey_from_pem(pem, /* pem_size= */ SIZE_MAX, &pkey);
-        if (r == -EIO)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Public key invalid: %s", fn);
+        /* Load libcrypto up front so that its unavailability (e.g. -EOPNOTSUPP) is propagated as the real
+         * error instead of being misattributed to the user-supplied key below. */
+        r = dlopen_libcrypto(LOG_DEBUG);
         if (r < 0)
                 return r;
+
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        r = openssl_pubkey_from_pem(pem, /* pem_size= */ SIZE_MAX, &pkey);
+        if (r < 0) {
+                /* libcrypto is loaded at this point, so any failure here is a failure to parse or load the
+                 * user-supplied key (the translated OpenSSL errno varies: -EBADMSG, -EINVAL, -EOPNOTSUPP,
+                 * -EIO, …) — treat it as an invalid public key, except resource exhaustion which we
+                 * propagate as-is. */
+                if (ERRNO_IS_NEG_RESOURCE(r))
+                        return r;
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Public key invalid: %s", fn);
+        }
 
         /* Make sure the local key is loaded before can detect conflicts */
         r = manager_acquire_key_pair(m);

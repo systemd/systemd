@@ -1,0 +1,17 @@
+{
+    "type": "devicetree",
+    "name": "Dell Inc. Latitude",
+    "compatible": "dell,latitude-7455",
+    "hwids": [
+        "903e3a6f-e14b-5643-9d55-244f917aadb6",
+        "59e5c810-9e60-5a89-8665-db36c56b34d6",
+        "2b9277cd-85b1-51ee-9a38-d477632532da",
+        "6e01222b-b2aa-531e-b95f-0e4b2a063364",
+        "93055898-8c85-50e7-adde-8115f194579a",
+        "b3e5b59d-84ae-597d-9222-8a4d48480bc3",
+        "4f73f73b-e639-5353-bbf7-d851e48f18fc",
+        "68822228-a3e0-5b12-942d-9408751405d1",
+        "683e4579-8440-5bc1-89ac-dfcd7c25b307",
+        "fb7493ec-9634-5c5a-9f26-69cbf9b92460"
+    ]
+}

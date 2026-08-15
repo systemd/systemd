@@ -455,7 +455,7 @@ Support: %SUPPORT_URL%
 
 The directory @WHERE@ is specified as the mount point (second field in
 /etc/fstab or Where= field in systemd unit file) and is not empty.
-This does not interfere with mounting, but the pre-exisiting files in
+This does not interfere with mounting, but the pre-existing files in
 this directory become inaccessible. To see those over-mounted files,
 please manually mount the underlying file system to a secondary
 location.
@@ -825,6 +825,21 @@ Automatic SRK enrollment on TPMs in such scenarios is not supported. In order
 to unset the PIN/password protection on the owner hierarchy issue a command
 like the following: 'tpm2_changeauth -c o -p <OLDPW> ""'.
 
+-- 8d813b6becf04b859d99760cbb56dff1
+Subject: Authorization failure while attempting to enroll EK into TPM
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd-tpm2-setup.service(8)
+
+An authorization failure occurred while attempting to enroll an Endorsement Key
+(EK) on the Trusted Platform Module (TPM). Most likely this means that a
+PIN/Password (authValue) has been set on the Owner and/or Endorsement hierarchy
+of the TPM.
+
+Automatic EK enrollment on TPMs in such scenarios is not supported. In order
+to unset the PIN/password protection on the owner or endorsement hierarchy,
+issue a command like the following: 'tpm2_changeauth -c <o,e> -p <OLDPW> ""'.
+
 -- 9cf56b8baf9546cf9478783a8de42113
 Subject: A foreign process changed a sysctl systemd-networkd manages
 Defined-By: systemd
@@ -1002,3 +1017,38 @@ device nodes appear early in boot, while regular users may appear only later.
 For devices managed by systemd-udevd, it is instead recommended to use the
 "uaccess"/"xaccess" mechanisms to grant limited and temporary access to device
 nodes, see sd-login(8).
+
+-- ab984ea008964fb88d6e389fb513fb94
+Subject: TPM NV index space exhausted, unable to initialize NvPCR
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The Trusted Platform Module's (TPM) NV index space has been exhausted, and an
+additional NvPCR, i.e. additional Platform Configuration Register (PCR) stored in
+non-volatile indexes (NV Indexes), could not be initialized.
+
+This typically means the persistent NV index memory available on the TPM is
+taken up by other resources, or is extremely limited. A TPM reset might help
+recovering space (but will invalidate all TPM bound keys and resources).
+
+-- 8f07a5b814ca4762b89fcc3082e48aed
+Subject: TPM NV index backed PCRs not supported on the local TPM
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The Trusted Platform Module's (TPM) NV index support is too limited to properly
+implement NV index backed additional PCRs. NvPCRs will not be allocated or
+initialized, and will not be available on the system.
+
+-- eac6d394c925493deac2ba99f3c2bb11
+Subject: An optional dependency for @FEATURE@ is not installed
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The @FEATURE@ feature that was requested depends on an optional component that
+is loaded at runtime (for example a shared library opened via dlopen(3)), but
+that component is not installed on this system.
+
+As a result @FEATURE@ is unavailable, and is either skipped, disabled, or
+degraded to a fallback mode. Refer to the accompanying log message for the
+specific dependency that is missing, then install it to enable @FEATURE@.

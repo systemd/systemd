@@ -27,6 +27,7 @@ int dirent_ensure_type(int dir_fd, struct dirent *de) {
         r = xstatx_full(dir_fd,
                         de->d_name,
                         AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT,
+                        /* xstatx_flags= */ 0,
                         /* mandatory_mask= */ STATX_TYPE,
                         /* optional_mask= */ STATX_INO,
                         /* mandatory_attributes= */ 0,

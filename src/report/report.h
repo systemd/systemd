@@ -1,0 +1,47 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+#pragma once
+
+#include "forward.h"
+
+#include "iovec-wrapper.h"
+
+#define REPORT_PRIV_KEY_FILE CERTIFICATE_ROOT "/private/systemd-report.pem"
+#define REPORT_CERT_FILE     CERTIFICATE_ROOT "/certs/systemd-report.pem"
+#define REPORT_TRUST_FILE    CERTIFICATE_ROOT "/ca/trusted.pem"
+
+typedef enum ReportSignMode {
+        REPORT_SIGN_NO,
+        REPORT_SIGN_BEST_EFFORT,
+        REPORT_SIGN_REQUIRE_ONE,
+        REPORT_SIGN_REQUIRE_ALL,
+        _REPORT_SIGN_MODE_MAX,
+        _REPORT_SIGN_MODE_INVALID = -EINVAL,
+} ReportSignMode;
+
+extern sd_json_format_flags_t arg_json_format_flags;
+extern char *arg_url, *arg_key, *arg_cert, *arg_trust;
+extern char **arg_extra_headers;
+extern usec_t arg_network_timeout_usec;
+extern ReportSignMode arg_sign_mode;
+
+typedef enum Action {
+        ACTION_LIST_METRICS,
+        ACTION_DESCRIBE_METRICS,
+        ACTION_GENERATE,
+        ACTION_UPLOAD,
+        _ACTION_MAX,
+        _ACTION_INVALID = -EINVAL,
+} Action;
+
+/* The structure for collected "metrics". */
+typedef struct Context {
+        Action action;
+        sd_event *event;
+        Set *link_infos;
+        char **matches;  /* Metric families to include, or NULL/empty for all */
+        sd_json_variant **metrics;  /* Collected metrics for sorting */
+        size_t n_metrics, n_skipped_metrics, n_invalid_metrics, n_contacted_sources, n_skipped_sources;
+
+        int upload_result;
+        struct iovec_wrapper upload_answer;
+} Context;

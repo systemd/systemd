@@ -137,6 +137,9 @@ PortableMetadata *portable_metadata_unref(PortableMetadata *i) {
 }
 
 static int compare_metadata(PortableMetadata *const *x, PortableMetadata *const *y) {
+        assert(x);
+        assert(y);
+
         return strcmp((*x)->name, (*y)->name);
 }
 
@@ -145,6 +148,8 @@ int portable_metadata_hashmap_to_sorted_array(Hashmap *unit_files, PortableMetad
         _cleanup_free_ PortableMetadata **sorted = NULL;
         PortableMetadata *item;
         size_t k = 0;
+
+        assert(ret);
 
         sorted = new(PortableMetadata*, hashmap_size(unit_files));
         if (!sorted)
@@ -209,8 +214,8 @@ static int receive_portable_metadata(
                  * but according to suggestions from the SELinux people this will change and it will probably
                  * be identical to NAME_MAX. For now we use that, but this should be updated one day when the
                  * final limit is known. */
-                char iov_buffer[PATH_MAX + NAME_MAX + 2];
-                struct iovec iov = IOVEC_MAKE(iov_buffer, sizeof(iov_buffer));
+                char iov_buffer[PATH_MAX + NAME_MAX + 2 + 1]; /* One extra byte for the trailing NUL we add below. */
+                struct iovec iov = IOVEC_MAKE(iov_buffer, sizeof(iov_buffer) - 1);
 
                 ssize_t n = receive_one_fd_iov(socket_fd, &iov, 1, 0, &fd);
                 if (n == -EIO)
@@ -358,7 +363,7 @@ static int extract_now(
                 _cleanup_free_ char *relative = NULL, *resolved = NULL;
                 _cleanup_closedir_ DIR *d = NULL;
 
-                r = chase_and_opendirat(rfd, *i, CHASE_AT_RESOLVE_IN_ROOT, &relative, &d);
+                r = chase_and_opendirat(rfd, rfd, *i, /* chase_flags= */ 0, &relative, &d);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to open unit path '%s', ignoring: %m", *i);
                         continue;
@@ -381,15 +386,21 @@ static int extract_now(
                                 continue;
 
                         /* Filter out duplicates */
-                        if (hashmap_get(unit_files, de->d_name))
+                        if (hashmap_contains(unit_files, de->d_name))
                                 continue;
 
                         if (!IN_SET(de->d_type, DT_LNK, DT_REG))
                                 continue;
 
-                        fd = openat(dirfd(d), de->d_name, O_CLOEXEC|O_RDONLY);
+                        fd = chase_and_openat(
+                                        rfd,
+                                        dirfd(d),
+                                        de->d_name,
+                                        CHASE_MUST_BE_REGULAR,
+                                        O_RDONLY|O_CLOEXEC,
+                                        /* ret_path= */ NULL);
                         if (fd < 0) {
-                                log_debug_errno(errno, "Failed to open unit file '%s', ignoring: %m", de->d_name);
+                                log_debug_errno(fd, "Failed to open unit file '%s', ignoring: %m", de->d_name);
                                 continue;
                         }
 
@@ -519,7 +530,7 @@ static int portable_extract_by_path(
                                 seq[0] = safe_close(seq[0]);
                                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
-                                if (setns(CLONE_NEWUSER, userns_fd) < 0) {
+                                if (setns(userns_fd, CLONE_NEWUSER) < 0) {
                                         r = log_debug_errno(errno, "Failed to join userns: %m");
                                         report_errno_and_exit(errno_pipe_fd[1], r);
                                 }
@@ -530,7 +541,7 @@ static int portable_extract_by_path(
                                                 matches,
                                                 image_name,
                                                 path_is_extension,
-                                                /* relax_extension_release_check= */ false,
+                                                relax_extension_release_check,
                                                 seq[1],
                                                 /* ret_os_release= */ NULL,
                                                 /* ret_unit_files= */ NULL);
@@ -560,7 +571,7 @@ static int portable_extract_by_path(
                                         matches,
                                         image_name,
                                         path_is_extension,
-                                        /* relax_extension_release_check= */ false,
+                                        relax_extension_release_check,
                                         /* socket_fd= */ -EBADF,
                                         &os_release,
                                         &unit_files);
@@ -605,8 +616,8 @@ static int portable_extract_by_path(
                  * there, and extract the metadata we need. The metadata is sent from the child back to us. */
 
                 /* Load some libraries before we fork workers off that want to use them */
-                (void) dlopen_cryptsetup();
-                (void) dlopen_libmount();
+                (void) dlopen_cryptsetup(LOG_DEBUG);
+                (void) dlopen_libmount(LOG_DEBUG);
 
                 r = mkdtemp_malloc("/tmp/inspect-XXXXXX", &tmpdir);
                 if (r < 0)
@@ -816,8 +827,9 @@ static int extract_image_and_extensions(
         /* If we get a path, then check if it can be resolved with vpick. We need this as we might just
          * get a simple image name, which would make vpick error out. */
         if (path_is_absolute(name_or_path)) {
-                r = path_pick(/* toplevel_path= */ NULL,
-                              /* toplevel_fd= */ AT_FDCWD,
+                r = path_pick(/* root_path= */ NULL,
+                              /* root_fd= */ AT_FDCWD,
+                              /* dir_fd= */ AT_FDCWD,
                               name_or_path,
                               pick_filter_image_any,
                               ELEMENTSOF(pick_filter_image_any),
@@ -855,8 +867,9 @@ static int extract_image_and_extensions(
                         const char *path = *p;
 
                         if (path_is_absolute(*p)) {
-                                r = path_pick(/* toplevel_path= */ NULL,
-                                              /* toplevel_fd= */ AT_FDCWD,
+                                r = path_pick(/* root_path= */ NULL,
+                                              /* root_fd= */ AT_FDCWD,
+                                              /* dir_fd= */ AT_FDCWD,
                                               *p,
                                               pick_filter_image_any,
                                               ELEMENTSOF(pick_filter_image_any),
@@ -1091,7 +1104,7 @@ int portable_extract(
                         return -ENOMEM;
 
                 return sd_bus_error_setf(error,
-                                         SD_BUS_ERROR_INVALID_ARGS,
+                                         BUS_ERROR_NO_MATCHING_UNIT_FILES,
                                          "Couldn't find any matching unit files in image '%s%s%s', refusing.",
                                          image->path,
                                          isempty(extensions) ? "" : "' or any of its extensions '",
@@ -1266,18 +1279,13 @@ static int portable_changes_add_with_prefix(
         return portable_changes_add(changes, n_changes, type_or_errno, path, source);
 }
 
-void portable_changes_free(PortableChange *changes, size_t n_changes) {
-        size_t i;
-
-        assert(changes || n_changes == 0);
-
-        for (i = 0; i < n_changes; i++) {
-                free(changes[i].path);
-                free(changes[i].source);
-        }
-
-        free(changes);
+static void portable_change_done(PortableChange *change) {
+        assert(change);
+        change->path = mfree(change->path);
+        change->source = mfree(change->source);
 }
+
+DEFINE_ARRAY_FREE_FUNC(portable_changes_free, PortableChange, portable_change_done);
 
 static const char *root_setting_from_image(ImageType type) {
         switch (type) {
@@ -1382,9 +1390,19 @@ static int append_release_log_fields(
 
         /* Find an ID first, in order of preference from more specific to less specific: IMAGE_ID -> ID */
         id = strv_find_first_field((char *const *)field_ids[type], fields);
+        if (id && string_has_cc(id, /* ok= */ NULL)) {
+                log_debug("os-release file '%s' contains control characters in the ID field, skipping.",
+                          release->name);
+                id = NULL;
+        }
 
         /* Then the version, same logic, prefer the more specific one */
         version = strv_find_first_field((char *const *)field_versions[type], fields);
+        if (version && string_has_cc(version, /* ok= */ NULL)) {
+                log_debug("os-release file '%s' contains control characters in the version field, skipping.",
+                          release->name);
+                version = NULL;
+        }
 
         /* If there's no valid version to be found, simply omit it. */
         if (!id && !version)
@@ -1491,65 +1509,64 @@ static int install_chroot_dropin(
                 if (r < 0)
                         return r;
 
-                if (m->image_path && !path_equal(m->image_path, image_path))
-                        ORDERED_HASHMAP_FOREACH(ext, extension_images) {
+                ORDERED_HASHMAP_FOREACH(ext, extension_images) {
 
-                                const char *extension_setting = extension_setting_from_image(ext->type);
-                                if (!extension_setting)
-                                        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Image type '%s' not supported for extensions: %m", image_type_to_string(ext->type));
+                        const char *extension_setting = extension_setting_from_image(ext->type);
+                        if (!extension_setting)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Image type '%s' not supported for extensions: %m", image_type_to_string(ext->type));
 
-                                _cleanup_free_ char *extension_base_name = NULL;
-                                r = path_extract_filename(ext->path, &extension_base_name);
+                        _cleanup_free_ char *extension_base_name = NULL;
+                        r = path_extract_filename(ext->path, &extension_base_name);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to extract basename from '%s': %m", ext->path);
+
+                        if (!strextend(&text,
+                                       "\n",
+                                       extension_setting,
+                                       ext->path,
+                                       /* With --force tell PID1 to avoid enforcing that the image <name> and
+                                        * extension-release.<name> have to match. */
+                                       !IN_SET(ext->type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME) &&
+                                           FLAGS_SET(flags, PORTABLE_FORCE_EXTENSION) ?
+                                               ":x-systemd.relax-extension-release-check\n" :
+                                               "\n",
+                                       /* In PORTABLE= we list the 'main' image name for this unit
+                                        * (the image where the unit was extracted from), but we are
+                                        * stacking multiple images, so list those too. */
+                                       "LogExtraFields=PORTABLE_EXTENSION=", extension_base_name, "\n"))
+                                return -ENOMEM;
+
+                        if (pinned_ext_image_policy && !IN_SET(ext->type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME)) {
+                                _cleanup_free_ char *policy_str = NULL;
+
+                                r = image_policy_to_string(pinned_ext_image_policy, /* simplify= */ true, &policy_str);
                                 if (r < 0)
-                                        return log_debug_errno(r, "Failed to extract basename from '%s': %m", ext->path);
+                                        return log_debug_errno(r, "Failed to serialize pinned image policy: %m");
 
                                 if (!strextend(&text,
-                                               "\n",
-                                               extension_setting,
-                                               ext->path,
-                                               /* With --force tell PID1 to avoid enforcing that the image <name> and
-                                                * extension-release.<name> have to match. */
-                                               !IN_SET(ext->type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME) &&
-                                                   FLAGS_SET(flags, PORTABLE_FORCE_EXTENSION) ?
-                                                       ":x-systemd.relax-extension-release-check\n" :
-                                                       "\n",
-                                               /* In PORTABLE= we list the 'main' image name for this unit
-                                                * (the image where the unit was extracted from), but we are
-                                                * stacking multiple images, so list those too. */
-                                               "LogExtraFields=PORTABLE_EXTENSION=", extension_base_name, "\n"))
+                                               "ExtensionImagePolicy=", policy_str, "\n"))
                                         return -ENOMEM;
-
-                                if (pinned_ext_image_policy && !IN_SET(ext->type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME)) {
-                                        _cleanup_free_ char *policy_str = NULL;
-
-                                        r = image_policy_to_string(pinned_ext_image_policy, /* simplify= */ true, &policy_str);
-                                        if (r < 0)
-                                                return log_debug_errno(r, "Failed to serialize pinned image policy: %m");
-
-                                        if (!strextend(&text,
-                                                       "ExtensionImagePolicy=", policy_str, "\n"))
-                                                return -ENOMEM;
-                                }
-
-                                /* Look for image/version identifiers in the extension release files. We
-                                 * look for all possible IDs, but typically only 1 or 2 will be set, so
-                                 * the number of fields added shouldn't be too large. We prefix the DDI
-                                 * name to the value, so that we can add the same field multiple times and
-                                 * still be able to identify what applies to what. */
-                                r = append_release_log_fields(&text,
-                                                              ordered_hashmap_get(extension_releases, ext->name),
-                                                              IMAGE_SYSEXT,
-                                                              "PORTABLE_EXTENSION_NAME_AND_VERSION");
-                                if (r < 0)
-                                        return r;
-
-                                r = append_release_log_fields(&text,
-                                                              ordered_hashmap_get(extension_releases, ext->name),
-                                                              IMAGE_CONFEXT,
-                                                              "PORTABLE_EXTENSION_NAME_AND_VERSION");
-                                if (r < 0)
-                                        return r;
                         }
+
+                        /* Look for image/version identifiers in the extension release files. We
+                         * look for all possible IDs, but typically only 1 or 2 will be set, so
+                         * the number of fields added shouldn't be too large. We prefix the DDI
+                         * name to the value, so that we can add the same field multiple times and
+                         * still be able to identify what applies to what. */
+                        r = append_release_log_fields(&text,
+                                                      ordered_hashmap_get(extension_releases, ext->name),
+                                                      IMAGE_SYSEXT,
+                                                      "PORTABLE_EXTENSION_NAME_AND_VERSION");
+                        if (r < 0)
+                                return r;
+
+                        r = append_release_log_fields(&text,
+                                                      ordered_hashmap_get(extension_releases, ext->name),
+                                                      IMAGE_CONFEXT,
+                                                      "PORTABLE_EXTENSION_NAME_AND_VERSION");
+                        if (r < 0)
+                                return r;
+                }
         }
 
         r = write_string_file(dropin, text, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_SYNC);
@@ -1599,7 +1616,7 @@ static int install_profile_dropin(
                 return -ENOMEM;
 
         if (flags & PORTABLE_PREFER_COPY) {
-                CopyFlags copy_flags = COPY_REFLINK|COPY_FSYNC;
+                CopyFlags copy_flags = COPY_FSYNC;
 
                 if (flags & PORTABLE_FORCE_ATTACH)
                         copy_flags |= COPY_REPLACE;
@@ -1743,7 +1760,7 @@ static int attach_unit_file(
                 if (fd < 0)
                         return log_debug_errno(fd, "Failed to create unit file '%s': %m", path);
 
-                r = copy_bytes(m->fd, fd, UINT64_MAX, COPY_REFLINK);
+                r = copy_bytes(m->fd, fd, UINT64_MAX, /* copy_flags= */ 0);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to copy unit file '%s': %m", path);
 
@@ -1872,7 +1889,7 @@ static int install_image(
                                       target,
                                       UID_INVALID,
                                       GID_INVALID,
-                                      COPY_REFLINK | COPY_FSYNC | COPY_FSYNC_FULL | COPY_SYNCFS,
+                                      COPY_FSYNC | COPY_FSYNC_FULL | COPY_SYNCFS,
                                       /* denylist= */ NULL,
                                       /* subvolumes= */ NULL);
                         if (r < 0)
@@ -2091,7 +2108,7 @@ int portable_attach(
 
                 return sd_bus_error_setf(
                                 error,
-                                SD_BUS_ERROR_INVALID_ARGS,
+                                BUS_ERROR_NO_MATCHING_UNIT_FILES,
                                 "Couldn't find any matching unit files in image '%s%s%s', refusing.",
                                 image->path,
                                 isempty(extensions_joined) ? "" : "' or any of its extensions '",
@@ -2153,7 +2170,7 @@ int portable_attach(
         return 0;
 }
 
-static bool marker_matches_images(const char *marker, const char *name_or_path, char **extension_image_paths, bool match_all) {
+static int marker_matches_images(const char *marker, const char *name_or_path, char **extension_image_paths, bool match_all) {
         _cleanup_strv_free_ char **root_and_extensions = NULL;
         int r;
 
@@ -2179,7 +2196,7 @@ static bool marker_matches_images(const char *marker, const char *name_or_path, 
         /* Ensure the number of images passed matches the number of images listed in the marker */
         while (!isempty(marker))
                 STRV_FOREACH(image_name_or_path, root_and_extensions) {
-                        _cleanup_free_ char *image = NULL, *base_image = NULL, *base_image_name_or_path = NULL;
+                        _cleanup_free_ char *image = NULL, *base_image = NULL, *base_image_name_or_path = NULL, *base_picked_image = NULL;
                         _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
 
                         r = extract_first_word(&marker, &image, ":", EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
@@ -2192,26 +2209,29 @@ static bool marker_matches_images(const char *marker, const char *name_or_path, 
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to extract image name from %s, ignoring: %m", image);
 
-                        r = path_pick(/* toplevel_path= */ NULL,
-                                      /* toplevel_fd= */ AT_FDCWD,
+                        r = path_pick(/* root_path= */ NULL,
+                                      /* root_fd= */ AT_FDCWD,
+                                      /* dir_fd= */ AT_FDCWD,
                                       *image_name_or_path,
                                       pick_filter_image_any,
                                       ELEMENTSOF(pick_filter_image_any),
                                       PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
                                       &result);
-                        if (r < 0)
+                        if (r < 0 && r != -ENOENT)
                                 return r;
-                        if (!result.path)
-                                return log_debug_errno(
-                                                SYNTHETIC_ERRNO(ENOENT),
-                                                "No matching entry in .v/ directory %s found.",
-                                                *image_name_or_path);
 
-                        r = path_extract_image_name(result.path, &base_image_name_or_path);
+                        r = path_extract_image_name(*image_name_or_path, &base_image_name_or_path);
                         if (r < 0)
-                                return log_debug_errno(r, "Failed to extract image name from %s, ignoring: %m", result.path);
+                                return log_debug_errno(r, "Failed to extract image name from %s, ignoring: %m", *image_name_or_path);
 
-                        if (!streq(base_image, base_image_name_or_path)) {
+                        if (!streq(base_image, base_image_name_or_path) && result.path) {
+                                r = path_extract_image_name(result.path, &base_picked_image);
+                                if (r < 0)
+                                        return log_debug_errno(r, "Failed to extract image name from %s, ignoring: %m", result.path);
+                        }
+
+                        if (!streq(base_image, base_image_name_or_path) &&
+                            !streq_ptr(base_image, base_picked_image)) {
                                 if (match_all)
                                         return false;
                         } else if (!match_all)
@@ -2283,6 +2303,42 @@ static int test_chroot_dropin(
         return r;
 }
 
+static int portable_attached_dirent_name(
+                const struct dirent *de,
+                char **ret_unit_name,
+                bool *ret_dropin) {
+
+        _cleanup_free_ char *unit_name = NULL;
+        const char *dropin_suffix;
+
+        assert(de);
+        assert(ret_unit_name);
+
+        /* When a portable service is enabled with "portablectl --copy=symlink --enable --now attach",
+         * and is disabled with "portablectl --enable --now detach", which calls DisableUnitFilesWithFlags
+         * DBus method, the main unit file is removed, but its drop-ins are not. Hence, we need to list both
+         * main unit files and drop-in directories (without the main unit files). */
+
+        dropin_suffix = endswith(de->d_name, ".d");
+        if (dropin_suffix)
+                unit_name = strndup(de->d_name, dropin_suffix - de->d_name);
+        else
+                unit_name = strdup(de->d_name);
+        if (!unit_name)
+                return -ENOMEM;
+
+        if (!unit_name_is_valid(unit_name, UNIT_NAME_ANY))
+                return 0;
+
+        if (dropin_suffix ? !IN_SET(de->d_type, DT_LNK, DT_DIR) : !IN_SET(de->d_type, DT_LNK, DT_REG))
+                return 0;
+
+        *ret_unit_name = TAKE_PTR(unit_name);
+        if (ret_dropin)
+                *ret_dropin = dropin_suffix != NULL;
+        return 1;
+}
+
 int portable_detach(
                 RuntimeScope scope,
                 sd_bus *bus,
@@ -2319,29 +2375,15 @@ int portable_detach(
 
         FOREACH_DIRENT(de, d, return log_debug_errno(errno, "Failed to enumerate '%s' directory: %m", where)) {
                 _cleanup_free_ char *marker = NULL, *unit_name = NULL;
-                const char *dot;
 
-                /* When a portable service is enabled with "portablectl --copy=symlink --enable --now attach",
-                 * and is disabled with "portablectl --enable --now detach", which calls DisableUnitFilesWithFlags
-                 * DBus method, the main unit file is removed, but its drop-ins are not. Hence, here we need
-                 * to list both main unit files and drop-in directories (without the main unit files). */
-
-                dot = endswith(de->d_name, ".d");
-                if (dot)
-                        unit_name = strndup(de->d_name, dot - de->d_name);
-                else
-                        unit_name = strdup(de->d_name);
-                if (!unit_name)
-                        return -ENOMEM;
-
-                if (!unit_name_is_valid(unit_name, UNIT_NAME_ANY))
+                r = portable_attached_dirent_name(de, &unit_name, /* ret_dropin= */ NULL);
+                if (r < 0)
+                        return r;
+                if (r == 0)
                         continue;
 
                 /* Filter out duplicates */
                 if (set_contains(unit_files, unit_name))
-                        continue;
-
-                if (dot ? !IN_SET(de->d_type, DT_LNK, DT_DIR) : !IN_SET(de->d_type, DT_LNK, DT_REG))
                         continue;
 
                 r = test_chroot_dropin(d, where, unit_name, name_or_path, extension_image_paths, &marker);
@@ -2422,7 +2464,7 @@ int portable_detach(
                         portable_changes_add_with_prefix(changes, n_changes, PORTABLE_UNLINK, where, md, NULL);
         }
 
-        /* Now, also drop any image symlink or copy, for images outside of the sarch path */
+        /* Now, also drop any image symlink or copy, for images outside of the search path */
         SET_FOREACH(item, markers) {
                 _cleanup_free_ char *target = NULL;
 
@@ -2509,39 +2551,54 @@ static int portable_get_state_internal(
         }
 
         FOREACH_DIRENT(de, d, return log_debug_errno(errno, "Failed to enumerate '%s' directory: %m", where)) {
-                UnitFileState state;
+                _cleanup_free_ char *unit_name = NULL;
+                bool dropin;
 
-                if (!unit_name_is_valid(de->d_name, UNIT_NAME_ANY))
-                        continue;
-
-                /* Filter out duplicates */
-                if (set_contains(unit_files, de->d_name))
-                        continue;
-
-                if (!IN_SET(de->d_type, DT_LNK, DT_REG))
-                        continue;
-
-                r = test_chroot_dropin(d, where, de->d_name, name_or_path, extension_image_paths, NULL);
+                r = portable_attached_dirent_name(de, &unit_name, &dropin);
                 if (r < 0)
                         return r;
                 if (r == 0)
                         continue;
 
-                r = unit_file_lookup_state(scope, &paths, de->d_name, &state);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to determine unit file state of '%s': %m", de->d_name);
-                if (!IN_SET(state, UNIT_FILE_STATIC, UNIT_FILE_DISABLED, UNIT_FILE_LINKED, UNIT_FILE_LINKED_RUNTIME))
-                        found_enabled = true;
+                /* Filter out duplicates */
+                if (set_contains(unit_files, unit_name))
+                        continue;
 
-                r = unit_file_is_active(bus, de->d_name, error);
+                if (dropin) {
+                        /* If the main unit file still exists, let the regular entry handle it so that
+                         * enabled/running state is determined from the unit file as before. */
+                        r = RET_NERRNO(faccessat(dirfd(d), unit_name, F_OK, AT_SYMLINK_NOFOLLOW));
+                        if (r >= 0)
+                                continue;
+                        if (r != -ENOENT)
+                                return log_debug_errno(r, "Failed to check if '%s/%s' exists: %m", where, unit_name);
+                }
+
+                r = test_chroot_dropin(d, where, unit_name, name_or_path, extension_image_paths, NULL);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                if (!dropin) {
+                        UnitFileState state;
+
+                        r = unit_file_lookup_state(scope, &paths, unit_name, &state);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to determine unit file state of '%s': %m", unit_name);
+                        if (!IN_SET(state, UNIT_FILE_STATIC, UNIT_FILE_DISABLED, UNIT_FILE_LINKED, UNIT_FILE_LINKED_RUNTIME))
+                                found_enabled = true;
+                }
+
+                r = unit_file_is_active(bus, unit_name, error);
                 if (r < 0)
                         return r;
                 if (r > 0)
                         found_running = true;
 
-                r = set_put_strdup(&unit_files, de->d_name);
+                r = set_ensure_consume(&unit_files, &string_hash_ops_free, TAKE_PTR(unit_name));
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to add unit name '%s' to set: %m", de->d_name);
+                        return log_oom_debug();
         }
 
         *ret = found_running ? (!set_isempty(unit_files) && (flags & PORTABLE_RUNTIME) ? PORTABLE_RUNNING_RUNTIME : PORTABLE_RUNNING) :

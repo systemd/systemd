@@ -14,7 +14,7 @@ ENV{ID_SEAT}=="", IMPORT{parent}="ID_SEAT"
 
 ENV{ID_SEAT}!="", TAG+="$env{ID_SEAT}"
 {% if HAVE_ACL %}
-TAG=="uaccess|xaccess", ENV{MAJOR}!="", RUN{builtin}+="uaccess"
+TAG=="uaccess|xaccess-*", ENV{MAJOR}!="", RUN{builtin}+="uaccess"
 {% endif %}
 
 LABEL="seat_late_end"

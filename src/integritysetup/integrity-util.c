@@ -6,15 +6,24 @@
 #include "integrity-util.h"
 #include "log.h"
 #include "percent-util.h"
+#include "string-table.h"
 #include "string-util.h"
-#include "strv.h"
 #include "time-util.h"
 
-static int supported_integrity_algorithm(char *user_supplied) {
-        if (!STR_IN_SET(user_supplied, "crc32", "crc32c", "xxhash64", "sha1", "sha256", "hmac-sha256", "hmac-sha512", "phmac-sha256", "phmac-sha512"))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unsupported integrity algorithm (%s)", user_supplied);
-        return 0;
-}
+/* Integrity algorithm names used by integritysetup/integritytab */
+static const char* const integrity_algorithm_table[_INTEGRITY_ALGORITHM_MAX] = {
+        [INTEGRITY_ALGORITHM_CRC32]        = "crc32",
+        [INTEGRITY_ALGORITHM_CRC32C]       = "crc32c",
+        [INTEGRITY_ALGORITHM_XXHASH64]     = "xxhash64",
+        [INTEGRITY_ALGORITHM_SHA1]         = "sha1",
+        [INTEGRITY_ALGORITHM_SHA256]       = "sha256",
+        [INTEGRITY_ALGORITHM_HMAC_SHA256]  = "hmac-sha256",
+        [INTEGRITY_ALGORITHM_HMAC_SHA512]  = "hmac-sha512",
+        [INTEGRITY_ALGORITHM_PHMAC_SHA256] = "phmac-sha256",
+        [INTEGRITY_ALGORITHM_PHMAC_SHA512] = "phmac-sha512",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(integrity_algorithm, IntegrityAlgorithm);
 
 int parse_integrity_options(
                 const char *options,
@@ -22,7 +31,7 @@ int parse_integrity_options(
                 int *ret_percent,
                 usec_t *ret_commit_time,
                 char **ret_data_device,
-                char **ret_integrity_alg) {
+                IntegrityAlgorithm *ret_integrity_alg) {
         int r;
 
         for (;;) {
@@ -73,14 +82,12 @@ int parse_integrity_options(
                                         return log_oom();
                         }
                 } else if ((val = startswith(word, "integrity-algorithm="))) {
-                        r = supported_integrity_algorithm(val);
-                        if (r < 0)
-                                return r;
-                        if (ret_integrity_alg) {
-                                r = free_and_strdup(ret_integrity_alg, val);
-                                if (r < 0)
-                                        return log_oom();
-                        }
+                        IntegrityAlgorithm a = integrity_algorithm_from_string(val);
+                        if (a < 0)
+                                return log_error_errno(a, "Unsupported integrity algorithm (%s)", val);
+
+                        if (ret_integrity_alg)
+                                *ret_integrity_alg = a;
                 } else
                         log_warning("Encountered unknown option '%s', ignoring.", word);
         }

@@ -7,7 +7,7 @@
   Author: Auke Kok <auke-jan.h.kok@intel.com>
 ***/
 
-#include "shared-forward.h"
+#include "forward.h"
 
 typedef enum SmackAttr {
         SMACK_ATTR_ACCESS,

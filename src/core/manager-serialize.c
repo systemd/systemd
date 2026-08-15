@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-id128.h"
+
 #include "alloc-util.h"
+#include "bpf-restrict-fsaccess.h"
 #include "dbus.h"
 #include "dynamic-user.h"
 #include "fd-util.h"
@@ -10,13 +13,17 @@
 #include "glyph-util.h"
 #include "hashmap.h"
 #include "initrd-util.h"
+#include "job.h"
 #include "manager.h"
 #include "manager-serialize.h"
 #include "parse-util.h"
 #include "serialize.h"
+#include "set.h"
 #include "string-util.h"
 #include "strv.h"
 #include "syslog-util.h"
+#include "unit.h"
+#include "unit-name.h"
 #include "unit-serialize.h"
 #include "user-util.h"
 #include "varlink.h"
@@ -28,17 +35,50 @@ int manager_open_serialization(Manager *m, FILE **ret_f) {
         return open_serialization_file("systemd-state", ret_f);
 }
 
-static bool manager_timestamp_shall_serialize(ManagerObjective o, ManagerTimestamp t) {
-        if (!in_initrd() && o != MANAGER_SOFT_REBOOT)
+static bool manager_timestamp_shall_serialize(ManagerTimestamp t) {
+        if (!in_initrd())
                 return true;
 
-        /* The following timestamps only apply to the host system (or first boot in case of soft-reboot),
-         * hence only serialize them there. */
+        /* In the initrd the following timestamps describe the host boot we are about to hand over to,
+         * which re-takes them, so don't serialize them. */
         return !IN_SET(t,
                        MANAGER_TIMESTAMP_USERSPACE, MANAGER_TIMESTAMP_FINISH,
                        MANAGER_TIMESTAMP_SECURITY_START, MANAGER_TIMESTAMP_SECURITY_FINISH,
                        MANAGER_TIMESTAMP_GENERATORS_START, MANAGER_TIMESTAMP_GENERATORS_FINISH,
                        MANAGER_TIMESTAMP_UNITS_LOAD_START, MANAGER_TIMESTAMP_UNITS_LOAD_FINISH);
+}
+
+static ManagerTimestamp map_timestamp_serialization(ManagerObjective previous_objective, ManagerTimestamp t) {
+        /* Returns the timestamp field a serialized timestamp 't' should be deserialized into, given the
+         * objective the previous instance serialized under, or _MANAGER_TIMESTAMP_INVALID to drop it. */
+
+        /* Both across a soft-reboot and a switch-root the new instance runs through the early boot phases
+         * again, so drop those timestamps to have them re-measured; the firmware/loader/kernel/initrd ones
+         * are kept. */
+        if (IN_SET(previous_objective, MANAGER_SOFT_REBOOT, MANAGER_SWITCH_ROOT) &&
+            IN_SET(t,
+                   MANAGER_TIMESTAMP_USERSPACE, MANAGER_TIMESTAMP_FINISH,
+                   MANAGER_TIMESTAMP_SECURITY_START, MANAGER_TIMESTAMP_SECURITY_FINISH,
+                   MANAGER_TIMESTAMP_GENERATORS_START, MANAGER_TIMESTAMP_GENERATORS_FINISH,
+                   MANAGER_TIMESTAMP_UNITS_LOAD_START, MANAGER_TIMESTAMP_UNITS_LOAD_FINISH))
+                return _MANAGER_TIMESTAMP_INVALID;
+
+        /* Across a soft-reboot the old instance's shutdown timestamps describe the boot that is going away,
+         * so move them into the previous-shutdown-* fields. */
+        if (previous_objective == MANAGER_SOFT_REBOOT)
+                switch (t) {
+
+                case MANAGER_TIMESTAMP_SHUTDOWN_START:
+                        return MANAGER_TIMESTAMP_PREVIOUS_SHUTDOWN_START;
+
+                case MANAGER_TIMESTAMP_SHUTDOWN_FINISH:
+                        return MANAGER_TIMESTAMP_PREVIOUS_SHUTDOWN_FINISH;
+
+                default:
+                        break;
+                }
+
+        return t;
 }
 
 static void manager_serialize_uid_refs_internal(
@@ -117,11 +157,13 @@ int manager_serialize(
 
         (void) serialize_item(f, "previous-objective", manager_objective_to_string(m->objective));
         (void) serialize_item_format(f, "soft-reboots-count", "%u", m->soft_reboots_count);
+        (void) serialize_item_format(f, "kexecs-count", "%u", m->kexecs_count);
+        (void) serialize_item_format(f, "fd-store-upstream-next-index", "%" PRIu64, m->fd_store_upstream_next_index);
 
         for (ManagerTimestamp q = 0; q < _MANAGER_TIMESTAMP_MAX; q++) {
                 _cleanup_free_ char *joined = NULL;
 
-                if (!manager_timestamp_shall_serialize(m->objective, q))
+                if (!manager_timestamp_shall_serialize(q))
                         continue;
 
                 joined = strjoin(manager_timestamp_to_string(q), "-timestamp");
@@ -156,9 +198,12 @@ int manager_serialize(
 
         (void) serialize_ratelimit(f, "dump-ratelimit", &m->dump_ratelimit);
         (void) serialize_ratelimit(f, "reload-reexec-ratelimit", &m->reload_reexec_ratelimit);
+        (void) serialize_ratelimit(f, "event-loop-ratelimit", &m->event_loop_ratelimit);
 
-        (void) serialize_id128(f, "bus-id", m->bus_id);
+        (void) serialize_id128(f, "bus-id",
+                               sd_id128_is_null(m->bus_id) ? m->deserialized_bus_id : m->bus_id);
         bus_track_serialize(m->subscribed, f, "subscribed");
+        (void) serialize_strv(f, "subscribed", m->subscribed_as_strv);
 
         r = dynamic_user_serialize(m, f, fds);
         if (r < 0)
@@ -176,6 +221,10 @@ int manager_serialize(
                 return r;
 
         r = varlink_server_serialize(m->metrics_varlink_server, "metrics", f, fds);
+        if (r < 0)
+                return r;
+
+        r = bpf_restrict_fsaccess_serialize(m, f, fds);
         if (r < 0)
                 return r;
 
@@ -197,7 +246,131 @@ int manager_serialize(
         return 0;
 }
 
-static int manager_deserialize_one_unit(Manager *m, const char *name, FILE *f, FDSet *fds) {
+static int manager_collect_serialized_unit_names(FILE *f, Set **ret) {
+        _cleanup_set_free_ Set *serialized_units = NULL;
+        off_t offset;
+        int r;
+
+        assert(f);
+        assert(ret);
+
+        offset = ftello(f);
+        if (offset < 0)
+                return log_error_errno(errno, "Failed to determine serialization offset: %m");
+
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
+
+                r = read_stripped_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read serialization line: %m");
+                if (r == 0)
+                        break;
+
+                r = set_ensure_consume(&serialized_units, &string_hash_ops_free, TAKE_PTR(line));
+                if (r < 0)
+                        return log_oom();
+
+                r = unit_deserialize_state_skip(f);
+                if (r < 0)
+                        return r;
+        }
+
+        if (fseeko(f, offset, SEEK_SET) < 0)
+                return log_error_errno(errno, "Failed to reset serialization offset: %m");
+
+        *ret = TAKE_PTR(serialized_units);
+        return 0;
+}
+
+static int manager_synthesize_orphaned_unit(
+                Manager *m,
+                const char *original_name,
+                const char *canonical_name,
+                FILE *f,
+                FDSet *fds) {
+
+        _cleanup_(unit_freep) Unit *orphan = NULL;
+        _cleanup_free_ char *orphaned_name = NULL;
+        sd_id128_t rnd;
+        UnitType t;
+        int r;
+
+        assert(m);
+        assert(original_name);
+        assert(canonical_name);
+        assert(f);
+        assert(fds);
+
+        t = unit_name_to_type(original_name);
+        if (t < 0)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "Cannot synthesize unit for '%s' (overridden by alias to '%s'): invalid unit type. Skipping stale state.",
+                                         original_name, canonical_name);
+
+        /* Only transition units that track external resources and can be renamed/know aliases, forget internal ones (eg: timers) */
+        if (!unit_vtable[t]->track_orphaned)
+                return log_warning_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                         "Cannot synthesize unit for '%s' (overridden by alias to '%s'): unsupported unit type. Skipping stale state.",
+                                         original_name, canonical_name);
+
+        /* Use a naming convention with an "orphaned-" prefix to make it clear at a glance that these units
+         * were synthesized to adopt resources from a now-aliased unit */
+        r = sd_id128_randomize(&rnd);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to generate random ID for orphan unit: %m");
+
+        if (asprintf(&orphaned_name, "orphaned-r" SD_ID128_FORMAT_STR ".%s",
+                     SD_ID128_FORMAT_VAL(rnd), unit_type_to_string(t)) < 0)
+                return log_oom();
+
+        r = unit_new_for_name(m, unit_vtable[t]->object_size, orphaned_name, &orphan);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to allocate orphan unit '%s': %m", orphaned_name);
+
+        /* Force the state as we know the unit file is gone, so it will hang around as long as resources are
+         * active, and then it will be automatically collected */
+        orphan->load_state = UNIT_NOT_FOUND;
+        /* Ensure the orphan also gets garbage-collected when it ends up in 'failed' state. */
+        orphan->collect_mode = COLLECT_INACTIVE_OR_FAILED;
+
+        _cleanup_free_ char *description = strjoin("Orphaned resources adopted from aliased unit ", original_name);
+        if (!description)
+                return log_oom();
+
+        r = unit_deserialize_state(orphan, f, fds);
+        if (r < 0)
+                return log_notice_errno(r, "Failed to deserialize state into orphan unit '%s': %m", orphaned_name);
+
+        /* From this point on the serialized stream for this unit has been fully consumed, so avoid failing. */
+
+        log_warning("Unit file for '%s' was overridden by a symlink to '%s'. Synthesized orphan unit '%s' to retain tracking of the previous unit's processes.",
+                    original_name, canonical_name, orphaned_name);
+
+        /* Override Description= so it's clear what this is for and can be traced back to the original. */
+        free_and_replace(orphan->description, description);
+
+        /* Any jobs reinstalled from the deserialized state targeted the original unit. Most of them
+         * (start, restart, reload, ...) make no sense for the synthesized orphan, especially after a
+         * service-to-scope conversion, so cancel them. JOB_STOP is the exception: a stop request that was
+         * already pending on the original unit is exactly what we want to keep around, since it'll cause
+         * the synthesized unit to just go away immediately. */
+        if (orphan->job && orphan->job->type != JOB_STOP)
+                job_finish_and_invalidate(orphan->job, JOB_CANCELED, /* recursive= */ false, /* already= */ false);
+        if (orphan->nop_job)
+                job_finish_and_invalidate(orphan->nop_job, JOB_CANCELED, /* recursive= */ false, /* already= */ false);
+
+        TAKE_PTR(orphan);
+        return 0;
+}
+
+static int manager_deserialize_one_unit(
+                Manager *m,
+                const char *name,
+                FILE *f,
+                FDSet *fds,
+                Set *serialized_units) {
+
         Unit *u;
         int r;
 
@@ -207,17 +380,76 @@ static int manager_deserialize_one_unit(Manager *m, const char *name, FILE *f, F
         if (r < 0)
                 return log_notice_errno(r, "Failed to load unit \"%s\", skipping deserialization: %m", name);
 
+        if (!streq(u->id, name) &&
+            set_contains(serialized_units, u->id)) {
+                /*
+                 * The unit from the state file (name) resolved to a different canonical unit (u->id), and
+                 * the canonical unit also has its own state entry.
+                 *
+                 * This means the state entry for the unit name is stale. That is, when the state was
+                 * serialized, the name referred to an independent unit, but it now resolves as an alias to
+                 * the canonical unit. Deserializing it would overwrite the canonical unit's own serialized
+                 * state, and thus corrupt its live runtime state.
+                 *
+                 * It is very important to note that this only affects units that were independent when the
+                 * state file was written, but are now aliases (either because a reload created the symlink,
+                 * or the symlink existed but this is the first reload). Normal aliases that were already
+                 * aliases during the most recent serialization are filtered out in manager_serialize(), so
+                 * they never appear in the state file.
+                 *
+                 * If the canonical unit does not have its own state entry, then this is instead a rename or
+                 * canonical ID change, and this state entry is the only state we have for the unit. In that
+                 * case we must preserve it. After doing so, we insert the canonical unit's ID into the set
+                 * so that any further aliases resolving to the same unit are skipped.
+                 *
+                 * The serialized data represents the old, independent unit. Deserializing this stale state
+                 * onto the canonical unit would corrupt its live state. Instead, we synthesize a new unloaded
+                 * unit with a unique name and migrate the cgroup/PID/etc. tracking from the stale state
+                 * into it, so that the resources from the previously independent unit remain tracked.
+                 *
+                 * Take as an example, a.service is running. Someone created symlink b.service -> a.service.
+                 * On first reload, the state file still has b.service as an independent unit (from before
+                 * the symlink existed), but b.service now resolves to a.service. We retain a.service's
+                 * running state, and synthesize an unloaded unit to keep tracking the processes that
+                 * b.service used to own.
+                 *
+                 * Note: Log messages from this code path are checked in TEST-07-PID1.alias-corruption.sh,
+                 * so the test case may need adjustment if they are changed.
+                 */
+                r = manager_synthesize_orphaned_unit(m, name, u->id, f, fds);
+                if (r < 0) /* If we fail to orphan for any reason, then discard the unit */
+                        r = unit_deserialize_state_skip(f);
+                return r;
+        }
+
         r = unit_deserialize_state(u, f, fds);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0)
                 return log_notice_errno(r, "Failed to deserialize unit \"%s\", skipping: %m", name);
 
+        /* If this unit was deserialized under an alias name (that is, it is a rename), record the canonical
+         * ID so that any further aliases pointing to the same unit are correctly skipped. */
+        if (!streq(u->id, name)) {
+                r = set_put_strdup(&serialized_units, u->id);
+                if (r < 0)
+                        return log_oom();
+        }
+
         return 0;
 }
 
-static int manager_deserialize_units(Manager *m, FILE *f, FDSet *fds) {
+static int manager_deserialize_units(
+                Manager *m,
+                FILE *f,
+                FDSet *fds) {
+
+        _cleanup_set_free_ Set *serialized_units = NULL;
         int r;
+
+        r = manager_collect_serialized_unit_names(f, &serialized_units);
+        if (r < 0)
+                return r;
 
         for (;;) {
                 _cleanup_free_ char *line = NULL;
@@ -229,7 +461,7 @@ static int manager_deserialize_units(Manager *m, FILE *f, FDSet *fds) {
                 if (r == 0)
                         break;
 
-                r = manager_deserialize_one_unit(m, line, f, fds);
+                r = manager_deserialize_one_unit(m, line, f, fds, serialized_units);
                 if (r == -ENOMEM)
                         return r;
                 if (r < 0) {
@@ -283,6 +515,38 @@ static void manager_deserialize_uid_refs_one(Manager *m, const char *value) {
 
 static void manager_deserialize_gid_refs_one(Manager *m, const char *value) {
         manager_deserialize_uid_refs_one_internal(&m->gid_refs, value);
+}
+
+static void deserialize_restrict_fsaccess(Manager *m, const char *l, FDSet *fds) {
+        const char *val;
+        int fd;
+
+        FOREACH_ELEMENT(name, restrict_fsaccess_link_names) {
+                val = startswith(l, *name);
+                if (!val)
+                        continue;
+                val = startswith(val, "=");
+                if (!val)
+                        continue;
+                fd = deserialize_fd(fds, val);
+                if (fd < 0) {
+                        log_warning_errno(fd, "bpf-restrict-fsaccess: Failed to deserialize FD for %s: %m", *name);
+                        return;
+                }
+                close_and_replace(m->restrict_fsaccess_link_fds[name - restrict_fsaccess_link_names], fd);
+                return;
+        }
+
+        val = startswith(l, "restrict-fsaccess-bss-map=");
+        if (!val)
+                return;
+
+        fd = deserialize_fd(fds, val);
+        if (fd < 0) {
+                log_warning_errno(fd, "bpf-restrict-fsaccess: Failed to deserialize FD for .bss map: %m");
+                return;
+        }
+        close_and_replace(m->restrict_fsaccess_bss_map_fd, fd);
 }
 
 int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
@@ -515,10 +779,14 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         else
                                 (void) varlink_server_deserialize_one(m->varlink_server, val, fds);
 
-                } else if ((val = startswith(l, "dump-ratelimit=")))
+                } else if (startswith(l, "restrict-fsaccess-"))
+                        deserialize_restrict_fsaccess(m, l, fds);
+                else if ((val = startswith(l, "dump-ratelimit=")))
                         deserialize_ratelimit(&m->dump_ratelimit, "dump-ratelimit", val);
                 else if ((val = startswith(l, "reload-reexec-ratelimit=")))
                         deserialize_ratelimit(&m->reload_reexec_ratelimit, "reload-reexec-ratelimit", val);
+                else if ((val = startswith(l, "event-loop-ratelimit=")))
+                        deserialize_ratelimit(&m->event_loop_ratelimit, "event-loop-ratelimit", val);
                 else if ((val = startswith(l, "soft-reboots-count="))) {
                         unsigned n;
 
@@ -526,6 +794,16 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                 log_notice("Failed to parse soft reboots counter '%s', ignoring.", val);
                         else
                                 m->soft_reboots_count = n;
+                } else if ((val = startswith(l, "kexecs-count="))) {
+                        unsigned n;
+
+                        if (safe_atou(val, &n) < 0)
+                                log_notice("Failed to parse kexecs counter '%s', ignoring.", val);
+                        else
+                                m->kexecs_count = n;
+                } else if ((val = startswith(l, "fd-store-upstream-next-index="))) {
+                        if (safe_atou64(val, &m->fd_store_upstream_next_index) < 0)
+                                log_notice("Failed to parse fd-store-upstream-next-index '%s', ignoring.", val);
                 } else if ((val = startswith(l, "previous-objective="))) {
                         ManagerObjective objective;
 
@@ -548,9 +826,11 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                         break;
                         }
 
-                        if (q < _MANAGER_TIMESTAMP_MAX) /* found it */
-                                (void) deserialize_dual_timestamp(val, m->timestamps + q);
-                        else if (!STARTSWITH_SET(l, "kdbus-fd=", "honor-device-enumeration=", "ready-sent=", "cgroups-agent-fd=")) /* ignore deprecated values */
+                        if (q < _MANAGER_TIMESTAMP_MAX) { /* found it */
+                                ManagerTimestamp target = map_timestamp_serialization(m->previous_objective, q);
+                                if (target >= 0)
+                                        (void) deserialize_dual_timestamp(val, m->timestamps + target);
+                        } else if (!STARTSWITH_SET(l, "kdbus-fd=", "honor-device-enumeration=", "ready-sent=", "cgroups-agent-fd=")) /* ignore deprecated values */
                                 log_notice("Unknown serialization item '%s', ignoring.", l);
                 }
         }

@@ -1,13 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <libcryptsetup.h>
 #include <string.h>
+#include <syslog.h>
 
 #include "sd-json.h"
 
 #include "alloc-util.h"
 #include "cryptsetup-token.h"
 #include "cryptsetup-token-util.h"
+#include "dlopen-note.h"
 #include "luks2-fido2.h"
 #include "memory-util.h"
 #include "version.h"
@@ -17,7 +18,10 @@
 #define TOKEN_VERSION_MINOR "0"
 
 /* for libcryptsetup debug purpose */
-_public_ const char *cryptsetup_token_version(void) {
+_public_ const char* cryptsetup_token_version(void) {
+        LIBCRYPTSETUP_NOTE(required);
+        LIBFIDO2_NOTE(suggested);
+
         return TOKEN_VERSION_MAJOR "." TOKEN_VERSION_MINOR " systemd-v" PROJECT_VERSION_FULL " (" GIT_VERSION ")";
 }
 
@@ -37,8 +41,12 @@ _public_ int cryptsetup_token_open_pin(
         assert(pin || pin_size == 0);
         assert(token >= 0);
 
+        r = dlopen_cryptsetup(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
         /* This must not fail at this moment (internal error) */
-        r = crypt_token_json_get(cd, token, &json);
+        r = sym_crypt_token_json_get(cd, token, &json);
         /* Use assert_se() here to avoid emitting warning with -DNDEBUG */
         assert_se(token == r);
         assert(json);
@@ -97,6 +105,9 @@ _public_ void cryptsetup_token_dump(
         _cleanup_free_ char *rp_id = NULL, *cid_str = NULL, *salt_str = NULL;
 
         assert(json);
+
+        if (dlopen_cryptsetup(LOG_DEBUG) < 0)
+                return;
 
         r = parse_luks2_fido2_data(cd, json, &rp_id, &salt, &salt_size, &cid, &cid_size, &required);
         if (r < 0)
@@ -162,7 +173,11 @@ _public_ int cryptsetup_token_validate(
 
         assert(json);
 
-        r = sd_json_parse(json, 0, &v, NULL, NULL);
+        r = dlopen_cryptsetup(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        r = sd_json_parse(json, SD_JSON_PARSE_MUST_BE_OBJECT, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (r < 0)
                 return crypt_log_debug_errno(cd, r, "Could not parse " TOKEN_NAME " json object: %m.");
 

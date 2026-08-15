@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "basic-forward.h"
+#include "forward.h"
 
 typedef enum ImageClass {
         IMAGE_MACHINE,
@@ -55,3 +55,6 @@ int load_os_release_pairs_with_prefix(const char *root, const char *prefix, char
 int os_release_support_ended(const char *support_end, bool quiet, usec_t *ret_eol);
 
 const char* os_release_pretty_name(const char *pretty_name, const char *name);
+
+bool use_fancy_name(const char *fancy_name);
+char *unescape_fancy_name(char **fancy_name);

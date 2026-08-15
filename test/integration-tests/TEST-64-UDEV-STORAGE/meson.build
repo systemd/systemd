@@ -115,7 +115,7 @@ udev_storage_tests += udev_storage_test_template + {
 }
 
 cmdline = []
-qemu_args = []
+qemu_args = ['-device', 'virtio-scsi-pci,id=scsi0']
 
 # Add 16 multipath devices, each backed by 4 paths
 foreach ndisk : range(16)
@@ -137,7 +137,7 @@ udev_storage_tests += udev_storage_test_template + {
 }
 
 cmdline = []
-qemu_args = []
+qemu_args = ['-device', 'virtio-scsi-pci,id=scsi0']
 
 foreach i : range(10)
         id = f'drivesimultaneousevents@i@'
@@ -176,23 +176,23 @@ udev_storage_tests += udev_storage_test_template + {
 cmdline = []
 qemu_args = []
 
-foreach i : range(20)
+foreach i : range(12)
         cmdline += [f'--drive=nvme@i@:1M::']
 endforeach
 
-foreach i : range(5)
+foreach i : range(3)
         qemu_args += ['-device', f'nvme,drive=nvme@i@,serial=deadbeef@i@,max_ioqpairs=8']
 endforeach
 
-foreach i : range(5, 10)
+foreach i : range(3, 6)
         qemu_args += ['-device', f'"nvme,drive=nvme@i@,serial=    deadbeef  @i@   ,max_ioqpairs=8"']
 endforeach
 
-foreach i : range(10, 15)
+foreach i : range(6, 9)
         qemu_args += ['-device', f'"nvme,drive=nvme@i@,serial=    dead/beef/@i@   ,max_ioqpairs=8"']
 endforeach
 
-foreach i : range(15, 20)
+foreach i : range(9, 12)
         qemu_args += ['-device', f'"nvme,drive=nvme@i@,serial=dead/../../beef/@i@,max_ioqpairs=8"']
 endforeach
 

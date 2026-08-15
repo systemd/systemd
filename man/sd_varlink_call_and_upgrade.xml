@@ -1,0 +1,177 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd_varlink_call_and_upgrade" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_varlink_call_and_upgrade</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_varlink_call_and_upgrade</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_varlink_call_and_upgrade</refname>
+    <refname>sd_varlink_call_and_upgradeb</refname>
+    <refname>sd_varlink_call_and_upgradebo</refname>
+
+    <refpurpose>Invoke a Varlink method and take over the connection for a raw protocol</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-varlink.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_call_and_upgrade</function></funcdef>
+        <paramdef>sd_varlink *<parameter>link</parameter></paramdef>
+        <paramdef>const char *<parameter>method</parameter></paramdef>
+        <paramdef>sd_json_variant *<parameter>parameters</parameter></paramdef>
+        <paramdef>sd_json_variant **<parameter>ret_parameters</parameter></paramdef>
+        <paramdef>const char **<parameter>ret_error_id</parameter></paramdef>
+        <paramdef>int *<parameter>ret_input_fd</parameter></paramdef>
+        <paramdef>int *<parameter>ret_output_fd</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_call_and_upgradeb</function></funcdef>
+        <paramdef>sd_varlink *<parameter>link</parameter></paramdef>
+        <paramdef>const char *<parameter>method</parameter></paramdef>
+        <paramdef>sd_json_variant **<parameter>ret_parameters</parameter></paramdef>
+        <paramdef>const char **<parameter>ret_error_id</parameter></paramdef>
+        <paramdef>int *<parameter>ret_input_fd</parameter></paramdef>
+        <paramdef>int *<parameter>ret_output_fd</parameter></paramdef>
+        <paramdef>…</paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_call_and_upgradebo</function></funcdef>
+        <paramdef>sd_varlink *<parameter>link</parameter></paramdef>
+        <paramdef>const char *<parameter>method</parameter></paramdef>
+        <paramdef>sd_json_variant **<parameter>ret_parameters</parameter></paramdef>
+        <paramdef>const char **<parameter>ret_error_id</parameter></paramdef>
+        <paramdef>int *<parameter>ret_input_fd</parameter></paramdef>
+        <paramdef>int *<parameter>ret_output_fd</parameter></paramdef>
+        <paramdef>…</paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>These functions implement the client side of a Varlink <emphasis>protocol upgrade</emphasis>. They
+    are the counterpart of the server-side
+    <citerefentry><refentrytitle>sd_varlink_reply_and_upgrade</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    family. If a method call is issued this way, the connection may switch, after the reply, from the Varlink
+    protocol to an arbitrary, non-Varlink ("raw") protocol spoken over the underlying socket or pipe file
+    descriptors, in a manner similar to the <literal>Upgrade:</literal> mechanism of HTTP.</para>
+
+    <para><function>sd_varlink_call_and_upgrade()</function> synchronously invokes the method
+    <parameter>method</parameter> on the connection <parameter>link</parameter>, requesting a protocol upgrade,
+    and waits for the reply. It takes the Varlink connection object, the method name, a JSON object with the
+    method call parameters (which may be <constant>NULL</constant>), two output pointers for the reply
+    parameters and a possible error identifier, and two output pointers for the file descriptors. The reply
+    parameters returned in <parameter>ret_parameters</parameter> and the error identifier returned in
+    <parameter>ret_error_id</parameter> are borrowed references that remain valid only until the connection is
+    closed or unreffed. Either of the two may be passed as <constant>NULL</constant> if the information is not
+    needed.</para>
+
+    <para>If the server replies with a regular reply (rather than a Varlink error) the connection is upgraded:
+    it is disconnected from the Varlink protocol, and ownership of the underlying file descriptors is
+    transferred to the caller via <parameter>ret_input_fd</parameter> and <parameter>ret_output_fd</parameter>,
+    which is responsible for eventually closing them with
+    <citerefentry project='man-pages'><refentrytitle>close</refentrytitle><manvolnum>2</manvolnum></citerefentry>.
+    If the server replies with a Varlink error instead, the connection is <emphasis>not</emphasis> upgraded and
+    no file descriptors are returned; the error identifier is reported in <parameter>ret_error_id</parameter>
+    (if non-<constant>NULL</constant>), otherwise a negative errno-style error derived from it is returned.</para>
+
+    <para>The returned file descriptors are switched to blocking mode. For bidirectional sockets a single
+    underlying file descriptor carries both directions; in this case <parameter>ret_input_fd</parameter> and
+    <parameter>ret_output_fd</parameter> are returned as two independent (duplicated) descriptors referring to
+    the same socket, so they may be closed separately. For transports backed by a pair of pipes the two
+    descriptors differ and refer to the distinct read and write ends. At least one of
+    <parameter>ret_input_fd</parameter> or <parameter>ret_output_fd</parameter> must be
+    non-<constant>NULL</constant>.</para>
+
+    <para><function>sd_varlink_call_and_upgradeb()</function> is similar to
+    <function>sd_varlink_call_and_upgrade()</function>, but instead of expecting a fully constructed
+    <type>sd_json_variant</type> object carrying the method call parameters, this object is constructed
+    on-the-fly from the variadic argument list, in a style identical to
+    <citerefentry><refentrytitle>sd_json_build</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    <function>sd_varlink_call_and_upgradebo()</function> is identical to
+    <function>sd_varlink_call_and_upgradeb()</function>, but an enclosing JSON object is added implicitly, so
+    that the argument list is expected to consist of object field pairs only, in a style identical to
+    <citerefentry><refentrytitle>sd_json_buildo</refentrytitle><manvolnum>3</manvolnum></citerefentry>. This
+    relationship mirrors that of
+    <citerefentry><refentrytitle>sd_varlink_call</refentrytitle><manvolnum>3</manvolnum></citerefentry> and its
+    <function>sd_varlink_callb()</function>/<function>sd_varlink_callbo()</function> variants.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, these functions return a positive integer if the connection was upgraded, or zero if the
+    server returned a Varlink error and <parameter>ret_error_id</parameter> was set to it. On failure, they
+    return a negative errno-style error code.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>An argument is invalid.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOTCONN</constant></term>
+
+          <listitem><para>The Varlink connection object is not connected.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EPROTO</constant></term>
+
+          <listitem><para>A protocol error occurred, for example the server sent unexpected raw protocol data
+          before the upgrade completed.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
+
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>History</title>
+    <para><function>sd_varlink_call_and_upgrade()</function> was added in version 261.</para>
+    <para><function>sd_varlink_call_and_upgradeb()</function> and
+    <function>sd_varlink_call_and_upgradebo()</function> were added in version 262.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-varlink</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_varlink_call</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_varlink_reply_and_upgrade</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_json_build</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

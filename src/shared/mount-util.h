@@ -1,14 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
+#include "forward.h"
 
 typedef struct SubMount {
         char *path;
         int mount_fd;
 } SubMount;
 
-void sub_mount_array_free(SubMount *s, size_t n);
+void sub_mount_array_free(SubMount *array, size_t n);
 
 int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_mounts);
 int bind_mount_submounts(

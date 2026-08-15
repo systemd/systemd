@@ -171,13 +171,15 @@
 
     <variablelist>
       <varlistentry>
+        <term><option>-n</option></term>
         <term><option>--dry-run=</option></term>
 
         <listitem><para>Takes a boolean. If this switch is not specified, <option>--dry-run=yes</option> is
         the implied default. Controls whether <filename>systemd-repart</filename> executes the requested
         re-partition operations or whether it should only show what it would do. Unless
         <option>--dry-run=no</option> is specified <filename>systemd-repart</filename> will not actually
-        touch the device's partition table.</para>
+        touch the device's partition table. The short option <option>-n</option> is equivalent to
+        <option>--dry-run=yes</option> and was added in version 262.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
@@ -242,6 +244,18 @@
         limit.</para>
 
         <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--cow=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>Controls copy-on-write for newly created image files on filesystems that support it.
+        If true, copy-on-write is enabled; if false, it is disabled. If set to <literal>auto</literal>, the
+        filesystem or parent directory default is left unchanged. Copy-on-write allows files to be reflinked
+        into the image, reducing both build time and disk usage, but may result in fragmentation for images
+        subject to frequent random writes. Defaults to <literal>auto</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -446,6 +460,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--tpm2-public-key-policyref=<replaceable>STRING</replaceable></option></term>
+
+        <listitem><para>Configures the policy reference to use together with the signed PCR policy configured
+        via <option>--tpm2-public-key=</option>. See
+        <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for details on this option.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--tpm2-pcrlock=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>Configures a TPM2 pcrlock policy to bind encryption to. See
@@ -536,6 +561,19 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--grain-size=<replaceable>BYTES</replaceable></option></term>
+
+        <listitem><para>This option controls the partition alignment granularity used when placing
+        partitions. It takes a power-of-2 value that is at least the sector size. All partition start
+        offsets will be rounded up to a multiple of this value. Defaults to
+        <constant>MAX(4096, sector_size)</constant>, matching the conventional 4 KiB alignment. Setting
+        this to <literal>1M</literal> ensures proper alignment for modern storage devices even after
+        small fixed-size partitions such as a verity signature partition.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--architecture=<replaceable>ARCH</replaceable></option></term>
 
         <listitem><para>This option allows overriding the architecture used for architecture specific
@@ -585,11 +623,12 @@
         <listitem><para>Instructs <command>systemd-repart</command> to synthesize partition definitions from
         the partition table in the given image or device. This option can be specified multiple times to
         synthesize definitions from each of the given images or devices. The generated definitions will copy
-        the partitions into the destination partition table. The copied partitions will have the same size,
-        metadata and contents but might have a different partition number and might be located at a different
-        offset in the destination partition table. These definitions can be combined with partition
-        definitions read from regular partition definition files. The synthesized definitions take precedence
-        over the definitions read from partition definition files.</para>
+        the partitions into the destination partition table. The copied partitions will have the same or a
+        slightly larger size (partitions may be enlarged to align to the new grain or sector size), metadata
+        and contents but might have a different partition number and might be located at a different offset
+        in the destination partition table. These definitions can be combined with partition definitions read
+        from regular partition definition files. The synthesized definitions take precedence over the
+        definitions read from partition definition files.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
@@ -705,6 +744,55 @@
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--el-torito=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>Write a minimal ISO9660 header with El Torito boot catalog. That will
+        boot the ESP on EFI firmware.</para>
+
+        <para>The ISO9660 filesystem created by it will be empty. The initramfs is expected to create a
+        partitionable loop device on top of the device to change the block size and enable GPT
+        partitions.</para>
+
+        <para>The disk requires at least one partition with <varname>Type=esp</varname>. The first one will
+        be the one referenced in the boot catalog.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--el-torito-system=<replaceable>STRING</replaceable></option></term>
+
+        <listitem><para>When creating an ISO9660 header, this value will be used as the system identifier.
+        This is useful for the media to be matched against osinfo db.</para>
+
+        <para>The value is limited to 32 characters.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--el-torito-volume=<replaceable>STRING</replaceable></option></term>
+
+        <listitem><para>When creating an ISO9660 header, this value will be used as volume identifier.
+        This is useful for the media to be matched against osinfo db.</para>
+
+        <para>The value is limited to 32 characters.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--el-torito-publisher=<replaceable>STRING</replaceable></option></term>
+
+        <listitem><para>When creating an ISO9660 header, this value will be used as publisher identifier.
+        This is useful for the media to be matched against osinfo db.</para>
+
+        <para>The value is limited to 128 characters.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
@@ -744,7 +832,7 @@ systemd-repart -C \
 systemd-confext refresh</programlisting>
 
       <para>The DDI generated that way may be applied to the system with
-      <citerefentry><refentrytitle>systemd-confext</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+      <citerefentry><refentrytitle>systemd-confext</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
     </example>
 
     <example>
@@ -819,7 +907,7 @@ systemd-repart --definitions repart.d \
   --copy-source=/tmp/tree/ \
   --empty=create --size=600M \
   --json=short \
-  /tmp/img.raw | | jq --raw-output0 .[-1].roothash &gt; /tmp/img.roothash
+  /tmp/img.raw | jq --raw-output0 ".[-1].roothash" &gt; /tmp/img.roothash
 
 openssl smime -sign -in /tmp/img.roothash \
   -inkey verity-private-key.pem \

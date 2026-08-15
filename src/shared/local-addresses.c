@@ -53,6 +53,9 @@ bool has_local_address(const struct local_address *addresses, size_t n_addresses
 static void suppress_duplicates(struct local_address *list, size_t *n_list) {
         size_t old_size, new_size;
 
+        POINTER_MAY_BE_NULL(list);
+        assert(n_list);
+
         /* Removes duplicate entries, assumes the list of addresses is already sorted. Updates in-place. */
 
         if (*n_list < 2) /* list with less than two entries can't have duplicates */
@@ -88,6 +91,7 @@ static int add_local_address_full(
         assert(ifindex > 0);
         assert(IN_SET(family, AF_INET, AF_INET6));
         assert(address);
+        POINTER_MAY_BE_NULL(prefsrc);
 
         if (!GREEDY_REALLOC(*list, *n_list + 1))
                 return -ENOMEM;

@@ -2,8 +2,6 @@
 
 #include <linux/filter.h>
 #include <linux/netlink.h>
-#include <linux/sockios.h>
-#include <sys/ioctl.h>
 #include <unistd.h>
 
 #include "sd-device.h"
@@ -24,9 +22,9 @@
 #include "log.h"
 #include "log-context.h"
 #include "mountpoint-util.h"
+#include "namespace-util.h"
 #include "set.h"
 #include "socket-util.h"
-#include "stat-util.h"
 #include "string-util.h"
 #include "uid-range.h"
 
@@ -66,27 +64,6 @@ struct sd_device_monitor {
         sd_device_monitor_handler_t callback;
         void *userdata;
 };
-
-#define UDEV_MONITOR_MAGIC                0xfeedcafe
-
-typedef struct monitor_netlink_header {
-        /* "libudev" prefix to distinguish libudev and kernel messages */
-        char prefix[8];
-        /* Magic to protect against daemon <-> Library message format mismatch
-         * Used in the kernel from socket filter rules; needs to be stored in network order */
-        unsigned magic;
-        /* Total length of header structure known to the sender */
-        unsigned header_size;
-        /* Properties string buffer */
-        unsigned properties_off;
-        unsigned properties_len;
-        /* Hashes of primary device properties strings, to let libudev subscribers
-         * use in-kernel socket filters; values need to be stored in network order */
-        unsigned filter_subsystem_hash;
-        unsigned filter_devtype_hash;
-        unsigned filter_tag_bloom_hi;
-        unsigned filter_tag_bloom_lo;
-} monitor_netlink_header;
 
 static int monitor_set_nl_address(sd_device_monitor *m) {
         union sockaddr_union snl;
@@ -210,35 +187,15 @@ int device_monitor_new_full(sd_device_monitor **ret, MonitorNetlinkGroup group, 
         }
 
         if (DEBUG_LOGGING) {
-                _cleanup_close_ int netns = -EBADF;
-
                 /* So here's the thing: only AF_NETLINK sockets from the main network namespace will get
                  * hardware events. Let's check if ours is from there, and if not generate a debug message,
                  * since we cannot possibly work correctly otherwise. This is just a safety check to make
                  * things easier to debug. */
-
-                netns = ioctl(m->sock, SIOCGSKNS);
-                if (netns < 0)
-                        log_monitor_errno(m, errno, "Unable to get network namespace of udev netlink socket, unable to determine if we are in host netns, ignoring: %m");
-                else {
-                        struct stat a, b;
-
-                        if (fstat(netns, &a) < 0) {
-                                r = log_monitor_errno(m, errno, "Failed to stat netns of udev netlink socket: %m");
-                                goto fail;
-                        }
-
-                        if (stat("/proc/1/ns/net", &b) < 0) {
-                                if (ERRNO_IS_PRIVILEGE(errno))
-                                        /* If we can't access PID1's netns info due to permissions, it's fine, this is a
-                                         * safety check only after all. */
-                                        log_monitor_errno(m, errno, "No permission to stat PID1's netns, unable to determine if we are in host netns, ignoring: %m");
-                                else
-                                        log_monitor_errno(m, errno, "Failed to stat PID1's netns, ignoring: %m");
-
-                        } else if (!stat_inode_same(&a, &b))
-                                log_monitor(m, "Netlink socket we listen on is not from host netns, we won't see device events.");
-                }
+                r = network_namespace_is_init(m->sock);
+                if (r < 0)
+                        log_monitor_errno(m, r, "Failed to check if we are in the main network namespace, ignoring: %m");
+                else if (r == 0)
+                        log_monitor(m, "Netlink socket we listen on is not from the main network namespace, we won't see device events.");
         }
 
         /* Let's bump the receive buffer size, but only if we are not called via socket activation, as in
@@ -642,10 +599,10 @@ _public_ int sd_device_monitor_receive(sd_device_monitor *m, sd_device **ret) {
                                                  "Invalid message signature (%x != %x).",
                                                  message.nlh->magic, htobe32(UDEV_MONITOR_MAGIC));
 
-                if (message.nlh->properties_off + 32 > (size_t) n)
+                if (message.nlh->properties_off > LESS_BY((size_t) n, 32u))
                         return log_monitor_errno(m, SYNTHETIC_ERRNO(EAGAIN),
-                                                 "Invalid offset for properties (%u > %zi).",
-                                                 message.nlh->properties_off + 32, n);
+                                                 "Invalid properties offset (%u) for message of length %zi.",
+                                                 message.nlh->properties_off, n);
 
                 offset = message.nlh->properties_off;
 
@@ -781,30 +738,57 @@ int device_monitor_send(
         return count;
 }
 
-static void bpf_stmt(struct sock_filter *ins, unsigned *i,
-                     unsigned short code, unsigned data) {
+static int bpf_stmt_impl(struct sock_filter *ins, size_t *i, size_t n_ins,
+                         unsigned short code, unsigned data) {
+        assert(ins);
+        assert(i);
+
+        if (*i >= n_ins)
+                return -E2BIG;
+
         ins[(*i)++] = (struct sock_filter) {
                 .code = code,
                 .k = data,
         };
+        return 0;
 }
 
-static void bpf_jmp(struct sock_filter *ins, unsigned *i,
-                    unsigned short code, unsigned data,
-                    unsigned short jt, unsigned short jf) {
+#define bpf_stmt(ins, i, code, data) \
+        bpf_stmt_impl((ins), (i), ELEMENTSOF(ins), (code), (data))
+
+static int bpf_jmp_impl(struct sock_filter *ins, size_t *i, size_t n_ins,
+                        unsigned short code, unsigned data,
+                        unsigned jt, unsigned jf) {
+        assert(ins);
+        assert(i);
+
+        if (*i >= n_ins)
+                return -E2BIG;
+
+        /* The jump offsets are stored in single bytes (struct sock_filter.jt/.jf are __u8). A larger
+         * offset would be silently truncated and make the filter branch to the wrong instruction, i.e.
+         * drop events that should match. */
+        if (jt > UINT8_MAX || jf > UINT8_MAX)
+                return -E2BIG;
+
         ins[(*i)++] = (struct sock_filter) {
                 .code = code,
                 .jt = jt,
                 .jf = jf,
                 .k = data,
         };
+        return 0;
 }
+
+#define bpf_jmp(ins, i, code, data, jt, jf) \
+        bpf_jmp_impl((ins), (i), ELEMENTSOF(ins), (code), (data), (jt), (jf))
 
 _public_ int sd_device_monitor_filter_update(sd_device_monitor *m) {
         struct sock_filter ins[512] = {};
         struct sock_fprog filter;
         const char *subsystem, *devtype, *tag;
-        unsigned i = 0;
+        size_t i = 0;
+        int r;
 
         assert_return(m, -EINVAL);
 
@@ -819,11 +803,11 @@ _public_ int sd_device_monitor_filter_update(sd_device_monitor *m) {
         }
 
         /* load magic in A */
-        bpf_stmt(ins, &i, BPF_LD|BPF_W|BPF_ABS, offsetof(monitor_netlink_header, magic));
+        r = bpf_stmt(ins, &i, BPF_LD|BPF_W|BPF_ABS, offsetof(monitor_netlink_header, magic));
         /* jump if magic matches */
-        bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, UDEV_MONITOR_MAGIC, 1, 0);
+        RET_GATHER(r, bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, UDEV_MONITOR_MAGIC, 1, 0));
         /* wrong magic, pass packet */
-        bpf_stmt(ins, &i, BPF_RET|BPF_K, 0xffffffff);
+        RET_GATHER(r, bpf_stmt(ins, &i, BPF_RET|BPF_K, 0xffffffff));
 
         if (!set_isempty(m->tag_filter)) {
                 int tag_matches = set_size(m->tag_filter);
@@ -835,23 +819,23 @@ _public_ int sd_device_monitor_filter_update(sd_device_monitor *m) {
                         uint32_t tag_bloom_lo = tag_bloom_bits & 0xffffffff;
 
                         /* load device bloom bits in A */
-                        bpf_stmt(ins, &i, BPF_LD|BPF_W|BPF_ABS, offsetof(monitor_netlink_header, filter_tag_bloom_hi));
+                        RET_GATHER(r, bpf_stmt(ins, &i, BPF_LD|BPF_W|BPF_ABS, offsetof(monitor_netlink_header, filter_tag_bloom_hi)));
                         /* clear bits (tag bits & bloom bits) */
-                        bpf_stmt(ins, &i, BPF_ALU|BPF_AND|BPF_K, tag_bloom_hi);
+                        RET_GATHER(r, bpf_stmt(ins, &i, BPF_ALU|BPF_AND|BPF_K, tag_bloom_hi));
                         /* jump to next tag if it does not match */
-                        bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, tag_bloom_hi, 0, 3);
+                        RET_GATHER(r, bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, tag_bloom_hi, 0, 3));
 
                         /* load device bloom bits in A */
-                        bpf_stmt(ins, &i, BPF_LD|BPF_W|BPF_ABS, offsetof(monitor_netlink_header, filter_tag_bloom_lo));
+                        RET_GATHER(r, bpf_stmt(ins, &i, BPF_LD|BPF_W|BPF_ABS, offsetof(monitor_netlink_header, filter_tag_bloom_lo)));
                         /* clear bits (tag bits & bloom bits) */
-                        bpf_stmt(ins, &i, BPF_ALU|BPF_AND|BPF_K, tag_bloom_lo);
+                        RET_GATHER(r, bpf_stmt(ins, &i, BPF_ALU|BPF_AND|BPF_K, tag_bloom_lo));
                         /* jump behind end of tag match block if tag matches */
                         tag_matches--;
-                        bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, tag_bloom_lo, 1 + (tag_matches * 6), 0);
+                        RET_GATHER(r, bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, tag_bloom_lo, 1 + (tag_matches * 6), 0));
                 }
 
                 /* nothing matched, drop packet */
-                bpf_stmt(ins, &i, BPF_RET|BPF_K, 0);
+                RET_GATHER(r, bpf_stmt(ins, &i, BPF_RET|BPF_K, 0));
         }
 
         /* add all subsystem matches */
@@ -860,33 +844,33 @@ _public_ int sd_device_monitor_filter_update(sd_device_monitor *m) {
                         uint32_t hash = string_hash32(subsystem);
 
                         /* load device subsystem value in A */
-                        bpf_stmt(ins, &i, BPF_LD|BPF_W|BPF_ABS, offsetof(monitor_netlink_header, filter_subsystem_hash));
+                        RET_GATHER(r, bpf_stmt(ins, &i, BPF_LD|BPF_W|BPF_ABS, offsetof(monitor_netlink_header, filter_subsystem_hash)));
                         if (!devtype) {
                                 /* jump if subsystem does not match */
-                                bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, hash, 0, 1);
+                                RET_GATHER(r, bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, hash, 0, 1));
                         } else {
                                 /* jump if subsystem does not match */
-                                bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, hash, 0, 3);
+                                RET_GATHER(r, bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, hash, 0, 3));
                                 /* load device devtype value in A */
-                                bpf_stmt(ins, &i, BPF_LD|BPF_W|BPF_ABS, offsetof(monitor_netlink_header, filter_devtype_hash));
+                                RET_GATHER(r, bpf_stmt(ins, &i, BPF_LD|BPF_W|BPF_ABS, offsetof(monitor_netlink_header, filter_devtype_hash)));
                                 /* jump if value does not match */
                                 hash = string_hash32(devtype);
-                                bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, hash, 0, 1);
+                                RET_GATHER(r, bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, hash, 0, 1));
                         }
 
                         /* matched, pass packet */
-                        bpf_stmt(ins, &i, BPF_RET|BPF_K, 0xffffffff);
-
-                        if (i+1 >= ELEMENTSOF(ins))
-                                return -E2BIG;
+                        RET_GATHER(r, bpf_stmt(ins, &i, BPF_RET|BPF_K, 0xffffffff));
                 }
 
                 /* nothing matched, drop packet */
-                bpf_stmt(ins, &i, BPF_RET|BPF_K, 0);
+                RET_GATHER(r, bpf_stmt(ins, &i, BPF_RET|BPF_K, 0));
         }
 
         /* matched, pass packet */
-        bpf_stmt(ins, &i, BPF_RET|BPF_K, 0xffffffff);
+        RET_GATHER(r, bpf_stmt(ins, &i, BPF_RET|BPF_K, 0xffffffff));
+
+        if (r < 0)
+                return r;
 
         /* install filter */
         filter = (struct sock_fprog) {

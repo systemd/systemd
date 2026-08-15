@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/filter.h>
+#include <linux/if_ether.h>
 
 #include "fd-util.h"
 #include "lldp-network.h"

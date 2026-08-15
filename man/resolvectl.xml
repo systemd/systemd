@@ -72,6 +72,14 @@
         <para>If combined with <option>--json=</option> (only supported in combination with
         <option>--type=</option>) will output the resource record data in a JSON object.</para>
 
+        <para>If <command>systemd-resolved</command> returns a resolution error while
+        <option>--json=</option> is enabled, the error is output as a JSON object. It contains the queried
+        <varname>name</varname>, the resolved varlink <varname>error</varname>, and any error fields
+        supplied by <command>systemd-resolved</command>, such as <varname>rcode</varname>,
+        <varname>queryString</varname>, <varname>extendedDNSErrorCode</varname>,
+        <varname>extendedDNSErrorMessage</varname>, and <varname>result</varname>. Local invocation or
+        connection errors are still reported as regular errors.</para>
+
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
@@ -103,6 +111,12 @@
         are converted to the corresponding DNS domain name, and any <constant class='dns'>OPENPGPKEY</constant>
         keys are printed.</para>
 
+        <para>The resource record type is implied by this command. If <option>--type=</option> is specified,
+        it must be <constant class='dns'>OPENPGPKEY</constant>.</para>
+
+        <para>If combined with <option>--json=</option>, outputs the resource record data in JSON format.
+        Unauthenticated key data is refused in JSON format.</para>
+
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
@@ -118,6 +132,12 @@
         The port number may be specified after a colon (<literal>:</literal>), otherwise
         <constant>443</constant> will be used by default. The family may be specified as the first argument,
         otherwise <constant>tcp</constant> will be used.</para>
+
+        <para>The resource record type is implied by this command. If <option>--type=</option> is specified,
+        it must be <constant class='dns'>TLSA</constant>.</para>
+
+        <para>If combined with <option>--json=</option>, outputs the resource record data in JSON format.
+        Unauthenticated key data is refused in JSON format.</para>
 
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
@@ -462,6 +482,10 @@
         types: SSHFP, TLSA, OPENPGPKEY where this dumps the key material only; and A, AAAA where
         this dumps the address data.</para>
 
+        <para>This option may only be used with <option>--type=</option> or an RFC 4501
+        <literal>dns:</literal> URI, which both perform DNS resource record lookups. It may not be combined
+        with regular hostname or address lookups.</para>
+
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
@@ -540,7 +564,8 @@
         DNS configuration data from its standard input. Relevant fields are <literal>nameserver</literal> and
         <literal>domain</literal>/<literal>search</literal>. This command is mostly identical to invoking
         <command>resolvectl</command> with a combination of <option>dns</option> and <option>domain</option>
-        commands.</para>
+        commands. If a relevant input line has invalid syntax, the command fails and leaves the existing
+        per-interface configuration unchanged.</para>
 
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>

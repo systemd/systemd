@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
+#include "forward.h"
 #include "pager.h"
 
 extern PagerFlags arg_pager_flags;
 extern bool arg_legend;
 extern bool arg_no_reload;
+extern bool arg_no_reconfigure;
 extern bool arg_all;
 extern bool arg_stats;
 extern bool arg_full;

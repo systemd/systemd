@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
+#include "forward.h"
 
 int cg_weight_parse(const char *s, uint64_t *ret);
 int cg_cpu_weight_parse(const char *s, uint64_t *ret);

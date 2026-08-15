@@ -387,15 +387,34 @@ static int varlink_idl_format_symbol(
 
                 /* Sooner or later we want to export this in a proper IDL language construct, see
                  * https://github.com/varlink/varlink.github.io/issues/26 – but for now export this as a
-                 * comment. */
+                 * comment.
+                 *
+                 * Until this is resolved upstream, consider this comment part of the API (i.e. don't change
+                 * only extend). It is used by tools like varlink-http-bridge. */
                 if ((symbol->symbol_flags & (SD_VARLINK_REQUIRES_MORE|SD_VARLINK_SUPPORTS_MORE)) != 0) {
-                        fputs(colors[COLOR_COMMENT], f);
-                        if (FLAGS_SET(symbol->symbol_flags, SD_VARLINK_REQUIRES_MORE))
-                                fputs("# [Requires 'more' flag]", f);
-                        else
-                                fputs("# [Supports 'more' flag]", f);
-                        fputs(colors[COLOR_RESET], f);
-                        fputs("\n", f);
+                        const char *msg = FLAGS_SET(symbol->symbol_flags, SD_VARLINK_REQUIRES_MORE) ? "[Requires 'more' flag]" : "[Supports 'more' flag]";
+
+                        r = varlink_idl_format_comment(
+                                        f,
+                                        msg,
+                                        /* indent= */ NULL,
+                                        colors,
+                                        cols);
+                        if (r < 0)
+                                return r;
+                }
+
+                if ((symbol->symbol_flags & (SD_VARLINK_REQUIRES_UPGRADE|SD_VARLINK_SUPPORTS_UPGRADE)) != 0) {
+                        const char *msg = FLAGS_SET(symbol->symbol_flags, SD_VARLINK_REQUIRES_UPGRADE) ? "[Requires 'upgrade' flag]" : "[Supports 'upgrade' flag]";
+
+                        r = varlink_idl_format_comment(
+                                        f,
+                                        msg,
+                                        /* indent= */ NULL,
+                                        colors,
+                                        cols);
+                        if (r < 0)
+                                return r;
                 }
 
                 fputs(colors[COLOR_SYMBOL_TYPE], f);
@@ -827,6 +846,7 @@ static int varlink_idl_subparse_field_type(
         assert(p);
         assert(*p);
         assert(line);
+        assert(column);
         assert(field);
 
         r = varlink_idl_subparse_whitespace(p, line, column);
@@ -1158,6 +1178,9 @@ _public_ int sd_varlink_idl_parse(
 
         _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *interface = NULL;
         _cleanup_(varlink_symbol_freep) sd_varlink_symbol *symbol = NULL;
+
+        POINTER_MAY_BE_NULL(ret);
+
         enum {
                 STATE_PRE_INTERFACE,
                 STATE_INTERFACE,
@@ -1393,7 +1416,8 @@ _public_ int sd_varlink_idl_parse(
         if (r < 0)
                 return r;
 
-        *ret = TAKE_PTR(interface);
+        if (ret)
+                *ret = TAKE_PTR(interface);
         return 0;
 }
 
@@ -1705,7 +1729,12 @@ static int varlink_idl_validate_symbol(const sd_varlink_symbol *symbol, sd_json_
 static int varlink_idl_validate_field_element_type(const sd_varlink_field *field, sd_json_variant *v) {
         assert(field);
         assert(v);
-        assert(!sd_json_variant_is_null(v));
+
+        if (sd_json_variant_is_null(v))
+                return varlink_idl_log(
+                                SYNTHETIC_ERRNO(EMEDIUMTYPE),
+                                "Field '%s' element is null, refusing.",
+                                strna(field->name));
 
         switch (field->field_type) {
 
@@ -1767,7 +1796,7 @@ static int varlink_idl_validate_field_element_type(const sd_varlink_field *field
 
         case SD_VARLINK_ANY:
                 /* The any type accepts any non-null JSON value, no validation needed. (Note that null is
-                 * already handled by the caller.) */
+                 * already gracefully rejected at the start of this function.) */
                 break;
 
         case _SD_VARLINK_FIELD_COMMENT:
@@ -1937,6 +1966,10 @@ int varlink_idl_validate_method_call(const sd_varlink_symbol *method, sd_json_va
         if (FLAGS_SET(method->symbol_flags, SD_VARLINK_REQUIRES_MORE) && !FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
                 return -EBADE;
 
+        /* Same for upgrade */
+        if (FLAGS_SET(method->symbol_flags, SD_VARLINK_REQUIRES_UPGRADE) && !FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE))
+                return -EBADE;
+
         return varlink_idl_validate_symbol(method, v, SD_VARLINK_INPUT, reterr_bad_field);
 }
 
@@ -1947,7 +1980,7 @@ int varlink_idl_validate_method_reply(const sd_varlink_symbol *method, sd_json_v
                 return -EBADMSG;
 
         /* If method replies have the "continues" flag set, but the method is not allowed to generate that, return a recognizable error */
-        if (FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES) && (method->symbol_type & (SD_VARLINK_SUPPORTS_MORE|SD_VARLINK_REQUIRES_MORE)) == 0)
+        if (FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES) && (method->symbol_flags & (SD_VARLINK_SUPPORTS_MORE|SD_VARLINK_REQUIRES_MORE)) == 0)
                 return -EBADE;
 
         return varlink_idl_validate_symbol(method, v, SD_VARLINK_OUTPUT, reterr_bad_field);

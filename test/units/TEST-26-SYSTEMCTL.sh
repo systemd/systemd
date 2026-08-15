@@ -371,18 +371,153 @@ systemctl status 1
 
 # --marked
 systemctl restart "$UNIT_NAME"
-systemctl set-property "$UNIT_NAME" Markers=needs-restart
+systemctl set-property "$UNIT_NAME" "Markers=needs-reload needs-restart"
 systemctl show -P Markers "$UNIT_NAME" | grep needs-restart
+systemctl show -P Markers "$UNIT_NAME" | grep -v needs-reload
 systemctl reload-or-restart --marked
 (! systemctl show -P Markers "$UNIT_NAME" | grep needs-restart)
+systemctl is-active "$UNIT_NAME"
+systemctl set-property "$UNIT_NAME" "Markers=needs-reload needs-stop"
+systemctl show -P Markers "$UNIT_NAME" | grep needs-stop
+systemctl show -P Markers "$UNIT_NAME" | grep -v needs-reload
+systemctl reload-or-restart --marked
+(! systemctl show -P Markers "$UNIT_NAME" | grep needs-stop)
+(! systemctl is-active "$UNIT_NAME")
+systemctl set-property "$UNIT_NAME" "Markers=needs-start"
+systemctl show -P Markers "$UNIT_NAME" | grep needs-start
+systemctl show -P Markers "$UNIT_NAME" | grep -v needs-stop
+systemctl reload-or-restart --marked
+(! systemctl show -P Markers "$UNIT_NAME" | grep needs-start)
+systemctl is-active "$UNIT_NAME"
+systemctl set-property "$UNIT_NAME" "Markers=needs-start needs-stop"
+systemctl show -P Markers "$UNIT_NAME" | grep needs-stop
+systemctl show -P Markers "$UNIT_NAME" | grep -v needs-start
+systemctl reload-or-restart --marked
+(! systemctl show -P Markers "$UNIT_NAME" | grep needs-stop)
+(! systemctl is-active "$UNIT_NAME")
+
+# Test marker normalization with incremental (+) syntax
+
+# needs-start + +needs-restart → needs-restart (restart wins against start)
+systemctl set-property "$UNIT_NAME" "Markers=needs-start"
+systemctl set-property "$UNIT_NAME" "Markers=+needs-restart"
+systemctl show -P Markers "$UNIT_NAME" | grep needs-restart
+(! systemctl show -P Markers "$UNIT_NAME" | grep needs-start)
+systemctl set-property "$UNIT_NAME" "Markers="
+
+# needs-restart + +needs-start → needs-restart (restart wins against start)
+systemctl set-property "$UNIT_NAME" "Markers=needs-restart"
+systemctl set-property "$UNIT_NAME" "Markers=+needs-start"
+systemctl show -P Markers "$UNIT_NAME" | grep needs-restart
+(! systemctl show -P Markers "$UNIT_NAME" | grep needs-start)
+systemctl set-property "$UNIT_NAME" "Markers="
+
+# needs-restart + +needs-reload → needs-restart (reload loses against restart)
+systemctl set-property "$UNIT_NAME" "Markers=needs-restart"
+systemctl set-property "$UNIT_NAME" "Markers=+needs-reload"
+systemctl show -P Markers "$UNIT_NAME" | grep needs-restart
+(! systemctl show -P Markers "$UNIT_NAME" | grep needs-reload)
+systemctl set-property "$UNIT_NAME" "Markers="
+
+# needs-stop + +needs-start → needs-start (start overrides stop)
+systemctl set-property "$UNIT_NAME" "Markers=needs-stop"
+systemctl set-property "$UNIT_NAME" "Markers=+needs-start"
+systemctl show -P Markers "$UNIT_NAME" | grep needs-start
+(! systemctl show -P Markers "$UNIT_NAME" | grep needs-stop)
+systemctl set-property "$UNIT_NAME" "Markers="
+
+# anything + +needs-stop → needs-stop (stop wins against everything)
+for marker in needs-start needs-restart needs-reload; do
+    systemctl set-property "$UNIT_NAME" "Markers=$marker"
+    systemctl set-property "$UNIT_NAME" "Markers=+needs-stop"
+    systemctl show -P Markers "$UNIT_NAME" | grep needs-stop
+    (! systemctl show -P Markers "$UNIT_NAME" | grep "$marker")
+    systemctl set-property "$UNIT_NAME" "Markers="
+done
+
+# needs-stop + +needs-reload → needs-stop (stop wins against reload)
+systemctl set-property "$UNIT_NAME" "Markers=needs-stop"
+systemctl set-property "$UNIT_NAME" "Markers=+needs-reload"
+systemctl show -P Markers "$UNIT_NAME" | grep needs-stop
+(! systemctl show -P Markers "$UNIT_NAME" | grep needs-reload)
+systemctl set-property "$UNIT_NAME" "Markers="
 
 # again, but with varlinkctl instead
 systemctl restart "$UNIT_NAME"
-varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties "{\"runtime\": true, \"name\": \"$UNIT_NAME\", \"properties\": {\"Markers\": [\"needs-restart\"]}}"
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties "{\"runtime\": true, \"name\": \"$UNIT_NAME\", \"properties\": {\"Markers\": [\"needs-reload\", \"needs-restart\"]}}"
 systemctl show -P Markers "$UNIT_NAME" | grep needs-restart
+systemctl show -P Markers "$UNIT_NAME" | grep -v needs-reload
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.EnqueueMarkedJobs '{}'
 timeout 30 bash -c "until systemctl list-jobs $UNIT_NAME | grep \"No jobs\" 2>/dev/null; do sleep 1; done"
 (! systemctl show -P Markers "$UNIT_NAME" | grep needs-restart)
+systemctl is-active "$UNIT_NAME"
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties "{\"runtime\": true, \"name\": \"$UNIT_NAME\", \"properties\": {\"Markers\": [\"needs-reload\", \"needs-stop\"]}}"
+systemctl show -P Markers "$UNIT_NAME" | grep needs-stop
+systemctl show -P Markers "$UNIT_NAME" | grep -v needs-reload
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.EnqueueMarkedJobs '{}'
+timeout 30 bash -c "until systemctl list-jobs $UNIT_NAME | grep \"No jobs\" 2>/dev/null; do sleep 1; done"
+(! systemctl show -P Markers "$UNIT_NAME" | grep needs-stop)
+(! systemctl is-active "$UNIT_NAME")
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties "{\"runtime\": true, \"name\": \"$UNIT_NAME\", \"properties\": {\"Markers\": [\"needs-start\"]}}"
+systemctl show -P Markers "$UNIT_NAME" | grep needs-start
+systemctl show -P Markers "$UNIT_NAME" | grep -v needs-stop
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.EnqueueMarkedJobs '{}'
+timeout 30 bash -c "until systemctl list-jobs $UNIT_NAME | grep \"No jobs\" 2>/dev/null; do sleep 1; done"
+(! systemctl show -P Markers "$UNIT_NAME" | grep needs-start)
+systemctl is-active "$UNIT_NAME"
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties "{\"runtime\": true, \"name\": \"$UNIT_NAME\", \"properties\": {\"Markers\": [\"needs-start\", \"needs-stop\"]}}"
+systemctl show -P Markers "$UNIT_NAME" | grep needs-stop
+systemctl show -P Markers "$UNIT_NAME" | grep -v needs-start
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.EnqueueMarkedJobs '{}'
+timeout 30 bash -c "until systemctl list-jobs $UNIT_NAME | grep \"No jobs\" 2>/dev/null; do sleep 1; done"
+(! systemctl show -P Markers "$UNIT_NAME" | grep needs-stop)
+(! systemctl is-active "$UNIT_NAME")
+
+# Test marker normalization with incremental (+) syntax via varlinkctl
+
+# needs-start + +needs-restart → needs-restart (restart wins against start)
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties "{\"runtime\": true, \"name\": \"$UNIT_NAME\", \"properties\": {\"Markers\": [\"needs-start\"]}}"
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties "{\"runtime\": true, \"name\": \"$UNIT_NAME\", \"properties\": {\"Markers\": [\"+needs-restart\"]}}"
+systemctl show -P Markers "$UNIT_NAME" | grep needs-restart
+(! systemctl show -P Markers "$UNIT_NAME" | grep needs-start)
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties "{\"runtime\": true, \"name\": \"$UNIT_NAME\", \"properties\": {\"Markers\": []}}"
+
+# needs-restart + +needs-start → needs-restart (restart wins against start)
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties "{\"runtime\": true, \"name\": \"$UNIT_NAME\", \"properties\": {\"Markers\": [\"needs-restart\"]}}"
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties "{\"runtime\": true, \"name\": \"$UNIT_NAME\", \"properties\": {\"Markers\": [\"+needs-start\"]}}"
+systemctl show -P Markers "$UNIT_NAME" | grep needs-restart
+(! systemctl show -P Markers "$UNIT_NAME" | grep needs-start)
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties "{\"runtime\": true, \"name\": \"$UNIT_NAME\", \"properties\": {\"Markers\": []}}"
+
+# needs-restart + +needs-reload → needs-restart (reload loses against restart)
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties "{\"runtime\": true, \"name\": \"$UNIT_NAME\", \"properties\": {\"Markers\": [\"needs-restart\"]}}"
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties "{\"runtime\": true, \"name\": \"$UNIT_NAME\", \"properties\": {\"Markers\": [\"+needs-reload\"]}}"
+systemctl show -P Markers "$UNIT_NAME" | grep needs-restart
+(! systemctl show -P Markers "$UNIT_NAME" | grep needs-reload)
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties "{\"runtime\": true, \"name\": \"$UNIT_NAME\", \"properties\": {\"Markers\": []}}"
+
+# needs-stop + +needs-start → needs-start (start overrides stop)
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties "{\"runtime\": true, \"name\": \"$UNIT_NAME\", \"properties\": {\"Markers\": [\"needs-stop\"]}}"
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties "{\"runtime\": true, \"name\": \"$UNIT_NAME\", \"properties\": {\"Markers\": [\"+needs-start\"]}}"
+systemctl show -P Markers "$UNIT_NAME" | grep needs-start
+(! systemctl show -P Markers "$UNIT_NAME" | grep needs-stop)
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties "{\"runtime\": true, \"name\": \"$UNIT_NAME\", \"properties\": {\"Markers\": []}}"
+
+# anything + +needs-stop → needs-stop (stop wins against everything)
+for marker in needs-start needs-restart needs-reload; do
+    varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties "{\"runtime\": true, \"name\": \"$UNIT_NAME\", \"properties\": {\"Markers\": [\"$marker\"]}}"
+    varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties "{\"runtime\": true, \"name\": \"$UNIT_NAME\", \"properties\": {\"Markers\": [\"+needs-stop\"]}}"
+    systemctl show -P Markers "$UNIT_NAME" | grep needs-stop
+    (! systemctl show -P Markers "$UNIT_NAME" | grep "$marker")
+    varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties "{\"runtime\": true, \"name\": \"$UNIT_NAME\", \"properties\": {\"Markers\": []}}"
+done
+
+# needs-stop + +needs-reload → needs-stop (stop wins against reload)
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties "{\"runtime\": true, \"name\": \"$UNIT_NAME\", \"properties\": {\"Markers\": [\"needs-stop\"]}}"
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties "{\"runtime\": true, \"name\": \"$UNIT_NAME\", \"properties\": {\"Markers\": [\"+needs-reload\"]}}"
+systemctl show -P Markers "$UNIT_NAME" | grep needs-stop
+(! systemctl show -P Markers "$UNIT_NAME" | grep needs-reload)
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties "{\"runtime\": true, \"name\": \"$UNIT_NAME\", \"properties\": {\"Markers\": []}}"
 
 # --dry-run with destructive verbs
 # kexec is skipped intentionally, as it requires a bit more involved setup

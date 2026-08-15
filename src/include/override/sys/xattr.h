@@ -8,13 +8,9 @@
 #include_next <sys/xattr.h>     /* IWYU pragma: export */
 
 /* Supported since kernel v6.13 (6140be90ec70c39fa844741ca3cc807dd0866394). */
-#if !HAVE_SETXATTRAT
-int missing_setxattrat(int fd, const char *path, int at_flags, const char *name, const struct xattr_args *args, size_t size);
-#  define setxattrat missing_setxattrat
-#endif
+int setxattrat_shim(int fd, const char *path, int at_flags, const char *name, const struct xattr_args *args, size_t size);
+#define setxattrat setxattrat_shim
 
 /* Supported since kernel v6.13 (6140be90ec70c39fa844741ca3cc807dd0866394). */
-#if !HAVE_REMOVEXATTRAT
-int missing_removexattrat(int fd, const char *path, int at_flags, const char *name);
-#  define removexattrat missing_removexattrat
-#endif
+int removexattrat_shim(int fd, const char *path, int at_flags, const char *name);
+#define removexattrat removexattrat_shim

@@ -17,7 +17,8 @@ run_with_cred_compare() (
     trap "rm -f '$log_file'" RETURN
 
     set -o pipefail
-    systemd-run -p SetCredential="$cred" --wait --pipe -- systemd-creds "$@" | tee "$log_file"
+    # This has been observed to get stuck under ASAN, so add a timeout as precaution
+    timeout 120 systemd-run -p SetCredential="$cred" --wait --pipe -- systemd-creds "$@" | tee "$log_file"
     diff "$log_file" <(echo -ne "$exp")
 )
 
@@ -114,10 +115,9 @@ run_with_cred_compare "mycred:" "" cat mycred
 run_with_cred_compare "mycred:\n" "\n" cat mycred
 run_with_cred_compare "mycred:foo" "foo" cat mycred
 run_with_cred_compare "mycred:foo" "foofoofoo" cat mycred mycred mycred
-# Note: --newline= does nothing when stdout is not a tty, which is the case here
-run_with_cred_compare "mycred:foo" "foo" --newline=yes cat mycred
-run_with_cred_compare "mycred:foo" "foo" --newline=no cat mycred
 run_with_cred_compare "mycred:foo" "foo" --newline=auto cat mycred
+run_with_cred_compare "mycred:foo" "foo" --newline=no cat mycred
+run_with_cred_compare "mycred:foo" "foo\n" --newline=yes cat mycred
 run_with_cred_compare "mycred:foo" "foo" --transcode=no cat mycred
 run_with_cred_compare "mycred:foo" "foo" --transcode=0 cat mycred
 run_with_cred_compare "mycred:foo" "foo" --transcode=false cat mycred
@@ -165,6 +165,50 @@ rm -f /tmp/cred.{enc,dec}
 systemd-creds --not-after="+1d" encrypt /tmp/cred.orig /tmp/cred.enc
 (! systemd-creds --timestamp="+2d" decrypt /tmp/cred.enc /tmp/cred.dec)
 systemd-creds decrypt /tmp/cred.enc /tmp/cred.dec
+diff /tmp/cred.orig /tmp/cred.dec
+rm -f /tmp/cred.{enc,dec}
+ts="$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+(! systemd-creds --with-key=null --timestamp="$ts" --not-after="$ts" encrypt /tmp/cred.orig /tmp/cred.enc)
+
+# Null-key credentials and the systemd.credentials_boot_policy= setting.
+#
+# A null-key credential ("--with-key=null") is wrapped in the normal systemd-creds
+# envelope but offers neither confidentiality nor authenticity, so whether it is
+# accepted at decrypt time is governed by systemd.credentials_boot_policy= and the system
+# state. We only assert the branches that are deterministic regardless of the test
+# bed's TPM2/SecureBoot state (which is fixed and has no test override here); the
+# full accepts_null() truth table for all states is covered by test-creds.c.
+systemd-creds --name=nullcred --with-key=null encrypt /tmp/cred.orig /tmp/cred.enc
+
+# --allow-null bypasses the policy, even under the strictest setting.
+SYSTEMD_PROC_CMDLINE="systemd.credentials_boot_policy=strict" \
+    systemd-creds --name=nullcred --allow-null decrypt /tmp/cred.enc /tmp/cred.dec
+diff /tmp/cred.orig /tmp/cred.dec
+rm -f /tmp/cred.dec
+
+# --refuse-null always refuses, even under the most permissive setting.
+(! SYSTEMD_PROC_CMDLINE="systemd.credentials_boot_policy=off" \
+    systemd-creds --name=nullcred --refuse-null decrypt /tmp/cred.enc /tmp/cred.dec)
+
+# strict never accepts a null key, regardless of system state.
+(! SYSTEMD_PROC_CMDLINE="systemd.credentials_boot_policy=strict" \
+    systemd-creds --name=nullcred decrypt /tmp/cred.enc /tmp/cred.dec)
+
+# off always accepts a null key, regardless of system state.
+SYSTEMD_PROC_CMDLINE="systemd.credentials_boot_policy=off" \
+    systemd-creds --name=nullcred decrypt /tmp/cred.enc /tmp/cred.dec
+diff /tmp/cred.orig /tmp/cred.dec
+rm -f /tmp/cred.dec
+
+# An invalid policy value falls back to the default (relaxed), which accepts during first boot.
+SYSTEMD_PROC_CMDLINE="systemd.credentials_boot_policy=bogus" SYSTEMD_FIRST_BOOT=1 \
+    systemd-creds --name=nullcred decrypt /tmp/cred.enc /tmp/cred.dec
+diff /tmp/cred.orig /tmp/cred.dec
+rm -f /tmp/cred.dec
+
+# tofu accepts during first boot, independent of TPM2/SecureBoot.
+SYSTEMD_PROC_CMDLINE="systemd.credentials_boot_policy=tofu" SYSTEMD_FIRST_BOOT=1 \
+    systemd-creds --name=nullcred decrypt /tmp/cred.enc /tmp/cred.dec
 diff /tmp/cred.orig /tmp/cred.dec
 rm -f /tmp/cred.{enc,dec}
 

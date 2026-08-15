@@ -224,6 +224,58 @@ static int bus_append_strv_colon(sd_bus_message *m, const char *field, const cha
         return bus_append_strv_full(m, field, eq, ":" WHITESPACE, EXTRACT_UNQUOTE);
 }
 
+static int bus_append_xattr(sd_bus_message *m, const char *field, const char *eq) {
+        int r;
+
+        assert(m);
+        assert(field);
+
+        /* Sends an extended attribute assignment of the form "name=value" as an a(ss) array of one
+         * name/value pair (or as an empty array if the value is empty, which resets the list). */
+
+        r = sd_bus_message_open_container(m, 'r', "sv");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append_basic(m, 's', field);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_open_container(m, 'v', "a(ss)");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_open_container(m, 'a', "(ss)");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        if (!isempty(eq)) {
+                _cleanup_free_ char *name = NULL, *value = NULL;
+
+                r = split_pair(eq, "=", &name, &value);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse extended attribute expression '%s': %m", eq);
+
+                r = sd_bus_message_append(m, "(ss)", name, value);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 static int bus_append_byte_array(sd_bus_message *m, const char *field, const void *buf, size_t n) {
         int r;
 
@@ -289,6 +341,23 @@ static int bus_append_parse_size(sd_bus_message *m, const char *field, const cha
                 return parse_log_error(r, field, eq);
 
         r = sd_bus_message_append(m, "(sv)", field, "t", v);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
+static int bus_append_parse_size_i64(sd_bus_message *m, const char *field, const char *eq) {
+        uint64_t v;
+        int r;
+
+        r = parse_size(eq, /* base= */ 1024, &v);
+        if (r < 0)
+                return parse_log_error(r, field, eq);
+        if (v > INT64_MAX)
+                return parse_log_error(SYNTHETIC_ERRNO(ERANGE), field, eq);
+
+        r = sd_bus_message_append(m, "(sv)", field, "x", (int64_t) v);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -1174,6 +1243,8 @@ static int bus_append_import_credential(sd_bus_message *m, const char *field, co
 
 static int bus_append_refresh_on_reload(sd_bus_message *m, const char *field, const char *eq) {
         int r;
+
+        assert(eq);
 
         r = sd_bus_message_open_container(m, 'r', "sv");
         if (r < 0)
@@ -2142,7 +2213,7 @@ static int bus_append_protect_hostname(sd_bus_message *m, const char *field, con
         int r;
 
         /* The command-line field is called "ProtectHostname". We also accept "ProtectHostnameEx" as the
-         * field name for backward compatibility. We set ProtectHostame or ProtectHostnameEx. */
+         * field name for backward compatibility. We set ProtectHostname or ProtectHostnameEx. */
 
         r = parse_boolean(eq);
         if (r >= 0)
@@ -2382,7 +2453,10 @@ static const BusProperty cgroup_properties[] = {
         { "ManagedOOMSwap",                        bus_append_string                             },
         { "ManagedOOMMemoryPressure",              bus_append_string                             },
         { "ManagedOOMPreference",                  bus_append_string                             },
+        { "OOMRules",                              bus_append_strv                               },
         { "MemoryPressureWatch",                   bus_append_string                             },
+        { "CPUPressureWatch",                      bus_append_string                             },
+        { "IOPressureWatch",                       bus_append_string                             },
         { "DelegateSubgroup",                      bus_append_string                             },
         { "ManagedOOMMemoryPressureLimit",         bus_append_parse_permyriad                    },
         { "MemoryAccounting",                      bus_append_parse_boolean                      },
@@ -2399,6 +2473,7 @@ static const BusProperty cgroup_properties[] = {
         { "StartupAllowedCPUs",                    bus_append_parse_cpu_set                      },
         { "AllowedMemoryNodes",                    bus_append_parse_cpu_set                      },
         { "StartupAllowedMemoryNodes",             bus_append_parse_cpu_set                      },
+        { "CPUSetPartition",                       bus_append_string                             },
         { "DisableControllers",                    bus_append_strv                               },
         { "Delegate",                              bus_append_parse_delegate                     },
         { "MemoryMin",                             bus_append_parse_resource_limit               },
@@ -2421,6 +2496,8 @@ static const BusProperty cgroup_properties[] = {
         { "SocketBindAllow",                       bus_append_socket_filter                      },
         { "SocketBindDeny",                        bus_append_socket_filter                      },
         { "MemoryPressureThresholdSec",            bus_append_parse_sec_rename                   },
+        { "CPUPressureThresholdSec",               bus_append_parse_sec_rename                   },
+        { "IOPressureThresholdSec",                bus_append_parse_sec_rename                   },
         { "NFTSet",                                bus_append_nft_set                            },
         { "BindNetworkInterface",                  bus_append_string                             },
 
@@ -2680,12 +2757,14 @@ static const BusProperty service_properties[] = {
         { "TimeoutStartFailureMode",               bus_append_string                             },
         { "TimeoutStopFailureMode",                bus_append_string                             },
         { "FileDescriptorStorePreserve",           bus_append_string                             },
+        { "LUOSession",                            bus_append_strv                               },
         { "PermissionsStartOnly",                  bus_append_parse_boolean                      },
         { "RootDirectoryStartOnly",                bus_append_parse_boolean                      },
         { "RemainAfterExit",                       bus_append_parse_boolean                      },
         { "GuessMainPID",                          bus_append_parse_boolean                      },
         { "RestartSec",                            bus_append_parse_sec_rename                   },
         { "RestartMaxDelaySec",                    bus_append_parse_sec_rename                   },
+        { "RestartRandomizedDelaySec",             bus_append_parse_sec_rename                   },
         { "TimeoutStartSec",                       bus_append_parse_sec_rename                   },
         { "TimeoutStopSec",                        bus_append_parse_sec_rename                   },
         { "TimeoutAbortSec",                       bus_append_parse_sec_rename                   },
@@ -2749,7 +2828,6 @@ static const BusProperty socket_properties[] = {
         { "SocketMode",                            bus_append_parse_mode                         },
         { "DirectoryMode",                         bus_append_parse_mode                         },
         { "MessageQueueMaxMessages",               bus_append_safe_atoi64                        },
-        { "MessageQueueMessageSize",               bus_append_safe_atoi64                        },
         { "TimeoutSec",                            bus_append_parse_sec_rename                   },
         { "KeepAliveTimeSec",                      bus_append_parse_sec_rename                   },
         { "KeepAliveIntervalSec",                  bus_append_parse_sec_rename                   },
@@ -2760,6 +2838,7 @@ static const BusProperty socket_properties[] = {
         { "ReceiveBuffer",                         bus_append_parse_size                         },
         { "SendBuffer",                            bus_append_parse_size                         },
         { "PipeSize",                              bus_append_parse_size                         },
+        { "MessageQueueMessageSize",               bus_append_parse_size_i64                     },
         { "ExecStartPre",                          bus_append_exec_command                       },
         { "ExecStartPost",                         bus_append_exec_command                       },
         { "ExecReload",                            bus_append_exec_command                       },
@@ -2776,6 +2855,9 @@ static const BusProperty socket_properties[] = {
         { "Timestamping",                          bus_append_string                             },
         { "DeferTrigger",                          bus_append_string                             },
         { "Symlinks",                              bus_append_strv                               },
+        { "XAttrEntryPoint",                       bus_append_xattr                              },
+        { "XAttrListen",                           bus_append_xattr                              },
+        { "XAttrAccept",                           bus_append_xattr                              },
         { "SocketProtocol",                        bus_append_parse_ip_protocol                  },
         { "ListenStream",                          bus_append_listen                             },
         { "ListenDatagram",                        bus_append_listen                             },

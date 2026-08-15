@@ -428,6 +428,17 @@
         <para>For further information on the file descriptor store see the <ulink
         url="https://systemd.io/FILE_DESCRIPTOR_STORE">File Descriptor Store</ulink> overview.</para>
 
+        <para>On kernels that support the <ulink
+        url="https://docs.kernel.org/userspace-api/liveupdate.html">Live Update Orchestrator</ulink>,
+        compatible file descriptors stored this way (such as <citerefentry
+        project='man-pages'><refentrytitle>memfd_create</refentrytitle><manvolnum>2</manvolnum></citerefentry>)
+        are additionally preserved across <literal>kexec</literal>-based reboots and handed back to the
+        service on the other side, provided <varname>FileDescriptorStorePreserve=yes</varname> is set on
+        the service (see
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+        See the <ulink url="https://systemd.io/FILE_DESCRIPTOR_STORE">File Descriptor Store</ulink>
+        overview for details.</para>
+
         <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 

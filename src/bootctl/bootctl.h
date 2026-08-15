@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
+#include "forward.h"
 
 typedef enum InstallSource {
         INSTALL_SOURCE_IMAGE,
@@ -21,7 +21,10 @@ extern char *arg_esp_path;
 extern char *arg_xbootldr_path;
 extern bool arg_print_esp_path;
 extern bool arg_print_dollar_boot_path;
+extern bool arg_print_loader_path;
+extern bool arg_print_stub_path;
 extern unsigned arg_print_root_device;
+extern bool arg_print_efi_architecture;
 extern int arg_touch_variables;
 extern bool arg_install_random_seed;
 extern PagerFlags arg_pager_flags;
@@ -48,6 +51,13 @@ extern char *arg_certificate_source;
 extern char *arg_private_key;
 extern KeySourceType arg_private_key_source_type;
 extern char *arg_private_key_source;
+extern bool arg_oldest;
+extern uint64_t arg_keep_free;
+extern char *arg_entry_title;
+extern char *arg_entry_version;
+extern uint64_t arg_entry_commit;
+extern char **arg_extras;
+extern unsigned arg_tries_left;
 
 static inline const char* arg_dollar_boot_path(void) {
         /* $BOOT shall be the XBOOTLDR partition if it exists, and otherwise the ESP */
@@ -56,13 +66,15 @@ static inline const char* arg_dollar_boot_path(void) {
 
 GracefulMode arg_graceful(void);
 
-int acquire_esp(int unprivileged_mode, bool graceful, uint32_t *ret_part, uint64_t *ret_pstart, uint64_t *ret_psize, sd_id128_t *ret_uuid, dev_t *ret_devid);
-int acquire_xbootldr(int unprivileged_mode, sd_id128_t *ret_uuid, dev_t *ret_devid);
-
-bool touch_variables(void);
+int acquire_esp(int unprivileged_mode, bool graceful, int *ret_fd, uint32_t *ret_part, uint64_t *ret_pstart, uint64_t *ret_psize, sd_id128_t *ret_uuid, dev_t *ret_devid);
+int acquire_xbootldr(int unprivileged_mode, int *ret_fd, sd_id128_t *ret_uuid, dev_t *ret_devid);
 
 /* EFI_BOOT_OPTION_DESCRIPTION_MAX sets the maximum length for the boot option description
  * stored in NVRAM. The UEFI spec does not specify a minimum or maximum length for this
  * string, but we limit the length to something reasonable to prevent from the firmware
  * having to deal with a potentially too long string. */
 #define EFI_BOOT_OPTION_DESCRIPTION_MAX ((size_t) 255)
+
+/* Before we "materialize" a new entry, let's ensure we have this much space free still on the partition, by
+ * default */
+#define KEEP_FREE_BYTES_DEFAULT (5U * U64_MB)

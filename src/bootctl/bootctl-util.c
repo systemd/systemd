@@ -1,18 +1,86 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stdlib.h>
-#include <sys/mman.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "boot-entry.h"
 #include "bootctl.h"
 #include "bootctl-util.h"
+#include "efivars.h"
 #include "errno-util.h"
 #include "fileio.h"
 #include "log.h"
-#include "stat-util.h"
+#include "pe-binary.h"
 #include "string-util.h"
 #include "sync-util.h"
+#include "virt.h"
+
+bool touch_variables(void) {
+        /* If we run in a container or on a non-EFI system, automatically turn off EFI file system access,
+         * unless explicitly overridden. */
+
+        if (arg_touch_variables >= 0)
+                return set_efi_boot(arg_touch_variables);
+
+        if (arg_root) {
+                log_once(LOG_NOTICE,
+                         "Operating on %s, skipping EFI variable modifications.",
+                         arg_image ? "image" : "root directory");
+                return set_efi_boot(false);
+        }
+
+        if (!is_efi_boot()) { /* NB: this internally checks if we run in a container */
+                log_once(LOG_NOTICE,
+                         "Not booted with EFI or running in a container, skipping EFI variable modifications.");
+                return false;
+        }
+
+        return true;
+}
+
+int verify_touch_variables_allowed(const char *command) {
+        /* Note: changing EFI variables is the primary purpose of these verbs, hence unlike in the other
+         * verbs that might touch EFI variables where we skip things gracefully, here we fail loudly if we
+         * are not run on EFI or EFI variable modifications were turned off. */
+
+        if (arg_touch_variables > 0) {
+                /* If we explicitly allowed to touch EFI variables, then skip the is_efi_boot() checks used
+                 * at various places. */
+                set_efi_boot(true);
+                return 0;
+        }
+
+        if (arg_touch_variables == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "'%s' operation cannot be combined with --variables=no.",
+                                       command);
+
+        if (arg_root)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Acting on %s, refusing EFI variable setup.",
+                                       arg_image ? "image" : "root directory");
+
+        if (detect_container() > 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "'%s' operation not supported in a container.",
+                                       command);
+
+        if (!is_efi_boot())
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Not booted with UEFI.");
+
+        if (access(EFIVAR_PATH(EFI_LOADER_VARIABLE_STR("LoaderInfo")), F_OK) < 0) {
+                if (errno == ENOENT) {
+                        log_error_errno(errno, "Not booted with a supported boot loader.");
+                        return -EOPNOTSUPP;
+                }
+
+                return log_error_errno(errno, "Failed to detect whether boot loader supports '%s' operation: %m", command);
+        }
+
+        return 0;
+}
 
 int sync_everything(void) {
         int r = 0, k;
@@ -64,61 +132,60 @@ const char* get_efi_arch(void) {
         return EFI_MACHINE_TYPE_NAME;
 }
 
-/* search for "#### LoaderInfo: systemd-boot 218 ####" string inside the binary */
 int get_file_version(int fd, char **ret) {
-        struct stat st;
-        char *buf;
-        const char *s, *e;
-        char *marker = NULL;
         int r;
 
         assert(fd >= 0);
         assert(ret);
 
-        /* Does not reposition file offset (as it uses mmap()) */
+        /* Reads the version marker that systemd-boot/systemd-stub and friends store in their ".sdmagic" PE
+         * section, i.e. a string such as "#### LoaderInfo: systemd-boot 218 ####", and returns the inner
+         * part, e.g. "systemd-boot 218". Does not reposition the file offset (as it uses pread()). */
 
-        if (fstat(fd, &st) < 0)
-                return log_error_errno(errno, "Failed to stat EFI binary: %m");
+        _cleanup_free_ IMAGE_DOS_HEADER *dos_header = NULL;
+        _cleanup_free_ PeHeader *pe_header = NULL;
+        r = pe_load_headers(fd, &dos_header, &pe_header);
+        if (r == -EBADMSG)
+                return log_debug_errno(SYNTHETIC_ERRNO(ESRCH), "EFI binary is not a valid PE file, assuming no version information.");
+        if (r < 0)
+                return r;
 
-        r = stat_verify_regular(&st);
-        if (r < 0) {
-                log_debug_errno(r, "EFI binary is not a regular file, assuming no version information: %m");
-                return -ESRCH;
-        }
+        _cleanup_free_ IMAGE_SECTION_HEADER *sections = NULL;
+        r = pe_load_sections(fd, dos_header, pe_header, &sections);
+        if (r == -EBADMSG)
+                return log_debug_errno(SYNTHETIC_ERRNO(ESRCH), "Failed to load PE section table, assuming no version information.");
+        if (r < 0)
+                return r;
 
-        if (st.st_size < 27 || file_offset_beyond_memory_size(st.st_size))
-                return log_debug_errno(SYNTHETIC_ERRNO(ESRCH),
-                                       "EFI binary size too %s: %"PRIi64,
-                                       st.st_size < 27 ? "small" : "large", st.st_size);
+        _cleanup_free_ char *sdmagic = NULL;
+        r = pe_read_section_data_by_name(
+                        fd,
+                        pe_header,
+                        sections,
+                        ".sdmagic",
+                        /* max_size= */ 4U*1024U,
+                        (void**) &sdmagic,
+                        /* ret_size= */ NULL);
+        if (IN_SET(r, -ENXIO, -EBADMSG))
+                return log_debug_errno(SYNTHETIC_ERRNO(ESRCH), "EFI binary has no .sdmagic section, assuming no version information.");
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read .sdmagic section of EFI binary: %m");
 
-        buf = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
-        if (buf == MAP_FAILED)
-                return log_error_errno(errno, "Failed to mmap EFI binary: %m");
+        const char *p = startswith(sdmagic, "#### LoaderInfo: ");
+        if (!p)
+                return log_debug_errno(SYNTHETIC_ERRNO(ESRCH), "EFI binary .sdmagic section lacks LoaderInfo marker.");
 
-        s = mempmem_safe(buf, st.st_size - 8, "#### LoaderInfo: ", 17);
-        if (!s) {
-                r = log_debug_errno(SYNTHETIC_ERRNO(ESRCH), "EFI binary has no LoaderInfo marker.");
-                goto finish;
-        }
+        const char *e = endswith(p, " ####");
+        if (!e || e <= p)
+                return log_debug_errno(SYNTHETIC_ERRNO(ESRCH), "EFI binary has malformed LoaderInfo marker.");
 
-        e = memmem_safe(s, st.st_size - (s - buf), " ####", 5);
-        if (!e || e - s < 3) {
-                r = log_error_errno(SYNTHETIC_ERRNO(EINVAL), "EFI binary has malformed LoaderInfo marker.");
-                goto finish;
-        }
-
-        marker = strndup(s, e - s);
-        if (!marker) {
-                r = log_oom();
-                goto finish;
-        }
+        char *marker = strndup(p, e - p);
+        if (!marker)
+                return log_oom_debug();
 
         log_debug("EFI binary LoaderInfo marker: \"%s\"", marker);
-        r = 0;
-        *ret = marker;
-finish:
-        (void) munmap(buf, st.st_size);
-        return r;
+        *ret = TAKE_PTR(marker);
+        return 0;
 }
 
 int settle_entry_token(void) {

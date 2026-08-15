@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sched.h>
-#include <sys/prctl.h>
 #include <unistd.h>
 
 #include "sd-event.h"
 
 #include "capability-util.h"
+#include "compress.h"
 #include "dirent-util.h"
 #include "dissect-image.h"
 #include "fd-util.h"
@@ -31,7 +31,7 @@ int import_fork_tar_x(int tree_fd, int userns_fd, PidRef *ret_pid) {
         assert(tree_fd >= 0);
         assert(ret_pid);
 
-        r = dlopen_libarchive();
+        r = dlopen_libarchive(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -43,7 +43,7 @@ int import_fork_tar_x(int tree_fd, int userns_fd, PidRef *ret_pid) {
         if (pipe2(pipefd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to create pipe for tar: %m");
 
-        (void) fcntl(pipefd[0], F_SETPIPE_SZ, IMPORT_BUFFER_SIZE);
+        (void) fcntl(pipefd[0], F_SETPIPE_SZ, COMPRESS_PIPE_BUFFER_SIZE);
 
         r = pidref_safe_fork_full(
                         "tar-x",
@@ -80,8 +80,9 @@ int import_fork_tar_x(int tree_fd, int userns_fd, PidRef *ret_pid) {
                 if (r < 0)
                         log_debug_errno(r, "Failed to drop capabilities, ignoring: %m");
 
-                if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0)
-                        log_warning_errno(errno, "Failed to enable PR_SET_NO_NEW_PRIVS, ignoring: %m");
+                r = proc_set_nnp();
+                if (r < 0)
+                        log_warning_errno(r, "Failed to enable PR_SET_NO_NEW_PRIVS, ignoring: %m");
 
                 if (tar_x(pipefd[0], tree_fd, flags) < 0)
                         _exit(EXIT_FAILURE);
@@ -98,7 +99,7 @@ int import_fork_tar_c(int tree_fd, int userns_fd, PidRef *ret_pid) {
         assert(tree_fd >= 0);
         assert(ret_pid);
 
-        r = dlopen_libarchive();
+        r = dlopen_libarchive(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -110,7 +111,7 @@ int import_fork_tar_c(int tree_fd, int userns_fd, PidRef *ret_pid) {
         if (pipe2(pipefd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to create pipe for tar: %m");
 
-        (void) fcntl(pipefd[0], F_SETPIPE_SZ, IMPORT_BUFFER_SIZE);
+        (void) fcntl(pipefd[0], F_SETPIPE_SZ, COMPRESS_PIPE_BUFFER_SIZE);
 
         r = pidref_safe_fork_full(
                         "tar-c",
@@ -140,8 +141,9 @@ int import_fork_tar_c(int tree_fd, int userns_fd, PidRef *ret_pid) {
                 if (r < 0)
                         log_debug_errno(r, "Failed to drop capabilities, ignoring: %m");
 
-                if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0)
-                        log_warning_errno(errno, "Failed to enable PR_SET_NO_NEW_PRIVS, ignoring: %m");
+                r = proc_set_nnp();
+                if (r < 0)
+                        log_warning_errno(r, "Failed to enable PR_SET_NO_NEW_PRIVS, ignoring: %m");
 
                 if (tar_c(tree_fd, pipefd[1], /* filename= */ NULL, flags) < 0)
                         _exit(EXIT_FAILURE);
@@ -391,13 +393,14 @@ int import_remove_tree(const char *path, int *userns_fd, ImportFlags flags) {
         assert(path);
         assert(userns_fd);
 
-        r = import_make_foreign_userns(userns_fd);
-        if (r < 0)
-                return r;
-
         /* Try the userns dance first, to remove foreign UID range owned trees */
-        if (FLAGS_SET(flags, IMPORT_FOREIGN_UID))
+        if (FLAGS_SET(flags, IMPORT_FOREIGN_UID)) {
+                r = import_make_foreign_userns(userns_fd);
+                if (r < 0)
+                        return r;
+
                 (void) remove_tree_foreign(path, *userns_fd);
+        }
 
         r = rm_rf(path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_MISSING_OK|REMOVE_CHMOD);
         if (r < 0)

@@ -159,44 +159,31 @@ TEST(strv_join) {
 }
 
 TEST(strv_join_full) {
-        _cleanup_free_ char *p = strv_join_full((char **)input_table_multiple, ", ", "foo", false);
+        _cleanup_free_ char *p = strv_join_full((char **)input_table_multiple, ", ", "foo");
         assert_se(p);
         ASSERT_STREQ(p, "fooone, footwo, foothree");
 
-        _cleanup_free_ char *q = strv_join_full((char **)input_table_multiple, ";", "foo", false);
+        _cleanup_free_ char *q = strv_join_full((char **)input_table_multiple, ";", "foo");
         assert_se(q);
         ASSERT_STREQ(q, "fooone;footwo;foothree");
 
-        _cleanup_free_ char *r = strv_join_full(STRV_MAKE("a", "a;b", "a:c"), ";", NULL, true);
-        assert_se(r);
-        ASSERT_STREQ(r, "a;a\\;b;a:c");
-
-        _cleanup_free_ char *s = strv_join_full(STRV_MAKE("a", "a;b", "a;;c", ";", ";x"), ";", NULL, true);
-        assert_se(s);
-        ASSERT_STREQ(s, "a;a\\;b;a\\;\\;c;\\;;\\;x");
-
-        _cleanup_free_ char *t = strv_join_full(STRV_MAKE("a", "a;b", "a:c", ";"), ";", "=", true);
-        assert_se(t);
-        ASSERT_STREQ(t, "=a;=a\\;b;=a:c;=\\;");
-        t = mfree(t);
-
-        _cleanup_free_ char *u = strv_join_full((char **)input_table_multiple, NULL, "foo", false);
+        _cleanup_free_ char *u = strv_join_full((char **)input_table_multiple, NULL, "foo");
         assert_se(u);
         ASSERT_STREQ(u, "fooone footwo foothree");
 
-        _cleanup_free_ char *v = strv_join_full((char **)input_table_one, ", ", "foo", false);
+        _cleanup_free_ char *v = strv_join_full((char **)input_table_one, ", ", "foo");
         assert_se(v);
         ASSERT_STREQ(v, "fooone");
 
-        _cleanup_free_ char *w = strv_join_full((char **)input_table_none, ", ", "foo", false);
+        _cleanup_free_ char *w = strv_join_full((char **)input_table_none, ", ", "foo");
         assert_se(w);
         ASSERT_STREQ(w, "");
 
-        _cleanup_free_ char *x = strv_join_full((char **)input_table_two_empties, ", ", "foo", false);
+        _cleanup_free_ char *x = strv_join_full((char **)input_table_two_empties, ", ", "foo");
         assert_se(x);
         ASSERT_STREQ(x, "foo, foo");
 
-        _cleanup_free_ char *y = strv_join_full((char **)input_table_one_empty, ", ", "foo", false);
+        _cleanup_free_ char *y = strv_join_full((char **)input_table_one_empty, ", ", "foo");
         assert_se(y);
         ASSERT_STREQ(y, "foo");
 }
@@ -510,6 +497,26 @@ TEST(strv_overlap) {
         assert_se(!strv_overlap((char **)input_table, (char**)input_table_unique));
 }
 
+TEST(strv_remove_strv) {
+        _cleanup_strv_free_ char **l = NULL;
+
+        ASSERT_OK(strv_extend_strv(&l, STRV_MAKE("one", "two", "three", "four"), false));
+
+        ASSERT_PTR_EQ(strv_remove_strv(l, STRV_MAKE("two", "four")), l);
+        ASSERT_TRUE(strv_equal(l, STRV_MAKE("one", "three")));
+
+        /* Removing entries not present is a no-op. */
+        ASSERT_PTR_EQ(strv_remove_strv(l, STRV_MAKE("nope")), l);
+        ASSERT_TRUE(strv_equal(l, STRV_MAKE("one", "three")));
+
+        /* Empty removal list leaves the list untouched. */
+        ASSERT_PTR_EQ(strv_remove_strv(l, STRV_EMPTY), l);
+        ASSERT_TRUE(strv_equal(l, STRV_MAKE("one", "three")));
+
+        /* Removing from an empty/NULL list is fine. */
+        ASSERT_NULL(strv_remove_strv(NULL, STRV_MAKE("one")));
+}
+
 TEST(strv_sort) {
         const char* input_table[] = {
                 "durian",
@@ -799,14 +806,14 @@ TEST(strv_foreach) {
 
 TEST(strv_foreach_backwards) {
         _cleanup_strv_free_ char **a;
-        unsigned i = 2;
+        unsigned i = 3;
 
         a = strv_new("one", "two", "three");
 
         assert_se(a);
 
         STRV_FOREACH_BACKWARDS(check, a)
-                ASSERT_STREQ(*check, input_table_multiple[i--]);
+                ASSERT_STREQ(*check, input_table_multiple[--i]);
 
         STRV_FOREACH_BACKWARDS(check, (char**) NULL)
                 assert_not_reached();
@@ -1247,6 +1254,52 @@ TEST(strv_rebreak_lines) {
 
                 assert_se(strv_equal(a, b));
         }
+
+        /* Invalid UTF-8 is refused rather than measured. Previously a truncated multibyte lead byte at the
+         * end of a line was blind-skipped by its expected length, stepping over the NUL and reading past
+         * the end of the string. */
+        ASSERT_ERROR(strv_rebreak_lines(STRV_MAKE("foo\xF0"), 10, &l), EINVAL);
+        ASSERT_NULL(l);
+
+        ASSERT_ERROR(strv_rebreak_lines(STRV_MAKE("bar\xFC"), 10, &l), EINVAL);
+        ASSERT_NULL(l);
+
+        /* Same, but reached after a line break, i.e. with the scan restarted at the character following
+         * the whitespace we broke at. */
+        ASSERT_ERROR(strv_rebreak_lines(STRV_MAKE("a \xF0" "b"), 3, &l), EINVAL);
+        ASSERT_NULL(l);
+
+        /* Newlines embedded in the input are hard line breaks. Previously everything before such a newline
+         * was silently dropped if nothing but whitespace followed it. */
+        ASSERT_OK(strv_rebreak_lines(STRV_MAKE("foo\n"), 10, &l));
+        ASSERT_TRUE(strv_equal(l, STRV_MAKE("foo")));
+        l = strv_free(l);
+
+        ASSERT_OK(strv_rebreak_lines(STRV_MAKE("foo\n   "), 10, &l));
+        ASSERT_TRUE(strv_equal(l, STRV_MAKE("foo")));
+        l = strv_free(l);
+
+        ASSERT_OK(strv_rebreak_lines(STRV_MAKE("foo\nbar"), 10, &l));
+        ASSERT_TRUE(strv_equal(l, STRV_MAKE("foo", "bar")));
+        l = strv_free(l);
+
+        ASSERT_OK(strv_rebreak_lines(STRV_MAKE("foo   \n   bar   \n"), 10, &l));
+        ASSERT_TRUE(strv_equal(l, STRV_MAKE("foo", "   bar")));
+        l = strv_free(l);
+
+        ASSERT_OK(strv_rebreak_lines(STRV_MAKE("foo\n\nbar"), 10, &l));
+        ASSERT_TRUE(strv_equal(l, STRV_MAKE("foo", "", "bar")));
+        l = strv_free(l);
+
+        ASSERT_OK(strv_rebreak_lines(STRV_MAKE("foo\r\nbar\r\n"), 10, &l));
+        ASSERT_TRUE(strv_equal(l, STRV_MAKE("foo", "bar")));
+        l = strv_free(l);
+
+        /* And the resulting lines are properly broken to the requested width, rather than staying glued
+         * together in a single, over-long entry. */
+        ASSERT_OK(strv_rebreak_lines(STRV_MAKE("hello world\nfoo bar baz quux waldo"), 10, &l));
+        ASSERT_TRUE(strv_equal(l, STRV_MAKE("hello", "world", "foo bar", "baz quux", "waldo")));
+        l = strv_free(l);
 }
 
 TEST(strv_find_closest) {

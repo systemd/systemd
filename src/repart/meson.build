@@ -8,36 +8,18 @@ executables += [
         executable_template + {
                 'name' : 'systemd-repart',
                 'public' : true,
-                'extract' : files('repart.c'),
-                'link_with' : [
-                        libshared,
-                        libshared_fdisk,
-                ],
+                'export' : files(
+                        'iso9660.c',
+                        'repart.c',
+                        'repart-list-candidate-devices.c',
+                ),
                 'dependencies' : [
                         libblkid_cflags,
-                        libfdisk,
+                        libcryptsetup_cflags,
+                        libfdisk_cflags,
                         libmount_cflags,
-                        libopenssl,
-                        threads,
-                ],
-        },
-        executable_template + {
-                'name' : 'systemd-repart.standalone',
-                'public' : true,
-                'objects' : ['systemd-repart'],
-                'link_with' : [
-                        libc_wrapper_static,
-                        libbasic_static,
-                        libshared_fdisk,
-                        libshared_static,
-                        libsystemd_static,
-                ],
-                'dependencies' : [
-                        libblkid_cflags,
-                        libfdisk,
-                        libmount_cflags,
-                        libopenssl,
-                        threads,
+                        libopenssl_cflags,
+                        tpm2_cflags,
                 ],
         },
 ]

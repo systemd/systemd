@@ -16,6 +16,7 @@
 #include "path-util.h"
 #include "random-util.h"
 #include "stat-util.h"
+#include "string-util.h"
 #include "user-util.h"
 
 _public_ char *sd_id128_to_string(sd_id128_t id, char s[static SD_ID128_STRING_MAX]) {
@@ -62,6 +63,12 @@ _public_ int sd_id128_from_string(const char *s, sd_id128_t *ret) {
         bool is_guid = false;
 
         assert_return(s, -EINVAL);
+
+        const char *u = startswith_no_case(s, "urn:uuid:");
+        if (u) {
+                s = u;
+                is_guid = true;
+        }
 
         for (n = 0, i = 0; n < sizeof(sd_id128_t);) {
                 int a, b;
@@ -138,7 +145,7 @@ _public_ int sd_id128_get_machine(sd_id128_t *ret) {
 int id128_get_machine_at(int rfd, sd_id128_t *ret) {
         int r;
 
-        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(rfd));
 
         r = dir_fd_is_root_or_cwd(rfd);
         if (r < 0)
@@ -147,7 +154,7 @@ int id128_get_machine_at(int rfd, sd_id128_t *ret) {
                 return sd_id128_get_machine(ret);
 
         _cleanup_close_ int fd =
-                chase_and_openat(rfd, "/etc/machine-id", CHASE_AT_RESOLVE_IN_ROOT|CHASE_MUST_BE_REGULAR, O_RDONLY|O_CLOEXEC|O_NOCTTY, /* ret_path= */ NULL);
+                chase_and_openat(rfd, rfd, "/etc/machine-id", CHASE_MUST_BE_REGULAR, O_RDONLY|O_CLOEXEC|O_NOCTTY, /* ret_path= */ NULL);
         if (fd < 0)
                 return fd;
 

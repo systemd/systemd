@@ -3,6 +3,7 @@
   Copyright © 2008 Alan Jenkins <alan.christopher.jenkins@googlemail.com>
 ***/
 
+#include <errno.h>
 #include <fnmatch.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -79,12 +80,74 @@ static const struct trie_value_entry_f *trie_node_value(sd_hwdb *hwdb, const str
         return (const struct trie_value_entry_f *)base;
 }
 
-static const struct trie_node_f *trie_node_from_off(sd_hwdb *hwdb, le64_t off) {
-        return (const struct trie_node_f *)(hwdb->map + le64toh(off));
+static const void* hwdb_at(sd_hwdb *hwdb, uint64_t off, uint64_t size) {
+        assert(hwdb);
+
+        uint64_t file_size = hwdb->st.st_size;
+
+        /* off == file_size is rejected too: a read at EOF is always OOB, and this keeps the
+         * boundary unambiguous even for a size == 0 caller (which would otherwise get a
+         * one-past-the-end pointer). */
+        if (off >= file_size)
+                return NULL;
+        if (file_size - off < size)
+                return NULL;
+
+        return (const uint8_t*) hwdb->map + off;
 }
 
-static const char *trie_string(sd_hwdb *hwdb, le64_t off) {
-        return hwdb->map + le64toh(off);
+static const struct trie_node_f* trie_node_from_off(sd_hwdb *hwdb, le64_t off) {
+        assert(hwdb);
+        assert(hwdb->head);
+
+        uint64_t offset = le64toh(off);
+        uint64_t node_size = le64toh(hwdb->head->node_size);
+        uint64_t child_entry_size = le64toh(hwdb->head->child_entry_size);
+        uint64_t value_entry_size = le64toh(hwdb->head->value_entry_size);
+
+        if (node_size < sizeof(struct trie_node_f))
+                return NULL;
+        if (child_entry_size < sizeof(struct trie_child_entry_f))
+                return NULL;
+        if (value_entry_size < sizeof(struct trie_value_entry_f))
+                return NULL;
+
+        const struct trie_node_f *node = hwdb_at(hwdb, offset, node_size);
+        if (!node)
+                return NULL;
+
+        uint64_t children_bytes, values_bytes, total;
+        if (!MUL_SAFE(&children_bytes, (uint64_t) node->children_count, child_entry_size))
+                return NULL;
+        if (!MUL_SAFE(&values_bytes, le64toh(node->values_count), value_entry_size))
+                return NULL;
+        if (!ADD_SAFE(&total, node_size, children_bytes))
+                return NULL;
+        if (!INC_SAFE(&total, values_bytes))
+                return NULL;
+
+        if (!hwdb_at(hwdb, offset, total))
+                return NULL;
+
+        return node;
+}
+
+static const char* trie_string(sd_hwdb *hwdb, le64_t off) {
+        assert(hwdb);
+
+        uint64_t file_size = hwdb->st.st_size;
+        uint64_t offset = le64toh(off);
+
+        const char *p = hwdb_at(hwdb, offset, /* size= */ 1);
+        if (!p)
+                return NULL;
+
+        /* Clamp to SIZE_MAX so memchr()'s size_t arg cannot truncate on 32-bit. */
+        size_t avail = (size_t) MIN(file_size - offset, (uint64_t) SIZE_MAX);
+        if (!memchr(p, '\0', avail))
+                return NULL;
+
+        return p;
 }
 
 static int trie_children_cmp_f(const void *v1, const void *v2) {
@@ -102,7 +165,9 @@ static const struct trie_node_f *node_lookup_f(sd_hwdb *hwdb, const struct trie_
         child = bsearch(&search, (const char *)node + le64toh(hwdb->head->node_size), node->children_count,
                         le64toh(hwdb->head->child_entry_size), trie_children_cmp_f);
         if (child)
+                /* Treat corrupt child offsets like lookup misses. */
                 return trie_node_from_off(hwdb, child->child_off);
+
         return NULL;
 }
 
@@ -113,6 +178,8 @@ static int hwdb_add_property(sd_hwdb *hwdb, const struct trie_value_entry_f *ent
         assert(hwdb);
 
         key = trie_string(hwdb, entry->key_off);
+        if (!key)
+                return -EBADMSG;
 
         /*
          * Silently ignore all properties which do not start with a
@@ -173,33 +240,64 @@ static int hwdb_add_property(sd_hwdb *hwdb, const struct trie_value_entry_f *ent
         return 0;
 }
 
+/* Cap recursion depth so a corrupt hwdb.bin whose children offsets form a
+ * cycle (or just a deep linear chain) cannot exhaust the stack. Real-world
+ * hwdb files do not approach this; the deepest legitimate trie key is well
+ * under a kilobyte. */
+#define HWDB_RECURSION_MAX 2048U
+
 static int trie_fnmatch_f(sd_hwdb *hwdb, const struct trie_node_f *node, size_t p,
-                          struct linebuf *buf, const char *search) {
+                          struct linebuf *buf, const char *search, unsigned depth) {
         size_t len;
         size_t i;
         const char *prefix;
         int err;
 
+        assert(hwdb);
+        assert(node);
+
+        if (depth >= HWDB_RECURSION_MAX)
+                return -EBADMSG;
+
         prefix = trie_string(hwdb, node->prefix_off);
-        len = strlen(prefix + p);
-        linebuf_add(buf, prefix + p, len);
+        if (!prefix)
+                return -EBADMSG;
+
+        len = strlen(prefix);
+        if (p > len)
+                return -EBADMSG;
+        len -= p;
+
+        if (!linebuf_add(buf, prefix + p, len))
+                return -EINVAL;
 
         for (i = 0; i < node->children_count; i++) {
                 const struct trie_child_entry_f *child = trie_node_child(hwdb, node, i);
+                const struct trie_node_f *child_node;
 
                 linebuf_add_char(buf, child->c);
-                err = trie_fnmatch_f(hwdb, trie_node_from_off(hwdb, child->child_off), 0, buf, search);
+                child_node = trie_node_from_off(hwdb, child->child_off);
+                if (!child_node)
+                        return -EBADMSG;
+
+                err = trie_fnmatch_f(hwdb, child_node, 0, buf, search, depth + 1);
                 if (err < 0)
                         return err;
                 linebuf_rem_char(buf);
         }
 
-        if (le64toh(node->values_count) && fnmatch(linebuf_get(buf), search, 0) == 0)
-                for (i = 0; i < le64toh(node->values_count); i++) {
-                        err = hwdb_add_property(hwdb, trie_node_value(hwdb, node, i));
-                        if (err < 0)
-                                return err;
-                }
+        if (le64toh(node->values_count) != 0) {
+                const char *line = linebuf_get(buf);
+                if (!line)
+                        return -EBADMSG;
+
+                if (fnmatch(line, search, 0) == 0)
+                        for (i = 0; i < le64toh(node->values_count); i++) {
+                                err = hwdb_add_property(hwdb, trie_node_value(hwdb, node, i));
+                                if (err < 0)
+                                        return err;
+                        }
+        }
 
         linebuf_rem(buf, len);
         return 0;
@@ -214,16 +312,24 @@ static int trie_search_f(sd_hwdb *hwdb, const char *search) {
         linebuf_init(&buf);
 
         node = trie_node_from_off(hwdb, hwdb->head->nodes_root_off);
+        if (!node)
+                return -EBADMSG;
+
         while (node) {
                 const struct trie_node_f *child;
                 size_t p = 0;
 
                 if (node->prefix_off) {
+                        const char *prefix;
                         char c;
 
-                        for (; (c = trie_string(hwdb, node->prefix_off)[p]); p++) {
+                        prefix = trie_string(hwdb, node->prefix_off);
+                        if (!prefix)
+                                return -EBADMSG;
+
+                        for (; (c = prefix[p]); p++) {
                                 if (IN_SET(c, '*', '?', '['))
-                                        return trie_fnmatch_f(hwdb, node, p, &buf, search + i + p);
+                                        return trie_fnmatch_f(hwdb, node, p, &buf, search + i + p, 0);
                                 if (c != search[i + p])
                                         return 0;
                         }
@@ -233,7 +339,7 @@ static int trie_search_f(sd_hwdb *hwdb, const char *search) {
                 child = node_lookup_f(hwdb, node, '*');
                 if (child) {
                         linebuf_add_char(&buf, '*');
-                        err = trie_fnmatch_f(hwdb, child, 0, &buf, search + i);
+                        err = trie_fnmatch_f(hwdb, child, 0, &buf, search + i, 0);
                         if (err < 0)
                                 return err;
                         linebuf_rem_char(&buf);
@@ -242,7 +348,7 @@ static int trie_search_f(sd_hwdb *hwdb, const char *search) {
                 child = node_lookup_f(hwdb, node, '?');
                 if (child) {
                         linebuf_add_char(&buf, '?');
-                        err = trie_fnmatch_f(hwdb, child, 0, &buf, search + i);
+                        err = trie_fnmatch_f(hwdb, child, 0, &buf, search + i, 0);
                         if (err < 0)
                                 return err;
                         linebuf_rem_char(&buf);
@@ -251,7 +357,7 @@ static int trie_search_f(sd_hwdb *hwdb, const char *search) {
                 child = node_lookup_f(hwdb, node, '[');
                 if (child) {
                         linebuf_add_char(&buf, '[');
-                        err = trie_fnmatch_f(hwdb, child, 0, &buf, search + i);
+                        err = trie_fnmatch_f(hwdb, child, 0, &buf, search + i, 0);
                         if (err < 0)
                                 return err;
                         linebuf_rem_char(&buf);
@@ -370,14 +476,15 @@ static int properties_prepare(sd_hwdb *hwdb, const char *modalias) {
         return trie_search_f(hwdb, modalias);
 }
 
-_public_ int sd_hwdb_get(sd_hwdb *hwdb, const char *modalias, const char *key, const char **_value) {
+_public_ int sd_hwdb_get(sd_hwdb *hwdb, const char *modalias, const char *key, const char **ret) {
         const struct trie_value_entry_f *entry;
+        const char *value;
         int r;
 
         assert_return(hwdb, -EINVAL);
         assert_return(hwdb->f, -EINVAL);
         assert_return(modalias, -EINVAL);
-        assert_return(_value, -EINVAL);
+        assert_return(ret, -EINVAL);
 
         r = properties_prepare(hwdb, modalias);
         if (r < 0)
@@ -387,7 +494,11 @@ _public_ int sd_hwdb_get(sd_hwdb *hwdb, const char *modalias, const char *key, c
         if (!entry)
                 return -ENOENT;
 
-        *_value = trie_string(hwdb, entry->value_off);
+        value = trie_string(hwdb, entry->value_off);
+        if (!value)
+                return -EBADMSG;
+
+        *ret = value;
 
         return 0;
 }
@@ -409,13 +520,14 @@ _public_ int sd_hwdb_seek(sd_hwdb *hwdb, const char *modalias) {
         return 0;
 }
 
-_public_ int sd_hwdb_enumerate(sd_hwdb *hwdb, const char **key, const char **value) {
+_public_ int sd_hwdb_enumerate(sd_hwdb *hwdb, const char **ret_key, const char **ret_value) {
         const struct trie_value_entry_f *entry;
+        const char *v;
         const void *k;
 
         assert_return(hwdb, -EINVAL);
-        assert_return(key, -EINVAL);
-        assert_return(value, -EINVAL);
+        assert_return(ret_key, -EINVAL);
+        assert_return(ret_value, -EINVAL);
 
         if (hwdb->properties_modified)
                 return -EAGAIN;
@@ -423,8 +535,12 @@ _public_ int sd_hwdb_enumerate(sd_hwdb *hwdb, const char **key, const char **val
         if (!ordered_hashmap_iterate(hwdb->properties, &hwdb->properties_iterator, (void **)&entry, &k))
                 return 0;
 
-        *key = k;
-        *value = trie_string(hwdb, entry->value_off);
+        v = trie_string(hwdb, entry->value_off);
+        if (!v)
+                return -EBADMSG;
+
+        *ret_key = k;
+        *ret_value = v;
 
         return 1;
 }

@@ -9,4 +9,5 @@
 #define SPEED_METER_DEFAULT_TIME_INTERVAL (10 * USEC_PER_SEC)
 #define SPEED_METER_MINIMUM_TIME_INTERVAL (100 * USEC_PER_MSEC)
 
+void link_get_bit_rates(Link *link, uint64_t *ret_tx, uint64_t *ret_rx);
 int manager_start_speed_meter(Manager *m);

@@ -40,7 +40,7 @@ systemd_analyze_sources = files(
         'analyze-verify.c',
         'analyze.c',
 )
-systemd_analyze_extract_sources = files(
+systemd_analyze_export_sources = files(
         'analyze-verify-util.c'
 )
 
@@ -49,17 +49,21 @@ executables += [
                 'name' : 'systemd-analyze',
                 'public' : conf.get('ENABLE_ANALYZE') == 1,
                 'sources' : systemd_analyze_sources,
-                'extract' : systemd_analyze_extract_sources,
+                'export' : systemd_analyze_export_sources,
                 'include_directories' : core_includes,
                 'link_with' : [
                         libcore,
                         libshared,
                 ],
-                'dependencies' : libseccomp_cflags,
-                'install' : conf.get('ENABLE_ANALYZE') == 1,
+                'dependencies' : [
+                        libopenssl_cflags,
+                        libseccomp_cflags,
+                        tpm2_cflags,
+                ],
+                'install' : conf.get('ENABLE_ANALYZE') == 1 ? 'yes' : 'no',
         },
         core_test_template + {
                 'sources' : files('test-verify.c'),
-                'objects' : ['systemd-analyze'],
+                'import' : ['systemd-analyze'],
         },
 ]

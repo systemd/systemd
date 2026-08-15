@@ -12,6 +12,8 @@ static int specifier_prefix_and_instance(char specifier, const void *data, const
         _cleanup_free_ char *prefix = NULL;
         int r;
 
+        assert(ret);
+
         r = unit_name_to_prefix_and_instance(i->name, &prefix);
         if (r < 0)
                 return r;
@@ -48,6 +50,8 @@ static int specifier_instance(char specifier, const void *data, const char *root
         const InstallInfo *i = ASSERT_PTR(userdata);
         char *instance;
         int r;
+
+        assert(ret);
 
         r = unit_name_to_instance(i->name, &instance);
         if (r < 0)

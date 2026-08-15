@@ -3,7 +3,7 @@
 
 #include <signal.h>     /* IWYU pragma: export */
 
-#include "basic-forward.h"
+#include "forward.h"
 
 int reset_all_signal_handlers(void);
 int reset_signal_mask(void);
@@ -32,6 +32,7 @@ int sigprocmask_many_internal(int how, sigset_t *ret_old_mask, ...);
 #define sigprocmask_many(...) sigprocmask_many_internal(__VA_ARGS__, -1)
 
 DECLARE_STRING_TABLE_LOOKUP(signal, int);
+const char* signal_code_to_string(int signo, int code) _const_;
 
 void nop_signal_handler(int sig);
 

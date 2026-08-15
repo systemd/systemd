@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sched.h>
-#include <sys/prctl.h>
 
 #include "sd-varlink.h"
 
@@ -25,13 +24,15 @@
 assert_cc(TASK_COMM_LEN == NAMESPACE_NAME_MAX);
 
 static int make_pid_name(char **ret) {
-        char comm[TASK_COMM_LEN];
         static uint64_t counter = 0;
+        int r;
 
         assert(ret);
 
-        if (prctl(PR_GET_NAME, comm) < 0)
-                return -errno;
+        _cleanup_free_ char *comm = NULL;
+        r = pid_get_comm(0, &comm);
+        if (r < 0)
+                return r;
 
         char spid[DECIMAL_STR_MAX(pid_t)];
         xsprintf(spid, PID_FMT, getpid_cached());
@@ -75,7 +76,7 @@ int nsresource_connect(sd_varlink **ret) {
         return 0;
 }
 
-int nsresource_allocate_userns(sd_varlink *vl, const char *name, uint64_t size) {
+int nsresource_allocate_userns_full(sd_varlink *vl, const char *name, uint64_t size, uint64_t delegate_container_ranges) {
         _cleanup_close_ int userns_fd = -EBADF;
         _cleanup_free_ char *_name = NULL;
         const char *error_id;
@@ -120,7 +121,8 @@ int nsresource_allocate_userns(sd_varlink *vl, const char *name, uint64_t size) 
                         SD_JSON_BUILD_PAIR_STRING("name", name),
                         SD_JSON_BUILD_PAIR_BOOLEAN("mangleName", true),
                         SD_JSON_BUILD_PAIR_UNSIGNED("size", size),
-                        SD_JSON_BUILD_PAIR_UNSIGNED("userNamespaceFileDescriptor", userns_fd_idx));
+                        SD_JSON_BUILD_PAIR_UNSIGNED("userNamespaceFileDescriptor", userns_fd_idx),
+                        JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("delegateContainerRanges", delegate_container_ranges));
         if (r < 0)
                 return log_debug_errno(r, "Failed to call AllocateUserRange() varlink call: %m");
         if (streq_ptr(error_id, "io.systemd.NamespaceResource.UserNamespaceInterfaceNotSupported"))
@@ -269,7 +271,7 @@ int nsresource_add_cgroup(sd_varlink *vl, int userns_fd, int cgroup_fd) {
 
         cgroup_fd_idx = sd_varlink_push_dup_fd(vl, cgroup_fd);
         if (cgroup_fd_idx < 0)
-                return log_debug_errno(userns_fd_idx, "Failed to push cgroup fd into varlink connection: %m");
+                return log_debug_errno(cgroup_fd_idx, "Failed to push cgroup fd into varlink connection: %m");
 
         sd_json_variant *reply = NULL;
         r = sd_varlink_callbo(
@@ -371,6 +373,7 @@ int nsresource_add_netif_veth(
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "hostInterfaceName",      SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(InterfaceParams, host_interface_name),      SD_JSON_MANDATORY },
                 { "namespaceInterfaceName", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(InterfaceParams, namespace_interface_name), SD_JSON_MANDATORY },
+                {}
         };
 
         _cleanup_(interface_params_done) InterfaceParams p = {};
@@ -436,6 +439,7 @@ int nsresource_add_netif_tap(
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "hostInterfaceName",       SD_JSON_VARIANT_STRING,        sd_json_dispatch_string, offsetof(InterfaceParams, host_interface_name), SD_JSON_MANDATORY },
                 { "interfaceFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,   offsetof(InterfaceParams, interface_fd_index),  SD_JSON_MANDATORY },
+                {}
         };
 
         _cleanup_(interface_params_done) InterfaceParams p = {};

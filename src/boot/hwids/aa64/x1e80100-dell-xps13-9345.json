@@ -1,0 +1,18 @@
+{
+    "type": "devicetree",
+    "name": "Dell Inc. XPS",
+    "compatible": "dell,xps13-9345",
+    "hwids": [
+        "eedeb5d9-1a0e-56e6-9137-eb6a723e58d1",
+        "1eb87d70-2f37-5f18-85de-30e46c17d540",
+        "1d1baf60-e2f3-5821-9d98-19a131bf8d93",
+        "7c7c2920-cb59-56ad-bc8a-939e803b0192",
+        "940c6349-f0a5-54ba-8deb-10e709e0b76c",
+        "3b9a1d76-f2e8-52e8-84de-14c5942b3d41",
+        "3c2649a7-2275-5130-a0c4-cc5f9809a2c1",
+        "36e8dd88-512d-5a74-86a4-039333f9e15a",
+        "e656b5f2-69c3-55da-bf22-4dd58d5f6d4f",
+        "bc685cec-e979-5cb9-bf02-e15586c7cb4b",
+        "81972cb8-6fc7-5e08-b140-b0063ed4fefa"
+    ]
+}

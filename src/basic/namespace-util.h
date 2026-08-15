@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "basic-forward.h"
+#include "forward.h"
 
 typedef enum NamespaceType {
         NAMESPACE_CGROUP,
@@ -52,6 +52,7 @@ int fd_is_namespace(int fd, NamespaceType type);
 int is_our_namespace(int fd, NamespaceType type);
 int are_our_namespaces(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd);
 
+int network_namespace_is_init(int socket_fd);
 int namespace_is_init(NamespaceType type);
 
 int pidref_in_same_namespace(PidRef *pid1, PidRef *pid2, NamespaceType type);
@@ -87,6 +88,8 @@ int userns_enter_and_pin(int userns_fd, PidRef *ret);
 bool userns_supported(void);
 
 int userns_get_base_uid(int userns_fd, uid_t *ret_uid, gid_t *ret_gid);
+
+int namespace_open_by_id(uint64_t ns_id);
 
 int process_is_owned_by_uid(const PidRef *pidref, uid_t uid);
 

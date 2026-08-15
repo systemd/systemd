@@ -1,16 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <arpa/inet.h>
+#include <net/if.h>
+
+#include "sd-netlink.h"
 
 #include "alloc-util.h"
-#include "dhcp-lease-internal.h"
 #include "hashmap.h"
 #include "hostname-setup.h"
+#include "netlink-util.h"
 #include "network-internal.h"
 #include "networkd-manager.h"
+#include "networkd-queue.h"
 #include "networkd-route-util.h"
+#include "ordered-set.h"
 #include "strv.h"
 #include "tests.h"
+#include "vrf.h"
 
 TEST(deserialize_in_addr) {
         _cleanup_free_ struct in_addr *addresses = NULL;
@@ -39,51 +44,6 @@ TEST(deserialize_in_addr) {
         ASSERT_TRUE(in6_addr_equal(&d.in6, &addresses6[0]));
         ASSERT_TRUE(in6_addr_equal(&e.in6, &addresses6[1]));
         ASSERT_TRUE(in6_addr_equal(&f.in6, &addresses6[2]));
-}
-
-TEST(deserialize_dhcp_routes) {
-        _cleanup_free_ struct sd_dhcp_route *routes = NULL;
-        size_t size;
-
-        ASSERT_OK(deserialize_dhcp_routes(&routes, &size, ""));
-        ASSERT_EQ(size, 0U);
-        ASSERT_NULL(routes);
-
-        ASSERT_OK(deserialize_dhcp_routes(&routes, &size, "192.168.0.0/16,192.168.0.1 10.1.2.0/24,10.1.2.1 0.0.0.0/0,10.0.1.1"));
-        ASSERT_EQ(size, 3U);
-        ASSERT_NOT_NULL(routes);
-
-        ASSERT_EQ(routes[0].dst_addr.s_addr, inet_addr("192.168.0.0"));
-        ASSERT_EQ(routes[0].gw_addr.s_addr, inet_addr("192.168.0.1"));
-        ASSERT_EQ(routes[0].dst_prefixlen, 16U);
-
-        ASSERT_EQ(routes[1].dst_addr.s_addr, inet_addr("10.1.2.0"));
-        ASSERT_EQ(routes[1].gw_addr.s_addr, inet_addr("10.1.2.1"));
-        ASSERT_EQ(routes[1].dst_prefixlen, 24U);
-
-        ASSERT_EQ(routes[2].dst_addr.s_addr, inet_addr("0.0.0.0"));
-        ASSERT_EQ(routes[2].gw_addr.s_addr, inet_addr("10.0.1.1"));
-        ASSERT_EQ(routes[2].dst_prefixlen, 0U);
-
-        routes = mfree(routes);
-
-        ASSERT_OK(deserialize_dhcp_routes(&routes, &size, "192.168.0.0/16,192.168.0.1 10.1.2.0#24,10.1.2.1 0.0.0.0/0,10.0.1.1"));
-        ASSERT_EQ(size, 2U);
-        ASSERT_NOT_NULL(routes);
-
-        ASSERT_EQ(routes[0].dst_addr.s_addr, inet_addr("192.168.0.0"));
-        ASSERT_EQ(routes[0].gw_addr.s_addr, inet_addr("192.168.0.1"));
-        ASSERT_EQ(routes[0].dst_prefixlen, 16U);
-
-        ASSERT_EQ(routes[1].dst_addr.s_addr, inet_addr("0.0.0.0"));
-        ASSERT_EQ(routes[1].gw_addr.s_addr, inet_addr("10.0.1.1"));
-        ASSERT_EQ(routes[1].dst_prefixlen, 0U);
-
-        routes = mfree(routes);
-
-        ASSERT_OK(deserialize_dhcp_routes(&routes, &size, "192.168.0.0/55,192.168.0.1 10.1.2.0#24,10.1.2.1 0.0.0.0/0,10.0.1.X"));
-        ASSERT_EQ(size, 0U);
-        ASSERT_NULL(routes);
 }
 
 static void test_route_tables_one(Manager *manager, const char *name, uint32_t number) {
@@ -128,7 +88,7 @@ TEST(route_tables) {
         test_route_tables_one(manager, "bbb", 11111);
         test_route_tables_one(manager, "ccc", 22222);
 
-        ASSERT_NULL(hashmap_get(manager->route_table_numbers_by_name, "ddd"));
+        ASSERT_FALSE(hashmap_contains(manager->route_table_numbers_by_name, "ddd"));
 
         test_route_tables_one(manager, "default", 253);
         test_route_tables_one(manager, "main", 254);
@@ -148,6 +108,103 @@ TEST(route_tables) {
         test_route_tables_one(manager, "default", 253);
         test_route_tables_one(manager, "main", 254);
         test_route_tables_one(manager, "local", 255);
+}
+
+TEST(vrf_table) {
+        _cleanup_(manager_freep) Manager *manager = NULL;
+        Vrf vrf = {};
+
+        ASSERT_OK(manager_new(&manager, /* test_mode= */ true));
+        ASSERT_OK(manager_setup(manager));
+
+        vrf.meta.manager = manager;
+
+        ASSERT_OK(config_parse_vrf_table("netdev", "filename", 1, "VRF", 1, "Table", 0, "default", &vrf.table, &vrf));
+        ASSERT_EQ(vrf.table, 253U);
+
+        ASSERT_OK(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", 0, "vrf-test:1234", manager, manager));
+        ASSERT_OK(config_parse_vrf_table("netdev", "filename", 1, "VRF", 1, "Table", 0, "vrf-test", &vrf.table, &vrf));
+        ASSERT_EQ(vrf.table, 1234U);
+
+        ASSERT_OK(config_parse_vrf_table("netdev", "filename", 1, "VRF", 1, "Table", 0, "5678", &vrf.table, &vrf));
+        ASSERT_EQ(vrf.table, 5678U);
+
+        ASSERT_OK(config_parse_vrf_table("netdev", "filename", 1, "VRF", 1, "Table", 0, "no-such-table", &vrf.table, &vrf));
+        ASSERT_EQ(vrf.table, 5678U);
+}
+
+static int test_request_process(Request *req, Link *link, void *userdata) {
+        assert_not_reached();
+}
+
+static int test_request_netlink_handler(
+                sd_netlink *rtnl,
+                sd_netlink_message *message,
+                Request *req,
+                Link *link,
+                void *userdata) {
+
+        assert(rtnl);
+        assert(message);
+        assert(req);
+        assert(!link);
+        assert(userdata);
+
+        *(bool*) userdata = true;
+        return 0;
+}
+
+static void test_request_netlink_handler_one(bool detach) {
+        _cleanup_(manager_freep) Manager *manager = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
+        bool handler_called = false;
+        unsigned counter = 0;
+        Request *req;
+
+        ASSERT_OK(manager_new(&manager, /* test_mode= */ true));
+        ASSERT_OK(sd_netlink_open(&rtnl));
+
+        ASSERT_OK_POSITIVE(manager_queue_request_full(
+                        manager,
+                        REQUEST_TYPE_ADDRESS_LABEL,
+                        &handler_called,
+                        /* free_func= */ NULL,
+                        /* hash_func= */ NULL,
+                        /* compare_func= */ NULL,
+                        test_request_process,
+                        &counter,
+                        test_request_netlink_handler,
+                        &req));
+        ASSERT_EQ(counter, 1U);
+
+        int ifindex = (int) if_nametoindex("lo");
+        ASSERT_GT(ifindex, 0);
+        ASSERT_OK(sd_rtnl_message_new_link(rtnl, &message, RTM_GETLINK, ifindex));
+        ASSERT_OK(request_call_netlink_async(rtnl, message, req));
+        ASSERT_EQ(netlink_get_reply_callback_count(rtnl), 1U);
+
+        if (detach) {
+                request_detach(req);
+                ASSERT_EQ(counter, 0U);
+                ASSERT_EQ(netlink_get_reply_callback_count(rtnl), 0U);
+        }
+
+        ASSERT_OK(sd_netlink_wait(rtnl, 0));
+        ASSERT_OK_POSITIVE(sd_netlink_process(rtnl, /* ret= */ NULL));
+
+        ASSERT_EQ(handler_called, !detach);
+        ASSERT_EQ(counter, 0U);
+        ASSERT_EQ(netlink_get_reply_callback_count(rtnl), 0U);
+        ASSERT_TRUE(ordered_set_isempty(manager->request_queue));
+}
+
+TEST(request_netlink_handler_called) {
+        test_request_netlink_handler_one(/* detach= */ false);
+}
+
+TEST(request_netlink_handler_detached) {
+        test_request_netlink_handler_one(/* detach= */ true);
 }
 
 TEST(manager_enumerate) {

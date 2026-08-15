@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <locale.h>
 
 #include "sd-bus.h"
@@ -19,6 +18,7 @@
 #include "hashmap.h"
 #include "json-util.h"
 #include "main-func.h"
+#include "options.h"
 #include "pager.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
@@ -35,6 +35,7 @@ static bool arg_legend = true;
 static bool arg_reboot = false;
 static bool arg_offline = false;
 static bool arg_now = false;
+static bool arg_ask_password = true;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static const char *arg_host = NULL;
 
@@ -72,6 +73,11 @@ typedef struct Operation {
         sd_event_source *job_interrupt_source;
         sd_bus_slot *job_properties_slot;
         sd_bus_slot *job_finished_slot;
+
+        /* Only used for Acquire()/Install() operations: */
+        char *acquired_version;
+        /* The version the user requested, possibly empty */
+        char *requested_version;
 } Operation;
 
 static Operation* operation_free(Operation *p) {
@@ -86,6 +92,8 @@ static Operation* operation_free(Operation *p) {
                 assert_se(sd_event_exit(p->event, 0) >= 0);
 
         free(p->job_path);
+        free(p->acquired_version);
+        free(p->requested_version);
 
         sd_event_source_disable_unref(p->job_interrupt_source);
         sd_bus_slot_unref(p->job_properties_slot);
@@ -334,6 +342,8 @@ typedef struct DescribeParams {
         bool newest;
         bool available;
         bool installed;
+        bool partial;
+        bool pending;
         bool obsolete;
         bool protected;
         bool incomplete;
@@ -369,6 +379,8 @@ static int parse_describe(sd_bus_message *reply, Version *ret) {
                 { "newest",        SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, newest),        0 },
                 { "available",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, available),     0 },
                 { "installed",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, installed),     0 },
+                { "partial",       SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, partial),       0 },
+                { "pending",       SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, pending),       0 },
                 { "obsolete",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, obsolete),      0 },
                 { "protected",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, protected),     0 },
                 { "incomplete",    SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, incomplete),    0 },
@@ -386,6 +398,8 @@ static int parse_describe(sd_bus_message *reply, Version *ret) {
         SET_FLAG(p.v.flags, UPDATE_NEWEST, p.newest);
         SET_FLAG(p.v.flags, UPDATE_AVAILABLE, p.available);
         SET_FLAG(p.v.flags, UPDATE_INSTALLED, p.installed);
+        SET_FLAG(p.v.flags, UPDATE_PARTIAL, p.partial);
+        SET_FLAG(p.v.flags, UPDATE_PENDING, p.pending);
         SET_FLAG(p.v.flags, UPDATE_OBSOLETE, p.obsolete);
         SET_FLAG(p.v.flags, UPDATE_PROTECTED, p.protected);
         SET_FLAG(p.v.flags, UPDATE_INCOMPLETE, p.incomplete);
@@ -631,7 +645,9 @@ static int describe(sd_bus *bus, const char *target_path, const char *version) {
         return table_print_with_pager(table, SD_JSON_FORMAT_OFF, arg_pager_flags, arg_legend);
 }
 
-static int verb_list(int argc, char **argv, void *userdata) {
+VERB(verb_list, "list", "[TARGET[@VERSION]]", VERB_ANY, 2, VERB_DEFAULT|VERB_ONLINE_ONLY,
+     "List available targets and versions");
+static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         _cleanup_free_ char *target_path = NULL, *version = NULL;
         int r;
@@ -742,7 +758,9 @@ static int check_finished(sd_bus_message *reply, void *userdata, sd_bus_error *r
         return 0;
 }
 
-static int verb_check(int argc, char **argv, void *userdata) {
+VERB(verb_check, "check", "[TARGET...]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+     "Check for updates");
+static int verb_check(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         _cleanup_(table_unrefp) Table *table = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -804,6 +822,7 @@ static int verb_check(int argc, char **argv, void *userdata) {
 }
 
 #define UPDATE_PROGRESS_FAILED INT_MIN
+#define UPDATE_PROGRESS_ACQUIRED (INT_MAX - 1)
 #define UPDATE_PROGRESS_DONE INT_MAX
 /* Make sure it doesn't overlap w/ errno values */
 assert_cc(UPDATE_PROGRESS_FAILED < -ERRNO_MAX);
@@ -849,9 +868,17 @@ static int update_render_progress(sd_event_source *source, void *userdata) {
                         clear_progress_bar_unbuffered(target);
                         fprintf(stderr, "%s: %s Already up-to-date\n", target, GREEN_CHECK_MARK());
                         n--; /* Don't consider this target in the total */
+                } else if (progress == -EUCLEAN) {
+                        clear_progress_bar_unbuffered(target);
+                        fprintf(stderr, "%s: %s Update is already acquired and partially installed. Vacuum it to try installing again.\n", target, RED_CROSS_MARK());
+                        total += 100;
                 } else if (progress < 0) {
                         clear_progress_bar_unbuffered(target);
                         fprintf(stderr, "%s: %s %s\n", target, RED_CROSS_MARK(), STRERROR(progress));
+                        total += 100;
+                } else if (progress == UPDATE_PROGRESS_ACQUIRED) {
+                        clear_progress_bar_unbuffered(target);
+                        fprintf(stderr, "%s: %s Installing\n", target, glyph(GLYPH_DOWNLOAD));
                         total += 100;
                 } else if (progress == UPDATE_PROGRESS_DONE) {
                         clear_progress_bar_unbuffered(target);
@@ -920,7 +947,60 @@ static int update_properties_changed(sd_bus_message *m, void *userdata, sd_bus_e
         return 0;
 }
 
-static int update_finished(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int update_install_started(sd_bus_message *reply, void *userdata, sd_bus_error *ret_error) {
+        _cleanup_(operation_freep) Operation *op = ASSERT_PTR(userdata);
+        OrderedHashmap *map = ASSERT_PTR(op->userdata);
+        const sd_bus_error *e;
+        const char *job_path;
+        int r;
+
+        assert(reply);
+
+        e = sd_bus_message_get_error(reply);
+        if (e) {
+                r = -sd_bus_error_get_errno(e);
+
+                r = ordered_hashmap_replace(map, op->target_id, INT_TO_PTR(r));
+                if (r < 0)
+                        log_debug_errno(r, "Failed to update hashmap: %m");
+
+                return 0;
+        }
+
+        r = sd_bus_message_read(reply, "sto", NULL, &op->job_id, &job_path);
+        if (r < 0)
+                return bus_log_parse_error(r);
+        r = free_and_strdup_warn(&op->job_path, job_path);
+        if (r < 0)
+                return r;
+
+        /* Update this job in the hashmap. */
+        r = ordered_hashmap_replace(map, op->target_id, INT_TO_PTR(UPDATE_PROGRESS_ACQUIRED));
+        if (r < 0)
+                log_debug_errno(r, "Failed to update hashmap: %m");
+
+        /* Register for progress notifications for this Install() D-Bus call; previously
+         * op->job_properties_slot was registered for progress notifications for the Acquire() D-Bus call. */
+        sd_bus_slot_unref(TAKE_PTR(op->job_properties_slot));
+        r = sd_bus_match_signal_async(
+                        op->bus,
+                        &op->job_properties_slot,
+                        bus_sysupdate_mgr->destination,
+                        job_path,
+                        "org.freedesktop.DBus.Properties",
+                        "PropertiesChanged",
+                        update_properties_changed,
+                        NULL,
+                        op);
+        if (r < 0)
+                return log_bus_error(r, NULL, op->target_id, "listen for PropertiesChanged");
+
+        TAKE_PTR(op); /* update_install_finished/update_interrupted take ownership of the data */
+
+        return 0;
+}
+
+static int update_install_finished(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         _cleanup_(operation_freep) Operation *op = ASSERT_PTR(userdata);
         OrderedHashmap *map = ASSERT_PTR(op->userdata);
         uint64_t id;
@@ -951,6 +1031,64 @@ static int update_finished(sd_bus_message *m, void *userdata, sd_bus_error *erro
         return 0;
 }
 
+static int update_acquire_finished(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        _cleanup_(operation_freep) Operation *op = ASSERT_PTR(userdata);
+        OrderedHashmap *map = ASSERT_PTR(op->userdata);
+        uint64_t id;
+        int r, status;
+
+        assert(m);
+
+        r = sd_bus_message_read(m, "toi", &id, NULL, &status);
+        if (r < 0) {
+                bus_log_parse_error_debug(r);
+                return 0;
+        }
+
+        if (id != op->job_id) {
+                TAKE_PTR(op);
+                return 0;
+        }
+
+        if (status == 0) /* success */
+                status = UPDATE_PROGRESS_ACQUIRED;
+        else if (status > 0) /* exit status without errno */
+                status = UPDATE_PROGRESS_FAILED; /* i.e. EXIT_FAILURE */
+        /* else errno */
+
+        r = ordered_hashmap_replace(map, op->target_id, INT_TO_PTR(status));
+        if (r < 0)
+                log_debug_errno(r, "Failed to update hashmap: %m");
+
+        /* Renew the JobRemoved notification for the Install() call instead. */
+        sd_bus_slot_unref(op->job_finished_slot);
+        r = bus_match_signal_async(
+                        op->bus, &op->job_finished_slot, bus_sysupdate_mgr, "JobRemoved", update_install_finished, NULL, op);
+        if (r < 0)
+                return log_bus_error(r, NULL, op->target_id, "listen for JobRemoved");
+
+        /* With the Acquire() call finished, immediately call Install() to deploy the downloaded update.
+         * This reuses the same Operation struct so the progress reporting continues to be done in the same
+         * slot in the terminal. */
+        r = sd_bus_call_method_async(
+                        op->bus,
+                        NULL,
+                        bus_sysupdate_mgr->destination,
+                        op->target_path,
+                        SYSUPDATE_TARGET_INTERFACE,
+                        "Install",
+                        update_install_started,
+                        op,
+                        "st",
+                        op->requested_version,
+                        0LU);
+        if (r < 0)
+                return log_bus_error(r, NULL, op->target_id, "call Install");
+        TAKE_PTR(op);
+
+        return 0;
+}
+
 static int update_interrupted(sd_event_source *source, void *userdata) {
         /* Since the event loop is exiting, we will never receive the JobRemoved
          * signal. So, we must free the userdata here. */
@@ -959,6 +1097,8 @@ static int update_interrupted(sd_event_source *source, void *userdata) {
         OrderedHashmap *map = ASSERT_PTR(op->userdata);
         int r;
 
+        /* This call should work regardless of whether we’re cancelling the Acquire() call or the Install()
+         * call. */
         r = sd_bus_call_method(op->bus,
                                bus_sysupdate_mgr->destination,
                                op->job_path,
@@ -977,7 +1117,7 @@ static int update_interrupted(sd_event_source *source, void *userdata) {
         return 0;
 }
 
-static int update_started(sd_bus_message *reply, void *userdata, sd_bus_error *ret_error) {
+static int update_acquire_started(sd_bus_message *reply, void *userdata, sd_bus_error *ret_error) {
         _cleanup_(operation_freep) Operation *op = ASSERT_PTR(userdata);
         OrderedHashmap *map = ASSERT_PTR(op->userdata);
         const sd_bus_error *e;
@@ -1008,6 +1148,12 @@ static int update_started(sd_bus_message *reply, void *userdata, sd_bus_error *r
         op->job_path = strdup(job_path);
         if (!op->job_path)
                 return log_oom();
+
+        /* Store the version for the subsequent Install() call */
+        op->acquired_version = strdup(new_version);
+        if (!op->acquired_version)
+                return log_oom();
+
         if (isempty(new_version))
                 new_version = "latest";
 
@@ -1047,7 +1193,7 @@ static int update_started(sd_bus_message *reply, void *userdata, sd_bus_error *r
         if (r < 0)
                 return log_bus_error(r, NULL, op->target_id, "listen for PropertiesChanged");
 
-        TAKE_PTR(op); /* update_finished/update_interrupted take ownership of the data */
+        TAKE_PTR(op); /* update_acquire_finished/update_interrupted take ownership of the data */
 
         return 0;
 }
@@ -1094,7 +1240,7 @@ static int do_update(sd_bus *bus, char **targets) {
 
                 /* Sign up for notification when the associated job finishes */
                 r = bus_match_signal_async(
-                                op->bus, &op->job_finished_slot, bus_sysupdate_mgr, "JobRemoved", update_finished, NULL, op);
+                                op->bus, &op->job_finished_slot, bus_sysupdate_mgr, "JobRemoved", update_acquire_finished, NULL, op);
                 if (r < 0)
                         return log_bus_error(r, NULL, op->target_id, "listen for JobRemoved");
 
@@ -1104,14 +1250,19 @@ static int do_update(sd_bus *bus, char **targets) {
                                 bus_sysupdate_mgr->destination,
                                 target_paths[i],
                                 SYSUPDATE_TARGET_INTERFACE,
-                                "Update",
-                                update_started,
+                                "Acquire",
+                                update_acquire_started,
                                 op,
                                 "st",
                                 versions[i],
                                 0LU);
                 if (r < 0)
-                        return log_bus_error(r, NULL, targets[i], "call Update");
+                        return log_bus_error(r, NULL, targets[i], "call Acquire");
+
+                op->requested_version = strdup(versions[i]);
+                if (!op->requested_version)
+                        return log_oom();
+
                 TAKE_PTR(op);
 
                 remaining++;
@@ -1149,7 +1300,9 @@ static int do_update(sd_bus *bus, char **targets) {
         return did_anything ? 1 : 0;
 }
 
-static int verb_update(int argc, char **argv, void *userdata) {
+VERB(verb_update, "update", "[TARGET[@VERSION]...]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+     "Install updates");
+static int verb_update(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         _cleanup_strv_free_ char **targets = NULL;
         bool did_anything = false;
@@ -1202,7 +1355,9 @@ static int do_vacuum(sd_bus *bus, const char *target, const char *path) {
         return count + disabled > 0 ? 1 : 0;
 }
 
-static int verb_vacuum(int argc, char **argv, void *userdata) {
+VERB(verb_vacuum, "vacuum", "[TARGET...]", VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,
+     "Clean up old updates");
+static int verb_vacuum(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         _cleanup_strv_free_ char **targets = NULL, **target_paths = NULL;
         size_t n;
@@ -1346,7 +1501,9 @@ static int list_features(sd_bus *bus) {
         return table_print_with_pager(table, SD_JSON_FORMAT_OFF, arg_pager_flags, arg_legend);
 }
 
-static int verb_features(int argc, char **argv, void *userdata) {
+VERB(verb_features, "features", "[FEATURE]", VERB_ANY, 2, VERB_ONLINE_ONLY,
+     "List and inspect optional features on host OS");
+static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         _cleanup_(table_unrefp) Table *table = NULL;
         _cleanup_(feature_done) Feature f = {};
@@ -1395,7 +1552,11 @@ static int verb_features(int argc, char **argv, void *userdata) {
         return table_print_with_pager(table, SD_JSON_FORMAT_OFF, arg_pager_flags, false);
 }
 
-static int verb_enable(int argc, char **argv, void *userdata) {
+VERB(verb_enable, "enable", "FEATURE...", 2, VERB_ANY, VERB_ONLINE_ONLY,
+     "Enable optional feature on host OS");
+VERB(verb_enable, "disable", "FEATURE...", 2, VERB_ANY, VERB_ONLINE_ONLY,
+     "Disable optional feature on host OS");
+static int verb_enable(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         bool did_anything = false, enable;
         char **features;
@@ -1476,111 +1637,105 @@ static int verb_enable(int argc, char **argv, void *userdata) {
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *verbs = NULL, *verbs2 = NULL, *options = NULL;
         int r;
 
         r = terminal_urlify_man("updatectl", "1", &link);
         if (r < 0)
                 return log_oom();
 
-        printf("%1$s [OPTIONS...] [VERSION]\n"
-               "\n%5$sManage system updates.%6$s\n"
-               "\n%3$sCommands:%4$s\n"
-               "  list [TARGET[@VERSION]]       List available targets and versions\n"
-               "  check [TARGET...]             Check for updates\n"
-               "  update [TARGET[@VERSION]...]  Install updates\n"
-               "  vacuum [TARGET...]            Clean up old updates\n"
-               "  features [FEATURE]            List and inspect optional features on host OS\n"
-               "  enable FEATURE...             Enable optional feature on host OS\n"
-               "  disable FEATURE...            Disable optional feature on host OS\n"
-               "  -h --help                     Show this help\n"
-               "     --version                  Show package version\n"
-               "\n%3$sOptions:%4$s\n"
-               "     --reboot             Reboot after updating to newer version\n"
-               "     --offline            Do not fetch metadata from the network\n"
-               "     --now                Download/delete resources immediately\n"
-               "  -H --host=[USER@]HOST   Operate on remote host\n"
-               "     --no-pager           Do not pipe output into a pager\n"
-               "     --no-legend          Do not show the headers and footers\n"
-               "\nSee the %2$s for details.\n"
-               , program_invocation_short_name
-               , link
-               , ansi_underline(), ansi_normal()
-               , ansi_highlight(), ansi_normal()
-        );
+        r = verbs_get_help_table(&verbs);
+        if (r < 0)
+                return r;
 
+        r = option_parser_get_help_table_group("Verbs", &verbs2);
+        if (r < 0)
+                return r;
+
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        (void) table_sync_column_widths(0, verbs, verbs2, options);
+
+        printf("%s [OPTIONS...] [VERSION]\n"
+               "\n%sManage system updates.%s\n"
+               "\n%sCommands:%s\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               ansi_underline(),
+               ansi_normal());
+
+        r = table_print_or_warn(verbs);
+        if (r < 0)
+                return r;
+        r = table_print_or_warn(verbs2);
+        if (r < 0)
+                return r;
+
+        printf("\n%sOptions:%s\n",
+               ansi_underline(),
+               ansi_normal());
+
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
+VERB_COMMON_HELP_HIDDEN(help);
 
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_PAGER,
-                ARG_NO_LEGEND,
-                ARG_REBOOT,
-                ARG_OFFLINE,
-                ARG_NOW,
-        };
-
-        static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'             },
-                { "version",   no_argument,       NULL, ARG_VERSION     },
-                { "no-pager",  no_argument,       NULL, ARG_NO_PAGER    },
-                { "no-legend", no_argument,       NULL, ARG_NO_LEGEND   },
-                { "host",      required_argument, NULL, 'H'             },
-                { "reboot",    no_argument,       NULL, ARG_REBOOT      },
-                { "offline",   no_argument,       NULL, ARG_OFFLINE     },
-                { "now",       no_argument,       NULL, ARG_NOW         },
-                {}
-        };
-
-        int c;
-
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hH:", options, NULL)) >= 0) {
+        OptionParser opts = { argc, argv };
+
+        FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case ARG_NO_LEGEND:
-                        arg_legend = false;
-                        break;
-
-                case 'H':
-                        arg_transport = BUS_TRANSPORT_REMOTE;
-                        arg_host = optarg;
-                        break;
-
-                case ARG_REBOOT:
+                OPTION_LONG("reboot", NULL, "Reboot after updating to newer version"):
                         arg_reboot = true;
                         break;
 
-                case ARG_OFFLINE:
+                OPTION_LONG("offline", NULL, "Do not fetch metadata from the network"):
                         arg_offline = true;
                         break;
 
-                case ARG_NOW:
+                OPTION_LONG("now", NULL, "Download/delete resources immediately"):
                         arg_now = true;
                         break;
 
-                case '?':
-                        return -EINVAL;
+                OPTION_COMMON_HOST:
+                        arg_transport = BUS_TRANSPORT_REMOTE;
+                        arg_host = opts.arg;
+                        break;
 
-                default:
-                        assert_not_reached();
+                OPTION_COMMON_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
+                OPTION_COMMON_NO_LEGEND:
+                        arg_legend = false;
+                        break;
+
+                OPTION_GROUP("Verbs"): {}
+
+                OPTION_COMMON_NO_ASK_PASSWORD:
+                        arg_ask_password = false;
+                        break;
+
+                OPTION_COMMON_HELP:
+                        return help();
+
+                OPTION_COMMON_VERSION:
+                        return version();
                 }
-        }
 
+        *ret_args = option_parser_get_args(&opts);
         return 1;
 }
 
@@ -1588,23 +1743,13 @@ static int run(int argc, char *argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
-        static const Verb verbs[] = {
-                { "list",     VERB_ANY, 2,        VERB_DEFAULT|VERB_ONLINE_ONLY, verb_list     },
-                { "check",    VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,              verb_check    },
-                { "update",   VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,              verb_update   },
-                { "vacuum",   VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,              verb_vacuum   },
-                { "features", VERB_ANY, 2,        VERB_ONLINE_ONLY,              verb_features },
-                { "enable",   2,        VERB_ANY, VERB_ONLINE_ONLY,              verb_enable   },
-                { "disable",  2,        VERB_ANY, VERB_ONLINE_ONLY,              verb_enable   },
-                {}
-        };
-
         setlocale(LC_ALL, "");
         log_setup();
 
         (void) signal(SIGWINCH, columns_lines_cache_reset);
 
-        r = parse_argv(argc, argv);
+        char **args = NULL;
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
@@ -1612,12 +1757,11 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return bus_log_connect_error(r, arg_transport, RUNTIME_SCOPE_SYSTEM);
 
-        if (arg_transport == BUS_TRANSPORT_LOCAL)
-                polkit_agent_open();
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        (void) sd_bus_set_allow_interactive_authorization(bus, true);
+        (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
 
-        return dispatch_verb(argc, argv, verbs, bus);
+        return dispatch_verb(args, bus);
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

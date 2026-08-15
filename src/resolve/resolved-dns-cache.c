@@ -18,10 +18,6 @@
 #include "string-util.h"
 #include "time-util.h"
 
-/* Never cache more than 4K entries. RFC 1536, Section 5 suggests to
- * leave DNS caches unbounded, but that's crazy. */
-#define CACHE_MAX 4096
-
 /* We never keep any item longer than 2h in our cache unless StaleRetentionSec is greater than zero. */
 #define CACHE_TTL_MAX_USEC (2 * USEC_PER_HOUR)
 
@@ -68,7 +64,7 @@ struct DnsCacheItem {
 };
 
 /* Returns true if this is a cache item created as result of an explicit lookup, or created as "side-effect"
- * of another request. "Primary" entries will carry the full answer data (with NSEC, …) that can aso prove
+ * of another request. "Primary" entries will carry the full answer data (with NSEC, …) that can also prove
  * wildcard expansion, non-existence and such, while entries that were created as "side-effect" just contain
  * immediate RR data for the specified RR key, but nothing else. */
 #define DNS_CACHE_ITEM_IS_PRIMARY(item) (!!(item)->answer)
@@ -184,9 +180,12 @@ static void dns_cache_make_space(DnsCache *c, unsigned add) {
         if (add <= 0)
                 return;
 
+        if (c->cache_max == 0)
+                return;
+
         /* Makes space for n new entries. Note that we actually allow
-         * the cache to grow beyond CACHE_MAX, but only when we shall
-         * add more RRs to the cache than CACHE_MAX at once. In that
+         * the cache to grow beyond cache_max, but only when we shall
+         * add more RRs to the cache than cache_max at once. In that
          * case the cache will be emptied completely otherwise. */
 
         for (;;) {
@@ -196,7 +195,7 @@ static void dns_cache_make_space(DnsCache *c, unsigned add) {
                 if (prioq_isempty(c->by_expiry))
                         break;
 
-                if (prioq_size(c->by_expiry) + add < CACHE_MAX)
+                if (prioq_size(c->by_expiry) + add < c->cache_max)
                         break;
 
                 i = prioq_peek(c->by_expiry);
@@ -752,6 +751,10 @@ int dns_cache_put(
 
         assert(c);
         assert(owner_address);
+
+        /* Check cache mode here too, since the mDNS caller doesn't guard against Cache=no. */
+        if (cache_mode == DNS_CACHE_MODE_NO || c->cache_max == 0)
+                return 0;
 
         dns_cache_remove_previous(c, key, answer);
 

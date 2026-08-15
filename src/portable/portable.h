@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "forward.h"
 #include "runtime-scope.h"
-#include "shared-forward.h"
 #include "string-util.h"
 
 typedef struct PortableMetadata {
@@ -112,7 +112,7 @@ int portable_get_state(
 
 int portable_get_profiles(RuntimeScope scope, char ***ret);
 
-void portable_changes_free(PortableChange *changes, size_t n_changes);
+void portable_changes_free(PortableChange *array, size_t n);
 
 DECLARE_STRING_TABLE_LOOKUP(portable_change_type, int);
 

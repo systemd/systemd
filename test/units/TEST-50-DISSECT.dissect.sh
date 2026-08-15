@@ -19,15 +19,16 @@ fi
 
 systemd-dissect --json=short "$MINIMAL_IMAGE.raw" | \
     grep -F '{"rw":"ro","designator":"root","partition_uuid":null,"partition_label":null,"fstype":"squashfs","architecture":null,"verity":"external"' >/dev/null
+systemd-dissect --json=short "$MINIMAL_IMAGE.raw" | grep -F '"size":' >/dev/null
 systemd-dissect "$MINIMAL_IMAGE.raw" | grep -F "MARKER=1" >/dev/null
 # shellcheck disable=SC2153
 systemd-dissect "$MINIMAL_IMAGE.raw" | grep -F -f <(sed 's/"//g' "$OS_RELEASE") >/dev/null
 
 systemd-dissect --list "$MINIMAL_IMAGE.raw" | grep '^etc/os-release$' >/dev/null
 systemd-dissect --mtree "$MINIMAL_IMAGE.raw" --mtree-hash yes | \
-    grep -E "^.(/usr|)/bin/cat type=file mode=0755 uid=0 gid=0 size=[0-9]* sha256sum=[a-z0-9]*$" >/dev/null
+    grep -E "^.(/usr|)/bin/bash type=file mode=0755 uid=0 gid=0 size=[0-9]* sha256sum=[a-z0-9]*$" >/dev/null
 systemd-dissect --mtree "$MINIMAL_IMAGE.raw" --mtree-hash no  | \
-    grep -E "^.(/usr|)/bin/cat type=file mode=0755 uid=0 gid=0 size=[0-9]*$" >/dev/null
+    grep -E "^.(/usr|)/bin/bash type=file mode=0755 uid=0 gid=0 size=[0-9]*$" >/dev/null
 
 read -r SHA256SUM1 _ < <(systemd-dissect --copy-from "$MINIMAL_IMAGE.raw" etc/os-release | sha256sum)
 test "$SHA256SUM1" != ""
@@ -160,6 +161,8 @@ mv "$MINIMAL_IMAGE.foohash" "$MINIMAL_IMAGE.roothash"
 # Derive partition UUIDs from root hash, in UUID syntax
 ROOT_UUID="$(systemd-id128 -u show "$(head -c 32 "$MINIMAL_IMAGE.roothash")" -u | tail -n 1 | cut -b 6-)"
 VERITY_UUID="$(systemd-id128 -u show "$(tail -c 32 "$MINIMAL_IMAGE.roothash")" -u | tail -n 1 | cut -b 6-)"
+USR_UUID="$ROOT_UUID"
+USR_VERITY_UUID="$VERITY_UUID"
 
 systemd-dissect --json=short \
                 --root-hash "$MINIMAL_IMAGE_ROOTHASH" \
@@ -177,6 +180,20 @@ if [[ -n "${OPENSSL_CONFIG:-}" ]]; then
 fi
 systemd-dissect --root-hash "$MINIMAL_IMAGE_ROOTHASH" "$MINIMAL_IMAGE.gpt" | grep -F "MARKER=1" >/dev/null
 systemd-dissect --root-hash "$MINIMAL_IMAGE_ROOTHASH" "$MINIMAL_IMAGE.gpt" | grep -F -f <(sed 's/"//g' "$OS_RELEASE") >/dev/null
+systemd-dissect --json=short \
+                --usr-hash "$MINIMAL_IMAGE_ROOTHASH" \
+                "$MINIMAL_IMAGE.usr.gpt" | \
+                grep '{"rw":"ro","designator":"usr","partition_uuid":"'"$USR_UUID"'","partition_label":"Usr Partition","fstype":"squashfs","architecture":"'"$ARCHITECTURE"'","verity":"signed",' >/dev/null
+systemd-dissect --json=short \
+                --usr-hash "$MINIMAL_IMAGE_ROOTHASH" \
+                "$MINIMAL_IMAGE.usr.gpt" | \
+                grep '{"rw":"ro","designator":"usr-verity","partition_uuid":"'"$USR_VERITY_UUID"'","partition_label":"Usr Verity Partition","fstype":"DM_verity_hash","architecture":"'"$ARCHITECTURE"'","verity":null,' >/dev/null
+if [[ -n "${OPENSSL_CONFIG:-}" ]]; then
+    systemd-dissect --json=short \
+                    --usr-hash "$MINIMAL_IMAGE_ROOTHASH" \
+                    "$MINIMAL_IMAGE.usr.gpt" | \
+                    grep -E '{"rw":"ro","designator":"usr-verity-sig","partition_uuid":"'".*"'","partition_label":"Usr Signature Partition","fstype":"verity_hash_signature","architecture":"'"$ARCHITECTURE"'","verity":null,' >/dev/null
+fi
 
 # Test image policies
 systemd-dissect --validate "$MINIMAL_IMAGE.gpt"
@@ -194,6 +211,12 @@ systemd-dissect --validate "$MINIMAL_IMAGE.gpt" --image-policy=root=verity:swap=
 systemd-dissect --validate "$MINIMAL_IMAGE.gpt" --image-policy=root=signed
 (! systemd-dissect --validate "$MINIMAL_IMAGE.gpt" --image-policy=root=signed:root-verity-sig=unused+absent)
 (! systemd-dissect --validate "$MINIMAL_IMAGE.gpt" --image-policy=root=signed:root-verity=unused+absent)
+systemd-dissect --validate "$MINIMAL_IMAGE.usr.gpt" --image-policy=usr=verity
+systemd-dissect --validate "$MINIMAL_IMAGE.usr.gpt" --image-policy=usr=verity:usr-verity-sig=unused+absent
+(! systemd-dissect --validate "$MINIMAL_IMAGE.usr.gpt" --image-policy=usr=verity:usr-verity=unused+absent)
+systemd-dissect --validate "$MINIMAL_IMAGE.usr.gpt" --image-policy=usr=signed
+(! systemd-dissect --validate "$MINIMAL_IMAGE.usr.gpt" --image-policy=usr=signed:usr-verity-sig=unused+absent)
+(! systemd-dissect --validate "$MINIMAL_IMAGE.usr.gpt" --image-policy=usr=signed:usr-verity=unused+absent)
 
 # Test RootImagePolicy= unit file setting
 systemd-run --wait -P \
@@ -241,6 +264,12 @@ systemd-run --wait -P \
             -p RootImage="$MINIMAL_IMAGE.gpt" \
             -p RootHash="$MINIMAL_IMAGE_ROOTHASH" \
             -p RootImagePolicy='root=signed+lol:wut=wat+signed' \
+            -p MountAPIVFS=yes \
+            cat /usr/lib/os-release | grep -F "MARKER=1" >/dev/null
+# A policy pinning a single fstype on a GPT image should still use verity.
+systemd-run --wait -P \
+            -p RootImage="$MINIMAL_IMAGE.gpt" \
+            -p RootImagePolicy='root=verity+squashfs' \
             -p MountAPIVFS=yes \
             cat /usr/lib/os-release | grep -F "MARKER=1" >/dev/null
 (! systemd-run --wait -P \
@@ -383,7 +412,7 @@ ExecStart=bash -c ' \\
         sleep 0.1; \\
     done; \\
     mount; \\
-    mount | grep -F "on /tmp/img type squashfs" | grep -q -F "nosuid"; \\
+    mount | grep -F "on /tmp/img type squashfs" | grep -F "nosuid" >/dev/null; \\
 '
 EOF
 systemctl start testservice-50d.service
@@ -643,13 +672,20 @@ VDIR="/tmp/${VBASE}.v"
 mkdir "$VDIR"
 rm -rf /tmp/markers/
 mkdir /tmp/markers/
+CDIR1="/tmp/${VBASE}_confext_a"
+CDIR2="/tmp/${VBASE}_confext_b"
+mkdir -p "$CDIR1/etc/extension-release.d/" "$CDIR2/etc/extension-release.d/"
+echo "ID=_any" >"$CDIR1/etc/extension-release.d/extension-release.${VBASE}_confext_a"
+touch "$CDIR1/etc/${VBASE}_confext_a.marker"
+echo "ID=_any" >"$CDIR2/etc/extension-release.d/extension-release.${VBASE}_confext_b"
+touch "$CDIR2/etc/${VBASE}_confext_b.marker"
 cat >/run/systemd/system/testservice-50g.service <<EOF
 [Service]
 Type=notify-reload
 EnvironmentFile=-/usr/lib/systemd/systemd-asan-env
 PrivateTmp=disconnected
 BindPaths=/tmp/markers/
-ExtensionDirectories=-${VDIR}
+ExtensionDirectories=-${VDIR} ${CDIR1} ${CDIR2}
 ExecStart=bash -o pipefail -x -c ' \\
     trap "{ \\
         systemd-notify --reloading; \\
@@ -668,12 +704,16 @@ systemctl is-active testservice-50g.service
 # First reload; at reload time, the marker file in /etc should be picked up.
 systemctl reload testservice-50g.service
 grep -q -F "${VBASE}_1.marker" /tmp/markers/50g
+grep -q -F "${VBASE}_confext_a.marker" /tmp/markers/50g
+grep -q -F "${VBASE}_confext_b.marker" /tmp/markers/50g
 # Make a version 2 and reload again; this time we should see the v2 marker
 mkdir -p "$VDIR/${VBASE}_2/etc/extension-release.d/"
 echo "ID=_any" >"$VDIR/${VBASE}_2/etc/extension-release.d/extension-release.${VBASE}_2"
 touch "$VDIR/${VBASE}_2/etc/${VBASE}_2.marker"
 systemctl reload testservice-50g.service
 grep -q -F "${VBASE}_2.marker" /tmp/markers/50g
+grep -q -F "${VBASE}_confext_a.marker" /tmp/markers/50g
+grep -q -F "${VBASE}_confext_b.marker" /tmp/markers/50g
 # Do it for a couple more times (to make sure we're tearing down old overlays)
 for _ in {1..5}; do systemctl reload testservice-50g.service; done
 systemctl stop testservice-50g.service
@@ -684,13 +724,17 @@ rm -f /run/systemd/system/testservice-50g.service
 # this time)
 VDIR2="/tmp/${VBASE}.raw.v"
 mkdir "$VDIR2"
+CIMG1="/tmp/${VBASE}_confext_a.raw"
+CIMG2="/tmp/${VBASE}_confext_b.raw"
+mksquashfs "$CDIR1" "$CIMG1" -noappend
+mksquashfs "$CDIR2" "$CIMG2" -noappend
 cat >/run/systemd/system/testservice-50h.service <<EOF
 [Service]
 Type=notify-reload
 EnvironmentFile=-/usr/lib/systemd/systemd-asan-env
 PrivateTmp=disconnected
 BindPaths=/tmp/markers/
-ExtensionImages=-$VDIR2
+ExtensionImages=-$VDIR2 ${CIMG1} ${CIMG2}
 ExecStart=bash -o pipefail -x -c ' \\
     trap "{ \\
         systemd-notify --reloading; \\
@@ -707,15 +751,21 @@ systemctl is-active testservice-50h.service
 # First reload should pick up the v1 marker
 systemctl reload testservice-50h.service
 grep -q -F "${VBASE}_1.marker" /tmp/markers/50h
+grep -q -F "${VBASE}_confext_a.marker" /tmp/markers/50h
+grep -q -F "${VBASE}_confext_b.marker" /tmp/markers/50h
 # Second reload should pick up the v2 marker
 mksquashfs "$VDIR/${VBASE}_2" "$VDIR2/${VBASE}_2.raw" -noappend
 systemctl reload testservice-50h.service
 grep -q -F "${VBASE}_2.marker" /tmp/markers/50h
-# Test that removing all the extensions don't cause any issues
+grep -q -F "${VBASE}_confext_a.marker" /tmp/markers/50h
+grep -q -F "${VBASE}_confext_b.marker" /tmp/markers/50h
+# Test that removing all the vpick extensions don't cause any issues
 rm -rf "${VDIR2:?}"/*
 systemctl reload testservice-50h.service
 systemctl is-active testservice-50h.service
-grep -q -F "no-marker" /tmp/markers/50h
+(! grep -q -F "${VBASE}_2.marker" /tmp/markers/50h)
+grep -q -F "${VBASE}_confext_a.marker" /tmp/markers/50h
+grep -q -F "${VBASE}_confext_b.marker" /tmp/markers/50h
 systemctl stop testservice-50h.service
 rm -f /run/systemd/system/testservice-50h.service
 
@@ -727,7 +777,7 @@ EnvironmentFile=-/usr/lib/systemd/systemd-asan-env
 PrivateTmp=disconnected
 BindPaths=/tmp/markers/
 RootImage=$MINIMAL_IMAGE.raw
-ExtensionDirectories=-${VDIR}
+ExtensionDirectories=-${VDIR} ${CDIR1} ${CDIR2}
 NotifyAccess=all
 ExecStart=bash -x -o pipefail -c ' \
     trap '"'"' \
@@ -749,6 +799,8 @@ systemctl is-active testservice-50i.service
 mv "$VDIR/.${VBASE}_2" "$VDIR/${VBASE}_2/"
 systemctl reload testservice-50i.service
 grep -q -F "${VBASE}_2.marker" /tmp/markers/50i
+grep -q -F "${VBASE}_confext_a.marker" /tmp/markers/50i
+grep -q -F "${VBASE}_confext_b.marker" /tmp/markers/50i
 # Ensure that we are also still seeing files exclusive to the root image
 grep -q -F "MARKER=1" /tmp/markers/50i
 systemctl stop testservice-50i.service
@@ -762,7 +814,7 @@ EnvironmentFile=-/usr/lib/systemd/systemd-asan-env
 PrivateTmp=disconnected
 BindPaths=/tmp/markers/
 RootDirectory=/tmp/vpickminimg
-ExtensionDirectories=-${VDIR}
+ExtensionDirectories=-${VDIR} ${CDIR1} ${CDIR2}
 NotifyAccess=all
 ExecStart=bash -x -o pipefail -c ' \
     trap '"'"' \
@@ -780,6 +832,8 @@ systemctl start testservice-50j.service
 systemctl is-active testservice-50j.service
 systemctl reload testservice-50j.service
 grep -q -F "${VBASE}_2.marker" /tmp/markers/50j
+grep -q -F "${VBASE}_confext_a.marker" /tmp/markers/50j
+grep -q -F "${VBASE}_confext_b.marker" /tmp/markers/50j
 grep -q -F "MARKER=1" /tmp/markers/50j
 systemctl stop testservice-50j.service
 rm -f /run/systemd/system/testservice-50j.service
@@ -791,7 +845,7 @@ EnvironmentFile=-/usr/lib/systemd/systemd-asan-env
 PrivateTmp=disconnected
 BindPaths=/tmp/markers/
 RootImage=$MINIMAL_IMAGE.raw
-ExtensionImages=-$VDIR2 /tmp/app0.raw
+ExtensionImages=-$VDIR2 /tmp/app0.raw ${CIMG1} ${CIMG2}
 PrivateUsers=yes
 NotifyAccess=all
 ExecStart=bash -x -o pipefail -c ' \
@@ -816,20 +870,26 @@ fi
 mksquashfs "$VDIR/${VBASE}_1" "$VDIR2/${VBASE}_1.raw" -noappend
 systemctl reload testservice-50k.service
 grep -q -F "${VBASE}_1.marker" /tmp/markers/50k
+grep -q -F "${VBASE}_confext_a.marker" /tmp/markers/50k
+grep -q -F "${VBASE}_confext_b.marker" /tmp/markers/50k
 # Second reload should pick up the v2 marker
 mksquashfs "$VDIR/${VBASE}_2" "$VDIR2/${VBASE}_2.raw" -noappend
 systemctl reload testservice-50k.service
 grep -q -F "${VBASE}_2.marker" /tmp/markers/50k
-# Test that removing all the extensions don't cause any issues
+grep -q -F "${VBASE}_confext_a.marker" /tmp/markers/50k
+grep -q -F "${VBASE}_confext_b.marker" /tmp/markers/50k
+# Test that removing all the vpick extensions don't cause any issues
 rm -rf "${VDIR2:?}"/*
 systemctl reload testservice-50k.service
 systemctl is-active testservice-50k.service
 grep -q -F "MARKER=1" /tmp/markers/50k
+grep -q -F "${VBASE}_confext_a.marker" /tmp/markers/50k
+grep -q -F "${VBASE}_confext_b.marker" /tmp/markers/50k
 systemctl stop testservice-50k.service
 rm -f /run/systemd/system/testservice-50k.service
 
 systemctl daemon-reload
-rm -rf "$VDIR" "$VDIR2" /tmp/vpickminimg /tmp/markers/
+rm -rf "$VDIR" "$VDIR2" "$CDIR1" "$CDIR2" "$CIMG1" "$CIMG2" /tmp/vpickminimg /tmp/markers/
 
 # Check dissect shortcut for verity images
 cat >/run/systemd/system/testservice-50m.service <<EOF
@@ -1023,6 +1083,55 @@ systemd-confext status
 systemd-confext unmerge
 rm -rf /run/confexts/
 
+cleanup_sysupdate_notify_confext_mutable() {
+    local mutable_marker="$1"
+    local notify_socket_was_active="$2"
+
+    if [[ "$notify_socket_was_active" == "yes" ]]; then
+        systemctl restart systemd-sysupdate-notify-sysext.socket || :
+    else
+        systemctl stop systemd-sysupdate-notify-sysext.socket || :
+    fi
+
+    rm -f "$mutable_marker"
+    rm -f "/var/lib/extensions.mutable/etc/${mutable_marker#/etc/}"
+    systemd-confext unmerge || :
+    rm -f /run/systemd/confext.conf.d/50-test-mutable.conf
+    rm -rf /run/confexts/
+    rmdir /var/lib/extensions.mutable/etc /var/lib/extensions.mutable 2>/dev/null || :
+}
+
+test_sysupdate_notify_confext_mutable() {
+    local mutable_marker="/etc/test-confext-mutable-$RANDOM"
+    local notify_socket_was_active=no
+
+    if systemctl is-active --quiet systemd-sysupdate-notify-sysext.socket; then
+        notify_socket_was_active=yes
+    fi
+
+    trap 'cleanup_sysupdate_notify_confext_mutable "$mutable_marker" "$notify_socket_was_active"' RETURN ERR
+
+    # Check that the sysupdate notification refresh honors confext-specific configuration.
+    mkdir -p /run/systemd/confext.conf.d
+    cat >/run/systemd/confext.conf.d/50-test-mutable.conf <<EOF
+[ConfExt]
+Mutable=yes
+EOF
+    mkdir -p /run/confexts/test/etc/extension-release.d
+    echo "ID=_any" >/run/confexts/test/etc/extension-release.d/extension-release.test
+    echo "ARCHITECTURE=_any" >>/run/confexts/test/etc/extension-release.d/extension-release.test
+    echo "MARKER_CONFEXT_123" >/run/confexts/test/etc/testfile
+    systemd-confext merge
+    echo "MARKER_CONFEXT_MUTABLE" >"$mutable_marker"
+    systemctl start systemd-sysupdate-notify-sysext.socket
+    varlinkctl call /run/systemd/sysupdate/notify/io.systemd.sysext io.systemd.SysUpdate.Notify.OnCompletedUpdate '{}'
+    grep -F "MARKER_CONFEXT_MUTABLE" "$mutable_marker" >/dev/null
+    trap - RETURN ERR
+    cleanup_sysupdate_notify_confext_mutable "$mutable_marker" "$notify_socket_was_active"
+}
+
+test_sysupdate_notify_confext_mutable
+
 unsquashfs -force -no-xattrs -d /tmp/img "$MINIMAL_IMAGE.raw"
 systemd-run --unit=test-root-ephemeral \
     -p RootDirectory=/tmp/img \
@@ -1144,9 +1253,113 @@ systemd-sysext unmerge
 systemctl status foo.service 2>&1 | grep -v -F "Warning" >/dev/null
 rm /var/lib/extensions/app-reload.raw
 
+# Test that GPT images with an ISO9660 El Torito boot catalog are dissected correctly. The blkid
+# superblock filter must prevent the iso9660 superblock from being detected, so dissection proceeds via
+# the GPT partition table rather than treating the whole image as a single iso9660 filesystem.
+defs="$(mktemp --directory "$IMAGE_DIR/test-50-dissect-eltorito.defs.XXXXXXXXXX")"
+imgs="$(mktemp --directory "$IMAGE_DIR/test-50-dissect-eltorito.imgs.XXXXXXXXXX")"
+
+tee "$defs/00-esp.conf" <<EOF
+[Partition]
+Type=esp
+Format=vfat
+SizeMinBytes=100M
+SizeMaxBytes=100M
+EOF
+
+tee "$defs/10-root.conf" <<EOF
+[Partition]
+Type=root
+Format=ext4
+SizeMinBytes=100M
+SizeMaxBytes=100M
+EOF
+
+systemd-repart --pretty=yes \
+               --definitions="$defs" \
+               --empty=create \
+               --size=auto \
+               --dry-run=no \
+               --offline=yes \
+               --el-torito=yes \
+               "$imgs/eltorito.img"
+
+# Verify the image has both iso9660 superblock and GPT partition table
+blkid -o value -s PTTYPE "$imgs/eltorito.img" | grep -x gpt
+blkid -o value -s TYPE "$imgs/eltorito.img" | grep -x iso9660
+
+# systemd-dissect must process the GPT partitions, not the whole-device iso9660 superblock
+systemd-dissect --json=short "$imgs/eltorito.img" | grep -F '"designator":"root"' | grep -F '"fstype":"ext4"'
+systemd-dissect --json=short "$imgs/eltorito.img" | grep -F '"designator":"esp"' | grep -F '"fstype":"vfat"'
+
+rm -rf "$defs" "$imgs"
+
 # Sneak in a couple of expected-to-fail invocations to cover
 # https://github.com/systemd/systemd/issues/29610
 (! systemd-run -P -p MountImages="/this/should/definitely/not/exist.img:/run/img2\:3:nosuid" false)
 (! systemd-run -P -p ExtensionImages="/this/should/definitely/not/exist.img" false)
 (! systemd-run -P -p RootImage="/this/should/definitely/not/exist.img" false)
 (! systemd-run -P -p ExtensionDirectories="/foo/bar /foo/baz" false)
+
+# Ensure a multi-device btrfs doesn't fail to mount due to loopdev
+# https://github.com/systemd/systemd/issues/42520:
+if [[ -f "${BTRFS_MEMBER1:-}" ]]; then
+    img="" mnt="" loop=""
+
+    # This block runs under 'set -e'; register cleanup up front so a failure in between can't leak the
+    # attached loop device or the image and perturb later device enumeration / udevadm settle.
+    # shellcheck disable=SC2317
+    cleanup_btrfs_mountimages() {
+        if [[ -n "$mnt" ]]; then
+            umount -R "$mnt" || true
+        fi
+        if [[ -n "$loop" ]]; then
+            # Drop the members from the kernel's global, boot-wide btrfs device cache before detaching;
+            # otherwise the cached entries dangle at recycled loop minors and trip multi-device detection in
+            # later tests reusing the same /dev/loopN.
+            btrfs device scan --forget "${loop}p1" "${loop}p2" || true
+            losetup -d "$loop" || true
+            # Pair the detach with a settle, like every other losetup -d in this test, so teardown isn't
+            # still in flight when control returns to the broader TEST-50 run.
+            udevadm settle --timeout=60 || true
+        fi
+        rm -f "$img"
+        # Only remove the mountpoint once it is confirmed unmounted, so a failed unmount above doesn't make
+        # rm -rf recurse through the mountpoint into the still-mounted filesystem.
+        if [[ -n "$mnt" ]] && ! mountpoint -q "$mnt"; then
+            rm -rf "$mnt"
+        fi
+    }
+    trap cleanup_btrfs_mountimages EXIT
+
+    img="$(mktemp /var/tmp/test-50-mountimages-btrfs.img.XXXXXXXXXX)"
+    mnt="$(mktemp -d "$IMAGE_DIR/test-50-mountimages-btrfs.mnt.XXXXXXXXXX")"
+    truncate -s 600M "$img"
+    echo -e 'label: gpt\nsize=280MiB, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, name=data1\ntype=0FC63DAF-8483-4772-8E79-3D69D8477DE4, name=data2' | sfdisk "$img"
+    loop="$(losetup --show -P -f "$img")"
+    udevadm wait --timeout=60 --settle --initialized=no "${loop}p1" "${loop}p2"
+    udevadm lock --timeout=60 --device="$loop" dd if="$BTRFS_MEMBER1" of="${loop}p1" bs=4M
+    udevadm lock --timeout=60 --device="$loop" dd if="$BTRFS_MEMBER2" of="${loop}p2" bs=4M
+    udevadm settle --timeout=60
+    btrfs device scan "${loop}p1" "${loop}p2"
+
+    mount -t btrfs "${loop}p1" "$mnt"
+    btrfs subvolume create "$mnt/@demo"
+    echo "MARKER=1" >"$mnt/@demo/os-release"
+    btrfs subvolume create "$mnt/@"
+    btrfs subvolume set-default "$mnt/@"
+    umount "$mnt"
+    mount -t btrfs "${loop}p1" "$mnt"
+
+    systemd-run -P \
+                -p MountImages="${loop}p1:/run/img-btrfs:subvol=@demo" \
+                cat /run/img-btrfs/os-release | grep -F "MARKER=1" >/dev/null
+    # Double check that there's no loopdev
+    src="$(systemd-run -P \
+                    -p MountImages="${loop}p1:/run/img-btrfs:subvol=@demo" \
+                    findmnt -n -o SOURCE /run/img-btrfs)"
+    assert_eq "${src%%\[*}" "${loop}p1"
+
+    trap - EXIT
+    cleanup_btrfs_mountimages
+fi

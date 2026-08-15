@@ -5,7 +5,7 @@
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
-#include "sd-forward.h"
+#include "forward.h"
 #include "sparse-endian.h"
 
 struct DHCP6Message {

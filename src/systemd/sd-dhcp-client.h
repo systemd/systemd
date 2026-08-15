@@ -30,7 +30,6 @@ struct in_addr;
 typedef struct sd_device sd_device;
 typedef struct sd_dhcp_client_id sd_dhcp_client_id;
 typedef struct sd_dhcp_lease sd_dhcp_lease;
-typedef struct sd_dhcp_option sd_dhcp_option;
 typedef struct sd_event sd_event;
 
 enum {
@@ -51,7 +50,7 @@ int sd_dhcp_client_set_callback(
                 sd_dhcp_client *client,
                 sd_dhcp_client_callback_t cb,
                 void *userdata);
-
+int sd_dhcp_client_set_anonymize(sd_dhcp_client *client, int b);
 int sd_dhcp_client_set_request_option(
                 sd_dhcp_client *client,
                 uint8_t option);
@@ -130,15 +129,12 @@ int sd_dhcp_client_set_vendor_class_identifier(
 int sd_dhcp_client_set_mud_url(
                 sd_dhcp_client *client,
                 const char *mudurl);
-int sd_dhcp_client_set_user_class(
-                sd_dhcp_client *client,
-                char * const *user_class);
 int sd_dhcp_client_get_lease(
                 sd_dhcp_client *client,
                 sd_dhcp_lease **ret);
-int sd_dhcp_client_set_service_type(
+int sd_dhcp_client_set_ip_service_type(
                 sd_dhcp_client *client,
-                int type);
+                uint8_t type);
 int sd_dhcp_client_set_socket_priority(
                 sd_dhcp_client *client,
                 int socket_priority);
@@ -150,29 +146,24 @@ int sd_dhcp_client_set_bootp(
                 int bootp);
 int sd_dhcp_client_set_send_release(sd_dhcp_client *client, int enable);
 
-int sd_dhcp_client_add_option(sd_dhcp_client *client, sd_dhcp_option *v);
-int sd_dhcp_client_add_vendor_option(sd_dhcp_client *client, sd_dhcp_option *v);
-
 int sd_dhcp_client_is_running(sd_dhcp_client *client);
 int sd_dhcp_client_stop(sd_dhcp_client *client);
 int sd_dhcp_client_start(sd_dhcp_client *client);
 int sd_dhcp_client_send_decline(sd_dhcp_client *client);
 int sd_dhcp_client_send_renew(sd_dhcp_client *client);
 int sd_dhcp_client_set_ipv6_connectivity(sd_dhcp_client *client, int have);
-int sd_dhcp_client_interrupt_ipv6_only_mode(sd_dhcp_client *client);
+int sd_dhcp_client_is_waiting_for_ipv6_connectivity(sd_dhcp_client *client);
 
 _SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_client);
 
-/* NOTE: anonymize parameter is used to initialize PRL memory with different
- * options when using RFC7844 Anonymity Profiles */
-int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize);
+int sd_dhcp_client_new(sd_dhcp_client **ret);
 
 int sd_dhcp_client_attach_event(
                 sd_dhcp_client *client,
                 sd_event *event,
                 int64_t priority);
 int sd_dhcp_client_detach_event(sd_dhcp_client *client);
-sd_event *sd_dhcp_client_get_event(sd_dhcp_client *client);
+sd_event* sd_dhcp_client_get_event(sd_dhcp_client *client);
 int sd_dhcp_client_attach_device(sd_dhcp_client *client, sd_device *dev);
 
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_dhcp_client, sd_dhcp_client_unref);

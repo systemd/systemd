@@ -105,6 +105,18 @@
         </varlistentry>
 
         <varlistentry>
+          <term><option>-x</option></term>
+          <term><option>--ephemeral</option></term>
+
+          <listitem><para>If specified, the VM is run with a temporary snapshot of its file system that is removed
+          immediately when the VM terminates. Only works with <option>--image=</option> currently.
+
+          Note that <option>--ephemeral</option> will not work with <option>--extra-drive=</option>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><option>-i</option></term>
           <term><option>--image=</option></term>
 
@@ -126,15 +138,42 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>-x</option></term>
-          <term><option>--ephemeral</option></term>
+          <term><option>--image-disk-type=<replaceable>TYPE</replaceable></option></term>
 
-          <listitem><para>If specified, the VM is run with a temporary snapshot of its file system that is removed
-          immediately when the VM terminates. Only works with <option>--image=</option> currently.
+          <listitem><para>Specifies the disk type to use for the root disk passed to <option>--image=</option>.
+          Extra drives added via <option>--extra-drive=</option> inherit this disk type unless overridden
+          with an explicit disk type prefix. Takes one of <literal>virtio-blk</literal>,
+          <literal>virtio-scsi</literal>, <literal>nvme</literal>, or <literal>scsi-cd</literal>. Defaults to
+          <literal>virtio-blk</literal>. When <literal>scsi-cd</literal> is specified, the disk is attached
+          as a read-only CD-ROM drive.</para>
 
-          Note that <option>--ephemeral</option> will not work with <option>--extra-drive=</option>.</para>
+          <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+        </varlistentry>
 
-          <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+        <varlistentry>
+          <term><option>--discard-disk=<replaceable>BOOL</replaceable></option></term>
+
+          <listitem><para>Controls whether qemu processes discard requests from the VM.
+          This prevents long running VMs from using more disk space than required.
+          This is enabled by default.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--grow-image=<replaceable>BYTES</replaceable></option></term>
+          <term><option>-G <replaceable>BYTES</replaceable></option></term>
+
+          <listitem><para>Grows the image file specified by <option>--image=</option> to the specified size
+          in bytes if it is smaller. Executes no operation if no image file is used or the image file is
+          already as large or larger than requested. The specified size accepts the usual K, M, G suffixes
+          (to the base of 1024). Specified values are rounded up to multiples of 4096.</para>
+
+          <para>If <option>--ephemeral</option> is specified, the original image file is left untouched and
+          the requested size is applied to the ephemeral copy instead. In that case qcow2 images are
+          supported too.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
@@ -154,10 +193,12 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--ram=<replaceable>BYTES</replaceable></option></term>
+          <term><option>--ram=<replaceable>BYTES</replaceable>[:<replaceable>MAXBYTES</replaceable>[:<replaceable>SLOTS</replaceable>]]</option></term>
 
-          <listitem><para>The amount of memory to start the virtual machine with.
-          Defaults to 2G.</para>
+          <listitem><para>The amount of memory to start the virtual machine with. Defaults to 2G.
+          If a maximum size is specified after a colon, memory hotplug is enabled with the given
+          upper limit. The number of hotplug slots can optionally be specified after a second colon
+          and defaults to 1.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/>
           </listitem>
@@ -227,6 +268,187 @@
         </varlistentry>
 
         <varlistentry>
+          <term><option>--efi-nvram-template=<replaceable>PATH</replaceable></option></term>
+
+          <listitem><para>Takes an absolute path, or a relative path beginning with
+          <filename>./</filename>. Specifies the path to an EFI NVRAM template file to copy and use as the
+          initial EFI variable NVRAM state. If not specified, the default NVRAM template from the firmware
+          definition is copied and used. Cannot be used together with <option>--coco=</option>, as
+          confidential computing firmware is stateless.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--efi-nvram-state=<replaceable>PATH</replaceable>|auto|off</option></term>
+
+          <listitem><para>Configures where to place the EFI variable NVRAM state. This takes an absolute file
+          system path to a regular file to persistently place the state in. If the file is missing it is
+          created as needed. If set to the special string <literal>auto</literal> a persistent path is
+          automatically derived from the VM image path or directory path, with the
+          <literal>.efinvramstate</literal> suffix appended. If set to the special string
+          <literal>off</literal> the EFI variable NVRAM state is only maintained transiently and flushed out
+          when the VM shuts down. Defaults to <literal>auto</literal>. An explicit path cannot be used
+          together with <option>--coco=</option>, as confidential computing firmware is stateless.</para>
+
+          <para>If <option>--ephemeral</option> is specified, <literal>auto</literal> behaves like
+          <literal>off</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--secure-boot=<replaceable>BOOL</replaceable></option></term>
+
+          <listitem><para>Configure whether to search for firmware which supports Secure Boot. Takes a
+          boolean or <literal>auto</literal>. Setting this to yes is equivalent to
+          <option>--firmware-features=secure-boot</option> and setting this to no is equivalent to
+          <option>--firmware-features=~secure-boot</option>. Setting this to <literal>auto</literal>
+          removes <literal>secure-boot</literal> from both the included and excluded feature lists.</para>
+
+          <para>With <option>--coco=</option>, setting this to <literal>yes</literal> additionally
+          requires the <literal>enrolled-keys</literal> firmware feature, overriding its default
+          exclusion: confidential computing firmware is stateless, so keys cannot be enrolled at runtime
+          and Secure Boot is only operative with keys baked into the image at build time, which in turn
+          makes the firmware refuse to boot unsigned images from the very first boot. The default
+          exclusion of <literal>enrolled-keys</literal> hence keeps unsigned images bootable.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--firmware=<replaceable>PATH</replaceable></option></term>
+
+          <listitem><para>Selects which firmware to use in the VM. Takes one of <literal>auto</literal>,
+          <literal>uefi</literal>, <literal>bios</literal>, <literal>none</literal>, an absolute path, or a
+          relative path beginning with <filename>./</filename>. Defaults to <literal>auto</literal>, which
+          selects UEFI firmware unless <option>--linux=</option> specifies a non-PE kernel image, in which
+          case <literal>none</literal> is selected. <literal>uefi</literal> loads OVMF firmware (use a path
+          to a JSON firmware definition file to select a specific one). <literal>bios</literal> skips OVMF
+          loading and lets QEMU use its built-in BIOS (e.g. SeaBIOS on x86). <literal>none</literal> disables
+          firmware loading entirely and requires <option>--linux=</option> to be specified for direct kernel
+          boot. Booting a UKI requires <literal>uefi</literal>. If the special string <literal>list</literal>
+          is specified, all discovered firmware definition files are listed. If the special string
+          <literal>describe</literal> is specified, the UEFI firmware that would be selected (taking
+          <option>--firmware-features=</option> and <option>--coco=</option> into account) is printed and
+          the program exits. If an empty string is specified, the option is reset to its default.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--firmware-features=<replaceable>FEATURE</replaceable>[,<replaceable>FEATURE</replaceable>...]</option></term>
+
+          <listitem><para>Takes a comma-delimited list of firmware feature strings. This option may be
+          specified multiple times, in which case the feature lists are combined. When specified, only
+          firmware definitions that have all the required features will be considered during automatic
+          firmware discovery. Features prefixed with <literal>~</literal> are excluded: firmware that has
+          such a feature will be skipped. If a feature appears in both the included and excluded lists,
+          inclusion takes priority. By default, firmware with the <literal>enrolled-keys</literal>
+          feature is excluded. If an empty string is passed, both the included and excluded feature lists
+          are reset. If the special string <literal>list</literal> is specified, lists all available
+          firmware features.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--coco=</option></term>
+
+          <listitem><para>Caveat: This feature is experimental, and is likely to be changed (or removed in
+          its current form) in a future version of systemd.</para>
+
+          <para>Configures whether to run the guest as a confidential VM. Takes one of
+          <literal>no</literal>, <literal>sev-snp</literal> or <literal>tdx</literal>. Defaults to
+          <literal>no</literal>.</para>
+
+          <para><literal>sev-snp</literal> enables AMD SEV-SNP. This requires KVM on an x86_64 host with
+          SNP-capable hardware and firmware. A suitable SNP-built OVMF firmware is picked automatically
+          from the installed QEMU firmware descriptors, by requiring the <literal>amd-sev-snp</literal>
+          firmware feature; use <option>--firmware=</option> with a path to a firmware descriptor file to
+          select a specific one. Secure Boot is effectively off by default (see
+          <option>--secure-boot=</option>). Direct kernel boot via
+          <option>--linux=</option> is required so that the kernel, initrd and command line are hashed
+          into the launch measurement (<literal>kernel-hashes=on</literal>); booting the kernel off the
+          disk image via the firmware would leave it outside the measurement. Credentials passed via
+          <option>--set-credential=</option> or <option>--load-credential=</option> are bundled into a
+          cpio archive appended to the initrd (mirroring what <command>systemd-stub</command> does for
+          ESP credentials), so they enter the launch measurement via <literal>kernel-hashes=on</literal>;
+          the SMBIOS and fw_cfg channels normally used to deliver credentials are not used because they are
+          unmeasured and would be discarded by PID1 in confidential guests. This channel is measured but
+          not confidential with respect to the host or VMM: the initrd (and thus the credentials it
+          carries) is supplied to QEMU as plaintext and only its hash enters the launch measurement,
+          which guarantees integrity but does not keep the credentials secret from the host. This requires
+          the guest to run a sufficiently recent version of systemd (supporting
+          <filename>/.extra/system_credentials/</filename>). A vTPM, if attached via
+          <option>--tpm=</option>, must be treated as untrusted by the guest.</para>
+
+          <para><literal>tdx</literal> enables Intel TDX. This requires KVM on an x86_64 host with
+          TDX-capable hardware and a TDX-enabled host kernel. As with <literal>sev-snp</literal>, a
+          TDX-built OVMF (TDVF) firmware is picked automatically from the installed QEMU firmware
+          descriptors, by requiring the <literal>intel-tdx</literal> firmware feature; use
+          <option>--firmware=</option> with a path to a firmware descriptor file to select a specific
+          one. The CPU model is fixed to <literal>host</literal>. Firmware is measured into MRTD when the
+          TD is built. Secure Boot cannot be enrolled at runtime (there is no writable NVRAM); its state
+          is fixed by the selected TDVF image and is part of the measured firmware (see
+          <option>--secure-boot=</option>).
+          When booting a UKI, the whole UKI PE is measured into RTMR 1, and the loaded sections are
+          measured individually by <command>systemd-stub</command> into RTMR 2. For direct linux boot,
+          firmware measures the kernel PE into RTMR 1, and the Linux EFI stub measures initrd and
+          command line into RTMR 2. Credentials passed via <option>--set-credential=</option> or
+          <option>--load-credential=</option> are delivered through SMBIOS Type 11 OEM strings, which the
+          firmware (TDVF) measures into RTMR 0. This channel is measured but not confidential with respect
+          to the host or VMM, since the host assembles the SMBIOS table. A vTPM, if attached via
+          <option>--tpm=</option>, must be treated as untrusted by the guest. To obtain TD Quotes for
+          remote attestation, the guest is wired to the host's local TDX Quote Generation Service
+          automatically: the unix socket <filename>/run/tdx-qgs/qgs.socket</filename> is used if it
+          exists, otherwise vsock port 4050 on the host (cid 2). If the QGS is listening on neither
+          channel, the guest's quote requests will fail.
+          <xi:include href="version-info.xml" xpointer="v262"/></para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>Networking Options</title>
+
+      <variablelist>
+        <varlistentry>
+          <term><option>-n</option></term>
+          <term><option>--network-tap</option></term>
+
+          <listitem>
+            <para>Create a TAP device to network with the virtual machine.</para>
+
+            <para>Note: root privileges are required to use TAP networking.
+            Additionally,
+            <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            must be running and correctly set up on the host to provision the host interface. The relevant
+            <literal>.network</literal> file can be found at
+            <filename>/usr/lib/systemd/network/80-vm-vt.network</filename>.
+            </para>
+
+            <xi:include href="version-info.xml" xpointer="v255"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--network-user-mode</option></term>
+
+          <listitem><para>Use user mode networking.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>Execution Options</title>
+
+      <variablelist>
+        <varlistentry>
           <term><option>--linux=<replaceable>PATH</replaceable></option></term>
 
           <listitem>
@@ -255,78 +477,6 @@
 
             <xi:include href="version-info.xml" xpointer="v256"/>
           </listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><option>-n</option></term>
-          <term><option>--network-tap</option></term>
-
-          <listitem>
-            <para>Create a TAP device to network with the virtual machine.</para>
-
-            <para>Note: root privileges are required to use TAP networking.
-            Additionally,
-            <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-            must be running and correctly set up on the host to provision the host interface. The relevant
-            <literal>.network</literal> file can be found at
-            <filename>/usr/lib/systemd/network/80-vm-vt.network</filename>.
-            </para>
-
-            <xi:include href="version-info.xml" xpointer="v255"/>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><option>--network-user-mode</option></term>
-
-          <listitem><para>Use user mode networking.</para>
-
-          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><option>--firmware=<replaceable>PATH</replaceable></option></term>
-
-          <listitem><para>Takes an absolute path, or a relative path beginning with
-          <filename>./</filename>. Specifies a JSON firmware definition file, which allows selecting the
-          firmware to boot in the VM. If not specified, a suitable firmware is automatically discovered. If the
-          special string <literal>list</literal> is specified lists all discovered firmwares.</para>
-
-          <xi:include href="version-info.xml" xpointer="v256"/></listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><option>--discard-disk=<replaceable>BOOL</replaceable></option></term>
-
-          <listitem><para>Controls whether qemu processes discard requests from the VM.
-          This prevents long running VMs from using more disk space than required.
-          This is enabled by default.</para>
-
-          <xi:include href="version-info.xml" xpointer="v256"/></listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><option>--secure-boot=<replaceable>BOOL</replaceable></option></term>
-
-          <listitem><para>Configure whether to search for firmware which supports Secure Boot.</para>
-
-          <para>If the option is not specified or set to <option>auto</option>, the first firmware detected
-          will be used. If the option is set to yes, then the first firmware with Secure Boot support will
-          be selected. If no is specified, then the first firmware without Secure Boot will be selected.</para>
-
-          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><option>--grow-image=<replaceable>BYTES</replaceable></option></term>
-          <term><option>-G <replaceable>BYTES</replaceable></option></term>
-
-          <listitem><para>Grows the image file specified by <option>--image=</option> to the specified size
-          in bytes if it is smaller. Executes no operation if no image file is used or the image file is
-          already as large or larger than requested. The specified size accepts the usual K, M, G suffixes
-          (to the base of 1024). Specified values are rounded up to multiples of 4096.</para>
-
-          <xi:include href="version-info.xml" xpointer="v258"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -428,13 +578,10 @@
 
           <listitem><para>Controls whether the virtual machine is registered with
           <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>8</manvolnum></citerefentry>.  Takes a
-          boolean argument, which defaults to <literal>yes</literal> when running as root, and <literal>no</literal> when
-          running as a regular user.  This ensures that the virtual machine is accessible via
-          <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
-
-          <para>Note: root privileges are required to use this option as registering with
-          <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-          requires privileged D-Bus method calls.</para>
+          boolean argument or <literal>auto</literal>, and defaults to <literal>auto</literal>.  This ensures that the
+          virtual machine is accessible via
+          <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.  When set to
+          <literal>auto</literal>, registration is attempted but failures are ignored.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/></listitem>
         </varlistentry>
@@ -489,14 +636,49 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--extra-drive=<replaceable>PATH</replaceable>[:<replaceable>FORMAT</replaceable>]</option></term>
+          <term><option>--extra-drive=[<replaceable>FORMAT</replaceable>:][<replaceable>DISKTYPE</replaceable>:]<replaceable>PATH</replaceable></option></term>
 
           <listitem><para>Takes a disk image or block device on the host and supplies it to the virtual
-          machine as another drive. Optionally, the image format can be specified by appending a colon and
-          the format (<literal>raw</literal> or <literal>qcow2</literal>). Defaults to <literal>raw</literal>.
+          machine as another drive. Optionally, the image format and/or disk type can be specified by prefixing
+          the path with their values separated by colons. The format and disk type prefixes can appear in any
+          order. The format defaults to <literal>raw</literal> and the disk type defaults to the value of
+          <option>--image-disk-type=</option> (which itself defaults to <literal>virtio-blk</literal>).
           Note that <literal>qcow2</literal> is only supported for regular files, not block devices.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--bind-volume=<replaceable>PROVIDER</replaceable>:<replaceable>VOLUME</replaceable>[:<replaceable>CONFIG</replaceable>][:<replaceable>K=V</replaceable>,…]</option></term>
+
+          <listitem><para>Acquire a storage volume from a
+          <citerefentry><refentrytitle>storagectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          provider and attach it to the virtual machine. <replaceable>PROVIDER</replaceable> is the
+          provider name (typically <literal>block</literal> or <literal>fs</literal>). <replaceable>VOLUME</replaceable>
+          is the volume name passed to the provider's <function>Acquire()</function> method.
+          <replaceable>CONFIG</replaceable> selects the guest device type and takes one of
+          <literal>virtio-blk</literal>, <literal>virtio-scsi</literal>, <literal>nvme</literal>, or
+          <literal>scsi-cd</literal>. If empty or omitted, defaults to <literal>virtio-blk</literal>.</para>
+
+          <para>The trailing comma-separated <replaceable>K=V</replaceable> list passes parameters to
+          <function>io.systemd.StorageProvider.Acquire()</function>: <varname>template=</varname>,
+          <varname>create=</varname> (one of <literal>any</literal>, <literal>new</literal>, <literal>open</literal>),
+          <varname>read-only=</varname> (or <varname>ro=</varname>; takes a boolean or <literal>auto</literal>),
+          <varname>size=</varname> / <varname>create-size=</varname> (size for created volumes),
+          <varname>request-as=</varname> (one of <literal>blk</literal>, <literal>reg</literal>,
+          <literal>dir</literal>; <literal>dir</literal> is rejected by vmspawn).</para>
+
+          <para>Each attached volume is identified by the name <literal><replaceable>PROVIDER</replaceable>:<replaceable>VOLUME</replaceable></literal>.
+          Volumes attached at startup via this option cannot be detached at runtime via
+          <command>machinectl unbind-volume</command>; only volumes added at runtime via
+          <command>machinectl bind-volume</command> are removable.</para>
+
+          <para>The provider is looked up under
+          <filename>/run/systemd/io.systemd.StorageProvider/</filename> for system mode (or
+          <filename>$XDG_RUNTIME_DIR/systemd/io.systemd.StorageProvider/</filename> for user mode), matching
+          the runtime scope chosen via <option>--user</option> / <option>--system</option>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -584,7 +766,7 @@
     </refsect2>
 
     <refsect2>
-      <title>Integration Options</title>
+      <title>Logging Options</title>
 
       <variablelist>
         <varlistentry>
@@ -601,6 +783,28 @@
           </listitem>
         </varlistentry>
 
+        <varlistentry>
+          <term><option>--forward-journal-max-use=<replaceable>BYTES</replaceable></option></term>
+          <term><option>--forward-journal-keep-free=<replaceable>BYTES</replaceable></option></term>
+          <term><option>--forward-journal-max-file-size=<replaceable>BYTES</replaceable></option></term>
+          <term><option>--forward-journal-max-files=<replaceable>N</replaceable></option></term>
+
+          <listitem><para>These options configure the corresponding settings of
+          <citerefentry><refentrytitle>systemd-journal-remote</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          when forwarding journal entries from the VM. See
+          <citerefentry><refentrytitle>journal-remote.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for the descriptions of these settings.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+        </varlistentry>
+
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>SSH Options</title>
+
+      <variablelist>
         <varlistentry>
           <term><option>--pass-ssh-key=<replaceable>BOOL</replaceable></option></term>
 
@@ -640,13 +844,29 @@
 
           <listitem><para>Configures how to set up the console of the VM. Takes one of
           <literal>interactive</literal>, <literal>read-only</literal>, <literal>native</literal>,
-          <literal>gui</literal>. Defaults to <literal>interactive</literal>. <literal>interactive</literal>
-          provides an interactive terminal interface to the VM. <literal>read-only</literal> is similar, but
-          is strictly read-only, i.e. does not accept any input from the user. <literal>native</literal> also
-          provides a TTY-based interface, but uses qemu native implementation (which means the qemu monitor
-          is available). <literal>gui</literal> shows the qemu graphical UI.</para>
+          <literal>gui</literal>, <literal>headless</literal>. Defaults to <literal>interactive</literal>.
+          <literal>interactive</literal> provides an interactive terminal interface to the VM.
+          <literal>read-only</literal> is similar, but is strictly read-only, i.e. does not accept any input
+          from the user. <literal>native</literal> also provides a TTY-based interface, but uses qemu native
+          implementation (which means the qemu monitor is available). <literal>gui</literal> shows the qemu
+          graphical UI. <literal>headless</literal> runs the VM without any console, which is useful for
+          automated or scripted usage.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--console-transport=<replaceable>TRANSPORT</replaceable></option></term>
+
+          <listitem><para>Configures the transport to use for the VM console. Takes one of
+          <literal>virtio</literal> or <literal>serial</literal>. Defaults to <literal>virtio</literal>.
+          <literal>virtio</literal> uses a virtio-serial device, which appears as
+          <filename>/dev/hvc0</filename> in the VM. <literal>serial</literal> uses a regular serial port,
+          which appears as <filename>/dev/ttyS0</filename> (or <filename>/dev/ttyAMA0</filename> on ARM) in the VM. This option only has an effect in
+          <option>--console=interactive</option>, <option>--console=read-only</option>, and
+          <option>--console=native</option> modes.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -685,6 +905,24 @@
           embed a <constant>NUL</constant> byte). Note that the invoking shell might already apply unescaping
           once, hence this might require double escaping!</para>
 
+          <para>Credentials are preferably passed to the VM via SMBIOS Type 11 strings or QEMU fw_cfg files.
+          If neither mechanism is available, credentials are passed on the kernel command line using
+          <varname>systemd.set_credential_binary=</varname> which is not a confidential channel. Do not use
+          this for passing secrets to the VM in that case.</para>
+
+          <para>Under <option>--coco=sev-snp</option>, SMBIOS and fw_cfg are not covered by the SNP launch
+          measurement and are discarded by PID1 in confidential guests. Credentials are therefore packaged
+          into a cpio archive containing
+          <filename>.extra/system_credentials/<replaceable>ID</replaceable>.cred</filename> entries and
+          appended to the initrd that QEMU loads, so they enter the launch measurement via
+          <literal>kernel-hashes=on</literal>. PID1 imports them from the initramfs at boot. As with the
+          kernel command line, this is a measured but not a confidential channel: QEMU receives the initrd
+          (and thus the embedded credentials) as plaintext from the host and only its hash is covered by the
+          launch measurement, so a modified initrd produces a different launch measurement that a relying
+          party can detect via remote attestation, but the credentials are not hidden from the host or VMM.
+          This requires the guest to run a sufficiently recent version of systemd (supporting
+          <filename>/.extra/system_credentials/</filename>).</para>
+
           <xi:include href="version-info.xml" xpointer="v255"/></listitem>
         </varlistentry>
       </variablelist>
@@ -716,16 +954,16 @@ $ systemd-vmspawn --image=image.raw
     </example>
 
     <example>
-      <title>Import and run a Fedora &fedora_latest_version; Cloud image using machinectl</title>
+      <title>Import and run a Fedora &fedora_latest_version; Cloud image using importctl</title>
 
       <programlisting>
 $ curl -L \
-       -O https://download.fedoraproject.org/pub/fedora/linux/releases/&fedora_latest_version;/Cloud/x86_64/images/Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86_64.raw.xz \
+       -O https://download.fedoraproject.org/pub/fedora/linux/releases/&fedora_latest_version;/Cloud/x86_64/images/Fedora-Cloud-Base-Generic-&fedora_latest_version;-&fedora_cloud_release;.x86_64.qcow2 \
        -O https://download.fedoraproject.org/pub/fedora/linux/releases/&fedora_latest_version;/Cloud/x86_64/images/Fedora-Cloud-&fedora_latest_version;-&fedora_cloud_release;-x86_64-CHECKSUM \
        -O https://fedoraproject.org/fedora.gpg
 $ gpgv --keyring ./fedora.gpg Fedora-Cloud-&fedora_latest_version;-&fedora_cloud_release;-x86_64-CHECKSUM
 $ sha256sum -c Fedora-Cloud-&fedora_latest_version;-&fedora_cloud_release;-x86_64-CHECKSUM
-# machinectl import-raw Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86_64.raw.xz fedora-&fedora_latest_version;-cloud
+# importctl import-raw -m Fedora-Cloud-Base-Generic-&fedora_latest_version;-&fedora_cloud_release;.x86_64.qcow2 fedora-&fedora_latest_version;-cloud
 # systemd-vmspawn -M fedora-&fedora_latest_version;-cloud
 </programlisting>
     </example>

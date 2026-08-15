@@ -1,0 +1,23 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Add Machine Tag %i
+Documentation=man:systemd-machine-tag@.service(8)
+DefaultDependencies=no
+ConditionPathExists=!/etc/initrd-release
+After=local-fs.target systemd-hostnamed.socket
+Requisite=local-fs.target systemd-hostnamed.socket
+Before=shutdown.target
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags '{"add":["%i"]}'

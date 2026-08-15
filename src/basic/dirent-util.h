@@ -3,7 +3,7 @@
 
 #include <dirent.h>             /* IWYU pragma: export */
 
-#include "basic-forward.h"
+#include "forward.h"
 #include "path-util.h"          /* IWYU pragma: keep */
 
 bool dirent_is_file(const struct dirent *de) _pure_;

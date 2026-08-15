@@ -166,6 +166,15 @@ int fd_nonblock(int fd, bool nonblock) {
         return 1;
 }
 
+void nonblock_resetp(int *fd) {
+        assert(fd);
+
+        PROTECT_ERRNO;
+
+        if (*fd >= 0)
+                (void) fd_nonblock(*fd, false);
+}
+
 int stdio_disable_nonblock(void) {
         int ret = 0;
 
@@ -572,7 +581,7 @@ bool fdname_is_valid(const char *s) {
 int fd_get_path(int fd, char **ret) {
         int r;
 
-        assert(fd >= 0 || IN_SET(fd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(fd));
 
         if (fd == AT_FDCWD)
                 return safe_getcwd(ret);
@@ -772,7 +781,7 @@ finish:
 }
 
 int fd_reopen(int fd, int flags) {
-        assert(fd >= 0 || IN_SET(fd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(fd));
         assert(!FLAGS_SET(flags, O_CREAT));
 
         /* Reopens the specified fd with new flags. This is useful for convert an O_PATH fd into a regular one, or to
@@ -868,6 +877,7 @@ int fd_reopen_condition(
 
         assert(fd >= 0);
         assert(!FLAGS_SET(flags, O_CREAT));
+        assert(ret_new_fd);
 
         /* Invokes fd_reopen(fd, flags), but only if the existing F_GETFL flags don't match the specified
          * flags (masked by the specified mask). This is useful for converting O_PATH fds into real fds if
@@ -1042,7 +1052,7 @@ static bool is_literal_root(const char *p) {
 }
 
 int path_is_root_at(int dir_fd, const char *path) {
-        assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(dir_fd));
 
         if (dir_fd == XAT_FDROOT && isempty(path))
                 return true;
@@ -1061,10 +1071,6 @@ int path_is_root_at(int dir_fd, const char *path) {
                 dir_fd = fd;
         }
 
-        _cleanup_close_ int root_fd = open("/", O_PATH|O_DIRECTORY|O_CLOEXEC);
-        if (root_fd < 0)
-                return -errno;
-
         /* Even if the root directory has the same inode as our fd, the fd may not point to the root
          * directory "/", and we also need to check that the mount ids are the same. Otherwise, a construct
          * like the following could be used to trick us:
@@ -1073,15 +1079,15 @@ int path_is_root_at(int dir_fd, const char *path) {
          * $ mount --bind / /tmp/x
          */
 
-        return fds_are_same_mount(dir_fd, root_fd);
+        return fds_inode_and_mount_same(dir_fd, XAT_FDROOT);
 }
 
-int fds_are_same_mount(int fd1, int fd2) {
+int fds_inode_and_mount_same(int fd1, int fd2) {
         struct statx sx1, sx2;
         int r;
 
-        assert(fd1 >= 0 || IN_SET(fd1, AT_FDCWD, XAT_FDROOT));
-        assert(fd2 >= 0 || IN_SET(fd2, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(fd1));
+        assert(wildcard_fd_is_valid(fd2));
 
         r = xstatx(fd1, /* path = */ NULL, AT_EMPTY_PATH,
                    STATX_TYPE|STATX_INO|STATX_MNT_ID,
@@ -1089,13 +1095,20 @@ int fds_are_same_mount(int fd1, int fd2) {
         if (r < 0)
                 return r;
 
+        if (fd1 == fd2) /* Shortcut things if fds are the same (only after validating the fd) */
+                return true;
+
         r = xstatx(fd2, /* path = */ NULL, AT_EMPTY_PATH,
                    STATX_TYPE|STATX_INO|STATX_MNT_ID,
                    &sx2);
         if (r < 0)
                 return r;
 
-        return statx_inode_same(&sx1, &sx2) && statx_mount_same(&sx1, &sx2);
+        r = statx_mount_same(&sx1, &sx2);
+        if (r <= 0)
+                return r;
+
+        return statx_inode_same(&sx1, &sx2);
 }
 
 int resolve_xat_fdroot(int *fd, const char **path, char **ret_buffer) {

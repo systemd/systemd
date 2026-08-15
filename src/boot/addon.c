@@ -8,6 +8,7 @@ DECLARE_NOALLOC_SECTION(".sdmagic", "#### LoaderInfo: systemd-addon " GIT_VERSIO
 
 /* This is intended to carry data, not to be executed */
 
+// NOLINTNEXTLINE(misc-use-internal-linkage)
 EFIAPI EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *system_table);
 EFIAPI EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *system_table) {
         return EFI_UNSUPPORTED;

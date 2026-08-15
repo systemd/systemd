@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <math.h>
-
 #include "color-util.h"
+#include "math-util.h"
 
 void rgb_to_hsv(double r, double g, double b,
                 double *ret_h, double *ret_s, double *ret_v) {
@@ -11,8 +10,8 @@ void rgb_to_hsv(double r, double g, double b,
         assert(g >= 0 && g <= 1);
         assert(b >= 0 && b <= 1);
 
-        double max_color = fmax(r, fmax(g, b));
-        double min_color = fmin(r, fmin(g, b));
+        double max_color = MAX(r, MAX(g, b));
+        double min_color = MIN(r, MIN(g, b));
         double delta = max_color - min_color;
 
         if (ret_v)
@@ -32,13 +31,15 @@ void rgb_to_hsv(double r, double g, double b,
         if (ret_h) {
                 if (delta > 0) {
                         if (r >= max_color)
-                                *ret_h = 60 * fmod((g - b) / delta, 6);
+                                *ret_h = 60 * (g - b) / delta;
                         else if (g >= max_color)
                                 *ret_h = 60 * (((b - r) / delta) + 2);
-                        else if (b >= max_color)
+                        else /* b >= max_color */
                                 *ret_h = 60 * (((r - g) / delta) + 4);
 
-                        *ret_h = fmod(*ret_h, 360);
+                        /* The r-max branch produces (-60, 60); fold the negative half up. */
+                        if (*ret_h < 0)
+                                *ret_h += 360;
                 } else
                         *ret_h = NAN;
         }
@@ -49,29 +50,33 @@ void hsv_to_rgb(double h, double s, double v,
 
         double c, x, m, r, g, b;
 
+        assert(h >= 0 && h <= 360);
         assert(s >= 0 && s <= 100);
         assert(v >= 0 && v <= 100);
         assert(ret_r);
         assert(ret_g);
         assert(ret_b);
 
-        h = fmod(h, 360);
         c = (s / 100.0) * (v / 100.0);
-        x = c * (1 - fabs(fmod(h / 60.0, 2) - 1));
         m = (v / 100) - c;
 
-        if (h >= 0 && h < 60)
-                r = c, g = x, b = 0.0;
-        else if (h >= 60 && h < 120)
-                r = x, g = c, b = 0.0;
-        else if (h >= 120 && h < 180)
-                r = 0.0, g = c, b = x;
-        else if (h >= 180 && h < 240)
-                r = 0.0, g = x, b = c;
-        else if (h >= 240 && h < 300)
-                r = x, g = 0.0, b = c;
-        else
-                r = c, g = 0.0, b = x;
+        /* Split h into sector index k ∈ [0, 6] and fractional offset f ∈ [0, 1) within the sector.
+         * Within each sector exactly one of {r, g, b} equals c, one equals 0, and the third (x)
+         * ramps linearly between them — ascending in even sectors, descending in odd. h == 360 is
+         * the cyclic boundary equivalent to h == 0, and maps to sector 0. */
+        double seg = h / 60.0;
+        int k = (int) seg % 6;
+        double f = seg - (int) seg;
+        x = c * (k & 1 ? 1.0 - f : f);
+
+        switch (k) {
+        case 0:  r = c;   g = x;   b = 0.0; break;
+        case 1:  r = x;   g = c;   b = 0.0; break;
+        case 2:  r = 0.0; g = c;   b = x;   break;
+        case 3:  r = 0.0; g = x;   b = c;   break;
+        case 4:  r = x;   g = 0.0; b = c;   break;
+        default: r = c;   g = 0.0; b = x;   break;
+        }
 
         *ret_r = (uint8_t) ((r + m) * 255);
         *ret_g = (uint8_t) ((g + m) * 255);

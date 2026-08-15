@@ -1267,7 +1267,7 @@ int dns_name_apply_idna(const char *name, char **ret) {
 #if HAVE_LIBIDN2
         int r;
 
-        r = dlopen_idn();
+        r = dlopen_idn(LOG_DEBUG);
         if (r == -EOPNOTSUPP) {
                 *ret = NULL;
                 return 0;

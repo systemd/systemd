@@ -37,7 +37,7 @@
     <para><filename>sd-device.h</filename> is part of
     <citerefentry><refentrytitle>libsystemd</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
     provides an API to introspect and enumerate devices on the local system. It provides a programmatic
-    interface to the database of devices and their properties mananaged by
+    interface to the database of devices and their properties managed by
     <citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
     This API is a replacement for
     <citerefentry><refentrytitle>libudev</refentrytitle><manvolnum>3</manvolnum></citerefentry> and

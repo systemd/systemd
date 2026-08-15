@@ -78,3 +78,16 @@ EOF
 assert_eq "$(cat /proc/sys/net/ipv4/conf/hoge/drop_gratuitous_arp)" "1"
 assert_eq "$(cat /proc/sys/net/ipv4/conf/hoge/bootp_relay)" "1"
 assert_eq "$(cat /proc/sys/net/ipv4/conf/hoge/disable_policy)" "0"
+
+echo 0 >/proc/sys/net/ipv4/conf/hoge/drop_gratuitous_arp
+echo 0 >/proc/sys/net/ipv4/conf/hoge/bootp_relay
+echo 0 >/proc/sys/net/ipv4/conf/hoge/disable_policy
+
+/usr/lib/systemd/systemd-sysctl --prefix=/net/ipv4/conf/hoge --verify - <<EOF
+net.ipv4.conf.*.drop_gratuitous_arp=1
+net.ipv4.*.*.bootp_relay=1
+net.ipv4.aaa.*.disable_policy=1
+EOF
+assert_eq "$(cat /proc/sys/net/ipv4/conf/hoge/drop_gratuitous_arp)" "1"
+assert_eq "$(cat /proc/sys/net/ipv4/conf/hoge/bootp_relay)" "1"
+assert_eq "$(cat /proc/sys/net/ipv4/conf/hoge/disable_policy)" "0"

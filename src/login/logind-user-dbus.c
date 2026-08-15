@@ -144,7 +144,7 @@ static int property_get_idle_hint(
         assert(bus);
         assert(reply);
 
-        return sd_bus_message_append(reply, "b", user_get_idle_hint(u, NULL) > 0);
+        return sd_bus_message_append(reply, "b", user_get_idle_hint(u, /* ret_timestamp= */ NULL));
 }
 
 static int property_get_idle_since_hint(
@@ -163,7 +163,7 @@ static int property_get_idle_since_hint(
         assert(bus);
         assert(reply);
 
-        (void) user_get_idle_hint(u, &t);
+        user_get_idle_hint(u, &t);
         k = streq(property, "IdleSinceHint") ? t.realtime : t.monotonic;
 
         return sd_bus_message_append(reply, "t", k);
@@ -202,6 +202,7 @@ int bus_user_method_terminate(sd_bus_message *message, void *userdata, sd_bus_er
                         u->user_record->uid,
                         /* flags= */ 0,
                         &u->manager->polkit_registry,
+                        /* ret_admin= */ NULL,
                         error);
         if (r < 0)
                 return r;
@@ -229,6 +230,7 @@ int bus_user_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
                         u->user_record->uid,
                         /* flags= */ 0,
                         &u->manager->polkit_registry,
+                        /* ret_admin= */ NULL,
                         error);
         if (r < 0)
                 return r;

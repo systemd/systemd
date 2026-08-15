@@ -3,11 +3,23 @@
 
 # shellcheck disable=SC2206
 PHASES=(${@:-SETUP RUN RUN_ASAN_UBSAN CLEANUP})
+# Packages that are always native (i.e.: tools that run on the host) go in this list
 ADDITIONAL_DEPS=(
     clang
     expect
     fdisk
     jekyll
+    linux-tools-generic
+    python3-libevdev
+    python3-pip
+    python3-pyelftools
+    python3-pyparsing
+    python3-pytest
+    rpm
+    zstd
+)
+# Packages that are needed for the target architecture (i.e.: libraries) go in this list
+ADDITIONAL_TARGET_DEPS=(
     libbpf-dev
     libfdisk-dev
     libfido2-dev
@@ -18,15 +30,8 @@ ADDITIONAL_DEPS=(
     libtss2-dev
     libxkbcommon-dev
     libzstd-dev
-    linux-tools-generic
-    python3-libevdev
-    python3-pip
-    python3-pyelftools
-    python3-pyparsing
-    python3-pytest
-    rpm
-    zstd
 )
+CROSS_ARCH="${CROSS_ARCH:-}"
 
 function info() {
     echo -e "\033[33;1m$1\033[0m"
@@ -46,7 +51,16 @@ MESON_ARGS=()
 if [ "$(uname -m)" = "aarch64" ] || [ "$(uname -m)" = "x86_64" ]; then
     ADDITIONAL_DEPS+=(python3-pefile)
     ADDITIONAL_DEPS+=(systemd-boot-efi)
+    HAVE_AMDARM64=true
+else
+    HAVE_AMDARM64=
 fi
+
+if [[ -n "$CROSS_ARCH" ]]; then
+    ADDITIONAL_DEPS+=(crossbuild-essential-$CROSS_ARCH)
+fi
+# Append :<arch> to the packages so they get installed for the target
+ADDITIONAL_DEPS+=("${ADDITIONAL_TARGET_DEPS[@]/%/${CROSS_ARCH:+:$CROSS_ARCH}}")
 
 # (Re)set the current oom-{score-}adj. For some reason root on GH actions is able to _decrease_
 # its oom-score even after dropping all capabilities (including CAP_SYS_RESOURCE), until the
@@ -64,8 +78,11 @@ for phase in "${PHASES[@]}"; do
             for f in /etc/apt/sources.list.d/*.sources; do
                 sed -i "s/Types: deb/Types: deb deb-src/g" "$f"
             done
+            if [[ -n "$CROSS_ARCH" ]]; then
+                dpkg --add-architecture "$CROSS_ARCH"
+            fi
             apt-get -y update
-            apt-get -y build-dep systemd
+            apt-get -y build-dep systemd ${CROSS_ARCH:+--host-architecture=$CROSS_ARCH}
             apt-get -y install "${ADDITIONAL_DEPS[@]}"
             pip3 install -r .github/workflows/requirements.txt --require-hashes --break-system-packages
 
@@ -91,6 +108,8 @@ for phase in "${PHASES[@]}"; do
                     MESON_ARGS+=(-Dman=enabled)
                 else
                     MESON_ARGS+=(-Dmode=release --optimization=2)
+                    CFLAGS+=" -D_FORTIFY_SOURCE=3"
+                    CXXFLAGS+=" -D_FORTIFY_SOURCE=3"
                 fi
 
                 # Some variation: remove machine-id, like on Debian builders to ensure unit tests still work.
@@ -99,10 +118,29 @@ for phase in "${PHASES[@]}"; do
                 fi
             fi
 
-            # On ppc64le the workers are slower and some slow tests time out
+            if [[ -n "$CROSS_ARCH" ]]; then
+                if [[ "$phase" =~ ^RUN_GCC ]]; then
+                    MESON_ARGS+=(-Ddbus-interfaces-dir=no -Dsbat-distro= --cross-file ".github/workflows/$CROSS_ARCH-gcc.cross")
+                elif [[ "$phase" =~ ^RUN_CLANG ]]; then
+                    MESON_ARGS+=(-Dbpf-framework=disabled -Dbootloader=disabled -Defi=false -Ddbus-interfaces-dir=no -Dsbat-distro= --cross-file ".github/workflows/$CROSS_ARCH-clang.cross")
+                fi
+            fi
+
             MESON_TEST_ARGS=()
-            if [[ "$(uname -m)" != "x86_64" ]] && [[ "$(uname -m)" != "aarch64" ]]; then
+
+            # On ppc64le the workers are slower and some slow tests time out
+            if [ -z "${HAVE_AMDARM64}" ]; then
                 MESON_TEST_ARGS+=(--timeout-multiplier=3)
+            fi
+
+            if [ -n "${HAVE_AMDARM64}" ] && [ -z "${CROSS_ARCH}" ] && [[ "$phase" == "RUN_GCC" ]]; then
+                # The dlopen tests require linking all .standalone binaries,
+                # which is fairly slow and uses up a lot of disk space. Enable
+                # those tests for one compiler and two fast native architectures.
+                #
+                # Note: linker garbage collection for unused symbols appears to
+                # be broken on ppc64le (both GCC and CLANG) or s390x (GCC).
+                MESON_ARGS+=(-Ddlopen-tests=true)
             fi
 
             MESON_ARGS+=(--fatal-meson-warnings)

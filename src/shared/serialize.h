@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
+#include "forward.h"
 
 int serialize_item(FILE *f, const char *key, const char *value);
 int serialize_item_escaped(FILE *f, const char *key, const char *value);

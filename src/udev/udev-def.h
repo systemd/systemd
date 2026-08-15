@@ -51,6 +51,9 @@ typedef enum UdevBuiltinCommand {
         UDEV_BUILTIN_NET_ID,
         UDEV_BUILTIN_NET_LINK,
         UDEV_BUILTIN_PATH_ID,
+#if HAVE_TPM2
+        UDEV_BUILTIN_TPM2_ID,
+#endif
 #if HAVE_ACL
         UDEV_BUILTIN_UACCESS,
 #endif

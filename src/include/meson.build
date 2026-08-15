@@ -33,11 +33,6 @@ ipproto_sources = files(
         'uapi/linux/in.h',
 )
 
-# Source files that provides AUDIT_XYZ
-audit_sources = files(
-        'override/linux/audit.h',
-)
-
 # Source files that provides KEY_XYZ
 keyboard_sources = files(
         'uapi/linux/input.h',

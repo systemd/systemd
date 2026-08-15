@@ -6,7 +6,7 @@
 
 #include "ansi-color.h"
 #include "fileio.h"
-#include "shared-forward.h"
+#include "forward.h"
 #include "glyph-util.h"
 
 #define CYLON_BUFFER_EXTRA (2*STRLEN(ANSI_RED) + STRLEN(ANSI_HIGHLIGHT_RED) + 2*STRLEN(ANSI_NORMAL))
@@ -21,7 +21,10 @@ bool urlify_enabled(void);
 
 int terminal_urlify(const char *url, const char *text, char **ret);
 int terminal_urlify_path(const char *path, const char *text, char **ret);
-int terminal_urlify_man(const char *page, const char *section, char **ret);
+int terminal_urlify_man_full(const char *page, const char *section, const char *suffix, char **ret);
+static inline int terminal_urlify_man(const char *page, const char *section, char **ret) {
+        return terminal_urlify_man_full(page, section, " man page", ret);
+}
 
 typedef enum CatFlags {
         CAT_CONFIG_OFF          = 0,

@@ -4,7 +4,7 @@
 #include <linux/reboot.h>       /* IWYU pragma: export */
 #include <sys/reboot.h>         /* IWYU pragma: export */
 
-#include "shared-forward.h"
+#include "forward.h"
 
 /* glibc defines the reboot() API call, which is a wrapper around the system call of the same name, but
  * without the extra "arg" parameter. Since we need that parameter for some calls, let's add a "raw" wrapper
@@ -26,5 +26,8 @@ int reboot_with_parameter(RebootFlags flags);
 bool shall_restore_state(void);
 
 bool kexec_loaded(void);
+int kexec(void);
+
+int kexec_maybe_decompress_kernel(const char *path, int fd, int *ret_kernel_fd, int *ret_initrd_fd);
 
 int create_shutdown_run_nologin_or_warn(void);

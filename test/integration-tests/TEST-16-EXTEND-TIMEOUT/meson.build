@@ -17,6 +17,6 @@ integration_tests += [
                                 'StopWhenUnneeded' : 'yes',
                         },
                 },
-                'coredump-exclude-regex' : '/(bash|sleep)$',
+                'coredump-exclude-regex' : '/(bash|coreutils|gnusleep|sleep)$',
         },
 ]

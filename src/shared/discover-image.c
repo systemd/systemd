@@ -142,7 +142,9 @@ static const char auxiliary_suffixes_nulstr[] =
         ".roothash.p7s\0"
         ".usrhash\0"
         ".usrhash.p7s\0"
-        ".verity\0";
+        ".verity\0"
+        ".raw.tpmstate\0"
+        ".raw.efinvramstate\0";
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(image_dirname, ImageClass);
 
@@ -616,7 +618,7 @@ static int image_make(
                 (*ret)->foreign_uid_owned = uid_is_foreign(st->st_uid);
                 return 0;
 
-        } else if (S_ISREG(st->st_mode) && endswith(path, ".raw")) {
+        } else if (S_ISREG(st->st_mode) && (endswith(path, ".raw") || pretty)) {
                 usec_t crtime = 0;
 
                 /* It's a RAW disk image */
@@ -889,7 +891,7 @@ int image_find(RuntimeScope scope,
                 _cleanup_closedir_ DIR *d = NULL;
                 _cleanup_free_ char *search_path = NULL;
 
-                r = chase_and_opendirat(rfd, *s, CHASE_AT_RESOLVE_IN_ROOT, &search_path, &d);
+                r = chase_and_opendirat(rfd, rfd, *s, /* chase_flags= */ 0, &search_path, &d);
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)
@@ -905,7 +907,7 @@ int image_find(RuntimeScope scope,
                                 return -ENOMEM;
 
                         /* Follow symlinks only inside given root */
-                        r = chaseat(rfd, fname_path, CHASE_AT_RESOLVE_IN_ROOT, &chased_path, &fd);
+                        r = chaseat(rfd, rfd, fname_path, /* flags= */ 0, &chased_path, &fd);
                         if (r == -ENOENT)
                                 continue;
                         if (r < 0)
@@ -954,6 +956,7 @@ int image_find(RuntimeScope scope,
 
                                 _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
                                 r = path_pick(root,
+                                              rfd,
                                               rfd,
                                               fname_path, /* This has to be the unresolved entry with the .v suffix */
                                               &filter,
@@ -1095,7 +1098,7 @@ int image_discover(
                 _cleanup_closedir_ DIR *d = NULL;
                 _cleanup_free_ char *search_path = NULL;
 
-                r = chase_and_opendirat(rfd, *s, CHASE_AT_RESOLVE_IN_ROOT, &search_path, &d);
+                r = chase_and_opendirat(rfd, rfd, *s, /* chase_flags= */ 0, &search_path, &d);
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)
@@ -1110,12 +1113,16 @@ int image_discover(
                         if (dot_or_dot_dot(fname))
                                 continue;
 
+                        /* Ignore sysupdate temporary files */
+                        if (startswith(fname, ".sysupdate."))
+                                continue;
+
                         fname_path = path_join(search_path, fname);
                         if (!fname_path)
                                 return -ENOMEM;
 
                         /* Follow symlinks only inside given root */
-                        r = chaseat(rfd, fname_path, CHASE_AT_RESOLVE_IN_ROOT, &chased_path, &fd);
+                        r = chaseat(rfd, rfd, fname_path, /* flags= */ 0, &chased_path, &fd);
                         if (r == -ENOENT)
                                 continue;
                         if (r < 0)
@@ -1171,6 +1178,7 @@ int image_discover(
 
                                         _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
                                         r = path_pick(root,
+                                                      rfd,
                                                       rfd,
                                                       fname_path, /* This has to be the unresolved entry with the .v suffix */
                                                       &filter,
@@ -1617,7 +1625,7 @@ static int clone_auxiliary_file(const char *path, const char *new_name, const ch
         if (r < 0)
                 return r;
 
-        return copy_file_atomic(path, rs, 0664, COPY_REFLINK);
+        return copy_file_atomic(path, rs, 0664, /* copy_flags= */ 0);
 }
 
 static int get_pool_directory(
@@ -1797,7 +1805,7 @@ int image_clone(Image *i, const char *new_name, bool read_only, RuntimeScope sco
                         return r;
 
                 r = copy_file_atomic(i->path, new_path, read_only ? 0444 : 0644,
-                                     COPY_REFLINK|COPY_CRTIME|COPY_NOCOW_AFTER);
+                                     COPY_CRTIME|COPY_NOCOW_AFTER);
                 break;
         }
 
@@ -1889,17 +1897,15 @@ int image_read_only(Image *i, bool b, RuntimeScope scope) {
 
         case IMAGE_BLOCK: {
                 _cleanup_close_ int fd = -EBADF;
-                struct stat st;
                 int state = b;
 
                 fd = open(i->path, O_CLOEXEC|O_RDONLY|O_NONBLOCK|O_NOCTTY);
                 if (fd < 0)
                         return -errno;
 
-                if (fstat(fd, &st) < 0)
-                        return -errno;
-                if (!S_ISBLK(st.st_mode))
-                        return -ENOTTY;
+                r = fd_verify_block(fd);
+                if (r < 0)
+                        return r;
 
                 if (ioctl(fd, BLKROSET, &state) < 0)
                         return -errno;
@@ -2187,15 +2193,13 @@ int image_setup_pool(RuntimeScope scope, ImageClass class, bool use_btrfs_subvol
                 return r;
 
         r = check_btrfs(pool);
-        if (r < 0)
+        if (r <= 0)
                 return r;
-        if (r == 0)
-                return 0;
 
         if (!use_btrfs_subvol)
                 return 0;
 
-        (void) btrfs_subvol_make_label(pool);
+        (void) btrfs_subvol_make_label(pool, /* label_context= */ NULL);
 
         if (!use_btrfs_quota)
                 return 0;

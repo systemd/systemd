@@ -5,7 +5,7 @@
   Copyright © 2010 ProFUSION embedded systems
 ***/
 
-#include "shared-forward.h"
+#include "forward.h"
 #include "list.h"
 
 int swapoff_all(bool *changed);

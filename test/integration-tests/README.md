@@ -141,6 +141,24 @@ journal file will be saved only when the test is failed. Defaults to `fail`.
 progress and only move the journal to its final location in the build directory
 (`$BUILD_DIR/test/journal`) when the test is finished.
 
+## Confidential computing (coco) tests
+
+Tests that exercise systemd inside a confidential VM (currently `TEST-94-COCO`)
+launch a real Intel TDX or AMD SEV-SNP guest with `systemd-vmspawn --coco=`. They
+only run on a coco-capable host and skip everywhere else. A confidential VM cannot
+be nested, so these tests run in boot (nspawn) mode on a bare-metal coco host,
+as root. The host must have coco enabled in firmware and in the kernel (for SEV-SNP
+e.g. `kvm_amd.sev_snp=1`, with `/dev/sev` accessible). On a host without the requested
+technology, or when running in `mkosi vm` mode, the tests are skipped.
+
+```
+meson test
+  └─ integration-test-wrapper.py
+      └─ mkosi boot  ──►  systemd-nspawn container
+          └─ TEST-94-COCO.sh
+              └─ systemd-vmspawn --coco=<type>  ──►  confidential VM
+```
+
 ## Running the integration tests without building systemd from source
 
 If you want to run the integration tests against prebuilt systemd packages,
@@ -338,71 +356,6 @@ $ autopkgtest -o logs *.deb systemd/ \
 where `--test-name=` is the name of the test you want to run/debug. The
 `--shell-fail` option will pause the execution in case the test fails and shows
 you the information how to connect to the testbed for further debugging.
-
-## Manually running CodeQL analysis
-
-This is mostly useful for debugging various CodeQL quirks.
-
-Download the CodeQL Bundle from https://github.com/github/codeql-action/releases
-and unpack it somewhere. From now the 'tutorial' assumes you have the `codeql`
-binary from the unpacked archive in $PATH for brevity.
-
-Switch to the systemd repository if not already:
-
-```shell
-$ cd <systemd-repo>
-```
-
-Create an initial CodeQL database:
-
-```shell
-$ CCACHE_DISABLE=1 codeql database create codeqldb --language=cpp -vvv
-```
-
-Disabling ccache is important, otherwise you might see CodeQL complaining:
-
-No source code was seen and extracted to
-/home/mrc0mmand/repos/@ci-incubator/systemd/codeqldb. This can occur if the
-specified build commands failed to compile or process any code.
- - Confirm that there is some source code for the specified language in the
-   project.
- - For codebases written in Go, JavaScript, TypeScript, and Python, do not
-   specify an explicit --command.
- - For other languages, the --command must specify a "clean" build which
-   compiles all the source code files without reusing existing build artefacts.
-
-If you want to run all queries systemd uses in CodeQL, run:
-
-```shell
-$ codeql database analyze codeqldb/ --format csv --output results.csv .github/codeql-custom.qls .github/codeql-queries/*.ql -vvv
-```
-
-Note: this will take a while.
-
-If you're interested in a specific check, the easiest way (without hunting down
-the specific CodeQL query file) is to create a custom query suite. For example:
-
-```shell
-$ cat >test.qls <<EOF
-- queries: .
-  from: codeql/cpp-queries
-- include:
-    id:
-        - cpp/missing-return
-EOF
-```
-
-And then execute it in the same way as above:
-
-```shell
-$ codeql database analyze codeqldb/ --format csv --output results.csv test.qls -vvv
-```
-
-More about query suites here: https://codeql.github.com/docs/codeql-cli/creating-codeql-query-suites/
-
-The results are then located in the `results.csv` file as a comma separated
-values list (obviously), which is the most human-friendly output format the
-CodeQL utility provides (so far).
 
 ## Running Coverity locally
 

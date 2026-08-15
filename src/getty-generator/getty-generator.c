@@ -5,6 +5,7 @@
 
 #include "alloc-util.h"
 #include "creds-util.h"
+#include "dlopen-note.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -266,9 +267,11 @@ static void parse_credentials(void) {
         if (r < 0)
                 log_debug_errno(r, "Failed to read credential 'getty.auto', ignoring: %m");
         else if (r > 0) {
-                r = parse_getty_sources(value, &arg_getty_sources);
+                const char *p = strstrip(value);
+
+                r = parse_getty_sources(p, &arg_getty_sources);
                 if (r < 0)
-                        log_warning_errno(r, "Invalid 'getty.auto' credential, ignoring: %s", value);
+                        log_warning_errno(r, "Invalid 'getty.auto' credential, ignoring: %s", p);
         }
 }
 
@@ -276,6 +279,9 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         int r;
 
         assert_se(arg_dest = dest);
+
+        LIBCRYPTO_NOTE(suggested);
+        TPM2_NOTE(suggested);
 
         if (in_initrd()) {
                 log_debug("Skipping generator, running in the initrd.");

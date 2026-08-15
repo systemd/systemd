@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "hmac.h"
+#include "memory-util.h"
 #include "sha256.h"
 
 #define HMAC_BLOCK_SIZE 64
@@ -16,9 +17,13 @@ void hmac_sha256(const void *key,
                  uint8_t res[static SHA256_DIGEST_SIZE]) {
 
         uint8_t inner_padding[HMAC_BLOCK_SIZE] = { };
+        CLEANUP_ERASE(inner_padding); /* carries key ^ 0x36, trivially reversible to the original key */
         uint8_t outer_padding[HMAC_BLOCK_SIZE] = { };
+        CLEANUP_ERASE(outer_padding); /* carries key ^ 0x5c, trivially reversible to the original key */
         uint8_t replacement_key[SHA256_DIGEST_SIZE];
+        CLEANUP_ERASE(replacement_key); /* SHA-256 of the key when key_size > block size */
         struct sha256_ctx hash;
+        CLEANUP_ERASE(hash); /* intermediate state derived from key material */
 
         assert(key);
         assert(key_size > 0);

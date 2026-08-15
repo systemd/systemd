@@ -19,10 +19,9 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
-#include "gcrypt-util.h"
 #include "hashmap.h"
 #include "id128-util.h"
-#include "journal-authenticate.h"
+#include "journal-authenticate-internal.h"
 #include "journal-def.h"
 #include "journal-file.h"
 #include "journal-internal.h"
@@ -307,17 +306,7 @@ JournalFile* journal_file_close(JournalFile *f) {
         free(f->compress_buffer);
 #endif
 
-        if (f->fss_file) {
-                size_t sz = PAGE_ALIGN(f->fss_file_size);
-                assert(sz < SIZE_MAX);
-                munmap(f->fss_file, sz);
-        } else
-                free(f->fsprg_state);
-
-        free(f->fsprg_seed);
-
-        if (f->hmac)
-                sym_gcry_md_close(f->hmac);
+        journal_file_auth_done(f);
 
         return mfree(f);
 }
@@ -370,13 +359,13 @@ static Compression getenv_compression(void) {
         if (r >= 0)
                 return r ? DEFAULT_COMPRESSION : COMPRESSION_NONE;
 
-        c = compression_from_string(e);
+        c = compression_from_string_harder(e);
         if (c < 0) {
                 log_debug_errno(c, "Failed to parse SYSTEMD_JOURNAL_COMPRESS value, ignoring: %s", e);
                 return DEFAULT_COMPRESSION;
         }
 
-        if (!compression_supported(c)) {
+        if (!compression_supported_journal(c)) {
                 log_debug("Unsupported compression algorithm specified, ignoring: %s", e);
                 return DEFAULT_COMPRESSION;
         }
@@ -403,16 +392,13 @@ static int journal_file_init_header(
                 JournalFileFlags file_flags,
                 JournalFile *template) {
 
-        bool seal = false;
         ssize_t k;
         int r;
 
         assert(f);
 
-#if HAVE_GCRYPT
         /* Try to load the FSPRG state, and if we can't, then just don't do sealing */
-        seal = FLAGS_SET(file_flags, JOURNAL_SEAL) && journal_file_fss_load(f) >= 0;
-#endif
+        bool seal = FLAGS_SET(file_flags, JOURNAL_SEAL) && journal_file_auth_load(f) >= 0;
 
         Header h = {
                 .header_size = htole64(ALIGN64(sizeof(h))),
@@ -471,13 +457,18 @@ static int journal_file_refresh_header(JournalFile *f) {
 }
 
 static bool warn_wrong_flags(const JournalFile *f, bool compatible) {
-        const uint32_t any = compatible ? HEADER_COMPATIBLE_ANY : HEADER_INCOMPATIBLE_ANY,
-                supported = compatible ? HEADER_COMPATIBLE_SUPPORTED : HEADER_INCOMPATIBLE_SUPPORTED;
+        const uint32_t any = compatible ? HEADER_COMPATIBLE_ANY : HEADER_INCOMPATIBLE_ANY;
+        uint32_t supported = compatible ? HEADER_COMPATIBLE_SUPPORTED : HEADER_INCOMPATIBLE_SUPPORTED;
         const char *type = compatible ? "compatible" : "incompatible";
         uint32_t flags;
 
         assert(f);
         assert(f->header);
+
+        /* When sealing is not supported, refuse to write to an already sealed journal file, but still allow
+         * reading sealed journal files. */
+        if (compatible && journal_file_writable(f) && !journal_auth_supported())
+                supported &= ~(HEADER_COMPATIBLE_SEALED | HEADER_COMPATIBLE_SEALED_CONTINUOUS);
 
         flags = le32toh(compatible ? f->header->compatible_flags : f->header->incompatible_flags);
 
@@ -590,10 +581,39 @@ static int journal_file_verify_header(JournalFile *f) {
 
         arena_size = le64toh(READ_NOW(f->header->arena_size));
 
-        if (UINT64_MAX - header_size < arena_size || header_size + arena_size > (uint64_t) f->last_stat.st_size)
+        if (UINT64_MAX - header_size < arena_size)
                 return -ENODATA;
 
+        uint64_t file_size = (uint64_t) f->last_stat.st_size;
+
+        /* Probably an unclean shutdown where the header was written, but the arena data was not. On write we
+         * should ask the caller to rotate, but on read, we can still work it out with bounds checks. */
+        bool truncated = false;
+        if (header_size + arena_size > file_size) {
+                if (journal_file_writable(f))
+                        return -ENODATA;
+
+                /* This shouldn't happen given file_size is page aligned via fallocate(), but just in case
+                 * things are _really_ messed up... */
+                uint64_t available = ALIGN_DOWN_U64(file_size, sizeof(uint64_t));
+                if (header_size > available || available - header_size < offsetof(ObjectHeader, payload))
+                        return -ENODATA;
+
+                log_debug("Journal file %s claims a %" PRIu64 " byte arena but is only %" PRIu64
+                          " bytes on disk, clamping for recovery.",
+                          f->path,
+                          arena_size,
+                          file_size);
+                arena_size = available - header_size;
+                truncated = true;
+        }
+
         uint64_t tail_object_offset = le64toh(f->header->tail_object_offset);
+        if (truncated)
+                /* The tail may be in the lost region, so cap it at the last possible object header start. */
+                tail_object_offset = MIN(
+                                tail_object_offset,
+                                header_size + arena_size - offsetof(ObjectHeader, payload));
         if (!offset_is_valid(tail_object_offset, header_size, UINT64_MAX))
                 return -ENODATA;
         if (header_size + arena_size < tail_object_offset)
@@ -615,7 +635,7 @@ static int journal_file_verify_header(JournalFile *f) {
         if (!offset_is_valid(entry_array_offset, header_size, tail_object_offset))
                 return -ENODATA;
 
-        if (JOURNAL_HEADER_CONTAINS(f->header, tail_entry_array_offset)) {
+        if (!truncated && JOURNAL_HEADER_CONTAINS(f->header, tail_entry_array_offset)) {
                 uint32_t offset = le32toh(f->header->tail_entry_array_offset);
                 uint32_t n = le32toh(f->header->tail_entry_array_n_entries);
 
@@ -632,7 +652,7 @@ static int journal_file_verify_header(JournalFile *f) {
                         return -ENODATA;
         }
 
-        if (JOURNAL_HEADER_CONTAINS(f->header, tail_entry_offset)) {
+        if (!truncated && JOURNAL_HEADER_CONTAINS(f->header, tail_entry_offset)) {
                 uint64_t offset = le64toh(f->header->tail_entry_offset);
 
                 if (!offset_is_valid(offset, header_size, tail_object_offset))
@@ -664,7 +684,7 @@ static int journal_file_verify_header(JournalFile *f) {
 
         /* Verify number of objects */
         uint64_t n_objects = le64toh(f->header->n_objects);
-        if (n_objects > arena_size / offsetof(ObjectHeader, payload))
+        if (!truncated && n_objects > arena_size / offsetof(ObjectHeader, payload))
                 return -ENODATA;
 
         uint64_t n_entries = le64toh(f->header->n_entries);
@@ -1301,7 +1321,7 @@ static int journal_file_setup_data_hash_table(JournalFile *f) {
         if (r < 0)
                 return r;
 
-        memzero(o->hash_table.items, s);
+        memzero(o->hash_table.items, s * sizeof(HashItem));
 
         f->header->data_hash_table_offset = htole64(p + offsetof(Object, hash_table.items));
         f->header->data_hash_table_size = htole64(s * sizeof(HashItem));
@@ -1517,6 +1537,18 @@ static int get_next_hash_offset(
         return 0;
 }
 
+static bool chain_tail_lost(JournalFile *f, int r, uint64_t offset, ObjectType type) {
+        assert(f);
+
+        /* Only accept truncation when reading. On writing it's not possible to know how to safely proceed. */
+        if (journal_file_writable(f) || !IN_SET(r, -EBADMSG, -EADDRNOTAVAIL))
+                return false;
+
+        log_debug_errno(r, "Failed to read %s at offset %" PRIu64 " of %s, treating it as the end of the chain: %m",
+                        journal_object_type_to_string(type), offset, f->path);
+        return true;
+}
+
 int journal_file_find_field_object_with_hash(
                 JournalFile *f,
                 const void *field,
@@ -1554,6 +1586,8 @@ int journal_file_find_field_object_with_hash(
                 Object *o;
 
                 r = journal_file_move_to_object(f, OBJECT_FIELD, p, &o);
+                if (chain_tail_lost(f, r, p, OBJECT_FIELD))
+                        break;
                 if (r < 0)
                         return r;
 
@@ -1655,6 +1689,8 @@ int journal_file_find_data_object_with_hash(
                 size_t rsize;
 
                 r = journal_file_move_to_object(f, OBJECT_DATA, p, &o);
+                if (chain_tail_lost(f, r, p, OBJECT_DATA))
+                        break;
                 if (r < 0)
                         return r;
 
@@ -1787,11 +1823,9 @@ static int journal_file_append_field(
         /* The linking might have altered the window, so let's only pass the offset to hmac which will
          * move to the object again if needed. */
 
-#if HAVE_GCRYPT
-        r = journal_file_hmac_put_object(f, OBJECT_FIELD, NULL, p);
+        r = journal_file_auth_put_object(f, OBJECT_FIELD, NULL, p);
         if (r < 0)
                 return r;
-#endif
 
         if (ret_object) {
                 r = journal_file_move_to_object(f, OBJECT_FIELD, p, ret_object);
@@ -1827,7 +1861,7 @@ static int maybe_compress_payload(
                 return 0;
         }
 
-        r = compress_blob(c, src, size, dst, size - 1, rsize, /* level= */ -1);
+        r = compress_blob_journal(c, src, size, dst, size - 1, rsize, /* level= */ -1);
         if (r < 0)
                 return log_debug_errno(r, "Failed to compress data object using %s, ignoring: %m", compression_to_string(c));
 
@@ -1902,11 +1936,9 @@ static int journal_file_append_data(
         if (r < 0)
                 return r;
 
-#if HAVE_GCRYPT
-        r = journal_file_hmac_put_object(f, OBJECT_DATA, o, p);
+        r = journal_file_auth_put_object(f, OBJECT_DATA, o, p);
         if (r < 0)
                 return r;
-#endif
 
         /* Create field object ... */
         r = journal_file_append_field(f, data, (uint8_t*) eq - (uint8_t*) data, &fo, NULL);
@@ -1915,7 +1947,7 @@ static int journal_file_append_data(
 
         /* ... and link it in. */
         o->data.next_field_offset = fo->field.head_data_offset;
-        fo->field.head_data_offset = le64toh(p);
+        fo->field.head_data_offset = htole64(p);
 
         if (ret_object)
                 *ret_object = o;
@@ -1951,7 +1983,7 @@ static int maybe_decompress_payload(
                 int r;
 
                 if (field) {
-                        r = decompress_startswith(compression, payload, size, &f->compress_buffer, field,
+                        r = decompress_startswith_journal(compression, payload, size, &f->compress_buffer, field,
                                                   field_length, '=');
                         if (r < 0)
                                 return log_debug_errno(r,
@@ -1965,9 +1997,13 @@ static int maybe_decompress_payload(
                                         *ret_size = 0;
                                 return 0;
                         }
+
+                        /* Caller only wants to check field existence, skip full decompression */
+                        if (!ret_data && !ret_size)
+                                return 1;
                 }
 
-                r = decompress_blob(compression, payload, size, &f->compress_buffer, &rsize, 0);
+                r = decompress_blob_journal(compression, payload, size, &f->compress_buffer, &rsize, DATA_SIZE_MAX);
                 if (r < 0)
                         return r;
 
@@ -2107,6 +2143,8 @@ static int link_entry_into_array(
         assert(f->header);
         assert(first);
         assert(idx);
+        POINTER_MAY_BE_NULL(tail);
+        POINTER_MAY_BE_NULL(tidx);
         assert(p > 0);
 
         a = tail ? le32toh(*tail) : le64toh(*first);
@@ -2146,11 +2184,9 @@ static int link_entry_into_array(
         if (r < 0)
                 return r;
 
-#if HAVE_GCRYPT
-        r = journal_file_hmac_put_object(f, OBJECT_ENTRY_ARRAY, o, q);
+        r = journal_file_auth_put_object(f, OBJECT_ENTRY_ARRAY, o, q);
         if (r < 0)
                 return r;
-#endif
 
         write_entry_array_item(f, o, i, p);
 
@@ -2392,11 +2428,9 @@ static int journal_file_append_entry_internal(
         for (size_t i = 0; i < n_items; i++)
                 write_entry_item(f, o, i, &items[i]);
 
-#if HAVE_GCRYPT
-        r = journal_file_hmac_put_object(f, OBJECT_ENTRY, o, np);
+        r = journal_file_auth_put_object(f, OBJECT_ENTRY, o, np);
         if (r < 0)
                 return r;
-#endif
 
         r = journal_file_link_entry(f, o, np, items, n_items);
         if (r < 0)
@@ -2581,11 +2615,9 @@ int journal_file_append_entry(
         else
                 machine_id = &_machine_id;
 
-#if HAVE_GCRYPT
-        r = journal_file_maybe_append_tag(f, ts->realtime);
+        r = journal_file_auth_append_tag_maybe(f, ts->realtime);
         if (r < 0)
                 return r;
-#endif
 
         if (n_iovec < ALLOCA_MAX / sizeof(EntryItem) / 2)
                 items = newa(EntryItem, n_iovec);
@@ -3064,6 +3096,10 @@ static int generic_array_bisect(
                 uint64_t left, right, k, m, m_original;
 
                 r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &array);
+                if (chain_tail_lost(f, r, a, OBJECT_ENTRY_ARRAY)) {
+                        r = TEST_GOTO_PREVIOUS;
+                        goto previous;
+                }
                 if (r < 0)
                         return r;
 
@@ -4058,6 +4094,8 @@ static void journal_default_metrics(JournalMetrics *m, int fd, bool compact) {
                 if (m->max_size < JOURNAL_FILE_SIZE_MIN)
                         m->max_size = JOURNAL_FILE_SIZE_MIN;
 
+                /* Silence static analyzers */
+                assert(m->max_size <= UINT64_MAX / 2);
                 if (m->max_use != 0 && m->max_size*2 > m->max_use)
                         m->max_use = m->max_size*2;
         }
@@ -4134,6 +4172,7 @@ int journal_file_open(
                 .strict_order = FLAGS_SET(file_flags, JOURNAL_STRICT_ORDER),
                 .newest_boot_id_prioq_idx = PRIOQ_IDX_NULL,
                 .last_direction = _DIRECTION_INVALID,
+                .tail_timestamp_ratelimit = { .interval = USEC_PER_SEC, .burst = 1 },
         };
 
         if (f->fd < 0) {
@@ -4226,13 +4265,11 @@ int journal_file_open(
                         goto fail;
         }
 
-#if HAVE_GCRYPT
         if (!newly_created && journal_file_writable(f) && JOURNAL_HEADER_SEALED(f->header)) {
-                r = journal_file_fss_load(f);
+                r = journal_file_auth_load(f);
                 if (r < 0)
                         goto fail;
         }
-#endif
 
         if (journal_file_writable(f)) {
                 if (metrics) {
@@ -4246,12 +4283,6 @@ int journal_file_open(
                         goto fail;
         }
 
-#if HAVE_GCRYPT
-        r = journal_file_hmac_setup(f);
-        if (r < 0)
-                goto fail;
-#endif
-
         if (newly_created) {
                 r = journal_file_setup_field_hash_table(f);
                 if (r < 0)
@@ -4261,11 +4292,9 @@ int journal_file_open(
                 if (r < 0)
                         goto fail;
 
-#if HAVE_GCRYPT
-                r = journal_file_append_first_tag(f);
+                r = journal_file_auth_append_tag_first(f);
                 if (r < 0)
                         goto fail;
-#endif
         }
 
         if (mmap_cache_fd_got_sigbus(f->cache_fd)) {
@@ -4568,10 +4597,17 @@ int journal_file_get_cutoff_realtime_usec(JournalFile *f, usec_t *ret_from, usec
         }
 
         if (ret_to) {
-                if (f->header->tail_entry_realtime == 0)
+                Object *o;
+                int r;
+
+                /* The header may be stale on unclean shutdown, so don't trust it. */
+                r = journal_file_next_entry(f, 0, DIRECTION_UP, &o, NULL);
+                if (r < 0)
+                        return r;
+                if (r == 0)
                         return -ENOENT;
 
-                *ret_to = le64toh(f->header->tail_entry_realtime);
+                *ret_to = le64toh(o->entry.realtime);
         }
 
         return 1;

@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 #include "dlfcn-util.h"
-#include "shared-forward.h"
+#include "forward.h"
 
 int main(int argc, char **argv) {
         void *handles[argc - 1];

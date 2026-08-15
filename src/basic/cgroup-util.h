@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "basic-forward.h"
+#include "forward.h"
 
 #define SYSTEMD_CGROUP_CONTROLLER "_systemd"
 
@@ -142,7 +142,7 @@ int cg_read_subgroup(DIR *d, char **ret);
 typedef int (*cg_kill_log_func_t)(const PidRef *pid, int sig, void *userdata);
 
 int cg_kill(const char *path, int sig, CGroupFlags flags, Set *killed_pids, cg_kill_log_func_t log_kill, void *userdata);
-int cg_kill_kernel_sigkill(const char *path);
+int cg_kill_kernel_sigkill(const char *path, uint64_t *ret_n_pids_killed);
 int cg_kill_recursive(const char *path, int sig, CGroupFlags flags, Set *killed_pids, cg_kill_log_func_t log_kill, void *userdata);
 
 int cg_split_spec(const char *spec, char **ret_controller, char **ret_path);
@@ -165,6 +165,7 @@ int cg_get_attribute_as_uint64(const char *path, const char *attribute, uint64_t
 int cg_get_attribute_as_bool(const char *path, const char *attribute);
 
 int cg_get_keyed_attribute(const char *path, const char *attribute, char * const *keys, char **values);
+int cg_get_keyed_attribute_uint64(const char *path, const char *attribute, const char *key, uint64_t *ret);
 
 int cg_get_owner(const char *path, uid_t *ret_uid);
 

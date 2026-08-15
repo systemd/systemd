@@ -4,8 +4,9 @@
 #include <string.h>
 
 #include "alloc-util.h"
-#include "basic-forward.h"
-#include "string-util-fundamental.h" /* IWYU pragma: export */
+#include "forward.h"
+
+#include "../fundamental/string-util.h" /* IWYU pragma: export */
 
 static inline char* strstr_ptr_internal(const char *haystack, const char *needle) {
         if (!haystack || !needle)
@@ -193,7 +194,7 @@ int strextendf_with_separator(char **x, const char *separator, const char *forma
         })
 #define strprepend(x, ...) strprepend_with_separator(x, NULL, __VA_ARGS__)
 
-char* strrep(const char *s, unsigned n);
+char* strrep(const char *s, size_t n);
 
 #define strrepa(s, n)                                                   \
         ({                                                              \
@@ -220,8 +221,19 @@ static inline int strdup_to(char **ret, const char *src) {
         return r < 0 ? r : 0;  /* Suppress return value of 1. */
 }
 
-bool string_is_safe(const char *p) _pure_;
-bool string_is_safe_ascii(const char *p) _pure_;
+typedef enum StringSafeFlags {
+        STRING_ASCII               = 1 << 0, /* Verify string is 7-Bit ASCII (rather than just UTF-8) */
+        STRING_ALLOW_EMPTY         = 1 << 1, /* Allow empty strings */
+        STRING_ALLOW_NEWLINES      = 1 << 2, /* Allow newlines (\n) */
+        STRING_ALLOW_BACKSLASHES   = 1 << 3, /* Allow backslashes (\) */
+        STRING_ALLOW_QUOTES        = 1 << 4, /* Allow quotes (" or ') */
+        STRING_ALLOW_GLOBS         = 1 << 5, /* Allow globs (?, * or [) */
+        STRING_FILENAME            = 1 << 6, /* Verify the string is valid as regular filename */
+        STRING_FILENAME_PART       = 1 << 7, /* Verify the string is valid as part of a regular filename */
+        STRING_DISALLOW_WHITESPACE = 1 << 8, /* Refuse whitespace (space, tab, newline, …) */
+} StringSafeFlags;
+
+bool string_is_safe(const char *p, StringSafeFlags flags) _pure_;
 
 DISABLE_WARNING_STRINGOP_TRUNCATION;
 static inline void strncpy_exact(char *buf, const char *src, size_t buf_len) {
@@ -271,9 +283,10 @@ typedef enum MakeCStringMode {
         _MAKE_CSTRING_MODE_INVALID = -1,
 } MakeCStringMode;
 
-int make_cstring(const char *s, size_t n, MakeCStringMode mode, char **ret);
+int make_cstring(const void *s, size_t n, MakeCStringMode mode, char **ret);
 
 size_t strspn_from_end(const char *str, const char *accept) _pure_;
+size_t strnspn(const char *str, const char *accept, size_t n) _pure_ _nonnull_if_nonzero_(1, 3);
 
 char* strdupspn(const char *a, const char *accept);
 char* strdupcspn(const char *a, const char *reject);
@@ -303,13 +316,22 @@ char* find_line_after_internal(const char *haystack, const char *needle);
 #define find_line_after(haystack, needle) \
         const_generic(haystack, find_line_after_internal(haystack, needle))
 
-bool version_is_valid(const char *s) _pure_;
-bool version_is_valid_versionspec(const char *s) _pure_;
+typedef enum VersionFlags {
+        VERSION_ALLOW_EMPTY      = 1 << 0,
+        VERSION_ALLOW_UNDERSCORE = 1 << 1, /* Allow "_" as separator (recommended separator) */
+        VERSION_ALLOW_PLUS       = 1 << 2, /* Allow "+" as separator (sometimes used as separator for boot attempt counters) */
+} VersionFlags;
+
+bool version_is_valid(const char *s, VersionFlags flags) _pure_;
 
 ssize_t strlevenshtein(const char *x, const char *y);
 
 char* strrstr_internal(const char *haystack, const char *needle) _pure_;
 #define strrstr(haystack, needle) \
         const_generic(haystack, strrstr_internal(haystack, needle))
+
+char* strrstr_no_case_internal(const char *haystack, const char *needle) _pure_;
+#define strrstr_no_case(haystack, needle) \
+        const_generic(haystack, strrstr_no_case_internal(haystack, needle))
 
 size_t str_common_prefix(const char *a, const char *b) _pure_;

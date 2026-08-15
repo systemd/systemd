@@ -12,3 +12,8 @@
 #define PROC_PID_INIT_INO    ((ino_t) UINT32_C(0xEFFFFFFC))
 #define PROC_CGROUP_INIT_INO ((ino_t) UINT32_C(0xEFFFFFFB))
 #define PROC_TIME_INIT_INO   ((ino_t) UINT32_C(0xEFFFFFFA))
+
+/* From kernel-internal include/linux/exportfs.h, not part of uapi. */
+#ifndef FILEID_NSFS
+#define FILEID_NSFS 0xf1
+#endif

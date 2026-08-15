@@ -1076,7 +1076,7 @@ static sd_dhcp6_lease *dhcp6_lease_free(sd_dhcp6_lease *lease) {
         dhcp6_ia_free(lease->ia_na);
         dhcp6_ia_free(lease->ia_pd);
         free(lease->dns);
-        dns_resolver_done_many(lease->dnr, lease->n_dnr);
+        dns_resolver_free_array(lease->dnr, lease->n_dnr);
         free(lease->fqdn);
         free(lease->captive_portal);
         strv_free(lease->domains);

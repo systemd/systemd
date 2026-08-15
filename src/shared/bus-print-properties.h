@@ -1,14 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
+#include "forward.h"
 
 typedef enum BusPrintPropertyFlags {
         BUS_PRINT_PROPERTY_ONLY_VALUE = 1 << 0,  /* e.g. systemctl --value */
         BUS_PRINT_PROPERTY_SHOW_EMPTY = 1 << 1,  /* e.g. systemctl --all */
 } BusPrintPropertyFlags;
 
-typedef int (*bus_message_print_t) (const char *name, const char *expected_value, sd_bus_message *m, BusPrintPropertyFlags flags);
+typedef int (*bus_message_print_t) (
+                const char *name,
+                const char *expected_value,
+                char type,
+                const char *contents,
+                sd_bus_message *m,
+                BusPrintPropertyFlags flags);
 
 bool bus_property_is_timestamp(const char *name);
 

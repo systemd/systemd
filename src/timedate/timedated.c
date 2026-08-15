@@ -25,6 +25,7 @@
 #include "conf-files.h"
 #include "constants.h"
 #include "daemon-util.h"
+#include "dlopen-note.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -693,6 +694,7 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
                         /* good_user= */ UID_INVALID,
                         interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                         &c->polkit_registry,
+                        /* ret_admin= */ NULL,
                         error);
         if (r < 0)
                 return r;
@@ -768,6 +770,7 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
                         /* good_user= */ UID_INVALID,
                         interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                         &c->polkit_registry,
+                        /* ret_admin= */ NULL,
                         error);
         if (r < 0)
                 return r;
@@ -904,6 +907,7 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
                         /* good_user= */ UID_INVALID,
                         interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                         &c->polkit_registry,
+                        /* ret_admin= */ NULL,
                         error);
         if (r < 0)
                 return r;
@@ -970,6 +974,7 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
                         /* good_user= */ UID_INVALID,
                         interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                         &c->polkit_registry,
+                        /* ret_admin= */ NULL,
                         error);
         if (r < 0)
                 return r;
@@ -1109,7 +1114,7 @@ static const sd_bus_vtable timedate_vtable[] = {
         SD_BUS_VTABLE_END,
 };
 
-const BusObjectImplementation manager_object = {
+static const BusObjectImplementation manager_object = {
         "/org/freedesktop/timedate1",
         "org.freedesktop.timedate1",
         .vtables = BUS_VTABLES(timedate_vtable),
@@ -1159,6 +1164,8 @@ static int run(int argc, char *argv[]) {
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
+
+        LIBSELINUX_NOTE(recommended);
 
         log_setup();
 

@@ -14,6 +14,7 @@
 #include "in-addr-prefix-util.h"
 #include "networkd-address.h"
 #include "networkd-address-generation.h"
+#include "networkd-dhcp-common.h"
 #include "networkd-dhcp-prefix-delegation.h"
 #include "networkd-dhcp6.h"
 #include "networkd-link.h"
@@ -557,6 +558,7 @@ static int dhcp_pd_get_preferred_subnet_prefix(
         assert(link->manager);
         assert(link->network);
         assert(pd_prefix);
+        assert(ret);
 
         if (link->network->dhcp_pd_subnet_id >= 0) {
                 /* If the link has a preference for a particular subnet id try to allocate that */
@@ -850,6 +852,8 @@ static int dhcp_request_unreachable_route(
         route->protocol = RTPROT_DHCP;
         route->priority = IP6_RT_PRIO_USER;
         route->lifetime_usec = lifetime_usec;
+        if (source == NETWORK_CONFIG_SOURCE_DHCP6 && !route->table_set)
+                route->table = link_get_dhcp6_route_table(link);
 
         r = route_adjust_nexthops(route, link);
         if (r < 0)

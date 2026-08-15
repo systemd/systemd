@@ -2,6 +2,7 @@
 
 #include "sd-bus.h"
 #include "sd-messages.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "ansi-color.h"
@@ -24,6 +25,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "unit.h"
+#include "varlink-unit.h"
 #include "virt.h"
 
 Job* job_new_raw(Unit *unit) {
@@ -41,6 +43,8 @@ Job* job_new_raw(Unit *unit) {
                 .manager = unit->manager,
                 .unit = unit,
                 .type = _JOB_TYPE_INVALID,
+                .state = JOB_WAITING,
+                .result = _JOB_RESULT_INVALID,
         };
 
         return j;
@@ -122,6 +126,7 @@ Job* job_free(Job *j) {
         job_unlink(j);
 
         sd_bus_track_unref(j->bus_track);
+        sd_varlink_unref(j->varlink);
         strv_free(j->deserialized_clients);
 
         activation_details_unref(j->activation_details);
@@ -138,17 +143,18 @@ static void job_set_state(Job *j, JobState state) {
         if (j->state == state)
                 return;
 
+        JobState old_state = j->state;
         j->state = state;
 
         if (!j->installed)
                 return;
 
         if (j->state == JOB_RUNNING)
+                /* This job changed into running, count up */
                 j->manager->n_running_jobs++;
-        else {
-                assert(j->state == JOB_WAITING);
+        else if (old_state == JOB_RUNNING) {
+                /* This job changed away from running into another state, count down. */
                 assert(j->manager->n_running_jobs > 0);
-
                 j->manager->n_running_jobs--;
 
                 if (j->manager->n_running_jobs <= 0)
@@ -162,7 +168,7 @@ void job_uninstall(Job *j) {
         assert(j);
         assert(j->installed);
 
-        job_set_state(j, JOB_WAITING);
+        job_set_state(j, JOB_FINISHED);
 
         pj = j->type == JOB_NOP ? &j->unit->nop_job : &j->unit->job;
         assert(*pj == j);
@@ -170,8 +176,10 @@ void job_uninstall(Job *j) {
         /* Detach from next 'bigger' objects */
 
         /* daemon-reload should be transparent to job observers */
-        if (!MANAGER_IS_RELOADING(j->manager))
+        if (!MANAGER_IS_RELOADING(j->manager)) {
                 bus_job_send_removed_signal(j);
+                varlink_job_send_removed_signal(j);
+        }
 
         *pj = NULL;
 
@@ -509,6 +517,8 @@ JobType job_type_collapse(JobType t, Unit *u) {
 
 int job_type_merge_and_collapse(JobType *a, JobType b, Unit *u) {
         JobType t;
+
+        assert(a);
 
         t = job_type_lookup_merge(*a, b);
         if (t < 0)
@@ -1013,6 +1023,8 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool alr
         t = j->type;
 
         j->result = result;
+
+        job_set_state(j, JOB_FINISHED);
 
         log_unit_debug(u, "Job %" PRIu32 " %s/%s finished, result=%s",
                        j->id, u->id, job_type_to_string(t), job_result_to_string(result));
@@ -1523,6 +1535,11 @@ void job_add_to_gc_queue(Job *j) {
 }
 
 static int job_compare_id(Job * const *a, Job * const *b) {
+        /* This is called from qsort()s inner loops. Correctly implemented qsort will never pass NULL so we
+           just suppress the check via POINTER_MAY_BE_NULL instead of assert() to avoid the runtime cost. */
+        POINTER_MAY_BE_NULL(a);
+        POINTER_MAY_BE_NULL(b);
+
         return CMP((*a)->id, (*b)->id);
 }
 
@@ -1637,8 +1654,9 @@ int job_get_after(Job *j, Job*** ret) {
 }
 
 static const char* const job_state_table[_JOB_STATE_MAX] = {
-        [JOB_WAITING] = "waiting",
-        [JOB_RUNNING] = "running",
+        [JOB_WAITING]  = "waiting",
+        [JOB_RUNNING]  = "running",
+        [JOB_FINISHED] = "finished",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(job_state, JobState);

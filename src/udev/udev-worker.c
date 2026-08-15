@@ -157,10 +157,8 @@ static int worker_mark_block_device_read_only(sd_device *dev) {
                 return 0;
 
         r = device_in_subsystem(dev, "block");
-        if (r < 0)
+        if (r <= 0)
                 return r;
-        if (r == 0)
-                return 0;
 
         /* Exclude synthetic devices for now, this is supposed to be a safety feature to avoid modification
          * of physical devices, and what sits on top of those doesn't really matter if we don't allow the

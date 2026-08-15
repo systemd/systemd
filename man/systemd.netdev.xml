@@ -230,6 +230,7 @@
       <xi:include href="systemd.link.xml" xpointer="credential" />
       <xi:include href="systemd.link.xml" xpointer="architecture" />
       <xi:include href="systemd.link.xml" xpointer="firmware" />
+      <xi:include href="systemd.link.xml" xpointer="machine-tag" />
     </variablelist>
   </refsect1>
 
@@ -1059,7 +1060,7 @@ Ports=eth2</programlisting>
           <literal>prp</literal>. Defaults to <literal>hsr</literal>.</para>
 
           <para>Both protocols work by sending two copies of every outgoing frame, one for each of the two
-          ports. The destination node receives the two frames and and keeps only the first one. If a link
+          ports. The destination node receives the two frames and keeps only the first one. If a link
           fails, only one of the two frames is received. HSR uses a ring topology where the two outgoing
           frames are sent in opposite directions in the ring. PRP doesn't need a specific topology, but it
           requires two completely redundant networks attached to the two ports.</para>
@@ -2683,7 +2684,10 @@ Ports=eth2</programlisting>
       <varlistentry>
         <term><varname>Table=</varname></term>
         <listitem>
-          <para>The numeric routing table identifier. This setting is compulsory.</para>
+          <para>The routing table identifier. Takes a route table name or number. Route table names
+          may be predefined or configured with <varname>RouteTable=</varname> in
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          This setting is compulsory.</para>
 
         <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>

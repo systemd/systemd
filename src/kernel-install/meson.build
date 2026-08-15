@@ -52,3 +52,4 @@ if want_kernel_install
 endif
 
 test_kernel_install_sh = files('test-kernel-install.sh')
+test_ukify_install_py = files('test-ukify-install.py')

@@ -52,6 +52,8 @@ static const char * const dhcp6_message_type_table[_DHCP6_MESSAGE_TYPE_MAX] = {
         [DHCP6_MESSAGE_DISCONNECT]          = "Disconnect",
         [DHCP6_MESSAGE_STATE]               = "State",
         [DHCP6_MESSAGE_CONTACT]             = "Contact",
+        [DHCP6_MESSAGE_ADDR_REG_INFORM]     = "Address Registration Inform",
+        [DHCP6_MESSAGE_ADDR_REG_REPLY]      = "Address Registration Reply",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(dhcp6_message_type, DHCP6MessageType);

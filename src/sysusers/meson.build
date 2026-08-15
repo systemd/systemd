@@ -8,19 +8,7 @@ executables += [
         executable_template + {
                 'name' : 'systemd-sysusers',
                 'public' : true,
-                'extract' : files('sysusers.c'),
-                'dependencies' : libaudit_cflags,
-        },
-        executable_template + {
-                'name' : 'systemd-sysusers.standalone',
-                'public' : true,
-                'objects' : ['systemd-sysusers'],
-                'link_with' : [
-                        libc_wrapper_static,
-                        libbasic_static,
-                        libshared_static,
-                        libsystemd_static,
-                ],
+                'export' : files('sysusers.c'),
                 'dependencies' : libaudit_cflags,
         },
 ]

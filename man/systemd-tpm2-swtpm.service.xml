@@ -1,0 +1,63 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="systemd-tpm2-swtpm.service" conditional='ENABLE_BOOTLOADER HAVE_TPM2'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-tpm2-swtpm.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-tpm2-swtpm.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-tpm2-swtpm.service</refname>
+    <refname>systemd-tpm2-swtpm</refname>
+    <refpurpose>Provide a fallback software TPM</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-tpm2-swtpm.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-tpm2-swtpm</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>The <filename>systemd-tpm2-swtpm.service</filename> provides fallback software TPM functionality,
+    intended for use in environments where a discrete or firmware TPM ("hardware TPM") is not available. It is
+    pulled into the boot process by
+    <citerefentry><refentrytitle>systemd-tpm2-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    if a hardware TPM is not available, and the system is configured to provide a software TPM in that case.</para>
+
+    <para>Note that a software TPM provides only very weak security properties compared to a hardware TPM,
+    and hence should only be used as a fallback mechanism if a hardware TPM is not available but TPM
+    semantics are desired. This service ultimately wraps
+    <citerefentry><refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+    <para>If the boot secret <filename>/.extra/boot-secret</filename> (in the initrd) or
+    <filename>/run/systemd/stub/boot-secret</filename> (on the host) is available the software TPM NVRAM
+    storage is encrypted with this key. See
+    <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+    details.</para>
+
+    <para>The TPM NVRAM storage is placed on the EFI System Partition as it needs to be accessible during
+    very early boot-up, in particular before the root file system is decrypted and mounted.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-tpm2-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

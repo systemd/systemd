@@ -159,7 +159,7 @@ int group_record_synthesize(GroupRecord *g, UserRecord *h) {
                         SD_JSON_BUILD_PAIR_STRING("description", description),
                         SD_JSON_BUILD_PAIR("binding", SD_JSON_BUILD_OBJECT(
                                                            SD_JSON_BUILD_PAIR(SD_ID128_TO_STRING(mid), SD_JSON_BUILD_OBJECT(
-                                                                                              SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(user_record_gid(h))))))),
+                                                                                              SD_JSON_BUILD_PAIR_UNSIGNED("gid", user_record_gid(h)))))),
                         SD_JSON_BUILD_PAIR_CONDITION(h->disposition >= 0, "disposition", SD_JSON_BUILD_STRING(user_disposition_to_string(user_record_disposition(h)))),
                         SD_JSON_BUILD_PAIR("status", SD_JSON_BUILD_OBJECT(
                                                            SD_JSON_BUILD_PAIR(SD_ID128_TO_STRING(mid), SD_JSON_BUILD_OBJECT(
@@ -197,6 +197,7 @@ int user_record_reconcile(
 
         assert(host);
         assert(embedded);
+        assert(ret);
 
         /* Make sure both records are initialized */
         if (!host->json || !embedded->json)
@@ -375,8 +376,7 @@ int user_record_add_binding(
                         if (r < 0)
                                 return r;
 
-                        sd_json_variant_unref(new_binding_entry);
-                        new_binding_entry = TAKE_PTR(be);
+                        json_variant_unref_and_replace(new_binding_entry, be);
                 }
         }
 
@@ -786,12 +786,8 @@ int user_record_update_last_changed(UserRecord *h, bool with_password) {
         }
 
         h->last_change_usec = n;
-
-        sd_json_variant_unref(h->json);
-        h->json = TAKE_PTR(v);
-
         h->mask |= USER_RECORD_REGULAR;
-        return 0;
+        return json_variant_unref_and_replace(h->json, v);
 }
 
 int user_record_make_hashed_password(UserRecord *h, char **secret, bool extend) {
@@ -1130,12 +1126,8 @@ int user_record_set_password_change_now(UserRecord *h, int b) {
                 SET_FLAG(h->mask, USER_RECORD_PER_MACHINE, !sd_json_variant_is_blank_array(array));
         }
 
-        sd_json_variant_unref(h->json);
-        h->json = TAKE_PTR(w);
-
         h->password_change_now = b;
-
-        return 0;
+        return json_variant_unref_and_replace(h->json, w);
 }
 
 int user_record_merge_secret(UserRecord *h, UserRecord *secret) {
@@ -1226,14 +1218,10 @@ int user_record_good_authentication(UserRecord *h) {
         if (r < 0)
                 return r;
 
-        sd_json_variant_unref(h->json);
-        h->json = TAKE_PTR(v);
-
         h->good_authentication_counter = counter;
         h->last_good_authentication_usec = usec;
-
         h->mask |= USER_RECORD_STATUS;
-        return 0;
+        return json_variant_unref_and_replace(h->json, v);
 }
 
 int user_record_bad_authentication(UserRecord *h) {
@@ -1281,14 +1269,10 @@ int user_record_bad_authentication(UserRecord *h) {
         if (r < 0)
                 return r;
 
-        sd_json_variant_unref(h->json);
-        h->json = TAKE_PTR(v);
-
         h->bad_authentication_counter = counter;
         h->last_bad_authentication_usec = usec;
-
         h->mask |= USER_RECORD_STATUS;
-        return 0;
+        return json_variant_unref_and_replace(h->json, v);
 }
 
 int user_record_ratelimit(UserRecord *h) {
@@ -1343,13 +1327,10 @@ int user_record_ratelimit(UserRecord *h) {
         if (r < 0)
                 return r;
 
-        sd_json_variant_unref(h->json);
-        h->json = TAKE_PTR(v);
-
         h->ratelimit_begin_usec = new_ratelimit_begin_usec;
         h->ratelimit_count = new_ratelimit_count;
-
         h->mask |= USER_RECORD_STATUS;
+        json_variant_unref_and_replace(h->json, v);
         return 1;
 }
 

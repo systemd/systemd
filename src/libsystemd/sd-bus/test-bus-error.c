@@ -128,19 +128,12 @@ extern const sd_bus_error_map __start_SYSTEMD_BUS_ERROR_MAP[];
 extern const sd_bus_error_map __stop_SYSTEMD_BUS_ERROR_MAP[];
 
 static int dump_mapping_table(void) {
-        const sd_bus_error_map *m;
-
         printf("----- errno mappings ------\n");
-        m = ALIGN_PTR(__start_SYSTEMD_BUS_ERROR_MAP);
-        while (m < __stop_SYSTEMD_BUS_ERROR_MAP) {
+        for (const sd_bus_error_map *m = __start_SYSTEMD_BUS_ERROR_MAP; m < __stop_SYSTEMD_BUS_ERROR_MAP; m++) {
+                assert((uintptr_t) m % sizeof(void*) == 0);
 
-                if (m->code == BUS_ERROR_MAP_END_MARKER) {
-                        m = ALIGN_PTR(m + 1);
-                        continue;
-                }
-
-                printf("%s -> %i/%s\n", strna(m->name), m->code, ERRNO_NAME(m->code));
-                m++;
+                if (m->code != BUS_ERROR_MAP_END_MARKER)
+                        printf("%s -> %i/%s\n", strna(m->name), m->code, ERRNO_NAME(m->code));
         }
         printf("---------------------------\n");
 
@@ -154,13 +147,13 @@ TEST(errno_mapping_standard) {
         assert_se(sd_bus_error_set(NULL, "System.Error.WHATSIT", NULL) == -EIO);
 }
 
-BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map test_errors[] = {
+BUS_ERROR_MAP_ELF_REGISTER static const sd_bus_error_map test_errors[] = {
         SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error", 5),
         SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-2", 52),
         SD_BUS_ERROR_MAP_END
 };
 
-BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map test_errors2[] = {
+BUS_ERROR_MAP_ELF_REGISTER static const sd_bus_error_map test_errors2[] = {
         SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-3", 33),
         SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-4", 44),
         SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-33", 333),

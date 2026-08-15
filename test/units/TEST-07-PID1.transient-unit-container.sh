@@ -112,7 +112,7 @@ config_container_service() {
     mkdir -p "$container_systemd_dir"
 
     # Generate a phony random machine-id for the container
-    uuidgen -r | tr -d '-' | tr '[:upper:]' '[:lower:]' > "${CONTAINER_ROOT_FS}/etc/machine-id"
+    uuidgen -r | tr -d '-' | tr '[:upper:]' '[:lower:]' >"${CONTAINER_ROOT_FS}/etc/machine-id"
 
     cat <<EOF >"$internal_test_service"
 [Unit]
@@ -121,7 +121,7 @@ After=basic.target
 
 [Service]
 Type=oneshot
-ExecStart=bash -c 'echo "$EXPECTED_OUTPUT"  > "$guest_output"'
+ExecStart=bash -c 'echo "$EXPECTED_OUTPUT"  >"$guest_output"'
 ExecStartPost=systemctl --no-block exit 0
 TimeoutStopSec=15s
 

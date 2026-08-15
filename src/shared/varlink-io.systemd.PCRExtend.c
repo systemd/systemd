@@ -12,7 +12,8 @@ static SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_DEFINE_ENUM_VALUE(keyslot),
                 SD_VARLINK_DEFINE_ENUM_VALUE(nvpcr_init),
                 SD_VARLINK_DEFINE_ENUM_VALUE(nvpcr_separator),
-                SD_VARLINK_DEFINE_ENUM_VALUE(dm_verity));
+                SD_VARLINK_DEFINE_ENUM_VALUE(dm_verity),
+                SD_VARLINK_DEFINE_ENUM_VALUE(imds_userdata));
 
 static SD_VARLINK_DEFINE_METHOD(
                 Extend,
@@ -24,10 +25,13 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(text, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Binary data to measure, encoded in Base64. (Specify either this, or the 'text' field above, not both)"),
                 SD_VARLINK_DEFINE_INPUT(data, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("HMAC key, encoded in Base64. When set, the HMAC of the measured data keyed by this secret is extended rather than a plain hash."),
+                SD_VARLINK_DEFINE_INPUT(secret, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Event type to include in the (userspace) event log). This is optional, and mostly for debugging."),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(eventType, EventType, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_ERROR(NoSuchNvPCR);
+static SD_VARLINK_DEFINE_ERROR(NvPCRSpaceExhausted);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_PCRExtend,
@@ -37,4 +41,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_Extend,
                 SD_VARLINK_SYMBOL_COMMENT("Event type to store in event log"),
                 &vl_type_EventType,
-                &vl_error_NoSuchNvPCR);
+                &vl_error_NoSuchNvPCR,
+                SD_VARLINK_SYMBOL_COMMENT("Space for NV indexes/NvPCRs exhausted, cannot measure."),
+                &vl_error_NvPCRSpaceExhausted);

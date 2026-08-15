@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "basic-forward.h"
+#include "forward.h"
+
+#define ENVIRONMENT_ASSIGNMENTS_MAX 16384U
 
 size_t sc_arg_max(void);
 

@@ -130,6 +130,13 @@ TEST(MAX) {
         assert_se(CLAMP(CLAMP(0, -10, 10), CLAMP(-5, 10, 20), CLAMP(100, -5, 20)) == 10);
 }
 
+TEST(ABS_DIFF) {
+        ASSERT_EQ(ABS_DIFF(5, 3), 2);
+        ASSERT_EQ(ABS_DIFF(3, 5), 2);
+        ASSERT_EQ(ABS_DIFF(5llu, 2llu), 3llu);
+        ASSERT_EQ(ABS_DIFF(3llu, 5llu), 2llu);
+}
+
 #pragma GCC diagnostic push
 #ifdef __clang__
 #  pragma GCC diagnostic ignored "-Waddress-of-packed-member"

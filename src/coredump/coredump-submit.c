@@ -33,7 +33,7 @@
 #include "journal-send.h"
 #include "json-util.h"
 #include "log.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "namespace-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -201,6 +201,10 @@ static int fix_xattr(int fd, const CoredumpContext *context) {
         RET_GATHER(r, fix_xattr_one(fd, "user.coredump.hostname", context->hostname));
         RET_GATHER(r, fix_xattr_one(fd, "user.coredump.comm", context->comm));
         RET_GATHER(r, fix_xattr_one(fd, "user.coredump.exe", context->exe));
+        if (pidref_is_set(&context->tidref)) {
+                RET_GATHER(r, fix_xattr_format(fd, "user.coredump.tid", PID_FMT, context->tidref.pid));
+                RET_GATHER(r, fix_xattr_one(fd, "user.coredump.thread_name", context->thread_name));
+        }
 
         return r;
 }
@@ -301,7 +305,6 @@ static int save_external_coredump(
         if (storage_on_tmpfs && config->compress) {
                 _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
                 uint64_t cgroup_limit = UINT64_MAX;
-                struct statvfs sv;
 
                 /* If we can't get the cgroup limit, just ignore it, but don't fail,
                  * try anyway with the config settings. */
@@ -331,8 +334,9 @@ static int save_external_coredump(
                 /* tmpfs might get full quickly, so check the available space too. But don't worry about
                  * errors here, failing to access the storage location will be better logged when writing to
                  * it. */
-                if (fstatvfs(fd, &sv) >= 0)
-                        max_size = MIN((uint64_t)sv.f_frsize * (uint64_t)sv.f_bfree, max_size);
+                uint64_t free_bytes;
+                if (vfs_free_bytes(fd, &free_bytes) >= 0)
+                        max_size = MIN(free_bytes, max_size);
                 /* Impose a lower minimum, otherwise we will miss the basic headers. */
                 max_size = MAX(PROCESS_SIZE_MIN, max_size);
                 /* Ensure we can always switch to compressing on the fly in case we are running out of space
@@ -369,7 +373,7 @@ static int save_external_coredump(
                 if (fd_compressed < 0)
                         return log_error_errno(fd_compressed, "Failed to create temporary file for coredump %s: %m", fn_compressed);
 
-                r = compress_stream(fd, fd_compressed, max_size, &uncompressed_size);
+                r = compress_stream(DEFAULT_COMPRESSION, fd, fd_compressed, max_size, &uncompressed_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to compress %s: %m", coredump_tmpfile_name(tmp_compressed));
 
@@ -382,7 +386,7 @@ static int save_external_coredump(
                         tmp = unlink_and_free(tmp);
                         fd = safe_close(fd);
 
-                        r = compress_stream(context->input_fd, fd_compressed, max_size, &partial_uncompressed_size);
+                        r = compress_stream(DEFAULT_COMPRESSION, context->input_fd, fd_compressed, max_size, &partial_uncompressed_size);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to compress %s: %m", coredump_tmpfile_name(tmp_compressed));
                         uncompressed_size += partial_uncompressed_size;
@@ -464,7 +468,9 @@ static int maybe_remove_external_coredump(
 }
 
 static int acquire_pid_mount_tree_fd(const CoredumpConfig *config, CoredumpContext *context) {
-#if HAVE_DWFL_SET_SYSROOT
+        if (!dlopen_dw_has_dwfl_set_sysroot())
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "dwfl_set_sysroot() is not supported.");
+
         _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, fd = -EBADF;
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         int r;
@@ -529,10 +535,6 @@ static int acquire_pid_mount_tree_fd(const CoredumpConfig *config, CoredumpConte
 
         context->mount_tree_fd = TAKE_FD(fd);
         return 0;
-#else
-        /* Don't bother preparing environment if we can't pass it to libdwfl. */
-        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "dwfl_set_sysroot() is not supported.");
-#endif
 }
 
 static int attach_mount_tree(const CoredumpConfig *config, CoredumpContext *context) {
@@ -582,11 +584,9 @@ static int change_uid_gid(const CoredumpContext *context) {
         gid_t gid = context->gid;
 
         if (uid_is_system(uid)) {
-                const char *user = "systemd-coredump";
-
-                r = get_user_creds(&user, &uid, &gid, NULL, NULL, 0);
+                r = get_user_creds("systemd-coredump", /* flags= */ 0, NULL, &uid, &gid, NULL, NULL);
                 if (r < 0) {
-                        log_warning_errno(r, "Cannot resolve %s user. Proceeding to dump core as root: %m", user);
+                        log_warning_errno(r, "Cannot resolve systemd-coredump user. Proceeding to dump core as root: %m");
                         uid = gid = 0;
                 }
         }

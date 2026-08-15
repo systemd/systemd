@@ -109,6 +109,7 @@ static int home_verify_polkit_async(
                         good_uid,
                         /* flags= */ 0,
                         &h->manager->polkit_registry,
+                        /* ret_admin= */ NULL,
                         error);
 }
 
@@ -196,6 +197,7 @@ int bus_home_method_activate(
                         h->uid,
                         /* flags= */ 0,
                         &h->manager->polkit_registry,
+                        /* ret_admin= */ NULL,
                         error);
         if (r < 0)
                 return r;
@@ -801,6 +803,8 @@ static int bus_home_object_find(
         Home *h;
         int r;
 
+        assert(found);
+
         r = sd_bus_path_decode(path, "/org/freedesktop/home1/home", &e);
         if (r <= 0)
                 return 0;
@@ -850,7 +854,7 @@ static int bus_home_node_enumerator(
         return 1;
 }
 
-const sd_bus_vtable home_vtable[] = {
+static const sd_bus_vtable home_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
         SD_BUS_PROPERTY("UserName", "s",

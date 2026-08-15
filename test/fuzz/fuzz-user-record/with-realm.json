@@ -1,0 +1,10 @@
+{
+    "userName": "realmuser",
+    "realm": "corp.example.com",
+    "realName": "Corporate Realm User",
+    "uid": 3011,
+    "gid": 3011,
+    "homeDirectory": "/home/realmuser@corp.example.com",
+    "shell": "/bin/bash",
+    "disposition": "regular"
+}

@@ -87,14 +87,21 @@ int efi_get_variable(
                 }
 
                 /* We want +1 for the read call, and +3 for the additional terminating bytes added below. */
+                size_t file_size = (size_t) st.st_size, payload_size, read_size, alloc_size, read_limit;
+                if (!SUB_SAFE(&payload_size, file_size, sizeof(attr)) ||
+                    !ADD_SAFE(&read_size, payload_size, 1) ||
+                    !ADD_SAFE(&alloc_size, read_size, 3) ||
+                    !ADD_SAFE(&read_limit, file_size, 1))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EOVERFLOW), "EFI variable '%s' size calculation overflow, refusing.", p);
+
                 free(buf);
-                buf = malloc((size_t) st.st_size - sizeof(attr) + CONST_MAX(1, 3));
+                buf = malloc(alloc_size);
                 if (!buf)
                         return -ENOMEM;
 
                 struct iovec iov[] = {
                         { &attr, sizeof(attr)                           },
-                        { buf,   (size_t) st.st_size - sizeof(attr) + 1 },
+                        { buf,   read_size                              },
                 };
 
                 n = readv(fd, iov, 2);
@@ -103,11 +110,11 @@ int efi_get_variable(
                                 return log_debug_errno(errno, "Reading from '%s' failed: %m", p);
 
                         log_debug("Reading from '%s' failed with EINTR, retrying.", p);
-                } else if ((size_t) n == sizeof(attr) + st.st_size + 1)
+                } else if ((size_t) n == read_limit)
                         /* We need to try again with a bigger buffer, the variable was apparently changed concurrently? */
                         log_debug("EFI variable '%s' larger than expected, retrying.", p);
                 else {
-                        assert((size_t) n < sizeof(attr) + st.st_size + 1);
+                        assert((size_t) n < read_limit);
                         break;
                 }
 
@@ -319,20 +326,26 @@ int efi_set_variable_string(const char *variable, const char *value) {
         return efi_set_variable(variable, u16, (char16_strlen(u16) + 1) * sizeof(char16_t));
 }
 
-bool is_efi_boot(void) {
-        static int cache = -1;
+static int cache_efi_boot = -1;
 
-        if (cache < 0) {
-                if (detect_container() > 0)
-                        cache = false;
-                else {
-                        cache = access("/sys/firmware/efi/", F_OK) >= 0;
-                        if (!cache && errno != ENOENT)
-                                log_debug_errno(errno, "Unable to test whether /sys/firmware/efi/ exists, assuming EFI not available: %m");
-                }
+bool set_efi_boot(bool b) {
+        return (cache_efi_boot = b);
+}
+
+bool is_efi_boot(void) {
+        if (cache_efi_boot >= 0)
+                return cache_efi_boot;
+
+        if (detect_container() > 0)
+                return (cache_efi_boot = false);
+
+        if (access("/sys/firmware/efi/", F_OK) < 0) {
+                if (errno != ENOENT)
+                        log_debug_errno(errno, "Unable to test whether /sys/firmware/efi/ exists, assuming EFI not available: %m");
+                return (cache_efi_boot = false);
         }
 
-        return cache;
+        return (cache_efi_boot = true);
 }
 
 static int read_flag(const char *variable) {

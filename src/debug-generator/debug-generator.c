@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "bitfield.h"
 #include "creds-util.h"
+#include "dlopen-note.h"
 #include "dropin.h"
 #include "errno-util.h"
 #include "extract-word.h"
@@ -101,7 +102,8 @@ static int parse_breakpoint_from_string(const char *s, uint32_t *ret_breakpoints
 
                 FOREACH_ELEMENT(i, breakpoint_info_table)
                         if (FLAGS_SET(i->validity, BREAKPOINT_DEFAULT) && breakpoint_applies(i, INT_MAX)) {
-                                breakpoints |= 1 << i->type;
+                                assert(i->type >= 0 && i->type < _BREAKPOINT_TYPE_MAX); /* silence coverity */
+                                breakpoints |= UINT32_C(1) << i->type;
                                 found_default = true;
                                 break;
                         }
@@ -127,7 +129,7 @@ static int parse_breakpoint_from_string(const char *s, uint32_t *ret_breakpoints
                         }
 
                         if (breakpoint_applies(&breakpoint_info_table[tt], LOG_WARNING))
-                                breakpoints |= 1 << tt;
+                                breakpoints |= UINT32_C(1) << tt;
                 }
 
         *ret_breakpoints = breakpoints;
@@ -278,16 +280,13 @@ static int process_unit_credentials(const char *credentials_dir) {
 
         assert(credentials_dir);
 
-        r = readdir_all_at(AT_FDCWD, credentials_dir, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_ENSURE_TYPE, &des);
+        r = readdir_all_at(AT_FDCWD, credentials_dir, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_MUST_BE_REGULAR, &des);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate credentials from credentials directory '%s': %m", credentials_dir);
 
         FOREACH_ARRAY(i, des->entries, des->n_entries) {
                 struct dirent *de = *i;
                 const char *unit, *dropin;
-
-                if (de->d_type != DT_REG)
-                        continue;
 
                 unit = startswith(de->d_name, "systemd.extra-unit.");
                 dropin = startswith(de->d_name, "systemd.unit-dropin.");
@@ -365,6 +364,9 @@ static int process_unit_credentials(const char *credentials_dir) {
 static int run(const char *dest, const char *dest_early, const char *dest_late) {
         const char *credentials_dir;
         int r;
+
+        LIBCRYPTO_NOTE(suggested);
+        TPM2_NOTE(suggested);
 
         assert_se(arg_dest = dest_early);
 

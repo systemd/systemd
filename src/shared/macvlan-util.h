@@ -3,7 +3,7 @@
 
 #include <linux/if_link.h>
 
-#include "shared-forward.h"
+#include "forward.h"
 
 typedef enum MacVlanMode {
         NETDEV_MACVLAN_MODE_PRIVATE = MACVLAN_MODE_PRIVATE,

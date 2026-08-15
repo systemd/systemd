@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-forward.h"
+#include "forward.h"
 
 typedef struct sd_ndisc_router_solicit {
         unsigned n_ref;

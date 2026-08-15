@@ -86,6 +86,38 @@ static int speed_meter_handler(sd_event_source *s, uint64_t usec, void *userdata
         return 0;
 }
 
+void link_get_bit_rates(Link *link, uint64_t *ret_tx, uint64_t *ret_rx) {
+        Manager *manager;
+        double interval_sec;
+
+        assert(link);
+        assert(ret_tx);
+        assert(ret_rx);
+
+        manager = link->manager;
+
+        if (!manager->use_speed_meter ||
+            manager->speed_meter_usec_old == 0 ||
+            !link->stats_updated) {
+                *ret_tx = UINT64_MAX;
+                *ret_rx = UINT64_MAX;
+                return;
+        }
+
+        assert(manager->speed_meter_usec_new > manager->speed_meter_usec_old);
+        interval_sec = (double) (manager->speed_meter_usec_new - manager->speed_meter_usec_old) / USEC_PER_SEC;
+
+        if (link->stats_new.tx_bytes > link->stats_old.tx_bytes)
+                *ret_tx = (uint64_t) ((link->stats_new.tx_bytes - link->stats_old.tx_bytes) / interval_sec);
+        else
+                *ret_tx = (uint64_t) ((UINT64_MAX - (link->stats_old.tx_bytes - link->stats_new.tx_bytes)) / interval_sec);
+
+        if (link->stats_new.rx_bytes > link->stats_old.rx_bytes)
+                *ret_rx = (uint64_t) ((link->stats_new.rx_bytes - link->stats_old.rx_bytes) / interval_sec);
+        else
+                *ret_rx = (uint64_t) ((UINT64_MAX - (link->stats_old.rx_bytes - link->stats_new.rx_bytes)) / interval_sec);
+}
+
 int manager_start_speed_meter(Manager *manager) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
         int r;

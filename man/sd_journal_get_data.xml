@@ -83,8 +83,10 @@
 
     <para><function>sd_journal_get_data()</function> gets the data object associated with a specific field
     from the current journal entry. It takes four arguments: the journal context object, a string with the
-    field name to request, plus a pair of pointers to pointer/size variables where the data object and its
-    size shall be stored in. The field name should be an entry field name. Well-known field names are listed in
+    field name to request, plus a pair of optional pointers to pointer/size variables where the data object and
+    its size shall be stored in. Either pointer may be <constant>NULL</constant>, in which case the corresponding
+    value is not returned (this is supported since version 261). The field name should be an entry field name.
+    Well-known field names are listed in
     <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
     but any field can be specified. The returned data is in a read-only memory map and is only valid until
     the next invocation of <function>sd_journal_get_data()</function>,
@@ -162,6 +164,10 @@
           <term><constant>-EINVAL</constant></term>
 
           <listitem><para>One of the required parameters is <constant>NULL</constant> or invalid.
+          For <function>sd_journal_get_data()</function>, only the journal context object and field name
+          are required non-<constant>NULL</constant>. For <function>sd_journal_enumerate_data()</function>
+          and <function>sd_journal_enumerate_available_data()</function>,
+          <parameter>ret_data</parameter> and <parameter>ret_size</parameter> are required as well.
           </para>
 
           <xi:include href="version-info.xml" xpointer="v246"/></listitem>

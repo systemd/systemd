@@ -752,6 +752,8 @@ int unit_file_find_fragment(
         _cleanup_set_free_ Set *names = NULL;
         int r;
 
+        assert(ret_fragment_path);
+
         /* Finds a fragment path, and returns the set of names:
          * if we have …/foo.service and …/foo-alias.service→foo.service,
          * and …/foo@.service and …/foo-alias@.service→foo@.service,

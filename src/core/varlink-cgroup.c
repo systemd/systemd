@@ -194,6 +194,8 @@ static int device_allow_build_json(sd_json_variant **ret, const char *name, void
         CGroupDeviceAllow *allow = userdata;
         int r;
 
+        assert(ret);
+
         LIST_FOREACH(device_allow, a, allow) {
                 r = sd_json_variant_append_arraybo(
                                 &v,
@@ -219,7 +221,7 @@ static int controllers_build_json(sd_json_variant **ret, const char *name, void 
                 if (!FLAGS_SET(*mask, CGROUP_CONTROLLER_TO_MASK(ctrl)))
                         continue;
 
-                r = sd_json_variant_append_arrayb(&v, SD_JSON_BUILD_STRING(cgroup_controller_to_string(ctrl)));
+                r = sd_json_variant_append_arrayb(&v, JSON_BUILD_STRING_UNDERSCORIFY(cgroup_controller_to_string(ctrl)));
                 if (r < 0)
                         return r;
         }
@@ -256,6 +258,7 @@ int unit_cgroup_context_build_json(sd_json_variant **ret, const char *name, void
                         JSON_BUILD_PAIR_FINITE_USEC("CPUQuotaPeriodUSec", c->cpu_quota_period_usec),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("AllowedCPUs", cpuset_build_json, &c->cpuset_cpus),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("StartupAllowedCPUs", cpuset_build_json, &c->startup_cpuset_cpus),
+                        JSON_BUILD_PAIR_ENUM("CPUSetPartition", cpuset_partition_to_string(c->cpuset_partition)),
 
                         /* Memory Accounting and Control */
                         SD_JSON_BUILD_PAIR_BOOLEAN("MemoryAccounting", c->memory_accounting),
@@ -309,7 +312,7 @@ int unit_cgroup_context_build_json(sd_json_variant **ret, const char *name, void
 
                         /* Device Access */
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("DeviceAllow", device_allow_build_json, c->device_allow),
-                        SD_JSON_BUILD_PAIR_STRING("DevicePolicy", cgroup_device_policy_to_string(c->device_policy)),
+                        JSON_BUILD_PAIR_ENUM("DevicePolicy", cgroup_device_policy_to_string(c->device_policy)),
 
                         /* Control Group Management */
                         SD_JSON_BUILD_PAIR_BOOLEAN("Delegate", c->delegate),
@@ -318,13 +321,18 @@ int unit_cgroup_context_build_json(sd_json_variant **ret, const char *name, void
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("DisableControllers", controllers_build_json, &c->disable_controllers),
 
                         /* Memory Pressure Control */
-                        SD_JSON_BUILD_PAIR_STRING("ManagedOOMSwap", managed_oom_mode_to_string(c->moom_swap)),
-                        SD_JSON_BUILD_PAIR_STRING("ManagedOOMMemoryPressure", managed_oom_mode_to_string(c->moom_mem_pressure)),
+                        JSON_BUILD_PAIR_ENUM("ManagedOOMSwap", managed_oom_mode_to_string(c->moom_swap)),
+                        JSON_BUILD_PAIR_ENUM("ManagedOOMMemoryPressure", managed_oom_mode_to_string(c->moom_mem_pressure)),
                         JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("ManagedOOMMemoryPressureLimit", c->moom_mem_pressure_limit),
                         JSON_BUILD_PAIR_FINITE_USEC("ManagedOOMMemoryPressureDurationUSec", c->moom_mem_pressure_duration_usec),
-                        SD_JSON_BUILD_PAIR_STRING("ManagedOOMPreference", managed_oom_preference_to_string(c->moom_preference)),
-                        SD_JSON_BUILD_PAIR_STRING("MemoryPressureWatch", cgroup_pressure_watch_to_string(c->memory_pressure_watch)),
-                        JSON_BUILD_PAIR_FINITE_USEC("MemoryPressureThresholdUSec", c->memory_pressure_threshold_usec),
+                        JSON_BUILD_PAIR_ENUM("ManagedOOMPreference", managed_oom_preference_to_string(c->moom_preference)),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("OOMRules", c->moom_rules),
+                        JSON_BUILD_PAIR_ENUM("MemoryPressureWatch", cgroup_pressure_watch_to_string(c->pressure[PRESSURE_MEMORY].watch)),
+                        JSON_BUILD_PAIR_FINITE_USEC("MemoryPressureThresholdUSec", c->pressure[PRESSURE_MEMORY].threshold_usec),
+                        JSON_BUILD_PAIR_ENUM("CPUPressureWatch", cgroup_pressure_watch_to_string(c->pressure[PRESSURE_CPU].watch)),
+                        JSON_BUILD_PAIR_FINITE_USEC("CPUPressureThresholdUSec", c->pressure[PRESSURE_CPU].threshold_usec),
+                        JSON_BUILD_PAIR_ENUM("IOPressureWatch", cgroup_pressure_watch_to_string(c->pressure[PRESSURE_IO].watch)),
+                        JSON_BUILD_PAIR_FINITE_USEC("IOPressureThresholdUSec", c->pressure[PRESSURE_IO].threshold_usec),
 
                         /* Others */
                         SD_JSON_BUILD_PAIR_BOOLEAN("CoredumpReceive", c->coredump_receive));

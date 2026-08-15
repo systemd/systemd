@@ -4,10 +4,10 @@
 #include <sys/mempolicy.h>
 
 #include "cpu-set-util.h"
-#include "shared-forward.h"
+#include "forward.h"
 
 static inline bool mpol_is_valid(int t) {
-        return t >= MPOL_DEFAULT && t <= MPOL_LOCAL;
+        return t >= MPOL_DEFAULT && t <= MPOL_WEIGHTED_INTERLEAVE;
 }
 
 typedef struct NUMAPolicy {
@@ -29,7 +29,10 @@ static inline void numa_policy_reset(NUMAPolicy *p) {
 }
 
 int apply_numa_policy(const NUMAPolicy *policy);
+int numa_node_get_cpus(size_t node, CPUSet *ret);
 int numa_to_cpu_set(const NUMAPolicy *policy, CPUSet *ret);
+
+int numa_get_node_from_cpu(unsigned cpu, unsigned *ret);
 
 int numa_mask_add_all(CPUSet *mask);
 

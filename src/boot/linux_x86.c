@@ -12,8 +12,8 @@
 
 #include "efi-log.h"
 #include "linux.h"
-#include "macro-fundamental.h"
-#include "memory-util-fundamental.h"
+#include "macro.h"
+#include "memory-util.h"
 #include "util.h"
 
 #define KERNEL_SECTOR_SIZE 512u
@@ -195,9 +195,14 @@ EFI_STATUS linux_exec_efi_handover(
 
         /* Setup size is determined by offset 0x0202 + byte value at offset 0x0201, which is the same as
          * offset of the header field and the target from the jump field (which we split for this reason). */
+        size_t setup_hdr_len;
+        if (!ADD_SAFE(&setup_hdr_len, offsetof(SetupHeader, header), image_params->hdr.setup_size))
+                setup_hdr_len = sizeof(SetupHeader);
+        else
+                setup_hdr_len = MIN(setup_hdr_len, sizeof(SetupHeader));
         memcpy(&boot_params->hdr,
                &image_params->hdr,
-               offsetof(SetupHeader, header) + image_params->hdr.setup_size);
+               setup_hdr_len);
 
         boot_params->hdr.type_of_loader = 0xff;
 

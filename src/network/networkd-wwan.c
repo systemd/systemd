@@ -2,6 +2,7 @@
 
 #include "alloc-util.h"
 #include "bus-util.h"
+#include "extract-word.h"
 #include "hashmap.h"
 #include "networkd-address.h"
 #include "networkd-dhcp4.h"
@@ -36,7 +37,7 @@ Bearer* bearer_free(Bearer *b) {
         free(b->name);
         free(b->apn);
 
-        in_addr_full_array_free(b->dns, b->n_dns);
+        in_addr_full_free_array(b->dns, b->n_dns);
 
         return mfree(b);
 }
@@ -151,11 +152,8 @@ Modem* modem_free(Modem *modem) {
         if (!modem)
                 return NULL;
 
-        if (modem->bearers_by_name)
-                hashmap_free(modem->bearers_by_name);
-
-        if (modem->bearers_by_path)
-                hashmap_free(modem->bearers_by_path);
+        hashmap_free(modem->bearers_by_name);
+        hashmap_free(modem->bearers_by_path);
 
         if (modem->manager)
                 hashmap_remove_value(modem->manager->modems_by_path, modem->path, modem);
@@ -237,6 +235,7 @@ int link_get_modem(Link *link, Modem **ret) {
         assert(link);
         assert(link->manager);
         assert(link->ifname);
+        assert(ret);
 
         HASHMAP_FOREACH(modem, link->manager->modems_by_path)
                 if (modem->port_name && streq(modem->port_name, link->ifname)) {
@@ -479,7 +478,7 @@ static int link_apply_bearer_impl(Link *link, Bearer *b) {
                         if (r < 0)
                                 return r;
 
-                        r = link_request_bearer_route(link, AF_INET6, &b->ip6_gateway, NULL);
+                        r = link_request_bearer_route(link, AF_INET6, &b->ip6_gateway, &b->ip6_address);
                         if (r < 0)
                                 return r;
                 }
@@ -529,7 +528,7 @@ static int link_apply_bearer_impl(Link *link, Bearer *b) {
                         continue;
 
                 r = route_remove(route, link->manager);
-                if (ret)
+                if (r < 0)
                         ret = r;
         }
 
@@ -620,7 +619,7 @@ int config_parse_mm_route_metric(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -638,4 +637,103 @@ int config_parse_mm_route_metric(
 
         network->mm_route_metric_set = true;
         return 0;
+}
+
+int config_parse_mm_allowed_auth(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        static const struct {
+                MMBearerAllowedAuth auth;
+                const char *str;
+        } allowed_auth_map[] = {
+                { MM_BEARER_ALLOWED_AUTH_NONE,     "none"     },
+                { MM_BEARER_ALLOWED_AUTH_PAP,      "pap"      },
+                { MM_BEARER_ALLOWED_AUTH_CHAP,     "chap"     },
+                { MM_BEARER_ALLOWED_AUTH_MSCHAP,   "mschap"   },
+                { MM_BEARER_ALLOWED_AUTH_MSCHAPV2, "mschapv2" },
+                { MM_BEARER_ALLOWED_AUTH_EAP,      "eap"      },
+        };
+        MMBearerAllowedAuth *allowed_auth = ASSERT_PTR(data);
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *allowed_auth = MM_BEARER_ALLOWED_AUTH_UNKNOWN;
+                return 0;
+        }
+
+        for (const char *p = rvalue;;) {
+                _cleanup_free_ char *auth = NULL;
+
+                r = extract_first_word(&p, &auth, /* separators */ NULL, /* flags */ 0);
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+                if (r == 0)
+                        return 0;
+
+                bool found = false;
+                FOREACH_ELEMENT(i, allowed_auth_map)
+                        if (streq(auth, i->str)) {
+                                *allowed_auth |= i->auth;
+                                found = true;
+                                break;
+                        }
+
+                if (!found)
+                        log_syntax(unit, LOG_WARNING, filename, line, -EINVAL,
+                                   "Unknown auth value '%s', ignoring", auth);
+        }
+}
+
+int config_parse_mm_ip_family(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        static const struct {
+                MMBearerIpFamily family;
+                const char *str;
+        } ip_family_map[] = {
+                { MM_BEARER_IP_FAMILY_IPV4,   "ipv4" },
+                { MM_BEARER_IP_FAMILY_IPV6,   "ipv6" },
+                { MM_BEARER_IP_FAMILY_IPV4V6, "both" },
+                { MM_BEARER_IP_FAMILY_ANY,    "any"  },
+        };
+        MMBearerIpFamily *ip_family = ASSERT_PTR(data);
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *ip_family = MM_BEARER_IP_FAMILY_NONE;
+                return 0;
+        }
+
+        FOREACH_ELEMENT(i, ip_family_map)
+                if (streq(rvalue, i->str)) {
+                        *ip_family = i->family;
+                        return 0;
+                }
+
+        return log_syntax_parse_error(unit, filename, line, -EINVAL, lvalue, rvalue);
 }

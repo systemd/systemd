@@ -151,7 +151,7 @@ TEST(fd_move_above_stdio) {
         new_fd = fd_move_above_stdio(new_fd);
         assert_se(new_fd >= 3);
 
-        assert_se(dup(original_stdin) == 0);
+        assert_se(fcntl(original_stdin, F_DUPFD, 0) == 0);
         assert_se(close_nointr(original_stdin) != EBADF);
         assert_se(close_nointr(new_fd) != EBADF);
 }
@@ -738,7 +738,7 @@ TEST(path_is_root_at) {
         test_path_is_root_at_one(true);
 }
 
-TEST(fds_are_same_mount) {
+TEST(fds_inode_and_mount_same) {
         _cleanup_close_ int fd1 = -EBADF, fd2 = -EBADF, fd3 = -EBADF, fd4 = -EBADF;
 
         fd1 = open("/sys", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW);
@@ -749,11 +749,8 @@ TEST(fds_are_same_mount) {
         if (fd1 < 0 || fd2 < 0 || fd3 < 0 || fd4 < 0)
                 return (void) log_tests_skipped_errno(errno, "Failed to open /sys or /proc or /");
 
-        if (fds_are_same_mount(fd1, fd4) > 0 && fds_are_same_mount(fd2, fd4) > 0)
-                return (void) log_tests_skipped("Cannot test fds_are_same_mount() as /sys and /proc are not mounted");
-
-        assert_se(fds_are_same_mount(fd1, fd2) == 0);
-        assert_se(fds_are_same_mount(fd2, fd3) > 0);
+        assert_se(fds_inode_and_mount_same(fd1, fd2) == 0);
+        assert_se(fds_inode_and_mount_same(fd2, fd3) > 0);
 }
 
 TEST(fd_get_path) {

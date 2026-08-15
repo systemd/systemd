@@ -25,13 +25,15 @@ EOF
 cat >"/run/systemd/system/$UNIT_NAME.service" <<EOF
 [Service]
 ExecStart=echo "$TEST_MESSAGE"
+SyslogIdentifier=$UNIT_NAME
 EOF
 
 systemctl daemon-reload
 
 JOURNAL_TS="$(date "+%s")"
 # Paranoia check that the test message is not already in the logs
-(! journalctl -p info --since="@$JOURNAL_TS" --unit="$UNIT_NAME" --grep="$TEST_MESSAGE")
+# Filter by SyslogIdentifier rather than --unit= due to the known issue with short processes cgroup attribution
+(! journalctl -p info --since="@$JOURNAL_TS" -t "$UNIT_NAME" --grep="$TEST_MESSAGE")
 
 # Restart time timer and move time forward by 2 hours to trigger the timer
 systemctl restart "$UNIT_NAME.timer"
@@ -41,7 +43,7 @@ date --set='+2 hours'
 trap 'date --set="-2 hours"' EXIT
 sleep 1
 systemctl status "$UNIT_NAME.timer"
-assert_eq "$(journalctl -q -p info --since="@$JOURNAL_TS" --unit="$UNIT_NAME" --grep="$TEST_MESSAGE" | wc -l)" "1"
+assert_eq "$(journalctl -q -p info --since="@$JOURNAL_TS" -t "$UNIT_NAME" --grep="$TEST_MESSAGE" | wc -l)" "1"
 
 # Restarting the timer unit shouldn't trigger neither the timer nor the service, so these
 # fields should remain constant through the following tests
@@ -51,7 +53,7 @@ TIMER_LAST_TRIGGER="$(systemctl show -P LastTriggerUSec "$UNIT_NAME.timer")"
 # Now restart the timer and check if the timer and the service weren't triggered again
 systemctl restart "$UNIT_NAME.timer"
 sleep 5
-assert_eq "$(journalctl -q -p info --since="@$JOURNAL_TS" --unit="$UNIT_NAME" --grep="$TEST_MESSAGE" | wc -l)" "1"
+assert_eq "$(journalctl -q -p info --since="@$JOURNAL_TS" -t "$UNIT_NAME" --grep="$TEST_MESSAGE" | wc -l)" "1"
 assert_eq "$SERVICE_INV_ID" "$(systemctl show -P InvocationID "$UNIT_NAME.service")"
 assert_eq "$TIMER_LAST_TRIGGER" "$(systemctl show -P LastTriggerUSec "$UNIT_NAME.timer")"
 
@@ -67,7 +69,7 @@ systemctl status "$UNIT_NAME.timer"
 assert_in "OnCalendar=$TIMER_TS" "$(systemctl show -P TimersCalendar "$UNIT_NAME".timer)"
 systemctl restart "$UNIT_NAME.timer"
 sleep 5
-assert_eq "$(journalctl -q -p info --since="@$JOURNAL_TS" --unit="$UNIT_NAME" --grep="$TEST_MESSAGE" | wc -l)" "1"
+assert_eq "$(journalctl -q -p info --since="@$JOURNAL_TS" -t "$UNIT_NAME" --grep="$TEST_MESSAGE" | wc -l)" "1"
 assert_eq "$SERVICE_INV_ID" "$(systemctl show -P InvocationID "$UNIT_NAME.service")"
 assert_eq "$TIMER_LAST_TRIGGER" "$(systemctl show -P LastTriggerUSec "$UNIT_NAME.timer")"
 

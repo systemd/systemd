@@ -17,7 +17,7 @@
 #include "systemctl-util.h"
 #include "unit-name.h"
 
-int verb_add_dependency(int argc, char *argv[], void *userdata) {
+int verb_add_dependency(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_strv_free_ char **names = NULL;
         _cleanup_free_ char *target = NULL;
         const char *verb = argv[0];

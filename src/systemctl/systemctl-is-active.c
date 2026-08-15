@@ -57,7 +57,7 @@ static int check_unit_generic(int code, const UnitActiveState good_states[], siz
         return ok ? EXIT_SUCCESS : not_found ? EXIT_PROGRAM_OR_SERVICES_STATUS_UNKNOWN : code;
 }
 
-int verb_is_active(int argc, char *argv[], void *userdata) {
+int verb_is_active(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         static const UnitActiveState states[] = {
                 UNIT_ACTIVE,
@@ -69,7 +69,7 @@ int verb_is_active(int argc, char *argv[], void *userdata) {
         return check_unit_generic(EXIT_PROGRAM_NOT_RUNNING, states, ELEMENTSOF(states), strv_skip(argv, 1));
 }
 
-int verb_is_failed(int argc, char *argv[], void *userdata) {
+int verb_is_failed(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         static const UnitActiveState states[] = {
                 UNIT_FAILED,

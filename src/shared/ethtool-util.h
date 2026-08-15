@@ -4,7 +4,7 @@
 #include <linux/ethtool.h>
 
 #include "conf-parser-forward.h"
-#include "shared-forward.h"
+#include "forward.h"
 
 #define N_ADVERTISE 4
 

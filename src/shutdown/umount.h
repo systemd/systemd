@@ -5,7 +5,7 @@
   Copyright © 2010 ProFUSION embedded systems
 ***/
 
-#include "shared-forward.h"
+#include "forward.h"
 #include "list.h"
 
 int umount_all(bool *changed, bool last_try);

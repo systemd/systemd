@@ -11,11 +11,13 @@ u unlockedtestuser - "An unlocked system user" / /bin/bash
 u! lockedtestuser - "A locked system user" / /bin/bash
 EOF
 
-userdbctl -j user unlockedtestuser
-userdbctl -j user lockedtestuser
+if command -v userdbctl >/dev/null; then
+    userdbctl -j user unlockedtestuser
+    userdbctl -j user lockedtestuser
 
-assert_eq "$(userdbctl -j user unlockedtestuser | jq .locked)" "null"
-assert_eq "$(userdbctl -j user lockedtestuser | jq .locked)" "true"
+    assert_eq "$(userdbctl -j user unlockedtestuser | jq .locked)" "null"
+    assert_eq "$(userdbctl -j user lockedtestuser | jq .locked)" "true"
+fi
 
 at_exit() {
     set +e
@@ -27,6 +29,15 @@ at_exit() {
 [[ "$(id -u)" -eq 0 ]]
 
 trap at_exit EXIT
+
+root="$(mktemp -d)"
+cred="$(mktemp -d)"
+mkdir -p "$root/etc"
+printf 'relative-shell' >"$cred/passwd.shell.creduser"
+(! env CREDENTIALS_DIRECTORY="$cred" systemd-sysusers -n --root="$root" --inline 'u creduser 999 "Cred User" / -')
+(! env CREDENTIALS_DIRECTORY="$cred" systemd-sysusers --root="$root" --inline 'u creduser 999 "Cred User" / -')
+(! grep -F creduser "$root/etc/passwd" >/dev/null 2>&1)
+rm -rf "$root" "$cred"
 
 # Ensure that a non-responsive NSS socket doesn't make sysusers fail
 mount -t tmpfs tmpfs /run/systemd/userdb/

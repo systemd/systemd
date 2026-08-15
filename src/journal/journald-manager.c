@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/audit.h>
 #include <linux/sockios.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
@@ -47,6 +46,7 @@
 #include "journald-sync.h"
 #include "journald-syslog.h"
 #include "journald-varlink.h"
+#include "libaudit-util.h"
 #include "log.h"
 #include "log-ratelimit.h"
 #include "memory-util.h"
@@ -135,6 +135,8 @@ static int manager_determine_path_usage(
 }
 
 static void cache_space_invalidate(JournalStorageSpace *space) {
+        assert(space);
+
         zero(*space);
 }
 
@@ -461,7 +463,9 @@ static int manager_find_user_journal(Manager *m, uid_t uid, JournalFile **ret) {
         _cleanup_free_ char *p = NULL;
         int r;
 
+        assert(m);
         assert(!uid_for_system_journal(uid));
+        assert(ret);
 
         f = ordered_hashmap_get(m->user_journals, UID_TO_PTR(uid));
         if (f)
@@ -693,7 +697,10 @@ static int manager_archive_offline_user_journals(Manager *m) {
 
                 TAKE_FD(fd); /* Donated to journal_file_open() */
 
-                journal_file_write_final_tag(f);
+                r = journal_file_auth_append_tag(f);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to append tag when closing journal, ignoring: %m");
+
                 r = journal_file_archive(f, NULL);
                 if (r < 0)
                         log_debug_errno(r, "Failed to archive journal file '%s', ignoring: %m", full);
@@ -2535,18 +2542,16 @@ int manager_init(Manager *m) {
 }
 
 void manager_maybe_append_tags(Manager *m) {
-#if HAVE_GCRYPT
-        JournalFile *f;
-        usec_t n;
+        assert(m);
 
-        n = now(CLOCK_REALTIME);
+        usec_t n = now(CLOCK_REALTIME);
 
         if (m->system_journal)
-                journal_file_maybe_append_tag(m->system_journal, n);
+                journal_file_auth_append_tag_maybe(m->system_journal, n);
 
+        JournalFile *f;
         ORDERED_HASHMAP_FOREACH(f, m->user_journals)
-                journal_file_maybe_append_tag(f, n);
-#endif
+                journal_file_auth_append_tag_maybe(f, n);
 }
 
 Manager* manager_free(Manager *m) {

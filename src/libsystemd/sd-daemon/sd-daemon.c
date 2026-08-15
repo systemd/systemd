@@ -603,6 +603,8 @@ static int pid_notify_with_fds_internal(
                                 return log_debug_errno(errno, "Failed to send notify message to '%s': %m", e);
 
                         /* If that failed, try with our own ucred instead */
+                        /* Silence static analyzers */
+                        assert(msghdr.msg_controllen >= CMSG_SPACE(sizeof(struct ucred)));
                         msghdr.msg_controllen -= CMSG_SPACE(sizeof(struct ucred));
                         if (msghdr.msg_controllen == 0)
                                 msghdr.msg_control = NULL;
@@ -619,7 +621,7 @@ static int pid_notify_with_fds_internal(
                         msghdr.msg_control = NULL;
                         msghdr.msg_controllen = 0;
                 }
-        } while (!iovec_increment(msghdr.msg_iov, msghdr.msg_iovlen, n));
+        } while (!iovec_inc_many(msghdr.msg_iov, msghdr.msg_iovlen, n));
 
         if (address.sockaddr.sa.sa_family == AF_VSOCK && IN_SET(type, SOCK_STREAM, SOCK_SEQPACKET)) {
                 /* For AF_VSOCK, we need to close the socket to signal the end of the message. */
@@ -635,8 +637,8 @@ static int pid_notify_with_fds_internal(
         }
 
         if (DEBUG_LOGGING) {
-                _cleanup_free_ char *escaped = xescape_full(state, "\"", /* console_width = */ SIZE_MAX, XESCAPE_8_BIT);
-                log_debug("Notify message sent to '%s': \"%s\"", e, escaped ?: state);
+                _cleanup_free_ char *escaped = shell_escape(state, "\"");
+                log_debug("Notify message sent to '%s': \"%s\"", e, strnull(escaped));
         }
 
         return 1;

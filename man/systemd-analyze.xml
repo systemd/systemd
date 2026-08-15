@@ -81,7 +81,7 @@
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">unit-shell</arg>
       <arg choice="plain"><replaceable>SERVICE</replaceable></arg>
-      <arg choice="opt" rep="repeat"><replaceable>Command</replaceable></arg>
+      <arg choice="opt" rep="repeat"><replaceable>COMMAND</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>systemd-analyze</command>
@@ -198,6 +198,11 @@
     <cmdsynopsis>
       <command>systemd-analyze</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">identify-tpm2</arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">pcrs</arg>
       <arg choice="opt" rep="repeat"><replaceable>PCR</replaceable></arg>
     </cmdsynopsis>
@@ -257,6 +262,16 @@
       userspace took to initialize. Note that these measurements simply measure the time passed up to the
       point where all system services have been spawned, but not necessarily until they fully finished
       initialization or the disk is idle.</para>
+
+      <para>If the manager carried shutdown timestamps across a kexec-based live update (i.e. they were
+      restored from the previous boot through the Live Update Orchestrator), the previous boot's shutdown
+      phases are prepended to the chain, so the full shutdown plus bootup sequence is shown and summed into
+      the total: the time spent stopping units (<literal>(stopping)</literal>), the time the manager took to
+      hand off to
+      <citerefentry><refentrytitle>systemd-shutdown</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      (<literal>(exit)</literal>) and the time spent in <command>systemd-shutdown</command> itself
+      (<literal>(systemd-shutdown)</literal>) are added before the firmware/loader/kernel/initrd/userspace
+      phases.</para>
 
       <example>
         <title><command>Show how long the boot took</command></title>
@@ -1026,6 +1041,27 @@ default         ignore      -         -</programlisting>
       </example>
 
       <xi:include href="version-info.xml" xpointer="v257"/>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze identify-tpm2</command></title>
+
+      <para>Shows vendor information about the TPM 2.0 device discovered.</para>
+
+      <example>
+        <title>Example Output</title>
+
+        <programlisting>  Family Indicator: 2.0
+             Level: 0
+          Revision: 1.59
+Specification Date: Mon 2023-01-09
+      Manufacturer: STM
+     Vendor String: ST33KTPM2XSPI
+  Firmware Version: 9.258
+   Modalias String: fi2.0:lv0:rv1.59:sy2023:sd9:mfSTM:vsST33KTPM2XSPI:ty0:fw9.258.0:</programlisting>
+      </example>
+
+      <xi:include href="version-info.xml" xpointer="v260"/>
     </refsect2>
 
     <refsect2>

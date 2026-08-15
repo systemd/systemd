@@ -6,6 +6,7 @@
 #include "networkd-address.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
+#include "networkd-route.h"
 #include "networkd-route-nexthop.h"
 #include "ordered-set.h"
 #include "set.h"
@@ -307,6 +308,47 @@ static void test_config_parse_multipath_route_verify(
         ASSERT_EQ(nh->weight, expected_weight);
 }
 
+TEST(route_nexthops_compare) {
+        _cleanup_ordered_set_free_ OrderedSet *a_nexthops = NULL, *b_nexthops = NULL;
+        Route a = { .family = AF_INET }, b = { .family = AF_INET };
+        _cleanup_set_free_ Set *routes = NULL;
+
+        ASSERT_OK_EQ(parse_mpr("10.0.0.1@1 10", &a_nexthops), 1);
+        ASSERT_OK_EQ(parse_mpr("10.0.0.2@2 20", &a_nexthops), 1);
+        ASSERT_OK_EQ(parse_mpr("10.0.0.1@1 10", &b_nexthops), 1);
+        ASSERT_OK_EQ(parse_mpr("10.0.0.2@2 20", &b_nexthops), 1);
+
+        a.nexthops = a_nexthops;
+        b.nexthops = b_nexthops;
+        ASSERT_EQ(route_nexthops_compare_func(&a, &b), 0);
+
+        b_nexthops = ordered_set_free(b_nexthops);
+        ASSERT_OK_EQ(parse_mpr("10.0.0.1@1 10", &b_nexthops), 1);
+        ASSERT_OK_EQ(parse_mpr("10.0.0.3@2 20", &b_nexthops), 1);
+        b.nexthops = b_nexthops;
+        ASSERT_NE(route_nexthops_compare_func(&a, &b), 0);
+
+        b_nexthops = ordered_set_free(b_nexthops);
+        ASSERT_OK_EQ(parse_mpr("10.0.0.1@1 10", &b_nexthops), 1);
+        ASSERT_OK_EQ(parse_mpr("10.0.0.2@2 30", &b_nexthops), 1);
+        b.nexthops = b_nexthops;
+        ASSERT_NE(route_nexthops_compare_func(&a, &b), 0);
+
+        b_nexthops = ordered_set_free(b_nexthops);
+        ASSERT_OK_EQ(parse_mpr("10.0.0.2@2 20", &b_nexthops), 1);
+        ASSERT_OK_EQ(parse_mpr("10.0.0.1@1 10", &b_nexthops), 1);
+        b.nexthops = b_nexthops;
+        ASSERT_EQ(route_nexthops_compare_func(&a, &b), 0);
+
+        ASSERT_NOT_NULL(routes = set_new(&route_hash_ops));
+        ASSERT_OK_POSITIVE(set_put(routes, &a));
+        ASSERT_PTR_EQ(set_get(routes, &b), &a);
+        ASSERT_OK_ZERO(set_put(routes, &b));
+
+        ASSERT_OK_EQ(parse_mpr("10.0.0.3@3 30", &b_nexthops), 1);
+        ASSERT_NE(route_nexthops_compare_func(&a, &b), 0);
+}
+
 TEST(config_parse_multipath_route) {
         _cleanup_ordered_set_free_ OrderedSet *nexthops = NULL;
 
@@ -422,6 +464,32 @@ TEST(config_parse_multipath_route) {
         test_config_parse_multipath_route_one("@wg0 257", 0, 0); /* Weight > 256 */
         test_config_parse_multipath_route_one("@wg0 -1", 0, 0);  /* Negative */
         test_config_parse_multipath_route_one("@wg0 abc", 0, 0); /* Non-numeric */
+}
+
+TEST(config_parse_stacked_netdev) {
+        _cleanup_hashmap_free_ Hashmap *netdevs = NULL;
+        ASSERT_OK(config_parse_stacked_netdev("network", "filename", 1, "section", 1, "VLAN", NETDEV_KIND_VLAN, "foo bar baz invalid:name", &netdevs, NULL));
+        ASSERT_OK(config_parse_stacked_netdev("network", "filename", 1, "section", 1, "VXLAN", NETDEV_KIND_VXLAN, "aaa 321 foo bbb", &netdevs, NULL));
+
+        static const struct {
+                const char *name;
+                NetDevKind kind;
+        } expected[] = {
+                { "foo", NETDEV_KIND_VLAN },
+                { "bar", NETDEV_KIND_VLAN },
+                { "baz", NETDEV_KIND_VLAN },
+                { "aaa", NETDEV_KIND_VXLAN },
+                { "bbb", NETDEV_KIND_VXLAN },
+        };
+
+        ASSERT_EQ(hashmap_size(netdevs), ELEMENTSOF(expected));
+        FOREACH_ELEMENT(i, expected) {
+                void *p = ASSERT_NOT_NULL(hashmap_get(netdevs, i->name));
+                ASSERT_EQ(PTR_TO_INT(p), i->kind);
+        }
+
+        ASSERT_OK(config_parse_stacked_netdev("network", "filename", 1, "section", 1, "VXLAN", NETDEV_KIND_VXLAN, "", &netdevs, NULL));
+        ASSERT_NULL(netdevs);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

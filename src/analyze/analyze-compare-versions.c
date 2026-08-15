@@ -7,7 +7,7 @@
 #include "log.h"
 #include "string-util.h"
 
-int verb_compare_versions(int argc, char *argv[], void *userdata) {
+int verb_compare_versions(int argc, char *argv[], uintptr_t _data, void *userdata) {
         const char *v1 = ASSERT_PTR(argv[1]), *v2 = ASSERT_PTR(argv[argc-1]);
         int r;
 
@@ -17,9 +17,9 @@ int verb_compare_versions(int argc, char *argv[], void *userdata) {
         /* We only output a warning on invalid version strings (instead of failing), since the comparison
          * functions try to handle invalid strings gracefully and it's still interesting to see what the
          * comparison result will be. */
-        if (!version_is_valid_versionspec(v1))
+        if (!version_is_valid(v1, VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS|VERSION_ALLOW_EMPTY))
                 log_warning("Version string 1 contains disallowed characters, they will be treated as separators: %s", v1);
-        if (!version_is_valid_versionspec(v2))
+        if (!version_is_valid(v2, VERSION_ALLOW_UNDERSCORE|VERSION_ALLOW_PLUS|VERSION_ALLOW_EMPTY))
                 log_warning("Version string 2 contains disallowed characters, they will be treated as separators: %s", v2);
 
         if (argc == 3) {

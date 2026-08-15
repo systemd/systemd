@@ -117,6 +117,11 @@ TEST(cgroup_properties) {
                         "StartupAllowedMemoryNodes=0",
                         "StartupAllowedMemoryNodes=1-3",
 
+                        "CPUSetPartition=member",
+                        "CPUSetPartition=root",
+                        "CPUSetPartition=isolated",
+                        "CPUSetPartition=",
+
                         "DisableControllers=cpu",
                         "DisableControllers=    "
                         " cpu cpuacct cpuset io blkio memory devices pids bpf-firewall bpf-devices     "
@@ -843,7 +848,6 @@ TEST(socket_properties) {
 
                         /* 64-bit integer properties */
                         "MessageQueueMaxMessages=10",
-                        "MessageQueueMessageSize=8192",
 
                         /* Timespan properties */
                         "TimeoutSec=90s",
@@ -866,6 +870,7 @@ TEST(socket_properties) {
                         "ReceiveBuffer=512K",
                         "SendBuffer=1.M",  // TODO: should this accept multiple components?
                         "PipeSize=512K",
+                        "MessageQueueMessageSize=8K",
 
                         /* Exec command properties */
                         "ExecStartPre=true",
@@ -1105,6 +1110,7 @@ TEST(unit_properties) {
                         "ConditionPathIsMountPoint=|foo",
                         "ConditionPathIsReadWrite=|foo",
                         "ConditionPathIsEncrypted=|foo",
+                        "ConditionPathIsSocket=|foo",
                         "ConditionDirectoryNotEmpty=|foo",
                         "ConditionFileNotEmpty=|foo",
                         "ConditionFileIsExecutable=|foo",
@@ -1139,6 +1145,7 @@ TEST(unit_properties) {
                         "AssertPathIsMountPoint=|foo",
                         "AssertPathIsReadWrite=|foo",
                         "AssertPathIsEncrypted=|foo",
+                        "AssertPathIsSocket=|foo",
                         "AssertDirectoryNotEmpty=|foo",
                         "AssertFileNotEmpty=|foo",
                         "AssertFileIsExecutable=|foo",

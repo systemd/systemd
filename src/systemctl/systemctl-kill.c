@@ -13,7 +13,7 @@
 #include "systemctl-kill.h"
 #include "systemctl-util.h"
 
-int verb_kill(int argc, char *argv[], void *userdata) {
+int verb_kill(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(bus_wait_for_units_freep) BusWaitForUnits *w = NULL;
         _cleanup_strv_free_ char **names = NULL;
         const char *kill_whom;

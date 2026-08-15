@@ -10,7 +10,7 @@
 #include "resize-fs.h"
 #include "stat-util.h"
 #include "stdio-util.h"
-#include "string-util-fundamental.h"
+#include "string-util.h"
 
 int resize_fs(int fd, uint64_t sz, uint64_t *ret_size) {
         struct statfs sfs;

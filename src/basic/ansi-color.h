@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "basic-forward.h"
+#include "forward.h"
 
 /* Limits the use of ANSI colors to a subset. */
 typedef enum ColorMode {
@@ -91,6 +91,8 @@ bool looks_like_ansi_color_code(const char *str);
 #define ANSI_UNDERLINE "\x1B[0;4m"
 #define ANSI_ADD_UNDERLINE "\x1B[4m"
 #define ANSI_ADD_UNDERLINE_GREY ANSI_ADD_UNDERLINE "\x1B[58:5:245m"
+#define ANSI_ITALICS "\x1B[0;3m"
+#define ANSI_ADD_ITALICS "\x1B[3m"
 #define ANSI_HIGHLIGHT "\x1B[0;1;39m"
 #define ANSI_HIGHLIGHT_UNDERLINE "\x1B[0;1;4m"
 
@@ -111,41 +113,20 @@ bool looks_like_ansi_color_code(const char *str);
                 return colors_enabled() ? ANSI_##NAME : "";     \
         }
 
-#define DEFINE_ANSI_FUNC_256(name, NAME, FALLBACK)             \
-        static inline const char* ansi_##name(void) {          \
-                switch (get_color_mode()) {                    \
-                        case COLOR_OFF: return "";             \
-                        case COLOR_16: return ANSI_##FALLBACK; \
-                        default : return ANSI_##NAME;          \
-                }                                              \
-        }
+/* NB: in 256 mode we always emit the fallback color first, in order to deal with terminals with
+ * incomplete 256 color support (most notably Linux console, which a) lacks support for ":"
+ * subcommand separator and b) skips over the whole CSI-m sequence if it sees an "invalid" command).
+ * In 24-bit mode we don't bother with this however, under the assumption that $COLORTERM and friends
+ * reflect the correct status. */
 
-static inline const char* ansi_underline(void) {
-        return underline_enabled() ? ANSI_UNDERLINE : "";
-}
-
-static inline const char* ansi_add_underline(void) {
-        return underline_enabled() ? ANSI_ADD_UNDERLINE : "";
-}
-
-static inline const char* ansi_add_underline_grey(void) {
-        return underline_enabled() ?
-                (colors_enabled() ? ANSI_ADD_UNDERLINE_GREY : ANSI_ADD_UNDERLINE) : "";
-}
-
-#define DEFINE_ANSI_FUNC_UNDERLINE(name, NAME)                          \
-        static inline const char* ansi_##name(void) {                   \
-                return underline_enabled() ? ANSI_##NAME##_UNDERLINE :  \
-                        colors_enabled() ? ANSI_##NAME : "";            \
-        }
-
-#define DEFINE_ANSI_FUNC_UNDERLINE_256(name, NAME, FALLBACK)                                                        \
-        static inline const char* ansi_##name(void) {                                                               \
-                switch (get_color_mode()) {                                                                         \
-                        case COLOR_OFF: return "";                                                                  \
-                        case COLOR_16: return underline_enabled() ? ANSI_##FALLBACK##_UNDERLINE : ANSI_##FALLBACK;  \
-                        default : return underline_enabled() ? ANSI_##NAME##_UNDERLINE: ANSI_##NAME;                \
-                }                                                                                                   \
+#define DEFINE_ANSI_FUNC_256(name, NAME, FALLBACK)                              \
+        static inline const char* ansi_##name(void) {                           \
+                switch (get_color_mode()) {                                     \
+                        case COLOR_OFF: return "";                              \
+                        case COLOR_16: return ANSI_##FALLBACK;                  \
+                        case COLOR_256: return ANSI_##FALLBACK ANSI_##NAME;     \
+                        default: return ANSI_##NAME;                            \
+                }                                                               \
         }
 
 DEFINE_ANSI_FUNC(normal,            NORMAL);
@@ -184,15 +165,56 @@ static inline const char* _ansi_highlight_yellow(void) {
         return colors_enabled() ? _ANSI_HIGHLIGHT_YELLOW : "";
 }
 
-DEFINE_ANSI_FUNC_UNDERLINE(highlight_underline,             HIGHLIGHT);
-DEFINE_ANSI_FUNC_UNDERLINE_256(grey_underline,              GREY, BRIGHT_BLACK);
-DEFINE_ANSI_FUNC_UNDERLINE(highlight_red_underline,         HIGHLIGHT_RED);
-DEFINE_ANSI_FUNC_UNDERLINE(highlight_green_underline,       HIGHLIGHT_GREEN);
-DEFINE_ANSI_FUNC_UNDERLINE_256(highlight_yellow_underline,  HIGHLIGHT_YELLOW, HIGHLIGHT_YELLOW_FALLBACK);
-DEFINE_ANSI_FUNC_UNDERLINE(highlight_blue_underline,        HIGHLIGHT_BLUE);
-DEFINE_ANSI_FUNC_UNDERLINE(highlight_magenta_underline,     HIGHLIGHT_MAGENTA);
-DEFINE_ANSI_FUNC_UNDERLINE_256(highlight_grey_underline,    HIGHLIGHT_GREY, HIGHLIGHT_GREY_FALLBACK);
-
 static inline const char* ansi_highlight_green_red(bool b) {
         return b ? ansi_highlight_green() : ansi_highlight_red();
 }
+
+static inline const char* ansi_underline(void) {
+        return underline_enabled() ? ANSI_UNDERLINE : "";
+}
+
+static inline const char* ansi_add_underline(void) {
+        return underline_enabled() ? ANSI_ADD_UNDERLINE : "";
+}
+
+static inline const char* ansi_add_underline_grey(void) {
+        return underline_enabled() ?
+                (colors_enabled() ? ANSI_ADD_UNDERLINE_GREY : ANSI_ADD_UNDERLINE) : "";
+}
+
+static inline const char* ansi_italics(void) {
+        /* We hook italics also into the underline checks, close enough */
+        return underline_enabled() ? ANSI_ITALICS : "";
+}
+
+static inline const char* ansi_add_italics(void) {
+        return underline_enabled() ? ANSI_ADD_ITALICS : "";
+}
+
+#define DEFINE_ANSI_FUNC_UNDERLINE(name, NAME)                          \
+        static inline const char* ansi_##name##_underline(void) {       \
+                return underline_enabled() ? ANSI_##NAME##_UNDERLINE :  \
+                        ansi_##name();                                  \
+        }
+
+#define DEFINE_ANSI_FUNC_UNDERLINE_256(name, NAME, FALLBACK)                                            \
+        static inline const char* ansi_##name##_underline(void) {                                       \
+                if (!underline_enabled())                                                               \
+                        return ansi_##name();                                                           \
+                                                                                                        \
+                switch (get_color_mode()) {                                                             \
+                        case COLOR_OFF: return "";                                                      \
+                        case COLOR_16: return ANSI_##FALLBACK##_UNDERLINE;                              \
+                        case COLOR_256: return ANSI_##FALLBACK##_UNDERLINE ANSI_##NAME##_UNDERLINE;     \
+                        default: return ANSI_##NAME##_UNDERLINE;                                        \
+                }                                                                                       \
+        }
+
+DEFINE_ANSI_FUNC_UNDERLINE(highlight,             HIGHLIGHT);
+DEFINE_ANSI_FUNC_UNDERLINE(highlight_red,         HIGHLIGHT_RED);
+DEFINE_ANSI_FUNC_UNDERLINE(highlight_green,       HIGHLIGHT_GREEN);
+DEFINE_ANSI_FUNC_UNDERLINE_256(highlight_yellow,  HIGHLIGHT_YELLOW, HIGHLIGHT_YELLOW_FALLBACK);
+DEFINE_ANSI_FUNC_UNDERLINE(highlight_blue,        HIGHLIGHT_BLUE);
+DEFINE_ANSI_FUNC_UNDERLINE(highlight_magenta,     HIGHLIGHT_MAGENTA);
+DEFINE_ANSI_FUNC_UNDERLINE_256(grey,              GREY, BRIGHT_BLACK);
+DEFINE_ANSI_FUNC_UNDERLINE_256(highlight_grey,    HIGHLIGHT_GREY, HIGHLIGHT_GREY_FALLBACK);

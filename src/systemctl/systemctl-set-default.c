@@ -88,7 +88,7 @@ static int determine_default(char **ret_name) {
         }
 }
 
-int verb_get_default(int argc, char *argv[], void *userdata) {
+int verb_get_default(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_free_ char *name = NULL;
         int r;
 
@@ -103,7 +103,7 @@ int verb_get_default(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-int verb_set_default(int argc, char *argv[], void *userdata) {
+int verb_set_default(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_free_ char *unit = NULL;
         int r;
 

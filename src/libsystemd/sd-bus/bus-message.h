@@ -126,9 +126,6 @@ typedef struct sd_bus_message {
 
         usec_t timeout;
 
-        size_t header_offsets[_BUS_MESSAGE_HEADER_MAX];
-        unsigned n_header_offsets;
-
         uint64_t read_counter;
 } sd_bus_message;
 
@@ -153,6 +150,10 @@ static inline uint64_t BUS_MESSAGE_COOKIE(sd_bus_message *m) {
 }
 
 static inline size_t BUS_MESSAGE_SIZE(sd_bus_message *m) {
+        /* Silence static analyzers, fields_size is validated at message creation */
+        assert(ALIGN8(m->fields_size) != SIZE_MAX);
+        assert(ALIGN8(m->fields_size) <= SIZE_MAX - sizeof(BusMessageHeader));
+        assert(m->body_size <= SIZE_MAX - sizeof(BusMessageHeader) - ALIGN8(m->fields_size));
         return
                 sizeof(BusMessageHeader) +
                 ALIGN8(m->fields_size) +
@@ -160,6 +161,9 @@ static inline size_t BUS_MESSAGE_SIZE(sd_bus_message *m) {
 }
 
 static inline size_t BUS_MESSAGE_BODY_BEGIN(sd_bus_message *m) {
+        /* Silence static analyzers, fields_size is validated at message creation */
+        assert(ALIGN8(m->fields_size) != SIZE_MAX);
+        assert(ALIGN8(m->fields_size) <= SIZE_MAX - sizeof(BusMessageHeader));
         return
                 sizeof(BusMessageHeader) +
                 ALIGN8(m->fields_size);

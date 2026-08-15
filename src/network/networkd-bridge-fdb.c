@@ -139,7 +139,7 @@ static int bridge_fdb_configure_message(const BridgeFDB *fdb, Link *link, sd_net
         if (r < 0)
                 return r;
 
-        /* VLAN Id is optional. We'll add VLAN Id only if it's specified. */
+        /* VLAN ID is optional. We'll add VLAN ID only if it's specified. */
         if (fdb->vlan_id > 0) {
                 r = sd_netlink_message_append_u16(req, NDA_VLAN, fdb->vlan_id);
                 if (r < 0)

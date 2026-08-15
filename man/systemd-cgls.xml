@@ -114,22 +114,23 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--xattr[=BOOL]</option></term>
         <term><option>-x</option></term>
-        <term><option>--xattr=</option></term>
 
         <listitem><para>Controls whether to include information about extended attributes of the listed
-        control groups in the output. With the long option, expects a boolean value. Defaults to no.
+        control groups in the output. With the long option only, optionally accepts a boolean value. Defaults
+        to no.
         </para>
 
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
+        <term><option>--cgroup-id[=BOOL]</option></term>
         <term><option>-c</option></term>
-        <term><option>--cgroup-id=</option></term>
 
         <listitem><para>Controls whether to include the numeric ID of the listed control groups in the
-        output. With the long option, expects a boolean value. Defaults to no.</para>
+        output. With the long option only, optionally accepts a boolean value. Defaults to no.</para>
 
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>

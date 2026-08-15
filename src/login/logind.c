@@ -17,6 +17,7 @@
 #include "device-util.h"
 #include "devnum-util.h"
 #include "dirent-util.h"
+#include "dlopen-note.h"
 #include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -35,7 +36,7 @@
 #include "logind-utmp.h"
 #include "logind-varlink.h"
 #include "main-func.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "service-util.h"
@@ -141,7 +142,10 @@ static Manager* manager_free(Manager *m) {
         sd_event_source_unref(m->console_active_event_source);
         sd_event_source_unref(m->lid_switch_ignore_event_source);
 
+        sd_event_source_unref(m->power_key_long_press_event_source);
         sd_event_source_unref(m->reboot_key_long_press_event_source);
+        sd_event_source_unref(m->suspend_key_long_press_event_source);
+        sd_event_source_unref(m->hibernate_key_long_press_event_source);
 
 #if ENABLE_UTMP
         sd_event_source_unref(m->utmp_event_source);
@@ -1116,6 +1120,7 @@ static int manager_dispatch_idle_action(sd_event_source *s, uint64_t t, void *us
         Manager *m = ASSERT_PTR(userdata);
         struct dual_timestamp since;
         usec_t n, elapse;
+        bool idle;
         int r;
 
         if (m->idle_action == HANDLE_IGNORE ||
@@ -1124,8 +1129,8 @@ static int manager_dispatch_idle_action(sd_event_source *s, uint64_t t, void *us
 
         n = now(CLOCK_MONOTONIC);
 
-        r = manager_get_idle_hint(m, &since);
-        if (r <= 0) {
+        idle = manager_get_idle_hint(m, &since);
+        if (!idle) {
                 /* Not idle. Let's check if after a timeout it might be idle then. */
                 elapse = n + m->idle_action_usec;
                 m->was_idle = false;
@@ -1346,6 +1351,10 @@ static int run(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
         int r;
+
+        LIBACL_NOTE(recommended);
+        LIBBLKID_NOTE(recommended);
+        LIBSELINUX_NOTE(recommended);
 
         log_set_facility(LOG_AUTH);
         log_setup();

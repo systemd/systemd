@@ -26,6 +26,7 @@
 #include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "user-util.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_class, machine_class, MachineClass);
 static BUS_DEFINE_PROPERTY_GET2(property_get_state, "s", Machine, machine_get_state, machine_state_to_string);
@@ -69,6 +70,7 @@ int bus_machine_method_unregister(sd_bus_message *message, void *userdata, sd_bu
                                 m->uid,
                                 /* flags= */ 0,
                                 &m->manager->polkit_registry,
+                                /* ret_admin= */ NULL,
                                 error);
                 if (r < 0)
                         return r;
@@ -103,6 +105,7 @@ int bus_machine_method_terminate(sd_bus_message *message, void *userdata, sd_bus
                                 m->uid,
                                 /* flags= */ 0,
                                 &m->manager->polkit_registry,
+                                /* ret_admin= */ NULL,
                                 error);
                 if (r < 0)
                         return r;
@@ -155,6 +158,7 @@ int bus_machine_method_kill(sd_bus_message *message, void *userdata, sd_bus_erro
                                 m->uid,
                                 /* flags= */ 0,
                                 &m->manager->polkit_registry,
+                                /* ret_admin= */ NULL,
                                 error);
                 if (r < 0)
                         return r;
@@ -246,6 +250,25 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
 
         assert(message);
 
+        if (m->manager->runtime_scope != RUNTIME_SCOPE_USER) {
+                const char *details[] = {
+                        "machine", m->name,
+                        "verb", "get_os_release",
+                        NULL
+                };
+
+                r = bus_verify_polkit_async(
+                                message,
+                                "org.freedesktop.machine1.inspect-machines",
+                                details,
+                                &m->manager->polkit_registry,
+                                error);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return 1; /* Will call us back */
+        }
+
         r = machine_get_os_release(m, &l);
         if (r == -ENONET)
                 return sd_bus_error_set(error, SD_BUS_ERROR_FAILED, "Machine does not contain OS release information.");
@@ -279,6 +302,7 @@ int bus_machine_method_open_pty(sd_bus_message *message, void *userdata, sd_bus_
                                 m->uid,
                                 /* flags= */ 0,
                                 &m->manager->polkit_registry,
+                                /* ret_admin= */ NULL,
                                 error);
                 if (r < 0)
                         return r;
@@ -324,6 +348,7 @@ int bus_machine_method_open_login(sd_bus_message *message, void *userdata, sd_bu
                                 m->uid,
                                 /* flags= */ 0,
                                 &m->manager->polkit_registry,
+                                /* ret_admin= */ NULL,
                                 error);
                 if (r < 0)
                         return r;
@@ -366,21 +391,25 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
                 return r;
         user = isempty(user) ? "root" : user;
 
-        /* Ensure only root can shell into the root namespace, unless it's specifically the host machine,
-         * which is owned by uid 0 anyway and cannot be self-registered. This is to avoid unprivileged
-         * users registering a process they own in the root user namespace, and then shelling in as root
-         * or another user. Note that the shell operation is privileged and requires 'auth_admin', so we
-         * do not need to check the caller's uid, as that will be checked by polkit, and if they machine's
-         * and the caller's do not match, authorization will be required. It's only the case where the
-         * caller owns the machine that will be shortcut and needs to be checked here. */
-        if (m->manager->runtime_scope != RUNTIME_SCOPE_USER && m->uid != 0 && m->class != MACHINE_HOST) {
+        if (!valid_user_group_name(user, VALID_USER_RELAX | VALID_USER_ALLOW_NUMERIC))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid user name '%s'", user);
+
+        /* Ensure only root can shell into the root namespace. This is to avoid unprivileged users registering
+         * a process they own in the root user namespace, and then shelling in as root or another user. Note that
+         * the shell operation is privileged and requires 'auth_admin', so we do not need to check the caller's uid,
+         * as that will be checked by polkit, and if the machine's and the caller's do not match, authorization
+         * will be required. It's only the case where the caller owns the machine that will be shortcut and needs
+         * to be checked here. */
+        if (m->manager->runtime_scope != RUNTIME_SCOPE_USER && m->uid != 0) {
+                assert(m->class != MACHINE_HOST);
+
                 r = pidref_in_same_namespace(&PIDREF_MAKE_FROM_PID(1), &m->leader, NAMESPACE_USER);
                 if (r < 0)
                         return log_debug_errno(
                                         r,
                                         "Failed to check if machine '%s' is running in the root user namespace: %m",
                                         m->name);
-                if (r != 0)
+                if (r > 0)
                         return sd_bus_error_set(
                                         error,
                                         SD_BUS_ERROR_ACCESS_DENIED,
@@ -411,6 +440,10 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
         r = sd_bus_message_read_strv(message, &env);
         if (r < 0)
                 return r;
+
+        if (strv_length(env) > ENVIRONMENT_ASSIGNMENTS_MAX)
+                return sd_bus_error_set(error, SD_BUS_ERROR_LIMITS_EXCEEDED,
+                                        "Too many environment assignments in a single query.");
         if (!strv_env_is_valid(env))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment assignments");
 
@@ -434,6 +467,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
                                 m->uid,
                                 /* flags= */ 0,
                                 &m->manager->polkit_registry,
+                                /* ret_admin= */ NULL,
                                 error);
                 if (r < 0)
                         return r;
@@ -533,7 +567,7 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
 
 int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const char *src, *dest, *host_path, *container_path;
-        CopyFlags copy_flags = COPY_REFLINK|COPY_MERGE|COPY_HARDLINKS;
+        CopyFlags copy_flags = COPY_MERGE|COPY_HARDLINKS;
         Machine *m = ASSERT_PTR(userdata);
         Manager *manager = m->manager;
         bool copy_from;
@@ -565,13 +599,13 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
                         copy_flags |= COPY_REPLACE;
         }
 
-        if (!path_is_absolute(src))
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Source path must be absolute.");
+        if (!path_is_absolute(src) || !path_is_normalized(src))
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Source path must be absolute and normalized.");
 
         if (isempty(dest))
                 dest = src;
-        else if (!path_is_absolute(dest))
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path must be absolute.");
+        else if (!path_is_absolute(dest) || !path_is_normalized(dest))
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path must be absolute and normalized.");
 
         if (manager->runtime_scope != RUNTIME_SCOPE_USER) {
                 const char *details[] = {

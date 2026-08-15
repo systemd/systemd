@@ -71,6 +71,8 @@ int get_testdata_dir(const char *suffix, char **ret) {
         const char *dir;
         char *p;
 
+        assert(ret);
+
         load_testdata_env();
 
         /* if the env var is set, use that */
@@ -359,7 +361,7 @@ const char* ci_environment(void) {
         if (getenv("SALSA_CI_IMAGES"))
                 return (ans = "salsa-ci");
 
-        FOREACH_STRING(var, "CI", "CONTINOUS_INTEGRATION") {
+        FOREACH_STRING(var, "CI", "CONTINUOUS_INTEGRATION") {
                 /* Those vars are booleans according to Semaphore and Travis docs:
                  * https://docs.travis-ci.com/user/environment-variables/#default-environment-variables
                  * https://docs.semaphoreci.com/ci-cd-environment/environment-variables/#ci
@@ -378,20 +380,18 @@ int run_test_table(const TestFunc *start, const TestFunc *end) {
         _cleanup_strv_free_ char **tests = NULL;
         int r = EXIT_SUCCESS;
         bool ran = false;
-        const char *e;
 
         if (!start)
                 return r;
 
-        e = getenv("TESTFUNCS");
+        const char *e = getenv("TESTFUNCS");
         if (e) {
-                r = strv_split_full(&tests, e, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse $TESTFUNCS: %m");
+                int n = strv_split_full(&tests, e, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (n < 0)
+                        return log_error_errno(n, "Failed to parse $TESTFUNCS: %m");
         }
 
-        for (const TestFunc *t = ALIGN_PTR(start); t + 1 <= end; t = ALIGN_PTR(t + 1)) {
-
+        for (const TestFunc *t = start; t + 1 <= end; t++) {
                 if (tests && !strv_contains(tests, t->name))
                         continue;
 

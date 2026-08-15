@@ -8,7 +8,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 # Portable Services
 
 systemd (since version 239) supports a concept of "Portable Services".
-"Portable Services" are a delivery method for system services that uses
+"Portable Services" are a delivery method for services that uses
 two specific features of container management:
 
 1. Applications are bundled. I.e. multiple services, their binaries and all
@@ -30,7 +30,7 @@ A portable service is ultimately just an OS tree, either inside of a directory,
 or inside a raw disk image containing a Linux file system.
 This tree is called the "image". It can be "attached" or "detached" from the system.
 When "attached", specific systemd units from the image are made available on the
-host system, then behaving pretty much exactly like locally installed system services.
+host system, then behaving pretty much exactly like locally installed services.
 When "detached", these units are removed again from the host, leaving
 no artifacts around (except maybe messages they might have logged).
 
@@ -57,12 +57,12 @@ systemd-nspawn/LXC-type OS containers, for Docker/rkt-like micro service
 containers, and even certain 'lightweight' VM runtimes.
 
 "Portable services" do not provide a fully isolated environment to the payload, like containers mostly intend to.
-Instead, they are more like regular system services, can be controlled with the same tools, are exposed the same way in all infrastructure, and so on.
+Instead, they are more like regular services, can be controlled with the same tools, are exposed the same way in all infrastructure, and so on.
 The main difference is that they use a different root directory than the rest of the system.
 Hence, the intent is not to run code in a different, isolated environment from the host — like most containers would — but to run it in the same environment, but with stricter access controls on what the service can see and do.
 
 One point of differentiation: since programs running as "portable services" are
-pretty much regular system services, they won't run as PID 1 (like they would
+pretty much regular services, they won't run as PID 1 (like they would
 under Docker), but as normal processes.
 
 A corollary of that is that they aren't supposed to manage anything in their own environment (such as the network) as the execution environment is mostly shared with the rest of the system.
@@ -71,10 +71,6 @@ The primary focus use-case of "portable services" is to extend the host system
 with encapsulated extensions, but provide almost full integration with the rest
 of the system, though possibly restricted by security knobs.
 This focus includes system extensions otherwise sometimes called "super-privileged containers".
-
-Note that portable services are only available for system services, not for
-user services (i.e. the functionality cannot be used for the stuff
-[`bubblewrap`](https://github.com/containers/bubblewrap)/[`flatpak`](https://flatpak.org/) is focusing on).
 
 ## Mode of Operation
 
@@ -296,7 +292,7 @@ On top of the requirements listed in the previous section, the following must al
 
 Note that the code in portable service images is run exactly like regular services.
 Hence there's no new execution environment to consider.
-And, unlike Docker would do it, as these are regular system services they aren't run as PID
+And, unlike Docker would do it, as these are regular services they aren't run as PID
 1 either, but with regular PID values.
 
 ## Access to host resources

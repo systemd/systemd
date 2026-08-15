@@ -5,6 +5,7 @@ integration_tests += [
                 'name' : fs.name(meson.current_source_dir()),
                 'cmdline' : integration_test_template['cmdline'] + [
                         'rd.systemd.wants=initrd-run-mount.service',
+                        'rd.systemd.wants=initrd-run-initramfs.service',
                 ],
                 'exit-code' : 124,
                 'vm' : true,

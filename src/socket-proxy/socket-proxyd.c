@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <fcntl.h>
-#include <getopt.h>
 #include <netdb.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -16,21 +14,41 @@
 #include "errno-util.h"
 #include "event-util.h"
 #include "fd-util.h"
+#include "format-table.h"
+#include "in-addr-util.h"
+#include "io-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "options.h"
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "resolve-private.h"
 #include "set.h"
+#include "socket-forward.h"
 #include "socket-util.h"
+#include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "time-util.h"
-
-#define BUFFER_SIZE (256 * 1024)
 
 static unsigned arg_connections_max = 256;
 static const char *arg_remote_host = NULL;
 static usec_t arg_exit_idle_time = USEC_INFINITY;
+
+typedef enum ProxyProtocol {
+        PROXY_NONE,
+        PROXY_V1,
+        _PROXY_PROTOCOL_MAX,
+        _PROXY_PROTOCOL_INVALID = -EINVAL,
+} ProxyProtocol;
+
+static const char* const proxy_protocol_table[_PROXY_PROTOCOL_MAX] = {
+        [PROXY_V1] = "v1",
+};
+
+static ProxyProtocol arg_proxy_protocol = PROXY_NONE;
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(proxy_protocol, ProxyProtocol);
 
 typedef struct Context {
         sd_event *event;
@@ -45,13 +63,10 @@ typedef struct Connection {
         Context *context;
 
         int server_fd, client_fd;
-        int server_to_client_buffer[2]; /* a pipe */
-        int client_to_server_buffer[2]; /* a pipe */
 
-        size_t server_to_client_buffer_full, client_to_server_buffer_full;
-        size_t server_to_client_buffer_size, client_to_server_buffer_size;
+        sd_event_source *connect_event_source;
 
-        sd_event_source *server_event_source, *client_event_source;
+        SocketForward *forward;
 
         sd_resolve_query *resolve_query;
 } Connection;
@@ -63,14 +78,11 @@ static Connection* connection_free(Connection *c) {
         if (c->context)
                 set_remove(c->context->connections, c);
 
-        sd_event_source_unref(c->server_event_source);
-        sd_event_source_unref(c->client_event_source);
+        sd_event_source_unref(c->connect_event_source);
+        socket_forward_free(c->forward);
 
         safe_close(c->server_fd);
         safe_close(c->client_fd);
-
-        safe_close_pair(c->server_to_client_buffer);
-        safe_close_pair(c->client_to_server_buffer);
 
         sd_resolve_query_unref(c->resolve_query);
 
@@ -134,165 +146,91 @@ static void connection_release(Connection *c) {
         context_reset_timer(context);
 }
 
-static int connection_create_pipes(Connection *c, int buffer[static 2], size_t *sz) {
-        int r;
-
-        assert(c);
-        assert(buffer);
-        assert(sz);
-
-        if (buffer[0] >= 0)
-                return 0;
-
-        r = pipe2(buffer, O_CLOEXEC|O_NONBLOCK);
-        if (r < 0)
-                return log_error_errno(errno, "Failed to allocate pipe buffer: %m");
-
-        (void) fcntl(buffer[0], F_SETPIPE_SZ, BUFFER_SIZE);
-
-        r = fcntl(buffer[0], F_GETPIPE_SZ);
-        if (r < 0)
-                return log_error_errno(errno, "Failed to get pipe buffer size: %m");
-
-        assert(r > 0);
-        *sz = r;
-
-        return 0;
-}
-
-static int connection_shovel(
-                Connection *c,
-                int *from, int buffer[2], int *to,
-                size_t *full, size_t *sz,
-                sd_event_source **from_source, sd_event_source **to_source) {
-
-        bool shoveled;
-
-        assert(c);
-        assert(from);
-        assert(buffer);
-        assert(buffer[0] >= 0);
-        assert(buffer[1] >= 0);
-        assert(to);
-        assert(full);
-        assert(sz);
-        assert(from_source);
-        assert(to_source);
-
-        do {
-                ssize_t z;
-
-                shoveled = false;
-
-                if (*full < *sz && *from >= 0 && *to >= 0) {
-                        z = splice(*from, NULL, buffer[1], NULL, *sz - *full, SPLICE_F_MOVE|SPLICE_F_NONBLOCK);
-                        if (z > 0) {
-                                *full += z;
-                                shoveled = true;
-                        } else if (z == 0 || ERRNO_IS_DISCONNECT(errno)) {
-                                *from_source = sd_event_source_unref(*from_source);
-                                *from = safe_close(*from);
-                        } else if (!ERRNO_IS_TRANSIENT(errno))
-                                return log_error_errno(errno, "Failed to splice: %m");
-                }
-
-                if (*full > 0 && *to >= 0) {
-                        z = splice(buffer[0], NULL, *to, NULL, *full, SPLICE_F_MOVE|SPLICE_F_NONBLOCK);
-                        if (z > 0) {
-                                *full -= z;
-                                shoveled = true;
-                        } else if (z == 0 || ERRNO_IS_DISCONNECT(errno)) {
-                                *to_source = sd_event_source_unref(*to_source);
-                                *to = safe_close(*to);
-                        } else if (!ERRNO_IS_TRANSIENT(errno))
-                                return log_error_errno(errno, "Failed to splice: %m");
-                }
-        } while (shoveled);
-
-        return 0;
-}
-
-static int connection_enable_event_sources(Connection *c);
-
-static int traffic_cb(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+static int connection_forward_done(SocketForward *sf, int error, void *userdata) {
         Connection *c = ASSERT_PTR(userdata);
-        int r;
 
-        assert(s);
-        assert(fd >= 0);
+        if (error < 0)
+                log_error_errno(error, "Forwarding failed: %m");
 
-        r = connection_shovel(c,
-                              &c->server_fd, c->server_to_client_buffer, &c->client_fd,
-                              &c->server_to_client_buffer_full, &c->server_to_client_buffer_size,
-                              &c->server_event_source, &c->client_event_source);
-        if (r < 0)
-                goto quit;
-
-        r = connection_shovel(c,
-                              &c->client_fd, c->client_to_server_buffer, &c->server_fd,
-                              &c->client_to_server_buffer_full, &c->client_to_server_buffer_size,
-                              &c->client_event_source, &c->server_event_source);
-        if (r < 0)
-                goto quit;
-
-        /* EOF on both sides? */
-        if (c->server_fd < 0 && c->client_fd < 0)
-                goto quit;
-
-        /* Server closed, and all data written to client? */
-        if (c->server_fd < 0 && c->server_to_client_buffer_full <= 0)
-                goto quit;
-
-        /* Client closed, and all data written to server? */
-        if (c->client_fd < 0 && c->client_to_server_buffer_full <= 0)
-                goto quit;
-
-        r = connection_enable_event_sources(c);
-        if (r < 0)
-                goto quit;
-
-        return 1;
-
-quit:
         connection_release(c);
         return 0; /* ignore errors, continue serving */
 }
 
-static int connection_enable_event_sources(Connection *c) {
-        uint32_t a = 0, b = 0;
-        int r;
+static int send_proxy_protocol_v1(Connection *c) {
+        _cleanup_free_ char *header = NULL;
+        int r, header_len;
+        union sockaddr_union local_sa, remote_sa;
+        socklen_t sa_len;
 
         assert(c);
 
-        if (c->server_to_client_buffer_full > 0)
-                b |= EPOLLOUT;
-        if (c->server_to_client_buffer_full < c->server_to_client_buffer_size)
-                a |= EPOLLIN;
+        r = sd_is_socket(c->server_fd, AF_UNSPEC, SOCK_STREAM, /* listening= */ 0);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to issue SO_TYPE, reporting fallback proxy data 'UNKNOWN': %m");
+                goto unknown;
+        }
+        if (r == 0) {
+                log_warning("Only TCP is supported by the PROXY protocol, reporting fallback proxy data 'UNKNOWN'.");
+                goto unknown;
+        }
 
-        if (c->client_to_server_buffer_full > 0)
-                a |= EPOLLOUT;
-        if (c->client_to_server_buffer_full < c->client_to_server_buffer_size)
-                b |= EPOLLIN;
+        sa_len = sizeof(local_sa);
+        if (getsockname(c->server_fd, &local_sa.sa, &sa_len) < 0) {
+                log_warning_errno(errno, "Failed to get local address (getsockname), reporting fallback proxy data 'UNKNOWN': %m");
+                goto unknown;
+        }
 
-        if (c->server_event_source)
-                r = sd_event_source_set_io_events(c->server_event_source, a);
-        else if (c->server_fd >= 0)
-                r = sd_event_add_io(c->context->event, &c->server_event_source, c->server_fd, a, traffic_cb, c);
-        else
-                r = 0;
+        sa_len = sizeof(remote_sa);
+        if (getpeername(c->server_fd, &remote_sa.sa, &sa_len) < 0) {
+                log_warning_errno(errno, "Failed to get remote address (getpeername), reporting fallback proxy data 'UNKNOWN': %m");
+                goto unknown;
+        }
 
+        const char *proto = NULL;
+        switch (remote_sa.sa.sa_family) {
+
+        case AF_INET:
+                proto = "TCP4";
+                break;
+
+        case AF_INET6:
+                proto = "TCP6";
+                break;
+
+        default:
+                log_warning("Only TCP over IPv4 and IPv6 are supported, reporting fallback proxy data 'UNKNOWN'.");
+                goto unknown;
+        }
+
+        const union in_addr_union *remote_addr = sockaddr_in_addr(&remote_sa.sa);
+        const union in_addr_union *local_addr = sockaddr_in_addr(&local_sa.sa);
+
+        unsigned remote_port, local_port;
+        assert_se(sockaddr_port(&remote_sa.sa, &remote_port) >= 0);
+        assert_se(sockaddr_port(&local_sa.sa, &local_port) >= 0);
+
+        header_len = asprintf(
+                         &header, "PROXY %s %s %s %u %u\r\n",
+                         proto,
+                         IN_ADDR_TO_STRING(remote_sa.sa.sa_family, remote_addr),
+                         IN_ADDR_TO_STRING(local_sa.sa.sa_family, local_addr),
+                         remote_port,
+                         local_port);
+        if (header_len < 0)
+                return log_oom();
+
+        r = loop_write_full(c->client_fd, header, header_len, 10 * USEC_PER_SEC);
         if (r < 0)
-                return log_error_errno(r, "Failed to set up server event source: %m");
+                return log_error_errno(r, "Failed to write to backend host: %m");
 
-        if (c->client_event_source)
-                r = sd_event_source_set_io_events(c->client_event_source, b);
-        else if (c->client_fd >= 0)
-                r = sd_event_add_io(c->context->event, &c->client_event_source, c->client_fd, b, traffic_cb, c);
-        else
-                r = 0;
+        /* success */
+        return 0;
 
+unknown:
+        /* ignore previous errors - server can decide to deny UNKNOWN connections */
+        r = loop_write_full(c->client_fd, "PROXY UNKNOWN\r\n", SIZE_MAX, 10 * USEC_PER_SEC);
         if (r < 0)
-                return log_error_errno(r, "Failed to set up client event source: %m");
+                return log_error_errno(r, "Failed to write to backend host: %m");
 
         return 0;
 }
@@ -302,17 +240,20 @@ static int connection_complete(Connection *c) {
 
         assert(c);
 
-        r = connection_create_pipes(c, c->server_to_client_buffer, &c->server_to_client_buffer_size);
-        if (r < 0)
-                return r;
+        if (arg_proxy_protocol == PROXY_V1) {
+                r = send_proxy_protocol_v1(c);
+                if (r < 0)
+                        return r;
+        }
 
-        r = connection_create_pipes(c, c->client_to_server_buffer, &c->client_to_server_buffer_size);
+        r = socket_forward_new(
+                        c->context->event,
+                        TAKE_FD(c->server_fd),
+                        TAKE_FD(c->client_fd),
+                        connection_forward_done, c,
+                        &c->forward);
         if (r < 0)
-                return r;
-
-        r = connection_enable_event_sources(c);
-        if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to set up forwarding: %m");
 
         return 0;
 }
@@ -336,7 +277,7 @@ static int connect_cb(sd_event_source *s, int fd, uint32_t revents, void *userda
                 goto fail;
         }
 
-        c->client_event_source = sd_event_source_unref(c->client_event_source);
+        c->connect_event_source = sd_event_source_unref(c->connect_event_source);
 
         if (connection_complete(c) < 0)
                 goto fail;
@@ -364,11 +305,11 @@ static int connection_start(Connection *c, struct sockaddr *sa, socklen_t salen)
                 if (errno != EINPROGRESS)
                         return log_error_errno(errno, "Failed to connect to remote host: %m");
 
-                r = sd_event_add_io(c->context->event, &c->client_event_source, c->client_fd, EPOLLOUT, connect_cb, c);
+                r = sd_event_add_io(c->context->event, &c->connect_event_source, c->client_fd, EPOLLOUT, connect_cb, c);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add connection socket: %m");
 
-                r = sd_event_source_set_enabled(c->client_event_source, SD_EVENT_ONESHOT);
+                r = sd_event_source_set_enabled(c->connect_event_source, SD_EVENT_ONESHOT);
                 if (r < 0)
                         return log_error_errno(r, "Failed to enable oneshot event source: %m");
 
@@ -472,8 +413,6 @@ static int context_add_connection(Context *context, int fd) {
         *c = (Connection) {
                 .server_fd = TAKE_FD(nfd),
                 .client_fd = -EBADF,
-                .server_to_client_buffer = EBADF_PAIR,
-                .client_to_server_buffer = EBADF_PAIR,
         };
 
         r = set_ensure_put(&context->connections, &connection_hash_ops, c);
@@ -548,8 +487,8 @@ static int add_listen_socket(Context *context, int fd) {
 }
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_free_ char *time_link = NULL;
+        _cleanup_free_ char *link = NULL, *time_link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-socket-proxyd", "8", &link);
@@ -559,61 +498,48 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
         printf("%1$s [HOST:PORT]\n"
-               "%1$s [SOCKET]\n\n"
-               "%2$sBidirectionally proxy local sockets to another (possibly remote) socket.%3$s\n\n"
-               "  -c --connections-max=  Set the maximum number of connections to be accepted\n"
-               "     --exit-idle-time=   Exit when without a connection for this duration. See\n"
-               "                         the %4$s for time span format\n"
-               "  -h --help              Show this help\n"
-               "     --version           Show package version\n"
-               "\nSee the %5$s for details.\n",
+               "%1$s [SOCKET]\n"
+               "\n%2$sBidirectionally proxy local sockets to another (possibly remote) socket.%3$s\n\n",
                program_invocation_short_name,
                ansi_highlight(),
-               ansi_normal(),
-               time_link,
-               link);
+               ansi_normal());
 
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee %s for --exit-idle-time= time span format.\n"
+               "See the %s for details.\n",
+               time_link, link);
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_EXIT_IDLE,
-                ARG_IGNORE_ENV
-        };
-
-        static const struct option options[] = {
-                { "connections-max", required_argument, NULL, 'c'           },
-                { "exit-idle-time",  required_argument, NULL, ARG_EXIT_IDLE },
-                { "help",            no_argument,       NULL, 'h'           },
-                { "version",         no_argument,       NULL, ARG_VERSION   },
-                {}
-        };
-
-        int c, r;
-
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "c:h", options, NULL)) >= 0)
+        OptionParser opts = { argc, argv };
+        int r;
 
+        FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case 'c':
-                        r = safe_atou(optarg, &arg_connections_max);
-                        if (r < 0) {
-                                log_error("Failed to parse --connections-max= argument: %s", optarg);
-                                return r;
-                        }
+                OPTION('c', "connections-max", "NUMBER",
+                       "Set the maximum number of connections to be accepted"):
+                        r = safe_atou(opts.arg, &arg_connections_max);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --connections-max= argument: %s", opts.arg);
 
                         if (arg_connections_max < 1)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -621,28 +547,29 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case ARG_EXIT_IDLE:
-                        r = parse_sec(optarg, &arg_exit_idle_time);
+                OPTION_LONG("exit-idle-time", "TIME",
+                            "Exit when without a connection for this duration"):
+                        r = parse_sec(opts.arg, &arg_exit_idle_time);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --exit-idle-time= argument: %s", optarg);
+                                return log_error_errno(r, "Failed to parse --exit-idle-time= argument: %s", opts.arg);
                         break;
 
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
+                OPTION_LONG("proxy-protocol", "v1",
+                            "Enable PROXY protocol: v1"):
+                        arg_proxy_protocol = proxy_protocol_from_string(opts.arg);
+                        if (arg_proxy_protocol < 0)
+                                return log_error_errno(arg_proxy_protocol, "Failed to parse --proxy-protocol= argument: %s", opts.arg);
+                        break;
                 }
 
-        if (optind >= argc)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Not enough parameters.");
+        char **args = option_parser_get_args(&opts);
+        size_t n = strv_length(args);
+        if (n < 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not enough parameters.");
+        if (n > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many parameters.");
 
-        if (argc != optind+1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Too many parameters.");
-
-        arg_remote_host = argv[optind];
+        arg_remote_host = args[0];
         return 1;
 }
 

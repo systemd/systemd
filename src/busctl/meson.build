@@ -3,7 +3,7 @@
 busctl_sources = files(
         'busctl.c',
 )
-busctl_extract_sources = files(
+busctl_export_sources = files(
         'busctl-introspect.c',
 )
 
@@ -12,10 +12,10 @@ executables += [
                 'name' : 'busctl',
                 'public' : true,
                 'sources' : busctl_sources,
-                'extract' : busctl_extract_sources,
+                'export' : busctl_export_sources,
         },
         test_template + {
                 'sources' : files('test-busctl-introspect.c'),
-                'objects' : ['busctl'],
+                'import' : ['busctl'],
         },
 ]

@@ -134,6 +134,9 @@ static void remove_cgroup(Hashmap *cgroups, struct CGroupInfo *cg) {
 }
 
 static int cgroup_info_compare_func(struct CGroupInfo * const *a, struct CGroupInfo * const *b) {
+        assert(a);
+        assert(b);
+
         return strcmp((*a)->cgroup_path, (*b)->cgroup_path);
 }
 

@@ -10,9 +10,9 @@
 [Unit]
 Description=Automatic Boot Loader Update
 Documentation=man:bootctl(1)
-ConditionPathExists=!/etc/initrd-release
-
 DefaultDependencies=no
+ConditionPathExists=!/etc/initrd-release
+ConditionFirmware=uefi
 After=local-fs.target
 Before=sysinit.target systemd-update-done.service
 Conflicts=shutdown.target

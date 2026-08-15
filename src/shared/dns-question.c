@@ -608,6 +608,9 @@ int dns_json_dispatch_question(const char *name, sd_json_variant *variant, sd_js
         if (!sd_json_variant_is_array(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array.", strna(name));
 
+        if (sd_json_variant_elements(variant) > DNS_QUESTION_ITEMS_MAX)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(E2BIG), "Too many questions in a single query.");
+
         _cleanup_(dns_question_unrefp) DnsQuestion *nq = NULL;
         nq = dns_question_new(sd_json_variant_elements(variant));
         if (!nq)

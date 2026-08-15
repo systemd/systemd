@@ -8,7 +8,7 @@ executables += [
         executable_template + {
                 'name' : 'systemd-xdg-autostart-generator',
                 'sources' : files('xdg-autostart-generator.c'),
-                'extract' : files('xdg-autostart-service.c'),
+                'export' : files('xdg-autostart-service.c'),
                 'install_dir' : usergeneratordir,
         },
         libexec_template + {
@@ -17,10 +17,10 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-xdg-autostart.c'),
-                'objects' : ['systemd-xdg-autostart-generator'],
+                'import' : ['systemd-xdg-autostart-generator'],
         },
         fuzz_template + {
                 'sources' : files('fuzz-xdg-desktop.c'),
-                'objects' : ['systemd-xdg-autostart-generator'],
+                'import' : ['systemd-xdg-autostart-generator'],
         },
 ]

@@ -9,7 +9,7 @@
 #include "pretty-print.h"
 #include "strv.h"
 
-int verb_cat_config(int argc, char *argv[], void *userdata) {
+int verb_cat_config(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         pager_open(arg_pager_flags);

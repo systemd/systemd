@@ -4,7 +4,6 @@
 
 #include <linux/batman_adv.h>
 
-#include "shared-forward.h"
 #include "netdev.h"
 
 #define BATADV_GENL_NAME "batadv"

@@ -13,7 +13,7 @@
 #include "systemctl-util.h"
 #include "verbs.h"
 
-int verb_preset_all(int argc, char *argv[], void *userdata) {
+int verb_preset_all(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         if (should_bypass("SYSTEMD_PRESET"))

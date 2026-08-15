@@ -3,8 +3,23 @@
 
 #include "sd-id128.h"
 
-#include "sd-forward.h"
+#include "forward.h"
 #include "sparse-endian.h"
+
+/* Make sure not to make this smaller than the maximum coredump size.
+ * See JOURNAL_SIZE_MAX in coredump-config.h */
+#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+#define ENTRY_SIZE_MAX (1024*1024*770u)
+#define ENTRY_SIZE_UNPRIV_MAX (1024*1024*32u)
+#define DATA_SIZE_MAX (1024*1024*768u)
+#else
+#define ENTRY_SIZE_MAX (1024*1024*13u)
+#define ENTRY_SIZE_UNPRIV_MAX (1024*1024*8u)
+#define DATA_SIZE_MAX (1024*1024*11u)
+#endif
+
+/* The maximum number of fields in an entry */
+#define ENTRY_FIELD_COUNT_MAX 1024u
 
 /*
  * If you change this file you probably should also change its documentation:
@@ -27,6 +42,9 @@ typedef struct TagObject TagObject;
 typedef struct HashItem HashItem;
 
 typedef struct FSSHeader FSSHeader;
+
+typedef struct JournalFile JournalFile;
+typedef struct JournalAuthContext JournalAuthContext;
 
 /* Object types */
 typedef enum ObjectType {
@@ -192,7 +210,8 @@ enum {
                                                HEADER_COMPATIBLE_TAIL_ENTRY_BOOT_ID |
                                                HEADER_COMPATIBLE_SEALED_CONTINUOUS,
 
-        HEADER_COMPATIBLE_SUPPORTED          = (HAVE_GCRYPT ? HEADER_COMPATIBLE_SEALED | HEADER_COMPATIBLE_SEALED_CONTINUOUS : 0) |
+        HEADER_COMPATIBLE_SUPPORTED          = HEADER_COMPATIBLE_SEALED |
+                                               HEADER_COMPATIBLE_SEALED_CONTINUOUS |
                                                HEADER_COMPATIBLE_TAIL_ENTRY_BOOT_ID,
 };
 
@@ -246,7 +265,7 @@ assert_cc(sizeof(struct Header) == sizeof(struct Header__packed));
 assert_cc(sizeof(struct Header) == 272);
 
 #define FSS_HEADER_SIGNATURE                                            \
-        ((const char[]) { 'K', 'S', 'H', 'H', 'R', 'H', 'L', 'P' })
+        { 'K', 'S', 'H', 'H', 'R', 'H', 'L', 'P' }
 
 struct FSSHeader {
         uint8_t signature[8]; /* "KSHHRHLP" */

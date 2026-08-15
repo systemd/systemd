@@ -282,6 +282,9 @@ static int get_path(uint64_t type, char **buffer, const char **ret) {
         case SD_PATH_USER_DESKTOP:
                 return from_xdg_user_dir("XDG_DESKTOP_DIR", buffer, ret);
 
+        case SD_PATH_USER_PROJECTS:
+                return from_xdg_user_dir("XDG_PROJECTS_DIR", buffer, ret);
+
         case SD_PATH_SYSTEMD_UTIL:
                 *ret = PREFIX_NOSLASH "/lib/systemd";
                 return 0;
@@ -628,11 +631,12 @@ static int get_search(uint64_t type, char ***ret) {
                 bool env_generator = IN_SET(type, SD_PATH_SYSTEMD_SEARCH_SYSTEM_ENVIRONMENT_GENERATOR,
                                                   SD_PATH_SYSTEMD_SEARCH_USER_ENVIRONMENT_GENERATOR);
 
-                char **t = generator_binary_paths_internal(scope, env_generator);
-                if (!t)
-                        return -ENOMEM;
+                _cleanup_strv_free_ char **t = NULL;
+                r = generator_binary_paths_internal(scope, env_generator, &t);
+                if (r < 0)
+                        return r;
 
-                *ret = t;
+                *ret = TAKE_PTR(t);
                 return 0;
         }
 

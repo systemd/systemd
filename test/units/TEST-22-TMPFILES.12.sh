@@ -84,7 +84,7 @@ else
 fi
 
 # Check for an invalid "age" and "age-by" arguments.
-for a in ':' ':1s' '2:1h' 'nope:42h' '"  :7m"' 'm:' '::' '"+r^w-x:2/h"' 'b ar::64'; do
+for a in ':' ':1s' '2:1h' 'nope:42h' '"  :7m"' 'm:' '::' '"+r^w-x:2/h"' '"b ar::64"'; do
     systemd-tmpfiles --clean - <<EOF 2>&1 | grep -F 'Invalid age' >/dev/null
 d /tmp/ageby - - - ${a} -
 EOF
@@ -204,3 +204,182 @@ test ! -d /tmp/ageby/d3
 
 # Cleanup the test directory (fail if not empty).
 rmdir /tmp/ageby
+
+# Removing an old child directory should restore the parent directory mtime.
+rm -rf /tmp/ageby-mtime
+mkdir -p /tmp/ageby-mtime/old-child
+touch --date "2020-01-01 00:00:00" /tmp/ageby-mtime/old-child /tmp/ageby-mtime
+before="$(stat -c %Y /tmp/ageby-mtime)"
+
+systemd-tmpfiles --clean - <<-EOF
+d /tmp/ageby-mtime - - - M:1s
+EOF
+
+after="$(stat -c %Y /tmp/ageby-mtime)"
+test "$before" = "$after"
+test ! -e /tmp/ageby-mtime/old-child
+rmdir /tmp/ageby-mtime
+
+# r/R entries honor age when cleaning.
+rm -rf /tmp/ageby-remove
+mkdir -p /tmp/ageby-remove/old-dir/child /tmp/ageby-remove/new-dir/child \
+    /tmp/ageby-remove/old-empty-dir /tmp/ageby-remove/new-empty-dir
+touch /tmp/ageby-remove/old-file /tmp/ageby-remove/new-file \
+    /tmp/ageby-remove/old-recursive-file /tmp/ageby-remove/new-recursive-file
+touch --date "3 minutes ago" \
+    /tmp/ageby-remove/old-file \
+    /tmp/ageby-remove/old-recursive-file \
+    /tmp/ageby-remove/old-dir/child \
+    /tmp/ageby-remove/old-dir \
+    /tmp/ageby-remove/old-empty-dir
+
+output="$(systemd-tmpfiles --dry-run --clean - 2>&1 <<-EOF
+r /tmp/ageby-remove/old-file - - - m:1m -
+r /tmp/ageby-remove/new-file - - - m:1m -
+R /tmp/ageby-remove/old-recursive-file - - - m:1m -
+R /tmp/ageby-remove/new-recursive-file - - - m:1m -
+R /tmp/ageby-remove/old-dir - - - M:1m -
+R /tmp/ageby-remove/new-dir - - - M:1m -
+R /tmp/ageby-remove/old-empty-dir - - - M:1m -
+R /tmp/ageby-remove/new-empty-dir - - - M:1m -
+EOF
+)"
+[[ "$output" == *"Would remove directory \"/tmp/ageby-remove/old-dir\""* ]]
+[[ "$output" != *"Would remove directory \"/tmp/ageby-remove/new-dir\""* ]]
+[[ "$output" == *"Would remove directory \"/tmp/ageby-remove/old-empty-dir\""* ]]
+[[ "$output" != *"Would remove directory \"/tmp/ageby-remove/new-empty-dir\""* ]]
+
+test -e /tmp/ageby-remove/old-file
+test -e /tmp/ageby-remove/new-file
+test -e /tmp/ageby-remove/old-recursive-file
+test -e /tmp/ageby-remove/new-recursive-file
+test -d /tmp/ageby-remove/old-dir
+test -d /tmp/ageby-remove/old-dir/child
+test -d /tmp/ageby-remove/new-dir
+test -d /tmp/ageby-remove/new-dir/child
+test -d /tmp/ageby-remove/old-empty-dir
+test -d /tmp/ageby-remove/new-empty-dir
+
+systemd-tmpfiles --clean - <<-EOF
+r /tmp/ageby-remove/old-file - - - m:1m -
+r /tmp/ageby-remove/new-file - - - m:1m -
+R /tmp/ageby-remove/old-recursive-file - - - m:1m -
+R /tmp/ageby-remove/new-recursive-file - - - m:1m -
+R /tmp/ageby-remove/old-dir - - - M:1m -
+R /tmp/ageby-remove/new-dir - - - M:1m -
+R /tmp/ageby-remove/old-empty-dir - - - M:1m -
+R /tmp/ageby-remove/new-empty-dir - - - M:1m -
+EOF
+
+test ! -e /tmp/ageby-remove/old-file
+test -e /tmp/ageby-remove/new-file
+test ! -e /tmp/ageby-remove/old-recursive-file
+test -e /tmp/ageby-remove/new-recursive-file
+test ! -e /tmp/ageby-remove/old-dir
+test -d /tmp/ageby-remove/new-dir
+test -d /tmp/ageby-remove/new-dir/child
+test ! -e /tmp/ageby-remove/old-empty-dir
+test -d /tmp/ageby-remove/new-empty-dir
+
+# Aged r cleanup removes empty directories but not non-empty or too-new directories.
+mkdir -p /tmp/ageby-remove/old-r-empty-dir \
+    /tmp/ageby-remove/new-r-empty-dir \
+    /tmp/ageby-remove/old-r-nonempty-dir/child
+touch --date "3 minutes ago" \
+    /tmp/ageby-remove/old-r-empty-dir \
+    /tmp/ageby-remove/old-r-nonempty-dir
+output="$(systemd-tmpfiles --dry-run --clean - 2>&1 <<-EOF
+r /tmp/ageby-remove/old-r-empty-dir - - - M:1m -
+r /tmp/ageby-remove/new-r-empty-dir - - - M:1m -
+r /tmp/ageby-remove/old-r-nonempty-dir - - - M:1m -
+EOF
+)"
+[[ "$output" == *"Would remove directory \"/tmp/ageby-remove/old-r-empty-dir\""* ]]
+[[ "$output" != *"Would remove directory \"/tmp/ageby-remove/new-r-empty-dir\""* ]]
+[[ "$output" != *"Would remove directory \"/tmp/ageby-remove/old-r-nonempty-dir\""* ]]
+
+systemd-tmpfiles --clean - <<-EOF
+r /tmp/ageby-remove/old-r-empty-dir - - - M:1m -
+r /tmp/ageby-remove/new-r-empty-dir - - - M:1m -
+r /tmp/ageby-remove/old-r-nonempty-dir - - - M:1m -
+EOF
+test ! -e /tmp/ageby-remove/old-r-empty-dir
+test -d /tmp/ageby-remove/new-r-empty-dir
+test -d /tmp/ageby-remove/old-r-nonempty-dir/child
+
+# Aged R cleanup keeps the top-level directory if a child is too new.
+mkdir -p /tmp/ageby-remove/old-dir-new-child/new-child
+touch --date "3 minutes ago" /tmp/ageby-remove/old-dir-new-child
+systemd-tmpfiles --clean --inline "R /tmp/ageby-remove/old-dir-new-child - - - M:1m -"
+test -d /tmp/ageby-remove/old-dir-new-child/new-child
+
+(! systemd-tmpfiles --clean --inline "r /tmp/ageby-remove/new-file - - - ~1m -")
+
+# The ~ age modifier on R keeps the target and its immediate children.
+mkdir -p /tmp/ageby-remove/keep-root/old-child/grandchild
+touch --date "3 minutes ago" \
+    /tmp/ageby-remove/keep-root \
+    /tmp/ageby-remove/keep-root/old-child \
+    /tmp/ageby-remove/keep-root/old-child/grandchild
+systemd-tmpfiles --clean --inline "R /tmp/ageby-remove/keep-root - - - ~M:1m -"
+test -d /tmp/ageby-remove/keep-root
+test -d /tmp/ageby-remove/keep-root/old-child
+test ! -e /tmp/ageby-remove/keep-root/old-child/grandchild
+
+# Aged r/R cleanup skips locked files.
+touch /tmp/ageby-remove/locked-file /tmp/ageby-remove/locked-recursive-file
+touch --date "3 minutes ago" /tmp/ageby-remove/locked-file /tmp/ageby-remove/locked-recursive-file
+exec {lock_fd}<>/tmp/ageby-remove/locked-file
+exec {recursive_lock_fd}<>/tmp/ageby-remove/locked-recursive-file
+flock --exclusive "$lock_fd"
+flock --exclusive "$recursive_lock_fd"
+systemd-tmpfiles --clean - <<-EOF
+r /tmp/ageby-remove/locked-file - - - m:1m -
+R /tmp/ageby-remove/locked-recursive-file - - - m:1m -
+EOF
+test -e /tmp/ageby-remove/locked-file
+test -e /tmp/ageby-remove/locked-recursive-file
+exec {lock_fd}>&-
+exec {recursive_lock_fd}>&-
+systemd-tmpfiles --clean - <<-EOF
+r /tmp/ageby-remove/locked-file - - - m:1m -
+R /tmp/ageby-remove/locked-recursive-file - - - m:1m -
+EOF
+test ! -e /tmp/ageby-remove/locked-file
+test ! -e /tmp/ageby-remove/locked-recursive-file
+
+# Aged r cleanup skips locked directories.
+mkdir -p /tmp/ageby-remove/locked-r-dir
+touch --date "3 minutes ago" /tmp/ageby-remove/locked-r-dir
+flock --exclusive /tmp/ageby-remove/locked-r-dir systemd-tmpfiles --clean --inline \
+    "r /tmp/ageby-remove/locked-r-dir - - - M:1m -"
+test -d /tmp/ageby-remove/locked-r-dir
+systemd-tmpfiles --clean --inline "r /tmp/ageby-remove/locked-r-dir - - - M:1m -"
+test ! -e /tmp/ageby-remove/locked-r-dir
+
+# Aged R cleanup skips locked directories and everything below them.
+mkdir -p /tmp/ageby-remove/locked-dir/child
+touch --date "3 minutes ago" /tmp/ageby-remove/locked-dir /tmp/ageby-remove/locked-dir/child
+flock --exclusive /tmp/ageby-remove/locked-dir systemd-tmpfiles --clean --inline \
+    "R /tmp/ageby-remove/locked-dir - - - M:1m -"
+test -d /tmp/ageby-remove/locked-dir/child
+systemd-tmpfiles --clean --inline "R /tmp/ageby-remove/locked-dir - - - M:1m -"
+test ! -e /tmp/ageby-remove/locked-dir
+
+rm -rf /tmp/ageby-remove
+
+# X entries inherit the parent cleanup age and its age-by fields.
+rm -rf /tmp/ageby-x-inherit
+mkdir -p /tmp/ageby-x-inherit/parent/child /tmp/ageby-x-inherit/parent/other
+printf old >/tmp/ageby-x-inherit/parent/child/file
+printf old >/tmp/ageby-x-inherit/parent/other/file
+touch --date "3 days ago" /tmp/ageby-x-inherit/parent/child/file /tmp/ageby-x-inherit/parent/other/file
+
+systemd-tmpfiles --clean - <<-EOF
+d /tmp/ageby-x-inherit/parent - - - m:1d
+X /tmp/ageby-x-inherit/parent/child - - - -
+EOF
+
+test ! -e /tmp/ageby-x-inherit/parent/child/file
+test ! -e /tmp/ageby-x-inherit/parent/other/file
+rm -rf /tmp/ageby-x-inherit

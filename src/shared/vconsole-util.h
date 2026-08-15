@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
+#include "forward.h"
 
 typedef struct X11Context {
         char *layout;
@@ -19,6 +19,7 @@ void x11_context_clear(X11Context *xc);
 void x11_context_replace(X11Context *dest, X11Context *src);
 bool x11_context_isempty(const X11Context *xc);
 void x11_context_empty_to_null(X11Context *xc);
+void x11_context_normalize(X11Context *xc);
 bool x11_context_is_safe(const X11Context *xc);
 bool x11_context_equal(const X11Context *a, const X11Context *b);
 int x11_context_copy(X11Context *dest, const X11Context *src);
@@ -38,5 +39,8 @@ typedef int (*X11VerifyCallback)(const X11Context *xc);
 
 int vconsole_convert_to_x11(const VCContext *vc, X11VerifyCallback verify, X11Context *ret);
 int x11_convert_to_vconsole(const X11Context *xc, VCContext *ret);
+
+int find_vconsole_keymap_for_bcp47(const char *tag, char **ret);
+int vconsole_keymap_from_efi(char **ret);
 
 int vconsole_serialize(const VCContext *vc, const X11Context *xc, char ***env);

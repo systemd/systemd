@@ -3,7 +3,6 @@
 #pragma once
 
 #include "netdev.h"
-#include "shared-forward.h"
 
 typedef enum BareUDPProtocol {
         BARE_UDP_PROTOCOL_IPV4    = ETH_P_IP,

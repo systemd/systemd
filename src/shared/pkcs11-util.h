@@ -1,18 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#if HAVE_OPENSSL
-#  include <openssl/evp.h>
-#endif
-
 #if HAVE_P11KIT
+#  ifndef SYSTEMD_CFLAGS_MARKER_LIBP11KIT
+#    error "missing libp11kit_cflags in meson dependency."
+#  endif
 #  include <p11-kit/p11-kit.h>  /* IWYU pragma: export */
 #  include <p11-kit/uri.h>      /* IWYU pragma: export */
 #endif
 
 #include "ask-password-api.h"
 #include "dlfcn-util.h"
-#include "shared-forward.h"
+#include "dlopen-note.h"
+#include "forward.h"
+#include "pkcs11-padding.h"
 
 bool pkcs11_uri_valid(const char *uri);
 
@@ -70,7 +71,7 @@ int pkcs11_token_read_x509_certificate(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE se
 #endif
 
 int pkcs11_token_find_private_key(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, P11KitUri *search_uri, CK_OBJECT_HANDLE *ret_object);
-int pkcs11_token_decrypt_data(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, CK_OBJECT_HANDLE object, const void *encrypted_data, size_t encrypted_data_size, void **ret_decrypted_data, size_t *ret_decrypted_data_size);
+int pkcs11_token_decrypt_data(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, CK_OBJECT_HANDLE object, const void *encrypted_data, size_t encrypted_data_size, Pkcs11RsaPadding rsa_padding, void **ret_decrypted_data, size_t *ret_decrypted_data_size);
 
 int pkcs11_token_acquire_rng(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session);
 
@@ -78,7 +79,7 @@ typedef int (*pkcs11_find_token_callback_t)(CK_FUNCTION_LIST *m, CK_SESSION_HAND
 int pkcs11_find_token(const char *pkcs11_uri, pkcs11_find_token_callback_t callback, void *userdata);
 
 #if HAVE_OPENSSL
-int pkcs11_acquire_public_key(const char *uri, const char *askpw_friendly_name, const char *askpw_icon, const char *askpw_credential, AskPasswordFlags askpw_flags, EVP_PKEY **ret_pkey, char **ret_pin_used);
+int pkcs11_acquire_public_key(const char *uri, const char *askpw_friendly_name, const char *askpw_icon, const char *askpw_credential, AskPasswordFlags askpw_flags, EVP_PKEY **ret_pkey, Pkcs11RsaPadding *ret_rsa_padding, char **ret_pin_used);
 #endif
 
 typedef struct {
@@ -91,6 +92,7 @@ typedef struct {
         bool free_encrypted_key;
         const char *askpw_credential;
         AskPasswordFlags askpw_flags;
+        Pkcs11RsaPadding rsa_padding;
 } pkcs11_crypt_device_callback_data;
 
 void pkcs11_crypt_device_callback_data_release(pkcs11_crypt_device_callback_data *data);
@@ -106,7 +108,7 @@ int pkcs11_crypt_device_callback(
 
 #endif
 
-int dlopen_p11kit(void);
+int dlopen_p11kit(int log_level) _dlopen_loader_;
 
 typedef struct {
         const char *friendly_name;

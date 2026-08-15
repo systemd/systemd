@@ -3,17 +3,18 @@
 #include <linux/falloc.h>
 #include <stdlib.h>
 #include <sys/file.h>
+#include <sys/mount.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "btrfs.h"
+#include "btrfs-util.h"
 #include "chattr-util.h"
 #include "dirent-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "hostname-util.h"
-#include "label.h"
+#include "label-util.h"
 #include "lock-util.h"
 #include "log.h"
 #include "mkdir.h"
@@ -460,7 +461,7 @@ int symlinkat_idempotent(const char *target, int atfd, const char *linkpath, boo
         return 0;
 }
 
-int symlinkat_atomic_full(const char *target, int atfd, const char *linkpath, SymlinkFlags flags) {
+int symlinkat_atomic_full_label(const char *target, int atfd, const char *linkpath, SymlinkFlags flags, LabelContext *label_context) {
         int r;
 
         assert(target);
@@ -482,7 +483,7 @@ int symlinkat_atomic_full(const char *target, int atfd, const char *linkpath, Sy
 
         bool call_label_ops_post = false;
         if (FLAGS_SET(flags, SYMLINK_LABEL)) {
-                r = label_ops_pre(atfd, linkpath, S_IFLNK);
+                r = label_ops_pre(atfd, linkpath, S_IFLNK, label_context);
                 if (r < 0)
                         return r;
 
@@ -491,7 +492,7 @@ int symlinkat_atomic_full(const char *target, int atfd, const char *linkpath, Sy
 
         r = RET_NERRNO(symlinkat(target, atfd, t));
         if (call_label_ops_post)
-                RET_GATHER(r, label_ops_post(atfd, t, /* created= */ r >= 0));
+                RET_GATHER(r, label_ops_post(atfd, t, /* created= */ r >= 0, label_context));
         if (r < 0)
                 return r;
 
@@ -1034,7 +1035,7 @@ int parse_cifs_service(
         return 0;
 }
 
-int open_mkdir_at_full(int dirfd, const char *path, int flags, XOpenFlags xopen_flags, mode_t mode) {
+int open_mkdir_at_full_label(int dirfd, const char *path, int flags, XOpenFlags xopen_flags, mode_t mode, LabelContext *label_context) {
         _cleanup_close_ int fd = -EBADF, parent_fd = -EBADF;
         _cleanup_free_ char *fname = NULL, *parent = NULL;
         int r;
@@ -1070,7 +1071,7 @@ int open_mkdir_at_full(int dirfd, const char *path, int flags, XOpenFlags xopen_
                 path = fname;
         }
 
-        fd = xopenat_full(dirfd, path, flags|O_CREAT|O_DIRECTORY|O_NOFOLLOW, xopen_flags, mode);
+        fd = xopenat_full_label(dirfd, path, flags|O_CREAT|O_DIRECTORY|O_NOFOLLOW, xopen_flags, mode, label_context);
         if (IN_SET(fd, -ELOOP, -ENOTDIR))
                 return -EEXIST;
         if (fd < 0)
@@ -1130,15 +1131,68 @@ int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, b
         }
 }
 
-int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags, mode_t mode) {
+static int openat_with_automount(int dir_fd, const char *path, int open_flags, mode_t mode) {
+        /* When XO_TRIGGER_AUTOMOUNT is set we want to trigger automounts on the path. open() with O_PATH
+         * does not do that, so we use open_tree() without OPEN_TREE_CLONE which is equivalent to open() with
+         * O_PATH except that it does trigger automounts. Some sandboxes reject open_tree() with EPERM or
+         * ENOSYS, in which case we fall back to plain openat(): autofs wouldn't work inside a restricted
+         * mount namespace anyway. open_tree() only ever returns O_PATH fds, so this helper is for O_PATH
+         * acquisition only. */
+
+        static bool can_open_tree = true;
+
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(path);
+        assert(FLAGS_SET(open_flags, O_PATH));
+
+        if (can_open_tree) {
+                int fd = RET_NERRNO(open_tree(dir_fd, path,
+                                              OPEN_TREE_CLOEXEC |
+                                              (FLAGS_SET(open_flags, O_NOFOLLOW) ? AT_SYMLINK_NOFOLLOW : 0)));
+                if (fd >= 0) {
+                        /* open_tree() doesn't honor O_DIRECTORY, so enforce it ourselves to match
+                         * the openat() fallback's behavior. */
+                        if (FLAGS_SET(open_flags, O_DIRECTORY)) {
+                                int q = fd_verify_directory(fd);
+                                if (q < 0) {
+                                        safe_close(fd);
+                                        return q;
+                                }
+                        }
+
+                        return fd;
+                }
+                if (fd != -EPERM && !ERRNO_IS_NEG_NOT_SUPPORTED(fd))
+                        return fd;
+
+                can_open_tree = false;
+        }
+
+        return RET_NERRNO(openat(dir_fd, path, open_flags, mode));
+}
+
+int xopenat_full_label(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags, mode_t mode, LabelContext *label_context) {
         _cleanup_close_ int fd = -EBADF;
         bool made_dir = false, made_file = false;
         int r;
 
-        assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
+        assert(wildcard_fd_is_valid(dir_fd));
 
-        /* An inode cannot be both a directory and a regular file at the same time. */
-        assert(!(FLAGS_SET(open_flags, O_DIRECTORY) && FLAGS_SET(xopen_flags, XO_REGULAR)));
+        /* An inode can only be one of a directory, a regular file or a socket at the same time. */
+        assert(FLAGS_SET(open_flags, O_DIRECTORY) + FLAGS_SET(xopen_flags, XO_REGULAR) + FLAGS_SET(xopen_flags, XO_SOCKET) <= 1);
+        /* Sockets cannot be open()ed, only pinned via O_PATH. */
+        assert(!FLAGS_SET(xopen_flags, XO_SOCKET) || FLAGS_SET(open_flags, O_PATH));
+        /* XO_TRIGGER_AUTOMOUNT requires O_PATH and does not support creating inodes. XO_SUBVOLUME
+         * requires O_CREAT, and XO_COW/XO_NOCOW need a writable fd for their chattr ioctl, so none are
+         * compatible with XO_TRIGGER_AUTOMOUNT. */
+        assert(!FLAGS_SET(xopen_flags, XO_TRIGGER_AUTOMOUNT) ||
+               (FLAGS_SET(open_flags, O_PATH) && !FLAGS_SET(open_flags, O_CREAT)));
+        assert(!(FLAGS_SET(xopen_flags, XO_TRIGGER_AUTOMOUNT) && FLAGS_SET(xopen_flags, XO_SUBVOLUME)));
+        assert(!(FLAGS_SET(xopen_flags, XO_TRIGGER_AUTOMOUNT) && (xopen_flags & (XO_COW|XO_NOCOW))));
+        assert((xopen_flags & (XO_COW|XO_NOCOW)) != (XO_COW|XO_NOCOW));
+
+        /* Don't specify an access mode if you want auto mode. */
+        assert(!FLAGS_SET(xopen_flags, XO_AUTO_RW_RO) || (open_flags & O_ACCMODE_STRICT) == 0);
 
         /* This is like openat(), but has a few tricks up its sleeves, extending behaviour:
          *
@@ -1149,20 +1203,38 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
          *
          *   • If the path is specified NULL or empty, behaves like fd_reopen().
          *
-         *   • If XO_NOCOW is specified will turn on the NOCOW btrfs flag on the file, if available.
+         *   • If XO_COW or XO_NOCOW is specified will turn off or on the NOCOW btrfs flag on the file, if
+         *     available.
          *
          *   • if XO_REGULAR is specified will return an error if inode is not a regular file.
+         *
+         *   • if XO_SOCKET is specified will return an error if inode is not a socket.
+         *
+         *   • if XO_TRIGGER_AUTOMOUNT is specified O_PATH fds will trigger automounts.
          *
          *   • If mode is specified as MODE_INVALID, we'll use 0755 for dirs, and 0644 for regular files.
          *
          *   • The dir fd can be passed as XAT_FDROOT, in which case any relative paths will be taken relative to the root fs.
+         *
+         *   • If XO_AUTO_RW_RO is specified and the file cannot be opened in O_RDWR mode due to EACCES/EROFS or similar, retry in O_RDONLY mode.
          */
 
         if (mode == MODE_INVALID)
                 mode = (open_flags & O_DIRECTORY) ? 0755 : 0644;
 
+        if (FLAGS_SET(xopen_flags, XO_AUTO_RW_RO)) {
+                if (open_flags & O_DIRECTORY) {
+                        /* Directories can only be opened in read-only mode */
+                        xopen_flags &= ~XO_AUTO_RW_RO;
+                        open_flags |= O_RDONLY;
+                } else if (open_flags & O_PATH)
+                        /* O_PATH is incompatible with O_RDONLY/O_RDWR → fail */
+                        return -EINVAL;
+        }
+
         if (isempty(path)) {
                 assert(!FLAGS_SET(open_flags, O_CREAT|O_EXCL));
+                open_flags &= ~O_NOFOLLOW;
 
                 if (FLAGS_SET(xopen_flags, XO_REGULAR)) {
                         r = fd_verify_regular(dir_fd);
@@ -1170,7 +1242,22 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
                                 return r;
                 }
 
-                return fd_reopen(dir_fd, open_flags & ~O_NOFOLLOW);
+                if (FLAGS_SET(xopen_flags, XO_SOCKET)) {
+                        r = fd_verify_socket(dir_fd);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (FLAGS_SET(xopen_flags, XO_AUTO_RW_RO)) {
+                        /* First try: in r/w mode */
+                        fd = fd_reopen(dir_fd, open_flags|O_RDWR);
+                        if (!ERRNO_IS_NEG_FS_WRITE_REFUSED(fd) && fd != -EISDIR)
+                                return TAKE_FD(fd);
+
+                        open_flags |= O_RDONLY;
+                }
+
+                return fd_reopen(dir_fd, open_flags);
         }
 
         _cleanup_close_ int _dir_fd = -EBADF;
@@ -1189,7 +1276,7 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
         bool call_label_ops_post = false;
 
         if (FLAGS_SET(open_flags, O_CREAT) && FLAGS_SET(xopen_flags, XO_LABEL)) {
-                r = label_ops_pre(dir_fd, path, FLAGS_SET(open_flags, O_DIRECTORY) ? S_IFDIR : S_IFREG);
+                r = label_ops_pre(dir_fd, path, FLAGS_SET(open_flags, O_DIRECTORY) ? S_IFDIR : S_IFREG, label_context);
                 if (r < 0)
                         return r;
 
@@ -1217,9 +1304,11 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
                  * first */
 
                 if (FLAGS_SET(open_flags, O_PATH)) {
-                        fd = openat(dir_fd, path, open_flags, mode);
+                        fd = FLAGS_SET(xopen_flags, XO_TRIGGER_AUTOMOUNT) ?
+                                openat_with_automount(dir_fd, path, open_flags, mode) :
+                                RET_NERRNO(openat(dir_fd, path, open_flags, mode));
                         if (fd < 0) {
-                                r = -errno;
+                                r = fd;
                                 goto error;
                         }
 
@@ -1229,10 +1318,23 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
 
                 } else if (FLAGS_SET(open_flags, O_CREAT|O_EXCL)) {
                         /* In O_EXCL mode we can just create the thing, everything is dealt with for us */
-                        fd = openat(dir_fd, path, open_flags, mode);
+
+                        if (FLAGS_SET(xopen_flags, XO_AUTO_RW_RO)) {
+                                fd = RET_NERRNO(openat(dir_fd, path, open_flags|O_RDWR, mode));
+                                if (ERRNO_IS_NEG_FS_WRITE_REFUSED(fd))
+                                        open_flags |= O_RDONLY;
+                                else if (fd < 0) {
+                                        r = fd;
+                                        goto error;
+                                }
+                        }
+
                         if (fd < 0) {
-                                r = -errno;
-                                goto error;
+                                fd = openat(dir_fd, path, open_flags, mode);
+                                if (fd < 0) {
+                                        r = -errno;
+                                        goto error;
+                                }
                         }
 
                         made_file = true;
@@ -1246,10 +1348,24 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
                                 }
 
                                 /* Doesn't exist yet, then try to create it */
-                                fd = openat(dir_fd, path, open_flags|O_CREAT|O_EXCL, mode);
+                                open_flags |= O_EXCL;
+
+                                if (FLAGS_SET(xopen_flags, XO_AUTO_RW_RO)) {
+                                        fd = RET_NERRNO(openat(dir_fd, path, open_flags|O_RDWR, mode));
+                                        if (ERRNO_IS_NEG_FS_WRITE_REFUSED(fd))
+                                                open_flags |= O_RDONLY;
+                                        else if (fd < 0) {
+                                                r = fd;
+                                                goto error;
+                                        }
+                                }
+
                                 if (fd < 0) {
-                                        r = -errno;
-                                        goto error;
+                                        fd = openat(dir_fd, path, open_flags, mode);
+                                        if (fd < 0) {
+                                                r = -errno;
+                                                goto error;
+                                        }
                                 }
 
                                 made_file = true;
@@ -1259,31 +1375,71 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
                                 if (r < 0)
                                         goto error;
 
-                                fd = fd_reopen(inode_fd, open_flags & ~(O_NOFOLLOW|O_CREAT));
+                                open_flags &= ~(O_NOFOLLOW|O_CREAT);
+
+                                if (FLAGS_SET(xopen_flags, XO_AUTO_RW_RO)) {
+                                        fd = fd_reopen(inode_fd, open_flags|O_RDWR);
+                                        if (ERRNO_IS_NEG_FS_WRITE_REFUSED(fd))
+                                                open_flags |= O_RDONLY;
+                                        else if (fd < 0) {
+                                                r = fd;
+                                                goto error;
+                                        }
+                                }
+
                                 if (fd < 0) {
-                                        r = fd;
-                                        goto error;
+                                        fd = fd_reopen(inode_fd, open_flags);
+                                        if (fd < 0) {
+                                                r = fd;
+                                                goto error;
+                                        }
                                 }
                         }
                 }
-        } else {
-                fd = openat_report_new(dir_fd, path, open_flags, mode, &made_file);
+        } else if (FLAGS_SET(xopen_flags, XO_TRIGGER_AUTOMOUNT)) {
+                fd = openat_with_automount(dir_fd, path, open_flags, mode);
                 if (fd < 0) {
                         r = fd;
                         goto error;
                 }
+        } else {
+                /* XO_SOCKET also lands here: it requires O_PATH (see asserts above) so openat() pins
+                 * the inode without connecting, and fd_verify_socket() below enforces the type. */
+                if (FLAGS_SET(xopen_flags, XO_AUTO_RW_RO)) {
+                        fd = openat_report_new(dir_fd, path, O_RDWR|open_flags, mode, &made_file);
+                        if (ERRNO_IS_NEG_FS_WRITE_REFUSED(fd) || fd == -EISDIR)
+                                open_flags |= O_RDONLY;
+                        else if (fd < 0) {
+                                r = fd;
+                                goto error;
+                        }
+                }
+
+                if (fd < 0) {
+                        fd = openat_report_new(dir_fd, path, open_flags, mode, &made_file);
+                        if (fd < 0) {
+                                r = fd;
+                                goto error;
+                        }
+                }
+        }
+
+        if (FLAGS_SET(xopen_flags, XO_SOCKET)) {
+                r = fd_verify_socket(fd);
+                if (r < 0)
+                        goto error;
         }
 
         if (call_label_ops_post) {
                 call_label_ops_post = false;
 
-                r = label_ops_post(fd, /* path= */ NULL, made_file || made_dir);
+                r = label_ops_post(fd, /* path= */ NULL, made_file || made_dir, label_context);
                 if (r < 0)
                         goto error;
         }
 
-        if (FLAGS_SET(xopen_flags, XO_NOCOW)) {
-                r = chattr_fd(fd, FS_NOCOW_FL, FS_NOCOW_FL);
+        if (xopen_flags & (XO_COW|XO_NOCOW)) {
+                r = chattr_fd(fd, FLAGS_SET(xopen_flags, XO_NOCOW) ? FS_NOCOW_FL : 0, FS_NOCOW_FL);
                 if (r < 0 && !ERRNO_IS_IOCTL_NOT_SUPPORTED(r))
                         goto error;
         }
@@ -1292,7 +1448,7 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
 
 error:
         if (call_label_ops_post)
-                (void) label_ops_post(fd >= 0 ? fd : dir_fd, fd >= 0 ? NULL : path, made_dir || made_file);
+                (void) label_ops_post(fd >= 0 ? fd : dir_fd, fd >= 0 ? NULL : path, made_dir || made_file, label_context);
 
         if (made_dir || made_file)
                 (void) unlinkat(dir_fd, path, made_dir ? AT_REMOVEDIR : 0);
@@ -1300,14 +1456,15 @@ error:
         return r;
 }
 
-int xopenat_lock_full(
+int xopenat_lock_full_label(
                 int dir_fd,
                 const char *path,
                 int open_flags,
                 XOpenFlags xopen_flags,
                 mode_t mode,
                 LockType locktype,
-                int operation) {
+                int operation,
+                LabelContext *label_context) {
 
         _cleanup_close_ int fd = -EBADF;
         int r;
@@ -1323,7 +1480,7 @@ int xopenat_lock_full(
         for (;;) {
                 struct stat st;
 
-                fd = xopenat_full(dir_fd, path, open_flags, xopen_flags, mode);
+                fd = xopenat_full_label(dir_fd, path, open_flags, xopen_flags, mode, label_context);
                 if (fd < 0)
                         return fd;
 

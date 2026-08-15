@@ -249,6 +249,14 @@ struct file_attr {
 #define FS_XFLAG_FILESTREAM	0x00004000	/* use filestream allocator */
 #define FS_XFLAG_DAX		0x00008000	/* use DAX for IO */
 #define FS_XFLAG_COWEXTSIZE	0x00010000	/* CoW extent size allocator hint */
+#define FS_XFLAG_VERITY		0x00020000	/* fs-verity enabled */
+/*
+ * Case handling flags (read-only, cannot be set via ioctl).
+ * Default (neither set) indicates POSIX semantics: case-sensitive
+ * lookups and case-preserving storage.
+ */
+#define FS_XFLAG_CASEFOLD	0x00040000	/* case-insensitive lookups */
+#define FS_XFLAG_CASENONPRESERVING 0x00080000	/* case not preserved */
 #define FS_XFLAG_HASATTR	0x80000000	/* no DIFLAG for this	*/
 
 /* the read-only stuff doesn't really belong here, but any other place is
@@ -383,7 +391,16 @@ struct file_attr {
 #define FS_DAX_FL			0x02000000 /* Inode is DAX */
 #define FS_INLINE_DATA_FL		0x10000000 /* Reserved for ext4 */
 #define FS_PROJINHERIT_FL		0x20000000 /* Create with parents projid */
-#define FS_CASEFOLD_FL			0x40000000 /* Folder is case insensitive */
+/*
+ * FS_CASEFOLD_FL indicates case-insensitive name lookup. The
+ * bit is most often reported on directories, where it controls
+ * lookups of entries within. Filesystems that derive
+ * case-insensitivity from mount or volume state may also report
+ * it on non-directory inodes; userspace must not assume the bit
+ * is directory-only. FS_XFLAG_CASEFOLD reports the same
+ * information read-only via FS_IOC_FSGETXATTR.
+ */
+#define FS_CASEFOLD_FL			0x40000000
 #define FS_RESERVED_FL			0x80000000 /* reserved for ext2 lib */
 
 #define FS_FL_USER_VISIBLE		0x0003DFFF /* User visible flags */
@@ -651,5 +668,17 @@ struct procmap_query {
 	 */
 	__u64 build_id_addr;		/* in */
 };
+
+/*
+ * Shutdown the filesystem.
+ */
+#define FS_IOC_SHUTDOWN _IOR('X', 125, __u32)
+
+/*
+ * Flags for FS_IOC_SHUTDOWN
+ */
+#define FS_SHUTDOWN_FLAGS_DEFAULT	0x0
+#define FS_SHUTDOWN_FLAGS_LOGFLUSH	0x1	/* flush log but not data*/
+#define FS_SHUTDOWN_FLAGS_NOLOGFLUSH	0x2	/* don't flush log nor data */
 
 #endif /* _LINUX_FS_H */

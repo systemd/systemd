@@ -12,12 +12,12 @@
 #include "systemctl-trivial-method.h"
 #include "systemctl-util.h"
 
-int verb_cancel(int argc, char *argv[], void *userdata) {
+int verb_cancel(int argc, char *argv[], uintptr_t data, void *userdata) {
         sd_bus *bus;
         int r;
 
         if (argc <= 1) /* Shortcut to trivial_method() if no argument is given */
-                return verb_trivial_method(argc, argv, userdata);
+                return verb_trivial_method(argc, argv, data, userdata);
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)

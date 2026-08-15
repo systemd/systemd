@@ -8,7 +8,7 @@
   Copyright © 2016 Julian Orth
 -->
 
-<refentry id="sd_bus_message_read_basic">
+<refentry id="sd_bus_message_read_basic" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_bus_message_read_basic</title>
@@ -221,6 +221,8 @@
       </variablelist>
     </refsect2>
   </refsect1>
+
+  <xi:include href="libsystemd-notes.xml"/>
 
   <refsect1>
     <title>History</title>

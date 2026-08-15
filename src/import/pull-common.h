@@ -1,13 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
 #include "import-common.h"
 #include "import-util.h"
-#include "pull-job.h"
-
-typedef struct CurlGlue CurlGlue;
-typedef struct PullJob PullJob;
+#include "pull-forward.h"
 
 int pull_find_old_etags(
                 const char *url,

@@ -126,7 +126,7 @@ static int mdns_maintenance_query(sd_event_source *s, uint64_t usec, void *userd
                 return log_error_errno(r, "Failed to create mDNS query for maintenance: %m");
 
         q->complete = mdns_maintenance_query_complete;
-        q->varlink_request = sd_varlink_ref(service->service_browser->link);
+        q->service_browser_request = dns_service_browser_ref(service->service_browser);
         q->dnsservice_request = dnssd_discovered_service_ref(service);
 
         /* Schedule the next maintenance query based on the TTL */
@@ -155,7 +155,7 @@ static int mdns_maintenance_query(sd_event_source *s, uint64_t usec, void *userd
         return 0;
 }
 
-int dns_add_new_service(DnsServiceBrowser *sb, DnsResourceRecord *rr, int owner_family, usec_t until) {
+int dns_add_new_service(DnsServiceBrowser *sb, DnsResourceRecord *rr, int owner_family, int ifindex, usec_t until) {
         _cleanup_(dnssd_discovered_service_unrefp) DnssdDiscoveredService *s = NULL;
         int r;
 
@@ -173,12 +173,13 @@ int dns_add_new_service(DnsServiceBrowser *sb, DnsResourceRecord *rr, int owner_
                 .service_browser = sb,
                 .rr = dns_resource_record_copy(rr),
                 .family = owner_family,
+                .ifindex = ifindex,
                 .until = until,
                 .query = NULL,
                 .rr_ttl_state = DNS_RECORD_TTL_STATE_80_PERCENT,
         };
-
-        LIST_PREPEND(dns_services, sb->dns_services, s);
+        if (!s->rr)
+                return log_oom();
 
         /* Schedule the first cache maintenance query at 80% of the record's
          * TTL. Subsequent queries issued at 5% increments until 100% of the
@@ -217,6 +218,8 @@ int dns_add_new_service(DnsServiceBrowser *sb, DnsResourceRecord *rr, int owner_
                 return log_error_errno(
                                 r,
                                 "Failed to schedule mDNS maintenance query for DNS service: %m");
+
+        LIST_PREPEND(dns_services, sb->dns_services, s);
 
         TAKE_PTR(s);
         return 0;
@@ -326,6 +329,7 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
         DNS_ANSWER_FOREACH_ITEM(item, answer) {
                 _cleanup_free_ char *name = NULL, *type = NULL, *domain = NULL;
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *entry = NULL;
+                int ifindex;
 
                 if (dns_service_match_and_update(sb->dns_services, item->rr, owner_family, item->until))
                         continue;
@@ -349,7 +353,10 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
                 if (!type)
                         continue;
 
-                r = dns_add_new_service(sb, item->rr, owner_family, item->until);
+                /* Prefer the per-item ifindex, fall back to the service browser's ifindex */
+                ifindex = item->ifindex > 0 ? item->ifindex : sb->ifindex;
+
+                r = dns_add_new_service(sb, item->rr, owner_family, ifindex, item->until);
                 if (r < 0) {
                         log_error_errno(r, "Failed to add new DNS service: %m");
                         goto finish;
@@ -360,7 +367,7 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
                           strna(type),
                           strna(domain),
                           strna(af_to_ipv4_ipv6(owner_family)),
-                          sb->ifindex);
+                          ifindex);
 
                 r = sd_json_buildo(
                                 &entry,
@@ -375,7 +382,7 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
                                                 !isempty(type), "type", SD_JSON_BUILD_STRING(type)),
                                 SD_JSON_BUILD_PAIR_CONDITION(
                                                 !isempty(domain), "domain", SD_JSON_BUILD_STRING(domain)),
-                                SD_JSON_BUILD_PAIR_INTEGER("ifindex", sb->ifindex));
+                                SD_JSON_BUILD_PAIR_INTEGER("ifindex", ifindex));
                 if (r < 0) {
                         log_error_errno(r, "Failed to build JSON for new service: %m");
                         goto finish;
@@ -392,6 +399,7 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
         LIST_FOREACH(dns_services, service, sb->dns_services) {
                 _cleanup_free_ char *name = NULL, *type = NULL, *domain = NULL;
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *entry = NULL;
+                int ifindex;
 
                 if (service->family != owner_family)
                         continue;
@@ -416,6 +424,9 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
                         }
                 }
 
+                /* Capture ifindex before removing the service */
+                ifindex = service->ifindex;
+
                 dns_remove_service(sb, service);
 
                 log_debug("Remove from the list %s, %s, %s, %s, %d",
@@ -423,7 +434,7 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
                           strna(type),
                           strna(domain),
                           strna(af_to_ipv4_ipv6(owner_family)),
-                          sb->ifindex);
+                          ifindex);
 
                 r = sd_json_buildo(
                                 &entry,
@@ -432,10 +443,10 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
                                                 browse_service_update_event_to_string(
                                                                 BROWSE_SERVICE_UPDATE_REMOVED)),
                                 SD_JSON_BUILD_PAIR_INTEGER("family", owner_family),
-                                SD_JSON_BUILD_PAIR_STRING("name", name ?: ""),
-                                SD_JSON_BUILD_PAIR_STRING("type", type ?: ""),
-                                SD_JSON_BUILD_PAIR_STRING("domain", domain ?: ""),
-                                SD_JSON_BUILD_PAIR_INTEGER("ifindex", sb->ifindex));
+                                SD_JSON_BUILD_PAIR_STRING("name", strempty(name)),
+                                SD_JSON_BUILD_PAIR_STRING("type", strempty(type)),
+                                SD_JSON_BUILD_PAIR_STRING("domain", strempty(domain)),
+                                SD_JSON_BUILD_PAIR_INTEGER("ifindex", ifindex));
                 if (r < 0) {
                         log_error_errno(r, "Failed to build JSON for removed service: %m");
                         goto finish;
@@ -473,19 +484,85 @@ finish:
 
 int mdns_browser_revisit_cache(DnsServiceBrowser *sb, int owner_family) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *lookup_ret_answer = NULL;
-        DnsScope *scope;
         int r;
 
         assert(sb);
         assert(sb->manager);
 
-        scope = manager_find_scope_from_protocol(sb->manager, sb->ifindex, DNS_PROTOCOL_MDNS, owner_family);
+        /* ifindex=0 means "all interfaces". Collect the cached answers from
+         * every matching mDNS scope into a single combined answer and reconcile
+         * once. Reconciling per-scope would be wrong: mdns_manage_services_answer()
+         * derives removals by diffing the browser's global service list against
+         * the answer it is handed, so a single scope's answer would spuriously
+         * "remove" (and then, on the next scope/pass, re-"add") services that are
+         * still present on other interfaces — resulting in a continuous
+         * added/removed event flap for services seen on more than the current
+         * scope. */
+        if (sb->ifindex == 0) {
+                _cleanup_(dns_answer_unrefp) DnsAnswer *combined = NULL;
+
+                LIST_FOREACH(scopes, scope, sb->manager->dns_scopes) {
+                        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+                        DnsAnswerItem *item;
+
+                        if (scope->protocol != DNS_PROTOCOL_MDNS)
+                                continue;
+
+                        if (scope->family != owner_family)
+                                continue;
+
+                        dns_cache_prune(&scope->cache);
+
+                        r = dns_cache_lookup(
+                                        &scope->cache,
+                                        sb->key,
+                                        sb->flags,
+                                        /* ret_rcode= */ NULL,
+                                        &answer,
+                                        /* ret_full_packet= */ NULL,
+                                        /* ret_query_flags= */ NULL,
+                                        /* ret_dnssec_result= */ NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to look up DNS cache for service browser key on scope %s: %m",
+                                                       dns_scope_ifname(scope) ?: "global");
+
+                        /* Merge preserving each item's ifindex, flags, rrsig and
+                         * cache-expiry 'until'. (dns_answer_extend()/merge() would
+                         * reset 'until' to USEC_INFINITY, which would skew the RFC
+                         * 6762 §5.2 TTL-maintenance schedule that
+                         * mdns_manage_services_answer() derives from item->until.) */
+                        DNS_ANSWER_FOREACH_ITEM(item, answer) {
+                                r = dns_answer_add_extend_full(&combined, item->rr, item->ifindex,
+                                                               item->flags, item->rrsig, item->until);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to merge mDNS cache answer from scope %s: %m",
+                                                               dns_scope_ifname(scope) ?: "global");
+                        }
+                }
+
+                r = mdns_manage_services_answer(sb, combined, owner_family);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to manage mDNS services after cache lookup for all interfaces: %m");
+
+                return 0;
+        }
+
+        /* Single scope for specifically requested interface */
+        DnsScope *scope = manager_find_scope_from_protocol(sb->manager, sb->ifindex, DNS_PROTOCOL_MDNS, owner_family);
         if (!scope)
                 return 0;
 
         dns_cache_prune(&scope->cache);
 
-        r = dns_cache_lookup(&scope->cache, sb->key, sb->flags, NULL, &lookup_ret_answer, NULL, NULL, NULL);
+        r = dns_cache_lookup(
+                        &scope->cache,
+                        sb->key,
+                        sb->flags,
+                        /* ret_rcode= */ NULL,
+                        &lookup_ret_answer,
+                        /* ret_full_packet= */ NULL,
+                        /* ret_query_flags= */ NULL,
+                        /* ret_dnssec_result= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to look up DNS cache for service browser key: %m");
 
@@ -666,6 +743,9 @@ int dns_subscribe_browse_service(
 
         if (ifindex < 0)
                 return sd_varlink_error_invalid_parameter_name(link, "ifindex");
+
+        if (ifindex == 0)
+                log_debug("BrowseServices: browsing all mDNS interfaces");
 
         if (isempty(type))
                 type = NULL;

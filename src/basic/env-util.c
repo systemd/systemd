@@ -19,7 +19,7 @@
 
 /* We follow bash for the character set. Different shells have different rules. */
 #define VALID_BASH_ENV_NAME_CHARS               \
-        DIGITS LETTERS                          \
+        ALPHANUMERICAL                          \
         "_"
 
 size_t sc_arg_max(void) {
@@ -555,7 +555,7 @@ char* strv_env_get_n(char * const *l, const char *name, size_t k, ReplaceEnvFlag
                 const char *t;
 
                 /* Safety check that the name is not overly long, before we do a stack allocation */
-                if (k > (size_t) sysconf(_SC_ARG_MAX) - 2)
+                if (k > sc_arg_max() - 2)
                         return NULL;
 
                 t = strndupa_safe(name, k);
@@ -948,6 +948,8 @@ int replace_env_argv(
                         }
 
                         k += q;
+                        /* reallocarray() does not zero-initialize the grown tail, add NUL termination */
+                        n[k] = NULL;
                         continue;
                 }
 

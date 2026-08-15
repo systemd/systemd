@@ -21,7 +21,7 @@
 #include "hashmap.h"
 #include "libmount-util.h"
 #include "log.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
@@ -451,7 +451,7 @@ int bind_remount_one_with_mountinfo(
 
         rewind(proc_self_mountinfo);
 
-        r = dlopen_libmount();
+        r = dlopen_libmount(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -900,7 +900,7 @@ int mount_option_mangle(
          * The validity of options stored in '*ret_remaining_options' is not checked.
          * If 'options' is NULL, this just copies 'mount_flags' to *ret_mount_flags. */
 
-        r = dlopen_libmount();
+        r = dlopen_libmount(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -1748,34 +1748,42 @@ static void sub_mount_clear(SubMount *s) {
         s->mount_fd = safe_close(s->mount_fd);
 }
 
-void sub_mount_array_free(SubMount *s, size_t n) {
-        assert(s || n == 0);
-
-        for (size_t i = 0; i < n; i++)
-                sub_mount_clear(s + i);
-
-        free(s);
-}
+DEFINE_ARRAY_FREE_FUNC(sub_mount_array_free, SubMount, sub_mount_clear);
 
 #if HAVE_LIBMOUNT
 static int sub_mount_compare(const SubMount *a, const SubMount *b) {
         assert(a);
         assert(b);
-        assert(a->path);
-        assert(b->path);
+
+        /* sub_mount_drop() creates NULL paths which we order to the end so that after the sort we can
+         * truncate the array. Done manually because path_compare() orders NULL before non-NULL. */
+        if (!a->path || !b->path)
+                return CMP(!a->path, !b->path);
 
         return path_compare(a->path, b->path);
 }
 
-static void sub_mount_drop(SubMount *s, size_t n) {
-        assert(s || n == 0);
+static void sub_mount_drop(SubMount *s, size_t *n) {
+        assert(n);
+        assert(s || *n == 0);
 
-        for (size_t m = 0, i = 1; i < n; i++) {
+        /* Works on a sorted array. Drops mounts that are covered by the preceding entry's recursive
+         * open_tree() clone, clearing the slot in place. Then sorts again for the NULL paths to be shifted
+         * past the kept count. */
+
+        size_t kept = *n > 0;
+        for (size_t m = 0, i = 1; i < *n; i++)
                 if (path_startswith(s[i].path, s[m].path))
                         sub_mount_clear(s + i);
-                else
+                else {
                         m = i;
-        }
+                        kept++;
+                }
+
+        if (kept < *n)
+                typesafe_qsort(s, *n, sub_mount_compare);
+
+        *n = kept;
 }
 #endif
 
@@ -1802,7 +1810,6 @@ int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_moun
                 _cleanup_free_ char *p = NULL;
                 struct libmnt_fs *fs;
                 const char *path;
-                int id1, id2;
 
                 r = sym_mnt_table_next_fs(table, iter, &fs);
                 if (r == 1)
@@ -1817,25 +1824,48 @@ int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_moun
                 if (isempty(path_startswith(path, prefix)))
                         continue;
 
-                id1 = sym_mnt_fs_get_id(fs);
-                r = path_get_mnt_id(path, &id2);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to get mount ID of '%s', ignoring: %m", path);
+                /* The path may be hidden by another over-mount or already remounted; skip it in that case
+                 * (libmount_fs_id_matches_path() already logs the details at debug level). */
+                r = libmount_fs_id_matches_path(fs, path);
+                if (r <= 0)
                         continue;
-                }
-                if (id1 != id2) {
-                        /* The path may be hidden by another over-mount or already remounted. */
-                        log_debug("The mount IDs of '%s' obtained by libmount and path_get_mnt_id() are different (%i vs %i), ignoring.",
-                                  path, id1, id2);
-                        continue;
-                }
 
-                mount_fd = open(path, O_CLOEXEC|O_PATH);
-                if (mount_fd < 0) {
-                        if (errno == ENOENT) /* The path may be hidden by another over-mount or already unmounted. */
+                /* If possible on a newer kernel, use MS_PRIVATE to decouple it from the original mount.
+                 * Otherwise MNT_DETACH of the source path could propagate through and unmount the
+                 * just-moved nested children at the destination (relevant for preserving nested mounts
+                 * under sysext hierarchies).
+                 *
+                 * Also, pass AT_NO_AUTOMOUNT so that we clone automount points (i.e. autofs mounts) as
+                 * they are, instead of triggering them. OPEN_TREE_CLONE would otherwise force them to be
+                 * mounted, and — worse — block until the automount request has been served. If the
+                 * automount point is managed by PID 1 itself (as is the case for systemd's own
+                 * /proc/sys/fs/binfmt_misc automount point, which is cloned whenever a private /proc is
+                 * set up for a service) this can take a long time during boot, since the resulting mount
+                 * job competes with the ongoing boot transaction. */
+                static bool mount_attr_unsupported = false;
+
+                if (!mount_attr_unsupported) {
+                        mount_fd = open_tree_attr_with_fallback(
+                                        AT_FDCWD, path,
+                                        OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_RECURSIVE|AT_NO_AUTOMOUNT,
+                                        &(struct mount_attr) { .propagation = MS_PRIVATE });
+                        if (mount_fd == -ENOENT) /* The path may be hidden by another over-mount or already unmounted. */
                                 continue;
+                        if (mount_fd < 0 && ERRNO_IS_NEG_NOT_SUPPORTED(mount_fd)) {
+                                /* On a kernel older than 5.12 without mount_setattr() we do the regular
+                                 * clone. Nested mounts under sysext and similar cases may get lost. */
+                                log_debug_errno(mount_fd, "mount_setattr() not supported, falling back to plain open_tree() without MS_PRIVATE: %m");
+                                mount_attr_unsupported = true;
+                        } else if (mount_fd < 0)
+                                return log_debug_errno(mount_fd, "Failed to open subtree of mounted filesystem '%s': %m", path);
+                }
 
-                        return log_debug_errno(errno, "Failed to open subtree of mounted filesystem '%s': %m", path);
+                if (mount_attr_unsupported) {
+                        mount_fd = RET_NERRNO(open_tree(AT_FDCWD, path, OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_RECURSIVE|AT_NO_AUTOMOUNT));
+                        if (mount_fd == -ENOENT)
+                                continue;
+                        if (mount_fd < 0)
+                                return log_debug_errno(mount_fd, "Failed to open subtree of mounted filesystem '%s': %m", path);
                 }
 
                 p = strdup(path);
@@ -1852,7 +1882,7 @@ int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_moun
         }
 
         typesafe_qsort(mounts, n, sub_mount_compare);
-        sub_mount_drop(mounts, n);
+        sub_mount_drop(mounts, &n);
 
         *ret_mounts = TAKE_PTR(mounts);
         *ret_n_mounts = n;
@@ -1905,9 +1935,7 @@ int bind_mount_submounts(
                         continue;
                 }
 
-                r = mount_follow_verbose(LOG_DEBUG, FORMAT_PROC_FD_PATH(m->mount_fd), t, NULL, MS_BIND|MS_REC, NULL);
-                if (r < 0 && ret == 0)
-                        ret = r;
+                RET_GATHER(ret, RET_NERRNO(move_mount(m->mount_fd, "", AT_FDCWD, t, MOVE_MOUNT_F_EMPTY_PATH)));
         }
 
         return ret;
@@ -1918,7 +1946,7 @@ int make_mount_point_inode_from_mode(int dir_fd, const char *dest, mode_t source
         assert(dest);
 
         if (S_ISDIR(source_mode))
-                return mkdirat_label(dir_fd, dest, target_mode & 07777);
+                return mkdirat_label(dir_fd, dest, target_mode & 07777, /* label_context= */ NULL);
         else
                 return RET_NERRNO(mknodat(dir_fd, dest, S_IFREG|(target_mode & 07666), 0)); /* Mask off X bit */
 }
@@ -1992,10 +2020,19 @@ int fsmount_credentials_fs(int *ret_fsfd) {
         if (fsconfig(fs_fd, FSCONFIG_CMD_CREATE, NULL, NULL, 0) < 0)
                 return -errno;
 
-        int mfd = fsmount(fs_fd, FSMOUNT_CLOEXEC,
-                          ms_flags_to_mount_attr(credentials_fs_mount_flags(/* ro= */ false)));
+        unsigned mount_attrs = ms_flags_to_mount_attr(credentials_fs_mount_flags(/* ro = */ false));
+
+        int mfd = RET_NERRNO(fsmount(fs_fd, FSMOUNT_CLOEXEC, mount_attrs));
+        if (mfd == -EINVAL) {
+                /* MS_NOSYMFOLLOW was added in kernel 5.10, but the new mount API counterpart was missing
+                 * until 5.14 (c.f. https://github.com/torvalds/linux/commit/dd8b477f9a3d8edb136207acb3652e1a34a661b7).
+                 *
+                 * TODO: drop this once our baseline is raised to 5.14 */
+                assert(FLAGS_SET(mount_attrs, MOUNT_ATTR_NOSYMFOLLOW));
+                mfd = RET_NERRNO(fsmount(fs_fd, FSMOUNT_CLOEXEC, mount_attrs & ~MOUNT_ATTR_NOSYMFOLLOW));
+        }
         if (mfd < 0)
-                return -errno;
+                return mfd;
 
         if (ret_fsfd)
                 *ret_fsfd = TAKE_FD(fs_fd);
@@ -2062,7 +2099,7 @@ int make_fsmount(
 
                 r = extract_first_word(&p, &word, ",", EXTRACT_KEEP_QUOTE);
                 if (r < 0)
-                        return log_full_errno(error_log_level, r, "Failed to parse mount option string \"%s\": %m", o);
+                        return log_full_errno(error_log_level, r, "Failed to parse mount option string \"%s\": %m", strempty(o));
                 if (r == 0)
                         break;
 

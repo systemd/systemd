@@ -7,6 +7,7 @@
 #include "log.h"
 #include "nspawn-seccomp.h"
 #include "seccomp-util.h"
+#include "set.h"
 #include "strv.h"
 
 #if HAVE_SECCOMP
@@ -49,6 +50,7 @@ static int add_syscall_filters(
                 /* Plus a good set of additional syscalls which are not part of any of the groups above */
                 { 0,                  "arm_fadvise64_64"             },
                 { 0,                  "brk"                          },
+                { 0,                  "cachestat"                    },
                 { 0,                  "capget"                       },
                 { 0,                  "capset"                       },
                 { 0,                  "copy_file_range"              },
@@ -171,7 +173,13 @@ static int add_syscall_filters(
         return 0;
 }
 
-int setup_seccomp(uint64_t cap_list_retain, char **syscall_allow_list, char **syscall_deny_list) {
+int setup_seccomp(
+                uint64_t cap_list_retain,
+                char **syscall_allow_list,
+                char **syscall_deny_list,
+                Set *restrict_address_families,
+                bool restrict_address_families_is_allowlist) {
+
         uint32_t arch;
         int r;
 
@@ -240,12 +248,18 @@ int setup_seccomp(uint64_t cap_list_retain, char **syscall_allow_list, char **sy
                                         seccomp_arch_to_string(arch));
         }
 
+        if (restrict_address_families_is_allowlist || !set_isempty(restrict_address_families)) {
+                r = seccomp_restrict_address_families(restrict_address_families, restrict_address_families_is_allowlist);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to install address family filter: %m");
+        }
+
         return 0;
 }
 
 #else
 
-int setup_seccomp(uint64_t cap_list_retain, char **syscall_allow_list, char **syscall_deny_list) {
+int setup_seccomp(uint64_t cap_list_retain, char **syscall_allow_list, char **syscall_deny_list, Set *restrict_address_families, bool restrict_address_families_is_allowlist) {
         return 0;
 }
 

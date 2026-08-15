@@ -28,6 +28,7 @@
 #include "process-util.h"
 #include "socket-util.h"
 #include "special.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -107,18 +108,22 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                arg_mode = fsck_mode_from_string(value);
-                if (arg_mode < 0)
-                        log_warning_errno(arg_mode, "Invalid fsck.mode= parameter, ignoring: %s", value);
+                FSCKMode mode = fsck_mode_from_string(value);
+                if (mode < 0)
+                        log_warning_errno(mode, "Invalid fsck.mode= parameter, ignoring: %s", value);
+                else
+                        arg_mode = mode;
 
         } else if (streq(key, "fsck.repair")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                arg_repair = fsck_repair_from_string(value);
-                if (arg_repair < 0)
-                        log_warning_errno(arg_repair, "Invalid fsck.repair= parameter, ignoring: %s", value);
+                FSCKRepair repair = fsck_repair_from_string(value);
+                if (repair < 0)
+                        log_warning_errno(repair, "Invalid fsck.repair= parameter, ignoring: %s", value);
+                else
+                        arg_repair = repair;
         }
 
         else if (streq(key, "fastboot") && !value)
@@ -138,9 +143,11 @@ static void parse_credentials(void) {
         if (r < 0)
                 log_debug_errno(r, "Failed to read credential 'fsck.mode', ignoring: %m");
         else {
-                arg_mode = fsck_mode_from_string(value);
-                if (arg_mode < 0)
-                        log_warning_errno(arg_mode, "Invalid 'fsck.mode' credential, ignoring: %s", value);
+                FSCKMode mode = fsck_mode_from_string(value);
+                if (mode < 0)
+                        log_warning_errno(mode, "Invalid 'fsck.mode' credential, ignoring: %s", value);
+                else
+                        arg_mode = mode;
         }
 
         value = mfree(value);
@@ -149,9 +156,11 @@ static void parse_credentials(void) {
         if (r < 0)
                 log_debug_errno(r, "Failed to read credential 'fsck.repair', ignoring: %m");
         else {
-                arg_repair = fsck_repair_from_string(value);
-                if (arg_repair < 0)
-                        log_warning_errno(arg_repair, "Invalid 'fsck.repair' credential, ignoring: %s", value);
+                FSCKRepair repair = fsck_repair_from_string(value);
+                if (repair < 0)
+                        log_warning_errno(repair, "Invalid 'fsck.repair' credential, ignoring: %s", value);
+                else
+                        arg_repair = repair;
         }
 }
 
@@ -218,6 +227,7 @@ static int process_progress(int fd, FILE* console) {
 
                 /* Only update once every 50ms */
                 t = now(CLOCK_MONOTONIC);
+                assert_cc(50 * USEC_PER_MSEC <= USEC_INFINITY);
                 if (last + 50 * USEC_PER_MSEC > t)
                         continue;
 
@@ -298,10 +308,9 @@ static int run(int argc, char *argv[]) {
                 if (stat(device, &st) < 0)
                         return log_error_errno(errno, "Failed to stat %s: %m", device);
 
-                if (!S_ISBLK(st.st_mode))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "%s is not a block device.",
-                                               device);
+                r = stat_verify_block(&st);
+                if (r < 0)
+                        return log_error_errno(r, "'%s' is not a block device.", device);
 
                 r = sd_device_new_from_stat_rdev(&dev, &st);
                 if (r < 0)

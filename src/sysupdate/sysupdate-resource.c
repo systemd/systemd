@@ -23,6 +23,7 @@
 #include "hexdecoct.h"
 #include "import-util.h"
 #include "iovec-util.h"
+#include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
 #include "sort-util.h"
@@ -46,6 +47,18 @@ void resource_destroy(Resource *rr) {
         for (size_t i = 0; i < rr->n_instances; i++)
                 instance_free(rr->instances[i]);
         free(rr->instances);
+}
+
+bool resource_has_glob_directory_pattern(Resource *rr) {
+        assert(rr);
+
+        STRV_FOREACH(p, rr->patterns) {
+                const char *pat = *p;
+
+                if (pattern_skip_glob_directory_prefix(&pat))
+                        return true;
+        }
+        return false;
 }
 
 static int resource_add_instance(
@@ -126,7 +139,7 @@ static int resource_load_from_directory_recursive(
                         continue;
                 }
 
-                if (fstatat(dirfd(d), de->d_name, &st, AT_NO_AUTOMOUNT) < 0) {
+                if (fstatat(dirfd(d), de->d_name, &st, AT_NO_AUTOMOUNT|AT_SYMLINK_NOFOLLOW) < 0) {
                         if (errno == ENOENT) /* Gone by now? */
                                 continue;
 
@@ -139,9 +152,11 @@ static int resource_load_from_directory_recursive(
                 if ((stripped = startswith(de->d_name, ".sysupdate.partial."))) {
                         de_d_name_stripped = stripped;
                         is_partial = true;
+                        is_pending = false;
                 } else if ((stripped = startswith(de->d_name, ".sysupdate.pending."))) {
                         de_d_name_stripped = stripped;
                         is_pending = true;
+                        is_partial = false;
                 } else
                         de_d_name_stripped = de->d_name;
 
@@ -155,26 +170,45 @@ static int resource_load_from_directory_recursive(
                 if (!rel_joined_for_matching)
                         return log_oom();
 
-                r = pattern_match_many(rr->patterns, rel_joined_for_matching, &extracted_fields);
-                if (r == PATTERN_MATCH_RETRY) {
+                /* If any pattern has the glob directory prefix descend into subdirectories when looking for
+                 * regular files */
+                bool descend = S_ISDIR(st.st_mode) && S_ISREG(m) && resource_has_glob_directory_pattern(rr);
+
+                if (!descend) {
+                        r = pattern_match_many(rr->patterns, rel_joined_for_matching, &extracted_fields);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to match pattern: %m");
+                        if (r == PATTERN_MATCH_NO)
+                                continue;
+                        /* Here we descend when the match pattern itself uses subdirectories */
+                        if (r == PATTERN_MATCH_RETRY) {
+                                if (!S_ISDIR(st.st_mode)) /* The pattern continues with '/' but this is no directory */
+                                        continue;
+                                descend = true;
+                        } else if (r == PATTERN_MATCH_YES_AND_RETRY && S_ISDIR(st.st_mode) && m != S_IFDIR)
+                                /* The direct match is unusable since a directory can't be an instance here,
+                                 * but another pattern wants to descend, so do that instead */
+                                descend = true;
+                }
+
+                if (descend) {
                         _cleanup_closedir_ DIR *subdir = NULL;
 
-                        subdir = xopendirat(dirfd(d), rel_joined, 0);
-                        if (!subdir)
-                                continue;
+                        subdir = xopendirat(dirfd(d), de->d_name, O_NOFOLLOW);
+                        if (!subdir) {
+                                if (errno == ENOENT) /* Gone by now? */
+                                        continue;
+
+                                return log_error_errno(errno, "Failed to open directory %s/%s: %m", rr->path, rel_joined);
+                        }
 
                         r = resource_load_from_directory_recursive(rr, subdir, rel_joined, rel_joined_for_matching, m, is_partial, is_pending);
                         if (r < 0)
                                 return r;
-                        if (r == 0)
-                                continue;
-                }
-                else if (r < 0)
-                        return log_error_errno(r, "Failed to match pattern: %m");
-                else if (r == PATTERN_MATCH_NO)
                         continue;
+                }
 
-                if (de->d_type == DT_DIR && m != S_IFDIR)
+                if (S_ISDIR(st.st_mode) && m != S_IFDIR)
                         continue;
 
                 joined = path_join(rr->path, rel_joined);
@@ -191,6 +225,9 @@ static int resource_load_from_directory_recursive(
 
                 if (instance->metadata.mode == MODE_INVALID)
                         instance->metadata.mode = st.st_mode & 0775; /* mask out world-writability and suid and stuff, for safety */
+
+                /* Can’t be both partial and pending. */
+                assert(!(is_partial && is_pending));
 
                 instance->is_partial = is_partial;
                 instance->is_pending = is_pending;
@@ -229,18 +266,22 @@ static int resource_load_from_blockdev(Resource *rr) {
 
         assert(rr);
 
+        r = dlopen_fdisk(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
         r = fdisk_new_context_at(AT_FDCWD, rr->path, /* read_only= */ true, /* sector_size= */ UINT32_MAX, &c);
         if (r < 0)
                 return log_error_errno(r, "Failed to create fdisk context from '%s': %m", rr->path);
 
-        if (!fdisk_is_labeltype(c, FDISK_DISKLABEL_GPT))
+        if (!sym_fdisk_is_labeltype(c, FDISK_DISKLABEL_GPT))
                 return log_error_errno(SYNTHETIC_ERRNO(EHWPOISON), "Disk %s has no GPT disk label, not suitable.", rr->path);
 
-        r = fdisk_get_partitions(c, &t);
+        r = sym_fdisk_get_partitions(c, &t);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire partition table: %m");
 
-        n_partitions = fdisk_table_get_nents(t);
+        n_partitions = sym_fdisk_table_get_nents(t);
         for (size_t i = 0; i < n_partitions; i++)  {
                 _cleanup_(instance_metadata_destroy) InstanceMetadata extracted_fields = INSTANCE_METADATA_NULL;
                 _cleanup_(partition_info_destroy) PartitionInfo pinfo = PARTITION_INFO_NULL;
@@ -308,6 +349,9 @@ static int resource_load_from_blockdev(Resource *rr) {
 
                 if (instance->metadata.read_only < 0)
                         instance->metadata.read_only = instance->partition_info.read_only;
+
+                /* Can’t be both partial and pending. */
+                assert(!(is_partial && is_pending));
 
                 instance->is_partial = is_partial;
                 instance->is_pending = is_pending;
@@ -430,27 +474,13 @@ static int process_magic_file(
         /* Even if we ignore if people have non-empty files for this file, let's nonetheless warn about it,
          * so that people fix it. After all we want to retain liberty to maybe one day place some useful data
          * inside it */
-        if (iovec_memcmp(&IOVEC_MAKE(expected_hash, sizeof(expected_hash)), hash) != 0)
+        if (!iovec_equal(&IOVEC_MAKE(expected_hash, sizeof(expected_hash)), hash))
                 log_warning("Hash of best before marker file '%s' has unexpected value, proceeding anyway.", fn);
 
-        struct tm parsed_tm = {};
-        const char *n = strptime(e, "%Y-%m-%d", &parsed_tm);
-        if (!n || *n != 0) {
-                /* Doesn't parse? Then it's not a best-before date */
-                log_warning("Found best before marker with an invalid date, ignoring: %s", fn);
-                return 0;
-        }
-
-        struct tm copy_tm = parsed_tm;
         usec_t best_before;
-        r = mktime_or_timegm_usec(&copy_tm, /* utc= */ true, &best_before);
-        if (r < 0)
-                return log_error_errno(r, "Failed to convert best before time: %m");
-        if (copy_tm.tm_mday != parsed_tm.tm_mday ||
-            copy_tm.tm_mon != parsed_tm.tm_mon ||
-            copy_tm.tm_year != parsed_tm.tm_year) {
-                /* date was not normalized? (e.g. "30th of feb") */
-                log_warning("Found best before marker with a non-normalized data, ignoring: %s", fn);
+        r = parse_calendar_date(e, &best_before);
+        if (r < 0) {
+                log_warning_errno(r, "Found best before marker with an invalid date, ignoring: %s", fn);
                 return 0;
         }
 
@@ -491,6 +521,7 @@ static int resource_load_from_web(
         int r;
 
         assert(rr);
+        POINTER_MAY_BE_NULL(web_cache);
 
         ci = web_cache ? web_cache_get_item(*web_cache, rr->path, verify) : NULL;
         if (ci) {
@@ -533,6 +564,11 @@ static int resource_load_from_web(
                 r = unhexmem_full(p, 64, /* secure= */ false, &h.iov_base, &h.iov_len);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse digest at manifest line %zu, refusing.", line_nr);
+                if (h.iov_len != sizeof_field(InstanceMetadata, sha256sum))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Manifest hash at line %zu decoded to %zu bytes, refusing.",
+                                               line_nr,
+                                               h.iov_len);
 
                 p += 64, left -= 64;
 
@@ -554,21 +590,30 @@ static int resource_load_from_web(
                 if (!fn)
                         return log_oom();
 
-                if (!filename_is_valid(fn))
+                /* Accept either a plain filename or a relative subpath like "subdir/file" but reject
+                 * absolute paths and any paths containing "." or ".." Reject "%" too as it is added to
+                 * the URL verbatim and curl would percent-decode it, which could lead to ".." after the
+                 * normalization check. */
+                if (path_is_absolute(fn) || !path_is_normalized(fn) || strchr(fn, '%'))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid filename specified at manifest line %zu, refusing.", line_nr);
                 if (string_has_cc(fn, NULL))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Filename contains control characters at manifest line %zu, refusing.", line_nr);
+
+                /* Magic files can't be in subdirectories */
+                if (strchr(fn, '/') && startswith(last_path_component(fn), "BEST-BEFORE-"))
+                        log_warning("Ignoring best-before marker '%s' in subdirectory at manifest line %zu.", fn, line_nr);
 
                 r = process_magic_file(fn, &h);
                 if (r < 0)
                         return r;
                 if (r == 0) {
-                        /* If this isn't a magic file, then do the pattern matching */
-
+                        /* Pattern matching against the full manifest entry. A pattern with the glob
+                         * directory prefix matches against the basename only which pattern_match_many
+                         * handles. */
                         r = pattern_match_many(rr->patterns, fn, &extracted_fields);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to match pattern: %m");
-                        if (r == PATTERN_MATCH_YES) {
+                        if (IN_SET(r, PATTERN_MATCH_YES, PATTERN_MATCH_YES_AND_RETRY)) {
                                 _cleanup_free_ char *path = NULL;
 
                                 r = import_url_append_component(rr->path, fn, &path);
@@ -667,6 +712,32 @@ int resource_load_instances(Resource *rr, bool verify, Hashmap **web_cache) {
                 return r;
 
         typesafe_qsort(rr->instances, rr->n_instances, instance_cmp);
+
+        /* There are various cases where the same version can be provided by different files either due to
+         * multiple match patterns defined in a naming scheme transition or due to a subdirectory containing
+         * the same file again when the glob directory prefix is used, or due to a wildcard like @s or @t
+         * being used and the files offer different values there while reporting the same version. Since
+         * this could lead to unexpected behavior we report this here to the user. */
+        for (size_t i = 1; i < rr->n_instances; i++) {
+                Instance *a = rr->instances[i - 1], *b = rr->instances[i];
+
+                if (strverscmp_improved(a->metadata.version, b->metadata.version) != 0 || streq(a->path, b->path))
+                        continue;
+
+                _cleanup_free_ char *suffix = NULL;
+
+                if (!streq(a->metadata.version, b->metadata.version)) {
+                        suffix = strjoin("/'", b->metadata.version, "'");
+                        if (!suffix)
+                                return log_oom();
+                }
+
+                log_info("Multiple instances of version '%s'%s found at '%s' and '%s'.",
+                         a->metadata.version,
+                         strempty(suffix),
+                         a->path, b->path);
+        }
+
         return 0;
 }
 
@@ -852,9 +923,9 @@ int resource_resolve_path(
                 } else { /* boot, esp, or xbootldr */
                         r = 0;
                         if (IN_SET(rr->path_relative_to, PATH_RELATIVE_TO_BOOT, PATH_RELATIVE_TO_XBOOTLDR))
-                                r = find_xbootldr_and_warn(root, NULL, /* unprivileged_mode= */ -1, &relative_to, NULL, NULL);
+                                r = find_xbootldr_and_warn(root, /* path= */ NULL, /* unprivileged_mode= */ -1, &relative_to, /* ret_fd= */ NULL);
                         if (r == -ENOKEY || rr->path_relative_to == PATH_RELATIVE_TO_ESP)
-                                r = find_esp_and_warn(root, NULL, -1, &relative_to, NULL, NULL, NULL, NULL, NULL);
+                                r = find_esp_and_warn(root, /* path= */ NULL, /* unprivileged_mode= */ -1, &relative_to, /* ret_fd= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to resolve $BOOT: %m");
                         log_debug("Resolved $BOOT to '%s'", relative_to);

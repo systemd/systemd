@@ -172,14 +172,16 @@ static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *paramete
                      * we are done'; == 0 means 'not processed, caller should process now' */
                 return r;
 
-        r = varlink_set_sentinel(link, "io.systemd.UserDatabase.NoRecordFound");
+        r = sd_varlink_set_sentinel(link, "io.systemd.UserDatabase.NoRecordFound");
         if (r < 0)
                 return r;
 
-        if (uid_is_valid(p.uid))
-                r = userdb_by_uid(p.uid, &p.match, userdb_flags, &hr);
-        else if (p.name)
+        /* Prefer lookup by name if both name and UID are specified, so NSS-backed records preserve
+         * the requested lookup name as an alias before we check the UID below. */
+        if (p.name)
                 r = userdb_by_name(p.name, &p.match, userdb_flags, &hr);
+        else if (uid_is_valid(p.uid))
+                r = userdb_by_uid(p.uid, &p.match, userdb_flags, &hr);
         else {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
 
@@ -270,7 +272,7 @@ static int build_group_json(sd_varlink *link, GroupRecord *gr, sd_json_variant *
                 (FLAGS_SET(gr->mask, USER_RECORD_PRIVILEGED) &&
                  !FLAGS_SET(stripped->mask, USER_RECORD_PRIVILEGED));
 
-        v = sd_json_variant_ref(gr->json);
+        v = sd_json_variant_ref(stripped->json);
         r = add_nss_service(&v);
         if (r < 0)
                 return r;
@@ -313,14 +315,16 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
         if (r != 0)
                 return r;
 
-        r = varlink_set_sentinel(link, "io.systemd.UserDatabase.NoRecordFound");
+        r = sd_varlink_set_sentinel(link, "io.systemd.UserDatabase.NoRecordFound");
         if (r < 0)
                 return r;
 
-        if (gid_is_valid(p.gid))
-                r = groupdb_by_gid(p.gid, &p.match, userdb_flags, &g);
-        else if (p.name)
+        /* Prefer lookup by name if both name and GID are specified, so NSS-backed records preserve
+         * the requested lookup name as an alias before we check the GID below. */
+        if (p.name)
                 r = groupdb_by_name(p.name, &p.match, userdb_flags, &g);
+        else if (gid_is_valid(p.gid))
+                r = groupdb_by_gid(p.gid, &p.match, userdb_flags, &g);
         else {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
 
@@ -360,7 +364,7 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
                 return sd_varlink_error(link, "io.systemd.UserDatabase.ServiceNotAvailable", NULL);
         }
 
-        if ((uid_is_valid(p.gid) && g->gid != p.gid) ||
+        if ((gid_is_valid(p.gid) && g->gid != p.gid) ||
             (p.name && !group_record_matches_group_name(g, p.name)))
                 return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
 
@@ -401,7 +405,7 @@ static int vl_method_get_memberships(sd_varlink *link, sd_json_variant *paramete
         if (r != 0)
                 return r;
 
-        r = varlink_set_sentinel(link, "io.systemd.UserDatabase.NoRecordFound");
+        r = sd_varlink_set_sentinel(link, "io.systemd.UserDatabase.NoRecordFound");
         if (r < 0)
                 return r;
 

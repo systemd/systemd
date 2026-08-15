@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+[Unit]
+Description=Copy initrd contents to /run/initramfs to serve as exitrd
+DefaultDependencies=no
+AssertPathExists=/etc/initrd-release
+After=initrd.target
+Before=initrd-cleanup.service initrd-switch-root.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=mkdir -p /run/initramfs
+ExecStart=cp -a --one-file-system /. /run/initramfs/

@@ -17,7 +17,6 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "time-util.h"
 
 bool is_path(const char *p) {
         if (!p) /* A NULL pointer is definitely not a path */
@@ -588,6 +587,8 @@ char* path_extend_internal(char **x, ...) {
         va_list ap;
         bool slash;
 
+        POINTER_MAY_BE_NULL(x);
+
         /* Joins all listed strings until the sentinel and places a "/" between them unless the strings
          * end/begin already with one so that it is unnecessary. Note that slashes which are already
          * duplicate won't be removed. The string returned is hence always equal to or longer than the sum of
@@ -785,42 +786,6 @@ int find_executable_full(
         return last_error;
 }
 
-bool paths_check_timestamp(const char* const* paths, usec_t *timestamp, bool update) {
-        bool changed = false, originally_unset;
-
-        assert(timestamp);
-
-        if (!paths)
-                return false;
-
-        originally_unset = *timestamp == 0;
-
-        STRV_FOREACH(i, paths) {
-                struct stat stats;
-                usec_t u;
-
-                if (stat(*i, &stats) < 0)
-                        continue;
-
-                u = timespec_load(&stats.st_mtim);
-
-                /* check first */
-                if (*timestamp >= u)
-                        continue;
-
-                log_debug(originally_unset ? "Loaded timestamp for '%s'." : "Timestamp of '%s' changed.", *i);
-
-                /* update timestamp */
-                if (update) {
-                        *timestamp = u;
-                        changed = true;
-                } else
-                        return true;
-        }
-
-        return changed;
-}
-
 static int executable_is_good(const char *executable) {
         _cleanup_free_ char *p = NULL, *d = NULL;
         int r;
@@ -839,7 +804,7 @@ static int executable_is_good(const char *executable) {
         if (r < 0)
                 return r;
 
-        return !PATH_IN_SET(d, "true"
+        return !PATH_IN_SET(d, "true",
                                "/bin/true",
                                "/usr/bin/true",
                                "/dev/null");
@@ -867,6 +832,8 @@ int fsck_exists_for_fstype(const char *fstype) {
 }
 
 static const char* skip_slash_or_dot(const char *p) {
+        POINTER_MAY_BE_NULL(p);
+
         for (; !isempty(p); p++) {
                 if (*p == '/')
                         continue;
@@ -969,6 +936,9 @@ static const char* skip_slash_or_dot_backward(const char *path, const char *q) {
 int path_find_last_component(const char *path, bool accept_dot_dot, const char **next, const char **ret) {
         const char *q, *last_end, *last_begin;
         size_t len;
+
+        POINTER_MAY_BE_NULL(next);
+        POINTER_MAY_BE_NULL(ret);
 
         /* Similar to path_find_first_component(), but search components from the end.
         *
@@ -1105,6 +1075,8 @@ int path_split_prefix_filename(const char *path, char **ret_dir, char **ret_file
         _cleanup_free_ char *d = NULL;
         const char *c, *next = NULL;
         int r;
+
+        POINTER_MAY_BE_NULL(path);
 
         /* Split the path into dir prefix/filename pair. Returns:
          *

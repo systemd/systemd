@@ -150,6 +150,9 @@ acpi:FTSC*:
 acpi:FUJI*:
  ID_VENDOR_FROM_DATABASE=Fujitsu Limited
 
+acpi:GHIP*:
+ ID_VENDOR_FROM_DATABASE=Green Hippo
+
 acpi:GHSW*:
  ID_VENDOR_FROM_DATABASE=Green Hills Software
 
@@ -252,6 +255,9 @@ acpi:KIOX*:
 acpi:KOMF*:
  ID_VENDOR_FROM_DATABASE=Kontron France
 
+acpi:LECA*:
+ ID_VENDOR_FROM_DATABASE=Theo End (Shenzhen) Computing Technology Co., Ltd.
+
 acpi:LNRO*:
  ID_VENDOR_FROM_DATABASE=Linaro, Ltd.
 
@@ -270,11 +276,17 @@ acpi:MCHP*:
 acpi:MCRY*:
  ID_VENDOR_FROM_DATABASE=Micro Crystal AG
 
+acpi:MEIK*:
+ ID_VENDOR_FROM_DATABASE=Meiko Electronics Co.,Ltd.
+
 acpi:MIPI*:
  ID_VENDOR_FROM_DATABASE=MIPI Alliance
 
 acpi:MITH*:
  ID_VENDOR_FROM_DATABASE=Mesiontech
+
+acpi:MPTR*:
+ ID_VENDOR_FROM_DATABASE=Megapolis-Telecom Region LLC
 
 acpi:MRVL*:
  ID_VENDOR_FROM_DATABASE=Marvell Technology Group Ltd.
@@ -305,6 +317,9 @@ acpi:NVTN*:
 
 acpi:NXGO*:
  ID_VENDOR_FROM_DATABASE=Nexstgo Company Limited
+
+acpi:NXHP*:
+ ID_VENDOR_FROM_DATABASE=Nexthop Systems Inc.
 
 acpi:OBDA*:
  ID_VENDOR_FROM_DATABASE=REALTEK Semiconductor Corp.
@@ -375,6 +390,9 @@ acpi:SHRP*:
 acpi:SILC*:
  ID_VENDOR_FROM_DATABASE=Silicom Ltd. Connectivity Solutions
 
+acpi:SIPL*:
+ ID_VENDOR_FROM_DATABASE=SIPEARL
+
 acpi:SNSL*:
  ID_VENDOR_FROM_DATABASE=Sensel, Inc.
 
@@ -410,6 +428,9 @@ acpi:TOSB*:
 
 acpi:TXNW*:
  ID_VENDOR_FROM_DATABASE=Texas Instruments
+
+acpi:TYHX*:
+ ID_VENDOR_FROM_DATABASE=Nanjing Tianyihexin Electronics Ltd
 
 acpi:UBLX*:
  ID_VENDOR_FROM_DATABASE=u-blox AG

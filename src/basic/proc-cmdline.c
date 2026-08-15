@@ -5,7 +5,6 @@
 #include "alloc-util.h"
 #include "extract-word.h"
 #include "fileio.h"
-#include "getopt-defs.h"
 #include "initrd-util.h"
 #include "log.h"
 #include "parse-util.h"
@@ -15,18 +14,50 @@
 #include "strv.h"
 #include "virt.h"
 
+typedef enum ArgType {
+        no_argument,
+        required_argument,
+        optional_argument,
+} ArgType;
+
 int proc_cmdline_filter_pid1_args(char **argv, char ***ret) {
-        enum {
-                COMMON_GETOPT_ARGS,
-                SYSTEMD_GETOPT_ARGS,
-                SHUTDOWN_GETOPT_ARGS,
+        const struct {
+                const char *name;
+                ArgType has_arg;
+        } options[] = {
+                { "log-level",                required_argument },
+                { "log-target",               required_argument },
+                { "log-color",                optional_argument },
+                { "log-location",             optional_argument },
+                { "log-time",                 optional_argument },
+                { "unit",                     required_argument },
+                { "system",                   no_argument,      },
+                { "user",                     no_argument,      },
+                { "test",                     no_argument,      },
+                { "no-pager",                 no_argument,      },
+                { "help",                     no_argument,      },
+                { "version",                  no_argument,      },
+                { "dump-configuration-items", no_argument,      },
+                { "dump-bus-properties",      no_argument,      },
+                { "bus-introspect",           required_argument },
+                { "dump-core",                optional_argument },
+                { "crash-chvt",               required_argument },
+                { "crash-vt",                 required_argument },
+                { "crash-shell",              optional_argument },
+                { "crash-reboot",             optional_argument },
+                { "crash-action",             required_argument },
+                { "confirm-spawn",            optional_argument },
+                { "show-status",              optional_argument },
+                { "deserialize",              required_argument },
+                { "switched-root",            no_argument,      },
+                { "default-standard-output",  required_argument },
+                { "default-standard-error",   required_argument },
+                { "machine-id",               required_argument },
+                { "service-watchdogs",        required_argument },
+                { "exit-code",                required_argument },
+                { "timeout",                  required_argument },
         };
-        static const struct option options[] = {
-                COMMON_GETOPT_OPTIONS,
-                SYSTEMD_GETOPT_OPTIONS,
-                SHUTDOWN_GETOPT_OPTIONS,
-        };
-        static const char *short_options = SYSTEMD_GETOPT_SHORT_OPTIONS;
+        const char *short_options = "hDbsz:";
 
         _cleanup_strv_free_ char **filtered = NULL;
         int state, r;
@@ -108,12 +139,10 @@ int proc_cmdline_filter_pid1_args(char **argv, char ***ret) {
 }
 
 int proc_cmdline(char **ret) {
-        const char *e;
-
         assert(ret);
 
         /* For testing purposes it is sometimes useful to be able to override what we consider /proc/cmdline to be */
-        e = secure_getenv("SYSTEMD_PROC_CMDLINE");
+        const char *e = secure_getenv("SYSTEMD_PROC_CMDLINE");
         if (e)
                 return strdup_to(ret, e);
 
@@ -124,13 +153,12 @@ int proc_cmdline(char **ret) {
 }
 
 static int proc_cmdline_strv_internal(char ***ret, bool filter_pid1_args) {
-        const char *e;
         int r;
 
         assert(ret);
 
         /* For testing purposes it is sometimes useful to be able to override what we consider /proc/cmdline to be */
-        e = secure_getenv("SYSTEMD_PROC_CMDLINE");
+        const char *e = secure_getenv("SYSTEMD_PROC_CMDLINE");
         if (e)
                 return strv_split_full(ret, e, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX|EXTRACT_RETAIN_ESCAPE);
 

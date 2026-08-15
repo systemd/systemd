@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <net/if_arp.h>
 
 #include "alloc-util.h"
 #include "extract-word.h"
@@ -25,6 +26,8 @@
   rd.route=<net>/<netmask>:<gateway>[:<interface>]
   nameserver=<IP> [nameserver=<IP> ...]
   rd.peerdns=0
+  BOOTIF=<MAC>
+  rd.bootif=0 # Causes BOOTIF= to be ignored.
 
   # .link
   ifname=<interface>:<MAC>
@@ -38,8 +41,6 @@
 
   # ignored
   bootdev=<interface>
-  BOOTIF=<MAC>
-  rd.bootif=0
   biosdevname=0
   rd.neednet=1
 */
@@ -119,6 +120,7 @@ static int address_new(
         assert(network);
         assert(IN_SET(family, AF_INET, AF_INET6));
         assert(addr);
+        POINTER_MAY_BE_NULL(peer);
 
         address = new(Address, 1);
         if (!address)
@@ -510,6 +512,40 @@ static int network_set_mac_address(Context *context, const char *ifname, const c
         r = parse_ether_addr(mac, &network->mac);
         if (r < 0)
                 return log_debug_errno(r, "Invalid MAC address '%s' for '%s'", mac, ifname);
+
+        return 0;
+}
+
+static int network_set_bootif_mac_address(Context *context, const char *mac) {
+        int r;
+
+        assert(context);
+
+        if (isempty(mac))
+                return 0;
+
+        /* "BOOTIF" is a special placeholder interface name, used to configure the
+         * interface referred to by BOOTIF=. I.e., ip=...:BOOTIF:... is valid if and
+         * only if BOOTIF= is also set. */
+        Network *network;
+        r = network_acquire(context, "BOOTIF", &network);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to acquire network for BOOTIF: %m");
+
+        r = parse_hw_addr(mac, &network->match_mac);
+        if (r < 0) {
+                /* PXE bootloaders may provide the MAC with a "hardware type prefix", e.g.
+                 * 01-12:34:56:78:90:ab, where 01 indicates ethernet. Technically, other
+                 * hardware types are possible, but only ethernet is handled here. */
+                const char *p = startswith(mac, "01-");
+                if (p)
+                        r = parse_hw_addr(p, &network->match_mac);
+        }
+        if (r < 0)
+                return log_debug_errno(r, "Invalid MAC address '%s' for BOOTIF", mac);
+
+        if (!hw_addr_is_valid(&network->match_mac, ARPHRD_ETHER))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid MAC address '%s' for BOOTIF", mac);
 
         return 0;
 }
@@ -1250,6 +1286,38 @@ static int parse_cmdline_ifname_policy(Context *context, const char *key, const 
         return 0;
 }
 
+static int parse_cmdline_rd_bootif(Context *context, const char *key, const char *value) {
+        int r;
+
+        assert(context);
+        assert(key);
+
+        /* rd.bootif=<bool> */
+
+        if (proc_cmdline_value_missing(key, value))
+                return 0;
+
+        r = value ? parse_boolean(value) : true;
+        if (r < 0)
+                return log_debug_errno(r, "Invalid boolean value '%s'", value);
+
+        /* rd.bootif=0 => skip BOOTIF= parsing */
+        context->skip_bootif = !r;
+        return 0;
+}
+
+static int parse_cmdline_bootif_mac(Context *context, const char *key, const char *value) {
+        assert(context);
+        assert(key);
+
+        /* BOOTIF=<MAC> */
+
+        if (proc_cmdline_value_missing(key, value))
+                return 0;
+
+        return network_set_bootif_mac_address(context, value);
+}
+
 int parse_cmdline_item(const char *key, const char *value, void *data) {
         Context *context = ASSERT_PTR(data);
 
@@ -1273,8 +1341,32 @@ int parse_cmdline_item(const char *key, const char *value, void *data) {
                 return parse_cmdline_ifname(context, key, value);
         if (proc_cmdline_key_streq(key, "net.ifname_policy"))
                 return parse_cmdline_ifname_policy(context, key, value);
+        if (proc_cmdline_key_streq(key, "rd.bootif"))
+                return parse_cmdline_rd_bootif(context, key, value);
+        if (proc_cmdline_key_streq(key, "BOOTIF"))
+                return parse_cmdline_bootif_mac(context, key, value);
 
         return 0;
+}
+
+void context_finalize_bootif(Context *context) {
+        assert(context);
+
+        Network *network = hashmap_get(context->networks_by_name, "BOOTIF");
+        if (!network)
+                return;
+
+        /* rd.bootif=0 disables BOOTIF= handling */
+        if (context->skip_bootif) {
+                network_free(hashmap_remove_value(context->networks_by_name, "BOOTIF", network));
+                return;
+        }
+
+        if (hw_addr_is_null(&network->match_mac)) {
+                log_debug("Expected MAC address for BOOTIF, but BOOTIF= is unset.");
+                network_free(hashmap_remove_value(context->networks_by_name, "BOOTIF", network));
+                return;
+        }
 }
 
 int context_merge_networks(Context *context) {
@@ -1368,6 +1460,8 @@ void network_dump(Network *network, FILE *f) {
                  * physical interfaces. */
                 fputs("Kind=!*\n"
                       "Type=!loopback\n", f);
+        else if (streq(network->ifname, "BOOTIF"))
+                fprintf(f, "MACAddress=%s\n", HW_ADDR_TO_STR(&network->match_mac));
         else
                 fprintf(f, "Name=%s\n", network->ifname);
 
@@ -1439,12 +1533,11 @@ void netdev_dump(NetDev *netdev, FILE *f) {
         if (netdev->mtu > 0)
                 fprintf(f, "MTUBytes=%" PRIu32 "\n", netdev->mtu);
 
-        if (streq(netdev->kind, "vlan")) {
+        if (streq(netdev->kind, "vlan"))
                 fprintf(f,
                         "\n[VLAN]\n"
                         "Id=%u\n",
                         netdev->vlan_id);
-        }
 }
 
 void link_dump(Link *link, FILE *f) {

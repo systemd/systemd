@@ -1,23 +1,33 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <net/if.h>
+
+#include "sd-json.h"
 #include "sd-varlink.h"
 
+#include "af-list.h"
+#include "alloc-util.h"
 #include "argv-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "hashmap.h"
+#include "in-addr-util.h"
 #include "metrics.h"
 #include "network-util.h"
+#include "networkd-address.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
+#include "networkd-route-util.h"
 #include "networkd-varlink-metrics.h"
+#include "set.h"
 
 #define METRIC_IO_SYSTEMD_NETWORK_PREFIX "io.systemd.Network."
 
 typedef const char* (*link_metric_extractor_t)(const Link *link);
 
 static int link_metric_build_json(
-                MetricFamilyContext *context,
+                const MetricFamily *mf,
+                sd_varlink *vl,
                 link_metric_extractor_t extractor,
                 void *userdata) {
 
@@ -25,11 +35,12 @@ static int link_metric_build_json(
         Link *link;
         int r;
 
-        assert(context);
+        assert(mf && mf->name);
+        assert(vl);
         assert(extractor);
 
         HASHMAP_FOREACH(link, manager->links_by_index) {
-                r = metric_build_send_string(context, link->ifname, extractor(link), /* fields= */ NULL);
+                r = metric_build_send_string(mf, vl, link->ifname, extractor(link), /* fields= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -61,46 +72,152 @@ static const char* link_get_oper_state(const Link *l) {
         return link_operstate_to_string(ASSERT_PTR(l)->operstate);
 }
 
-static int link_address_state_build_json(MetricFamilyContext *ctx, void *userdata) {
-        return link_metric_build_json(ctx, link_get_address_state, userdata);
+static int link_addresses_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        Link *link;
+        int r;
+
+        assert(mf && mf->name);
+        assert(vl);
+
+        HASHMAP_FOREACH(link, manager->links_by_index) {
+                Address *a;
+
+                SET_FOREACH(a, link->addresses) {
+                        if (!address_is_ready(a))
+                                continue;
+
+                        /* Remove localhost address (127.0.0.1 and ::1) */
+                        if (link->flags & IFF_LOOPBACK && in_addr_is_localhost_one(a->family, &a->in_addr) > 0)
+                                continue;
+
+                        _cleanup_free_ char *scope = NULL;
+                        r = route_scope_to_string_alloc(a->scope, &scope);
+                        if (r < 0)
+                                return r;
+
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *fields = NULL;
+                        r = sd_json_buildo(
+                                        &fields,
+                                        SD_JSON_BUILD_PAIR_STRING("family", af_to_ipv4_ipv6(a->family)),
+                                        SD_JSON_BUILD_PAIR_STRING("scope", scope));
+                        if (r < 0)
+                                return r;
+
+                        r = metric_build_send_string(
+                                        mf,
+                                        vl,
+                                        link->ifname,
+                                        IN_ADDR_PREFIX_TO_STRING(a->family, &a->in_addr, a->prefixlen),
+                                        fields);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 0;
 }
 
-static int link_admin_state_build_json(MetricFamilyContext *ctx, void *userdata) {
-        return link_metric_build_json(ctx, link_get_admin_state, userdata);
+static int link_address_state_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
+        return link_metric_build_json(mf, vl, link_get_address_state, userdata);
 }
 
-static int link_carrier_state_build_json(MetricFamilyContext *ctx, void *userdata) {
-        return link_metric_build_json(ctx, link_get_carrier_state, userdata);
+static int link_admin_state_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
+        return link_metric_build_json(mf, vl, link_get_admin_state, userdata);
 }
 
-static int link_ipv4_address_state_build_json(MetricFamilyContext *ctx, void *userdata) {
-        return link_metric_build_json(ctx, link_get_ipv4_address_state, userdata);
+static int link_carrier_state_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
+        return link_metric_build_json(mf, vl, link_get_carrier_state, userdata);
 }
 
-static int link_ipv6_address_state_build_json(MetricFamilyContext *ctx, void *userdata) {
-        return link_metric_build_json(ctx, link_get_ipv6_address_state, userdata);
+static int link_ipv4_address_state_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
+        return link_metric_build_json(mf, vl, link_get_ipv4_address_state, userdata);
 }
 
-static int link_oper_state_build_json(MetricFamilyContext *ctx, void *userdata) {
-        return link_metric_build_json(ctx, link_get_oper_state, userdata);
+static int link_ipv6_address_state_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
+        return link_metric_build_json(mf, vl, link_get_ipv6_address_state, userdata);
 }
 
-static int managed_interfaces_build_json(MetricFamilyContext *context, void *userdata) {
+static int link_oper_state_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
+        return link_metric_build_json(mf, vl, link_get_oper_state, userdata);
+}
+
+static int managed_interfaces_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
         Link *link;
         uint64_t count = 0;
 
-        assert(context);
+        assert(mf && mf->name);
+        assert(vl);
 
         HASHMAP_FOREACH(link, manager->links_by_index)
                 if (link->network)
                         count++;
 
-        return metric_build_send_unsigned(context, /* object= */ NULL, count, /* fields= */ NULL);
+        return metric_build_send_unsigned(mf, vl, /* object= */ NULL, count, /* fields= */ NULL);
+}
+
+static int required_for_online_build_json(const MetricFamily *mf, sd_varlink *vl, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        Link *link;
+        int r;
+
+        assert(mf && mf->name);
+        assert(vl);
+
+        HASHMAP_FOREACH(link, manager->links_by_index) {
+                if (!link->network)
+                        continue;
+
+                if (link->network->required_for_online == 0) {
+                        r = metric_build_send_string(
+                                        mf,
+                                        vl,
+                                        link->ifname,
+                                        "no",
+                                        /* fields= */ NULL);
+                } else {
+                        LinkOperationalStateRange range;
+                        link_required_operstate_for_online(link, &range);
+
+                        const char *min_str = link_operstate_to_string(range.min);
+                        const char *max_str = link_operstate_to_string(range.max);
+
+                        if (range.min == range.max)
+                                r = metric_build_send_string(
+                                                mf,
+                                                vl,
+                                                link->ifname,
+                                                min_str,
+                                                /* fields= */ NULL);
+                        else {
+                                _cleanup_free_ char *value = NULL;
+                                if (asprintf(&value, "%s:%s", min_str, max_str) < 0)
+                                        return -ENOMEM;
+
+                                r = metric_build_send_string(
+                                                mf,
+                                                vl,
+                                                link->ifname,
+                                                value,
+                                                /* fields= */ NULL);
+                        }
+                }
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 /* Keep metrics ordered alphabetically */
 static const MetricFamily network_metric_family_table[] = {
+        {
+                .name = METRIC_IO_SYSTEMD_NETWORK_PREFIX "Address",
+                .description = "Per interface metric: configured IP address in CIDR notation",
+                .type = METRIC_FAMILY_TYPE_STRING,
+                .generate = link_addresses_build_json,
+        },
         {
                 .name = METRIC_IO_SYSTEMD_NETWORK_PREFIX "AddressState",
                 .description = "Per interface metric: address state",
@@ -142,6 +259,12 @@ static const MetricFamily network_metric_family_table[] = {
                 .description = "Per interface metric: operational state",
                 .type = METRIC_FAMILY_TYPE_STRING,
                 .generate = link_oper_state_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_NETWORK_PREFIX "RequiredForOnline",
+                .description = "Per interface metric: required operational state for online, or 'no' if not required",
+                .type = METRIC_FAMILY_TYPE_STRING,
+                .generate = required_for_online_build_json,
         },
         {}
 };

@@ -7,6 +7,7 @@
 #include "blockdev-util.h"
 #include "chase.h"
 #include "devnum-util.h"
+#include "dlopen-note.h"
 #include "escape.h"
 #include "log.h"
 #include "main-func.h"
@@ -121,6 +122,8 @@ static int run(int argc, char *argv[]) {
         const char *path;
         dev_t devt;
         int r;
+
+        LIBMOUNT_NOTE(recommended);
 
         log_setup();
 

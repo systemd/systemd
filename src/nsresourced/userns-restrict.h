@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
+#include "forward.h"
 
 struct userns_restrict_bpf;
 
@@ -12,5 +12,8 @@ int userns_restrict_put_by_fd(struct userns_restrict_bpf *obj, int userns_fd, bo
 int userns_restrict_put_by_inode(struct userns_restrict_bpf *obj, uint64_t userns_inode, bool replace, const int mount_fds[], size_t n_mount_fds);
 
 int userns_restrict_reset_by_inode(struct userns_restrict_bpf *obj, uint64_t userns_inode);
+
+int userns_restrict_setgroups_deny_by_fd(struct userns_restrict_bpf *obj, int userns_fd);
+int userns_restrict_setgroups_deny_by_inode(struct userns_restrict_bpf *obj, uint64_t userns_inode);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct userns_restrict_bpf*, userns_restrict_bpf_free);

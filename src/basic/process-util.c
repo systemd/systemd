@@ -21,6 +21,7 @@
 #include "alloc-util.h"
 #include "architecture.h"
 #include "argv-util.h"
+#include "bitfield.h"
 #include "capability-util.h"
 #include "cgroup-util.h"
 #include "dirent-util.h"
@@ -104,8 +105,9 @@ int pid_get_comm(pid_t pid, char **ret) {
                 if (!comm)
                         return -ENOMEM;
 
-                if (prctl(PR_GET_NAME, comm) < 0)
-                        return -errno;
+                r = prctl_safe(PR_GET_NAME, (unsigned long) comm, 0, 0, 0);
+                if (r < 0)
+                        return r;
         } else {
                 const char *p;
 
@@ -674,6 +676,7 @@ int pidref_get_ppid_as_pidref(const PidRef *pidref, PidRef *ret) {
         pid_t ppid;
         int r;
 
+        POINTER_MAY_BE_NULL(pidref);
         assert(ret);
 
         r = pidref_get_ppid(pidref, &ppid);
@@ -800,6 +803,53 @@ int get_process_umask(pid_t pid, mode_t *ret) {
                 return r;
 
         return parse_mode(m, ret);
+}
+
+static int pid_get_sigmask(pid_t pid, const char *field_name, uint64_t *ret) {
+        _cleanup_free_ char *field = NULL;
+        int r;
+
+        assert(pid >= 0);
+        assert(field_name);
+        assert(ret);
+
+        r = procfs_file_get_field(pid, "status", field_name, &field);
+        if (r == -ENOENT)
+                return -ESRCH;
+        if (r < 0)
+                return r;
+
+        return safe_atou64_full(field, 16, ret);
+}
+
+static int pidref_has_sigmask(const PidRef *pidref, int sig, const char *field_name) {
+        uint64_t mask;
+        int r;
+
+        if (!pidref_is_set(pidref))
+                return -ESRCH;
+        if (pidref_is_remote(pidref))
+                return -EREMOTE;
+        if (!SIGNAL_VALID(sig))
+                return -EINVAL;
+
+        r = pid_get_sigmask(pidref->pid, field_name, &mask);
+        if (r < 0)
+                return r;
+
+        r = pidref_verify(pidref);
+        if (r < 0)
+                return r;
+
+        return BIT_SET(mask, sig - 1);
+}
+
+int pidref_has_sigcgt(const PidRef *pidref, int sig) {
+        return pidref_has_sigmask(pidref, sig, "SigCgt");
+}
+
+int pidref_has_sigblk(const PidRef *pidref, int sig) {
+        return pidref_has_sigmask(pidref, sig, "SigBlk");
 }
 
 /*
@@ -1151,6 +1201,8 @@ int safe_personality(unsigned long p) {
 int opinionated_personality(unsigned long *ret) {
         int current;
 
+        assert(ret);
+
         /* Returns the current personality, or PERSONALITY_INVALID if we can't determine it. This function is a bit
          * opinionated though, and ignores all the finer-grained bits and exotic personalities, only distinguishing the
          * two most relevant personalities: PER_LINUX and PER_LINUX32. */
@@ -1191,6 +1243,9 @@ void valgrind_summary_hack(void) {
 
 int pid_compare_func(const pid_t *a, const pid_t *b) {
         /* Suitable for usage in qsort() */
+        assert(a);
+        assert(b);
+
         return CMP(*a, *b);
 }
 
@@ -1566,11 +1621,13 @@ int pidref_safe_fork_full(
         if (!FLAGS_SET(flags, FORK_ALLOW_DLOPEN))
                 block_dlopen();
 
-        if (flags & (FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGINT|FORK_DEATHSIG_SIGKILL))
-                if (prctl(PR_SET_PDEATHSIG, fork_flags_to_signal(flags)) < 0) {
-                        log_full_errno(prio, errno, "Failed to set death signal: %m");
+        if (flags & (FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGINT|FORK_DEATHSIG_SIGKILL)) {
+                r = prctl_safe(PR_SET_PDEATHSIG, fork_flags_to_signal(flags), 0, 0, 0);
+                if (r < 0) {
+                        log_full_errno(prio, r, "Failed to set death signal: %m");
                         _exit(EXIT_FAILURE);
                 }
+        }
 
         if (flags & FORK_RESET_SIGNALS) {
                 r = reset_all_signal_handlers();
@@ -1808,7 +1865,7 @@ int namespace_fork_full(
                         return 0;
                 }
 
-                log_close();
+                log_forget_fds();
                 log_set_open_when_needed(true);
 
                 (void) close_all_fds(&pidref_inner.fd, 1);
@@ -1972,7 +2029,7 @@ int get_process_threads(pid_t pid) {
 }
 
 int is_reaper_process(void) {
-        int b = 0;
+        int b = 0, r;
 
         /* Checks if we are running in a reaper process, i.e. if we are expected to deal with processes
          * reparented to us. This simply checks if we are PID 1 or if PR_SET_CHILD_SUBREAPER was called. */
@@ -1980,13 +2037,15 @@ int is_reaper_process(void) {
         if (getpid_cached() == 1)
                 return true;
 
-        if (prctl(PR_GET_CHILD_SUBREAPER, (unsigned long) &b, 0UL, 0UL, 0UL) < 0)
-                return -errno;
+        r = prctl_safe(PR_GET_CHILD_SUBREAPER, (unsigned long) &b, 0, 0, 0);
+        if (r < 0)
+                return r;
 
         return b != 0;
 }
 
 int make_reaper_process(bool b) {
+        int r;
 
         if (getpid_cached() == 1) {
 
@@ -1996,10 +2055,9 @@ int make_reaper_process(bool b) {
                 return 0;
         }
 
-        /* Some prctl()s insist that all 5 arguments are specified, others do not. Let's always specify all,
-         * to avoid any ambiguities */
-        if (prctl(PR_SET_CHILD_SUBREAPER, (unsigned long) b, 0UL, 0UL, 0UL) < 0)
-                return -errno;
+        r = prctl_safe(PR_SET_CHILD_SUBREAPER, b, 0, 0, 0);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -2042,7 +2100,6 @@ int posix_spawn_wrapper(
         /* Initialization needs to succeed before we can set up a destructor. */
         _unused_ _cleanup_(posix_spawnattr_destroyp) posix_spawnattr_t *attr_destructor = &attr;
 
-#if HAVE_PIDFD_SPAWN
         static bool have_clone_into_cgroup = true; /* kernel 5.7+ */
         _cleanup_close_ int cgroup_fd = -EBADF;
 
@@ -2058,12 +2115,13 @@ int posix_spawn_wrapper(
                         return -errno;
 
                 r = posix_spawnattr_setcgroup_np(&attr, cgroup_fd);
-                if (r != 0)
+                if (r == 0)
+                        flags |= POSIX_SPAWN_SETCGROUP;
+                else if (r != ENOSYS)
                         return -r;
-
-                flags |= POSIX_SPAWN_SETCGROUP;
+                /* If libc lacks posix_spawnattr_setcgroup_np we silently skip POSIX_SPAWN_SETCGROUP — the
+                 * caller will then need to attach the child to the cgroup themselves. */
         }
-#endif
 
         r = posix_spawnattr_setflags(&attr, flags);
         if (r != 0)
@@ -2072,7 +2130,6 @@ int posix_spawn_wrapper(
         if (r != 0)
                 return -r;
 
-#if HAVE_PIDFD_SPAWN
         _cleanup_close_ int pidfd = -EBADF;
 
         r = pidfd_spawn(&pidfd, path, NULL, &attr, argv, envp);
@@ -2096,15 +2153,18 @@ int posix_spawn_wrapper(
 
                 r = pidfd_spawn(&pidfd, path, NULL, &attr, argv, envp);
         }
-        if (r != 0)
+        if (r == 0) {
+                r = pidref_set_pidfd_consume(ret_pidref, TAKE_FD(pidfd));
+                if (r < 0)
+                        return r;
+
+                return FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP);
+        }
+        if (!ERRNO_IS_NOT_SUPPORTED(r))
                 return -r;
 
-        r = pidref_set_pidfd_consume(ret_pidref, TAKE_FD(pidfd));
-        if (r < 0)
-                return r;
+        /* pidfd_spawn unavailable (libc or kernel missing) — fall back to plain posix_spawn. */
 
-        return FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP);
-#else
         pid_t pid;
 
         r = posix_spawn(&pid, path, NULL, &attr, argv, envp);
@@ -2116,7 +2176,6 @@ int posix_spawn_wrapper(
                 return r;
 
         return 0; /* We did not use CLONE_INTO_CGROUP so return 0, the caller will have to move the child */
-#endif
 }
 
 int proc_dir_open(DIR **ret) {
@@ -2268,4 +2327,34 @@ int read_errno(int errno_fd) {
                 return log_debug_errno(r, "Child process failed with errno: %m");
 
         return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Received positive errno from child, refusing: %d", r);
+}
+
+int prctl_safe(int op, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned long arg5) {
+
+        /* prctl(2) is a bit messy: it's a variadic function, defined with "unsigned long" arguments. This
+         * means that unless people explicitly cast it's quite likely they end up passing a shorter type even
+         * though unsigned long is required. And most of the time it might even kind of work, but not
+         * always. Moreover, some calls insist on all unused arguments being zeroed out, others don't
+         * care. Let's define this wrapper to enforce the right types, and that all arguments are always
+         * passed, to avoid this confusion. */
+
+        return RET_NERRNO(prctl(op, arg2, arg3, arg4, arg5));
+}
+
+int proc_set_comm(const char *comm) {
+        return prctl_safe(PR_SET_NAME, (unsigned long) comm, 0, 0, 0);
+}
+
+int proc_set_nnp(void) {
+        return prctl_safe(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0);
+}
+
+nsec_t proc_get_timerslack(void) {
+        int r;
+
+        r = prctl_safe(PR_GET_TIMERSLACK, 0, 0, 0, 0);
+        if (r < 0)
+                return NSEC_INFINITY;
+
+        return r;
 }

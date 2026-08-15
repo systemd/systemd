@@ -57,7 +57,7 @@ int coredump_send(CoredumpContext *context) {
                                          * what we want to send, and the second one contains
                                          * the trailing dots. */
                                         copy[0] = *iovec;
-                                        copy[1] = IOVEC_MAKE(((const char[]){'.', '.', '.'}), 3);
+                                        copy[1] = IOVEC_MAKE_STRING("...");
 
                                         mh.msg_iov = copy;
                                         mh.msg_iovlen = 2;
@@ -300,6 +300,16 @@ int coredump_send_to_container(CoredumpContext *context) {
 
                 context->uid = ucred.uid;
                 context->gid = ucred.gid;
+
+                /* Do not leak the TID in the initial PID namespace. */
+                int tidfd = TAKE_FD(context->tidref.fd);
+                pid_t tid = context->tidref.pid;
+                context->tidref = PIDREF_NULL;
+                if (tidfd >= 0) {
+                        r = pidref_set_pidfd_consume(&context->tidref, tidfd);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to acquire PidRef of TID ["PID_FMT"], ignoring: %m", tid);
+                }
 
                 r = coredump_context_build_iovw(context);
                 if (r < 0)

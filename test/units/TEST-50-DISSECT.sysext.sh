@@ -799,6 +799,49 @@ test ! -f "$fake_root$hierarchy/now-is-mutable"
 
 
 ( init_trap
+: "Malformed work_dir metadata is rejected without removing unrelated paths"
+[[ -z "$roots_dir" ]] && exit 0
+
+fake_root="$roots_dir/empty-work-dir"
+hierarchy=/opt
+extension_data_dir="$fake_root/var/lib/extensions.mutable$hierarchy"
+work_dir_file="$fake_root$hierarchy/.systemd-sysext/work_dir"
+traversal_target="$roots_dir/work-dir-traversal-target"
+absolute_target="$fake_root/work-dir-absolute-target"
+
+[[ "$FSTYPE" == "fuseblk" ]] && exit 0
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image "$fake_root" "$hierarchy"
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+touch "$fake_root/root-sentinel"
+mkdir "$traversal_target" "$absolute_target"
+touch "$traversal_target/sentinel" "$absolute_target/sentinel"
+prepend_trap "rm -rf ${traversal_target@Q} ${absolute_target@Q}"
+
+run_systemd_sysext "$fake_root" --mutable=yes merge
+prepend_trap "rm -rf ${extension_data_dir@Q}"
+
+# Mutable overlays bind-mount the metadata directory read-only. Unmount that bind first to simulate
+# corrupted on-disk metadata, then try malformed work_dir values.
+umount "$fake_root$hierarchy/.systemd-sysext"
+work_dir=$(<"$work_dir_file")
+
+for invalid_work_dir in "" ../work-dir-traversal-target /work-dir-absolute-target; do
+    printf '%s\n' "$invalid_work_dir" >"$work_dir_file"
+    (! run_systemd_sysext "$fake_root" unmerge)
+    test -f "$fake_root/root-sentinel"
+    test -f "$traversal_target/sentinel"
+    test -f "$absolute_target/sentinel"
+done
+
+# Restore valid metadata and unmerge normally, so the test case leaves no mounted hierarchy behind.
+printf '%s\n' "$work_dir" >"$work_dir_file"
+run_systemd_sysext "$fake_root" unmerge
+)
+
+
+( init_trap
 : "/var/lib/extensions.mutable/… does not exist, auto-mutability, read-only merged"
 fake_root=${roots_dir:+"$roots_dir/simple-read-only-explicit"}
 hierarchy=/opt
@@ -1673,6 +1716,245 @@ fi
 
 run_systemd_sysext "$fake_root" unmerge
 extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+)
+
+( init_trap
+: "Check EXTENSION_RESTART_UNITS= (re)starts units after merge and stops vanished ones on unmerge"
+# Talks to the real service manager, skip the --root= variant (it is a no-op there)
+if [ "$roots_dir" != "" ]; then
+    exit 0
+fi
+
+ext_name="test-restart-extension"
+ext_dir="/var/lib/extensions/$ext_name"
+host_unit="test-restart-host.service"
+host_unit_file="/run/systemd/system/$host_unit"
+ext_unit="test-restart-ext.service"
+
+cat >"$host_unit_file" <<EOF
+[Service]
+Type=simple
+ExecStart=sleep 9999
+EOF
+prepend_trap "rm -f ${host_unit_file@Q}; systemctl stop ${host_unit@Q} 2>/dev/null || :"
+systemctl daemon-reload
+systemctl start "$host_unit"
+host_pid_before=$(systemctl show -P MainPID "$host_unit")
+
+mkdir -p "$ext_dir/usr/lib/extension-release.d" "$ext_dir/usr/lib/systemd/system"
+prepend_trap "rm -rf ${ext_dir@Q}"
+cat >"$ext_dir/usr/lib/extension-release.d/extension-release.$ext_name" <<EOF
+ID=_any
+ARCHITECTURE=_any
+EXTENSION_RELOAD_MANAGER=1
+EXTENSION_RESTART_UNITS="$host_unit $ext_unit"
+EOF
+cat >"$ext_dir/usr/lib/systemd/system/$ext_unit" <<EOF
+[Service]
+Type=simple
+ExecStart=sleep 9999
+EOF
+
+# --no-reload skips both the daemon-reload and the restarts
+systemd-sysext merge --no-reload
+systemd-sysext refresh --always-refresh=yes --no-reload
+if [ "$(systemctl show -P MainPID "$host_unit")" != "$host_pid_before" ]; then
+    echo >&2 "Unexpected restart of host unit"
+    exit 1
+fi
+if systemctl --quiet is-active "$ext_unit"; then
+    echo >&2 "Unexpected start of extension unit"
+    exit 1
+fi
+systemd-sysext unmerge --no-reload
+
+# merge: host unit is restarted (new PID), extension unit is started
+systemd-sysext merge
+host_pid_merged=$(systemctl show -P MainPID "$host_unit")
+if [ "$host_pid_before" = "$host_pid_merged" ]; then
+    echo >&2 "Missing restart of host unit"
+    exit 1
+fi
+if ! systemctl --quiet is-active "$ext_unit"; then
+    echo >&2 "Missing start of extension unit"
+    exit 1
+fi
+host_pid_before_refresh="$host_pid_merged"
+systemd-sysext refresh --always-refresh=yes
+host_pid_merged=$(systemctl show -P MainPID "$host_unit")
+if [ "$host_pid_before_refresh" = "$host_pid_merged" ]; then
+    echo >&2 "Missing restart of host unit after refresh"
+    exit 1
+fi
+if ! systemctl --quiet is-active "$ext_unit"; then
+    echo >&2 "Missing start of extension unit"
+    exit 1
+fi
+
+# unmerge: host unit file is still in /run -> restart again (new PID)
+# but extension unit file is gone -> fallback to StopUnit
+systemd-sysext unmerge
+host_pid_unmerged=$(systemctl show -P MainPID "$host_unit")
+if [ "$host_pid_merged" = "$host_pid_unmerged" ]; then
+    echo >&2 "Missing restart of host unit"
+    exit 1
+fi
+if systemctl --quiet is-active "$ext_unit"; then
+    echo >&2 "Missing stop of extension unit"
+    exit 1
+fi
+)
+
+( init_trap
+: "Check EXTENSION_RELOAD_OR_RESTART_UNITS= reloads units after merge and stops vanished ones on unmerge"
+# Talks to the real service manager, skip the --root= variant (it is a no-op there)
+if [ "$roots_dir" != "" ]; then
+    exit 0
+fi
+
+ext_name="test-reload-or-restart-extension"
+ext_dir="/var/lib/extensions/$ext_name"
+host_unit="test-reload-or-restart-host.service"
+host_unit_file="/run/systemd/system/$host_unit"
+ext_unit="test-reload-or-restart-ext.service"
+host_stamp="/run/test-reload-or-restart-host.stamp"
+ext_stamp="/run/test-reload-or-restart-ext.stamp"
+
+cat >"$host_unit_file" <<EOF
+[Service]
+Type=simple
+ExecStart=sleep 9999
+ExecReload=touch $host_stamp
+EOF
+prepend_trap "rm -f ${host_unit_file@Q} ${host_stamp@Q}; systemctl stop ${host_unit@Q} 2>/dev/null || :"
+systemctl daemon-reload
+systemctl start "$host_unit"
+host_pid_before=$(systemctl show -P MainPID "$host_unit")
+
+mkdir -p "$ext_dir/usr/lib/extension-release.d" "$ext_dir/usr/lib/systemd/system"
+prepend_trap "rm -rf ${ext_dir@Q} ${ext_stamp@Q}"
+cat >"$ext_dir/usr/lib/extension-release.d/extension-release.$ext_name" <<EOF
+ID=_any
+ARCHITECTURE=_any
+EXTENSION_RELOAD_OR_RESTART_UNITS="$host_unit $ext_unit"
+EOF
+cat >"$ext_dir/usr/lib/systemd/system/$ext_unit" <<EOF
+[Service]
+Type=simple
+ExecStart=sleep 9999
+ExecReload=touch $ext_stamp
+EOF
+
+# merge: host unit supports reload -> reloaded (same PID, stamp file created),
+# extension unit is started (no reload because it was not running yet)
+rm -f "$host_stamp" "$ext_stamp"
+systemd-sysext merge
+host_pid_merged=$(systemctl show -P MainPID "$host_unit")
+if [ "$host_pid_before" != "$host_pid_merged" ]; then
+    echo >&2 "Unexpected restart of host unit (should have reloaded)"
+    exit 1
+fi
+if [ ! -e "$host_stamp" ]; then
+    echo >&2 "Host unit was not reloaded on merge (stamp missing)"
+    exit 1
+fi
+if ! systemctl --quiet is-active "$ext_unit"; then
+    echo >&2 "Missing start of extension unit"
+    exit 1
+fi
+ext_pid_merged=$(systemctl show -P MainPID "$ext_unit")
+
+# refresh: both units already running and reload-capable -> reloaded, MainPIDs unchanged,
+# both stamp files re-created
+rm -f "$host_stamp" "$ext_stamp"
+systemd-sysext refresh --always-refresh=yes
+host_pid_refreshed=$(systemctl show -P MainPID "$host_unit")
+if [ "$host_pid_merged" != "$host_pid_refreshed" ]; then
+    echo >&2 "Unexpected restart of host unit on refresh (should have reloaded)"
+    exit 1
+fi
+if [ ! -e "$host_stamp" ]; then
+    echo >&2 "Host unit was not reloaded on refresh (stamp missing)"
+    exit 1
+fi
+ext_pid_refreshed=$(systemctl show -P MainPID "$ext_unit")
+if [ "$ext_pid_merged" != "$ext_pid_refreshed" ]; then
+    echo >&2 "Unexpected restart of extension unit on refresh (should have reloaded)"
+    exit 1
+fi
+if [ ! -e "$ext_stamp" ]; then
+    echo >&2 "Extension unit was not reloaded on refresh (stamp missing)"
+    exit 1
+fi
+
+# unmerge: host unit file still in /run -> reloaded again (same PID, stamp re-created)
+# but extension unit file is gone -> fallback to StopUnit
+rm -f "$host_stamp" "$ext_stamp"
+systemd-sysext unmerge
+host_pid_unmerged=$(systemctl show -P MainPID "$host_unit")
+if [ "$host_pid_refreshed" != "$host_pid_unmerged" ]; then
+    echo >&2 "Unexpected restart of host unit on unmerge (should have reloaded)"
+    exit 1
+fi
+if [ ! -e "$host_stamp" ]; then
+    echo >&2 "Host unit was not reloaded on unmerge (stamp missing)"
+    exit 1
+fi
+if systemctl --quiet is-active "$ext_unit"; then
+    echo >&2 "Missing stop of extension unit"
+    exit 1
+fi
+)
+
+( init_trap
+: "Nested tmpfs submounts under the hierarchy survive merge/refresh/unmerge round-trip"
+fake_root=${roots_dir:+"$roots_dir/nested-submounts"}
+hierarchy=/opt
+
+# Don't run the test if the inner mount won't be preserved due to an old kernel
+if ! systemd-analyze compare-versions "$(uname -r)" ge 5.12; then
+    echo >&2 "Kernel too old for mount_setattr (need >= 5.12), skipping nested submount test"
+    exit 0
+fi
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image "$fake_root" "$hierarchy"
+prepare_hierarchy "$fake_root" "$hierarchy"
+
+# Two tmpfs mounts, one nested in the hierarchy under the other. Reproduces the nested mount layout from
+# https://github.com/flatcar/Flatcar/issues/2111 and verifies that we preserve nested mounts across merge,
+# refresh, and unmerge.
+outer_mp="$fake_root$hierarchy/outer"
+inner_mp="$outer_mp/inner"
+mkdir -p "$outer_mp"
+mount -t tmpfs tmpfs "$outer_mp"
+prepend_trap "umount -l ${outer_mp@Q} 2>/dev/null || true"
+mkdir -p "$inner_mp"
+mount -t tmpfs tmpfs "$inner_mp"
+prepend_trap "umount -l ${inner_mp@Q} 2>/dev/null || true"
+touch "$outer_mp/outer-marker"
+touch "$inner_mp/inner-marker"
+
+run_systemd_sysext "$fake_root" merge
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+mountpoint "$outer_mp"
+mountpoint "$inner_mp"
+test -f "$outer_mp/outer-marker"
+test -f "$inner_mp/inner-marker"
+
+run_systemd_sysext "$fake_root" refresh --always-refresh=yes
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+mountpoint "$outer_mp"
+mountpoint "$inner_mp"
+test -f "$outer_mp/outer-marker"
+test -f "$inner_mp/inner-marker"
+
+run_systemd_sysext "$fake_root" unmerge
+extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+mountpoint "$outer_mp"
+mountpoint "$inner_mp"
+test -f "$outer_mp/outer-marker"
+test -f "$inner_mp/inner-marker"
 )
 
 } # End of run_sysext_tests

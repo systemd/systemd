@@ -175,6 +175,8 @@ static int introspect_write_arguments(BusIntrospect *i, const char *signature, c
 
         assert(i);
         assert(i->m.f);
+        assert(signature);
+        assert(names);
 
         for (;;) {
                 size_t l;

@@ -3,7 +3,7 @@
 
 #include <endian.h>
 
-#include "basic-forward.h"
+#include "forward.h"
 
 /* A cleaned up architecture definition. We don't want to get lost in
  * processor features, models, generations or even ABIs. Hence we
@@ -240,6 +240,12 @@ Architecture uname_architecture(void);
 #  endif
 #else
 #  error "Please register your architecture here!"
+#endif
+
+#if defined(__hppa__) || defined(__hppa64__)
+#  define STACK_GROWS_UP 1
+#else
+#  define STACK_GROWS_UP 0
 #endif
 
 DECLARE_STRING_TABLE_LOOKUP(architecture, Architecture);

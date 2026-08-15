@@ -1,0 +1,14 @@
+{
+    "userName": "growonly",
+    "realName": "Grow Only User",
+    "uid": 3008,
+    "gid": 3008,
+    "homeDirectory": "/home/growonly",
+    "shell": "/bin/bash",
+    "disposition": "regular",
+    "storage": "luks",
+    "imagePath": "/home/growonly.home",
+    "diskSize": 53687091200,
+    "autoResizeMode": "grow",
+    "rebalanceWeight": true
+}

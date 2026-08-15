@@ -395,13 +395,13 @@ TEST(json) {
                              SD_JSON_BUILD_ARRAY(
                                              SD_JSON_BUILD_OBJECT(
                                                              SD_JSON_BUILD_PAIR("foo_bar", JSON_BUILD_CONST_STRING("v1")),
-                                                             SD_JSON_BUILD_PAIR("quux", SD_JSON_BUILD_UNSIGNED(4711)),
-                                                             SD_JSON_BUILD_PAIR("zzz", SD_JSON_BUILD_BOOLEAN(true)),
+                                                             SD_JSON_BUILD_PAIR_UNSIGNED("quux", 4711),
+                                                             SD_JSON_BUILD_PAIR_BOOLEAN("zzz", true),
                                                              SD_JSON_BUILD_PAIR("asdf-custom", SD_JSON_BUILD_NULL)),
                                              SD_JSON_BUILD_OBJECT(
                                                              SD_JSON_BUILD_PAIR("foo_bar", SD_JSON_BUILD_STRV(STRV_MAKE("a", "b", "c"))),
                                                              SD_JSON_BUILD_PAIR("quux", SD_JSON_BUILD_NULL),
-                                                             SD_JSON_BUILD_PAIR("zzz", SD_JSON_BUILD_UNSIGNED(0755)),
+                                                             SD_JSON_BUILD_PAIR_UNSIGNED("zzz", 0755),
                                                              SD_JSON_BUILD_PAIR("asdf-custom", SD_JSON_BUILD_NULL)))));
 
         ASSERT_TRUE(sd_json_variant_equal(v, w));
@@ -581,6 +581,126 @@ TEST(table) {
                              "5min              5min              \n");
 }
 
+TEST(mixed_type_sort) {
+        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_free_ char *formatted = NULL;
+
+        ASSERT_NOT_NULL((table = table_new("key")));
+        table_set_header(table, false);
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
+
+        ASSERT_OK(table_add_many(table, TABLE_UINT, 1U));
+        ASSERT_OK(table_add_cell(table, NULL, TABLE_STRING, "b"));
+        ASSERT_OK(table_add_cell(table, NULL, TABLE_STRING, NULL));
+        ASSERT_OK(table_add_cell(table, NULL, TABLE_STRING, "a"));
+        ASSERT_OK(table_set_sort(table, (size_t) 0));
+        ASSERT_OK(table_format(table, &formatted));
+
+        ASSERT_STREQ(formatted,
+                     "a\n"
+                     "b\n"
+                     "1\n"
+                     "-\n");
+
+        formatted = mfree(formatted);
+        ASSERT_OK(table_set_reverse(table, 0, true));
+        ASSERT_OK(table_format(table, &formatted));
+
+        ASSERT_STREQ(formatted,
+                     "-\n"
+                     "1\n"
+                     "b\n"
+                     "a\n");
+}
+
+TEST(empty_primary_sort) {
+        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_free_ char *formatted = NULL;
+
+        ASSERT_NOT_NULL((table = table_new("primary", "secondary")));
+        table_set_header(table, false);
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
+
+        ASSERT_OK(table_add_many(table,
+                                 TABLE_EMPTY,
+                                 TABLE_STRING, "b"));
+        ASSERT_OK(table_add_many(table,
+                                 TABLE_EMPTY,
+                                 TABLE_STRING, "a"));
+        ASSERT_OK(table_set_sort(table, (size_t) 0, (size_t) 1));
+        ASSERT_OK(table_format(table, &formatted));
+
+        ASSERT_STREQ(formatted,
+                     "- a\n"
+                     "- b\n");
+}
+
+TEST(tristate) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *w = NULL;
+        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_free_ char *formatted = NULL;
+
+        ASSERT_NOT_NULL((t = table_new("name", "flag")));
+
+        ASSERT_OK(table_add_many(t,
+                                 TABLE_STRING, "neg",
+                                 TABLE_TRISTATE, -1));
+        ASSERT_OK(table_add_many(t,
+                                 TABLE_STRING, "zero",
+                                 TABLE_TRISTATE, 0));
+        ASSERT_OK(table_add_many(t,
+                                 TABLE_STRING, "pos",
+                                 TABLE_TRISTATE, 1));
+
+        ASSERT_OK(table_format(t, &formatted));
+        printf("%s\n", formatted);
+        ASSERT_STREQ(formatted,
+                     "NAME FLAG\n"
+                     "neg  \n"
+                     "zero no\n"
+                     "pos  yes\n");
+        formatted = mfree(formatted);
+
+        /* Try a non-default ersatz string. */
+        table_set_ersatz_string(t, TABLE_ERSATZ_DASH);
+        ASSERT_OK(table_format(t, &formatted));
+        printf("%s\n", formatted);
+        ASSERT_STREQ(formatted,
+                     "NAME FLAG\n"
+                     "neg  -\n"
+                     "zero no\n"
+                     "pos  yes\n");
+        formatted = mfree(formatted);
+
+        /* Sorting: -1 < 0 < 1 */
+        ASSERT_OK(table_set_sort(t, (size_t) 1, SIZE_MAX));
+        ASSERT_OK(table_format(t, &formatted));
+        printf("%s\n", formatted);
+        ASSERT_STREQ(formatted,
+                     "NAME FLAG\n"
+                     "neg  -\n"
+                     "zero no\n"
+                     "pos  yes\n");
+        formatted = mfree(formatted);
+
+        /* JSON: -1 → null, 0 → false, positive → true */
+        ASSERT_OK(table_to_json(t, &v));
+
+        ASSERT_OK(sd_json_build(&w,
+                                SD_JSON_BUILD_ARRAY(
+                                                SD_JSON_BUILD_OBJECT(
+                                                                SD_JSON_BUILD_PAIR("name", JSON_BUILD_CONST_STRING("neg")),
+                                                                SD_JSON_BUILD_PAIR("flag", SD_JSON_BUILD_NULL)),
+                                                SD_JSON_BUILD_OBJECT(
+                                                                SD_JSON_BUILD_PAIR("name", JSON_BUILD_CONST_STRING("zero")),
+                                                                SD_JSON_BUILD_PAIR_BOOLEAN("flag", false)),
+                                                SD_JSON_BUILD_OBJECT(
+                                                                SD_JSON_BUILD_PAIR("name", JSON_BUILD_CONST_STRING("pos")),
+                                                                SD_JSON_BUILD_PAIR_BOOLEAN("flag", true)))));
+
+        ASSERT_TRUE(sd_json_variant_equal(v, w));
+}
+
 TEST(signed_integers) {
         _cleanup_(table_unrefp) Table *t = NULL;
         _cleanup_free_ char *formatted = NULL;
@@ -624,23 +744,23 @@ TEST(signed_integers) {
         ASSERT_OK(sd_json_build(&b,
                                 SD_JSON_BUILD_ARRAY(
                                   SD_JSON_BUILD_OBJECT(
-                                    SD_JSON_BUILD_PAIR("int", SD_JSON_BUILD_INTEGER(-1)),
-                                    SD_JSON_BUILD_PAIR("int8", SD_JSON_BUILD_INTEGER(-1)),
-                                    SD_JSON_BUILD_PAIR("int16", SD_JSON_BUILD_INTEGER(-1)),
-                                    SD_JSON_BUILD_PAIR("int32", SD_JSON_BUILD_INTEGER(-1)),
-                                    SD_JSON_BUILD_PAIR("int64", SD_JSON_BUILD_INTEGER(-1))),
+                                    SD_JSON_BUILD_PAIR_INTEGER("int", -1),
+                                    SD_JSON_BUILD_PAIR_INTEGER("int8", -1),
+                                    SD_JSON_BUILD_PAIR_INTEGER("int16", -1),
+                                    SD_JSON_BUILD_PAIR_INTEGER("int32", -1),
+                                    SD_JSON_BUILD_PAIR_INTEGER("int64", -1)),
                                   SD_JSON_BUILD_OBJECT(
-                                    SD_JSON_BUILD_PAIR("int", SD_JSON_BUILD_INTEGER(INT_MAX)),
-                                    SD_JSON_BUILD_PAIR("int8", SD_JSON_BUILD_INTEGER(INT8_MAX)),
-                                    SD_JSON_BUILD_PAIR("int16", SD_JSON_BUILD_INTEGER(INT16_MAX)),
-                                    SD_JSON_BUILD_PAIR("int32", SD_JSON_BUILD_INTEGER(INT32_MAX)),
-                                    SD_JSON_BUILD_PAIR("int64", SD_JSON_BUILD_INTEGER(INT64_MAX))),
+                                    SD_JSON_BUILD_PAIR_INTEGER("int", INT_MAX),
+                                    SD_JSON_BUILD_PAIR_INTEGER("int8", INT8_MAX),
+                                    SD_JSON_BUILD_PAIR_INTEGER("int16", INT16_MAX),
+                                    SD_JSON_BUILD_PAIR_INTEGER("int32", INT32_MAX),
+                                    SD_JSON_BUILD_PAIR_INTEGER("int64", INT64_MAX)),
                                   SD_JSON_BUILD_OBJECT(
-                                    SD_JSON_BUILD_PAIR("int", SD_JSON_BUILD_INTEGER(INT_MIN)),
-                                    SD_JSON_BUILD_PAIR("int8", SD_JSON_BUILD_INTEGER(INT8_MIN)),
-                                    SD_JSON_BUILD_PAIR("int16", SD_JSON_BUILD_INTEGER(INT16_MIN)),
-                                    SD_JSON_BUILD_PAIR("int32", SD_JSON_BUILD_INTEGER(INT32_MIN)),
-                                    SD_JSON_BUILD_PAIR("int64", SD_JSON_BUILD_INTEGER(INT64_MIN))))));
+                                    SD_JSON_BUILD_PAIR_INTEGER("int", INT_MIN),
+                                    SD_JSON_BUILD_PAIR_INTEGER("int8", INT8_MIN),
+                                    SD_JSON_BUILD_PAIR_INTEGER("int16", INT16_MIN),
+                                    SD_JSON_BUILD_PAIR_INTEGER("int32", INT32_MIN),
+                                    SD_JSON_BUILD_PAIR_INTEGER("int64", INT64_MIN)))));
         sd_json_variant_dump(b, SD_JSON_FORMAT_NEWLINE, stdout, NULL);
 
         ASSERT_TRUE(sd_json_variant_equal(a, b));
@@ -686,21 +806,21 @@ TEST(unsigned_integers) {
         ASSERT_OK(sd_json_build(&b,
                                 SD_JSON_BUILD_ARRAY(
                                   SD_JSON_BUILD_OBJECT(
-                                    SD_JSON_BUILD_PAIR("uint", SD_JSON_BUILD_UNSIGNED(0)),
-                                    SD_JSON_BUILD_PAIR("uint8", SD_JSON_BUILD_UNSIGNED(0)),
-                                    SD_JSON_BUILD_PAIR("uint16", SD_JSON_BUILD_UNSIGNED(0)),
-                                    SD_JSON_BUILD_PAIR("uint32", SD_JSON_BUILD_UNSIGNED(0)),
-                                    SD_JSON_BUILD_PAIR("uhex32", SD_JSON_BUILD_UNSIGNED(0)),
-                                    SD_JSON_BUILD_PAIR("uint64", SD_JSON_BUILD_UNSIGNED(0)),
-                                    SD_JSON_BUILD_PAIR("uhex64", SD_JSON_BUILD_UNSIGNED(0))),
+                                    SD_JSON_BUILD_PAIR_UNSIGNED("uint", 0),
+                                    SD_JSON_BUILD_PAIR_UNSIGNED("uint8", 0),
+                                    SD_JSON_BUILD_PAIR_UNSIGNED("uint16", 0),
+                                    SD_JSON_BUILD_PAIR_UNSIGNED("uint32", 0),
+                                    SD_JSON_BUILD_PAIR_UNSIGNED("uhex32", 0),
+                                    SD_JSON_BUILD_PAIR_UNSIGNED("uint64", 0),
+                                    SD_JSON_BUILD_PAIR_UNSIGNED("uhex64", 0)),
                                   SD_JSON_BUILD_OBJECT(
-                                    SD_JSON_BUILD_PAIR("uint", SD_JSON_BUILD_UNSIGNED(UINT_MAX)),
-                                    SD_JSON_BUILD_PAIR("uint8", SD_JSON_BUILD_UNSIGNED(UINT8_MAX)),
-                                    SD_JSON_BUILD_PAIR("uint16", SD_JSON_BUILD_UNSIGNED(UINT16_MAX)),
-                                    SD_JSON_BUILD_PAIR("uint32", SD_JSON_BUILD_UNSIGNED(UINT32_MAX)),
-                                    SD_JSON_BUILD_PAIR("uhex32", SD_JSON_BUILD_UNSIGNED(UINT32_MAX)),
-                                    SD_JSON_BUILD_PAIR("uint64", SD_JSON_BUILD_UNSIGNED(UINT64_MAX)),
-                                    SD_JSON_BUILD_PAIR("uhex64", SD_JSON_BUILD_UNSIGNED(UINT64_MAX))))));
+                                    SD_JSON_BUILD_PAIR_UNSIGNED("uint", UINT_MAX),
+                                    SD_JSON_BUILD_PAIR_UNSIGNED("uint8", UINT8_MAX),
+                                    SD_JSON_BUILD_PAIR_UNSIGNED("uint16", UINT16_MAX),
+                                    SD_JSON_BUILD_PAIR_UNSIGNED("uint32", UINT32_MAX),
+                                    SD_JSON_BUILD_PAIR_UNSIGNED("uhex32", UINT32_MAX),
+                                    SD_JSON_BUILD_PAIR_UNSIGNED("uint64", UINT64_MAX),
+                                    SD_JSON_BUILD_PAIR_UNSIGNED("uhex64", UINT64_MAX)))));
         sd_json_variant_dump(b, SD_JSON_FORMAT_NEWLINE, stdout, NULL);
 
         ASSERT_TRUE(sd_json_variant_equal(a, b));
@@ -734,10 +854,10 @@ TEST(vertical) {
         ASSERT_OK(table_to_json(t, &a));
 
         ASSERT_OK(sd_json_build(&b, SD_JSON_BUILD_OBJECT(
-                                             SD_JSON_BUILD_PAIR("pfft_aa", SD_JSON_BUILD_STRING("foo")),
-                                             SD_JSON_BUILD_PAIR("dimpfelmoser", SD_JSON_BUILD_UNSIGNED(1024)),
-                                             SD_JSON_BUILD_PAIR("custom-quux", SD_JSON_BUILD_STRING("asdf")),
-                                             SD_JSON_BUILD_PAIR("lllllllllllo", SD_JSON_BUILD_STRING("jjjjjjjjjjjjjjjjj")))));
+                                             SD_JSON_BUILD_PAIR_STRING("pfft_aa", "foo"),
+                                             SD_JSON_BUILD_PAIR_UNSIGNED("dimpfelmoser", 1024),
+                                             SD_JSON_BUILD_PAIR_STRING("custom-quux", "asdf"),
+                                             SD_JSON_BUILD_PAIR_STRING("lllllllllllo", "jjjjjjjjjjjjjjjjj"))));
 
         ASSERT_TRUE(sd_json_variant_equal(a, b));
 }
@@ -890,7 +1010,7 @@ TEST(table_ansi) {
                      "FOO   BAR            BAZ    KKK\n"
                      "hallo knuerzredgreen noansi thisisgrey\n");
 
-        ASSERT_OK(table_print(table, /* f= */ NULL));
+        ASSERT_OK(table_print(table));
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL, *jj = NULL;
 

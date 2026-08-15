@@ -106,7 +106,7 @@ EFI_STATUS efivar_get_str16(const EFI_GUID *vendor, const char16_t *name, char16
         val = xmalloc(size + sizeof(char16_t));
 
         memcpy(val, buf, size);
-        val[size / sizeof(char16_t) - 1] = 0; /* NUL terminate */
+        val[size / sizeof(char16_t)] = 0; /* NUL terminate */
 
         *ret = val;
         return EFI_SUCCESS;
@@ -177,7 +177,13 @@ EFI_STATUS efivar_get_uint64_le(const EFI_GUID *vendor, const char16_t *name, ui
         return EFI_SUCCESS;
 }
 
-EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const char16_t *name, void **ret_data, size_t *ret_size) {
+EFI_STATUS efivar_get_raw_full(
+                const EFI_GUID *vendor,
+                const char16_t *name,
+                uint32_t *ret_attributes,
+                void **ret_data,
+                size_t *ret_size) {
+
         EFI_STATUS err;
 
         assert(vendor);
@@ -185,14 +191,27 @@ EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const char16_t *name, void **r
 
         size_t size = 0;
         err = RT->GetVariable((char16_t *) name, (EFI_GUID *) vendor, NULL, &size, NULL);
+        if (err == EFI_SUCCESS) {
+                /* The variable exists but is empty, initialize return parameters */
+                if (ret_attributes)
+                        *ret_attributes = 0;
+                if (ret_data)
+                        *ret_data = NULL;
+                if (ret_size)
+                        *ret_size = 0;
+                return EFI_SUCCESS;
+        }
         if (err != EFI_BUFFER_TOO_SMALL)
                 return err;
 
+        uint32_t attributes = 0;
         _cleanup_free_ void *buf = xmalloc(size);
-        err = RT->GetVariable((char16_t *) name, (EFI_GUID *) vendor, NULL, &size, buf);
+        err = RT->GetVariable((char16_t *) name, (EFI_GUID *) vendor, ret_attributes ? &attributes : NULL, &size, buf);
         if (err != EFI_SUCCESS)
                 return err;
 
+        if (ret_attributes)
+                *ret_attributes = attributes;
         if (ret_data)
                 *ret_data = TAKE_PTR(buf);
         if (ret_size)
@@ -212,6 +231,9 @@ EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const char16_t *name, b
         err = efivar_get_raw(vendor, name, (void**) &b, &size);
         if (err != EFI_SUCCESS)
                 return err;
+
+        if (size == 0)
+                return EFI_BUFFER_TOO_SMALL;
 
         if (ret)
                 *ret = *b > 0;

@@ -139,7 +139,7 @@ static int mstack_load_one(MStack *mstack, const char *dir, int dir_fd, const ch
                         };
 
                         _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
-                        r = path_pick(dir, dir_fd, fname, &filter, /* n_filters= */ 1, PICK_ARCHITECTURE, &result);
+                        r = path_pick(dir, dir_fd, dir_fd, fname, &filter, /* n_filters= */ 1, PICK_ARCHITECTURE, &result);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to resolve '%s' directory: %m", fname);
                         if (r == 0)
@@ -456,7 +456,7 @@ static int mstack_load_now(MStack *mstack, const char *dir, int dir_fd, MStackFl
         if (dir_fd < 0) {
                 _dir_fd = openat(AT_FDCWD, isempty(dir) ? "." : dir, O_DIRECTORY|O_CLOEXEC);
                 if (_dir_fd < 0)
-                        return log_debug_errno(errno, "Failed to to open '%s': %m", dir);
+                        return log_debug_errno(errno, "Failed to open '%s': %m", dir);
 
                 dir_fd = _dir_fd;
         } else {
@@ -576,11 +576,10 @@ int mstack_open_images(
                                 _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
                                 _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
 
-                                r = loop_device_make(
+                                r = loop_device_make_by_path_at(
                                                 m->what_fd,
-                                                FLAGS_SET(flags, MSTACK_RDONLY) ? O_RDONLY : O_RDWR,
-                                                /* offset= */ 0,
-                                                /* size= */ UINT64_MAX,
+                                                /* path= */ NULL,
+                                                FLAGS_SET(flags, MSTACK_RDONLY) ? O_RDONLY : -1,
                                                 /* sector_size= */ UINT32_MAX,
                                                 LO_FLAGS_PARTSCAN,
                                                 LOCK_SH,
@@ -1033,7 +1032,7 @@ int mstack_bind_mounts(
 
         if (mstack->usr_mount_fd >= 0) {
                 _cleanup_close_ int subdir_fd = -EBADF;
-                r = chaseat(root_fd, "usr", CHASE_AT_RESOLVE_IN_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, &subdir_fd);
+                r = chaseat(root_fd, root_fd, "usr", CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, &subdir_fd);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to open mount point inode '%s': %m", where);
 
@@ -1052,7 +1051,7 @@ int mstack_bind_mounts(
                 assert(m->mount_fd >= 0);
 
                 _cleanup_close_ int subdir_fd = -EBADF;
-                r = chaseat(root_fd, m->where, CHASE_AT_RESOLVE_IN_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, &subdir_fd);
+                r = chaseat(root_fd, root_fd, m->where, CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, &subdir_fd);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to open mount point inode '%s': %m", m->where);
 

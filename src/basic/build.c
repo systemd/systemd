@@ -64,12 +64,6 @@ const char* const systemd_features =
 
         /* cryptographic libraries */
 
-#if HAVE_GCRYPT
-        " +GCRYPT"
-#else
-        " -GCRYPT"
-#endif
-
 #if HAVE_GNUTLS
         " +GNUTLS"
 #else

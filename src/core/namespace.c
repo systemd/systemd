@@ -31,7 +31,7 @@
 #include "log.h"
 #include "loop-util.h"
 #include "loopback-setup.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "mstack.h"
@@ -564,8 +564,9 @@ static int append_extensions(
                 _cleanup_free_ char *mount_point = NULL;
                 const MountImage *m = mount_images + i;
 
-                r = path_pick(/* toplevel_path= */ NULL,
-                              /* toplevel_fd= */ AT_FDCWD,
+                r = path_pick(/* root_path= */ NULL,
+                              /* root_fd= */ AT_FDCWD,
+                              /* dir_fd= */ AT_FDCWD,
                               m->source,
                               pick_filter_image_raw,
                               ELEMENTSOF(pick_filter_image_raw),
@@ -636,8 +637,9 @@ static int append_extensions(
                 if (startswith(e, "+"))
                         e++;
 
-                r = path_pick(/* toplevel_path= */ NULL,
-                              /* toplevel_fd= */ AT_FDCWD,
+                r = path_pick(/* root_path= */ NULL,
+                              /* root_fd= */ AT_FDCWD,
+                              /* dir_fd= */ AT_FDCWD,
                               e,
                               pick_filter_image_dir,
                               ELEMENTSOF(pick_filter_image_dir),
@@ -751,58 +753,70 @@ static int append_tmpfs_mounts(MountList *ml, const TemporaryFileSystem *tmpfs, 
         return 0;
 }
 
-static int append_private_tmp(MountList *ml, const NamespaceParameters *p) {
-        MountEntry *me;
+static int append_private_tmp_one(
+                MountList *ml,
+                PrivateTmp mode,
+                const char *path,
+                const char *connected_source) {
 
         assert(ml);
-        assert(p);
-        assert(p->private_tmp == p->private_var_tmp ||
-               (p->private_tmp == PRIVATE_TMP_DISCONNECTED && p->private_var_tmp == PRIVATE_TMP_NO));
+        assert(mode >= 0 && mode < _PRIVATE_TMP_MAX);
+        assert(path);
 
-        if (p->tmp_dir) {
-                assert(p->private_tmp == PRIVATE_TMP_CONNECTED);
-
-                me = mount_list_extend(ml);
-                if (!me)
-                        return log_oom_debug();
-                *me = (MountEntry) {
-                        .path_const = "/tmp/",
-                        .mode = MOUNT_PRIVATE_TMP,
-                        .read_only = streq(p->tmp_dir, RUN_SYSTEMD_EMPTY),
-                        .source_const = p->tmp_dir,
-                };
-        }
-
-        if (p->var_tmp_dir) {
-                assert(p->private_var_tmp == PRIVATE_TMP_CONNECTED);
-
-                me = mount_list_extend(ml);
-                if (!me)
-                        return log_oom_debug();
-                *me = (MountEntry) {
-                        .path_const = "/var/tmp/",
-                        .mode = MOUNT_PRIVATE_TMP,
-                        .read_only = streq(p->var_tmp_dir, RUN_SYSTEMD_EMPTY),
-                        .source_const = p->var_tmp_dir,
-                };
-        }
-
-        if (p->private_tmp != PRIVATE_TMP_DISCONNECTED)
+        if (mode == PRIVATE_TMP_NO)
                 return 0;
 
-        if (p->private_var_tmp == PRIVATE_TMP_NO) {
-                me = mount_list_extend(ml);
-                if (!me)
-                        return log_oom_debug();
+        if (mode == PRIVATE_TMP_CONNECTED && !connected_source)
+                /* Do nothing if the private tmp dir was suppressed as it would be made inaccessible anyways
+                 * (see exec_shared_runtime_make()). */
+                return 0;
+
+        MountEntry *me = mount_list_extend(ml);
+        if (!me)
+                return log_oom_debug();
+
+        if (mode == PRIVATE_TMP_CONNECTED)
                 *me = (MountEntry) {
-                        .path_const = "/tmp/",
+                        .path_const = path,
+                        .mode = MOUNT_PRIVATE_TMP,
+                        .read_only = streq(connected_source, RUN_SYSTEMD_EMPTY),
+                        .source_const = connected_source,
+                };
+        else
+                *me = (MountEntry) {
+                        .path_const = path,
                         .mode = MOUNT_PRIVATE_TMPFS,
                         .options_const = "mode=0700" NESTED_TMPFS_LIMITS,
                         .flags = MS_NODEV|MS_STRICTATIME,
                 };
 
+        return 0;
+}
+
+static int append_private_tmp(MountList *ml, const NamespaceParameters *p) {
+        int r;
+
+        assert(ml);
+        assert(p);
+        assert(p->private_tmp >= 0 && p->private_tmp < _PRIVATE_TMP_MAX);
+        assert(p->private_var_tmp >= 0 && p->private_var_tmp < _PRIVATE_TMP_MAX);
+
+        if (p->private_tmp != PRIVATE_TMP_DISCONNECTED || p->private_var_tmp != PRIVATE_TMP_DISCONNECTED) {
+                r = append_private_tmp_one(ml, p->private_tmp, "/tmp/", p->tmp_dir);
+                if (r < 0)
+                        return r;
+
+                r = append_private_tmp_one(ml, p->private_var_tmp, "/var/tmp/", p->var_tmp_dir);
+                if (r < 0)
+                        return r;
+
                 return 0;
         }
+
+        /* Fully disconnected private tmp: we mount a single tmpfs instance with two subdirs which are
+         * bind mounted to /tmp/ and /var/tmp/. */
+
+        MountEntry *me;
 
         _cleanup_free_ char *tmpfs_dir = NULL, *tmp_dir = NULL, *var_tmp_dir = NULL;
         tmpfs_dir = path_join(p->private_namespace_dir, "unit-private-tmp");
@@ -1037,7 +1051,7 @@ static bool verity_has_later_duplicates(MountList *ml, const MountEntry *needle)
         for (const MountEntry *m = needle + 1; m < ml->mounts + ml->n_mounts; m++) {
                 if (m->mode != MOUNT_EXTENSION_IMAGE)
                         continue;
-                if (iovec_memcmp(&m->verity.root_hash, &needle->verity.root_hash) == 0)
+                if (iovec_equal(&m->verity.root_hash, &needle->verity.root_hash))
                         return true;
         }
 
@@ -1206,7 +1220,7 @@ static int clone_device_node(const char *node, const char *temporary_mount, bool
 
         /* First, try to create device node properly */
         if (*make_devnode) {
-                mac_selinux_create_file_prepare(node, st.st_mode);
+                mac_selinux_create_file_prepare(node, st.st_mode, /* label_context= */ NULL);
                 r = mknod(dn, st.st_mode, st.st_rdev);
                 mac_selinux_create_file_clear();
                 if (r >= 0)
@@ -1327,7 +1341,7 @@ static int mount_private_dev(const MountEntry *m, const NamespaceParameters *p) 
         if (r < 0)
                 return r;
 
-        r = label_fix_full(AT_FDCWD, dev, "/dev", 0);
+        r = label_fix_full(AT_FDCWD, dev, "/dev", /* flags= */ 0, /* label_context= */ NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to fix label of '%s' as /dev/: %m", dev);
 
@@ -1596,7 +1610,7 @@ static int mount_tmpfs(const MountEntry *m) {
         if (r < 0)
                 return r;
 
-        r = label_fix_full(AT_FDCWD, entry_path, inner_path, 0);
+        r = label_fix_full(AT_FDCWD, entry_path, inner_path, /* flags= */ 0, /* label_context= */ NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to fix label of '%s' as '%s': %m", entry_path, inner_path);
 
@@ -1629,6 +1643,8 @@ static int mount_mqueuefs(const MountEntry *m) {
         (void) umount_recursive(entry_path, 0);
 
         r = mount_nofollow_verbose(LOG_DEBUG, "mqueue", entry_path, "mqueue", m->flags, mount_entry_options(m));
+        if (r == -ENODEV) /* POSIX message queues may be disabled in the kernel. */
+                return 0;
         if (r < 0)
                 return r;
 
@@ -1831,6 +1847,54 @@ static int follow_symlink(
         return 0;
 }
 
+static int mount_bind(
+                const MountEntry *m,
+                const char *what,
+                bool recursive,
+                bool make) {
+
+        int r;
+
+        assert(m);
+        assert(what);
+
+        r = mount_nofollow_verbose(
+                        LOG_DEBUG,
+                        what,
+                        mount_entry_path(m),
+                        NULL,
+                        MS_BIND|(recursive ? MS_REC : 0),
+                        NULL);
+        if (r >= 0)
+                return 0;
+        if (r != -ENOENT || !make)
+                return log_debug_errno(r, "Failed to mount %s to %s: %m", what, mount_entry_path(m));
+
+        /* Either the source or the destination is missing. Create the destination and try again. */
+        r = mkdir_parents(mount_entry_path(m), 0755);
+        if (r < 0 && r != -EEXIST)
+                return log_debug_errno(r,
+                                       "Failed to create parent directories of destination mount point node '%s': %m",
+                                       mount_entry_path(m));
+
+        r = make_mount_point_inode_from_path(what, mount_entry_path(m), 0755);
+        if (r < 0 && r != -EEXIST)
+                return log_debug_errno(r, "Failed to create destination mount point node '%s': %m",
+                                       mount_entry_path(m));
+
+        r = mount_nofollow_verbose(
+                        LOG_DEBUG,
+                        what,
+                        mount_entry_path(m),
+                        NULL,
+                        MS_BIND|(recursive ? MS_REC : 0),
+                        NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to mount %s to %s: %m", what, mount_entry_path(m));
+
+        return 0;
+}
+
 static int apply_one_mount(
                 const char *root_directory,
                 MountEntry *m,
@@ -2003,7 +2067,7 @@ static int apply_one_mount(
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to create source directory %s: %m", mount_entry_source(m));
 
-                        r = label_fix_full(AT_FDCWD, mount_entry_source(m), mount_entry_unprefixed_path(m), /* flags= */ 0);
+                        r = label_fix_full(AT_FDCWD, mount_entry_source(m), mount_entry_unprefixed_path(m), /* flags= */ 0, /* label_context= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set label of the source directory %s: %m", mount_entry_source(m));
                 }
@@ -2083,37 +2147,9 @@ static int apply_one_mount(
 
         assert(what);
 
-        r = mount_nofollow_verbose(LOG_DEBUG, what, mount_entry_path(m), NULL, MS_BIND|(rbind ? MS_REC : 0), NULL);
-        if (r < 0) {
-                bool try_again = false;
-
-                if (r == -ENOENT && make) {
-                        int q;
-
-                        /* Hmm, either the source or the destination are missing. Let's see if we can create
-                           the destination, then try again. */
-
-                        q = mkdir_parents(mount_entry_path(m), 0755);
-                        if (q < 0 && q != -EEXIST)
-                                // FIXME: this shouldn't be logged at LOG_WARNING, but be bubbled up, and logged there to avoid duplicate logging
-                                log_warning_errno(q, "Failed to create parent directories of destination mount point node '%s', ignoring: %m",
-                                                  mount_entry_path(m));
-                        else {
-                                q = make_mount_point_inode_from_path(what, mount_entry_path(m), 0755);
-                                if (q < 0 && q != -EEXIST)
-                                        // FIXME: this shouldn't be logged at LOG_WARNING, but be bubbled up, and logged there to avoid duplicate logging
-                                        log_warning_errno(q, "Failed to create destination mount point node '%s', ignoring: %m",
-                                                          mount_entry_path(m));
-                                else
-                                        try_again = true;
-                        }
-                }
-
-                if (try_again)
-                        r = mount_nofollow_verbose(LOG_DEBUG, what, mount_entry_path(m), NULL, MS_BIND|(rbind ? MS_REC : 0), NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to mount %s to %s: %m", what, mount_entry_path(m)); // FIXME: this should not be logged here, but be bubbled up, to avoid duplicate logging
-        }
+        r = mount_bind(m, what, rbind, make);
+        if (r < 0)
+                return r;
 
         log_debug("Successfully mounted %s to %s", what, mount_entry_path(m));
 
@@ -2614,7 +2650,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                                 root_mount_fd = _root_mount_fd;
                         }
 
-                        /* Try to to clone the directory mount if we have privs to, so that we can apply the
+                        /* Try to clone the directory mount if we have privs to, so that we can apply the
                          * MS_SLAVE propagation settings right-away. */
                         if (root_mount_fd < 0) {
                                 _root_mount_fd = open_tree_attr_with_fallback(
@@ -3238,17 +3274,14 @@ int bind_mount_add(BindMount **b, size_t *n, const BindMount *item) {
         return 0;
 }
 
-void mount_image_free_many(MountImage *m, size_t n) {
-        assert(m || n == 0);
-
-        FOREACH_ARRAY(i, m, n) {
-                free(i->source);
-                free(i->destination);
-                mount_options_free_all(i->mount_options);
-        }
-
-        free(m);
+static void mount_image_done(MountImage *m) {
+        assert(m);
+        m->source = mfree(m->source);
+        m->destination = mfree(m->destination);
+        m->mount_options = mount_options_free_all(m->mount_options);
 }
+
+DEFINE_ARRAY_FREE_FUNC(mount_image_free_array, MountImage, mount_image_done);
 
 int mount_image_add(MountImage **m, size_t *n, const MountImage *item) {
         _cleanup_free_ char *s = NULL, *d = NULL;
@@ -3333,10 +3366,29 @@ int temporary_filesystem_add(
         return 0;
 }
 
+char* namespace_cleanup_tmpdir(char *p) {
+        if (!p)
+                return NULL;
+
+        if (!streq(p, RUN_SYSTEMD_EMPTY)) {
+                _cleanup_free_ char *child = path_join(p, "tmp");
+                if (!child)
+                        log_oom_debug();
+                else
+                        (void) rmdir(child);
+
+                (void) rmdir(p);
+        }
+
+        return mfree(p);
+}
+
 static int make_tmp_prefix(const char *prefix) {
         _cleanup_free_ char *t = NULL;
         _cleanup_close_ int fd = -EBADF;
         int r;
+
+        assert(prefix);
 
         /* Don't do anything unless we know the dir is actually missing */
         r = access(prefix, F_OK);
@@ -3369,22 +3421,21 @@ static int make_tmp_prefix(const char *prefix) {
         r = RET_NERRNO(rename(t, prefix));
         if (r < 0) {
                 (void) rmdir(t);
-                return r == -EEXIST ? 0 : r; /* it's fine if someone else created the dir by now */
+                return IN_SET(r, -EEXIST, -ENOTEMPTY) ? 0 : r; /* it's fine if someone else created the dir by now */
         }
 
         return 0;
 }
 
-static int setup_one_tmp_dir(const char *id, const char *prefix, char **path, char **tmp_path) {
-        _cleanup_free_ char *x = NULL;
-        _cleanup_free_ char *y = NULL;
+int setup_tmp_dir_one(const char *id, const char *prefix, char **ret_path) {
+        _cleanup_free_ char *d = NULL;
         sd_id128_t boot_id;
         bool rw = true;
         int r;
 
         assert(id);
         assert(prefix);
-        assert(path);
+        assert(ret_path);
 
         /* We include the boot id in the directory so that after a
          * reboot we can easily identify obsolete directories. */
@@ -3393,8 +3444,8 @@ static int setup_one_tmp_dir(const char *id, const char *prefix, char **path, ch
         if (r < 0)
                 return r;
 
-        x = strjoin(prefix, "/systemd-private-", SD_ID128_TO_STRING(boot_id), "-", id, "-XXXXXX");
-        if (!x)
+        d = strjoin(prefix, "/systemd-private-", SD_ID128_TO_STRING(boot_id), "-", id, "-XXXXXX");
+        if (!d)
                 return -ENOMEM;
 
         r = make_tmp_prefix(prefix);
@@ -3402,7 +3453,7 @@ static int setup_one_tmp_dir(const char *id, const char *prefix, char **path, ch
                 return r;
 
         WITH_UMASK(0077)
-                if (!mkdtemp(x)) {
+                if (!mkdtemp(d)) {
                         if (errno == EROFS || ERRNO_IS_DISK_SPACE(errno))
                                 rw = false;
                         else
@@ -3410,20 +3461,25 @@ static int setup_one_tmp_dir(const char *id, const char *prefix, char **path, ch
                 }
 
         if (rw) {
-                y = strjoin(x, "/tmp");
-                if (!y)
+                _cleanup_free_ char *inner_dir = path_join(d, "tmp");
+                if (!inner_dir) {
+                        (void) rmdir(d);
                         return -ENOMEM;
+                }
 
                 WITH_UMASK(0000)
-                        if (mkdir(y, 0777 | S_ISVTX) < 0)
-                                return -errno;
-
-                r = label_fix_full(AT_FDCWD, y, prefix, 0);
-                if (r < 0)
+                        r = RET_NERRNO(mkdir(inner_dir, 0777 | S_ISVTX));
+                if (r < 0) {
+                        (void) rmdir(d);
                         return r;
+                }
 
-                if (tmp_path)
-                        *tmp_path = TAKE_PTR(y);
+                r = label_fix_full(AT_FDCWD, inner_dir, prefix, /* flags= */ 0, /* label_context= */ NULL);
+                if (r < 0) {
+                        (void) rmdir(inner_dir);
+                        (void) rmdir(d);
+                        return r;
+                }
         } else {
                 /* Trouble: we failed to create the directory. Instead of failing, let's simulate /tmp being
                  * read-only. This way the service will get the EROFS result as if it was writing to the real
@@ -3433,44 +3489,12 @@ static int setup_one_tmp_dir(const char *id, const char *prefix, char **path, ch
                 if (r < 0)
                         return r;
 
-                r = free_and_strdup(&x, RUN_SYSTEMD_EMPTY);
+                r = free_and_strdup(&d, RUN_SYSTEMD_EMPTY);
                 if (r < 0)
                         return r;
         }
 
-        *path = TAKE_PTR(x);
-        return 0;
-}
-
-char* namespace_cleanup_tmpdir(char *p) {
-        PROTECT_ERRNO;
-        if (!streq_ptr(p, RUN_SYSTEMD_EMPTY))
-                (void) rmdir(p);
-        return mfree(p);
-}
-
-int setup_tmp_dirs(const char *id, char **tmp_dir, char **var_tmp_dir) {
-        _cleanup_(namespace_cleanup_tmpdirp) char *a = NULL;
-        _cleanup_(rmdir_and_freep) char *a_tmp = NULL;
-        char *b;
-        int r;
-
-        assert(id);
-        assert(tmp_dir);
-        assert(var_tmp_dir);
-
-        r = setup_one_tmp_dir(id, "/tmp", &a, &a_tmp);
-        if (r < 0)
-                return r;
-
-        r = setup_one_tmp_dir(id, "/var/tmp", &b, NULL);
-        if (r < 0)
-                return r;
-
-        a_tmp = mfree(a_tmp); /* avoid rmdir */
-        *tmp_dir = TAKE_PTR(a);
-        *var_tmp_dir = TAKE_PTR(b);
-
+        *ret_path = TAKE_PTR(d);
         return 0;
 }
 
@@ -3662,7 +3686,7 @@ static int unpeel_get_fd(const char *mount_path, int *ret_fd) {
                         _exit(EXIT_FAILURE);
                 }
                 if (r > 0) {
-                        log_debug_errno(r, "'%s' is still an overlay after opening mount tree: %m", mount_path);
+                        log_debug("'%s' is still an overlay after opening mount tree", mount_path);
                         _exit(EXIT_FAILURE);
                 }
 
@@ -3874,7 +3898,7 @@ static int handle_mount_from_grandchild(
                 if (r < 0)
                         return log_oom_debug();
 
-                *fd_layers[(*n_fd_layers)++] = TAKE_FD(tree_fd);
+                (*fd_layers)[(*n_fd_layers)++] = TAKE_FD(tree_fd);
         }
         m->overlay_layers = strv_free(m->overlay_layers);
         m->overlay_layers = TAKE_PTR(new_layers);
@@ -3984,7 +4008,7 @@ int refresh_extensions_in_namespace(
         if (r > 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Target namespace is not separate, cannot reload extensions");
 
-        (void) dlopen_cryptsetup();
+        (void) dlopen_cryptsetup(LOG_DEBUG);
 
         extension_dir = path_join(p->private_namespace_dir, "unit-extensions");
         if (!extension_dir)

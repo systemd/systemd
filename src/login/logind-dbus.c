@@ -45,10 +45,11 @@
 #include "logind-seat.h"
 #include "logind-seat-dbus.h"
 #include "logind-session-dbus.h"
+#include "logind-shutdown.h"
 #include "logind-user.h"
 #include "logind-user-dbus.h"
 #include "logind-utmp.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -58,6 +59,7 @@
 #include "signal-util.h"
 #include "sleep-config.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
@@ -76,10 +78,6 @@
  */
 #define WALL_MESSAGE_MAX 4096U
 
-#define SHUTDOWN_SCHEDULE_FILE "/run/systemd/shutdown/scheduled"
-
-static void reset_scheduled_shutdown(Manager *m);
-
 static int get_sender_session(
                 Manager *m,
                 sd_bus_message *message,
@@ -93,6 +91,7 @@ static int get_sender_session(
         int r;
 
         assert(m);
+        assert(ret);
 
         /* Acquire the sender's session. This first checks if the sending process is inside a session itself,
          * and returns that. If not and 'consult_display' is true, this returns the display session of the
@@ -167,6 +166,8 @@ static int get_sender_user(Manager *m, sd_bus_message *message, sd_bus_error *er
         uid_t uid;
         User *user;
         int r;
+
+        assert(ret);
 
         /* Note that we get the owner UID of the session, not the actual client UID here! */
         r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_OWNER_UID|SD_BUS_CREDS_AUGMENT, &creds);
@@ -281,7 +282,7 @@ static int property_get_idle_hint(
         assert(bus);
         assert(reply);
 
-        return sd_bus_message_append(reply, "b", manager_get_idle_hint(m, NULL) > 0);
+        return sd_bus_message_append(reply, "b", manager_get_idle_hint(m, /* ret_timestamp= */ NULL));
 }
 
 static int property_get_idle_since_hint(
@@ -294,7 +295,7 @@ static int property_get_idle_since_hint(
                 sd_bus_error *error) {
 
         Manager *m = ASSERT_PTR(userdata);
-        dual_timestamp t = DUAL_TIMESTAMP_NULL;
+        dual_timestamp t;
 
         assert(bus);
         assert(reply);
@@ -700,10 +701,7 @@ static int method_list_sessions_ex(sd_bus_message *message, void *userdata, sd_b
                 if (!path)
                         return -ENOMEM;
 
-                r = session_get_idle_hint(s, &idle_ts);
-                if (r < 0)
-                        return r;
-                idle = r > 0;
+                idle = session_get_idle_hint(s, &idle_ts);
 
                 r = sd_bus_message_append(reply, "(sussussbto)",
                                           s->id,
@@ -1154,7 +1152,7 @@ static int manager_create_session_by_bus(
         if (isempty(desktop))
                 desktop = NULL;
         else {
-                if (!string_is_safe(desktop))
+                if (!string_is_safe(desktop, STRING_ALLOW_GLOBS))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                                  "Invalid desktop string %s", desktop);
         }
@@ -1647,6 +1645,7 @@ static int method_set_user_linger(sd_bus_message *message, void *userdata, sd_bu
                         /* good_user= */ UID_INVALID,
                         interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                         &m->polkit_registry,
+                        /* ret_admin= */ NULL,
                         error);
         if (r < 0)
                 return r;
@@ -1823,6 +1822,7 @@ static int method_attach_device(sd_bus_message *message, void *userdata, sd_bus_
                         /* good_user= */ UID_INVALID,
                         interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                         &m->polkit_registry,
+                        /* ret_admin= */ NULL,
                         error);
         if (r < 0)
                 return r;
@@ -1853,6 +1853,7 @@ static int method_flush_devices(sd_bus_message *message, void *userdata, sd_bus_
                         /* good_user= */ UID_INVALID,
                         interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                         &m->polkit_registry,
+                        /* ret_admin= */ NULL,
                         error);
         if (r < 0)
                 return r;
@@ -1864,24 +1865,6 @@ static int method_flush_devices(sd_bus_message *message, void *userdata, sd_bus_
                 return r;
 
         return sd_bus_reply_method_return(message, NULL);
-}
-
-static int have_multiple_sessions(
-                Manager *m,
-                uid_t uid) {
-
-        Session *session;
-
-        assert(m);
-
-        /* Check for other users' sessions. Greeter sessions do not
-         * count, and non-login sessions do not count either. */
-        HASHMAP_FOREACH(session, m->sessions)
-                if (SESSION_CLASS_IS_INHIBITOR_LIKE(session->class) &&
-                    session->user->user_record->uid != uid)
-                        return true;
-
-        return false;
 }
 
 static int bus_manager_log_shutdown(
@@ -2189,121 +2172,6 @@ int bus_manager_shutdown_or_sleep_now_or_later(
         return r;
 }
 
-static int verify_shutdown_creds(
-                Manager *m,
-                sd_bus_message *message,
-                const HandleActionData *a,
-                uint64_t flags,
-                sd_bus_error *error) {
-
-        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-        bool multiple_sessions, blocked, interactive;
-        _unused_ bool error_or_denial = false;
-        Inhibitor *offending = NULL;
-        uid_t uid;
-        int r;
-
-        assert(m);
-        assert(a);
-        assert(message);
-
-        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID, &creds);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_creds_get_euid(creds, &uid);
-        if (r < 0)
-                return r;
-
-        r = have_multiple_sessions(m, uid);
-        if (r < 0)
-                return r;
-
-        multiple_sessions = r > 0;
-        blocked = manager_is_inhibited(m, a->inhibit_what, NULL, /* flags= */ 0, uid, &offending);
-        interactive = flags & SD_LOGIND_INTERACTIVE;
-
-        if (multiple_sessions) {
-                r = bus_verify_polkit_async_full(
-                                message,
-                                a->polkit_action_multiple_sessions,
-                                /* details= */ NULL,
-                                /* good_user= */ UID_INVALID,
-                                interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
-                                &m->polkit_registry,
-                                error);
-                if (r < 0) {
-                        /* If we get -EBUSY, it means a polkit decision was made, but not for
-                         * this action in particular. Assuming we are blocked on inhibitors,
-                         * ignore that error and allow the decision to be revealed below. */
-                        if (blocked && r == -EBUSY)
-                                error_or_denial = true;
-                        else
-                                return r;
-                }
-                if (r == 0)
-                        return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
-        }
-
-        if (blocked) {
-                PolkitFlags polkit_flags = 0;
-
-                /* With a strong inhibitor, if the skip flag is not set, reject outright.
-                 * With a weak inhibitor, if root is asking and the root flag is set, reject outright.
-                 * All else, check polkit first. */
-                if (!FLAGS_SET(flags, SD_LOGIND_SKIP_INHIBITORS) &&
-                    (offending->mode != INHIBIT_BLOCK_WEAK ||
-                     (uid == 0 && FLAGS_SET(flags, SD_LOGIND_ROOT_CHECK_INHIBITORS))))
-                        return sd_bus_error_set(error, BUS_ERROR_BLOCKED_BY_INHIBITOR_LOCK,
-                                                "Operation denied due to active block inhibitor");
-
-                /* We want to always ask here, even for root, to only allow bypassing if explicitly allowed
-                 * by polkit, unless a weak blocker is used, in which case it will be authorized. */
-                if (offending->mode != INHIBIT_BLOCK_WEAK)
-                        polkit_flags |= POLKIT_ALWAYS_QUERY;
-
-                if (interactive)
-                        polkit_flags |= POLKIT_ALLOW_INTERACTIVE;
-
-                r = bus_verify_polkit_async_full(
-                                message,
-                                a->polkit_action_ignore_inhibit,
-                                /* details= */ NULL,
-                                /* good_user= */ UID_INVALID,
-                                polkit_flags,
-                                &m->polkit_registry,
-                                error);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
-        }
-
-        if (!multiple_sessions && !blocked) {
-                r = bus_verify_polkit_async_full(
-                                message,
-                                a->polkit_action,
-                                /* details= */ NULL,
-                                /* good_user= */ UID_INVALID,
-                                interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
-                                &m->polkit_registry,
-                                error);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
-        }
-
-        /* If error_or_denial was set above, it means that a polkit denial or
-         * error was deferred for a future call to bus_verify_polkit_async_full()
-         * to catch. In any case, it also means that the payload guarded by
-         * these polkit calls should never be executed, and hence we should
-         * never reach this point. */
-        assert(!error_or_denial);
-
-        return 0;
-}
-
 static int setup_wall_message_timer(Manager *m, sd_bus_message* message) {
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         int r;
@@ -2442,9 +2310,16 @@ static int method_do_shutdown_or_sleep(
         } else if (!a)
                 assert_se(a = handle_action_lookup(action));
 
-        r = verify_shutdown_creds(m, message, a, flags, error);
+        r = manager_verify_shutdown_creds(m, message, /* link= */ NULL, a, flags, error);
         if (r != 0)
                 return r;
+
+        {
+                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+
+                (void) bus_query_sender_pidref(message, &pidref);
+                log_shutdown_caller(&pidref, handle_action_to_string(a->handle));
+        }
 
         if (m->delayed_action)
                 return sd_bus_error_setf(error, BUS_ERROR_OPERATION_IN_PROGRESS,
@@ -2454,7 +2329,7 @@ static int method_do_shutdown_or_sleep(
 
         /* reset case we're shorting a scheduled shutdown */
         m->unlink_nologin = false;
-        reset_scheduled_shutdown(m);
+        manager_reset_scheduled_shutdown(m);
 
         m->scheduled_shutdown_timeout = 0;
         m->scheduled_shutdown_action = action;
@@ -2568,29 +2443,6 @@ static usec_t nologin_timeout_usec(usec_t elapse) {
         return LESS_BY(elapse, 5 * USEC_PER_MINUTE);
 }
 
-static void reset_scheduled_shutdown(Manager *m) {
-        assert(m);
-
-        m->scheduled_shutdown_timeout_source = sd_event_source_disable_unref(m->scheduled_shutdown_timeout_source);
-        m->wall_message_timeout_source = sd_event_source_disable_unref(m->wall_message_timeout_source);
-        m->nologin_timeout_source = sd_event_source_disable_unref(m->nologin_timeout_source);
-
-        m->scheduled_shutdown_action = _HANDLE_ACTION_INVALID;
-        m->scheduled_shutdown_timeout = USEC_INFINITY;
-        m->scheduled_shutdown_uid = UID_INVALID;
-        m->scheduled_shutdown_tty = mfree(m->scheduled_shutdown_tty);
-        m->shutdown_dry_run = false;
-
-        if (m->unlink_nologin) {
-                (void) unlink_or_warn("/run/nologin");
-                m->unlink_nologin = false;
-        }
-
-        (void) unlink(SHUTDOWN_SCHEDULE_FILE);
-
-        manager_send_changed(m, "ScheduledShutdown");
-}
-
 static int update_schedule_file(Manager *m) {
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -2669,7 +2521,7 @@ static int manager_scheduled_shutdown_handler(
 
                 bus_manager_log_shutdown(m, a);
                 log_info("Running in dry run, suppressing action.");
-                reset_scheduled_shutdown(m);
+                manager_reset_scheduled_shutdown(m);
 
                 return 0;
         }
@@ -2683,7 +2535,7 @@ static int manager_scheduled_shutdown_handler(
         return 0;
 
 error:
-        reset_scheduled_shutdown(m);
+        manager_reset_scheduled_shutdown(m);
         return r;
 }
 
@@ -2738,7 +2590,7 @@ void manager_load_scheduled_shutdown(Manager *m) {
                            "TTY", &tty);
 
         /* reset will delete the file */
-        reset_scheduled_shutdown(m);
+        manager_reset_scheduled_shutdown(m);
 
         if (r == -ENOENT)
                 return;
@@ -2784,7 +2636,7 @@ void manager_load_scheduled_shutdown(Manager *m) {
 
         r = manager_setup_shutdown_timers(m);
         if (r < 0)
-                return reset_scheduled_shutdown(m);
+                return manager_reset_scheduled_shutdown(m);
 
         (void) manager_setup_wall_message_timer(m);
         (void) update_schedule_file(m);
@@ -2819,7 +2671,7 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
         assert_se(a = handle_action_lookup(handle));
         assert(a->polkit_action);
 
-        r = verify_shutdown_creds(m, message, a, 0, error);
+        r = manager_verify_shutdown_creds(m, message, /* link= */ NULL, a, 0, error);
         if (r != 0)
                 return r;
 
@@ -2853,7 +2705,7 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
                 r = update_schedule_file(m);
 
         if (r < 0) {
-                reset_scheduled_shutdown(m);
+                manager_reset_scheduled_shutdown(m);
                 return r;
         }
 
@@ -2913,7 +2765,7 @@ static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userd
         }
 
         cancel_delayed_action(m);
-        reset_scheduled_shutdown(m);
+        manager_reset_scheduled_shutdown(m);
 
         return sd_bus_reply_method_return(message, "b", true);
 }
@@ -2927,7 +2779,6 @@ static int method_can_shutdown_or_sleep(
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         bool multiple_sessions, challenge, blocked, check_unit_state = true;
         const HandleActionData *a;
-        const char *result = NULL;
         uid_t uid;
         int r;
 
@@ -2970,7 +2821,7 @@ static int method_can_shutdown_or_sleep(
         if (r < 0)
                 return r;
 
-        r = have_multiple_sessions(m, uid);
+        r = manager_have_multiple_sessions(m, uid);
         if (r < 0)
                 return r;
 
@@ -2984,11 +2835,26 @@ static int method_can_shutdown_or_sleep(
                 if (r < 0)
                         return r;
 
-                if (!streq(load_state, "loaded")) {
-                        result = "no";
-                        goto finish;
-                }
+                if (!streq(load_state, "loaded"))
+                        return sd_bus_reply_method_return(message, "s", "no");
         }
+
+        const char *result;
+        r = bus_test_polkit(
+                        message,
+                        a->polkit_action,
+                        /* details= */ NULL,
+                        /* good_user= */ UID_INVALID,
+                        &challenge,
+                        error);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                result = "yes";
+        else if (challenge)
+                result = "challenge";
+        else
+                result = "no";
 
         if (multiple_sessions) {
                 r = bus_test_polkit(
@@ -3001,12 +2867,13 @@ static int method_can_shutdown_or_sleep(
                 if (r < 0)
                         return r;
 
-                if (r > 0)
-                        result = "yes";
-                else if (challenge)
-                        result = "challenge";
-                else
-                        result = "no";
+                if (r == 0) {
+                        if (challenge) {
+                                if (streq(result, "yes")) /* Avoid upgrading no -> challenge */
+                                        result = "challenge";
+                        } else
+                                result = "no";
+                }
         }
 
         if (blocked) {
@@ -3020,39 +2887,21 @@ static int method_can_shutdown_or_sleep(
                 if (r < 0)
                         return r;
 
-                if (r > 0) {
-                        if (!result)
-                                result = "yes";
-                } else if (challenge) {
-                        if (!result || streq(result, "yes"))
-                                result = "challenge";
-                } else
-                        result = "no";
+                if (r == 0) {
+                        if (challenge) {
+                                if (streq(result, "yes"))
+                                        result = "inhibited";
+                                /* If result is already "challenge" or "no", the held inhibitor has no effect */
+                        } else {
+                                if (streq(result, "yes"))
+                                        result = "inhibitor-blocked";
+                                else if (streq(result, "challenge"))
+                                        result = "challenge-inhibitor-blocked";
+                                /* If the result is already "no", the held inhibitor has no effect */
+                        }
+                }
         }
 
-        if (!multiple_sessions && !blocked) {
-                /* If neither inhibit nor multiple sessions
-                 * apply then just check the normal policy */
-
-                r = bus_test_polkit(
-                                message,
-                                a->polkit_action,
-                                /* details= */ NULL,
-                                /* good_user= */ UID_INVALID,
-                                &challenge,
-                                error);
-                if (r < 0)
-                        return r;
-
-                if (r > 0)
-                        result = "yes";
-                else if (challenge)
-                        result = "challenge";
-                else
-                        result = "no";
-        }
-
- finish:
         return sd_bus_reply_method_return(message, "s", result);
 }
 
@@ -3646,7 +3495,7 @@ static int method_set_reboot_to_boot_loader_entry(
                         if (unlink("/run/systemd/reboot-to-boot-loader-entry") < 0 && errno != ENOENT)
                                 return -errno;
                 } else {
-                        r = write_string_file("/run/systemd/reboot-boot-to-loader-entry", v, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
+                        r = write_string_file("/run/systemd/reboot-to-boot-loader-entry", v, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
                         if (r < 0)
                                 return r;
                 }
@@ -3734,6 +3583,46 @@ static int property_get_boot_loader_entries(
         return sd_bus_message_close_container(reply);
 }
 
+static int wall_message_validate(const char *wall_message, sd_bus_error *error) {
+        if (strlen(wall_message) > WALL_MESSAGE_MAX)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                         "Wall message too long, maximum permitted length is %u characters.",
+                                         WALL_MESSAGE_MAX);
+
+        if (string_has_cc(wall_message, /* ok= */ "\n\t"))
+                return sd_bus_error_set(error,
+                                        SD_BUS_ERROR_INVALID_ARGS,
+                                        "Wall message contains control characters, refusing.");
+
+        return 0;
+}
+
+static int property_set_wall_message(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *value,
+                void *userdata,
+                sd_bus_error *error) {
+
+        char **p = ASSERT_PTR(userdata);
+        const char *s;
+        int r;
+
+        assert(value);
+
+        r = sd_bus_message_read(value, "s", &s);
+        if (r < 0)
+                return r;
+
+        r = wall_message_validate(s, error);
+        if (r < 0)
+                return r;
+
+        return free_and_strdup_warn(p, empty_to_null(s));
+}
+
 static int method_set_wall_message(
                 sd_bus_message *message,
                 void *userdata,
@@ -3750,10 +3639,9 @@ static int method_set_wall_message(
         if (r < 0)
                 return r;
 
-        if (strlen(wall_message) > WALL_MESSAGE_MAX)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                        "Wall message too long, maximum permitted length is %u characters.",
-                        WALL_MESSAGE_MAX);
+        r = wall_message_validate(wall_message, error);
+        if (r < 0)
+                return r;
 
         /* Short-circuit the operation if the desired state is already in place, to
          * avoid an unnecessary polkit permission check. */
@@ -3883,7 +3771,7 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
                 if (asprintf(&id, "%" PRIu64, ++m->inhibit_counter) < 0)
                         return -ENOMEM;
 
-        } while (hashmap_get(m->inhibitors, id));
+        } while (hashmap_contains(m->inhibitors, id));
 
         _cleanup_(inhibitor_freep) Inhibitor *i = NULL;
         r = manager_add_inhibitor(m, id, &i);
@@ -3916,7 +3804,7 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
         SD_BUS_WRITABLE_PROPERTY("EnableWallMessages", "b", bus_property_get_bool, bus_property_set_bool, offsetof(Manager, wall_messages), 0),
-        SD_BUS_WRITABLE_PROPERTY("WallMessage", "s", NULL, NULL, offsetof(Manager, wall_message), 0),
+        SD_BUS_WRITABLE_PROPERTY("WallMessage", "s", NULL, property_set_wall_message, offsetof(Manager, wall_message), 0),
 
         SD_BUS_PROPERTY("NAutoVTs", "u", NULL, offsetof(Manager, n_autovts), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("KillOnlyUsers", "as", NULL, offsetof(Manager, kill_only_users), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -3963,7 +3851,7 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_PROPERTY("RuntimeDirectorySize", "t", NULL, offsetof(Manager, runtime_dir_size), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RuntimeDirectoryInodesMax", "t", NULL, offsetof(Manager, runtime_dir_inodes), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("InhibitorsMax", "t", NULL, offsetof(Manager, inhibitors_max), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("NCurrentInhibitors", "t", property_get_hashmap_size, offsetof(Manager, inhibitors), 0),
+        SD_BUS_PROPERTY("NCurrentInhibitors", "t", property_get_hashmap_size, offsetof(Manager, inhibitors), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("SessionsMax", "t", NULL, offsetof(Manager, sessions_max), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NCurrentSessions", "t", property_get_hashmap_size, offsetof(Manager, sessions), 0),
         SD_BUS_PROPERTY("UserTasksMax", "t", property_get_compat_user_tasks_max, 0, SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
@@ -4433,7 +4321,7 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
                 /* If the user is stopping, we're tracking stop jobs here. So don't send reply. */
                 if (!user->stopping) {
                         char **user_job;
-                        FOREACH_ARGUMENT(user_job, &user->runtime_dir_job, &user->service_manager_job)
+                        FOREACH_ARGUMENT(user_job, &user->runtime_dir_job, &user->service_manager_job, &user->measure_job)
                                 if (streq_ptr(path, *user_job)) {
                                         *user_job = mfree(*user_job);
 

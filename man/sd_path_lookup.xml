@@ -68,6 +68,7 @@
         <constant>SD_PATH_USER_PUBLIC</constant>,
         <constant>SD_PATH_USER_TEMPLATES</constant>,
         <constant>SD_PATH_USER_DESKTOP</constant>,
+        <constant>SD_PATH_USER_PROJECTS</constant>,
 
         <constant>SD_PATH_SEARCH_BINARIES</constant>,
         <constant>SD_PATH_SEARCH_BINARIES_DEFAULT</constant>,

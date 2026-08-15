@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <getopt.h>
 #include <stdio.h>
 #include <unistd.h>
 
@@ -11,15 +10,19 @@
 #include "alloc-util.h"
 #include "build.h"
 #include "conf-parser.h"
+#include "curl-util.h"
 #include "daemon-util.h"
+#include "dlopen-note.h"
 #include "env-file.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "glob-util.h"
 #include "hashmap.h"
+#include "help-util.h"
 #include "journal-header-util.h"
 #include "journal-upload.h"
 #include "journal-util.h"
@@ -27,9 +30,9 @@
 #include "logs-show.h"
 #include "main-func.h"
 #include "mkdir.h"
+#include "options.h"
 #include "parse-argument.h"
 #include "parse-helpers.h"
-#include "pretty-print.h"
 #include "process-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -80,20 +83,6 @@ static void close_fd_input(Uploader *u);
 #define SERVER_ANSWER_KEEP 2048
 
 #define STATE_FILE "/var/lib/systemd/journal-upload/state"
-
-#define easy_setopt(curl, opt, value, level, cmd)                       \
-        do {                                                            \
-                code = curl_easy_setopt(curl, opt, value);              \
-                if (code) {                                             \
-                        log_full(level,                                 \
-                                 "curl_easy_setopt " #opt " failed: %s", \
-                                  curl_easy_strerror(code));            \
-                        cmd;                                            \
-                }                                                       \
-        } while (0)
-
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(CURL*, curl_easy_cleanup, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct curl_slist*, curl_slist_free_all, NULL);
 
 static size_t output_callback(char *buf,
                               size_t size,
@@ -194,8 +183,6 @@ int start_upload(Uploader *u,
                                           size_t nmemb,
                                           void *userdata),
                  void *data) {
-        CURLcode code;
-
         assert(u);
         assert(input_callback);
 
@@ -203,26 +190,26 @@ int start_upload(Uploader *u,
                 _cleanup_(curl_slist_free_allp) struct curl_slist *h = NULL;
                 struct curl_slist *l;
 
-                h = curl_slist_append(NULL, "Content-Type: application/vnd.fdo.journal");
+                h = sym_curl_slist_append(NULL, "Content-Type: application/vnd.fdo.journal");
                 if (!h)
                         return log_oom();
 
-                l = curl_slist_append(h, "Transfer-Encoding: chunked");
+                l = sym_curl_slist_append(h, "Transfer-Encoding: chunked");
                 if (!l)
                         return log_oom();
                 h = l;
 
-                l = curl_slist_append(h, "Accept: text/plain");
+                l = sym_curl_slist_append(h, "Accept: text/plain");
                 if (!l)
                         return log_oom();
                 h = l;
 
                 if (u->compression) {
-                        _cleanup_free_ char *header = strjoin("Content-Encoding: ", compression_lowercase_to_string(u->compression->algorithm));
+                        _cleanup_free_ char *header = strjoin("Content-Encoding: ", compression_to_string(u->compression->algorithm));
                         if (!header)
                                 return log_oom();
 
-                        l = curl_slist_append(h, header);
+                        l = sym_curl_slist_append(h, header);
                         if (!l)
                                 return log_oom();
                         h = l;
@@ -244,7 +231,7 @@ int start_upload(Uploader *u,
                         if (!header)
                                 return log_oom();
 
-                        l = curl_slist_append(h, header);
+                        l = sym_curl_slist_append(h, header);
                         if (!l)
                                 return log_oom();
                         h = l;
@@ -256,67 +243,69 @@ int start_upload(Uploader *u,
         if (!u->easy) {
                 _cleanup_(curl_easy_cleanupp) CURL *curl = NULL;
 
-                curl = curl_easy_init();
+                curl = sym_curl_easy_init();
                 if (!curl)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOSR),
                                                "Call to curl_easy_init failed.");
 
                 /* If configured, set a timeout for the curl operation. */
-                if (arg_network_timeout_usec != USEC_INFINITY)
-                        easy_setopt(curl, CURLOPT_TIMEOUT,
-                                    (long) DIV_ROUND_UP(arg_network_timeout_usec, USEC_PER_SEC),
-                                    LOG_ERR, return -EXFULL);
+                if (arg_network_timeout_usec != USEC_INFINITY &&
+                    !easy_setopt(curl, LOG_ERR, CURLOPT_TIMEOUT,
+                                 (long) DIV_ROUND_UP(arg_network_timeout_usec, USEC_PER_SEC)))
+                        return -EXFULL;
 
                 /* tell it to POST to the URL */
-                easy_setopt(curl, CURLOPT_POST, 1L,
-                            LOG_ERR, return -EXFULL);
+                if (!easy_setopt(curl, LOG_ERR, CURLOPT_POST, 1L))
+                        return -EXFULL;
 
-                easy_setopt(curl, CURLOPT_ERRORBUFFER, u->error,
-                            LOG_ERR, return -EXFULL);
+                if (!easy_setopt(curl, LOG_ERR, CURLOPT_ERRORBUFFER, u->error))
+                        return -EXFULL;
 
                 /* set where to write to */
-                easy_setopt(curl, CURLOPT_WRITEFUNCTION, output_callback,
-                            LOG_ERR, return -EXFULL);
+                if (!easy_setopt(curl, LOG_ERR, CURLOPT_WRITEFUNCTION, output_callback))
+                        return -EXFULL;
 
-                easy_setopt(curl, CURLOPT_WRITEDATA, data,
-                            LOG_ERR, return -EXFULL);
+                if (!easy_setopt(curl, LOG_ERR, CURLOPT_WRITEDATA, data))
+                        return -EXFULL;
 
                 /* set where to read from */
-                easy_setopt(curl, CURLOPT_READFUNCTION, input_callback,
-                            LOG_ERR, return -EXFULL);
+                if (!easy_setopt(curl, LOG_ERR, CURLOPT_READFUNCTION, input_callback))
+                        return -EXFULL;
 
-                easy_setopt(curl, CURLOPT_READDATA, data,
-                            LOG_ERR, return -EXFULL);
+                if (!easy_setopt(curl, LOG_ERR, CURLOPT_READDATA, data))
+                        return -EXFULL;
 
                 /* use our special own mime type and chunked transfer */
-                easy_setopt(curl, CURLOPT_HTTPHEADER, u->header,
-                            LOG_ERR, return -EXFULL);
+                if (!easy_setopt(curl, LOG_ERR, CURLOPT_HTTPHEADER, u->header))
+                        return -EXFULL;
 
                 if (DEBUG_LOGGING)
                         /* enable verbose for easier tracing */
-                        easy_setopt(curl, CURLOPT_VERBOSE, 1L, LOG_WARNING, );
+                        (void) easy_setopt(curl, LOG_WARNING, CURLOPT_VERBOSE, 1L);
 
-                easy_setopt(curl, CURLOPT_USERAGENT,
-                            "systemd-journal-upload " GIT_VERSION,
-                            LOG_WARNING, );
+                (void) easy_setopt(curl, LOG_WARNING,
+                                   CURLOPT_USERAGENT, "systemd-journal-upload " GIT_VERSION);
 
                 if (!streq_ptr(arg_key, "-") && (arg_key || startswith(u->url, "https://"))) {
-                        easy_setopt(curl, CURLOPT_SSLKEY, arg_key ?: PRIV_KEY_FILE,
-                                    LOG_ERR, return -EXFULL);
-                        easy_setopt(curl, CURLOPT_SSLCERT, arg_cert ?: CERT_FILE,
-                                    LOG_ERR, return -EXFULL);
+                        if (!easy_setopt(curl, LOG_ERR, CURLOPT_SSLKEY, arg_key ?: PRIV_KEY_FILE))
+                                return -EXFULL;
+                        if (!easy_setopt(curl, LOG_ERR, CURLOPT_SSLCERT, arg_cert ?: CERT_FILE))
+                                return -EXFULL;
                 }
 
-                if (STRPTR_IN_SET(arg_trust, "-", "all"))
-                        easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L,
-                                    LOG_ERR, return -EUCLEAN);
-                else if (arg_trust || startswith(u->url, "https://"))
-                        easy_setopt(curl, CURLOPT_CAINFO, arg_trust ?: TRUST_FILE,
-                                    LOG_ERR, return -EXFULL);
+                if (STRPTR_IN_SET(arg_trust, "-", "all")) {
+                        log_info("Server certificate verification disabled.");
+                        if (!easy_setopt(curl, LOG_ERR, CURLOPT_SSL_VERIFYPEER, 0L))
+                                return -EUCLEAN;
+                        if (!easy_setopt(curl, LOG_ERR, CURLOPT_SSL_VERIFYHOST, 0L))
+                                return -EUCLEAN;
+                } else if (arg_trust || startswith(u->url, "https://")) {
+                        if (!easy_setopt(curl, LOG_ERR, CURLOPT_CAINFO, arg_trust ?: TRUST_FILE))
+                                return -EXFULL;
+                }
 
-                if (arg_key || arg_trust)
-                        easy_setopt(curl, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1,
-                                    LOG_WARNING, );
+                if (startswith(u->url, "https://"))
+                        (void) easy_setopt(curl, LOG_WARNING, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_2);
 
                 u->easy = TAKE_PTR(curl);
         } else {
@@ -327,11 +316,8 @@ int start_upload(Uploader *u,
         }
 
         /* upload to this place */
-        code = curl_easy_setopt(u->easy, CURLOPT_URL, u->url);
-        if (code)
-                return log_error_errno(SYNTHETIC_ERRNO(EXFULL),
-                                       "curl_easy_setopt CURLOPT_URL failed: %s",
-                                       curl_easy_strerror(code));
+        if (!easy_setopt(u->easy, LOG_ERR, CURLOPT_URL, u->url))
+                return -EXFULL;
 
         u->uploading = true;
 
@@ -369,7 +355,7 @@ static size_t fd_input_callback(void *buf, size_t size, size_t nmemb, void *user
                 r = compress_blob(u->compression->algorithm, compression_buffer, n, buf, size * nmemb, &compressed_size, u->compression->level);
                 if (r < 0) {
                         log_error_errno(r, "Failed to compress %zd bytes by %s with level %i: %m",
-                                        n, compression_lowercase_to_string(u->compression->algorithm), u->compression->level);
+                                        n, compression_to_string(u->compression->algorithm), u->compression->level);
                         return CURL_READFUNC_ABORT;
                 }
                 assert(compressed_size <= size * nmemb);
@@ -501,8 +487,10 @@ static int setup_uploader(Uploader *u, const char *url, const char *state_file) 
 static void destroy_uploader(Uploader *u) {
         assert(u);
 
-        curl_easy_cleanup(u->easy);
-        curl_slist_free_all(u->header);
+        if (sym_curl_easy_cleanup)
+                sym_curl_easy_cleanup(u->easy);
+        if (sym_curl_slist_free_all)
+                sym_curl_slist_free_all(u->header);
         free(u->answer);
 
         free(u->last_cursor);
@@ -528,7 +516,7 @@ static int update_content_encoding_header(Uploader *u, const CompressionConfig *
                 return 0; /* Already picked the algorithm. Let's shortcut. */
 
         if (cc) {
-                _cleanup_free_ char *header = strjoin("Content-Encoding: ", compression_lowercase_to_string(cc->algorithm));
+                _cleanup_free_ char *header = strjoin("Content-Encoding: ", compression_to_string(cc->algorithm));
                 if (!header)
                         return log_oom();
 
@@ -543,7 +531,7 @@ static int update_content_encoding_header(Uploader *u, const CompressionConfig *
 
                 /* If Content-Encoding header is not found, append new one. */
                 if (!found) {
-                        struct curl_slist *l = curl_slist_append(u->header, header);
+                        struct curl_slist *l = sym_curl_slist_append(u->header, header);
                         if (!l)
                                 return log_oom();
                         u->header = l;
@@ -559,20 +547,20 @@ static int update_content_encoding_header(Uploader *u, const CompressionConfig *
                                 else
                                         u->header = TAKE_PTR(l->next);
 
-                                curl_slist_free_all(l);
+                                sym_curl_slist_free_all(l);
                                 update_header = true;
                                 break;
                         }
 
-        if (update_header) {
-                CURLcode code;
-                easy_setopt(u->easy, CURLOPT_HTTPHEADER, u->header, LOG_WARNING, return -EXFULL);
-        }
+        if (update_header &&
+            !easy_setopt(u->easy, LOG_WARNING, CURLOPT_HTTPHEADER, u->header))
+                return -EXFULL;
 
         u->compression = cc;
 
         if (cc)
-                log_debug("Using compression algorithm %s with compression level %i.", compression_lowercase_to_string(cc->algorithm), cc->level);
+                log_debug("Using compression algorithm %s with compression level %i.",
+                          compression_to_string(cc->algorithm), cc->level);
         else
                 log_debug("Disabled compression algorithm.");
         return 0;
@@ -589,7 +577,7 @@ static int parse_accept_encoding_header(Uploader *u) {
                 return update_content_encoding_header(u, NULL);
 
         struct curl_header *header;
-        CURLHcode hcode = curl_easy_header(u->easy, "Accept-Encoding", 0, CURLH_HEADER, -1, &header);
+        CURLHcode hcode = sym_curl_easy_header(u->easy, "Accept-Encoding", 0, CURLH_HEADER, -1, &header);
         if (hcode != CURLHE_OK)
                 goto not_found;
 
@@ -610,7 +598,7 @@ static int parse_accept_encoding_header(Uploader *u) {
                 if (streq(word, "*"))
                         return update_content_encoding_header(u, ordered_hashmap_first(arg_compression));
 
-                Compression c = compression_lowercase_from_string(word);
+                Compression c = compression_from_string_harder(word);
                 if (c <= 0 || !compression_supported(c))
                         continue; /* unsupported or invalid algorithm. */
 
@@ -638,22 +626,23 @@ static int perform_upload(Uploader *u) {
         assert(u);
 
         u->watchdog_timestamp = now(CLOCK_MONOTONIC);
-        code = curl_easy_perform(u->easy);
+        code = sym_curl_easy_perform(u->easy);
         if (code) {
                 if (u->error[0])
-                        log_error("Upload to %s failed: %.*s",
-                                  u->url, (int) sizeof(u->error), u->error);
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                               "Upload to %s failed: %.*s",
+                                               u->url, (int) sizeof(u->error), u->error);
                 else
-                        log_error("Upload to %s failed: %s",
-                                  u->url, curl_easy_strerror(code));
-                return -EIO;
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                               "Upload to %s failed: %s",
+                                               u->url, sym_curl_easy_strerror(code));
         }
 
-        code = curl_easy_getinfo(u->easy, CURLINFO_RESPONSE_CODE, &status);
+        code = sym_curl_easy_getinfo(u->easy, CURLINFO_RESPONSE_CODE, &status);
         if (code)
                 return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN),
                                        "Failed to retrieve response code: %s",
-                                       curl_easy_strerror(code));
+                                       sym_curl_easy_strerror(code));
 
         if (status >= 300)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
@@ -696,194 +685,145 @@ static int parse_config(void) {
 }
 
 static int help(void) {
-        _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL;
         int r;
 
-        r = terminal_urlify_man("systemd-journal-upload.service", "8", &link);
+        r = option_parser_get_help_table(&options);
         if (r < 0)
-                return log_oom();
+                return r;
 
-        printf("%s -u URL {FILE|-}...\n\n"
-               "Upload journal events to a remote server.\n\n"
-               "  -h --help                 Show this help\n"
-               "     --version              Show package version\n"
-               "  -u --url=URL              Upload to this address (default port "
-                                            STRINGIFY(DEFAULT_PORT) ")\n"
-               "     --key=FILENAME         Specify key in PEM format (default:\n"
-               "                            \"" PRIV_KEY_FILE "\")\n"
-               "     --cert=FILENAME        Specify certificate in PEM format (default:\n"
-               "                            \"" CERT_FILE "\")\n"
-               "     --trust=FILENAME|all   Specify CA certificate or disable checking (default:\n"
-               "                            \"" TRUST_FILE "\")\n"
-               "     --system               Use the system journal\n"
-               "     --user                 Use the user journal for the current user\n"
-               "  -m --merge                Use  all available journals\n"
-               "  -M --machine=CONTAINER    Operate on local container\n"
-               "     --namespace=NAMESPACE  Use journal files from namespace\n"
-               "  -D --directory=PATH       Use journal files from directory\n"
-               "     --file=PATH            Use this journal file\n"
-               "     --cursor=CURSOR        Start at the specified cursor\n"
-               "     --after-cursor=CURSOR  Start after the specified cursor\n"
-               "     --follow[=BOOL]        Do [not] wait for input\n"
-               "     --save-state[=FILE]    Save uploaded cursors (default \n"
-               "                            " STATE_FILE ")\n"
-               "\nSee the %s for details.\n",
-               program_invocation_short_name,
-               link);
+        help_cmdline("-u URL {FILE|-}...");
+        help_abstract("Upload journal events to a remote server.");
 
+        help_section("Options");
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        help_man_page_reference("systemd-journal-upload.service", "8");
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_KEY,
-                ARG_CERT,
-                ARG_TRUST,
-                ARG_USER,
-                ARG_SYSTEM,
-                ARG_FILE,
-                ARG_CURSOR,
-                ARG_AFTER_CURSOR,
-                ARG_FOLLOW,
-                ARG_SAVE_STATE,
-                ARG_NAMESPACE,
-        };
-
-        static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'                },
-                { "version",      no_argument,       NULL, ARG_VERSION        },
-                { "url",          required_argument, NULL, 'u'                },
-                { "key",          required_argument, NULL, ARG_KEY            },
-                { "cert",         required_argument, NULL, ARG_CERT           },
-                { "trust",        required_argument, NULL, ARG_TRUST          },
-                { "system",       no_argument,       NULL, ARG_SYSTEM         },
-                { "user",         no_argument,       NULL, ARG_USER           },
-                { "merge",        no_argument,       NULL, 'm'                },
-                { "machine",      required_argument, NULL, 'M'                },
-                { "namespace",    required_argument, NULL, ARG_NAMESPACE      },
-                { "directory",    required_argument, NULL, 'D'                },
-                { "file",         required_argument, NULL, ARG_FILE           },
-                { "cursor",       required_argument, NULL, ARG_CURSOR         },
-                { "after-cursor", required_argument, NULL, ARG_AFTER_CURSOR   },
-                { "follow",       optional_argument, NULL, ARG_FOLLOW         },
-                { "save-state",   optional_argument, NULL, ARG_SAVE_STATE     },
-                {}
-        };
-
-        int c, r;
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
+        int r;
 
         assert(argc >= 0);
         assert(argv);
+        assert(ret_args);
 
-        while ((c = getopt_long(argc, argv, "hu:mM:D:", options, NULL)) >= 0)
+        OptionParser opts = { argc, argv };
+
+        FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
-                case 'h':
+
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case 'u':
-                        r = free_and_strdup_warn(&arg_url, optarg);
+                OPTION('u', "url", "URL",
+                       "Upload to this address (default port " STRINGIFY(DEFAULT_PORT) ")"):
+                        r = free_and_strdup_warn(&arg_url, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_KEY:
-                        r = free_and_strdup_warn(&arg_key, optarg);
+                OPTION_LONG("key", "FILENAME",
+                            "Specify key in PEM format (default: \"" PRIV_KEY_FILE "\")"):
+                        r = free_and_strdup_warn(&arg_key, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_CERT:
-                        r = free_and_strdup_warn(&arg_cert, optarg);
+                OPTION_LONG("cert", "FILENAME",
+                            "Specify certificate in PEM format (default: \"" CERT_FILE "\")"):
+                        r = free_and_strdup_warn(&arg_cert, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_TRUST:
-                        r = free_and_strdup_warn(&arg_trust, optarg);
+                OPTION_LONG("trust", "FILENAME|all",
+                            "Specify CA certificate or disable checking (default: \"" TRUST_FILE "\")"):
+                        r = free_and_strdup_warn(&arg_trust, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_SYSTEM:
+                OPTION_LONG("system", NULL, "Use the system journal"):
                         arg_journal_type |= SD_JOURNAL_SYSTEM;
                         break;
 
-                case ARG_USER:
+                OPTION_LONG("user", NULL, "Use the user journal for the current user"):
                         arg_journal_type |= SD_JOURNAL_CURRENT_USER;
                         break;
 
-                case 'm':
+                OPTION('m', "merge", NULL, "Use all available journals"):
                         arg_merge = true;
                         break;
 
-                case 'M':
-                        r = free_and_strdup_warn(&arg_machine, optarg);
+                OPTION_COMMON_MACHINE:
+                        r = free_and_strdup_warn(&arg_machine, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_NAMESPACE:
-                        if (streq(optarg, "*")) {
+                OPTION_LONG("namespace", "NAMESPACE", "Use journal files from namespace"):
+                        if (streq(opts.arg, "*")) {
                                 arg_namespace_flags = SD_JOURNAL_ALL_NAMESPACES;
                                 arg_namespace = mfree(arg_namespace);
                                 r = 0;
-                        } else if (startswith(optarg, "+")) {
+                        } else if (startswith(opts.arg, "+")) {
                                 arg_namespace_flags = SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE;
-                                r = free_and_strdup_warn(&arg_namespace, optarg + 1);
-                        } else if (isempty(optarg)) {
+                                r = free_and_strdup_warn(&arg_namespace, opts.arg + 1);
+                        } else if (isempty(opts.arg)) {
                                 arg_namespace_flags = 0;
                                 arg_namespace = mfree(arg_namespace);
                                 r = 0;
                         } else {
                                 arg_namespace_flags = 0;
-                                r = free_and_strdup_warn(&arg_namespace, optarg);
+                                r = free_and_strdup_warn(&arg_namespace, opts.arg);
                         }
                         if (r < 0)
                                 return r;
                         break;
 
-                case 'D':
-                        r = free_and_strdup_warn(&arg_directory, optarg);
+                OPTION('D', "directory", "PATH", "Use journal files from this directory"):
+                        r = free_and_strdup_warn(&arg_directory, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_FILE:
-                        r = glob_extend(&arg_file, optarg, GLOB_NOCHECK);
+                OPTION_LONG("file", "PATH", "Use this journal file"):
+                        r = glob_extend(&arg_file, opts.arg, GLOB_NOCHECK);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to add paths: %m");
                         break;
 
-                case ARG_CURSOR:
-                case ARG_AFTER_CURSOR:
-                        r = free_and_strdup_warn(&arg_cursor, optarg);
+                OPTION_LONG_DATA("after-cursor", "CURSOR", /* data= */ true,
+                                 "Start after the specified cursor"): {}
+                OPTION_LONG_DATA("cursor", "CURSOR", /* data= */ false,
+                                 "Start at the specified cursor"):
+                        r = free_and_strdup_warn(&arg_cursor, opts.arg);
                         if (r < 0)
                                 return r;
-                        arg_after_cursor = c == ARG_AFTER_CURSOR;
+                        arg_after_cursor = opts.opt->data;
                         break;
 
-                case ARG_FOLLOW:
-                        r = parse_boolean_argument("--follow", optarg, NULL);
+                OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "follow", "BOOL",
+                                  "Whether to wait for input"):
+                        r = parse_boolean_argument("--follow", opts.arg, NULL);
                         if (r < 0)
                                 return r;
                         arg_follow = r;
                         break;
 
-                case ARG_SAVE_STATE:
-                        r = free_and_strdup_warn(&arg_save_state, optarg ?: STATE_FILE);
+                OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "save-state", "FILE",
+                                  "Save uploaded cursors (default " STATE_FILE ")"):
+                        r = free_and_strdup_warn(&arg_save_state, opts.arg ?: STATE_FILE);
                         if (r < 0)
                                 return r;
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
         if (!arg_url)
@@ -894,10 +834,12 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Options --key= and --cert= must be used together.");
 
-        if (optind < argc && (arg_directory || arg_file || arg_machine || arg_journal_type))
+        char **args = option_parser_get_args(&opts);
+        if (!strv_isempty(args) && (arg_directory || arg_file || arg_machine || arg_journal_type))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Input arguments make no sense with journal input.");
 
+        *ret_args = args;
         return 1;
 }
 
@@ -924,8 +866,12 @@ static int open_journal(sd_journal **j) {
 static int run(int argc, char **argv) {
         _cleanup_(destroy_uploader) Uploader u = {};
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
+        char **args = NULL;
         bool use_journal;
         int r;
+
+        COMPRESS_DEFAULT_NOTE;
+        LIBCURL_NOTE(required);
 
         log_setup();
 
@@ -933,8 +879,12 @@ static int run(int argc, char **argv) {
         if (r < 0)
                 return r;
 
-        r = parse_argv(argc, argv);
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
+                return r;
+
+        r = dlopen_curl(LOG_DEBUG);
+        if (r < 0)
                 return r;
 
         r = compression_configs_mangle(&arg_compression);
@@ -956,7 +906,7 @@ static int run(int argc, char **argv) {
         log_debug("%s running as pid "PID_FMT,
                   program_invocation_short_name, getpid_cached());
 
-        use_journal = optind >= argc;
+        use_journal = strv_isempty(args);
         if (use_journal) {
                 sd_journal *j;
                 r = open_journal(&j);
@@ -974,7 +924,7 @@ static int run(int argc, char **argv) {
                                       "STATUS=Processing input...",
                                       NOTIFY_STOPPING_MESSAGE);
 
-        for (;;) {
+        for (size_t i = 0;;) {
                 r = sd_event_get_state(u.event);
                 if (r < 0)
                         return r;
@@ -987,11 +937,11 @@ static int run(int argc, char **argv) {
 
                         r = check_journal_input(&u);
                 } else if (u.input < 0 && !use_journal) {
-                        if (optind >= argc)
+                        if (!args[i])
                                 return 0;
 
-                        log_debug("Using %s as input.", argv[optind]);
-                        r = open_file_for_upload(&u, argv[optind++]);
+                        log_debug("Using %s as input.", args[i]);
+                        r = open_file_for_upload(&u, args[i++]);
                 }
                 if (r < 0)
                         return r;

@@ -37,8 +37,9 @@ static int patch_dirfd_mode(
 
         if (fstat(dfd, &st) < 0)
                 return -errno;
-        if (!S_ISDIR(st.st_mode))
-                return -ENOTDIR;
+        r = stat_verify_directory(&st);
+        if (r < 0)
+                return r;
 
         if (FLAGS_SET(st.st_mode, 0700)) { /* Already set? */
                 if (refuse_already_set)
@@ -227,10 +228,14 @@ static int rm_rf_inner_child(
 
                         r = btrfs_subvol_remove_at(fd, fname, BTRFS_REMOVE_RECURSIVE|BTRFS_REMOVE_QUOTA);
                         if (r < 0) {
-                                if (!IN_SET(r, -ENOTTY, -EINVAL))
+                                if (!IN_SET(r, -ENOTTY, -EINVAL, -EPERM, -EACCES))
                                         return r;
 
-                                /* ENOTTY, then it wasn't a btrfs subvolume, continue below. */
+                                /* ENOTTY, then it wasn't a btrfs subvolume. EPERM/EACCES means we lack
+                                 * the privileges for the destroy ioctl (no CAP_SYS_ADMIN and no
+                                 * 'user_subvol_rm_allowed'); btrfs_subvol_remove_at() will have cleared
+                                 * the read-only flag where it could, so fall through and try to empty the
+                                 * subvolume recursively and rmdir() it, which an unprivileged owner may do. */
                         } else
                                 /* It was a subvolume, done. */
                                 return 1;
@@ -268,6 +273,8 @@ typedef struct TodoEntry {
 } TodoEntry;
 
 static void free_todo_entries(TodoEntry **todos) {
+        assert(todos);
+
         for (TodoEntry *x = *todos; x && x->dir; x++) {
                 closedir(x->dir);
                 free(x->dirname);
@@ -436,7 +443,18 @@ int rm_rf_at(int dir_fd, const char *path, RemoveFlags flags) {
 
         /* We refuse to clean the root file system with this call. This is extra paranoia to never cause a
          * really seriously broken system. */
-        if (path_is_root_at(dir_fd, path) > 0)
+        r = path_is_root_at(dir_fd, path);
+        if (r == -ENOENT)
+                r = RET_NERRNO(faccessat(dir_fd, path, F_OK, AT_SYMLINK_NOFOLLOW));
+        if (FLAGS_SET(flags, REMOVE_MISSING_OK) && r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_full_errno(
+                                r == -ENOENT ? LOG_DEBUG : LOG_ERR,
+                                r,
+                                "Failed to determine whether '%s' is the root file system: %m",
+                                path);
+        if (r > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EPERM),
                                        "Attempted to remove entire root file system, and we can't allow that.");
 

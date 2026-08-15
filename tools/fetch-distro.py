@@ -12,6 +12,7 @@ import shlex
 import subprocess
 from pathlib import Path
 
+
 def parse_args():
     p = argparse.ArgumentParser(
         description=__doc__,
@@ -27,33 +28,34 @@ def parse_args():
         default=True,
     )
     p.add_argument(
-        '--update', '-u',
+        '--update',
+        '-u',
         action='store_true',
         default=False,
     )
     p.add_argument('--profile')
     return p.parse_args()
 
+
 def read_config(distro: str):
     cmd = ['mkosi', '--json', '-d', distro, '-f', 'summary']
     if args.profile:
         cmd += ['--profile', args.profile]
-    print(f"+ {shlex.join(cmd)}")
+    print(f'+ {shlex.join(cmd)}')
     text = subprocess.check_output(cmd, text=True)
 
     data = json.loads(text)
-    images = {image["Image"]: image for image in data["Images"]}
-    return images["build"]
+    images = {image['Image']: image for image in data['Images']}
+    return images['build']
+
 
 def commit_file(distro: str, files: list[Path], commit: str, changes: str):
-    message = '\n'.join((
-        f'mkosi: update {distro} commit reference to {commit}',
-        '',
-        changes))
+    message = '\n'.join((f'mkosi: update {distro} commit reference to {commit}', '', changes))
 
     cmd = ['git', 'commit', '-m', message, *(str(file) for file in files)]
-    print(f"+ {shlex.join(cmd)}")
+    print(f'+ {shlex.join(cmd)}')
     subprocess.check_call(cmd)
+
 
 def checkout_distro(args, distro: str, config: dict):
     url = config['Environment']['GIT_URL']
@@ -74,27 +76,29 @@ def checkout_distro(args, distro: str, config: dict):
     reference = ['--reference-if-able=.'] if distro == 'debian' else []
 
     cmd = [
-        'git', 'clone', url,
+        'git',
+        'clone',
+        url,
         f'--branch={branch}',
         *sparse,
         dest.as_posix(),
         *reference,
     ]
-    print(f"+ {shlex.join(cmd)}")
+    print(f'+ {shlex.join(cmd)}')
     subprocess.check_call(cmd)
 
     # Sparse checkout if the package is in a subdirectory
     if subdir is not None:
-        cmd = ['git', '-C', f'pkg/{pkg_subdir}', 'sparse-checkout', 'set',
-               '--no-cone', f'{subdir}']
-        print(f"+ {shlex.join(cmd)}")
+        cmd = ['git', '-C', f'pkg/{pkg_subdir}', 'sparse-checkout', 'set', '--no-cone', f'{subdir}']
+        print(f'+ {shlex.join(cmd)}')
         subprocess.check_call(cmd)
 
         cmd = ['git', '-C', f'pkg/{pkg_subdir}', 'checkout', 'HEAD']
-        print(f"+ {shlex.join(cmd)}")
+        print(f'+ {shlex.join(cmd)}')
         subprocess.check_call(cmd)
 
     args.fetch = False  # no need to fetch if we just cloned
+
 
 def update_distro(args, distro: str, config: dict):
     branch = config['Environment']['GIT_BRANCH']
@@ -103,32 +107,46 @@ def update_distro(args, distro: str, config: dict):
     pkg_subdir = config['Environment']['PKG_SUBDIR']
 
     if args.fetch:
-        cmd = ['git', '-C', f'pkg/{pkg_subdir}', 'fetch', 'origin', '-v',
-               f'{branch}:remotes/origin/{branch}']
-        print(f"+ {shlex.join(cmd)}")
+        cmd = [
+            'git',
+            '-C', f'pkg/{pkg_subdir}',
+            'fetch',
+            'origin',
+            '-v',
+            f'{branch}:remotes/origin/{branch}',
+        ]  # fmt: skip
+        print(f'+ {shlex.join(cmd)}')
         subprocess.check_call(cmd)
 
     cmd = ['git', '-C', f'pkg/{pkg_subdir}', 'switch', branch]
-    print(f"+ {shlex.join(cmd)}")
+    print(f'+ {shlex.join(cmd)}')
     subprocess.check_call(cmd)
 
-    cmd = ['git', '-C', f'pkg/{pkg_subdir}', 'log', '-n1', '--format=%H',
-           f'refs/remotes/origin/{branch}']
+    cmd = ['git', '-C', f'pkg/{pkg_subdir}', 'log', '-n1', '--format=%H', f'refs/remotes/origin/{branch}']
     if subdir is not None:
         cmd += [f'{subdir}']
-    print(f"+ {shlex.join(cmd)}")
+    print(f'+ {shlex.join(cmd)}')
     new_commit = subprocess.check_output(cmd, text=True).strip()
 
     if old_commit == new_commit:
         print(f'{pkg_subdir}: commit {new_commit!s} is still fresh')
         return
 
-    cmd = ['git', '-C', f'pkg/{pkg_subdir}', 'log', '--graph', '--no-merges',
-           '--pretty=oneline', '--no-decorate', '--abbrev-commit', '--abbrev=10',
-           f'{old_commit}..{new_commit}']
+    cmd = [
+        'git',
+        '-C', f'pkg/{pkg_subdir}',
+        'log',
+        '--graph',
+        '--no-merges',
+        '--pretty=oneline',
+        '--no-decorate',
+        '--abbrev-commit',
+        '--abbrev=10',
+        f'{old_commit}..{new_commit}',
+    ]  # fmt: skip
     if subdir is not None:
         cmd += [f'{subdir}']
-    print(f"+ {shlex.join(cmd)}")
+    print(f'+ {shlex.join(cmd)}')
     changes = subprocess.check_output(cmd, text=True).strip()
 
     conf_dir = Path('mkosi/mkosi.pkgenv/mkosi.conf.d')
@@ -142,8 +160,8 @@ def update_distro(args, distro: str, config: dict):
             file.write_text(new)
             tocommit = [file]
 
-            if distro == "fedora":
-                packit = Path(".packit.yml")
+            if distro == 'fedora':
+                packit = Path('.packit.yml')
                 s = packit.read_text()
                 assert old_commit in s
                 new = s.replace(old_commit, new_commit)
@@ -154,6 +172,7 @@ def update_distro(args, distro: str, config: dict):
             break
     else:
         raise ValueError(f'{distro}: hash {new_commit} not found under {conf_dir}')
+
 
 if __name__ == '__main__':
     args = parse_args()

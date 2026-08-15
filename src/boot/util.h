@@ -2,7 +2,7 @@
 #pragma once
 
 #include "efi.h"
-#include "memory-util-fundamental.h"
+#include "memory-util.h"
 
 #if SD_BOOT
 
@@ -138,6 +138,7 @@ char16_t *mangle_stub_cmdline(char16_t *cmdline);
 
 EFI_STATUS chunked_read(EFI_FILE *file, size_t *size, void *buf);
 EFI_STATUS file_read(EFI_FILE *dir, const char16_t *name, uint64_t offset, size_t size, char **ret, size_t *ret_size);
+EFI_STATUS load_file_from_simple_filesystem(const EFI_DEVICE_PATH *device_path, char **file_buffer, size_t *file_size);
 EFI_STATUS file_handle_read(EFI_FILE *handle, uint64_t offset, size_t size, char **ret, size_t *ret_size);
 
 static inline void file_closep(EFI_FILE **handle) {
@@ -167,6 +168,7 @@ typedef int (*compare_pointer_func_t)(const void *a, const void *b);
 void sort_pointer_array(void **array, size_t n_members, compare_pointer_func_t compare);
 
 EFI_STATUS get_file_info(EFI_FILE *handle, EFI_FILE_INFO **ret, size_t *ret_size);
+EFI_STATUS get_volume_ro(EFI_FILE *handle, bool *ret);
 EFI_STATUS readdir(EFI_FILE *handle, EFI_FILE_INFO **buffer, size_t *buffer_size);
 
 bool is_ascii(const char16_t *f);
@@ -262,3 +264,7 @@ char16_t *get_extra_dir(const EFI_DEVICE_PATH *file_path);
 #endif
 
 char16_t *url_replace_last_component(const char16_t *url, const char16_t *filename);
+
+static inline bool EFI_STATUS_IS_WRITE_REFUSED(EFI_STATUS status) {
+        return IN_SET(status, EFI_WRITE_PROTECTED, EFI_DEVICE_ERROR, EFI_ACCESS_DENIED);
+}

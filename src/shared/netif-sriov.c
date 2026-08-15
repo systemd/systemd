@@ -5,6 +5,7 @@
 
 #include "alloc-util.h"
 #include "conf-parser.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "ether-addr-util.h"
 #include "netif-sriov.h"
@@ -15,24 +16,42 @@
 #include "string-table.h"
 #include "string-util.h"
 
+static SRIOV* sr_iov_detach_impl(SRIOV *sr_iov) {
+        assert(sr_iov);
+
+        if (!sr_iov->sr_iov_by_section)
+                return NULL;
+
+        assert(sr_iov->section);
+        ordered_hashmap_remove(sr_iov->sr_iov_by_section, sr_iov->section);
+        sr_iov->sr_iov_by_section = NULL;
+
+        return sr_iov;
+}
+
 static SRIOV* sr_iov_free(SRIOV *sr_iov) {
         if (!sr_iov)
                 return NULL;
 
-        if (sr_iov->sr_iov_by_section && sr_iov->section)
-                ordered_hashmap_remove(sr_iov->sr_iov_by_section, sr_iov->section);
+        sr_iov_detach_impl(sr_iov);
 
         config_section_free(sr_iov->section);
 
         return mfree(sr_iov);
 }
 
-DEFINE_SECTION_CLEANUP_FUNCTIONS(SRIOV, sr_iov_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(SRIOV, sr_iov, sr_iov_free);
+DEFINE_SECTION_CLEANUP_FUNCTIONS(SRIOV, sr_iov_unref);
+
+static void sr_iov_detach(SRIOV *sr_iov) {
+        assert(sr_iov);
+        sr_iov_unref(sr_iov_detach_impl(sr_iov));
+}
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 sr_iov_hash_ops_by_section,
                 ConfigSection, config_section_hash_func, config_section_compare_func,
-                SRIOV, sr_iov_free);
+                SRIOV, sr_iov_detach);
 
 static int sr_iov_new(SRIOV **ret) {
         SRIOV *sr_iov;
@@ -44,6 +63,7 @@ static int sr_iov_new(SRIOV **ret) {
                 return -ENOMEM;
 
         *sr_iov = (SRIOV) {
+                  .n_ref = 1,
                   .vf = UINT32_MAX,
                   .vlan_proto = ETH_P_8021Q,
                   .vf_spoof_check_setting = -1,
@@ -59,7 +79,7 @@ static int sr_iov_new(SRIOV **ret) {
 
 static int sr_iov_new_static(OrderedHashmap **sr_iov_by_section, const char *filename, unsigned section_line, SRIOV **ret) {
         _cleanup_(config_section_freep) ConfigSection *n = NULL;
-        _cleanup_(sr_iov_freep) SRIOV *sr_iov = NULL;
+        _cleanup_(sr_iov_unrefp) SRIOV *sr_iov = NULL;
         SRIOV *existing = NULL;
         int r;
 
@@ -267,28 +287,11 @@ int sr_iov_set_netlink_message(SRIOV *sr_iov, SRIOVAttribute attr, sd_netlink_me
 }
 
 int sr_iov_get_num_vfs(sd_device *device, uint32_t *ret) {
-        const char *str;
-        uint32_t n;
-        int r;
-
-        assert(device);
-        assert(ret);
-
-        r = sd_device_get_sysattr_value(device, "device/sriov_numvfs", &str);
-        if (r < 0)
-                return r;
-
-        r = safe_atou32(str, &n);
-        if (r < 0)
-                return r;
-
-        *ret = n;
-        return 0;
+        return device_get_sysattr_u32(device, "device/sriov_numvfs", ret);
 }
 
 int sr_iov_set_num_vfs(sd_device *device, uint32_t num_vfs, OrderedHashmap *sr_iov_by_section) {
         char val[DECIMAL_STR_MAX(uint32_t)];
-        const char *str;
         int r;
 
         assert(device);
@@ -327,14 +330,9 @@ int sr_iov_set_num_vfs(sd_device *device, uint32_t num_vfs, OrderedHashmap *sr_i
          * maximum allowed number of VFs from the sriov_totalvfs sysattr. Note that the sysattr
          * currently exists only for PCI drivers. Hence, ignore -ENOENT.
          * TODO: netdevsim provides the information in debugfs. */
-        r = sd_device_get_sysattr_value(device, "device/sriov_totalvfs", &str);
+        uint32_t max_num_vfs;
+        r = device_get_sysattr_u32(device, "device/sriov_totalvfs", &max_num_vfs);
         if (r >= 0) {
-                uint32_t max_num_vfs;
-
-                r = safe_atou32(str, &max_num_vfs);
-                if (r < 0)
-                        return log_device_debug_errno(device, r, "Failed to parse device/sriov_totalvfs sysfs attribute '%s': %m", str);
-
                 if (num_vfs > max_num_vfs)
                         return log_device_debug_errno(device, SYNTHETIC_ERRNO(ERANGE),
                                                       "Specified number of virtual functions is out of range. "
@@ -389,7 +387,7 @@ int sr_iov_drop_invalid_sections(uint32_t num_vfs, OrderedHashmap *sr_iov_by_sec
                 SRIOV *dup;
 
                 if (sr_iov_section_verify(num_vfs, sr_iov) < 0) {
-                        sr_iov_free(sr_iov);
+                        sr_iov_detach(sr_iov);
                         continue;
                 }
 
@@ -399,7 +397,7 @@ int sr_iov_drop_invalid_sections(uint32_t num_vfs, OrderedHashmap *sr_iov_by_sec
                                     "dropping the [SR-IOV] section specified at line %u.",
                                     dup->section->filename, sr_iov->section->line,
                                     dup->section->line, dup->section->line);
-                        sr_iov_free(dup);
+                        sr_iov_detach(dup);
                 }
 
                 r = set_ensure_put(&set, &sr_iov_hash_ops, sr_iov);
@@ -423,7 +421,7 @@ int config_parse_sr_iov_uint32(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(sr_iov_free_or_set_invalidp) SRIOV *sr_iov = NULL;
+        _cleanup_(sr_iov_unref_or_set_invalidp) SRIOV *sr_iov = NULL;
         OrderedHashmap **sr_iov_by_section = ASSERT_PTR(data);
         uint32_t k;
         int r;
@@ -490,7 +488,7 @@ int config_parse_sr_iov_vlan_proto(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(sr_iov_free_or_set_invalidp) SRIOV *sr_iov = NULL;
+        _cleanup_(sr_iov_unref_or_set_invalidp) SRIOV *sr_iov = NULL;
         OrderedHashmap **sr_iov_by_section = ASSERT_PTR(data);
         int r;
 
@@ -528,7 +526,7 @@ int config_parse_sr_iov_link_state(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(sr_iov_free_or_set_invalidp) SRIOV *sr_iov = NULL;
+        _cleanup_(sr_iov_unref_or_set_invalidp) SRIOV *sr_iov = NULL;
         OrderedHashmap **sr_iov_by_section = ASSERT_PTR(data);
         int r;
 
@@ -579,7 +577,7 @@ int config_parse_sr_iov_boolean(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(sr_iov_free_or_set_invalidp) SRIOV *sr_iov = NULL;
+        _cleanup_(sr_iov_unref_or_set_invalidp) SRIOV *sr_iov = NULL;
         OrderedHashmap **sr_iov_by_section = ASSERT_PTR(data);
         int r;
 
@@ -636,7 +634,7 @@ int config_parse_sr_iov_mac(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(sr_iov_free_or_set_invalidp) SRIOV *sr_iov = NULL;
+        _cleanup_(sr_iov_unref_or_set_invalidp) SRIOV *sr_iov = NULL;
         OrderedHashmap **sr_iov_by_section = ASSERT_PTR(data);
         int r;
 

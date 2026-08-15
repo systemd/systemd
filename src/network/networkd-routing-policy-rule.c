@@ -99,6 +99,8 @@ DEFINE_SECTION_CLEANUP_FUNCTIONS(RoutingPolicyRule, routing_policy_rule_unref);
 static int routing_policy_rule_new(RoutingPolicyRule **ret) {
         RoutingPolicyRule *rule;
 
+        assert(ret);
+
         rule = new(RoutingPolicyRule, 1);
         if (!rule)
                 return -ENOMEM;
@@ -562,7 +564,7 @@ static void routing_policy_rule_forget(Manager *manager, RoutingPolicyRule *rule
                 return;
 
         routing_policy_rule_enter_removed(rule);
-        log_routing_policy_rule_debug(rule, "Forgetting", NULL, manager);
+        log_routing_policy_rule_debug(rule, msg, NULL, manager);
         routing_policy_rule_detach(rule);
 }
 
@@ -1490,7 +1492,7 @@ static int config_parse_routing_policy_rule_uid_range(
 
         assert(rvalue);
 
-        if (get_user_creds(&rvalue, &p->start, NULL, NULL, NULL, 0) >= 0) {
+        if (get_user_creds(rvalue, /* flags= */ 0, NULL, &p->start, NULL, NULL, NULL) >= 0) {
                 p->end = p->start;
                 return 1;
         }

@@ -42,7 +42,7 @@ static int add_arch(Table *t, Architecture a) {
         return 0;
 }
 
-int verb_architectures(int argc, char *argv[], void *userdata) {
+int verb_architectures(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
         int r;
 

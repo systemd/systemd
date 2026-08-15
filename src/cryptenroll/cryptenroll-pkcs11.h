@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
+#include "cryptenroll.h"
+#include "forward.h"
 
-int enroll_pkcs11(struct crypt_device *cd, const struct iovec *volume_key, const char *uri);
+int enroll_pkcs11(const EnrollContext *c, struct crypt_device *cd, const struct iovec *volume_key);

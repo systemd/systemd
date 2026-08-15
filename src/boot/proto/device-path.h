@@ -27,7 +27,10 @@ enum {
 
         HW_MEMMAP_DP                     = 0x03,
 
+        ACPI_DP                          = 0x01,
+
         MEDIA_HARDDRIVE_DP               = 0x01,
+        MEDIA_CDROM_DP                   = 0x02,
         MEDIA_VENDOR_DP                  = 0x03,
         MEDIA_FILEPATH_DP                = 0x04,
         MEDIA_PIWG_FW_FILE_DP            = 0x06,
@@ -46,6 +49,15 @@ typedef struct {
         EFI_DEVICE_PATH Header;
         EFI_GUID Guid;
 } _packed_ VENDOR_DEVICE_PATH;
+
+/* EISA PNP ID encoding: compressed 3-letter vendor + 16-bit product ID. */
+#define EISA_PNP_ID(Id) ((uint32_t) (((Id) << 16) | 0x41D0))
+
+typedef struct {
+        EFI_DEVICE_PATH Header;
+        uint32_t HID;
+        uint32_t UID;
+} _packed_ ACPI_HID_DEVICE_PATH;
 
 typedef struct {
         EFI_DEVICE_PATH Header;
@@ -72,6 +84,14 @@ typedef struct {
         uint8_t MBRType;
         uint8_t SignatureType;
 } _packed_ HARDDRIVE_DEVICE_PATH;
+
+typedef struct {
+        EFI_DEVICE_PATH Header;
+        uint32_t BootEntry;
+        uint64_t PartitionStart;  /* In media block size units */
+        uint64_t PartitionSize;   /* In media block size units */
+} _packed_ CDROM_DEVICE_PATH;
+assert_cc(sizeof(CDROM_DEVICE_PATH) == 24);
 
 typedef struct {
         EFI_DEVICE_PATH Header;

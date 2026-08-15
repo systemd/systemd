@@ -88,6 +88,9 @@ TEST(unit_name_is_valid) {
         test_unit_name_is_valid_one("foo.target.wants/plain.service", UNIT_NAME_ANY, false);
         test_unit_name_is_valid_one("foo.target.conf/foo.conf", UNIT_NAME_ANY, false);
         test_unit_name_is_valid_one("foo.target.requires/plain.socket", UNIT_NAME_ANY, false);
+
+        /* The build-time configured fallback for default.target must be a valid plain unit name. */
+        test_unit_name_is_valid_one(FALLBACK_DEFAULT_TARGET, UNIT_NAME_PLAIN, true);
 }
 
 static void test_unit_name_replace_instance_one(const char *pattern, const char *repl, const char *expected, int ret) {
@@ -251,6 +254,18 @@ static void test_unit_name_mangle_with_suffix_one(const char *arg, int expected,
         ASSERT_STREQ(s, expected_name);
 }
 
+static void test_unit_name_mangle_with_suffix_strict_one(
+                const char *arg, const char *suffix, int expected, const char *expected_name) {
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        r = unit_name_mangle_with_suffix(arg, NULL, UNIT_NAME_MANGLE_WARN | UNIT_NAME_MANGLE_STRICT, suffix, &s);
+        log_debug("%s: %s (suffix=%s) -> %d, %s", __func__, arg, suffix, r, strnull(s));
+
+        assert_se(r == expected);
+        ASSERT_STREQ(s, expected_name);
+}
+
 TEST(unit_name_mangle_with_suffix) {
         test_unit_name_mangle_with_suffix_one("", -EINVAL, NULL);
 
@@ -280,6 +295,28 @@ TEST(unit_name_mangle_with_suffix) {
         test_unit_name_mangle_with_suffix_one("/.././proc/..", 1, "-..-.-proc-...service");
         test_unit_name_mangle_with_suffix_one("/.././proc", 1, "proc.mount");
         test_unit_name_mangle_with_suffix_one("/./.././../proc/", 1, "proc.mount");
+}
+
+TEST(unit_name_mangle_with_suffix_strict) {
+        /* Matching suffix should succeed */
+        test_unit_name_mangle_with_suffix_strict_one("foo.service", ".service", 0, "foo.service");
+        test_unit_name_mangle_with_suffix_strict_one("foo.mount", ".mount", 0, "foo.mount");
+        test_unit_name_mangle_with_suffix_strict_one("/home", ".mount", 1, "home.mount");
+        test_unit_name_mangle_with_suffix_strict_one("/dev/sda", ".device", 1, "dev-sda.device");
+        test_unit_name_mangle_with_suffix_strict_one("foo@bar.service", ".service", 0, "foo@bar.service");
+        test_unit_name_mangle_with_suffix_strict_one("a.timer.service", ".service", 0, "a.timer.service");
+
+        /* Mismatched suffix should fail with -EINVAL */
+        test_unit_name_mangle_with_suffix_strict_one("foo.mount", ".service", -EINVAL, NULL);
+        test_unit_name_mangle_with_suffix_strict_one("foo.service", ".scope", -EINVAL, NULL);
+        test_unit_name_mangle_with_suffix_strict_one("/home", ".service", -EINVAL, NULL);
+        test_unit_name_mangle_with_suffix_strict_one("/dev/sda", ".service", -EINVAL, NULL);
+        test_unit_name_mangle_with_suffix_strict_one("foo.automount", ".mount", -EINVAL, NULL);
+        test_unit_name_mangle_with_suffix_strict_one("foo.mount", ".automount", -EINVAL, NULL);
+        test_unit_name_mangle_with_suffix_strict_one("foo@bar.timer", ".service", -EINVAL, NULL);
+
+        /* Non-path names that need mangling should get the requested suffix and thus pass */
+        test_unit_name_mangle_with_suffix_strict_one("foo", ".service", 1, "foo.service");
 }
 
 TEST_RET(unit_printf, .sd_booted = true) {
@@ -959,7 +996,6 @@ TEST(unit_name_from_dbus_path) {
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dtmpfiles_2dsetup_2ddev_2eservice", 0, "systemd-tmpfiles-setup-dev.service");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dtmpfiles_2dsetup_2eservice", 0, "systemd-tmpfiles-setup.service");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dudev_2dtrigger_2eservice", 0, "systemd-udev-trigger.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dudevd_2dcontrol_2esocket", 0, "systemd-udevd-control.socket");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dudevd_2dkernel_2esocket", 0, "systemd-udevd-kernel.socket");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dudevd_2eservice", 0, "systemd-udevd.service");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dupdate_2ddone_2eservice", 0, "systemd-update-done.service");

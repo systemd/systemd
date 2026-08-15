@@ -98,6 +98,8 @@ static int synthesize_localhost_rr(Manager *m, const DnsResourceKey *key, DnsAns
 static int answer_add_ptr(DnsAnswer **answer, const char *from, const char *to, int ifindex, DnsAnswerFlags flags) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
 
+        assert(answer);
+
         rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_PTR, from);
         if (!rr)
                 return -ENOMEM;

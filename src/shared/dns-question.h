@@ -3,7 +3,9 @@
 
 #include "sd-json.h"
 
-#include "shared-forward.h"
+#include "forward.h"
+
+#define DNS_QUESTION_ITEMS_MAX 128U
 
 /* A simple array of resource keys */
 

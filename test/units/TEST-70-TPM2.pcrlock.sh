@@ -23,7 +23,26 @@ at_exit() {
         [[ -e /run/log/systemd/tpm2-measure.log ]] && jq --seq --slurp </run/log/systemd/tpm2-measure.log
     fi
 
-    return 0
+    set +e
+
+    systemd-cryptsetup detach pcrlock
+
+    if [[ -x "${SD_PCRLOCK:-}" ]]; then
+        "$SD_PCRLOCK" remove-policy
+        "$SD_PCRLOCK" unlock-firmware-config
+        "$SD_PCRLOCK" unlock-gpt
+        "$SD_PCRLOCK" unlock-machine-id
+        "$SD_PCRLOCK" unlock-file-system
+        "$SD_PCRLOCK" unlock-raw --pcrlock=/var/lib/pcrlock.d/910-test70.pcrlock
+        "$SD_PCRLOCK" unlock-raw --pcrlock=/var/lib/pcrlock.d/920-test70.pcrlock
+    fi
+
+    rm -rf /tmp/fakexbootldr /var/lib/pcrlock.d/123-empty.pcrlock.d /run/systemd/system/systemd-pcrlock.socket.d
+    if [[ -n "${img:-}" ]]; then
+        rm -f "$img" "$img".private.pem "$img".public.pem "$img".pcrsign
+    fi
+    rm -f /tmp/borked /tmp/pcrlockpwd /var/lib/systemd/pcrlock.json /var/lib/systemd/pcrlock.json.gone
+    systemctl daemon-reload
 }
 
 trap at_exit EXIT
@@ -41,6 +60,18 @@ PCRS="1+2+3+4+5+16"
 # means we'll fail consistency check, but at least we'll fail them consistently
 # (as the PCR values simply won't match the log).
 rm -f /run/log/systemd/tpm2-measure.log
+
+# Add the os-separator measurements, they should be the only measurements that touch pcr 0…6 done from userspace.
+RS=$'\x1e'
+cat >/run/log/systemd/tpm2-measure.log <<EOF
+${RS}{"pcr":0,"digests":[{"hashAlg":"sha256","digest":"ff5b9d73dad709633ae76adf444012b57e913a12ed7403c3931145862f35f841"}],"content_type":"systemd","content":{"string":"os-separator","bootId":"5270738c127841a4b592f0fdc2839929","timestamp":2659711,"eventType":"os-separator"}}
+${RS}{"pcr":1,"digests":[{"hashAlg":"sha256","digest":"ff5b9d73dad709633ae76adf444012b57e913a12ed7403c3931145862f35f841"}],"content_type":"systemd","content":{"string":"os-separator","bootId":"5270738c127841a4b592f0fdc2839929","timestamp":2659775,"eventType":"os-separator"}}
+${RS}{"pcr":2,"digests":[{"hashAlg":"sha256","digest":"ff5b9d73dad709633ae76adf444012b57e913a12ed7403c3931145862f35f841"}],"content_type":"systemd","content":{"string":"os-separator","bootId":"5270738c127841a4b592f0fdc2839929","timestamp":2659805,"eventType":"os-separator"}}
+${RS}{"pcr":3,"digests":[{"hashAlg":"sha256","digest":"ff5b9d73dad709633ae76adf444012b57e913a12ed7403c3931145862f35f841"}],"content_type":"systemd","content":{"string":"os-separator","bootId":"5270738c127841a4b592f0fdc2839929","timestamp":2659829,"eventType":"os-separator"}}
+${RS}{"pcr":4,"digests":[{"hashAlg":"sha256","digest":"ff5b9d73dad709633ae76adf444012b57e913a12ed7403c3931145862f35f841"}],"content_type":"systemd","content":{"string":"os-separator","bootId":"5270738c127841a4b592f0fdc2839929","timestamp":2659851,"eventType":"os-separator"}}
+${RS}{"pcr":5,"digests":[{"hashAlg":"sha256","digest":"ff5b9d73dad709633ae76adf444012b57e913a12ed7403c3931145862f35f841"}],"content_type":"systemd","content":{"string":"os-separator","bootId":"5270738c127841a4b592f0fdc2839929","timestamp":2660099,"eventType":"os-separator"}}
+${RS}{"pcr":6,"digests":[{"hashAlg":"sha256","digest":"ff5b9d73dad709633ae76adf444012b57e913a12ed7403c3931145862f35f841"}],"content_type":"systemd","content":{"string":"os-separator","bootId":"5270738c127841a4b592f0fdc2839929","timestamp":2660139,"eventType":"os-separator"}}
+EOF
 
 # Reset TPM PCR 16 ("debug") explicitly, so that we can use it in a known good state
 tpm2_pcrreset 16
@@ -73,16 +104,25 @@ SYSTEMD_COLORS=256 "$SD_PCRLOCK"
 
 SD_STUB="$(find /usr/lib/systemd/boot/efi/ -name "systemd-boot*.efi" | head -n1)"
 if [[ -n "$SD_STUB" ]]; then
-    "$SD_PCRLOCK" lock-pe "$SD_STUB"
-    "$SD_PCRLOCK" lock-pe <"$SD_STUB"
-    "$SD_PCRLOCK" lock-uki "$SD_STUB"
-    "$SD_PCRLOCK" lock-uki <"$SD_STUB"
+    pe_direct="$("$SD_PCRLOCK" lock-pe "$SD_STUB")"
+    pe_stdin="$("$SD_PCRLOCK" lock-pe <"$SD_STUB")"
+    pe_pipe="$(cat "$SD_STUB" | "$SD_PCRLOCK" lock-pe)"
+    [[ "$pe_direct" == "$pe_stdin" ]]
+    [[ "$pe_stdin" == "$pe_pipe" ]]
+
+    uki_direct="$("$SD_PCRLOCK" lock-uki "$SD_STUB")"
+    uki_stdin="$("$SD_PCRLOCK" lock-uki <"$SD_STUB")"
+    uki_pipe="$(cat "$SD_STUB" | "$SD_PCRLOCK" lock-uki)"
+    [[ "$uki_direct" == "$uki_stdin" ]]
+    [[ "$uki_stdin" == "$uki_pipe" ]]
 fi
 
-PIN=huhu "$SD_PCRLOCK" make-policy --pcr="$PCRS" --recovery-pin=query
-# Repeat immediately (this call will have to reuse the nvindex, rather than create it)
-"$SD_PCRLOCK" make-policy --pcr="$PCRS"
-"$SD_PCRLOCK" make-policy --pcr="$PCRS" --force
+if "$SD_PCRLOCK" is-supported; then
+    PIN=huhu "$SD_PCRLOCK" make-policy --pcr="$PCRS" --recovery-pin=query
+    # Repeat immediately (this call will have to reuse the nvindex, rather than create it)
+    "$SD_PCRLOCK" make-policy --pcr="$PCRS"
+    "$SD_PCRLOCK" make-policy --pcr="$PCRS" --force
+fi
 
 img="/tmp/pcrlock.img"
 truncate -s 20M "$img"
@@ -211,6 +251,12 @@ systemctl restart systemd-pcrlock.socket
 varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.RemovePolicy '{}'
 varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.MakePolicy '{}'
 varlinkctl call --collect --json=pretty /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.ReadEventLog '{}'
+varlinkctl call --collect --json=pretty /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.ListComponents '{}'
+varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.Lock '{"category":"firmwareConfig"}'
+varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.Lock '{"category":"firmwareConfig","lock":false}'
+varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.Lock '{"category":"firmwareCode","lock":false}'
+varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.Lock '{"category":"secureBootPolicy","lock":false}'
+varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.Lock '{"category":"secureBootAuthority","lock":false}'
 
 rm "$img" /tmp/pcrlockpwd
 

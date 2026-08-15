@@ -4,7 +4,6 @@
 #include "fou-tunnel.h"
 #include "netdev.h"
 #include "networkd-link.h"
-#include "shared-forward.h"
 
 /* For IFLA_IPTUN_PROTO attribute */
 typedef enum TunnelMode {

@@ -139,6 +139,8 @@ int specifier_id128(char specifier, const void *data, const char *root, const vo
         const sd_id128_t *id = ASSERT_PTR(data);
         char *n;
 
+        assert(ret);
+
         n = new(char, SD_ID128_STRING_MAX);
         if (!n)
                 return -ENOMEM;
@@ -150,6 +152,8 @@ int specifier_id128(char specifier, const void *data, const char *root, const vo
 int specifier_uuid(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         const sd_id128_t *id = ASSERT_PTR(data);
         char *n;
+
+        assert(ret);
 
         n = new(char, SD_ID128_UUID_STRING_MAX);
         if (!n)
@@ -343,7 +347,7 @@ int specifier_user_name(char specifier, const void *data, const char *root, cons
          * to be able to run this in PID 1, where our user ID is 0, but where NSS lookups are not allowed.
 
          * We don't use getusername_malloc() here, because we don't want to look at $USER, to remain
-         * consistent with specifer_user_id() below.
+         * consistent with specifier_user_id() below.
          */
 
         t = uid_to_name(uid);

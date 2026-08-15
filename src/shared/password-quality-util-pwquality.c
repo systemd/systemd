@@ -1,8 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "errno-util.h"
+#include "log.h"
 #include "password-quality-util-pwquality.h"
 
 #if HAVE_PWQUALITY
+#ifndef SYSTEMD_CFLAGS_MARKER_LIBPWQUALITY
+#  error "missing libpwquality_cflags in meson dependency."
+#endif
 
 #include <pwquality.h>
 #include <stdio.h>
@@ -10,22 +15,18 @@
 
 #include "alloc-util.h"
 #include "dlfcn-util.h"
-#include "errno-util.h"
-#include "log.h"
 #include "password-quality-util.h"
 #include "string-util.h"
 #include "strv.h"
 
-static void *pwquality_dl = NULL;
-
-DLSYM_PROTOTYPE(pwquality_check) = NULL;
-DLSYM_PROTOTYPE(pwquality_default_settings) = NULL;
-DLSYM_PROTOTYPE(pwquality_free_settings) = NULL;
-DLSYM_PROTOTYPE(pwquality_generate) = NULL;
-DLSYM_PROTOTYPE(pwquality_get_str_value) = NULL;
-DLSYM_PROTOTYPE(pwquality_read_config) = NULL;
-DLSYM_PROTOTYPE(pwquality_set_int_value) = NULL;
-DLSYM_PROTOTYPE(pwquality_strerror) = NULL;
+static DLSYM_PROTOTYPE(pwquality_check) = NULL;
+static DLSYM_PROTOTYPE(pwquality_default_settings) = NULL;
+static DLSYM_PROTOTYPE(pwquality_free_settings) = NULL;
+static DLSYM_PROTOTYPE(pwquality_generate) = NULL;
+static DLSYM_PROTOTYPE(pwquality_get_str_value) = NULL;
+static DLSYM_PROTOTYPE(pwquality_read_config) = NULL;
+static DLSYM_PROTOTYPE(pwquality_set_int_value) = NULL;
+static DLSYM_PROTOTYPE(pwquality_strerror) = NULL;
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(pwquality_settings_t*, sym_pwquality_free_settings, pwquality_free_settingsp, NULL);
 
@@ -70,7 +71,7 @@ static int pwq_allocate_context(pwquality_settings_t **ret) {
 
         assert(ret);
 
-        r = dlopen_pwquality();
+        r = dlopen_pwquality(LOG_DEBUG);
         if (r < 0)
                 return r;
 
@@ -151,15 +152,14 @@ int check_password_quality(const char *password, const char *old, const char *us
 
 #endif
 
-int dlopen_pwquality(void) {
+int dlopen_pwquality(int log_level) {
 #if HAVE_PWQUALITY
-        ELF_NOTE_DLOPEN("pwquality",
-                        "Support for password quality checks",
-                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libpwquality.so.1");
+        static void *pwquality_dl = NULL;
+
+        LIBPWQUALITY_NOTE(suggested);
 
         return dlopen_many_sym_or_warn(
-                        &pwquality_dl, "libpwquality.so.1", LOG_DEBUG,
+                        &pwquality_dl, "libpwquality.so.1", log_level,
                         DLSYM_ARG(pwquality_check),
                         DLSYM_ARG(pwquality_default_settings),
                         DLSYM_ARG(pwquality_free_settings),
@@ -169,6 +169,7 @@ int dlopen_pwquality(void) {
                         DLSYM_ARG(pwquality_set_int_value),
                         DLSYM_ARG(pwquality_strerror));
 #else
-        return -EOPNOTSUPP;
+        return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                              "libpwquality support is not compiled in.");
 #endif
 }

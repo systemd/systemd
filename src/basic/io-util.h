@@ -1,7 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "basic-forward.h"
+#include "forward.h"
+
+/* On most architectures POLL* and EPOLL* share numeric values, but sparc allocates POLLRDHUP at
+ * 0x800 while EPOLLRDHUP is 0x2000 everywhere. Always go through these helpers when crossing
+ * between poll() and epoll() event masks. Bits outside the mapped set (EPOLLET, EPOLLONESHOT,
+ * POLLNVAL, …) are dropped. */
+uint32_t poll_events_to_epoll(uint32_t events);
+uint32_t epoll_events_to_poll(uint32_t events);
 
 int flush_fd(int fd);
 

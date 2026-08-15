@@ -11,15 +11,24 @@ if [[ ! -x "${SD_TPM2SETUP:?}" ]]; then
     exit 0
 fi
 
+# systemd-tpm2-setup returns EX_UNAVAILABLE rather than 0 when it cannot set something up but this
+# is still considered success. This happens at the moment because there is no EK certificate in
+# QEMU guests.
+run_tpm2_setup() {
+    local rc=0
+    "$SD_TPM2SETUP" "$@" || rc=$?
+    [[ "$rc" -eq 0 || "$rc" -eq 69 ]]
+}
+
 "$SD_TPM2SETUP" --help
 "$SD_TPM2SETUP" --version
 "$SD_TPM2SETUP" --tpm2-device=list
-"$SD_TPM2SETUP" --tpm2-device=auto
-"$SD_TPM2SETUP" --tpm2-device=/dev/tpmrm0
-"$SD_TPM2SETUP" --early=yes
-"$SD_TPM2SETUP" --early=yes
-"$SD_TPM2SETUP" --early=no
-"$SD_TPM2SETUP" --early=no
+run_tpm2_setup --tpm2-device=auto
+run_tpm2_setup --tpm2-device=/dev/tpmrm0
+run_tpm2_setup --early=yes
+run_tpm2_setup --early=yes
+run_tpm2_setup --early=no
+run_tpm2_setup --early=no
 
 (! "$SD_TPM2SETUP" "")
 (! "$SD_TPM2SETUP" --tpm2-device=)
