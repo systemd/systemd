@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-event.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "build.h"
@@ -9,43 +10,22 @@
 #include "cgroup-util.h"
 #include "daemon-util.h"
 #include "fileio.h"
-#include "format-table.h"
 #include "log.h"
 #include "main-func.h"
 #include "oomd-conf.h"
 #include "oomd-manager.h"
 #include "oomd-manager-bus.h"
-#include "options.h"
 #include "parse-util.h"
-#include "pretty-print.h"
 #include "psi-util.h"
+#include "verbs.h"
 
 static bool arg_dry_run = false;
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-oomd", "8", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        printf("%s [OPTIONS...]\n\n"
-               "Run the userspace out-of-memory (OOM) killer.\n\n",
-               program_invocation_short_name);
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
+COMMAND(
+        "systemd-oomd\0",
+        "Run the userspace out-of-memory (OOM) killer.",
+        .man_pages = "systemd-oomd.8\0",
+);
 
 static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
@@ -57,7 +37,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-oomd");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -74,6 +54,9 @@ static int parse_argv(int argc, char *argv[]) {
                                         opts.arg,
                                         BUS_IMPLEMENTATIONS(&manager_object,
                                                             &log_control_object));
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (option_parser_get_n_args(&opts) > 0)

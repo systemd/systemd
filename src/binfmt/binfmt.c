@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <sys/stat.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "binfmt-util.h"
 #include "build.h"
@@ -11,19 +13,26 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "format-table.h"
 #include "log.h"
 #include "main-func.h"
-#include "options.h"
 #include "pager.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "string-util.h"
 #include "strv.h"
+#include "verbs.h"
 
 static CatFlags arg_cat_flags = CAT_CONFIG_OFF;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_unregister = false;
+
+COMMAND(
+        "systemd-binfmt\0",
+        "Register binary formats with the kernel.",
+        .argspec = "[CONFIGURATION FILE…]\0",
+        .man_pages = "systemd-binfmt.service.8\0",
+        .pager_flags = &arg_pager_flags,
+);
 
 static int delete_rule(const char *rulename) {
         const char *fn = strjoina("/proc/sys/fs/binfmt_misc/", rulename);
@@ -107,33 +116,6 @@ static int cat_config(char **files) {
         return cat_files(NULL, files, arg_cat_flags);
 }
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-binfmt.service", "8", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n"
-               "\n%sRegisters binary formats with the kernel.%s\n"
-               "\nOptions:\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
-
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
         assert(argc >= 0);
@@ -144,7 +126,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-binfmt");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -164,6 +146,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_LONG("unregister", NULL, "Unregister all existing entries"):
                         arg_unregister = true;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         char **args = option_parser_get_args(&opts);

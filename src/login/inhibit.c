@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "sd-bus.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "build.h"
@@ -17,12 +18,10 @@
 #include "format-table.h"
 #include "log.h"
 #include "main-func.h"
-#include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "pidref.h"
 #include "polkit-agent.h"
-#include "pretty-print.h"
 #include "process-util.h"
 #include "runtime-scope.h"
 #include "signal-util.h"
@@ -30,6 +29,7 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "user-util.h"
+#include "verbs.h"
 
 static const char *arg_what = NULL;
 static const char *arg_who = NULL;
@@ -44,6 +44,16 @@ static enum {
         ACTION_INHIBIT,
         ACTION_LIST
 } arg_action = ACTION_INHIBIT;
+
+COMMAND(
+        "systemd-inhibit\0",
+        "Execute a process while inhibiting shutdown/sleep/idle.",
+        .argspec =
+                "COMMAND…\0"
+                "--list\0",
+        .man_pages = "systemd-inhibit.1\0",
+        .pager_flags = &arg_pager_flags,
+);
 
 static int inhibit(sd_bus *bus, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -168,33 +178,6 @@ static int print_inhibitors(sd_bus *bus) {
         return 0;
 }
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-inhibit", "1", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        printf("%s [OPTIONS...] COMMAND ...\n\n"
-               "%sExecute a process while inhibiting shutdown/sleep/idle.%s\n\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
-
 static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         assert(argc >= 0);
         assert(argv);
@@ -207,7 +190,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-inhibit");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -255,6 +238,9 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_LONG("list", NULL, "List active inhibitors"):
                         arg_action = ACTION_LIST;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         char **args = option_parser_get_args(&opts);
