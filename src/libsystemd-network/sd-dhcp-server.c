@@ -74,12 +74,10 @@ int sd_dhcp_server_configure_pool(
         if (offset == 0)
                 offset = 1;
 
-        size_max = (broadcast_off + 1) /* the number of addresses in the subnet */
-                   - offset /* exclude the addresses before the offset */
-                   - 1; /* exclude the last (broadcast) address */
+        /* The pool must contain at least one address, and may not contain the broadcast address. */
+        assert_return(offset < broadcast_off, -ERANGE);
 
-        /* The pool must contain at least one address */
-        assert_return(size_max >= 1, -ERANGE);
+        size_max = broadcast_off - offset;
 
         if (size != 0)
                 assert_return(size <= size_max, -ERANGE);
