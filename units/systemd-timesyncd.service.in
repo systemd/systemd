@@ -13,7 +13,7 @@ Documentation=man:systemd-timesyncd.service(8)
 ConditionCapability=CAP_SYS_TIME
 ConditionVirtualization=!container
 DefaultDependencies=no
-After=systemd-sysusers.service
+After=systemd-sysusers.service systemd-resolved.service systemd-resolved-varlink.socket
 Before=time-set.target sysinit.target shutdown.target
 Conflicts=shutdown.target
 Wants=time-set.target
@@ -22,10 +22,6 @@ Wants=time-set.target
 AmbientCapabilities=CAP_SYS_TIME
 BusName=org.freedesktop.timesync1
 CapabilityBoundingSet=CAP_SYS_TIME
-# Turn off DNSSEC validation for hostname look-ups, since those need the
-# correct time to work, but we likely won't acquire that without NTP. Let's
-# break this chicken-and-egg cycle here.
-Environment=SYSTEMD_NSS_RESOLVE_VALIDATE=0
 ExecStart={{LIBEXECDIR}}/systemd-timesyncd
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
