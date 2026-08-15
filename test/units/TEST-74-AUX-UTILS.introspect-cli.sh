@@ -16,6 +16,7 @@ INTROSPECTABLE=(
     systemd-ask-password
     systemd-backlight
     systemd-dissect
+    systemd-firstboot    
     systemd-id128
     systemd-notify
     systemd-veritysetup
