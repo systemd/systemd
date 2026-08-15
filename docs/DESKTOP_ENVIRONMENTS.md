@@ -94,6 +94,13 @@ This has the advantage of making it possible to reliably identify the app.
 Whenever a unit complies with this convention, systemd will tag that unit's
 cgroup with the `user.app_id` xattr.
 
+Libraries that launch apps can easily comply with this convention by registering
+the app with `systemd-appd` via the `$XDG_RUNTIME_DIR/systemd/io.systemd.AppInstance`
+Varlink interface, before `exec()`ing the app's entry point. `systemd-appd` will
+move the caller into an appropriate `.scope` if necessary. Similarly, sandboxing
+engines like Flatpak should register the app with `systemd-appd` before `exec()`ing
+the app's main binary.
+
 ## XDG autostart integration
 
 To allow XDG autostart integration, systemd ships a cross-desktop generator
