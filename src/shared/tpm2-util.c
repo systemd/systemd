@@ -9489,6 +9489,11 @@ int tpm2_pcrlock_policy_from_json(
         if (r < 0)
                 return r;
 
+        /* systemd-pcrlock always stores a serialized NV index handle. Without one the policy is unusable:
+         * tpm2_deserialize() would return no handle, which we'd then pass to PolicyAuthorizeNV. */
+        if (!iovec_is_set(&policy.nv_handle))
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "pcrlock policy lacks NV index handle, refusing.");
+
         r = tpm2_pcr_prediction_from_json(&policy.prediction, policy.algorithm, policy.prediction_json);
         if (r < 0)
                 return r;
