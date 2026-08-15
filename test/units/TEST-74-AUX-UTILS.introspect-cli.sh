@@ -22,6 +22,7 @@ INTROSPECTABLE=(
     systemd-cgls
     systemd-cgtop
     systemd-delta
+    systemd-detect-virt
     systemd-dissect
     systemd-firstboot    
     systemd-hwdb
