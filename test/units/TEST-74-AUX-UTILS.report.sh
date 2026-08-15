@@ -103,6 +103,19 @@ for type in user system; do
     test -n "$(basic_number CPUUsage ".fields.type == \"$type\"")"
 done
 
+# The values are USER_HZ ticks converted to nanoseconds. The metrics were sampled before the
+# current /proc/stat state, and the idle counter only grows, so the reported idle time must be
+# positive and no larger than what /proc/stat shows now. This would catch a bogus
+# tick-to-nanosecond conversion.
+cpu_idle_reported="$(basic_number CPUUsage '.fields.type == "idle"')"
+awk -v hz="$(getconf CLK_TCK)" -v sampled="$cpu_idle_reported" \
+    '/^cpu / { exit !(sampled > 0 && sampled <= $5 / hz * 1e9) }' /proc/stat
+
+# iowait/idle/steal must be valid nanoseconds values, but can go up and down.
+for type in idle iowait steal; do
+    test -n "$(basic_number CPUWait ".fields.type == \"$type\"")"
+done
+
 # MemoryUsedBytes is MemTotal − MemAvailable, so it cannot exceed the MemTotal reported by the
 # same file. (PhysicalMemoryBytes is not a valid bound here: it is capped by the root cgroup's
 # memory limit, so it can legitimately be smaller than the value computed from /proc/meminfo.)
@@ -154,7 +167,7 @@ done
 
 # Every new metric family must be described, even those whose values depend on the environment.
 basic_describe="$(varlinkctl call --more /run/systemd/report/io.systemd.Basic io.systemd.Metrics.Describe {})"
-for name in CPUUsage DiskReadBytes DiskWriteBytes MemoryUsedBytes PressureAvg10 PressureStallSeconds SwapUsedBytes; do
+for name in CPUUsage CPUWait DiskReadBytes DiskWriteBytes MemoryUsedBytes PressureAvg10 PressureStallSeconds SwapUsedBytes; do
     echo "$basic_describe" | grep -F "io.systemd.Basic.$name" >/dev/null
 done
 

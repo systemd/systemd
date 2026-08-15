@@ -239,10 +239,11 @@ static int cpus_online_generate(const MetricFamily *mf, sd_varlink *link, void *
                         /* fields= */ NULL);
 }
 
-static int cpu_usage_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
+static int cpu_usage_generate(const MetricFamily mf[static 2], sd_varlink *link, void *userdata) {
         int r;
 
-        assert(mf && mf->name);
+        assert(mf && mf[0].name && mf[1].name);
+        assert(!mf[1].generate);
         assert(link);
 
         /* The aggregate "cpu" line of /proc/stat, converted from USER_HZ ticks to nanoseconds, matching
@@ -258,12 +259,17 @@ static int cpu_usage_generate(const MetricFamily *mf, sd_varlink *link, void *us
 
         uint64_t ticks_per_second = sysconf_clock_ticks_cached();
 
-        static const char* const types[] = { "user", "system" };
+        static const char* const types[] = { "user", "system", "idle", "iowait", "steal" };
+        static const size_t family[] = { 0, 0, 1, 1, 1 };
         const uint64_t values[] = {
                 ticks.user + ticks.nice,
                 ticks.system + ticks.irq + ticks.softirq,
+                ticks.idle,
+                ticks.iowait,
+                ticks.steal,
         };
         assert_cc(ELEMENTSOF(types) == ELEMENTSOF(values));
+        assert_cc(ELEMENTSOF(types) == ELEMENTSOF(family));
 
         for (size_t i = 0; i < ELEMENTSOF(values); i++) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *fields = NULL;
@@ -278,7 +284,7 @@ static int cpu_usage_generate(const MetricFamily *mf, sd_varlink *link, void *us
                         values[i] % ticks_per_second * NSEC_PER_SEC / ticks_per_second;
 
                 r = metric_build_send_unsigned(
-                                mf,
+                                &mf[family[i]],
                                 link,
                                 /* object= */ NULL,
                                 nsec,
@@ -787,7 +793,7 @@ static int virtualization_generate(const MetricFamily *mf, sd_varlink *link, voi
         }
 
 static const MetricFamily metric_family_table[] = {
-        /* Keep entries ordered alphabetically */
+        /* Keep entries (with .generate) ordered alphabetically */
         {
                 METRIC_IO_SYSTEMD_BASIC_PREFIX "Architecture",
                 "CPU architecture",
@@ -812,11 +818,18 @@ static const MetricFamily metric_family_table[] = {
                 METRIC_FAMILY_TYPE_GAUGE,
                 .generate = cpus_online_generate,
         },
+        /* METRIC_FAMILY_TYPE_COUNTER must be monotonic, but steal and iowait can go down,
+         * so CpuUsage is split into two families of different types. */
         {
                 METRIC_IO_SYSTEMD_BASIC_PREFIX "CPUUsage",
                 "Aggregate CPU usage across all CPUs in nanoseconds (type=user|system)",
                 METRIC_FAMILY_TYPE_COUNTER,
                 .generate = cpu_usage_generate,
+        },
+        {
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "CPUWait",
+                "Aggregate CPU wait across all CPUs in nanoseconds (type=idle|iowait|steal)",
+                METRIC_FAMILY_TYPE_GAUGE,
         },
         {
                 METRIC_IO_SYSTEMD_BASIC_PREFIX "DiskReadBytes",
