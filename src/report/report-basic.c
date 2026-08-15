@@ -237,10 +237,11 @@ static int cpus_online_generate(const MetricFamily *mf, sd_varlink *link, void *
                         /* fields= */ NULL);
 }
 
-static int cpu_usage_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
+static int cpu_usage_generate(const MetricFamily mf[static 2], sd_varlink *link, void *userdata) {
         int r;
 
-        assert(mf && mf->name);
+        assert(mf && mf[0].name && mf[1].name);
+        assert(!mf[1].generate);
         assert(link);
 
         /* The aggregate "cpu" line of /proc/stat, converted from USER_HZ ticks to nanoseconds, matching
@@ -254,24 +255,36 @@ static int cpu_usage_generate(const MetricFamily *mf, sd_varlink *link, void *us
                 return 0;
         }
 
-        static const char* const types[] = { "user", "system" };
-        const uint64_t values[] = {
+        static const struct {
+                const char *name;
+                size_t family_offset;
+        } attributes[] = {
+                { "user",   0 },
+                { "system", 0 },
+                { "idle",   1 },
+                { "iowait", 1 },
+                { "steal",  1 },
+        };
+        uint64_t values[] = {
                 ticks.user + ticks.nice,
                 ticks.system + ticks.irq + ticks.softirq,
+                ticks.idle,
+                ticks.iowait,
+                ticks.steal,
         };
-        assert_cc(ELEMENTSOF(types) == ELEMENTSOF(values));
+        assert_cc(ELEMENTSOF(attributes) == ELEMENTSOF(values));
 
-        for (size_t i = 0; i < ELEMENTSOF(values); i++) {
+        for (size_t i = 0; i < ELEMENTSOF(attributes); i++) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *fields = NULL;
 
-                r = sd_json_buildo(&fields, SD_JSON_BUILD_PAIR_STRING("type", types[i]));
+                r = sd_json_buildo(&fields, SD_JSON_BUILD_PAIR_STRING("type", attributes[i].name));
                 if (r < 0)
                         return r;
 
                 uint64_t nsec = procfs_ticks_to_nsec(values[i]);
 
                 r = metric_build_send_unsigned(
-                                mf,
+                                &mf[attributes[i].family_offset],
                                 link,
                                 /* object= */ NULL,
                                 nsec,
@@ -716,7 +729,7 @@ static int virtualization_generate(const MetricFamily *mf, sd_varlink *link, voi
         }
 
 static const MetricFamily metric_family_table[] = {
-        /* Keep entries ordered alphabetically */
+        /* Keep entries (with .generate) ordered alphabetically */
         {
                 METRIC_IO_SYSTEMD_BASIC_PREFIX "Architecture",
                 "CPU architecture",
@@ -741,12 +754,20 @@ static const MetricFamily metric_family_table[] = {
                 METRIC_FAMILY_TYPE_GAUGE,
                 .generate = cpus_online_generate,
         },
+        /* METRIC_FAMILY_TYPE_COUNTER must be monotonic, but steal and iowait can go down,
+         * so CPUUsage is split into two families of different types. */
         {
                 METRIC_IO_SYSTEMD_BASIC_PREFIX "CPUUsage",
                 "Aggregate CPU usage across all CPUs in nanoseconds (type=user|system)",
                 METRIC_FAMILY_TYPE_COUNTER,
                 .generate = cpu_usage_generate,
         },
+        {
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "CPUWait",
+                "Aggregate CPU wait across all CPUs in nanoseconds (type=idle|iowait|steal)",
+                METRIC_FAMILY_TYPE_GAUGE,
+        },
+        /* Keep those ↑ in sync with cpu_usage_generate(). */
         {
                 METRIC_IO_SYSTEMD_BASIC_PREFIX "DiskReadBytes",
                 "Per block device metric: cumulative number of bytes read "
