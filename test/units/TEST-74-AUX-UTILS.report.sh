@@ -111,6 +111,11 @@ cpu_idle_reported="$(basic_number CPUUsage '.fields.type == "idle"')"
 awk -v hz="$(getconf CLK_TCK)" -v sampled="$cpu_idle_reported" \
     '/^cpu / { exit !(sampled > 0 && sampled <= $5 / hz * 1e9) }' /proc/stat
 
+# iowait and steal must be valid nanoseconds values, but can go up and down.
+for type in iowait steal; do
+    test -n "$(basic_number CPUInvoluntaryWait ".fields.type == \"$type\"")"
+done
+
 # MemoryUsedBytes is MemTotal − MemAvailable, so it cannot exceed the MemTotal reported by the
 # same file. (PhysicalMemoryBytes is not a valid bound here: it is capped by the root cgroup's
 # memory limit, so it can legitimately be smaller than the value computed from /proc/meminfo.)
@@ -162,7 +167,7 @@ done
 
 # Every new metric family must be described, even those whose values depend on the environment.
 basic_describe="$(varlinkctl call --more /run/systemd/report/io.systemd.Basic io.systemd.Metrics.Describe {})"
-for name in CPUUsage DiskReadBytes DiskWriteBytes MemoryUsedBytes PressureAvg10 PressureStallSeconds SwapUsedBytes; do
+for name in CPUUsage CPUInvoluntaryWait DiskReadBytes DiskWriteBytes MemoryUsedBytes PressureAvg10 PressureStallSeconds SwapUsedBytes; do
     echo "$basic_describe" | grep -F "io.systemd.Basic.$name" >/dev/null
 done
 
