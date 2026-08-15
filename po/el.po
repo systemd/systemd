@@ -6,12 +6,13 @@
 # Dimitrys Meliates <demetresmeliates+fedora@gmail.com>, 2024, 2026.
 # Jim Spentzos <jimspentzos2000@gmail.com>, 2025, 2026.
 # Efstathios Iosifidis <eiosifidis@yandex.com>, 2026.
+# Lefteris T <lefteris592@gmail.com>, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-06-01 11:49+0200\n"
-"PO-Revision-Date: 2026-08-02 00:14+0000\n"
-"Last-Translator: Jim Spentzos <jimspentzos2000@gmail.com>\n"
+"PO-Revision-Date: 2026-08-15 13:18+0000\n"
+"Last-Translator: Lefteris T <lefteris592@gmail.com>\n"
 "Language-Team: Greek <https://translate.fedoraproject.org/projects/systemd/"
 "main/el/>\n"
 "Language: el\n"
@@ -19,7 +20,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 2026.7.1\n"
+"X-Generator: Weblate 2026.8.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -1250,7 +1251,7 @@ msgstr "Απαιτείται ταυτοποίηση για την επαναφο
 
 #: src/resolve/org.freedesktop.resolve1.policy:209
 msgid "Flush DNS caches"
-msgstr ""
+msgstr "Εκκαθάριση κρυφών μνημών DNS"
 
 #: src/resolve/org.freedesktop.resolve1.policy:210
 msgid "Authentication is required to flush DNS caches."
@@ -1258,7 +1259,7 @@ msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:220
 msgid "Reset server features"
-msgstr ""
+msgstr "Επαναφορά δυνατοτήτων διακομιστή"
 
 #: src/resolve/org.freedesktop.resolve1.policy:221
 msgid "Authentication is required to reset server features."
@@ -1274,7 +1275,7 @@ msgstr "Απαιτείται ταυτοποίηση για τον έλεγχο �
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:48
 msgid "Cancel checking for system updates"
-msgstr ""
+msgstr "Ακύρωση ελέγχου για ενημερώσεις συστήματος"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:49
 msgid "Authentication is required to cancel checking for system updates."
