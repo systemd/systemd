@@ -3,9 +3,46 @@
 set -eux
 set -o pipefail
 
-# Just a smoke test for the introspection code
-for i in systemd-ac-power systemd-analyze systemd-ask-password systemd-dissect \
-         systemd-id128 systemd-notify homectl resolvectl timedatectl varlinkctl; do
+# Some commands are in $PATH, others are in our private directory.
+# Check the other location too.
+PATH=$PATH:/usr/lib/systemd
+
+# A smoke test for the introspection code
+INTROSPECTABLE=(
+    homectl
+    resolvectl
+    systemd-ac-power
+    systemd-analyze
+    systemd-ask-password
+    systemd-backlight
+    systemd-battery-check
+    systemd-binfmt
+    systemd-bsod
+    systemd-cat
+    systemd-cgls
+    systemd-cgtop
+    systemd-delta
+    systemd-detect-virt
+    systemd-dissect
+    systemd-escape
+    systemd-firstboot    
+    systemd-hwdb
+    systemd-id128
+    systemd-imds
+    systemd-inhibit
+    systemd-mute-console
+    systemd-notify
+    systemd-oomd
+    systemd-path
+    systemd-pty-forward
+    systemd-socket-activate
+    systemd-tty-ask-password-agent
+    systemd-veritysetup
+    timedatectl
+    varlinkctl
+)
+
+for i in "${INTROSPECTABLE[@]}"; do
     command -v "$i" >/dev/null || continue
 
     $i --introspect-cli | jq -e \
@@ -17,14 +54,9 @@ for i in systemd-ac-power systemd-analyze systemd-ask-password systemd-dissect \
     $i --intro | grep -e --help
 done
 
-# Those are not in $PATH and do not do regular option parsing, so the option must
-# be given verbatim
-for i in /usr/lib/systemd/systemd-backlight /usr/lib/systemd/systemd-veritysetup; do
-    [[ -x "$i" ]] || continue
-
-    $i --introspect-cli | jq -e \
-        '.mediaType == "application/vnd.io.systemd.cli-introspection-0"'
-done
+# systemd-hwdb defines verbs, check that they are described
+systemd-hwdb --introspect-cli | jq -e \
+    '.commands[0].verbs | map(.names[0]) | contains(["query", "update"])'
 
 # systemd-id128 defines verbs, check that they are described
 systemd-id128 --introspect-cli | jq -e \

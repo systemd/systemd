@@ -4,6 +4,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-json.h"
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
@@ -17,7 +18,6 @@
 #include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
-#include "help-util.h"
 #include "hexdecoct.h"
 #include "imds-tool.h"
 #include "imds-tool-metrics.h"
@@ -28,13 +28,13 @@
 #include "json-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "options.h"
 #include "parse-argument.h"
 #include "pcrextend-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
 #include "tmpfile-util.h"
+#include "verbs.h"
 
 static enum {
         ACTION_SUMMARY,
@@ -51,25 +51,12 @@ static bool arg_refresh_usec_set = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_key, freep);
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        help_cmdline("[OPTIONS...] [KEY]");
-        help_abstract("IMDS data acquisition.");
-
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("systemd-imds", "1");
-        return 0;
-}
+COMMAND(
+        "systemd-imds\0",
+        "IMDS data acquisition.",
+        .argspec = "[KEY]\0",
+        .man_pages = "systemd-imds.1\0",
+);
 
 static int parse_argv(int argc, char *argv[]) {
         int r;
@@ -83,7 +70,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-imds");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -139,6 +126,9 @@ static int parse_argv(int argc, char *argv[]) {
                             " and place them in /run/credstore/"):
                         arg_action = ACTION_IMPORT;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         char **args = option_parser_get_args(&opts);

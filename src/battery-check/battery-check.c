@@ -2,22 +2,22 @@
 
 #include <sys/socket.h>         /* IWYU pragma: keep */
 
+#include "sd-json.h"
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "ansi-color.h"
 #include "battery-util.h"
 #include "build.h"
 #include "fd-util.h"
-#include "format-table.h"
 #include "glyph-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "options.h"
 #include "plymouth-util.h"
-#include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "terminal-util.h"
 #include "time-util.h"
+#include "verbs.h"
 
 #define BATTERY_LOW_MESSAGE \
         "Battery level critically low. Please connect your charger or the system will power off in 10 seconds."
@@ -26,32 +26,11 @@
 
 static bool arg_doit = true;
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-battery-check", "8", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        printf("%s\n\n"
-               "%sCheck battery level to see whether there's enough charge.%s\n\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
+COMMAND(
+        "systemd-battery-check\0",
+        "Check battery level to see whether there's enough charge.",
+        .man_pages = "systemd-battery-check.8\0",
+);
 
 static int plymouth_send_message(const char *mode, const char *message) {
         _cleanup_free_ char *plymouth_message = NULL;
@@ -87,10 +66,13 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-battery-check");
 
                 OPTION_COMMON_VERSION:
                         return version();
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (option_parser_get_n_args(&opts) != 0)

@@ -2,55 +2,55 @@
 
 #include <unistd.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
+#include "ansi-color.h"
 #include "build.h"
 #include "chase.h"
 #include "dirent-util.h"
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
-#include "format-table.h"
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "hashmap.h"
 #include "log.h"
 #include "main-func.h"
 #include "nulstr-util.h"
-#include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "path-util.h"
 #include "pidref.h"
-#include "pretty-print.h"
 #include "process-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "verbs.h"
 
-static const char prefixes[] =
-        "/etc\0"
-        "/run\0"
-        "/usr/local/lib\0"
-        "/usr/local/share\0"
-        "/usr/lib\0"
+#define PREFIXES                                \
+        "/etc\0"                                \
+        "/run\0"                                \
+        "/usr/local/lib\0"                      \
+        "/usr/local/share\0"                    \
+        "/usr/lib\0"                            \
         "/usr/share\0"
-        ;
 
-static const char suffixes[] =
-        "sysctl.d\0"
-        "tmpfiles.d\0"
-        "modules-load.d\0"
-        "binfmt.d\0"
-        "systemd/system\0"
+#define SUFFIXES                                \
+        "sysctl.d\0"                            \
+        "tmpfiles.d\0"                          \
+        "modules-load.d\0"                      \
+        "binfmt.d\0"                            \
+        "systemd/system\0"                      \
+        "systemd/user\0"                        \
+        "systemd/system-preset\0"               \
+        "systemd/user-preset\0"                 \
+        "udev/rules.d\0"                        \
+        "modprobe.d\0"
+
+#define HAVE_DROPINS                            \
+        "systemd/system\0"                      \
         "systemd/user\0"
-        "systemd/system-preset\0"
-        "systemd/user-preset\0"
-        "udev/rules.d\0"
-        "modprobe.d\0";
-
-static const char have_dropins[] =
-        "systemd/system\0"
-        "systemd/user\0";
 
 static PagerFlags arg_pager_flags = 0;
 static int arg_diff = -1;
@@ -66,6 +66,14 @@ static enum {
         SHOW_DEFAULTS =
         (SHOW_MASKED | SHOW_EQUIVALENT | SHOW_REDIRECTED | SHOW_OVERRIDDEN | SHOW_EXTENDED)
 } arg_flags = 0;
+
+COMMAND(
+        "systemd-delta\0",
+        "Find overridden configuration files.",
+        .argspec = "[SUFFIX…]\0",
+        .man_pages = "systemd-delta.1\0",
+        .pager_flags = &arg_pager_flags,
+);
 
 static int equivalent(const char *a, const char *b) {
         _cleanup_free_ char *x = NULL, *y = NULL;
@@ -377,10 +385,10 @@ static int process_suffix(const char *suffix, const char *onlyprefix) {
         assert(!startswith(suffix, "/"));
         assert(!strstr(suffix, "//"));
 
-        bool dropins = nulstr_contains(have_dropins, suffix);
+        bool dropins = nulstr_contains(HAVE_DROPINS, suffix);
 
         _cleanup_ordered_hashmap_free_ OrderedHashmap *top = NULL, *bottom = NULL, *drops = NULL;
-        NULSTR_FOREACH(p, prefixes) {
+        NULSTR_FOREACH(p, PREFIXES) {
                 _cleanup_free_ char *t = NULL;
 
                 t = path_join(p, suffix);
@@ -423,7 +431,7 @@ static int process_suffix(const char *suffix, const char *onlyprefix) {
 static int process_suffixes(const char *onlyprefix) {
         int n_found = 0, r;
 
-        NULSTR_FOREACH(n, suffixes) {
+        NULSTR_FOREACH(n, SUFFIXES) {
                 r = process_suffix(n, onlyprefix);
                 if (r < 0)
                         return r;
@@ -441,7 +449,7 @@ static int process_suffix_chop(const char *arg) {
                 return process_suffix(arg, NULL);
 
         /* Strip prefix from the suffix */
-        NULSTR_FOREACH(p, prefixes) {
+        NULSTR_FOREACH(p, PREFIXES) {
                 const char *suffix;
 
                 suffix = startswith(arg, p);
@@ -456,31 +464,6 @@ static int process_suffix_chop(const char *arg) {
 
         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                "Invalid suffix specification %s.", arg);
-}
-
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-delta", "1", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        printf("%s [OPTIONS...] [SUFFIX...]\n\n"
-               "Find overridden configuration files.\n\n",
-               program_invocation_short_name);
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
 }
 
 static int parse_flags(const char *flag_str, int flags) {
@@ -524,7 +507,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-delta");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -548,6 +531,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                                 return r;
                         arg_diff = r;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         *ret_args = option_parser_get_args(&opts);
