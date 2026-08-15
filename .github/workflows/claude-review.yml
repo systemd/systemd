@@ -175,8 +175,6 @@ jobs:
         run: |
           rm -rf claude-review-work
           mkdir claude-review-work
-          rm -rf /tmp/claude-review-sandbox
-          mkdir /tmp/claude-review-sandbox
 
       - name: Download PR context
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
@@ -227,7 +225,6 @@ jobs:
 
       - name: Run Claude Code review
         timeout-minutes: 50
-        working-directory: /tmp/claude-review-sandbox
         env:
           CLAUDE_CODE_USE_BEDROCK: "1"
           CLAUDE_CODE_USE_MANTLE: "1"
