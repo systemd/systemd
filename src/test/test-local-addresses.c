@@ -147,6 +147,67 @@ static void check_local_gateways(sd_netlink *rtnl, int ifindex, int request_ifin
                   IN_SET(family, AF_UNSPEC, AF_INET6));
 }
 
+static void check_no_local_gateway_with_priority(
+                sd_netlink *rtnl,
+                int request_ifindex,
+                int family,
+                uint32_t priority) {
+        _cleanup_free_ struct local_address *a = NULL;
+        int n;
+
+        log_debug("/* Local Gateways (ifindex:%i, %s, unexpected_priority=%"PRIu32") */",
+                  request_ifindex, family == AF_UNSPEC ? "AF_UNSPEC" : af_to_name(family), priority);
+
+        ASSERT_OK(n = local_gateways(rtnl, request_ifindex, family, &a));
+        print_local_addresses(a, n);
+
+        FOREACH_ARRAY(i, a, n)
+                ASSERT_TRUE(i->priority != priority);
+}
+
+static void check_local_gateway_peer(
+                sd_netlink *rtnl,
+                int ifindex,
+                int request_ifindex,
+                int request_family,
+                uint32_t priority,
+                uint32_t weight,
+                int family,
+                const char *peer,
+                const char *local) {
+
+        _cleanup_free_ struct local_address *a = NULL;
+        union in_addr_union local_address, peer_address;
+        int n;
+
+        log_debug("/* Local Gateway Peer (ifindex:%i, %s, priority=%"PRIu32", weight=%"PRIu32", "
+                  "expected_family=%s) */",
+                  request_ifindex, request_family == AF_UNSPEC ? "AF_UNSPEC" : af_to_name(request_family),
+                  priority, weight, af_to_name(family));
+
+        ASSERT_OK(n = local_gateways(rtnl, request_ifindex, request_family, &a));
+        print_local_addresses(a, n);
+
+        ASSERT_OK(in_addr_from_string(family, peer, &peer_address));
+        ASSERT_OK(in_addr_from_string(family, local, &local_address));
+
+        bool found = false;
+        FOREACH_ARRAY(i, a, n) {
+                if (i->ifindex != ifindex || i->family != family || i->priority != priority)
+                        continue;
+                if (i->weight != weight)
+                        continue;
+                if (in_addr_equal(family, &i->address, &peer_address) <= 0)
+                        continue;
+
+                ASSERT_OK_POSITIVE(in_addr_equal(family, &i->prefsrc, &local_address));
+                found = true;
+                break;
+        }
+
+        ASSERT_TRUE(found);
+}
+
 static void check_local_outbounds(sd_netlink *rtnl, int ifindex, int request_ifindex, int family, const char *ipv6_expected) {
         _cleanup_free_ struct local_address *a = NULL;
         union in_addr_union u;
@@ -190,7 +251,7 @@ TEST(local_addresses_with_dummy) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL, *reply = NULL;
         union in_addr_union u;
-        int r, ifindex;
+        int ifindex, ifindex2, r;
 
         ASSERT_OK(sd_netlink_open(&rtnl));
 
@@ -216,11 +277,34 @@ TEST(local_addresses_with_dummy) {
         message = sd_netlink_message_unref(message);
         reply = sd_netlink_message_unref(reply);
 
+        /* Create a second dummy interface */
+        ASSERT_OK(sd_rtnl_message_new_link(rtnl, &message, RTM_NEWLINK, 0));
+        ASSERT_OK(sd_netlink_message_append_string(message, IFLA_IFNAME, "test-local-a2"));
+        ASSERT_OK(sd_netlink_message_open_container(message, IFLA_LINKINFO));
+        ASSERT_OK(sd_netlink_message_append_string(message, IFLA_INFO_KIND, "dummy"));
+        ASSERT_OK(sd_netlink_call(rtnl, message, 0, NULL));
+        message = sd_netlink_message_unref(message);
+
+        /* Get second ifindex */
+        ASSERT_OK(sd_rtnl_message_new_link(rtnl, &message, RTM_GETLINK, 0));
+        ASSERT_OK(sd_netlink_message_append_string(message, IFLA_IFNAME, "test-local-a2"));
+        ASSERT_OK(sd_netlink_call(rtnl, message, 0, &reply));
+        ASSERT_OK(sd_rtnl_message_link_get_ifindex(reply, &ifindex2));
+        ASSERT_GT(ifindex2, 0);
+        message = sd_netlink_message_unref(message);
+        reply = sd_netlink_message_unref(reply);
+
         /* Enable IPv6 for the case that it is disabled by default. */
         ASSERT_OK(sysctl_write_ip_property_boolean(AF_INET6, "test-local-addr", "disable_ipv6", false, /* shadow= */ NULL));
 
         /* Bring the interface up */
         ASSERT_OK(sd_rtnl_message_new_link(rtnl, &message, RTM_SETLINK, ifindex));
+        ASSERT_OK(sd_rtnl_message_link_set_flags(message, IFF_UP, IFF_UP));
+        ASSERT_OK(sd_netlink_call(rtnl, message, 0, NULL));
+        message = sd_netlink_message_unref(message);
+
+        /* Bring the second interface up */
+        ASSERT_OK(sd_rtnl_message_new_link(rtnl, &message, RTM_SETLINK, ifindex2));
         ASSERT_OK(sd_rtnl_message_link_set_flags(message, IFF_UP, IFF_UP));
         ASSERT_OK(sd_netlink_call(rtnl, message, 0, NULL));
         message = sd_netlink_message_unref(message);
@@ -252,6 +336,17 @@ TEST(local_addresses_with_dummy) {
         ASSERT_OK(in_addr_from_string(AF_INET6, "2001:db8:1:123::123", &u));
         ASSERT_OK(sd_netlink_message_append_in6_addr(message, IFA_LOCAL, &u.in6));
         ASSERT_OK(sd_netlink_message_append_u32(message, IFA_FLAGS, IFA_F_NODAD));
+        ASSERT_OK(sd_netlink_call(rtnl, message, 0, NULL));
+        message = sd_netlink_message_unref(message);
+
+        /* Add a point-to-point address on the second interface, without a corresponding default route. */
+        ASSERT_OK(sd_rtnl_message_new_addr_update(rtnl, &message, ifindex2, AF_INET));
+        ASSERT_OK(sd_rtnl_message_addr_set_scope(message, RT_SCOPE_UNIVERSE));
+        ASSERT_OK(sd_rtnl_message_addr_set_prefixlen(message, 32));
+        ASSERT_OK(in_addr_from_string(AF_INET, "10.125.0.1", &u));
+        ASSERT_OK(sd_netlink_message_append_in_addr(message, IFA_LOCAL, &u.in));
+        ASSERT_OK(in_addr_from_string(AF_INET, "10.125.0.2", &u));
+        ASSERT_OK(sd_netlink_message_append_in_addr(message, IFA_ADDRESS, &u.in));
         ASSERT_OK(sd_netlink_call(rtnl, message, 0, NULL));
         message = sd_netlink_message_unref(message);
 
@@ -293,6 +388,34 @@ TEST(local_addresses_with_dummy) {
         ASSERT_OK(sd_netlink_message_append_u32(message, RTA_OIF, ifindex));
         ASSERT_OK(sd_netlink_call(rtnl, message, 0, NULL));
         message = sd_netlink_message_unref(message);
+
+        /* Add default routes without explicit gateways. Without peer addresses, these must not be
+         * reported. */
+        ASSERT_OK(sd_rtnl_message_new_route(rtnl, &message, RTM_NEWROUTE, AF_INET, RTPROT_STATIC));
+        ASSERT_OK(sd_rtnl_message_route_set_scope(message, RT_SCOPE_LINK));
+        ASSERT_OK(sd_rtnl_message_route_set_type(message, RTN_UNICAST));
+        ASSERT_OK(sd_netlink_message_append_u32(message, RTA_PRIORITY, 2345));
+        ASSERT_OK(sd_netlink_message_append_u32(message, RTA_TABLE, RT_TABLE_MAIN));
+        ASSERT_OK(sd_netlink_message_append_u32(message, RTA_OIF, ifindex));
+        ASSERT_OK(sd_netlink_call(rtnl, message, 0, NULL));
+        message = sd_netlink_message_unref(message);
+
+        ASSERT_OK(sd_rtnl_message_new_route(rtnl, &message, RTM_NEWROUTE, AF_INET6, RTPROT_STATIC));
+        ASSERT_OK(sd_rtnl_message_route_set_type(message, RTN_UNICAST));
+        ASSERT_OK(sd_netlink_message_append_u32(message, RTA_PRIORITY, 2345));
+        ASSERT_OK(sd_netlink_message_append_u32(message, RTA_TABLE, RT_TABLE_MAIN));
+        ASSERT_OK(sd_netlink_message_append_u32(message, RTA_OIF, ifindex));
+        ASSERT_OK(sd_netlink_call(rtnl, message, 0, NULL));
+        message = sd_netlink_message_unref(message);
+
+        check_no_local_gateway_with_priority(rtnl, 0, AF_UNSPEC, 2345);
+        check_no_local_gateway_with_priority(rtnl, 0, AF_INET, 2345);
+        check_no_local_gateway_with_priority(rtnl, 0, AF_INET6, 2345);
+        check_no_local_gateway_with_priority(rtnl, ifindex, AF_UNSPEC, 2345);
+        check_no_local_gateway_with_priority(rtnl, ifindex, AF_INET, 2345);
+        check_no_local_gateway_with_priority(rtnl, ifindex, AF_INET6, 2345);
+        check_no_local_gateway_with_priority(rtnl, ifindex2, AF_UNSPEC, 2345);
+        check_no_local_gateway_with_priority(rtnl, ifindex2, AF_INET, 2345);
 
         /* Check */
         check_local_addresses(rtnl, ifindex, 0, AF_UNSPEC);
@@ -387,6 +510,91 @@ TEST(local_addresses_with_dummy) {
         check_local_outbounds(rtnl, ifindex, ifindex, AF_UNSPEC, "2001:db8:1:123::124");
         check_local_outbounds(rtnl, ifindex, ifindex, AF_INET, "2001:db8:1:123::124");
         check_local_outbounds(rtnl, ifindex, ifindex, AF_INET6, "2001:db8:1:123::124");
+
+        /* Add point-to-point addresses and check that the peer endpoints back the gateway-less routes. */
+        ASSERT_OK(sd_rtnl_message_new_addr_update(rtnl, &message, ifindex, AF_INET));
+        ASSERT_OK(sd_rtnl_message_addr_set_scope(message, RT_SCOPE_UNIVERSE));
+        ASSERT_OK(sd_rtnl_message_addr_set_prefixlen(message, 32));
+        ASSERT_OK(in_addr_from_string(AF_INET, "10.124.0.1", &u));
+        ASSERT_OK(sd_netlink_message_append_in_addr(message, IFA_LOCAL, &u.in));
+        ASSERT_OK(in_addr_from_string(AF_INET, "10.124.0.2", &u));
+        ASSERT_OK(sd_netlink_message_append_in_addr(message, IFA_ADDRESS, &u.in));
+        ASSERT_OK(sd_netlink_call(rtnl, message, 0, NULL));
+        message = sd_netlink_message_unref(message);
+
+        ASSERT_OK(sd_rtnl_message_new_addr_update(rtnl, &message, ifindex, AF_INET6));
+        ASSERT_OK(sd_rtnl_message_addr_set_scope(message, RT_SCOPE_UNIVERSE));
+        ASSERT_OK(sd_rtnl_message_addr_set_prefixlen(message, 128));
+        ASSERT_OK(in_addr_from_string(AF_INET6, "2001:db8:2:123::1", &u));
+        ASSERT_OK(sd_netlink_message_append_in6_addr(message, IFA_LOCAL, &u.in6));
+        ASSERT_OK(in_addr_from_string(AF_INET6, "2001:db8:2:123::2", &u));
+        ASSERT_OK(sd_netlink_message_append_in6_addr(message, IFA_ADDRESS, &u.in6));
+        ASSERT_OK(sd_netlink_message_append_u32(message, IFA_FLAGS, IFA_F_NODAD));
+        ASSERT_OK(sd_netlink_call(rtnl, message, 0, NULL));
+        message = sd_netlink_message_unref(message);
+
+        ASSERT_OK(sd_rtnl_message_new_route(rtnl, &message, RTM_NEWROUTE, AF_INET, RTPROT_STATIC));
+        ASSERT_OK(sd_rtnl_message_route_set_scope(message, RT_SCOPE_LINK));
+        ASSERT_OK(sd_rtnl_message_route_set_type(message, RTN_UNICAST));
+        ASSERT_OK(sd_netlink_message_append_u32(message, RTA_PRIORITY, 2346));
+        ASSERT_OK(sd_netlink_message_append_u32(message, RTA_TABLE, RT_TABLE_MAIN));
+        ASSERT_OK(sd_netlink_message_append_u32(message, RTA_OIF, ifindex));
+        ASSERT_OK(in_addr_from_string(AF_INET, "10.124.0.1", &u));
+        ASSERT_OK(sd_netlink_message_append_in_addr(message, RTA_PREFSRC, &u.in));
+        ASSERT_OK(sd_netlink_call(rtnl, message, 0, NULL));
+        message = sd_netlink_message_unref(message);
+
+        ASSERT_OK(sd_rtnl_message_new_route(rtnl, &message, RTM_NEWROUTE, AF_INET, RTPROT_STATIC));
+        ASSERT_OK(sd_rtnl_message_route_set_scope(message, RT_SCOPE_LINK));
+        ASSERT_OK(sd_rtnl_message_route_set_type(message, RTN_UNICAST));
+        ASSERT_OK(sd_netlink_message_append_u32(message, RTA_PRIORITY, 2347));
+        ASSERT_OK(sd_netlink_message_append_u32(message, RTA_TABLE, RT_TABLE_MAIN));
+        ASSERT_OK(sd_netlink_message_append_u32(message, RTA_OIF, ifindex));
+        ASSERT_OK(in_addr_from_string(AF_INET, "10.123.123.123", &u));
+        ASSERT_OK(sd_netlink_message_append_in_addr(message, RTA_PREFSRC, &u.in));
+        ASSERT_OK(sd_netlink_call(rtnl, message, 0, NULL));
+        message = sd_netlink_message_unref(message);
+
+        ASSERT_OK(sd_rtnl_message_new_route(rtnl, &message, RTM_NEWROUTE, AF_INET, RTPROT_STATIC));
+        ASSERT_OK(sd_rtnl_message_route_set_scope(message, RT_SCOPE_LINK));
+        ASSERT_OK(sd_rtnl_message_route_set_type(message, RTN_UNICAST));
+        ASSERT_OK(sd_netlink_message_append_u32(message, RTA_PRIORITY, 2348));
+        ASSERT_OK(sd_netlink_message_append_u32(message, RTA_TABLE, RT_TABLE_MAIN));
+        ASSERT_OK(sd_netlink_message_append_data(message, RTA_MULTIPATH,
+                                                 &(struct rtnexthop) {
+                                                         .rtnh_len = sizeof(struct rtnexthop),
+                                                         .rtnh_ifindex = ifindex,
+                                                         .rtnh_hops = 17,
+                                                 }, sizeof(struct rtnexthop)));
+        ASSERT_OK(sd_netlink_call(rtnl, message, 0, NULL));
+        message = sd_netlink_message_unref(message);
+
+        check_local_gateway_peer(rtnl, ifindex, 0, AF_UNSPEC, 2345, 0, AF_INET, "10.124.0.2", "10.124.0.1");
+        check_local_gateway_peer(
+                        rtnl, ifindex, ifindex, AF_UNSPEC, 2345, 0, AF_INET, "10.124.0.2", "10.124.0.1");
+        check_local_gateway_peer(
+                        rtnl, ifindex, 0, AF_UNSPEC, 2345, 0,
+                        AF_INET6, "2001:db8:2:123::2", "2001:db8:2:123::1");
+        check_local_gateway_peer(
+                        rtnl, ifindex, ifindex, AF_UNSPEC, 2345, 0,
+                        AF_INET6, "2001:db8:2:123::2", "2001:db8:2:123::1");
+        check_local_gateway_peer(rtnl, ifindex, 0, AF_INET, 2345, 0, AF_INET, "10.124.0.2", "10.124.0.1");
+        check_local_gateway_peer(
+                        rtnl, ifindex, ifindex, AF_INET, 2345, 0, AF_INET, "10.124.0.2", "10.124.0.1");
+        check_local_gateway_peer(
+                        rtnl, ifindex, 0, AF_INET6, 2345, 0,
+                        AF_INET6, "2001:db8:2:123::2", "2001:db8:2:123::1");
+        check_local_gateway_peer(
+                        rtnl, ifindex, ifindex, AF_INET6, 2345, 0,
+                        AF_INET6, "2001:db8:2:123::2", "2001:db8:2:123::1");
+        check_local_gateway_peer(rtnl, ifindex, 0, AF_INET, 2346, 0, AF_INET, "10.124.0.2", "10.124.0.1");
+        check_local_gateway_peer(
+                        rtnl, ifindex, ifindex, AF_INET, 2346, 0, AF_INET, "10.124.0.2", "10.124.0.1");
+        check_local_gateway_peer(rtnl, ifindex, 0, AF_INET, 2348, 0, AF_INET, "10.124.0.2", "10.124.0.1");
+        check_local_gateway_peer(
+                        rtnl, ifindex, ifindex, AF_INET, 2348, 0, AF_INET, "10.124.0.2", "10.124.0.1");
+        check_no_local_gateway_with_priority(rtnl, 0, AF_INET, 2347);
+        check_no_local_gateway_with_priority(rtnl, ifindex, AF_INET, 2347);
 
         /* Cleanup */
         ASSERT_OK(sd_rtnl_message_new_link(rtnl, &message, RTM_DELLINK, ifindex));
