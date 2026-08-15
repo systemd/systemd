@@ -30,6 +30,7 @@ INTROSPECTABLE=(
     systemd-id128
     systemd-imds
     systemd-inhibit
+    systemd-mute-console
     systemd-notify
     systemd-veritysetup
     timedatectl
