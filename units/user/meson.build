@@ -51,6 +51,11 @@ units = [
         { 'file' : 'sockets.target' },
         { 'file' : 'sound.target' },
         {
+          'file' : 'systemd-appd.service.in',
+          'conditions' : ['ENABLE_APPD'],
+          'symlinks' : ['graphical-session.target.wants/'],
+        },
+        {
           'file' : 'systemd-ask-password.socket',
           'symlinks' : ['sockets.target.wants/']
         },
