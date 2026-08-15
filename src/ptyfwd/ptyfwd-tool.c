@@ -2,22 +2,22 @@
 
 #include <unistd.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "build.h"
 #include "event-util.h"
 #include "fd-util.h"
-#include "format-table.h"
 #include "log.h"
 #include "main-func.h"
-#include "options.h"
 #include "parse-argument.h"
 #include "pidref.h"
-#include "pretty-print.h"
 #include "process-util.h"
 #include "ptyfwd.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "verbs.h"
 
 static bool arg_quiet = false;
 static bool arg_read_only = false;
@@ -27,35 +27,12 @@ static char *arg_title = NULL;
 STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_title, freep);
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-pty-forward", "1", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        printf("%s [OPTIONS...] COMMAND ...\n"
-               "\n%sRun command with a custom terminal background color or title.%s\n"
-               "\n%sOptions:%s\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal(),
-               ansi_underline(),
-               ansi_normal());
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
+COMMAND(
+        "systemd-pty-forward\0",
+        "Run command with a custom terminal background color or title.",
+        .argspec = "COMMAND…\0",
+        .man_pages = "systemd-pty-forward.1\0",
+);
 
 static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         assert(argc >= 0);
@@ -69,7 +46,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-pty-forward");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -93,6 +70,9 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         if (r < 0)
                                 return r;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (option_parser_get_n_args(&opts) == 0)
