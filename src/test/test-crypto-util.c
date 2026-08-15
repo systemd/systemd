@@ -89,6 +89,44 @@ TEST(ecc_pkey_curve_x_y) {
         assert_se(memcmp_nn(y, y_len, y2, y2_size) == 0);
 }
 
+TEST(ecc_pkey_curve_x_y_leading_zero) {
+        /* Regression test: a P-384 public key whose x-coordinate has a most significant zero
+         * byte. BN_bn2bin() would strip it and return a 47-byte coordinate; ecc_pkey_to_curve_x_y()
+         * must zero-pad both coordinates to the 48-byte P-384 field width. */
+        DEFINE_HEX_PTR(key, "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d485977454159484b6f5a497a6a3043415159464b34454541434944596741454147625a626d4a32534231424a4879633178674f7a4a646e67586767566254700a5a76515070516b54564779387362777677734872635a4871307a5a76782f316c4336787a5a64615648433147303835786c636c4a7770435a57685571576866730a2f6a70337a436d6e446a49754a79505735435148494930652b575a47706263490a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a");
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        ASSERT_OK(openssl_pubkey_from_pem(key, key_len, &pkey));
+
+        _cleanup_free_ void *x = NULL, *y = NULL;
+        size_t x_size, y_size;
+        int curve_id;
+        ASSERT_OK(ecc_pkey_to_curve_x_y(pkey, &curve_id, &x, &x_size, &y, &y_size));
+        ASSERT_EQ(curve_id, NID_secp384r1);
+
+        DEFINE_HEX_PTR(expected_x, "0066d96e6276481d41247c9cd7180ecc976781782055b4e966f40fa50913546cbcb1bc2fc2c1eb7191ead3366fc7fd65");
+        ASSERT_EQ(memcmp_nn(x, x_size, expected_x, expected_x_len), 0);
+
+        DEFINE_HEX_PTR(expected_y, "0bac7365d6951c2d46d3ce7195c949c290995a152a5a17ecfe3a77cc29a70e322e2723d6e42407208d1ef96646a5b708");
+        ASSERT_EQ(memcmp_nn(y, y_size, expected_y, expected_y_len), 0);
+}
+
+TEST(ecc_pkey_curve_x_y_p521) {
+        /* P-521's field width is not a whole number of bytes: DIV_ROUND_UP(521, 8) is 66, and only
+         * the low bit of the leading byte can ever be set, so roughly half of all coordinates
+         * encode minimally in 65 bytes. Whichever key gets generated, both coordinates must come
+         * back padded to the full 66-byte field width. */
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        ASSERT_OK(ecc_pkey_new(NID_secp521r1, &pkey));
+
+        _cleanup_free_ void *x = NULL, *y = NULL;
+        size_t x_size, y_size;
+        int curve_id;
+        ASSERT_OK(ecc_pkey_to_curve_x_y(pkey, &curve_id, &x, &x_size, &y, &y_size));
+        ASSERT_EQ(curve_id, NID_secp521r1);
+        ASSERT_EQ(x_size, 66U);
+        ASSERT_EQ(y_size, 66U);
+}
+
 TEST(invalid) {
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
 
