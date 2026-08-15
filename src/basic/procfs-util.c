@@ -128,46 +128,24 @@ static uint64_t calc_gcd64(uint64_t a, uint64_t b) {
 }
 
 int procfs_cpu_get_usage(nsec_t *ret) {
-        _cleanup_free_ char *first_line = NULL;
-        unsigned long user_ticks, nice_ticks, system_ticks, irq_ticks, softirq_ticks,
-                guest_ticks = 0, guest_nice_ticks = 0;
-        uint64_t sum, gcd, a, b;
-        const char *p;
+        ProcfsCpuTicks ticks;
         int r;
 
         assert(ret);
 
-        r = read_one_line_file("/proc/stat", &first_line);
+        r = procfs_cpu_get_ticks(&ticks);
         if (r < 0)
                 return r;
 
-        p = first_word(first_line, "cpu");
-        if (!p)
-                return -EINVAL;
-
-        if (sscanf(p, "%lu %lu %lu %*u %*u %lu %lu %*u %lu %lu",
-                   &user_ticks,
-                   &nice_ticks,
-                   &system_ticks,
-                   &irq_ticks,
-                   &softirq_ticks,
-                   &guest_ticks,
-                   &guest_nice_ticks) < 5) /* we only insist on the first five fields */
-                return -EINVAL;
-
-        uint64_t ticks_per_second = sysconf_clock_ticks_cached();
-
-        sum = (uint64_t) user_ticks + (uint64_t) nice_ticks + (uint64_t) system_ticks +
-                (uint64_t) irq_ticks + (uint64_t) softirq_ticks +
-                (uint64_t) guest_ticks + (uint64_t) guest_nice_ticks;
+        uint64_t ticks_per_second = sysconf_clock_ticks_cached(),
+                sum = ticks.user + ticks.nice + ticks.system + ticks.irq + ticks.softirq + ticks.steal;
 
         /* Let's reduce this fraction before we apply it to avoid overflows when converting this to μsec */
-        gcd = calc_gcd64(NSEC_PER_SEC, ticks_per_second);
+        uint64_t gcd = calc_gcd64(NSEC_PER_SEC, ticks_per_second),
+                a = NSEC_PER_SEC / gcd,
+                b = ticks_per_second / gcd;
 
-        a = NSEC_PER_SEC / gcd;
-        b = ticks_per_second / gcd;
-
-        *ret = DIV_ROUND_UP((nsec_t) sum * (nsec_t) a, (nsec_t) b);
+        *ret = (nsec_t) DIV_ROUND_UP(sum * a, b);
         return 0;
 }
 
