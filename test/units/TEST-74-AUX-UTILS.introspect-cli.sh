@@ -24,6 +24,7 @@ INTROSPECTABLE=(
     systemd-delta
     systemd-detect-virt
     systemd-dissect
+    systemd-escape
     systemd-firstboot
     systemd-hwdb
     systemd-id128
