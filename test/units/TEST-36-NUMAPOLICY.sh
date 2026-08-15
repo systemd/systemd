@@ -16,6 +16,9 @@ at_exit() {
         # for easier debugging
         [[ -v straceLog && -f "$straceLog" ]] && cat "$straceLog"
         [[ -v journalLog && -f "$journalLog" ]] && cat "$journalLog"
+        # A timeout in stopJournalctl leaves the last window read as the .tmp, possibly cut
+        # short by the timeout; that is the diagnostic for a marker that never appeared.
+        [[ -v journalLog && -f "$journalLog.tmp" ]] && cat "$journalLog.tmp"
     fi
 }
 
@@ -30,13 +33,23 @@ testUnit='numa-test.service'
 testUnitFile="/run/systemd/system/$testUnit"
 testUnitNUMAConf="$testUnitFile.d/numa.conf"
 
-# Sleep constants (we should probably figure out something better but nothing comes to mind)
+# Sleep constant for the strace paths, which have no completion marker to wait for. The journal
+# paths wait for a marker message instead (see stopJournalctl).
 sleepAfterStart=3
 
 # Journal cursor for easier navigation
 journalCursorFile="journalCursorFile"
 
+clearTestLogs() {
+    # Start each traced operation from no artifacts at all, so a failure dumps only what the
+    # current subtest produced, whichever path it uses; the strace and journal subtests
+    # alternate, so a per-path clear still leaves the other path's stale file for at_exit.
+    rm -f "$straceLog" "$journalLog" "$journalLog.tmp"
+}
+
 startStrace() {
+    clearTestLogs
+
     coproc strace -qq -p 1 -o "$straceLog" -e set_mempolicy -s 1024 ${1:+"$1"}
     # Wait for strace to properly "initialize", i.e. until PID 1 has the TracerPid
     # field set to the current strace's PID
@@ -53,18 +66,34 @@ stopStrace() {
 }
 
 startJournalctl() {
-    : >"$journalCursorFile"
-    # Save journal's cursor for later navigation
-    journalctl --no-pager --cursor-file="$journalCursorFile" -n0 -ocat
+    clearTestLogs
+
+    # Save journal's cursor for later navigation. journalctl can transiently open no journal
+    # file at all and still exit successfully, so retry until this attempt wrote a cursor,
+    # starting each attempt from no file, so a file left by an earlier save cannot satisfy
+    # the check or be read as the starting position.
+    # shellcheck disable=SC2016 # $1 is expanded by the inner shell, which gets it as an argument
+    timeout 30 bash -xeuc 'cursor_file=$1
+        until rm -f "$cursor_file" && journalctl --sync && journalctl -q -n0 --cursor-file="$cursor_file" && test -s "$cursor_file"; do sleep 1; done' bash "$journalCursorFile"
 }
 
 stopJournalctl() {
-    local unit="${1:-init.scope}"
-    # Using journalctl --sync should be better than using SIGRTMIN+1, as
-    # the --sync wait until the synchronization is complete
-    echo "Force journald to write all queued messages"
-    journalctl --sync
-    journalctl -u "$unit" --cursor-file="$journalCursorFile" >"$journalLog"
+    local unit="${1:?}" marker="${2:?}" cursor
+
+    # Wait until the journal window opened by startJournalctl contains a message the traced
+    # operation unconditionally logs. A window that raced the journal comes back empty, which
+    # a positive grep reports as a test failure and a negative grep passes vacuously; a window
+    # that holds the marker is proven to span the operation. The read that is retried is the
+    # read whose output the callers grep, so the guarantee holds for the captured window, not
+    # just for a probe of it. Pass the cursor by value rather than through --cursor-file, so
+    # a failed attempt cannot move a later one past the messages it is waiting for.
+    cursor="$(cat "$journalCursorFile")"
+    test -n "$cursor"
+    # shellcheck disable=SC2016 # $1..$4 are expanded by the inner shell, which gets them as arguments
+    timeout 30 bash -xeuc 'unit=$1 cursor=$2 marker=$3 log=$4
+        until journalctl --sync && journalctl -u "$unit" --after-cursor="$cursor" >"$log.tmp" && grep -qF -- "$marker" "$log.tmp"; do sleep 1; done
+        mv "$log.tmp" "$log"' \
+        bash "$unit" "$cursor" "$marker" "$journalLog"
 }
 
 checkNUMA() {
@@ -104,7 +133,8 @@ pid1ReloadWithStrace() {
 pid1ReloadWithJournal() {
     startJournalctl
     systemctl daemon-reload
-    stopJournalctl
+    # PID1 logs this once every reload completes, and it applies the NUMA policy before that.
+    stopJournalctl init.scope "Reloading finished in"
 }
 
 pid1StartUnitWithStrace() {
@@ -117,12 +147,31 @@ pid1StartUnitWithStrace() {
 pid1StartUnitWithJournal() {
     startJournalctl
     systemctl start "${1:?}"
-    sleep $sleepAfterStart
-    stopJournalctl
+    # PID1 logs "Started ..." to the unit when the fork succeeds. The callers read unit
+    # properties rather than this window, so the marker only has to prove the window is live.
+    stopJournalctl "${1:?}" "Started "
 }
 
 pid1StopUnit() {
     systemctl stop "${1:?}"
+}
+
+waitUnitMainExited() {
+    # Wait until PID1 has recorded the main process's exit, so ExecMainStatus holds the exec
+    # child's own result rather than the signal a later stop would deliver. "Started ..." is
+    # logged for a simple service as soon as the fork succeeds, which orders nothing.
+    # shellcheck disable=SC2016 # $1 is expanded by the inner shell, which gets it as an argument
+    timeout 30 bash -xeuc 'until [[ "$(systemctl show "$1" -P ExecMainCode)" != "0" ]]; do sleep .5; done' bash "${1:?}"
+}
+
+waitUnitMainExeced() {
+    # Wait until the main process has survived exec setup into the payload, which proves the
+    # NUMA step passed: the comm flips to the payload's name only after execve(). A child that
+    # failed exec setup instead never gets there and the wait fails at the bound.
+    local pid
+    pid=$(systemctl show "${1:?}" -P ExecMainPID)
+    # shellcheck disable=SC2016 # $1/$2 are expanded by the inner shell, which gets them as arguments
+    timeout 30 bash -xeuc 'until [[ "$(cat /proc/$1/comm 2>/dev/null)" == "$2" ]]; do sleep .5; done' bash "$pid" "sleep"
 }
 
 systemctlCheckNUMAProperties() {
@@ -155,18 +204,18 @@ if ! checkNUMA; then
 
     echo "PID1 NUMAPolicy=default && NUMAMask=0 check without NUMA support"
     writePID1NUMAPolicy "default" "0"
-    startJournalctl
-    systemctl daemon-reload
-    stopJournalctl
+    pid1ReloadWithJournal
     grep "NUMA support not available, ignoring" "$journalLog"
 
     echo "systemd-run NUMAPolicy=default && NUMAMask=0 check without NUMA support"
     runUnit='numa-systemd-run-test.service'
     startJournalctl
-    systemd-run -p NUMAPolicy=default -p NUMAMask=0 --unit "$runUnit" sleep 1000
-    sleep $sleepAfterStart
+    # Type=exec holds systemd-run until the service binary has been executed, which is after
+    # the exec setup that logs the message above. The stop then follows the message, so the
+    # "Stopped" line proves the window covers both.
+    systemd-run --service-type=exec -p NUMAPolicy=default -p NUMAMask=0 --unit "$runUnit" sleep 1000
     pid1StopUnit "$runUnit"
-    stopJournalctl "$runUnit"
+    stopJournalctl "$runUnit" "Stopped "
     grep "NUMA support not available, ignoring" "$journalLog"
 
 else
@@ -265,8 +314,9 @@ else
     echo "Unit file NUMAPolicy support - Bind policy w/o mask"
     writeTestUnitNUMAPolicy "bind"
     pid1StartUnitWithJournal "$testUnit"
-    pid1StopUnit "$testUnit"
+    waitUnitMainExited "$testUnit"
     [[ $(systemctl show "$testUnit" -P ExecMainStatus) == "242" ]]
+    pid1StopUnit "$testUnit"
 
     echo "Unit file NUMAPolicy support - Bind policy w/ mask"
     writeTestUnitNUMAPolicy "bind" "0"
@@ -291,9 +341,10 @@ else
     echo "Unit file NUMAPolicy support - Preferred policy w/o mask"
     writeTestUnitNUMAPolicy "preferred"
     pid1StartUnitWithJournal "$testUnit"
+    waitUnitMainExeced "$testUnit"
     systemctlCheckNUMAProperties "$testUnit" "preferred"
-    pid1StopUnit "$testUnit"
     [[ $(systemctl show "$testUnit" -P ExecMainStatus) == "242" ]] && { echo >&2 "unexpected pass"; exit 1; }
+    pid1StopUnit "$testUnit"
 
     echo "Unit file NUMAPolicy support - Preferred policy w/ mask"
     writeTestUnitNUMAPolicy "preferred" "0"
