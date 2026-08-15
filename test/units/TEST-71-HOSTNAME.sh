@@ -177,10 +177,12 @@ testcase_nss-myhostname() {
     ip link set up dev foo
     ip addr add 10.0.0.2/24 dev foo
     for i in {128..150}; do
-        ip addr add "10.0.0.$i/24" dev foo
+    ip addr add "10.0.0.$i/24" dev foo
     done
+    ip addr add 10.1.0.1 peer 10.1.0.2 dev foo
     ip route add 10.0.0.1 dev foo
     ip route add default via 10.0.0.1 dev foo
+    ip route add default dev foo metric 2048
 
     # Note: `getent hosts` probes gethostbyname2(), whereas `getent ahosts` probes gethostbyname3()
     #       and gethostbyname4() (through getaddrinfo() -> gaih_inet() -> get_nss_addresses())
@@ -242,6 +244,10 @@ testcase_nss-myhostname() {
     for host in _gateway{,.} 10.0.0.1; do
         run_and_grep "^10\.0\.0\.1\s+_gateway$" getent hosts -s myhostname "$host"
         run_and_grep "^10\.0\.0\.1\s+STREAM" getent ahosts -s myhostname "$host"
+    done
+    for host in _gateway{,.} 10.1.0.2; do
+        run_and_grep "^10\.1\.0\.2\s+_gateway$" getent hosts -s myhostname "$host"
+        run_and_grep "^10\.1\.0\.2\s+STREAM" getent ahosts -s myhostname "$host"
     done
 
     # _outbound
