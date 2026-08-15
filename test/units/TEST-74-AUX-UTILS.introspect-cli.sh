@@ -17,6 +17,7 @@ INTROSPECTABLE=(
     systemd-backlight
     systemd-dissect
     systemd-firstboot
+    systemd-hwdb
     systemd-id128
     systemd-notify
     systemd-veritysetup
@@ -35,6 +36,12 @@ for i in "${INTROSPECTABLE[@]}"; do
         'any(.commands[]; [.options[].names[-1]] | contains(["--help", "--version", "--introspect-cli"]))'
     $i --intro | grep -e --help
 done
+
+# systemd-hwdb defines verbs, check that they are described
+if command -v systemd-hwdb >/dev/null; then
+    systemd-hwdb --introspect-cli | jq -e \
+            '.commands[0].verbs | map(.names[0]) | contains(["query", "update"])'
+fi
 
 # systemd-id128 defines verbs, check that they are described
 systemd-id128 --introspect-cli | jq -e \
