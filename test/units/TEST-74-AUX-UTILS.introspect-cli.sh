@@ -28,6 +28,7 @@ INTROSPECTABLE=(
     systemd-firstboot    
     systemd-hwdb
     systemd-id128
+    systemd-imds
     systemd-notify
     systemd-veritysetup
     timedatectl
