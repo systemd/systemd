@@ -65,6 +65,8 @@ static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
 static char *arg_tpm2_public_key = NULL;
 static uint32_t arg_tpm2_public_key_pcr_mask = UINT32_MAX;
 static char *arg_tpm2_signature = NULL;
+static char *arg_tpm2_pcrlock = NULL;
+static bool arg_tpm2_pcrlock_auto = true;
 static const char *arg_name = NULL;
 static bool arg_name_any = false;
 static usec_t arg_timestamp = USEC_INFINITY;
@@ -78,6 +80,7 @@ static bool arg_ask_password = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_signature, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_tpm2_pcrlock, freep);
 
 static const char* transcode_mode_table[_TRANSCODE_MAX] = {
         [TRANSCODE_OFF]      = "off",
@@ -535,6 +538,7 @@ static int verb_cat(int argc, char *argv[], uintptr_t _data, void *userdata) {
                                                 timestamp,
                                                 arg_tpm2_device,
                                                 arg_tpm2_signature,
+                                                arg_tpm2_pcrlock,
                                                 uid_is_valid(arg_uid) ? arg_uid : getuid(),
                                                 &IOVEC_MAKE(content, size),
                                                 arg_credential_flags | CREDENTIAL_ANY_SCOPE,
@@ -613,7 +617,25 @@ static int verb_encrypt(int argc, char *argv[], uintptr_t _data, void *userdata)
                                 &plaintext,
                                 arg_credential_flags,
                                 &output);
-        } else
+        } else {
+                /* If a TPM2 key is to be used and no pcrlock policy was specified explicitly, automatically
+                 * discover a local one, mirroring systemd-cryptenroll. Skip this for key types that require
+                 * a signed PCR policy, which cannot be combined with a pcrlock policy. (Unlike
+                 * systemd-cryptenroll we cannot use both, hence for the automatic key types a pcrlock
+                 * policy found this way takes precedence over a PCR public key that would otherwise be
+                 * picked up automatically, see encrypt_credential_and_warn().) */
+                if (arg_tpm2_pcrlock_auto && !arg_tpm2_public_key &&
+                    (CRED_KEY_REQUIRES_TPM2(arg_with_key) || CRED_KEY_WANTS_TPM2(arg_with_key)) &&
+                    !CRED_KEY_REQUIRES_TPM2_PK(arg_with_key)) {
+                        assert(!arg_tpm2_pcrlock);
+
+                        r = tpm2_pcrlock_search_file(/* path= */ NULL, /* ret_file= */ NULL, &arg_tpm2_pcrlock);
+                        if (r >= 0)
+                                log_info("Automatically using pcrlock policy '%s'.", arg_tpm2_pcrlock);
+                        else if (r != -ENOENT)
+                                log_warning_errno(r, "Failed to search for pcrlock.json, ignoring: %m");
+                }
+
                 r = encrypt_credential_and_warn(
                                 arg_with_key,
                                 name,
@@ -623,10 +645,12 @@ static int verb_encrypt(int argc, char *argv[], uintptr_t _data, void *userdata)
                                 arg_tpm2_pcr_mask,
                                 arg_tpm2_public_key,
                                 arg_tpm2_public_key_pcr_mask,
+                                arg_tpm2_pcrlock,
                                 arg_uid,
                                 &plaintext,
                                 arg_credential_flags,
                                 &output);
+        }
         if (r < 0)
                 return r;
 
@@ -726,6 +750,7 @@ static int verb_decrypt(int argc, char *argv[], uintptr_t _data, void *userdata)
                                 timestamp,
                                 arg_tpm2_device,
                                 arg_tpm2_signature,
+                                arg_tpm2_pcrlock,
                                 arg_uid,
                                 &input,
                                 arg_credential_flags,
@@ -976,6 +1001,14 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_tpm2_signature);
                         if (r < 0)
                                 return r;
+                        break;
+
+                OPTION_LONG("tpm2-pcrlock", "PATH",
+                            "Specify pcrlock policy to lock against"):
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ false, &arg_tpm2_pcrlock);
+                        if (r < 0)
+                                return r;
+                        arg_tpm2_pcrlock_auto = false;
                         break;
 
                 OPTION_LONG("user", NULL, "Select user-scoped credential encryption"):
@@ -1292,6 +1325,7 @@ static int vl_method_encrypt(sd_varlink *link, sd_json_variant *parameters, sd_v
                         arg_tpm2_pcr_mask,
                         arg_tpm2_public_key,
                         arg_tpm2_public_key_pcr_mask,
+                        /* tpm2_pcrlock_path= */ NULL,
                         p.uid,
                         p.text ? &IOVEC_MAKE_STRING(p.text) : &p.data,
                         cflags,
@@ -1404,6 +1438,7 @@ static int vl_method_decrypt(sd_varlink *link, sd_json_variant *parameters, sd_v
                                 p.timestamp,
                                 arg_tpm2_device,
                                 arg_tpm2_signature,
+                                /* tpm2_pcrlock_path= */ NULL,
                                 p.uid,
                                 &p.blob,
                                 cflags,
