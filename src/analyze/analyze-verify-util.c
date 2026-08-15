@@ -41,7 +41,7 @@ static void log_syntax_callback(const char *unit, int level, void *userdata) {
         }
 }
 
-int verify_prepare_filename(const char *filename, char **ret) {
+int verify_prepare_filename(const char *filename, const char *instance, char **ret) {
         _cleanup_free_ char *abspath = NULL, *name = NULL, *dir = NULL, *with_instance = NULL;
         char *c;
         int r;
@@ -61,7 +61,7 @@ int verify_prepare_filename(const char *filename, char **ret) {
                 return -EINVAL;
 
         if (unit_name_is_valid(name, UNIT_NAME_TEMPLATE)) {
-                r = unit_name_replace_instance(name, arg_instance, &with_instance);
+                r = unit_name_replace_instance(name, instance, &with_instance);
                 if (r < 0)
                         return r;
         }
@@ -126,11 +126,13 @@ static int find_unit_directory(const char *p, char **ret) {
         return 0;
 }
 
-int verify_set_unit_path(char **filenames) {
+int verify_build_unit_path(char **filenames, char **ret) {
         _cleanup_strv_free_ char **ans = NULL;
         _cleanup_free_ char *joined = NULL;
         const char *old;
         int r;
+
+        assert(ret);
 
         STRV_FOREACH(filename, filenames) {
                 _cleanup_free_ char *t = NULL;
@@ -146,8 +148,10 @@ int verify_set_unit_path(char **filenames) {
                         return r;
         }
 
-        if (strv_isempty(ans))
+        if (strv_isempty(ans)) {
+                *ret = NULL;
                 return 0;
+        }
 
         joined = strv_join(strv_uniq(ans), ":");
         if (!joined)
@@ -164,7 +168,7 @@ int verify_set_unit_path(char **filenames) {
             !strextend_with_separator(&joined, ":", streq_ptr(old, ":") ? "" : strempty(old)))
                 return -ENOMEM;
 
-        assert_se(setenv_unit_path(joined) >= 0);
+        *ret = TAKE_PTR(joined);
         return 0;
 }
 
@@ -295,6 +299,7 @@ int verify_units(
 
         _cleanup_(manager_freep) Manager *m = NULL;
         _cleanup_(set_destroy_ignore_pointer_max) Set *s = NULL;
+        _cleanup_free_ char *unit_path = NULL;
         _unused_ _cleanup_(clear_log_syntax_callback) dummy_t dummy;
         Unit *units[strv_length(filenames)];
         int r, k, count = 0;
@@ -307,14 +312,19 @@ int verify_units(
          * on a global set variable for the same */
         set_log_syntax_callback(log_syntax_callback, &s);
 
-        /* set the path */
-        r = verify_set_unit_path(filenames);
+        r = verify_build_unit_path(filenames, &unit_path);
         if (r < 0)
-                return log_error_errno(r, "Failed to set unit load path: %m");
+                return log_error_errno(r, "Failed to build unit load path: %m");
 
         r = manager_new(scope, flags, &m);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize manager: %m");
+
+        if (unit_path) {
+                r = manager_set_unit_path_override(m, unit_path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set unit load path: %m");
+        }
 
         log_debug("Starting manager...");
 
@@ -331,7 +341,7 @@ int verify_units(
 
                 log_debug("Handling %s...", *filename);
 
-                k = verify_prepare_filename(*filename, &prepared);
+                k = verify_prepare_filename(*filename, arg_instance, &prepared);
                 if (k < 0) {
                         log_error_errno(k, "Failed to prepare filename %s: %m", *filename);
                         RET_GATHER(r, k);

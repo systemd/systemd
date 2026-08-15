@@ -299,6 +299,7 @@ typedef struct Manager {
         RuntimeScope runtime_scope;
 
         LookupPaths lookup_paths;
+        char *unit_path_override;
         Hashmap *unit_id_map;
         Hashmap *unit_name_map;
         Set *unit_path_cache;
@@ -576,6 +577,8 @@ usec_t manager_default_timeout(RuntimeScope scope);
 int manager_new(RuntimeScope scope, ManagerTestRunFlags test_run_flags, Manager **ret);
 Manager* manager_free(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
+
+int manager_set_unit_path_override(Manager *m, const char *path);
 
 /* One entry parsed out of the upstream "systemd-fdstore-mapping" memfd. Pairs the numeric index from the
  * JSON map to the (unit-id, original fdname) the fd was originally stored as. */

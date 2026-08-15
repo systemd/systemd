@@ -38,6 +38,54 @@ TEST(paths) {
         test_paths_one(RUNTIME_SCOPE_GLOBAL);
 }
 
+static void test_paths_override_one(RuntimeScope scope) {
+        _cleanup_(lookup_paths_done) LookupPaths lp = {}, lp_empty = {}, lp_trailing = {}, lp_invalid = {};
+        _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
+        const char *ambient, *override;
+
+        ASSERT_OK(mkdtemp_malloc("/tmp/test-path-lookup.XXXXXXX", &tmp));
+        ambient = strjoina(tmp, "/ambient");
+        override = strjoina(tmp, "/override");
+
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_UNIT_PATH", ambient, 1));
+        ASSERT_OK(lookup_paths_init_full(&lp, scope, 0, /* root_dir= */ NULL, override));
+        ASSERT_TRUE(strv_equal(lp.search_path, STRV_MAKE(override)));
+        ASSERT_STREQ(getenv("SYSTEMD_UNIT_PATH"), ambient);
+
+        ASSERT_OK(lookup_paths_init_full(&lp_empty, scope, 0, /* root_dir= */ NULL, ""));
+        ASSERT_TRUE(strv_isempty(lp_empty.search_path));
+
+        ASSERT_OK(lookup_paths_init_full(
+                        &lp_trailing, scope, 0, /* root_dir= */ NULL, strjoina(override, ":")));
+        ASSERT_STREQ(lp_trailing.search_path[0], override);
+        ASSERT_GT(strv_length(lp_trailing.search_path), 1u);
+
+        ASSERT_ERROR(lookup_paths_init_full(
+                        &lp_invalid, scope, 0, /* root_dir= */ NULL, strjoina(override, "::/run")), EINVAL);
+}
+
+static void test_paths_override_root_one(RuntimeScope scope) {
+        _cleanup_(lookup_paths_done) LookupPaths lp = {};
+        _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
+        const char *expected;
+
+        ASSERT_OK(mkdtemp_malloc("/tmp/test-path-lookup.XXXXXXX", &root));
+
+        expected = strjoina(root, "/units");
+        ASSERT_OK(lookup_paths_init_full(&lp, scope, 0, root, "/units"));
+        ASSERT_TRUE(strv_equal(lp.search_path, STRV_MAKE(expected)));
+}
+
+TEST(paths_override) {
+        test_paths_override_one(RUNTIME_SCOPE_SYSTEM);
+        test_paths_override_one(RUNTIME_SCOPE_USER);
+        test_paths_override_one(RUNTIME_SCOPE_GLOBAL);
+        test_paths_override_root_one(RUNTIME_SCOPE_SYSTEM);
+        test_paths_override_root_one(RUNTIME_SCOPE_GLOBAL);
+
+        ASSERT_OK_ERRNO(unsetenv("SYSTEMD_UNIT_PATH"));
+}
+
 static void test_paths_empty_components_one(RuntimeScope scope) {
         _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
         _cleanup_(lookup_paths_done) LookupPaths lp_without_env = {};
