@@ -3,25 +3,24 @@
 #include <stdio.h>
 
 #include "sd-bus.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "build.h"
 #include "bus-util.h"
 #include "cgroup-show.h"
 #include "cgroup-util.h"
-#include "format-table.h"
 #include "log.h"
 #include "main-func.h"
-#include "options.h"
 #include "output-mode.h"
 #include "pager.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "pretty-print.h"
 #include "runtime-scope.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
+#include "verbs.h"
 
 static PagerFlags arg_pager_flags = 0;
 static OutputFlags arg_output_flags = 0;
@@ -38,32 +37,13 @@ static const char* arg_machine = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_names, strv_freep);
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-cgls", "1", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        printf("%s [OPTIONS...] [CGROUP...]\n\n"
-               "%sRecursively show control group contents.%s\n\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
+COMMAND(
+        "systemd-cgls\0",
+        "Recursively show control group contents.",
+        .argspec = "[CGROUP…]\0" "--unit|--user-unit UNIT…\0",
+        .man_pages = "systemd-cgls.1\0",
+        .pager_flags = &arg_pager_flags,
+);
 
 static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 1);
@@ -76,7 +56,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-cgls");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -153,6 +133,9 @@ static int parse_argv(int argc, char *argv[]) {
                         if (strv_extend(&arg_names, opts.arg) < 0) /* push arg */
                                 return log_oom();
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (arg_machine && arg_show_unit != SHOW_UNIT_NONE)

@@ -19,6 +19,7 @@ INTROSPECTABLE=(
     systemd-binfmt
     systemd-bsod
     systemd-cat
+    systemd-cgls
     systemd-dissect
     systemd-firstboot
     systemd-hwdb
