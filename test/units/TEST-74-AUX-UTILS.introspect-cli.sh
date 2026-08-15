@@ -20,6 +20,7 @@ INTROSPECTABLE=(
     systemd-bsod
     systemd-cat
     systemd-cgls
+    systemd-cgtop
     systemd-dissect
     systemd-firstboot
     systemd-hwdb
