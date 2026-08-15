@@ -36,6 +36,7 @@ INTROSPECTABLE=(
     systemd-path
     systemd-pty-forward
     systemd-socket-activate
+    systemd-tty-ask-password-agent
     systemd-veritysetup
     timedatectl
     varlinkctl
