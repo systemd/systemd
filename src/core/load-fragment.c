@@ -2547,6 +2547,43 @@ int config_parse_service_timeout_abort(
         return 0;
 }
 
+_printf_(6, 7)
+static void dispatch_user_group_diagnostic(
+                const Unit *u,
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *message_id,
+                const char *format, ...) {
+
+        assert(u);
+        assert(u->manager);
+        assert(unit);
+        assert(filename);
+        assert(message_id);
+        assert(format);
+
+        if (!u->manager->test_run_diagnostic_callback)
+                return;
+
+        char buffer[LINE_MAX];
+        PROTECT_ERRNO;
+        va_list ap;
+
+        va_start(ap, format);
+        (void) vsnprintf(buffer, sizeof buffer, format, ap);
+        va_end(ap);
+
+        manager_dispatch_test_run_diagnostic(u->manager, &(ManagerDiagnostic) {
+                        .priority = LOG_NOTICE,
+                        .message = buffer,
+                        .unit = unit,
+                        .configuration_file = filename,
+                        .configuration_line = line,
+                        .message_id = message_id,
+                });
+}
+
 int config_parse_user_group_compat(
                 const char *unit,
                 const char *filename,
@@ -2584,7 +2621,28 @@ int config_parse_user_group_compat(
                 return -ENOEXEC;
         }
 
-        if (strstr(lvalue, "User") && streq(k, NOBODY_USER_NAME))
+        if (u->manager->test_run_diagnostic_callback &&
+            !valid_user_group_name(k, VALID_USER_ALLOW_NUMERIC))
+                dispatch_user_group_diagnostic(
+                                u,
+                                unit,
+                                filename,
+                                line,
+                                SD_MESSAGE_UNSAFE_USER_NAME_STR,
+                                "Accepting user/group name '%s', which does not match strict "
+                                "user/group name rules.",
+                                k);
+
+        if (strstr(lvalue, "User") && streq(k, NOBODY_USER_NAME)) {
+                dispatch_user_group_diagnostic(
+                                u,
+                                unit,
+                                filename,
+                                line,
+                                SD_MESSAGE_NOBODY_USER_UNSUITABLE_STR,
+                                "Special user %s configured, this is not safe!",
+                                k);
+
                 log_struct(LOG_NOTICE,
                            LOG_MESSAGE("%s:%u: Special user %s configured, this is not safe!", filename, line, k),
                            LOG_MESSAGE_ID(SD_MESSAGE_NOBODY_USER_UNSUITABLE_STR),
@@ -2592,6 +2650,7 @@ int config_parse_user_group_compat(
                            LOG_ITEM("OFFENDING_USER=%s", k),
                            LOG_ITEM("CONFIG_FILE=%s", filename),
                            LOG_ITEM("CONFIG_LINE=%u", line));
+        }
 
         return free_and_replace(*user, k);
 }
@@ -2644,6 +2703,18 @@ int config_parse_user_group_strv_compat(
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid user/group name or numeric ID: %s", k);
                         return -ENOEXEC;
                 }
+
+                if (u->manager->test_run_diagnostic_callback &&
+                    !valid_user_group_name(k, VALID_USER_ALLOW_NUMERIC))
+                        dispatch_user_group_diagnostic(
+                                        u,
+                                        unit,
+                                        filename,
+                                        line,
+                                        SD_MESSAGE_UNSAFE_USER_NAME_STR,
+                                        "Accepting user/group name '%s', which does not match strict "
+                                        "user/group name rules.",
+                                        k);
 
                 r = strv_push(users, k);
                 if (r < 0)

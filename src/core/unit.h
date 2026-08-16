@@ -1103,6 +1103,16 @@ int unit_compare_priority(Unit *a, Unit *b);
 
 const char* unit_log_field(const Unit *u);
 const char* unit_invocation_log_field(const Unit *u);
+bool unit_test_run_diagnostic_enabled(const Unit *u);
+
+int log_unit_internal(
+                const Unit *u,
+                int level,
+                int error,
+                const char *file,
+                int line,
+                const char *func,
+                const char *format, ...) _printf_(7, 8);
 
 DECLARE_STRING_TABLE_LOOKUP(unit_mount_dependency_type, UnitMountDependencyType);
 UnitDependency unit_mount_dependency_type_to_dependency_type(UnitMountDependencyType t) _pure_;
@@ -1129,8 +1139,14 @@ unsigned unit_normalize_markers(unsigned existing_markers, unsigned new_markers)
                 const ExecContext *_c = _u ? unit_get_exec_context(_u) : NULL; \
                 LOG_CONTEXT_PUSH_IOV(_c ? _c->log_extra_fields : NULL,  \
                                      _c ? _c->n_log_extra_fields : 0);  \
-                _u ? log_object_internal(_l, error, PROJECT_FILE, __LINE__, __func__,  unit_log_field(_u), _u->id, unit_invocation_log_field(_u), _u->invocation_id_string, ##__VA_ARGS__) : \
-                     log_internal(_l, error, PROJECT_FILE, __LINE__, __func__, ##__VA_ARGS__); \
+                _unlikely_(_u && LOG_PRI(_l) <= LOG_INFO && unit_test_run_diagnostic_enabled(_u)) \
+                        ? log_unit_internal(_u, _l, error, PROJECT_FILE, __LINE__, __func__, ##__VA_ARGS__) \
+                        : _u ? log_object_internal(                    \
+                                          _l, error, PROJECT_FILE, __LINE__, __func__, \
+                                          unit_log_field(_u), _u->id, \
+                                          unit_invocation_log_field(_u), _u->invocation_id_string, \
+                                          ##__VA_ARGS__)               \
+                             : log_internal(_l, error, PROJECT_FILE, __LINE__, __func__, ##__VA_ARGS__); \
         })
 
 #define log_unit_full_errno(unit, level, error, ...) \

@@ -62,8 +62,27 @@ executables += [
                 ],
                 'install' : conf.get('ENABLE_ANALYZE') == 1 ? 'yes' : 'no',
         },
+        # Keep this API available even when the full systemd-analyze CLI is not installed.
+        libexec_template + {
+                'name' : 'systemd-analyze-verify',
+                'sources' : files('systemd-analyze-verify.c'),
+                'export' : files('analyze-verify-varlink.c'),
+                'import' : ['systemd-analyze'],
+                'link_with' : [
+                        libcore,
+                        libshared,
+                ],
+                'install' : 'yes',
+        },
         core_test_template + {
                 'sources' : files('test-verify.c'),
                 'import' : ['systemd-analyze'],
+        },
+        core_test_template + {
+                'sources' : files('test-analyze-verify-varlink.c'),
+                'import' : [
+                        'systemd-analyze',
+                        'systemd-analyze-verify',
+                ],
         },
 ]
