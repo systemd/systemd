@@ -39,8 +39,8 @@
 #define SNDBUF_SIZE (8*1024*1024)
 #define IOVEC_MAX 256U
 
-static log_syntax_callback_t log_syntax_callback = NULL;
-static void *log_syntax_callback_userdata = NULL;
+static thread_local log_syntax_callback_t log_syntax_callback = NULL;
+static thread_local void *log_syntax_callback_userdata = NULL;
 
 static LogTarget log_target = LOG_TARGET_CONSOLE;
 static int log_max_level = LOG_INFO;
@@ -1421,6 +1421,11 @@ int log_get_max_level(void) {
         return log_max_level;
 }
 
+bool log_syntax_enabled(int level) {
+        return LOG_PRI(level) <= log_max_level ||
+                (log_syntax_callback && LOG_PRI(level) <= LOG_INFO);
+}
+
 int log_get_target_max_level(LogTarget target) {
         assert(target >= 0);
         assert(target < _LOG_TARGET_SINGLE_MAX);
@@ -1564,11 +1569,10 @@ int log_syntax_internal(
 
         PROTECT_ERRNO;
 
-        if (log_syntax_callback)
-                log_syntax_callback(unit, level, log_syntax_callback_userdata);
+        bool callback_enabled = log_syntax_callback && LOG_PRI(level) <= LOG_INFO;
 
-        if (_likely_(LOG_PRI(level) > log_max_level) ||
-            log_target == LOG_TARGET_NULL)
+        if (!callback_enabled &&
+            (_likely_(LOG_PRI(level) > log_max_level) || log_target == LOG_TARGET_NULL))
                 return -ERRNO_VALUE(error);
 
         char buffer[LINE_MAX];
@@ -1580,6 +1584,22 @@ int log_syntax_internal(
         va_start(ap, format);
         (void) vsnprintf(buffer, sizeof buffer, format, ap);
         va_end(ap);
+
+        if (callback_enabled)
+                log_syntax_callback(
+                                &(LogSyntaxRecord) {
+                                        .priority = LOG_PRI(level),
+                                        .message = buffer,
+                                        .unit = unit,
+                                        .config_file = config_file,
+                                        .config_line = config_line,
+                                        .message_id = SD_MESSAGE_INVALID_CONFIGURATION_STR,
+                                },
+                                log_syntax_callback_userdata);
+
+        if (_likely_(LOG_PRI(level) > log_max_level) ||
+            log_target == LOG_TARGET_NULL)
+                return -ERRNO_VALUE(error);
 
         if (unit)
                 unit_fmt = getpid_cached() == 1 ? "UNIT=%s" : "USER_UNIT=%s";
