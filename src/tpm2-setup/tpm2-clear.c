@@ -1,51 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-json.h"
 #include "sd-messages.h"
 
-#include "alloc-util.h"
 #include "build.h"
 #include "dlopen-note.h"
 #include "env-util.h"
 #include "fileio.h"
-#include "format-table.h"
 #include "log.h"
 #include "main-func.h"
-#include "options.h"
-#include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "tpm2-util.h"
+#include "verbs.h"
 
 static bool arg_graceful = false;
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-tpm2-clear", "8", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        printf("%s [OPTIONS...]\n"
-               "\n%sRequest clearing of the TPM2 from PC firmware.%s\n"
-               "\n%sOptions:%s\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal(),
-               ansi_underline(),
-               ansi_normal());
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
+COMMAND(
+        "systemd-tpm2-clear\0",
+        "Request clearing of the TPM2 from PC firmware.",
+        .man_pages = "systemd-tpm2-clear.service.8\0",
+);
 
 static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
@@ -57,7 +31,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-tpm2-clear");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -65,6 +39,9 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("graceful", NULL, "Exit gracefully if no TPM2 device is found"):
                         arg_graceful = true;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (option_parser_get_n_args(&opts) != 0)
