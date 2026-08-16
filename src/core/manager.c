@@ -1115,6 +1115,87 @@ int manager_set_unit_path_override(Manager *m, const char *path) {
         return 0;
 }
 
+void manager_set_unit_name_map_limit(Manager *m, size_t max_entries) {
+        assert(m);
+        assert(MANAGER_IS_TEST_RUN(m));
+        assert(!m->unit_id_map);
+        assert(!m->unit_name_map);
+        assert(!m->unit_path_cache);
+
+        m->unit_name_map_limit = max_entries;
+}
+
+void manager_set_test_run_diagnostic_callback(
+                Manager *m,
+                ManagerDiagnosticCallback callback,
+                void *userdata) {
+
+        assert(m);
+        assert(MANAGER_IS_TEST_RUN(m));
+        assert(callback);
+        assert(!m->test_run_diagnostic_callback);
+
+        m->test_run_diagnostic_callback = callback;
+        m->test_run_diagnostic_userdata = userdata;
+}
+
+void manager_clear_test_run_diagnostic_callback(Manager *m) {
+        assert(m);
+        assert(MANAGER_IS_TEST_RUN(m));
+        assert(!m->test_run_diagnostic_busy);
+
+        m->test_run_diagnostic_callback = NULL;
+        m->test_run_diagnostic_userdata = NULL;
+}
+
+int manager_dispatch_test_run_diagnostic(Manager *m, const ManagerDiagnostic *record) {
+        int r;
+
+        assert(m);
+        assert(record);
+        assert(record->message);
+
+        if (!m->test_run_diagnostic_callback || m->test_run_diagnostic_busy)
+                return 0;
+        if (m->test_run_diagnostic_error < 0)
+                return m->test_run_diagnostic_error;
+
+        PROTECT_ERRNO;
+
+        m->test_run_diagnostic_busy = true;
+        r = m->test_run_diagnostic_callback(record, m->test_run_diagnostic_userdata);
+        m->test_run_diagnostic_busy = false;
+
+        if (r < 0)
+                manager_record_test_run_diagnostic_error(m, r);
+
+        return r;
+}
+
+bool manager_test_run_diagnostic_enabled(const Manager *m) {
+        assert(m);
+
+        return m->test_run_diagnostic_callback &&
+                !m->test_run_diagnostic_busy &&
+                m->test_run_diagnostic_error >= 0;
+}
+
+void manager_record_test_run_diagnostic_error(Manager *m, int error) {
+        assert(m);
+        assert(MANAGER_IS_TEST_RUN(m));
+        assert(error < 0);
+
+        if (m->test_run_diagnostic_error >= 0)
+                m->test_run_diagnostic_error = error;
+}
+
+int manager_get_test_run_diagnostic_error(const Manager *m) {
+        assert(m);
+        assert(MANAGER_IS_TEST_RUN(m));
+
+        return m->test_run_diagnostic_error;
+}
+
 static int manager_setup_notify(Manager *m) {
         int r;
 
