@@ -178,6 +178,8 @@ efi_c_args = [
 ]
 
 efi_c_args += cc.get_supported_arguments(
+        '-fdebug-prefix-map=' + meson.project_source_root() + '=.',
+        '-fdebug-prefix-map=' + meson.project_build_root() + '=build',
         '-fwide-exec-charset=UCS2',
         # gcc docs says this is required for ms_abi to work correctly.
         '-maccumulate-outgoing-args',
@@ -234,6 +236,8 @@ endif
 efi_c_ld_args += cc.get_supported_link_arguments(
         # binutils >= 2.38
         '-Wl,-z,nopack-relative-relocs',
+        # binutils >= 2.18
+        '-Wl,--build-id=md5',
 )
 
 # efi_c_args is explicitly passed to targets so that they can override distro-provided flags
