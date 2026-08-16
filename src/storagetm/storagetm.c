@@ -49,7 +49,10 @@ STATIC_DESTRUCTOR_REGISTER(arg_nqn, freep);
 COMMAND(
         "systemd-storagetm\0",
         "Expose a block device or regular file as NVMe-TCP volume.",
-        .argspec = "[DEVICE…]\0",
+        .argspec =
+                "DEVICE…\0"
+                "--all\0"
+                "--list-devices\0",
         .man_pages = "systemd-storagetm.8\0",
 );
 

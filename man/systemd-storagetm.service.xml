@@ -28,7 +28,17 @@
     <cmdsynopsis>
       <command>/usr/lib/systemd/systemd-storagetm</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
-      <arg choice="opt"><replaceable>DEVICE</replaceable></arg>
+      <arg choice="plain" rep="repeat"><replaceable>DEVICE</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>/usr/lib/systemd/systemd-storagetm</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">--all</arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>/usr/lib/systemd/systemd-storagetm</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">--list-devices</arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
