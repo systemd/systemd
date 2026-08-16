@@ -7,6 +7,8 @@ set -o pipefail
 # Check the other location too.
 PATH=$PATH:/usr/lib/systemd
 
+export SYSTEMD_PAGER=cat
+
 # A smoke test for the introspection code
 INTROSPECTABLE=(
     homectl
@@ -44,6 +46,8 @@ INTROSPECTABLE=(
 
 for i in "${INTROSPECTABLE[@]}"; do
     command -v "$i" >/dev/null || continue
+
+    $i --help >/dev/null
 
     $i --introspect-cli | jq -e \
         '.mediaType == "application/vnd.io.systemd.cli-introspection-0"'
