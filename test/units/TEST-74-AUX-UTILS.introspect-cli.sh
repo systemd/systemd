@@ -17,6 +17,7 @@ INTROSPECTABLE=(
     systemd-backlight
     systemd-battery-check
     systemd-binfmt
+    systemd-boot-check-no-failures
     systemd-bsod
     systemd-cat
     systemd-cgls
