@@ -901,7 +901,7 @@ static void check_tpm2b_public_name(const TPM2B_PUBLIC *public, const char *hexn
         assert_se(memcmp_nn(name.name, name.size, expected, expected_len) == 0);
 }
 
-static void check_tpm2b_public_from_ecc_pem(const char *pem, const char *hexx, const char *hexy, const char *hexfp, const char *hexname) {
+static void check_tpm2b_public_from_ecc_pem(const char *pem, TPMI_ECC_CURVE curve, const char *hexx, const char *hexy, const char *hexfp, const char *hexname) {
         TPM2B_PUBLIC public = {};
         TPMT_PUBLIC *p = &public.publicArea;
 
@@ -909,7 +909,7 @@ static void check_tpm2b_public_from_ecc_pem(const char *pem, const char *hexx, c
         get_tpm2b_public_from_pem(key, key_len, &public);
 
         assert_se(p->type == TPM2_ALG_ECC);
-        assert_se(p->parameters.eccDetail.curveID == TPM2_ECC_NIST_P256);
+        assert_se(p->parameters.eccDetail.curveID == curve);
 
         DEFINE_HEX_PTR(expected_x, hexx);
         assert_se(memcmp_nn(p->unique.ecc.x.buffer, p->unique.ecc.x.size, expected_x, expected_x_len) == 0);
@@ -944,10 +944,23 @@ static void check_tpm2b_public_from_rsa_pem(const char *pem, const char *hexn, u
 TEST(tpm2b_public_from_openssl_pkey) {
         /* standard ECC key */
         check_tpm2b_public_from_ecc_pem("2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a30444151634451674145726a6e4575424c73496c3972687068777976584e50686a346a426e500a44586e794a304b395579724e6764365335413532542b6f5376746b436a365a726c34685847337741515558706f426c532b7448717452714c35513d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a",
+                                        TPM2_ECC_NIST_P256,
                                         "ae39c4b812ec225f6b869870caf5cd3e18f88c19cf0d79f22742bd532acd81de",
                                         "92e40e764fea12bed9028fa66b9788571b7c004145e9a01952fad1eab51a8be5",
                                         "cd3373293b62a52b48c12100e80ea9bfd806266ce76893a5ec31cb128052d97c",
                                         "000b5c127e4dbaf8fb7bac641e8db25a84a48db876ca7ee3bd317ae1a4554ff72f17");
+
+        /* ECC key whose x-coordinate has a most significant zero byte. The unpadded marshalling
+         * this used to produce made unique.ecc.x 47 bytes instead of 48, which both TPM2_LoadExternal()
+         * rejects and gives the object a different name. The name below is the one the padded
+         * public area must hash to; it is derived from the TPM 2.0 spec (nameAlg || SHA256 of the
+         * marshalled TPMT_PUBLIC), not from this implementation. */
+        check_tpm2b_public_from_ecc_pem("2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d485977454159484b6f5a497a6a3043415159464b34454541434944596741454147625a626d4a32534231424a4879633178674f7a4a646e67586767566254700a5a76515070516b54564779387362777677734872635a4871307a5a76782f316c4336787a5a64615648433147303835786c636c4a7770435a57685571576866730a2f6a70337a436d6e446a49754a79505735435148494930652b575a47706263490a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a",
+                                        TPM2_ECC_NIST_P384,
+                                        "0066d96e6276481d41247c9cd7180ecc976781782055b4e966f40fa50913546cbcb1bc2fc2c1eb7191ead3366fc7fd65",
+                                        "0bac7365d6951c2d46d3ce7195c949c290995a152a5a17ecfe3a77cc29a70e322e2723d6e42407208d1ef96646a5b708",
+                                        "a9943d99a720879eb87b6a96bbcf3f6d7b0116aff3ba49081172796a295a496a",
+                                        "000b0ddf2c9d545c6662b10d1f2d0a4a115eedab13f4e18da9f8c45d20d926b2c90c");
 
         /* standard RSA key */
         check_tpm2b_public_from_rsa_pem("2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d494942496a414e42676b71686b6947397730424151454641414f43415138414d49494243674b4341514541795639434950652f505852337a436f63787045300a6a575262546c3568585844436b472f584b79374b6d2f4439584942334b734f5a31436a5937375571372f674359363170697838697552756a73413464503165380a593445336c68556d374a332b6473766b626f4b64553243626d52494c2f6675627771694c4d587a41673342575278747234547545443533527a373634554650640a307a70304b68775231496230444c67772f344e67566f314146763378784b4d6478774d45683567676b73733038326332706c354a504e32587677426f744e6b4d0a5471526c745a4a35355244436170696e7153334577376675646c4e735851357746766c7432377a7637344b585165616d704c59433037584f6761304c676c536b0a79754774586b6a50542f735542544a705374615769674d5a6f714b7479563463515a58436b4a52684459614c47587673504233687a766d5671636e6b47654e540a65774944415141420a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a",
