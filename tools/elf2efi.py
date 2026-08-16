@@ -476,7 +476,7 @@ def convert_elf_relocations(
         + len(PE_MAGIC)
         + sizeof(PeCoffHeader)
         + sizeof(opt)
-        + sizeof(PeSection) * max(len(sections) + 1, minimum_sections),
+        + sizeof(PeSection) * (len(sections) + 1 + minimum_sections),
         FILE_ALIGNMENT,
     )
 
