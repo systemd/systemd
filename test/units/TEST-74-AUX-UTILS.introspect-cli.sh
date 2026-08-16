@@ -56,6 +56,7 @@ INTROSPECTABLE=(
     systemd-storagetm
     systemd-sysinstall
     systemd-tpm2-clear
+    systemd-tpm2-setup
     systemd-tty-ask-password-agent
     systemd-veritysetup
     timedatectl
