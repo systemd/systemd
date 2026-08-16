@@ -5370,8 +5370,27 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         output = check_output('ip neighbor show proxy dev dummy98')
         print(output)
-        for i in range(1, 5):
+        for i in range(1, 6):
             self.assertRegex(output, f'2607:5300:203:5215:{i}::1 *proxy')
+
+        # When a proxy NDP address is specified, IPv6ProxyNDP=yes is implied.
+        self.check_ipv6_sysctl_attr('dummy98', 'proxy_ndp', '1')
+
+        with open(os.path.join(network_unit_dir, '25-ipv6-proxy-ndp.network'), mode='a', encoding='utf-8') as f:
+            f.write('[Network]\nIPv6ProxyNDP=no\n')
+
+        stop_networkd()
+        remove_link('dummy98')
+        start_networkd()
+        self.wait_online('dummy98:routable')
+
+        # If IPv6ProxyNDP= is disabled, proxy NDP addresses are ignored.
+        output = check_output('ip neighbor show proxy dev dummy98')
+        print(output)
+        for i in range(1, 6):
+            self.assertNotRegex(output, f'2607:5300:203:5215:{i}::1 *proxy')
+
+        self.check_ipv6_sysctl_attr('dummy98', 'proxy_ndp', '0')
 
     def test_ipv4_proxy_arp(self):
         copy_network_unit('25-ipv4-proxy-arp.network', '12-dummy.netdev')
