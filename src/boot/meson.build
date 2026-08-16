@@ -201,6 +201,7 @@ efi_c_ld_args = [
         '-static-pie',
         '-Wl,--entry=efi_main',
         '-Wl,--fatal-warnings',
+        '-Wl,--build-id=md5',
 
         # These flags should be passed by -static-pie, but for whatever reason the flag translation
         # is not enabled on all architectures. Not passing `-static` would just allow the linker to
