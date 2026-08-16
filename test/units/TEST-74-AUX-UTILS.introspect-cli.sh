@@ -40,6 +40,7 @@ INTROSPECTABLE=(
     systemd-modules-load
     systemd-mute-console
     systemd-network-generator
+    systemd-networkd-wait-online
     systemd-notify
     systemd-oomd
     systemd-path
