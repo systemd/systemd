@@ -340,6 +340,107 @@ static void test_log_prefix(void) {
         test_log_syntax();
 }
 
+typedef struct LogSyntaxCallbackTestContext {
+        int expected_priority;
+        const char *expected_message;
+        const char *expected_unit;
+        const char *expected_config_file;
+        unsigned expected_config_line;
+        unsigned n_calls;
+} LogSyntaxCallbackTestContext;
+
+static void log_syntax_test_callback(const LogSyntaxRecord *record, void *userdata) {
+        LogSyntaxCallbackTestContext *ctx = ASSERT_PTR(userdata);
+
+        assert_se(record);
+        assert_se(record->priority == ctx->expected_priority);
+        assert_se(streq_ptr(record->message, ctx->expected_message));
+        assert_se(streq_ptr(record->unit, ctx->expected_unit));
+        assert_se(streq_ptr(record->config_file, ctx->expected_config_file));
+        assert_se(record->config_line == ctx->expected_config_line);
+
+        ctx->n_calls++;
+}
+
+TEST(log_syntax_callback) {
+        LogSyntaxCallbackTestContext ctx = {
+                .expected_priority = LOG_WARNING,
+                .expected_message = "bad setting 1",
+                .expected_unit = "typed.service",
+                .expected_config_file = "/tmp/typed.service",
+                .expected_config_line = 23,
+        };
+        LogTarget old_target = log_get_target();
+        int old_max_level = log_set_max_level(LOG_ERR);
+        unsigned ordinary_format_calls = 0, syntax_format_calls = 0;
+
+        log_set_target(LOG_TARGET_NULL);
+        ASSERT_FALSE(log_syntax_enabled(LOG_WARNING));
+
+        {
+                _unused_ _cleanup_(clear_log_syntax_callback) dummy_t dummy;
+
+                set_log_syntax_callback(log_syntax_test_callback, &ctx);
+                ASSERT_TRUE(log_syntax_enabled(LOG_INFO));
+                ASSERT_FALSE(log_syntax_enabled(LOG_DEBUG));
+
+                log_info("ordinary log %u", ++ordinary_format_calls);
+                ASSERT_EQ(ordinary_format_calls, 0u);
+
+                ASSERT_ERROR(log_syntax(
+                                     "typed.service",
+                                     LOG_DAEMON|LOG_WARNING,
+                                     "/tmp/typed.service",
+                                     23,
+                                     EINVAL,
+                                     "bad setting %u",
+                                     ++syntax_format_calls),
+                             EINVAL);
+                ASSERT_EQ(ctx.n_calls, 1u);
+                ASSERT_EQ(syntax_format_calls, 1u);
+
+                ctx = (LogSyntaxCallbackTestContext) {
+                        .expected_priority = LOG_WARNING,
+                        .expected_message = "optional metadata 2",
+                };
+                ASSERT_ERROR(log_syntax(
+                                     NULL, LOG_WARNING, NULL, 0, EINVAL,
+                                     "optional metadata %u", ++syntax_format_calls),
+                             EINVAL);
+                ASSERT_EQ(ctx.n_calls, 1u);
+
+                ctx = (LogSyntaxCallbackTestContext) {
+                        .expected_priority = LOG_INFO,
+                        .expected_message = "info syntax 3",
+                };
+                ASSERT_ERROR(log_syntax(
+                                     NULL, LOG_INFO, NULL, 0, EINVAL,
+                                     "info syntax %u", ++syntax_format_calls),
+                             EINVAL);
+                ASSERT_EQ(ctx.n_calls, 1u);
+
+                ctx = (LogSyntaxCallbackTestContext) {
+                        .expected_priority = LOG_DEBUG,
+                };
+                ASSERT_ERROR(log_syntax(
+                                     NULL, LOG_DEBUG, NULL, 0, EINVAL,
+                                     "debug syntax %u", ++syntax_format_calls),
+                             EINVAL);
+                ASSERT_EQ(ctx.n_calls, 0u);
+                ASSERT_EQ(syntax_format_calls, 3u);
+        }
+
+        ASSERT_FALSE(log_syntax_enabled(LOG_WARNING));
+        ASSERT_ERROR(log_syntax(
+                             NULL, LOG_WARNING, NULL, 0, EINVAL,
+                             "filtered syntax %u", ++syntax_format_calls),
+                     EINVAL);
+        ASSERT_EQ(syntax_format_calls, 3u);
+
+        log_set_target(old_target);
+        log_set_max_level(old_max_level);
+}
+
 TEST(log_target) {
         for (int target = 0; target < _LOG_TARGET_MAX; target++) {
                 log_set_target(target);
