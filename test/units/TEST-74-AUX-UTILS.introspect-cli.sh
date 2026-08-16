@@ -50,6 +50,7 @@ INTROSPECTABLE=(
     systemd-socket-proxyd
     systemd-stdio-bridge
     systemd-storage-block
+    systemd-storage-fs
     systemd-tty-ask-password-agent
     systemd-veritysetup
     timedatectl
