@@ -1132,6 +1132,16 @@ int manager_set_unit_path_override(Manager *m, const char *path) {
         return 0;
 }
 
+void manager_set_unit_name_map_limit(Manager *m, size_t max_entries) {
+        assert(m);
+        assert(MANAGER_IS_TEST_RUN(m));
+        assert(!m->unit_id_map);
+        assert(!m->unit_name_map);
+        assert(!m->unit_path_cache);
+
+        m->unit_name_map_limit = max_entries;
+}
+
 static int manager_setup_notify(Manager *m) {
         int r;
 

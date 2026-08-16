@@ -304,6 +304,7 @@ typedef struct Manager {
         Hashmap *unit_name_map;
         Set *unit_path_cache;
         uint64_t unit_cache_timestamp_hash;
+        size_t unit_name_map_limit;
 
         /* We don't have support for atomically enabling/disabling units, and unit_file_state might become
          * outdated if such operations failed half-way. Therefore, we set this flag if changes to unit files
@@ -579,6 +580,7 @@ Manager* manager_free(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
 int manager_set_unit_path_override(Manager *m, const char *path);
+void manager_set_unit_name_map_limit(Manager *m, size_t max_entries);
 
 /* One entry parsed out of the upstream "systemd-fdstore-mapping" memfd. Pairs the numeric index from the
  * JSON map to the (unit-id, original fdname) the fd was originally stored as. */

@@ -6193,6 +6193,10 @@ static const char* builtin_unit_lookup(const char *name) {
         return NULL;
 }
 
+bool unit_has_builtin_fragment(const char *name) {
+        return !!builtin_unit_lookup(name);
+}
+
 int unit_load_fragment(Unit *u) {
         int r;
 
@@ -6207,11 +6211,12 @@ int unit_load_fragment(Unit *u) {
         }
 
         /* Possibly rebuild the fragment map to catch new units */
-        r = unit_file_build_name_map(&u->manager->lookup_paths,
-                                     &u->manager->unit_cache_timestamp_hash,
-                                     &u->manager->unit_id_map,
-                                     &u->manager->unit_name_map,
-                                     &u->manager->unit_path_cache);
+        r = unit_file_build_name_map_full(&u->manager->lookup_paths,
+                                          &u->manager->unit_cache_timestamp_hash,
+                                          &u->manager->unit_id_map,
+                                          &u->manager->unit_name_map,
+                                          &u->manager->unit_path_cache,
+                                          u->manager->unit_name_map_limit);
         if (r < 0)
                 return log_error_errno(r, "Failed to rebuild name map: %m");
 
