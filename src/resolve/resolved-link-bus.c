@@ -393,7 +393,7 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
                 else {
                         r = dns_search_domain_new(l->manager, &d, DNS_SEARCH_DOMAIN_LINK, l, /* delegate= */ NULL, name);
                         if (r == -E2BIG) {
-                                changed = dns_search_domain_unlink_marked(l->search_domains) || changed;
+                                (void) dns_search_domain_unlink_marked(l->search_domains);
                                 r = dns_search_domain_new(l->manager, &d, DNS_SEARCH_DOMAIN_LINK, l, /* delegate= */ NULL, name);
                         }
                         if (r < 0)
