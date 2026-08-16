@@ -9626,11 +9626,11 @@ class NetworkdSysctlTest(unittest.TestCase, Utilities):
         call('sysctl -w net.ipv6.conf.dummy98.accept_ra=1')
         call('sysctl -w net.ipv6.conf.dummy98.mtu=1360')
         call('sysctl -w net.ipv4.conf.dummy98.promote_secondaries=0')
-        call('sysctl -w net.ipv6.conf.dummy98.proxy_ndp=1')
 
         # And unmanaged ones
         call('sysctl -w net.ipv6.conf.dummy98.hop_limit=4')
         call('sysctl -w net.ipv6.conf.dummy98.max_addresses=10')
+        call('sysctl -w net.ipv6.conf.dummy98.proxy_ndp=1')
 
         log=read_networkd_log()
         self.assertRegex(log, r"Foreign process 'sysctl\[\d+\]' changed sysctl '/proc/sys/net/ipv6/conf/dummy98/accept_ra' from '0' to '1', conflicting with our setting to '0'")
@@ -9639,6 +9639,7 @@ class NetworkdSysctlTest(unittest.TestCase, Utilities):
         self.assertRegex(log, r"Foreign process 'sysctl\[\d+\]' changed sysctl '/proc/sys/net/ipv6/conf/dummy98/proxy_ndp' from '0' to '1', conflicting with our setting to '0'")
         self.assertNotIn("changed sysctl '/proc/sys/net/ipv6/conf/dummy98/hop_limit'", log)
         self.assertNotIn("changed sysctl '/proc/sys/net/ipv6/conf/dummy98/max_addresses'", log)
+        self.assertNotIn("changed sysctl '/proc/sys/net/ipv6/conf/dummy98/proxy_ndp'", log)
         self.assertNotIn("Sysctl monitor BPF returned error", log)
 
 class NetworkdWWANTests(unittest.TestCase, Utilities):
