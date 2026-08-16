@@ -2,7 +2,6 @@
 #pragma once
 
 #include "forward.h"
-#include "log.h"
 #include "runtime-scope.h"
 
 typedef struct ExecCommand ExecCommand;
@@ -50,7 +49,7 @@ typedef struct VerifyUnitsLimits {
 
 typedef struct VerifyUnitsParameters {
         /* NULL or an empty list selects every effective unit in the manager's lookup path. */
-        char **filenames;
+        char * const *filenames;
         RuntimeScope runtime_scope;
         RecursiveErrors recursive_errors;
         const char *root;
@@ -70,9 +69,9 @@ typedef struct VerifyUnitsResult {
         int legacy_status;
 } VerifyUnitsResult;
 
-int verify_build_unit_path(char **filenames, char **ret);
+int verify_build_unit_path(char * const *filenames, char **ret);
 int verify_check_input_filenames(
-                char **filenames,
+                char * const *filenames,
                 const VerifyUnitsLimits *limits,
                 size_t *ret_n_filenames);
 int verify_discover_unit_names(

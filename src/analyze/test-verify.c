@@ -62,12 +62,12 @@ TEST(verify_build_unit_path) {
         _cleanup_free_ char *old_saved = getenv("SYSTEMD_UNIT_PATH") ? strdup(getenv("SYSTEMD_UNIT_PATH")) : NULL;
         ASSERT_TRUE(old_saved || !getenv("SYSTEMD_UNIT_PATH"));
 
-        test_verify_build_unit_path_one(NULL, ":");
+        test_verify_build_unit_path_one(/* old= */ NULL, ":");
         test_verify_build_unit_path_one("", "");
         test_verify_build_unit_path_one(":", ":");
         test_verify_build_unit_path_one("/foo:", ":/foo:");
-        test_verify_build_unit_path_one(":foo", NULL);
-        test_verify_build_unit_path_one("/foo::/bar", NULL);
+        test_verify_build_unit_path_one(":foo", /* expected= */ NULL);
+        test_verify_build_unit_path_one("/foo::/bar", /* expected= */ NULL);
 
         if (old_saved)
                 ASSERT_OK_ERRNO(setenv("SYSTEMD_UNIT_PATH", old_saved, 1));
@@ -617,6 +617,7 @@ TEST(verify_units_scan) {
         _cleanup_free_ char *alias = NULL, *broken = NULL, *loop_a = NULL, *loop_b = NULL;
         _cleanup_free_ char *load_error = NULL, *load_error_alias = NULL, *orphan = NULL;
         _cleanup_free_ char *slice_dropin = NULL, *builtin_dropin = NULL;
+        _cleanup_free_ char *generated = NULL, *transient = NULL;
         _cleanup_free_ char *impossible_padding = NULL, *impossible_name = NULL, *impossible = NULL;
         _cleanup_free_ char *executable = NULL;
         int r;
@@ -676,6 +677,17 @@ TEST(verify_units_scan) {
                         "[Unit]\nUnknownBuiltinSetting=yes\n",
                         WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755));
 
+        generated = ASSERT_NOT_NULL(path_join(tmp, "/run/systemd/generator/generated.service"));
+        transient = ASSERT_NOT_NULL(path_join(tmp, "/run/systemd/transient/transient.service"));
+        ASSERT_OK(write_string_file(
+                        generated,
+                        "[Unit]\nUnknownGeneratedSetting=yes\n[Service]\nExecStart=/bin/true\n",
+                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755));
+        ASSERT_OK(write_string_file(
+                        transient,
+                        "[Unit]\nUnknownTransientSetting=yes\n[Service]\nExecStart=/bin/true\n",
+                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755));
+
         alias = ASSERT_NOT_NULL(path_join(unit_dir, "alias.service"));
         broken = ASSERT_NOT_NULL(path_join(unit_dir, "broken.service"));
         loop_a = ASSERT_NOT_NULL(path_join(unit_dir, "loop-a.service"));
@@ -701,6 +713,8 @@ TEST(verify_units_scan) {
                 return;
         }
         ASSERT_OK(r);
+        ASSERT_OK_ERRNO(access(generated, F_OK));
+        ASSERT_OK_ERRNO(access(transient, F_OK));
         ASSERT_LT(result.legacy_status, 0);
 
         ASSERT_NOT_NULL(find_diagnostic(
@@ -717,6 +731,10 @@ TEST(verify_units_scan) {
                         &result, "plain.slice", slice_dropin, SD_MESSAGE_INVALID_CONFIGURATION_STR));
         ASSERT_NOT_NULL(find_diagnostic(
                         &result, "basic.target", builtin_dropin, SD_MESSAGE_INVALID_CONFIGURATION_STR));
+        ASSERT_NOT_NULL(find_diagnostic(
+                        &result, "generated.service", generated, SD_MESSAGE_INVALID_CONFIGURATION_STR));
+        ASSERT_NOT_NULL(find_diagnostic(
+                        &result, "transient.service", transient, SD_MESSAGE_INVALID_CONFIGURATION_STR));
 
         size_t n_load_error = 0;
         FOREACH_ARRAY(diagnostic, result.diagnostics.items, result.diagnostics.n_items)
@@ -734,6 +752,35 @@ TEST(verify_units_scan) {
                     streq_ptr(diagnostic->message_id, SD_MESSAGE_INVALID_CONFIGURATION_STR))
                         n_bad++;
         ASSERT_EQ(n_bad, 1u);
+
+        const bool had_unit_path = getenv("SYSTEMD_UNIT_PATH");
+        const bool had_generator_path = getenv("SYSTEMD_GENERATOR_PATH");
+        _cleanup_free_ char *old_unit_path = had_unit_path ? strdup(getenv("SYSTEMD_UNIT_PATH")) : NULL;
+        _cleanup_free_ char *old_generator_path =
+                had_generator_path ? strdup(getenv("SYSTEMD_GENERATOR_PATH")) : NULL;
+        ASSERT_TRUE(old_unit_path || !had_unit_path);
+        ASSERT_TRUE(old_generator_path || !had_generator_path);
+
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_UNIT_PATH", ":", 1));
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_GENERATOR_PATH", "", 1));
+
+        verify_units_result_done(&result);
+        parameters.run_unit_generators = true;
+        ASSERT_OK(verify_units(&parameters, &result));
+        ASSERT_NOT_NULL(find_diagnostic(
+                        &result, "transient.service", transient, SD_MESSAGE_INVALID_CONFIGURATION_STR));
+        ASSERT_OK_ERRNO(access(transient, F_OK));
+
+        if (had_unit_path)
+                ASSERT_OK_ERRNO(setenv("SYSTEMD_UNIT_PATH", old_unit_path, 1));
+        else
+                ASSERT_OK_ERRNO(unsetenv("SYSTEMD_UNIT_PATH"));
+        if (had_generator_path)
+                ASSERT_OK_ERRNO(setenv("SYSTEMD_GENERATOR_PATH", old_generator_path, 1));
+        else
+                ASSERT_OK_ERRNO(unsetenv("SYSTEMD_GENERATOR_PATH"));
+
+        parameters.run_unit_generators = false;
 
         verify_units_result_done(&result);
         result.legacy_status = -EUCLEAN;

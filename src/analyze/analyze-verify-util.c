@@ -18,6 +18,7 @@
 #include "manager.h"
 #include "pager.h"
 #include "parse-util.h"
+#include "path-lookup.h"
 #include "path-util.h"
 #include "set.h"
 #include "stat-util.h"
@@ -114,7 +115,7 @@ static int find_unit_directory(const char *p, char **ret) {
         return 0;
 }
 
-int verify_build_unit_path(char **filenames, char **ret) {
+int verify_build_unit_path(char * const *filenames, char **ret) {
         _cleanup_strv_free_ char **ans = NULL;
         _cleanup_free_ char *joined = NULL;
         const char *old;
@@ -162,6 +163,24 @@ int verify_build_unit_path(char **filenames, char **ret) {
 
 static bool verify_error_is_fatal(int r) {
         return ERRNO_IS_NEG_RESOURCE(r) || r == -E2BIG;
+}
+
+static int verify_replace_lookup_path(char **search_path, const char *old_path, const char *new_path) {
+        assert(old_path);
+
+        if (!new_path || (!path_equal(old_path, new_path) && path_strv_contains(search_path, new_path))) {
+                strv_remove(search_path, old_path);
+                return 0;
+        }
+
+        if (path_equal(old_path, new_path))
+                return 0;
+
+        STRV_FOREACH(path, search_path)
+                if (path_equal(*path, old_path))
+                        return free_and_strdup(path, new_path);
+
+        return 0;
 }
 
 static int verify_unit_name_set_put(Set **names, const char *name, size_t max_names) {
@@ -1012,7 +1031,7 @@ static bool verify_diagnostic_is_syntax_warning(const VerifyDiagnostic *diagnost
 
 static int verify_diagnostics_syntax_status(
                 const VerifyDiagnostics *diagnostics,
-                char **filenames,
+                char * const *filenames,
                 RecursiveErrors recursive_errors) {
 
         assert(diagnostics);
@@ -1361,7 +1380,7 @@ static int verify_prepare_filename_and_report(
 }
 
 int verify_check_input_filenames(
-                char **filenames,
+                char * const *filenames,
                 const VerifyUnitsLimits *limits,
                 size_t *ret_n_filenames) {
 
@@ -1390,6 +1409,7 @@ int verify_check_input_filenames(
 }
 
 int verify_units(const VerifyUnitsParameters *parameters, VerifyUnitsResult *ret) {
+        _cleanup_(lookup_paths_done) LookupPaths live_lookup_paths = {};
         _cleanup_(verify_units_result_done) VerifyUnitsResult result = {};
         _cleanup_(manager_freep) Manager *m = NULL;
         _cleanup_(log_observer_freep) LogObserver *observer = NULL;
@@ -1397,7 +1417,7 @@ int verify_units(const VerifyUnitsParameters *parameters, VerifyUnitsResult *ret
         _cleanup_strv_free_ char **discovered_names = NULL;
         _cleanup_free_ char *unit_path = NULL;
         _cleanup_free_ Unit **units = NULL;
-        char **filenames;
+        char * const *filenames;
         size_t n_filenames, count = 0;
         int r, k, status = 0;
 
@@ -1452,6 +1472,33 @@ int verify_units(const VerifyUnitsParameters *parameters, VerifyUnitsResult *ret
                 return r;
 
         manager_clear_jobs(m);
+
+        if (scan_all) {
+                r = lookup_paths_init_full(
+                                &live_lookup_paths,
+                                parameters->runtime_scope,
+                                /* flags= */ 0,
+                                parameters->root,
+                                m->unit_path_override);
+                if (r < 0)
+                        return r;
+
+                /* A test manager uses temporary generator and transient directories so startup and
+                 * teardown cannot alter the live manager's files. Verification only reads unit files,
+                 * hence change just the search path and leave the temporary output directories owned
+                 * by the test manager. Preserve freshly generated units when they were requested, but
+                 * always use the live transient directory. */
+                if (!parameters->run_unit_generators)
+                        strv_free_and_replace(m->lookup_paths.search_path, live_lookup_paths.search_path);
+                else if (m->lookup_paths.transient) {
+                        r = verify_replace_lookup_path(
+                                        m->lookup_paths.search_path,
+                                        m->lookup_paths.transient,
+                                        live_lookup_paths.transient);
+                        if (r < 0)
+                                return r;
+                }
+        }
 
         /* Verification diagnostics and their effect on the result must not depend on the ambient log
          * level. When output is suppressed, observe through DEBUG so that no verification-phase log
@@ -1526,11 +1573,11 @@ int verify_units(const VerifyUnitsParameters *parameters, VerifyUnitsResult *ret
 
                 k = verify_load_startable_unit(
                                 m,
-                                scan_all ? *filename : NULL,
-                                prepared,
-                                scan_all ? source_path : prepared,
+                                /* name= */ scan_all ? *filename : NULL,
+                                /* path= */ prepared,
+                                /* diagnostic_path= */ scan_all ? source_path : prepared,
                                 &result.diagnostics,
-                                scan_all ? &loaded_units : NULL,
+                                /* seen_units= */ scan_all ? &loaded_units : NULL,
                                 &units[count],
                                 &finding_status);
                 if (k < 0)

@@ -607,9 +607,10 @@ static int run_log_observer_suppression_test(void) {
         int r = pidref_safe_fork_full(
                         "(log-observer-suppression-test)",
                         (const int[3]) { -EBADF, -EBADF, memfd },
-                        NULL, 0,
+                        /* except_fds= */ NULL,
+                        /* n_except_fds= */ 0,
                         FORK_WAIT|FORK_LOG|FORK_REARRANGE_STDIO,
-                        NULL);
+                        /* ret= */ NULL);
         assert_se(r >= 0);
 
         if (r == 0) {

@@ -1126,7 +1126,7 @@ int log_format_iovec(
                 r = vasprintf(&m, format, aq);
                 va_end(aq);
                 if (r < 0)
-                        return -EINVAL;
+                        return -ENOMEM;
 
                 /* Now, jump enough ahead, so that we point to
                  * the next format string */
@@ -1314,8 +1314,8 @@ int log_struct_internal(
         return log_dispatch_internal_impl(
                         level, error,
                         file, line, func,
-                        NULL, NULL,
-                        NULL, NULL,
+                        /* object_field= */ NULL, /* object= */ NULL,
+                        /* extra_field= */ NULL, /* extra= */ NULL,
                         buf + STRLEN("MESSAGE="),
                         /* observe= */ false);
 }
@@ -1388,8 +1388,8 @@ int log_struct_iovec_internal(
                         return log_dispatch_internal_impl(
                                         level, error,
                                         file, line, func,
-                                        NULL, NULL,
-                                        NULL, NULL,
+                                        /* object_field= */ NULL, /* object= */ NULL,
+                                        /* extra_field= */ NULL, /* extra= */ NULL,
                                         m,
                                         /* observe= */ false);
                 }

@@ -181,7 +181,7 @@ TEST(unit_file_build_name_map_limit) {
 
         ASSERT_OK_POSITIVE(unit_file_build_name_map_full(
                         &lp,
-                        NULL,
+                        /* cache_timestamp_hash= */ NULL,
                         &id_only_unit_ids,
                         &id_only_unit_names,
                         /* path_cache= */ NULL,
@@ -193,7 +193,7 @@ TEST(unit_file_build_name_map_limit) {
 
         ASSERT_ERROR(unit_file_build_name_map_full(
                         &lp,
-                        NULL,
+                        /* cache_timestamp_hash= */ NULL,
                         &id_only_unit_ids,
                         &id_only_unit_names,
                         /* path_cache= */ NULL,
@@ -204,7 +204,12 @@ TEST(unit_file_build_name_map_limit) {
         ASSERT_EQ(hashmap_size(id_only_unit_names), 2u);
 
         ASSERT_OK_POSITIVE(unit_file_build_name_map_full(
-                        &lp, NULL, &unit_ids, &unit_names, &path_cache, /* max_entries= */ 0));
+                        &lp,
+                        /* cache_timestamp_hash= */ NULL,
+                        &unit_ids,
+                        &unit_names,
+                        &path_cache,
+                        /* max_entries= */ 0));
         ASSERT_EQ(hashmap_size(unit_ids), 2u);
         ASSERT_EQ(hashmap_size(unit_names), 2u);
         ASSERT_EQ(set_size(path_cache), 3u);
