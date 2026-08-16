@@ -5373,6 +5373,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         for i in range(1, 5):
             self.assertRegex(output, f'2607:5300:203:5215:{i}::1 *proxy')
 
+        self.check_ipv6_sysctl_attr('dummy98', 'proxy_ndp', '1')
+
     def test_ipv4_proxy_arp(self):
         copy_network_unit('25-ipv4-proxy-arp.network', '12-dummy.netdev')
         start_networkd()
@@ -5387,10 +5389,6 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         # When a proxy ARP address is specified, IPv4ProxyARP=yes is implied.
         self.check_ipv4_sysctl_attr('dummy98', 'proxy_arp', '1')
 
-        # Explicit IPv4ProxyARP=no must suppress all IPv4 proxy ARP address entries and
-        # must not force proxy_arp=1. The module is add-only (no reconcile/remove pass),
-        # so phase 2 starts from a clean interface: stop networkd, delete the dummy to
-        # flush the kernel neighbor-proxy table, swap the .network file, and restart.
         stop_networkd()
         remove_link('dummy98')
         remove_network_unit('25-ipv4-proxy-arp.network')
@@ -5398,10 +5396,12 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         start_networkd()
         self.wait_online('dummy98:routable')
 
+        # Even if IPv4ProxyARP= is disabled, proxy ARP addresses can be configured.
         output = check_output('ip -4 neighbor show proxy dev dummy98')
         print(output)
-        for i in range(1, 6):
-            self.assertNotIn(f'192.0.2.{i}', output)
+        for i in range(1, 3):
+            self.assertRegex(output, f'192.0.2.{i} *proxy')
+
         self.check_ipv4_sysctl_attr('dummy98', 'proxy_arp', '0')
 
     def test_ipv6_neigh_retrans_time(self):
