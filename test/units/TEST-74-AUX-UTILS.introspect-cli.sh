@@ -30,6 +30,7 @@ INTROSPECTABLE=(
     systemd-dissect
     systemd-escape
     systemd-firstboot
+    systemd-growfs
     systemd-hwdb
     systemd-id128
     systemd-imds
