@@ -1,10 +1,27 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#if HAVE_LIBFDT
+#  include <libfdt.h>
+#  include "efi-log.h"
+#endif
+
 #include "devicetree.h"
 #include "proto/dt-fixup.h"
 #include "util.h"
 
-#define FDT_V1_SIZE (7*4)
+/* For the libfdt-less builds, which doesn't support overlays, but has minimal DTB support (loading) */
+#if !HAVE_LIBFDT
+struct fdt_header {
+        uint32_t magic;
+        uint32_t totalsize;
+        uint32_t off_dt_struct;
+        uint32_t off_dt_strings;
+        uint32_t off_mem_rsvmap;
+        uint32_t version;
+        uint32_t last_comp_version;
+};
+#define FDT_V1_SIZE sizeof(struct fdt_header)
+#endif
 
 static EFI_STATUS devicetree_allocate(struct devicetree_state *state, size_t size) {
         size_t pages = DIV_ROUND_UP(size, EFI_PAGE_SIZE);
@@ -62,7 +79,7 @@ static EFI_STATUS devicetree_fixup(struct devicetree_state *state, size_t len) {
         return err;
 }
 
-EFI_STATUS devicetree_install(struct devicetree_state *state, EFI_FILE *root_dir, char16_t *name) {
+EFI_STATUS devicetree_load(struct devicetree_state *state, EFI_FILE *root_dir, char16_t *name) {
         _cleanup_file_close_ EFI_FILE *handle = NULL;
         _cleanup_free_ EFI_FILE_INFO *info = NULL;
         size_t len;
@@ -94,86 +111,29 @@ EFI_STATUS devicetree_install(struct devicetree_state *state, EFI_FILE *root_dir
         if (err != EFI_SUCCESS)
                 return err;
 
-        err = handle->Read(handle, &len, PHYSICAL_ADDRESS_TO_POINTER(state->addr));
-        if (err != EFI_SUCCESS)
-                return err;
-
-        err = devicetree_fixup(state, len);
-        if (err != EFI_SUCCESS)
-                return err;
-
-        return BS->InstallConfigurationTable(
-                        MAKE_GUID_PTR(EFI_DTB_TABLE), PHYSICAL_ADDRESS_TO_POINTER(state->addr));
+        return handle->Read(handle, &len, PHYSICAL_ADDRESS_TO_POINTER(state->addr));
 }
 
-static const char* devicetree_get_compatible(const void *dtb) {
-        if ((uintptr_t) dtb % alignof(FdtHeader) != 0)
+#if HAVE_LIBFDT
+static const char* devicetree_get_compatible(const void *dtb, size_t dtb_size) {
+        const char *compatible;
+        int len;
+
+        assert(dtb);
+
+        if ((uintptr_t) dtb % alignof(struct fdt_header) != 0)
                 return NULL;
 
-        const FdtHeader *dt_header = ASSERT_PTR(dtb);
-
-        if (be32toh(dt_header->magic) != UINT32_C(0xd00dfeed))
+        if (fdt_check_full(dtb, dtb_size) < 0)
                 return NULL;
 
-        uint32_t dt_size = be32toh(dt_header->total_size);
-        uint32_t struct_off = be32toh(dt_header->off_dt_struct);
-        uint32_t struct_size = be32toh(dt_header->size_dt_struct);
-        uint32_t strings_off = be32toh(dt_header->off_dt_strings);
-        uint32_t strings_size = be32toh(dt_header->size_dt_strings);
-        uint32_t end;
-
-        if (PTR_TO_SIZE(dtb) > SIZE_MAX - dt_size)
+        compatible = fdt_getprop(dtb, /* nodeoffset= */ 0, "compatible", &len);
+        if (!compatible || len <= 0 || compatible[len - 1] != '\0')
                 return NULL;
 
-        if (!ADD_SAFE(&end, strings_off, strings_size) || end > dt_size)
-                return NULL;
-        const char *strings_block = (const char *) ((const uint8_t *) dt_header + strings_off);
-
-        if (struct_off % sizeof(uint32_t) != 0)
-                return NULL;
-
-        if (struct_size % sizeof(uint32_t) != 0 ||
-            !ADD_SAFE(&end, struct_off, struct_size) ||
-            end > strings_off)
-                return NULL;
-        const uint32_t *cursor = (const uint32_t *) ((const uint8_t *) dt_header + struct_off);
-
-        size_t size_words = struct_size / sizeof(uint32_t);
-        size_t len, name_off, len_words, s;
-
-        for (size_t i = 0; i < size_words; i++) {
-                switch (be32toh(cursor[i])) {
-                case FDT_BEGIN_NODE:
-                        if (i + 1 >= size_words || cursor[++i] != 0)
-                                return NULL;
-                        break;
-                case FDT_NOP:
-                        break;
-                case FDT_PROP:
-                        /* At least 3 words should present: len, name_off, c (nul-terminated string always has non-zero length) */
-                        if (i + 3 >= size_words)
-                                return NULL;
-                        len = be32toh(cursor[++i]);
-                        name_off = be32toh(cursor[++i]);
-                        len_words = DIV_ROUND_UP(len, sizeof(uint32_t));
-
-                        if (ADD_SAFE(&s, name_off, STRLEN("compatible")) &&
-                            s < strings_size && streq8(strings_block + name_off, "compatible")) {
-                                const char *c = (const char *) &cursor[++i];
-                                if (len == 0 || i + len_words > size_words || c[len - 1] != '\0')
-                                        c = NULL;
-
-                                return c;
-                        }
-                        i += len_words;
-                        break;
-                default:
-                        return NULL;
-                }
-        }
-
-        return NULL;
+        return compatible;
 }
+#endif
 
 bool firmware_devicetree_exists(void) {
         return !!find_configuration_table(MAKE_GUID_PTR(EFI_DTB_TABLE));
@@ -198,36 +158,38 @@ bool firmware_devicetree_exists(void) {
  * Other entries might refer to SoC and therefore can't be used for matching
  */
 EFI_STATUS devicetree_match(const void *uki_dtb, size_t uki_dtb_length) {
+#if HAVE_LIBFDT
         const void *fw_dtb = find_configuration_table(MAKE_GUID_PTR(EFI_DTB_TABLE));
         if (!fw_dtb)
                 return EFI_UNSUPPORTED;
 
-        const char *fw_compat = devicetree_get_compatible(fw_dtb);
+        if ((uintptr_t) fw_dtb % alignof(struct fdt_header) != 0 || fdt_check_header(fw_dtb) < 0)
+                return EFI_UNSUPPORTED;
+
+        const char *fw_compat = devicetree_get_compatible(fw_dtb, fdt_totalsize(fw_dtb));
         if (!fw_compat)
                 return EFI_UNSUPPORTED;
 
         return devicetree_match_by_compatible(uki_dtb, uki_dtb_length, fw_compat);
+#else
+        return EFI_UNSUPPORTED;
+#endif
 }
 
 EFI_STATUS devicetree_match_by_compatible(const void *uki_dtb, size_t uki_dtb_length, const char *compat) {
-        if ((uintptr_t) uki_dtb % alignof(FdtHeader) != 0)
-                return EFI_INVALID_PARAMETER;
-
-        const FdtHeader *dt_header = ASSERT_PTR(uki_dtb);
-
-        if (uki_dtb_length < sizeof(FdtHeader) ||
-            uki_dtb_length < be32toh(dt_header->total_size))
-                return EFI_INVALID_PARAMETER;
-
+#if HAVE_LIBFDT
         if (!compat)
                 return EFI_INVALID_PARAMETER;
 
-        const char *dt_compat = devicetree_get_compatible(uki_dtb);
+        const char *dt_compat = devicetree_get_compatible(uki_dtb, uki_dtb_length);
         if (!dt_compat)
                 return EFI_INVALID_PARAMETER;
 
         /* Only matches the first compatible string from each DT */
         return streq8(dt_compat, compat) ? EFI_SUCCESS : EFI_NOT_FOUND;
+#else
+        return EFI_UNSUPPORTED;
+#endif
 }
 
 EFI_STATUS devicetree_install_from_memory(
@@ -250,6 +212,113 @@ EFI_STATUS devicetree_install_from_memory(
         memcpy(PHYSICAL_ADDRESS_TO_POINTER(state->addr), dtb_buffer, dtb_length);
 
         err = devicetree_fixup(state, dtb_length);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        return BS->InstallConfigurationTable(
+                        MAKE_GUID_PTR(EFI_DTB_TABLE), PHYSICAL_ADDRESS_TO_POINTER(state->addr));
+}
+
+EFI_STATUS devicetree_apply_overlay(
+                struct devicetree_state *state,
+                EFI_FILE *root_dir,
+                char16_t *name) {
+
+#if HAVE_LIBFDT
+        _cleanup_free_ char *overlay = NULL;
+        size_t overlay_len;
+        EFI_STATUS err;
+        int fdterr;
+
+        assert(state);
+        assert(root_dir);
+        assert(name);
+
+        /* If no base devicetree has been installed yet, use the firmware-provided one */
+        if (!state->pages) {
+                void *fw_dtb = find_configuration_table(MAKE_GUID_PTR(EFI_DTB_TABLE));
+                if (!fw_dtb)
+                        return log_error_status(EFI_NOT_FOUND,
+                                        "No base devicetree available for overlay %ls", name);
+
+                const struct fdt_header *h = fw_dtb;
+                size_t fw_size = be32toh(h->totalsize);
+
+                state->orig = fw_dtb;
+
+                err = devicetree_allocate(state, fw_size + EFI_PAGE_SIZE);
+                if (err != EFI_SUCCESS)
+                        return err;
+
+                memcpy(PHYSICAL_ADDRESS_TO_POINTER(state->addr), fw_dtb, fw_size);
+
+                fdterr = fdt_open_into(PHYSICAL_ADDRESS_TO_POINTER(state->addr),
+                                       PHYSICAL_ADDRESS_TO_POINTER(state->addr),
+                                       devicetree_allocated(state));
+                if (fdterr < 0)
+                        return log_error_status(EFI_LOAD_ERROR,
+                                        "Failed to open firmware devicetree for overlay: fdt error %d", fdterr);
+
+                err = BS->InstallConfigurationTable(
+                                MAKE_GUID_PTR(EFI_DTB_TABLE),
+                                PHYSICAL_ADDRESS_TO_POINTER(state->addr));
+                if (err != EFI_SUCCESS)
+                        return err;
+        }
+
+        err = file_read(root_dir, name, 0, 1 * 1024 * 1024, &overlay, &overlay_len);
+        if (err != EFI_SUCCESS)
+                return err;
+        if (overlay_len < FDT_V1_SIZE)
+                return EFI_INVALID_PARAMETER;
+
+        /* Ensure the base DTB has enough space for the overlay.
+         * We need to potentially reallocate with more headroom. */
+        void *base = PHYSICAL_ADDRESS_TO_POINTER(state->addr);
+        const struct fdt_header *base_hdr = base;
+        size_t current_size = be32toh(base_hdr->totalsize);
+        size_t needed = current_size + overlay_len + 4 * EFI_PAGE_SIZE;
+        size_t allocated = devicetree_allocated(state);
+
+        if (needed > allocated) {
+                EFI_PHYSICAL_ADDRESS oldaddr = state->addr;
+                size_t oldpages = state->pages;
+
+                err = devicetree_allocate(state, needed);
+                if (err != EFI_SUCCESS)
+                        return err;
+
+                memcpy(PHYSICAL_ADDRESS_TO_POINTER(state->addr),
+                       PHYSICAL_ADDRESS_TO_POINTER(oldaddr), current_size);
+                BS->FreePages(oldaddr, oldpages);
+
+                base = PHYSICAL_ADDRESS_TO_POINTER(state->addr);
+        }
+
+        fdterr = fdt_open_into(base, base, devicetree_allocated(state));
+        if (fdterr < 0)
+                return log_error_status(EFI_LOAD_ERROR,
+                                "Failed to prepare devicetree for overlay: fdt error %d", fdterr);
+
+        fdterr = fdt_overlay_apply(base, overlay);
+        if (fdterr < 0)
+                return log_error_status(EFI_LOAD_ERROR,
+                                "Failed to apply devicetree overlay %ls: fdt error %d", name, fdterr);
+
+        return EFI_SUCCESS;
+#else
+        return EFI_UNSUPPORTED;
+#endif
+}
+
+EFI_STATUS devicetree_install(struct devicetree_state *state) {
+        assert(state);
+        assert(state->pages);
+
+        void *dtb = PHYSICAL_ADDRESS_TO_POINTER(state->addr);
+        size_t len = be32toh(((struct fdt_header *) dtb)->totalsize);
+
+        EFI_STATUS err = devicetree_fixup(state, len);
         if (err != EFI_SUCCESS)
                 return err;
 
