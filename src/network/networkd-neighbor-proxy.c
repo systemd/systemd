@@ -190,62 +190,49 @@ int config_parse_neighbor_proxy_address(
                 void *data,
                 void *userdata) {
 
-        _cleanup_free_ struct in_addr_data *address = NULL;
-        Network *network = ASSERT_PTR(userdata);
-        int family = ltype;
-        union in_addr_union buffer = {};
+        Set **neighbor_proxy_addresses = ASSERT_PTR(data);
         int r;
 
-        assert(IN_SET(family, AF_INET, AF_INET6));
         assert(filename);
         assert(lvalue);
         assert(rvalue);
 
         if (isempty(rvalue)) {
-                /* Drop only entries belonging to this family, so that
-                 * IPv4ProxyARPAddress= and IPv6ProxyNDPAddress= can be reset independently. */
-                network_drop_neighbor_proxy_addresses(network, family);
+                *neighbor_proxy_addresses = set_free(*neighbor_proxy_addresses);
                 return 0;
         }
 
-        r = in_addr_from_string(family, rvalue, &buffer);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse %s, ignoring: %s", lvalue, rvalue);
-                return 0;
-        }
+        struct in_addr_data a;
+        r = in_addr_from_string_auto(rvalue, &a.family, &a.address);
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
-        if (in_addr_is_null(family, &buffer)) {
+        if (in_addr_is_null(a.family, &a.address)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "%s cannot be the ANY address, ignoring: %s", lvalue, rvalue);
+                           "%s= cannot be the ANY address, ignoring: %s", lvalue, rvalue);
                 return 0;
         }
 
         /* Reject address classes that do not qualify as proxy targets and that the kernel would
          * reject: multicast for both families, plus the IPv4 limited broadcast 255.255.255.255. */
-        if (in_addr_is_multicast(family, &buffer) > 0) {
+        if (in_addr_is_multicast(a.family, &a.address) > 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "%s cannot be a multicast address, ignoring: %s", lvalue, rvalue);
+                           "%s= cannot be a multicast address, ignoring: %s", lvalue, rvalue);
                 return 0;
         }
 
-        if (family == AF_INET && buffer.in.s_addr == htobe32(INADDR_BROADCAST)) {
+        if (a.family == AF_INET && a.address.in.s_addr == htobe32(INADDR_BROADCAST)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "%s cannot be the limited broadcast address, ignoring: %s",
+                           "%s= cannot be the limited broadcast address, ignoring: %s",
                            lvalue, rvalue);
                 return 0;
         }
 
-        address = new(struct in_addr_data, 1);
-        if (!address)
+        struct in_addr_data *copied = newdup(struct in_addr_data, &a, 1);
+        if (!copied)
                 return log_oom();
 
-        *address = (struct in_addr_data) {
-                .family = family,
-                .address = buffer,
-        };
-
-        r = set_ensure_consume(&network->neighbor_proxy_addresses, &in_addr_data_hash_ops_free, TAKE_PTR(address));
+        r = set_ensure_consume(neighbor_proxy_addresses, &in_addr_data_hash_ops_free, copied);
         if (r < 0)
                 return log_oom();
 
