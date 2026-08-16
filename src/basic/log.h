@@ -22,6 +22,14 @@ typedef enum LogTarget{
         _LOG_TARGET_INVALID = -EINVAL,
 } LogTarget;
 
+typedef struct LogSyntaxRecord {
+        int priority;
+        const char *message;
+        const char *unit;
+        const char *config_file;
+        unsigned config_line;
+} LogSyntaxRecord;
+
 /* This log level disables logging completely. It can only be passed to log_set_max_level() and cannot be
  * used as a regular log level. */
 #define LOG_NULL (LOG_EMERG - 1)
@@ -31,13 +39,12 @@ assert_cc(LOG_NULL == -1);
 #define IS_SYNTHETIC_ERRNO(val)             (((val) >> 30) == 1)
 #define ERRNO_VALUE(val)                    (ABS(val) & ~(1 << 30))
 
-/* The callback function to be invoked when syntax warnings are seen
- * in the unit files. */
-typedef void (*log_syntax_callback_t)(const char *unit, int level, void *userdata);
+/* The record and its strings are borrowed and only valid for the duration of the callback. */
+typedef void (*log_syntax_callback_t)(const LogSyntaxRecord *record, void *userdata);
 void set_log_syntax_callback(log_syntax_callback_t cb, void *userdata);
 
 static inline void clear_log_syntax_callback(dummy_t *dummy) {
-          set_log_syntax_callback(/* cb= */ NULL, /* userdata= */ NULL);
+        set_log_syntax_callback(/* cb= */ NULL, /* userdata= */ NULL);
 }
 
 DECLARE_STRING_TABLE_LOOKUP(log_target, LogTarget);
@@ -50,6 +57,7 @@ void log_settle_target(void);
 int log_set_max_level(int level);
 int log_set_max_level_from_string(const char *e);
 int log_get_max_level(void) _pure_;
+bool log_syntax_enabled(int level) _pure_;
 int log_get_target_max_level(LogTarget target);
 int log_max_levels_to_string(int level, char **ret);
 
@@ -365,7 +373,7 @@ int log_syntax_parse_error_internal(
 #define log_syntax(unit, level, config_file, config_line, error, ...)   \
         ({                                                              \
                 int _level = (level), _e = (error);                     \
-                (log_get_max_level() >= LOG_PRI(_level))                \
+                log_syntax_enabled(_level)                              \
                         ? log_syntax_internal(unit, _level, config_file, config_line, _e, PROJECT_FILE, __LINE__, __func__, __VA_ARGS__) \
                         : -ERRNO_VALUE(_e);                             \
         })
@@ -373,7 +381,7 @@ int log_syntax_parse_error_internal(
 #define log_syntax_invalid_utf8(unit, level, config_file, config_line, rvalue) \
         ({                                                              \
                 int _level = (level);                                   \
-                (log_get_max_level() >= LOG_PRI(_level))                \
+                log_syntax_enabled(_level)                              \
                         ? log_syntax_invalid_utf8_internal(unit, _level, config_file, config_line, PROJECT_FILE, __LINE__, __func__, rvalue) \
                         : -EINVAL;                                      \
         })
