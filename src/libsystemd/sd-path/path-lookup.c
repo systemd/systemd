@@ -403,30 +403,33 @@ bool path_is_valid_search_path(const char *path) {
                  !strstr(path, "::"));
 }
 
-static int get_paths_from_environ(const char *var, char ***ret) {
-        const char *e;
+static int get_paths_from_environment_value(const char *value, char ***ret) {
         int r;
 
-        assert(var);
         assert(ret);
 
-        e = getenv(var);
-        if (!e) {
+        if (!value) {
                 *ret = NULL;
                 return 0;
         }
 
-        if (!path_is_valid_search_path(e))
+        if (!path_is_valid_search_path(value))
                 return -EINVAL;
 
-        bool append = endswith(e, ":"); /* Whether to append the normal search paths after what's obtained
-                                           from envvar */
+        /* Whether to append the normal search paths after what's obtained from envvar. */
+        bool append = endswith(value, ":");
 
-        r = path_split_and_make_absolute(e, ret);
+        r = path_split_and_make_absolute(value, ret);
         if (r < 0)
                 return r;
 
         return append;
+}
+
+static int get_paths_from_environ(const char *var, char ***ret) {
+        assert(var);
+
+        return get_paths_from_environment_value(getenv(var), ret);
 }
 
 static char** user_unit_search_dirs(
@@ -498,11 +501,12 @@ static char** user_unit_search_dirs(
         return TAKE_PTR(paths);
 }
 
-int lookup_paths_init(
+int lookup_paths_init_full(
                 LookupPaths *lp,
                 RuntimeScope scope,
                 LookupPathsFlags flags,
-                const char *root_dir) {
+                const char *root_dir,
+                const char *unit_path_override) {
 
         _cleanup_(rmdir_and_freep) char *tempdir = NULL;
         _cleanup_free_ char
@@ -575,7 +579,8 @@ int lookup_paths_init(
                 return r;
 
         /* First priority is whatever has been passed to us via env vars */
-        r = get_paths_from_environ("SYSTEMD_UNIT_PATH", &paths);
+        r = unit_path_override ? get_paths_from_environment_value(unit_path_override, &paths)
+                               : get_paths_from_environ("SYSTEMD_UNIT_PATH", &paths);
         if (r < 0)
                 return r;
 
@@ -723,10 +728,29 @@ int lookup_paths_init(
         return 0;
 }
 
+int lookup_paths_init(
+                LookupPaths *lp,
+                RuntimeScope scope,
+                LookupPathsFlags flags,
+                const char *root_dir) {
+
+        return lookup_paths_init_full(lp, scope, flags, root_dir, /* unit_path_override= */ NULL);
+}
+
 int lookup_paths_init_or_warn(LookupPaths *lp, RuntimeScope scope, LookupPathsFlags flags, const char *root_dir) {
+        return lookup_paths_init_or_warn_full(lp, scope, flags, root_dir, /* unit_path_override= */ NULL);
+}
+
+int lookup_paths_init_or_warn_full(
+                LookupPaths *lp,
+                RuntimeScope scope,
+                LookupPathsFlags flags,
+                const char *root_dir,
+                const char *unit_path_override) {
+
         int r;
 
-        r = lookup_paths_init(lp, scope, flags, root_dir);
+        r = lookup_paths_init_full(lp, scope, flags, root_dir, unit_path_override);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize unit search paths%s%s: %m",
                                        isempty(root_dir) ? "" : " for root directory ", strempty(root_dir));
