@@ -2,6 +2,8 @@
 
 #include <sys/stat.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "build.h"
 #include "chase.h"
@@ -9,19 +11,23 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "format-table.h"
 #include "label-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "options.h"
 #include "parse-argument.h"
-#include "pretty-print.h"
 #include "string-util.h"
 #include "time-util.h"
+#include "verbs.h"
 
 static char *arg_root = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
+
+COMMAND(
+        "systemd-update-done\0",
+        "Mark /etc/ and /var/ as fully updated.",
+        .man_pages = "systemd-update-done.8\0",
+);
 
 static int save_timestamp(const char *dir, struct timespec *ts) {
         _cleanup_free_ char *message = NULL, *dirpath = NULL;
@@ -62,35 +68,6 @@ static int save_timestamp(const char *dir, struct timespec *ts) {
         return 0;
 }
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-update-done", "8", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        printf("%s [OPTIONS...]\n"
-               "\n%sMark /etc/ and /var/ as fully updated.%s\n"
-               "\n%sOptions:%s\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal(),
-               ansi_underline(),
-               ansi_normal());
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
-
 static int parse_argv(int argc, char *argv[]) {
         int r;
 
@@ -102,7 +79,7 @@ static int parse_argv(int argc, char *argv[]) {
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-update-done");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -112,6 +89,9 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (option_parser_get_n_args(&opts) > 0)
