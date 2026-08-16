@@ -18,7 +18,6 @@
 #include "networkd-lldp-tx.h"
 #include "networkd-manager.h"
 #include "networkd-ndisc.h"
-#include "networkd-neighbor-proxy.h"
 #include "networkd-network.h"
 #include "networkd-sysctl.h"
 #include "path-util.h"
@@ -281,11 +280,6 @@ static int link_set_proxy_arp(Link *link) {
 
         if (link->network->proxy_arp >= 0)
                 v = link->network->proxy_arp;
-        else if (network_has_neighbor_proxy_address(link->network, AF_INET))
-                /* If IPv4ProxyARP= is not explicitly set, but per-address IPv4ProxyARPAddress=
-                 * entries are configured, implicitly enable the proxy_arp sysctl. This matches
-                 * the behavior of IPv6ProxyNDPAddress= which implies IPv6ProxyNDP=yes. */
-                v = true;
         else
                 return 0;
 
@@ -522,8 +516,6 @@ static int link_set_ipv6_proxy_ndp(Link *link) {
 
         if (link->network->ipv6_proxy_ndp >= 0)
                 v = link->network->ipv6_proxy_ndp;
-        else if (network_has_neighbor_proxy_address(link->network, AF_INET6))
-                v = true;
         else
                 return 0;
 

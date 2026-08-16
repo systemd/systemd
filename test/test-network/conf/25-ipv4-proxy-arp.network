@@ -3,6 +3,7 @@
 Name=dummy98
 
 [Network]
+IPv6ProxyNDP=no
 ProxyNeighbor=192.0.2.1
 ProxyNeighbor=192.0.2.2
 ProxyNeighbor=192.0.2.3
