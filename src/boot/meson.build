@@ -456,11 +456,11 @@ foreach efi_elf_binary : efi_elf_binaries
         # For the addon, given it's empty, we need to explicitly reserve space in the header to account for
         # the sections that ukify will add.
         if name.startswith('linux')
-                minimum_sections = get_option('efi-stub-extra-sections')
+                extra_sections = get_option('efi-stub-extra-sections')
         elif name.startswith('addon')
-                minimum_sections = get_option('efi-addon-extra-sections')
+                extra_sections = get_option('efi-addon-extra-sections')
         else
-                minimum_sections = 0
+                extra_sections = 0
         endif
 
         exe = custom_target(
@@ -476,7 +476,7 @@ foreach efi_elf_binary : efi_elf_binaries
                         '--efi-major=1',
                         '--efi-minor=1',
                         '--subsystem=10',
-                        f'--minimum-sections=@minimum_sections@',
+                        f'--extra-sections=@extra_sections@',
                         '--copy-sections=.sbat,.sdmagic,.osrel',
                         '@INPUT@',
                         '@OUTPUT@',

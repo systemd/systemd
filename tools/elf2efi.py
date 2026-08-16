@@ -454,7 +454,7 @@ def convert_elf_relocations(
     file: elffile.ELFFile,
     opt: PeOptionalHeader,
     sections: list[PeSection],
-    minimum_sections: int,
+    extra_sections: int,
 ) -> typing.Optional[PeSection]:
     dynamic = file.get_section_by_name('.dynamic')
     if dynamic is None:
@@ -476,7 +476,7 @@ def convert_elf_relocations(
         + len(PE_MAGIC)
         + sizeof(PeCoffHeader)
         + sizeof(opt)
-        + sizeof(PeSection) * max(len(sections) + 1, minimum_sections),
+        + sizeof(PeSection) * (len(sections) + 1 + extra_sections),
         FILE_ALIGNMENT,
     )
 
@@ -602,7 +602,7 @@ def elf2efi(args: argparse.Namespace) -> None:
 
     sections = convert_sections(file, opt)
     copy_sections(file, opt, args.copy_sections, sections)
-    pe_reloc_s = convert_elf_relocations(file, opt, sections, args.minimum_sections)
+    pe_reloc_s = convert_elf_relocations(file, opt, sections, args.extra_sections)
 
     coff.Machine = pe_arch
     coff.NumberOfSections = len(sections)
@@ -681,10 +681,10 @@ def create_parser() -> argparse.ArgumentParser:
         help='Output PE/EFI file',
     )
     parser.add_argument(
-        '--minimum-sections',
+        '--extra-sections',
         type=int,
         default=0,
-        help='Minimum number of sections to leave space for',
+        help='Number of additional section header slots to reserve space for',
     )
     parser.add_argument(
         '--copy-sections',
