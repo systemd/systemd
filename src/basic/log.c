@@ -73,6 +73,18 @@ static bool prohibit_ipc = false;
 
 static thread_local const char *log_prefix = NULL;
 
+struct LogObserver {
+        LogObserver *previous;
+        LogObserverCallback callback;
+        void *userdata;
+        LogObserverFlags flags;
+        int max_level;
+        int error;
+        bool busy;
+};
+
+static thread_local LogObserver *log_observer = NULL;
+
 #if LOG_MESSAGE_VERIFICATION || defined(__COVERITY__)
 bool _log_message_dummy = false; /* Always false */
 #endif
@@ -91,6 +103,98 @@ void log_prefix_swap(const char **prefix) {
         assert(prefix);
 
         SWAP_TWO(log_prefix, *prefix);
+}
+
+static bool log_observer_matches(int level) {
+        return log_observer &&
+                !log_observer->busy &&
+                LOG_PRI(level) <= log_observer->max_level;
+}
+
+bool log_level_enabled(int level) {
+        return LOG_PRI(level) <= log_max_level || log_observer_matches(level);
+}
+
+LogObserver* log_observer_new(
+                int max_level,
+                LogObserverFlags flags,
+                LogObserverCallback callback,
+                void *userdata) {
+
+        assert(max_level == LOG_NULL || log_level_is_valid(max_level));
+        assert(!(flags & ~LOG_OBSERVER_SUPPRESS));
+        assert(callback);
+
+        LogObserver *observer = new(LogObserver, 1);
+        if (!observer)
+                return NULL;
+
+        *observer = (LogObserver) {
+                .previous = log_observer,
+                .callback = callback,
+                .userdata = userdata,
+                .flags = flags,
+                .max_level = max_level,
+        };
+
+        log_observer = observer;
+        return observer;
+}
+
+LogObserver* log_observer_free(LogObserver *observer) {
+        if (!observer)
+                return NULL;
+
+        assert(log_observer == observer);
+        log_observer = observer->previous;
+
+        return mfree(observer);
+}
+
+int log_observer_get_error(const LogObserver *observer) {
+        assert(observer);
+
+        return observer->error;
+}
+
+static bool log_observer_suppress(LogObserver *observer) {
+        return FLAGS_SET(observer->flags, LOG_OBSERVER_SUPPRESS);
+}
+
+static bool log_observer_dispatch(const LogRecord *record) {
+        LogObserver *observer = log_observer;
+
+        assert(record);
+
+        if (!log_observer_matches(record->priority))
+                return false;
+
+        if (observer->error >= 0) {
+                PROTECT_ERRNO;
+
+                observer->busy = true;
+                int r = observer->callback(record, observer->userdata);
+                observer->busy = false;
+
+                if (r < 0)
+                        observer->error = r;
+        }
+
+        return log_observer_suppress(observer);
+}
+
+static bool log_observer_fail(int level, int error) {
+        LogObserver *observer = log_observer;
+
+        assert(error < 0);
+
+        if (!log_observer_matches(level))
+                return false;
+
+        if (observer->error >= 0)
+                observer->error = error;
+
+        return log_observer_suppress(observer);
 }
 
 static void log_close_console(void) {
@@ -757,7 +861,7 @@ static int write_to_journal(
         return 1;
 }
 
-int log_dispatch_internal(
+static int log_dispatch_internal_impl(
                 int level,
                 int error,
                 const char *file,
@@ -767,19 +871,20 @@ int log_dispatch_internal(
                 const char *object,
                 const char *extra_field,
                 const char *extra,
-                char *buffer) {
+                char *buffer,
+                bool observe) {
 
         assert_raw(buffer);
 
-        if (log_target == LOG_TARGET_NULL)
+        if (!log_observer_matches(level) &&
+            (LOG_PRI(level) > log_max_level || log_target == LOG_TARGET_NULL))
                 return -ERRNO_VALUE(error);
 
         /* Patch in LOG_DAEMON facility if necessary */
         if (LOG_FAC(level) == 0)
                 level |= log_facility;
 
-        if (open_when_needed)
-                (void) log_open();
+        bool opened = false;
 
         do {
                 char *e;
@@ -792,6 +897,28 @@ int log_dispatch_internal(
 
                 if ((e = strpbrk(buffer, NEWLINE)))
                         *(e++) = 0;
+
+                bool suppress = observe && log_observer_dispatch(&(LogRecord) {
+                                .type = LOG_RECORD_PLAIN,
+                                .priority = LOG_PRI(level),
+                                .message = buffer,
+                                .message_size = strlen(buffer),
+                                .prefix = log_prefix,
+                                .object_field = object_field,
+                                .object = object,
+                                .extra_field = extra_field,
+                                .extra = extra,
+                        });
+
+                if (suppress || LOG_PRI(level) > log_max_level || log_target == LOG_TARGET_NULL) {
+                        buffer = e;
+                        continue;
+                }
+
+                if (open_when_needed && !opened) {
+                        (void) log_open();
+                        opened = true;
+                }
 
                 if (IN_SET(log_target, LOG_TARGET_AUTO,
                                        LOG_TARGET_JOURNAL_OR_KMSG,
@@ -832,10 +959,31 @@ int log_dispatch_internal(
                 buffer = e;
         } while (buffer);
 
-        if (open_when_needed)
+        if (opened)
                 log_close();
 
         return -ERRNO_VALUE(error);
+}
+
+int log_dispatch_internal(
+                int level,
+                int error,
+                const char *file,
+                int line,
+                const char *func,
+                const char *object_field,
+                const char *object,
+                const char *extra_field,
+                const char *extra,
+                char *buffer) {
+
+        return log_dispatch_internal_impl(
+                        level, error,
+                        file, line, func,
+                        object_field, object,
+                        extra_field, extra,
+                        buffer,
+                        /* observe= */ true);
 }
 
 int log_dump_internal(
@@ -850,7 +998,7 @@ int log_dump_internal(
 
         /* This modifies the buffer... */
 
-        if (_likely_(LOG_PRI(level) > log_max_level))
+        if (_likely_(!log_level_enabled(level)))
                 return -ERRNO_VALUE(error);
 
         return log_dispatch_internal(level, error, file, line, func, NULL, NULL, NULL, NULL, buffer);
@@ -865,7 +1013,7 @@ int log_internalv(
                 const char *format,
                 va_list ap) {
 
-        if (_likely_(LOG_PRI(level) > log_max_level))
+        if (_likely_(!log_level_enabled(level)))
                 return -ERRNO_VALUE(error);
 
         /* Make sure that %m maps to the specified error (or "Success"). */
@@ -910,7 +1058,7 @@ int log_object_internalv(
 
         char *buffer, *b;
 
-        if (_likely_(LOG_PRI(level) > log_max_level))
+        if (_likely_(!log_level_enabled(level)))
                 return -ERRNO_VALUE(error);
 
         /* Make sure that %m maps to the specified error (or "Success"). */
@@ -978,7 +1126,7 @@ int log_format_iovec(
                 r = vasprintf(&m, format, aq);
                 va_end(aq);
                 if (r < 0)
-                        return -EINVAL;
+                        return -ENOMEM;
 
                 /* Now, jump enough ahead, so that we point to
                  * the next format string */
@@ -990,7 +1138,36 @@ int log_format_iovec(
 
                 format = va_arg(ap, char *);
         }
+
         return 0;
+}
+
+static bool log_observer_dispatch_structured(
+                int level,
+                const struct iovec *fields,
+                size_t n_fields) {
+
+        if (!log_observer_matches(level))
+                return false;
+
+        const char *message = NULL;
+        size_t message_size = 0;
+
+        for (size_t i = 0; i < n_fields; i++)
+                if (memory_startswith(fields[i].iov_base, fields[i].iov_len, "MESSAGE=")) {
+                        message = (const char*) fields[i].iov_base + STRLEN("MESSAGE=");
+                        message_size = fields[i].iov_len - STRLEN("MESSAGE=");
+                        break;
+                }
+
+        return log_observer_dispatch(&(LogRecord) {
+                        .type = LOG_RECORD_STRUCTURED,
+                        .priority = LOG_PRI(level),
+                        .message = message,
+                        .message_size = message_size,
+                        .fields = fields,
+                        .n_fields = n_fields,
+                });
 }
 
 int log_struct_internal(
@@ -1006,12 +1183,43 @@ int log_struct_internal(
         PROTECT_ERRNO;
         va_list ap;
 
-        if (_likely_(LOG_PRI(level) > log_max_level) ||
-            log_target == LOG_TARGET_NULL)
+        if (_likely_(!log_level_enabled(level)))
                 return -ERRNO_VALUE(error);
 
         if (LOG_FAC(level) == 0)
                 level |= log_facility;
+
+        bool suppress = false;
+        if (log_observer_matches(level)) {
+                struct iovec iovec[IOVEC_MAX + 2];
+                size_t n = 0;
+                int r;
+
+                va_start(ap, format);
+                DISABLE_WARNING_FORMAT_NONLITERAL;
+                r = log_format_iovec(
+                                iovec, ELEMENTSOF(iovec), &n,
+                                /* newline_separator= */ false,
+                                error,
+                                format,
+                                ap);
+                REENABLE_WARNING;
+                va_end(ap);
+
+                if (r >= 0 && n > IOVEC_MAX)
+                        r = -E2BIG;
+
+                if (r < 0)
+                        suppress = log_observer_fail(level, r);
+                else
+                        suppress = log_observer_dispatch_structured(level, iovec, n);
+
+                for (size_t i = 0; i < n; i++)
+                        free(iovec[i].iov_base);
+        }
+
+        if (suppress || LOG_PRI(level) > log_max_level || log_target == LOG_TARGET_NULL)
+                return -ERRNO_VALUE(error);
 
         if (IN_SET(log_target,
                    LOG_TARGET_AUTO,
@@ -1103,7 +1311,13 @@ int log_struct_internal(
                 return -ERRNO_VALUE(error);
         }
 
-        return log_dispatch_internal(level, error, file, line, func, NULL, NULL, NULL, NULL, buf + 8);
+        return log_dispatch_internal_impl(
+                        level, error,
+                        file, line, func,
+                        /* object_field= */ NULL, /* object= */ NULL,
+                        /* extra_field= */ NULL, /* extra= */ NULL,
+                        buf + STRLEN("MESSAGE="),
+                        /* observe= */ false);
 }
 
 int log_struct_iovec_internal(
@@ -1117,12 +1331,15 @@ int log_struct_iovec_internal(
 
         PROTECT_ERRNO;
 
-        if (_likely_(LOG_PRI(level) > log_max_level) ||
-            log_target == LOG_TARGET_NULL)
+        if (_likely_(!log_level_enabled(level)))
                 return -ERRNO_VALUE(error);
 
         if (LOG_FAC(level) == 0)
                 level |= log_facility;
+
+        bool suppress = log_observer_dispatch_structured(level, input_iovec, n_input_iovec);
+        if (suppress || LOG_PRI(level) > log_max_level || log_target == LOG_TARGET_NULL)
+                return -ERRNO_VALUE(error);
 
         if (IN_SET(log_target, LOG_TARGET_AUTO,
                                LOG_TARGET_JOURNAL_OR_KMSG,
@@ -1168,7 +1385,13 @@ int log_struct_iovec_internal(
                         m = strndupa_safe((char*) input_iovec[i].iov_base + STRLEN("MESSAGE="),
                                           input_iovec[i].iov_len - STRLEN("MESSAGE="));
 
-                        return log_dispatch_internal(level, error, file, line, func, NULL, NULL, NULL, NULL, m);
+                        return log_dispatch_internal_impl(
+                                        level, error,
+                                        file, line, func,
+                                        /* object_field= */ NULL, /* object= */ NULL,
+                                        /* extra_field= */ NULL, /* extra= */ NULL,
+                                        m,
+                                        /* observe= */ false);
                 }
 
         /* Couldn't find MESSAGE=. */
@@ -1567,8 +1790,7 @@ int log_syntax_internal(
         if (log_syntax_callback)
                 log_syntax_callback(unit, level, log_syntax_callback_userdata);
 
-        if (_likely_(LOG_PRI(level) > log_max_level) ||
-            log_target == LOG_TARGET_NULL)
+        if (_likely_(!log_level_enabled(level)))
                 return -ERRNO_VALUE(error);
 
         char buffer[LINE_MAX];

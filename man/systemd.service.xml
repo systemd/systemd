@@ -1017,6 +1017,31 @@ RestartMaxDelaySec=160s</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RestartDuringCoredump=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If enabled, an automatic restart may begin as soon as the
+        service manager is notified that the service's main process is dumping core, without waiting for core
+        dump processing to finish and the dumping process to exit. Defaults to <option>no</option>. This
+        setting only changes when an automatic restart may begin: <varname>Restart=</varname>,
+        <varname>RestartPreventExitStatus=</varname>, <varname>RestartForceExitStatus=</varname>, start rate
+        limits configured with <varname>StartLimitIntervalSec=</varname> and
+        <varname>StartLimitBurst=</varname>, and the other restart policies still determine whether the
+        service is restarted. This setting cannot be combined with <varname>ExitType=cgroup</varname>.</para>
+
+        <para>The dumping process remains alive until core dump processing finishes and therefore overlaps
+        with the replacement process. Its RSS and other resource usage remain charged to the service's
+        control group, and it continues holding any file descriptors, locks, connections, and sockets it
+        created. This may prevent the replacement process from acquiring the same resources. Socket activation
+        with <varname>Accept=no</varname> is the safest arrangement, because listening sockets owned by the
+        socket unit remain available to the replacement process. In particular, services should not rely on
+        rebinding a socket they create themselves while the dumping process still exists. See
+        <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>RestartMode=</varname></term>
 
         <listitem>

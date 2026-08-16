@@ -7,6 +7,8 @@
 
 #define NOTIFY_READY_MESSAGE "READY=1\n" "STATUS=Processing requests..."
 #define NOTIFY_STOPPING_MESSAGE "STOPPING=1\n" "STATUS=Shutting down..."
+#define NOTIFY_COREDUMP_MESSAGE "X_SYSTEMD_COREDUMP=1"
+#define NOTIFY_COREDUMP_SIGNAL_PREFIX "X_SYSTEMD_COREDUMP_SIGNAL="
 
 static inline const char* notify_start(const char *start, const char *stop) {
         if (start)
@@ -33,3 +35,5 @@ int notify_reloading_full(const char *status);
 static inline int notify_reloading(void) {
         return notify_reloading_full("Reloading configuration...");
 }
+
+int notify_send_coredump(const char *socket_path, int pidfd, int signo);

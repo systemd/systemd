@@ -365,6 +365,7 @@ Most service unit settings are available for transient units.
 ✓ ExitType=
 ✓ Restart=
 ✓ RestartMode=
+✓ RestartDuringCoredump=
 ✓ BusName=
 ✓ NotifyAccess=
 ✓ USBFunctionDescriptors=

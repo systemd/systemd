@@ -67,11 +67,20 @@ UNIT="service-0-$RANDOM"
 systemd-run --remain-after-exit --unit="$UNIT" \
             --service-type=simple \
             --service-type=oneshot \
+            --property=RestartDuringCoredump=yes \
             true
 systemctl cat "$UNIT"
 grep -q "^Type=oneshot" "/run/systemd/transient/$UNIT.service"
+grep "^RestartDuringCoredump=yes$" "/run/systemd/transient/$UNIT.service" >/dev/null
+systemctl show -P RestartDuringCoredump "$UNIT" | grep '^yes$' >/dev/null
 systemctl stop "$UNIT"
 (! systemctl cat "$UNIT")
+(! systemd-run --unit="service-restart-coredump-invalid-$RANDOM" \
+               --service-type=exec \
+               --property=ExitType=cgroup \
+               --property=RestartDuringCoredump=yes \
+               --wait \
+               true)
 (! systemd-run --wait --remain-after-exit true)
 (! systemd-run --pipe --remain-after-exit true)
 

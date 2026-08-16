@@ -22,6 +22,52 @@ typedef enum LogTarget{
         _LOG_TARGET_INVALID = -EINVAL,
 } LogTarget;
 
+typedef enum LogRecordType {
+        LOG_RECORD_PLAIN,
+        LOG_RECORD_STRUCTURED,
+        _LOG_RECORD_TYPE_MAX,
+        _LOG_RECORD_TYPE_INVALID = -EINVAL,
+} LogRecordType;
+
+typedef struct LogRecord {
+        LogRecordType type;
+        int priority;
+
+        /* The message is borrowed and only valid during the callback. It is not necessarily
+         * NUL-terminated. */
+        const char *message;
+        size_t message_size;
+
+        /* These fields are only set for plain records. */
+        const char *prefix;
+        const char *object_field;
+        const char *object;
+        const char *extra_field;
+        const char *extra;
+
+        /* These are the explicit caller-supplied fields of structured records. */
+        const struct iovec *fields;
+        size_t n_fields;
+} LogRecord;
+
+typedef struct LogObserver LogObserver;
+
+typedef int (*LogObserverCallback)(const LogRecord *record, void *userdata);
+
+typedef enum LogObserverFlags {
+        LOG_OBSERVER_SUPPRESS = 1 << 0,
+} LogObserverFlags;
+
+LogObserver* log_observer_new(
+                int max_level,
+                LogObserverFlags flags,
+                LogObserverCallback callback,
+                void *userdata);
+LogObserver* log_observer_free(LogObserver *observer);
+int log_observer_get_error(const LogObserver *observer);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(LogObserver*, log_observer_free);
+
 /* This log level disables logging completely. It can only be passed to log_set_max_level() and cannot be
  * used as a regular log level. */
 #define LOG_NULL (LOG_EMERG - 1)
@@ -50,6 +96,7 @@ void log_settle_target(void);
 int log_set_max_level(int level);
 int log_set_max_level_from_string(const char *e);
 int log_get_max_level(void) _pure_;
+bool log_level_enabled(int level) _pure_;
 int log_get_target_max_level(LogTarget target);
 int log_max_levels_to_string(int level, char **ret);
 
@@ -183,7 +230,7 @@ int log_dump_internal(
 #define log_full_errno_zerook(level, error, ...)                        \
         ({                                                              \
                 int _level = (level), _e = (error);                     \
-                _e = (log_get_max_level() >= LOG_PRI(_level))           \
+                _e = log_level_enabled(_level)                          \
                         ? log_internal(_level, _e, PROJECT_FILE, __LINE__, __func__, __VA_ARGS__) \
                         : -ERRNO_VALUE(_e);                             \
                 _e < 0 ? _e : -ESTRPIPE;                                \
@@ -365,7 +412,7 @@ int log_syntax_parse_error_internal(
 #define log_syntax(unit, level, config_file, config_line, error, ...)   \
         ({                                                              \
                 int _level = (level), _e = (error);                     \
-                (log_get_max_level() >= LOG_PRI(_level))                \
+                log_level_enabled(_level)                               \
                         ? log_syntax_internal(unit, _level, config_file, config_line, _e, PROJECT_FILE, __LINE__, __func__, __VA_ARGS__) \
                         : -ERRNO_VALUE(_e);                             \
         })
@@ -373,7 +420,7 @@ int log_syntax_parse_error_internal(
 #define log_syntax_invalid_utf8(unit, level, config_file, config_line, rvalue) \
         ({                                                              \
                 int _level = (level);                                   \
-                (log_get_max_level() >= LOG_PRI(_level))                \
+                log_level_enabled(_level)                               \
                         ? log_syntax_invalid_utf8_internal(unit, _level, config_file, config_line, PROJECT_FILE, __LINE__, __func__, rvalue) \
                         : -EINVAL;                                      \
         })

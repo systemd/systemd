@@ -2762,6 +2762,99 @@ int unit_cgroup_is_empty(Unit *u) {
         return r;
 }
 
+static int cgroup_only_contains_pidref(
+                const char *path,
+                PidRef *target,
+                Set **seen_pids,
+                bool *ret_target_seen) {
+
+        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        assert(path);
+        assert(pidref_is_set(target));
+        assert(seen_pids);
+        assert(ret_target_seen);
+
+        r = cg_enumerate_processes(path, &f);
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+
+                /* An unmapped PID still means the cgroup contains another process, but cannot be compared
+                 * safely with the target. Make cg_read_pidref() report it instead of silently skipping it. */
+                r = cg_read_pidref(f, &pidref, CGROUP_DONT_SKIP_UNMAPPED);
+                if (r == 0)
+                        break;
+                if (r < 0)
+                        return r;
+
+                r = set_ensure_put(seen_pids, NULL, PID_TO_PTR(pidref.pid));
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                if (!pidref_equal(&pidref, target))
+                        return 0;
+
+                *ret_target_seen = true;
+        }
+
+        r = cg_enumerate_subgroups(path, &d);
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                _cleanup_free_ char *joined = NULL, *subgroup = NULL;
+
+                r = cg_read_subgroup(d, &subgroup);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                joined = path_join(empty_to_root(path), subgroup);
+                if (!joined)
+                        return -ENOMEM;
+
+                r = cgroup_only_contains_pidref(joined, target, seen_pids, ret_target_seen);
+                if (r <= 0)
+                        return r;
+        }
+
+        return 1;
+}
+
+int unit_cgroup_only_contains_pidref(Unit *u, const PidRef *pid) {
+        _cleanup_(pidref_done) PidRef target = PIDREF_NULL;
+        _cleanup_set_free_ Set *seen_pids = NULL;
+        bool target_seen = false;
+        int r;
+
+        assert(u);
+        assert(pidref_is_set(pid));
+
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+        if (!crt)
+                return -ENXIO;
+        if (!crt->cgroup_path)
+                return -EOWNERDEAD;
+
+        r = pidref_copy(pid, &target);
+        if (r < 0)
+                return r;
+
+        r = cgroup_only_contains_pidref(crt->cgroup_path, &target, &seen_pids, &target_seen);
+        if (r <= 0)
+                return r;
+
+        return target_seen;
+}
+
 static bool unit_maybe_release_cgroup(Unit *u) {
         int r;
 
@@ -2899,6 +2992,8 @@ int unit_search_main_pid(Unit *u, PidRef *ret) {
         if (!crt || !crt->cgroup_path)
                 return -ENXIO;
 
+        PidRef *exclude_pid = unit_lifecycle_exclude_pid(u);
+
         r = cg_enumerate_processes(crt->cgroup_path, &f);
         if (r < 0)
                 return r;
@@ -2915,6 +3010,9 @@ int unit_search_main_pid(Unit *u, PidRef *ret) {
                         break;
 
                 if (pidref_equal(&pidref, &npidref)) /* seen already, cgroupfs reports duplicates! */
+                        continue;
+
+                if (pidref_is_set(exclude_pid) && pidref_equal(exclude_pid, &npidref))
                         continue;
 
                 if (pidref_is_my_child(&npidref) <= 0) /* ignore processes further down the tree */

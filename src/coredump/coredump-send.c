@@ -5,6 +5,7 @@
 #include "coredump-context.h"
 #include "coredump-send.h"
 #include "coredump-util.h"
+#include "daemon-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
@@ -16,7 +17,23 @@
 #include "pidfd-util.h"
 #include "pidref.h"
 #include "process-util.h"
+#include "signal-util.h"
 #include "socket-util.h"
+
+#define SYSTEM_NOTIFY_SOCKET "/run/systemd/notify"
+
+void coredump_notify_manager(CoredumpContext *context) {
+        int r;
+
+        assert(context);
+
+        if (context->pidref.fd < 0 || !SIGNAL_VALID(context->signo))
+                return;
+
+        r = notify_send_coredump(SYSTEM_NOTIFY_SOCKET, context->pidref.fd, context->signo);
+        if (r < 0)
+                log_debug_errno(r, "Failed to notify service manager about in-progress coredump, ignoring: %m");
+}
 
 int coredump_send(CoredumpContext *context) {
         _cleanup_close_ int fd = -EBADF;
@@ -316,6 +333,8 @@ int coredump_send_to_container(CoredumpContext *context) {
                         _exit(EXIT_FAILURE);
 
                 (void) iovw_put_string_field(&context->iovw, "COREDUMP_FORWARDED=", "1");
+
+                coredump_notify_manager(context);
 
                 r = coredump_send(context);
                 if (r < 0) {

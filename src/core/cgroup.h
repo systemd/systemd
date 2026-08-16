@@ -429,6 +429,7 @@ void unit_prune_cgroup(Unit *u);
 void unit_add_to_cgroup_realize_queue(Unit *u);
 
 int unit_cgroup_is_empty(Unit *u);
+int unit_cgroup_only_contains_pidref(Unit *u, const PidRef *pid);
 void unit_release_cgroup(Unit *u, bool drop_cgroup_runtime);
 
 int unit_check_oomd_kill(Unit *u);

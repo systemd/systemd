@@ -216,6 +216,7 @@ Requires=
 RequiresMountsFor=
 Requisite=
 Restart=
+RestartDuringCoredump=
 RestartForceExitStatus=
 RestartKillSignal=
 RestartPreventExitStatus=

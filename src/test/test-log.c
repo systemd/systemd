@@ -1,11 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "format-util.h"
+#include "fd-util.h"
+#include "io-util.h"
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
 #include "log.h"
 #include "log-context.h"
+#include "memfd-util.h"
 #include "process-util.h"
+#include "sd-messages.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -338,6 +342,315 @@ static void test_log_prefix(void) {
         test_log_struct();
         test_long_lines();
         test_log_syntax();
+}
+
+typedef struct ObservedLogRecord {
+        LogRecordType type;
+        int priority;
+        char *message;
+        size_t message_size;
+        char *prefix;
+        char *object_field;
+        char *object;
+        char *extra_field;
+        char *extra;
+        struct iovec_wrapper fields;
+} ObservedLogRecord;
+
+typedef struct LogObserverTestContext {
+        ObservedLogRecord records[8];
+        size_t n_records;
+        unsigned n_callbacks;
+        int callback_error;
+        bool recurse;
+} LogObserverTestContext;
+
+static void observed_log_record_done(ObservedLogRecord *record) {
+        assert(record);
+
+        free(record->message);
+        free(record->prefix);
+        free(record->object_field);
+        free(record->object);
+        free(record->extra_field);
+        free(record->extra);
+        iovw_done_free(&record->fields);
+}
+
+static void log_observer_test_context_done(LogObserverTestContext *ctx) {
+        assert(ctx);
+
+        FOREACH_ARRAY(record, ctx->records, ctx->n_records)
+                observed_log_record_done(record);
+}
+
+static int log_observer_test_callback(const LogRecord *record, void *userdata) {
+        LogObserverTestContext *ctx = userdata;
+        int r;
+
+        assert(ctx);
+
+        ctx->n_callbacks++;
+
+        if (ctx->recurse)
+                log_notice("This recursive message must not be observed.");
+
+        if (ctx->callback_error < 0)
+                return ctx->callback_error;
+
+        if (ctx->n_records >= ELEMENTSOF(ctx->records))
+                return -E2BIG;
+
+        ObservedLogRecord *stored = &ctx->records[ctx->n_records];
+        *stored = (ObservedLogRecord) {
+                .type = record->type,
+                .priority = record->priority,
+                .message_size = record->message_size,
+        };
+
+        if (record->message) {
+                stored->message = memdup_suffix0(record->message, record->message_size);
+                if (!stored->message)
+                        goto oom;
+        }
+
+        r = strdup_to(&stored->prefix, record->prefix);
+        if (r < 0)
+                goto fail;
+        r = strdup_to(&stored->object_field, record->object_field);
+        if (r < 0)
+                goto fail;
+        r = strdup_to(&stored->object, record->object);
+        if (r < 0)
+                goto fail;
+        r = strdup_to(&stored->extra_field, record->extra_field);
+        if (r < 0)
+                goto fail;
+        r = strdup_to(&stored->extra, record->extra);
+        if (r < 0)
+                goto fail;
+
+        FOREACH_ARRAY(field, record->fields, record->n_fields) {
+                r = iovw_extend_iov_full(&stored->fields, /* accept_zero= */ true, field);
+                if (r < 0)
+                        goto fail;
+        }
+
+        ctx->n_records++;
+        return 0;
+
+oom:
+        r = -ENOMEM;
+fail:
+        observed_log_record_done(stored);
+        *stored = (ObservedLogRecord) {};
+        return r;
+}
+
+static bool observed_log_record_has_field(const ObservedLogRecord *record, const char *field) {
+        assert(record);
+        assert(field);
+
+        FOREACH_ARRAY(iovec, record->fields.iovec, record->fields.count)
+                if (iovec_equal(iovec, &IOVEC_MAKE_STRING(field)))
+                        return true;
+
+        return false;
+}
+
+TEST(log_observer_records) {
+        LogObserverTestContext ctx = {};
+        LogTarget old_target = log_get_target();
+        int old_max_level = log_set_max_level(LOG_NULL);
+
+        log_set_target(LOG_TARGET_NULL);
+
+        LogObserver *observer = log_observer_new(
+                        LOG_NOTICE, /* flags= */ 0, log_observer_test_callback, &ctx);
+        ASSERT_NOT_NULL(observer);
+
+        ASSERT_ERROR(log_notice_errno(EUCLEAN, "plain record: %m"), EUCLEAN);
+        ASSERT_ERROR(log_object_internal(
+                             LOG_WARNING, ENOENT,
+                             PROJECT_FILE, __LINE__, __func__,
+                             "UNIT=", "object.service",
+                             "EXTRA=", "extra",
+                             "object record"),
+                     ENOENT);
+        ASSERT_OK(log_struct(
+                          LOG_ERR,
+                          LOG_MESSAGE("structured record %i", 42),
+                          LOG_MESSAGE_ID(SD_MESSAGE_INVALID_CONFIGURATION_STR),
+                          LOG_ITEM("UNIT=%s", "structured.service")));
+
+        const struct iovec iovec[] = {
+                IOVEC_MAKE_STRING("MESSAGE=iovec record"),
+                IOVEC_MAKE_STRING("USER_UNIT=iovec.service"),
+        };
+        ASSERT_OK(log_struct_iovec(LOG_WARNING, iovec, ELEMENTSOF(iovec)));
+        ASSERT_ERROR(log_syntax(
+                             "syntax.service", LOG_WARNING, "/tmp/syntax.service", 23, EINVAL,
+                             "syntax record"),
+                     EINVAL);
+
+        ASSERT_OK(log_observer_get_error(observer));
+        observer = log_observer_free(observer);
+        log_set_target(old_target);
+        log_set_max_level(old_max_level);
+
+        ASSERT_EQ(ctx.n_callbacks, 5U);
+        ASSERT_EQ(ctx.n_records, 5U);
+
+        ASSERT_EQ(ctx.records[0].type, LOG_RECORD_PLAIN);
+        ASSERT_EQ(ctx.records[0].priority, LOG_NOTICE);
+        ASSERT_TRUE(startswith(ctx.records[0].message, "plain record:"));
+
+        ASSERT_EQ(ctx.records[1].type, LOG_RECORD_PLAIN);
+        ASSERT_EQ(ctx.records[1].priority, LOG_WARNING);
+        ASSERT_STREQ(ctx.records[1].message, "object record");
+        ASSERT_STREQ(ctx.records[1].prefix, "object.service");
+        ASSERT_STREQ(ctx.records[1].object_field, "UNIT=");
+        ASSERT_STREQ(ctx.records[1].object, "object.service");
+        ASSERT_STREQ(ctx.records[1].extra_field, "EXTRA=");
+        ASSERT_STREQ(ctx.records[1].extra, "extra");
+
+        ASSERT_EQ(ctx.records[2].type, LOG_RECORD_STRUCTURED);
+        ASSERT_EQ(ctx.records[2].priority, LOG_ERR);
+        ASSERT_STREQ(ctx.records[2].message, "structured record 42");
+        ASSERT_TRUE(observed_log_record_has_field(
+                            &ctx.records[2], "MESSAGE_ID=" SD_MESSAGE_INVALID_CONFIGURATION_STR));
+        ASSERT_TRUE(observed_log_record_has_field(&ctx.records[2], "UNIT=structured.service"));
+
+        ASSERT_EQ(ctx.records[3].type, LOG_RECORD_STRUCTURED);
+        ASSERT_EQ(ctx.records[3].priority, LOG_WARNING);
+        ASSERT_STREQ(ctx.records[3].message, "iovec record");
+        ASSERT_TRUE(observed_log_record_has_field(&ctx.records[3], "USER_UNIT=iovec.service"));
+
+        ASSERT_EQ(ctx.records[4].type, LOG_RECORD_STRUCTURED);
+        ASSERT_EQ(ctx.records[4].priority, LOG_WARNING);
+        ASSERT_TRUE(observed_log_record_has_field(&ctx.records[4], "CONFIG_FILE=/tmp/syntax.service"));
+        ASSERT_TRUE(observed_log_record_has_field(&ctx.records[4], "CONFIG_LINE=23"));
+        ASSERT_TRUE(observed_log_record_has_field(&ctx.records[4], "USER_UNIT=syntax.service"));
+
+        log_observer_test_context_done(&ctx);
+}
+
+TEST(log_observer_nested) {
+        LogObserverTestContext outer_ctx = {}, inner_ctx = {};
+        LogTarget old_target = log_get_target();
+        int old_max_level = log_set_max_level(LOG_NULL);
+
+        log_set_target(LOG_TARGET_NULL);
+
+        LogObserver *outer = log_observer_new(
+                        LOG_NOTICE, /* flags= */ 0, log_observer_test_callback, &outer_ctx);
+        ASSERT_NOT_NULL(outer);
+
+        log_notice("outer before");
+
+        LogObserver *inner = log_observer_new(
+                        LOG_NOTICE, /* flags= */ 0, log_observer_test_callback, &inner_ctx);
+        ASSERT_NOT_NULL(inner);
+        log_notice("inner");
+        inner = log_observer_free(inner);
+
+        log_notice("outer after");
+        outer = log_observer_free(outer);
+        log_notice("outside");
+
+        log_set_target(old_target);
+        log_set_max_level(old_max_level);
+
+        ASSERT_EQ(outer_ctx.n_records, 2U);
+        ASSERT_STREQ(outer_ctx.records[0].message, "outer before");
+        ASSERT_STREQ(outer_ctx.records[1].message, "outer after");
+        ASSERT_EQ(inner_ctx.n_records, 1U);
+        ASSERT_STREQ(inner_ctx.records[0].message, "inner");
+
+        log_observer_test_context_done(&outer_ctx);
+        log_observer_test_context_done(&inner_ctx);
+}
+
+TEST(log_observer_filtering_and_error) {
+        LogObserverTestContext ctx = {
+                .callback_error = -ENOMEM,
+                .recurse = true,
+        };
+        LogTarget old_target = log_get_target();
+        int old_max_level = log_set_max_level(LOG_NULL);
+
+        log_set_target(LOG_TARGET_NULL);
+
+        LogObserver *observer = log_observer_new(
+                        LOG_WARNING, /* flags= */ 0, log_observer_test_callback, &ctx);
+        ASSERT_NOT_NULL(observer);
+
+        ASSERT_TRUE(log_level_enabled(LOG_ERR));
+        ASSERT_FALSE(log_level_enabled(LOG_NOTICE));
+        ASSERT_ERROR(log_error_errno(EUCLEAN, "captured error"), EUCLEAN);
+        log_warning("callback is no longer invoked");
+        log_notice("outside the observer's severity ceiling");
+
+        ASSERT_ERROR(log_observer_get_error(observer), ENOMEM);
+        observer = log_observer_free(observer);
+        log_set_target(old_target);
+        log_set_max_level(old_max_level);
+
+        ASSERT_EQ(ctx.n_callbacks, 1U);
+        ASSERT_EQ(ctx.n_records, 0U);
+}
+
+static int run_log_observer_suppression_test(void) {
+        _cleanup_close_ int memfd = memfd_new("log-observer-suppression-test");
+        assert_se(memfd >= 0);
+
+        int r = pidref_safe_fork_full(
+                        "(log-observer-suppression-test)",
+                        (const int[3]) { -EBADF, -EBADF, memfd },
+                        /* except_fds= */ NULL,
+                        /* n_except_fds= */ 0,
+                        FORK_WAIT|FORK_LOG|FORK_REARRANGE_STDIO,
+                        /* ret= */ NULL);
+        assert_se(r >= 0);
+
+        if (r == 0) {
+                LogObserverTestContext ctx = {
+                        .callback_error = -ENOMEM,
+                };
+
+                log_close();
+                log_set_target_and_open(LOG_TARGET_CONSOLE);
+                log_set_max_level(LOG_NOTICE);
+
+                log_notice("visible before");
+
+                LogObserver *observer = log_observer_new(
+                                LOG_NOTICE, LOG_OBSERVER_SUPPRESS, log_observer_test_callback, &ctx);
+                assert_se(observer);
+                log_notice("hidden plain");
+                log_struct(LOG_WARNING, LOG_MESSAGE("hidden structured"));
+                observer = log_observer_free(observer);
+
+                log_notice("visible after");
+                _exit(0);
+        }
+
+        assert_se(lseek(memfd, 0, SEEK_SET) == 0);
+        return TAKE_FD(memfd);
+}
+
+TEST(log_observer_suppression) {
+        _cleanup_close_ int fd = run_log_observer_suppression_test();
+        char buffer[4096];
+        ssize_t n;
+
+        ASSERT_OK_POSITIVE(n = loop_read(fd, buffer, sizeof(buffer) - 1, /* do_poll= */ false));
+        buffer[n] = 0;
+
+        ASSERT_NOT_NULL(strstr(buffer, "visible before"));
+        ASSERT_NOT_NULL(strstr(buffer, "visible after"));
+        ASSERT_NULL(strstr(buffer, "hidden plain"));
+        ASSERT_NULL(strstr(buffer, "hidden structured"));
 }
 
 TEST(log_target) {

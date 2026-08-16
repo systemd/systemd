@@ -3014,13 +3014,33 @@ void unit_unwatch_pidref(Unit *u, const PidRef *pid) {
         }
 }
 
-void unit_unwatch_all_pids(Unit *u) {
+void unit_unwatch_all_pids_except(Unit *u, const PidRef *except1, const PidRef *except2) {
         assert(u);
 
-        while (!set_isempty(u->pids))
-                unit_unwatch_pidref(u, set_first(u->pids));
+        PidRef *keep1 = pidref_is_set(except1) ? set_get(u->pids, except1) : NULL;
+        PidRef *keep2 = pidref_is_set(except2) ? set_get(u->pids, except2) : NULL;
 
-        u->pids = set_free(u->pids);
+        for (;;) {
+                PidRef *pid = NULL, *p;
+
+                SET_FOREACH(p, u->pids)
+                        if (p != keep1 && p != keep2) {
+                                pid = p;
+                                break;
+                        }
+
+                if (!pid)
+                        break;
+
+                unit_unwatch_pidref(u, pid);
+        }
+
+        if (!keep1 && !keep2)
+                u->pids = set_free(u->pids);
+}
+
+void unit_unwatch_all_pids(Unit *u) {
+        unit_unwatch_all_pids_except(u, /* except1= */ NULL, /* except2= */ NULL);
 }
 
 void unit_unwatch_pidref_done(Unit *u, PidRef *pidref) {
@@ -3993,6 +4013,15 @@ void unit_notify_cgroup_oom(Unit *u, bool managed_oom) {
                 UNIT_VTABLE(u)->notify_cgroup_oom(u, managed_oom);
 }
 
+static int pidref_set_add(Set **pid_set, const PidRef *pid) {
+        assert(pid_set);
+
+        if (!pidref_is_set(pid))
+                return 0;
+
+        return set_ensure_put(pid_set, NULL, PID_TO_PTR(pid->pid));
+}
+
 static int unit_pid_set(Unit *u, Set **pid_set) {
         int r;
 
@@ -4004,14 +4033,26 @@ static int unit_pid_set(Unit *u, Set **pid_set) {
         /* Exclude the main/control pids from being killed via the cgroup */
 
         PidRef *pid;
-        FOREACH_ARGUMENT(pid, unit_main_pid(u), unit_control_pid(u))
-                if (pidref_is_set(pid)) {
-                        r = set_ensure_put(pid_set, NULL, PID_TO_PTR(pid->pid));
-                        if (r < 0)
-                                return r;
-                }
+        FOREACH_ARGUMENT(pid, unit_main_pid(u), unit_control_pid(u)) {
+                r = pidref_set_add(pid_set, pid);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
+}
+
+static int unit_pid_set_with_lifecycle_exclude(Unit *u, Set **pid_set) {
+        int r;
+
+        assert(u);
+        assert(pid_set);
+
+        r = unit_pid_set(u, pid_set);
+        if (r < 0)
+                return r;
+
+        return pidref_set_add(pid_set, unit_lifecycle_exclude_pid(u));
 }
 
 static int kill_common_log(const PidRef *pid, int signo, void *userdata) {
@@ -5074,7 +5115,7 @@ static void pids_max_restore(PidsMaxRestore *p) {
         p->cgroup_path = NULL;
 }
 
-int unit_kill_context(Unit *u, KillOperation k) {
+int unit_kill_context_full(Unit *u, KillOperation k, bool exclude_lifecycle_pid) {
         bool wait_for_exit = false, send_sighup;
         cg_kill_log_func_t log_func = NULL;
         int sig, r;
@@ -5137,7 +5178,9 @@ int unit_kill_context(Unit *u, KillOperation k) {
                 }
 
                 /* Exclude the main/control pids from being killed via the cgroup */
-                r = unit_pid_set(u, &pid_set);
+                r = exclude_lifecycle_pid ?
+                        unit_pid_set_with_lifecycle_exclude(u, &pid_set) :
+                        unit_pid_set(u, &pid_set);
                 if (r < 0)
                         return r;
 
@@ -5156,7 +5199,9 @@ int unit_kill_context(Unit *u, KillOperation k) {
                         wait_for_exit = true;
 
                         if (send_sighup) {
-                                r = unit_pid_set(u, &pid_set);
+                                r = exclude_lifecycle_pid ?
+                                        unit_pid_set_with_lifecycle_exclude(u, &pid_set) :
+                                        unit_pid_set(u, &pid_set);
                                 if (r < 0)
                                         return r;
 
@@ -5448,6 +5493,15 @@ PidRef* unit_main_pid_full(Unit *u, bool *ret_is_alien) {
 
         if (ret_is_alien)
                 *ret_is_alien = false;
+        return NULL;
+}
+
+PidRef* unit_lifecycle_exclude_pid(Unit *u) {
+        assert(u);
+
+        if (UNIT_VTABLE(u)->lifecycle_exclude_pid)
+                return UNIT_VTABLE(u)->lifecycle_exclude_pid(u);
+
         return NULL;
 }
 
@@ -6221,6 +6275,7 @@ static int unit_log_leftover_process_stop(const PidRef *pid, int sig, void *user
 }
 
 int unit_warn_leftover_processes(Unit *u, bool start) {
+        _cleanup_set_free_ Set *pid_set = NULL;
         _cleanup_free_ char *cgroup = NULL;
         int r;
 
@@ -6230,11 +6285,15 @@ int unit_warn_leftover_processes(Unit *u, bool start) {
         if (r < 0)
                 return r;
 
+        r = pidref_set_add(&pid_set, unit_lifecycle_exclude_pid(u));
+        if (r < 0)
+                return r;
+
         return cg_kill_recursive(
                         cgroup,
                         /* sig= */ 0,
                         /* flags= */ 0,
-                        /* killed_pids= */ NULL,
+                        pid_set,
                         start ? unit_log_leftover_process_start : unit_log_leftover_process_stop,
                         u);
 }

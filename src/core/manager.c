@@ -25,6 +25,7 @@
 #include "build-path.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
+#include "cgroup-util.h"
 #include "clean-ipc.h"
 #include "common-signal.h"
 #include "confidential-virt.h"
@@ -67,6 +68,7 @@
 #include "parse-util.h"
 #include "path-lookup.h"
 #include "path-util.h"
+#include "pidfd-util.h"
 #include "plymouth-util.h"
 #include "pretty-print.h"
 #include "prioq.h"
@@ -117,8 +119,22 @@
 /* How many units and jobs to process of the bus queue before returning to the event loop. */
 #define MANAGER_BUS_MESSAGE_BUDGET 100U
 
+#define MANAGER_COREDUMP_DELAY_USEC (100 * USEC_PER_MSEC)
+
 #define DEFAULT_TASKS_MAX ((const CGroupTasksMax) { 15U, 100U }) /* 15% */
 
+struct ManagerCoredump {
+        /* Store a stable identity instead of a Unit pointer, since a queued unit may be garbage-collected. */
+        char *unit_id;
+        sd_id128_t invocation_id;
+        PidRef pidref;
+        int signo;
+        bool suppress_for_retired;
+
+        LIST_FIELDS(ManagerCoredump, queue);
+};
+
+static int manager_dispatch_coredump_queue(sd_event_source *source, usec_t usec, void *userdata);
 static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static int manager_dispatch_time_change_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
@@ -132,6 +148,7 @@ static int manager_dispatch_sigchld(sd_event_source *source, void *userdata);
 static int manager_dispatch_timezone_change(sd_event_source *source, const struct inotify_event *event, void *userdata);
 static int manager_run_environment_generators(Manager *m);
 static int manager_run_generators(Manager *m);
+static void manager_clear_coredump_queue(Manager *m);
 static void manager_vacuum(Manager *m);
 
 static usec_t manager_watch_jobs_next_time(Manager *m) {
@@ -1088,6 +1105,43 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
         return 0;
 }
 
+int manager_set_unit_path_override(Manager *m, const char *path) {
+        _cleanup_free_ char *copy = NULL;
+        int r;
+
+        assert(m);
+        assert(path);
+        assert(MANAGER_IS_TEST_RUN(m));
+        assert(!m->lookup_paths.search_path);
+        assert(!m->unit_path_override);
+
+        if (!path_is_valid_search_path(path))
+                return -EINVAL;
+
+        copy = strdup(path);
+        if (!copy)
+                return -ENOMEM;
+
+        if (MANAGER_IS_USER(m)) {
+                r = strv_env_assign(&m->transient_environment, "SYSTEMD_UNIT_PATH", path);
+                if (r < 0)
+                        return r;
+        }
+
+        m->unit_path_override = TAKE_PTR(copy);
+        return 0;
+}
+
+void manager_set_unit_name_map_limit(Manager *m, size_t max_entries) {
+        assert(m);
+        assert(MANAGER_IS_TEST_RUN(m));
+        assert(!m->unit_id_map);
+        assert(!m->unit_name_map);
+        assert(!m->unit_path_cache);
+
+        m->unit_name_map_limit = max_entries;
+}
+
 static int manager_setup_notify(Manager *m) {
         int r;
 
@@ -1713,6 +1767,7 @@ Manager* manager_free(Manager *m) {
         if (!m)
                 return NULL;
 
+        manager_clear_coredump_queue(m);
         manager_clear_jobs_and_units(m);
 
         for (UnitType c = 0; c < _UNIT_TYPE_MAX; c++)
@@ -1773,6 +1828,7 @@ Manager* manager_free(Manager *m) {
         free(m->notify_socket);
 
         lookup_paths_done(&m->lookup_paths);
+        free(m->unit_path_override);
         strv_free(m->transient_environment);
         strv_free(m->client_environment);
 
@@ -2150,9 +2206,12 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, Hashmap *named_
 
         /* If we are running in test mode, we still want to run the generators,
          * but we should not touch the real generator directories. */
-        r = lookup_paths_init_or_warn(&m->lookup_paths, m->runtime_scope,
-                                      MANAGER_IS_TEST_RUN(m) ? LOOKUP_PATHS_TEMPORARY_GENERATED : 0,
-                                      root);
+        r = lookup_paths_init_or_warn_full(
+                        &m->lookup_paths,
+                        m->runtime_scope,
+                        MANAGER_IS_TEST_RUN(m) ? LOOKUP_PATHS_TEMPORARY_GENERATED : 0,
+                        root,
+                        m->unit_path_override);
         if (r < 0)
                 return r;
 
@@ -3064,6 +3123,279 @@ static int manager_get_units_for_pidref(Manager *m, const PidRef *pidref, Unit *
         return (int) n;
 }
 
+static ManagerCoredump* manager_coredump_free(ManagerCoredump *c) {
+        if (!c)
+                return NULL;
+
+        free(c->unit_id);
+        pidref_done(&c->pidref);
+        return mfree(c);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(ManagerCoredump*, manager_coredump_free);
+
+static void manager_clear_coredump_queue(Manager *m) {
+        ManagerCoredump *c;
+
+        assert(m);
+
+        m->coredump_event_source = sd_event_source_disable_unref(m->coredump_event_source);
+
+        while ((c = LIST_POP(queue, m->coredump_queue)))
+                manager_coredump_free(c);
+}
+
+static int manager_dispatch_coredump_queue(sd_event_source *source, usec_t usec, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        ManagerCoredump *c;
+
+        assert(source == m->coredump_event_source);
+
+        while ((c = LIST_POP(queue, m->coredump_queue))) {
+                _cleanup_(manager_coredump_freep) ManagerCoredump *event = c;
+                Unit *u;
+                int signo, r;
+
+                u = manager_get_unit(m, event->unit_id);
+                if (!u || u->type != UNIT_SERVICE ||
+                    !sd_id128_equal(u->invocation_id, event->invocation_id) ||
+                    !service_restart_during_coredump_matches(SERVICE(u), &event->pidref))
+                        continue;
+
+                r = pidref_get_coredump_signal(&event->pidref, &signo);
+                if (r < 0) {
+                        log_unit_debug_errno(u, r, "Failed to confirm coredump for PID " PID_FMT ", ignoring: %m",
+                                             event->pidref.pid);
+                        continue;
+                }
+                if (r == 0)
+                        continue;
+                if (signo != event->signo) {
+                        service_restart_during_coredump_suppress(
+                                        SERVICE(u),
+                                        &event->pidref,
+                                        "the reported signal did not match the live coredump signal");
+                        continue;
+                }
+
+                if (event->suppress_for_retired) {
+                        service_restart_during_coredump_suppress(
+                                        SERVICE(u),
+                                        &event->pidref,
+                                        "another retired coredump process existed when the dump was reported");
+                        continue;
+                }
+
+                service_restart_during_coredump(SERVICE(u), &event->pidref, signo);
+        }
+
+        return 0;
+}
+
+static int manager_queue_coredump(Manager *m, Service *s, PidRef *pidref, int signo) {
+        _cleanup_(manager_coredump_freep) ManagerCoredump *c = NULL;
+        Unit *u = UNIT(s);
+        int fd, r;
+
+        assert(m);
+        assert(s);
+        assert(pidref_is_set(pidref));
+        assert(pidref->fd >= 0);
+        assert(SIGNAL_VALID(signo));
+
+        LIST_FOREACH(queue, queued, m->coredump_queue)
+                if (streq(queued->unit_id, u->id) &&
+                    sd_id128_equal(queued->invocation_id, u->invocation_id) &&
+                    pidref_equal(&queued->pidref, pidref)) {
+                        queued->signo = signo;
+                        queued->suppress_for_retired = queued->suppress_for_retired ||
+                                pidref_is_set(&s->retired_coredump.pidref);
+                        return 0;
+                }
+
+        c = new(ManagerCoredump, 1);
+        if (!c)
+                return -ENOMEM;
+
+        *c = (ManagerCoredump) {
+                .invocation_id = u->invocation_id,
+                .pidref = PIDREF_NULL,
+                .signo = signo,
+                .suppress_for_retired = pidref_is_set(&s->retired_coredump.pidref),
+        };
+
+        c->unit_id = strdup(u->id);
+        if (!c->unit_id)
+                return -ENOMEM;
+
+        fd = fcntl(pidref->fd, F_DUPFD_CLOEXEC, 3);
+        if (fd < 0)
+                return -errno;
+
+        r = pidref_set_pidfd_consume(&c->pidref, fd);
+        if (r < 0)
+                return r;
+
+        /* Re-arm after every new event so that an event queued just before an older timer expires still gets
+         * the full validation interval. The shared timer continues to coalesce all queued notifications. */
+        r = event_reset_time_relative(
+                        m->event,
+                        &m->coredump_event_source,
+                        CLOCK_MONOTONIC,
+                        MANAGER_COREDUMP_DELAY_USEC,
+                        /* accuracy= */ 0,
+                        manager_dispatch_coredump_queue,
+                        m,
+                        EVENT_PRIORITY_NOTIFY,
+                        "manager-coredump",
+                        /* force_reset= */ true);
+        if (r < 0) {
+                if (!m->coredump_queue)
+                        m->coredump_event_source = sd_event_source_disable_unref(m->coredump_event_source);
+                return r;
+        }
+
+        LIST_PREPEND(queue, m->coredump_queue, TAKE_PTR(c));
+        return 0;
+}
+
+static int manager_parse_coredump_tags(char * const *tags, int *ret_signo) {
+        const char *value = NULL;
+        bool found = false;
+        int signo, r;
+
+        assert(tags);
+        assert(ret_signo);
+
+        STRV_FOREACH(tag, tags) {
+                const char *v = startswith(*tag, NOTIFY_COREDUMP_SIGNAL_PREFIX);
+                if (v) {
+                        if (value)
+                                return -EINVAL;
+
+                        value = v;
+                        continue;
+                }
+
+                if (streq(*tag, NOTIFY_COREDUMP_MESSAGE)) {
+                        if (found)
+                                return -EINVAL;
+
+                        found = true;
+                }
+        }
+
+        if (!found || !value)
+                return -EINVAL;
+
+        r = safe_atoi(value, &signo);
+        if (r < 0)
+                return r;
+        if (!SIGNAL_VALID(signo))
+                return -ERANGE;
+
+        *ret_signo = signo;
+        return 0;
+}
+
+static void manager_relay_coredump(Manager *m, const PidRef *pidref, int signo) {
+        _cleanup_free_ char *socket_path = NULL;
+        uid_t uid;
+        int r;
+
+        assert(m);
+        assert(MANAGER_IS_SYSTEM(m));
+        assert(pidref_is_set(pidref));
+        assert(pidref->fd >= 0);
+        assert(SIGNAL_VALID(signo));
+
+        r = cg_pidref_get_owner_uid(pidref, &uid);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to determine owner UID for coredumping PID " PID_FMT ", ignoring: %m",
+                                pidref->pid);
+                return;
+        }
+
+        socket_path = path_join("/run/user", FORMAT_UID(uid), "systemd/notify");
+        if (!socket_path) {
+                (void) log_oom_debug();
+                return;
+        }
+
+        r = notify_send_coredump(socket_path, pidref->fd, signo);
+        if (r < 0)
+                log_debug_errno(r, "Failed to relay coredump notification for PID " PID_FMT ", ignoring: %m",
+                                pidref->pid);
+}
+
+static bool manager_process_coredump_notification(
+                Manager *m,
+                const PidRef *sender,
+                const struct ucred *ucred,
+                char * const *tags,
+                FDSet *fds) {
+
+        _cleanup_(pidref_done) PidRef target = PIDREF_NULL;
+        _cleanup_free_ Unit **units = NULL;
+        bool found = false;
+        int signo, r;
+
+        assert(m);
+        assert(sender);
+        assert(ucred);
+        assert(tags);
+
+        if (!strv_contains(tags, NOTIFY_COREDUMP_MESSAGE))
+                return false;
+
+        /* This message is private manager-to-manager/helper protocol. Once tagged, never pass it to a unit,
+         * even if it is malformed or unauthenticated. */
+        if (ucred->uid != 0 ||
+            (MANAGER_IS_USER(m) &&
+             (sender->pid != 1 || sender->fd < 0 ||
+              pidref_verify(sender) <= 0 || pidfd_verify_pid(sender->fd, 1) < 0)))
+                return true;
+
+        r = manager_parse_coredump_tags(tags, &signo);
+        if (r < 0 || fdset_size(fds) != 1)
+                return true;
+
+        int fd = fdset_steal_first(fds);
+        if (fd < 0)
+                return true;
+
+        r = pidref_set_pidfd_consume(&target, fd);
+        if (r < 0)
+                return true;
+
+        r = pidref_verify(&target);
+        if (r <= 0)
+                return true;
+
+        int n_units = manager_get_units_for_pidref(m, &target, &units);
+        if (n_units < 0) {
+                log_debug_errno(n_units, "Failed to determine units for coredumping PID " PID_FMT ", ignoring: %m",
+                                target.pid);
+                return true;
+        }
+
+        FOREACH_ARRAY(u, units, n_units) {
+                if ((*u)->type != UNIT_SERVICE ||
+                    !service_restart_during_coredump_matches(SERVICE(*u), &target))
+                        continue;
+
+                found = true;
+                r = manager_queue_coredump(m, SERVICE(*u), &target, signo);
+                if (r < 0)
+                        log_unit_debug_errno(*u, r, "Failed to queue coredump notification, ignoring: %m");
+        }
+
+        if (!found && MANAGER_IS_SYSTEM(m))
+                manager_relay_coredump(m, &target, signo);
+
+        return true;
+}
+
 static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
@@ -3094,6 +3426,9 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 log_debug("Received barrier notification message from PID " PID_FMT ".", pidref.pid);
                 return 0;
         }
+
+        if (manager_process_coredump_notification(m, &pidref, &ucred, tags, fds))
+                return 0;
 
         /* Increase the generation counter used for filtering out duplicate unit invocations. */
         m->notifygen++;
@@ -4288,8 +4623,30 @@ static bool generator_path_any(char * const *paths) {
         return false;
 }
 
+static int manager_copy_generator_environment(Manager *m, char ***ret) {
+        _cleanup_strv_free_ char **environment = NULL;
+        int r;
+
+        assert(m);
+        assert(ret);
+
+        environment = strv_copy(m->transient_environment);
+        if (!environment)
+                return -ENOMEM;
+
+        if (m->unit_path_override && !strv_env_get(environment, "SYSTEMD_UNIT_PATH")) {
+                r = strv_env_assign(&environment, "SYSTEMD_UNIT_PATH", m->unit_path_override);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(environment);
+        return 0;
+}
+
 static int manager_run_environment_generators(Manager *m) {
-        _cleanup_strv_free_ char **paths = NULL;
+        _cleanup_strv_free_ char **environment = NULL, **paths = NULL;
+        char **generator_environment;
         int r;
 
         assert(m);
@@ -4303,6 +4660,14 @@ static int manager_run_environment_generators(Manager *m) {
 
         if (!generator_path_any(paths))
                 return 0;
+
+        if (m->unit_path_override) {
+                r = manager_copy_generator_environment(m, &environment);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build environment generator environment: %m");
+        }
+
+        generator_environment = environment ?: m->transient_environment;
 
         char **tmp = NULL; /* this is only used in the forked process, no cleanup here */
         void *args[_STDOUT_CONSUME_MAX] = {
@@ -4319,7 +4684,7 @@ static int manager_run_environment_generators(Manager *m) {
                                 gather_environment,
                                 args,
                                 /* argv[]= */ NULL,
-                                m->transient_environment,
+                                generator_environment,
                                 EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS | EXEC_DIR_SET_SYSTEMD_EXEC_PID);
         return r;
 }
@@ -4337,9 +4702,9 @@ static int build_generator_environment(Manager *m, char ***ret) {
          * adjust generated units to that. Let's pass down some bits of information that are easy for us to
          * determine (but a bit harder for generator scripts to determine), as environment variables. */
 
-        nl = strv_copy(m->transient_environment);
-        if (!nl)
-                return -ENOMEM;
+        r = manager_copy_generator_environment(m, &nl);
+        if (r < 0)
+                return r;
 
         r = strv_env_assign(&nl, "SYSTEMD_SCOPE", runtime_scope_to_string(m->runtime_scope));
         if (r < 0)

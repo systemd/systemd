@@ -201,6 +201,8 @@ static void service_init(Unit *u) {
         s->guess_main_pid = true;
         s->main_pid = PIDREF_NULL;
         s->control_pid = PIDREF_NULL;
+        s->retired_coredump.pidref = PIDREF_NULL;
+        s->coredump_suppressed_pid = PIDREF_NULL;
         s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
 
         s->exec_context.keyring_mode = MANAGER_IS_SYSTEM(u->manager) ?
@@ -225,7 +227,28 @@ static void service_unwatch_control_pid(Service *s) {
 
 static void service_unwatch_main_pid(Service *s) {
         assert(s);
+
+        if (pidref_is_set(&s->coredump_suppressed_pid) &&
+            pidref_equal(&s->main_pid, &s->coredump_suppressed_pid)) {
+                pidref_done(&s->main_pid);
+                return;
+        }
+
         unit_unwatch_pidref_done(UNIT(s), &s->main_pid);
+}
+
+static void service_retired_coredump_done(Service *s) {
+        assert(s);
+
+        unit_unwatch_pidref_done(UNIT(s), &s->retired_coredump.pidref);
+        s->retired_coredump.invocation_id = SD_ID128_NULL;
+        exec_status_reset(&s->retired_coredump.exec_status);
+}
+
+static void service_coredump_suppressed_done(Service *s) {
+        assert(s);
+
+        unit_unwatch_pidref_done(UNIT(s), &s->coredump_suppressed_pid);
 }
 
 static void service_unwatch_pid_file(Service *s) {
@@ -605,6 +628,8 @@ static void service_done(Unit *u) {
         /* This will leak a process, but at least no memory or any of our resources */
         service_unwatch_main_pid(s);
         service_unwatch_control_pid(s);
+        service_retired_coredump_done(s);
+        service_coredump_suppressed_done(s);
         service_unwatch_pid_file(s);
 
         if (s->bus_name)  {
@@ -1055,6 +1080,9 @@ static int service_verify(Service *s) {
         if (s->type == SERVICE_ONESHOT && s->exit_type == SERVICE_EXIT_CGROUP)
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service has ExitType=cgroup set, which isn't allowed for Type=oneshot services. Refusing.");
 
+        if (s->restart_during_coredump && s->exit_type == SERVICE_EXIT_CGROUP)
+                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service has RestartDuringCoredump=yes and ExitType=cgroup set, which isn't allowed. Refusing.");
+
         if (s->type == SERVICE_DBUS && !s->bus_name)
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service is of type D-Bus but no D-Bus service name has been specified. Refusing.");
 
@@ -1345,6 +1373,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sGuessMainPID: %s\n"
                 "%sType: %s\n"
                 "%sRestart: %s\n"
+                "%sRestartDuringCoredump: %s\n"
                 "%sNotifyAccess: %s\n"
                 "%sNotifyState: %s\n"
                 "%sOOMPolicy: %s\n"
@@ -1360,6 +1389,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(s->guess_main_pid),
                 prefix, service_type_to_string(s->type),
                 prefix, service_restart_to_string(s->restart),
+                prefix, yes_no(s->restart_during_coredump),
                 prefix, notify_access_to_string(service_get_notify_access(s)),
                 prefix, notify_state_to_string(s->notify_state),
                 prefix, oom_policy_to_string(s->oom_policy),
@@ -1517,6 +1547,9 @@ static int service_is_suitable_main_pid(Service *s, PidRef *pid, int prio) {
 
         if (pidref_equal(pid, &s->control_pid))
                 return log_unit_full_errno(UNIT(s), prio, SYNTHETIC_ERRNO(EPERM), "New main PID "PID_FMT" is the control process, refusing.", pid->pid);
+
+        if (pidref_equal(pid, &s->retired_coredump.pidref))
+                return log_unit_full_errno(UNIT(s), prio, SYNTHETIC_ERRNO(EPERM), "New main PID "PID_FMT" is a retired coredump process, refusing.", pid->pid);
 
         r = pidref_is_alive(pid);
         if (r < 0)
@@ -1683,7 +1716,10 @@ static void service_set_state(Service *s, ServiceState state) {
                    SERVICE_DEAD, SERVICE_FAILED,
                    SERVICE_DEAD_BEFORE_AUTO_RESTART, SERVICE_FAILED_BEFORE_AUTO_RESTART, SERVICE_AUTO_RESTART, SERVICE_AUTO_RESTART_QUEUED,
                    SERVICE_DEAD_RESOURCES_PINNED))
-                unit_unwatch_all_pids(u);
+                unit_unwatch_all_pids_except(
+                                u,
+                                &s->retired_coredump.pidref,
+                                &s->coredump_suppressed_pid);
 
         if (state != SERVICE_START)
                 s->exec_fd_event_source = sd_event_source_disable_unref(s->exec_fd_event_source);
@@ -1773,6 +1809,32 @@ static int service_coldplug(Unit *u) {
         assert(s);
         /* Ensure we can insert FD store into units at boot */
         assert(IN_SET(s->state, SERVICE_DEAD, SERVICE_DEAD_RESOURCES_PINNED));
+
+        if (pidref_is_set(&s->retired_coredump.pidref)) {
+                r = pidref_is_unwaited(&s->retired_coredump.pidref);
+                if (r <= 0) {
+                        log_unit_debug_errno(u, r < 0 ? r : SYNTHETIC_ERRNO(ESRCH),
+                                             "Retired coredump process is no longer waitable, forgetting it: %m");
+                        service_retired_coredump_done(s);
+                } else {
+                        r = unit_watch_pidref(u, &s->retired_coredump.pidref, /* exclusive= */ false);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        if (pidref_is_set(&s->coredump_suppressed_pid)) {
+                r = pidref_is_unwaited(&s->coredump_suppressed_pid);
+                if (r <= 0) {
+                        log_unit_debug_errno(u, r < 0 ? r : SYNTHETIC_ERRNO(ESRCH),
+                                             "Suppressed coredump process is no longer waitable, forgetting it: %m");
+                        service_coredump_suppressed_done(s);
+                } else {
+                        r = unit_watch_pidref(u, &s->coredump_suppressed_pid, /* exclusive= */ false);
+                        if (r < 0)
+                                return r;
+                }
+        }
 
         if (s->deserialized_state == s->state)
                 return 0;
@@ -2399,7 +2461,13 @@ static int cgroup_good(Service *s) {
         return r == 0;
 }
 
-static bool service_shall_restart(Service *s, const char **reason) {
+static bool service_shall_restart_full(
+                Service *s,
+                ServiceResult result,
+                int code,
+                int status,
+                const char **reason) {
+
         assert(s);
         assert(reason);
 
@@ -2410,16 +2478,16 @@ static bool service_shall_restart(Service *s, const char **reason) {
         }
 
         /* Never restart if this is configured as special exception */
-        if (exit_status_set_test(&s->restart_prevent_status, s->main_exec_status.code, s->main_exec_status.status)) {
+        if (exit_status_set_test(&s->restart_prevent_status, code, status)) {
                 *reason = "prevented by exit status";
                 return false;
         }
 
         /* Restart if the exit code/status are configured as restart triggers */
-        if (exit_status_set_test(&s->restart_force_status,  s->main_exec_status.code, s->main_exec_status.status)) {
+        if (exit_status_set_test(&s->restart_force_status, code, status)) {
                 /* Don't allow Type=oneshot services to restart on success. Note that Restart=always/on-success
                  * is already rejected in service_verify. */
-                if (s->type == SERVICE_ONESHOT && s->result == SERVICE_SUCCESS) {
+                if (s->type == SERVICE_ONESHOT && result == SERVICE_SUCCESS) {
                         *reason = "service type and exit status";
                         return false;
                 }
@@ -2435,26 +2503,37 @@ static bool service_shall_restart(Service *s, const char **reason) {
                 return false;
 
         case SERVICE_RESTART_ALWAYS:
-                return s->result != SERVICE_SKIP_CONDITION;
+                return result != SERVICE_SKIP_CONDITION;
 
         case SERVICE_RESTART_ON_SUCCESS:
-                return s->result == SERVICE_SUCCESS;
+                return result == SERVICE_SUCCESS;
 
         case SERVICE_RESTART_ON_FAILURE:
-                return !IN_SET(s->result, SERVICE_SUCCESS, SERVICE_SKIP_CONDITION);
+                return !IN_SET(result, SERVICE_SUCCESS, SERVICE_SKIP_CONDITION);
 
         case SERVICE_RESTART_ON_ABNORMAL:
-                return !IN_SET(s->result, SERVICE_SUCCESS, SERVICE_FAILURE_EXIT_CODE, SERVICE_SKIP_CONDITION);
+                return !IN_SET(result, SERVICE_SUCCESS, SERVICE_FAILURE_EXIT_CODE, SERVICE_SKIP_CONDITION);
 
         case SERVICE_RESTART_ON_WATCHDOG:
-                return s->result == SERVICE_FAILURE_WATCHDOG;
+                return result == SERVICE_FAILURE_WATCHDOG;
 
         case SERVICE_RESTART_ON_ABORT:
-                return IN_SET(s->result, SERVICE_FAILURE_SIGNAL, SERVICE_FAILURE_CORE_DUMP);
+                return IN_SET(result, SERVICE_FAILURE_SIGNAL, SERVICE_FAILURE_CORE_DUMP);
 
         default:
                 assert_not_reached();
         }
+}
+
+static bool service_shall_restart(Service *s, const char **reason) {
+        assert(s);
+
+        return service_shall_restart_full(
+                        s,
+                        s->result,
+                        s->main_exec_status.code,
+                        s->main_exec_status.status,
+                        reason);
 }
 
 static bool service_will_restart(Unit *u) {
@@ -2660,7 +2739,14 @@ static void service_enter_signal(Service *s, ServiceState state, ServiceResult f
                 s->result = f;
 
         kill_operation = state_to_kill_operation(s, state);
-        r = unit_kill_context(UNIT(s), kill_operation);
+
+        /* OOMPolicy=stop may reach us through service_enter_stop() or ExecStop=, after the immediate failure
+         * argument has become SERVICE_SUCCESS. Keep using the recorded result so every phase of OOM cleanup
+         * can act on a retired process too. */
+        bool exclude_lifecycle_pid =
+                f != SERVICE_FAILURE_OOM_KILL && s->result != SERVICE_FAILURE_OOM_KILL;
+
+        r = unit_kill_context_full(UNIT(s), kill_operation, exclude_lifecycle_pid);
         if (r < 0) {
                 log_unit_warning_errno(UNIT(s), r, "Failed to kill processes: %m");
                 goto fail;
@@ -2794,6 +2880,237 @@ static void service_enter_running(Service *s, ServiceResult f) {
                 service_set_state(s, SERVICE_EXITED);
         else
                 service_enter_stop(s, SERVICE_SUCCESS);
+}
+
+bool service_restart_during_coredump_matches(Service *s, PidRef *pidref) {
+        assert(s);
+        assert(pidref);
+
+        return s->restart_during_coredump &&
+                s->state == SERVICE_RUNNING &&
+                pidref_equal(&s->main_pid, pidref);
+}
+
+static void service_suppress_restart_during_coredump(
+                Service *s,
+                PidRef *pidref,
+                const char *reason) {
+
+        int r;
+
+        assert(s);
+        assert(pidref_is_set(pidref));
+
+        if (pidref_equal(&s->coredump_suppressed_pid, pidref))
+                return;
+
+        service_coredump_suppressed_done(s);
+
+        r = pidref_copy(pidref, &s->coredump_suppressed_pid);
+        if (r < 0) {
+                log_unit_debug_errno(UNIT(s), r,
+                                     "Failed to remember suppressed early coredump handling, ignoring: %m");
+                return;
+        }
+
+        r = unit_watch_pidref(UNIT(s), &s->coredump_suppressed_pid, /* exclusive= */ false);
+        if (r < 0)
+                log_unit_debug_errno(UNIT(s), r,
+                                     "Failed to preserve watch for suppressed coredump process, ignoring: %m");
+
+        log_unit_debug(UNIT(s),
+                       "Will wait for coredump process " PID_FMT " to exit normally (%s).",
+                       pidref->pid, reason);
+}
+
+void service_restart_during_coredump_suppress(Service *s, PidRef *pidref, const char *reason) {
+        assert(s);
+        assert(pidref_is_set(pidref));
+        assert(reason);
+
+        if (!service_restart_during_coredump_matches(s, pidref))
+                return;
+
+        /* Keep the same PID-file handoff ordering as the full early-restart path. */
+        if (s->type == SERVICE_FORKING && service_load_pid_file(s, /* may_warn= */ false) > 0)
+                return;
+
+        service_suppress_restart_during_coredump(s, pidref, reason);
+}
+
+static bool service_restart_during_coredump_eligible(
+                Service *s,
+                PidRef *pidref,
+                int signo,
+                ServiceResult *ret_result,
+                const char **ret_reason) {
+
+        ServiceResult result;
+        const char *restart_reason;
+        int r;
+
+        assert(s);
+        assert(pidref_is_set(pidref));
+        assert(ret_result);
+        assert(ret_reason);
+
+        if (!service_restart_during_coredump_matches(s, pidref)) {
+                *ret_reason = "the process is no longer the running main process";
+                return false;
+        }
+        if (s->exit_type != SERVICE_EXIT_MAIN) {
+                *ret_reason = "ExitType= is not main";
+                return false;
+        }
+        if (pidref_is_set(&s->control_pid)) {
+                *ret_reason = "a control process is running";
+                return false;
+        }
+        if (s->main_pid_alien) {
+                *ret_reason = "the main process is not a manager child";
+                return false;
+        }
+
+        r = pidref_is_my_child(pidref);
+        if (r <= 0) {
+                *ret_reason = "the main process is not a direct manager child";
+                return false;
+        }
+
+        r = pidref_is_unwaited(pidref);
+        if (r <= 0) {
+                *ret_reason = "the main process is no longer waitable";
+                return false;
+        }
+        if (s->type == SERVICE_DBUS) {
+                *ret_reason = "Type=dbus is not supported";
+                return false;
+        }
+        if (s->exec_runtime) {
+                *ret_reason = "the service has invocation runtime resources";
+                return false;
+        }
+        if (pidref_is_set(&s->retired_coredump.pidref)) {
+                *ret_reason = "another retired coredump process still exists";
+                return false;
+        }
+        if (!SIGNAL_VALID(signo)) {
+                *ret_reason = "the fatal signal is not known";
+                return false;
+        }
+        if (exit_status_set_test(&s->success_status, CLD_DUMPED, signo)) {
+                *ret_reason = "the fatal signal is configured as a successful exit status";
+                return false;
+        }
+
+        result = SERVICE_FAILURE_CORE_DUMP;
+        if ((s->main_command && FLAGS_SET(s->main_command->flags, EXEC_COMMAND_IGNORE_FAILURE)) ||
+            (!s->main_command && s->exec_command[SERVICE_EXEC_START] &&
+             FLAGS_SET(s->exec_command[SERVICE_EXEC_START]->flags, EXEC_COMMAND_IGNORE_FAILURE)))
+                result = SERVICE_SUCCESS;
+
+        if (s->result != SERVICE_SUCCESS)
+                result = s->result;
+
+        if (unit_stop_pending(UNIT(s))) {
+                *ret_reason = "a stop job is pending";
+                return false;
+        }
+        if (!service_shall_restart_full(s, result, CLD_DUMPED, signo, &restart_reason)) {
+                *ret_reason = restart_reason;
+                return false;
+        }
+
+        *ret_result = result;
+        *ret_reason = restart_reason;
+        return true;
+}
+
+void service_restart_during_coredump(Service *s, PidRef *pidref, int signo) {
+        ServiceResult result;
+        const char *reason;
+        int r;
+
+        assert(s);
+        assert(pidref_is_set(pidref));
+
+        if (!service_restart_during_coredump_matches(s, pidref) ||
+            pidref_equal(&s->coredump_suppressed_pid, pidref))
+                return;
+
+        /* A forking daemon can legitimately replace its main process just before the old one exits. */
+        if (s->type == SERVICE_FORKING && service_load_pid_file(s, /* may_warn= */ false) > 0)
+                return;
+
+        if (!service_restart_during_coredump_eligible(s, pidref, signo, &result, &reason)) {
+                if (pidref_equal(&s->main_pid, pidref))
+                        service_suppress_restart_during_coredump(s, pidref, reason);
+                return;
+        }
+
+        r = unit_cgroup_only_contains_pidref(UNIT(s), pidref);
+        if (r <= 0) {
+                service_suppress_restart_during_coredump(
+                                s,
+                                pidref,
+                                r < 0 ? "the unit cgroup could not be inspected unambiguously" :
+                                        "another process exists in the unit cgroup");
+                return;
+        }
+
+        int confirmed_signo;
+        r = pidref_get_coredump_signal(pidref, &confirmed_signo);
+        if (r <= 0 || confirmed_signo != signo) {
+                service_suppress_restart_during_coredump(
+                                s,
+                                pidref,
+                                r < 0 ? "the live coredump state could not be rechecked" :
+                                        "the process is no longer dumping with the reported signal");
+                return;
+        }
+
+        /* The event loop cannot mutate service state while the checks above run, but procfs and cgroupfs can.
+         * Repeat all process-identity and policy checks after those reads before committing the retirement. */
+        if (!service_restart_during_coredump_eligible(s, pidref, signo, &result, &reason)) {
+                if (pidref_equal(&s->main_pid, pidref))
+                        service_suppress_restart_during_coredump(s, pidref, reason);
+                return;
+        }
+
+        s->exec_fd_event_source = sd_event_source_disable_unref(s->exec_fd_event_source);
+
+        assert(!pidref_is_set(&s->retired_coredump.pidref));
+        s->retired_coredump.pidref = TAKE_PIDREF(s->main_pid);
+        s->retired_coredump.invocation_id = UNIT(s)->invocation_id;
+
+        exec_status_exit(
+                        &s->main_exec_status,
+                        &s->exec_context,
+                        s->retired_coredump.pidref.pid,
+                        CLD_DUMPED,
+                        signo);
+        s->retired_coredump.exec_status = s->main_exec_status;
+
+        if (s->main_command)
+                s->main_command->exec_status = s->main_exec_status;
+
+        unit_log_process_exit(
+                        UNIT(s),
+                        "Main process",
+                        service_exec_command_to_string(SERVICE_EXEC_START),
+                        result == SERVICE_SUCCESS,
+                        CLD_DUMPED,
+                        signo);
+
+        if (s->result == SERVICE_SUCCESS)
+                s->result = result;
+        s->main_command = NULL;
+
+        log_unit_debug(UNIT(s),
+                       "Retired coredumping main process " PID_FMT " and continuing through the restart path (%s).",
+                       s->retired_coredump.pidref.pid, reason);
+
+        service_enter_running(s, result);
 }
 
 static void service_enter_start_post(Service *s) {
@@ -3815,6 +4132,23 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         (void) serialize_pidref(f, fds, "control-pid", &s->control_pid);
         if (s->main_pid_known)
                 (void) serialize_pidref(f, fds, "main-pid", &s->main_pid);
+        if (pidref_is_set(&s->retired_coredump.pidref)) {
+                (void) serialize_pidref(f, fds, "retired-coredump-pid", &s->retired_coredump.pidref);
+                (void) serialize_id128(f, "retired-coredump-invocation-id", s->retired_coredump.invocation_id);
+                (void) serialize_item_format(f, "retired-coredump-exec-status-pid", PID_FMT,
+                                             s->retired_coredump.exec_status.pid);
+                (void) serialize_dual_timestamp(f, "retired-coredump-exec-status-start",
+                                                &s->retired_coredump.exec_status.start_timestamp);
+                (void) serialize_dual_timestamp(f, "retired-coredump-exec-status-exit",
+                                                &s->retired_coredump.exec_status.exit_timestamp);
+                (void) serialize_dual_timestamp(f, "retired-coredump-exec-status-handoff",
+                                                &s->retired_coredump.exec_status.handoff_timestamp);
+                (void) serialize_item_format(f, "retired-coredump-exec-status-code", "%i",
+                                             s->retired_coredump.exec_status.code);
+                (void) serialize_item_format(f, "retired-coredump-exec-status-status", "%i",
+                                             s->retired_coredump.exec_status.status);
+        }
+        (void) serialize_pidref(f, fds, "coredump-suppressed-pid", &s->coredump_suppressed_pid);
 
         (void) serialize_bool(f, "main-pid-known", s->main_pid_known);
         (void) serialize_bool(f, "bus-name-good", s->bus_name_good);
@@ -4110,7 +4444,59 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 if (!pidref_is_set(&s->main_pid) && deserialize_pidref(fds, value, &pidref) >= 0)
                         (void) service_set_main_pidref(s, pidref, /* start_timestamp= */ NULL);
 
-        } else if (streq(key, "main-pid-known")) {
+        } else if (streq(key, "retired-coredump-pid")) {
+
+                if (!pidref_is_set(&s->retired_coredump.pidref))
+                        (void) deserialize_pidref(fds, value, &s->retired_coredump.pidref);
+
+        } else if (streq(key, "coredump-suppressed-pid")) {
+
+                if (!pidref_is_set(&s->coredump_suppressed_pid))
+                        (void) deserialize_pidref(fds, value, &s->coredump_suppressed_pid);
+
+        } else if (streq(key, "retired-coredump-invocation-id")) {
+                sd_id128_t id;
+
+                r = sd_id128_from_string(value, &id);
+                if (r < 0)
+                        log_unit_debug_errno(u, r, "Failed to parse retired coredump invocation ID, ignoring: %s", value);
+                else
+                        s->retired_coredump.invocation_id = id;
+
+        } else if (streq(key, "retired-coredump-exec-status-pid")) {
+                pid_t pid;
+
+                r = parse_pid(value, &pid);
+                if (r < 0)
+                        log_unit_debug_errno(u, r, "Failed to parse retired coredump status PID, ignoring: %s", value);
+                else
+                        s->retired_coredump.exec_status.pid = pid;
+
+        } else if (streq(key, "retired-coredump-exec-status-code")) {
+                int code;
+
+                r = safe_atoi(value, &code);
+                if (r < 0)
+                        log_unit_debug_errno(u, r, "Failed to parse retired coredump status code, ignoring: %s", value);
+                else
+                        s->retired_coredump.exec_status.code = code;
+
+        } else if (streq(key, "retired-coredump-exec-status-status")) {
+                int status;
+
+                r = safe_atoi(value, &status);
+                if (r < 0)
+                        log_unit_debug_errno(u, r, "Failed to parse retired coredump status, ignoring: %s", value);
+                else
+                        s->retired_coredump.exec_status.status = status;
+
+        } else if (streq(key, "retired-coredump-exec-status-start"))
+                (void) deserialize_dual_timestamp(value, &s->retired_coredump.exec_status.start_timestamp);
+        else if (streq(key, "retired-coredump-exec-status-exit"))
+                (void) deserialize_dual_timestamp(value, &s->retired_coredump.exec_status.exit_timestamp);
+        else if (streq(key, "retired-coredump-exec-status-handoff"))
+                (void) deserialize_dual_timestamp(value, &s->retired_coredump.exec_status.handoff_timestamp);
+        else if (streq(key, "main-pid-known")) {
                 r = parse_boolean(value);
                 if (r < 0)
                         log_unit_debug_errno(u, r, "Failed to parse main-pid-known value: %s", value);
@@ -4390,7 +4776,8 @@ static bool service_may_gc(Unit *u) {
          * unit_may_gc() already checked our cgroup for us, we just check our two additional PIDs, too, in case they
          * have moved outside of the cgroup. */
 
-        if (main_pid_good(s) > 0 ||
+        if (pidref_is_set(&s->retired_coredump.pidref) ||
+            main_pid_good(s) > 0 ||
             control_pid_good(s) > 0)
                 return false;
 
@@ -4667,10 +5054,18 @@ static void service_notify_cgroup_oom_event(Unit *u, bool managed_oom) {
                 break;
 
         case SERVICE_STOP_SIGKILL:
-        case SERVICE_FINAL_SIGKILL:
+        case SERVICE_FINAL_SIGKILL: {
                 if (s->result == SERVICE_SUCCESS)
                         s->result = SERVICE_FAILURE_OOM_KILL;
+
+                /* This state may have been entered for a non-OOM reason, in which case the earlier kill pass
+                 * deliberately excluded a retired coredump process. Reissue the final kill without that
+                 * exclusion now, but leave the existing state and timeout alone. */
+                int r = unit_kill_context_full(UNIT(s), KILL_KILL, /* exclude_lifecycle_pid= */ false);
+                if (r < 0)
+                        log_unit_warning_errno(UNIT(s), r, "Failed to kill processes after OOM notification: %m");
                 break;
+        }
 
         case SERVICE_STOP_POST:
         case SERVICE_FINAL_SIGTERM:
@@ -4690,6 +5085,40 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         int r;
 
         assert(pid >= 0);
+
+        if (s->retired_coredump.pidref.pid == pid) {
+                sd_id128_t invocation_id = s->retired_coredump.invocation_id;
+                ExecStatus expected = s->retired_coredump.exec_status;
+
+                service_retired_coredump_done(s);
+
+                if (code != expected.code || status != expected.status) {
+                        char invocation_id_string[SD_ID128_STRING_MAX];
+
+                        sd_id128_to_string(invocation_id, invocation_id_string);
+                        log_struct(LOG_WARNING,
+                                   LOG_UNIT_ID(u),
+                                   LOG_ITEM("%s%s", unit_invocation_log_field(u), invocation_id_string),
+                                   LOG_MESSAGE("%s: Retired coredump process " PID_FMT
+                                               " exited with code=%s, status=%i instead of the expected code=%s, status=%i.",
+                                               u->id, pid,
+                                               sigchld_code_to_string(code), status,
+                                               sigchld_code_to_string(expected.code), expected.status));
+                }
+
+                unit_add_to_gc_queue(u);
+                return;
+        }
+
+        if (s->coredump_suppressed_pid.pid == pid) {
+                bool is_current_main = s->main_pid.pid == pid;
+
+                service_coredump_suppressed_done(s);
+                if (!is_current_main) {
+                        unit_add_to_gc_queue(u);
+                        return;
+                }
+        }
 
         /* Oneshot services and non-SERVICE_EXEC_START commands should not be
          * considered daemons as they are typically not long running. */
@@ -5314,6 +5743,13 @@ static void service_force_watchdog(Service *s) {
 static bool service_notify_message_authorized(Service *s, PidRef *pid) {
         assert(s);
         assert(pidref_is_set(pid));
+
+        if (pidref_equal(pid, &s->retired_coredump.pidref)) {
+                log_unit_debug(UNIT(s),
+                               "Got notification message from retired coredump PID " PID_FMT ", ignoring.",
+                               pid->pid);
+                return false;
+        }
 
         switch (service_get_notify_access(s)) {
 
@@ -5988,6 +6424,10 @@ static PidRef* service_control_pid(Unit *u) {
         return &ASSERT_PTR(SERVICE(u))->control_pid;
 }
 
+static PidRef* service_lifecycle_exclude_pid(Unit *u) {
+        return &ASSERT_PTR(SERVICE(u))->retired_coredump.pidref;
+}
+
 static bool service_needs_console(Unit *u) {
         Service *s = ASSERT_PTR(SERVICE(u));
 
@@ -6645,6 +7085,7 @@ const UnitVTable service_vtable = {
 
         .main_pid = service_main_pid,
         .control_pid = service_control_pid,
+        .lifecycle_exclude_pid = service_lifecycle_exclude_pid,
 
         .bus_name_owner_change = service_bus_name_owner_change,
 

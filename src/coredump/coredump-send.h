@@ -5,3 +5,4 @@
 
 int coredump_send(CoredumpContext *context);
 int coredump_send_to_container(CoredumpContext *context);
+void coredump_notify_manager(CoredumpContext *context);

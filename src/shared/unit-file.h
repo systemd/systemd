@@ -44,6 +44,10 @@ static inline bool unit_type_may_template(UnitType type) {
 int unit_symlink_name_compatible(const char *symlink, const char *target, bool instance_propagation);
 int unit_validate_alias_symlink_or_warn(int log_level, const char *filename, const char *target);
 
+/* Returns positive and, when requested, the parsed unit/type name for a recognized dependency or
+ * drop-in directory, zero for other names, and a negative error on failure. */
+int unit_file_parse_directory_name(const char *name, char **ret_unit_name);
+
 bool lookup_paths_timestamp_hash_same(const LookupPaths *lp, uint64_t timestamp_hash, uint64_t *ret_new);
 
 int unit_file_resolve_symlink(
@@ -54,6 +58,17 @@ int unit_file_resolve_symlink(
                 const char *filename,
                 bool resolve_destination_target,
                 char **ret_destination);
+
+/* A zero limit retains the legacy best-effort behavior. A positive limit independently bounds the ID
+ * and path-cache collections and makes resource errors fatal. Outputs and the timestamp remain unchanged
+ * on failure. */
+int unit_file_build_name_map_full(
+                const LookupPaths *lp,
+                uint64_t *cache_timestamp_hash,
+                Hashmap **unit_ids_map,
+                Hashmap **unit_names_map,
+                Set **path_cache,
+                size_t max_entries);
 
 int unit_file_build_name_map(
                 const LookupPaths *lp,

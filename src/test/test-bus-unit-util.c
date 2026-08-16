@@ -722,6 +722,9 @@ TEST(service_properties) {
                         "RemainAfterExit=true",
                         "GuessMainPID=true",
                         "-EINVAL GuessMainPID=WAT",
+                        "RestartDuringCoredump=true",
+                        "RestartDuringCoredump=false",
+                        "-EINVAL RestartDuringCoredump=WAT",
 
                         /* Timespan properties */
                         "RestartSec=5s",

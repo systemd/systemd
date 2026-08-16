@@ -40,6 +40,78 @@
 #include "user-util.h"
 #include "virt.h"
 
+#define PROC_PID_STAT_THROUGH_FIELD_51                                 \
+        "42 (a tricky ) process name) S "                             \
+        "4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 "                 \
+        "20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 "           \
+        "36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 "
+
+TEST(proc_pid_stat_parse_exit_signal) {
+        int signo;
+
+        signo = -1;
+        ASSERT_OK_ZERO(proc_pid_stat_parse_exit_signal(PROC_PID_STAT_THROUGH_FIELD_51 "139", &signo));
+        ASSERT_EQ(signo, SIGSEGV);
+
+        signo = -1;
+        ASSERT_OK_ZERO(proc_pid_stat_parse_exit_signal(PROC_PID_STAT_THROUGH_FIELD_51 "134 53", &signo));
+        ASSERT_EQ(signo, SIGABRT);
+
+        signo = -1;
+        ASSERT_OK_ZERO(proc_pid_stat_parse_exit_signal(PROC_PID_STAT_THROUGH_FIELD_51 "11", &signo));
+        ASSERT_EQ(signo, SIGSEGV);
+
+        signo = -1;
+        ASSERT_ERROR(
+                        proc_pid_stat_parse_exit_signal(PROC_PID_STAT_THROUGH_FIELD_51 "0", &signo),
+                        ENODATA);
+        ASSERT_EQ(signo, -1);
+
+        ASSERT_ERROR(
+                        proc_pid_stat_parse_exit_signal(PROC_PID_STAT_THROUGH_FIELD_51 "255", &signo),
+                        ENODATA);
+        ASSERT_ERROR(
+                        proc_pid_stat_parse_exit_signal(
+                                        PROC_PID_STAT_THROUGH_FIELD_51 "invalid", &signo),
+                        EINVAL);
+        ASSERT_ERROR(proc_pid_stat_parse_exit_signal(PROC_PID_STAT_THROUGH_FIELD_51, &signo), EIO);
+        ASSERT_ERROR(proc_pid_stat_parse_exit_signal("42 no-closing-parenthesis", &signo), EIO);
+}
+
+#undef PROC_PID_STAT_THROUGH_FIELD_51
+
+TEST(pidref_get_coredump_signal) {
+        _cleanup_(pidref_done) PidRef self = PIDREF_NULL;
+        int signo = SIGSEGV, r;
+
+        ASSERT_ERROR(pidref_get_coredump_signal(NULL, &signo), ESRCH);
+        ASSERT_ERROR(pidref_get_coredump_signal(&PIDREF_NULL, &signo), ESRCH);
+        ASSERT_EQ(signo, SIGSEGV);
+
+        ASSERT_OK(pidref_set_self(&self));
+        r = pidref_get_coredump_signal(&self, &signo);
+        if (self.fd < 0 && self.pid != 1)
+                ASSERT_ERROR(r, EOPNOTSUPP);
+        else {
+                ASSERT_OK_ZERO(r);
+                ASSERT_EQ(signo, 0);
+        }
+
+        if (getpid_cached() != 1) {
+                signo = SIGSEGV;
+                ASSERT_ERROR(
+                                pidref_get_coredump_signal(&PIDREF_MAKE_FROM_PID(getpid_cached()), &signo),
+                                EOPNOTSUPP);
+                ASSERT_EQ(signo, SIGSEGV);
+        }
+
+        PidRef remote = {
+                .pid = getpid_cached(),
+                .fd = -EREMOTE,
+        };
+        ASSERT_ERROR(pidref_get_coredump_signal(&remote, &signo), EREMOTE);
+}
+
 static void test_pid_get_comm_one(pid_t pid) {
         struct stat st;
         _cleanup_free_ char *a = NULL, *c = NULL, *d = NULL, *f = NULL, *i = NULL;

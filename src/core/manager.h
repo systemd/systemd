@@ -15,6 +15,7 @@
 #include "unit.h"
 
 struct libmnt_monitor;
+typedef struct ManagerCoredump ManagerCoredump;
 
 /* Enforce upper limit on how many names we allow */
 #define MANAGER_MAX_NAMES 131072 /* 128K */
@@ -272,6 +273,9 @@ typedef struct Manager {
         int notify_fd;
         sd_event_source *notify_event_source;
 
+        LIST_HEAD(ManagerCoredump, coredump_queue);
+        sd_event_source *coredump_event_source;
+
         int signal_fd;
         sd_event_source *signal_event_source;
 
@@ -295,10 +299,12 @@ typedef struct Manager {
         RuntimeScope runtime_scope;
 
         LookupPaths lookup_paths;
+        char *unit_path_override;
         Hashmap *unit_id_map;
         Hashmap *unit_name_map;
         Set *unit_path_cache;
         uint64_t unit_cache_timestamp_hash;
+        size_t unit_name_map_limit;
 
         /* We don't have support for atomically enabling/disabling units, and unit_file_state might become
          * outdated if such operations failed half-way. Therefore, we set this flag if changes to unit files
@@ -572,6 +578,9 @@ usec_t manager_default_timeout(RuntimeScope scope);
 int manager_new(RuntimeScope scope, ManagerTestRunFlags test_run_flags, Manager **ret);
 Manager* manager_free(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
+
+int manager_set_unit_path_override(Manager *m, const char *path);
+void manager_set_unit_name_map_limit(Manager *m, size_t max_entries);
 
 /* One entry parsed out of the upstream "systemd-fdstore-mapping" memfd. Pairs the numeric index from the
  * JSON map to the (unit-id, original fdname) the fd was originally stored as. */

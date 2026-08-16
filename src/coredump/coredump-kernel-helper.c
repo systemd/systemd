@@ -50,8 +50,15 @@ int coredump_kernel_helper(int argc, char *argv[]) {
                  context.pidref.pid, context.comm, context.uid, context.signo,
                  signal_to_string(context.signo));
 
-        if (coredump_send_to_container(&context) > 0)
+        r = coredump_send_to_container(&context);
+        if (r > 0)
                 return 0;
+
+        r = coredump_context_build_iovw(&context);
+        if (r < 0)
+                return r;
+
+        coredump_notify_manager(&context);
 
         /* If this is PID 1, disable coredump collection, we'll unlikely be able to process
          * it later on.
@@ -66,10 +73,6 @@ int coredump_kernel_helper(int argc, char *argv[]) {
 
         if (coredump_context_is_journald(&context) || coredump_context_is_pid1(&context))
                 return coredump_submit(&config, &context);
-
-        r = coredump_context_build_iovw(&context);
-        if (r < 0)
-                return r;
 
         return coredump_send(&context);
 }

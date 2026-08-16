@@ -6,8 +6,12 @@
 #include "daemon-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "format-util.h"
+#include "iovec-util.h"
 #include "log.h"
 #include "parse-util.h"
+#include "signal-util.h"
+#include "socket-util.h"
 #include "string-util.h"
 #include "time-util.h"
 
@@ -119,4 +123,35 @@ int notify_reloading_full(const char *status) {
                 return log_debug_errno(r, "Failed to notify service manager for reloading status: %m");
 
         return 0;
+}
+
+int notify_send_coredump(const char *socket_path, int pidfd, int signo) {
+        char message[STRLEN(NOTIFY_COREDUMP_MESSAGE "\n" NOTIFY_COREDUMP_SIGNAL_PREFIX) + DECIMAL_STR_MAX(int)];
+        union sockaddr_union sa = {};
+        ssize_t n;
+        int r;
+
+        assert(socket_path);
+        assert(pidfd >= 0);
+        assert(SIGNAL_VALID(signo));
+
+        r = sockaddr_un_set_path(&sa.un, socket_path);
+        if (r < 0)
+                return r;
+        socklen_t sa_len = r;
+
+        _cleanup_close_ int fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        if (fd < 0)
+                return -errno;
+
+        xsprintf(message, NOTIFY_COREDUMP_MESSAGE "\n" NOTIFY_COREDUMP_SIGNAL_PREFIX "%i", signo);
+
+        struct iovec iovec = IOVEC_MAKE_STRING(message);
+        n = send_one_fd_iov_sa(fd, pidfd, &iovec, 1, &sa.sa, sa_len, MSG_DONTWAIT);
+        if (n < 0)
+                return (int) n;
+        if ((size_t) n != iovec.iov_len)
+                return -EIO;
+
+        return 1;
 }

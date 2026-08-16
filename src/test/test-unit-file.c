@@ -14,6 +14,7 @@
 #include "strv.h"
 #include "tests.h"
 #include "time-util.h"
+#include "tmpfile-util.h"
 #include "unit-file.h"
 
 TEST(unit_validate_alias_symlink_and_warn) {
@@ -92,6 +93,126 @@ TEST(unit_file_build_name_map) {
                  assert_se(r == 0);
                  log_info("fragment: %s", fragment);
         }
+}
+
+TEST(unit_file_build_name_map_limit) {
+        _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
+        _cleanup_(lookup_paths_done) LookupPaths lp = {};
+        _cleanup_hashmap_free_ Hashmap *unit_ids = NULL, *unit_names = NULL;
+        _cleanup_hashmap_free_ Hashmap *id_only_unit_ids = NULL, *id_only_unit_names = NULL;
+        _cleanup_set_free_ Set *path_cache = NULL;
+        uint64_t cache_timestamp_hash;
+
+        ASSERT_OK(mkdtemp_malloc("/tmp/test-unit-file-name-map.XXXXXX", &tmp));
+        ASSERT_OK(lookup_paths_init_full(
+                        &lp, RUNTIME_SCOPE_SYSTEM, 0, /* root_dir= */ NULL, tmp));
+
+        FOREACH_STRING(name, "a.service", "b.service") {
+                _cleanup_free_ char *path = path_join(tmp, name);
+
+                ASSERT_NOT_NULL(path);
+                ASSERT_OK(write_string_file(path, "[Unit]\n", WRITE_STRING_FILE_CREATE));
+        }
+
+        _cleanup_free_ char *dropin = path_join(tmp, "a.service.d/override.conf");
+        ASSERT_NOT_NULL(dropin);
+        ASSERT_OK(write_string_file(
+                        dropin, "[Unit]\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755));
+
+        bool cache_matches_zero = lookup_paths_timestamp_hash_same(&lp, 0, &cache_timestamp_hash);
+        ASSERT_EQ(cache_matches_zero, cache_timestamp_hash == 0);
+        cache_timestamp_hash ^= 1;
+
+        ASSERT_OK_POSITIVE(unit_file_build_name_map_full(
+                        &lp,
+                        &cache_timestamp_hash,
+                        &unit_ids,
+                        &unit_names,
+                        &path_cache,
+                        /* max_entries= */ 3));
+        ASSERT_EQ(hashmap_size(unit_ids), 2u);
+        ASSERT_EQ(hashmap_size(unit_names), 2u);
+        ASSERT_EQ(set_size(path_cache), 3u);
+
+        Hashmap *old_unit_ids = unit_ids, *old_unit_names = unit_names;
+        Set *old_path_cache = path_cache;
+        uint64_t old_cache_timestamp_hash = cache_timestamp_hash;
+
+        ASSERT_OK_ZERO(unit_file_build_name_map_full(
+                        &lp,
+                        &cache_timestamp_hash,
+                        &unit_ids,
+                        &unit_names,
+                        &path_cache,
+                        /* max_entries= */ 3));
+
+        ASSERT_ERROR(unit_file_build_name_map_full(
+                        &lp,
+                        &cache_timestamp_hash,
+                        &unit_ids,
+                        &unit_names,
+                        &path_cache,
+                        /* max_entries= */ 2), E2BIG);
+        ASSERT_PTR_EQ(unit_ids, old_unit_ids);
+        ASSERT_PTR_EQ(unit_names, old_unit_names);
+        ASSERT_PTR_EQ(path_cache, old_path_cache);
+        ASSERT_EQ(cache_timestamp_hash, old_cache_timestamp_hash);
+        ASSERT_EQ(hashmap_size(unit_ids), 2u);
+        ASSERT_EQ(hashmap_size(unit_names), 2u);
+        ASSERT_EQ(set_size(path_cache), 3u);
+
+        uint64_t stale_timestamp_hash = cache_timestamp_hash ^ 1;
+        uint64_t old_stale_timestamp_hash = stale_timestamp_hash;
+
+        ASSERT_ERROR(unit_file_build_name_map_full(
+                        &lp,
+                        &stale_timestamp_hash,
+                        &unit_ids,
+                        &unit_names,
+                        &path_cache,
+                        /* max_entries= */ 2), E2BIG);
+        ASSERT_PTR_EQ(unit_ids, old_unit_ids);
+        ASSERT_PTR_EQ(unit_names, old_unit_names);
+        ASSERT_PTR_EQ(path_cache, old_path_cache);
+        ASSERT_EQ(stale_timestamp_hash, old_stale_timestamp_hash);
+        ASSERT_EQ(hashmap_size(unit_ids), 2u);
+        ASSERT_EQ(hashmap_size(unit_names), 2u);
+        ASSERT_EQ(set_size(path_cache), 3u);
+
+        ASSERT_OK_POSITIVE(unit_file_build_name_map_full(
+                        &lp,
+                        /* cache_timestamp_hash= */ NULL,
+                        &id_only_unit_ids,
+                        &id_only_unit_names,
+                        /* path_cache= */ NULL,
+                        /* max_entries= */ 2));
+        ASSERT_EQ(hashmap_size(id_only_unit_ids), 2u);
+        ASSERT_EQ(hashmap_size(id_only_unit_names), 2u);
+
+        Hashmap *old_id_only_unit_ids = id_only_unit_ids, *old_id_only_unit_names = id_only_unit_names;
+
+        ASSERT_ERROR(unit_file_build_name_map_full(
+                        &lp,
+                        /* cache_timestamp_hash= */ NULL,
+                        &id_only_unit_ids,
+                        &id_only_unit_names,
+                        /* path_cache= */ NULL,
+                        /* max_entries= */ 1), E2BIG);
+        ASSERT_PTR_EQ(id_only_unit_ids, old_id_only_unit_ids);
+        ASSERT_PTR_EQ(id_only_unit_names, old_id_only_unit_names);
+        ASSERT_EQ(hashmap_size(id_only_unit_ids), 2u);
+        ASSERT_EQ(hashmap_size(id_only_unit_names), 2u);
+
+        ASSERT_OK_POSITIVE(unit_file_build_name_map_full(
+                        &lp,
+                        /* cache_timestamp_hash= */ NULL,
+                        &unit_ids,
+                        &unit_names,
+                        &path_cache,
+                        /* max_entries= */ 0));
+        ASSERT_EQ(hashmap_size(unit_ids), 2u);
+        ASSERT_EQ(hashmap_size(unit_names), 2u);
+        ASSERT_EQ(set_size(path_cache), 3u);
 }
 
 static bool test_unit_file_remove_from_name_map_trail(const LookupPaths *lp, size_t trial) {
