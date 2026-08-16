@@ -57,6 +57,7 @@ INTROSPECTABLE=(
     systemd-tpm2-setup
     systemd-tty-ask-password-agent
     systemd-update-done
+    systemd-validatefs
     systemd-veritysetup
     timedatectl
     varlinkctl
