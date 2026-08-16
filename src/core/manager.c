@@ -1088,6 +1088,114 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
         return 0;
 }
 
+int manager_set_unit_path_override(Manager *m, const char *path) {
+        _cleanup_free_ char *copy = NULL;
+        int r;
+
+        assert(m);
+        assert(path);
+        assert(MANAGER_IS_TEST_RUN(m));
+        assert(!m->lookup_paths.search_path);
+        assert(!m->unit_path_override);
+
+        if (!path_is_valid_search_path(path))
+                return -EINVAL;
+
+        copy = strdup(path);
+        if (!copy)
+                return -ENOMEM;
+
+        if (MANAGER_IS_USER(m)) {
+                r = strv_env_assign(&m->transient_environment, "SYSTEMD_UNIT_PATH", path);
+                if (r < 0)
+                        return r;
+        }
+
+        m->unit_path_override = TAKE_PTR(copy);
+        return 0;
+}
+
+void manager_set_unit_name_map_limit(Manager *m, size_t max_entries) {
+        assert(m);
+        assert(MANAGER_IS_TEST_RUN(m));
+        assert(!m->unit_id_map);
+        assert(!m->unit_name_map);
+        assert(!m->unit_path_cache);
+
+        m->unit_name_map_limit = max_entries;
+}
+
+void manager_set_test_run_diagnostic_callback(
+                Manager *m,
+                ManagerDiagnosticCallback callback,
+                void *userdata) {
+
+        assert(m);
+        assert(MANAGER_IS_TEST_RUN(m));
+        assert(callback);
+        assert(!m->test_run_diagnostic_callback);
+
+        m->test_run_diagnostic_callback = callback;
+        m->test_run_diagnostic_userdata = userdata;
+}
+
+void manager_clear_test_run_diagnostic_callback(Manager *m) {
+        assert(m);
+        assert(MANAGER_IS_TEST_RUN(m));
+        assert(!m->test_run_diagnostic_busy);
+
+        m->test_run_diagnostic_callback = NULL;
+        m->test_run_diagnostic_userdata = NULL;
+}
+
+int manager_dispatch_test_run_diagnostic(Manager *m, const ManagerDiagnostic *record) {
+        int r;
+
+        assert(m);
+        assert(record);
+        assert(record->message);
+
+        if (!m->test_run_diagnostic_callback || m->test_run_diagnostic_busy)
+                return 0;
+        if (m->test_run_diagnostic_error < 0)
+                return m->test_run_diagnostic_error;
+
+        PROTECT_ERRNO;
+
+        m->test_run_diagnostic_busy = true;
+        r = m->test_run_diagnostic_callback(record, m->test_run_diagnostic_userdata);
+        m->test_run_diagnostic_busy = false;
+
+        if (r < 0)
+                manager_record_test_run_diagnostic_error(m, r);
+
+        return r;
+}
+
+bool manager_test_run_diagnostic_enabled(const Manager *m) {
+        assert(m);
+
+        return m->test_run_diagnostic_callback &&
+                !m->test_run_diagnostic_busy &&
+                m->test_run_diagnostic_error >= 0;
+}
+
+void manager_record_test_run_diagnostic_error(Manager *m, int error) {
+        assert(m);
+        assert(MANAGER_IS_TEST_RUN(m));
+        assert(error < 0);
+
+        if (m->test_run_diagnostic_error >= 0)
+                m->test_run_diagnostic_error = error;
+}
+
+int manager_get_test_run_diagnostic_error(const Manager *m) {
+        assert(m);
+        assert(MANAGER_IS_TEST_RUN(m));
+
+        return m->test_run_diagnostic_error;
+}
+
 static int manager_setup_notify(Manager *m) {
         int r;
 
@@ -1773,6 +1881,7 @@ Manager* manager_free(Manager *m) {
         free(m->notify_socket);
 
         lookup_paths_done(&m->lookup_paths);
+        free(m->unit_path_override);
         strv_free(m->transient_environment);
         strv_free(m->client_environment);
 
@@ -2150,9 +2259,12 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, Hashmap *named_
 
         /* If we are running in test mode, we still want to run the generators,
          * but we should not touch the real generator directories. */
-        r = lookup_paths_init_or_warn(&m->lookup_paths, m->runtime_scope,
-                                      MANAGER_IS_TEST_RUN(m) ? LOOKUP_PATHS_TEMPORARY_GENERATED : 0,
-                                      root);
+        r = lookup_paths_init_or_warn_full(
+                        &m->lookup_paths,
+                        m->runtime_scope,
+                        MANAGER_IS_TEST_RUN(m) ? LOOKUP_PATHS_TEMPORARY_GENERATED : 0,
+                        root,
+                        m->unit_path_override);
         if (r < 0)
                 return r;
 
@@ -4288,8 +4400,30 @@ static bool generator_path_any(char * const *paths) {
         return false;
 }
 
+static int manager_copy_generator_environment(Manager *m, char ***ret) {
+        _cleanup_strv_free_ char **environment = NULL;
+        int r;
+
+        assert(m);
+        assert(ret);
+
+        environment = strv_copy(m->transient_environment);
+        if (!environment)
+                return -ENOMEM;
+
+        if (m->unit_path_override && !strv_env_get(environment, "SYSTEMD_UNIT_PATH")) {
+                r = strv_env_assign(&environment, "SYSTEMD_UNIT_PATH", m->unit_path_override);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(environment);
+        return 0;
+}
+
 static int manager_run_environment_generators(Manager *m) {
-        _cleanup_strv_free_ char **paths = NULL;
+        _cleanup_strv_free_ char **environment = NULL, **paths = NULL;
+        char **generator_environment;
         int r;
 
         assert(m);
@@ -4303,6 +4437,14 @@ static int manager_run_environment_generators(Manager *m) {
 
         if (!generator_path_any(paths))
                 return 0;
+
+        if (m->unit_path_override) {
+                r = manager_copy_generator_environment(m, &environment);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build environment generator environment: %m");
+        }
+
+        generator_environment = environment ?: m->transient_environment;
 
         char **tmp = NULL; /* this is only used in the forked process, no cleanup here */
         void *args[_STDOUT_CONSUME_MAX] = {
@@ -4319,7 +4461,7 @@ static int manager_run_environment_generators(Manager *m) {
                                 gather_environment,
                                 args,
                                 /* argv[]= */ NULL,
-                                m->transient_environment,
+                                generator_environment,
                                 EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS | EXEC_DIR_SET_SYSTEMD_EXEC_PID);
         return r;
 }
@@ -4337,9 +4479,9 @@ static int build_generator_environment(Manager *m, char ***ret) {
          * adjust generated units to that. Let's pass down some bits of information that are easy for us to
          * determine (but a bit harder for generator scripts to determine), as environment variables. */
 
-        nl = strv_copy(m->transient_environment);
-        if (!nl)
-                return -ENOMEM;
+        r = manager_copy_generator_environment(m, &nl);
+        if (r < 0)
+                return r;
 
         r = strv_env_assign(&nl, "SYSTEMD_SCOPE", runtime_scope_to_string(m->runtime_scope));
         if (r < 0)

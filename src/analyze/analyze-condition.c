@@ -84,18 +84,25 @@ static int log_helper(void *userdata, int level, int error, const char *file, in
 
 static int verify_conditions(char **lines, RuntimeScope scope, const char *unit, const char *root) {
         _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free_ char *unit_path = NULL;
         Unit *u;
         int r, q = 1;
 
         if (unit) {
-                r = verify_set_unit_path(STRV_MAKE(unit));
+                r = verify_build_unit_path(STRV_MAKE(unit), &unit_path);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to set unit load path: %m");
+                        return log_error_errno(r, "Failed to build unit load path: %m");
         }
 
         r = manager_new(scope, MANAGER_TEST_RUN_MINIMAL|MANAGER_TEST_DONT_OPEN_EXECUTOR, &m);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize manager: %m");
+
+        if (unit_path) {
+                r = manager_set_unit_path_override(m, unit_path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set unit load path: %m");
+        }
 
         log_debug("Starting manager...");
         r = manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, root);
@@ -105,7 +112,7 @@ static int verify_conditions(char **lines, RuntimeScope scope, const char *unit,
         if (unit) {
                 _cleanup_free_ char *prepared = NULL;
 
-                r = verify_prepare_filename(unit, &prepared);
+                r = verify_prepare_filename(unit, arg_instance, &prepared);
                 if (r < 0)
                         return log_error_errno(r, "Failed to prepare filename %s: %m", unit);
 

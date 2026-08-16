@@ -2723,6 +2723,7 @@ static int offline_security_checks(
                 run_generators * MANAGER_TEST_RUN_GENERATORS;
 
         _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free_ char *unit_path = NULL;
         Unit *units[strv_length(filenames)];
         int r, k;
         size_t count = 0;
@@ -2730,13 +2731,19 @@ static int offline_security_checks(
         if (strv_isempty(filenames))
                 return 0;
 
-        r = verify_set_unit_path(filenames);
+        r = verify_build_unit_path(filenames, &unit_path);
         if (r < 0)
-                return log_error_errno(r, "Failed to set unit load path: %m");
+                return log_error_errno(r, "Failed to build unit load path: %m");
 
         r = manager_new(scope, flags, &m);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize manager: %m");
+
+        if (unit_path) {
+                r = manager_set_unit_path_override(m, unit_path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set unit load path: %m");
+        }
 
         log_debug("Starting manager...");
 
@@ -2758,7 +2765,7 @@ static int offline_security_checks(
 
                 log_debug("Handling %s...", *filename);
 
-                k = verify_prepare_filename(*filename, &prepared);
+                k = verify_prepare_filename(*filename, arg_instance, &prepared);
                 if (k < 0) {
                         log_warning_errno(k, "Failed to prepare filename %s: %m", *filename);
                         RET_GATHER(r, k);

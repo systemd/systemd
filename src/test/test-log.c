@@ -1,11 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <pthread.h>
+
 #include "format-util.h"
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
 #include "log.h"
 #include "log-context.h"
 #include "process-util.h"
+#include "sd-messages.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -338,6 +341,146 @@ static void test_log_prefix(void) {
         test_log_struct();
         test_long_lines();
         test_log_syntax();
+}
+
+typedef struct LogSyntaxCallbackTestContext {
+        int expected_priority;
+        const char *expected_message;
+        const char *expected_unit;
+        const char *expected_config_file;
+        unsigned expected_config_line;
+        unsigned n_calls;
+} LogSyntaxCallbackTestContext;
+
+static void log_syntax_test_callback(const LogSyntaxRecord *record, void *userdata) {
+        LogSyntaxCallbackTestContext *ctx = ASSERT_PTR(userdata);
+
+        assert_se(record);
+        assert_se(record->priority == ctx->expected_priority);
+        assert_se(streq_ptr(record->message, ctx->expected_message));
+        assert_se(streq_ptr(record->unit, ctx->expected_unit));
+        assert_se(streq_ptr(record->config_file, ctx->expected_config_file));
+        assert_se(record->config_line == ctx->expected_config_line);
+        assert_se(streq_ptr(record->message_id, SD_MESSAGE_INVALID_CONFIGURATION_STR));
+
+        ctx->n_calls++;
+}
+
+typedef struct LogSyntaxCallbackThreadContext {
+        LogSyntaxCallbackTestContext callback;
+        bool enabled_before;
+        bool enabled_during;
+        bool enabled_after;
+} LogSyntaxCallbackThreadContext;
+
+static void* test_log_syntax_callback_thread(void *userdata) {
+        LogSyntaxCallbackThreadContext *ctx = ASSERT_PTR(userdata);
+
+        ctx->enabled_before = log_syntax_enabled(LOG_WARNING);
+
+        set_log_syntax_callback(log_syntax_test_callback, &ctx->callback);
+        ctx->enabled_during = log_syntax_enabled(LOG_WARNING);
+        assert_se(log_syntax(
+                          NULL, LOG_WARNING, NULL, 0, EINVAL,
+                          "thread syntax") == -EINVAL);
+        set_log_syntax_callback(/* cb= */ NULL, /* userdata= */ NULL);
+
+        ctx->enabled_after = log_syntax_enabled(LOG_WARNING);
+        return NULL;
+}
+
+TEST(log_syntax_callback) {
+        LogSyntaxCallbackTestContext ctx = {
+                .expected_priority = LOG_WARNING,
+                .expected_message = "bad setting 1",
+                .expected_unit = "typed.service",
+                .expected_config_file = "/tmp/typed.service",
+                .expected_config_line = 23,
+        };
+        LogSyntaxCallbackThreadContext thread_ctx = {
+                .callback = {
+                        .expected_priority = LOG_WARNING,
+                        .expected_message = "thread syntax",
+                },
+        };
+        LogTarget old_target = log_get_target();
+        int old_max_level = log_set_max_level(LOG_ERR);
+        unsigned ordinary_format_calls = 0, syntax_format_calls = 0;
+        pthread_t thread;
+
+        log_set_target(LOG_TARGET_NULL);
+        ASSERT_FALSE(log_syntax_enabled(LOG_WARNING));
+
+        {
+                _unused_ _cleanup_(clear_log_syntax_callback) dummy_t dummy;
+
+                set_log_syntax_callback(log_syntax_test_callback, &ctx);
+                ASSERT_TRUE(log_syntax_enabled(LOG_WARNING));
+                ASSERT_FALSE(log_syntax_enabled(LOG_DEBUG));
+
+                log_notice("ordinary log %u", ++ordinary_format_calls);
+                ASSERT_EQ(ordinary_format_calls, 0u);
+
+                ASSERT_ERROR(log_syntax(
+                                     "typed.service",
+                                     LOG_DAEMON|LOG_WARNING,
+                                     "/tmp/typed.service",
+                                     23,
+                                     EINVAL,
+                                     "bad setting %u",
+                                     ++syntax_format_calls),
+                             EINVAL);
+                ASSERT_EQ(ctx.n_calls, 1u);
+                ASSERT_EQ(syntax_format_calls, 1u);
+
+                ASSERT_EQ(pthread_create(&thread, NULL, test_log_syntax_callback_thread, &thread_ctx), 0);
+                ASSERT_EQ(pthread_join(thread, NULL), 0);
+                ASSERT_FALSE(thread_ctx.enabled_before);
+                ASSERT_TRUE(thread_ctx.enabled_during);
+                ASSERT_FALSE(thread_ctx.enabled_after);
+                ASSERT_EQ(thread_ctx.callback.n_calls, 1u);
+
+                ctx = (LogSyntaxCallbackTestContext) {
+                        .expected_priority = LOG_WARNING,
+                        .expected_message = "optional metadata 2",
+                };
+                ASSERT_ERROR(log_syntax(
+                                     NULL, LOG_WARNING, NULL, 0, EINVAL,
+                                     "optional metadata %u", ++syntax_format_calls),
+                             EINVAL);
+                ASSERT_EQ(ctx.n_calls, 1u);
+
+                ctx = (LogSyntaxCallbackTestContext) {
+                        .expected_priority = LOG_INFO,
+                        .expected_message = "info syntax 3",
+                };
+                ASSERT_ERROR(log_syntax(
+                                     NULL, LOG_INFO, NULL, 0, EINVAL,
+                                     "info syntax %u", ++syntax_format_calls),
+                             EINVAL);
+                ASSERT_EQ(ctx.n_calls, 1u);
+
+                ctx = (LogSyntaxCallbackTestContext) {
+                        .expected_priority = LOG_DEBUG,
+                        .expected_message = "debug syntax 4",
+                };
+                ASSERT_ERROR(log_syntax(
+                                     NULL, LOG_DEBUG, NULL, 0, EINVAL,
+                                     "debug syntax %u", ++syntax_format_calls),
+                             EINVAL);
+                ASSERT_EQ(ctx.n_calls, 0u);
+                ASSERT_EQ(syntax_format_calls, 3u);
+        }
+
+        ASSERT_FALSE(log_syntax_enabled(LOG_WARNING));
+        ASSERT_ERROR(log_syntax(
+                             NULL, LOG_WARNING, NULL, 0, EINVAL,
+                             "filtered syntax %u", ++syntax_format_calls),
+                     EINVAL);
+        ASSERT_EQ(syntax_format_calls, 3u);
+
+        log_set_target(old_target);
+        log_set_max_level(old_max_level);
 }
 
 TEST(log_target) {

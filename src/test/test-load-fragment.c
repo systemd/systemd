@@ -92,10 +92,12 @@ static void check_execcommand(ExecCommand *c,
         ASSERT_EQ(FLAGS_SET(c->flags, EXEC_COMMAND_IGNORE_FAILURE), ignore);
 }
 
-static void count_syntax_warnings(_unused_ const char *unit, int level, void *userdata) {
+static void count_syntax_warnings(const LogSyntaxRecord *record, void *userdata) {
         unsigned *n_syntax_warnings = ASSERT_PTR(userdata);
 
-        if (level <= LOG_WARNING)
+        assert(record);
+
+        if (record->priority <= LOG_WARNING)
                 (*n_syntax_warnings)++;
 }
 

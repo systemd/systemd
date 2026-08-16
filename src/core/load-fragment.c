@@ -2547,6 +2547,71 @@ int config_parse_service_timeout_abort(
         return 0;
 }
 
+static void dispatch_unsafe_user_group_name_diagnostic(
+                const Unit *u,
+                const char *name) {
+
+        _cleanup_free_ char *message = NULL;
+
+        assert(u);
+        assert(name);
+
+        if (!manager_test_run_diagnostic_enabled(u->manager))
+                return;
+
+        message = strjoin(
+                        "Accepting user/group name '",
+                        name,
+                        "', which does not match strict user/group name rules.");
+        if (!message) {
+                manager_record_test_run_diagnostic_error(u->manager, -ENOMEM);
+                return;
+        }
+
+        (void) manager_dispatch_test_run_diagnostic(u->manager, &(ManagerDiagnostic) {
+                        .priority = LOG_NOTICE,
+                        .message = message,
+                        .message_id = SD_MESSAGE_UNSAFE_USER_NAME_STR,
+                });
+}
+
+static void dispatch_nobody_user_diagnostic(
+                const Unit *u,
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *name) {
+
+        _cleanup_free_ char *message = NULL;
+
+        assert(u);
+        assert(unit);
+        assert(filename);
+        assert(name);
+
+        if (!manager_test_run_diagnostic_enabled(u->manager))
+                return;
+
+        if (strextendf(
+                        &message,
+                        "%s:%u: Special user %s configured, this is not safe!",
+                        filename,
+                        line,
+                        name) < 0) {
+                manager_record_test_run_diagnostic_error(u->manager, -ENOMEM);
+                return;
+        }
+
+        (void) manager_dispatch_test_run_diagnostic(u->manager, &(ManagerDiagnostic) {
+                        .priority = LOG_NOTICE,
+                        .message = message,
+                        .unit = unit,
+                        .configuration_file = filename,
+                        .configuration_line = line,
+                        .message_id = SD_MESSAGE_NOBODY_USER_UNSUITABLE_STR,
+                });
+}
+
 int config_parse_user_group_compat(
                 const char *unit,
                 const char *filename,
@@ -2579,12 +2644,18 @@ int config_parse_user_group_compat(
                 return -ENOEXEC;
         }
 
+        bool unsafe = !valid_user_group_name(k, VALID_USER_ALLOW_NUMERIC);
+
         if (!valid_user_group_name(k, VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX|VALID_USER_WARN)) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid user/group name or numeric ID: %s", k);
                 return -ENOEXEC;
         }
 
-        if (strstr(lvalue, "User") && streq(k, NOBODY_USER_NAME))
+        if (unsafe)
+                dispatch_unsafe_user_group_name_diagnostic(u, k);
+
+        if (strstr(lvalue, "User") && streq(k, NOBODY_USER_NAME)) {
+                dispatch_nobody_user_diagnostic(u, unit, filename, line, k);
                 log_struct(LOG_NOTICE,
                            LOG_MESSAGE("%s:%u: Special user %s configured, this is not safe!", filename, line, k),
                            LOG_MESSAGE_ID(SD_MESSAGE_NOBODY_USER_UNSUITABLE_STR),
@@ -2592,6 +2663,7 @@ int config_parse_user_group_compat(
                            LOG_ITEM("OFFENDING_USER=%s", k),
                            LOG_ITEM("CONFIG_FILE=%s", filename),
                            LOG_ITEM("CONFIG_LINE=%u", line));
+        }
 
         return free_and_replace(*user, k);
 }
@@ -2640,10 +2712,15 @@ int config_parse_user_group_strv_compat(
                         return -ENOEXEC;
                 }
 
+                bool unsafe = !valid_user_group_name(k, VALID_USER_ALLOW_NUMERIC);
+
                 if (!valid_user_group_name(k, VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX|VALID_USER_WARN)) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid user/group name or numeric ID: %s", k);
                         return -ENOEXEC;
                 }
+
+                if (unsafe)
+                        dispatch_unsafe_user_group_name_diagnostic(u, k);
 
                 r = strv_push(users, k);
                 if (r < 0)
@@ -6193,6 +6270,10 @@ static const char* builtin_unit_lookup(const char *name) {
         return NULL;
 }
 
+bool unit_has_builtin_fragment(const char *name) {
+        return !!builtin_unit_lookup(name);
+}
+
 int unit_load_fragment(Unit *u) {
         int r;
 
@@ -6207,11 +6288,12 @@ int unit_load_fragment(Unit *u) {
         }
 
         /* Possibly rebuild the fragment map to catch new units */
-        r = unit_file_build_name_map(&u->manager->lookup_paths,
-                                     &u->manager->unit_cache_timestamp_hash,
-                                     &u->manager->unit_id_map,
-                                     &u->manager->unit_name_map,
-                                     &u->manager->unit_path_cache);
+        r = unit_file_build_name_map_full(&u->manager->lookup_paths,
+                                          &u->manager->unit_cache_timestamp_hash,
+                                          &u->manager->unit_id_map,
+                                          &u->manager->unit_name_map,
+                                          &u->manager->unit_path_cache,
+                                          u->manager->unit_name_map_limit);
         if (r < 0)
                 return log_error_errno(r, "Failed to rebuild name map: %m");
 

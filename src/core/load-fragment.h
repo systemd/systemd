@@ -14,6 +14,7 @@ int parse_confirm_spawn(const char *value, char **console);
 /* Read service data from .desktop file style configuration fragments */
 
 int unit_load_fragment(Unit *u);
+bool unit_has_builtin_fragment(const char *name);
 
 void unit_dump_config_items(FILE *f);
 

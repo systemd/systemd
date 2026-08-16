@@ -1,7 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-messages.h"
+
 #include "alloc-util.h"
 #include "escape.h"
+#include "load-fragment.h"
+#include "manager.h"
 #include "strv.h"
 #include "tests.h"
 #include "unit.h"
@@ -116,6 +120,154 @@ TEST(unit_concat_strv) {
                                   "\"\\n\" \" \" \"\\t\"",
                                   "\"\\n\" \" \" \"\\t\"",
                                   "\"\\n\" \" \" \"\\t\"");
+}
+
+typedef struct TestManagerDiagnosticState {
+        Manager *manager;
+        size_t n_calls;
+        int priority;
+        int callback_error;
+        char message[LINE_MAX];
+        const char *unit;
+        const char *configuration_file;
+        unsigned configuration_line;
+        const char *message_id;
+} TestManagerDiagnosticState;
+
+static int test_manager_diagnostic_callback(const ManagerDiagnostic *record, void *userdata) {
+        TestManagerDiagnosticState *state = ASSERT_PTR(userdata);
+
+        assert(record);
+
+        state->n_calls++;
+        state->priority = record->priority;
+        state->unit = record->unit;
+        state->configuration_file = record->configuration_file;
+        state->configuration_line = record->configuration_line;
+        state->message_id = record->message_id;
+        (void) snprintf(state->message, sizeof state->message, "%s", record->message);
+
+        /* A callback may itself log. Such nested records must not recursively invoke the callback. */
+        (void) manager_dispatch_test_run_diagnostic(state->manager, record);
+
+        return state->callback_error;
+}
+
+TEST(manager_diagnostic) {
+        _cleanup_free_ char *configured_user = NULL;
+        char unit_id[] = "diagnostic.service";
+        Manager manager = {
+                .runtime_scope = RUNTIME_SCOPE_SYSTEM,
+                .test_run_flags = MANAGER_TEST_RUN_MINIMAL,
+        };
+        Unit unit = {
+                .manager = &manager,
+                .id = unit_id,
+        };
+        TestManagerDiagnosticState state = {
+                .manager = &manager,
+        };
+
+        manager_set_test_run_diagnostic_callback(&manager, test_manager_diagnostic_callback, &state);
+
+        int old_max_level = log_set_max_level(LOG_ERR);
+
+        ASSERT_OK_ZERO(config_parse_user_group_compat(
+                        unit_id,
+                        "/tmp/diagnostic.service",
+                        7,
+                        "Service",
+                        1,
+                        "User",
+                        0,
+                        "unsafe@name",
+                        &configured_user,
+                        &unit));
+        ASSERT_EQ(state.n_calls, 1U);
+        ASSERT_EQ(state.priority, LOG_NOTICE);
+        ASSERT_STREQ(state.message,
+                     "Accepting user/group name 'unsafe@name', which does not match strict user/group name rules.");
+        ASSERT_NULL(state.unit);
+        ASSERT_NULL(state.configuration_file);
+        ASSERT_EQ(state.configuration_line, 0U);
+        ASSERT_STREQ(state.message_id, SD_MESSAGE_UNSAFE_USER_NAME_STR);
+
+        ASSERT_OK_ZERO(config_parse_user_group_compat(
+                        unit_id,
+                        "/tmp/diagnostic.service",
+                        9,
+                        "Service",
+                        1,
+                        "User",
+                        0,
+                        NOBODY_USER_NAME,
+                        &configured_user,
+                        &unit));
+        ASSERT_EQ(state.n_calls, 2U);
+        ASSERT_EQ(state.priority, LOG_NOTICE);
+        ASSERT_STREQ(state.message,
+                     "/tmp/diagnostic.service:9: Special user nobody configured, this is not safe!");
+        ASSERT_STREQ(state.unit, unit_id);
+        ASSERT_STREQ(state.configuration_file, "/tmp/diagnostic.service");
+        ASSERT_EQ(state.configuration_line, 9U);
+        ASSERT_STREQ(state.message_id, SD_MESSAGE_NOBODY_USER_UNSUITABLE_STR);
+
+        ASSERT_OK_ZERO(log_unit_internal(
+                        &unit, LOG_INFO, 0, PROJECT_FILE, __LINE__, __func__, "Test message %u", 7U));
+        ASSERT_EQ(state.n_calls, 3U);
+        ASSERT_EQ(state.priority, LOG_INFO);
+        ASSERT_STREQ(state.message, "Test message 7");
+        ASSERT_STREQ(state.unit, unit_id);
+
+        ASSERT_OK_ZERO(log_unit_internal(
+                        &unit,
+                        LOG_INFO,
+                        0,
+                        PROJECT_FILE,
+                        __LINE__,
+                        __func__,
+                        "Line one\n\nLine two\rLine three"));
+        ASSERT_EQ(state.n_calls, 6U);
+        ASSERT_STREQ(state.message, "Line three");
+
+        ASSERT_OK_ZERO(log_unit_internal(
+                        &unit, LOG_DEBUG, 0, PROJECT_FILE, __LINE__, __func__, "Debug message"));
+        ASSERT_EQ(state.n_calls, 6U);
+
+        state.callback_error = -E2BIG;
+        ASSERT_ERROR(
+                        log_unit_internal(
+                                &unit,
+                                LOG_WARNING,
+                                SYNTHETIC_ERRNO(EINVAL),
+                                PROJECT_FILE,
+                                __LINE__,
+                                __func__,
+                                "Warning message"),
+                        EINVAL);
+        ASSERT_EQ(state.n_calls, 7U);
+        ASSERT_ERROR(manager_get_test_run_diagnostic_error(&manager), E2BIG);
+
+        manager_record_test_run_diagnostic_error(&manager, -ENOMEM);
+        ASSERT_ERROR(manager_get_test_run_diagnostic_error(&manager), E2BIG);
+
+        ASSERT_ERROR(
+                        log_unit_internal(
+                                &unit,
+                                LOG_INFO,
+                                SYNTHETIC_ERRNO(ENOENT),
+                                PROJECT_FILE,
+                                __LINE__,
+                                __func__,
+                                "Ignored after callback failure"),
+                        ENOENT);
+        ASSERT_EQ(state.n_calls, 7U);
+
+        manager_clear_test_run_diagnostic_callback(&manager);
+        ASSERT_NULL(manager.test_run_diagnostic_callback);
+        ASSERT_NULL(manager.test_run_diagnostic_userdata);
+
+        log_set_max_level(old_max_level);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
