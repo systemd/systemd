@@ -87,6 +87,10 @@ fi
 systemd-id128 --introspect-cli | jq -e \
     '.commands[0].verbs | map(.names[0]) | contains(["new", "machine-id", "show", "help"])'
 
+# systemd-clonesetup defines verbs, check that they are described
+systemd-clonesetup --introspect-cli | jq -e \
+    '.commands[0].verbs | map(.names[0]) | contains(["add", "remove"])'
+
 # resolvectl is a multicall binary, check that both commands are described
 resolvectl --introspect-cli | jq -e \
     '[.commands[].names[0]] | sort == ["resolvconf", "resolvectl", "systemd-resolve"]'
