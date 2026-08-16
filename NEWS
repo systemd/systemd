@@ -79,12 +79,9 @@ CHANGES WITH 262:
 
         Changes in systemd-networkd:
 
-        * A new IPv4ProxyARPAddress= setting has been added to the [Network]
-          section of .network files. It is the IPv4 counterpart to
-          IPv6ProxyNDPAddress= and allows manual entries to be added to the
-          kernel's IPv4 neighbor proxy table. The setting implies
-          IPv4ProxyARP=yes but has no effect if IPv4ProxyARP= has been set to
-          false. This mirrors the behavior of IPv6ProxyNDPAddress=.
+        * The IPv6ProxyNDPAddress= setting in the [Network] section of .network
+          files has been renamed to ProxyNeighbor=. The setting can now also be
+          used to add IPv4 addresses to the kernel's IPv4 neighbor proxy table.
 
         Changes in various tools:
 
