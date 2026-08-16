@@ -51,6 +51,7 @@ INTROSPECTABLE=(
     systemd-socket-activate
     systemd-socket-proxyd
     systemd-stdio-bridge
+    systemd-storage-block
     systemd-tty-ask-password-agent
     systemd-veritysetup
     timedatectl
