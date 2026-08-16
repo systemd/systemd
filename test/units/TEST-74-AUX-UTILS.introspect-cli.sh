@@ -36,6 +36,7 @@ INTROSPECTABLE=(
     systemd-id128
     systemd-imds
     systemd-inhibit
+    systemd-journal-gatewayd
     systemd-mute-console
     systemd-notify
     systemd-oomd
