@@ -979,18 +979,38 @@ def coff_string_table_offset(pe: pefile.PE) -> int:
 def pe_add_sections(opts: UkifyConfig, uki: UKI, output: str) -> None:
     pe = pefile.PE(uki.executable, fast_load=True)
 
-    # Old stubs do not have the symbol/string table stripped, even though image files should not have one.
-    if symbol_table := pe.FILE_HEADER.PointerToSymbolTable:
-        symbol_table_size = 18 * pe.FILE_HEADER.NumberOfSymbols
-        if string_table_size := pe.get_dword_from_offset(coff_string_table_offset(pe)):
-            symbol_table_size += string_table_size
+    coff_string_table = b''
+    security = pe.OPTIONAL_HEADER.DATA_DIRECTORY[pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_SECURITY']]
+    if security.VirtualAddress != 0:
+        if not opts.pcrsig:
+            # We could strip the signatures, but why would anyone sign the stub?
+            raise PEError('Stub image is signed, refusing')
+    else:
+        string_table_in_use = any(section.Name.startswith(b'/') for section in pe.sections)
+        if symbol_table_start := pe.FILE_HEADER.PointerToSymbolTable:
+            symbol_table_size = IMAGE_SIZEOF_SYMBOL * pe.FILE_HEADER.NumberOfSymbols
+            if string_table_size := pe.get_dword_from_offset(coff_string_table_offset(pe)):
+                symbol_table_size += string_table_size
 
-        # Let's be safe and only strip it if it's at the end of the file.
-        if symbol_table + symbol_table_size == len(pe.__data__):
-            pe.__data__ = pe.__data__[:symbol_table]
-            pe.FILE_HEADER.PointerToSymbolTable = 0
-            pe.FILE_HEADER.NumberOfSymbols = 0
-            pe.FILE_HEADER.IMAGE_FILE_LOCAL_SYMS_STRIPPED = True
+            if string_table_in_use:
+                # Keep referenced table (e.g. for long DWARF section names) and move to new end of file.
+                coff_string_table = bytes(
+                    pe.__data__[symbol_table_start : symbol_table_start + symbol_table_size]
+                )
+            else:
+                # Clean up unused symbol/string table (e.g. from old stubs where it was not stripped).
+                pe.FILE_HEADER.NumberOfSymbols = 0
+                pe.FILE_HEADER.IMAGE_FILE_LOCAL_SYMS_STRIPPED = True
+                pe.FILE_HEADER.PointerToSymbolTable = 0
+
+            # Adjust existing sections pointing beyond the symbol table, e.g. offline PCR signing
+            # involving older ukify.
+            removed_end = round_up(symbol_table_start + symbol_table_size, pe.OPTIONAL_HEADER.FileAlignment)
+            for section in pe.sections:
+                if section.PointerToRawData >= removed_end:
+                    section.PointerToRawData -= removed_end - symbol_table_start
+
+            pe.__data__ = pe.__data__[:symbol_table_start] + pe.__data__[removed_end:]
 
     # pylint thinks that Structure doesn't have various members that it has…
     # pylint: disable=no-member
@@ -1032,15 +1052,6 @@ def pe_add_sections(opts: UkifyConfig, uki: UKI, output: str) -> None:
         if 'VirtualAddress is beyond' in w:
             continue
         raise PEError(f'pefile warnings treated as errors: {warnings}')
-
-    # When attaching signatures we are operating on an existing UKI which might be signed
-    if not opts.pcrsig:
-        security = pe.OPTIONAL_HEADER.DATA_DIRECTORY[
-            pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_SECURITY']
-        ]
-        if security.VirtualAddress != 0:
-            # We could strip the signatures, but why would anyone sign the stub?
-            raise PEError('Stub image is signed, refusing')
 
     # Remember how many sections originate from systemd-stub
     n_original_sections = len(pe.sections)
@@ -1160,6 +1171,10 @@ def pe_add_sections(opts: UkifyConfig, uki: UKI, output: str) -> None:
                     + padding
                     + pe.__data__[section.PointerToRawData + section.SizeOfRawData :]
                 )
+
+    if coff_string_table:
+        pe.FILE_HEADER.PointerToSymbolTable = len(pe.__data__)
+        pe.__data__ += coff_string_table
 
     pe.OPTIONAL_HEADER.CheckSum = 0
     pe.OPTIONAL_HEADER.SizeOfImage = round_up(
