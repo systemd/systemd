@@ -1586,9 +1586,6 @@ int image_rename(Image *i, const char *new_name, RuntimeScope scope) {
         if (file_attr & FS_IMMUTABLE_FL)
                 (void) chattr_path(new_path, FS_IMMUTABLE_FL, FS_IMMUTABLE_FL);
 
-        free_and_replace(i->path, new_path);
-        free_and_replace(i->name, nn);
-
         STRV_FOREACH(j, settings) {
                 r = rename_auxiliary_file(*j, new_name, ".nspawn");
                 if (r < 0 && r != -ENOENT)
@@ -1597,14 +1594,20 @@ int image_rename(Image *i, const char *new_name, RuntimeScope scope) {
 
         NULSTR_FOREACH(suffix, auxiliary_suffixes_nulstr) {
                 _cleanup_free_ char *aux = NULL;
+
                 r = image_auxiliary_path(i, suffix, &aux);
-                if (r < 0)
-                        return r;
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to generate auxiliary path, ignoring: %m");
+                        continue;
+                }
 
                 r = rename_auxiliary_file(aux, new_name, suffix);
                 if (r < 0 && r != -ENOENT)
-                        log_debug_errno(r, "Failed to rename roothash file %s, ignoring: %m", aux);
+                        log_debug_errno(r, "Failed to rename auxiliary file %s, ignoring: %m", aux);
         }
+
+        free_and_replace(i->path, new_path);
+        free_and_replace(i->name, nn);
 
         return 0;
 }
