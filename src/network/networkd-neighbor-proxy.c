@@ -15,61 +15,37 @@
 #include "socket-util.h"
 #include "string-util.h"
 
-bool network_has_neighbor_proxy_address(const Network *network, int family) {
-        struct in_addr_data *a;
-
-        assert(network);
-        assert(IN_SET(family, AF_INET, AF_INET6));
-
-        SET_FOREACH(a, network->neighbor_proxy_addresses)
-                if (a->family == family)
-                        return true;
-
-        return false;
-}
-
-static void network_drop_neighbor_proxy_addresses(Network *network, int family) {
-        struct in_addr_data *a;
-
-        assert(network);
-        assert(IN_SET(family, AF_INET, AF_INET6));
-
-        SET_FOREACH(a, network->neighbor_proxy_addresses)
-                if (a->family == family)
-                        free(set_remove(network->neighbor_proxy_addresses, a));
-
-        if (set_isempty(network->neighbor_proxy_addresses))
-                network->neighbor_proxy_addresses = set_free(network->neighbor_proxy_addresses);
-}
-
 void network_adjust_neighbor_proxy(Network *network) {
         assert(network);
 
-        if (set_isempty(network->neighbor_proxy_addresses))
-                return;
+        struct in_addr_data *a;
+        SET_FOREACH(a, network->neighbor_proxy_addresses) {
+                switch (a->family) {
+                case AF_INET6:
+                        if (!socket_ipv6_is_supported()) {
+                                log_warning("%s: Specified IPv6 proxy NDP address %s, but IPv6 is not supported by the kernel, ignoring.",
+                                            network->filename, IN_ADDR_TO_STRING(a->family, &a->address));
+                                free(set_remove(network->neighbor_proxy_addresses, a));
+                                continue;
+                        }
 
-        /* If IPv6 is not supported by the kernel, drop any IPv6 entries up front. */
-        if (!socket_ipv6_is_supported() &&
-            network_has_neighbor_proxy_address(network, AF_INET6)) {
-                log_once(LOG_WARNING,
-                         "%s: IPv6 proxy NDP addresses are set, but IPv6 is not supported by kernel, "
-                         "ignoring IPv6 proxy NDP addresses.", network->filename);
-                network_drop_neighbor_proxy_addresses(network, AF_INET6);
-        }
+                        if (network->ipv6_proxy_ndp == 0) {
+                                log_warning("%s: Specified IPv6 proxy NDP address %s, but IPv6ProxyNDP= is disabled, ignoring.",
+                                            network->filename, IN_ADDR_TO_STRING(a->family, &a->address));
+                                free(set_remove(network->neighbor_proxy_addresses, a));
+                                continue;
+                        }
 
-        /* Drop per-family entries when the corresponding proxy sysctl was explicitly disabled.
-         * For IPv6 the proxy_ndp sysctl is required for manual entries to take effect; for IPv4 we
-         * apply the same rule for consistency so that an explicit IPv4ProxyARP=no is respected. */
-        int family;
-        FOREACH_ARGUMENT(family, AF_INET, AF_INET6) {
-                int tristate = family == AF_INET ? network->proxy_arp : network->ipv6_proxy_ndp;
+                        /* IPv6 proxy NDP entry requires that proxy_ndp sysctl is enabled. */
+                        network->ipv6_proxy_ndp = true;
+                        break;
 
-                if (tristate == 0 && network_has_neighbor_proxy_address(network, family)) {
-                        log_warning("%s: %s is disabled. Ignoring %s.",
-                                    network->filename,
-                                    family == AF_INET ? "IPv4ProxyARP=" : "IPv6ProxyNDP=",
-                                    family == AF_INET ? "IPv4ProxyARPAddress=" : "IPv6ProxyNDPAddress=");
-                        network_drop_neighbor_proxy_addresses(network, family);
+                case AF_INET:
+                        /* IPv4 proxy ARP entry does NOT require that proxy_arp sysctl is enabled. */
+                        break;
+
+                default:
+                        assert_not_reached();
                 }
         }
 }
