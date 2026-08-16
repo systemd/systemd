@@ -49,6 +49,7 @@ INTROSPECTABLE=(
     systemd-pcrextend
     systemd-pty-forward
     systemd-socket-activate
+    systemd-socket-proxyd
     systemd-tty-ask-password-agent
     systemd-veritysetup
     timedatectl
