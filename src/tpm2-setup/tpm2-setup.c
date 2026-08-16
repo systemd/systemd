@@ -4,6 +4,8 @@
 #include <sysexits.h>
 #include <unistd.h>
 
+#include "sd-id128.h"
+#include "sd-json.h"
 #include "sd-messages.h"
 
 #include "alloc-util.h"
@@ -17,23 +19,20 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "format-table.h"
 #include "fs-util.h"
 #include "hexdecoct.h"
 #include "log.h"
 #include "main-func.h"
 #include "mkdir.h"
-#include "options.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "pretty-print.h"
-#include "sd-id128.h"
 #include "set.h"
 #include "sort-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
 #include "tpm2-util.h"
+#include "verbs.h"
 
 static char *arg_tpm2_device = NULL;
 static bool arg_early = false;
@@ -41,41 +40,17 @@ static bool arg_graceful = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 
+COMMAND(
+        "systemd-tpm2-setup\0",
+        "Set up the TPM2 Storage Root Key (SRK) and Endorsement Key (EK), and initialize NvPCRs.",
+        .man_pages = "systemd-tpm2-setup.8\0",
+);
+
 #define TPM2_SRK_PEM_PERSISTENT_PATH "/var/lib/systemd/tpm2-srk-public-key.pem"
 #define TPM2_SRK_PEM_RUNTIME_PATH "/run/systemd/tpm2-srk-public-key.pem"
 
 #define TPM2_SRK_TPM2B_PUBLIC_PERSISTENT_PATH "/var/lib/systemd/tpm2-srk-public-key.tpm2b_public"
 #define TPM2_SRK_TPM2B_PUBLIC_RUNTIME_PATH "/run/systemd/tpm2-srk-public-key.tpm2b_public"
-
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-tpm2-setup", "8", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        printf("%s [OPTIONS...]\n"
-               "\n%sSet up the TPM2 Storage Root Key (SRK) and Endorsement Key (EK), and initialize NvPCRs.%s\n"
-               "\n%sOptions:%s\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal(),
-               ansi_underline(),
-               ansi_normal());
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
 
 static int parse_argv(int argc, char *argv[]) {
         int r;
@@ -89,7 +64,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-tpm2-setup");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -113,6 +88,9 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("graceful", NULL, "Exit gracefully if no TPM2 device is found"):
                         arg_graceful = true;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (option_parser_get_n_args(&opts) != 0)
