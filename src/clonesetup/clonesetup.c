@@ -1,16 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #include <sys/stat.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "build.h"
 #include "clonesetup-ioctl.h"
 #include "clonesetup-util.h"
 #include "extract-word.h"
-#include "format-table.h"
-#include "help-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "options.h"
 #include "parse-util.h"
 #include "string-util.h"
 #include "strv.h"               /* strv_skip */
@@ -21,6 +20,12 @@
 #define CLONE_REGION_SIZE_DEFAULT_BYTES       (UINT64_C(1) << 12)      /* 4 KiB */
 #define CLONE_REGION_SIZE_MIN_BYTES           (UINT64_C(1) << 12)      /* 4 KiB */
 #define CLONE_REGION_SIZE_MAX_BYTES           (UINT64_C(1) << 30)      /* 1 GiB */
+
+COMMAND(
+        "systemd-clonesetup\0",
+        "Add or remove a dm-clone device.",
+        .man_pages = "systemd-clonesetup.8\0",
+);
 
 static int parse_clone_options(const char *options, uint64_t *ret_region_size_bytes) {
         uint64_t region_size_bytes = CLONE_REGION_SIZE_DEFAULT_BYTES;
@@ -136,26 +141,6 @@ static int verb_remove(int argc, char *argv[], uintptr_t data, void *userdata) {
         return 0;
 }
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        help_cmdline("add NAME SOURCE DEST METADATA [OPTIONS]");
-        help_cmdline("remove NAME");
-        help_abstract("Add or remove a dm-clone device.");
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("systemd-clonesetup", "8");
-        return 0;
-}
-
 static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
@@ -165,10 +150,13 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-clonesetup");
 
                 OPTION_COMMON_VERSION:
                         return version();
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         return 1;

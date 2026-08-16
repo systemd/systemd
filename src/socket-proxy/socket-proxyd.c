@@ -6,6 +6,7 @@
 
 #include "sd-daemon.h"
 #include "sd-event.h"
+#include "sd-json.h"
 #include "sd-resolve.h"
 
 #include "alloc-util.h"
@@ -14,14 +15,11 @@
 #include "errno-util.h"
 #include "event-util.h"
 #include "fd-util.h"
-#include "format-table.h"
 #include "in-addr-util.h"
 #include "io-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "options.h"
 #include "parse-util.h"
-#include "pretty-print.h"
 #include "resolve-private.h"
 #include "set.h"
 #include "socket-forward.h"
@@ -30,6 +28,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
+#include "verbs.h"
 
 static unsigned arg_connections_max = 256;
 static const char *arg_remote_host = NULL;
@@ -49,6 +48,16 @@ static const char* const proxy_protocol_table[_PROXY_PROTOCOL_MAX] = {
 static ProxyProtocol arg_proxy_protocol = PROXY_NONE;
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(proxy_protocol, ProxyProtocol);
+
+COMMAND(
+        "systemd-socket-proxyd\0",
+        "Bidirectionally proxy local sockets to another (possibly remote) socket.",
+        .argspec =
+                "HOST:PORT\0"
+                "SOCKET\0",
+        .footer = "See systemd.time(7) for the --exit-idle-time= time span format.",
+        .man_pages = "systemd-socket-proxyd.8\0",
+);
 
 typedef struct Context {
         sd_event *event;
@@ -486,39 +495,6 @@ static int add_listen_socket(Context *context, int fd) {
         return 0;
 }
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL, *time_link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-socket-proxyd", "8", &link);
-        if (r < 0)
-                return log_oom();
-        r = terminal_urlify_man("systemd.time", "7", &time_link);
-        if (r < 0)
-                return log_oom();
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        printf("%1$s [HOST:PORT]\n"
-               "%1$s [SOCKET]\n"
-               "\n%2$sBidirectionally proxy local sockets to another (possibly remote) socket.%3$s\n\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee %s for --exit-idle-time= time span format.\n"
-               "See the %s for details.\n",
-               time_link, link);
-        return 0;
-}
-
 static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
@@ -530,7 +506,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-socket-proxyd");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -560,6 +536,9 @@ static int parse_argv(int argc, char *argv[]) {
                         if (arg_proxy_protocol < 0)
                                 return log_error_errno(arg_proxy_protocol, "Failed to parse --proxy-protocol= argument: %s", opts.arg);
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         char **args = option_parser_get_args(&opts);

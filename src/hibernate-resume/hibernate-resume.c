@@ -2,53 +2,34 @@
 
 #include <sys/stat.h>
 
-#include "alloc-util.h"
+#include "sd-json.h"
+
 #include "build.h"
 #include "devnum-util.h"
-#include "format-table.h"
 #include "hibernate-resume-config.h"
 #include "hibernate-util.h"
 #include "initrd-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "options.h"
 #include "parse-util.h"
-#include "pretty-print.h"
 #include "stat-util.h"
 #include "static-destruct.h"
 #include "strv.h"
+#include "verbs.h"
 
 static HibernateInfo arg_info = {};
 static bool arg_clear = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_info, hibernate_info_done);
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-hibernate-resume", "8", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        printf("%s [OPTIONS...] [DEVICE [OFFSET]]\n\n"
-               "%sInitiate resume from hibernation.%s\n\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
+COMMAND(
+        "systemd-hibernate-resume\0",
+        "Initiate resume from hibernation.",
+        .argspec =
+                "[DEVICE [OFFSET]]\0"
+                "--clear\0",
+        .man_pages = "systemd-hibernate-resume.8\0",
+);
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
@@ -61,7 +42,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-hibernate-resume");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -70,6 +51,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                             "Clear hibernation storage information from EFI and exit"):
                         arg_clear = true;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (option_parser_get_n_args(&opts) > 0 && arg_clear)

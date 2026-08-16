@@ -18,14 +18,11 @@
 #include "device-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "format-table.h"
 #include "fs-util.h"
 #include "hashmap.h"
-#include "help-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "mount-util.h"
-#include "options.h"
 #include "path-lookup.h"
 #include "path-util.h"
 #include "recurse-dir.h"
@@ -37,8 +34,15 @@
 #include "uid-classification.h"
 #include "varlink-io.systemd.StorageProvider.h"
 #include "varlink-util.h"
+#include "verbs.h"
 
 static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+
+COMMAND(
+        "systemd-storage-fs\0",
+        "Expose regular files and directories as storage volumes.",
+        .man_pages = "systemd-storage-fs.8\0",
+);
 
 /* For now we maintain a simple, compiled-in list of templates. One of those days we might want to move these
  * into configurable drop-in files on disk. */
@@ -742,27 +746,6 @@ static int vl_server(void) {
         return 0;
 }
 
-static int help(void) {
-        int r;
-
-        help_cmdline("[OPTIONS...]");
-        help_abstract("Simple file system backed storage provider");
-
-        _cleanup_(table_unrefp) Table *options = NULL;
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        help_section("Options");
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("systemd-storage-fs", "8");
-        return 0;
-}
-
 static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
@@ -772,7 +755,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-storage-fs");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -784,6 +767,9 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_COMMON_USER:
                         arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (option_parser_get_n_args(&opts) > 0)
