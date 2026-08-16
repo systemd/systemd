@@ -39,6 +39,7 @@ INTROSPECTABLE=(
     systemd-journal-upload
     systemd-modules-load
     systemd-mute-console
+    systemd-network-generator
     systemd-notify
     systemd-oomd
     systemd-path
