@@ -5384,10 +5384,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         for i in range(1, 6):
             self.assertRegex(output, f'192.0.2.{i} *proxy')
 
-        # IPv4ProxyARPAddress= implies IPv4ProxyARP=yes, mirroring IPv6ProxyNDPAddress=.
+        # When a proxy ARP address is specified, IPv4ProxyARP=yes is implied.
         self.check_ipv4_sysctl_attr('dummy98', 'proxy_arp', '1')
 
-        # Explicit IPv4ProxyARP=no must suppress all IPv4ProxyARPAddress= entries and
+        # Explicit IPv4ProxyARP=no must suppress all IPv4 proxy ARP address entries and
         # must not force proxy_arp=1. The module is add-only (no reconcile/remove pass),
         # so phase 2 starts from a clean interface: stop networkd, delete the dummy to
         # flush the kernel neighbor-proxy table, swap the .network file, and restart.

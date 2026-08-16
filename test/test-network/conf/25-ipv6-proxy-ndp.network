@@ -3,11 +3,11 @@
 Name=dummy98
 
 [Network]
-IPv6ProxyNDPAddress=2607:5300:203:5215:5::1
-IPv6ProxyNDPAddress=2607:5300:203:5215:4::1
-IPv6ProxyNDPAddress=2607:5300:203:5215:3::1
-IPv6ProxyNDPAddress=2607:5300:203:5215:2::1
-IPv6ProxyNDPAddress=2607:5300:203:5215:1::1
+ProxyNeighbor=2607:5300:203:5215:5::1
+ProxyNeighbor=2607:5300:203:5215:4::1
+ProxyNeighbor=2607:5300:203:5215:3::1
+ProxyNeighbor=2607:5300:203:5215:2::1
+ProxyNeighbor=2607:5300:203:5215:1::1
 IPv6AcceptRA=no
 Address=66.70.129.136/32
 Address=66.70.129.142/32
