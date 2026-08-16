@@ -9,10 +9,10 @@
 
 [Unit]
 Description=Unit File Verification Service
-Documentation=man:systemd-analyze(1)
 DefaultDependencies=no
 Conflicts=shutdown.target
 Before=shutdown.target
+CollectMode=inactive-or-failed
 
 [Service]
 ExecStart={{LIBEXECDIR}}/systemd-analyze-verify --system

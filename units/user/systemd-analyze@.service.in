@@ -9,7 +9,7 @@
 
 [Unit]
 Description=Unit File Verification Service
-Documentation=man:systemd-analyze(1)
+CollectMode=inactive-or-failed
 
 [Service]
 ExecStart={{LIBEXECDIR}}/systemd-analyze-verify --user

@@ -9,7 +9,6 @@
 
 [Unit]
 Description=Unit File Verification Socket
-Documentation=man:systemd-analyze(1)
 
 [Socket]
 ListenStream=%t/systemd/io.systemd.Analyze

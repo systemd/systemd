@@ -522,22 +522,52 @@ systemd-analyze verify "${TESTDATA}/loopy4.service"
 
 ANALYZE_SOCKET=/run/systemd/io.systemd.Analyze
 ANALYZE_METHOD=io.systemd.Analyze.Verify
-ANALYZE_OK='{"unitFiles":["/tmp/analyze-varlink-ok.service"]}'
-ANALYZE_WARNING='{"unitFiles":["/tmp/analyze-varlink-warning.service"]}'
-ANALYZE_MISSING='{"unitFiles":["/tmp/analyze-varlink-missing.service"]}'
+ANALYZE_OK_FILE=/tmp/analyze-varlink-ok/analyze-varlink-ok.service
+ANALYZE_WARNING_FILE=/tmp/analyze-varlink-warning/analyze-varlink-warning.service
+ANALYZE_MISSING_FILE=/tmp/analyze-varlink-missing.service
+SYSTEM_ANALYZE_SCOPE_FILE=/run/systemd/system/analyze-varlink-system-scope.service
+testuser_uid="$(id -u testuser)"
+testuser_gid="$(id -g testuser)"
+USER_ANALYZE_DIR="/run/user/$testuser_uid/systemd/user"
+USER_ANALYZE_SCOPE_FILE="$USER_ANALYZE_DIR/analyze-varlink-user-scope.service"
+USER_ANALYZE_SOCKET="/run/user/$testuser_uid/systemd/io.systemd.Analyze"
 
-cat <<EOF >/tmp/analyze-varlink-ok.service
+ANALYZE_OK="$(jq -cn --arg unit_file "$ANALYZE_OK_FILE" '{unitFiles:[$unit_file]}')"
+ANALYZE_WARNING="$(jq -cn --arg unit_file "$ANALYZE_WARNING_FILE" '{unitFiles:[$unit_file]}')"
+ANALYZE_MISSING="$(jq -cn --arg unit_file "$ANALYZE_MISSING_FILE" '{unitFiles:[$unit_file]}')"
+
+mkdir -p "${ANALYZE_OK_FILE%/*}" "${ANALYZE_WARNING_FILE%/*}"
+install -d -o "$testuser_uid" -g "$testuser_gid" "$USER_ANALYZE_DIR"
+
+cat <<EOF >"$ANALYZE_OK_FILE"
 [Service]
 ExecStart=/bin/true
 EOF
 
-cat <<EOF >/tmp/analyze-varlink-warning.service
+cat <<EOF >"$ANALYZE_WARNING_FILE"
 [Unit]
 Foo=Bar
 
 [Service]
 ExecStart=/bin/true
 EOF
+
+cat <<EOF >"$SYSTEM_ANALYZE_SCOPE_FILE"
+[Unit]
+SystemScopeMarker=yes
+
+[Service]
+ExecStart=/bin/true
+EOF
+
+cat <<EOF >"$USER_ANALYZE_SCOPE_FILE"
+[Unit]
+UserScopeMarker=yes
+
+[Service]
+ExecStart=/bin/true
+EOF
+chown "$testuser_uid:$testuser_gid" "$USER_ANALYZE_SCOPE_FILE"
 
 systemctl start systemd-analyze.socket
 varlinkctl introspect "$ANALYZE_SOCKET" io.systemd.Analyze | grep "method Verify" >/dev/null
@@ -551,60 +581,87 @@ jq -e '
         .diagnostics[] |
         select(
                 .severity == "warning" and
-                .configurationFile == "/tmp/analyze-varlink-warning.service"
+                .configurationFile == $warning_file
         )
-' <<<"$analyze_reply"
+' --arg warning_file "$ANALYZE_WARNING_FILE" <<<"$analyze_reply"
 
 analyze_reply="$(varlinkctl call -j "$ANALYZE_SOCKET" "$ANALYZE_METHOD" "$ANALYZE_MISSING")"
 jq -e '
         .diagnostics[] |
-        select(.severity == "error" and .unit == "analyze-varlink-missing.service")
-' <<<"$analyze_reply"
+        select(.severity == "error" and .unit == $missing_unit)
+' --arg missing_unit "${ANALYZE_MISSING_FILE##*/}" <<<"$analyze_reply"
 
-varlinkctl call --graceful=org.varlink.service.InvalidParameter \
-           "$ANALYZE_SOCKET" \
-           "$ANALYZE_METHOD" \
-           '{"unitFiles":["relative.service"]}'
-varlinkctl call --graceful=org.varlink.service.InvalidParameter \
-           "$ANALYZE_SOCKET" \
-           "$ANALYZE_METHOD" \
-           '{"unitFiles":["/tmp/../tmp/analyze-varlink-ok.service"]}'
+expect_analyze_invalid_parameter() {
+    local output
 
-analyze_reply="$(varlinkctl call -j "$ANALYZE_SOCKET" "$ANALYZE_METHOD" '{}')"
-jq -e '.diagnostics | type == "array"' <<<"$analyze_reply"
-analyze_reply="$(varlinkctl call -j "$ANALYZE_SOCKET" "$ANALYZE_METHOD" '{"unitFiles":null}')"
-jq -e '.diagnostics | type == "array"' <<<"$analyze_reply"
-analyze_reply="$(varlinkctl call -j "$ANALYZE_SOCKET" "$ANALYZE_METHOD" '{"unitFiles":[]}')"
-jq -e '.diagnostics | type == "array"' <<<"$analyze_reply"
+    output="$(varlinkctl call --graceful=org.varlink.service.InvalidParameter \
+        "$ANALYZE_SOCKET" "$ANALYZE_METHOD" "$1")"
+    jq -e '.parameter == "unitFiles"' <<<"$output" >/dev/null
+}
 
-if command -v socat >/dev/null; then
-    request_ok="$(jq -cn --argjson parameters "$ANALYZE_OK" \
-        '{method:"io.systemd.Analyze.Verify", parameters:$parameters}')"
-    request_warning="$(jq -cn --argjson parameters "$ANALYZE_WARNING" \
-        '{method:"io.systemd.Analyze.Verify", parameters:$parameters}')"
+expect_analyze_invalid_parameter '{"unitFiles":["relative.service"]}'
+expect_analyze_invalid_parameter \
+    '{"unitFiles":["/tmp/../tmp/analyze-varlink-ok/analyze-varlink-ok.service"]}'
 
-    printf '%s\0%s\0' "$request_ok" "$request_warning" |
-        socat -t 10 - "UNIX-CONNECT:$ANALYZE_SOCKET" >/tmp/analyze-varlink-replies
-    tr '\0' '\n' </tmp/analyze-varlink-replies >/tmp/analyze-varlink-replies.lines
-    mapfile -t analyze_replies </tmp/analyze-varlink-replies.lines
-    assert_eq "${#analyze_replies[@]}" "2"
-    jq -e '.parameters.diagnostics | length == 0' <<<"${analyze_replies[0]}"
-    jq -e '.parameters.diagnostics[] | select(.severity == "warning")' <<<"${analyze_replies[1]}"
-fi
-
-timeout 10 bash -c '
-while systemctl list-units --state=running --plain --no-legend "systemd-analyze@*.service" |
-        grep systemd-analyze >/dev/null; do
-    sleep .2
+for scan_parameters in '{}' '{"unitFiles":null}' '{"unitFiles":[]}'; do
+    analyze_reply="$(varlinkctl call -j \
+        "$ANALYZE_SOCKET" "$ANALYZE_METHOD" "$scan_parameters")"
+    jq -e '
+            (.diagnostics | type == "array") and
+            any(.diagnostics[]; .configurationFile == $system_file) and
+            all(.diagnostics[]; .configurationFile != $user_file)
+    ' --arg system_file "$SYSTEM_ANALYZE_SCOPE_FILE" \
+      --arg user_file "$USER_ANALYZE_SCOPE_FILE" \
+      <<<"$analyze_reply"
 done
-'
 
-testuser_uid="$(id -u testuser)"
+ANALYZE_REQUESTS=/tmp/analyze-varlink-requests
+ANALYZE_REPLIES=/tmp/analyze-varlink-replies
+
+jq -jcn --arg method "$ANALYZE_METHOD" --argjson parameters "$ANALYZE_WARNING" \
+    '{method:$method, parameters:$parameters}' >"$ANALYZE_REQUESTS"
+printf '\0' >>"$ANALYZE_REQUESTS"
+jq -jcn --arg method "$ANALYZE_METHOD" --arg unit_file "$ANALYZE_OK_FILE" \
+    '{method:$method, parameters:{unitFiles:[range(0; 4097) | $unit_file]}}' \
+    >>"$ANALYZE_REQUESTS"
+printf '\0' >>"$ANALYZE_REQUESTS"
+jq -jcn --arg method "$ANALYZE_METHOD" --argjson parameters "$ANALYZE_OK" \
+    '{method:$method, parameters:$parameters}' >>"$ANALYZE_REQUESTS"
+printf '\0' >>"$ANALYZE_REQUESTS"
+
+socat -t 10 - "UNIX-CONNECT:$ANALYZE_SOCKET" <"$ANALYZE_REQUESTS" >"$ANALYZE_REPLIES"
+tr '\0' '\n' <"$ANALYZE_REPLIES" >"$ANALYZE_REPLIES.lines"
+mapfile -t analyze_replies <"$ANALYZE_REPLIES.lines"
+assert_eq "${#analyze_replies[@]}" "3"
+jq -e '
+        .error == null and
+        (.parameters.diagnostics | type == "array") and
+        any(.parameters.diagnostics[]; .severity == "warning")
+' <<<"${analyze_replies[0]}"
+jq -e '
+        .error == "io.systemd.System" and
+        .parameters.errnoName == "E2BIG"
+' <<<"${analyze_replies[1]}"
+jq -e '
+        .error == null and
+        (.parameters.diagnostics | type == "array") and
+        (.parameters.diagnostics | length == 0)
+' <<<"${analyze_replies[2]}"
+
 runas testuser systemctl --user start systemd-analyze.socket
-USER_ANALYZE_SOCKET="/run/user/$testuser_uid/systemd/io.systemd.Analyze"
 runas testuser varlinkctl introspect "$USER_ANALYZE_SOCKET" io.systemd.Analyze |
     grep "method Verify" >/dev/null
 [[ ! -e "/run/user/$testuser_uid/varlink/registry/io.systemd.Analyze" ]]
+
+analyze_reply="$(runas testuser varlinkctl call -j \
+    "$USER_ANALYZE_SOCKET" "$ANALYZE_METHOD" '{}')"
+jq -e '
+        (.diagnostics | type == "array") and
+        any(.diagnostics[]; .configurationFile == $user_file) and
+        all(.diagnostics[]; .configurationFile != $system_file)
+' --arg user_file "$USER_ANALYZE_SCOPE_FILE" \
+  --arg system_file "$SYSTEM_ANALYZE_SCOPE_FILE" \
+  <<<"$analyze_reply"
 
 analyze_reply="$(runas testuser varlinkctl call -j \
     "$USER_ANALYZE_SOCKET" \
@@ -613,6 +670,31 @@ analyze_reply="$(runas testuser varlinkctl call -j \
 assert_eq "$(jq -r '.diagnostics | length' <<<"$analyze_reply")" "0"
 
 (! runas testuser varlinkctl call "$ANALYZE_SOCKET" "$ANALYZE_METHOD" '{}')
+(! runas nobody varlinkctl call "$USER_ANALYZE_SOCKET" "$ANALYZE_METHOD" "$ANALYZE_OK")
+
+analyze_reply="$(varlinkctl call -j \
+    "$USER_ANALYZE_SOCKET" "$ANALYZE_METHOD" "$ANALYZE_OK")"
+assert_eq "$(jq -r '.diagnostics | length' <<<"$analyze_reply")" "0"
+
+wait_for_analyze_instances() {
+    local -a systemctl_command=("$@")
+    local output
+
+    for _ in {1..60}; do
+        output="$("${systemctl_command[@]}" list-units \
+            --plain --no-legend "systemd-analyze@*.service")"
+        if [[ -z "$output" ]]; then
+            return 0
+        fi
+        sleep .5
+    done
+
+    printf '%s\n' "$output"
+    return 1
+}
+
+wait_for_analyze_instances systemctl
+wait_for_analyze_instances runas testuser systemctl --user
 
 # Added an additional "INVALID_ID" id to the .json to verify that nothing breaks when input is malformed
 # The PrivateNetwork id description and weight was changed to verify that 'security' is actually reading in
