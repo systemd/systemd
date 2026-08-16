@@ -46,6 +46,7 @@ INTROSPECTABLE=(
     systemd-notify
     systemd-oomd
     systemd-path
+    systemd-pcrextend
     systemd-pty-forward
     systemd-socket-activate
     systemd-tty-ask-password-agent

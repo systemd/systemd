@@ -46,7 +46,11 @@
     <para><filename>systemd-pcrnvdone.service</filename></para>
     <para><filename>systemd-pcrphase-factory-reset.service</filename></para>
     <para><filename>systemd-pcrphase-storage-target-mode.service</filename></para>
-    <para><filename>/usr/lib/systemd/systemd-pcrextend</filename> <optional><replaceable>STRING</replaceable></optional></para>
+    <para><filename>/usr/lib/systemd/systemd-pcrextend</filename> <replaceable>WORD</replaceable></para>
+    <para><filename>/usr/lib/systemd/systemd-pcrextend</filename> <option>--file-system=<replaceable>PATH</replaceable></option></para>
+    <para><filename>/usr/lib/systemd/systemd-pcrextend</filename> <option>--machine-id</option></para>
+    <para><filename>/usr/lib/systemd/systemd-pcrextend</filename> <option>--product-id</option></para>
+    <para><filename>/usr/lib/systemd/systemd-pcrextend</filename> <option>--login=<replaceable>UID</replaceable>|<replaceable>USER</replaceable></option></para>
   </refsynopsisdiv>
 
   <refsect1>
