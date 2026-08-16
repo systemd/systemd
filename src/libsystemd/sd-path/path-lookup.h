@@ -53,6 +53,18 @@ typedef struct LookupPaths {
 
 int lookup_paths_init(LookupPaths *lp, RuntimeScope scope, LookupPathsFlags flags, const char *root_dir);
 int lookup_paths_init_or_warn(LookupPaths *lp, RuntimeScope scope, LookupPathsFlags flags, const char *root_dir);
+int lookup_paths_init_full(
+                LookupPaths *lp,
+                RuntimeScope scope,
+                LookupPathsFlags flags,
+                const char *root_dir,
+                const char *unit_path_override);
+int lookup_paths_init_or_warn_full(
+                LookupPaths *lp,
+                RuntimeScope scope,
+                LookupPathsFlags flags,
+                const char *root_dir,
+                const char *unit_path_override);
 
 void lookup_paths_log(LookupPaths *p);
 void lookup_paths_done(LookupPaths *p);
