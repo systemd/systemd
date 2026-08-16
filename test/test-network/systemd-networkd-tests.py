@@ -5370,8 +5370,27 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         output = check_output('ip neighbor show proxy dev dummy98')
         print(output)
-        for i in range(1, 5):
+        for i in range(1, 6):
             self.assertRegex(output, f'2607:5300:203:5215:{i}::1 *proxy')
+
+        # When a proxy NDP address is specified, IPv6ProxyNDP=yes is implied.
+        self.check_ipv6_sysctl_attr('dummy98', 'proxy_ndp', '1')
+
+        with open(os.path.join(network_unit_dir, '25-ipv6-proxy-ndp.network'), mode='a', encoding='utf-8') as f:
+            f.write('[Network]\nIPv6ProxyNDP=no\n')
+
+        stop_networkd()
+        remove_link('dummy98')
+        start_networkd()
+        self.wait_online('dummy98:routable')
+
+        # If IPv6ProxyNDP= is disabled, proxy NDP addresses are ignored.
+        output = check_output('ip neighbor show proxy dev dummy98')
+        print(output)
+        for i in range(1, 6):
+            self.assertNotRegex(output, f'2607:5300:203:5215:{i}::1 *proxy')
+
+        self.check_ipv6_sysctl_attr('dummy98', 'proxy_ndp', '0')
 
     def test_ipv4_proxy_arp(self):
         copy_network_unit('25-ipv4-proxy-arp.network', '12-dummy.netdev')
@@ -5384,13 +5403,9 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         for i in range(1, 6):
             self.assertRegex(output, f'192.0.2.{i} *proxy')
 
-        # IPv4ProxyARPAddress= implies IPv4ProxyARP=yes, mirroring IPv6ProxyNDPAddress=.
-        self.check_ipv4_sysctl_attr('dummy98', 'proxy_arp', '1')
+        # Even if a proxy ARP address is specified, IPv4ProxyARP=yes is NOT implied.
+        self.check_ipv4_sysctl_attr('dummy98', 'proxy_arp', '0')
 
-        # Explicit IPv4ProxyARP=no must suppress all IPv4ProxyARPAddress= entries and
-        # must not force proxy_arp=1. The module is add-only (no reconcile/remove pass),
-        # so phase 2 starts from a clean interface: stop networkd, delete the dummy to
-        # flush the kernel neighbor-proxy table, swap the .network file, and restart.
         stop_networkd()
         remove_link('dummy98')
         remove_network_unit('25-ipv4-proxy-arp.network')
@@ -5398,10 +5413,14 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         start_networkd()
         self.wait_online('dummy98:routable')
 
+        # Even if IPv4ProxyARP= is disabled, proxy ARP addresses can be configured.
         output = check_output('ip -4 neighbor show proxy dev dummy98')
         print(output)
         for i in range(1, 6):
-            self.assertNotIn(f'192.0.2.{i}', output)
+            self.assertNotRegex(output, f'192.0.2.{i} *proxy')
+        for i in range(1, 3):
+            self.assertRegex(output, f'192.0.3.{i} *proxy')
+
         self.check_ipv4_sysctl_attr('dummy98', 'proxy_arp', '0')
 
     def test_ipv6_neigh_retrans_time(self):
@@ -11143,21 +11162,21 @@ class NetworkdSysctlTest(unittest.TestCase, Utilities):
         call('sysctl -w net.ipv6.conf.dummy98.accept_ra=1')
         call('sysctl -w net.ipv6.conf.dummy98.mtu=1360')
         call('sysctl -w net.ipv4.conf.dummy98.promote_secondaries=0')
-        call('sysctl -w net.ipv6.conf.dummy98.proxy_ndp=1')
 
         # And unmanaged ones
         call('sysctl -w net.ipv6.conf.dummy98.hop_limit=4')
         call('sysctl -w net.ipv6.conf.dummy98.max_addresses=10')
+        call('sysctl -w net.ipv6.conf.dummy98.proxy_ndp=1')
 
         log = read_networkd_log()
         # fmt: off
         self.assertRegex(log, r"Foreign process 'sysctl\[\d+\]' changed sysctl '/proc/sys/net/ipv6/conf/dummy98/accept_ra' from '0' to '1', conflicting with our setting to '0'")
         self.assertRegex(log, r"Foreign process 'sysctl\[\d+\]' changed sysctl '/proc/sys/net/ipv6/conf/dummy98/mtu' from '1550' to '1360', conflicting with our setting to '1550'")
         self.assertRegex(log, r"Foreign process 'sysctl\[\d+\]' changed sysctl '/proc/sys/net/ipv4/conf/dummy98/promote_secondaries' from '1' to '0', conflicting with our setting to '1'")
-        self.assertRegex(log, r"Foreign process 'sysctl\[\d+\]' changed sysctl '/proc/sys/net/ipv6/conf/dummy98/proxy_ndp' from '0' to '1', conflicting with our setting to '0'")
         # fmt: on
         self.assertNotIn("changed sysctl '/proc/sys/net/ipv6/conf/dummy98/hop_limit'", log)
         self.assertNotIn("changed sysctl '/proc/sys/net/ipv6/conf/dummy98/max_addresses'", log)
+        self.assertNotIn("changed sysctl '/proc/sys/net/ipv6/conf/dummy98/proxy_ndp'", log)
         self.assertNotIn('Sysctl monitor BPF returned error', log)
 
 
