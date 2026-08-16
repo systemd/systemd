@@ -22,6 +22,7 @@ INTROSPECTABLE=(
     systemd-cat
     systemd-cgls
     systemd-cgtop
+    systemd-clonesetup
     systemd-delta
     systemd-detect-virt
     systemd-dissect
