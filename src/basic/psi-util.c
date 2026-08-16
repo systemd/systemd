@@ -27,12 +27,7 @@ int read_resource_pressure(const char *path, PressureType type, ResourcePressure
         assert(IN_SET(type, PRESSURE_TYPE_SOME, PRESSURE_TYPE_FULL));
         assert(ret);
 
-        if (type == PRESSURE_TYPE_SOME)
-                t = "some";
-        else if (type == PRESSURE_TYPE_FULL)
-                t = "full";
-        else
-                return -EINVAL;
+        t = pressure_type_to_string(type);
 
         r = fopen_unlocked(path, "re", &f);
         if (r < 0)
@@ -130,6 +125,13 @@ static const char* const pressure_resource_table[_PRESSURE_RESOURCE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(pressure_resource, PressureResource);
+
+static const char* const pressure_type_table[_PRESSURE_TYPE_MAX] = {
+        [PRESSURE_TYPE_SOME] = "some",
+        [PRESSURE_TYPE_FULL] = "full",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(pressure_type, PressureType);
 
 int is_pressure_supported(void) {
         static thread_local int cached = -1;
