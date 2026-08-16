@@ -7,6 +7,8 @@ set -o pipefail
 # Check the other location too.
 PATH=$PATH:/usr/lib/systemd
 
+export SYSTEMD_PAGER=cat
+
 # A smoke test for the introspection code
 INTROSPECTABLE=(
     homectl
@@ -45,6 +47,8 @@ INTROSPECTABLE=(
 for i in "${INTROSPECTABLE[@]}"; do
     command -v "$i" >/dev/null || continue
 
+    $i --help >/dev/null
+
     $i --introspect-cli | jq -e \
         '.mediaType == "application/vnd.io.systemd.cli-introspection-0"'
     $i --introspect-cli | jq -e --arg name "$i" \
@@ -57,10 +61,10 @@ done
 # systemd-hwdb defines verbs, check that they are described
 if command -v systemd-hwdb >/dev/null; then
     systemd-hwdb --introspect-cli | jq -e \
-            '.commands[0].verbs | map(.names[0]) | contains(["query", "update"])'
+            '.commands[0].verbs | map(.names[0]) | sort == ["help", "query", "update"]'
 fi
 
-# systemd-id128 defines verbs, check that they are described
+# systemd-id128 defines many verbs, check that some are described
 systemd-id128 --introspect-cli | jq -e \
     '.commands[0].verbs | map(.names[0]) | contains(["new", "machine-id", "show", "help"])'
 
