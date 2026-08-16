@@ -1501,8 +1501,10 @@ static int rename_auxiliary_file(const char *path, const char *new_name, const c
 
 int image_rename(Image *i, const char *new_name, RuntimeScope scope) {
         _cleanup_(release_lock_file) LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT, name_lock = LOCK_FILE_INIT;
+        _cleanup_strv_free_ char **auxiliary = NULL;
         _cleanup_free_ char *new_path = NULL, *nn = NULL;
         _cleanup_strv_free_ char **settings = NULL;
+        char **auxiliary_path;
         unsigned file_attr = 0;
         int r;
 
@@ -1517,6 +1519,18 @@ int image_rename(Image *i, const char *new_name, RuntimeScope scope) {
         settings = image_settings_path(i, scope);
         if (!settings)
                 return -ENOMEM;
+
+        NULSTR_FOREACH(suffix, auxiliary_suffixes_nulstr) {
+                _cleanup_free_ char *p = NULL;
+
+                r = image_auxiliary_path(i, suffix, &p);
+                if (r < 0)
+                        return r;
+
+                r = strv_consume(&auxiliary, TAKE_PTR(p));
+                if (r < 0)
+                        return r;
+        }
 
         /* Make sure we don't interfere with a running nspawn */
         r = image_path_lock(scope, i->path, LOCK_EX|LOCK_NB, &global_lock, &local_lock);
@@ -1595,15 +1609,16 @@ int image_rename(Image *i, const char *new_name, RuntimeScope scope) {
                         log_debug_errno(r, "Failed to rename settings file %s, ignoring: %m", *j);
         }
 
+        auxiliary_path = auxiliary;
         NULSTR_FOREACH(suffix, auxiliary_suffixes_nulstr) {
-                _cleanup_free_ char *aux = NULL;
-                r = image_auxiliary_path(i, suffix, &aux);
-                if (r < 0)
-                        return r;
+                assert(auxiliary_path);
+                assert(*auxiliary_path);
 
-                r = rename_auxiliary_file(aux, new_name, suffix);
+                r = rename_auxiliary_file(*auxiliary_path, new_name, suffix);
                 if (r < 0 && r != -ENOENT)
-                        log_debug_errno(r, "Failed to rename roothash file %s, ignoring: %m", aux);
+                        log_debug_errno(r, "Failed to rename auxiliary file %s, ignoring: %m", *auxiliary_path);
+
+                auxiliary_path++;
         }
 
         return 0;
