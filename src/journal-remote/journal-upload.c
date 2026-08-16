@@ -6,6 +6,7 @@
 
 #include "sd-daemon.h"
 #include "sd-event.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "build.h"
@@ -17,12 +18,10 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "glob-util.h"
 #include "hashmap.h"
-#include "help-util.h"
 #include "journal-header-util.h"
 #include "journal-upload.h"
 #include "journal-util.h"
@@ -30,7 +29,6 @@
 #include "logs-show.h"
 #include "main-func.h"
 #include "mkdir.h"
-#include "options.h"
 #include "parse-argument.h"
 #include "parse-helpers.h"
 #include "process-util.h"
@@ -38,6 +36,7 @@
 #include "strv.h"
 #include "time-util.h"
 #include "tmpfile-util.h"
+#include "verbs.h"
 #include "version.h"
 
 #define PRIV_KEY_FILE CERTIFICATE_ROOT "/private/journal-upload.pem"
@@ -77,6 +76,13 @@ STATIC_DESTRUCTOR_REGISTER(arg_namespace, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_save_state, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_compression, ordered_hashmap_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_headers, ordered_hashmap_freep);
+
+COMMAND(
+        "systemd-journal-upload\0",
+        "Upload journal events to a remote server.",
+        .argspec = "[-u URL] [{FILE|-}…]\0",
+        .man_pages = "systemd-journal-upload.service.8\0",
+);
 
 static void close_fd_input(Uploader *u);
 
@@ -684,26 +690,6 @@ static int parse_config(void) {
                         /* userdata= */ NULL);
 }
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        help_cmdline("-u URL {FILE|-}...");
-        help_abstract("Upload journal events to a remote server.");
-
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("systemd-journal-upload.service", "8");
-        return 0;
-}
-
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         int r;
 
@@ -717,7 +703,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-journal-upload");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -824,6 +810,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         if (r < 0)
                                 return r;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (!arg_url)
