@@ -522,8 +522,10 @@ static int link_set_ipv6_proxy_ndp(Link *link) {
 
         if (link->network->ipv6_proxy_ndp >= 0)
                 v = link->network->ipv6_proxy_ndp;
+        else if (network_has_neighbor_proxy_address(link->network, AF_INET6))
+                v = true;
         else
-                v = network_has_neighbor_proxy_address(link->network, AF_INET6);
+                return 0;
 
         return sysctl_write_ip_property_boolean(AF_INET6, link->ifname, "proxy_ndp", v, manager_get_sysctl_shadow(link->manager));
 }
