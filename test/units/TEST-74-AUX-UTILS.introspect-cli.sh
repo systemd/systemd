@@ -45,6 +45,8 @@ INTROSPECTABLE=(
 for i in "${INTROSPECTABLE[@]}"; do
     command -v "$i" >/dev/null || continue
 
+    SYSTEMD_PAGER=cat $i --help >/dev/null
+
     $i --introspect-cli | jq -e \
         '.mediaType == "application/vnd.io.systemd.cli-introspection-0"'
     $i --introspect-cli | jq -e --arg name "$i" \
