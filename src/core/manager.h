@@ -148,6 +148,18 @@ typedef enum ManagerTestRunFlags {
 
 assert_cc((MANAGER_TEST_FULL & UINT8_MAX) == MANAGER_TEST_FULL);
 
+typedef struct ManagerDiagnostic {
+        int priority;
+        const char *message;
+        const char *unit;
+        const char *configuration_file;
+        unsigned configuration_line;
+        const char *message_id;
+} ManagerDiagnostic;
+
+/* The record and its strings are borrowed and only valid for the duration of the callback. */
+typedef int (*ManagerDiagnosticCallback)(const ManagerDiagnostic *record, void *userdata);
+
 /* Various defaults for unit file settings. */
 typedef struct UnitDefaults {
         ExecOutput std_output, std_error;
@@ -295,10 +307,12 @@ typedef struct Manager {
         RuntimeScope runtime_scope;
 
         LookupPaths lookup_paths;
+        char *unit_path_override;
         Hashmap *unit_id_map;
         Hashmap *unit_name_map;
         Set *unit_path_cache;
         uint64_t unit_cache_timestamp_hash;
+        size_t unit_name_map_limit;
 
         /* We don't have support for atomically enabling/disabling units, and unit_file_state might become
          * outdated if such operations failed half-way. Therefore, we set this flag if changes to unit files
@@ -414,6 +428,11 @@ typedef struct Manager {
         bool sysctl_pid_max_changed;
 
         ManagerTestRunFlags test_run_flags;
+
+        ManagerDiagnosticCallback test_run_diagnostic_callback;
+        void *test_run_diagnostic_userdata;
+        int test_run_diagnostic_error;
+        bool test_run_diagnostic_busy;
 
         /* If non-zero, exit with the following value when the systemd
          * process terminate. Useful for containers: systemd-nspawn could get
@@ -572,6 +591,19 @@ usec_t manager_default_timeout(RuntimeScope scope);
 int manager_new(RuntimeScope scope, ManagerTestRunFlags test_run_flags, Manager **ret);
 Manager* manager_free(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
+
+int manager_set_unit_path_override(Manager *m, const char *path);
+void manager_set_unit_name_map_limit(Manager *m, size_t max_entries);
+
+void manager_set_test_run_diagnostic_callback(
+                Manager *m,
+                ManagerDiagnosticCallback callback,
+                void *userdata);
+void manager_clear_test_run_diagnostic_callback(Manager *m);
+int manager_dispatch_test_run_diagnostic(Manager *m, const ManagerDiagnostic *record);
+bool manager_test_run_diagnostic_enabled(const Manager *m);
+void manager_record_test_run_diagnostic_error(Manager *m, int error);
+int manager_get_test_run_diagnostic_error(const Manager *m);
 
 /* One entry parsed out of the upstream "systemd-fdstore-mapping" memfd. Pairs the numeric index from the
  * JSON map to the (unit-id, original fdname) the fd was originally stored as. */

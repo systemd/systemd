@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "chase.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "glyph-util.h"
@@ -203,7 +204,12 @@ static bool lookup_paths_mtime_exclude(const LookupPaths *lp, const char *path) 
 
 #define HASH_KEY SD_ID128_MAKE(4e,86,1b,e3,39,b3,40,46,98,5d,b8,11,34,8f,c3,c1)
 
-bool lookup_paths_timestamp_hash_same(const LookupPaths *lp, uint64_t timestamp_hash, uint64_t *ret_new) {
+static int lookup_paths_timestamp_hash_same_full(
+                const LookupPaths *lp,
+                uint64_t timestamp_hash,
+                bool strict,
+                uint64_t *ret_new) {
+
         struct siphash state;
 
         siphash24_init(&state, HASH_KEY.bytes);
@@ -216,10 +222,14 @@ bool lookup_paths_timestamp_hash_same(const LookupPaths *lp, uint64_t timestamp_
 
                 /* Determine the latest lookup path modification time */
                 if (stat(*dir, &st) < 0) {
-                        if (errno == ENOENT)
-                                continue;
+                        int r = -errno;
 
-                        log_debug_errno(errno, "Failed to stat %s, ignoring: %m", *dir);
+                        if (r == -ENOENT)
+                                continue;
+                        if (strict && ERRNO_IS_NEG_RESOURCE(r))
+                                return r;
+
+                        log_debug_errno(r, "Failed to stat %s, ignoring: %m", *dir);
                         continue;
                 }
 
@@ -234,7 +244,14 @@ bool lookup_paths_timestamp_hash_same(const LookupPaths *lp, uint64_t timestamp_
         return updated == timestamp_hash;
 }
 
-static int directory_name_is_valid(const char *name) {
+bool lookup_paths_timestamp_hash_same(const LookupPaths *lp, uint64_t timestamp_hash, uint64_t *ret_new) {
+        return lookup_paths_timestamp_hash_same_full(
+                        lp, timestamp_hash, /* strict= */ false, ret_new) > 0;
+}
+
+int unit_file_parse_directory_name(const char *name, char **ret_unit_name) {
+
+        assert(name);
 
         /* Accept a directory whose name is a valid unit file name ending in .wants/, .requires/,
          * .upholds/ or .d/ */
@@ -252,8 +269,12 @@ static int directory_name_is_valid(const char *name) {
                         return log_oom();
 
                 if (unit_name_is_valid(chopped, UNIT_NAME_ANY) ||
-                    unit_type_from_string(chopped) >= 0)
+                    unit_type_from_string(chopped) >= 0) {
+                        if (ret_unit_name)
+                                *ret_unit_name = TAKE_PTR(chopped);
+
                         return true;
+                }
         }
 
         return false;
@@ -361,12 +382,13 @@ int unit_file_resolve_symlink(
         return !tail;  /* true if linked unit file */
 }
 
-int unit_file_build_name_map(
+int unit_file_build_name_map_full(
                 const LookupPaths *lp,
                 uint64_t *cache_timestamp_hash,
                 Hashmap **unit_ids_map,
                 Hashmap **unit_names_map,
-                Set **path_cache) {
+                Set **path_cache,
+                size_t max_entries) {
 
         /* Build two mappings: any name → main unit (i.e. the end result of symlink resolution), unit name →
          * all aliases (i.e. the entry for a given key is a list of all names which point to this key). The
@@ -375,7 +397,9 @@ int unit_file_build_name_map(
          * the unit itself is not loadable.
          *
          * At the same, build a cache of paths where to find units. The non-const parameters are for input
-         * and output. Existing contents will be freed before the new contents are stored.
+         * and output. Existing contents will be freed before the new contents are stored. max_entries == 0
+         * preserves the best-effort legacy behavior. A positive value independently caps the ID map and
+         * path cache, propagates resource errors, and leaves all outputs untouched on failure.
          */
 
         _cleanup_hashmap_free_ Hashmap *ids = NULL, *names = NULL;
@@ -386,9 +410,25 @@ int unit_file_build_name_map(
 
         /* Before doing anything, check if the timestamp hash that was passed is still valid.
          * If yes, do nothing. */
-        if (cache_timestamp_hash &&
-            lookup_paths_timestamp_hash_same(lp, *cache_timestamp_hash, &timestamp_hash))
+        if (cache_timestamp_hash) {
+                r = lookup_paths_timestamp_hash_same_full(
+                                lp,
+                                *cache_timestamp_hash,
+                                /* strict= */ max_entries > 0,
+                                &timestamp_hash);
+                if (r < 0)
+                        return r;
+        } else
+                r = 0;
+
+        if (r > 0) {
+                if (max_entries > 0 &&
+                    (hashmap_size(*unit_ids_map) > max_entries ||
+                     (path_cache && set_size(*path_cache) > max_entries)))
+                        return -E2BIG;
+
                 return 0;
+        }
 
         /* The timestamp hash is now set based on the mtimes from before when we start reading files.
          * If anything is modified concurrently, we'll consider the cache outdated. */
@@ -425,6 +465,8 @@ int unit_file_build_name_map(
 
                 r = chase(*dir, NULL, 0, &resolved_dir, NULL);
                 if (r < 0) {
+                        if (max_entries > 0 && ERRNO_IS_NEG_RESOURCE(r))
+                                return r;
                         if (r != -ENOENT)
                                 log_warning_errno(r, "Failed to resolve symlink %s, ignoring: %m", *dir);
                         continue;
@@ -439,15 +481,19 @@ int unit_file_build_name_map(
 
         STRV_FOREACH(dir, lp->search_path) {
                 _cleanup_closedir_ DIR *d = NULL;
+                int readdir_error = 0;
 
                 d = opendir(*dir);
                 if (!d) {
-                        if (errno != ENOENT)
-                                log_warning_errno(errno, "Failed to open \"%s\", ignoring: %m", *dir);
+                        r = -errno;
+                        if (max_entries > 0 && ERRNO_IS_NEG_RESOURCE(r))
+                                return r;
+                        if (r != -ENOENT)
+                                log_warning_errno(r, "Failed to open \"%s\", ignoring: %m", *dir);
                         continue;
                 }
 
-                FOREACH_DIRENT_ALL(de, d, log_warning_errno(errno, "Failed to read \"%s\", ignoring: %m", *dir)) {
+                FOREACH_DIRENT_ALL(de, d, readdir_error = -errno) {
                         _unused_ _cleanup_free_ char *_filename_free = NULL;
                         char *filename;
                         _cleanup_free_ char *dst = NULL;
@@ -467,7 +513,7 @@ int unit_file_build_name_map(
                                 if (!paths) /* Skip directories early unless path_cache is requested */
                                         continue;
 
-                                r = directory_name_is_valid(de->d_name);
+                                r = unit_file_parse_directory_name(de->d_name, /* ret_unit_name= */ NULL);
                                 if (r < 0)
                                         return r;
                                 if (r == 0)
@@ -484,7 +530,8 @@ int unit_file_build_name_map(
                                         if (!paths) /* Skip symlink to a directory early unless path_cache is requested */
                                                 continue;
 
-                                        r = directory_name_is_valid(de->d_name);
+                                        r = unit_file_parse_directory_name(
+                                                        de->d_name, /* ret_unit_name= */ NULL);
                                         if (r < 0)
                                                 return r;
                                         if (r == 0)
@@ -492,12 +539,16 @@ int unit_file_build_name_map(
 
                                         r = readlinkat_malloc(dirfd(d), de->d_name, &target);
                                         if (r < 0) {
+                                                if (max_entries > 0 && ERRNO_IS_NEG_RESOURCE(r))
+                                                        return r;
                                                 log_warning_errno(r, "Failed to read symlink %s/%s, ignoring: %m",
                                                                   *dir, de->d_name);
                                                 continue;
                                         }
 
                                         r = is_dir(target, /* follow= */ true);
+                                        if (r < 0 && max_entries > 0 && ERRNO_IS_NEG_RESOURCE(r))
+                                                return r;
                                         if (r <= 0)
                                                 continue;
 
@@ -512,6 +563,13 @@ int unit_file_build_name_map(
                                 return log_oom();
 
                         if (paths) {
+                                if (max_entries > 0 &&
+                                    !set_contains(paths, filename) &&
+                                    set_size(paths) >= max_entries) {
+                                        _filename_free = filename;
+                                        return -E2BIG;
+                                }
+
                                 r = set_put(paths, filename);
                                 if (r < 0)
                                         return log_oom();
@@ -539,7 +597,8 @@ int unit_file_build_name_map(
                                                               *dir, dirfd(d), de->d_name,
                                                               /* resolve_destination_target= */ false,
                                                               &dst);
-                                if (r == -ENOMEM)
+                                if (r == -ENOMEM ||
+                                    (max_entries > 0 && ERRNO_IS_NEG_RESOURCE(r)))
                                         return r;
                                 if (r < 0)  /* we ignore other errors here */
                                         continue;
@@ -555,6 +614,9 @@ int unit_file_build_name_map(
                                 log_debug("%s: normal unit file: %s", __func__, dst);
                         }
 
+                        if (max_entries > 0 && hashmap_size(ids) >= max_entries)
+                                return -E2BIG;
+
                         _cleanup_free_ char *key = strdup(de->d_name);
                         if (!key)
                                 return log_oom();
@@ -565,6 +627,13 @@ int unit_file_build_name_map(
                                                          de->d_name, glyph(GLYPH_ARROW_RIGHT), dst);
                         key = dst = NULL;
                 }
+
+                if (readdir_error < 0) {
+                        if (max_entries > 0 && ERRNO_IS_NEG_RESOURCE(readdir_error))
+                                return readdir_error;
+
+                        log_warning_errno(readdir_error, "Failed to read \"%s\", ignoring: %m", *dir);
+                }
         }
 
         /* Let's also put the names in the reverse db. */
@@ -574,14 +643,22 @@ int unit_file_build_name_map(
                 const char *dst_path;
 
                 r = unit_ids_map_get(ids, src, &dst_path);
-                if (r < 0)
+                if (r < 0) {
+                        if (max_entries > 0 && ERRNO_IS_NEG_RESOURCE(r))
+                                return r;
                         continue;
+                }
 
-                if (null_or_empty_path(dst_path) != 0)
+                r = null_or_empty_path(dst_path);
+                if (r < 0 && max_entries > 0 && ERRNO_IS_NEG_RESOURCE(r))
+                        return r;
+                if (r != 0)
                         continue;
 
                 r = path_extract_filename(dst_path, &dst);
                 if (r < 0) {
+                        if (max_entries > 0 && ERRNO_IS_NEG_RESOURCE(r))
+                                return r;
                         log_debug_errno(r, "Failed to extract file name from %s, ignoring: %m", dst_path);
                         continue;
                 }
@@ -597,6 +674,9 @@ int unit_file_build_name_map(
 
                                 r = unit_name_replace_instance(dst, inst, &dst_inst);
                                 if (r < 0) {
+                                        if (max_entries > 0 && ERRNO_IS_NEG_RESOURCE(r))
+                                                return r;
+
                                         /* This might happen e.g. if the combined length is too large.
                                          * Let's not make too much of a fuss. */
                                         log_debug_errno(r, "Failed to build alias name (%s + %s), ignoring: %m",
@@ -623,6 +703,22 @@ int unit_file_build_name_map(
                 set_free_and_replace(*path_cache, paths);
 
         return 1;
+}
+
+int unit_file_build_name_map(
+                const LookupPaths *lp,
+                uint64_t *cache_timestamp_hash,
+                Hashmap **unit_ids_map,
+                Hashmap **unit_names_map,
+                Set **path_cache) {
+
+        return unit_file_build_name_map_full(
+                        lp,
+                        cache_timestamp_hash,
+                        unit_ids_map,
+                        unit_names_map,
+                        path_cache,
+                        /* max_entries= */ 0);
 }
 
 int unit_file_remove_from_name_map(
