@@ -54,6 +54,7 @@ INTROSPECTABLE=(
     systemd-storage-block
     systemd-storage-fs
     systemd-storagetm
+    systemd-sysinstall
     systemd-tty-ask-password-agent
     systemd-veritysetup
     timedatectl
