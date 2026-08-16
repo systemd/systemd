@@ -51,6 +51,11 @@ units = [
         { 'file' : 'sockets.target' },
         { 'file' : 'sound.target' },
         {
+          'file' : 'systemd-analyze.socket',
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        { 'file' : 'systemd-analyze@.service.in' },
+        {
           'file' : 'systemd-ask-password.socket',
           'symlinks' : ['sockets.target.wants/']
         },
