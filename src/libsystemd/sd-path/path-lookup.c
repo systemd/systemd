@@ -416,8 +416,8 @@ static int get_paths_from_environment_value(const char *value, char ***ret) {
         if (!path_is_valid_search_path(value))
                 return -EINVAL;
 
-        bool append = endswith(value, ":"); /* Whether to append the normal search paths after what's obtained
-                                               from envvar */
+        /* Whether to append the normal search paths after what's obtained from envvar. */
+        bool append = endswith(value, ":");
 
         r = path_split_and_make_absolute(value, ret);
         if (r < 0)

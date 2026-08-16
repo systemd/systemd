@@ -1197,7 +1197,12 @@ int log_struct_internal(
 
                 va_start(ap, format);
                 DISABLE_WARNING_FORMAT_NONLITERAL;
-                r = log_format_iovec(iovec, ELEMENTSOF(iovec), &n, /* newline_separator= */ false, error, format, ap);
+                r = log_format_iovec(
+                                iovec, ELEMENTSOF(iovec), &n,
+                                /* newline_separator= */ false,
+                                error,
+                                format,
+                                ap);
                 REENABLE_WARNING;
                 va_end(ap);
 

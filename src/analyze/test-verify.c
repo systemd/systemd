@@ -89,7 +89,9 @@ TEST(manager_unit_path_override) {
                 ASSERT_EQ(m->unit_name_map_limit, 123u);
 
                 if (scope == RUNTIME_SCOPE_USER)
-                        ASSERT_STREQ(strv_env_get(m->transient_environment, "SYSTEMD_UNIT_PATH"), "/tmp/unit-path");
+                        ASSERT_STREQ(
+                                        strv_env_get(m->transient_environment, "SYSTEMD_UNIT_PATH"),
+                                        "/tmp/unit-path");
                 else
                         ASSERT_NULL(strv_env_get(m->transient_environment, "SYSTEMD_UNIT_PATH"));
         }

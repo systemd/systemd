@@ -33,7 +33,8 @@ typedef struct LogRecord {
         LogRecordType type;
         int priority;
 
-        /* The message is borrowed and only valid during the callback. It is not necessarily NUL-terminated. */
+        /* The message is borrowed and only valid during the callback. It is not necessarily
+         * NUL-terminated. */
         const char *message;
         size_t message_size;
 
