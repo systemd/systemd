@@ -520,6 +520,76 @@ systemd-analyze verify "${TESTDATA}/loopy2.service"
 systemd-analyze verify "${TESTDATA}/loopy3.service"
 systemd-analyze verify "${TESTDATA}/loopy4.service"
 
+ANALYZE_SOCKET=/run/systemd/io.systemd.Analyze
+ANALYZE_METHOD=io.systemd.Analyze.Verify
+
+cat <<EOF >/tmp/analyze-varlink-ok.service
+[Service]
+ExecStart=/bin/true
+EOF
+
+cat <<EOF >/tmp/analyze-varlink-warning.service
+[Unit]
+Foo=Bar
+
+[Service]
+ExecStart=/bin/true
+EOF
+
+systemctl start systemd-analyze.socket
+varlinkctl introspect "$ANALYZE_SOCKET" io.systemd.Analyze | grep "method Verify" >/dev/null
+[[ ! -e /run/varlink/registry/io.systemd.Analyze ]]
+
+analyze_reply="$(varlinkctl call -j "$ANALYZE_SOCKET" "$ANALYZE_METHOD" '{"unitFiles":["/tmp/analyze-varlink-ok.service"]}')"
+assert_eq "$(jq -r '.diagnostics | length' <<<"$analyze_reply")" "0"
+
+analyze_reply="$(varlinkctl call -j "$ANALYZE_SOCKET" "$ANALYZE_METHOD" '{"unitFiles":["/tmp/analyze-varlink-warning.service"]}')"
+jq -e '.diagnostics[] | select(.severity == "warning" and .configurationFile == "/tmp/analyze-varlink-warning.service")' <<<"$analyze_reply"
+
+analyze_reply="$(varlinkctl call -j "$ANALYZE_SOCKET" "$ANALYZE_METHOD" '{"unitFiles":["/tmp/analyze-varlink-missing.service"]}')"
+jq -e '.diagnostics[] | select(.severity == "error" and .unit == "analyze-varlink-missing.service")' <<<"$analyze_reply"
+
+varlinkctl call --graceful=org.varlink.service.InvalidParameter \
+           "$ANALYZE_SOCKET" \
+           "$ANALYZE_METHOD" \
+           '{"unitFiles":["relative.service"]}'
+varlinkctl call --graceful=org.varlink.service.InvalidParameter \
+           "$ANALYZE_SOCKET" \
+           "$ANALYZE_METHOD" \
+           '{"unitFiles":["/tmp/../tmp/analyze-varlink-ok.service"]}'
+
+analyze_reply="$(varlinkctl call -j "$ANALYZE_SOCKET" "$ANALYZE_METHOD" '{}')"
+jq -e '.diagnostics | type == "array"' <<<"$analyze_reply"
+analyze_reply="$(varlinkctl call -j "$ANALYZE_SOCKET" "$ANALYZE_METHOD" '{"unitFiles":null}')"
+jq -e '.diagnostics | type == "array"' <<<"$analyze_reply"
+analyze_reply="$(varlinkctl call -j "$ANALYZE_SOCKET" "$ANALYZE_METHOD" '{"unitFiles":[]}')"
+jq -e '.diagnostics | type == "array"' <<<"$analyze_reply"
+
+if command -v socat >/dev/null; then
+    request_ok='{"method":"io.systemd.Analyze.Verify","parameters":{"unitFiles":["/tmp/analyze-varlink-ok.service"]}}'
+    request_warning='{"method":"io.systemd.Analyze.Verify","parameters":{"unitFiles":["/tmp/analyze-varlink-warning.service"]}}'
+
+    printf '%s\0%s\0' "$request_ok" "$request_warning" | socat -t 10 - "UNIX-CONNECT:$ANALYZE_SOCKET" >/tmp/analyze-varlink-replies
+    tr '\0' '\n' </tmp/analyze-varlink-replies >/tmp/analyze-varlink-replies.lines
+    mapfile -t analyze_replies </tmp/analyze-varlink-replies.lines
+    assert_eq "${#analyze_replies[@]}" "2"
+    jq -e '.parameters.diagnostics | length == 0' <<<"${analyze_replies[0]}"
+    jq -e '.parameters.diagnostics[] | select(.severity == "warning")' <<<"${analyze_replies[1]}"
+fi
+
+timeout 10 bash -c 'while systemctl list-units --state=running --plain --no-legend "systemd-analyze@*.service" | grep systemd-analyze >/dev/null; do sleep .2; done'
+
+testuser_uid="$(id -u testuser)"
+runas testuser systemctl --user start systemd-analyze.socket
+USER_ANALYZE_SOCKET="/run/user/$testuser_uid/systemd/io.systemd.Analyze"
+runas testuser varlinkctl introspect "$USER_ANALYZE_SOCKET" io.systemd.Analyze | grep "method Verify" >/dev/null
+[[ ! -e "/run/user/$testuser_uid/varlink/registry/io.systemd.Analyze" ]]
+
+analyze_reply="$(runas testuser varlinkctl call -j "$USER_ANALYZE_SOCKET" "$ANALYZE_METHOD" '{"unitFiles":["/tmp/analyze-varlink-ok.service"]}')"
+assert_eq "$(jq -r '.diagnostics | length' <<<"$analyze_reply")" "0"
+
+(! runas testuser varlinkctl call "$ANALYZE_SOCKET" "$ANALYZE_METHOD" '{}')
+
 # Added an additional "INVALID_ID" id to the .json to verify that nothing breaks when input is malformed
 # The PrivateNetwork id description and weight was changed to verify that 'security' is actually reading in
 # values from the .json file when required. The default weight for "PrivateNetwork" is 2500, and the new weight
