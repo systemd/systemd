@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-device.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "blkid-util.h"
@@ -11,19 +12,17 @@
 #include "dlopen-note.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "format-table.h"
 #include "gpt.h"
 #include "initrd-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "mountpoint-util.h"
-#include "options.h"
 #include "parse-argument.h"
 #include "path-util.h"
-#include "pretty-print.h"
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
+#include "verbs.h"
 #include "xattr-util.h"
 
 static char *arg_target = NULL;
@@ -32,32 +31,12 @@ static char *arg_root = NULL;
 STATIC_DESTRUCTOR_REGISTER(arg_target, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-validatefs@.service", "8", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        printf("%s [OPTIONS...] /path/to/mountpoint\n"
-               "\n%sCheck file system validation constraints.%s\n"
-               "\nOptions:\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
+COMMAND(
+        "systemd-validatefs\0",
+        "Check file system validation constraints.",
+        .argspec = "MOUNTPOINT\0",
+        .man_pages = "systemd-validatefs@.service.8\0",
+);
 
 static int parse_argv(int argc, char *argv[]) {
         int r;
@@ -70,7 +49,7 @@ static int parse_argv(int argc, char *argv[]) {
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-validatefs");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -88,6 +67,9 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         char **args = option_parser_get_args(&opts);
