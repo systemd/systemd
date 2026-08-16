@@ -547,10 +547,10 @@ For example, if `systemd-homed` manages a user a string of `io.systemd.Home` is 
 `rateLimitIntervalUSec` → An unsigned 64-bit integer that configures the
 authentication rate limiting enforced on the user account.
 This specifies a timer interval (in µs) within which to count authentication attempts.
-When the counter goes above the value configured n `rateLimitIntervalBurst` log-ins are
+When the counter goes above the value configured in `rateLimitBurst` log-ins are
 temporarily refused until the interval passes.
 
-`rateLimitIntervalBurst` → An unsigned 64-bit integer, closely related to
+`rateLimitBurst` → An unsigned 64-bit integer, closely related to
 `rateLimitIntervalUSec`, that puts a limit on authentication attempts within
 the configured time interval.
 
