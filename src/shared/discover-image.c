@@ -1504,6 +1504,7 @@ int image_rename(Image *i, const char *new_name, RuntimeScope scope) {
         _cleanup_free_ char *new_path = NULL, *nn = NULL;
         _cleanup_strv_free_ char **settings = NULL;
         unsigned file_attr = 0;
+        int ret = 0;
         int r;
 
         assert(i);
@@ -1586,9 +1587,6 @@ int image_rename(Image *i, const char *new_name, RuntimeScope scope) {
         if (file_attr & FS_IMMUTABLE_FL)
                 (void) chattr_path(new_path, FS_IMMUTABLE_FL, FS_IMMUTABLE_FL);
 
-        free_and_replace(i->path, new_path);
-        free_and_replace(i->name, nn);
-
         STRV_FOREACH(j, settings) {
                 r = rename_auxiliary_file(*j, new_name, ".nspawn");
                 if (r < 0 && r != -ENOENT)
@@ -1597,16 +1595,24 @@ int image_rename(Image *i, const char *new_name, RuntimeScope scope) {
 
         NULSTR_FOREACH(suffix, auxiliary_suffixes_nulstr) {
                 _cleanup_free_ char *aux = NULL;
+
                 r = image_auxiliary_path(i, suffix, &aux);
-                if (r < 0)
-                        return r;
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to generate auxiliary path for image '%s' suffix '%s', ignoring: %m",
+                                        i->name, suffix);
+                        RET_GATHER(ret, r);
+                        continue;
+                }
 
                 r = rename_auxiliary_file(aux, new_name, suffix);
                 if (r < 0 && r != -ENOENT)
-                        log_debug_errno(r, "Failed to rename roothash file %s, ignoring: %m", aux);
+                        log_debug_errno(r, "Failed to rename auxiliary file %s, ignoring: %m", aux);
         }
 
-        return 0;
+        free_and_replace(i->path, new_path);
+        free_and_replace(i->name, nn);
+
+        return ret;
 }
 
 static int clone_auxiliary_file(const char *path, const char *new_name, const char *suffix) {
@@ -1830,7 +1836,7 @@ int image_clone(Image *i, const char *new_name, bool read_only, RuntimeScope sco
 
                 r = clone_auxiliary_file(aux, new_name, suffix);
                 if (r < 0 && r != -ENOENT)
-                        log_debug_errno(r, "Failed to clone root hash file %s, ignoring: %m", aux);
+                        log_debug_errno(r, "Failed to clone auxiliary file %s, ignoring: %m", aux);
         }
 
         return 0;
