@@ -5,42 +5,29 @@
 
 #include "sd-bus.h"
 #include "sd-daemon.h"
+#include "sd-json.h"
 
 #include "build.h"
 #include "bus-internal.h"
 #include "bus-util.h"
 #include "errno-util.h"
-#include "format-table.h"
 #include "io-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "options.h"
 #include "parse-argument.h"
 #include "time-util.h"
+#include "verbs.h"
 
 static const char *arg_bus_path = NULL;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 static bool arg_quiet = false;
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        printf("%s [OPTIONS...]\n"
-               "\nForward messages between a pipe or socket and a D-Bus bus.\n\n",
-               program_invocation_short_name);
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
+COMMAND(
+        "systemd-stdio-bridge\0",
+        "Forward messages between a pipe or socket and a D-Bus bus.",
+        .man_pages = "systemd-stdio-bridge.1\0",
+);
 
 static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
@@ -53,7 +40,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-stdio-bridge");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -80,6 +67,9 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION('q', "quiet", NULL, "Fail silently instead of logging errors"):
                         arg_quiet = true;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (option_parser_get_n_args(&opts) > 0)
