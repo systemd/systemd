@@ -142,6 +142,7 @@ EFI_STATUS load_file_from_simple_filesystem(const EFI_DEVICE_PATH *device_path, 
 EFI_STATUS file_handle_read(EFI_FILE *handle, uint64_t offset, size_t size, char **ret, size_t *ret_size);
 
 static inline void file_closep(EFI_FILE **handle) {
+        assert(handle);
         if (!*handle)
                 return;
 
@@ -151,6 +152,7 @@ static inline void file_closep(EFI_FILE **handle) {
 #define _cleanup_file_close_ _cleanup_(file_closep)
 
 static inline void unload_imagep(EFI_HANDLE *image) {
+        assert(image);
         if (*image)
                 (void) BS->UnloadImage(*image);
 }
