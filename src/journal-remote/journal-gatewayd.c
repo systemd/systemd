@@ -9,6 +9,7 @@
 #include "sd-bus.h"
 #include "sd-daemon.h"
 #include "sd-journal.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "build.h"
@@ -16,7 +17,6 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "format-table.h"
 #include "glob-util.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
@@ -27,15 +27,14 @@
 #include "main-func.h"
 #include "memory-util.h"
 #include "microhttpd-util.h"
-#include "options.h"
 #include "os-util.h"
 #include "output-mode.h"
 #include "parse-util.h"
-#include "pretty-print.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "time-util.h"
 #include "tmpfile-util.h"
+#include "verbs.h"
 
 #define JOURNAL_WAIT_TIMEOUT (10*USEC_PER_SEC)
 
@@ -52,6 +51,12 @@ STATIC_DESTRUCTOR_REGISTER(arg_cert_pem, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_trust_pem, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_file, strv_freep);
+
+COMMAND(
+        "systemd-journal-gatewayd\0",
+        "Serve journal events over HTTP.",
+        .man_pages = "systemd-journal-gatewayd.service.8\0",
+);
 
 typedef struct RequestMeta {
         sd_journal *journal;
@@ -1096,31 +1101,6 @@ static mhd_result request_handler(
         return mhd_respond(connection, MHD_HTTP_NOT_FOUND, "Not found.");
 }
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-journal-gatewayd.service", "8", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        printf("%s [OPTIONS...] ...\n\n"
-               "HTTP server for journal events.\n\n",
-               program_invocation_short_name);
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
-
 static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
@@ -1132,7 +1112,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-journal-gatewayd");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -1207,6 +1187,9 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to add paths: %m");
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (option_parser_get_n_args(&opts) > 0)
