@@ -53,6 +53,7 @@ INTROSPECTABLE=(
     systemd-stdio-bridge
     systemd-storage-block
     systemd-storage-fs
+    systemd-storagetm
     systemd-tty-ask-password-agent
     systemd-veritysetup
     timedatectl
