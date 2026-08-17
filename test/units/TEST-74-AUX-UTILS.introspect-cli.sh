@@ -11,6 +11,7 @@ export SYSTEMD_PAGER=cat
 
 # A smoke test for the introspection code
 INTROSPECTABLE=(
+    busctl
     homectl
     resolvectl
     systemd-ac-power
