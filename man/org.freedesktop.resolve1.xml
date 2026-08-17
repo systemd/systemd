@@ -486,6 +486,8 @@ node /org/freedesktop/resolve1 {
 #define SD_RESOLVED_NO_NETWORK         (UINT64_C(1) &lt;&lt; 15)
 #define SD_RESOLVED_NO_STALE           (UINT64_C(1) &lt;&lt; 24)
 #define SD_RESOLVED_RELAX_SINGLE_LABEL (UINT64_C(1) &lt;&lt; 25)
+#define SD_RESOLVED_NO_LOCAL_DATA      (UINT64_C(1) &lt;&lt; 28)
+#define SD_RESOLVED_NO_HOOK            (UINT64_C(1) &lt;&lt; 29)
 
 /* Output: Security */
 #define SD_RESOLVED_AUTHENTICATED      (UINT64_C(1) &lt;&lt;  9)
@@ -536,14 +538,16 @@ node /org/freedesktop/resolve1 {
         <para>NO_VALIDATE can be set to disable validation via DNSSEC even if it would normally be
         used.</para>
 
-        <para>The next six flags allow disabling certain sources during resolution. NO_SYNTHESIZE disables
+        <para>The next eight flags allow disabling certain sources during resolution. NO_SYNTHESIZE disables
         synthetic records, e.g. the local host name, see section SYNTHETIC RECORDS in
         <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         for more information. NO_CACHE disables the use of the cache of previously resolved records. NO_ZONE
         disables answers using locally registered public LLMNR/mDNS resource records. NO_TRUST_ANCHOR
         disables answers using locally configured trust anchors. NO_NETWORK requires all answers to be
         provided without using the network, i.e. either from local sources or the cache. NO_STALE flag
-        can be set to disable answering request with stale records.</para>
+        can be set to disable answering request with stale records. NO_LOCAL_DATA disables answers from local
+        configuration, such as <filename>/etc/hosts</filename> and static <filename>.rr</filename> drop-ins.
+        NO_HOOK disables answers from resolve hooks.</para>
 
         <para>The AUTHENTICATED bit is defined only in the output flags of the four functions. If set, the
         returned data has been fully authenticated. Specifically, this bit is set for all DNSSEC-protected
