@@ -9,7 +9,7 @@ set -o pipefail
 
 if ! can_do_rootless_nspawn; then
     echo "Skipping unpriv nspawn test"
-    exit 0
+    exit 77
 fi
 
 at_exit() {

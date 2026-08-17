@@ -14,6 +14,4 @@ if systemd-detect-virt --quiet --container; then
     ln -s /dev/null /run/tmpfiles.d/selinux-policy.conf
 fi
 
-run_subtests
-
-touch /testok
+run_subtests_and_exit

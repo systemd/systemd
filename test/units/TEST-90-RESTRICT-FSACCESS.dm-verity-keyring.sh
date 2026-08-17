@@ -13,24 +13,24 @@ set -o pipefail
 
 if systemctl --version | grep -F -- "-BPF_FRAMEWORK" >/dev/null; then
     echo "BPF framework not compiled in, skipping"
-    exit 0
+    exit 77
 fi
 
 if ! kernel_supports_lsm bpf; then
     echo "BPF LSM not available in kernel, skipping"
-    exit 0
+    exit 77
 fi
 
 if command -v bpftool >/dev/null 2>&1; then
     if ! bpftool btf dump file /sys/kernel/btf/vmlinux 2>/dev/null | grep 'bpf_lsm_bdev_setintegrity' >/dev/null; then
         echo "Kernel lacks bdev_setintegrity LSM hook, skipping"
-        exit 0
+        exit 77
     fi
 fi
 
 if [[ -v ASAN_OPTIONS ]]; then
     echo "Skipping under sanitizers"
-    exit 0
+    exit 77
 fi
 
 HELPER="/usr/lib/systemd/tests/unit-tests/manual/test-bpf-restrict-fsaccess"
@@ -45,7 +45,7 @@ rc=0
 "$HELPER" check >/dev/null 2>&1 || rc=$?
 if [[ "$rc" -eq 77 ]]; then
     echo "test-bpf-restrict-fsaccess built without BPF attach support, skipping"
-    exit 0
+    exit 77
 fi
 
 if [[ ! -e /sys/module/dm_verity/parameters/require_signatures ]]; then
@@ -54,7 +54,7 @@ fi
 val="$(cat /sys/module/dm_verity/parameters/require_signatures 2>/dev/null || echo)"
 if [[ "$val" != "Y" && "$val" != "1" ]]; then
     echo "require_signatures not enabled, skipping"
-    exit 0
+    exit 77
 fi
 
 # Provision the .dm-verity keyring. Empty description lets the kernel derive
@@ -63,7 +63,7 @@ keyid=$(openssl x509 -in /usr/share/mkosi.crt -outform DER |
             keyctl padd asymmetric '' %:.dm-verity 2>/dev/null) || keyid=""
 if [[ -z "$keyid" ]]; then
     echo ".dm-verity keyring not provisionable (kernel < v7.0?), skipping"
-    exit 0
+    exit 77
 fi
 if ! keyctl restrict_keyring %:.dm-verity; then
     keyctl unlink "$keyid" %:.dm-verity 2>/dev/null || true

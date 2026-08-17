@@ -14,7 +14,7 @@ SD_MEASURE="/usr/lib/systemd/systemd-measure"
 
 if [[ ! -x "${SD_PCREXTEND:?}" ]] || [[ ! -x "${SD_PCRLOCK:?}" ]] || [[ ! -x "${SD_MEASURE:?}" ]] ; then
     echo "$SD_PCREXTEND or $SD_PCRLOCK or $SD_MEASURE not found, skipping pcrlock tests"
-    exit 0
+    exit 77
 fi
 
 at_exit() {

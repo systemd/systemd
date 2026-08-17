@@ -11,7 +11,7 @@ SD_MEASURE="/usr/lib/systemd/systemd-measure"
 
 if [[ ! -x "${SD_MEASURE:?}" ]]; then
     echo "$SD_MEASURE not found, skipping the test"
-    exit 0
+    exit 77
 fi
 
 at_exit() {

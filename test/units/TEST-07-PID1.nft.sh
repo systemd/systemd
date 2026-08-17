@@ -5,7 +5,7 @@ set -o pipefail
 
 if ! command -v nft >/dev/null; then
     echo "nftables is not installed. Skipped NFTSet= tests."
-    exit 0
+    exit 77
 fi
 
 RUN_OUT="$(mktemp)"

@@ -9,17 +9,17 @@ set -o pipefail
 
 if [[ -v ASAN_OPTIONS ]]; then
     echo "vmspawn launches QEMU which doesn't work under ASan, skipping"
-    exit 0
+    exit 77
 fi
 
 if ! command -v systemd-vmspawn >/dev/null 2>&1; then
     echo "systemd-vmspawn not found, skipping"
-    exit 0
+    exit 77
 fi
 
 if ! find_qemu_binary; then
     echo "QEMU not found, skipping"
-    exit 0
+    exit 77
 fi
 
 # --directory= needs virtiofsd (on Fedora it lives in /usr/libexec, not in PATH)
@@ -27,7 +27,7 @@ if ! command -v virtiofsd >/dev/null 2>&1 &&
    ! test -x /usr/libexec/virtiofsd &&
    ! test -x /usr/lib/virtiofsd; then
     echo "virtiofsd not found, skipping"
-    exit 0
+    exit 77
 fi
 
 # Find a kernel for direct boot
@@ -41,7 +41,7 @@ done
 
 if [[ -z "$KERNEL" ]]; then
     echo "No kernel found for direct VM boot, skipping"
-    exit 0
+    exit 77
 fi
 echo "Using kernel: $KERNEL"
 
@@ -76,30 +76,6 @@ cat >"$WORKDIR/root/sbin/init" <<'EOF'
 exec sleep infinity
 EOF
 chmod +x "$WORKDIR/root/sbin/init"
-
-# Wait for a vmspawn machine to register with machined.
-# Skips the test gracefully if vmspawn fails due to missing vhost-user-fs support (nested VM).
-wait_for_machine() {
-    local machine="$1" pid="$2" log="$3"
-    timeout 30 bash -c "
-        while ! machinectl list --no-legend 2>/dev/null | grep >/dev/null '$machine'; do
-            if ! kill -0 $pid 2>/dev/null; then
-                if grep >/dev/null 'virtiofs.*QMP\|vhost-user-fs-pci' '$log'; then
-                    echo 'vhost-user-fs not supported (nested VM?), skipping'
-                    exit 77
-                fi
-                echo 'vmspawn exited before registering'
-                cat '$log'
-                exit 1
-            fi
-            sleep .5
-        done
-    " || {
-        local rc=$?
-        if [[ $rc -eq 77 ]]; then exit 0; fi
-        exit "$rc"
-    }
-}
 
 # Launch vmspawn in the background with direct kernel boot and headless console.
 systemd-vmspawn \

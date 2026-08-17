@@ -9,7 +9,7 @@ set -o pipefail
 
 if ! test -x /usr/lib/systemd/systemd-imdsd ; then
     echo "No imdsd installed, skipping test."
-    exit 0
+    exit 77
 fi
 
 at_exit() {

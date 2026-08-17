@@ -11,12 +11,12 @@ UNIT_FILE_LIST="/usr/lib/systemd/tests/testdata/installed-unit-files.txt"
 
 if [[ ! -f "$UNIT_FILE_LIST" ]]; then
     echo "Couldn't find the list of installed units, skipping the test"
-    exit 0
+    exit 77
 fi
 
 if ! command -v systemd-analyze >/dev/null; then
     echo "Built without systemd-analyze, skipping the test"
-    exit 0
+    exit 77
 fi
 
 mapfile -t UNIT_FILES <"$UNIT_FILE_LIST"

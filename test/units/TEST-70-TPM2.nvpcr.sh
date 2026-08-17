@@ -13,7 +13,7 @@ SD_MEASURE="/usr/lib/systemd/systemd-measure"
 
 if [[ ! -x "${SD_PCREXTEND:?}" ]] || [[ ! -x "${SD_MEASURE:?}" ]] || ! tpm_has_pcr sha256 11; then
     echo "$SD_PCREXTEND, $SD_MEASURE or PCR sysfs files not found, skipping PCR extension tests"
-    exit 0
+    exit 77
 fi
 
 at_exit() {
