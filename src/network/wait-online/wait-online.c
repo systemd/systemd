@@ -3,20 +3,19 @@
 #include <sys/stat.h>
 
 #include "sd-event.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "build.h"
 #include "daemon-util.h"
-#include "format-table.h"
 #include "hashmap.h"
-#include "help-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "options.h"
 #include "parse-argument.h"
 #include "socket-util.h"
 #include "strv.h"
 #include "time-util.h"
+#include "verbs.h"
 #include "wait-online-manager.h"
 
 static bool arg_quiet = false;
@@ -31,25 +30,11 @@ static bool arg_requires_dns = false;
 STATIC_DESTRUCTOR_REGISTER(arg_interfaces, hashmap_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_ignore, strv_freep);
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        help_cmdline("[OPTIONS...]");
-        help_abstract("Block until network is configured.");
-
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("systemd-networkd-wait-online.service", "8");
-        return 0;
-}
+COMMAND(
+        "systemd-networkd-wait-online\0",
+        "Block until network is configured.",
+        .man_pages = "systemd-networkd-wait-online.service.8\0",
+);
 
 static int parse_interface_with_operstate_range(const char *str) {
         _cleanup_free_ char *ifname = NULL;
@@ -107,7 +92,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-networkd-wait-online");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -160,6 +145,9 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         return 1;
