@@ -18,6 +18,7 @@ INTROSPECTABLE=(
     importctl
     localectl
     networkctl
+    oomctl
     resolvectl
     systemd-ac-power
     systemd-analyze
