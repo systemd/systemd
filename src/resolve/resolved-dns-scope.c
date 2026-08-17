@@ -900,7 +900,7 @@ DnsScopeMatch dns_scope_good_domain(
         }
 }
 
-bool dns_scope_good_key(DnsScope *s, const DnsResourceKey *key) {
+bool dns_scope_good_key(DnsScope *s, const DnsResourceKey *key, uint64_t query_flags) {
         int key_family;
 
         assert(s);
@@ -925,6 +925,7 @@ bool dns_scope_good_key(DnsScope *s, const DnsResourceKey *key) {
                 const char* name = dns_resource_key_name(key);
 
                 if (!s->manager->resolve_unicast_single_label &&
+                    !FLAGS_SET(query_flags, SD_RESOLVED_RELAX_SINGLE_LABEL) &&
                     dns_name_is_single_label(name))
                         return false;
 

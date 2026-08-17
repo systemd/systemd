@@ -929,7 +929,7 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
         _cleanup_(dns_query_freep) DnsQuery *q = NULL;
         Hashmap **queries_by_packet;
         DnsQuery *existing;
-        bool bypass = false;
+        bool bypass = false, bypass_local_hooks = false;
         int r;
 
         assert(m);
@@ -1003,7 +1003,9 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
 
                 log_debug("Got request to DNS proxy address 127.0.0.54, enabling bypass logic.");
                 bypass = true;
-                protocol_flags = SD_RESOLVED_DNS|SD_RESOLVED_NO_ZONE; /* Turn off mDNS/LLMNR for proxy stub. */
+                bypass_local_hooks = true;
+                /* Turn off mDNS/LLMNR and local synthesis for proxy stub. */
+                protocol_flags = SD_RESOLVED_DNS|SD_RESOLVED_NO_ZONE|SD_RESOLVED_NO_SYNTHESIZE;
         } else if (dns_packet_do(p)) {
                 log_debug("Got request with DNSSEC enabled, enabling bypass logic.");
                 bypass = true;
@@ -1033,6 +1035,7 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
                 return;
         }
 
+        q->bypass_local_hooks = bypass_local_hooks;
         q->request_packet = dns_packet_ref(p);
         q->request_stream = dns_stream_ref(s); /* make sure the stream stays around until we can send a reply through it */
         q->stub_listener_extra = l;

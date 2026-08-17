@@ -89,6 +89,7 @@ typedef struct DnsQuery {
         bool previous_redirect_non_confidential:1;
         bool previous_redirect_non_synthetic:1;
         bool request_address_valid:1;
+        bool bypass_local_hooks:1;
 
         /* Bus + Varlink client information */
         sd_bus_message *bus_request;
