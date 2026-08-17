@@ -542,6 +542,8 @@ testcase_08_resolved() {
     grep -qF "10.0.0.10" "$RUN_OUT"
     grep -qF "fd00:dead:beef:cafe::101" "$RUN_OUT"
     grep -qF "authenticated: no" "$RUN_OUT"
+    run resolvectl query --search=no --relax-single-label=yes singlelabel
+    grep -qF "singlelabel: 10.0.0.42" "$RUN_OUT"
     run dig @ns1.unsigned.test +short MX unsigned.test
     grep -qF "15 mail.unsigned.test." "$RUN_OUT"
     run resolvectl query --legend=no -t MX unsigned.test
@@ -934,6 +936,9 @@ testcase_10_resolvectl_json() {
 
     # Issue: https://github.com/systemd/systemd/issues/29580 (part #1)
     dig @127.0.0.54 signed.test
+    run dig @127.0.0.54 localhost5 -t A
+    grep -qF "status: NXDOMAIN" "$RUN_OUT"
+    (! grep -qF "127.128.0.5" "$RUN_OUT")
 
     systemctl stop resolvectl-monitor.service
     systemctl stop resolvectl-monitor-json.service
@@ -1684,6 +1689,12 @@ EOF
         }
 ]
 EOF
+    cat >/run/systemd/resolve/static.d/staticshadow.rr <<EOF
+{
+        "key": { "name" : "unsigned.test", "type" : 1 },
+        "address" : [ 5, 7, 9, 13 ]
+}
+EOF
     cat >/run/systemd/resolve/static.d/garbage.rr <<EOF
 [
         {
@@ -1709,7 +1720,12 @@ EOF
     grep -qF 5.7.9.12 "$RUN_OUT"
     grep -qF a0b:a0b:a0b:a0b:a0b:a0b:a0b:a0c "$RUN_OUT"
 
-    rm /run/systemd/resolve/static.d/statictest*.rr /run/systemd/resolve/static.d/garbage*.rr
+    run resolvectl query --legend=no -t A unsigned.test
+    grep -qF "unsigned.test IN A 5.7.9.13" "$RUN_OUT"
+    run resolvectl query --legend=no -t AAAA unsigned.test
+    grep -qF "unsigned.test IN AAAA fd00:dead:beef:cafe::101" "$RUN_OUT"
+
+    rm /run/systemd/resolve/static.d/statictest*.rr /run/systemd/resolve/static.d/staticshadow.rr /run/systemd/resolve/static.d/garbage*.rr
     systemctl reload systemd-resolved
 }
 
