@@ -96,6 +96,11 @@ for i in "${INTROSPECTABLE[@]}"; do
     $i --introspect-cli | jq -e \
         'any(.commands[]; [.options[].names[-1]] | contains(["--help", "--version", "--introspect-cli"]))'
     $i --intro | grep -e --help
+
+    # If the tool has a "help" verb, it must work too
+    if $i --introspect-cli | jq -e 'any(.commands[]; (.verbs // []) | any(.names[0] == "help"))' >/dev/null; then
+        $i help >/dev/null
+    fi
 done
 
 # systemd-hwdb defines verbs, check that they are described
