@@ -45,6 +45,35 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 DnsAnswer,
                 dns_answer_unref);
 
+static int static_records_answer_matches_question(DnsQuestion *q, DnsAnswer *answer) {
+        DnsResourceKey *key;
+
+        assert(q);
+        assert(answer);
+
+        DNS_QUESTION_FOREACH(key, q) {
+                DnsAnswerItem *item;
+                bool found = false;
+
+                DNS_ANSWER_FOREACH_ITEM(item, answer) {
+                        int r;
+
+                        r = dns_resource_key_match_rr(key, item->rr, /* search_domain= */ NULL);
+                        if (r < 0)
+                                return r;
+                        if (r > 0) {
+                                found = true;
+                                break;
+                        }
+                }
+
+                if (!found)
+                        return 0;
+        }
+
+        return 1;
+}
+
 static int load_static_record_file_item(sd_json_variant *rj, Hashmap **records) {
         int r;
 
@@ -184,7 +213,9 @@ static int manager_static_records_read(Manager *m) {
 }
 
 int manager_static_records_lookup(Manager *m, DnsQuestion *q, DnsAnswer **answer) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *found = NULL;
         int r;
+        bool has_redirect = false;
 
         assert(m);
         assert(q);
@@ -203,7 +234,38 @@ int manager_static_records_lookup(Manager *m, DnsQuestion *q, DnsAnswer **answer
         if (!f)
                 return 0;
 
-        r = dns_answer_extend(answer, f);
+        DnsAnswerItem *item;
+        DNS_ANSWER_FOREACH_ITEM(item, f) {
+                r = dns_question_matches_rr(q, item->rr, /* search_domain= */ NULL);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        r = dns_question_matches_cname_or_dname(q, item->rr, /* search_domain= */ NULL);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                continue;
+
+                        has_redirect = true;
+                }
+
+                r = dns_answer_add_extend(&found, item->rr, item->ifindex, item->flags, item->rrsig);
+                if (r < 0)
+                        return r;
+        }
+
+        if (dns_answer_isempty(found))
+                return 0;
+
+        if (!has_redirect) {
+                r = static_records_answer_matches_question(q, found);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return 0;
+        }
+
+        r = dns_answer_extend(answer, found);
         if (r < 0)
                 return r;
 

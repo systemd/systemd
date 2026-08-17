@@ -1687,6 +1687,18 @@ EOF
         }
 ]
 EOF
+    cat >/run/systemd/resolve/static.d/staticshadow.rr <<EOF
+{
+        "key": { "name" : "unsigned.test", "type" : 1 },
+        "address" : [ 5, 7, 9, 13 ]
+}
+EOF
+    cat >/run/systemd/resolve/static.d/staticcname.rr <<EOF
+{
+        "key": { "name" : "staticcname.waldo", "type" : 5 },
+        "name" : "statictest2.waldo"
+}
+EOF
     cat >/run/systemd/resolve/static.d/garbage.rr <<EOF
 [
         {
@@ -1707,12 +1719,25 @@ EOF
 
     run resolvectl query statictest.waldo
     grep -qF 5.7.9.11 "$RUN_OUT"
+    (! run resolvectl query --legend=no -t AAAA statictest.waldo)
 
     run resolvectl query statictest2.waldo
     grep -qF 5.7.9.12 "$RUN_OUT"
     grep -qF a0b:a0b:a0b:a0b:a0b:a0b:a0b:a0c "$RUN_OUT"
 
-    rm /run/systemd/resolve/static.d/statictest*.rr /run/systemd/resolve/static.d/garbage*.rr
+    run resolvectl query --legend=no -t A staticcname.waldo
+    grep -qF "statictest2.waldo IN A 5.7.9.12" "$RUN_OUT"
+
+    run resolvectl query unsigned.test
+    grep -qF "unsigned.test: 5.7.9.13" "$RUN_OUT"
+    grep -qF "fd00:dead:beef:cafe::101" "$RUN_OUT"
+
+    run resolvectl query --legend=no -t A unsigned.test
+    grep -qF "unsigned.test IN A 5.7.9.13" "$RUN_OUT"
+    run resolvectl query --legend=no -t AAAA unsigned.test
+    grep -qF "unsigned.test IN AAAA fd00:dead:beef:cafe::101" "$RUN_OUT"
+
+    rm /run/systemd/resolve/static.d/statictest*.rr /run/systemd/resolve/static.d/staticshadow.rr /run/systemd/resolve/static.d/staticcname.rr /run/systemd/resolve/static.d/garbage*.rr
     systemctl reload systemd-resolved
 }
 
