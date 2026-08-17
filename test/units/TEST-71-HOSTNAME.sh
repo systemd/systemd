@@ -182,6 +182,13 @@ testcase_nss-myhostname() {
     ip route add 10.0.0.1 dev foo
     ip route add default via 10.0.0.1 dev foo
 
+    if ip link add p2pfoo type ipip local 192.0.2.1 remote 192.0.2.2; then
+        have_p2p=1
+        ip link set up dev p2pfoo
+        ip addr add 10.1.0.1 peer 10.1.0.2 dev p2pfoo
+        ip route add default dev p2pfoo metric 2048
+    fi
+
     # Note: `getent hosts` probes gethostbyname2(), whereas `getent ahosts` probes gethostbyname3()
     #       and gethostbyname4() (through getaddrinfo() -> gaih_inet() -> get_nss_addresses())
     getent hosts -s myhostname
