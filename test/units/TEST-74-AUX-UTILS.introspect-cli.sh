@@ -61,6 +61,7 @@ INTROSPECTABLE=(
     systemd-machine-id-setup
     systemd-measure
     systemd-modules-load
+    systemd-mstack
     systemd-mute-console
     systemd-network-generator
     systemd-networkd-wait-online
