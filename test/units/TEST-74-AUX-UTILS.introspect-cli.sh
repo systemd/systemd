@@ -67,6 +67,7 @@ INTROSPECTABLE=(
     systemd-sleep
     systemd-socket-activate
     systemd-socket-proxyd
+    systemd-ssh-issue
     systemd-stdio-bridge
     systemd-storage-block
     systemd-storage-fs
