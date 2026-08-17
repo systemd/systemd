@@ -64,19 +64,75 @@
 /* Coccinelle can't handle the __attribute__((__cleanup__(x))) GCC extension used by our _cleanup_*
  * macros. Without this, any variable declared with _cleanup_free_ or _cleanup_(foo) makes the whole
  * function unparsable. Drop the attribute since it's not relevant for semantic checks. */
+#define _cleanup_bitmap_free_
+#define _cleanup_close_
+#define _cleanup_close_pair_
+#define _cleanup_closedir_
+#define _cleanup_fclose_
+#define _cleanup_fdset_free_
+#define _cleanup_file_close_
 #define _cleanup_free_
+#define _cleanup_freecon_
+#define _cleanup_hashmap_free_
+#define _cleanup_iterated_cache_free_
+#define _cleanup_ordered_hashmap_free_
+#define _cleanup_ordered_set_free_
+#define _cleanup_pages_
+#define _cleanup_pclose_
+#define _cleanup_set_free_
+#define _cleanup_strv_free_
+#define _cleanup_strv_free_erase_
+#define _cleanup_umask_
 #define _cleanup_(x)
+
+/* Also drop other attributes. */
+#define _alias_(x)
+#define _align_(x)
+#define _alignas_(x)
+#define _alignptr_
+#define _cleanup_(x)
+#define _const_
+#define _deprecated_
+#define _destructor_
+#define _hidden_
+#define _likely_(x) x
+#define _malloc_
+#define _noclone_
+#define _noinline_
+#define _noreturn_
+#define _packed_
+#define _printf_(a, b)
+#define _public_
+#define _pure_
+#define _returns_nonnull_
+#define _section_(x)
+#define _sentinel_
+#define _unlikely_(x) x
+#define _unused_
+#define _used_
+#define _warn_unused_result_
+#define _weak_
+#define _weakref_(x)
+
+#define _dlopen_loader_
+
+#define _sd_printf_(a, b)
+#define _sd_sentinel_
+#define _sd_packed_
+#define _sd_pure_
+#define _sd_deprecated_
+
+#define _Noreturn
 
 /* Coccinelle fails to parse these from the included headers, so let's just drop them. */
 #define PAM_EXTERN
-#define STACK_OF(x)
 
 /* Mark a couple of iterator explicitly as iterators, otherwise Coccinelle gets a bit confused. Coccinelle
  * can usually infer this information automagically, but in these specific cases it needs a bit of help. */
 #define FOREACH_ARGUMENT(entry, ...) YACFE_ITERATOR
 #define FOREACH_ARRAY(i, array, num) YACFE_ITERATOR
-#define FOREACH_DIRENT(de, d, on_error) YACFE_ITERATOR
-#define FOREACH_DIRENT_ALL(de, d, on_error) YACFE_ITERATOR
+#define FOREACH_DIRENT(de, d, on_error) for (struct dirent *(de) = readdir_ensure_type(d);; (de) = readdir_ensure_type(d))
+#define FOREACH_DIRENT_ALL(de, d, on_error) FOREACH_DIRENT(de, d, on_error)
 #define FOREACH_DIRENT_IN_BUFFER(de, buf, sz) YACFE_ITERATOR
 #define FOREACH_ELEMENT(i, array) YACFE_ITERATOR
 #define FOREACH_STRING(x, y, ...) YACFE_ITERATOR
@@ -108,3 +164,15 @@
  * See: https://github.com/coccinelle/coccinelle/issues/413 */
 #define Z_EXPORT
 #define Z_EXTERN
+
+/* Ignore several more macros */
+#define BUS_ERROR_MAP_ELF_REGISTER
+#define WITH_UMASK(mask)
+#define UPPERCASE_LETTERS ""
+#define LOWERCASE_LETTERS ""
+#define DIGITS ""
+#define ANSI_DCS ""
+#define ANSI_ST ""
+#define TPM2_SHA256_DIGEST_SIZE 32
+#define ElfW(type) Elf__ELF_NATIVE_CLASS_##type
+#define STACK_OF(type) struct stack_st_##type
