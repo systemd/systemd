@@ -49,6 +49,7 @@ INTROSPECTABLE=(
     systemd-hwdb
     systemd-id128
     systemd-imds
+    systemd-imdsd
     systemd-inhibit
     systemd-journal-gatewayd
     systemd-journal-remote
