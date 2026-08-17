@@ -66,6 +66,7 @@ INTROSPECTABLE=(
     systemd-network-generator
     systemd-networkd-wait-online
     systemd-notify
+    systemd-nspawn
     systemd-oomd
     systemd-path
     systemd-pcrextend
