@@ -59,6 +59,7 @@ INTROSPECTABLE=(
     systemd-journal-upload
     systemd-keyutil
     systemd-machine-id-setup
+    systemd-measure
     systemd-modules-load
     systemd-mute-console
     systemd-network-generator
