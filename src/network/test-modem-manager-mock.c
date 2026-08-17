@@ -280,7 +280,7 @@ static int handle_get_managed_objects(sd_bus_message *msg, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
-        r = sd_bus_send(NULL, reply, NULL);
+        r = sd_bus_message_send(reply);
         if (r < 0)
                 return r;
 
@@ -305,7 +305,7 @@ static int handle_get_all(sd_bus_message *msg, void *userdata, sd_bus_error *err
         if (r < 0)
                 return r;
 
-        r = sd_bus_send(NULL, reply, NULL);
+        r = sd_bus_message_send(reply);
         if (r < 0)
                 return r;
 
@@ -325,7 +325,7 @@ static int handle_simple_connect(sd_bus_message *msg, void *userdata, sd_bus_err
         if (r < 0)
                 return r;
 
-        r = sd_bus_send(NULL, reply, NULL);
+        r = sd_bus_message_send(reply);
         if (r < 0)
                 return r;
 
