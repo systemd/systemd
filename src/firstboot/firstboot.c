@@ -777,23 +777,53 @@ static int process_hostname(int rfd, sd_varlink **mute_console_link) {
          * and let it be resolved on each first boot. */
         const char *hostname = arg_hostname;
         _cleanup_free_ char *resolved = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         if (!arg_root) {
                 r = hostname_substitute_wildcards(arg_hostname, &resolved);
                 if (r < 0)
                         log_warning_errno(r, "Failed to resolve wildcards in hostname '%s', writing it verbatim: %m", arg_hostname);
                 else if (!hostname_is_valid(resolved, VALID_HOSTNAME_TRAILING_DOT))
                         log_warning("Resolved hostname '%s' is invalid, writing template '%s' verbatim instead.", resolved, arg_hostname);
-                else
+                else {
                         hostname = resolved;
+                        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.Hostname");
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to connect to systemd-hostnamed, writing /etc/hostname directly: %m");
+                }
         }
 
-        r = write_string_file_full_label(pfd, f, hostname,
-                                   WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL,
-                                   /* ts= */ NULL, /* label_fn= */ NULL, arg_label_context);
-        if (r < 0)
-                return log_error_errno(r, "Failed to write /etc/hostname: %m");
+        bool done = false;
+        if (vl) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+                const char *error_id = NULL;
+                r = sd_varlink_callbo(
+                                vl,
+                                "io.systemd.Hostname.SetStaticHostname",
+                                &reply,
+                                &error_id,
+                                SD_JSON_BUILD_PAIR_STRING("newValue", hostname));
+                if (r < 0)
+                        log_warning_errno(r, "Failed to call SetStaticHostname, writing /etc/hostname directly: %m");
+                else if (error_id)
+                        log_warning_errno(sd_varlink_error_to_errno(error_id, reply),
+                                          "Failed to set static hostname, writing /etc/hostname directly: %s", error_id);
+                else {
+                        log_info("Static hostname configured via systemd-hostnamed.");
+                        done = true;
+                }
+        }
 
-        log_info("/etc/hostname written.");
+        if (!done) {
+                r = write_string_file_full_label(
+                                pfd, f, hostname,
+                                WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL,
+                                /* ts= */ NULL, /* label_fn= */ NULL, arg_label_context);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write /etc/hostname: %m");
+
+                log_info("/etc/hostname written.");
+        }
+
         return 0;
 }
 
