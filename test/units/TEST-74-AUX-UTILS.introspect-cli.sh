@@ -47,6 +47,7 @@ INTROSPECTABLE=(
     systemd-journal-gatewayd
     systemd-journal-remote
     systemd-journal-upload
+    systemd-keyutil
     systemd-modules-load
     systemd-mute-console
     systemd-network-generator
