@@ -174,6 +174,9 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
                 0x8a, 0xbb, 0x39, 0x57, 0x8d, 0xd9, 0xec, 0x59
         };
 
+        assert(name);
+        assert(ret_uid);
+
         unsigned n_tries = 100, current_suggested = 0;
         int r;
 

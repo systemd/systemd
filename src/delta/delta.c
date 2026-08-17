@@ -243,6 +243,12 @@ static int enumerate_dir_d(
         char *c;
         int r;
 
+        assert(top);
+        assert(bottom);
+        assert(drops);
+        assert(toppath);
+        assert(drop);
+
         assert(!endswith(drop, "/"));
 
         path = path_join(toppath, drop);

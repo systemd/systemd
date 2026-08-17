@@ -2511,6 +2511,7 @@ static int exec_shared_runtime_make(
         assert(m);
         assert(c);
         assert(id);
+        assert(ret);
 
         /* It is not necessary to create ExecSharedRuntime object. */
         if (!c->user_namespace_path && !exec_needs_network_namespace(c) && !exec_needs_ipc_namespace(c) &&

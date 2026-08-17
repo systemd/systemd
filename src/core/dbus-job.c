@@ -162,9 +162,11 @@ static int bus_job_find(sd_bus *bus, const char *path, const char *interface, vo
 
 static int bus_job_enumerate(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *reterr_error) {
         _cleanup_strv_free_ char **l = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         unsigned k = 0;
         Job *j;
+
+        assert(nodes);
 
         l = new0(char*, hashmap_size(m->jobs)+1);
         if (!l)
