@@ -28,6 +28,7 @@ INTROSPECTABLE=(
     systemd-cgls
     systemd-cgtop
     systemd-clonesetup
+    systemd-creds
     systemd-delta
     systemd-detect-virt
     systemd-dissect
