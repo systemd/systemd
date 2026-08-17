@@ -61,6 +61,7 @@ INTROSPECTABLE=(
     systemd-path
     systemd-pcrextend
     systemd-pty-forward
+    systemd-random-seed
     systemd-socket-activate
     systemd-socket-proxyd
     systemd-stdio-bridge
