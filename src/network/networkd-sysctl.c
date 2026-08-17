@@ -211,17 +211,19 @@ static void manager_set_ip_forwarding(Manager *manager, int family) {
                 return;
 
         t = manager->ip_forwarding[family == AF_INET6];
-        if (t < 0)
-                return; /* keep */
 
         /* First, set the default value. */
-        r = sysctl_write_ip_property_boolean(family, "default", "forwarding", t, manager_get_sysctl_shadow(manager));
+        r = sysctl_write_ip_property_tristate(
+                        family, "default", "forwarding", t,
+                        manager_get_sysctl_shadow(manager));
         if (r < 0)
                 log_warning_errno(r, "Failed to %s the default %s forwarding: %m",
                                   enable_disable(t), af_to_ipv4_ipv6(family));
 
         /* Then, set the value to all interfaces. */
-        r = sysctl_write_ip_property_boolean(family, "all", "forwarding", t, manager_get_sysctl_shadow(manager));
+        r = sysctl_write_ip_property_tristate(
+                        family, "all", "forwarding", t,
+                        manager_get_sysctl_shadow(manager));
         if (r < 0)
                 log_warning_errno(r, "Failed to %s %s forwarding for all interfaces: %m",
                                   enable_disable(t), af_to_ipv4_ipv6(family));
@@ -266,7 +268,9 @@ static int link_update_ipv6_sysctl(Link *link) {
         if (!link_ipv6_enabled(link))
                 return 0;
 
-        return sysctl_write_ip_property_boolean(AF_INET6, link->ifname, "disable_ipv6", false, manager_get_sysctl_shadow(link->manager));
+        return sysctl_write_ip_property_boolean(
+                        AF_INET6, link->ifname, "disable_ipv6", false,
+                        manager_get_sysctl_shadow(link->manager));
 }
 
 static int link_set_proxy_arp(Link *link) {
@@ -276,10 +280,7 @@ static int link_set_proxy_arp(Link *link) {
         if (!link_is_configured_for_family(link, AF_INET))
                 return 0;
 
-        if (link->network->proxy_arp < 0)
-                return 0;
-
-        return sysctl_write_ip_property_boolean(
+        return sysctl_write_ip_property_tristate(
                         AF_INET, link->ifname, "proxy_arp", link->network->proxy_arp,
                         manager_get_sysctl_shadow(link->manager));
 }
@@ -291,10 +292,9 @@ static int link_set_proxy_arp_pvlan(Link *link) {
         if (!link_is_configured_for_family(link, AF_INET))
                 return 0;
 
-        if (link->network->proxy_arp_pvlan < 0)
-                return 0;
-
-        return sysctl_write_ip_property_boolean(AF_INET, link->ifname, "proxy_arp_pvlan", link->network->proxy_arp_pvlan > 0, manager_get_sysctl_shadow(link->manager));
+        return sysctl_write_ip_property_tristate(
+                        AF_INET, link->ifname, "proxy_arp_pvlan", link->network->proxy_arp_pvlan,
+                        manager_get_sysctl_shadow(link->manager));
 }
 
 int link_get_ip_forwarding(Link *link, int family) {
@@ -331,10 +331,9 @@ static int link_set_ip_forwarding_impl(Link *link, int family) {
                 return 0;
 
         t = link_get_ip_forwarding(link, family);
-        if (t < 0)
-                return 0; /* keep */
-
-        r = sysctl_write_ip_property_boolean(family, link->ifname, "forwarding", t, manager_get_sysctl_shadow(link->manager));
+        r = sysctl_write_ip_property_tristate(
+                        family, link->ifname, "forwarding", t,
+                        manager_get_sysctl_shadow(link->manager));
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to %s %s forwarding, ignoring: %m",
                                               enable_disable(t), af_to_ipv4_ipv6(family));
@@ -510,10 +509,7 @@ static int link_set_ipv6_proxy_ndp(Link *link) {
         if (!link_is_configured_for_family(link, AF_INET6))
                 return 0;
 
-        if (link->network->ipv6_proxy_ndp < 0)
-                return 0;
-
-        return sysctl_write_ip_property_boolean(
+        return sysctl_write_ip_property_tristate(
                         AF_INET6, link->ifname, "proxy_ndp", link->network->ipv6_proxy_ndp,
                         manager_get_sysctl_shadow(link->manager));
 }
@@ -643,10 +639,9 @@ static int link_set_ipv4_accept_local(Link *link) {
         if (!link_is_configured_for_family(link, AF_INET))
                 return 0;
 
-        if (link->network->ipv4_accept_local < 0)
-                return 0;
-
-        return sysctl_write_ip_property_boolean(AF_INET, link->ifname, "accept_local", link->network->ipv4_accept_local > 0, manager_get_sysctl_shadow(link->manager));
+        return sysctl_write_ip_property_tristate(
+                        AF_INET, link->ifname, "accept_local", link->network->ipv4_accept_local,
+                        manager_get_sysctl_shadow(link->manager));
 }
 
 static int link_set_ipv4_route_localnet(Link *link) {
@@ -656,10 +651,9 @@ static int link_set_ipv4_route_localnet(Link *link) {
         if (!link_is_configured_for_family(link, AF_INET))
                 return 0;
 
-        if (link->network->ipv4_route_localnet < 0)
-                return 0;
-
-        return sysctl_write_ip_property_boolean(AF_INET, link->ifname, "route_localnet", link->network->ipv4_route_localnet > 0, manager_get_sysctl_shadow(link->manager));
+        return sysctl_write_ip_property_tristate(
+                        AF_INET, link->ifname, "route_localnet", link->network->ipv4_route_localnet,
+                        manager_get_sysctl_shadow(link->manager));
 }
 
 static int link_set_ipv4_src_valid_mark(Link *link) {
@@ -670,10 +664,9 @@ static int link_set_ipv4_src_valid_mark(Link *link) {
         if (!link_is_configured_for_family(link, AF_INET))
                 return 0;
 
-        if (link->network->ipv4_src_valid_mark < 0)
-                return 0;
-
-        return sysctl_write_ip_property_boolean(AF_INET, link->ifname, "src_valid_mark", link->network->ipv4_src_valid_mark > 0, manager_get_sysctl_shadow(link->manager));
+        return sysctl_write_ip_property_tristate(
+                        AF_INET, link->ifname, "src_valid_mark", link->network->ipv4_src_valid_mark,
+                        manager_get_sysctl_shadow(link->manager));
 }
 
 static int link_set_ipv4_promote_secondaries(Link *link) {
@@ -688,7 +681,9 @@ static int link_set_ipv4_promote_secondaries(Link *link) {
          * otherwise. The way systemd-networkd works is that the new IP of a lease is added as a
          * secondary IP and when the primary one expires it relies on the kernel to promote the
          * secondary IP. See also https://github.com/systemd/systemd/issues/7163 */
-        return sysctl_write_ip_property_boolean(AF_INET, link->ifname, "promote_secondaries", true, manager_get_sysctl_shadow(link->manager));
+        return sysctl_write_ip_property_boolean(
+                        AF_INET, link->ifname, "promote_secondaries", true,
+                        manager_get_sysctl_shadow(link->manager));
 }
 
 static int link_set_mpls_input(Link *link) {
@@ -698,10 +693,9 @@ static int link_set_mpls_input(Link *link) {
         if (!link_is_configured_for_family(link, AF_MPLS))
                 return 0;
 
-        if (link->network->mpls_input < 0)
-                return 0;
-
-        return sysctl_write_ip_property_boolean(AF_MPLS, link->ifname, "input", link->network->mpls_input > 0, manager_get_sysctl_shadow(link->manager));
+        return sysctl_write_ip_property_tristate(
+                        AF_MPLS, link->ifname, "input", link->network->mpls_input,
+                        manager_get_sysctl_shadow(link->manager));
 }
 
 int link_set_sysctl(Link *link) {
