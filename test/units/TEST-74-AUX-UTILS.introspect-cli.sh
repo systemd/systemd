@@ -19,6 +19,7 @@ INTROSPECTABLE=(
     importctl
     journalctl
     localectl
+    loginctl
     networkctl
     oomctl
     portablectl
