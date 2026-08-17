@@ -70,6 +70,7 @@ INTROSPECTABLE=(
     systemd-oomd
     systemd-path
     systemd-pcrextend
+    systemd-pcrlock
     systemd-pty-forward
     systemd-random-seed
     systemd-report
