@@ -542,6 +542,8 @@ testcase_08_resolved() {
     grep -qF "10.0.0.10" "$RUN_OUT"
     grep -qF "fd00:dead:beef:cafe::101" "$RUN_OUT"
     grep -qF "authenticated: no" "$RUN_OUT"
+    run resolvectl query --search=no --relax-single-label=yes singlelabel
+    grep -qF "singlelabel: 10.0.0.42" "$RUN_OUT"
     run dig @ns1.unsigned.test +short MX unsigned.test
     grep -qF "15 mail.unsigned.test." "$RUN_OUT"
     run resolvectl query --legend=no -t MX unsigned.test
