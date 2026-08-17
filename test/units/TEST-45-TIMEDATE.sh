@@ -484,6 +484,7 @@ teardown_timedated_alternate_paths() {
     set +eu
 
     rm -rf /run/systemd/system/systemd-timedated.service.d
+    rm -rf /run/alternate-path
     systemctl daemon-reload
     systemctl restart systemd-timedated
 }
@@ -507,11 +508,25 @@ EOF
     assert_eq "$(readlink /run/alternate-path/mylocaltime | sed 's#^.*zoneinfo/##')" "Europe/Kyiv"
     assert_in "Time zone: Europe/Kyiv \(EES*T, \+0[0-9]00\)" "$(timedatectl)"
 
+    rm -f /run/alternate-path/mylocaltime
+    mkdir /run/alternate-path/mylocaltime
+    assert_rc 1 timedatectl --no-pager set-timezone UTC
+    assert_eq "$(timedatectl show -p Timezone --value)" "Europe/Kyiv"
+    assert_rc 1 timedatectl --no-pager set-timezone UTC
+    rmdir /run/alternate-path/mylocaltime
+    assert_rc 0 timedatectl --no-pager set-timezone UTC
+    assert_rc 0 timedatectl --no-pager set-timezone Europe/Kyiv
+
     # Restart to force using get_timezine
     systemctl restart systemd-timedated
     assert_in "Time zone: Europe/Kyiv \(EES*T, \+0[0-9]00\)" "$(timedatectl)"
 
     assert_in "RTC in local TZ: no" "$(timedatectl --no-pager)"
+    mkdir /run/alternate-path/myadjtime
+    assert_rc 1 timedatectl set-local-rtc 1
+    assert_in "RTC in local TZ: no" "$(timedatectl --no-pager)"
+    assert_rc 1 timedatectl set-local-rtc 1
+    rmdir /run/alternate-path/myadjtime
     assert_rc 0 timedatectl set-local-rtc 1
     assert_in "RTC in local TZ: yes" "$(timedatectl --no-pager)"
     assert_eq "$(cat /run/alternate-path/myadjtime)" "0.0 0 0
