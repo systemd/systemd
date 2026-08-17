@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "build.h"
 #include "chase.h"
@@ -16,7 +18,6 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
@@ -29,7 +30,6 @@
 #include "loop-util.h"
 #include "main-func.h"
 #include "mount-util.h"
-#include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "path-util.h"
@@ -113,6 +113,14 @@ static ImagePolicy *arg_image_policy = NULL;
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
+
+COMMAND(
+        "systemd-sysusers\0",
+        "Create system user and group accounts.",
+        .argspec = "[CONFIGURATION FILE…]\0",
+        .man_pages = "systemd-sysusers.service.8\0",
+        .pager_flags = &arg_pager_flags,
+);
 
 typedef struct Context {
         int audit_fd;
@@ -2094,46 +2102,6 @@ static int cat_config(void) {
         return cat_files(NULL, files, arg_cat_flags);
 }
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *cmds = NULL, *opts = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-sysusers.service", "8", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = option_parser_get_help_table(&cmds);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table_group("Options", &opts);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, cmds, opts);
-
-        printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n"
-               "\n%sCreates system user and group accounts.%s\n"
-               "\nCommands:\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
-
-        r = table_print_or_warn(cmds);
-        if (r < 0)
-                return r;
-
-        printf("\nOptions:\n");
-
-        r = table_print_or_warn(opts);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
-
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         int r;
 
@@ -2145,6 +2113,8 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
+                OPTION_GROUP("Commands"): {}
+
                 OPTION_COMMON_CAT_CONFIG:
                         arg_cat_flags = CAT_CONFIG_ON;
                         break;
@@ -2154,7 +2124,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-sysusers");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -2201,6 +2171,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_COMMON_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         char **args = option_parser_get_args(&opts);

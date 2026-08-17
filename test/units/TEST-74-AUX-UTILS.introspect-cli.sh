@@ -90,6 +90,7 @@ INTROSPECTABLE=(
     systemd-sysctl
     systemd-sysinstall
     systemd-sysupdate
+    systemd-sysusers
     systemd-tpm2-clear
     systemd-tpm2-setup
     systemd-tty-ask-password-agent
