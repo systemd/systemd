@@ -20,6 +20,7 @@ INTROSPECTABLE=(
     journalctl
     localectl
     loginctl
+    machinectl
     networkctl
     oomctl
     portablectl
