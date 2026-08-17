@@ -2983,6 +2983,10 @@ static int normalize_linked_files(
         _cleanup_strv_free_ char **files = NULL, **names = NULL;
         int r;
 
+        assert(lp);
+        assert(ret_names);
+        assert(ret_files);
+
         STRV_FOREACH(a, names_or_paths) {
                 _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
                 InstallInfo *i = NULL;

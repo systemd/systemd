@@ -6923,6 +6923,8 @@ int unit_get_exec_quota_stats(Unit *u, ExecContext *c, ExecDirectoryType dt, uin
 
         assert(u);
         assert(c);
+        assert(ret_usage);
+        assert(ret_limit);
 
         if (c->directories[dt].n_items == 0) {
                 *ret_usage = UINT64_MAX;
