@@ -2,6 +2,8 @@
 
 #include <unistd.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "build.h"
 #include "devnum-util.h"
@@ -9,14 +11,11 @@
 #include "efivars.h"
 #include "fd-util.h"
 #include "find-esp.h"
-#include "format-table.h"
 #include "fs-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "options.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "pretty-print.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -28,51 +27,19 @@ static char **arg_path = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_path, strv_freep);
 
+COMMAND(
+        "systemd-bless-boot\0",
+        "Mark the boot process as good or bad.",
+        .man_pages = "systemd-bless-boot.service.8\0",
+);
+
 typedef enum Status {
         STATUS_GOOD,
         STATUS_BAD,
         STATUS_INDETERMINATE,
 } Status;
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-bless-boot.service", "8", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, options, verbs);
-
-        printf("%s [OPTIONS...] COMMAND\n"
-               "\n%sMark the boot process as good or bad.%s\n"
-               "\nCommands:\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        printf("\nOptions:\n");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
-
-VERB_COMMON_HELP_HIDDEN(help);
+VERB_COMMON_HELP_AUTO_HIDDEN("systemd-bless-boot");
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         int r;
@@ -85,7 +52,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-bless-boot");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -95,6 +62,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         if (r < 0)
                                 return log_oom();
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         *ret_args = option_parser_get_args(&opts);

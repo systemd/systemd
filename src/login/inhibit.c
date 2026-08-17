@@ -240,7 +240,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         break;
 
                 OPTION_COMMON_INTROSPECT_CLI:
-                        return introspect_cli(SD_JSON_FORMAT_OFF);
+                        return introspect_cli(arg_json_format_flags);
                 }
 
         char **args = option_parser_get_args(&opts);

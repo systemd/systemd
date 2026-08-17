@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-bus.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "ansi-color.h"
@@ -16,10 +17,8 @@
 #include "format-table.h"
 #include "fs-util.h"
 #include "glyph-util.h"
-#include "help-util.h"
 #include "install.h"
 #include "main-func.h"
-#include "options.h"
 #include "os-util.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -51,6 +50,13 @@ static bool arg_clean = false;
 static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 
 STATIC_DESTRUCTOR_REGISTER(arg_extension_images, strv_freep);
+
+COMMAND(
+        "portablectl\0",
+        "Attach or detach portable services in the local system.",
+        .man_pages = "portablectl.1\0",
+        .pager_flags = &arg_pager_flags,
+);
 
 static bool is_portable_managed(const char *unit) {
         return ENDSWITH_SET(unit, ".service", ".target", ".socket", ".path", ".timer");
@@ -265,7 +271,7 @@ static int maybe_reload(sd_bus **bus) {
 }
 
 VERB_DEFAULT_NOARG(verb_list_images, "list",
-     "List available portable service images (default)");
+     "List available portable service images");
 static int verb_list_images(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -1528,40 +1534,7 @@ static int dump_profiles(void) {
         return 0;
 }
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *verbs = NULL, *options = NULL;
-        int r;
-
-        pager_open(arg_pager_flags);
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, verbs, options);
-
-        help_cmdline("[OPTIONS…] COMMAND …");
-        help_abstract("Attach or detach portable services in the local system.");
-
-        help_section("Commands");
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("portablectl", "1");
-        return 0;
-}
-
-VERB_COMMON_HELP_HIDDEN(help);
+VERB_COMMON_HELP_AUTO_HIDDEN("portablectl");
 
 static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         assert(argc >= 0);
@@ -1575,7 +1548,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("portablectl");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -1692,6 +1665,9 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_LONG("system", NULL, /* help= */ NULL):
                         arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         *remaining_args = option_parser_get_args(&opts);

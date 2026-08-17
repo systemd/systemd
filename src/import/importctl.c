@@ -5,6 +5,7 @@
 
 #include "sd-bus.h"
 #include "sd-event.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "build.h"
@@ -19,7 +20,6 @@
 #include "log.h"
 #include "main-func.h"
 #include "oci-util.h"
-#include "options.h"
 #include "os-util.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -47,6 +47,13 @@ static const char* arg_format = NULL;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static ImageClass arg_image_class = _IMAGE_CLASS_INVALID;
 static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+
+COMMAND(
+        "importctl\0",
+        "Download, import or export disk images.",
+        .man_pages = "importctl.1\0",
+        .pager_flags = &arg_pager_flags,
+);
 
 #define PROGRESS_PREFIX "Total:"
 
@@ -1059,53 +1066,7 @@ static int verb_list_images(int argc, char *argv[], uintptr_t _data, void *userd
         return 0;
 }
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
-        int r;
-
-        pager_open(arg_pager_flags);
-
-        r = terminal_urlify_man("importctl", "1", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, verbs, options);
-
-        printf("%s [OPTIONS...] COMMAND ...\n\n"
-               "%sDownload, import or export disk images%s\n"
-               "\n%sCommands:%s\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal(),
-               ansi_underline(),
-               ansi_normal());
-
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        printf("\n%sOptions:%s\n",
-               ansi_underline(),
-               ansi_normal());
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
-
-VERB_COMMON_HELP(help);
+VERB_COMMON_HELP_AUTO("importctl");
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         int r;
@@ -1119,7 +1080,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("importctl");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -1236,6 +1197,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         arg_import_flags &= ~IMPORT_PULL_KEEP_DOWNLOAD;
                         arg_import_flags_mask |= IMPORT_PULL_KEEP_DOWNLOAD;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
                 }
 
         *ret_args = option_parser_get_args(&opts);
