@@ -28,7 +28,17 @@
     <cmdsynopsis>
       <command>/usr/lib/systemd/systemd-storagetm</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
-      <arg choice="opt"><replaceable>DEVICE</replaceable></arg>
+      <arg choice="plain" rep="repeat"><replaceable>DEVICE</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>/usr/lib/systemd/systemd-storagetm</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">--all</arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>/usr/lib/systemd/systemd-storagetm</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">--list-devices</arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
@@ -53,8 +63,8 @@
     <literal>ip=dhcp</literal> to assign routable addresses too. For further details see
     <citerefentry><refentrytitle>systemd-network-generator.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
-    <para>Unless the <option>--all</option> switch is used expects one or more block devices or regular files to expose
-    via NVMe-TCP as argument.</para>
+    <para>Unless the <option>--list-devices</option> or <option>--all</option> switches are used, one or more
+    block devices or regular files to expose via NVMe-TCP must be specified as arguments.</para>
   </refsect1>
 
   <refsect1>

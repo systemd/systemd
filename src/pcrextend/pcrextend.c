@@ -10,11 +10,8 @@
 #include "dlopen-note.h"
 #include "efi-loader.h"
 #include "escape.h"
-#include "format-table.h"
-#include "help-util.h"
 #include "json-util.h"
 #include "main-func.h"
-#include "options.h"
 #include "parse-argument.h"
 #include "pcrextend-util.h"
 #include "string-table.h"
@@ -26,6 +23,7 @@
 #include "userdb.h"
 #include "varlink-io.systemd.PCRExtend.h"
 #include "varlink-util.h"
+#include "verbs.h"
 
 static bool arg_graceful = false;
 static char *arg_tpm2_device = NULL;
@@ -45,31 +43,19 @@ STATIC_DESTRUCTOR_REGISTER(arg_file_system, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_nvpcr_name, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_login, user_record_unrefp);
 
+COMMAND(
+        "systemd-pcrextend\0",
+        "Extend a TPM2 PCR with boot phase, machine ID, file system ID or user record.",
+        .argspec =
+                "WORD\0"
+                "--file-system=PATH\0"
+                "--machine-id\0"
+                "--product-id\0"
+                "--login=UID|USER\0",
+        .man_pages = "systemd-pcrextend.8\0",
+);
+
 #define EXTENSION_STRING_SAFE_LIMIT 1024
-
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        help_cmdline("[OPTIONS...] WORD");
-        help_cmdline("[OPTIONS...] --file-system=PATH");
-        help_cmdline("[OPTIONS...] --machine-id");
-        help_cmdline("[OPTIONS...] --product-id");
-        help_cmdline("[OPTIONS...] --login=UID|USER");
-        help_abstract("Extend a TPM2 PCR with boot phase, machine ID, file system ID or user record.");
-
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("systemd-pcrextend", "8");
-        return 0;
-}
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
@@ -82,7 +68,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-pcrextend");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -185,6 +171,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         if (arg_event_type < 0)
                                 return log_error_errno(arg_event_type, "Failed to parse --event-type= argument: %s", opts.arg);
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (!!arg_file_system + arg_machine_id + arg_product_id + !!arg_login > 1)
