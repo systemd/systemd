@@ -4490,28 +4490,27 @@ static int make_secure_boot_variable_record(
         return make_pcrlock_record(TPM2_PCR_SECURE_BOOT_POLICY, vdata, vdata_size, ret_record);
 }
 
-static int lock_secureboot_policy(void) {
-        static const struct {
-                sd_id128_t id;
-                const char *name;
-                int synthesize_empty; /* 0 → fail, > 0 → synthesize empty db, < 0 → skip */
-        } variables[] = {
-                { EFI_VENDOR_GLOBAL,   "SecureBoot", 0 },
-                { EFI_VENDOR_GLOBAL,   "PK",         1 },
-                { EFI_VENDOR_GLOBAL,   "KEK",        1 },
-                { EFI_VENDOR_DATABASE, "db",         1 },
-                { EFI_VENDOR_DATABASE, "dbx",        1 },
-                { EFI_VENDOR_DATABASE, "dbt",       -1 },
-                { EFI_VENDOR_DATABASE, "dbr",       -1 },
-        };
+static const struct {
+        sd_id128_t id;
+        const char *name;
+        int synthesize_empty; /* 0 → fail, > 0 → synthesize empty db, < 0 → skip */
+} secure_boot_policy_variables[] = {
+        { EFI_VENDOR_GLOBAL,   "SecureBoot", 0 },
+        { EFI_VENDOR_GLOBAL,   "PK",         1 },
+        { EFI_VENDOR_GLOBAL,   "KEK",        1 },
+        { EFI_VENDOR_DATABASE, "db",         1 },
+        { EFI_VENDOR_DATABASE, "dbx",        1 },
+        { EFI_VENDOR_DATABASE, "dbt",       -1 },
+        { EFI_VENDOR_DATABASE, "dbr",       -1 },
+};
 
+static int build_secureboot_policy(sd_json_variant **ret_array) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
         int r;
 
-        /* Generates expected records from the current SecureBoot state, as readable in the EFI variables
-         * right now. */
+        assert(ret_array);
 
-        FOREACH_ELEMENT(vv, variables) {
+        FOREACH_ELEMENT(vv, secure_boot_policy_variables) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *record = NULL;
 
                 _cleanup_free_ char *name = NULL;
@@ -4520,6 +4519,7 @@ static int lock_secureboot_policy(void) {
 
                 _cleanup_free_ void *data = NULL;
                 size_t data_size;
+
                 r = efi_get_variable(name, NULL, &data, &data_size);
                 if (r < 0) {
                         if (r != -ENOENT || vv->synthesize_empty == 0)
@@ -4541,6 +4541,21 @@ static int lock_secureboot_policy(void) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to append to JSON array: %m");
         }
+
+        *ret_array = TAKE_PTR(array);
+        return 0;
+}
+
+static int lock_secureboot_policy(void) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        int r;
+
+        /* Generates expected records from the current SecureBoot state, as readable in the EFI variables
+         * right now. */
+
+        r = build_secureboot_policy(&array);
+        if (r < 0)
+                return r;
 
         return write_pcrlock(array, PCRLOCK_SECUREBOOT_POLICY_PATH);
 }
