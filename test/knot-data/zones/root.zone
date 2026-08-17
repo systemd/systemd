@@ -14,3 +14,4 @@ ns1.unsigned.test   A    10.0.0.1
 ns1.unsigned.test   AAAA fd00:dead:beef:cafe::1
 
 test                NS   ns1.unsigned.test
+singlelabel         A    10.0.0.42

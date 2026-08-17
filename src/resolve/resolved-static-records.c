@@ -203,11 +203,25 @@ int manager_static_records_lookup(Manager *m, DnsQuestion *q, DnsAnswer **answer
         if (!f)
                 return 0;
 
-        r = dns_answer_extend(answer, f);
-        if (r < 0)
-                return r;
+        DnsAnswerItem *item;
+        DNS_ANSWER_FOREACH_ITEM(item, f) {
+                r = dns_question_matches_rr(q, item->rr, /* search_domain= */ NULL);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        r = dns_question_matches_cname_or_dname(q, item->rr, /* search_domain= */ NULL);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                continue;
+                }
 
-        return 1;
+                r = dns_answer_add_extend(answer, item->rr, item->ifindex, item->flags, item->rrsig);
+                if (r < 0)
+                        return r;
+        }
+
+        return dns_answer_size(*answer) > 0;
 }
 
 void manager_static_records_flush(Manager *m) {
