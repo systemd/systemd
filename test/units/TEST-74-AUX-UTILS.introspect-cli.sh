@@ -17,6 +17,7 @@ INTROSPECTABLE=(
     homectl
     hostnamectl
     importctl
+    journalctl
     localectl
     networkctl
     oomctl
