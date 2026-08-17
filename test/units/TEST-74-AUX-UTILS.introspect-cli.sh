@@ -73,6 +73,7 @@ INTROSPECTABLE=(
     systemd-pcrlock
     systemd-pty-forward
     systemd-random-seed
+    systemd-repart
     systemd-report
     systemd-sbsign
     systemd-sleep
