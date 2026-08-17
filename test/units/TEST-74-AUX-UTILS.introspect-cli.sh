@@ -61,6 +61,7 @@ INTROSPECTABLE=(
     systemd-machine-id-setup
     systemd-measure
     systemd-modules-load
+    systemd-mstack
     systemd-mute-console
     systemd-network-generator
     systemd-networkd-wait-online
@@ -111,20 +112,20 @@ for i in "${INTROSPECTABLE[@]}"; do
     fi
 done
 
-# systemd-hwdb defines verbs, check that they are described
+# check verbs and multicall binaries
 if command -v systemd-hwdb >/dev/null; then
     systemd-hwdb --introspect-cli | jq -e \
             '.commands[0].verbs | map(.names[0]) | sort == ["help", "query", "update"]'
 fi
 
-# systemd-id128 defines many verbs, check that some are described
-systemd-id128 --introspect-cli | jq -e \
-    '.commands[0].verbs | map(.names[0]) | contains(["new", "machine-id", "show", "help"])'
+resolvectl --introspect-cli | jq -e \
+    '[.commands[].names[0]] | sort == ["resolvconf", "resolvectl", "systemd-resolve"]'
 
-# systemd-clonesetup defines verbs, check that they are described
 systemd-clonesetup --introspect-cli | jq -e \
     '.commands[0].verbs | map(.names[0]) | sort == ["add", "remove"]'
 
-# resolvectl is a multicall binary, check that both commands are described
-resolvectl --introspect-cli | jq -e \
-    '[.commands[].names[0]] | sort == ["resolvconf", "resolvectl", "systemd-resolve"]'
+systemd-id128 --introspect-cli | jq -e \
+    '.commands[0].verbs | map(.names[0]) | contains(["new", "machine-id", "show", "help"])'
+
+systemd-mstack --introspect-cli | jq -e \
+    '[.commands[].names[0]] | sort == ["mount.mstack", "systemd-mstack"]'
