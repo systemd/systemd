@@ -54,6 +54,15 @@ touchpad:bluetooth:v17efp60fa:*
  ID_INPUT_TOUCHPAD_INTEGRATION=internal
 
 ###########################################################
+# Lenovo ThinkPad X1 Tablet Thin Keyboard Gen 3 (17EF:60B5)
+###########################################################
+# The USB port is reported as removable by firmware, so 65-integration.rules
+# classifies the touchpad as external and libinput skips disable-while-typing.
+# The touchpad is physically integrated; mark it internal to enable DWT.
+touchpad:usb:v17efp60b5:name:Chicony ThinkPad X1 Tablet Thin Keyboard Gen 3:*
+ ID_INPUT_TOUCHPAD_INTEGRATION=internal
+
+###########################################################
 # Microsoft Surface Type Cover
 ###########################################################
 # The USB port is reported as removable by firmware, so 65-integration.rules
