@@ -966,8 +966,10 @@ class PEError(Exception):
 def pe_add_sections(opts: UkifyConfig, uki: UKI, output: str) -> None:
     pe = pefile.PE(uki.executable, fast_load=True)
 
-    # Old stubs do not have the symbol/string table stripped, even though image files should not have one.
-    if symbol_table := pe.FILE_HEADER.PointerToSymbolTable:
+    # Clean up unused symbol/string table (e.g. from old stubs where it was not stripped).
+    # Keep it if still referenced (e.g. for long DWARF section names).
+    long_names_in_use = any(section.Name.startswith(b'/') for section in pe.sections)
+    if not long_names_in_use and (symbol_table := pe.FILE_HEADER.PointerToSymbolTable):
         symbol_table_size = 18 * pe.FILE_HEADER.NumberOfSymbols
         if string_table_size := pe.get_dword_from_offset(symbol_table + symbol_table_size):
             symbol_table_size += string_table_size
