@@ -87,6 +87,7 @@ INTROSPECTABLE=(
     systemd-storage-block
     systemd-storage-fs
     systemd-storagetm
+    systemd-sysctl
     systemd-sysinstall
     systemd-tpm2-clear
     systemd-tpm2-setup
