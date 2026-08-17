@@ -26,6 +26,7 @@ INTROSPECTABLE=(
     portablectl
     resolvectl
     run0
+    storagectl
     systemd-ac-power
     systemd-analyze
     systemd-ask-password
