@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "ansi-color.h"
 #include "bitfield.h"
@@ -20,13 +22,11 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "glyph-util.h"
-#include "help-util.h"
 #include "io-util.h"
 #include "json-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "mkdir.h"
-#include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "recurse-dir.h"
@@ -69,6 +69,13 @@ static sd_json_variant *arg_from_file = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_services, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_from_file, sd_json_variant_unrefp);
+
+COMMAND(
+        "userdbctl\0",
+        "Show user and group information.",
+        .man_pages = "userdbctl.1\0",
+        .pager_flags = &arg_pager_flags,
+);
 
 static const char *output_table[_OUTPUT_MAX] = {
         [OUTPUT_CLASSIC]  = "classic",
@@ -1551,40 +1558,7 @@ static int verb_load_credentials(int argc, char *argv[], uintptr_t _data, void *
         return r;
 }
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *verbs = NULL, *options = NULL;
-        int r;
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, verbs, options);
-
-        pager_open(arg_pager_flags);
-
-        help_cmdline("[OPTIONS…] COMMAND …");
-        help_abstract("Show user and group information.");
-
-        help_section("Commands");
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("userdbctl", "1");
-        return 0;
-}
-
-VERB_COMMON_HELP_HIDDEN(help);
+VERB_COMMON_HELP_AUTO_HIDDEN("userdbctl");
 
 static int parse_from_file(const char *arg, sd_json_variant **ret) {
         sd_json_variant *v = NULL;
@@ -1638,7 +1612,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("userdbctl");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -1819,6 +1793,9 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         json_variant_unref_and_replace(arg_from_file, v);
                         break;
                 }
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
                 }
 
                 /* When --chain was seen, stop parsing switches after the second positional argument:

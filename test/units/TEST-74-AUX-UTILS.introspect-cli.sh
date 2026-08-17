@@ -80,6 +80,7 @@ INTROSPECTABLE=(
     systemd-validatefs
     systemd-veritysetup
     timedatectl
+    userdbctl
     varlinkctl
 )
 
