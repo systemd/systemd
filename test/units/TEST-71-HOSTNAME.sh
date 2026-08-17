@@ -250,6 +250,12 @@ testcase_nss-myhostname() {
         run_and_grep "^10\.0\.0\.1\s+_gateway$" getent hosts -s myhostname "$host"
         run_and_grep "^10\.0\.0\.1\s+STREAM" getent ahosts -s myhostname "$host"
     done
+    if (( have_p2p )); then
+        for host in _gateway{,.} 10.1.0.2; do
+            run_and_grep "^10\.1\.0\.2\s+_gateway$" getent hosts -s myhostname "$host"
+            run_and_grep "^10\.1\.0\.2\s+STREAM" getent ahosts -s myhostname "$host"
+        done
+    fi
 
     # _outbound
     for host in _outbound{,.} 10.0.0.2; do
