@@ -25,6 +25,7 @@ INTROSPECTABLE=(
     oomctl
     portablectl
     resolvectl
+    run0
     systemd-ac-power
     systemd-analyze
     systemd-ask-password
@@ -75,6 +76,7 @@ INTROSPECTABLE=(
     systemd-random-seed
     systemd-repart
     systemd-report
+    systemd-run
     systemd-sbsign
     systemd-sleep
     systemd-socket-activate
@@ -132,3 +134,6 @@ systemd-id128 --introspect-cli | jq -e \
 
 systemd-mstack --introspect-cli | jq -e \
     '[.commands[].names[0]] | sort == ["mount.mstack", "systemd-mstack"]'
+
+systemd-run --introspect-cli | jq -e \
+    '[.commands[].names[0]] | sort == ["run0", "systemd-run"]'
