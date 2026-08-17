@@ -379,7 +379,7 @@ sources += stub_sources
 sources += addon_sources
 
 boot_targets = []
-efi_elf_binaries = []
+efi_elf_images = []
 efi_archspecs = [
         {
                 'arch' : efi_arch,
@@ -432,29 +432,29 @@ foreach archspec : efi_archspecs
                 'pie' : true,
         }
 
-        efi_elf_binaries += executable(
+        efi_elf_images += executable(
                 'systemd-boot' + archspec['arch'],
                 sources : [systemd_boot_sources, version_h],
                 link_with : libefi,
                 name_suffix : 'elf',
                 kwargs : kwargs)
 
-        efi_elf_binaries += executable(
+        efi_elf_images += executable(
                 'linux' + archspec['arch'],
                 sources : [stub_sources, version_h],
                 link_with : libefi,
                 name_suffix : 'elf.stub',
                 kwargs : kwargs)
 
-        efi_elf_binaries += executable(
+        efi_elf_images += executable(
                 'addon' + archspec['arch'],
                 sources : [addon_sources, version_h],
                 name_suffix : 'elf.stub',
                 kwargs : kwargs)
 endforeach
 
-foreach efi_elf_binary : efi_elf_binaries
-        name = efi_elf_binary.name()
+foreach efi_elf_image : efi_elf_images
+        name = efi_elf_image.name()
         name += name.startswith('systemd-boot') ? '.efi' : '.efi.stub'
 
         # For the addon, given it's empty, we need to explicitly reserve space in the header to account for
@@ -469,7 +469,7 @@ foreach efi_elf_binary : efi_elf_binaries
 
         exe = custom_target(
                 output : name,
-                input : efi_elf_binary,
+                input : efi_elf_image,
                 install : true,
                 install_dir : bootlibdir,
                 install_tag : 'systemd-boot',
@@ -495,9 +495,13 @@ foreach efi_elf_binary : efi_elf_binaries
                 efi_addon = [exe]
         endif
 
-        test(f'check-alignment-@name@',
-             check_efi_alignment_py,
-             args : exe,
+        test(f'check-efi-image-@name@',
+             check_efi_image_py,
+             args : [exe, efi_elf_image],
+             suite : 'boot')
+        test(f'check-efi-codeview-guid-@name@',
+             check_efi_codeview_guid_sh,
+             args : [exe, efi_elf_image],
              suite : 'boot')
 endforeach
 
