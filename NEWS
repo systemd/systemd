@@ -4,6 +4,10 @@ CHANGES WITH 262:
 
         Feature Removals and Incompatible Changes:
 
+        * Meson options '-Dlibiptc=' (deprecated in v259), '-Dlibidn=',
+          '-Drc-local=', '-Dsysvinit-path=', and '-Dsysvrcnd-path=' (deprecated
+          in v260) have been removed.
+
         * Services of Type=notify-reload are now required to catch or block
           ReloadSignal= when they send READY=1. If they do neither at that
           point, the service fails to start with a protocol error. Previously,
