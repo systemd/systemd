@@ -79,6 +79,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
         assert(argc >= 0);
         assert(argv);
+        assert(ret_args);
 
         OptionParser opts = { argc, argv };
 

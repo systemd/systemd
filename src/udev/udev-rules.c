@@ -1824,6 +1824,8 @@ int udev_rules_load(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing
         _cleanup_strv_free_ char **directories = NULL;
         int r;
 
+        assert(ret_rules);
+
         rules = udev_rules_new(resolve_name_timing);
         if (!rules)
                 return -ENOMEM;

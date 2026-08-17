@@ -369,7 +369,12 @@ static int acquire_device_list(
                 sd_varlink **link,
                 char ***ret_menu,
                 char ***ret_accepted) {
+
         int r;
+
+        assert(link);
+        assert(ret_menu);
+        assert(ret_accepted);
 
         r = connect_to_repart(link);
         if (r < 0)

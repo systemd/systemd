@@ -3433,6 +3433,8 @@ _public_ int sd_journal_enumerate_unique(
         assert_return(j, -EINVAL);
         assert_return(!journal_origin_changed(j), -ECHILD);
         assert_return(j->unique_field, -EINVAL);
+        assert_return(ret_data, -EINVAL);
+        assert_return(ret_size, -EINVAL);
 
         k = strlen(j->unique_field);
 

@@ -42,6 +42,7 @@ static void test_resolve_one(const char *name) {
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert_se(argc >= 0);
         assert_se(argv);
+        assert_se(ret_args);
 
         OptionParser opts = { argc, argv };
 

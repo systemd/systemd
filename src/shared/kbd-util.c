@@ -86,6 +86,8 @@ int get_keymaps(char ***ret) {
         _cleanup_strv_free_ char **keymap_dirs = NULL;
         int r;
 
+        assert(ret);
+
         r = keymap_directories(&keymap_dirs);
         if (r < 0)
                 return r;

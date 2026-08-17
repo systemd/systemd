@@ -5318,6 +5318,15 @@ static int run_container(
         assert_se(sigemptyset(&mask_chld) == 0);
         assert_se(sigaddset(&mask_chld, SIGCHLD) == 0);
 
+        assert(runtime_dir);
+        assert(directory);
+        assert(veth_name);
+        assert(veth_created);
+        assert(expose_args);
+        assert(master);
+        assert(pid);
+        assert(ret);
+
         /* Set up the unix export host directory on the host first */
         r = setup_unix_export_dir_outside(runtime_dir, &unix_export_host_dir);
         if (r < 0)

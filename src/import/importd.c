@@ -1486,9 +1486,11 @@ static int transfer_node_enumerator(
                 sd_bus_error *error) {
 
         _cleanup_strv_free_ char **l = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Transfer *t;
         unsigned k = 0;
+
+        assert(nodes);
 
         l = new0(char*, hashmap_size(m->transfers) + 1);
         if (!l)
