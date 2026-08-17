@@ -41,6 +41,18 @@ typedef enum Status {
 
 VERB_COMMON_HELP_AUTO_HIDDEN("systemd-bless-boot");
 
+static int check_support(void) {
+        if (detect_container() > 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Marking a boot is not supported in containers.");
+
+        if (!is_efi_boot())
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Marking a boot is only supported on EFI systems.");
+
+        return 0;
+}
+
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         int r;
 
@@ -316,6 +328,10 @@ static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) 
         uint64_t left, done;
         int r;
 
+        r = check_support();
+        if (r < 0)
+                return r;
+
         r = acquire_boot_count_path(&path, &prefix, &left, &done, &suffix);
         if (r == -EUNATCH) { /* No boot count in place, then let's consider this a "clean" boot,
                               * since "good", "bad", or "indeterminate" don't apply. */
@@ -433,6 +449,10 @@ static int verb_set(int argc, char *argv[], uintptr_t data, void *userdata) {
 
         assert(IN_SET(status, STATUS_GOOD, STATUS_BAD, STATUS_INDETERMINATE));
 
+        r = check_support();
+        if (r < 0)
+                return r;
+
         r = acquire_boot_count_path(&path, &prefix, &left, &done, &suffix);
         if (r == -EUNATCH) /* acquire_boot_count_path() won't log on its own for this specific error */
                 return log_error_errno(r, "Not booted with boot counting in effect.");
@@ -544,14 +564,6 @@ static int run(int argc, char *argv[]) {
         r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
-
-        if (detect_container() > 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "Marking a boot is not supported in containers.");
-
-        if (!is_efi_boot())
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "Marking a boot is only supported on EFI systems.");
 
         return dispatch_verb(args, NULL);
 }
