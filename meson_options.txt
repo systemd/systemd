@@ -358,10 +358,6 @@ option('group-render-mode', type : 'string', value : '0666',
        description : 'Access mode for devices owned by render group (e.g. /dev/dri/renderD*, /dev/kfd).')
 option('tty-mode', type : 'string', value : '0600',
        description : 'Access mode for tty/pts device nodes.')
-option('var-log-mode', type : 'combo',
-       description : 'Access mode for /var/log directory.',
-       choices : ['0755', '0775'],
-       value : '0755')
 option('default-kill-user-processes', type : 'boolean',
        description : 'the default value for KillUserProcesses= setting')
 option('gshadow', type : 'boolean',
