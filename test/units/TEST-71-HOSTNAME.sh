@@ -164,7 +164,7 @@ testcase_hardware_serial() {
 }
 
 testcase_nss-myhostname() {
-    local database host i
+    local database have_p2p=0 host i
 
     if ! check_nss_module myhostname; then
         return 0
