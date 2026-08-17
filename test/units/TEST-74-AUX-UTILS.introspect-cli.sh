@@ -99,6 +99,7 @@ INTROSPECTABLE=(
     systemd-validatefs
     systemd-veritysetup
     systemd-vmspawn
+    systemd-vpick
     timedatectl
     updatectl
     userdbctl
