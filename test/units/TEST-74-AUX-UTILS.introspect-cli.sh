@@ -98,6 +98,7 @@ INTROSPECTABLE=(
     systemd-update-done
     systemd-validatefs
     systemd-veritysetup
+    systemd-vmspawn
     timedatectl
     updatectl
     userdbctl

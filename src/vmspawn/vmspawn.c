@@ -13,6 +13,7 @@
 #include "sd-daemon.h"
 #include "sd-event.h"
 #include "sd-id128.h"
+#include "sd-json.h"
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
@@ -37,12 +38,10 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fork-notify.h"
-#include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "gpt.h"
 #include "group-record.h"
-#include "help-util.h"
 #include "hexdecoct.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
@@ -59,7 +58,6 @@
 #include "namespace-util.h"
 #include "netif-util.h"
 #include "nsresource.h"
-#include "options.h"
 #include "osc-context.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -92,6 +90,7 @@
 #include "user-record.h"
 #include "user-util.h"
 #include "utf8.h"
+#include "verbs.h"
 #include "vmspawn-bind-volume.h"
 #include "vmspawn-mount.h"
 #include "vmspawn-qemu-config.h"
@@ -233,55 +232,13 @@ STATIC_DESTRUCTOR_REGISTER(arg_bind_user, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_bind_user_shell, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_bind_user_groups, strv_freep);
 
-static int help(void) {
-        int r;
-
-        pager_open(arg_pager_flags);
-
-        static const char* const groups[] = {
-                NULL,
-                "Image",
-                "Host Configuration",
-                "Networking",
-                "Execution",
-                "System Identity",
-                "Properties",
-                "User Namespacing",
-                "Mounts",
-                "Logging",
-                "SSH",
-                "Input/Output",
-                "Credentials",
-        };
-
-        Table* tables[ELEMENTSOF(groups)] = {};
-        CLEANUP_ELEMENTS(tables, table_unref_array_clear);
-
-        for (size_t i = 0; i < ELEMENTSOF(groups); i++) {
-                r = option_parser_get_help_table_group(groups[i], &tables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        (void) table_sync_column_widths(
-                        0, tables[0], tables[1], tables[2], tables[3], tables[4],
-                        tables[5], tables[6], tables[7], tables[8], tables[9], tables[10],
-                        tables[11], tables[12]);
-
-        help_cmdline("[OPTIONS...] [ARGUMENTS...]");
-        help_abstract("Spawn a command or OS in a virtual machine.");
-
-        for (size_t i = 0; i < ELEMENTSOF(groups); i++) {
-                help_section(groups[i] ?: "Options");
-
-                r = table_print_or_warn(tables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        help_man_page_reference("systemd-vmspawn", "1");
-        return 0;
-}
+COMMAND(
+        "systemd-vmspawn\0",
+        "Spawn a command or OS in a virtual machine.",
+        .argspec = "[ARGUMENTS…]\0",
+        .man_pages = "systemd-vmspawn.1\0",
+        .pager_flags = &arg_pager_flags,
+);
 
 static int parse_environment(void) {
         const char *e;
@@ -354,7 +311,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-vmspawn");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -957,6 +914,9 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         /* Drop duplicate --bind-user= and --bind-user-group= entries */
