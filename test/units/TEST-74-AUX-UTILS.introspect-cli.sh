@@ -64,6 +64,7 @@ INTROSPECTABLE=(
     systemd-random-seed
     systemd-report
     systemd-sbsign
+    systemd-sleep
     systemd-socket-activate
     systemd-socket-proxyd
     systemd-stdio-bridge
