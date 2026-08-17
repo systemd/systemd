@@ -47,6 +47,45 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("If true (the default), generate the .pcrlock file(s) for the selected category; if false, remove them again."),
                 SD_VARLINK_DEFINE_INPUT(lock, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
+static SD_VARLINK_DEFINE_ENUM_TYPE(
+                SecureBootVariable,
+                SD_VARLINK_FIELD_COMMENT("The platform key."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(pk),
+                SD_VARLINK_FIELD_COMMENT("The key exchange key database."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(kek),
+                SD_VARLINK_FIELD_COMMENT("The authorized signature database."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(db),
+                SD_VARLINK_FIELD_COMMENT("The forbidden signature database."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(dbx),
+                SD_VARLINK_FIELD_COMMENT("The timestamp signature database."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(dbt),
+                SD_VARLINK_FIELD_COMMENT("The recovery signature database."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(dbr));
+
+static SD_VARLINK_DEFINE_ENUM_TYPE(
+                SecureBootUpdateOutcome,
+                SD_VARLINK_FIELD_COMMENT("The component is not managed automatically."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(notManaged),
+                SD_VARLINK_FIELD_COMMENT("The managed component did not require a new prediction."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(unchanged),
+                SD_VARLINK_FIELD_COMMENT("A prediction was installed for the component."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(predicted),
+                SD_VARLINK_FIELD_COMMENT("The component was removed because its measurements could not be predicted safely."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(fallback));
+
+static SD_VARLINK_DEFINE_METHOD(
+                PrepareSecureBootUpdate,
+                SD_VARLINK_FIELD_COMMENT("The Secure Boot variable the authenticated update targets."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(variable, SecureBootVariable, 0),
+                SD_VARLINK_FIELD_COMMENT("The raw authenticated-variable update bytes, encoded in Base64. Required for db and dbx; ignored for policy-only variables."),
+                SD_VARLINK_DEFINE_INPUT(data, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Whether to regenerate the pcrlock policy after the update. Defaults to true."),
+                SD_VARLINK_DEFINE_INPUT(regenerate, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The resulting Secure Boot policy component state."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(policy, SecureBootUpdateOutcome, 0),
+                SD_VARLINK_FIELD_COMMENT("The resulting Secure Boot authority component state."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(authority, SecureBootUpdateOutcome, 0));
+
 static SD_VARLINK_DEFINE_ERROR(
                 NoChange);
 
@@ -64,4 +103,10 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_LockCategory,
                 SD_VARLINK_SYMBOL_COMMENT("Generates or removes the .pcrlock file(s) for the selected category of measurements. Generates (locks) them by default, or removes (unlocks) them if 'lock' is false."),
                 &vl_method_Lock,
+                SD_VARLINK_SYMBOL_COMMENT("The Secure Boot variable targeted by an authenticated update."),
+                &vl_type_SecureBootVariable,
+                SD_VARLINK_SYMBOL_COMMENT("The outcome of preparing one automatically managed Secure Boot component."),
+                &vl_type_SecureBootUpdateOutcome,
+                SD_VARLINK_SYMBOL_COMMENT("Update host-derived PCR policy predictions after an authenticated Secure Boot variable update."),
+                &vl_method_PrepareSecureBootUpdate,
                 &vl_error_NoChange);
