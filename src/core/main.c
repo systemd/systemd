@@ -198,6 +198,9 @@ static int manager_find_user_config_paths(char ***ret_files, char ***ret_dirs) {
         _cleanup_strv_free_ char **files = NULL, **dirs = NULL;
         int r;
 
+        assert(ret_files);
+        assert(ret_dirs);
+
         r = xdg_user_config_dir("/systemd", &base);
         if (r < 0)
                 return r;

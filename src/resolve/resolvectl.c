@@ -1532,6 +1532,7 @@ static int print_configuration(DNSConfiguration *configuration, StatusMode mode,
         int r;
 
         assert(configuration);
+        POINTER_MAY_BE_NULL(empty_line);
 
         pager_open(arg_pager_flags);
 

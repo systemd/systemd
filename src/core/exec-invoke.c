@@ -518,6 +518,7 @@ static int setup_output(
 
         assert(context);
         assert(params);
+        assert(named_iofds);
         assert(ident);
         assert(journal_stream_dev);
         assert(journal_stream_ino);
@@ -684,6 +685,7 @@ static int setup_confirm_stdio(
         int r;
 
         assert(context);
+        assert(vc);
         assert(ret_saved_stdin);
         assert(ret_saved_stdout);
 
@@ -742,6 +744,7 @@ static void write_confirm_error(int err, const char *vc, const char *unit_id) {
         _cleanup_close_ int fd = -EBADF;
 
         assert(vc);
+        assert(unit_id);
 
         fd = open_terminal(vc, O_WRONLY|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
@@ -789,6 +792,7 @@ static int ask_for_confirmation(const ExecContext *context, const ExecParameters
 
         assert(context);
         assert(params);
+        assert(cmdline);
 
         /* For any internal errors, assume a positive response. */
         r = setup_confirm_stdio(context, params->confirm_spawn, &saved_stdin, &saved_stdout);
@@ -965,6 +969,8 @@ static int get_supplementary_groups(
 static int enforce_groups(gid_t gid, const gid_t *supplementary_gids, int ngids) {
         int r;
 
+        assert(supplementary_gids || ngids == 0);
+
         /* Handle SupplementaryGroups= if it is not empty */
         if (ngids > 0) {
                 r = maybe_setgroups(ngids, supplementary_gids);
@@ -1063,6 +1069,7 @@ static int ask_password_conv(
         assert(msg);
         assert(data->context);
         assert(data->params);
+        assert(ret);
 
         size_t n = num_msg;
         struct pam_response *responses = new0(struct pam_response, n);
@@ -1174,6 +1181,7 @@ static int attach_to_subcgroup(
         assert(context);
         assert(cgroup_context);
         assert(params);
+        POINTER_MAY_BE_NULL(prefix);
 
         /* If we're a control process that needs a subgroup, we've already been spawned into it as otherwise
          * we'd violate the "no inner processes" rule, so no need to do anything. */
@@ -1300,6 +1308,7 @@ static int setup_pam(
         int flags = 0;
 
         assert(context);
+        assert(cgroup_context);
         assert(params);
         assert(user);
         assert(uid_is_valid(uid));
@@ -2005,6 +2014,10 @@ static int build_environment(
         assert(c);
         assert(p);
         assert(cgroup_context);
+        POINTER_MAY_BE_NULL(home);
+        POINTER_MAY_BE_NULL(username);
+        POINTER_MAY_BE_NULL(shell);
+        assert(pressure_path);
         assert(ret);
 
         exec_pid = needs_sandboxing && exec_needs_pid_namespace(c, p) ? 1 : getpid_cached();
@@ -2307,6 +2320,7 @@ static int bpffs_prepare(
         _cleanup_close_pair_ int socket_fds[2] = EBADF_PAIR, errno_pipe[2] = EBADF_PAIR;
         int r;
 
+        assert(c);
         assert(ret_sock_fd);
         assert(ret_pid);
         assert(ret_errno_pipe);
@@ -2335,6 +2349,9 @@ static int bpffs_prepare(
 
 static int setup_private_users_child(int unshare_ready_fd, const char *uid_map, const char *gid_map, bool allow_setgroups) {
         int r;
+
+        assert(uid_map);
+        assert(gid_map);
 
         /* Child process, running in the original user namespace. Let's update the parent's UID/GID map from
          * here, after the parent opened its own user namespace. */
@@ -2391,6 +2408,7 @@ static int setup_private_users(
         ssize_t n;
         int r;
 
+        POINTER_MAY_BE_NULL(nsresource_link);
         assert(uid);
         assert(gid);
         assert(outside_uid);
@@ -2703,6 +2721,7 @@ static int create_many_symlinks(const char *root, const char *source, char **sym
         _cleanup_free_ char *src_abs = NULL;
         int r;
 
+        assert(root);
         assert(source);
 
         src_abs = path_join(root, source);
@@ -3517,6 +3536,7 @@ static bool insist_on_sandboxing(
                 size_t n_bind_mounts) {
 
         assert(context);
+        assert(rootfs);
         assert(n_bind_mounts == 0 || bind_mounts);
 
         /* Checks whether we need to insist on fs namespacing. i.e. whether we have settings configured that
@@ -3563,6 +3583,7 @@ static int setup_ephemeral(
         assert(context);
         assert(runtime);
         assert(rootfs);
+        assert(reterr_path);
 
         if (!rootfs->image && !rootfs->directory)
                 return 0;
@@ -3648,6 +3669,12 @@ static int verity_settings_prepare(
         int r;
 
         assert(verity);
+        assert(root_image);
+        POINTER_MAY_BE_NULL(root_hash);
+        POINTER_MAY_BE_NULL(root_hash_path);
+        POINTER_MAY_BE_NULL(root_hash_sig);
+        POINTER_MAY_BE_NULL(root_hash_sig_path);
+        POINTER_MAY_BE_NULL(verity_data_path);
 
         if (root_hash) {
                 iovec_done(&verity->root_hash);
@@ -3695,6 +3722,7 @@ static int pin_rootfs(
         assert(context);
         assert(params);
         assert(ret);
+        assert(reterr_path);
 
         if (!FLAGS_SET(params->flags, EXEC_APPLY_CHROOT)) {
                 *ret = PINNED_RESOURCE_NULL;
@@ -3859,6 +3887,11 @@ static int apply_mount_namespace(
         assert(context);
         assert(params);
         assert(runtime);
+        assert(rootfs);
+        assert(pressure_path);
+        assert(bpffs_pidref);
+        POINTER_MAY_BE_NULL(mountfsd_link);
+        assert(reterr_path);
 
         CLEANUP_ARRAY(bind_mounts, n_bind_mounts, bind_mount_free_many);
 
@@ -4100,6 +4133,8 @@ static int apply_working_directory(
         assert(context);
         assert(params);
         assert(runtime);
+        POINTER_MAY_BE_NULL(pwent_home);
+        POINTER_MAY_BE_NULL(env);
 
         if (context->working_directory_home) {
                 /* Preferably use the data from $HOME, in case it was updated by a PAM module */
@@ -4572,6 +4607,7 @@ static void log_command_line(
         assert(params);
         assert(msg);
         assert(executable);
+        assert(argv);
 
         if (!DEBUG_LOGGING)
                 return;
@@ -4707,6 +4743,10 @@ static int setup_delegated_namespaces(
         assert(params);
         assert(runtime);
         assert(rootfs);
+        assert(pressure_path);
+        assert(command);
+        assert(bpffs_pidref);
+        POINTER_MAY_BE_NULL(mountfsd_link);
         assert(reterr_exit_status);
 
         if (exec_needs_network_namespace(context) &&

@@ -19,6 +19,9 @@ static int open_passwd_file(const char *root, const char *fname, FILE **ret_file
         _cleanup_close_ int fd = -EBADF;
         _cleanup_fclose_ FILE *f = NULL;
 
+        assert(fname);
+        assert(ret_file);
+
         fd = chase_and_open(fname, root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC, &p);
         if (fd < 0)
                 return fd;
