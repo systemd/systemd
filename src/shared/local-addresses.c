@@ -1,8 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <net/if.h>
+
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "local-addresses.h"
 #include "log.h"
@@ -254,9 +257,179 @@ static int add_local_gateway(
                         family, address, prefsrc);
 }
 
+typedef struct GatewayCandidate {
+        int ifindex;
+        uint32_t priority;
+        uint32_t weight;
+        int family;
+        union in_addr_union prefsrc;
+} GatewayCandidate;
+
+typedef struct GatewayPeer {
+        int ifindex;
+        int family;
+        union in_addr_union local;
+        union in_addr_union peer;
+} GatewayPeer;
+
+typedef struct GatewayLinkInfo {
+        int ifindex;
+        unsigned flags;
+        int r;
+} GatewayLinkInfo;
+
+static int add_gateway_candidate(
+                GatewayCandidate **candidates,
+                size_t *n_candidates,
+                int ifindex,
+                uint32_t priority,
+                uint32_t weight,
+                int family,
+                const union in_addr_union *prefsrc) {
+
+        assert(candidates);
+        assert(n_candidates);
+        assert(ifindex > 0);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(prefsrc);
+
+        FOREACH_ARRAY(candidate, *candidates, *n_candidates) {
+                if (candidate->ifindex != ifindex || candidate->family != family)
+                        continue;
+                if (in_addr_equal(family, &candidate->prefsrc, prefsrc) <= 0)
+                        continue;
+
+                if (priority < candidate->priority) {
+                        candidate->priority = priority;
+                        candidate->weight = weight;
+                }
+
+                return 0;
+        }
+
+        GatewayCandidate candidate = {
+                .ifindex = ifindex,
+                .priority = priority,
+                .weight = weight,
+                .family = family,
+                .prefsrc = *prefsrc,
+        };
+
+        if (!GREEDY_REALLOC_APPEND(*candidates, *n_candidates, &candidate, 1))
+                return -ENOMEM;
+
+        return 1;
+}
+
+static bool gateway_candidate_matches_address(
+                const GatewayCandidate *candidates,
+                size_t n_candidates,
+                int ifindex,
+                int family) {
+
+        assert(candidates || n_candidates == 0);
+        assert(ifindex > 0);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+
+        FOREACH_ARRAY(candidate, candidates, n_candidates)
+                if (candidate->ifindex == ifindex && candidate->family == family)
+                        return true;
+
+        return false;
+}
+
+static int get_gateway_link_flags(
+                sd_netlink *rtnl,
+                GatewayLinkInfo **links,
+                size_t *n_links,
+                int ifindex,
+                unsigned *ret_flags) {
+
+        int r;
+
+        assert(rtnl);
+        assert(links);
+        assert(n_links);
+        assert(ifindex > 0);
+        assert(ret_flags);
+
+        FOREACH_ARRAY(link, *links, *n_links) {
+                if (link->ifindex != ifindex)
+                        continue;
+
+                if (link->r < 0)
+                        return link->r;
+
+                *ret_flags = link->flags;
+                return 0;
+        }
+
+        unsigned flags = 0;
+        r = rtnl_get_link_info(
+                        &rtnl,
+                        ifindex,
+                        /* ret_iftype= */ NULL,
+                        &flags,
+                        /* ret_kind= */ NULL,
+                        /* ret_hw_addr= */ NULL,
+                        /* ret_permanent_hw_addr= */ NULL);
+
+        GatewayLinkInfo info = {
+                .ifindex = ifindex,
+                .flags = flags,
+                .r = r,
+        };
+
+        if (!GREEDY_REALLOC_APPEND(*links, *n_links, &info, 1))
+                return -ENOMEM;
+
+        if (r < 0)
+                return r;
+
+        *ret_flags = flags;
+        return 0;
+}
+
+static int add_gateway_peer(
+                GatewayPeer **peers,
+                size_t *n_peers,
+                int ifindex,
+                int family,
+                const union in_addr_union *local,
+                const union in_addr_union *peer) {
+
+        assert(peers);
+        assert(n_peers);
+        assert(ifindex > 0);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(local);
+        assert(peer);
+
+        FOREACH_ARRAY(i, *peers, *n_peers)
+                if (i->ifindex == ifindex &&
+                    i->family == family &&
+                    in_addr_equal(family, &i->local, local) > 0 &&
+                    in_addr_equal(family, &i->peer, peer) > 0)
+                        return 0;
+
+        GatewayPeer gateway_peer = {
+                .ifindex = ifindex,
+                .family = family,
+                .local = *local,
+                .peer = *peer,
+        };
+
+        if (!GREEDY_REALLOC_APPEND(*peers, *n_peers, &gateway_peer, 1))
+                return -ENOMEM;
+
+        return 1;
+}
+
 static int parse_nexthop_one(
                 struct local_address **list,
                 size_t *n_list,
+                GatewayCandidate **candidates,
+                size_t *n_candidates,
                 bool allow_via,
                 int family,
                 uint32_t priority,
@@ -317,12 +490,19 @@ static int parse_nexthop_one(
                         break;
                 }
 
+        if (!has_gw && rtnh->rtnh_ifindex > 0)
+                return add_gateway_candidate(
+                                candidates, n_candidates, rtnh->rtnh_ifindex, priority, rtnh->rtnh_hops,
+                                family, prefsrc);
+
         return 0;
 }
 
 static int parse_nexthops(
                 struct local_address **list,
                 size_t *n_list,
+                GatewayCandidate **candidates,
+                size_t *n_candidates,
                 int ifindex,
                 bool allow_via,
                 int family,
@@ -351,13 +531,181 @@ static int parse_nexthops(
                 if (ifindex > 0 && rtnh->rtnh_ifindex != ifindex)
                         goto next_nexthop;
 
-                r = parse_nexthop_one(list, n_list, allow_via, family, priority, prefsrc, rtnh);
+                r = parse_nexthop_one(
+                                list, n_list, candidates, n_candidates,
+                                allow_via, family, priority, prefsrc, rtnh);
                 if (r < 0)
                         return r;
 
         next_nexthop:
                 size -= NLMSG_ALIGN(rtnh->rtnh_len);
                 rtnh = RTNH_NEXT(rtnh);
+        }
+
+        return 0;
+}
+
+static int add_gateway_peers(
+                sd_netlink *rtnl,
+                struct local_address **list,
+                size_t *n_list,
+                int ifindex,
+                int af,
+                const GatewayCandidate *candidates,
+                size_t n_candidates) {
+
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_free_ GatewayLinkInfo *links = NULL;
+        _cleanup_free_ GatewayPeer *peers = NULL;
+        size_t n_links = 0, n_peers = 0;
+        int r;
+
+        assert(rtnl);
+        assert(IN_SET(af, AF_UNSPEC, AF_INET, AF_INET6));
+        assert(candidates || n_candidates == 0);
+        assert(list);
+        assert(n_list);
+
+        if (n_candidates == 0)
+                return 0;
+
+        r = sd_rtnl_message_new_addr(rtnl, &req, RTM_GETADDR, ifindex, af);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_set_request_dump(req, true);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_call(rtnl, req, 0, &reply);
+        if (r < 0)
+                return r;
+
+        for (sd_netlink_message *m = reply; m; m = sd_netlink_message_next(m)) {
+                union in_addr_union local, peer;
+                unsigned char scope;
+                uint16_t type;
+                int ifi, family;
+
+                r = sd_netlink_message_get_errno(m);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to process address dump message, ignoring: %m");
+                        continue;
+                }
+
+                r = sd_netlink_message_get_type(m, &type);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to get address message type, ignoring: %m");
+                        continue;
+                }
+                if (type != RTM_NEWADDR)
+                        continue;
+
+                r = sd_rtnl_message_addr_get_ifindex(m, &ifi);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to get address interface index, ignoring: %m");
+                        continue;
+                }
+                if (ifi <= 0)
+                        continue;
+
+                r = sd_rtnl_message_addr_get_family(m, &family);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to get address family, ignoring: %m");
+                        continue;
+                }
+                if (!IN_SET(family, AF_INET, AF_INET6))
+                        continue;
+                if (!gateway_candidate_matches_address(candidates, n_candidates, ifi, family))
+                        continue;
+
+                uint32_t flags;
+                r = sd_netlink_message_read_u32(m, IFA_FLAGS, &flags);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to get address flags, ignoring: %m");
+                        continue;
+                }
+                if ((flags & (IFA_F_DEPRECATED|IFA_F_TENTATIVE)) != 0)
+                        continue;
+
+                r = sd_rtnl_message_addr_get_scope(m, &scope);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to get address scope, ignoring: %m");
+                        continue;
+                }
+                if (IN_SET(scope, RT_SCOPE_HOST, RT_SCOPE_NOWHERE))
+                        continue;
+
+                /* Point-to-point addresses carry the local endpoint in IFA_LOCAL and the peer endpoint in
+                 * IFA_ADDRESS. On regular interfaces, the two addresses are identical. */
+                r = netlink_message_read_in_addr_union(m, IFA_LOCAL, family, &local);
+                if (r == -ENODATA)
+                        continue;
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to read local address, ignoring: %m");
+                        continue;
+                }
+
+                r = netlink_message_read_in_addr_union(m, IFA_ADDRESS, family, &peer);
+                if (r == -ENODATA)
+                        continue;
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to read peer address, ignoring: %m");
+                        continue;
+                }
+
+                if (in_addr_equal(family, &local, &peer) > 0)
+                        continue;
+                if (!in_addr_is_set(family, &peer))
+                        continue;
+
+                unsigned link_flags;
+                r = get_gateway_link_flags(rtnl, &links, &n_links, ifi, &link_flags);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to determine whether link %i is point-to-point, ignoring: %m", ifi);
+                        continue;
+                }
+                if (!FLAGS_SET(link_flags, IFF_POINTOPOINT))
+                        continue;
+
+                r = add_gateway_peer(&peers, &n_peers, ifi, family, &local, &peer);
+                if (r < 0)
+                        return r;
+        }
+
+        FOREACH_ARRAY(candidate, candidates, n_candidates) {
+                const GatewayPeer *peer = NULL;
+                bool ambiguous = false;
+
+                FOREACH_ARRAY(p, peers, n_peers) {
+                        if (candidate->ifindex != p->ifindex || candidate->family != p->family)
+                                continue;
+
+                        if (in_addr_is_set(candidate->family, &candidate->prefsrc) &&
+                            in_addr_equal(candidate->family, &p->local, &candidate->prefsrc) <= 0)
+                                continue;
+
+                        if (!peer) {
+                                peer = p;
+                                continue;
+                        }
+
+                        if (in_addr_equal(candidate->family, &p->peer, &peer->peer) > 0)
+                                continue;
+
+                        peer = p;
+                        ambiguous = true;
+                        break;
+                }
+
+                if (!peer || ambiguous)
+                        continue;
+
+                r = add_local_gateway(
+                                list, n_list, candidate->ifindex, candidate->priority, candidate->weight,
+                                candidate->family, &peer->peer, &candidate->prefsrc);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
@@ -372,7 +720,8 @@ int local_gateways(
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_free_ struct local_address *list = NULL;
-        size_t n_list = 0;
+        _cleanup_free_ GatewayCandidate *candidates = NULL;
+        size_t n_candidates = 0, n_list = 0;
         int r;
 
         /* The RTA_VIA attribute is used only for IPv4 routes with an IPv6 gateway. If IPv4 gateways are
@@ -380,6 +729,9 @@ int local_gateways(
          * gateways are requested (af == AF_INET6), then we do not return gateway addresses for IPv4 routes.
          * So, the RTA_VIA attribute is only parsed when af == AF_UNSPEC. */
         bool allow_via = af == AF_UNSPEC;
+
+        if (ifindex < 0)
+                return -EINVAL;
 
         if (context)
                 rtnl = sd_netlink_ref(context);
@@ -412,7 +764,7 @@ int local_gateways(
         for (sd_netlink_message *m = reply; m; m = sd_netlink_message_next(m)) {
                 union in_addr_union prefsrc = IN_ADDR_NULL;
                 uint16_t type;
-                unsigned char dst_len, src_len, table;
+                unsigned char dst_len, route_type, src_len, table;
                 uint32_t ifi = 0, priority = 0;
                 int family;
 
@@ -424,6 +776,12 @@ int local_gateways(
                 if (r < 0)
                         return r;
                 if (type != RTM_NEWROUTE)
+                        continue;
+
+                r = sd_rtnl_message_route_get_type(m, &route_type);
+                if (r < 0)
+                        return r;
+                if (route_type != RTN_UNICAST)
                         continue;
 
                 /* We only care for default routes */
@@ -482,27 +840,30 @@ int local_gateways(
                                 continue;
                         }
 
-                        if (!allow_via)
-                                continue;
-
-                        if (family != AF_INET)
-                                continue;
-
-                        RouteVia via;
-                        r = sd_netlink_message_read(m, RTA_VIA, sizeof(via), &via);
-                        if (r < 0 && r != -ENODATA)
-                                return r;
-                        if (r >= 0) {
-                                if (via.family != AF_INET6)
-                                        return -EBADMSG;
-
-                                /* Ignore prefsrc, and let's take the source address by socket command, if necessary. */
-                                r = add_local_gateway(&list, &n_list, ifi, priority, 0, via.family,
-                                                      &(union in_addr_union) { .in6 = via.address.in6 },
-                                                      /* prefsrc= */ NULL);
-                                if (r < 0)
+                        if (allow_via && family == AF_INET) {
+                                RouteVia via;
+                                r = sd_netlink_message_read(m, RTA_VIA, sizeof(via), &via);
+                                if (r < 0 && r != -ENODATA)
                                         return r;
+                                if (r >= 0) {
+                                        if (via.family != AF_INET6)
+                                                return -EBADMSG;
+
+                                        /* Ignore prefsrc, and let's take the source address by socket command, if necessary. */
+                                        r = add_local_gateway(&list, &n_list, ifi, priority, 0, via.family,
+                                                              &(union in_addr_union) { .in6 = via.address.in6 },
+                                                              /* prefsrc= */ NULL);
+                                        if (r < 0)
+                                                return r;
+
+                                        continue;
+                                }
                         }
+
+                        r = add_gateway_candidate(
+                                        &candidates, &n_candidates, ifi, priority, 0, family, &prefsrc);
+                        if (r < 0)
+                                return r;
 
                         /* If the route has RTA_OIF, it does not have RTA_MULTIPATH. */
                         continue;
@@ -514,11 +875,20 @@ int local_gateways(
                 if (r < 0 && r != -ENODATA)
                         return r;
                 if (r >= 0) {
-                        r = parse_nexthops(&list, &n_list, ifindex, allow_via, family, priority, &prefsrc, rta_multipath, rta_len);
+                        r = parse_nexthops(
+                                        &list, &n_list, &candidates, &n_candidates,
+                                        ifindex, allow_via, family, priority, &prefsrc,
+                                        rta_multipath, rta_len);
                         if (r < 0)
                                 return r;
                 }
         }
+
+        r = add_gateway_peers(rtnl, &list, &n_list, ifindex, af, candidates, n_candidates);
+        if (ERRNO_IS_NEG_RESOURCE(r))
+                return r;
+        if (r < 0)
+                log_debug_errno(r, "Failed to look up point-to-point peers, ignoring: %m");
 
         typesafe_qsort(list, n_list, address_compare);
         suppress_duplicates(list, &n_list);
