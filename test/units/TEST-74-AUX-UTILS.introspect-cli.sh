@@ -26,6 +26,7 @@ INTROSPECTABLE=(
     portablectl
     resolvectl
     run0
+    storagectl
     systemd-ac-power
     systemd-analyze
     systemd-ask-password
@@ -125,6 +126,9 @@ fi
 
 resolvectl --introspect-cli | jq -e \
     '[.commands[].names[0]] | sort == ["resolvconf", "resolvectl", "systemd-resolve"]'
+
+storagectl --introspect-cli | jq -e \
+    '[.commands[].names[0]] | sort == ["mount.storage", "storagectl"]'
 
 systemd-clonesetup --introspect-cli | jq -e \
     '.commands[0].verbs | map(.names[0]) | sort == ["add", "remove"]'

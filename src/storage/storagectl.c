@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "sd-varlink.h"
-
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+#include "sd-json.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "ansi-color.h"
@@ -17,12 +18,10 @@
 #include "fd-util.h"
 #include "format-table.h"
 #include "format-util.h"
-#include "help-util.h"
 #include "machine-util.h"
 #include "main-func.h"
 #include "mount-util.h"
 #include "namespace-util.h"
-#include "options.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-lookup.h"
@@ -46,41 +45,15 @@ static bool arg_legend = true;
 static bool arg_ask_password = true;
 static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 
-static int help(void) {
-        int r;
+COMMAND(
+        "storagectl\0",
+        "Enumerate storage volumes and providers.",
+        .man_pages = "storagectl.1\0",
+        .option_namespace = "storagectl",
+        .pager_flags = &arg_pager_flags,
+);
 
-        help_cmdline("[OPTIONS...] COMMAND");
-        help_abstract("Enumerate storage volumes and providers.");
-
-        _cleanup_(table_unrefp) Table *verbs = NULL;
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        _cleanup_(table_unrefp) Table *options = NULL;
-        r = option_parser_get_help_table_ns("storagectl", &options);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, verbs, options);
-
-        help_section("Commands");
-
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        help_section("Options");
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("storagectl", "1");
-        return 0;
-}
-
-VERB_COMMON_HELP_HIDDEN(help);
+VERB_COMMON_HELP_AUTO_HIDDEN("storagectl");
 
 static const char *ro_color(int ro) {
         if (ro > 0)
@@ -395,6 +368,15 @@ static int verb_providers(int argc, char *argv[], uintptr_t data, void *userdata
         return 0;
 }
 
+/* This COMMAND must be below all the VERBs of the main command */
+COMMAND(
+        "mount.storage\0",
+        "External helper for mount.8 to expose storage volumes.",
+        .man_pages = "storagectl.1\0",
+        .option_namespace = "mount.storage",
+        .pager_flags = &arg_pager_flags,
+);
+
 static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         int r;
 
@@ -409,7 +391,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_NAMESPACE("storagectl"): {}
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("storagectl");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -439,6 +421,9 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_COMMON_USER:
                         arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
                 }
 
         *remaining_args = option_parser_get_args(&opts);
@@ -448,7 +433,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
 static int run_as_mount_helper(int argc, char *argv[]) {
         int r;
 
-        /* Implements util-linux "external helper" command line interface, as per mount(8) man page.
+        /* Implements util-linux "external helper" command line interface, as per mount.8 man page.
          *
          * Usage:
          *
