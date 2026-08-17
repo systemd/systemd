@@ -8,6 +8,7 @@
 #include "sd-bus.h"
 #include "sd-event.h"
 #include "sd-journal.h"
+#include "sd-json.h"
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
@@ -33,7 +34,6 @@
 #include "format-ifname.h"
 #include "format-table.h"
 #include "format-util.h"
-#include "help-util.h"
 #include "hostname-util.h"
 #include "import-util.h"
 #include "in-addr-util.h"
@@ -45,7 +45,6 @@
 #include "machine-util.h"
 #include "main-func.h"
 #include "nulstr-util.h"
-#include "options.h"
 #include "osc-context.h"
 #include "output-mode.h"
 #include "pager.h"
@@ -116,6 +115,13 @@ static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 
 STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_setenv, strv_freep);
+
+COMMAND(
+        "machinectl\0",
+        "Send control commands to or query the virtual machine and container registration manager.",
+        .man_pages = "machinectl.1\0",
+        .pager_flags = &arg_pager_flags,
+);
 
 static OutputFlags get_output_flags(void) {
         return
@@ -2370,58 +2376,7 @@ static int chainload_importctl(char **args) {
         return log_error_errno(r, "Failed to invoke 'importctl': %m");
 }
 
-static int help(void) {
-        static const char* const vgroups[] = {
-                "Machine Commands",
-                "Image Commands",
-        };
-
-        Table *vtables[ELEMENTSOF(vgroups)] = {};
-        CLEANUP_ELEMENTS(vtables, table_unref_array_clear);
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        for (size_t i = 0; i < ELEMENTSOF(vgroups); i++) {
-                r = verbs_get_help_table_group(vgroups[i], &vtables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        assert_cc(ELEMENTSOF(vtables) == 2);
-        (void) table_sync_column_widths(0, options, vtables[0], vtables[1]);
-
-        pager_open(arg_pager_flags);
-
-        help_cmdline("[OPTIONS…] COMMAND …");
-
-        printf("\n%1$s%2$sSend control commands to or query the virtual machine and container%3$s\n"
-               "%1$s%2$sregistration manager.%3$s\n",
-               ansi_highlight(),
-               ansi_add_italics(),
-               ansi_normal());
-
-        for (size_t i = 0; i < ELEMENTSOF(vgroups); i++) {
-                help_section(vgroups[i]);
-                r = table_print_or_warn(vtables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("machinectl", "1");
-
-        return 0;
-}
-
-VERB_COMMON_HELP_HIDDEN(help);
+VERB_COMMON_HELP_AUTO_HIDDEN("machinectl");
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
@@ -2454,7 +2409,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("machinectl");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -2620,6 +2575,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION('q', "quiet", NULL, "Suppress output"):
                         arg_quiet = true;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         /* We gathered some positional args in 'args' ourselves. Append the remaining ones. */
