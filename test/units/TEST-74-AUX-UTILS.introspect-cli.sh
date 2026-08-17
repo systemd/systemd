@@ -29,6 +29,7 @@ INTROSPECTABLE=(
     systemd-cgtop
     systemd-clonesetup
     systemd-creds
+    systemd-cryptsetup
     systemd-delta
     systemd-detect-virt
     systemd-dissect

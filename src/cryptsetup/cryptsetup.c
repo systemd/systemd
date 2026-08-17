@@ -25,7 +25,6 @@
 #include "escape.h"
 #include "extract-word.h"
 #include "fileio.h"
-#include "format-table.h"
 #include "fs-util.h"
 #include "hexdecoct.h"
 #include "json-util.h"
@@ -35,12 +34,10 @@
 #include "main-func.h"
 #include "memory-util.h"
 #include "nulstr-util.h"
-#include "options.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pcrextend-util.h"
 #include "pkcs11-util.h"
-#include "pretty-print.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "string-table.h"
@@ -144,6 +141,12 @@ STATIC_DESTRUCTOR_REGISTER(arg_link_keyring, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_link_key_type, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_link_key_description, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fixate_volume_key, freep);
+
+COMMAND(
+        "systemd-cryptsetup\0",
+        "Attach or detach an encrypted block device.",
+        .man_pages = "systemd-cryptsetup.8\0",
+);
 
 static const char* const passphrase_type_table[_PASSPHRASE_TYPE_MAX] = {
         [PASSPHRASE_REGULAR]      = "passphrase",
@@ -2376,51 +2379,7 @@ static int attach_luks_or_plain_or_bitlk(
         return attach_luks_or_plain_or_bitlk_by_passphrase(cd, name, passwords, flags, pass_volume_key);
 }
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-cryptsetup", "8", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, verbs, options);
-
-        printf("%s [OPTIONS...] {COMMAND} ...\n\n"
-               "%sAttach or detach an encrypted block device.%s\n"
-               "\n%sCommands:%s\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal(),
-               ansi_underline(),
-               ansi_normal());
-
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        printf("\n%sOptions:%s\n",
-               ansi_underline(),
-               ansi_normal());
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
-
-VERB_COMMON_HELP_HIDDEN(help);
+VERB_COMMON_HELP_AUTO_HIDDEN("systemd-cryptsetup");
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
@@ -2433,10 +2392,13 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-cryptsetup");
 
                 OPTION_COMMON_VERSION:
                         return version();
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         *ret_args = option_parser_get_args(&opts);
