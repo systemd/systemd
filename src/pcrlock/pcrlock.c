@@ -4435,6 +4435,61 @@ VERB(verb_lock_firmware, "lock-firmware-config", NULL, VERB_ANY, 2, 0,
 VERB_NOARG(verb_unlock_firmware, "unlock-firmware-config",
            "Remove .pcrlock file for firmware configuration");
 
+static int make_secure_boot_variable_data(
+                sd_id128_t vendor,
+                const char *name,
+                const void *data,
+                size_t data_size,
+                UEFI_VARIABLE_DATA **ret_vdata,
+                size_t *ret_size) {
+
+        _cleanup_free_ UEFI_VARIABLE_DATA *vdata = NULL;
+        _cleanup_free_ char16_t *name16 = NULL;
+        size_t name16_bytes, vdata_size;
+
+        assert(name);
+        assert(data || data_size == 0);
+
+        name16 = utf8_to_utf16(name, SIZE_MAX);
+        if (!name16)
+                return log_oom();
+        name16_bytes = char16_strlen(name16) * 2;
+
+        vdata_size = offsetof(UEFI_VARIABLE_DATA, unicodeName) + name16_bytes + data_size;
+        vdata = malloc(vdata_size);
+        if (!vdata)
+                return log_oom();
+
+        *vdata = (UEFI_VARIABLE_DATA) {
+                .unicodeNameLength = name16_bytes / 2,
+                .variableDataLength = data_size,
+        };
+        efi_id128_to_guid(vendor, vdata->variableName);
+        memcpy(mempcpy(vdata->unicodeName, name16, name16_bytes), data, data_size);
+
+        *ret_vdata = TAKE_PTR(vdata);
+        *ret_size = vdata_size;
+        return 0;
+}
+
+static int make_secure_boot_variable_record(
+                sd_id128_t vendor,
+                const char *name,
+                const void *data,
+                size_t data_size,
+                sd_json_variant **ret_record) {
+
+        _cleanup_free_ UEFI_VARIABLE_DATA *vdata = NULL;
+        size_t vdata_size;
+        int r;
+
+        r = make_secure_boot_variable_data(vendor, name, data, data_size, &vdata, &vdata_size);
+        if (r < 0)
+                return r;
+
+        return make_pcrlock_record(TPM2_PCR_SECURE_BOOT_POLICY, vdata, vdata_size, ret_record);
+}
+
 static int lock_secureboot_policy(void) {
         static const struct {
                 sd_id128_t id;
@@ -4478,25 +4533,7 @@ static int lock_secureboot_policy(void) {
                         data_size = 0;
                 }
 
-                _cleanup_free_ char16_t* name16 = utf8_to_utf16(vv->name, SIZE_MAX);
-                if (!name16)
-                        return log_oom();
-                size_t name16_bytes = char16_strlen(name16) * 2;
-
-                size_t vdata_size = offsetof(UEFI_VARIABLE_DATA, unicodeName) + name16_bytes + data_size;
-                _cleanup_free_ UEFI_VARIABLE_DATA *vdata = malloc(vdata_size);
-                if (!vdata)
-                        return log_oom();
-
-                *vdata = (UEFI_VARIABLE_DATA) {
-                        .unicodeNameLength = name16_bytes / 2,
-                        .variableDataLength = data_size,
-                };
-
-                efi_id128_to_guid(vv->id, vdata->variableName);
-                memcpy(mempcpy(vdata->unicodeName, name16, name16_bytes), data, data_size);
-
-                r = make_pcrlock_record(TPM2_PCR_SECURE_BOOT_POLICY /* =7 */, vdata, vdata_size, &record);
+                r = make_secure_boot_variable_record(vv->id, vv->name, data, data_size, &record);
                 if (r < 0)
                         return r;
 
