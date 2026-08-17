@@ -8,21 +8,19 @@
 #include <unistd.h>
 
 #include "sd-id128.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "build.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "format-table.h"
 #include "fs-util.h"
 #include "initrd-util.h"
 #include "io-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "mkdir.h"
-#include "options.h"
 #include "parse-util.h"
-#include "pretty-print.h"
 #include "random-util.h"
 #include "sha256.h"
 #include "string-util.h"
@@ -44,6 +42,12 @@ typedef enum CreditEntropy {
 } CreditEntropy;
 
 static SeedAction arg_action = _ACTION_INVALID;
+
+COMMAND(
+        "systemd-random-seed\0",
+        "Load and save the system random seed at boot and shutdown.",
+        .man_pages = "systemd-random-seed.8\0",
+);
 
 static CreditEntropy may_credit(int seed_fd) {
         const char *e;
@@ -298,45 +302,6 @@ static int save_seed_file(
         return 0;
 }
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-random-seed", "8", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, verbs, options);
-
-        printf("%s [OPTIONS...] COMMAND\n"
-               "\n%sLoad and save the system random seed at boot and shutdown.%s\n"
-               "\nCommands:\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
-
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        printf("\nOptions:\n");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
-
 VERB_FULL(verb_set_action, "load", NULL, VERB_ANY, 1, 0, ACTION_LOAD,
           "Load a random seed saved on disk into the kernel entropy pool");
 VERB_FULL(verb_set_action, "save", NULL, VERB_ANY, 1, 0, ACTION_SAVE,
@@ -357,10 +322,13 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-random-seed");
 
                 OPTION_COMMON_VERSION:
                         return version();
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         r = dispatch_verb(option_parser_get_args(&opts), NULL);
