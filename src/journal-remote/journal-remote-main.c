@@ -4,6 +4,7 @@
 
 #include "sd-daemon.h"
 #include "sd-event.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "build.h"
@@ -12,9 +13,8 @@
 #include "dlopen-note.h"
 #include "extract-word.h"
 #include "fd-util.h"
-#include "format-table.h"
-#include "format-util.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "hashmap.h"
 #include "journal-authenticate.h"
 #include "journal-compression-util.h"
@@ -23,12 +23,10 @@
 #include "logs-show.h"
 #include "main-func.h"
 #include "microhttpd-util.h"
-#include "options.h"
 #include "parse-argument.h"
 #include "parse-helpers.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "pretty-print.h"
 #include "process-util.h"
 #include "socket-netlink.h"
 #include "socket-util.h"
@@ -36,6 +34,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "verbs.h"
 
 #define PRIV_KEY_FILE CERTIFICATE_ROOT "/private/journal-remote.pem"
 #define CERT_FILE     CERTIFICATE_ROOT "/certs/journal-remote.pem"
@@ -83,6 +82,14 @@ STATIC_DESTRUCTOR_REGISTER(arg_cert, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_trust, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_output, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_compression, ordered_hashmap_freep);
+
+COMMAND(
+        "systemd-journal-remote\0",
+        "Write external journal events to journal files.",
+        .argspec = "[{FILE|-}…]\0",
+        .footer = "Note: file descriptors from sd_listen_fds() will be consumed, too.",
+        .man_pages = "systemd-journal-remote.service.8\0",
+);
 
 static const char* const journal_write_split_mode_table[_JOURNAL_WRITE_SPLIT_MAX] = {
         [JOURNAL_WRITE_SPLIT_NONE] = "none",
@@ -869,39 +876,6 @@ static int parse_config(void) {
                         /* userdata= */ NULL);
 }
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-journal-remote.service", "8", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        printf("%s [OPTIONS...] {FILE|-}...\n"
-               "\n%sWrite external journal events to journal file(s).%s\n"
-               "\n%sOptions:%s\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal(),
-               ansi_underline(),
-               ansi_normal());
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nNote: file descriptors from sd_listen_fds() will be consumed, too.\n"
-               "\nSee the %s for details.\n",
-               link);
-
-        return 0;
-}
-
 static int parse_argv(int argc, char *argv[]) {
         int r;
         bool type_a, type_b;
@@ -915,7 +889,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-journal-remote");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -1059,6 +1033,9 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --max-files= value: %s", opts.arg);
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         arg_files = strv_copy(option_parser_get_args(&opts));

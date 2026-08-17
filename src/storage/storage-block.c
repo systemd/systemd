@@ -13,18 +13,22 @@
 #include "device-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "format-table.h"
 #include "hashmap.h"
-#include "help-util.h"
 #include "json-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "options.h"
 #include "path-util.h"
 #include "storage-util.h"
 #include "strv.h"
 #include "varlink-io.systemd.StorageProvider.h"
 #include "varlink-util.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-storage-block\0",
+        "Expose local block devices as storage volumes.",
+        .man_pages = "systemd-storage-block.8\0",
+);
 
 static int block_device_pick_name(
                 const BlockDevice *d,
@@ -382,27 +386,6 @@ static int vl_server(void) {
         return 0;
 }
 
-static int help(void) {
-        int r;
-
-        help_cmdline("[OPTIONS...]");
-        help_abstract("Simple block device backed storage provider");
-
-        _cleanup_(table_unrefp) Table *options = NULL;
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        help_section("Options");
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("systemd-storage-block", "8");
-        return 0;
-}
-
 static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
@@ -412,10 +395,13 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-storage-block");
 
                 OPTION_COMMON_VERSION:
                         return version();
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (option_parser_get_n_args(&opts) > 0)

@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "sd-event.h"
+#include "sd-json.h"
 #include "sd-netlink.h"
 
 #include "af-list.h"
@@ -16,18 +17,16 @@
 #include "device-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "format-table.h"
 #include "fs-util.h"
+#include "glyph-util.h"
 #include "hashmap.h"
 #include "id128-util.h"
 #include "local-addresses.h"
 #include "main-func.h"
 #include "mountpoint-util.h"
-#include "options.h"
 #include "os-util.h"
 #include "path-util.h"
 #include "plymouth-util.h"
-#include "pretty-print.h"
 #include "random-util.h"
 #include "recurse-dir.h"
 #include "siphash24.h"
@@ -38,6 +37,7 @@
 #include "terminal-util.h"
 #include "time-util.h"
 #include "udev-util.h"
+#include "verbs.h"
 
 static char **arg_devices = NULL;
 static char *arg_nqn = NULL;
@@ -46,32 +46,15 @@ static int arg_all = 0;
 STATIC_DESTRUCTOR_REGISTER(arg_devices, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_nqn, freep);
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-storagetm", "8", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        printf("%s [OPTIONS...] [DEVICE...]\n"
-               "\n%sExpose a block device or regular file as NVMe-TCP volume.%s\n\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
+COMMAND(
+        "systemd-storagetm\0",
+        "Expose a block device or regular file as NVMe-TCP volume.",
+        .argspec =
+                "DEVICE…\0"
+                "--all\0"
+                "--list-devices\0",
+        .man_pages = "systemd-storagetm.8\0",
+);
 
 static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
@@ -84,7 +67,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-storagetm");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -110,6 +93,9 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
 
                         return 0;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         char **args = option_parser_get_args(&opts);

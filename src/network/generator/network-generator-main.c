@@ -2,28 +2,36 @@
 
 #include <sys/stat.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "build.h"
 #include "creds-util.h"
 #include "dlopen-note.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "format-table.h"
 #include "fs-util.h"
 #include "generator.h"
 #include "log.h"
 #include "main-func.h"
 #include "mkdir.h"
 #include "network-generator.h"
-#include "options.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "string-util.h"
 #include "strv.h"
+#include "verbs.h"
 
 #define NETWORK_UNIT_DIRECTORY "/run/systemd/network/"
 
 static const char *arg_root = NULL;
+
+COMMAND(
+        "systemd-network-generator\0",
+        "Generate network configuration from the kernel command line.",
+        .argspec = "[-- KERNEL_CMDLINE]\0",
+        .man_pages = "systemd-network-generator.service.8\0",
+);
 
 static int network_save(Network *network, const char *dest_dir) {
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
@@ -150,24 +158,6 @@ static int context_save(Context *context) {
         return r;
 }
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        printf("%s [OPTIONS...] [-- KERNEL_CMDLINE]\n\n",
-               program_invocation_short_name);
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
@@ -179,7 +169,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-network-generator");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -188,6 +178,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                             "Operate on an alternate filesystem root"):
                         arg_root = opts.arg;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         *ret_args = option_parser_get_args(&opts);
