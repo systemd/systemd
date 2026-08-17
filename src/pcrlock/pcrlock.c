@@ -21,8 +21,10 @@
 #include "copy.h"
 #include "creds-util.h"
 #include "crypto-util.h"
+#include "dirent-util.h"
 #include "dlopen-note.h"
 #include "efi-api.h"
+#include "efi.h"
 #include "efivars.h"
 #include "env-util.h"
 #include "errno-util.h"
@@ -105,13 +107,18 @@ STATIC_DESTRUCTOR_REGISTER(arg_location_end, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_policy_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_entry_token, freep);
 
-#define PCRLOCK_SECUREBOOT_POLICY_PATH      "/var/lib/pcrlock.d/240-secureboot-policy.pcrlock.d/generated.pcrlock"
+#define PCRLOCK_SECUREBOOT_POLICY_DIR       "/var/lib/pcrlock.d/240-secureboot-policy.pcrlock.d"
+#define PCRLOCK_SECUREBOOT_POLICY_PATH      PCRLOCK_SECUREBOOT_POLICY_DIR "/generated.pcrlock"
 #define PCRLOCK_FIRMWARE_CODE_EARLY_PATH    "/var/lib/pcrlock.d/250-firmware-code-early.pcrlock.d/generated.pcrlock"
 #define PCRLOCK_FIRMWARE_CONFIG_EARLY_PATH  "/var/lib/pcrlock.d/250-firmware-config-early.pcrlock.d/generated.pcrlock"
 #define PCRLOCK_FIRMWARE_CODE_LATE_PATH     "/var/lib/pcrlock.d/550-firmware-code-late.pcrlock.d/generated.pcrlock"
 #define PCRLOCK_FIRMWARE_CONFIG_LATE_PATH   "/var/lib/pcrlock.d/550-firmware-config-late.pcrlock.d/generated.pcrlock"
 #define PCRLOCK_GPT_PATH                    "/var/lib/pcrlock.d/600-gpt.pcrlock.d/generated.pcrlock"
-#define PCRLOCK_SECUREBOOT_AUTHORITY_PATH   "/var/lib/pcrlock.d/620-secureboot-authority.pcrlock.d/generated.pcrlock"
+#define PCRLOCK_SECUREBOOT_AUTHORITY_DIR    "/var/lib/pcrlock.d/620-secureboot-authority.pcrlock.d"
+#define PCRLOCK_SECUREBOOT_AUTHORITY_PATH   PCRLOCK_SECUREBOOT_AUTHORITY_DIR "/generated.pcrlock"
+#define PCRLOCK_SECUREBOOT_UPDATE_DIR       "/run/systemd/pcrlock-secureboot-update"
+#define PCRLOCK_SECUREBOOT_PREDICT_PREFIX   "systemd-"
+#define PCRLOCK_SECUREBOOT_OUTCOMES_MAX     8U
 #define PCRLOCK_KERNEL_CMDLINE_PATH         "/var/lib/pcrlock.d/710-kernel-cmdline.pcrlock.d/generated.pcrlock"
 #define PCRLOCK_KERNEL_INITRD_PATH          "/var/lib/pcrlock.d/720-kernel-initrd.pcrlock.d/generated.pcrlock"
 #define PCRLOCK_MACHINE_ID_PATH             "/var/lib/pcrlock.d/820-machine-id.pcrlock"
@@ -4435,6 +4442,252 @@ VERB(verb_lock_firmware, "lock-firmware-config", NULL, VERB_ANY, 2, 0,
 VERB_NOARG(verb_unlock_firmware, "unlock-firmware-config",
            "Remove .pcrlock file for firmware configuration");
 
+typedef enum SecureBootVariable {
+        SECURE_BOOT_VARIABLE_KEK,
+        SECURE_BOOT_VARIABLE_DB,
+        SECURE_BOOT_VARIABLE_DBX,
+        _SECURE_BOOT_VARIABLE_MAX,
+        _SECURE_BOOT_VARIABLE_INVALID = -EINVAL,
+} SecureBootVariable;
+
+static const char* const secure_boot_variable_table[_SECURE_BOOT_VARIABLE_MAX] = {
+        [SECURE_BOOT_VARIABLE_KEK] = "kek",
+        [SECURE_BOOT_VARIABLE_DB]  = "db",
+        [SECURE_BOOT_VARIABLE_DBX] = "dbx",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(secure_boot_variable, SecureBootVariable);
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_secure_boot_variable, SecureBootVariable, secure_boot_variable_from_string);
+
+typedef struct SignatureRecord {
+        void *data;
+        size_t size;
+        bool from_db;
+} SignatureRecord;
+
+typedef struct SecureBootUpdateState {
+        char *policy_path;
+        char **authority_paths;
+        char *policy_backup;
+        char *authority_backup;
+        bool policy_removed;
+        bool authority_removed;
+        bool regenerate;
+} SecureBootUpdateState;
+
+static void signature_records_done(SignatureRecord *records, size_t n_records) {
+        FOREACH_ARRAY(record, records, n_records)
+                free(record->data);
+        free(records);
+}
+
+static SecureBootUpdateState* secure_boot_update_state_done(SecureBootUpdateState *state) {
+        if (!state)
+                return NULL;
+
+        free(state->policy_path);
+        strv_free(state->authority_paths);
+        free(state->policy_backup);
+        free(state->authority_backup);
+        return mfree(state);
+}
+
+static bool efi_signature_type_is(const EFI_GUID *type, const EFI_GUID *candidate) {
+        return memcmp(type, candidate, sizeof(EFI_GUID)) == 0;
+}
+
+static int validate_signature_list(const void *data, size_t size, bool *ret_has_unsupported) {
+        static const EFI_GUID sha256 = GUID_DEF(0xc1c41626, 0x504c, 0x4092, 0xac, 0xa9, 0x41, 0xf9, 0x36, 0x93, 0x43, 0x28),
+                                x509 = EFI_CERT_X509_GUID;
+        bool has_unsupported = false;
+        size_t offset = 0;
+
+        assert(data || size == 0);
+
+        while (offset < size) {
+                const EFI_SIGNATURE_LIST *list;
+                uint32_t header_size, list_size, signature_size;
+                size_t entries_size;
+
+                if (size - offset < offsetof(EFI_SIGNATURE_LIST, Signatures))
+                        return -EBADMSG;
+
+                list = (const EFI_SIGNATURE_LIST*) ((const uint8_t*) data + offset);
+                list_size = unaligned_read_le32(&list->SignatureListSize);
+                header_size = unaligned_read_le32(&list->SignatureHeaderSize);
+                signature_size = unaligned_read_le32(&list->SignatureSize);
+
+                if (list_size < offsetof(EFI_SIGNATURE_LIST, Signatures) || list_size > size - offset)
+                        return -EBADMSG;
+                if (header_size > list_size - offsetof(EFI_SIGNATURE_LIST, Signatures))
+                        return -EBADMSG;
+                if (signature_size < offsetof(EFI_SIGNATURE_DATA, SignatureData))
+                        return -EBADMSG;
+
+                entries_size = list_size - offsetof(EFI_SIGNATURE_LIST, Signatures) - header_size;
+                if (entries_size % signature_size != 0)
+                        return -EBADMSG;
+
+                if (!efi_signature_type_is(&list->SignatureType, &x509) &&
+                    !efi_signature_type_is(&list->SignatureType, &sha256))
+                        has_unsupported = true;
+
+                offset += list_size;
+        }
+
+        if (ret_has_unsupported)
+                *ret_has_unsupported = has_unsupported;
+        return 0;
+}
+
+static bool signature_in_database(
+                const void *database,
+                size_t database_size,
+                const EFI_GUID *type,
+                uint32_t signature_size,
+                const void *signature) {
+
+        size_t offset = 0;
+
+        while (offset < database_size) {
+                const EFI_SIGNATURE_LIST *list = (const EFI_SIGNATURE_LIST*) ((const uint8_t*) database + offset);
+                uint32_t header_size = unaligned_read_le32(&list->SignatureHeaderSize);
+                uint32_t list_signature_size = unaligned_read_le32(&list->SignatureSize);
+                uint32_t list_size = unaligned_read_le32(&list->SignatureListSize);
+                const uint8_t *entry;
+
+                if (efi_signature_type_is(&list->SignatureType, type) && list_signature_size == signature_size) {
+                        entry = (const uint8_t*) list->Signatures + header_size;
+                        for (size_t left = list_size - offsetof(EFI_SIGNATURE_LIST, Signatures) - header_size;
+                             left > 0;
+                             left -= signature_size, entry += signature_size)
+                                if (memcmp(entry, signature, signature_size) == 0)
+                                        return true;
+                }
+
+                offset += list_size;
+        }
+
+        return false;
+}
+
+/* Collect supported update entries present in the resulting EFI database. */
+static int collect_applied_signature_records(
+                const void *database,
+                size_t database_size,
+                const void *update,
+                size_t update_size,
+                SignatureRecord **ret_authorities,
+                size_t *ret_n_authorities,
+                bool *ret_has_unsupported,
+                bool *ret_any_present) {
+
+        static const EFI_GUID sha256 = GUID_DEF(0xc1c41626, 0x504c, 0x4092, 0xac, 0xa9, 0x41, 0xf9, 0x36, 0x93, 0x43, 0x28),
+                                x509 = EFI_CERT_X509_GUID;
+        bool any_present = false, has_unsupported = false;
+        SignatureRecord *authority_records = NULL;
+        size_t n_authorities = 0, offset = 0;
+        int r;
+
+        assert(ret_authorities);
+        assert(ret_n_authorities);
+        assert(ret_has_unsupported);
+        assert(ret_any_present);
+
+        CLEANUP_ARRAY(authority_records, n_authorities, signature_records_done);
+
+        r = validate_signature_list(database, database_size, NULL);
+        if (r < 0)
+                return r;
+
+        r = validate_signature_list(update, update_size, NULL);
+        if (r < 0)
+                return r;
+
+        while (offset < update_size) {
+                const EFI_SIGNATURE_LIST *list = (const EFI_SIGNATURE_LIST*) ((const uint8_t*) update + offset);
+                uint32_t header_size = unaligned_read_le32(&list->SignatureHeaderSize);
+                uint32_t list_size = unaligned_read_le32(&list->SignatureListSize);
+                uint32_t signature_size = unaligned_read_le32(&list->SignatureSize);
+                const uint8_t *entry = (const uint8_t*) list->Signatures + header_size;
+                size_t entries_size = list_size - offsetof(EFI_SIGNATURE_LIST, Signatures) - header_size;
+                bool supported = efi_signature_type_is(&list->SignatureType, &x509) ||
+                        efi_signature_type_is(&list->SignatureType, &sha256);
+
+                for (size_t left = entries_size; left > 0; left -= signature_size, entry += signature_size) {
+                        bool present = signature_in_database(
+                                        database, database_size, &list->SignatureType, signature_size, entry);
+
+                        if (!present)
+                                continue;
+
+                        any_present = true;
+                        if (!supported) {
+                                has_unsupported = true;
+                                continue;
+                        }
+
+                        if (!GREEDY_REALLOC(authority_records, n_authorities + 1))
+                                return -ENOMEM;
+
+                        authority_records[n_authorities].data = memdup(entry, signature_size);
+                        if (!authority_records[n_authorities].data)
+                                return -ENOMEM;
+                        authority_records[n_authorities].size = signature_size;
+                        authority_records[n_authorities++].from_db = true;
+                }
+
+                offset += list_size;
+        }
+
+        *ret_authorities = TAKE_PTR(authority_records);
+        *ret_n_authorities = n_authorities;
+        *ret_has_unsupported = has_unsupported;
+        *ret_any_present = any_present;
+
+        return 0;
+}
+
+/* Strip an authentication descriptor, if present, from an EFI update. */
+static int secure_boot_authenticated_payload(const struct iovec *input, struct iovec *ret_payload) {
+        static const EFI_GUID pkcs7 = EFI_CERT_TYPE_PKCS7_GUID;
+        const EFI_VARIABLE_AUTHENTICATION_2 *auth;
+        size_t offset;
+        int r;
+
+        assert(input);
+        assert(ret_payload);
+
+        r = validate_signature_list(input->iov_base, input->iov_len, NULL);
+        if (r >= 0) {
+                if (!iovec_memdup(input, ret_payload))
+                        return -ENOMEM;
+                return 0;
+        }
+
+        if (input->iov_len < offsetof(EFI_VARIABLE_AUTHENTICATION_2, AuthInfo.CertData))
+                return -EBADMSG;
+
+        auth = input->iov_base;
+        if (unaligned_read_le16(&auth->AuthInfo.Hdr.wRevision) != 0x0200 ||
+            unaligned_read_le16(&auth->AuthInfo.Hdr.wCertificateType) != 0x0ef1)
+                return -EBADMSG;
+        if (!efi_signature_type_is(&auth->AuthInfo.CertType, &pkcs7))
+                return -EBADMSG;
+        offset = offsetof(EFI_VARIABLE_AUTHENTICATION_2, AuthInfo) + unaligned_read_le32(&auth->AuthInfo.Hdr.dwLength);
+        if (offset < offsetof(EFI_VARIABLE_AUTHENTICATION_2, AuthInfo.CertData) || offset > input->iov_len)
+                return -EBADMSG;
+
+        r = validate_signature_list((const uint8_t*) input->iov_base + offset, input->iov_len - offset, NULL);
+        if (r < 0)
+                return r;
+
+        if (!iovec_memdup(&IOVEC_MAKE((const uint8_t*) input->iov_base + offset, input->iov_len - offset), ret_payload))
+                return -ENOMEM;
+
+        return 0;
+}
+
 static int make_secure_boot_variable_data(
                 sd_id128_t vendor,
                 const char *name,
@@ -4455,7 +4708,10 @@ static int make_secure_boot_variable_data(
                 return log_oom();
         name16_bytes = char16_strlen(name16) * 2;
 
+        if (data_size > SIZE_MAX - offsetof(UEFI_VARIABLE_DATA, unicodeName) - name16_bytes)
+                return -E2BIG;
         vdata_size = offsetof(UEFI_VARIABLE_DATA, unicodeName) + name16_bytes + data_size;
+
         vdata = malloc(vdata_size);
         if (!vdata)
                 return log_oom();
@@ -4490,6 +4746,142 @@ static int make_secure_boot_variable_record(
         return make_pcrlock_record(TPM2_PCR_SECURE_BOOT_POLICY, vdata, vdata_size, ret_record);
 }
 
+static int write_pcrlock_atomic(sd_json_variant *array, const char *path) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_free_ char *text = NULL;
+        int r;
+
+        assert(array);
+        assert(path);
+
+        r = sd_json_buildo(&v, SD_JSON_BUILD_PAIR_VARIANT("records", array));
+        if (r < 0)
+                return r;
+
+        r = sd_json_variant_format(v, SD_JSON_FORMAT_NEWLINE, &text);
+        if (r < 0)
+                return r;
+
+        return write_string_file(path, text,
+                                 WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_SYNC|
+                                 WRITE_STRING_FILE_MKDIR_0755|WRITE_STRING_FILE_LABEL);
+}
+
+/* Build a content-addressed path for one boot's update prediction. */
+static int prediction_path(const char *directory, sd_id128_t transaction_id, sd_json_variant *array, char **ret) {
+        _cleanup_free_ char *formatted = NULL, *hash = NULL;
+        sd_id128_t boot_id;
+        const EVP_MD *md;
+        uint8_t digest[EVP_MAX_MD_SIZE];
+        unsigned digest_size;
+        int r;
+
+        assert(directory);
+        assert(array);
+        assert(ret);
+
+        r = sd_id128_get_boot(&boot_id);
+        if (r < 0)
+                return r;
+
+        r = sd_json_variant_format(array, 0, &formatted);
+        if (r < 0)
+                return r;
+
+        assert_se(md = sym_EVP_get_digestbyname("SHA256"));
+        digest_size = sizeof(digest);
+        if (sym_EVP_Digest(formatted, strlen(formatted), digest, &digest_size, md, NULL) != 1)
+                return -ENOTRECOVERABLE;
+
+        hash = hexmem(digest, digest_size);
+        if (!hash)
+                return -ENOMEM;
+
+        if (asprintf(ret, "%s/" PCRLOCK_SECUREBOOT_PREDICT_PREFIX SD_ID128_FORMAT_STR "-" SD_ID128_FORMAT_STR "-%s.pcrlock",
+                     directory, SD_ID128_FORMAT_VAL(boot_id), SD_ID128_FORMAT_VAL(transaction_id), hash) < 0)
+                return -ENOMEM;
+
+        return 0;
+}
+
+/* Remove generated prediction files, optionally preserving one prefix. */
+static int remove_secure_boot_predictions(const char *directory, const char *keep_prefix) {
+        _cleanup_closedir_ DIR *dir = NULL;
+
+        assert(directory);
+
+        dir = opendir(directory);
+        if (!dir) {
+                if (errno == ENOENT)
+                        return 0;
+                return -errno;
+        }
+
+        FOREACH_DIRENT(de, dir, return -errno) {
+                _cleanup_free_ char *path = NULL;
+
+                if (!startswith(de->d_name, PCRLOCK_SECUREBOOT_PREDICT_PREFIX) ||
+                    (keep_prefix && startswith(de->d_name, keep_prefix)))
+                        continue;
+                if (!endswith(de->d_name, ".pcrlock"))
+                        continue;
+
+                path = path_join(directory, de->d_name);
+                if (!path)
+                        return -ENOMEM;
+                if (unlink(path) < 0 && errno != ENOENT)
+                        return -errno;
+        }
+
+        return 0;
+}
+
+/* Remove Secure Boot predictions left by earlier boots. */
+static int remove_old_secure_boot_predictions(const char *directory) {
+        char prefix[STRLEN(PCRLOCK_SECUREBOOT_PREDICT_PREFIX) + SD_ID128_STRING_MAX + 1];
+        sd_id128_t boot_id;
+        int r;
+
+        r = sd_id128_get_boot(&boot_id);
+        if (r < 0)
+                return r;
+
+        xsprintf(prefix, PCRLOCK_SECUREBOOT_PREDICT_PREFIX SD_ID128_FORMAT_STR "-", SD_ID128_FORMAT_VAL(boot_id));
+        return remove_secure_boot_predictions(directory, prefix);
+}
+
+/* Report whether a directory contains generated prediction variants. */
+static int secure_boot_predictions_exist(const char *directory) {
+        _cleanup_closedir_ DIR *dir = NULL;
+
+        dir = opendir(directory);
+        if (!dir) {
+                if (errno == ENOENT)
+                        return 0;
+                return -errno;
+        }
+
+        FOREACH_DIRENT(de, dir, return -errno)
+                if (startswith(de->d_name, PCRLOCK_SECUREBOOT_PREDICT_PREFIX) &&
+                    endswith(de->d_name, ".pcrlock"))
+                        return 1;
+
+        return 0;
+}
+
+/* Report whether generated or predicted variants activate a component. */
+static int secure_boot_component_is_active(const char *path, const char *directory) {
+        assert(path);
+        assert(directory);
+
+        if (access(path, F_OK) >= 0)
+                return true;
+        if (errno != ENOENT)
+                return -errno;
+
+        return secure_boot_predictions_exist(directory);
+}
+
 static const struct {
         sd_id128_t id;
         const char *name;
@@ -4504,33 +4896,99 @@ static const struct {
         { EFI_VENDOR_DATABASE, "dbr",       -1 },
 };
 
-static int build_secureboot_policy(sd_json_variant **ret_array) {
+static int secure_boot_variable_info(SecureBootVariable variable, sd_id128_t *ret_vendor, const char **ret_name) {
+        assert(ret_vendor);
+        assert(ret_name);
+
+        switch (variable) {
+        case SECURE_BOOT_VARIABLE_KEK:
+                *ret_vendor = EFI_VENDOR_GLOBAL;
+                *ret_name = "KEK";
+                return 0;
+        case SECURE_BOOT_VARIABLE_DB:
+                *ret_vendor = EFI_VENDOR_DATABASE;
+                *ret_name = "db";
+                return 0;
+        case SECURE_BOOT_VARIABLE_DBX:
+                *ret_vendor = EFI_VENDOR_DATABASE;
+                *ret_name = "dbx";
+                return 0;
+        default:
+                return -EINVAL;
+        }
+}
+
+static int read_secure_boot_variable(SecureBootVariable variable, struct iovec *ret_data) {
+        _cleanup_free_ char *efi_name = NULL;
+        const char *name;
+        sd_id128_t vendor;
+        size_t size = 0;
+        void *data = NULL;
+        int r;
+
+        assert(ret_data);
+
+        r = secure_boot_variable_info(variable, &vendor, &name);
+        if (r < 0)
+                return r;
+        if (asprintf(&efi_name, "%s-" SD_ID128_UUID_FORMAT_STR, name, SD_ID128_FORMAT_VAL(vendor)) < 0)
+                return -ENOMEM;
+
+        r = efi_get_variable(efi_name, NULL, &data, &size);
+        if (r == -ENOENT)
+                size = 0;
+        else if (r < 0)
+                return r;
+
+        *ret_data = IOVEC_MAKE(data, size);
+        return 0;
+}
+
+static int build_secureboot_policy(
+                SecureBootVariable override_variable,
+                const struct iovec *override_data,
+                sd_json_variant **ret_array) {
+
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        sd_id128_t override_vendor = SD_ID128_NULL;
+        const char *override_name = NULL;
         int r;
 
         assert(ret_array);
 
+        if (override_variable >= 0) {
+                assert(override_data);
+                r = secure_boot_variable_info(override_variable, &override_vendor, &override_name);
+                if (r < 0)
+                        return r;
+        }
+
         FOREACH_ELEMENT(vv, secure_boot_policy_variables) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *record = NULL;
-
-                _cleanup_free_ char *name = NULL;
-                if (asprintf(&name, "%s-" SD_ID128_UUID_FORMAT_STR, vv->name, SD_ID128_FORMAT_VAL(vv->id)) < 0)
-                        return log_oom();
-
                 _cleanup_free_ void *data = NULL;
                 size_t data_size;
 
-                r = efi_get_variable(name, NULL, &data, &data_size);
-                if (r < 0) {
-                        if (r != -ENOENT || vv->synthesize_empty == 0)
-                                return log_error_errno(r, "Failed to read EFI variable '%s': %m", name);
-                        if (vv->synthesize_empty < 0)
-                                continue;
+                if (override_name && sd_id128_equal(vv->id, override_vendor) && streq(vv->name, override_name)) {
+                        data = memdup(override_data->iov_base, override_data->iov_len);
+                        if (!data && override_data->iov_len > 0)
+                                return log_oom();
+                        data_size = override_data->iov_len;
+                } else {
+                        _cleanup_free_ char *name = NULL;
+                        if (asprintf(&name, "%s-" SD_ID128_UUID_FORMAT_STR, vv->name, SD_ID128_FORMAT_VAL(vv->id)) < 0)
+                                return log_oom();
 
-                        /* If the main database variables are not set we don't consider this an error, but
-                         * measure an empty database instead. */
-                        log_debug("EFI variable %s is not set, synthesizing empty variable for measurement.", name);
-                        data_size = 0;
+                        r = efi_get_variable(name, NULL, &data, &data_size);
+                        if (r < 0) {
+                                if (r != -ENOENT || vv->synthesize_empty == 0)
+                                        return log_error_errno(r, "Failed to read EFI variable '%s': %m", name);
+                                if (vv->synthesize_empty < 0)
+                                        continue;
+                                /* If the main database variables are not set we don't consider this an error, but
+                                 * measure an empty database instead. */
+                                log_debug("EFI variable %s is not set, synthesizing empty variable for measurement.", name);
+                                data_size = 0;
+                        }
                 }
 
                 r = make_secure_boot_variable_record(vv->id, vv->name, data, data_size, &record);
@@ -4553,11 +5011,25 @@ static int lock_secureboot_policy(void) {
         /* Generates expected records from the current SecureBoot state, as readable in the EFI variables
          * right now. */
 
-        r = build_secureboot_policy(&array);
+        r = build_secureboot_policy(_SECURE_BOOT_VARIABLE_INVALID, NULL, &array);
         if (r < 0)
                 return r;
 
-        return write_pcrlock(array, PCRLOCK_SECUREBOOT_POLICY_PATH);
+        r = write_pcrlock(array, PCRLOCK_SECUREBOOT_POLICY_PATH);
+        if (r < 0)
+                return r;
+
+        return remove_old_secure_boot_predictions(PCRLOCK_SECUREBOOT_POLICY_DIR);
+}
+
+/* Remove generated and predicted Secure Boot policy variants. */
+static int unlock_secureboot_policy(void) {
+        int r = 0;
+
+        RET_GATHER(r, unlink_pcrlock(PCRLOCK_SECUREBOOT_POLICY_PATH));
+        RET_GATHER(r, remove_secure_boot_predictions(PCRLOCK_SECUREBOOT_POLICY_DIR, /* keep_prefix= */ NULL));
+
+        return r;
 }
 
 VERB_NOARG(verb_lock_secureboot_policy, "lock-secureboot-policy",
@@ -4569,7 +5041,7 @@ static int verb_lock_secureboot_policy(int argc, char *argv[], uintptr_t _data, 
 VERB_NOARG(verb_unlock_secureboot_policy, "unlock-secureboot-policy",
            "Remove .pcrlock file for SecureBoot policy");
 static int verb_unlock_secureboot_policy(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        return unlink_pcrlock(PCRLOCK_SECUREBOOT_POLICY_PATH);
+        return unlock_secureboot_policy();
 }
 
 static int event_log_record_is_secureboot_variable(EventLogRecord *rec, sd_id128_t uuid, const char *name) {
@@ -4765,7 +5237,21 @@ static int lock_secureboot_authority(void) {
                         return log_error_errno(r, "Failed to build record array: %m");
         }
 
-        return write_pcrlock(array, PCRLOCK_SECUREBOOT_AUTHORITY_PATH);
+        r = write_pcrlock(array, PCRLOCK_SECUREBOOT_AUTHORITY_PATH);
+        if (r < 0)
+                return r;
+
+        return remove_old_secure_boot_predictions(PCRLOCK_SECUREBOOT_AUTHORITY_DIR);
+}
+
+/* Remove generated and predicted Secure Boot authority variants. */
+static int unlock_secureboot_authority(void) {
+        int r = 0;
+
+        RET_GATHER(r, unlink_pcrlock(PCRLOCK_SECUREBOOT_AUTHORITY_PATH));
+        RET_GATHER(r, remove_secure_boot_predictions(PCRLOCK_SECUREBOOT_AUTHORITY_DIR, /* keep_prefix= */ NULL));
+
+        return r;
 }
 
 VERB_NOARG(verb_lock_secureboot_authority, "lock-secureboot-authority",
@@ -4777,7 +5263,231 @@ static int verb_lock_secureboot_authority(int argc, char *argv[], uintptr_t _dat
 VERB_NOARG(verb_unlock_secureboot_authority, "unlock-secureboot-authority",
            "Remove .pcrlock file for SecureBoot authority");
 static int verb_unlock_secureboot_authority(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        return unlink_pcrlock(PCRLOCK_SECUREBOOT_AUTHORITY_PATH);
+        return unlock_secureboot_authority();
+}
+
+/* Load measured authorities and their raw EFI signature entries. */
+static int load_secureboot_authorities(
+                sd_json_variant **ret_array,
+                SignatureRecord **ret_records,
+                size_t *ret_n_records,
+                bool *ret_has_direct_hash) {
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        _cleanup_(event_log_freep) EventLog *el = NULL;
+        SignatureRecord *records = NULL;
+        size_t n_records = 0;
+        bool has_direct_hash = false;
+        int r;
+
+        assert(ret_array);
+        assert(ret_records);
+        assert(ret_n_records);
+        assert(ret_has_direct_hash);
+
+        el = event_log_new();
+        if (!el)
+                return -ENOMEM;
+        r = event_log_add_algorithms_from_environment(el);
+        if (r < 0)
+                return r;
+        r = event_log_load(el);
+        if (r < 0)
+                return r;
+        r = event_log_read_pcrs(el);
+        if (r < 0)
+                return r;
+        r = event_log_calculate_pcrs(el);
+        if (r < 0)
+                return r;
+        r = event_log_pcr_mask_checks_out(el, UINT32_C(1) << TPM2_PCR_SECURE_BOOT_POLICY);
+        if (r < 0)
+                return r;
+        r = event_log_validate_record_hashes(el);
+        if (r < 0)
+                return r;
+        r = event_log_ensure_secureboot_consistency(el);
+        if (r < 0)
+                return r;
+
+        FOREACH_ARRAY(rr, el->records, el->n_records) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *record = NULL;
+                _cleanup_free_ char *variable_name = NULL;
+                EventLogRecord *rec = *rr;
+                const UEFI_VARIABLE_DATA *vdata;
+                sd_id128_t variable_vendor;
+                size_t data_offset;
+
+                if (!event_log_record_is_secureboot_authority(rec))
+                        continue;
+
+                r = make_pcrlock_record(rec->pcr, rec->firmware_payload, rec->firmware_payload_size, &record);
+                if (r < 0)
+                        goto fail;
+                r = sd_json_variant_append_array(&array, record);
+                if (r < 0)
+                        goto fail;
+
+                vdata = rec->firmware_payload;
+                data_offset = offsetof(UEFI_VARIABLE_DATA, unicodeName) + vdata->unicodeNameLength * 2;
+                if (vdata->variableDataLength == 48)
+                        has_direct_hash = true;
+
+                if (!GREEDY_REALLOC(records, n_records + 1)) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+                r = event_log_record_parse_variable_data(rec, &variable_vendor, &variable_name);
+                if (r < 0)
+                        goto fail;
+                records[n_records].data = memdup((const uint8_t*) rec->firmware_payload + data_offset, vdata->variableDataLength);
+                if (!records[n_records].data) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+                records[n_records].size = vdata->variableDataLength;
+                records[n_records++].from_db =
+                        sd_id128_equal(variable_vendor, EFI_VENDOR_DATABASE) && streq(variable_name, "db");
+        }
+
+        if (!array) {
+                r = sd_json_variant_new_array(&array, NULL, 0);
+                if (r < 0)
+                        goto fail;
+        }
+
+        *ret_array = TAKE_PTR(array);
+        *ret_records = records;
+        *ret_n_records = n_records;
+        *ret_has_direct_hash = has_direct_hash;
+        return 0;
+
+fail:
+        signature_records_done(records, n_records);
+        return r;
+}
+
+/* Check whether an equivalent authority record was already collected. */
+static bool signature_record_seen(const SignatureRecord *records, size_t n_records, const SignatureRecord *candidate) {
+        FOREACH_ARRAY(record, records, n_records)
+                if (record->from_db == candidate->from_db &&
+                    record->size == candidate->size &&
+                    memcmp(record->data, candidate->data, record->size) == 0)
+                        return true;
+
+        return false;
+}
+
+/* Write possible authority orderings for newly accepted db entries. */
+static int write_authority_predictions(
+                sd_id128_t transaction_id,
+                SignatureRecord *new_records,
+                size_t n_new_records,
+                char ***ret_paths,
+                bool *ret_fallback) {
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *current = NULL;
+        _cleanup_free_ SignatureRecord *unique = NULL;
+        _cleanup_strv_free_ char **paths = NULL;
+        SignatureRecord *current_records = NULL;
+        size_t n_current_records = 0, n_unique = 0;
+        bool has_direct_hash = false;
+        int r;
+
+        assert(ret_paths);
+        assert(ret_fallback);
+
+        CLEANUP_ARRAY(current_records, n_current_records, signature_records_done);
+
+        r = load_secureboot_authorities(&current, &current_records, &n_current_records, &has_direct_hash);
+        if (r == -ENOMEM)
+                return r;
+        if (r < 0) {
+                log_notice_errno(r, "Unable to predict Secure Boot authority measurements, using fallback: %m");
+                *ret_fallback = true;
+                *ret_paths = NULL;
+                return 0;
+        }
+
+        unique = new(SignatureRecord, n_new_records);
+        if (!unique && n_new_records > 0)
+                return -ENOMEM;
+
+        for (size_t i = 0; i < n_new_records; i++) {
+                if (signature_record_seen(current_records, n_current_records, new_records + i) ||
+                    signature_record_seen(unique, n_unique, new_records + i))
+                        continue;
+
+                unique[n_unique++] = new_records[i];
+        }
+        n_new_records = n_unique;
+
+        if (n_new_records == 0)
+                return 0;
+
+        /* With two or more new authorities the first-use order depends on which boot applications execute.
+         * Accounting for every permutation together with the current/new policy variants would exceed the
+         * TPM's limit of eight PCR outcomes, so fall back instead of installing incomplete alternatives. */
+        if (has_direct_hash || n_new_records > 1) {
+                *ret_fallback = true;
+                *ret_paths = NULL;
+                return 0;
+        }
+
+        if ((n_current_records + 2) * 2 > PCRLOCK_SECUREBOOT_OUTCOMES_MAX) {
+                *ret_fallback = true;
+                *ret_paths = NULL;
+                return 0;
+        }
+
+        assert(n_new_records == 1);
+        for (size_t insertion = 0; insertion <= n_current_records; insertion++) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL, *new_record = NULL;
+                _cleanup_free_ char *path = NULL;
+                _cleanup_free_ UEFI_VARIABLE_DATA *vdata = NULL;
+                size_t vdata_size;
+
+                r = make_secure_boot_variable_data(
+                                EFI_VENDOR_DATABASE, "db",
+                                unique[0].data, unique[0].size,
+                                &vdata, &vdata_size);
+                if (r < 0)
+                        return r;
+                r = make_pcrlock_record(TPM2_PCR_SECURE_BOOT_POLICY, vdata, vdata_size, &new_record);
+                if (r < 0)
+                        return r;
+
+                for (size_t i = 0; i <= n_current_records; i++) {
+                        if (i == insertion) {
+                                r = sd_json_variant_append_array(&array, new_record);
+                                if (r < 0)
+                                        return r;
+                        }
+                        if (i == n_current_records)
+                                continue;
+
+                        r = sd_json_variant_append_array(&array, sd_json_variant_by_index(current, i));
+                        if (r < 0)
+                                return r;
+                }
+
+                r = prediction_path(PCRLOCK_SECUREBOOT_AUTHORITY_DIR, transaction_id, array, &path);
+                if (r < 0)
+                        return r;
+                r = write_pcrlock_atomic(array, path);
+                if (r < 0)
+                        return r;
+                r = strv_extend(&paths, path);
+                if (r < 0) {
+                        (void) unlink(path);
+                        return r;
+                }
+        }
+
+        *ret_fallback = false;
+        *ret_paths = TAKE_PTR(paths);
+
+        return 0;
 }
 
 VERB(verb_lock_gpt, "lock-gpt", "[DISK]", VERB_ANY, 2, 0,
@@ -5617,6 +6327,234 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         return 1;
 }
 
+static bool secure_boot_component_file_is_owned(const char *name) {
+        assert(name);
+
+        return streq(name, "generated.pcrlock") ||
+                (startswith(name, PCRLOCK_SECUREBOOT_PREDICT_PREFIX) && endswith(name, ".pcrlock"));
+}
+
+/* Remove a transaction backup directory and its contents. */
+static int remove_component_backup(const char *backup) {
+        _cleanup_closedir_ DIR *dir = NULL;
+        int r = 0;
+
+        if (!backup)
+                return 0;
+
+        dir = opendir(backup);
+        if (!dir) {
+                if (errno == ENOENT)
+                        return 0;
+                return -errno;
+        }
+
+        FOREACH_DIRENT(de, dir, return -errno) {
+                _cleanup_free_ char *path = NULL;
+
+                path = path_join(backup, de->d_name);
+                if (!path)
+                        return -ENOMEM;
+                if (unlink(path) < 0 && errno != ENOENT)
+                        RET_GATHER(r, -errno);
+        }
+
+        dir = safe_closedir(dir);
+        if (rmdir(backup) < 0 && errno != ENOENT)
+                RET_GATHER(r, -errno);
+
+        return r;
+}
+
+/* Restore systemd-owned component files from a transaction backup. */
+static int restore_component_files(const char *backup, const char *destination) {
+        _cleanup_closedir_ DIR *dir = NULL;
+        int r;
+
+        if (!backup)
+                return 0;
+
+        dir = opendir(backup);
+        if (!dir) {
+                if (errno == ENOENT)
+                        return 0;
+                return -errno;
+        }
+
+        FOREACH_DIRENT(de, dir, return -errno) {
+                _cleanup_free_ char *content = NULL, *source = NULL, *target = NULL;
+
+                if (!secure_boot_component_file_is_owned(de->d_name))
+                        continue;
+
+                source = path_join(backup, de->d_name);
+                target = path_join(destination, de->d_name);
+                if (!source || !target)
+                        return -ENOMEM;
+
+                r = read_full_file_full(
+                                AT_FDCWD,
+                                source,
+                                UINT64_MAX,
+                                SIZE_MAX,
+                                READ_FULL_FILE_SECURE,
+                                /* bind_name= */ NULL,
+                                &content,
+                                /* ret_size= */ NULL);
+                if (r < 0)
+                        return r;
+
+                r = write_string_file(
+                                target,
+                                content,
+                                WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_SYNC|
+                                WRITE_STRING_FILE_MKDIR_0755|WRITE_STRING_FILE_LABEL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+/* Report whether a backup contains systemd-owned component files. */
+static int component_backup_has_files(const char *backup) {
+        _cleanup_closedir_ DIR *dir = NULL;
+
+        dir = opendir(backup);
+        if (!dir) {
+                if (errno == ENOENT)
+                        return 0;
+                return -errno;
+        }
+
+        FOREACH_DIRENT(de, dir, return -errno)
+                if (secure_boot_component_file_is_owned(de->d_name))
+                        return 1;
+
+        return 0;
+}
+
+/* Back up and remove systemd-owned files for one component. */
+static int backup_component_files(const char *source, const char *id, const char *component, char **ret_backup) {
+        _cleanup_closedir_ DIR *dir = NULL;
+        _cleanup_free_ char *backup = NULL;
+        _cleanup_strv_free_ char **names = NULL;
+        int r;
+
+        assert(source);
+        assert(id);
+        assert(component);
+        assert(ret_backup);
+
+        if (asprintf(&backup, PCRLOCK_SECUREBOOT_UPDATE_DIR "/%s.%s", id, component) < 0)
+                return -ENOMEM;
+
+        dir = opendir(source);
+        if (!dir) {
+                if (errno == ENOENT)
+                        return 0;
+                return -errno;
+        }
+
+        FOREACH_DIRENT(de, dir, goto fail) {
+                _cleanup_free_ char *content = NULL, *from = NULL, *to = NULL;
+
+                if (!secure_boot_component_file_is_owned(de->d_name))
+                        continue;
+
+                from = path_join(source, de->d_name);
+                to = path_join(backup, de->d_name);
+                if (!from || !to) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
+                r = read_full_file_full(AT_FDCWD, from, UINT64_MAX, SIZE_MAX, READ_FULL_FILE_SECURE, NULL, &content, NULL);
+                if (r < 0)
+                        goto fail;
+                r = write_string_file(
+                                to, content,
+                                WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_SYNC|
+                                WRITE_STRING_FILE_MKDIR_0755|WRITE_STRING_FILE_MODE_0600|WRITE_STRING_FILE_LABEL);
+                if (r < 0)
+                        goto fail;
+                r = strv_extend(&names, de->d_name);
+                if (r < 0)
+                        goto fail;
+        }
+
+        STRV_FOREACH(name, names) {
+                _cleanup_free_ char *path = path_join(source, *name);
+
+                if (!path) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+                if (unlink(path) < 0 && errno != ENOENT) {
+                        r = -errno;
+                        goto restore;
+                }
+        }
+
+        if (strv_isempty(names)) {
+                r = component_backup_has_files(backup);
+                if (r <= 0)
+                        return r;
+        }
+
+        *ret_backup = TAKE_PTR(backup);
+        return 1;
+
+restore:
+        (void) restore_component_files(backup, source);
+fail:
+        (void) remove_component_backup(backup);
+        return r;
+}
+
+/* Remove prediction files created by the current update transaction. */
+static int remove_secure_boot_update_predictions(const SecureBootUpdateState *state) {
+        int ret = 0;
+
+        if (state->policy_path && unlink(state->policy_path) < 0 && errno != ENOENT)
+                RET_GATHER(ret, -errno);
+        STRV_FOREACH(path, state->authority_paths)
+                if (unlink(*path) < 0 && errno != ENOENT)
+                        RET_GATHER(ret, -errno);
+
+        return ret;
+}
+
+/* Restore component files removed while applying update fallbacks. */
+static int restore_secure_boot_update_components(SecureBootUpdateState *state) {
+        int r, ret = 0;
+
+        if (state->policy_removed) {
+                r = restore_component_files(state->policy_backup, PCRLOCK_SECUREBOOT_POLICY_DIR);
+                RET_GATHER(ret, r);
+                if (r >= 0) {
+                        state->policy_removed = false;
+                }
+        }
+        if (state->authority_removed) {
+                r = restore_component_files(state->authority_backup, PCRLOCK_SECUREBOOT_AUTHORITY_DIR);
+                RET_GATHER(ret, r);
+                if (r >= 0) {
+                        state->authority_removed = false;
+                }
+        }
+
+        return ret;
+}
+
+/* Discard transaction backups after commit or rollback. */
+static void discard_secure_boot_update_backups(SecureBootUpdateState *state) {
+        if (state->policy_backup)
+                (void) remove_component_backup(state->policy_backup);
+        if (state->authority_backup)
+                (void) remove_component_backup(state->authority_backup);
+}
+
 static int vl_method_read_event_log(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         _cleanup_(event_log_freep) EventLog *el = NULL;
         uint64_t recnum = 0;
@@ -5799,11 +6737,11 @@ static int vl_method_lock(sd_varlink *link, sd_json_variant *parameters, sd_varl
                 break;
 
         case LOCK_CATEGORY_SECUREBOOT_POLICY:
-                r = p.lock ? lock_secureboot_policy() : unlink_pcrlock(PCRLOCK_SECUREBOOT_POLICY_PATH);
+                r = p.lock ? lock_secureboot_policy() : unlock_secureboot_policy();
                 break;
 
         case LOCK_CATEGORY_SECUREBOOT_AUTHORITY:
-                r = p.lock ? lock_secureboot_authority() : unlink_pcrlock(PCRLOCK_SECUREBOOT_AUTHORITY_PATH);
+                r = p.lock ? lock_secureboot_authority() : unlock_secureboot_authority();
                 break;
 
         default:
@@ -5812,6 +6750,216 @@ static int vl_method_lock(sd_varlink *link, sd_json_variant *parameters, sd_varl
         if (r < 0)
                 return r;
 
+        return sd_varlink_reply(link, NULL);
+}
+
+typedef struct MethodPrepareSecureBootUpdateParameters {
+        SecureBootVariable variable;
+        struct iovec data;
+        bool regenerate;
+} MethodPrepareSecureBootUpdateParameters;
+
+static void method_prepare_secure_boot_update_parameters_done(MethodPrepareSecureBootUpdateParameters *p) {
+        iovec_done(&p->data);
+}
+
+/* Roll back prediction files, component fallbacks, and policy changes. */
+static void rollback_secure_boot_update(SecureBootUpdateState *state) {
+        (void) remove_secure_boot_update_predictions(state);
+        (void) restore_secure_boot_update_components(state);
+        if (state->regenerate)
+                (void) make_policy(/* force= */ false, /* recovery_pin_mode= */ RECOVERY_PIN_HIDE);
+        discard_secure_boot_update_backups(state);
+}
+
+/* Roll back and free an update transaction while its guard remains armed. */
+static void rollback_secure_boot_updatep(SecureBootUpdateState **state) {
+        assert(state);
+
+        if (!*state)
+                return;
+
+        rollback_secure_boot_update(*state);
+        *state = secure_boot_update_state_done(*state);
+}
+
+/* Predict next-boot measurements after a Secure Boot variable update. */
+static int vl_method_prepare_secure_boot_update(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                sd_varlink_method_flags_t flags,
+                void *userdata) {
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "variable",   SD_JSON_VARIANT_STRING,  dispatch_secure_boot_variable, offsetof(MethodPrepareSecureBootUpdateParameters, variable),   SD_JSON_MANDATORY },
+                { "data",       SD_JSON_VARIANT_STRING,  json_dispatch_unbase64_iovec,  offsetof(MethodPrepareSecureBootUpdateParameters, data),       SD_JSON_MANDATORY },
+                { "regenerate", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(MethodPrepareSecureBootUpdateParameters, regenerate), 0                 },
+                {}
+        };
+        _cleanup_(method_prepare_secure_boot_update_parameters_done) MethodPrepareSecureBootUpdateParameters p = {
+                .variable = _SECURE_BOOT_VARIABLE_INVALID,
+                .regenerate = true,
+        };
+        _cleanup_(rollback_secure_boot_updatep) SecureBootUpdateState *state = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *policy = NULL;
+        _cleanup_(iovec_done) struct iovec current = {}, payload = {};
+        SignatureRecord *authority_records = NULL;
+        size_t n_authority_records = 0;
+        bool any_present = false, authority_active = false, authority_fallback = false,
+                        authority_fallback_applied = false, has_unsupported = false, policy_active = false,
+                        policy_fallback = false, policy_fallback_applied = false;
+        char update_id_string[SD_ID128_STRING_MAX];
+        sd_id128_t update_id;
+        int r;
+
+        CLEANUP_ARRAY(authority_records, n_authority_records, signature_records_done);
+
+        assert(link);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        r = varlink_check_privileged_peer(link);
+        if (r < 0)
+                return r;
+
+        r = sd_id128_randomize(&update_id);
+        if (r < 0)
+                return r;
+        sd_id128_to_string(update_id, update_id_string);
+
+        state = new(SecureBootUpdateState, 1);
+        if (!state)
+                return -ENOMEM;
+        *state = (SecureBootUpdateState) {
+                .regenerate = p.regenerate,
+        };
+
+        r = remove_old_secure_boot_predictions(PCRLOCK_SECUREBOOT_POLICY_DIR);
+        if (r < 0)
+                return r;
+        r = remove_old_secure_boot_predictions(PCRLOCK_SECUREBOOT_AUTHORITY_DIR);
+        if (r < 0)
+                return r;
+
+        r = read_secure_boot_variable(p.variable, &current);
+        if (r == -ENOMEM)
+                return r;
+        if (r < 0) {
+                log_notice_errno(r, "Unable to read current Secure Boot variable, using authority fallback: %m");
+                authority_fallback = p.variable != SECURE_BOOT_VARIABLE_KEK;
+        } else {
+                r = secure_boot_authenticated_payload(&p.data, &payload);
+                if (r == -EBADMSG)
+                        authority_fallback = p.variable != SECURE_BOOT_VARIABLE_KEK;
+                else if (r < 0)
+                        return r;
+                else {
+                        r = collect_applied_signature_records(
+                                        current.iov_base, current.iov_len,
+                                        payload.iov_base, payload.iov_len,
+                                        &authority_records, &n_authority_records, &has_unsupported, &any_present);
+                        if (r == -EBADMSG)
+                                authority_fallback = p.variable != SECURE_BOOT_VARIABLE_KEK;
+                        else if (r < 0)
+                                return r;
+                }
+        }
+
+        r = secure_boot_component_is_active(PCRLOCK_SECUREBOOT_POLICY_PATH, PCRLOCK_SECUREBOOT_POLICY_DIR);
+        if (r < 0)
+                return r;
+        policy_active = r > 0;
+
+        r = secure_boot_predictions_exist(PCRLOCK_SECUREBOOT_POLICY_DIR);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                policy_fallback = true;
+
+        if (p.variable != SECURE_BOOT_VARIABLE_KEK) {
+                r = secure_boot_component_is_active(PCRLOCK_SECUREBOOT_AUTHORITY_PATH, PCRLOCK_SECUREBOOT_AUTHORITY_DIR);
+                if (r < 0)
+                        return r;
+                authority_active = r > 0;
+
+                r = secure_boot_predictions_exist(PCRLOCK_SECUREBOOT_AUTHORITY_DIR);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        authority_fallback = true;
+        }
+
+        if (policy_active && !policy_fallback) {
+                r = build_secureboot_policy(_SECURE_BOOT_VARIABLE_INVALID, /* override_data= */ NULL, &policy);
+                if (r == -ENOMEM)
+                        return r;
+                if (r < 0) {
+                        log_notice_errno(r, "Unable to predict Secure Boot policy measurements, using fallback: %m");
+                        policy_fallback = true;
+                } else {
+                        r = prediction_path(PCRLOCK_SECUREBOOT_POLICY_DIR, update_id, policy, &state->policy_path);
+                        if (r < 0)
+                                return r;
+                        r = write_pcrlock_atomic(policy, state->policy_path);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        if (authority_active && p.variable == SECURE_BOOT_VARIABLE_DBX && any_present)
+                authority_fallback = true;
+        else if (authority_active && p.variable == SECURE_BOOT_VARIABLE_DB && has_unsupported && any_present)
+                authority_fallback = true;
+        else if (authority_active && p.variable == SECURE_BOOT_VARIABLE_DB && n_authority_records > 0 && !authority_fallback) {
+                r = write_authority_predictions(
+                                update_id, authority_records, n_authority_records,
+                                &state->authority_paths, &authority_fallback);
+                if (r < 0)
+                        return r;
+        }
+
+        for (;;) {
+                if (policy_fallback && !policy_fallback_applied) {
+                        r = backup_component_files(PCRLOCK_SECUREBOOT_POLICY_DIR, update_id_string, "policy", &state->policy_backup);
+                        if (r < 0)
+                                return r;
+                        state->policy_removed = r > 0;
+                        policy_fallback_applied = true;
+                }
+                if (authority_fallback && !authority_fallback_applied) {
+                        r = backup_component_files(PCRLOCK_SECUREBOOT_AUTHORITY_DIR, update_id_string, "authority", &state->authority_backup);
+                        if (r < 0)
+                                return r;
+                        state->authority_removed = r > 0;
+                        authority_fallback_applied = true;
+                }
+
+                if (p.regenerate) {
+                        r = make_policy(/* force= */ false, /* recovery_pin_mode= */ RECOVERY_PIN_HIDE);
+                        if (r != -E2BIG)
+                                break;
+                }
+
+                if (!authority_fallback && !strv_isempty(state->authority_paths)) {
+                        log_notice("Secure Boot prediction exceeds the supported PCR outcome count, using authority fallback.");
+                        authority_fallback = true;
+                        continue;
+                }
+                if (!policy_fallback && state->policy_path) {
+                        log_notice("Secure Boot prediction exceeds the supported PCR outcome count, using policy fallback.");
+                        policy_fallback = true;
+                        continue;
+                }
+
+                break;
+        }
+        if (r < 0)
+                return r;
+
+        discard_secure_boot_update_backups(state);
+        state = secure_boot_update_state_done(state);
         return sd_varlink_reply(link, NULL);
 }
 
@@ -5884,6 +7032,7 @@ static int run(int argc, char *argv[]) {
                                 "io.systemd.PCRLock.MakePolicy",                    vl_method_make_policy,
                                 "io.systemd.PCRLock.RemovePolicy",                  vl_method_remove_policy,
                                 "io.systemd.PCRLock.Lock",                          vl_method_lock,
+                                "io.systemd.PCRLock.PrepareSecureBootUpdate",       vl_method_prepare_secure_boot_update,
                                 "io.systemd.SysUpdate.Notify.OnCompletedUpdate",    vl_method_on_completed_update);
                 if (r < 0)
                         return log_error_errno(r, "Failed to bind Varlink methods: %m");
