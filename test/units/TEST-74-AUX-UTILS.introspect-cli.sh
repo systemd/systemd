@@ -16,6 +16,7 @@ INTROSPECTABLE=(
     homectl
     hostnamectl
     importctl
+    localectl
     resolvectl
     systemd-ac-power
     systemd-analyze
