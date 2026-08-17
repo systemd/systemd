@@ -329,14 +329,15 @@ int ask_password_plymouth(
 
         if (FLAGS_SET(flags, ASK_PASSWORD_ACCEPT_CACHED)) {
                 packet = strdup("c");
+                if (!packet)
+                        return -ENOMEM;
+
                 packet_size = 2;
         } else {
                 r = plymouth_build_password_packet(message, &packet, &packet_size);
                 if (r < 0)
                         return r;
         }
-        if (!packet)
-                return -ENOMEM;
 
         r = loop_write_full(fd, packet, packet_size, USEC_INFINITY);
         if (r < 0)
