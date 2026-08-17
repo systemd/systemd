@@ -64,7 +64,25 @@
 /* Coccinelle can't handle the __attribute__((__cleanup__(x))) GCC extension used by our _cleanup_*
  * macros. Without this, any variable declared with _cleanup_free_ or _cleanup_(foo) makes the whole
  * function unparsable. Drop the attribute since it's not relevant for semantic checks. */
+#define _cleanup_bitmap_free_
+#define _cleanup_close_
+#define _cleanup_close_pair_
+#define _cleanup_closedir_
+#define _cleanup_fclose_
+#define _cleanup_fdset_free_
+#define _cleanup_file_close_
 #define _cleanup_free_
+#define _cleanup_freecon_
+#define _cleanup_hashmap_free_
+#define _cleanup_iterated_cache_free_
+#define _cleanup_ordered_hashmap_free_
+#define _cleanup_ordered_set_free_
+#define _cleanup_pages_
+#define _cleanup_pclose_
+#define _cleanup_set_free_
+#define _cleanup_strv_free_
+#define _cleanup_strv_free_erase_
+#define _cleanup_umask_
 #define _cleanup_(x)
 
 /* Coccinelle fails to parse these from the included headers, so let's just drop them. */
