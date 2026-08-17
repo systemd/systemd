@@ -666,6 +666,8 @@ static int job_node_enumerator(
         Job *j;
         unsigned k = 0;
 
+        assert(nodes);
+
         l = new0(char*, hashmap_size(m->jobs) + 1);
         if (!l)
                 return -ENOMEM;
@@ -758,6 +760,8 @@ static int sysupdate_run_simple(sd_json_variant **ret, Target *t, ...) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_free_ char *target_arg = NULL;
         int r;
+
+        assert(ret);
 
         if (t) {
                 r = target_get_argument(t, &target_arg);
@@ -1616,6 +1620,8 @@ static int target_node_enumerator(
         Target *t;
         unsigned k = 0;
         int r;
+
+        assert(nodes);
 
         r = manager_ensure_targets(m);
         if (r < 0)

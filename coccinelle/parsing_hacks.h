@@ -64,8 +64,61 @@
 /* Coccinelle can't handle the __attribute__((__cleanup__(x))) GCC extension used by our _cleanup_*
  * macros. Without this, any variable declared with _cleanup_free_ or _cleanup_(foo) makes the whole
  * function unparsable. Drop the attribute since it's not relevant for semantic checks. */
+#define _cleanup_bitmap_free_
+#define _cleanup_close_
+#define _cleanup_close_pair_
+#define _cleanup_closedir_
+#define _cleanup_fclose_
+#define _cleanup_fdset_free_
+#define _cleanup_file_close_
 #define _cleanup_free_
+#define _cleanup_freecon_
+#define _cleanup_hashmap_free_
+#define _cleanup_iterated_cache_free_
+#define _cleanup_ordered_hashmap_free_
+#define _cleanup_ordered_set_free_
+#define _cleanup_pages_
+#define _cleanup_pclose_
+#define _cleanup_set_free_
+#define _cleanup_strv_free_
+#define _cleanup_strv_free_erase_
+#define _cleanup_umask_
 #define _cleanup_(x)
+
+/* Also drop other attributes. */
+#define _alias_(x)
+#define _align_(x)
+#define _alignas_(x)
+#define _alignptr_
+#define _cleanup_(x)
+#define _const_
+#define _deprecated_
+#define _destructor_
+#define _hidden_
+#define _likely_(x) x
+#define _malloc_
+#define _noclone_
+#define _noinline_
+#define _noreturn_
+#define _packed_
+#define _printf_(a, b)
+#define _public_
+#define _pure_
+#define _returns_nonnull_
+#define _section_(x)
+#define _sentinel_
+#define _unlikely_(x) x
+#define _unused_
+#define _used_
+#define _warn_unused_result_
+#define _weak_
+#define _weakref_(x)
+
+#define _sd_printf_(a, b)
+#define _sd_sentinel_
+#define _sd_packed_
+#define _sd_pure_
+#define _sd_deprecated_
 
 /* Coccinelle fails to parse these from the included headers, so let's just drop them. */
 #define PAM_EXTERN
@@ -93,6 +146,7 @@
 #define STRV_FOREACH(s, l) YACFE_ITERATOR
 #define STRV_FOREACH_BACKWARDS(s, l) YACFE_ITERATOR
 #define STRV_FOREACH_PAIR(x, y, l) YACFE_ITERATOR
+#define WITH_UMASK(mask)
 
 /* Coccinelle really doesn't like multiline macros that are not in the "usual" do { ... } while(0) format, so
  * let's help it a little here by providing simplified one-line versions. */

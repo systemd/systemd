@@ -9585,6 +9585,8 @@ int tpm2_pcrlock_policy_from_credentials(
         _cleanup_close_ int dfd = -EBADF;
         int r;
 
+        assert(ret);
+
         /* During boot we'll not have access to the pcrlock.json file in /var/. In order to support
          * pcrlock-bound root file systems we'll store a copy of the JSON data, wrapped in an (plaintext)
          * credential in the ESP or XBOOTLDR partition. There might be multiple of those however (because of

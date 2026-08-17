@@ -2907,7 +2907,7 @@ if spatch.found()
                                 args : [meson.project_source_root() / dir,
                                         meson.project_source_root() / 'coccinelle'],
                                 suite : 'coccinelle',
-                                timeout : 120,
+                                timeout : 300,
                         )
                 endif
         endforeach
