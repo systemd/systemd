@@ -936,6 +936,9 @@ testcase_10_resolvectl_json() {
 
     # Issue: https://github.com/systemd/systemd/issues/29580 (part #1)
     dig @127.0.0.54 signed.test
+    run dig @127.0.0.54 localhost5 -t A
+    grep -qF "status: NXDOMAIN" "$RUN_OUT"
+    (! grep -qF "127.128.0.5" "$RUN_OUT")
 
     systemctl stop resolvectl-monitor.service
     systemctl stop resolvectl-monitor-json.service

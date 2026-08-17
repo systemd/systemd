@@ -1066,33 +1066,37 @@ int dns_query_go(DnsQuery *q) {
             q->state != DNS_TRANSACTION_NULL)
                 return 0;
 
-        r = dns_query_try_static_records(q);
-        if (r < 0)
-                return r;
-        if (r > 0) {
-                dns_query_complete(q, DNS_TRANSACTION_SUCCESS);
-                return 1;
+        if (!FLAGS_SET(q->flags, SD_RESOLVED_NO_SYNTHESIZE)) {
+                r = dns_query_try_static_records(q);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        dns_query_complete(q, DNS_TRANSACTION_SUCCESS);
+                        return 1;
+                }
+
+                r = dns_query_try_etc_hosts(q);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        dns_query_complete(q, DNS_TRANSACTION_SUCCESS);
+                        return 1;
+                }
         }
 
-        r = dns_query_try_etc_hosts(q);
-        if (r < 0)
-                return r;
-        if (r > 0) {
-                dns_query_complete(q, DNS_TRANSACTION_SUCCESS);
-                return 1;
+        if (!q->bypass_local_hooks) {
+                r = manager_hook_query(
+                                q->manager,
+                                q->question_bypass ? q->question_bypass->question : q->question_idna,
+                                q->question_bypass ? q->question_bypass->question : q->question_utf8,
+                                on_hook_complete,
+                                q,
+                                &q->hook_query);
+                if (r < 0)
+                        return r;
+                if (r > 0) /* hook calls are pending */
+                        return 0;
         }
-
-        r = manager_hook_query(
-                        q->manager,
-                        q->question_bypass ? q->question_bypass->question : q->question_idna,
-                        q->question_bypass ? q->question_bypass->question : q->question_utf8,
-                        on_hook_complete,
-                        q,
-                        &q->hook_query);
-        if (r < 0)
-                return r;
-        if (r > 0) /* hook calls are pending */
-                return 0;
 
         return dns_query_go_scopes(q);
 }
