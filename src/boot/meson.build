@@ -494,9 +494,9 @@ foreach efi_elf_binary : efi_elf_binaries
                 efi_addon = [exe]
         endif
 
-        test(f'check-alignment-@name@',
-             check_efi_alignment_py,
-             args : exe,
+        test(f'check-efi-image-@name@',
+             check_efi_image_py,
+             args : [exe, efi_elf_binary],
              suite : 'boot')
 endforeach
 
