@@ -18,7 +18,6 @@
 #include "hashmap.h"
 #include "json-util.h"
 #include "main-func.h"
-#include "options.h"
 #include "pager.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
@@ -38,6 +37,13 @@ static bool arg_now = false;
 static bool arg_ask_password = true;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static const char *arg_host = NULL;
+
+COMMAND(
+        "updatectl\0",
+        "Manage system updates.",
+        .man_pages = "updatectl.1\0",
+        .pager_flags = &arg_pager_flags,
+);
 
 #define SYSUPDATE_HOST_PATH "/org/freedesktop/sysupdate1/target/host"
 #define SYSUPDATE_TARGET_INTERFACE "org.freedesktop.sysupdate1.Target"
@@ -1635,58 +1641,7 @@ static int verb_enable(int argc, char *argv[], uintptr_t _data, void *userdata) 
         return 0;
 }
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *verbs = NULL, *verbs2 = NULL, *options = NULL;
-        int r;
-
-        r = terminal_urlify_man("updatectl", "1", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table_group("Verbs", &verbs2);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, verbs, verbs2, options);
-
-        printf("%s [OPTIONS...] [VERSION]\n"
-               "\n%sManage system updates.%s\n"
-               "\n%sCommands:%s\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal(),
-               ansi_underline(),
-               ansi_normal());
-
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-        r = table_print_or_warn(verbs2);
-        if (r < 0)
-                return r;
-
-        printf("\n%sOptions:%s\n",
-               ansi_underline(),
-               ansi_normal());
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
-
-VERB_COMMON_HELP_HIDDEN(help);
+VERB_COMMON_HELP_AUTO_HIDDEN("updatectl");
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
@@ -1696,6 +1651,12 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
+
+                OPTION_COMMON_HELP:
+                        return command_print_help("updatectl");
+
+                OPTION_COMMON_VERSION:
+                        return version();
 
                 OPTION_LONG("reboot", NULL, "Reboot after updating to newer version"):
                         arg_reboot = true;
@@ -1722,17 +1683,12 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         arg_legend = false;
                         break;
 
-                OPTION_GROUP("Verbs"): {}
-
                 OPTION_COMMON_NO_ASK_PASSWORD:
                         arg_ask_password = false;
                         break;
 
-                OPTION_COMMON_HELP:
-                        return help();
-
-                OPTION_COMMON_VERSION:
-                        return version();
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         *ret_args = option_parser_get_args(&opts);
