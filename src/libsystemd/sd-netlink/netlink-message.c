@@ -1081,12 +1081,15 @@ int sd_netlink_message_read_strv(sd_netlink_message *m, uint16_t container_type,
                 if (type != attr_type)
                         continue;
 
-                r = strv_extend(&s, RTA_DATA(rta));
-                if (r < 0)
-                        return r;
+                if (ret) {
+                        r = strv_extend(&s, RTA_DATA(rta));
+                        if (r < 0)
+                                return r;
+                }
         }
 
-        *ret = TAKE_PTR(s);
+        if (ret)
+                *ret = TAKE_PTR(s);
         return 0;
 }
 

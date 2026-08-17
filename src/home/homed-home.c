@@ -552,11 +552,13 @@ static void home_set_state(Home *h, HomeState state) {
 
 static int home_parse_worker_stdout(int _fd, UserRecord **ret) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_close_ int fd = _fd; /* take possession, even on failure */
+        _cleanup_close_ int fd = ASSERT_FD(TAKE_FD(_fd)); /* take possession, even on failure */
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         struct stat st;
         int r;
+
+        assert(ret);
 
         if (fstat(fd, &st) < 0)
                 return log_error_errno(errno, "Failed to stat stdout fd: %m");

@@ -189,13 +189,13 @@ static int mcopy_flush_files(
                 const char *dest_rel,
                 char ***file_batch) {
 
-        _cleanup_strv_free_ char **argv = NULL, **batch = TAKE_PTR(*file_batch);
-        _cleanup_free_ char *dest = NULL;
-
         assert(mcopy_bin);
         assert(node);
         assert(dest_rel);
         assert(file_batch);
+
+        _cleanup_strv_free_ char **argv = NULL, **batch = TAKE_PTR(*file_batch);
+        _cleanup_free_ char *dest = NULL;
 
         if (strv_isempty(batch))
                 return 0;

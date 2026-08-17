@@ -413,9 +413,11 @@ static int bus_kill_context_find(sd_bus *bus, const char *path, const char *inte
 
 static int bus_unit_enumerate(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *reterr_error) {
         _cleanup_strv_free_ char **l = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         unsigned k = 0;
         Unit *u;
+
+        assert(nodes);
 
         l = new0(char*, hashmap_size(m->units)+1);
         if (!l)
