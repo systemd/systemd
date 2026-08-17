@@ -80,7 +80,7 @@ int sd_dhcp_client_set_anonymize(sd_dhcp_client *client, int b) {
         assert_return(client, -EINVAL);
         assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
 
-        client->anonymize = !!b;
+        client->anonymize = b;
         return 0;
 }
 

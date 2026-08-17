@@ -126,7 +126,7 @@ int sd_dhcp_relay_set_remote_id(sd_dhcp_relay *relay, const struct iovec *iov) {
 int sd_dhcp_relay_set_server_identifier_override(sd_dhcp_relay *relay, int b) {
         assert_return(relay, -EINVAL);
 
-        relay->server_identifier_override = !!b;
+        relay->server_identifier_override = b;
         return 0;
 }
 

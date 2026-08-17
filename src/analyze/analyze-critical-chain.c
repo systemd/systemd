@@ -92,6 +92,10 @@ static int list_dependencies_one(sd_bus *bus, const char *name, unsigned level, 
         UnitTimes *times;
         BootTimes *boot;
 
+        assert(bus);
+        assert(name);
+        assert(units);
+
         if (strv_extend(units, name))
                 return log_oom();
 
@@ -163,6 +167,7 @@ static int list_dependencies(sd_bus *bus, const char *name) {
         BootTimes *boot;
 
         assert(bus);
+        assert(name);
 
         path = unit_dbus_path_from_name(name);
         if (!path)

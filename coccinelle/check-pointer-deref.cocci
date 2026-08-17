@@ -12,10 +12,14 @@
  * assert(param) at the top. If it can legitimately be NULL, add an if() guard.
  */
 @@
+/* exec_invoke() is too large to be checked by this rule. */
+position p : script:python() {
+            not (p[0].file.endswith("exec-invoke.c") and
+                 p[0].current_element == "exec_invoke")
+        };
 identifier fn, param;
 identifier is_set =~ "_is_set$";
 type T;
-position p;
 @@
 
 fn(..., T *param, ...) {
@@ -24,6 +28,7 @@ fn(..., T *param, ...) {
       when != assert_se(param)
       when != assert_se(param != NULL)
       when != assert_return(param, ...)
+      when != bus_assert_return(param, ...)
       when != ASSERT_PTR(param)
       when != POINTER_MAY_BE_NULL(param)
       /* Any foo_is_set(param) guard implies param != NULL, since all *_is_set()

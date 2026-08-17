@@ -378,6 +378,9 @@ int xdg_autostart_format_exec_start(
         bool first_arg;
         int r;
 
+        assert(exec);
+        assert(ret_exec_start);
+
         /*
          * Unfortunately, there is a mismatch between systemd's idea of $PATH and XDGs. I.e. we need to
          * ensure that we have an absolute path to support cases where $PATH has been modified from the
