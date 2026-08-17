@@ -7,6 +7,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "sd-json.h"
 #include "sd-path.h"
 
 #include "acl-util.h"
@@ -32,7 +33,6 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "glob-util.h"
@@ -47,7 +47,6 @@
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "offline-passwd.h"
-#include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -250,6 +249,14 @@ STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_label_context, mac_label_context_freep);
+
+COMMAND(
+        "systemd-tmpfiles\0",
+        "Create, delete, and clean up files and directories.",
+        .argspec = "[CONFIGURATION FILE…]\0",
+        .man_pages = "systemd-tmpfiles.8\0",
+        .pager_flags = &arg_pager_flags,
+);
 
 static const char *const creation_mode_verb_table[_CREATION_MODE_MAX] = {
         [CREATION_NORMAL]   = "Created",
@@ -4916,46 +4923,6 @@ static int exclude_default_prefixes(void) {
         return 0;
 }
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *cmds = NULL, *opts = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-tmpfiles", "8", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = option_parser_get_help_table(&cmds);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table_group("Options", &opts);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, cmds, opts);
-
-        printf("%s COMMAND [OPTIONS...] [CONFIGURATION FILE...]\n"
-               "\n%sCreate, delete, and clean up files and directories.%s\n"
-               "\nCommands:\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
-
-        r = table_print_or_warn(cmds);
-        if (r < 0)
-                return r;
-
-        printf("\nOptions:\n");
-
-        r = table_print_or_warn(opts);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
-
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         int r;
 
@@ -4966,6 +4933,8 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
+
+                OPTION_GROUP("Commands"): {}
 
                 OPTION_LONG("create", NULL, "Create and adjust files and directories"):
                         arg_operation |= OPERATION_CREATE;
@@ -4994,7 +4963,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-tmpfiles");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -5074,6 +5043,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_COMMON_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         char **args = option_parser_get_args(&opts);

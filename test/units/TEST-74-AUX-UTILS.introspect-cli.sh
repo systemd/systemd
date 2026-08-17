@@ -91,6 +91,7 @@ INTROSPECTABLE=(
     systemd-sysinstall
     systemd-sysupdate
     systemd-sysusers
+    systemd-tmpfiles
     systemd-tpm2-clear
     systemd-tpm2-setup
     systemd-tty-ask-password-agent
