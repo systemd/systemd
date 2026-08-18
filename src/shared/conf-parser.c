@@ -992,7 +992,7 @@ int config_parse_iec_size(
         assert(rvalue);
 
         r = parse_size(rvalue, 1024, &v);
-        if (r >= 0 && (uint64_t) (size_t) v != v)
+        if (r >= 0 && v > SIZE_MAX)
                 r = -ERANGE;
         if (r < 0)
                 return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);

@@ -159,11 +159,11 @@ const sd_bus_vtable bus_socket_vtable[] = {
 };
 
 static bool check_size_t_truncation(uint64_t t) {
-        return (size_t) t == t;
+        return t <= SIZE_MAX;
 }
 
 static bool check_long_truncation(int64_t t) {
-        return (int64_t) (long) t == t;
+        return t <= LONG_MAX && t >= LONG_MIN;
 }
 
 static const char* socket_protocol_to_string(int32_t i) {
