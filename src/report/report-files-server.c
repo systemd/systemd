@@ -1,16 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-json.h"
 #include "sd-varlink.h"
 
 #include "build.h"
-#include "format-table.h"
-#include "help-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "options.h"
 #include "report-files.h"
 #include "varlink-io.systemd.Metrics.h"
 #include "varlink-util.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-report-files\0",
+        "Report the contents of files as system report metrics.",
+        .man_pages = "systemd-report-files@.service.8\0",
+);
 
 static int vl_server(void) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *vs = NULL;
@@ -38,26 +43,6 @@ static int vl_server(void) {
         return 0;
 }
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        help_cmdline("[OPTIONS...]");
-        help_abstract("Report the contents of files as system report metrics.");
-        help_section("Options");
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("systemd-report-files@.service", "8");
-        return 0;
-}
-
 static int parse_argv(int argc, char *argv[]) {
         int r;
 
@@ -69,10 +54,13 @@ static int parse_argv(int argc, char *argv[]) {
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-report-files");
 
                 OPTION_COMMON_VERSION:
                         return version();
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (option_parser_get_n_args(&opts) > 0)
