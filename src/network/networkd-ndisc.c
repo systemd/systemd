@@ -2998,6 +2998,39 @@ int ndisc_start(Link *link) {
         return 1;
 }
 
+int ndisc_update_mac(Link *link) {
+        int r;
+
+        assert(link);
+
+        if (!link->ndisc || link->hw_addr.length != ETH_ALEN)
+                return 0;
+
+        r = sd_ndisc_set_mac(link->ndisc, &link->hw_addr.ether);
+        if (r < 0)
+                return r;
+
+        if (sd_ndisc_is_running(link->ndisc) <= 0)
+                return 0;
+
+        /* A changed MAC can mean a changed network, e.g. on a bond failover. Restart discovery to
+         * solicit Router Advertisements instead of waiting for the next unsolicited one. Stop via
+         * sd_ndisc_stop(), not ndisc_stop(), to keep the expiry timer armed for the old state. */
+        r = sd_ndisc_stop(link->ndisc);
+        if (r < 0)
+                return r;
+
+        r = ndisc_start(link);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                /* No carrier, no IPv6LL address yet, or no DHCPv6 client set up. Discovery is
+                 * started again on the next carrier/IPv6LL gain. */
+                log_link_debug(link, "MAC address changed, but conditions for restarting IPv6 Router Discovery are not met.");
+
+        return 0;
+}
+
 static int ndisc_process_request(Request *req, Link *link, void *userdata) {
         int r;
 
