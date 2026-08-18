@@ -35,7 +35,6 @@
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "gpt.h"
-#include "help-util.h"
 #include "hexdecoct.h"
 #include "initrd-util.h"
 #include "json-util.h"
@@ -43,7 +42,6 @@
 #include "list.h"
 #include "main-func.h"
 #include "mkdir.h"
-#include "options.h"
 #include "ordered-set.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -104,6 +102,13 @@ STATIC_DESTRUCTOR_REGISTER(arg_location_start, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_location_end, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_policy_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_entry_token, freep);
+
+COMMAND(
+        "systemd-pcrlock\0",
+        "Manage a TPM2 PCR lock.",
+        .man_pages = "systemd-pcrlock.8\0",
+        .pager_flags = &arg_pager_flags,
+);
 
 #define PCRLOCK_SECUREBOOT_POLICY_PATH      "/var/lib/pcrlock.d/240-secureboot-policy.pcrlock.d/generated.pcrlock"
 #define PCRLOCK_FIRMWARE_CODE_EARLY_PATH    "/var/lib/pcrlock.d/250-firmware-code-early.pcrlock.d/generated.pcrlock"
@@ -5317,50 +5322,10 @@ static int verb_lock_raw(int argc, char *argv[], uintptr_t _data, void *userdata
         return write_pcrlock(records, NULL);
 }
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *commands = NULL, *protections = NULL, *options = NULL;
-        int r;
-
-        r = verbs_get_help_table(&commands);
-        if (r < 0)
-                return r;
-
-        r = verbs_get_help_table_group("Protections", &protections);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, commands, protections, options);
-
-        help_cmdline("[OPTIONS...] COMMAND ...");
-        help_abstract("Manage a TPM2 PCR lock.");
-
-        help_section("Commands");
-        r = table_print_or_warn(commands);
-        if (r < 0)
-                return r;
-
-        help_section("Protections");
-        r = table_print_or_warn(protections);
-        if (r < 0)
-                return r;
-
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("systemd-pcrlock", "8");
-        return 0;
-}
-
 VERB_NOARG(verb_unlock_simple, "unlock-raw",
            "Remove .pcrlock file for raw data");
 
-VERB_COMMON_HELP_HIDDEN(help);
+VERB_COMMON_HELP_AUTO_HIDDEN("systemd-pcrlock");
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
@@ -5375,7 +5340,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-pcrlock");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -5538,6 +5503,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION('q', "quiet", NULL, "Suppress unnecessary output"):
                         arg_quiet = true;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
                 }
 
         if (auto_location) {

@@ -2,6 +2,7 @@
 
 #include <sys/stat.h>
 
+#include "sd-json.h"
 #include "sd-varlink.h"
 
 #include "blockdev-util.h"
@@ -28,18 +29,15 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "find-esp.h"
-#include "format-table.h"
 #include "image-policy.h"
 #include "log.h"
 #include "loop-util.h"
 #include "main-func.h"
 #include "mount-util.h"
-#include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "pretty-print.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -108,6 +106,13 @@ STATIC_DESTRUCTOR_REGISTER(arg_private_key_source, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_entry_title, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_entry_version, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_extras, strv_freep);
+
+COMMAND(
+        "bootctl\0",
+        "Control EFI firmware boot settings and manage boot loader.",
+        .man_pages = "bootctl.1\0",
+        .pager_flags = &arg_pager_flags,
+);
 
 static const char* const install_source_table[_INSTALL_SOURCE_MAX] = {
         [INSTALL_SOURCE_IMAGE] = "image",
@@ -290,78 +295,7 @@ GracefulMode arg_graceful(void) {
         return _arg_graceful;
 }
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        int r;
-
-        pager_open(arg_pager_flags);
-
-        r = terminal_urlify_man("bootctl", "1", &link);
-        if (r < 0)
-                return log_oom();
-
-        static const char *const verb_groups[] = {
-                "Generic EFI Firmware/Boot Loader Commands",
-                "Boot Loader Specification Commands",
-                "Boot Loader Interface Commands",
-                "systemd-boot Commands",
-                "Kernel Image Commands",
-        };
-
-        static const char *const option_groups[] = {
-                "Block Device Discovery Commands",
-                "Options",
-        };
-
-        Table *verb_tables[ELEMENTSOF(verb_groups)] = {};
-        CLEANUP_ELEMENTS(verb_tables, table_unref_array_clear);
-        Table *option_tables[ELEMENTSOF(option_groups)] = {};
-        CLEANUP_ELEMENTS(option_tables, table_unref_array_clear);
-
-        for (size_t i = 0; i < ELEMENTSOF(verb_groups); i++) {
-                r = verbs_get_help_table_group(verb_groups[i], &verb_tables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        for (size_t i = 0; i < ELEMENTSOF(option_groups); i++) {
-                r = option_parser_get_help_table_group(option_groups[i], &option_tables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        (void) table_sync_column_widths(0,
-                                        verb_tables[0], verb_tables[1], verb_tables[2],
-                                        verb_tables[3], verb_tables[4],
-                                        option_tables[0], option_tables[1]);
-
-        printf("%s [OPTIONS...] COMMAND ...\n"
-               "\n%sControl EFI firmware boot settings and manage boot loader.%s\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
-
-        for (size_t i = 0; i < ELEMENTSOF(verb_groups); i++) {
-                printf("\n%s%s:%s\n", ansi_underline(), verb_groups[i], ansi_normal());
-
-                r = table_print_or_warn(verb_tables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        for (size_t i = 0; i < ELEMENTSOF(option_groups); i++) {
-                printf("\n%s%s:%s\n", ansi_underline(), option_groups[i], ansi_normal());
-
-                r = table_print_or_warn(option_tables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
-
-VERB_COMMON_HELP(help);
+VERB_COMMON_HELP_AUTO_HIDDEN("bootctl");
 
 VERB_GROUP("Generic EFI Firmware/Boot Loader Commands");
 
@@ -479,7 +413,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_GROUP("Options"): {}
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("bootctl");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -765,7 +699,11 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                         arg_tries_left = u;
                         break;
-                }}
+                }
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
+                }
 
         char **args = option_parser_get_args(&opts);
 

@@ -712,6 +712,15 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
+/* This COMMAND must be below all the VERBs of the main command */
+COMMAND(
+        "mount.ddi\0",
+        "External helper for mount.8 to mount Discoverable Disk Images (DDIs).",
+        .man_pages = "systemd-dissect.1\0",
+        .option_namespace = "mount.ddi",
+        .pager_flags = &arg_pager_flags,
+);
+
 static int parse_argv_as_mount_helper(int argc, char *argv[]) {
         const char *options = NULL;
         bool fake = false;

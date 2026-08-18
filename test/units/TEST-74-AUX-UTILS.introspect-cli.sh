@@ -11,16 +11,22 @@ export SYSTEMD_PAGER=cat
 
 # A smoke test for the introspection code
 INTROSPECTABLE=(
+    bootctl
     busctl
     coredumpctl
     homectl
     hostnamectl
     importctl
+    journalctl
     localectl
+    loginctl
+    machinectl
     networkctl
     oomctl
     portablectl
     resolvectl
+    run0
+    storagectl
     systemd-ac-power
     systemd-analyze
     systemd-ask-password
@@ -35,6 +41,7 @@ INTROSPECTABLE=(
     systemd-cgtop
     systemd-clonesetup
     systemd-creds
+    systemd-cryptenroll
     systemd-cryptsetup
     systemd-delta
     systemd-detect-virt
@@ -47,22 +54,30 @@ INTROSPECTABLE=(
     systemd-hwdb
     systemd-id128
     systemd-imds
+    systemd-imdsd
     systemd-inhibit
     systemd-journal-gatewayd
     systemd-journal-remote
     systemd-journal-upload
     systemd-keyutil
+    systemd-machine-id-setup
+    systemd-measure
     systemd-modules-load
+    systemd-mstack
     systemd-mute-console
     systemd-network-generator
     systemd-networkd-wait-online
     systemd-notify
+    systemd-nspawn
     systemd-oomd
     systemd-path
     systemd-pcrextend
+    systemd-pcrlock
     systemd-pty-forward
     systemd-random-seed
+    systemd-repart
     systemd-report
+    systemd-run
     systemd-sbsign
     systemd-sleep
     systemd-socket-activate
@@ -72,14 +87,21 @@ INTROSPECTABLE=(
     systemd-storage-block
     systemd-storage-fs
     systemd-storagetm
+    systemd-sysctl
     systemd-sysinstall
+    systemd-sysupdate
+    systemd-sysusers
+    systemd-tmpfiles
     systemd-tpm2-clear
     systemd-tpm2-setup
     systemd-tty-ask-password-agent
     systemd-update-done
     systemd-validatefs
     systemd-veritysetup
+    systemd-vmspawn
+    systemd-vpick
     timedatectl
+    updatectl
     userdbctl
     varlinkctl
 )
@@ -120,3 +142,7 @@ systemd-clonesetup --introspect-cli | jq -e \
 # resolvectl is a multicall binary, check that both commands are described
 resolvectl --introspect-cli | jq -e \
     '[.commands[].names[0]] | sort == ["resolvconf", "resolvectl", "systemd-resolve"]'
+
+# systemd-run is a multicall binary, check that both commands are described
+systemd-run --introspect-cli | jq -e \
+    '[.commands[].names[0]] | sort == ["run0", "systemd-run"]'
