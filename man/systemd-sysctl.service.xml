@@ -84,7 +84,12 @@
       <varlistentry>
         <term><option>--verify</option></term>
         <listitem>
-          <para>Verify sysctl values after write.</para>
+          <para>After <command>systemd-sysctl</command> successfully writes a value to a sysctl property, the
+          property is read back and its contents are verified to match the value that was written. If the
+          property cannot be read back, or if the returned value differs from the value that was written, the
+          command exits with a non-zero status. This mode is disabled by default, since the format accepted
+          by the kernel may differ from the format returned through the sysctl property, or the kernel may
+          normalize the input. As a result, verification may not work reliably in all cases.</para>
 
           <xi:include href="version-info.xml" xpointer="v262"/>
         </listitem>
