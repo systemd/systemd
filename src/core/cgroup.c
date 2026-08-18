@@ -2,6 +2,7 @@
 
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/xattr.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -787,7 +788,7 @@ int cgroup_context_add_bpf_foreign_program(CGroupContext *c, uint32_t attach_typ
         return 0;
 }
 
-static void unit_set_xattr_graceful(Unit *u, const char *name, const void *data, size_t size) {
+static void unit_set_xattr_graceful(Unit *u, const char *name, const void *data, size_t size, bool allow_overwrite) {
         int r;
 
         assert(u);
@@ -797,7 +798,9 @@ static void unit_set_xattr_graceful(Unit *u, const char *name, const void *data,
         if (!crt || !crt->cgroup_path)
                 return;
 
-        r = cg_set_xattr(crt->cgroup_path, name, data, size, 0);
+        r = cg_set_xattr(crt->cgroup_path, name, data, size, allow_overwrite ? 0 : XATTR_CREATE);
+        if (r == -EEXIST && !allow_overwrite)
+                return;
         if (r < 0)
                 log_unit_debug_errno(u, r, "Failed to set '%s' xattr on control group %s, ignoring: %m", name, empty_to_root(crt->cgroup_path));
 }
@@ -827,10 +830,10 @@ static void cgroup_oomd_xattr_apply(Unit *u) {
                 return;
 
         if (c->moom_preference == MANAGED_OOM_PREFERENCE_OMIT)
-                unit_set_xattr_graceful(u, "user.oomd_omit", "1", 1);
+                unit_set_xattr_graceful(u, "user.oomd_omit", "1", 1, true);
 
         if (c->moom_preference == MANAGED_OOM_PREFERENCE_AVOID)
-                unit_set_xattr_graceful(u, "user.oomd_avoid", "1", 1);
+                unit_set_xattr_graceful(u, "user.oomd_avoid", "1", 1, true);
 
         if (c->moom_preference != MANAGED_OOM_PREFERENCE_AVOID)
                 unit_remove_xattr_graceful(u, "user.oomd_avoid");
@@ -880,7 +883,7 @@ static int cgroup_log_xattr_apply(Unit *u) {
         *(last++) = '\xff';
         memcpy_safe(last, denied_patterns, denied_patterns_len);
 
-        unit_set_xattr_graceful(u, "user.journald_log_filter_patterns", patterns, len);
+        unit_set_xattr_graceful(u, "user.journald_log_filter_patterns", patterns, len, true);
 
         return 0;
 }
@@ -893,7 +896,7 @@ static void cgroup_invocation_id_xattr_apply(Unit *u) {
         b = !sd_id128_is_null(u->invocation_id);
         FOREACH_STRING(xn, "trusted.invocation_id", "user.invocation_id") {
                 if (b)
-                        unit_set_xattr_graceful(u, xn, SD_ID128_TO_STRING(u->invocation_id), 32);
+                        unit_set_xattr_graceful(u, xn, SD_ID128_TO_STRING(u->invocation_id), 32, true);
                 else
                         unit_remove_xattr_graceful(u, xn);
         }
@@ -909,7 +912,7 @@ static void cgroup_coredump_xattr_apply(Unit *u) {
                 return;
 
         if (unit_cgroup_delegate(u) && c->coredump_receive)
-                unit_set_xattr_graceful(u, "user.coredump_receive", "1", 1);
+                unit_set_xattr_graceful(u, "user.coredump_receive", "1", 1, true);
         else
                 unit_remove_xattr_graceful(u, "user.coredump_receive");
 }
@@ -930,7 +933,7 @@ static void cgroup_delegate_xattr_apply(Unit *u) {
         b = unit_cgroup_delegate(u);
         FOREACH_STRING(xn, "trusted.delegate", "user.delegate") {
                 if (b)
-                        unit_set_xattr_graceful(u, xn, "1", 1);
+                        unit_set_xattr_graceful(u, xn, "1", 1, true);
                 else
                         unit_remove_xattr_graceful(u, xn);
         }
@@ -940,9 +943,28 @@ static void cgroup_survive_xattr_apply(Unit *u) {
         assert(u);
 
         if (u->survive_final_kill_signal)
-                unit_set_xattr_graceful(u, "user.survive_final_kill_signal", "1", 1);
+                unit_set_xattr_graceful(u, "user.survive_final_kill_signal", "1", 1, true);
         else
                 unit_remove_xattr_graceful(u, "user.survive_final_kill_signal");
+}
+
+static void cgroup_app_id_xattr_apply(Unit *u) {
+        int r;
+
+        assert(u);
+
+        /* Apps (and appd) only exist in the user session */
+        if (!MANAGER_IS_USER(u->manager))
+                return;
+
+        _cleanup_free_ char *app_id = NULL;
+        r = unit_get_app_id(u, &app_id);
+
+        /* We never remove or overwrite the user.app_id xattr, even if a unit's aliases have changed. Once
+         * the attribute is set, ownership has moved into appd. This ensures that we're not interfering with
+         * appd's operations (i.e. if an app has later manually registered itself with appd) */
+        if (r >= 0)
+                unit_set_xattr_graceful(u, "user.app_id", app_id, strlen(app_id), false);
 }
 
 static void cgroup_xattr_apply(Unit *u) {
@@ -952,6 +974,7 @@ static void cgroup_xattr_apply(Unit *u) {
         cgroup_oomd_xattr_apply(u);
         cgroup_log_xattr_apply(u);
         cgroup_coredump_xattr_apply(u);
+        cgroup_app_id_xattr_apply(u);
 
         if (!MANAGER_IS_SYSTEM(u->manager))
                 return;
