@@ -8,34 +8,25 @@
 #include <stdio.h>
 #include <sys/ioctl.h>
 
+#include "sd-json.h"
+
 #include "build.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "format-table.h"
-#include "help-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "options.h"
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
+#include "verbs.h"
 
 static const char *arg_device = NULL;
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        help_cmdline("[OPTIONS...] DEVICE");
-        help_abstract("Video4Linux device identification.");
-        help_section("Options");
-
-        return table_print_or_warn(options);
-}
+COMMAND(
+        "v4l_id\0",
+        "Identify Video4Linux devices.",
+        .argspec = "DEVICE\0",
+);
 
 static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
@@ -47,10 +38,13 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("v4l_id");
 
                 OPTION_COMMON_VERSION:
                         return version();
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         char **args = option_parser_get_args(&opts);

@@ -109,6 +109,7 @@ INTROSPECTABLE=(
     timedatectl
     updatectl
     userdbctl
+    v4l_id
     varlinkctl
 )
 
