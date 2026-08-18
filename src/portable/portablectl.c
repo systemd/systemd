@@ -201,6 +201,9 @@ static int determine_matches(const char *image, char **l, bool allow_any, char *
         _cleanup_strv_free_ char **k = NULL;
         int r;
 
+        assert(image);
+        assert(ret);
+
         /* Determine the matches to apply. If the list is empty we derive the match from the image name. If
          * the list contains exactly the "-" we return a wildcard list (which is the empty list), but only if
          * this is expressly permitted. */

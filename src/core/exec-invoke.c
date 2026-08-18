@@ -518,6 +518,7 @@ static int setup_output(
 
         assert(context);
         assert(params);
+        assert(named_iofds);
         assert(ident);
         assert(journal_stream_dev);
         assert(journal_stream_ino);
@@ -684,6 +685,7 @@ static int setup_confirm_stdio(
         int r;
 
         assert(context);
+        assert(vc);
         assert(ret_saved_stdin);
         assert(ret_saved_stdout);
 
@@ -742,6 +744,7 @@ static void write_confirm_error(int err, const char *vc, const char *unit_id) {
         _cleanup_close_ int fd = -EBADF;
 
         assert(vc);
+        assert(unit_id);
 
         fd = open_terminal(vc, O_WRONLY|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
@@ -789,6 +792,7 @@ static int ask_for_confirmation(const ExecContext *context, const ExecParameters
 
         assert(context);
         assert(params);
+        assert(cmdline);
 
         /* For any internal errors, assume a positive response. */
         r = setup_confirm_stdio(context, params->confirm_spawn, &saved_stdin, &saved_stdout);
@@ -965,6 +969,8 @@ static int get_supplementary_groups(
 static int enforce_groups(gid_t gid, const gid_t *supplementary_gids, int ngids) {
         int r;
 
+        assert(supplementary_gids || ngids == 0);
+
         /* Handle SupplementaryGroups= if it is not empty */
         if (ngids > 0) {
                 r = maybe_setgroups(ngids, supplementary_gids);
@@ -1063,6 +1069,7 @@ static int ask_password_conv(
         assert(msg);
         assert(data->context);
         assert(data->params);
+        assert(ret);
 
         size_t n = num_msg;
         struct pam_response *responses = new0(struct pam_response, n);
@@ -1166,7 +1173,7 @@ static int attach_to_subcgroup(
                 const ExecContext *context,
                 const CGroupContext *cgroup_context,
                 const ExecParameters *params,
-                const char *prefix) {
+                const char *prefix) { /* may be NULL */
 
         _cleanup_free_ char *subgroup = NULL;
         int r;
@@ -1300,6 +1307,7 @@ static int setup_pam(
         int flags = 0;
 
         assert(context);
+        assert(cgroup_context);
         assert(params);
         assert(user);
         assert(uid_is_valid(uid));
@@ -1987,9 +1995,9 @@ static int build_environment(
                 const ExecContext *c,
                 const ExecParameters *p,
                 const CGroupContext *cgroup_context,
-                const char *home,
-                const char *username,
-                const char *shell,
+                const char *home,     /* may be NULL */
+                const char *username, /* may be NULL */
+                const char *shell,    /* may be NULL */
                 dev_t journal_stream_dev,
                 ino_t journal_stream_ino,
                 char *const *pressure_path,
@@ -2005,6 +2013,7 @@ static int build_environment(
         assert(c);
         assert(p);
         assert(cgroup_context);
+        assert(pressure_path);
         assert(ret);
 
         exec_pid = needs_sandboxing && exec_needs_pid_namespace(c, p) ? 1 : getpid_cached();
@@ -2307,6 +2316,7 @@ static int bpffs_prepare(
         _cleanup_close_pair_ int socket_fds[2] = EBADF_PAIR, errno_pipe[2] = EBADF_PAIR;
         int r;
 
+        assert(c);
         assert(ret_sock_fd);
         assert(ret_pid);
         assert(ret_errno_pipe);
@@ -2335,6 +2345,9 @@ static int bpffs_prepare(
 
 static int setup_private_users_child(int unshare_ready_fd, const char *uid_map, const char *gid_map, bool allow_setgroups) {
         int r;
+
+        assert(uid_map);
+        assert(gid_map);
 
         /* Child process, running in the original user namespace. Let's update the parent's UID/GID map from
          * here, after the parent opened its own user namespace. */
@@ -2373,14 +2386,14 @@ static int setup_private_users_child(int unshare_ready_fd, const char *uid_map, 
 }
 
 static int setup_private_users(
-                sd_varlink *nsresource_link,
+                sd_varlink *nsresource_link, /* may be NULL */
                 PrivateUsers private_users,
-                uid_t saved_uid,    /* service manager uid */
-                gid_t saved_gid,    /* service manager gid */
-                uid_t *uid,         /* unit uid (seen from inside) [input+output] */
-                gid_t *gid,         /* unit gid (ditto)            [input+output] */
-                uid_t *outside_uid, /* uid seen from the outside (which is the same as *uid, except of userns is used) */
-                gid_t *outside_gid, /* gid seen from the outside (similar) */
+                uid_t saved_uid,             /* service manager uid */
+                gid_t saved_gid,             /* service manager gid */
+                uid_t *uid,                  /* unit uid (seen from inside) [input+output] */
+                gid_t *gid,                  /* unit gid (ditto)            [input+output] */
+                uid_t *outside_uid,          /* uid seen from the outside (which is the same as *uid, except of userns is used) */
+                gid_t *outside_gid,          /* gid seen from the outside (similar) */
                 bool allow_setgroups) {
 
         _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
@@ -2703,6 +2716,7 @@ static int create_many_symlinks(const char *root, const char *source, char **sym
         _cleanup_free_ char *src_abs = NULL;
         int r;
 
+        assert(root);
         assert(source);
 
         src_abs = path_join(root, source);
@@ -3517,6 +3531,7 @@ static bool insist_on_sandboxing(
                 size_t n_bind_mounts) {
 
         assert(context);
+        assert(rootfs);
         assert(n_bind_mounts == 0 || bind_mounts);
 
         /* Checks whether we need to insist on fs namespacing. i.e. whether we have settings configured that
@@ -3563,6 +3578,7 @@ static int setup_ephemeral(
         assert(context);
         assert(runtime);
         assert(rootfs);
+        assert(reterr_path);
 
         if (!rootfs->image && !rootfs->directory)
                 return 0;
@@ -3639,15 +3655,16 @@ static int setup_ephemeral(
 static int verity_settings_prepare(
                 VeritySettings *verity,
                 const char *root_image,
-                const struct iovec *root_hash,
-                const char *root_hash_path,
-                const struct iovec *root_hash_sig,
-                const char *root_hash_sig_path,
-                const char *verity_data_path) {
+                const struct iovec *root_hash,     /* may be NULL */
+                const char *root_hash_path,        /* may be NULL */
+                const struct iovec *root_hash_sig, /* may be NULL */
+                const char *root_hash_sig_path,    /* may be NULL */
+                const char *verity_data_path) {    /* may be NULL */
 
         int r;
 
         assert(verity);
+        assert(root_image);
 
         if (root_hash) {
                 iovec_done(&verity->root_hash);
@@ -3695,6 +3712,7 @@ static int pin_rootfs(
         assert(context);
         assert(params);
         assert(ret);
+        assert(reterr_path);
 
         if (!FLAGS_SET(params->flags, EXEC_APPLY_CHROOT)) {
                 *ret = PINNED_RESOURCE_NULL;
@@ -3841,7 +3859,7 @@ static int apply_mount_namespace(
                 PidRef *bpffs_pidref,
                 int bpffs_socket_fd,
                 int bpffs_errno_pipe,
-                sd_varlink *mountfsd_link,
+                sd_varlink *mountfsd_link, /* may be NULL */
                 char **reterr_path) {
 
         _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
@@ -3859,6 +3877,10 @@ static int apply_mount_namespace(
         assert(context);
         assert(params);
         assert(runtime);
+        assert(rootfs);
+        assert(pressure_path);
+        assert(bpffs_pidref);
+        assert(reterr_path);
 
         CLEANUP_ARRAY(bind_mounts, n_bind_mounts, bind_mount_free_many);
 
@@ -4091,8 +4113,8 @@ static int apply_working_directory(
                 const ExecContext *context,
                 const ExecParameters *params,
                 ExecRuntime *runtime,
-                const char *pwent_home,
-                char * const *env) {
+                const char *pwent_home, /* may be NULL */
+                char * const *env) {    /* can be NULL */
 
         const char *wd;
         int r;
@@ -4572,6 +4594,7 @@ static void log_command_line(
         assert(params);
         assert(msg);
         assert(executable);
+        assert(argv);
 
         if (!DEBUG_LOGGING)
                 return;
@@ -4691,7 +4714,7 @@ static int setup_delegated_namespaces(
                 PidRef *bpffs_pidref,
                 int bpffs_socket_fd,
                 int bpffs_errno_pipe,
-                sd_varlink *mountfsd_link,
+                sd_varlink *mountfsd_link, /* may be NULL */
                 int *reterr_exit_status) {
 
         int r;
@@ -4707,6 +4730,9 @@ static int setup_delegated_namespaces(
         assert(params);
         assert(runtime);
         assert(rootfs);
+        assert(pressure_path);
+        assert(command);
+        assert(bpffs_pidref);
         assert(reterr_exit_status);
 
         if (exec_needs_network_namespace(context) &&

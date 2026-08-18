@@ -519,8 +519,10 @@ int unit_find_paths(
          */
 
         assert(unit_name);
-        assert(ret_fragment_path);
         assert(lp);
+        assert(cached_id_map);
+        assert(cached_name_map);
+        assert(ret_fragment_path);
 
         /* Go via the bus to acquire the path, unless we are explicitly told not to, or when the unit name is a template */
         if (!force_client_side &&
@@ -528,6 +530,8 @@ int unit_find_paths(
             !unit_name_is_valid(unit_name, UNIT_NAME_TEMPLATE)) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_free_ char *load_state = NULL, *dbus_path = NULL;
+
+                assert(bus);
 
                 dbus_path = unit_dbus_path_from_name(unit_name);
                 if (!dbus_path)

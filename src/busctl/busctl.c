@@ -91,6 +91,8 @@ static int acquire_bus(bool set_monitor, sd_bus **ret) {
         _cleanup_close_ int pin_fd = -EBADF;
         int r;
 
+        assert(ret);
+
         r = sd_bus_new(&bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate bus: %m");
