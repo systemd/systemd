@@ -2052,12 +2052,13 @@ int mount_credentials_fs(const char *path) {
         return RET_NERRNO(move_mount(mfd, "", AT_FDCWD, path, MOVE_MOUNT_F_EMPTY_PATH));
 }
 
-int make_fsmount(
+int make_fsmount_full(
                 int error_log_level,
                 const char *what,
                 const char *type,
                 unsigned long flags,
                 const char *options,
+                char **discrete_options,
                 int userns_fd) {
 
         _cleanup_close_ int fs_fd = -EBADF, mnt_fd = -EBADF;
@@ -2116,6 +2117,21 @@ int make_fsmount(
                 }
         }
 
+        /* Options that must reach the kernel whole, rather than as part of the comma-joined string above. */
+        STRV_FOREACH(i, discrete_options) {
+                const char *eq = strchr(*i, '=');
+                if (!eq)
+                        return log_full_errno(error_log_level, SYNTHETIC_ERRNO(EINVAL),
+                                              "Discrete mount option \"%s\" for \"%s\" is not a key=value pair.", *i, type);
+
+                _cleanup_free_ char *key = strndup(*i, eq - *i);
+                if (!key)
+                        return log_oom_full(error_log_level);
+
+                if (fsconfig(fs_fd, FSCONFIG_SET_STRING, key, eq + 1, 0) < 0)
+                        return log_full_errno(error_log_level, errno, "Failed to set mount option \"%s\" for \"%s\": %m", key, type);
+        }
+
         if (fsconfig(fs_fd, FSCONFIG_CMD_CREATE, NULL, NULL, 0) < 0)
                 return log_full_errno(error_log_level, errno, "Failed to realize fs fd for \"%s\" (\"%s\"): %m", what, type);
 
@@ -2136,6 +2152,36 @@ int make_fsmount(
                                       type);
 
         return TAKE_FD(mnt_fd);
+}
+
+int tmpfs_patch_options(
+                const char *options,
+                uid_t uid_shift,
+                const char *selinux_apifs_context,
+                char **ret) {
+
+        _cleanup_free_ char *buf = NULL;
+
+        assert(ret);
+
+        if (options) {
+                buf = strdup(options);
+                if (!buf)
+                        return -ENOMEM;
+        }
+
+        if (uid_shift != UID_INVALID)
+                if (strextendf_with_separator(&buf, ",", "uid=" UID_FMT ",gid=" UID_FMT, uid_shift, uid_shift) < 0)
+                        return -ENOMEM;
+
+#if HAVE_SELINUX
+        if (selinux_apifs_context)
+                if (strextendf_with_separator(&buf, ",", "context=\"%s\"", selinux_apifs_context) < 0)
+                        return -ENOMEM;
+#endif
+
+        *ret = TAKE_PTR(buf);
+        return !!*ret;
 }
 
 char* umount_and_rmdir_and_free(char *p) {
