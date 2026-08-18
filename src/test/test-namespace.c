@@ -18,7 +18,14 @@
 #include "fileio.h"
 #include "libmount-util.h"
 #include "namespace-util.h"
+#include "fs-util.h"
+#include "mkdir.h"
+#include "mountpoint-util.h"
+#include "mstack.h"
 #include "namespace.h"
+#include "path-util.h"
+#include "rm-rf.h"
+#include "stat-util.h"
 #include "pidref.h"
 #include "process-util.h"
 #include "string-util.h"
@@ -235,6 +242,175 @@ TEST(protect_kernel_logs) {
                 ASSERT_ERROR_ERRNO(open("/dev/kmsg", O_RDONLY | O_CLOEXEC), EACCES);
 
                 _exit(EXIT_SUCCESS);
+        }
+}
+
+/* A stack's bind@ entries are attached by mstack_bind_mounts() in setup_namespace(), and the service
+ * manager's own MountList is applied afterwards by apply_mounts(). If the two can target the same path,
+ * the later one wins and the stack entry silently disappears - which is the same failure nspawn had with
+ * --volatile=, and the reason nspawn passes MSTACK_DEFER_MOUNT. namespace.c passes no such flag. */
+TEST(mstack_bind_vs_private_tmp) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_(mstack_freep) MStack *mstack = NULL;
+        int r;
+
+        if (geteuid() > 0)
+                return (void) log_tests_skipped("not root");
+        if (detect_container() > 0)
+                return (void) log_tests_skipped("in container");
+
+        r = dlopen_libmount(LOG_DEBUG);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                return (void) log_tests_skipped("libmount support not compiled in");
+        ASSERT_OK(r);
+
+        ASSERT_OK(mkdtemp_malloc("/var/tmp/test-mstack-shadow-XXXXXX", &t));
+
+        _cleanup_free_ char *rootdir = path_join(t, "root"),
+                            *bindtmp = path_join(t, "bind@tmp"),
+                            *marker  = path_join(t, "bind@tmp/marker");
+        ASSERT_NOT_NULL(rootdir);
+        ASSERT_NOT_NULL(bindtmp);
+        ASSERT_NOT_NULL(marker);
+
+        ASSERT_OK_ERRNO(mkdir(rootdir, 0755));
+        _cleanup_free_ char *rootusr = path_join(rootdir, "usr"), *roottmp = path_join(rootdir, "tmp");
+        ASSERT_NOT_NULL(rootusr);
+        ASSERT_NOT_NULL(roottmp);
+        ASSERT_OK_ERRNO(mkdir(rootusr, 0755));
+        ASSERT_OK_ERRNO(mkdir(roottmp, 0755));
+        _cleanup_free_ char *rootvartmp = path_join(rootdir, "var/tmp");
+        ASSERT_NOT_NULL(rootvartmp);
+        ASSERT_OK(mkdir_p(rootvartmp, 0755));
+        ASSERT_OK_ERRNO(mkdir(bindtmp, 0755));
+        ASSERT_OK(touch(marker));
+
+        ASSERT_OK(mstack_load(t, -EBADF, &mstack));
+        /* setup_namespace() opens the images itself, see namespace.c's mstack_open_images() call. */
+
+        /* Control first: with nothing mounting over /tmp the entry must be visible, otherwise the case
+         * below would be measuring a broken bind@ rather than a shadowed one. */
+        FOREACH_ARRAY(private_tmp, ((PrivateTmp[]) { PRIVATE_TMP_NO, PRIVATE_TMP_DISCONNECTED }), 2) {
+                PinnedResource rootfs = {
+                        .directory_fd = -EBADF,
+                        .image_fd = -EBADF,
+                        .mstack_loaded = mstack,
+                };
+                NamespaceParameters p = {
+                        .runtime_scope = RUNTIME_SCOPE_SYSTEM,
+                        .rootfs = &rootfs,
+                        /* Both, and a namespace dir: append_private_tmp() only takes the fully
+                         * disconnected path when /tmp/ and /var/tmp/ are both asked for. */
+                        .private_tmp = *private_tmp,
+                        .private_var_tmp = *private_tmp,
+                        .private_namespace_dir = "/run/systemd",
+                };
+
+                r = ASSERT_OK(pidref_safe_fork("(shadow)", FORK_WAIT|FORK_LOG|FORK_DEATHSIG_SIGKILL, /* ret= */ NULL));
+                if (r == 0) {
+                        ASSERT_OK_ZERO(setup_namespace(&p, NULL));
+
+                        /* /var/tmp is covered by PrivateTmp= too and named by no bind@ entry, so
+                         * whether it became a mount shows the private tmpfs still took effect
+                         * underneath the layered bind. */
+                        log_info("PrivateTmp=%s -> bind@tmp %s, /var/tmp %s",
+                                 private_tmp_to_string(*private_tmp),
+                                 access("/tmp/marker", F_OK) >= 0 ? "SURVIVED" : "SHADOWED",
+                                 path_is_mount_point("/var/tmp") > 0 ? "private" : "not a mount");
+
+                        /* The entry has to be there in both cases. With PrivateTmp=no nothing is mounted
+                         * over /tmp at all, so this merely proves the fixture works; with the private
+                         * tmpfs it is the actual regression check. */
+                        ASSERT_OK_ERRNO(access("/tmp/marker", F_OK));
+
+                        /* And the private tmpfs still has to have happened - the bind is layered over
+                         * it, it does not replace it. /var/tmp shows that, being covered by PrivateTmp=
+                         * and named by no bind@ entry. */
+                        if (*private_tmp == PRIVATE_TMP_DISCONNECTED)
+                                ASSERT_OK_POSITIVE(path_is_mount_point("/var/tmp"));
+
+                        _exit(EXIT_SUCCESS);
+                }
+        }
+}
+
+/* setup_namespace() now applies its mounts through mount_list_apply() in shared code, with the
+ * service manager's own filesystems reached through a callback. These check that the sandbox still
+ * sandboxes on both sides of that split: PrivateDevices= and ProtectProc= go through the callback,
+ * ProtectSystem= is applied entirely by the generic path. */
+TEST(sandbox_still_sandboxes) {
+        int r;
+
+        if (geteuid() > 0)
+                return (void) log_tests_skipped("not root");
+        if (detect_container() > 0)
+                return (void) log_tests_skipped("in container");
+
+        r = dlopen_libmount(LOG_DEBUG);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                return (void) log_tests_skipped("libmount support not compiled in");
+        ASSERT_OK(r);
+
+        /* ProtectSystem=strict: /usr read-only. Generic path, MOUNT_READ_ONLY. */
+        {
+                static const NamespaceParameters p = {
+                        .runtime_scope = RUNTIME_SCOPE_SYSTEM,
+                        .protect_system = PROTECT_SYSTEM_STRICT,
+                };
+
+                r = ASSERT_OK(pidref_safe_fork("(prot-sys)", FORK_WAIT|FORK_LOG|FORK_DEATHSIG_SIGKILL, /* ret= */ NULL));
+                if (r == 0) {
+                        ASSERT_OK_ZERO(setup_namespace(&p, NULL));
+                        log_info("ProtectSystem=strict -> /usr %s",
+                                 path_is_read_only_fs("/usr") > 0 ? "read-only" : "WRITABLE");
+                        ASSERT_OK_POSITIVE(path_is_read_only_fs("/usr"));
+                        _exit(EXIT_SUCCESS);
+                }
+        }
+
+        /* PrivateDevices=: /dev replaced by our own instance. Goes through the callback. */
+        {
+                static const NamespaceParameters p = {
+                        .runtime_scope = RUNTIME_SCOPE_SYSTEM,
+                        .private_dev = true,
+                };
+
+                r = ASSERT_OK(pidref_safe_fork("(priv-dev)", FORK_WAIT|FORK_LOG|FORK_DEATHSIG_SIGKILL, /* ret= */ NULL));
+                if (r == 0) {
+                        ASSERT_OK_ZERO(setup_namespace(&p, NULL));
+                        log_info("PrivateDevices= -> /dev %s, /dev/null %s, /dev/mem %s",
+                                 path_is_mount_point("/dev") > 0 ? "private" : "NOT A MOUNT",
+                                 access("/dev/null", F_OK) >= 0 ? "present" : "MISSING",
+                                 access("/dev/mem", F_OK) >= 0 ? "STILL THERE" : "gone");
+                        ASSERT_OK_POSITIVE(path_is_mount_point("/dev"));
+                        ASSERT_OK_ERRNO(access("/dev/null", F_OK));   /* the allow-list survives */
+                        ASSERT_ERROR_ERRNO(access("/dev/mem", F_OK), ENOENT); /* and the rest does not */
+                        _exit(EXIT_SUCCESS);
+                }
+        }
+
+        /* ProtectProc=invisible: other processes hidden. Goes through the callback. */
+        {
+                static const NamespaceParameters p = {
+                        .runtime_scope = RUNTIME_SCOPE_SYSTEM,
+                        .protect_proc = PROTECT_PROC_INVISIBLE,
+                        .private_pids = false,
+                };
+
+                r = ASSERT_OK(pidref_safe_fork("(prot-proc)", FORK_WAIT|FORK_LOG|FORK_DEATHSIG_SIGKILL, /* ret= */ NULL));
+                if (r == 0) {
+                        ASSERT_OK_ZERO(setup_namespace(&p, NULL));
+                        /* Check the mount carries hidepid=, not that a process is hidden: hidepid
+                         * conceals processes from other users, and this test runs as root, for whom it
+                         * does not apply. */
+                        _cleanup_free_ char *mountinfo = NULL;
+                        ASSERT_OK(read_full_file("/proc/self/mountinfo", &mountinfo, NULL));
+
+                        bool found = strstr(mountinfo, "hidepid=invisible") || strstr(mountinfo, "hidepid=2");
+                        log_info("ProtectProc=invisible -> /proc carries hidepid=: %s", yes_no(found));
+                        assert_se(found);
+                        _exit(EXIT_SUCCESS);
+                }
         }
 }
 
