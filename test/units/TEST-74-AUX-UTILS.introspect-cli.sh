@@ -17,6 +17,7 @@ INTROSPECTABLE=(
     cdrom_id
     coredumpctl
     dmi_memory_id
+    fido_id
     homectl
     hostnamectl
     importctl
