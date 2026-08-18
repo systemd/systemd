@@ -44,12 +44,24 @@ cmp /var/tmp/testimage.raw /var/tmp/testimage3.raw
 rm /var/tmp/testimage3.raw
 
 # Test rename
+printf 'hash\n' >/var/lib/machines/testimage3.roothash
+printf 'verity\n' >/var/lib/machines/testimage3.verity
+printf 'tpmstate\n' >/var/lib/machines/testimage3.raw.tpmstate
 machinectl rename testimage3 testimage4
 test -f /var/lib/machines/testimage4.raw
+test -f /var/lib/machines/testimage4.roothash
+test -f /var/lib/machines/testimage4.verity
+test -f /var/lib/machines/testimage4.raw.tpmstate
 machinectl image-status testimage4
 test ! -f /var/lib/machines/testimage3.raw
+test ! -f /var/lib/machines/testimage3.roothash
+test ! -f /var/lib/machines/testimage3.verity
+test ! -f /var/lib/machines/testimage3.raw.tpmstate
 (! machinectl image-status testimage3)
 cmp /var/tmp/testimage.raw /var/lib/machines/testimage4.raw
+grep -Fx hash /var/lib/machines/testimage4.roothash
+grep -Fx verity /var/lib/machines/testimage4.verity
+grep -Fx tpmstate /var/lib/machines/testimage4.raw.tpmstate
 
 # Test export of rename
 machinectl export-raw testimage4 /var/tmp/testimage4.raw
@@ -59,6 +71,9 @@ rm /var/tmp/testimage4.raw
 # Test removal
 machinectl remove testimage4
 test ! -f /var/lib/machines/testimage4.raw
+test ! -f /var/lib/machines/testimage4.roothash
+test ! -f /var/lib/machines/testimage4.verity
+test ! -f /var/lib/machines/testimage4.raw.tpmstate
 (! machinectl image-status testimage4)
 
 # → And now, let's test directory trees ← #
