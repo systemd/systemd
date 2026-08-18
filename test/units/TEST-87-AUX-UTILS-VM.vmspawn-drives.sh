@@ -185,7 +185,11 @@ echo "Ephemeral VM terminated cleanly"
 # --- Test 3: Ephemeral overlay grown with --grow-image= ---
 # In ephemeral mode the requested size has to land on the qcow2 overlay. The
 # image passed to --image= is opened read-only and has to come out of the run
-# at its original size.
+# at its original size. The image is passed through a symlink in another
+# directory, and the overlay has to be created next to the symlink target.
+
+mkdir "$WORKDIR/links"
+ln -s "$WORKDIR/root.raw" "$WORKDIR/links/root.raw"
 
 MACHINE_GROW="test-vmspawn-grow-$$"
 GROW_SIZE=$((512 * 1024 * 1024))
@@ -194,7 +198,7 @@ IMAGE_SIZE="$(stat -c %s "$WORKDIR/root.raw")"
 systemd-vmspawn \
     --machine="$MACHINE_GROW" \
     --ram=256M \
-    --image="$WORKDIR/root.raw" \
+    --image="$WORKDIR/links/root.raw" \
     --ephemeral \
     --grow-image="$GROW_SIZE" \
     --linux="$KERNEL" \
@@ -218,13 +222,14 @@ QEMU_PID="$(varlinkctl call /run/systemd/machine/io.systemd.Machine \
 OVERLAY=""
 for fd in /proc/"$QEMU_PID"/fd/*; do
     target="$(readlink "$fd" 2>/dev/null)" || continue
-    # O_TMPFILE in the runtime directory, or the memfd fallback.
-    [[ "$target" == */vmspawn/"$MACHINE_GROW"/#* || "$target" == /memfd:vmspawn-overlay* ]] || continue
+    # The overlay is an O_TMPFILE. On file systems without O_TMPFILE, vmspawn creates a named
+    # temporary file instead and unlinks it right away.
+    [[ "$target" == "$WORKDIR"/#*" (deleted)" || "$target" == "$WORKDIR"/systemd-tmp-*" (deleted)" ]] || continue
     OVERLAY="$fd"
     break
 done
 assert_neq "$OVERLAY" ""
-echo "Ephemeral overlay is QEMU fd ${OVERLAY##*/}"
+echo "Ephemeral overlay was created next to the image and is QEMU fd ${OVERLAY##*/}"
 
 # qcow2 header: the magic, followed by the virtual size as a big endian u64 at
 # offset 24. Read it out of the header directly, qemu-img may not be installed.
