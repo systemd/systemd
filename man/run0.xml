@@ -65,6 +65,10 @@
     <command>run0</command> is a symbolic link to <command>systemd-run</command> executable file, and it
     behaves as <command>run0</command> if it is invoked through the symbolic link, otherwise behaves as
     <command>systemd-run</command>.</para>
+
+    <para>Note that TTY isolation as provided by the default value of the <option>--pty</option> option is a
+    core feature of <command>run0</command>, so redirecting terminals must be done with care, avoiding
+    giving such control to untrusted programs.</para>
   </refsect1>
 
   <refsect1>
@@ -266,6 +270,9 @@
         TTY then a pseudo TTY is allocated (in <option>--pty-late</option> mode unless
         <option>--no-ask-password</option> is specified in which case <option>--pty</option> is selected),
         otherwise the relevant file descriptors are passed through directly.</para>
+
+        <para>As mentioned above, TTY isolation as implemented by the default value of this option is
+        crucial for security, so care must be taken when overriding it.</para>
 
         <para id="v257"><option>--pty</option> and <option>--pipe</option> were added in v257.</para>
         <para id="v258"><option>--pty-late</option> was added in v258.</para>
