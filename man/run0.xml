@@ -65,6 +65,9 @@
     <command>run0</command> is a symbolic link to <command>systemd-run</command> executable file, and it
     behaves as <command>run0</command> if it is invoked through the symbolic link, otherwise behaves as
     <command>systemd-run</command>.</para>
+
+    <para>Note that TTY isolation is a core feature of <command>run0</command>, so redirecting terminals
+    must be done with care, avoiding giving such control to untrusted programs.</para>
   </refsect1>
 
   <refsect1>
