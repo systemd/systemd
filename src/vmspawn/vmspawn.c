@@ -26,6 +26,7 @@
 #include "bus-locator.h"
 #include "bus-util.h"
 #include "capability-util.h"
+#include "chattr-util.h"
 #include "common-signal.h"
 #include "copy.h"
 #include "discover-image.h"
@@ -53,7 +54,6 @@
 #include "machine-credential.h"
 #include "machine-register.h"
 #include "main-func.h"
-#include "memfd-util.h"
 #include "mkdir.h"
 #include "namespace-util.h"
 #include "netif-util.h"
@@ -2319,10 +2319,9 @@ static int resolve_disk_driver(DiskType dt, const char *filename, DriveInfo *inf
         return 0;
 }
 
-static int prepare_primary_drive(const char *runtime_dir, DriveInfos *drives) {
+static int prepare_primary_drive(DriveInfos *drives) {
         int r;
 
-        assert(runtime_dir);
         assert(drives);
 
         if (!arg_image)
@@ -2370,16 +2369,51 @@ static int prepare_primary_drive(const char *runtime_dir, DriveInfos *drives) {
          * as qcow2 via blockdev-create, so no filesystem path is needed.
          * Skip for read-only drives (e.g. CDROM) where overlays are not meaningful. */
         if (arg_ephemeral && !FLAGS_SET(d->flags, QMP_DRIVE_READ_ONLY)) {
-                _cleanup_close_ int overlay_fd = open(runtime_dir, O_TMPFILE | O_RDWR | O_CLOEXEC, 0600);
-                if (overlay_fd < 0) {
-                        if (!ERRNO_IS_NOT_SUPPORTED(errno))
-                                return log_error_errno(errno, "Failed to create ephemeral overlay in '%s': %m", runtime_dir);
+                _cleanup_close_ int overlay_fd = -EBADF;
+                _cleanup_free_ char *image_dir = NULL;
+                const char *overlay_dir = NULL;
 
-                        /* Fallback to memfd if O_TMPFILE is not supported */
-                        overlay_fd = memfd_new("vmspawn-overlay");
+                /* /dev/ is a devtmpfs. An overlay next to a block device would therefore use host memory. A
+                 * memfd or a deleted file has no links, and therefore no directory to create the overlay in.
+                 * fd_get_path() returns the path of the opened file. If arg_image is a symlink, the overlay is
+                 * therefore created next to the symlink target. */
+                if (S_ISREG(st.st_mode) && st.st_nlink > 0) {
+                        _cleanup_free_ char *image_path = NULL;
+                        r = fd_get_path(d->fd, &image_path);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to get path of '%s': %m", arg_image);
+
+                        r = path_extract_directory(image_path, &image_dir);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to extract directory from '%s': %m", image_path);
+
+                        overlay_fd = open_tmpfile_unlinkable(image_dir, O_RDWR|O_CLOEXEC);
                         if (overlay_fd < 0)
-                                return log_error_errno(overlay_fd, "Failed to create ephemeral overlay via memfd: %m");
+                                log_debug_errno(overlay_fd,
+                                                "Failed to create ephemeral overlay in '%s', using the directory for large temporary files instead: %m",
+                                                image_dir);
+                        else
+                                overlay_dir = image_dir;
                 }
+
+                if (overlay_fd < 0) {
+                        r = var_tmp_dir(&overlay_dir);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to determine directory for large temporary files: %m");
+
+                        overlay_fd = open_tmpfile_unlinkable(overlay_dir, O_RDWR|O_CLOEXEC);
+                        if (overlay_fd < 0)
+                                return log_error_errno(overlay_fd, "Failed to create ephemeral overlay in '%s': %m", overlay_dir);
+                }
+
+                /* The guest makes small random writes to the overlay. On btrfs, small random writes fragment a
+                 * copy-on-write file. FS_NOCOW_FL only takes effect while the file is still empty. */
+                r = chattr_fd(overlay_fd, FS_NOCOW_FL, FS_NOCOW_FL);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to disable copy-on-write for ephemeral overlay, ignoring: %m");
+
+                log_debug("Created ephemeral overlay in '%s'.", overlay_dir);
+
                 d->overlay_fd = TAKE_FD(overlay_fd);
                 d->flags |= QMP_DRIVE_NO_FLUSH;
                 d->grow_to = arg_grow_image;
@@ -2480,10 +2514,9 @@ static int assign_pcie_ports(MachineConfig *c) {
         return 0;
 }
 
-static int prepare_device_info(const char *runtime_dir, MachineConfig *c) {
+static int prepare_device_info(MachineConfig *c) {
         int r;
 
-        assert(runtime_dir);
         assert(c);
 
         DriveInfos *drives = &c->drives;
@@ -2494,7 +2527,7 @@ static int prepare_device_info(const char *runtime_dir, MachineConfig *c) {
         if (!drives->drives)
                 return log_oom();
 
-        r = prepare_primary_drive(runtime_dir, drives);
+        r = prepare_primary_drive(drives);
         if (r < 0)
                 return r;
 
@@ -3824,7 +3857,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         child_pty = safe_close(child_pty);
         bridge_fds[1] = safe_close(bridge_fds[1]);
 
-        r = prepare_device_info(runtime_dir, &config);
+        r = prepare_device_info(&config);
         if (r < 0)
                 return r;
 
