@@ -18,6 +18,7 @@ INTROSPECTABLE=(
     coredumpctl
     dmi_memory_id
     fido_id
+    halt
     homectl
     hostnamectl
     importctl
@@ -30,9 +31,12 @@ INTROSPECTABLE=(
     networkctl
     oomctl
     portablectl
+    poweroff
+    reboot
     resolvectl
     run0
     scsi_id
+    shutdown
     storagectl
     systemctl
     systemd-ac-power
@@ -138,7 +142,9 @@ for i in "${INTROSPECTABLE[@]}"; do
     $i --intro | grep -e --help
 
     # If the tool has a "help" verb, it must work too
-    if $i --introspect-cli | jq -e 'any(.commands[]; (.verbs // []) | any(.names[0] == "help"))' >/dev/null; then
+    if $i --introspect-cli | jq -e --arg name "$i" \
+            'any(.commands[]; any(.names[]; . == $name) and ((.verbs // []) | any(.names[0] == "help")))' \
+             >/dev/null; then
         # 'systemctl help' shows unit manuals
         [[ "$i" == systemctl ]] && continue
 
@@ -172,3 +178,6 @@ systemd-mstack --introspect-cli | jq -e \
 
 systemd-run --introspect-cli | jq -e \
     '[.commands[].names[0]] | sort == ["run0", "systemd-run"]'
+
+systemctl --introspect-cli | jq -e \
+    '[.commands[].names[0]] | sort == ["halt", "poweroff", "reboot", "shutdown", "systemctl"]'
