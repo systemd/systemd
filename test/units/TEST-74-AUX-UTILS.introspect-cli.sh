@@ -11,6 +11,7 @@ export SYSTEMD_PAGER=cat
 
 # A smoke test for the introspection code
 INTROSPECTABLE=(
+    ata_id
     bootctl
     busctl
     coredumpctl
