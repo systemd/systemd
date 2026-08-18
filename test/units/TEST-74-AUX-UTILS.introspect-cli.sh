@@ -84,6 +84,7 @@ INTROSPECTABLE=(
     systemd-pcrextend
     systemd-pcrlock
     systemd-pty-forward
+    systemd-pull
     systemd-random-seed
     systemd-repart
     systemd-report
