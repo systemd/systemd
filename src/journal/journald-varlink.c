@@ -45,6 +45,11 @@ static int vl_method_synchronize(sd_varlink *link, sd_json_variant *parameters, 
 
         assert(link);
 
+        /* The varlink connection already requested to sync journal. Refusing. */
+        void *u = sd_varlink_get_userdata(link);
+        if (u != m)
+                return -EBUSY;
+
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &offline);
         if (r != 0)
                 return r;
