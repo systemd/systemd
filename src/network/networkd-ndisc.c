@@ -2971,18 +2971,27 @@ static int ndisc_configure(Link *link) {
         return 0;
 }
 
+static bool ndisc_can_start(Link *link) {
+        assert(link);
+
+        if (!link->ndisc || !link->dhcp6_client)
+                return false;
+
+        if (!link_has_carrier(link))
+                return false;
+
+        if (in6_addr_is_null(&link->ipv6ll_address))
+                return false;
+
+        return true;
+}
+
 int ndisc_start(Link *link) {
         int r;
 
         assert(link);
 
-        if (!link->ndisc || !link->dhcp6_client)
-                return 0;
-
-        if (!link_has_carrier(link))
-                return 0;
-
-        if (in6_addr_is_null(&link->ipv6ll_address))
+        if (!ndisc_can_start(link))
                 return 0;
 
         r = sd_ndisc_set_link_local_address(link->ndisc, &link->ipv6ll_address);
@@ -2996,6 +3005,45 @@ int ndisc_start(Link *link) {
                 return r;
 
         return 1;
+}
+
+int ndisc_update_mac(Link *link) {
+        int r;
+
+        assert(link);
+
+        if (!link->ndisc || link->hw_addr.length != ETH_ALEN)
+                return 0;
+
+        r = sd_ndisc_set_mac(link->ndisc, &link->hw_addr.ether);
+        if (r < 0)
+                return r;
+
+        if (sd_ndisc_is_running(link->ndisc) <= 0)
+                return 0;
+
+        /* Only restart if a start is possible right now. Otherwise keep the running client,
+         * whatever makes the conditions true again should also restart discovery. */
+        if (!ndisc_can_start(link)) {
+                log_link_debug(link, "MAC address changed, but not restarting IPv6 Router Discovery now.");
+                return 0;
+        }
+
+        /* A changed MAC can mean a changed network, e.g. on a bond failover. Restart discovery to
+         * solicit RAs instead of waiting for the next unsolicited one. Keep learned state, so use
+         * sd_ndisc_stop() rather than ndisc_stop(). */
+        r = sd_ndisc_stop(link->ndisc);
+        if (r < 0)
+                return r;
+
+        r = ndisc_start(link);
+        if (r < 0)
+                return r;
+        /* Should be unreachable, otherwise check ndisc_can_start(). */
+        if (r == 0)
+                log_link_debug(link, "MAC address changed, but IPv6 Router Discovery was not restarted.");
+
+        return 0;
 }
 
 static int ndisc_process_request(Request *req, Link *link, void *userdata) {
