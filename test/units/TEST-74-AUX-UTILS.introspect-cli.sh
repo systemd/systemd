@@ -24,6 +24,7 @@ INTROSPECTABLE=(
     importctl
     iocost
     journalctl
+    kernel-install
     localectl
     loginctl
     machinectl
