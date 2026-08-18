@@ -80,6 +80,7 @@ INTROSPECTABLE=(
     systemd-machine-id-setup
     systemd-measure
     systemd-modules-load
+    systemd-mount
     systemd-mstack
     systemd-mute-console
     systemd-network-generator
@@ -119,6 +120,7 @@ INTROSPECTABLE=(
     systemd-tpm2-clear
     systemd-tpm2-setup
     systemd-tty-ask-password-agent
+    systemd-umount
     systemd-update-done
     systemd-validatefs
     systemd-veritysetup
@@ -178,6 +180,13 @@ systemd-dissect --introspect-cli | jq -e \
 
 systemd-id128 --introspect-cli | jq -e \
     '.commands[0].verbs | map(.names[0]) | contains(["new", "machine-id", "show", "help"])'
+
+systemd-mount --introspect-cli | jq -e \
+    '[.commands[].names[0]] | sort == ["systemd-mount", "systemd-umount"]'
+
+# --tmpfs is only valid for systemd-mount
+(! systemd-mount --tmpfs 2>&1) | grep "one argument required" >/dev/null
+(! systemd-umount --tmpfs 2>&1) | grep "unrecognized option" >/dev/null
 
 systemd-mstack --introspect-cli | jq -e \
     '[.commands[].names[0]] | sort == ["mount.mstack", "systemd-mstack"]'
