@@ -26,6 +26,7 @@ INTROSPECTABLE=(
     localectl
     loginctl
     machinectl
+    mtd_probe
     networkctl
     oomctl
     portablectl
