@@ -2494,6 +2494,18 @@ static int link_update_hardware_address(Link *link, sd_netlink_message *message)
                 r = sd_ndisc_set_mac(link->ndisc, &link->hw_addr.ether);
                 if (r < 0)
                         return log_link_debug_errno(link, r, "Could not update MAC for NDisc: %m");
+
+                /* A changed MAC may mean a changed network, e.g. on a bond failover. Restart discovery
+                 * to solicit Router Advertisements instead of waiting for the next unsolicited one. */
+                if (sd_ndisc_is_running(link->ndisc) > 0) {
+                        r = ndisc_stop(link);
+                        if (r < 0)
+                                return log_link_debug_errno(link, r, "Could not stop NDisc: %m");
+
+                        r = ndisc_start(link);
+                        if (r < 0)
+                                return log_link_debug_errno(link, r, "Could not restart NDisc: %m");
+                }
         }
 
         if (link->lldp_rx) {
