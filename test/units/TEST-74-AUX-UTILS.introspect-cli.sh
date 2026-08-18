@@ -32,6 +32,7 @@ INTROSPECTABLE=(
     portablectl
     resolvectl
     run0
+    scsi_id
     storagectl
     systemd-ac-power
     systemd-analyze
