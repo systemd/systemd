@@ -89,6 +89,7 @@ INTROSPECTABLE=(
     systemd-repart
     systemd-report
     systemd-report-basic
+    systemd-report-cgroup
     systemd-run
     systemd-sbsign
     systemd-sleep
