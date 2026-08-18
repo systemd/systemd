@@ -726,6 +726,9 @@ static int mdns_next_query_schedule(sd_event_source *s, uint64_t usec, void *use
         assert(userdata);
         assert_se(sb = dns_service_browser_ref(userdata));
 
+        if (sd_varlink_get_userdata(sb->link))
+                goto restart; /* The previous query not finished, skipping. */
+
         /* Enable the answer from the cache for the very first query */
         if (sb->delay == 0)
                 SET_FLAG(sb->flags, SD_RESOLVED_NO_CACHE, false);
@@ -748,6 +751,7 @@ static int mdns_next_query_schedule(sd_event_source *s, uint64_t usec, void *use
         if (r < 0)
                 return log_error_errno(r, "Failed to send DNS query: %m");
 
+restart:
         /* Calculate the next query delay */
         sb->delay = mdns_calculate_next_query_delay(sb->delay);
 
@@ -810,6 +814,10 @@ int dns_subscribe_browse_service(
 
         assert(m);
         assert(link);
+
+        /* Refuse multiple requests. */
+        if (hashmap_contains(m->dns_service_browsers, link))
+                return -EBUSY;
 
         if (ifindex < 0)
                 return sd_varlink_error_invalid_parameter_name(link, "ifindex");

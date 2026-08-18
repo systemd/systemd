@@ -169,6 +169,10 @@ int vl_method_list_candidate_devices(
         _cleanup_(list_candidate_devices_context_freep) ListCandidateDevicesContext *c = NULL;
 
         if (p.subscribe) {
+                /* Refuse multiple requests per connection. */
+                if (sd_varlink_get_userdata(link))
+                        return -EBUSY;
+
                 /* Start the monitor *before* the initial enumeration so we don't lose events that fire
                  * during the enumeration window. Duplicate add events for the same device are
                  * legitimate and documented; clients upsert by identifier. */
