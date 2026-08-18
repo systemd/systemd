@@ -358,6 +358,9 @@ static int vl_method_resolve_hostname(sd_varlink *link, sd_json_variant *paramet
 
         assert(link);
 
+        if (sd_varlink_get_userdata(link))
+                return -EBUSY;
+
         m = sd_varlink_server_get_userdata(sd_varlink_get_server(link));
         assert(m);
 
@@ -523,6 +526,9 @@ static int vl_method_resolve_address(sd_varlink *link, sd_json_variant *paramete
         int r;
 
         assert(link);
+
+        if (sd_varlink_get_userdata(link))
+                return -EBUSY;
 
         m = sd_varlink_server_get_userdata(sd_varlink_get_server(link));
         assert(m);
@@ -1001,6 +1007,9 @@ static int vl_method_resolve_service(sd_varlink* link, sd_json_variant* paramete
 
         assert(link);
 
+        if (sd_varlink_get_userdata(link))
+                return -EBUSY;
+
         m = sd_varlink_server_get_userdata(sd_varlink_get_server(link));
         assert(m);
 
@@ -1154,6 +1163,9 @@ static int vl_method_resolve_record(sd_varlink *link, sd_json_variant *parameter
         int r;
 
         assert(link);
+
+        if (sd_varlink_get_userdata(link))
+                return -EBUSY;
 
         m = ASSERT_PTR(sd_varlink_server_get_userdata(sd_varlink_get_server(link)));
 
