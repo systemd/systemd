@@ -54,6 +54,7 @@ INTROSPECTABLE=(
     systemd-detect-virt
     systemd-dissect
     systemd-escape
+    systemd-export
     systemd-factory-reset
     systemd-firstboot
     systemd-growfs

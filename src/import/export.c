@@ -4,20 +4,18 @@
 #include <unistd.h>
 
 #include "sd-event.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
-#include "ansi-color.h"
 #include "build.h"
 #include "discover-image.h"
 #include "dlopen-note.h"
 #include "export-raw.h"
 #include "export-tar.h"
 #include "fd-util.h"
-#include "format-table.h"
 #include "import-common.h"
 #include "log.h"
 #include "main-func.h"
-#include "options.h"
 #include "runtime-scope.h"
 #include "signal-util.h"
 #include "string-util.h"
@@ -28,6 +26,11 @@ static ImportFlags arg_import_flags = 0;
 static Compression arg_compress = _COMPRESSION_INVALID;
 static ImageClass arg_class = IMAGE_MACHINE;
 static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
+
+COMMAND(
+        "systemd-export\0",
+        "Export disk images.",
+);
 
 static void determine_compression_from_filename(const char *p) {
         if (arg_compress >= 0)
@@ -194,45 +197,7 @@ static int verb_export_raw(int argc, char *argv[], uintptr_t _data, void *userda
         return -r;
 }
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
-        int r;
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, verbs, options);
-
-        printf("%s [OPTIONS...] {COMMAND} ...\n\n"
-               "%sExport disk images.%s\n"
-               "\n%sCommands:%s\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal(),
-               ansi_underline(),
-               ansi_normal());
-
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        printf("\n%sOptions:%s\n",
-               ansi_underline(),
-               ansi_normal());
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
-VERB_COMMON_HELP_HIDDEN(help);
+VERB_COMMON_HELP_AUTO_HIDDEN("systemd-export");
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
@@ -245,7 +210,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-export");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -271,6 +236,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_COMMON_USER:
                         arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (arg_runtime_scope == RUNTIME_SCOPE_USER)
