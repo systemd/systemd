@@ -7323,3 +7323,26 @@ unsigned unit_normalize_markers(unsigned existing_markers, unsigned new_markers)
 
         return markers;
 }
+
+int unit_get_app_id(const Unit *u, char **ret) {
+        int r;
+
+        assert(u);
+        assert(ret);
+
+        if (!MANAGER_IS_USER(u->manager))
+                return -ENODATA; /* Only user units can be apps */
+
+        r = unit_name_to_app_id(u->id, ret);
+        if (r != -EINVAL)
+                return r;
+
+        const char *alias;
+        SET_FOREACH(alias, u->aliases) {
+                r = unit_name_to_app_id(alias, ret);
+                if (r != -EINVAL)
+                        return r;
+        }
+
+        return -ENODATA;
+}
