@@ -2,6 +2,7 @@
 
 #include "sd-bus.h"
 #include "sd-device.h"
+#include "sd-json.h"
 
 #include "ansi-color.h"
 #include "argv-util.h"
@@ -21,11 +22,9 @@
 #include "format-table.h"
 #include "format-util.h"
 #include "fstab-util.h"
-#include "help-util.h"
 #include "libmount-util.h"
 #include "main-func.h"
 #include "mountpoint-util.h"
-#include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -41,6 +40,7 @@
 #include "unit-def.h"
 #include "unit-name.h"
 #include "user-util.h"
+#include "verbs.h"
 
 static enum {
         ACTION_DEFAULT,
@@ -86,6 +86,33 @@ STATIC_DESTRUCTOR_REGISTER(arg_description, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_automount_property, strv_freep);
 
+COMMAND(
+        "systemd-mount\0",
+        "Establish a mount or auto-mount point.",
+        .argspec =
+                "WHAT [WHERE]\0"
+                "--tmpfs [NAME] WHERE\0"
+                "--list\0"
+                "--umount WHAT|WHERE…\0",
+        .option_groups =
+                "Common options\0"
+                "Mount options\0",
+        .man_pages = "systemd-mount.1\0",
+        .flags = COMMAND_VERBS_SHARED,
+        .pager_flags = &arg_pager_flags,
+);
+COMMAND(
+        "systemd-umount\0",
+        "Unmount one or more mount points.",
+        .argspec =
+                "WHAT|WHERE…\0",
+        .option_groups =
+                "Common options\0",
+        .man_pages = "systemd-mount.1\0",
+        .flags = COMMAND_VERBS_SHARED,
+        .pager_flags = &arg_pager_flags,
+);
+
 static int parse_where(const char *input, char **ret_where) {
         int r;
 
@@ -110,46 +137,6 @@ static int parse_where(const char *input, char **ret_where) {
         return 0;
 }
 
-static int help(char *argv[]) {
-        _cleanup_(table_unrefp) Table *options_common = NULL, *options_mount = NULL;
-        int r;
-
-        r = option_parser_get_help_table(&options_common);
-        if (r < 0)
-                return r;
-
-        if (invoked_as(argv, "systemd-umount")) {
-                help_cmdline("[OPTIONS…] WHAT|WHERE…");
-                help_abstract("Unmount one or more mount points.");
-        } else {
-                help_cmdline("[OPTIONS…] WHAT [WHERE]");
-                help_cmdline("[OPTIONS…] --tmpfs [NAME] WHERE");
-                help_cmdline("[OPTIONS…] --list");
-                help_cmdline("[OPTIONS…] --umount WHAT|WHERE…");
-                help_abstract("Establish a mount or auto-mount point.");
-
-                r = option_parser_get_help_table_group("Mount options", &options_mount);
-                if (r < 0)
-                        return r;
-
-                (void) table_sync_column_widths(0, options_common, options_mount);
-        }
-
-        help_section("Options");
-        r = table_print_or_warn(options_common);
-        if (r < 0)
-                return r;
-
-        if (options_mount) {
-                r = table_print_or_warn(options_mount);
-                if (r < 0)
-                        return r;
-        }
-
-        help_man_page_reference("systemd-mount", "1");
-        return 0;
-}
-
 static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         int r;
 
@@ -157,16 +144,26 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         assert(argv);
         assert(remaining_args);
 
-        if (invoked_as(argv, "systemd-umount"))
+        bool is_umount = invoked_as(argv, "systemd-umount");
+
+        const CommandDescription *cmd;
+        assert_se(verbs_find_command(is_umount ? "systemd-umount" : "systemd-mount", &cmd));
+
+        if (is_umount)
                 arg_action = ACTION_UMOUNT;
 
-        OptionParser opts = { argc, argv };
+        OptionParser opts = {
+                argc, argv,
+                .option_groups = cmd->option_groups,
+        };
 
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
+                OPTION_GROUP("Common options"): {}
+
                 OPTION_COMMON_HELP:
-                        return help(argv);
+                        return command_print_help_full(cmd->names,  /* footer_ansi_seq= */ NULL);
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -226,6 +223,9 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         if (r <= 0)
                                 return r;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
 
                 OPTION_GROUP("Mount options"): {}
 
