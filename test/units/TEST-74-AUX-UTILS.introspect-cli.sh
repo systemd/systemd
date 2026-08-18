@@ -3,9 +3,9 @@
 set -eux
 set -o pipefail
 
-# Some commands are in $PATH, others are in our private directory.
-# Check the other location too.
-PATH=$PATH:/usr/lib/systemd
+# Some commands are in $PATH, others are in our private directories.
+# Check the other locations too.
+PATH=$PATH:/usr/lib/systemd:/usr/lib/udev
 
 export SYSTEMD_PAGER=cat
 
@@ -17,6 +17,7 @@ INTROSPECTABLE=(
     homectl
     hostnamectl
     importctl
+    iocost
     journalctl
     localectl
     loginctl
