@@ -797,6 +797,10 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         arg_ask_password = false;
                         break;
 
+                OPTION_COMMON_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
                 OPTION_LONG("machine", "CONTAINER", "Operate on local container"):
                         r = parse_machine_argument(opts.arg, &arg_host, &arg_transport);
                         if (r < 0)
