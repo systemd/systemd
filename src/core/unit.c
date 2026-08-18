@@ -1776,25 +1776,136 @@ fail:
         return log_unit_debug_errno(u, r, "Failed to load configuration: %m");
 }
 
+_printf_(7, 0)
+static int log_unit_internalv(
+                const Unit *u,
+                int level,
+                int error,
+                const char *file,
+                int line,
+                const char *func,
+                const char *format,
+                bool check_unit_log_level,
+                va_list ap) {
+
+        PROTECT_ERRNO;
+
+        assert(u);
+        assert(unit_test_run_diagnostic_enabled(u));
+        assert(LOG_PRI(level) <= LOG_INFO);
+        assert(format);
+
+        char buffer[LINE_MAX];
+        va_list aq;
+
+        errno = ERRNO_VALUE(error);
+
+        va_copy(aq, ap);
+        (void) vsnprintf(buffer, sizeof buffer, format, aq);
+        va_end(aq);
+
+        manager_dispatch_test_run_diagnostic(u->manager, &(ManagerDiagnostic) {
+                        .priority = LOG_PRI(level),
+                        .message = buffer,
+                        .unit = u->id,
+        });
+
+        if (check_unit_log_level && !unit_log_level_test(u, level))
+                return -ERRNO_VALUE(error);
+
+        return log_object_internalv(
+                        level,
+                        error,
+                        file,
+                        line,
+                        func,
+                        unit_log_field(u),
+                        u->id,
+                        unit_invocation_log_field(u),
+                        u->invocation_id_string,
+                        format,
+                        ap);
+}
+
+bool unit_test_run_diagnostic_enabled(const Unit *u) {
+        return u && u->manager && u->manager->test_run_diagnostic_callback;
+}
+
+int log_unit_internal(
+                const Unit *u,
+                int level,
+                int error,
+                const char *file,
+                int line,
+                const char *func,
+                const char *format, ...) {
+
+        va_list ap;
+        int r;
+
+        va_start(ap, format);
+        r = log_unit_internalv(
+                        u,
+                        level,
+                        error,
+                        file,
+                        line,
+                        func,
+                        format,
+                        /* check_unit_log_level= */ false,
+                        ap);
+        va_end(ap);
+
+        return r;
+}
+
 _printf_(7, 8)
-static int log_unit_internal(void *userdata, int level, int error, const char *file, int line, const char *func, const char *format, ...) {
+static int log_unit_condition_internal(
+                void *userdata,
+                int level,
+                int error,
+                const char *file,
+                int line,
+                const char *func,
+                const char *format, ...) {
+
         Unit *u = userdata;
         va_list ap;
         int r;
 
-        if (u && !unit_log_level_test(u, level))
+        bool diagnostic_enabled =
+                _unlikely_(u && LOG_PRI(level) <= LOG_WARNING && unit_test_run_diagnostic_enabled(u));
+
+        if (u && !diagnostic_enabled && !unit_log_level_test(u, level))
                 return -ERRNO_VALUE(error);
 
         va_start(ap, format);
-        if (u)
-                r = log_object_internalv(level, error, file, line, func,
-                                         unit_log_field(u),
-                                         u->id,
-                                         unit_invocation_log_field(u),
-                                         u->invocation_id_string,
-                                         format, ap);
+        if (diagnostic_enabled)
+                r = log_unit_internalv(
+                                u,
+                                level,
+                                error,
+                                file,
+                                line,
+                                func,
+                                format,
+                                /* check_unit_log_level= */ true,
+                                ap);
+        else if (u)
+                r = log_object_internalv(
+                                level,
+                                error,
+                                file,
+                                line,
+                                func,
+                                unit_log_field(u),
+                                u->id,
+                                unit_invocation_log_field(u),
+                                u->invocation_id_string,
+                                format,
+                                ap);
         else
-                r = log_internalv(level, error,  file, line, func, format, ap);
+                r = log_internalv(level, error, file, line, func, format, ap);
         va_end(ap);
 
         return r;
@@ -1817,7 +1928,7 @@ static bool unit_test_condition(Unit *u) {
                                 u->conditions,
                                 env,
                                 condition_type_to_string,
-                                log_unit_internal,
+                                log_unit_condition_internal,
                                 u);
 
         unit_add_to_dbus_queue(u);
@@ -1841,7 +1952,7 @@ static bool unit_test_assert(Unit *u) {
                                 u->asserts,
                                 env,
                                 assert_type_to_string,
-                                log_unit_internal,
+                                log_unit_condition_internal,
                                 u);
 
         unit_add_to_dbus_queue(u);
