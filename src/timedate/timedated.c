@@ -672,6 +672,7 @@ static int property_get_ntp(
 
 static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         Context *c = ASSERT_PTR(userdata);
+        _cleanup_free_ char *old_zone = NULL, *zone = NULL;
         int interactive, r;
         const char *z;
 
@@ -701,13 +702,17 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = free_and_strdup(&c->zone, z);
-        if (r < 0)
-                return r;
+        zone = strdup(z);
+        if (!zone)
+                return -ENOMEM;
+
+        old_zone = TAKE_PTR(c->zone);
+        c->zone = TAKE_PTR(zone);
 
         /* 1. Write new configuration file */
         r = context_write_data_timezone(c);
         if (r < 0) {
+                free_and_replace(c->zone, old_zone);
                 log_error_errno(r, "Failed to set time zone: %m");
                 return sd_bus_error_set_errnof(error, r, "Failed to set time zone: %m");
         }
@@ -778,11 +783,14 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
                 return 1;
 
         if (lrtc != c->local_rtc) {
+                bool old_local_rtc = c->local_rtc;
+
                 c->local_rtc = lrtc;
 
                 /* 1. Write new configuration file */
                 r = context_write_data_local_rtc(c);
                 if (r < 0) {
+                        c->local_rtc = old_local_rtc;
                         log_error_errno(r, "Failed to set RTC to %s: %m", lrtc ? "local" : "UTC");
                         return sd_bus_error_set_errnof(error, r, "Failed to set RTC to %s: %m", lrtc ? "local" : "UTC");
                 }
