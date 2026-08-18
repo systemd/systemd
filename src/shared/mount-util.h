@@ -170,7 +170,15 @@ unsigned long credentials_fs_mount_flags(bool ro) _const_;
 int fsmount_credentials_fs(int *ret_fsfd);
 int mount_credentials_fs(const char *path);
 
-int make_fsmount(int error_log_level, const char *what, const char *type, unsigned long flags, const char *options, int userns_fd);
+/* 'options' is a comma-separated option string, as mount(2) takes it. 'discrete_options' is a strv of
+ * "key=value" pairs handed to fsconfig() one by one instead, for values that cannot survive comma-joining -
+ * a SELinux MCS 'context=' carries commas of its own between its categories, for instance. */
+int make_fsmount_full(int error_log_level, const char *what, const char *type, unsigned long flags, const char *options, char **discrete_options, int userns_fd);
+static inline int make_fsmount(int error_log_level, const char *what, const char *type, unsigned long flags, const char *options, int userns_fd) {
+        return make_fsmount_full(error_log_level, what, type, flags, options, /* discrete_options= */ NULL, userns_fd);
+}
+
+int tmpfs_patch_options(const char *options, uid_t uid_shift, const char *selinux_apifs_context, char **ret);
 
 int path_get_mount_info_at(int dir_fd, const char *path, char **ret_fstype, char **ret_options, char **ret_source);
 static inline int path_get_mount_info(const char *path, char **ret_fstype, char **ret_options, char **ret_source) {
