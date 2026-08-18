@@ -53,7 +53,6 @@
 #include "machine-credential.h"
 #include "machine-register.h"
 #include "main-func.h"
-#include "memfd-util.h"
 #include "mkdir.h"
 #include "namespace-util.h"
 #include "netif-util.h"
@@ -2318,10 +2317,9 @@ static int resolve_disk_driver(DiskType dt, const char *filename, DriveInfo *inf
         return 0;
 }
 
-static int prepare_primary_drive(const char *runtime_dir, DriveInfos *drives) {
+static int prepare_primary_drive(DriveInfos *drives) {
         int r;
 
-        assert(runtime_dir);
         assert(drives);
 
         if (!arg_image)
@@ -2369,16 +2367,71 @@ static int prepare_primary_drive(const char *runtime_dir, DriveInfos *drives) {
          * as qcow2 via blockdev-create, so no filesystem path is needed.
          * Skip for read-only drives (e.g. CDROM) where overlays are not meaningful. */
         if (arg_ephemeral && !FLAGS_SET(d->flags, QMP_DRIVE_READ_ONLY)) {
-                _cleanup_close_ int overlay_fd = open(runtime_dir, O_TMPFILE | O_RDWR | O_CLOEXEC, 0600);
-                if (overlay_fd < 0) {
-                        if (!ERRNO_IS_NOT_SUPPORTED(errno))
-                                return log_error_errno(errno, "Failed to create ephemeral overlay in '%s': %m", runtime_dir);
-
-                        /* Fallback to memfd if O_TMPFILE is not supported */
-                        overlay_fd = memfd_new("vmspawn-overlay");
-                        if (overlay_fd < 0)
-                                return log_error_errno(overlay_fd, "Failed to create ephemeral overlay via memfd: %m");
+                /* The overlay takes every write the guest makes, so it needs to live on storage with
+                 * room for it, and not in memory, where it would eat into what the VM itself runs in.
+                 * Put it next to the image, where nspawn puts its ephemeral copy too, and fall back to
+                 * where we put large temporary files otherwise. A block device has no directory that is
+                 * any better than that fallback, and /dev is a tmpfs, so don't look next to it. */
+                _cleanup_free_ char *image_dir = NULL;
+                if (S_ISREG(st.st_mode)) {
+                        r = path_extract_directory(arg_image, &image_dir);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to determine directory of '%s', ignoring: %m", arg_image);
                 }
+
+                const char *var_tmp;
+                r = var_tmp_dir(&var_tmp);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine directory for large temporary files: %m");
+
+                _cleanup_close_ int overlay_fd = -EBADF, memory_fd = -EBADF;
+                const char *overlay_dir, *memory_dir = NULL;
+                int overlay_errno = 0;
+                FOREACH_ARGUMENT(overlay_dir, image_dir, var_tmp) {
+                        if (!overlay_dir)
+                                continue;
+
+                        _cleanup_close_ int fd = open_tmpfile_unlinkable(overlay_dir, O_RDWR|O_CLOEXEC);
+                        if (fd < 0) {
+                                log_debug_errno(fd, "Failed to create ephemeral overlay in '%s', ignoring: %m", overlay_dir);
+                                overlay_errno = fd;
+                                continue;
+                        }
+
+                        r = fd_is_temporary_fs(fd);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to determine backing filesystem of '%s', assuming it is not memory backed: %m", overlay_dir);
+                        else if (r > 0) {
+                                /* Memory is what we are trying to get away from, so keep looking, but hold
+                                 * on to this one in case it is all we have. */
+                                if (memory_fd < 0) {
+                                        memory_fd = TAKE_FD(fd);
+                                        memory_dir = overlay_dir;
+                                }
+
+                                continue;
+                        }
+
+                        overlay_fd = TAKE_FD(fd);
+                        break;
+                }
+                if (overlay_fd < 0) {
+                        if (memory_fd < 0) {
+                                const char *dirs = var_tmp;
+                                if (image_dir)
+                                        dirs = strjoina(image_dir, "' or '", var_tmp);
+
+                                return log_error_errno(overlay_errno, "Failed to create ephemeral overlay in '%s': %m", dirs);
+                        }
+
+                        /* Eating memory beats refusing to boot. */
+                        log_warning("'%s' is backed by memory, the guest's writes will consume the host's memory.", memory_dir);
+                        overlay_fd = TAKE_FD(memory_fd);
+                        overlay_dir = memory_dir;
+                }
+
+                log_debug("Created ephemeral overlay in '%s'.", overlay_dir);
+
                 d->overlay_fd = TAKE_FD(overlay_fd);
                 d->flags |= QMP_DRIVE_NO_FLUSH;
                 d->grow_to = arg_grow_image;
@@ -2479,10 +2532,9 @@ static int assign_pcie_ports(MachineConfig *c) {
         return 0;
 }
 
-static int prepare_device_info(const char *runtime_dir, MachineConfig *c) {
+static int prepare_device_info(MachineConfig *c) {
         int r;
 
-        assert(runtime_dir);
         assert(c);
 
         DriveInfos *drives = &c->drives;
@@ -2493,7 +2545,7 @@ static int prepare_device_info(const char *runtime_dir, MachineConfig *c) {
         if (!drives->drives)
                 return log_oom();
 
-        r = prepare_primary_drive(runtime_dir, drives);
+        r = prepare_primary_drive(drives);
         if (r < 0)
                 return r;
 
@@ -3823,7 +3875,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         child_pty = safe_close(child_pty);
         bridge_fds[1] = safe_close(bridge_fds[1]);
 
-        r = prepare_device_info(runtime_dir, &config);
+        r = prepare_device_info(&config);
         if (r < 0)
                 return r;
 

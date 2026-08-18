@@ -49,8 +49,6 @@ if [[ -z "$KERNEL" ]]; then
 fi
 echo "Using kernel: $KERNEL"
 
-WORKDIR="$(mktemp -d)"
-
 at_exit() {
     set +e
     for m in "${MACHINE_MULTI:-}" "${MACHINE_EPHEMERAL:-}" "${MACHINE_GROW:-}"; do
@@ -63,9 +61,15 @@ at_exit() {
     [[ -n "${VMSPAWN_MULTI_PID:-}" ]] && kill "$VMSPAWN_MULTI_PID" 2>/dev/null && wait "$VMSPAWN_MULTI_PID" 2>/dev/null
     [[ -n "${VMSPAWN_EPHEMERAL_PID:-}" ]] && kill "$VMSPAWN_EPHEMERAL_PID" 2>/dev/null && wait "$VMSPAWN_EPHEMERAL_PID" 2>/dev/null
     [[ -n "${VMSPAWN_GROW_PID:-}" ]] && kill "$VMSPAWN_GROW_PID" 2>/dev/null && wait "$VMSPAWN_GROW_PID" 2>/dev/null
-    rm -rf "$WORKDIR"
+    rm -rf "${WORKDIR:-}" "${SHMDIR:-}"
 }
 trap at_exit EXIT
+
+# The overlay is only put next to the image if the image is not on memory backed storage, so keep the
+# image out of /tmp, which is a tmpfs.
+WORKDIR="$(mktemp -d -p /var/tmp)"
+# Somewhere that is memory backed for sure, to exercise the fallback.
+SHMDIR="$(mktemp -d -p /dev/shm)"
 
 # Create a minimal root filesystem directory, then bake it into a raw ext4 image.
 # The guest doesn't need to fully boot — 'sleep infinity' keeps QEMU alive for QMP testing.
@@ -82,6 +86,25 @@ mke2fs -t ext4 -q -d "$WORKDIR/rootfs" "$WORKDIR/root.raw"
 # Create extra raw drive images (different sizes to be distinguishable)
 truncate -s 64M "$WORKDIR/extra1.raw"
 truncate -s 32M "$WORKDIR/extra2.raw"
+
+# The overlay is unlinked, so QEMU's fd is the only way to reach it. vmspawn registers QEMU itself as
+# the machine leader, so machined knows its PID. Prints the fd of the overlay QEMU has open in $2, if any.
+find_overlay_fd() {
+    local machine="$1" dir="$2" pid fd target
+
+    pid="$(varlinkctl call /run/systemd/machine/io.systemd.Machine \
+        io.systemd.Machine.List "{\"name\":\"$machine\"}" | jq -r '.leader.pid')"
+
+    for fd in /proc/"$pid"/fd/*; do
+        target="$(readlink "$fd" 2>/dev/null)" || continue
+        # An unlinked temporary file, which O_TMPFILE reports as "<dir>/#<inode> (deleted)".
+        [[ "$target" == "$dir"/* && "$target" == *"(deleted)" ]] || continue
+        echo "$fd"
+        return 0
+    done
+
+    return 1
+}
 
 # --- Test 1: Multi-drive setup (root + 2 extra drives) ---
 # Verifies that --image with multiple --extra-drive flags works with the async
@@ -136,11 +159,16 @@ echo "Multi-drive VM terminated cleanly"
 # device_add. If any step fails, the root drive is never attached and the kernel
 # panics — vmspawn exits without registering.
 
+# The image sits on a tmpfs here, so the overlay has to end up in the directory for large temporary
+# files instead, which $TMPDIR points at.
+cp --sparse=always "$WORKDIR/root.raw" "$SHMDIR/root.raw"
+mkdir -p "$WORKDIR/large-tmp"
+
 MACHINE_EPHEMERAL="test-vmspawn-ephemeral-$$"
-systemd-vmspawn \
+TMPDIR="$WORKDIR/large-tmp" systemd-vmspawn \
     --machine="$MACHINE_EPHEMERAL" \
     --ram=256M \
-    --image="$WORKDIR/root.raw" \
+    --image="$SHMDIR/root.raw" \
     --ephemeral \
     --linux="$KERNEL" \
     --tpm=no \
@@ -166,6 +194,9 @@ if grep -E '(add-fd|blockdev-add|blockdev-create|device_add|getfd|netdev_add|cha
     exit 1
 fi
 echo "No QMP device setup errors in ephemeral log"
+
+assert_neq "$(find_overlay_fd "$MACHINE_EPHEMERAL" "$WORKDIR/large-tmp" || true)" ""
+echo "Ephemeral overlay for the memory backed image landed in \$TMPDIR"
 
 machinectl terminate "$MACHINE_EPHEMERAL"
 timeout 10 bash -c "while machinectl status '$MACHINE_EPHEMERAL' &>/dev/null; do sleep .5; done"
@@ -200,21 +231,9 @@ echo "Grown ephemeral machine '$MACHINE_GROW' registered with machined"
 assert_eq "$(stat -c %s "$WORKDIR/root.raw")" "$IMAGE_SIZE"
 echo "Image passed to --image= was left at its original size"
 
-# The overlay is unlinked, so QEMU's fd is the only way to reach it. vmspawn
-# registers QEMU itself as the machine leader, so machined knows its PID.
-QEMU_PID="$(varlinkctl call /run/systemd/machine/io.systemd.Machine \
-    io.systemd.Machine.List "{\"name\":\"$MACHINE_GROW\"}" | jq -r '.leader.pid')"
-
-OVERLAY=""
-for fd in /proc/"$QEMU_PID"/fd/*; do
-    target="$(readlink "$fd" 2>/dev/null)" || continue
-    # O_TMPFILE in the runtime directory, or the memfd fallback.
-    [[ "$target" == */vmspawn/"$MACHINE_GROW"/#* || "$target" == /memfd:vmspawn-overlay* ]] || continue
-    OVERLAY="$fd"
-    break
-done
+OVERLAY="$(find_overlay_fd "$MACHINE_GROW" "$WORKDIR" || true)"
 assert_neq "$OVERLAY" ""
-echo "Ephemeral overlay is QEMU fd ${OVERLAY##*/}"
+echo "Ephemeral overlay was created next to the image and is QEMU fd ${OVERLAY##*/}"
 
 # qcow2 header: the magic, followed by the virtual size as a big endian u64 at
 # offset 24. Read it out of the header directly, qemu-img may not be installed.
