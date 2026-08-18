@@ -2490,12 +2490,6 @@ static int link_update_hardware_address(Link *link, sd_netlink_message *message)
         if (r < 0)
                 return log_link_debug_errno(link, r, "Could not update MAC address for Router Advertisement: %m");
 
-        if (link->ndisc && link->hw_addr.length == ETH_ALEN) {
-                r = sd_ndisc_set_mac(link->ndisc, &link->hw_addr.ether);
-                if (r < 0)
-                        return log_link_debug_errno(link, r, "Could not update MAC for NDisc: %m");
-        }
-
         if (link->lldp_rx) {
                 r = sd_lldp_rx_set_filter_address(link->lldp_rx, &link->hw_addr.ether);
                 if (r < 0)
@@ -2507,6 +2501,12 @@ static int link_update_hardware_address(Link *link, sd_netlink_message *message)
                 if (r < 0)
                         return log_link_debug_errno(link, r, "Could not update MAC address for LLDP Tx: %m");
         }
+
+        /* Do this at the end so that we can fail the link in case we don't manage to restart NDisc. */
+        r = ndisc_update_mac(link);
+        if (r < 0)
+                return log_link_warning_errno(
+                                link, r, "Could not restart IPv6 Router Discovery after MAC change: %m");
 
         return 1; /* needs reconfigure */
 }
