@@ -14,6 +14,7 @@ INTROSPECTABLE=(
     ata_id
     bootctl
     busctl
+    cdrom_id
     coredumpctl
     homectl
     hostnamectl
