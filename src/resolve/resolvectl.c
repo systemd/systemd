@@ -288,20 +288,16 @@ static void print_ifindex_comment(int printed_so_far, int ifindex) {
 }
 
 static int dump_resolve_error_json(const char *name, const char *error_id, sd_json_variant *parameters, int ret) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
         int r;
 
         assert(name);
         assert(!isempty(error_id));
 
-        if (parameters)
-                j = sd_json_variant_ref(parameters);
-
-        r = sd_json_variant_set_field_string(&j, "name", name);
-        if (r < 0)
-                return r;
-
-        r = sd_json_variant_set_field_string(&j, "error", error_id);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = sd_json_variant_ref(parameters);
+        r = sd_json_variant_merge_objectbo(
+                        &j,
+                        SD_JSON_BUILD_PAIR_STRING("name", name),
+                        SD_JSON_BUILD_PAIR_STRING("error", error_id));
         if (r < 0)
                 return r;
 
