@@ -64,6 +64,7 @@ INTROSPECTABLE=(
     systemd-imds
     systemd-imdsd
     systemd-import
+    systemd-import-fs
     systemd-inhibit
     systemd-journal-gatewayd
     systemd-journal-remote
