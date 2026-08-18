@@ -972,3 +972,74 @@ bool xdg_app_id_is_valid(const char *app_id) {
                 s++;
         }
 }
+
+int unit_name_to_app_id(const char *name, char **ret) {
+        int r;
+
+        /* Parses the app ID unit naming scheme from DESKTOP_ENVIRONMENTS.md:
+         *
+         * app[-<launcher>]-<ApplicationID>[@<RANDOM>].service
+         * app[-<launcher>]-<ApplicationID>-<RANDOM>.scope
+         */
+
+        assert(name);
+        assert(ret);
+
+        UnitType type = unit_name_to_type(name);
+        if (!IN_SET(type, UNIT_SERVICE, UNIT_SCOPE))
+                return -EINVAL;
+
+        UnitNameFlags flags = UNIT_NAME_PLAIN;
+        if (type == UNIT_SERVICE)
+                flags |= UNIT_NAME_INSTANCE;
+        if (!unit_name_is_valid(name, flags))
+                return -EINVAL;
+
+        _cleanup_free_ char *prefix = NULL;
+        r = unit_name_to_prefix(name, &prefix);
+        if (r < 0)
+                return r;
+        char *escaped = prefix;
+
+        escaped = startswith(escaped, "app-");
+        if (!escaped)
+                return -EINVAL;
+
+        char *first_sep = strchr(escaped, '-');
+        if (first_sep == escaped)
+                return -EINVAL; /* <launcher>- is present but empty! */
+        if (type == UNIT_SCOPE) {
+                if (!first_sep)
+                        return -EINVAL; /* Missing required -<RANDOM> */
+
+                char *last_sep = strrchr(escaped, '-');
+                assert(last_sep);
+
+                if (isempty(last_sep + 1))
+                        return -EINVAL; /* <RANDOM> is empty */
+
+                if (first_sep == last_sep) /* There's no <launcher>- */
+                        first_sep = NULL;
+
+                *last_sep = '\0';
+        }
+        if (first_sep)
+                escaped = first_sep + 1;
+
+        if (strchr(escaped, '-'))
+                return -EINVAL;
+
+        if (isempty(escaped))
+                return -EINVAL;
+
+        _cleanup_free_ char *unescaped = NULL;
+        r = unit_name_unescape(escaped, &unescaped);
+        if (r < 0)
+                return r;
+
+        if (!xdg_app_id_is_valid(unescaped))
+                return -EINVAL;
+
+        *ret = TAKE_PTR(unescaped);
+        return 0;
+}
