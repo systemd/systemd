@@ -2599,7 +2599,8 @@ static int discover_ovmf_config(OvmfConfig **ret, sd_json_variant **ret_firmware
 static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
         _cleanup_free_ char *qemu_binary = NULL, *mem = NULL;
-        _cleanup_(rm_rf_physical_and_freep) char *ssh_private_key_path = NULL, *ssh_public_key_path = NULL;
+        /* Always assigned paths below the runtime directory, whose removal takes them along. */
+        _cleanup_free_ char *ssh_private_key_path = NULL, *ssh_public_key_path = NULL;
         _cleanup_(rm_rf_subvolume_and_freep) char *snapshot_directory = NULL;
         _cleanup_(release_lock_file) LockFile tree_global_lock = LOCK_FILE_INIT, tree_local_lock = LOCK_FILE_INIT;
         _cleanup_close_ int notify_sock_fd = -EBADF;
@@ -2609,6 +2610,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 .network = { .fd = -EBADF },
                 .vsock   = { .fd = -EBADF },
         };
+        /* Declared before the CLEANUP_ARRAY() below, so that cleanup order (reverse of declaration) lets
+         * fork_notify_terminate_many() reap the helpers before this directory goes away: their sockets,
+         * state, and the QEMU config file all live below it, and pulling it out from under them gives
+         * spurious errors and can leave the directory behind. */
+        _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         sd_event_source **children = NULL;
         size_t n_children = 0, n_pass_fds = 0;
         int r;
@@ -2738,8 +2744,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         /* Create our runtime directory. We need this for the QMP varlink control socket, the QEMU
          * config file, TPM state, virtiofsd sockets, runtime mounts, and SSH key material. */
-        _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
-
         r = runtime_directory_make(arg_runtime_scope, "systemd/vmspawn", arg_machine, &runtime_dir);
         if (r < 0)
                 return log_error_errno(r, "Failed to create runtime directory: %m");
