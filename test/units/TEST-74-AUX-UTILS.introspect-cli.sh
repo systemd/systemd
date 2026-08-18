@@ -140,6 +140,9 @@ storagectl --introspect-cli | jq -e \
 systemd-clonesetup --introspect-cli | jq -e \
     '.commands[0].verbs | map(.names[0]) | sort == ["add", "remove"]'
 
+systemd-dissect --introspect-cli | jq -e \
+    '[.commands[].names[0]] | sort == ["mount.ddi", "systemd-dissect"]'
+
 systemd-id128 --introspect-cli | jq -e \
     '.commands[0].verbs | map(.names[0]) | contains(["new", "machine-id", "show", "help"])'
 
