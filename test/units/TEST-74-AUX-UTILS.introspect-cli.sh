@@ -53,6 +53,7 @@ INTROSPECTABLE=(
     systemd-cgls
     systemd-cgtop
     systemd-clonesetup
+    systemd-confext
     systemd-creds
     systemd-cryptenroll
     systemd-cryptsetup
@@ -110,6 +111,7 @@ INTROSPECTABLE=(
     systemd-storage-fs
     systemd-storagetm
     systemd-sysctl
+    systemd-sysext
     systemd-sysinstall
     systemd-sysupdate
     systemd-sysusers
@@ -182,6 +184,14 @@ systemd-mstack --introspect-cli | jq -e \
 
 systemd-run --introspect-cli | jq -e \
     '[.commands[].names[0]] | sort == ["run0", "systemd-run"]'
+
+systemd-sysext --introspect-cli | jq -e \
+    '[.commands[].names[0]] | sort == ["systemd-confext", "systemd-sysext"]'
+
+systemd-sysext --introspect-cli | jq -e \
+    '.commands[0].verbs | map(.names[0]) | contains(["status", "merge", "unmerge"])'
+systemd-confext --introspect-cli | jq -e \
+    '.commands[0].verbs | map(.names[0]) | contains(["status", "merge", "unmerge"])'
 
 systemctl --introspect-cli | jq -e \
     '[.commands[].names[0]] | sort == ["halt", "poweroff", "reboot", "shutdown", "systemctl"]'
