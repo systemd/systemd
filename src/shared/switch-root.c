@@ -19,74 +19,8 @@
 #include "rm-rf.h"
 #include "stat-util.h"
 #include "string-util.h"
-#include "strv.h"
 #include "switch-root.h"
 #include "sync-util.h"
-
-#if HAVE_LIBMOUNT
-/* Returns true if it is both meaningful and safe to synchronize a file system of the given type directly
- * via its own mount point here.
- *
- * False for API/pseudo file systems (proc, sysfs, cgroupfs, autofs, ...) and network file systems (nfs,
- * cifs, ...): the former have nothing worth flushing, and opening either could actively backfire — trigger
- * an untouched autofs mount point, or block for a long time on a stale/unreachable network mount, which is
- * exactly what we must not risk on this code path. Also false for overlayfs, which has no persistent
- * backing store of its own: any real data lives in the underlying directories, which (if they are real,
- * separately mounted file systems) are covered on their own via their own mount table entry.
- *
- * Also false for *any* flavour of FUSE, i.e. plain 'fuse', 'fuseblk', or a 'fuse.<subtype>' (e.g. sshfs,
- * rclone, gvfs, ntfs-3g, exfat-fuse, ...), as classified by fstype_is_fuse(): all I/O against any of these,
- * including the syncfs() we'd otherwise issue, is routed through an arbitrary userspace daemon, which could
- * hang indefinitely if wedged, dead, or otherwise unresponsive - there's no timeout on this code path.
- * 'fuseblk' might sound like it is plain block device backed given the name, and does wrap an actual block
- * device, but that doesn't make its syncfs() latency bounded by the kernel block layer alone the way a
- * native block device file system's is: the request is still serviced by the same FUSE daemon as any other
- * FUSE variant, and can hang exactly the same way. We accept losing the (comparatively minor) data-safety
- * benefit of syncing a healthy fuseblk file system in order to avoid this unbounded hang risk.
- *
- * The same "backed by a companion daemon/hypervisor that might be wedged" risk applies to a few other,
- * non-FUSE guest/host file sharing file systems, namely 'virtiofs', 'vboxsf', and 'vmhgfs': these are
- * excluded for the exact same reason FUSE is.
- *
- * '9p' on the other hand is *not* excluded, even though fstype_is_blockdev_backed() (which exists for a
- * different purpose, namely quota/attribute support elsewhere) does exclude it: 9p file systems (as
- * commonly used for host/guest sharing in QEMU/KVM VMs) can be mounted with a writeback cache and hence
- * may carry real dirty data of their own that needs flushing here, just like any other departing file
- * system. Unlike FUSE/virtiofs/etc., 9p is a mature, in-kernel client talking directly to the hypervisor
- * over a bounded virtio transport, not an arbitrary, potentially wedged userspace daemon, so this is a
- * judgement call weighing that against the above, less predictable, third-party guest tools/daemons.
- *
- * Similarly, the shared-storage cluster file systems 'gfs', 'gfs2', and 'ocfs2' are *not* excluded either,
- * even though fstype_is_network() (again, designed for a different, unrelated purpose) treats them as
- * "network" file systems: unlike genuine network file systems (nfs, cifs, ...), they carry real dirty data
- * of their own and are flushed with the same bounded, local I/O as any other block device backed file
- * system, since they're backed by real (if shared) block storage. They only get lumped in with "network"
- * file systems because they additionally rely on a networked distributed lock manager for cluster
- * coordination, which has no bearing on the risk profile of syncing them here. */
-static bool fstype_is_worth_syncing(const char *fstype) {
-        if (!fstype)
-                return true; /* don't know, better be safe than sorry and try to sync it anyway */
-
-        if (streq(fstype, "overlay"))
-                return false;
-
-        if (STR_IN_SET(fstype, "gfs", "gfs2", "ocfs2"))
-                return true; /* cluster fs: not really a "network" fs despite fstype_is_network(), see above */
-
-        if (fstype_is_api_vfs(fstype) || fstype_is_network(fstype))
-                return false;
-
-        if (fstype_is_fuse(fstype))
-                return false;
-
-        /* Other guest/host file sharing file systems backed by a companion daemon or hypervisor service
-         * that could likewise be wedged, dead, or otherwise unresponsive. */
-        if (STR_IN_SET(fstype, "virtiofs", "vboxsf", "vmhgfs"))
-                return false;
-
-        return true;
-}
-#endif
 
 /* Flushes out the file systems that are about to become unreachable/"departing" as we switch to
  * 'new_root', so that they are in a good state before they possibly are detached with MNT_DETACH.
@@ -96,9 +30,6 @@ static bool fstype_is_worth_syncing(const char *fstype) {
  * other, completely unrelated file systems that happen to be mounted on the system, e.g. any additional
  * data partitions, network shares, removable media, …), since this code path is very much on the critical
  * path during boot (as part of initrd-switch-root.service) and soft-reboot.
- *
- * Also skips file system types for which fstype_is_worth_syncing() returns false, see there for the details
- * and reasoning.
  *
  * On any failure that means we can't be sure we've covered everything (libmount unavailable, or
  * /proc/self/mountinfo can't be parsed, in full or in part), returns a negative error and leaves it up to
@@ -165,8 +96,8 @@ static int sync_departing_file_systems(const char *new_root) {
                 }
 
                 fstype = sym_mnt_fs_get_fstype(fs);
-                if (!fstype_is_worth_syncing(fstype)) {
-                        log_debug("Not synchronizing '%s': file system type '%s' is not worth (or not safe) to synchronize here.",
+                if (fstype && fstype_is_api_vfs(fstype)) {
+                        log_debug("Not synchronizing '%s': file system type '%s' is API VFS.",
                                   path, strna(fstype));
                         continue;
                 }
@@ -184,11 +115,10 @@ static int sync_departing_file_systems(const char *new_root) {
                  * it isn't path based).
                  *
                  * If we fail to determine this either way (r < 0), we also don't know what's currently at
-                 * 'path' any more: unlike the (automount/network safe) check we just did, plain
-                 * syncfs_path() doesn't suppress automounts, so blindly opening 'path' here could trigger
-                 * an untouched autofs mount point, or block on a stale network mount that has since been
-                 * stacked on top - exactly what fstype_is_worth_syncing() above is trying to prevent us from
-                 * doing.
+                 * 'path' any more: plain syncfs_path() doesn't suppress automounts, so blindly opening
+                 * 'path' here could trigger an untouched autofs mount point, or block on a stale network
+                 * mount that has since been stacked on top - exactly what fstype_is_worth_syncing() above is
+                 * trying to prevent us from doing.
                  *
                  * Rather than risk either of these, let the caller fall back to one global sync(): a
                  * global sync() trivially covers this (and every other) file system correctly, so there's
