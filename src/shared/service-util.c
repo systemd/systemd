@@ -23,7 +23,7 @@ static int help(const char *service,
         };
 
         bool conds[ELEMENTSOF(groups)] = { true, with_bus_introspect, with_runtime_scope };
-        Table* tables[ELEMENTSOF(groups)] = {};
+        Table *tables[ELEMENTSOF(groups)] = {};
         CLEANUP_ELEMENTS(tables, table_unref_array_clear);
         int r;
 
