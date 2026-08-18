@@ -162,6 +162,13 @@ All tools:
   invoked unconditionally as a child process by another tool, such as package
   managers running it in a postinstall script.
 
+Tools that assemble a mount stack, i.e. `systemd-nspawn`, `systemd-mstack` and the service manager:
+
+* `$SYSTEMD_MSTACK_ASSUME_NO_CAPS=1` — if set, assume the kernel supports none of the newer
+  overlayfs and mount interfaces the mount stack code probes for, and take the compatibility path
+  in every case. Only useful for testing those paths, which are otherwise unreachable on a kernel
+  that has the interfaces.
+
 `systemd-nspawn`:
 
 * `$SYSTEMD_NSPAWN_API_VFS_WRITABLE=1` — if set, make `/sys/`, `/proc/sys/`,
