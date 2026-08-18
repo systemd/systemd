@@ -46,7 +46,10 @@
 
       <listitem><para>If the disk image contains a Verity enabled disk image, along with a signature
       partition with a key in the kernel keyring or in <filename>/etc/verity.d/*.crt</filename> (and related
-      directories) the disk image is considered trusted.</para></listitem>
+      directories) the disk image is considered trusted. Note that the GPT partition table of the disk image
+      is parsed by the kernel to discover its contents, and <command>systemd-mountfsd</command> assumes that
+      the GPT parser is robust against malformed input and applies no security policies or checks around it.
+      </para></listitem>
     </orderedlist>
 
     <para>This service provides one <ulink url="https://varlink.org/">Varlink</ulink> service:
