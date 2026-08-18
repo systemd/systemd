@@ -34,6 +34,7 @@ INTROSPECTABLE=(
     run0
     scsi_id
     storagectl
+    systemctl
     systemd-ac-power
     systemd-analyze
     systemd-ask-password
@@ -138,6 +139,9 @@ for i in "${INTROSPECTABLE[@]}"; do
 
     # If the tool has a "help" verb, it must work too
     if $i --introspect-cli | jq -e 'any(.commands[]; (.verbs // []) | any(.names[0] == "help"))' >/dev/null; then
+        # 'systemctl help' shows unit manuals
+        [[ "$i" == systemctl ]] && continue
+
         $i help >/dev/null
     fi
 done
