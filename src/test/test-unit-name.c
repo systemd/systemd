@@ -1066,6 +1066,38 @@ TEST(xdg_app_id_is_valid) {
         ASSERT_FALSE(xdg_app_id_is_valid("com.example.App\nName"));
 }
 
+static void test_unit_name_to_app_id_one(const char *input, int ret, const char *output) {
+        _cleanup_free_ char *k = NULL;
+        ASSERT_EQ(unit_name_to_app_id(input, &k), ret);
+        ASSERT_STREQ(k, output);
+}
+
+TEST(unit_name_to_app_id) {
+        test_unit_name_to_app_id_one("app-org.gnome.Terminal.service", 0, "org.gnome.Terminal");
+        test_unit_name_to_app_id_one("app-gnome-org.gnome.Terminal.service", 0, "org.gnome.Terminal");
+        test_unit_name_to_app_id_one("app-org.gnome.Terminal@1234.service", 0, "org.gnome.Terminal");
+        test_unit_name_to_app_id_one("app-gnome-org.gnome.Terminal@1234.service", 0, "org.gnome.Terminal");
+        test_unit_name_to_app_id_one("app-org.example.App\\x2dname.service", 0, "org.example.App-name");
+        test_unit_name_to_app_id_one("org.gnome.Terminal.service", -EINVAL, NULL);
+        test_unit_name_to_app_id_one("gnome-org.gnome.Terminal.service", -EINVAL, NULL);
+        test_unit_name_to_app_id_one("app-org-gnome-Terminal.service", -EINVAL, NULL);
+        test_unit_name_to_app_id_one("app--.service", -EINVAL, NULL);
+        test_unit_name_to_app_id_one("app-launcher-.service", -EINVAL, NULL);
+        test_unit_name_to_app_id_one("app--com.example.App.service", -EINVAL, NULL);
+        test_unit_name_to_app_id_one("app-org.gnome.Terminal-1234.scope", 0, "org.gnome.Terminal");
+        test_unit_name_to_app_id_one("app-gnome-org.gnome.Terminal-1234.scope", 0, "org.gnome.Terminal");
+        test_unit_name_to_app_id_one("app-launcher-org.example.App\\x2dname-1234.scope", 0, "org.example.App-name");
+        test_unit_name_to_app_id_one("app-org.gnome.Terminal@1234.scope", -EINVAL, NULL);
+        test_unit_name_to_app_id_one("app-org.gnome.Terminal.scope", -EINVAL, NULL);
+        test_unit_name_to_app_id_one("app-org.gnome.Terminal-.scope", -EINVAL, NULL);
+        test_unit_name_to_app_id_one("app-launcher-org-gnome-Terminal-1234.scope", -EINVAL, NULL);
+        test_unit_name_to_app_id_one("app--1234.scope", -EINVAL, NULL);
+        test_unit_name_to_app_id_one("app-org.gnome.Terminal.slice", -EINVAL, NULL);
+        test_unit_name_to_app_id_one("app-launcher-org.example..App-1234.scope", -EINVAL, NULL);
+        test_unit_name_to_app_id_one("app-launcher-org.example.App\\x00name-1234.scope", -EINVAL, NULL);
+        test_unit_name_to_app_id_one("app-launcher-org.example.App\\x10name-1234.scope", -EINVAL, NULL);
+}
+
 static int intro(void) {
         if (enter_cgroup_subroot(NULL) == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
