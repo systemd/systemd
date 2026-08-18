@@ -53,6 +53,7 @@ INTROSPECTABLE=(
     systemd-cgls
     systemd-cgtop
     systemd-clonesetup
+    systemd-confext
     systemd-creds
     systemd-cryptenroll
     systemd-cryptsetup
@@ -110,6 +111,7 @@ INTROSPECTABLE=(
     systemd-storage-fs
     systemd-storagetm
     systemd-sysctl
+    systemd-sysext
     systemd-sysinstall
     systemd-sysupdate
     systemd-sysusers
