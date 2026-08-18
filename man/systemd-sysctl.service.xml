@@ -84,7 +84,19 @@
       <varlistentry>
         <term><option>--verify</option></term>
         <listitem>
-          <para>Verify sysctl values after write.</para>
+          <para>After <command>systemd-sysctl</command> successfully writes a value to a sysctl variable, the
+          variable is read back and verified to match the value that was written. If the variable cannot be
+          read back, or if the returned value differs from the written value, the write operation is
+          considered to have failed. To detect such failures reliably, it is recommended to also specify
+          <option>--strict</option>, and to ensure that the settings being applied are not prefixed with
+          <literal>-</literal> (see
+          <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for details). This mode is disabled by default, since the format accepted by the kernel may differ
+          from the format returned when the variable is read back, or the kernel may normalize the input. As
+          a result, verification may not work reliably in all cases. Therefore, this option is best used
+          together with explicitly specified configuration files or settings provided through
+          <option>--inline</option>, or with <option>--prefix=</option> to restrict the set of sysctl
+          variables being written.</para>
 
           <xi:include href="version-info.xml" xpointer="v262"/>
         </listitem>
@@ -151,13 +163,15 @@ kernel.core_pattern = |/usr/libexec/abrt-hook-ccpp %s %c %p %u %g %t %P %I
     </example>
 
     <example>
-      <title>Update coredump handler configuration</title>
+      <title>Update and verify coredump handler configuration</title>
 
-      <programlisting># /usr/lib/systemd/systemd-sysctl --prefix kernel.core_pattern</programlisting>
+      <programlisting># /usr/lib/systemd/systemd-sysctl --prefix kernel.core_pattern --strict --verify</programlisting>
 
       <para>This searches all the directories listed in
-      <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-      for configuration files and writes <filename>/proc/sys/kernel/core_pattern</filename>.</para>
+      <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+      configuration files and writes <filename>/proc/sys/kernel/core_pattern</filename>. The sysctl variable
+      is read back and verified. If writing or verification fails, the command exits with a non-zero status,
+      unless the corresponding setting is prefixed with <literal>-</literal>.</para>
     </example>
 
     <example>
