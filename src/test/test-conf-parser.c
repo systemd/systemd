@@ -141,6 +141,15 @@ TEST(config_parse_iec_size) {
         test_config_parse_iec_size_one("-982", 0);
         test_config_parse_iec_size_one("49874444198739873000000G", 0);
         test_config_parse_iec_size_one("garbage", 0);
+
+#if SIZE_MAX < UINT64_MAX
+        size_t iec_size = 0;
+
+        ASSERT_ERROR(config_parse_iec_size(
+                             "unit", "filename", 1, "section", 1, "lvalue", 0,
+                             "4294967296", &iec_size, NULL),
+                     ERANGE);
+#endif
 }
 
 TEST(config_parse_iec_size_long) {
@@ -154,6 +163,15 @@ TEST(config_parse_iec_size_long) {
         test_config_parse_iec_size_long_one("-982", 0);
         test_config_parse_iec_size_long_one("49874444198739873000000G", 0);
         test_config_parse_iec_size_long_one("garbage", 0);
+
+#if LONG_MAX < INT64_MAX
+        long iec_size = 0;
+
+        ASSERT_ERROR(config_parse_iec_size_long(
+                             "unit", "filename", 1, "section", 1, "lvalue", 0,
+                             "2147483648", &iec_size, NULL),
+                     ERANGE);
+#endif
 }
 
 TEST(config_parse_si_uint64) {
