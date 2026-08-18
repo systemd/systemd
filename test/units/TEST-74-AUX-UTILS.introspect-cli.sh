@@ -88,6 +88,7 @@ INTROSPECTABLE=(
     systemd-random-seed
     systemd-repart
     systemd-report
+    systemd-report-basic
     systemd-run
     systemd-sbsign
     systemd-sleep
