@@ -34,6 +34,17 @@ if ! command -v mke2fs >/dev/null 2>&1; then
     exit 77
 fi
 
+# Overlay location tests need both disk-backed and memory-backed storage.
+if [[ "$(stat --file-system --format=%T /var/tmp)" == tmpfs ]]; then
+    echo "/var/tmp is backed by memory, cannot tell the overlay locations apart, skipping"
+    exit 77
+fi
+
+if [[ ! -d /dev/shm ]]; then
+    echo "/dev/shm not available, skipping"
+    exit 77
+fi
+
 # Find a kernel for direct boot
 KERNEL=""
 for k in /usr/lib/modules/"$(uname -r)"/vmlinuz /boot/vmlinuz-"$(uname -r)" /boot/vmlinuz; do
@@ -49,8 +60,6 @@ if [[ -z "$KERNEL" ]]; then
 fi
 echo "Using kernel: $KERNEL"
 
-WORKDIR="$(mktemp -d)"
-
 at_exit() {
     set +e
     for m in "${MACHINE_MULTI:-}" "${MACHINE_EPHEMERAL:-}" "${MACHINE_GROW:-}"; do
@@ -63,9 +72,13 @@ at_exit() {
     [[ -n "${VMSPAWN_MULTI_PID:-}" ]] && kill "$VMSPAWN_MULTI_PID" 2>/dev/null && wait "$VMSPAWN_MULTI_PID" 2>/dev/null
     [[ -n "${VMSPAWN_EPHEMERAL_PID:-}" ]] && kill "$VMSPAWN_EPHEMERAL_PID" 2>/dev/null && wait "$VMSPAWN_EPHEMERAL_PID" 2>/dev/null
     [[ -n "${VMSPAWN_GROW_PID:-}" ]] && kill "$VMSPAWN_GROW_PID" 2>/dev/null && wait "$VMSPAWN_GROW_PID" 2>/dev/null
-    rm -rf "$WORKDIR"
+    rm -rf "${WORKDIR:-}" "${SHMDIR:-}"
 }
 trap at_exit EXIT
+
+# Keep the image on disk-backed storage and use /dev/shm for tmpfs cases.
+WORKDIR="$(mktemp -d -p /var/tmp)"
+SHMDIR="$(mktemp -d -p /dev/shm)"
 
 # Create a minimal root filesystem directory, then bake it into a raw ext4 image.
 # The guest doesn't need to fully boot — 'sleep infinity' keeps QEMU alive for QMP testing.
@@ -82,6 +95,27 @@ mke2fs -t ext4 -q -d "$WORKDIR/rootfs" "$WORKDIR/root.raw"
 # Create extra raw drive images (different sizes to be distinguishable)
 truncate -s 64M "$WORKDIR/extra1.raw"
 truncate -s 32M "$WORKDIR/extra2.raw"
+
+# Print QEMU's overlay fd if it points into the requested directory.
+find_overlay_fd() {
+    local machine="$1" dir="$2" log="$3" pid fd target
+
+    pid="$(varlinkctl call /run/systemd/machine/io.systemd.Machine \
+        io.systemd.Machine.List "{\"name\":\"$machine\"}" | jq -r '.leader.pid')"
+
+    for fd in /proc/"$pid"/fd/*; do
+        target="$(readlink "$fd" 2>/dev/null)" || continue
+        # An O_TMPFILE is reported as "<dir>/#<inode> (deleted)".
+        [[ "$target" == "$dir"/#*" (deleted)" ]] || continue
+        echo "$fd"
+        return 0
+    done
+
+    echo "No ephemeral overlay found in '$dir', QEMU has these files open:" >&2
+    ls -l /proc/"$pid"/fd >&2 || :
+    cat "$log" >&2
+    return 1
+}
 
 # --- Test 1: Multi-drive setup (root + 2 extra drives) ---
 # Verifies that --image with multiple --extra-drive flags works with the async
@@ -136,11 +170,15 @@ echo "Multi-drive VM terminated cleanly"
 # device_add. If any step fails, the root drive is never attached and the kernel
 # panics — vmspawn exits without registering.
 
+# Exercise the large temporary-file directory fallback with an image on tmpfs.
+cp --sparse=always "$WORKDIR/root.raw" "$SHMDIR/root.raw"
+mkdir -p "$WORKDIR/large-tmp"
+
 MACHINE_EPHEMERAL="test-vmspawn-ephemeral-$$"
-systemd-vmspawn \
+TMPDIR="$WORKDIR/large-tmp" systemd-vmspawn \
     --machine="$MACHINE_EPHEMERAL" \
     --ram=256M \
-    --image="$WORKDIR/root.raw" \
+    --image="$SHMDIR/root.raw" \
     --ephemeral \
     --linux="$KERNEL" \
     --tpm=no \
@@ -167,6 +205,9 @@ if grep -E '(add-fd|blockdev-add|blockdev-create|device_add|getfd|netdev_add|cha
 fi
 echo "No QMP device setup errors in ephemeral log"
 
+find_overlay_fd "$MACHINE_EPHEMERAL" "$WORKDIR/large-tmp" "$WORKDIR/vmspawn-ephemeral.log" >/dev/null
+echo "Ephemeral overlay is in \$TMPDIR"
+
 machinectl terminate "$MACHINE_EPHEMERAL"
 timeout 10 bash -c "while machinectl status '$MACHINE_EPHEMERAL' &>/dev/null; do sleep .5; done"
 timeout 10 bash -c "while kill -0 '$VMSPAWN_EPHEMERAL_PID' 2>/dev/null; do sleep .5; done"
@@ -177,6 +218,9 @@ echo "Ephemeral VM terminated cleanly"
 # image passed to --image= is opened read-only and has to come out of the run
 # at its original size.
 
+# Resolve the image symlink before selecting the overlay directory.
+ln -s "$WORKDIR/root.raw" "$SHMDIR/root-link.raw"
+
 MACHINE_GROW="test-vmspawn-grow-$$"
 GROW_SIZE=$((512 * 1024 * 1024))
 IMAGE_SIZE="$(stat -c %s "$WORKDIR/root.raw")"
@@ -184,7 +228,7 @@ IMAGE_SIZE="$(stat -c %s "$WORKDIR/root.raw")"
 systemd-vmspawn \
     --machine="$MACHINE_GROW" \
     --ram=256M \
-    --image="$WORKDIR/root.raw" \
+    --image="$SHMDIR/root-link.raw" \
     --ephemeral \
     --grow-image="$GROW_SIZE" \
     --linux="$KERNEL" \
@@ -200,21 +244,12 @@ echo "Grown ephemeral machine '$MACHINE_GROW' registered with machined"
 assert_eq "$(stat -c %s "$WORKDIR/root.raw")" "$IMAGE_SIZE"
 echo "Image passed to --image= was left at its original size"
 
-# The overlay is unlinked, so QEMU's fd is the only way to reach it. vmspawn
-# registers QEMU itself as the machine leader, so machined knows its PID.
-QEMU_PID="$(varlinkctl call /run/systemd/machine/io.systemd.Machine \
-    io.systemd.Machine.List "{\"name\":\"$MACHINE_GROW\"}" | jq -r '.leader.pid')"
-
-OVERLAY=""
-for fd in /proc/"$QEMU_PID"/fd/*; do
-    target="$(readlink "$fd" 2>/dev/null)" || continue
-    # O_TMPFILE in the runtime directory, or the memfd fallback.
-    [[ "$target" == */vmspawn/"$MACHINE_GROW"/#* || "$target" == /memfd:vmspawn-overlay* ]] || continue
-    OVERLAY="$fd"
-    break
-done
-assert_neq "$OVERLAY" ""
-echo "Ephemeral overlay is QEMU fd ${OVERLAY##*/}"
+OVERLAY="$(find_overlay_fd "$MACHINE_GROW" "$WORKDIR" "$WORKDIR/vmspawn-grow.log")"
+if grep "backed by memory" "$WORKDIR/vmspawn-grow.log" >/dev/null; then
+    cat "$WORKDIR/vmspawn-grow.log"
+    exit 1
+fi
+echo "Ephemeral overlay was created next to the image and is QEMU fd ${OVERLAY##*/}"
 
 # qcow2 header: the magic, followed by the virtual size as a big endian u64 at
 # offset 24. Read it out of the header directly, qemu-img may not be installed.
@@ -226,5 +261,22 @@ machinectl terminate "$MACHINE_GROW"
 timeout 10 bash -c "while machinectl status '$MACHINE_GROW' &>/dev/null; do sleep .5; done"
 timeout 10 bash -c "while kill -0 '$VMSPAWN_GROW_PID' 2>/dev/null; do sleep .5; done"
 echo "Grown ephemeral VM terminated cleanly"
+
+# --- Test 4: Refuse memory-backed overlays ---
+if TMPDIR="$SHMDIR" systemd-vmspawn \
+    --machine="test-vmspawn-shm-$$" \
+    --ram=256M \
+    --image="$SHMDIR/root.raw" \
+    --ephemeral \
+    --linux="$KERNEL" \
+    --tpm=no \
+    --console=headless \
+    root=/dev/vda rw \
+    &>"$WORKDIR/vmspawn-shm.log"; then
+    cat "$WORKDIR/vmspawn-shm.log"
+    exit 1
+fi
+grep "Failed to create ephemeral overlay on non-memory-backed storage" "$WORKDIR/vmspawn-shm.log" >/dev/null
+echo "Memory backed ephemeral overlay was refused"
 
 echo "All vmspawn drive setup tests passed"
