@@ -36,6 +36,7 @@ typedef enum OutputMode OutputMode;
 typedef enum PagerFlags PagerFlags;
 typedef enum PatternCompileCase PatternCompileCase;
 typedef enum PolkitFlags PolkitFlags;
+typedef enum RemountIdmapping RemountIdmapping;
 typedef enum RemoveFlags RemoveFlags;
 typedef enum ResolveSupport ResolveSupport;
 typedef enum TPM2Flags TPM2Flags;
@@ -47,6 +48,7 @@ typedef enum UnitFileState UnitFileState;
 typedef enum UserDBFlags UserDBFlags;
 typedef enum UserRecordLoadFlags UserRecordLoadFlags;
 typedef enum UserStorage UserStorage;
+typedef enum VolatileMode VolatileMode;
 
 typedef struct Argon2IdParameters Argon2IdParameters;
 typedef struct AskPasswordRequest AskPasswordRequest;
