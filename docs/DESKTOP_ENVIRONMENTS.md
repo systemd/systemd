@@ -91,6 +91,8 @@ desktop environments should adhere to the following conventions:
    unit ID.
 
 This has the advantage of making it possible to reliably identify the app.
+Whenever a unit complies with this convention, systemd will tag that unit's
+cgroup with the `user.app_id` xattr.
 
 ## XDG autostart integration
 
