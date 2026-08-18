@@ -63,6 +63,7 @@ INTROSPECTABLE=(
     systemd-id128
     systemd-imds
     systemd-imdsd
+    systemd-import
     systemd-inhibit
     systemd-journal-gatewayd
     systemd-journal-remote
