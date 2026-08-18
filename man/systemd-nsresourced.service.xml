@@ -92,6 +92,11 @@
     <para>This service provides one <ulink url="https://varlink.org/">Varlink</ulink> service:
     <constant>io.systemd.NamespaceResource</constant> allows registering user namespaces, and assign mounts,
     cgroups and network interfaces to it.</para>
+
+    <para>Note that combining usage of <command>systemd-nsresourced</command> and systems based on
+    <filename>/etc/subuid</filename> and <filename>/etc/subgid</filename> might result in undefined
+    behavior if UID or GID ranges defined in those files overlap with the UID or GID ranges used by
+    nsresourced (the foreign UID range).</para>
   </refsect1>
 
   <refsect1>
