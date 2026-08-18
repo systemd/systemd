@@ -295,10 +295,12 @@ static int dns_query_candidate_setup_transactions(DnsQueryCandidate *c) {
 
         if (c->query->question_bypass) {
                 /* If this is a bypass query, then pass the original query packet along to the transaction */
+                DnsResourceKey *qkey;
 
                 assert(dns_question_size(c->query->question_bypass->question) == 1);
 
-                if (!dns_scope_good_key(c->scope, dns_question_first_key(c->query->question_bypass->question)))
+                qkey = dns_question_first_key(c->query->question_bypass->question);
+                if (!dns_scope_good_key(c->scope, qkey, c->query->flags))
                         return 0;
 
                 r = dns_query_candidate_add_transaction(c, NULL, c->query->question_bypass);
@@ -324,7 +326,7 @@ static int dns_query_candidate_setup_transactions(DnsQueryCandidate *c) {
                 } else
                         qkey = key;
 
-                if (!dns_scope_good_key(c->scope, qkey))
+                if (!dns_scope_good_key(c->scope, qkey, c->query->flags))
                         continue;
 
                 r = dns_query_candidate_add_transaction(c, qkey, NULL);
@@ -890,7 +892,7 @@ static int dns_query_try_etc_hosts(DnsQuery *q) {
         /* Looks in /etc/hosts for matching entries. Note that this is done *before* the normal lookup is
          * done. The data from /etc/hosts hence takes precedence over the network. */
 
-        if (FLAGS_SET(q->flags, SD_RESOLVED_NO_SYNTHESIZE))
+        if (q->flags & (SD_RESOLVED_NO_SYNTHESIZE|SD_RESOLVED_NO_LOCAL_DATA))
                 return 0;
 
         r = manager_etc_hosts_lookup(
@@ -916,7 +918,7 @@ static int dns_query_try_static_records(DnsQuery *q) {
 
         assert(q);
 
-        if (FLAGS_SET(q->flags, SD_RESOLVED_NO_SYNTHESIZE))
+        if (q->flags & (SD_RESOLVED_NO_SYNTHESIZE|SD_RESOLVED_NO_LOCAL_DATA))
                 return 0;
 
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
@@ -1082,17 +1084,19 @@ int dns_query_go(DnsQuery *q) {
                 return 1;
         }
 
-        r = manager_hook_query(
-                        q->manager,
-                        q->question_bypass ? q->question_bypass->question : q->question_idna,
-                        q->question_bypass ? q->question_bypass->question : q->question_utf8,
-                        on_hook_complete,
-                        q,
-                        &q->hook_query);
-        if (r < 0)
-                return r;
-        if (r > 0) /* hook calls are pending */
-                return 0;
+        if (!FLAGS_SET(q->flags, SD_RESOLVED_NO_HOOK)) {
+                r = manager_hook_query(
+                                q->manager,
+                                q->question_bypass ? q->question_bypass->question : q->question_idna,
+                                q->question_bypass ? q->question_bypass->question : q->question_utf8,
+                                on_hook_complete,
+                                q,
+                                &q->hook_query);
+                if (r < 0)
+                        return r;
+                if (r > 0) /* hook calls are pending */
+                        return 0;
+        }
 
         return dns_query_go_scopes(q);
 }
@@ -1634,6 +1638,8 @@ int validate_and_mangle_query_flags(
                        SD_RESOLVED_NO_TRUST_ANCHOR|
                        SD_RESOLVED_NO_NETWORK|
                        SD_RESOLVED_NO_STALE|
+                       SD_RESOLVED_NO_LOCAL_DATA|
+                       SD_RESOLVED_NO_HOOK|
                        SD_RESOLVED_RELAX_SINGLE_LABEL|
                        ok))
                 return -EINVAL;
