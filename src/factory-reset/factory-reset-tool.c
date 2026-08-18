@@ -4,19 +4,15 @@
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
-#include "ansi-color.h"
 #include "build.h"
 #include "device-util.h"
 #include "efivars.h"
 #include "errno-util.h"
 #include "factory-reset.h"
-#include "format-table.h"
 #include "fs-util.h"
 #include "json-util.h"
 #include "main-func.h"
-#include "options.h"
 #include "os-util.h"
-#include "pretty-print.h"
 #include "udev-util.h"
 #include "varlink-io.systemd.FactoryReset.h"
 #include "varlink-util.h"
@@ -26,43 +22,11 @@ static bool arg_retrigger = false;
 static bool arg_quiet = false;
 static bool arg_varlink = false;
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-factory-reset", "8", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, options, verbs);
-
-        printf("%s [OPTIONS...] COMMAND\n"
-               "\n%sQuery, request, cancel factory reset operation.%s\n"
-               "\nCommands:\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        printf("\nOptions:\n");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
+COMMAND(
+        "systemd-factory-reset\0",
+        "Query, request, or cancel a factory reset operation.",
+        .man_pages = "systemd-factory-reset.8\0",
+);
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         int r;
@@ -75,7 +39,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-factory-reset");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -87,6 +51,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION('q', "quiet", NULL, "Suppress output"):
                         arg_quiet = true;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);

@@ -19,12 +19,10 @@
 #include "bus-util.h"
 #include "errno-util.h"
 #include "format-table.h"
-#include "help-util.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "options.h"
 #include "os-util.h"
 #include "parse-argument.h"
 #include "polkit-agent.h"
@@ -41,6 +39,12 @@ static bool arg_transient = false;
 static bool arg_pretty = false;
 static bool arg_static = false;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
+
+COMMAND(
+        "hostnamectl\0",
+        "Query or change system hostname.",
+        .man_pages = "hostnamectl.1\0",
+);
 
 typedef struct StatusInfo {
         const char *hostname;
@@ -849,38 +853,7 @@ static int verb_get_or_set_tags(int argc, char *argv[], uintptr_t _data, void *u
         return 0;
 }
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
-        int r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, options, verbs);
-
-        help_cmdline("[OPTIONS...] COMMAND ...");
-        help_abstract("Query or change system hostname.");
-
-        help_section("Commands");
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("hostnamectl", "1");
-        return 0;
-}
-
-VERB_COMMON_HELP_HIDDEN(help);
+VERB_COMMON_HELP_AUTO_HIDDEN("hostnamectl");
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         int r;
@@ -893,7 +866,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("hostnamectl");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -934,6 +907,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_COMMON_LOWERCASE_J:
                         arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
                 }
 
         *ret_args = option_parser_get_args(&opts);

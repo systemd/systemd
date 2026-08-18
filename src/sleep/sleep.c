@@ -32,14 +32,11 @@
 #include "exec-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "format-table.h"
 #include "hibernate-util.h"
 #include "io-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "options.h"
 #include "os-util.h"
-#include "pretty-print.h"
 #include "sleep-config.h"
 #include "special.h"
 #include "strv.h"
@@ -47,6 +44,12 @@
 #include "verbs.h"
 
 #define DEFAULT_HIBERNATE_DELAY_USEC_NO_BATTERY (2 * USEC_PER_HOUR)
+
+COMMAND(
+        "systemd-sleep\0",
+        "Suspend the system, hibernate the system, or both.",
+        .man_pages = "systemd-suspend.service.8\0",
+);
 
 #if ENABLE_EFI
 static int determine_auto_swap(sd_device *device) {
@@ -615,45 +618,6 @@ static int execute_s2h(const SleepConfig *sleep_config, SleepOperation main_oper
         return 0;
 }
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-suspend.service", "8", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, verbs, options);
-
-        printf("%s [OPTIONS…] COMMAND\n"
-               "\n%sSuspend the system, hibernate the system, or both.%s\n"
-               "\nCommands:\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
-
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        printf("\nOptions:\n");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
-
 VERB_FULL(verb_operate, "suspend", NULL, VERB_ANY, 1, 0, SLEEP_SUSPEND,
           "Suspend the system");
 VERB_FULL(verb_operate, "hibernate", NULL, VERB_ANY, 1, 0, SLEEP_HIBERNATE,
@@ -735,10 +699,13 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-sleep");
 
                 OPTION_COMMON_VERSION:
                         return version();
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         *ret_args = option_parser_get_args(&opts);

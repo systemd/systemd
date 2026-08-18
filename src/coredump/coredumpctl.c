@@ -30,7 +30,6 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "glob-util.h"
-#include "help-util.h"
 #include "image-policy.h"
 #include "io-util.h"
 #include "journal-internal.h"
@@ -41,7 +40,6 @@
 #include "loop-util.h"
 #include "main-func.h"
 #include "mount-util.h"
-#include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -82,6 +80,13 @@ STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_file, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
+
+COMMAND(
+        "coredumpctl\0",
+        "List or retrieve coredumps from the journal.",
+        .man_pages = "coredumpctl.1\0",
+        .pager_flags = &arg_pager_flags,
+);
 
 static int add_match(sd_journal *j, const char *match) {
         _cleanup_free_ char *p = NULL;
@@ -178,38 +183,7 @@ static int acquire_journal(sd_journal **ret, char **matches) {
         return 0;
 }
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *verbs = NULL, *options = NULL;
-        int r;
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, verbs, options);
-
-        help_cmdline("[OPTIONS…] COMMAND …");
-        help_abstract("List or retrieve coredumps from the journal.");
-
-        help_section("Commands");
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("coredumpctl", "1");
-        return 0;
-}
-
-VERB_COMMON_HELP_HIDDEN(help);
+VERB_COMMON_HELP_AUTO_HIDDEN("coredumpctl");
 
 static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         int r;
@@ -224,7 +198,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("coredumpctl");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -339,6 +313,9 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_LONG("all", NULL, "Look at all journal files instead of local ones"):
                         arg_all = true;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
                 }
 
         if (arg_since != USEC_INFINITY && arg_until != USEC_INFINITY &&

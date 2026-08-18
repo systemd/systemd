@@ -16,6 +16,7 @@ executables += [
         },
         executable_template + {
                 'name' : 'userdbctl',
+                'public' : true,
                 'conditions' : ['ENABLE_USERDB'],
                 'sources' : files('userdbctl.c'),
         },

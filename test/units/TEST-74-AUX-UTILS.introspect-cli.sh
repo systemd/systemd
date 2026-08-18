@@ -11,7 +11,15 @@ export SYSTEMD_PAGER=cat
 
 # A smoke test for the introspection code
 INTROSPECTABLE=(
+    busctl
+    coredumpctl
     homectl
+    hostnamectl
+    importctl
+    localectl
+    networkctl
+    oomctl
+    portablectl
     resolvectl
     systemd-ac-power
     systemd-analyze
@@ -19,16 +27,20 @@ INTROSPECTABLE=(
     systemd-backlight
     systemd-battery-check
     systemd-binfmt
+    systemd-bless-boot
     systemd-boot-check-no-failures
     systemd-bsod
     systemd-cat
     systemd-cgls
     systemd-cgtop
     systemd-clonesetup
+    systemd-creds
+    systemd-cryptsetup
     systemd-delta
     systemd-detect-virt
     systemd-dissect
     systemd-escape
+    systemd-factory-reset
     systemd-firstboot
     systemd-growfs
     systemd-hibernate-resume
@@ -39,6 +51,7 @@ INTROSPECTABLE=(
     systemd-journal-gatewayd
     systemd-journal-remote
     systemd-journal-upload
+    systemd-keyutil
     systemd-modules-load
     systemd-mute-console
     systemd-network-generator
@@ -48,8 +61,13 @@ INTROSPECTABLE=(
     systemd-path
     systemd-pcrextend
     systemd-pty-forward
+    systemd-random-seed
+    systemd-report
+    systemd-sbsign
+    systemd-sleep
     systemd-socket-activate
     systemd-socket-proxyd
+    systemd-ssh-issue
     systemd-stdio-bridge
     systemd-storage-block
     systemd-storage-fs
@@ -62,6 +80,7 @@ INTROSPECTABLE=(
     systemd-validatefs
     systemd-veritysetup
     timedatectl
+    userdbctl
     varlinkctl
 )
 
@@ -77,6 +96,11 @@ for i in "${INTROSPECTABLE[@]}"; do
     $i --introspect-cli | jq -e \
         'any(.commands[]; [.options[].names[-1]] | contains(["--help", "--version", "--introspect-cli"]))'
     $i --intro | grep -e --help
+
+    # If the tool has a "help" verb, it must work too
+    if $i --introspect-cli | jq -e 'any(.commands[]; (.verbs // []) | any(.names[0] == "help"))' >/dev/null; then
+        $i help >/dev/null
+    fi
 done
 
 # systemd-hwdb defines verbs, check that they are described

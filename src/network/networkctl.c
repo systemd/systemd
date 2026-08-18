@@ -5,8 +5,6 @@
 #include "alloc-util.h"
 #include "build.h"
 #include "dlopen-note.h"
-#include "format-table.h"
-#include "help-util.h"
 #include "log.h"
 #include "logs-show.h"
 #include "main-func.h"
@@ -18,7 +16,6 @@
 #include "networkctl-lldp.h"
 #include "networkctl-misc.h"
 #include "networkctl-status-link.h"
-#include "options.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -40,6 +37,13 @@ sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 bool arg_ask_password = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_drop_in, freep);
+
+COMMAND(
+        "networkctl\0",
+        "Query and control the networking subsystem.",
+        .man_pages = "networkctl.1\0",
+        .pager_flags = &arg_pager_flags,
+);
 
 VERB_SCOPE(, verb_list_links,                 "list",               "[PATTERN...]",  VERB_ANY, VERB_ANY, VERB_DEFAULT|VERB_ONLINE_ONLY,
            "List links");
@@ -76,38 +80,7 @@ VERB_SCOPE(, verb_unmask,                     "unmask",             "FILES...", 
 VERB_SCOPE(, verb_persistent_storage,         "persistent-storage", "BOOL",          2,        2,        0,
            "Notify systemd-networkd if persistent storage is ready");
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *verbs = NULL, *options = NULL;
-        int r;
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, verbs, options);
-
-        help_cmdline("[OPTIONS...] COMMAND");
-        help_abstract("Query and control the networking subsystem.");
-
-        help_section("Commands");
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("networkctl", "1");
-        return 0;
-}
-
-VERB_COMMON_HELP_HIDDEN(help);
+VERB_COMMON_HELP_AUTO_HIDDEN("networkctl");
 
 static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         int r;
@@ -122,7 +95,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("networkctl");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -205,6 +178,9 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_LONG("stdin", NULL, "Read new contents of edited file from stdin"):
                         arg_stdin = true;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
                 }
 
         *remaining_args = option_parser_get_args(&opts);
