@@ -2,20 +2,21 @@
 
 #include <dirent.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "architecture.h"
 #include "build.h"
 #include "format-table.h"
 #include "log.h"
 #include "main-func.h"
-#include "options.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "pretty-print.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "verbs.h"
 #include "vpick.h"
 
 typedef enum {
@@ -42,6 +43,13 @@ STATIC_DESTRUCTOR_REGISTER(arg_filter_basename, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_filter_version, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_filter_suffix, freep);
 
+COMMAND(
+        "systemd-vpick\0",
+        "Pick entry from versioned directory.",
+        .argspec = "PATH…\0",
+        .man_pages = "systemd-vpick.1\0",
+);
+
 static const char *print_table[_PRINT_MAX] = {
         [PRINT_PATH]         = "path",
         [PRINT_FILENAME]     = "filename",
@@ -54,45 +62,6 @@ static const char *print_table[_PRINT_MAX] = {
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(print, Print);
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *lookup_keys = NULL, *output = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-vpick", "1", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = option_parser_get_help_table(&lookup_keys);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table_group("Output", &output);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, lookup_keys, output);
-
-        printf("%s [OPTIONS...] PATH...\n"
-               "\n%sPick entry from versioned directory.%s\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal());
-
-        printf("\n%sLookup Keys:%s\n", ansi_underline(), ansi_normal());
-        r = table_print_or_warn(lookup_keys);
-        if (r < 0)
-                return r;
-
-        printf("\n%sOutput:%s\n", ansi_underline(), ansi_normal());
-        r = table_print_or_warn(output);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
-
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         int r;
 
@@ -103,6 +72,8 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
+
+                OPTION_GROUP("Lookup Keys"): {}
 
                 OPTION('B', "basename", "BASENAME", "Look for specified basename"):
                         if (!filename_part_is_valid(opts.arg))
@@ -172,7 +143,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_GROUP("Output"): {}
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-vpick");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -208,6 +179,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                         SET_FLAG(arg_flags, PICK_RESOLVE, r);
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (arg_print < 0)

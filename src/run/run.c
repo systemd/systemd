@@ -41,11 +41,9 @@
 #include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
-#include "help-util.h"
 #include "hostname-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "options.h"
 #include "osc-context.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -68,6 +66,7 @@
 #include "unit-def.h"
 #include "unit-name.h"
 #include "user-util.h"
+#include "verbs.h"
 #include "virt.h"
 
 static bool arg_ask_password = true;
@@ -145,68 +144,14 @@ STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_shell_prompt_prefix, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_area, freep);
 
-static int help(void) {
-        int r;
-
-        pager_open(arg_pager_flags);
-
-        static const char* const groups[] = {
-                NULL,
-                "Path options",
-                "Socket options",
-                "Timer options",
-        };
-
-        Table *tables[ELEMENTSOF(groups)] = {};
-        CLEANUP_ELEMENTS(tables, table_unref_array_clear);
-
-        for (size_t i = 0; i < ELEMENTSOF(groups); i++) {
-                r = option_parser_get_help_table_full("systemd-run", groups[i], &tables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        (void) table_sync_column_widths(0, tables[0], tables[1], tables[2], tables[3]);
-
-        help_cmdline("[OPTIONS...] COMMAND [ARGUMENTS...]");
-        help_abstract("Run the specified command in a transient scope or service.");
-
-        for (size_t i = 0; i < ELEMENTSOF(groups); i++) {
-                help_section(groups[i] ?: "Options");
-
-                r = table_print_or_warn(tables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        help_man_page_reference("systemd-run", "1");
-        return 0;
-}
-
-static int help_sudo_mode(void) {
-        _cleanup_(table_unrefp) Table *opts_table = NULL;
-        int r;
-
-        /* NB: Let's not go overboard with short options: we try to keep a modicum of compatibility with
-         * sudo's short switches, hence please do not introduce new short switches unless they have a roughly
-         * equivalent purpose on sudo. Use long options for everything private to run0. */
-
-        r = option_parser_get_help_table_ns("run0", &opts_table);
-        if (r < 0)
-                return r;
-
-        help_cmdline("[OPTIONS...] COMMAND [ARGUMENTS...]");
-        help_abstract("Elevate privileges interactively.");
-
-        help_section("Options");
-
-        r = table_print_or_warn(opts_table);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("run0", "1");
-        return 0;
-}
+COMMAND(
+        "systemd-run\0",
+        "Run the specified command in a transient scope or service.",
+        .argspec = "COMMAND [ARGUMENTS…]\0",
+        .man_pages = "systemd-run.1\0",
+        .option_namespace = "systemd-run",
+        .pager_flags = &arg_pager_flags,
+);
 
 static bool become_root(void) {
         if (arg_runtime_scope != RUNTIME_SCOPE_SYSTEM)
@@ -263,7 +208,7 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_NAMESPACE("systemd-run"): {}
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-run");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -592,6 +537,9 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_oom();
 
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
                 }
 
         /* If we are talking to the per-user instance PolicyKit isn't going to help */
@@ -806,11 +754,24 @@ static Glyph pty_window_glyph(void) {
         return GLYPH_YELLOW_CIRCLE;
 }
 
+COMMAND(
+        "run0\0",
+        "Elevate privileges interactively.",
+        .argspec = "COMMAND [ARGUMENTS…]\0",
+        .man_pages = "run0.1\0",
+        .option_namespace = "run0",
+        .pager_flags = &arg_pager_flags,
+);
+
 static int parse_argv_sudo_mode(int argc, char *argv[]) {
         int r;
 
         /* If invoked as "run0" binary, let's expose a more sudo-like interface. We add various extensions
-         * though (but limit the extension to long options). */
+         * though (but limit the extension to long options).
+         *
+         * NB: Let's not go overboard with short options: we try to keep a modicum of compatibility with
+         * sudo's short switches, hence please do not introduce new short switches unless they have a roughly
+         * equivalent purpose on sudo. Use long options for everything private to run0. */
 
         assert(argc >= 0);
         assert(argv);
@@ -823,7 +784,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 OPTION_NAMESPACE("run0"): {}
 
                 OPTION_COMMON_HELP:
-                        return help_sudo_mode();
+                        return command_print_help("run0");
 
                 OPTION('V', "version", NULL, "Show package version"):
                         return version();
@@ -834,6 +795,10 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
 
                 OPTION('n', "non-interactive", NULL, "Do not prompt for password"):
                         arg_ask_password = false;
+                        break;
+
+                OPTION_COMMON_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
                         break;
 
                 OPTION_LONG("machine", "CONTAINER", "Operate on local container"):
@@ -975,6 +940,9 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
                 }
 
         if (!arg_working_directory) {

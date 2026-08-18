@@ -23,14 +23,12 @@
 #include "format-table.h"
 #include "glyph-util.h"
 #include "hashmap.h"
-#include "help-util.h"
 #include "hexdecoct.h"
 #include "image-policy.h"
 #include "json-util.h"
 #include "loop-util.h"
 #include "main-func.h"
 #include "mount-util.h"
-#include "options.h"
 #include "os-util.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -82,6 +80,13 @@ STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_component, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_transfer_source, freep);
+
+COMMAND(
+        "systemd-sysupdate\0",
+        "Update OS images.",
+        .man_pages = "systemd-sysupdate.8\0",
+        .pager_flags = &arg_pager_flags,
+);
 
 #define CONTEXT_NULL                                              \
         (Context) {                                               \
@@ -3301,46 +3306,7 @@ static int verb_enable_component(int argc, char *argv[], uintptr_t _data, void *
         return 0;
 }
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *common_options = NULL, *options = NULL, *verbs = NULL;
-        int r;
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table(&common_options);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table_group("Options", &options);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, verbs, common_options, options);
-
-        help_cmdline("[OPTIONS…] [VERSION]");
-        help_abstract("Update OS images.");
-
-        help_section("Commands");
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        r = table_print_or_warn(common_options);
-        if (r < 0)
-                return r;
-
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("systemd-sysupdate", "8");
-        return 0;
-}
-
-VERB_COMMON_HELP_HIDDEN(help);
+VERB_COMMON_HELP_AUTO_HIDDEN("systemd-sysupdate");
 
 static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         assert(argc >= 0);
@@ -3354,13 +3320,10 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-sysupdate");
 
                 OPTION_COMMON_VERSION:
                         return version();
-
-                OPTION_GROUP("Options"):
-                        break;
 
                 OPTION('C', "component", "NAME",
                        "Select component to update"):
@@ -3496,6 +3459,9 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                                 return r;
 
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
                 }
 
         if (arg_image && arg_root)
