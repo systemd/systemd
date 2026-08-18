@@ -5,6 +5,7 @@
 
 #include "sd-bus.h"
 #include "sd-journal.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "ansi-color.h"
@@ -20,11 +21,9 @@
 #include "dlopen-note.h"
 #include "format-table.h"
 #include "format-util.h"
-#include "help-util.h"
 #include "log.h"
 #include "logs-show.h"
 #include "main-func.h"
-#include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -55,6 +54,13 @@ static unsigned arg_lines = 10;
 static OutputMode arg_output = OUTPUT_SHORT;
 
 STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
+
+COMMAND(
+        "loginctl\0",
+        "Send control commands to or query the login manager.",
+        .man_pages = "loginctl.1\0",
+        .pager_flags = &arg_pager_flags,
+);
 
 typedef struct SessionStatusInfo {
         const char *id;
@@ -1493,53 +1499,7 @@ static int verb_terminate_seat(int argc, char *argv[], uintptr_t _data, void *us
         return 0;
 }
 
-static int help(void) {
-        static const char *const groups[] = {
-                "Session Commands",
-                "User Commands",
-                "Seat Commands",
-        };
-
-        Table *vtables[ELEMENTSOF(groups)] = {};
-        CLEANUP_ELEMENTS(vtables, table_unref_array_clear);
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        pager_open(arg_pager_flags);
-
-        for (size_t i = 0; i < ELEMENTSOF(groups); i++) {
-                r = verbs_get_help_table_group(groups[i], &vtables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        assert_cc(ELEMENTSOF(vtables) == 3);
-        (void) table_sync_column_widths(0, vtables[0], vtables[1], vtables[2], options);
-
-        help_cmdline("[OPTIONS…] COMMAND …");
-        help_abstract("Send control commands to or query the login manager.");
-
-        for (size_t i = 0; i < ELEMENTSOF(groups); i++) {
-                help_section(groups[i]);
-                r = table_print_or_warn(vtables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("loginctl", "1");
-        return 0;
-}
-
-VERB_COMMON_HELP_HIDDEN(help);
+VERB_COMMON_HELP_AUTO_HIDDEN("loginctl");
 
 static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         int r;
@@ -1554,7 +1514,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("loginctl");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -1652,6 +1612,9 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_COMMON_NO_ASK_PASSWORD:
                         arg_ask_password = false;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
                 }
 
         *remaining_args = option_parser_get_args(&opts);

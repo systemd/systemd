@@ -3,6 +3,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include "sd-json.h"
+
 #include "argv-util.h"
 #include "build.h"
 #include "chase.h"
@@ -11,15 +13,14 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "format-table.h"
-#include "help-util.h"
 #include "image-policy.h"
 #include "main-func.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "mstack.h"
-#include "options.h"
 #include "parse-argument.h"
 #include "string-util.h"
+#include "verbs.h"
 
 static enum {
         ACTION_INSPECT,
@@ -41,38 +42,17 @@ STATIC_DESTRUCTOR_REGISTER(arg_where, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_filter, image_filter_freep);
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL, *commands = NULL;
-        int r;
-
-        r = option_parser_get_help_table_ns("systemd-mstack", &options);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table_full("systemd-mstack", "Commands", &commands);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, options, commands);
-
-        help_cmdline("[OPTIONS...] WHAT");
-        help_cmdline("[OPTIONS...] --mount WHAT WHERE");
-        help_cmdline("[OPTIONS...] --umount WHERE");
-        help_abstract("Inspect or apply mount stack.");
-
-        help_section("Commands");
-        r = table_print_or_warn(commands);
-        if (r < 0)
-                return r;
-
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference("systemd-mstack", "1");
-        return 0;
-}
+COMMAND(
+        "systemd-mstack\0",
+        "Inspect or apply mount stack.",
+        .argspec =
+                "WHAT\0"
+                "--mount WHAT WHERE\0"
+                "--umount WHERE\0",
+        .man_pages = "systemd-mstack.1\0",
+        .option_namespace = "systemd-mstack",
+        .pager_flags = &arg_pager_flags,
+);
 
 static int parse_argv(int argc, char *argv[]) {
         int r;
@@ -86,6 +66,34 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 OPTION_NAMESPACE("systemd-mstack"): {}
+
+                OPTION_GROUP("Commands"): {}
+
+                OPTION_COMMON_HELP:
+                        return command_print_help("systemd-mstack");
+
+                OPTION_COMMON_VERSION:
+                        return version();
+
+                OPTION('m', "mount", NULL, "Mount the mstack to the specified directory"):
+                        arg_action = ACTION_MOUNT;
+                        break;
+
+                OPTION_SHORT('M', NULL, "Shortcut for --mount --mkdir"):
+                        arg_action = ACTION_MOUNT;
+                        arg_mstack_flags |= MSTACK_MKDIR;
+                        break;
+
+                OPTION('u', "umount", NULL, "Unmount the image from the specified directory"):
+                        arg_action = ACTION_UMOUNT;
+                        break;
+
+                OPTION_SHORT('U', NULL, "Shortcut for --umount --rmdir"):
+                        arg_action = ACTION_UMOUNT;
+                        arg_rmdir = true;
+                        break;
+
+                OPTION_GROUP("Options"): {}
 
                 OPTION('r', "read-only", NULL, "Mount read-only"):
                         arg_mstack_flags |= MSTACK_RDONLY;
@@ -130,31 +138,8 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
-                OPTION_GROUP("Commands"): {}
-
-                OPTION_COMMON_HELP:
-                        return help();
-
-                OPTION_COMMON_VERSION:
-                        return version();
-
-                OPTION('m', "mount", NULL, "Mount the mstack to the specified directory"):
-                        arg_action = ACTION_MOUNT;
-                        break;
-
-                OPTION_SHORT('M', NULL, "Shortcut for --mount --mkdir"):
-                        arg_action = ACTION_MOUNT;
-                        arg_mstack_flags |= MSTACK_MKDIR;
-                        break;
-
-                OPTION('u', "umount", NULL, "Unmount the image from the specified directory"):
-                        arg_action = ACTION_UMOUNT;
-                        break;
-
-                OPTION_SHORT('U', NULL, "Shortcut for --umount --rmdir"):
-                        arg_action = ACTION_UMOUNT;
-                        arg_rmdir = true;
-                        break;
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
                 }
 
         char **args = option_parser_get_args(&opts);
@@ -202,6 +187,13 @@ static int parse_argv(int argc, char *argv[]) {
 
         return 1;
 }
+
+COMMAND(
+        "mount.mstack\0",
+        "External helper for mount.8 to mount mount stacks.",
+        .man_pages = "systemd-mstack.1\0",
+        .option_namespace = "mount.mstack",
+);
 
 static int parse_argv_as_mount_helper(int argc, char *argv[]) {
         const char *mount_options = NULL;

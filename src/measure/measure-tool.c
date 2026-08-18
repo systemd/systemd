@@ -5,6 +5,7 @@
 #include "sd-json.h"
 
 #include "alloc-util.h"
+#include "ansi-color.h"
 #include "ask-password-api.h"
 #include "build.h"
 #include "crypto-util.h"
@@ -13,15 +14,12 @@
 #include "efivars.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "format-table.h"
 #include "hexdecoct.h"
 #include "log.h"
 #include "main-func.h"
-#include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
-#include "pretty-print.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tpm2-pcr.h"
@@ -67,57 +65,14 @@ static void free_sections(char*(*sections)[_UNIFIED_SECTION_MAX]) {
 
 STATIC_DESTRUCTOR_REGISTER(arg_sections, free_sections);
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *verbs = NULL, *options = NULL, *options2 = NULL;
-        int r;
+COMMAND(
+        "systemd-measure\0",
+        "Pre-calculate and sign PCR hash for a unified kernel image (UKI).",
+        .man_pages = "systemd-measure.1\0",
+        .pager_flags = &arg_pager_flags,
+);
 
-        r = terminal_urlify_man("systemd-measure", "1", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table_group("UKI PE Section Options", &options2);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, verbs, options, options2);
-
-        printf("%s [OPTIONS...] COMMAND ...\n"
-               "\n%sPre-calculate and sign PCR hash for a unified kernel image (UKI).%s\n"
-               "\n%sCommands:%s\n",
-               program_invocation_short_name,
-               ansi_highlight(), ansi_normal(),
-               ansi_underline(), ansi_normal());
-
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-
-        printf("\n%sOptions:%s\n", ansi_underline(), ansi_normal());
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\n%sUKI PE Section Options:%s\n", ansi_underline(), ansi_normal());
-
-        r = table_print_or_warn(options2);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
-
-VERB_COMMON_HELP_HIDDEN(help);
+VERB_COMMON_HELP_AUTO_HIDDEN("systemd-measure");
 
 static char *normalize_phase(const char *s) {
         _cleanup_strv_free_ char **l = NULL;
@@ -146,7 +101,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-measure");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -315,6 +270,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         if (r < 0)
                                 return r;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
                 }
 
         if (arg_public_key && arg_certificate)

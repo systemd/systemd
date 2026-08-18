@@ -3,6 +3,7 @@
 #include <sys/mman.h>
 
 #include "sd-device.h"
+#include "sd-json.h"
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
@@ -24,15 +25,12 @@
 #include "cryptsetup-util.h"
 #include "dlopen-note.h"
 #include "extract-word.h"
-#include "format-table.h"
-#include "help-util.h"
 #include "initrd-util.h"
 #include "libfido2-util.h"
 #include "limits-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "memory-util.h"
-#include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -45,6 +43,7 @@
 #include "time-util.h"
 #include "tpm2-pcr.h"
 #include "tpm2-util.h"
+#include "verbs.h"
 
 #define ARGON2ID_BENCHMARK_DEFAULT_TARGET_MS 2000U
 #define ARGON2ID_BENCHMARK_MAX_ATTEMPTS      8U
@@ -118,6 +117,14 @@ STATIC_DESTRUCTOR_REGISTER(arg_tpm2_signature, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_pcrlock, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_node, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_wipe_slots, freep);
+
+COMMAND(
+        "systemd-cryptenroll\0",
+        "Enroll a security token or authentication credential to a LUKS volume.",
+        .argspec = "[BLOCK-DEVICE]\0",
+        .man_pages = "systemd-cryptenroll.1\0",
+        .pager_flags = &arg_pager_flags,
+);
 
 static bool wipe_requested(void) {
         return arg_n_wipe_slots > 0 ||
@@ -345,46 +352,6 @@ static int parse_prompt_suppress(const char *arg) {
         }
 }
 
-static int help(void) {
-        int r;
-
-        static const char* const groups[] = {
-                NULL,
-                "Unlocking",
-                "Simple Enrollment",
-                "PKCS#11 Enrollment",
-                "FIDO2 Enrollment",
-                "TPM2 Enrollment",
-        };
-
-        Table *tables[ELEMENTSOF(groups)] = {};
-        CLEANUP_ELEMENTS(tables, table_unref_array_clear);
-
-        for (size_t i = 0; i < ELEMENTSOF(groups); i++) {
-                r = option_parser_get_help_table_group(groups[i], &tables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        (void) table_sync_column_widths(0, tables[0], tables[1], tables[2], tables[3], tables[4], tables[5]);
-
-        pager_open(arg_pager_flags);
-
-        help_cmdline("[OPTIONS...] [BLOCK-DEVICE]");
-        help_abstract("Enroll a security token or authentication credential to a LUKS volume.");
-
-        for (size_t i = 0; i < ELEMENTSOF(groups); i++) {
-                help_section(groups[i] ?: "Options");
-
-                r = table_print_or_warn(tables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        help_man_page_reference("systemd-cryptenroll", "1");
-        return 0;
-}
-
 static int parse_argv(int argc, char *argv[]) {
         bool auto_public_key_pcr_mask = true, auto_pcrlock = true;
 
@@ -398,7 +365,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-cryptenroll");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -786,6 +753,9 @@ static int parse_argv(int argc, char *argv[]) {
                         if (arg_tpm2_argon2id_iter_time == 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Target time must be non-zero.");
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (option_parser_get_n_args(&opts) > 1)

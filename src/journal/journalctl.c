@@ -3,15 +3,14 @@
 #include <locale.h>
 
 #include "sd-journal.h"
+#include "sd-json.h"
 #include "sd-varlink.h"
 
 #include "build.h"
 #include "dissect-image.h"
 #include "dlopen-note.h"
 #include "extract-word.h"
-#include "format-table.h"
 #include "glob-util.h"
-#include "help-util.h"
 #include "id128-print.h"
 #include "image-policy.h"
 #include "journalctl.h"
@@ -28,7 +27,6 @@
 #include "main-func.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
-#include "options.h"
 #include "output-mode.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -45,6 +43,7 @@
 #include "varlink-io.systemd.JournalAccess.h"
 #include "varlink-io.systemd.Metrics.h"
 #include "varlink-util.h"
+#include "verbs.h"
 
 #define DEFAULT_FSS_INTERVAL_USEC (15*USEC_PER_MINUTE)
 
@@ -142,6 +141,17 @@ STATIC_DESTRUCTOR_REGISTER(arg_output_fields, set_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_pattern, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_compiled_pattern, pcre2_code_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
+
+COMMAND(
+        "journalctl\0",
+        "Query the journal.",
+        .argspec = "[MATCH…]\0",
+        .man_pages = "journalctl.1\0",
+        .option_namespace = "journalctl",
+        .pager_flags = &arg_pager_flags,
+);
+
+// TODO: also expose journalctl-varlink interface through COMMAND
 
 static int parse_id_descriptor(const char *x, sd_id128_t *ret_id, int *ret_offset) {
         sd_id128_t id = SD_ID128_NULL;
@@ -268,46 +278,6 @@ static int help_facilities(void) {
                 puts(t);
         }
 
-        return 0;
-}
-
-static int help(void) {
-        static const char *const groups[] = {
-                "Source Options",
-                "Filtering Options",
-                "Output Control Options",
-                "Pager Control Options",
-                "Forward Secure Sealing (FSS) Options",
-                "Commands",
-        };
-
-        Table *tables[ELEMENTSOF(groups)] = {};
-        CLEANUP_ELEMENTS(tables, table_unref_array_clear);
-        int r;
-
-        pager_open(arg_pager_flags);
-
-        for (size_t i = 0; i < ELEMENTSOF(groups); i++) {
-                r = option_parser_get_help_table_full("journalctl", groups[i], &tables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        assert_cc(ELEMENTSOF(tables) == 6);
-        (void) table_sync_column_widths(0, tables[0], tables[1], tables[2],
-                                        tables[3], tables[4], tables[5]);
-
-        help_cmdline("[OPTIONS…] [MATCHES…]");
-        help_abstract("Query the journal.");
-
-        for (size_t i = 0; i < ELEMENTSOF(groups); i++) {
-                help_section(groups[i]);
-                r = table_print_or_warn(tables[i]);
-                if (r < 0)
-                        return r;
-        }
-
-        help_man_page_reference("journalctl", "1");
         return 0;
 }
 
@@ -823,7 +793,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_GROUP("Commands"): {}
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("journalctl");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -932,6 +902,9 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_LONG("new-id128", NULL, /* help= */ NULL):
                         arg_action = ACTION_NEW_ID128;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
                 }
 
         char **args = option_parser_get_args(&opts);

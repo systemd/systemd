@@ -2,11 +2,12 @@
 
 #include <stdio.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "build.h"
 #include "dissect-image.h"
 #include "dlopen-note.h"
-#include "format-table.h"
 #include "id128-util.h"
 #include "image-policy.h"
 #include "log.h"
@@ -14,9 +15,8 @@
 #include "machine-id-setup.h"
 #include "main-func.h"
 #include "mount-util.h"
-#include "options.h"
 #include "parse-argument.h"
-#include "pretty-print.h"
+#include "verbs.h"
 
 static char *arg_root = NULL;
 static char *arg_image = NULL;
@@ -28,49 +28,11 @@ STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
-static int help(void) {
-        _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *commands = NULL, *options = NULL;
-        int r;
-
-        r = terminal_urlify_man("systemd-machine-id-setup", "1", &link);
-        if (r < 0)
-                return log_oom();
-
-        r = option_parser_get_help_table(&commands);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table_group("Options", &options);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, commands, options);
-
-        printf("%s [OPTIONS...]\n\n"
-               "%sInitialize /etc/machine-id from a random source.%s\n"
-               "\n%sCommands:%s\n",
-               program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal(),
-               ansi_underline(),
-               ansi_normal());
-
-        r = table_print_or_warn(commands);
-        if (r < 0)
-                return r;
-
-        printf("\n%sOptions:%s\n",
-               ansi_underline(),
-               ansi_normal());
-
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\nSee the %s for details.\n", link);
-        return 0;
-}
+COMMAND(
+        "systemd-machine-id-setup\0",
+        "Initialize /etc/machine-id from a random source.",
+        .man_pages = "systemd-machine-id-setup.1\0",
+);
 
 static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
@@ -82,8 +44,10 @@ static int parse_argv(int argc, char *argv[]) {
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
+                OPTION_GROUP("Commands"): {}
+
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("systemd-machine-id-setup");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -115,6 +79,9 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("print", NULL, "Print used machine ID"):
                         arg_print = true;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (option_parser_get_n_args(&opts) > 0)
