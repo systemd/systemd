@@ -111,6 +111,11 @@
           <listitem><para>If specified, the VM is run with a temporary snapshot of its file system that is removed
           immediately when the VM terminates. Only works with <option>--image=</option> currently.
 
+          The snapshot is an unnamed temporary file next to the image, or in
+          <varname>$TMPDIR</varname> (<filename>/var/tmp/</filename> if that is not set) when it cannot be
+          created there. It receives every write the VM makes, so that directory needs room for them, and
+          is best not backed by memory.
+
           Note that <option>--ephemeral</option> will not work with <option>--extra-drive=</option>.</para>
 
           <xi:include href="version-info.xml" xpointer="v260"/></listitem>

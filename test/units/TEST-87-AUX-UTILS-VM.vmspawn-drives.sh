@@ -222,8 +222,8 @@ QEMU_PID="$(varlinkctl call /run/systemd/machine/io.systemd.Machine \
 OVERLAY=""
 for fd in /proc/"$QEMU_PID"/fd/*; do
     target="$(readlink "$fd" 2>/dev/null)" || continue
-    # O_TMPFILE in the runtime directory, or the memfd fallback.
-    [[ "$target" == */vmspawn/"$MACHINE_GROW"/#* || "$target" == /memfd:vmspawn-overlay* ]] || continue
+    # O_TMPFILE next to the image, or where large temporary files go if that did not work.
+    [[ "$target" == "$WORKDIR"/#* || "$target" == "${TMPDIR:-/var/tmp}"/#* ]] || continue
     OVERLAY="$fd"
     break
 done
