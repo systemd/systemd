@@ -1873,7 +1873,7 @@ static int manager_schedule_sync(Manager *m, int priority) {
         }
 
         if (!m->event || sd_event_get_state(m->event) == SD_EVENT_FINISHED) {
-                /* Shutting down the server? Let's sync immediately. */
+                /* Shutting down the manager? Let's sync immediately. */
                 manager_sync(m, /* wait= */ false);
                 return 0;
         }
@@ -2133,7 +2133,7 @@ int manager_unlink_seqnum_file(Manager *m, const char *fname) {
 static bool manager_is_idle(Manager *m) {
         assert(m);
 
-        /* The server for the main namespace is never idle */
+        /* The manager for the main namespace is never idle */
         if (!m->namespace)
                 return false;
 
