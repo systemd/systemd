@@ -24,6 +24,7 @@ INTROSPECTABLE=(
     importctl
     iocost
     journalctl
+    kernel-install
     localectl
     loginctl
     machinectl
@@ -157,6 +158,9 @@ if command -v systemd-hwdb >/dev/null; then
     systemd-hwdb --introspect-cli | jq -e \
             '.commands[0].verbs | map(.names[0]) | sort == ["help", "query", "update"]'
 fi
+
+kernel-install --introspect-cli | jq -e \
+    '[.commands[].names[0]] | sort == ["installkernel", "kernel-install"]'
 
 resolvectl --introspect-cli | jq -e \
     '[.commands[].names[0]] | sort == ["resolvconf", "resolvectl", "systemd-resolve"]'
