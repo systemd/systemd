@@ -74,3 +74,4 @@ bool slice_name_is_valid(const char *name);
 bool unit_name_prefix_equal(const char *a, const char *b);
 
 bool xdg_app_id_is_valid(const char *app_id);
+int unit_name_to_app_id(const char *name, char **ret);
