@@ -22,33 +22,24 @@
 #include <mtd/mtd-user.h>
 #include <sys/ioctl.h>
 
+#include "sd-json.h"
+
 #include "build.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "format-table.h"
-#include "help-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "mtd_probe.h"
-#include "options.h"
 #include "strv.h"
+#include "verbs.h"
 
 static const char *arg_device = NULL;
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        help_cmdline("[OPTIONS...] /dev/mtd[n]");
-        help_abstract("Probe MTD devices.");
-        help_section("Options");
-
-        return table_print_or_warn(options);
-}
+COMMAND(
+        "mtd_probe\0",
+        "Probe MTD devices.",
+        .argspec = "/dev/mtdN\0",
+);
 
 static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
@@ -60,10 +51,13 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("mtd_probe");
 
                 OPTION_COMMON_VERSION:
                         return version();
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         char **args = option_parser_get_args(&opts);

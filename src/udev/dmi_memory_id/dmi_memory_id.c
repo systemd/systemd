@@ -44,17 +44,17 @@
 
 #include <stdio.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "build.h"
 #include "fileio.h"
-#include "format-table.h"
-#include "help-util.h"
 #include "main-func.h"
-#include "options.h"
 #include "string-util.h"
 #include "udev-util.h"
 #include "unaligned.h"
 #include "utf8.h"
+#include "verbs.h"
 
 #define SUPPORTED_SMBIOS_VER 0x030300
 
@@ -80,6 +80,11 @@ struct dmi_header {
 };
 
 static const char *arg_source_file = NULL;
+
+COMMAND(
+        "dmi_memory_id\0",
+        "Identify memory devices from DMI/SMBIOS data.",
+);
 
 static bool verify_checksum(const uint8_t *buf, size_t len) {
         uint8_t sum = 0;
@@ -644,20 +649,6 @@ static int legacy_decode(const uint8_t *buf, const char *devmem, bool no_file_of
                          devmem, no_file_offset);
 }
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        help_cmdline("[OPTIONS...]");
-        help_section("Options");
-
-        return table_print_or_warn(options);
-}
-
 static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
@@ -668,7 +659,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("dmi_memory_id");
 
                 OPTION_COMMON_VERSION_WITH_HIDDEN_V:
                         return version();
@@ -677,6 +668,9 @@ static int parse_argv(int argc, char *argv[]) {
                        "Read DMI information from a binary file"):
                         arg_source_file = opts.arg;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (option_parser_get_n_args(&opts) > 0)

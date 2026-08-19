@@ -8,14 +8,13 @@
 #include <scsi/sg.h>
 #include <sys/ioctl.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "build.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "format-table.h"
-#include "help-util.h"
 #include "main-func.h"
-#include "options.h"
 #include "random-util.h"
 #include "sort-util.h"
 #include "string-table.h"
@@ -24,11 +23,18 @@
 #include "time-util.h"
 #include "udev-util.h"
 #include "unaligned.h"
+#include "verbs.h"
 
 static bool arg_eject = false;
 static bool arg_lock = false;
 static bool arg_unlock = false;
 static const char *arg_node = NULL;
+
+COMMAND(
+        "cdrom_id\0",
+        "Identify CD/DVD drives and their media.",
+        .argspec = "DEVICE\0",
+);
 
 typedef enum Feature {
         FEATURE_RW_NONREMOVABLE = 0x01,
@@ -900,20 +906,6 @@ static void print_properties(const Context *c) {
                 printf("ID_CDROM_MEDIA_TRACK_COUNT_DATA=%u\n", c->media_track_count_data);
 }
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
-
-        r = option_parser_get_help_table(&options);
-        if (r < 0)
-                return r;
-
-        help_cmdline("[OPTIONS...] DEVICE");
-        help_section("Options");
-
-        return table_print_or_warn(options);
-}
-
 static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
@@ -924,7 +916,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help("cdrom_id");
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -950,6 +942,9 @@ static int parse_argv(int argc, char *argv[]) {
                         log_set_max_level(LOG_DEBUG);
                         log_open();
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         char **args = option_parser_get_args(&opts);
