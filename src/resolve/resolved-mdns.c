@@ -429,6 +429,7 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
 
         if (dns_packet_validate_reply(p) > 0) {
                 DnsResourceRecord *rr;
+                _cleanup_(dns_answer_unrefp) DnsAnswer *goodbyes = NULL;
 
                 /* RFC 6762 section 6:
                  * The source UDP port in all Multicast DNS responses MUST be 5353 (the well-known port
@@ -476,6 +477,24 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                                 /* See the section 10.1 of RFC6762 */
                                 rr->ttl = 1;
 
+                                /* Collect the goodbye records here, where they are still
+                                 * identifiable, for the rescue below; downstream the rewritten
+                                 * TTL looks like a record published with TTL 1. Best effort: a
+                                 * failure, or having no browse queriers, must not fail packet
+                                 * processing, since a negative return would disable the mDNS io
+                                 * source for good. */
+                                if (mdns_queriers_exist(scope->manager)) {
+                                        r = dns_answer_add_extend(
+                                                        &goodbyes, rr,
+                                                        /* ifindex= */ 0, /* flags= */ 0,
+                                                        /* rrsig= */ NULL);
+                                        if (r < 0)
+                                                log_warning_errno(
+                                                        r,
+                                                        "Failed to collect a goodbye record for "
+                                                        "the browse rescue, ignoring: %m");
+                                }
+
                                 /* Look at the cache 1 second later and remove stale entries.
                                  * This is particularly useful to keep service browsers updated on service removal,
                                  * as there are no other reliable triggers to propagate that info. */
@@ -488,8 +507,16 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                                                         /* accuracy= */ 0,
                                                         mdns_goodbye_callback,
                                                         scope);
+                                        /* Logged and swallowed, like the goodbye collection
+                                         * above: a negative return from this io handler disables
+                                         * the mDNS socket for good, and this is reached from
+                                         * untrusted multicast. The records still age out on
+                                         * their rewritten TTL. */
                                         if (r < 0)
-                                                return r;
+                                                log_warning_errno(
+                                                        r,
+                                                        "Failed to arm the mDNS goodbye timer, "
+                                                        "ignoring: %m");
                                 }
                         }
                 }
@@ -536,6 +563,10 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                 /* Check if incoming packet key matches with active browse clients. If yes, update the same */
                 if (unsolicited_packet)
                         mdns_queriers_notify_unsolicited_updates(scope, p->answer, p->family);
+
+                /* A goodbye for a record a querier browses: give surviving publishers their RFC
+                 * 6762 §10.1 chance to rescue it before the grace second expires. */
+                mdns_queriers_rescue_goodbyes(scope, goodbyes);
         } else if (dns_packet_validate_query(p) > 0)  {
                 log_debug("Got mDNS query packet for id %u", DNS_PACKET_ID(p));
 

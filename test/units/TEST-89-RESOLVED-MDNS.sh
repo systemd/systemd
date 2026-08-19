@@ -574,6 +574,158 @@ testcase_browse_shared_querier() {
     echo testcase_end
 }
 
+testcase_browse_goodbye_rescue() {
+    : "A goodbye from one of two publishers of an instance must not remove it for the browser"
+
+    resolvectl flush-caches
+
+    local out_file error_file unit_name service_type off ok removed
+    out_file="$(mktemp)"
+    error_file="$(mktemp)"
+    unit_name="varlinkctl-rescue-$SRANDOM.service"
+    service_type="_rescueBye._udp"
+
+    # shellcheck disable=SC2064
+    trap "systemctl stop $unit_name 2>/dev/null || :; \
+          systemd-run -M $CONTAINER_2 --wait --pipe -- systemctl stop second-publisher.service 2>/dev/null || :; \
+          systemd-run -M $CONTAINER_1 --wait --pipe -- rm -f /etc/systemd/dnssd/shared-canary.dnssd 2>/dev/null || :; \
+          systemd-run -M $CONTAINER_1 --wait --pipe -- systemctl reload systemd-resolved.service 2>/dev/null || :; \
+          rm -f $out_file $error_file" EXIT
+
+    # The first publisher is the first container's resolved, serving the instance from a .dnssd
+    # file; no %H in the name, so the PTR can be repeated verbatim below.
+    systemd-run -M "$CONTAINER_1" --wait --pipe -- tee /etc/systemd/dnssd/shared-canary.dnssd <<EOF
+[Service]
+Name=Shared Canary
+Type=$service_type
+Port=8010
+EOF
+    systemd-run -M "$CONTAINER_1" --wait --pipe -- systemctl reload systemd-resolved.service
+
+    # The second publisher announces the same instance PTR from the second container, the record
+    # the browser keys on and the one the two publishers share, plus a PTR of its own as the
+    # control, and withdraws them with a goodbye when its unit is stopped. The instance's SRV and
+    # TXT stay with the first container: they are its unique records, and a response carrying
+    # them would match its pending probe (RFC 6762 section 8.1), whatever the timing, and cost it
+    # the name. A second resolved cannot play this part for the same reason: it probes, conflicts,
+    # and the loser is renamed.
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- tee /run/second-publisher.py >/dev/null <<'EOF'
+import signal
+import socket
+import struct
+import sys
+import time
+
+# A second mDNS publisher for DNS-SD instances: it multicasts the given instances' PTR records,
+# the record a browser keys on, as unsolicited responses, and withdraws them with a goodbye (TTL 0)
+# on SIGTERM. It never touches an instance's SRV or TXT: those are unique records, owned by the
+# host that serves the instance, and a response carrying them would match that host's probe.
+# Usage: second-publisher.py IFACE TYPE INSTANCE...
+iface, service_type, instances = sys.argv[1], sys.argv[2], sys.argv[3:]
+
+
+def name(s):
+    return b"".join(bytes([len(l)]) + l for l in s.encode().split(b".")) + b"\x00"
+
+
+def packet(ttl):
+    rrs = []
+    for instance in instances:
+        rdata = name(instance + "." + service_type + ".local")
+        rrs.append(name(service_type + ".local") + struct.pack("!HHIH", 12, 1, ttl, len(rdata)) + rdata)
+    return struct.pack("!HHHHHH", 0, 0x8400, 0, len(rrs), 0, 0) + b"".join(rrs)
+
+
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+# Responses must come from port 5353 (RFC 6762 section 6); the port is shared with resolved.
+sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+sock.bind(("", 5353))
+sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF,
+                struct.pack("@4s4si", bytes(4), bytes(4), socket.if_nametoindex(iface)))
+sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 255)
+
+
+def send(ttl):
+    sock.sendto(packet(ttl), ("224.0.0.251", 5353))
+    print("sent the records with TTL", ttl, flush=True)
+
+
+def goodbye(*_):
+    send(0)
+    sys.exit(0)
+
+
+signal.signal(signal.SIGTERM, goodbye)
+# RFC 6762 section 8.3: announce at least twice, a second apart.
+send(120)
+time.sleep(1)
+send(120)
+signal.pause()
+EOF
+
+    # Subscribe first, so that the second publisher's announcements arrive unsolicited.
+    systemd-run --unit="$unit_name" --service-type=exec -p StandardOutput="file:$out_file" -p StandardError="file:$error_file" \
+        varlinkctl call --more --timeout=infinity /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices \
+        "$(browse_params "$service_type" "${BRIDGE_INDEX:?}")"
+    systemd-run -M "$CONTAINER_2" --unit=second-publisher.service --service-type=exec -- \
+        python3 /run/second-publisher.py host0 "$service_type" "Shared Canary" "Lone Canary"
+
+    # Both instances discovered before anything is withdrawn. The names are matched with their
+    # closing quote throughout: exactly, not as a prefix of some other instance's name.
+    ok=0
+    for _ in {0..14}; do
+        if grep -F '"name":"Shared Canary"' "$out_file" >/dev/null && grep -F '"name":"Lone Canary"' "$out_file" >/dev/null; then
+            ok=1
+            break
+        fi
+        sleep 2
+    done
+    if [[ "$ok" -ne 1 ]]; then
+        echo >&2 "Never discovered both canaries"
+        systemd-run -M "$CONTAINER_2" --wait --pipe -- systemctl status second-publisher.service >&2 || :
+        cat "$out_file" "$error_file" >&2
+        return 1
+    fi
+
+    # Checkpoint, then let the second publisher leave: stopping its unit sends it SIGTERM, on which
+    # it withdraws everything it announced with one goodbye.
+    off="$(wc -c <"$out_file")"
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- systemctl stop second-publisher.service
+
+    # The control first: the instance nobody else publishes has to go, the proof that the goodbye
+    # reached the browser and ran its course.
+    removed=0
+    for _ in {0..14}; do
+        if removed_since "$out_file" "$off" '"name":"Lone Canary"'; then
+            removed=1
+            break
+        fi
+        sleep 1
+    done
+    if [[ "$removed" -ne 1 ]]; then
+        echo >&2 "The second publisher's own canary was not removed after its goodbye"
+        cat "$out_file" "$error_file" >&2
+        return 1
+    fi
+
+    # The shared instance survived the same goodbye: the rescue query it earned was answered by the
+    # first container inside the grace second, so the browser saw no removal, and the instance
+    # still resolves from the publisher that is left. Checked a moment past the control's removal,
+    # where a spurious one would have landed too.
+    sleep 3
+    if removed_since "$out_file" "$off" '"name":"Shared Canary"'; then
+        echo >&2 "One publisher's goodbye removed an instance the other still publishes:"
+        tail -c "+$((off + 1))" "$out_file" >&2
+        return 1
+    fi
+    if ! resolvectl service "Shared Canary" "$service_type" local >/dev/null; then
+        echo >&2 "The shared canary no longer resolves after one of its publishers said goodbye"
+        return 1
+    fi
+
+    echo testcase_end
+}
+
 testcase_browse_unrelated_scope_teardown() {
     : "Losing one link's mDNS scope must not withdraw services discovered on another link"
     resolvectl flush-caches
