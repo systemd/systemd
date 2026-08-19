@@ -114,6 +114,10 @@ id-input:modalias:input:b0003v068Ep00F2*
 id-input:modalias:input:b0003v04D9p0407e0111-e0,1,2,4*
  ID_INPUT_POINTINGSTICK=1
 
+# Lenovo ThinkPad X1 Tablet Gen 3 TrackPoint
+id-input:modalias:input:b0003v17EFp60B5e0111-e0,1,2,4,k110,111,112*
+ ID_INPUT_POINTINGSTICK=1
+
 # ASRock LED Controller
 id-input:modalias:input:b0003v26CEp01A2*
  ID_INPUT_JOYSTICK=
