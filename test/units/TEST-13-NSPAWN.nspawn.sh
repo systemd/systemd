@@ -609,6 +609,24 @@ EOF
         systemd-nspawn --directory="$root" bash -xec '[[ "$(hostname)" == private-users ]]'
     done
 
+    # Private=yes must not override --network-veth when VirtualEthernet= is unspecified.
+    # (https://github.com/systemd/systemd/issues/12313#issuecomment-681116926).
+    cat >"/run/systemd/nspawn/$container.nspawn" <<EOF
+[Exec]
+PrivateUsers=no
+
+[Files]
+${COVERAGE_BUILD_DIR:+"Bind=$COVERAGE_BUILD_DIR"}
+
+[Network]
+Private=yes
+EOF
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   --network-veth \
+                   --settings=override \
+                   bash -xec 'ip link show dev host0'
+
     rm -fr "$root" "/run/systemd/nspawn/$container.nspawn"
 }
 
