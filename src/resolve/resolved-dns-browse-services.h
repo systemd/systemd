@@ -47,13 +47,15 @@ struct DnsServiceQuerier {
         usec_t delay;
         sd_event_source *schedule_event;      /* continuous browse query (RFC 6762 §5.2 backoff) */
         sd_event_source *maintenance_event;   /* single TTL re-confirmation ladder for the whole RRset */
-        DnsQuery *in_flight_query;          /* in-flight ladder query; cleared by dns_query_free() */
+        DnsQuery *in_flight_query;          /* the one query in flight, whichever emitter sent it;
+                                               cleared by dns_query_free() */
         DnsRecordTTLState rr_ttl_state;       /* the ladder's rung: wound back to 80% whenever the list
                                                  changes or an instance is seen again, advanced only by
                                                  mdns_querier_maintenance(), re-armed once per
                                                  reconciliation (re-arming skips the rungs already
                                                  behind us, so a wind-back only takes effect once an
                                                  expiry moved) */
+        usec_t last_goodbye_rescue_usec;      /* rate limit for the §10.1 goodbye rescue query */
         LIST_HEAD(DnssdDiscoveredService, dns_services);
         LIST_HEAD(DnsServiceBrowser, subscribers);
 };
@@ -106,3 +108,4 @@ int dns_subscribe_browse_service(
 void dns_unsubscribe_browse_service(Manager *m, sd_varlink *link);
 int mdns_queriers_notify_unsolicited_updates(Manager *m, DnsAnswer *answer, int owner_family);
 int mdns_queriers_notify_goodbye(DnsScope *scope);
+void mdns_queriers_rescue_goodbyes(DnsScope *scope, DnsAnswer *answer);
