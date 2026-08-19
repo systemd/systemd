@@ -4808,6 +4808,14 @@ static int merge_settings(Settings *settings, const char *path) {
                 }
         }
 
+        /* Evaluate this before stealing any network fields. Preserve private networking implied by command-line
+         * link settings unless Private=no or NamespacePath= overrides it. */
+        bool merged_private_network = settings_private_network(settings);
+        if (!merged_private_network &&
+            settings->private_network < 0 &&
+            !settings->network_namespace_path)
+                merged_private_network = arg_private_network;
+
         if ((arg_settings_mask & SETTING_CAPABILITY) == 0) {
                 uint64_t plus, minus;
                 uint64_t network_minus = 0;
@@ -4821,7 +4829,7 @@ static int merge_settings(Settings *settings, const char *path) {
 
                 if ((arg_settings_mask & SETTING_NETWORK) == 0 &&
                     settings_network_configured(settings)) {
-                        if (settings_private_network(settings))
+                        if (merged_private_network)
                                 plus |= UINT64_C(1) << CAP_NET_ADMIN;
                         else
                                 network_minus |= UINT64_C(1) << CAP_NET_ADMIN;
@@ -4896,18 +4904,56 @@ static int merge_settings(Settings *settings, const char *path) {
                 if (!arg_settings_trusted)
                         log_warning("Ignoring network settings, file %s is not trusted.", path);
                 else {
-                        arg_network_veth = settings_network_veth(settings);
-                        arg_private_network = settings_private_network(settings);
+                        int veth = settings_network_veth(settings);
+                        bool has_link_setting =
+                                veth > 0 ||
+                                settings->network_bridge ||
+                                settings->network_zone ||
+                                settings->network_interfaces ||
+                                settings->network_macvlan ||
+                                settings->network_ipvlan ||
+                                settings->network_veth_extra;
 
-                        strv_free_and_replace(arg_network_interfaces, settings->network_interfaces);
-                        strv_free_and_replace(arg_network_macvlan, settings->network_macvlan);
-                        strv_free_and_replace(arg_network_ipvlan, settings->network_ipvlan);
-                        strv_free_and_replace(arg_network_veth_extra, settings->network_veth_extra);
+                        arg_private_network = merged_private_network;
 
-                        free_and_replace(arg_network_bridge, settings->network_bridge);
-                        free_and_replace(arg_network_zone, settings->network_zone);
+                        /* NamespacePath= is mutually exclusive with all link configuration. */
+                        if (settings->network_namespace_path) {
+                                arg_network_veth = false;
+                                arg_network_bridge = mfree(arg_network_bridge);
+                                arg_network_zone = mfree(arg_network_zone);
+                                arg_network_interfaces = strv_free(arg_network_interfaces);
+                                arg_network_macvlan = strv_free(arg_network_macvlan);
+                                arg_network_ipvlan = strv_free(arg_network_ipvlan);
+                                arg_network_veth_extra = strv_free(arg_network_veth_extra);
+                        } else if (has_link_setting)
+                                arg_network_namespace_path = mfree(arg_network_namespace_path);
 
-                        free_and_replace(arg_network_namespace_path, settings->network_namespace_path);
+                        if (veth >= 0) {
+                                arg_network_veth = veth > 0;
+
+                                if (veth == 0) {
+                                        arg_network_bridge = mfree(arg_network_bridge);
+                                        arg_network_zone = mfree(arg_network_zone);
+                                }
+                        }
+
+                        if (settings->network_bridge || settings->network_zone) {
+                                /* Bridge= and Zone= are alternatives, so specifying either replaces both. */
+                                free_and_replace(arg_network_bridge, settings->network_bridge);
+                                free_and_replace(arg_network_zone, settings->network_zone);
+                        }
+
+                        if (settings->network_interfaces)
+                                strv_free_and_replace(arg_network_interfaces, settings->network_interfaces);
+                        if (settings->network_macvlan)
+                                strv_free_and_replace(arg_network_macvlan, settings->network_macvlan);
+                        if (settings->network_ipvlan)
+                                strv_free_and_replace(arg_network_ipvlan, settings->network_ipvlan);
+                        if (settings->network_veth_extra)
+                                strv_free_and_replace(arg_network_veth_extra, settings->network_veth_extra);
+
+                        if (settings->network_namespace_path)
+                                free_and_replace(arg_network_namespace_path, settings->network_namespace_path);
                 }
         }
 

@@ -609,6 +609,75 @@ EOF
         systemd-nspawn --directory="$root" bash -xec '[[ "$(hostname)" == private-users ]]'
     done
 
+    # Unspecified network settings must not override the corresponding command line options.
+    # (https://github.com/systemd/systemd/issues/12313#issuecomment-681116926).
+    cat >"/run/systemd/nspawn/$container.nspawn" <<EOF
+[Exec]
+PrivateUsers=no
+
+[Files]
+${COVERAGE_BUILD_DIR:+"Bind=$COVERAGE_BUILD_DIR"}
+
+[Network]
+Private=yes
+EOF
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   --network-veth \
+                   --network-veth-extra=sd-extra0:extra0 \
+                   --settings=override \
+                   bash -xec '
+                       ip link show dev host0
+                       ip link show dev extra0
+                   '
+
+    # VirtualEthernet=no overrides --network-veth, but VirtualEthernetExtra= is independent and still implies
+    # Private=yes (and thus CAP_NET_ADMIN).
+    sed -i 's/Private=yes/VirtualEthernet=no/' "/run/systemd/nspawn/$container.nspawn"
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   --network-veth \
+                   --network-veth-extra=sd-extra0:extra0 \
+                   --settings=override \
+                   bash -xec '
+                       ! ip link show dev host0
+                       ip link show dev extra0
+                       ip link set dev extra0 up
+                   '
+
+    # Zone= must imply both Private=yes and VirtualEthernet=yes.
+    cat >"/run/systemd/nspawn/$container.nspawn" <<EOF
+[Exec]
+PrivateUsers=no
+
+[Files]
+${COVERAGE_BUILD_DIR:+"Bind=$COVERAGE_BUILD_DIR"}
+
+[Network]
+Zone=ns-test
+EOF
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   --settings=override \
+                   bash -xec 'ip link show dev host0'
+
+    # NamespacePath= overrides command line link configuration as an exclusive network mode.
+    cat >"/run/systemd/nspawn/$container.nspawn" <<EOF
+[Exec]
+PrivateUsers=no
+
+[Files]
+${COVERAGE_BUILD_DIR:+"Bind=$COVERAGE_BUILD_DIR"}
+
+[Network]
+NamespacePath=/proc/self/ns/net
+EOF
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   --network-veth \
+                   --settings=override \
+                   true
+
     rm -fr "$root" "/run/systemd/nspawn/$container.nspawn"
 }
 
