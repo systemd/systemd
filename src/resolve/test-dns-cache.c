@@ -990,19 +990,19 @@ TEST(dns_cache_prune) {
 
         dns_cache_prune(&cache);
         ASSERT_EQ(dns_cache_size(&cache), 2u);
-        ASSERT_TRUE(dns_cache_expiry_in_one_second(&cache, now(CLOCK_BOOTTIME)));
+        ASSERT_TRUE(dns_cache_expiry_in_one_second(&cache, /* ret_until= */ NULL));
 
         sleep(2);
 
         dns_cache_prune(&cache);
         ASSERT_EQ(dns_cache_size(&cache), 1u);
-        ASSERT_TRUE(dns_cache_expiry_in_one_second(&cache, now(CLOCK_BOOTTIME)));
+        ASSERT_TRUE(dns_cache_expiry_in_one_second(&cache, /* ret_until= */ NULL));
 
         sleep(2);
 
         dns_cache_prune(&cache);
         ASSERT_TRUE(dns_cache_is_empty(&cache));
-        ASSERT_FALSE(dns_cache_expiry_in_one_second(&cache, now(CLOCK_BOOTTIME)));
+        ASSERT_FALSE(dns_cache_expiry_in_one_second(&cache, /* ret_until= */ NULL));
 }
 
 /* ================================================================
