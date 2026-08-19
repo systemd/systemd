@@ -52,6 +52,7 @@ struct DnsServiceQuerier {
                                                  an expiry changes, advanced only by
                                                  mdns_querier_maintenance(), re-armed once per
                                                  reconciliation */
+        usec_t last_goodbye_rescue_usec;      /* rate limit for the §10.1 goodbye rescue query */
         LIST_HEAD(DnssdDiscoveredService, dns_services);
         LIST_HEAD(DnsServiceBrowser, subscribers);
 };
@@ -103,3 +104,4 @@ int dns_subscribe_browse_service(
                 uint64_t flags);
 int mdns_notify_browsers_unsolicited_updates(Manager *m, DnsAnswer *answer, int owner_family);
 int mdns_notify_browsers_goodbye(DnsScope *scope);
+void mdns_queriers_rescue_query_goodbye(DnsScope *scope, DnsAnswer *answer);
