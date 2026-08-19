@@ -3177,11 +3177,11 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
 
         } else if (p->rootfs && p->rootfs->mstack_loaded) {
 
-                r = mstack_make_mounts(p->rootfs->mstack_loaded, root, mstack_flags);
+                r = mstack_make_mounts(p->rootfs->mstack_loaded, root, mstack_flags, /* uid_shift= */ UID_INVALID);
                 if (r < 0)
                         return r;
 
-                r = mstack_bind_mounts(p->rootfs->mstack_loaded, root, /* where_fd= */ -EBADF, mstack_flags, /* ret_root_fd= */ NULL);
+                r = mstack_bind_mounts(p->rootfs->mstack_loaded, root, /* where_fd= */ -EBADF, mstack_flags|MSTACK_DEFER_MOUNT, /* ret_root_fd= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -3200,6 +3200,17 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         r = apply_mounts(&ml, root, p, reterr_path);
         if (r < 0)
                 return r;
+
+        /* And only now the stack's own bind@/robind@/tmpfs@ entries, so that they land on top of what we
+         * just mounted rather than under it. PrivateTmp= and friends still get to establish their
+         * filesystems; an entry naming the same path is then layered over the result, which is what
+         * writing it down explicitly asks for. Attaching them before apply_mounts() would let those
+         * mounts cover the entry without a word. */
+        if (p->rootfs && p->rootfs->mstack_loaded) {
+                r = mstack_apply_bind_mounts_late(p->rootfs->mstack_loaded, root, mstack_flags|MSTACK_DEFER_MOUNT);
+                if (r < 0)
+                        return r;
+        }
 
         /* MS_MOVE does not work on MS_SHARED so the remount MS_SHARED will be done later */
         r = mount_switch_root(root, /* mount_propagation_flag = */ 0);
