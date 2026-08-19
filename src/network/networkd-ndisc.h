@@ -61,6 +61,7 @@ void network_adjust_ndisc(Network *network);
 
 int ndisc_start(Link *link);
 int ndisc_stop(Link *link);
+int ndisc_update_mac(Link *link);
 void ndisc_flush(Link *link);
 
 int link_request_ndisc(Link *link);
