@@ -3,29 +3,36 @@
 set -eux
 set -o pipefail
 
-# Some commands are in $PATH, others are in our private directory.
-# Check the other location too.
-PATH=$PATH:/usr/lib/systemd
+# Some commands are in $PATH, others are in our private directories.
+# Check the other locations too.
+PATH=$PATH:/usr/lib/systemd:/usr/lib/udev
 
 export SYSTEMD_PAGER=cat
 
 # A smoke test for the introspection code
 INTROSPECTABLE=(
+    ata_id
     bootctl
     busctl
+    cdrom_id
     coredumpctl
+    dmi_memory_id
+    fido_id
     homectl
     hostnamectl
     importctl
+    iocost
     journalctl
     localectl
     loginctl
     machinectl
+    mtd_probe
     networkctl
     oomctl
     portablectl
     resolvectl
     run0
+    scsi_id
     storagectl
     systemd-ac-power
     systemd-analyze
@@ -47,6 +54,7 @@ INTROSPECTABLE=(
     systemd-detect-virt
     systemd-dissect
     systemd-escape
+    systemd-export
     systemd-factory-reset
     systemd-firstboot
     systemd-growfs
@@ -55,6 +63,8 @@ INTROSPECTABLE=(
     systemd-id128
     systemd-imds
     systemd-imdsd
+    systemd-import
+    systemd-import-fs
     systemd-inhibit
     systemd-journal-gatewayd
     systemd-journal-remote
@@ -74,9 +84,15 @@ INTROSPECTABLE=(
     systemd-pcrextend
     systemd-pcrlock
     systemd-pty-forward
+    systemd-pull
     systemd-random-seed
     systemd-repart
     systemd-report
+    systemd-report-basic
+    systemd-report-cgroup
+    systemd-report-files
+    systemd-report-sign-plain
+    systemd-report-sign-tsm
     systemd-run
     systemd-sbsign
     systemd-sleep
@@ -103,6 +119,7 @@ INTROSPECTABLE=(
     timedatectl
     updatectl
     userdbctl
+    v4l_id
     varlinkctl
 )
 
