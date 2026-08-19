@@ -595,6 +595,31 @@ baz,3
 
     assert found is True
 
+    long_names_in_use = any(section.Name.startswith(b'/') for section in pe.sections)
+    if long_names_in_use:
+        assert pe.FILE_HEADER.PointerToSymbolTable != 0
+        for section in pe.sections:
+            name = resolve_section_name(pe, section)
+            assert re.fullmatch(r'\.[\w.]*', name), f'resolved section name {name!r} looks malformed'
+
+        authenticode_extra_data_offset = pe.OPTIONAL_HEADER.SizeOfHeaders + sum(
+            s.SizeOfRawData for s in pe.sections
+        )
+        assert pe.FILE_HEADER.PointerToSymbolTable >= authenticode_extra_data_offset, (
+            "COFF symbol table starts before Authenticode's trailing-data hash"
+        )
+
+
+def resolve_section_name(pe, section):
+    raw = section.Name.rstrip(b'\x00')
+    if not raw.startswith(b'/'):
+        return raw.decode()
+
+    string_table = pe.FILE_HEADER.PointerToSymbolTable + 18 * pe.FILE_HEADER.NumberOfSymbols
+    start = string_table + int(raw[1:])
+    end = pe.__data__.find(b'\x00', start)
+    return pe.__data__[start:end].decode()
+
 
 def unbase64(filename):
     tmp = tempfile.NamedTemporaryFile()
