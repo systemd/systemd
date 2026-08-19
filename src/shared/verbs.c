@@ -453,7 +453,7 @@ static int print_wrapped(const char *text, bool abstract) {
         if (r < 0)
                 return r;
 
-        /* Seperate this block from the previous input. */
+        /* Separate this block from the previous input. */
         putchar('\n');
 
         STRV_FOREACH(line, lines2)
