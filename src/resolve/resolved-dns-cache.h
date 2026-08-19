@@ -55,4 +55,5 @@ unsigned dns_cache_size(DnsCache *cache);
 
 int dns_cache_export_shared_to_packet(DnsCache *cache, DnsPacket *p, usec_t ts, unsigned max_rr);
 
-bool dns_cache_expiry_in_one_second(DnsCache *c, usec_t t);
+/* Measures against a fresh clock reading itself; optionally returns the head item's expiry. */
+bool dns_cache_expiry_in_one_second(DnsCache *c, usec_t *ret_until);
