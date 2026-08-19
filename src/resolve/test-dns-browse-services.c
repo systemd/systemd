@@ -10,6 +10,7 @@
 #include "dns-rr.h"
 #include "resolved-dns-browse-services.h"
 #include "resolved-dns-query.h"
+#include "resolved-dns-scope.h"
 #include "resolved-manager.h"
 #include "tests.h"
 #include "time-util.h"
@@ -29,6 +30,312 @@ static DnsResourceRecord *new_service_rr(const char *instance, uint32_t ttl) {
 
 static DnsResourceRecord *new_test_service_rr(uint32_t ttl) {
         return new_service_rr("Same Service._http._tcp.local", ttl);
+}
+
+/* The flags a scope-restricted emission carries: the goodbye rescue answers on the scope whose
+ * budget admitted it, which means swapping the mDNS family bits and nothing else -- a client's
+ * NO_ZONE or NO_NETWORK travelling along is what keeps the restricted query behaving like the
+ * querier's own. */
+TEST(mdns_restrict_flags_to_family) {
+        uint64_t flags = SD_RESOLVED_MDNS | SD_RESOLVED_NO_ZONE | SD_RESOLVED_NO_NETWORK;
+
+        ASSERT_EQ(mdns_restrict_flags_to_family(flags, AF_INET),
+                  SD_RESOLVED_MDNS_IPV4 | SD_RESOLVED_NO_ZONE | SD_RESOLVED_NO_NETWORK);
+        ASSERT_EQ(mdns_restrict_flags_to_family(flags, AF_INET6),
+                  SD_RESOLVED_MDNS_IPV6 | SD_RESOLVED_NO_ZONE | SD_RESOLVED_NO_NETWORK);
+
+        /* AF_UNSPEC is the callers that do not restrict: identity. */
+        ASSERT_EQ(mdns_restrict_flags_to_family(flags, AF_UNSPEC), flags);
+
+        /* Restricting a querier pinned to one family to that family changes nothing. */
+        ASSERT_EQ(mdns_restrict_flags_to_family(SD_RESOLVED_MDNS_IPV6, AF_INET6),
+                  SD_RESOLVED_MDNS_IPV6);
+}
+
+/* The gate the RFC 6762 §10.1 rescue hangs on: a goodbye earns a rescue, and the budget one
+ * costs, only when it names an instance this querier reported. Matching on the question alone
+ * would let goodbyes for names nobody holds drain the budget and leave a genuine goodbye
+ * unrescued. */
+TEST(mdns_goodbyes_hit_discovered_matches_only_held_instances) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *held = NULL, *other = NULL;
+        _cleanup_(dns_answer_unrefp) DnsAnswer *hit = NULL, *miss = NULL;
+
+        ASSERT_NOT_NULL(held = new_test_service_rr(120));
+        ASSERT_NOT_NULL(other = new_service_rr("Other Service._http._tcp.local", 120));
+
+        DnssdDiscoveredService service = {
+                .rr = held,
+                .family = AF_INET,
+                .ifindex = 2,
+                .until = 100,
+        };
+        DnsServiceQuerier sq = {
+                .ifindex = 2,
+                .dns_services = &service,
+        };
+
+        /* No goodbyes at all, and a goodbye for an instance under the same type that was never
+         * discovered: neither is worth a rescue. */
+        ASSERT_FALSE(mdns_goodbyes_hit_discovered(&sq, /* goodbyes= */ NULL, /* ifindex= */ 2, AF_INET));
+
+        ASSERT_NOT_NULL(miss = dns_answer_new(1));
+        ASSERT_OK_POSITIVE(dns_answer_add(miss, other, /* ifindex= */ 2, /* flags= */ 0, /* rrsig= */ NULL));
+        ASSERT_FALSE(mdns_goodbyes_hit_discovered(&sq, miss, /* ifindex= */ 2, AF_INET));
+
+        /* The instance the querier holds: this one is rescuable. */
+        ASSERT_NOT_NULL(hit = dns_answer_new(2));
+        ASSERT_OK_POSITIVE(dns_answer_add(hit, other, /* ifindex= */ 2, /* flags= */ 0, /* rrsig= */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_add(hit, held, /* ifindex= */ 2, /* flags= */ 0, /* rrsig= */ NULL));
+        ASSERT_TRUE(mdns_goodbyes_hit_discovered(&sq, hit, /* ifindex= */ 2, AF_INET));
+
+        /* But not over the other family: a removal is reported per family, so an IPv6 goodbye has
+         * nothing of this IPv4 discovery to withdraw. */
+        ASSERT_FALSE(mdns_goodbyes_hit_discovered(&sq, hit, /* ifindex= */ 2, AF_INET6));
+
+        /* And the link half: an unpinned querier reads every link, so the same goodbye reaching
+         * it over a link the instance was never discovered on must not earn a rescue. A querier
+         * pinned to the link is unaffected, it only holds instances from it. */
+        DnsServiceQuerier unpinned = {
+                .ifindex = 0,
+                .dns_services = &service,
+        };
+        ASSERT_FALSE(mdns_goodbyes_hit_discovered(&unpinned, hit, /* ifindex= */ 3, AF_INET));
+        ASSERT_TRUE(mdns_goodbyes_hit_discovered(&unpinned, hit, /* ifindex= */ 2, AF_INET));
+
+        /* A record cached without a link is not evidence of a different one, so it still counts. */
+        DnssdDiscoveredService linkless = {
+                .rr = held,
+                .family = AF_INET,
+                .ifindex = 0,
+                .until = 100,
+        };
+        DnsServiceQuerier unpinned_linkless = {
+                .ifindex = 0,
+                .dns_services = &linkless,
+        };
+        ASSERT_TRUE(mdns_goodbyes_hit_discovered(&unpinned_linkless, hit, /* ifindex= */ 3, AF_INET));
+}
+
+/* The rescue's spending discipline, observed through the budget counters: the gate refuses
+ * before anything is spent, the querier's own budget is charged before the scope's, and an
+ * admitted rescue charges each tier exactly once and waits, a moment for the rest of a goodbye
+ * train and for the RFC 6762 §5.2 floor, while goodbyes arriving meanwhile ride on it, one from
+ * another scope widening it on that scope's budget alone. The emission's scope restriction needs
+ * a live second publisher and is integration territory. */
+TEST(mdns_queriers_rescue_goodbyes_spends_budgets_in_order) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *held = NULL, *other = NULL;
+        _cleanup_(dns_answer_unrefp) DnsAnswer *goodbyes = NULL, *miss = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        Manager manager = {};
+        DnsQuery *pending = NULL;
+        usec_t due, before;
+
+        ASSERT_OK(sd_event_new(&event));
+        manager.event = event;
+
+        ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_PTR, "_http._tcp.local"));
+        ASSERT_NOT_NULL(question = dns_question_new(1));
+        ASSERT_OK(dns_question_add(question, key, /* flags= */ 0));
+        ASSERT_NOT_NULL(held = new_test_service_rr(120));
+        ASSERT_NOT_NULL(other = new_service_rr("Other Service._http._tcp.local", 120));
+        ASSERT_NOT_NULL(goodbyes = dns_answer_new(1));
+        ASSERT_OK_POSITIVE(dns_answer_add(goodbyes, held, /* ifindex= */ 2, /* flags= */ 0, /* rrsig= */ NULL));
+        ASSERT_NOT_NULL(miss = dns_answer_new(1));
+        ASSERT_OK_POSITIVE(dns_answer_add(miss, other, /* ifindex= */ 2, /* flags= */ 0, /* rrsig= */ NULL));
+
+        DnssdDiscoveredService service = {
+                .rr = held,
+                .family = AF_INET,
+                .ifindex = 2,
+                .until = 100,
+        };
+        DnsServiceQuerier sq = {
+                .n_ref = 1,
+                .manager = &manager,
+                .key = key,
+                .question_idna = question,
+                .question_utf8 = question,
+                .dns_services = &service,
+                .goodbye_rescue_ratelimit = { MDNS_RESCUE_RATELIMIT_INTERVAL_USEC,
+                                              MDNS_RESCUE_RATELIMIT_QUERIER_BURST },
+        };
+        /* Linkless: dns_scope_ifindex() yields 0, which admits every querier, and the
+         * goodbye/discovery link comparison never excludes on an unknown link. */
+        DnsScope scope = {
+                .manager = &manager,
+                .family = AF_INET,
+                .goodbye_rescue_ratelimit = { MDNS_RESCUE_RATELIMIT_INTERVAL_USEC,
+                                              MDNS_RESCUE_RATELIMIT_SCOPE_BURST },
+        };
+
+        ASSERT_OK(hashmap_ensure_put(&manager.dns_service_queriers, /* hash_ops= */ NULL, &sq, &sq));
+
+        /* A goodbye for an instance never discovered stops at the gate: nothing is spent. */
+        mdns_queriers_rescue_goodbyes(&scope, miss);
+        ASSERT_EQ(sq.goodbye_rescue_ratelimit.num, 0u);
+        ASSERT_EQ(scope.goodbye_rescue_ratelimit.num, 0u);
+
+        /* The §5.2 floor: this question went to the wire less than a second ago. The rescue is
+         * admitted and charged like any other, but waits for the floor to lift, on the scope
+         * that admitted it. */
+        sq.last_wire_query_usec = now(CLOCK_BOOTTIME);
+        mdns_queriers_rescue_goodbyes(&scope, goodbyes);
+        ASSERT_EQ(sq.goodbye_rescue_ratelimit.num, 1u);
+        ASSERT_EQ(scope.goodbye_rescue_ratelimit.num, 1u);
+        ASSERT_NOT_NULL(sq.rescue_event);
+        ASSERT_NULL(sq.in_flight_query);
+        ASSERT_EQ(sq.rescue_family, AF_INET);
+        ASSERT_OK(sd_event_source_get_time(sq.rescue_event, &due));
+        ASSERT_GE(due, usec_add(sq.last_wire_query_usec, USEC_PER_SEC));
+
+        /* A repeat on the same scope rides on the waiting rescue and spends nothing. */
+        mdns_queriers_rescue_goodbyes(&scope, goodbyes);
+        ASSERT_EQ(sq.goodbye_rescue_ratelimit.num, 1u);
+        ASSERT_EQ(scope.goodbye_rescue_ratelimit.num, 1u);
+
+        /* One from another scope widens it, on that scope's budget alone -- and only once: a
+         * widened rescue reaches every scope, so later goodbyes there ride on it for free. */
+        DnssdDiscoveredService service6 = {
+                .rr = held,
+                .family = AF_INET6,
+                .ifindex = 2,
+                .until = 100,
+        };
+        service.dns_services_next = &service6;
+        service6.dns_services_prev = &service;
+        DnsScope other_scope = {
+                .manager = &manager,
+                .family = AF_INET6,
+                .goodbye_rescue_ratelimit = { MDNS_RESCUE_RATELIMIT_INTERVAL_USEC,
+                                              MDNS_RESCUE_RATELIMIT_SCOPE_BURST },
+        };
+        mdns_queriers_rescue_goodbyes(&other_scope, goodbyes);
+        ASSERT_EQ(sq.goodbye_rescue_ratelimit.num, 1u);
+        ASSERT_EQ(other_scope.goodbye_rescue_ratelimit.num, 1u);
+        ASSERT_EQ(sq.rescue_family, AF_UNSPEC);
+        mdns_queriers_rescue_goodbyes(&other_scope, goodbyes);
+        mdns_queriers_rescue_goodbyes(&scope, goodbyes);
+        ASSERT_EQ(other_scope.goodbye_rescue_ratelimit.num, 1u);
+        ASSERT_EQ(scope.goodbye_rescue_ratelimit.num, 1u);
+
+        /* And it fires once the floor lifts, releasing the timer. A query in flight is the
+         * witness that it sent: the send supersedes it, which frees it, and with no scope the
+         * sent query completes synchronously, so none is left. */
+        ASSERT_OK(dns_query_new(&manager, &pending, question, question, /* question_bypass= */ NULL,
+                                /* ifindex= */ 0, SD_RESOLVED_MDNS));
+        sq.in_flight_query = pending;
+        ASSERT_OK_POSITIVE(sd_event_run(event, 3 * USEC_PER_SEC));
+        ASSERT_NULL(sq.rescue_event);
+        if (sq.in_flight_query)
+                dns_query_complete(sq.in_flight_query, DNS_TRANSACTION_ABORTED);
+        ASSERT_NULL(sq.in_flight_query);
+        ASSERT_EQ(manager.n_dns_queries, 0u);
+
+        /* Admitted with the floor clear: exactly one charge on each tier, and still not sent at
+         * once but a jittered moment later, for the rest of the goodbye train to ride on it. */
+        sq.last_wire_query_usec = 0;
+        sq.goodbye_rescue_ratelimit.num = 0;
+        scope.goodbye_rescue_ratelimit.num = 0;
+        before = now(CLOCK_BOOTTIME);
+        mdns_queriers_rescue_goodbyes(&scope, goodbyes);
+        ASSERT_EQ(sq.goodbye_rescue_ratelimit.num, 1u);
+        ASSERT_EQ(scope.goodbye_rescue_ratelimit.num, 1u);
+        ASSERT_NOT_NULL(sq.rescue_event);
+        ASSERT_NULL(sq.in_flight_query);
+        ASSERT_EQ(sq.rescue_family, AF_INET);
+        ASSERT_OK(sd_event_source_get_time(sq.rescue_event, &due));
+        ASSERT_GE(due, usec_add(before, MDNS_RESCUE_COALESCE_USEC));
+        ASSERT_LE(due, usec_add(now(CLOCK_BOOTTIME), 2 * MDNS_RESCUE_COALESCE_USEC));
+        ASSERT_OK(dns_query_new(&manager, &pending, question, question, /* question_bypass= */ NULL,
+                                /* ifindex= */ 0, SD_RESOLVED_MDNS));
+        sq.in_flight_query = pending;
+        ASSERT_OK_POSITIVE(sd_event_run(event, 3 * USEC_PER_SEC));
+        ASSERT_NULL(sq.rescue_event);
+        if (sq.in_flight_query)
+                dns_query_complete(sq.in_flight_query, DNS_TRANSACTION_ABORTED);
+        ASSERT_NULL(sq.in_flight_query);
+        ASSERT_EQ(manager.n_dns_queries, 0u);
+
+        /* A full-coverage query that goes out while the rescue waits decides its fate. One newer
+         * than the goodbye has asked for its records already: the rescue is dropped at firing,
+         * and the query in flight is left alone. */
+        sq.last_wire_query_usec = 0;
+        sq.goodbye_rescue_ratelimit.num = 0;
+        scope.goodbye_rescue_ratelimit.num = 0;
+        mdns_queriers_rescue_goodbyes(&scope, goodbyes);
+        ASSERT_NOT_NULL(sq.rescue_event);
+        usleep_safe(USEC_PER_MSEC);
+        sq.last_wire_query_usec = now(CLOCK_BOOTTIME);
+        ASSERT_OK(dns_query_new(&manager, &pending, question, question, /* question_bypass= */ NULL,
+                                /* ifindex= */ 0, SD_RESOLVED_MDNS));
+        sq.in_flight_query = pending;
+        ASSERT_OK_POSITIVE(sd_event_run(event, 3 * USEC_PER_SEC));
+        ASSERT_NULL(sq.rescue_event);
+        ASSERT_PTR_EQ(sq.in_flight_query, pending);
+        ASSERT_EQ(manager.n_dns_queries, 1u);
+        sq.in_flight_query = dns_query_free(sq.in_flight_query);
+        ASSERT_EQ(manager.n_dns_queries, 0u);
+
+        /* One older than the latest goodbye the rescue covers, though newer than the first, only
+         * raised the floor: the goodbye that rode on the rescue keeps it, re-armed for the floor's
+         * end, inside that goodbye's second, and sent then. */
+        sq.last_wire_query_usec = 0;
+        sq.goodbye_rescue_ratelimit.num = 0;
+        scope.goodbye_rescue_ratelimit.num = 0;
+        mdns_queriers_rescue_goodbyes(&scope, goodbyes);
+        usleep_safe(USEC_PER_MSEC);
+        sq.last_wire_query_usec = now(CLOCK_BOOTTIME);
+        usleep_safe(USEC_PER_MSEC);
+        mdns_queriers_rescue_goodbyes(&scope, goodbyes);
+        ASSERT_EQ(sq.goodbye_rescue_ratelimit.num, 1u);
+        ASSERT_GT(sq.rescue_goodbye_usec, sq.last_wire_query_usec);
+        ASSERT_OK(dns_query_new(&manager, &pending, question, question, /* question_bypass= */ NULL,
+                                /* ifindex= */ 0, SD_RESOLVED_MDNS));
+        sq.in_flight_query = pending;
+        ASSERT_OK_POSITIVE(sd_event_run(event, 3 * USEC_PER_SEC));
+        ASSERT_NOT_NULL(sq.rescue_event);
+        ASSERT_OK(sd_event_source_get_time(sq.rescue_event, &due));
+        ASSERT_GE(due, usec_add(sq.last_wire_query_usec, USEC_PER_SEC));
+        ASSERT_LE(due, usec_add(sq.rescue_goodbye_usec, USEC_PER_SEC));
+        ASSERT_PTR_EQ(sq.in_flight_query, pending);
+        ASSERT_OK_POSITIVE(sd_event_run(event, 3 * USEC_PER_SEC));
+        ASSERT_NULL(sq.rescue_event);
+        if (sq.in_flight_query)
+                dns_query_complete(sq.in_flight_query, DNS_TRANSACTION_ABORTED);
+        ASSERT_NULL(sq.in_flight_query);
+        ASSERT_EQ(manager.n_dns_queries, 0u);
+
+        /* A querier at its own burst is refused by its own tier, and the shared scope tier is
+         * not consulted at all — one throttled querier cannot drain the budget the link's other
+         * queriers rescue from. (ratelimit_below() counts the refused attempt, hence burst + 1.) */
+        sq.last_wire_query_usec = 0;
+        sq.goodbye_rescue_ratelimit = (RateLimit) { MDNS_RESCUE_RATELIMIT_INTERVAL_USEC,
+                                                    MDNS_RESCUE_RATELIMIT_QUERIER_BURST };
+        scope.goodbye_rescue_ratelimit = (RateLimit) { MDNS_RESCUE_RATELIMIT_INTERVAL_USEC,
+                                                       MDNS_RESCUE_RATELIMIT_SCOPE_BURST };
+        sq.goodbye_rescue_ratelimit.begin = now(CLOCK_BOOTTIME);
+        sq.goodbye_rescue_ratelimit.num = MDNS_RESCUE_RATELIMIT_QUERIER_BURST;
+        mdns_queriers_rescue_goodbyes(&scope, goodbyes);
+        ASSERT_EQ(sq.goodbye_rescue_ratelimit.num, MDNS_RESCUE_RATELIMIT_QUERIER_BURST + 1);
+        ASSERT_EQ(scope.goodbye_rescue_ratelimit.num, 0u);
+        ASSERT_NULL(sq.rescue_event);
+
+        /* A cache watch never queries, so its goodbyes spend no budget at all. */
+        sq.flags |= SD_RESOLVED_NO_NETWORK;
+        sq.last_wire_query_usec = 0;
+        sq.goodbye_rescue_ratelimit.num = 0;
+        scope.goodbye_rescue_ratelimit.num = 0;
+        mdns_queriers_rescue_goodbyes(&scope, goodbyes);
+        ASSERT_EQ(sq.goodbye_rescue_ratelimit.num, 0u);
+        ASSERT_EQ(scope.goodbye_rescue_ratelimit.num, 0u);
+        ASSERT_NULL(sq.rescue_event);
+        sq.flags &= ~SD_RESOLVED_NO_NETWORK;
+
+        ASSERT_EQ(sq.n_ref, 1u);
+        ASSERT_EQ(manager.n_dns_queries, 0u);
+        hashmap_free(manager.dns_service_queriers);
 }
 
 TEST(dns_service_match_and_update_goodbye_and_expiry) {

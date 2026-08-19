@@ -2191,6 +2191,15 @@ int dns_transaction_go(DnsTransaction *t) {
                 if (r < 0)
                         return r;
 
+                /* A continuous mDNS query (RFC 6762 section 5.2) has no jitter to wait for and
+                 * an emitter that paced it already: let it go out now rather than within
+                 * sd-event's default accuracy, a quarter of the second a browse rescue has. */
+                if (jitter == 0 && FLAGS_SET(t->query_flags, SD_RESOLVED_QUERY_CONTINUOUS)) {
+                        r = sd_event_source_set_time_accuracy(t->timeout_event_source, USEC_PER_MSEC);
+                        if (r < 0)
+                                return r;
+                }
+
                 log_debug("Delaying %s transaction %" PRIu16 " for " USEC_FMT "us.",
                           dns_protocol_to_string(t->scope->protocol),
                           t->id,
