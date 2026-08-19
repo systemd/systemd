@@ -429,6 +429,7 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
 
         if (dns_packet_validate_reply(p) > 0) {
                 DnsResourceRecord *rr;
+                bool saw_goodbye = false;
 
                 /* RFC 6762 section 6:
                  * The source UDP port in all Multicast DNS responses MUST be 5353 (the well-known port
@@ -475,6 +476,7 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                                 log_debug("Got a goodbye packet");
                                 /* See the section 10.1 of RFC6762 */
                                 rr->ttl = 1;
+                                saw_goodbye = true;
 
                                 /* Look at the cache 1 second later and remove stale entries.
                                  * This is particularly useful to keep service browsers updated on service removal,
@@ -536,6 +538,12 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                 /* Check if incoming packet key matches with active browse clients. If yes, update the same */
                 if (unsolicited_packet)
                         mdns_queriers_notify_unsolicited_updates(m, p->answer, p->family);
+
+                /* A goodbye for a record a querier browses: give surviving publishers of the
+                 * same records their RFC 6762 §10.1 chance to rescue them before the one-second
+                 * grace above expires and a removal is reported. */
+                if (saw_goodbye)
+                        mdns_queriers_rescue_query_goodbye(scope, p->answer);
         } else if (dns_packet_validate_query(p) > 0)  {
                 log_debug("Got mDNS query packet for id %u", DNS_PACKET_ID(p));
 
