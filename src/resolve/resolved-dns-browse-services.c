@@ -726,27 +726,30 @@ static int mdns_next_query_schedule(sd_event_source *s, uint64_t usec, void *use
         assert(userdata);
         assert_se(sb = dns_service_browser_ref(userdata));
 
-        /* Enable the answer from the cache for the very first query */
-        if (sb->delay == 0)
-                SET_FLAG(sb->flags, SD_RESOLVED_NO_CACHE, false);
+        /* If the varlink connection has a userdata, then that means the previous query has not been finished. */
+        if (!sd_varlink_get_userdata(sb->link)) {
 
-        /* Set the flag indicating that the query is continuous.
-         * RFC 6762 Section 5.2 outlines timing requirements for continuous queries.
-         */
-        sb->flags |= SD_RESOLVED_QUERY_CONTINUOUS;
+                /* Enable the answer from the cache for the very first query */
+                if (sb->delay == 0)
+                        SET_FLAG(sb->flags, SD_RESOLVED_NO_CACHE, false);
 
-        r = dns_query_new(sb->manager, &q, sb->question_utf8, sb->question_idna, NULL, sb->ifindex, sb->flags);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create new DNS query: %m");
+                /* Set the flag indicating that the query is continuous.
+                 * RFC 6762 Section 5.2 outlines timing requirements for continuous queries. */
+                sb->flags |= SD_RESOLVED_QUERY_CONTINUOUS;
 
-        q->complete = mdns_browse_service_query_complete;
-        q->service_browser_request = dns_service_browser_ref(sb);
-        q->varlink_request = sd_varlink_ref(sb->link);
-        sd_varlink_set_userdata(sb->link, q);
+                r = dns_query_new(sb->manager, &q, sb->question_utf8, sb->question_idna, NULL, sb->ifindex, sb->flags);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create new DNS query: %m");
 
-        r = dns_query_go(q);
-        if (r < 0)
-                return log_error_errno(r, "Failed to send DNS query: %m");
+                q->complete = mdns_browse_service_query_complete;
+                q->service_browser_request = dns_service_browser_ref(sb);
+                q->varlink_request = sd_varlink_ref(sb->link);
+                sd_varlink_set_userdata(sb->link, q);
+
+                r = dns_query_go(q);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to send DNS query: %m");
+        }
 
         /* Calculate the next query delay */
         sb->delay = mdns_calculate_next_query_delay(sb->delay);
@@ -810,6 +813,10 @@ int dns_subscribe_browse_service(
 
         assert(m);
         assert(link);
+
+        /* Refuse multiple requests. */
+        if (hashmap_contains(m->dns_service_browsers, link))
+                return -EBUSY;
 
         if (ifindex < 0)
                 return sd_varlink_error_invalid_parameter_name(link, "ifindex");

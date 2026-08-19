@@ -40,10 +40,16 @@ static int vl_method_synchronize(sd_varlink *link, sd_json_variant *parameters, 
                 {}
         };
 
-        Manager *m = ASSERT_PTR(userdata);
         int r;
 
         assert(link);
+
+        /* Here, userdata may not be a pointer to the Manager object. Obtain the manager from the server. */
+        Manager *m = ASSERT_PTR(sd_varlink_server_get_userdata(sd_varlink_get_server(link)));
+
+        /* The varlink connection already requested to sync journals. Refusing. */
+        if (sd_varlink_get_userdata(link) != m)
+                return -EBUSY;
 
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &offline);
         if (r != 0)
@@ -168,10 +174,11 @@ static void vl_disconnect(sd_varlink_server *server, sd_varlink *link, void *use
 
         void *u = sd_varlink_get_userdata(link);
         if (u != m) {
-                /* If this is a Varlink connection that does not have the Server object as userdata, then it has a SyncReq object instead. Let's finish it. */
+                /* If this is a Varlink connection that does not have the Manager object as userdata, then
+                 * it has a SyncReq object instead. Let's finish it. */
 
                 SyncReq *req = u;
-                sd_varlink_set_userdata(link, m); /* reinstall server object */
+                sd_varlink_set_userdata(link, m); /* reinstall the manager object */
                 sync_req_free(req);
         }
 
