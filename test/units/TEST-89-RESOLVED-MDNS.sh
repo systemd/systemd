@@ -574,6 +574,122 @@ testcase_browse_shared_querier() {
     echo testcase_end
 }
 
+testcase_browse_goodbye_rescue() {
+    : "A goodbye from one of two publishers of an instance must not remove it for the browser"
+
+    # The client below registers over the bus from python3 via ctypes, which dlopens libsystemd.
+    # Under the sanitizers that library is instrumented, and loading it into an uninstrumented
+    # interpreter is refused outright, so the client would die before registering anything.
+    if [[ -v ASAN_OPTIONS || -v UBSAN_OPTIONS ]]; then
+        echo "Sanitizer build: skipping, the ctypes bus client cannot load an instrumented libsystemd"
+        return 0
+    fi
+
+    resolvectl flush-caches
+
+    local out_file error_file unit_name service_type off ok removed
+    out_file="$(mktemp)"
+    error_file="$(mktemp)"
+    unit_name="varlinkctl-rescue-$SRANDOM.service"
+    service_type="_rescueBye._udp"
+
+    # shellcheck disable=SC2064
+    trap "systemctl stop $unit_name 2>/dev/null || :; \
+          systemd-run -M $CONTAINER_2 --wait --pipe -- systemctl stop rescue-client.service 2>/dev/null || :; \
+          systemd-run -M $CONTAINER_1 --wait --pipe -- rm -f /etc/systemd/dnssd/shared-canary.dnssd 2>/dev/null || :; \
+          systemd-run -M $CONTAINER_1 --wait --pipe -- systemctl reload systemd-resolved.service 2>/dev/null || :; \
+          rm -f $out_file $error_file" EXIT
+
+    # One instance from two publishers: the first container serves it from a .dnssd file, the
+    # second registers it over the bus, the same PTR byte for byte, with a second instance of its
+    # own beside it as the control. No %H in the name and no TXT, so the records match across hosts.
+    systemd-run -M "$CONTAINER_1" --wait --pipe -- tee /etc/systemd/dnssd/shared-canary.dnssd <<EOF
+[Service]
+Name=Shared Canary
+Type=$service_type
+Port=8010
+EOF
+    systemd-run -M "$CONTAINER_1" --wait --pipe -- systemctl reload systemd-resolved.service
+
+    # The bus client holds its connection open from a transient unit until it is SIGKILLed below;
+    # resolved then withdraws both its services with a goodbye, the way a vanished client's are.
+    systemd-run -M "$CONTAINER_2" --unit=rescue-client.service --service-type=exec -- \
+        python3 -c '
+import ctypes, time
+sd = ctypes.CDLL("libsystemd.so.0")
+bus = ctypes.c_void_p()
+r = sd.sd_bus_open_system(ctypes.byref(bus))
+assert r >= 0, r
+for sid, name in ((b"sharedcanary", b"Shared Canary"), (b"lonecanary", b"Lone Canary")):
+    r = sd.sd_bus_call_method(
+            bus, b"org.freedesktop.resolve1", b"/org/freedesktop/resolve1",
+            b"org.freedesktop.resolve1.Manager", b"RegisterService", None, None,
+            b"sssqqqaa{say}",
+            sid, name, b"_rescueBye._udp",
+            ctypes.c_int(8010), ctypes.c_int(0), ctypes.c_int(0), ctypes.c_uint(0))
+    assert r >= 0, r
+time.sleep(3600)
+'
+
+    systemd-run --unit="$unit_name" --service-type=exec -p StandardOutput="file:$out_file" -p StandardError="file:$error_file" \
+        varlinkctl call --more --timeout=infinity /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices \
+        "$(browse_params "$service_type" "${BRIDGE_INDEX:?}")"
+
+    # Both instances discovered before anything is withdrawn.
+    ok=0
+    for _ in {0..14}; do
+        if grep -F "Shared Canary" "$out_file" >/dev/null && grep -F "Lone Canary" "$out_file" >/dev/null; then
+            ok=1
+            break
+        fi
+        sleep 2
+    done
+    if [[ "$ok" -ne 1 ]]; then
+        echo >&2 "Never discovered both canaries"
+        systemd-run -M "$CONTAINER_2" --wait --pipe -- systemctl status rescue-client.service >&2 || :
+        cat "$out_file" "$error_file" >&2
+        return 1
+    fi
+
+    # Checkpoint, then take the second publisher's instances away with a goodbye: the client is
+    # killed without a chance to unregister, and its vanished connection is what withdraws them.
+    off="$(wc -c <"$out_file")"
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- systemctl kill --signal=SIGKILL rescue-client.service
+
+    # The control first: the instance nobody else publishes has to go, the proof that the goodbye
+    # reached the browser and ran its course.
+    removed=0
+    for _ in {0..14}; do
+        if removed_since "$out_file" "$off" "Lone Canary"; then
+            removed=1
+            break
+        fi
+        sleep 1
+    done
+    if [[ "$removed" -ne 1 ]]; then
+        echo >&2 "The second publisher's own canary was not removed after its goodbye"
+        cat "$out_file" "$error_file" >&2
+        return 1
+    fi
+
+    # The shared instance survived the same goodbye: the rescue query it earned was answered by the
+    # first container inside the grace second, so the browser saw no removal, and the instance
+    # still resolves from the publisher that is left. Checked a moment past the control's removal,
+    # where a spurious one would have landed too.
+    sleep 3
+    if removed_since "$out_file" "$off" "Shared Canary"; then
+        echo >&2 "One publisher's goodbye removed an instance the other still publishes:"
+        tail -c "+$((off + 1))" "$out_file" >&2
+        return 1
+    fi
+    if ! resolvectl service "Shared Canary" "$service_type" local >/dev/null; then
+        echo >&2 "The shared canary no longer resolves after one of its publishers said goodbye"
+        return 1
+    fi
+
+    echo testcase_end
+}
+
 testcase_browse_unrelated_scope_teardown() {
     : "Losing one link's mDNS scope must not withdraw services discovered on another link"
     resolvectl flush-caches
