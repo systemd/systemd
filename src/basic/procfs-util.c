@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <threads.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "log.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "procfs-util.h"
@@ -157,6 +159,7 @@ int procfs_cpu_get_usage(nsec_t *ret) {
 
 int procfs_cpu_get_ticks(ProcfsCpuTicks *ret) {
         _cleanup_free_ char *first_line = NULL;
+        static thread_local bool warned = false;
         int r;
 
         assert(ret);
@@ -170,10 +173,11 @@ int procfs_cpu_get_ticks(ProcfsCpuTicks *ret) {
                 return -EINVAL;
 
         /* All eight fields exist on any kernel we support: iowait was added in 2.5.41, steal in 2.6.11.
-         * "guest" and "guest_nice" are not returned, the kernel already includes them in "user" and
-         * "nice". */
-        ProcfsCpuTicks t;
-        if (sscanf(p, "%"SCNu64" %"SCNu64" %"SCNu64" %"SCNu64" %"SCNu64" %"SCNu64" %"SCNu64" %"SCNu64,
+         * "guest" and "guest_nice" are not returned, the kernel already includes them in "user" and "nice".
+         * Nevertheless, this file might be synthesizes slopilly, so let's not require the last three fields.
+         * We don't care about them in most cases anyway. */
+        ProcfsCpuTicks t = {};
+        r = sscanf(p, "%"SCNu64" %"SCNu64" %"SCNu64" %"SCNu64" %"SCNu64" %"SCNu64" %"SCNu64" %"SCNu64,
                    &t.user,
                    &t.nice,
                    &t.system,
@@ -181,8 +185,14 @@ int procfs_cpu_get_ticks(ProcfsCpuTicks *ret) {
                    &t.iowait,
                    &t.irq,
                    &t.softirq,
-                   &t.steal) < 8)
+                   &t.steal);
+        if (r < 5)
                 return -EINVAL;
+        if (r < 8 && !warned) {
+                log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                "Short read (%d fields) from /proc/stat, continuing.", r);
+                warned = true;
+        }
 
         *ret = t;
         return 0;
