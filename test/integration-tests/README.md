@@ -160,12 +160,19 @@ as root. The host must have coco enabled in firmware and in the kernel (for SEV-
 e.g. `kvm_amd.sev_snp=1`, with `/dev/sev` accessible). On a host without the requested
 technology, or when running in `mkosi vm` mode, the tests are skipped.
 
+Inside each guest, `guest-test-runner.sh` runs the guest-side checks and reports
+their results back to the host over a vsock socket, while the guest's overall
+pass/fail is relayed separately through its exit status. The host side collects
+both to produce the subtest result.
+
 ```
 meson test
   └─ integration-test-wrapper.py
       └─ mkosi boot  ──►  systemd-nspawn container
           └─ TEST-94-COCO.sh
-              └─ systemd-vmspawn --coco=<type>  ──►  confidential VM
+              └─ TEST-94-COCO.*.sh
+                  └─ systemd-vmspawn --coco=<type>  ──►  confidential VM
+                          └─ guest-test-runner.sh
 ```
 
 ## Running the integration tests without building systemd from source
