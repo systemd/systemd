@@ -144,6 +144,10 @@
       <varname>PCRPublicKey=</varname>/<option>--pcr-public-key=</option>, and
       <varname>SecureBootPrivateKey=</varname>/<option>--secureboot-private-key=</option> below.</para>
 
+      <para>The generated certificate's name and lifetime are set with
+      <varname>SecureBootCertificateCommonName=</varname>/<option>--secureboot-certificate-common-name=</option> and
+      <varname>SecureBootCertificateValidity=</varname>/<option>--secureboot-certificate-validity=</option>.</para>
+
       <para>The output files must not exist.</para>
     </refsect2>
 
@@ -589,6 +593,18 @@
           <varname>SecureBootSigningTool=systemd-sbsign</varname>/<option>--signtool=systemd-sbsign</option>. </para>
 
           <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>SecureBootCertificateCommonName=<replaceable>CN</replaceable></varname></term>
+          <term><option>--secureboot-certificate-common-name=<replaceable>CN</replaceable></option></term>
+
+          <listitem><para>The common name and issuer name (certificate is self-signed) of a
+          certificate created by <command>genkey</command>. Defaults to <literal>SecureBoot signing key on host
+          <replaceable>HOST</replaceable></literal> with the fully qualified domain name of the machine it runs on.
+          Must not be longer than 64 chars (X.509 CN limit).</para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/></listitem>
         </varlistentry>
 
         <varlistentry>
