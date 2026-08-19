@@ -80,6 +80,9 @@ int dns_scope_new(
 
                 /* Enforce ratelimiting for the multicast protocols */
                 .ratelimit = { MULTICAST_RATELIMIT_INTERVAL_USEC, MULTICAST_RATELIMIT_BURST },
+                /* Above the single-querier tier on purpose; the coupling lives with the defines. */
+                .goodbye_rescue_ratelimit = { MDNS_RESCUE_RATELIMIT_INTERVAL_USEC,
+                                              MDNS_RESCUE_RATELIMIT_SCOPE_BURST },
         };
 
         if (protocol == DNS_PROTOCOL_DNS) {

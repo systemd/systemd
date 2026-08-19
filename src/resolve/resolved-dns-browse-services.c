@@ -295,10 +295,25 @@ void dns_service_querier_forget_query(DnsServiceQuerier *sq, DnsQuery *q) {
                 sq->in_flight_query = NULL;
 }
 
+/* The mDNS address-family selection travels in the flags word, so an emission restricted to one
+ * family swaps just those bits and leaves everything identity-relevant alone; AF_UNSPEC keeps the
+ * caller's own selection. */
+uint64_t mdns_restrict_flags_to_family(uint64_t flags, int family) {
+        switch (family) {
+        case AF_INET:
+                return (flags & ~SD_RESOLVED_MDNS) | SD_RESOLVED_MDNS_IPV4;
+        case AF_INET6:
+                return (flags & ~SD_RESOLVED_MDNS) | SD_RESOLVED_MDNS_IPV6;
+        default:
+                return flags;
+        }
+}
+
 /* Fire the querier's browse question on the wire once; the answers flow back through the
  * completion revisit. At most one such query in flight per querier: one still pending when the
- * next is due is superseded. */
-static int mdns_querier_send_question(DnsServiceQuerier *sq, bool cache_ok) {
+ * next is due is superseded. 'ifindex' and 'family' restrict where the query is emitted, 0 and
+ * AF_UNSPEC keep the querier's own coverage. */
+static int mdns_querier_send_question(DnsServiceQuerier *sq, bool cache_ok, int ifindex, int family) {
         _cleanup_(dns_service_querier_unrefp) DnsServiceQuerier *pin = NULL;
         _cleanup_(dns_query_freep) DnsQuery *q = NULL;
         int r;
@@ -316,8 +331,8 @@ static int mdns_querier_send_question(DnsServiceQuerier *sq, bool cache_ok) {
                         sq->question_utf8,
                         sq->question_idna,
                         /* question_bypass= */ NULL,
-                        sq->ifindex,
-                        sq->flags |
+                        ifindex > 0 ? ifindex : sq->ifindex,
+                        mdns_restrict_flags_to_family(sq->flags, family) |
                         SD_RESOLVED_QUERY_CONTINUOUS |
                         (cache_ok ? 0 : SD_RESOLVED_NO_CACHE));
         if (r < 0)
@@ -341,11 +356,14 @@ static int mdns_querier_send_question(DnsServiceQuerier *sq, bool cache_ok) {
         }
 
         /* Every emitter comes through here, so this is where the question's last wire time
-         * belongs. Two things must not stamp it: a cache hit, which completes inside
-         * dns_query_go() and clears this field, and a query a resolver hook deferred, which
-         * stays at DNS_TRANSACTION_NULL with nothing sent. Either would make the next emitter
-         * skip on a packet that never went out. */
-        if (sq->in_flight_query && sq->in_flight_query->state != DNS_TRANSACTION_NULL)
+         * belongs. Three things must not stamp it: a cache hit, which completes inside
+         * dns_query_go() and clears this field; a query a resolver hook deferred, which stays at
+         * DNS_TRANSACTION_NULL with nothing sent; and an emission restricted to one scope, which
+         * the other scopes never saw. Any of them would make the next full-coverage emitter skip
+         * on a packet that never went out where it was due. The repeat a restricted rescue may
+         * then cause on its own scope inside the second is bounded by the rescue budgets. */
+        if (ifindex <= 0 && family == AF_UNSPEC &&
+            sq->in_flight_query && sq->in_flight_query->state != DNS_TRANSACTION_NULL)
                 sq->last_wire_query_usec = now(CLOCK_BOOTTIME);
 
         return 0;
@@ -354,7 +372,8 @@ static int mdns_querier_send_question(DnsServiceQuerier *sq, bool cache_ok) {
 /* RFC 6762 §5.2: successive queries for one question are at least a second apart. The floor is a
  * property of the question, so every emitter asks before adding to the wire. The ladder, the
  * schedule and a joining subscriber lose nothing by skipping, the query already out is the same
- * question. */
+ * question; the rescue cannot rely on that and waits for the floor to lift instead, see
+ * mdns_queriers_rescue_goodbyes(). */
 static bool mdns_querier_may_query_now(DnsServiceQuerier *sq) {
         assert(sq);
 
@@ -410,7 +429,8 @@ void mdns_querier_run_maintenance(DnsServiceQuerier *sq) {
                 return;
         }
 
-        r = mdns_querier_send_question(sq, /* cache_ok= */ false);
+        r = mdns_querier_send_question(sq, /* cache_ok= */ false,
+                                       /* ifindex= */ 0, /* family= */ AF_UNSPEC);
         if (r < 0)
                 log_warning_errno(r, "Failed to send mDNS maintenance query, ignoring: %m");
 }
@@ -664,6 +684,14 @@ static void mdns_queriers_revisit(Manager *m, int ifindex, int family, DnsAnswer
         }
 }
 
+/* Whether any browse question is being asked at all. Lets the packet path skip work that only
+ * exists to feed the queriers without reaching into their registry itself. */
+bool mdns_queriers_exist(Manager *m) {
+        assert(m);
+
+        return !hashmap_isempty(m->dns_service_queriers);
+}
+
 void dns_browse_services_purge(Manager *m, int family, int ifindex) {
         /* Called after cached records went away: all caches flushed, a scope on its way out, or
          * a goodbye pass having pruned a scope's cache, in which case ifindex and family name
@@ -844,6 +872,148 @@ static int mdns_querier_revisit_cache(DnsServiceQuerier *sq, int owner_family) {
         return mdns_manage_services_answer(sq, combined, owner_family);
 }
 
+/* Does any of these goodbyes name an instance this querier has reported to its subscribers over
+ * the link and family they arrived on? Records are compared whole, rdata included, so an
+ * unrelated instance under the same type does not count. The link has to be compared here, not
+ * just by the caller: an unpinned querier reads every link, and a goodbye over one says nothing
+ * about an instance discovered over another; letting it through would spend the rescue budgets
+ * where nothing can be removed. Both ifindexes have to be known to exclude. */
+bool mdns_goodbyes_hit_discovered(DnsServiceQuerier *sq, DnsAnswer *goodbyes, int ifindex, int family) {
+        assert(sq);
+
+        LIST_FOREACH(dns_services, service, sq->dns_services) {
+                if (ifindex > 0 && service->ifindex > 0 && service->ifindex != ifindex)
+                        continue;
+
+                /* Likewise the family: a removal is only ever reported for the family a discovery
+                 * was made over, so a goodbye on the other one's scope has nothing to rescue. */
+                if (service->family != family)
+                        continue;
+
+                if (dns_answer_contains(goodbyes, service->rr))
+                        return true;
+        }
+
+        return false;
+}
+
+/* RFC 6762 §10.1 defers acting on a goodbye by one second so that other publishers of the same
+ * records can rescue them. resolved keeps a single cache entry per record whatever machine
+ * announced it, so without a nudge that rescue only happens by luck and the subscriber sees a
+ * spurious 'removed'. Re-issue the browse question when a goodbye matches it: a surviving
+ * publisher's answer refreshes the record inside the grace second. */
+static int on_mdns_querier_deferred_rescue(sd_event_source *s, uint64_t usec, void *userdata) {
+        _cleanup_(dns_service_querier_unrefp) DnsServiceQuerier *sq =
+                dns_service_querier_ref(ASSERT_PTR(userdata));
+        int r;
+
+        sq->rescue_event = sd_event_source_disable_unref(sq->rescue_event);
+
+        /* Whoever asked in the meantime asked after the goodbye, so that answer is the rescue. */
+        if (!mdns_querier_may_query_now(sq))
+                return 0;
+
+        r = mdns_querier_send_question(sq, /* cache_ok= */ false, sq->rescue_ifindex, sq->rescue_family);
+        if (r < 0)
+                log_warning_errno(r, "Failed to send deferred mDNS rescue query, ignoring: %m");
+
+        return 0;
+}
+
+void mdns_queriers_rescue_goodbyes(DnsScope *scope, DnsAnswer *goodbyes) {
+        DnsServiceQuerier *sq;
+        int r;
+
+        assert(scope);
+        assert(scope->manager);
+
+        if (dns_answer_isempty(goodbyes))
+                return;
+
+        HASHMAP_FOREACH(sq, scope->manager->dns_service_queriers) {
+                /* A cache watch never queries: its rescue would complete without a source, and the
+                 * budgets it would spend belong to the queriers that can. */
+                if (FLAGS_SET(sq->flags, SD_RESOLVED_NO_NETWORK))
+                        continue;
+
+                if (!dns_service_querier_covers_ifindex(sq, dns_scope_ifindex(scope)))
+                        continue;
+
+                /* Cheap gate first: the per-record match below is O(discovered x goodbyes) name
+                 * comparisons, both counts set by whoever is on the link. Keying off the
+                 * question rejects a flood aimed at a type nobody browses in one pass. */
+                r = dns_answer_match_key(goodbyes, sq->key, NULL);
+                if (r <= 0) {
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to match goodbyes, ignoring: %m");
+                        continue;
+                }
+
+                /* Then the precise one: dns_answer_match_key() compares owner name, type and
+                 * class only, so every PTR under the type passes it. Only an instance the
+                 * querier holds can be spuriously removed. */
+                if (!mdns_goodbyes_hit_discovered(sq, goodbyes, dns_scope_ifindex(scope), scope->family))
+                        continue;
+
+                /* A rescue already waiting for the floor covers this goodbye too, provided it
+                 * reaches this scope: widen it if not, on this scope's budget. The querier has
+                 * one query in flight, so widening means its whole coverage, and once that wide
+                 * nothing further is charged. */
+                if (sq->rescue_event) {
+                        if ((sq->rescue_ifindex == 0 && sq->rescue_family == AF_UNSPEC) ||
+                            (sq->rescue_ifindex == dns_scope_ifindex(scope) &&
+                             sq->rescue_family == scope->family) ||
+                            !ratelimit_below(&scope->goodbye_rescue_ratelimit))
+                                continue;
+
+                        sq->rescue_ifindex = 0;
+                        sq->rescue_family = AF_UNSPEC;
+                        continue;
+                }
+
+                /* Two budgets bound the long run: the querier's own, and the scope's, which
+                 * stops one packet matching many queriers from multiplying into as many
+                 * multicasts. The querier's is spent first, so one refused by its own budget
+                 * does not spend from the shared one. The emission is restricted to this scope,
+                 * the one charged: the goodbye rewrote this scope's cache entry, and only an
+                 * answer landing back in it refreshes the record. */
+                if (!ratelimit_below(&sq->goodbye_rescue_ratelimit) ||
+                    !ratelimit_below(&scope->goodbye_rescue_ratelimit))
+                        continue;
+
+                /* The §5.2 floor. A query that went out less than a second ago does not make
+                 * this rescue redundant: its answers may have arrived before the goodbye did.
+                 * Defer to the moment the floor lifts, still inside the §10.1 second, rather
+                 * than drop it. */
+                if (!mdns_querier_may_query_now(sq)) {
+                        sq->rescue_ifindex = dns_scope_ifindex(scope);
+                        sq->rescue_family = scope->family;
+
+                        r = event_reset_time(
+                                        sq->manager->event,
+                                        &sq->rescue_event,
+                                        CLOCK_BOOTTIME,
+                                        usec_add(sq->last_wire_query_usec, USEC_PER_SEC),
+                                        /* accuracy= */ 0,
+                                        on_mdns_querier_deferred_rescue,
+                                        sq,
+                                        /* priority= */ 0,
+                                        "mdns-querier-deferred-rescue",
+                                        /* force_reset= */ true);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to defer mDNS rescue query, ignoring: %m");
+                                sq->rescue_event = sd_event_source_disable_unref(sq->rescue_event);
+                        }
+                        continue;
+                }
+
+                r = mdns_querier_send_question(sq, /* cache_ok= */ false,
+                                               dns_scope_ifindex(scope), scope->family);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to send mDNS rescue query for a goodbye, ignoring: %m");
+        }
+}
+
 void mdns_queriers_notify_unsolicited_updates(DnsScope *scope, DnsAnswer *answer, int owner_family) {
         assert(scope);
         assert(scope->manager);
@@ -893,7 +1063,8 @@ static int on_mdns_querier_next_query(sd_event_source *s, uint64_t usec, void *u
                 return 0;
         }
 
-        r = mdns_querier_send_question(sq, /* cache_ok= */ first);
+        r = mdns_querier_send_question(sq, /* cache_ok= */ first,
+                                       /* ifindex= */ 0, /* family= */ AF_UNSPEC);
         if (r < 0)
                 log_warning_errno(r, "Failed to send continuous browse query, ignoring: %m");
 
@@ -1034,6 +1205,11 @@ static int dns_service_querier_new(
                 .key = dns_resource_key_ref(dns_question_first_key(question_utf8)),
                 .ifindex = ifindex,
                 .flags = flags,
+                /* Bounds a sustained goodbye flood per querier; the per-scope tier and the
+                 * coupling between the two live with the defines. No burst tier: the §5.2 floor
+                 * refuses a second rescue inside the same second anyway. */
+                .goodbye_rescue_ratelimit = { MDNS_RESCUE_RATELIMIT_INTERVAL_USEC,
+                                              MDNS_RESCUE_RATELIMIT_QUERIER_BURST },
         };
 
         r = event_reset_time_relative(
@@ -1069,6 +1245,7 @@ static void dns_service_querier_detach(DnsServiceQuerier *sq, DnsServiceBrowser 
         hashmap_remove(sq->manager->dns_service_queriers, sq);
         sq->schedule_event = sd_event_source_disable_unref(sq->schedule_event);
         sq->maintenance_event = sd_event_source_disable_unref(sq->maintenance_event);
+        sq->rescue_event = sd_event_source_disable_unref(sq->rescue_event);
 
         /* An in-flight maintenance query holds a reference that would keep the orphaned querier
          * alive until the query completed on its own. */
@@ -1229,7 +1406,8 @@ int dns_subscribe_browse_service(
                         log_debug("Browse question was just asked, serving the joining "
                                   "subscriber from that.");
                 else {
-                        r = mdns_querier_send_question(sq, /* cache_ok= */ true);
+                        r = mdns_querier_send_question(sq, /* cache_ok= */ true,
+                                                       /* ifindex= */ 0, /* family= */ AF_UNSPEC);
                         if (r < 0)
                                 log_warning_errno(r,
                                                   "Failed to query for a joining subscriber, ignoring: %m");
@@ -1273,6 +1451,7 @@ static DnsServiceQuerier* dns_service_querier_free(DnsServiceQuerier *sq) {
 
         sq->schedule_event = sd_event_source_disable_unref(sq->schedule_event);
         sq->maintenance_event = sd_event_source_disable_unref(sq->maintenance_event);
+        sq->rescue_event = sd_event_source_disable_unref(sq->rescue_event);
 
         sq->question_idna = dns_question_unref(sq->question_idna);
         sq->question_utf8 = dns_question_unref(sq->question_utf8);

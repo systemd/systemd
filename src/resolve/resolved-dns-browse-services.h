@@ -57,11 +57,16 @@ struct DnsServiceQuerier {
                                                  behind us, so a wind-back only takes effect once an
                                                  expiry moved) */
         usec_t last_wire_query_usec;          /* when this question last went to the network, from
-                                                 whichever of the three emitters sent it -- the
-                                                 ladder, the continuous schedule or a joining
-                                                 subscriber's catch-up. The §5.2 one-second floor is
-                                                 a property of the question, so each of them checks
-                                                 it before adding to the wire */
+                                                 whichever of the four emitters sent it -- the
+                                                 ladder, the continuous schedule, the goodbye rescue
+                                                 or a joining subscriber's catch-up. The §5.2
+                                                 one-second floor is a property of the question, so
+                                                 each of them checks it before adding to the wire */
+        RateLimit goodbye_rescue_ratelimit;   /* caps a sustained §10.1 goodbye flood per querier */
+        sd_event_source *rescue_event;        /* a goodbye rescue the §5.2 floor deferred, armed for
+                                                 when the floor lifts */
+        int rescue_ifindex;                   /* where the deferred rescue goes: the scope that */
+        int rescue_family;                    /* admitted it, widened once a second scope asks */
         bool initial_query_done;              /* whether the schedule's first query has gone out; only
                                                  that one is cache-served on the schedule's behalf,
                                                  a joining subscriber's catch-up asks separately */
@@ -86,7 +91,16 @@ int dns_subscribe_browse_service(
                 uint64_t flags);
 void dns_unsubscribe_browse_service(Manager *m, sd_varlink *link);
 void dns_service_querier_forget_query(DnsServiceQuerier *sq, DnsQuery *q);
+bool mdns_queriers_exist(Manager *m);
+/* The goodbye-rescue budgets share one window, and the per-scope burst sits above the
+ * per-querier one: a handful of distinct browse questions on a link can each still be rescued,
+ * while one received packet cannot multiply into unbounded multicasts. */
+#define MDNS_RESCUE_RATELIMIT_INTERVAL_USEC (5 * USEC_PER_MINUTE)
+#define MDNS_RESCUE_RATELIMIT_QUERIER_BURST 6U
+#define MDNS_RESCUE_RATELIMIT_SCOPE_BURST (2 * MDNS_RESCUE_RATELIMIT_QUERIER_BURST)
+
 void mdns_queriers_notify_unsolicited_updates(DnsScope *scope, DnsAnswer *answer, int owner_family);
+void mdns_queriers_rescue_goodbyes(DnsScope *scope, DnsAnswer *goodbyes);
 
 /* Exposed for src/resolve/test-dns-browse-services.c only; not part of the interface above. */
 void dns_remove_service(DnsServiceQuerier *sq, DnssdDiscoveredService *service);
@@ -108,3 +122,5 @@ int dns_add_new_service(
                 int ifindex,
                 usec_t until);
 void mdns_querier_run_maintenance(DnsServiceQuerier *sq);
+bool mdns_goodbyes_hit_discovered(DnsServiceQuerier *sq, DnsAnswer *goodbyes, int ifindex, int family);
+uint64_t mdns_restrict_flags_to_family(uint64_t flags, int family);
