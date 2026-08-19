@@ -297,6 +297,7 @@ class UkifyConfig:
     policy_digest: bool
     profile: Optional[str]
     sb_cert: Union[str, Path, None]
+    sb_cert_common_name: Optional[str]
     sb_cert_name: Optional[str]
     sb_cert_validity: int
     sb_certdir: Path
@@ -1682,12 +1683,17 @@ def generate_keys(opts: UkifyConfig) -> None:
     # This will generate keys and certificates and write them to the paths that
     # are specified as input paths.
     if opts.sb_key and opts.sb_cert:
-        fqdn = socket.getfqdn()
+        # The length of CN must not exceed 64 bytes
+        if opts.sb_cert_common_name:
+            cn = opts.sb_cert_common_name
+            if len(cn) > 64:
+                raise ValueError(f'Common name is longer than 64 characters: {cn}')
+        else:
+            fqdn = socket.getfqdn()
 
-        cn = f'SecureBoot signing key on host {fqdn}'
-        if len(cn) > 64:
-            # The length of CN must not exceed 64 bytes
-            cn = cn[:61] + '...'
+            cn = f'SecureBoot signing key on host {fqdn}'
+            if len(cn) > 64:
+                cn = cn[:61] + '...'
 
         key_pem, cert_pem = generate_key_cert_pair(
             common_name=cn,
@@ -2202,6 +2208,13 @@ CONFIG_ITEMS = [
             'required by --signtool=sbsign. sbsign needs a path to certificate file or engine-specific designation for SB signing'
         ),
         config_key='UKI/SecureBootCertificate',
+    ),
+    ConfigItem(
+        '--secureboot-certificate-common-name',
+        metavar='CN',
+        dest='sb_cert_common_name',
+        help="common name of a certificate created by 'genkey'",
+        config_key='UKI/SecureBootCertificateCommonName',
     ),
     ConfigItem(
         '--secureboot-certificate-dir',
