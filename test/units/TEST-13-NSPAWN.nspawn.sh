@@ -609,6 +609,35 @@ EOF
         systemd-nspawn --directory="$root" bash -xec '[[ "$(hostname)" == private-users ]]'
     done
 
+    # Private=yes must not override --network-veth when VirtualEthernet= is unspecified
+    # (https://github.com/systemd/systemd/issues/12313#issuecomment-681116926).
+    cat >"/run/systemd/nspawn/$container.nspawn" <<EOF
+[Exec]
+PrivateUsers=no
+
+[Files]
+BindReadOnly=/etc
+Inaccessible=/etc/machine-id
+${COVERAGE_BUILD_DIR:+"Bind=$COVERAGE_BUILD_DIR"}
+
+[Network]
+Private=yes
+EOF
+    # networkd is optional, so evaluate its start condition directly and prove
+    # the capability works with an RTNETLINK operation.
+    systemd-nspawn --register=no \
+                   --directory=/ \
+                   --volatile=yes \
+                   --machine="$container" \
+                   --network-veth \
+                   --settings=override \
+                   bash -xec '
+                       ip link show host0
+                       systemd-analyze condition "ConditionCapability=CAP_NET_ADMIN"
+                       ip address add 192.0.2.1/32 dev host0
+                       ip address del 192.0.2.1/32 dev host0
+                   '
+
     rm -fr "$root" "/run/systemd/nspawn/$container.nspawn"
 }
 
