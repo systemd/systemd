@@ -8,6 +8,26 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
+# Two subtests below change the log level (the transactions-with-cycles one to info, the
+# RestartRandomizedDelaySec= one to debug) and restore it inline when they pass. On abort,
+# the EXIT handler restores the boot-time level and cleans up the transient unit the
+# aborting subtest had in flight, as in TEST-26-SYSTEMCTL.sh.
+ORIG_LOG_LEVEL="$(systemctl log-level)"
+
+at_exit() {
+    set +e
+
+    systemctl log-level "$ORIG_LOG_LEVEL"
+
+    if [[ -v UNIT_NAME && -e /run/systemd/system/"$UNIT_NAME" ]]; then
+        systemctl stop "$UNIT_NAME"
+        rm -f /run/systemd/system/"$UNIT_NAME"
+        systemctl daemon-reload
+    fi
+}
+
+trap at_exit EXIT
+
 # Simple test for that daemon-reexec works in container.
 # See: https://github.com/systemd/systemd/pull/23883
 systemctl daemon-reexec
@@ -116,7 +136,22 @@ Requires=transaction-cycle$(((i + 1) % 20)).service
 ExecStart=true
 EOF
 done
+
+# The image boots with systemd.log_level=debug, so the daemon-reload and the 20 cyclic starts
+# below make PID1 emit thousands of debug messages per second. Under that burst journald falls
+# behind and PID1's journal socket sends time out after 10ms (src/basic/log.c). A timed-out
+# message is either dropped outright, since log_struct() ignores the send result, or falls back
+# to kmsg, where the structured TRANSACTION_ID= field is lost, so the TRANSACTION_ID= matches
+# below cannot find it. Run this section at log level info instead: the asserted messages are
+# emitted at err and warning (src/core/transaction.c) and are unaffected.
+systemctl log-level info
+
 systemctl daemon-reload
+
+# Let journald drain anything the preceding subtests already queued at debug level, so no
+# earlier backlog is still competing with the messages asserted on below.
+journalctl --sync
+
 for i in {0..19}; do
     # This intentionally fails with:
     #   Failed to start transaction-cycle0.service: Transaction order is cyclic. See system logs for details.
@@ -125,6 +160,9 @@ done
 
 IDS_FILE="/tmp/TEST-03-JOBS-CYCLE-IDS-$RANDOM"
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Describe '{}' | jq '.runtime.TransactionsWithOrderingCycle' >"$IDS_FILE"
+
+systemctl log-level "$ORIG_LOG_LEVEL"
+
 [[ "$(jq length "$IDS_FILE")" -ge 20 ]]
 journalctl --sync
 for i in {0..19}; do
@@ -259,17 +297,6 @@ assert_eq "$(systemctl show "$UNIT_NAME" -P RestartRandomizedDelayUSec)" "1s"
 
 # The chosen delay is logged at debug level when the unit enters auto-restart, so we can read it without
 # waiting for the delay to elapse.
-PREV_LOG_LEVEL="$(systemctl log-level)"
-
-restart_randomized_delay_cleanup() {
-    set +e
-    systemctl log-level "$PREV_LOG_LEVEL"
-    systemctl stop "$UNIT_NAME"
-    rm -f /run/systemd/system/"$UNIT_NAME"
-    systemctl daemon-reload
-}
-trap restart_randomized_delay_cleanup EXIT
-
 systemctl log-level debug
 
 get_restart_interval() {
@@ -292,7 +319,7 @@ for _ in {1..4}; do
     DELAYS+=("$delay")
 done
 
-systemctl log-level "$PREV_LOG_LEVEL"
+systemctl log-level "$ORIG_LOG_LEVEL"
 
 : "Chosen randomized restart delays: ${DELAYS[*]} (totals: ${TOTALS[*]})"
 for delay in "${DELAYS[@]}"; do
