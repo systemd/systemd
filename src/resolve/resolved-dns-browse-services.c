@@ -118,6 +118,36 @@ static void mdns_maintenance_query_complete(DnsQuery *q) {
         mdns_querier_revisit_cache_both(sq);
 }
 
+/* Fire the querier's browse question on the wire once; the answers flow back
+ * through the regular completion revisit. */
+static int mdns_querier_send_question(DnsServiceQuerier *sq) {
+        _cleanup_(dns_query_freep) DnsQuery *q = NULL;
+        int r;
+
+        assert(sq);
+
+        r = dns_query_new(
+                        sq->manager,
+                        &q,
+                        sq->question_utf8,
+                        sq->question_idna,
+                        /* question_bypass= */ NULL,
+                        sq->ifindex,
+                        sq->flags | SD_RESOLVED_QUERY_CONTINUOUS | SD_RESOLVED_NO_CACHE);
+        if (r < 0)
+                return r;
+
+        q->complete = mdns_maintenance_query_complete;
+        q->service_querier_request = dns_service_querier_ref(sq);
+
+        r = dns_query_go(q);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(q);
+        return 0;
+}
+
 /* One re-confirmation ladder per browser: the maintenance query re-issues the
  * browse PTR question, and a single PTR response refreshes the entire browsed
  * RRset (all discovered instances). Running the RFC 6762 §5.2 80/85/90/95/100%
@@ -127,7 +157,6 @@ static void mdns_maintenance_query_complete(DnsQuery *q) {
  * removal-at-expiry. */
 static int mdns_querier_maintenance(sd_event_source *s, usec_t usec, void *userdata) {
         _cleanup_(dns_service_querier_unrefp) DnsServiceQuerier *sq = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *q = NULL;
         int r;
 
         /* Hold a ref for the duration of the handler (as mdns_next_query_schedule()
@@ -159,29 +188,10 @@ static int mdns_querier_maintenance(sd_event_source *s, usec_t usec, void *userd
 
         mdns_querier_schedule_maintenance(sq);
 
-        r = dns_query_new(
-                        sq->manager,
-                        &q,
-                        sq->question_utf8,
-                        sq->question_idna,
-                        /* question_bypass= */ NULL,
-                        sq->ifindex,
-                        sq->flags | SD_RESOLVED_QUERY_CONTINUOUS | SD_RESOLVED_NO_CACHE);
-        if (r < 0) {
-                log_warning_errno(r, "Failed to create mDNS query for maintenance, ignoring: %m");
-                return 0;
-        }
-
-        q->complete = mdns_maintenance_query_complete;
-        q->service_querier_request = dns_service_querier_ref(sq);
-
-        r = dns_query_go(q);
-        if (r < 0) {
+        r = mdns_querier_send_question(sq);
+        if (r < 0)
                 log_warning_errno(r, "Failed to send mDNS maintenance query, ignoring: %m");
-                return 0;
-        }
 
-        TAKE_PTR(q);
         return 0;
 }
 
@@ -737,6 +747,61 @@ int mdns_notify_browsers_goodbye(DnsScope *scope) {
         }
 
         return 0;
+}
+
+/* RFC 6762 §10.1 defers acting on a goodbye by one second so that other
+ * publishers of the same records can rescue them. resolved keeps a single
+ * cache entry per record, whatever machine announced it, so without a nudge
+ * that rescue only happens by luck: a surviving publisher of the same
+ * instance re-announces on its own schedule, and the browse question's §5.2
+ * backoff can be a full hour away — until then the subscriber sees a spurious
+ * 'removed' for a service that never went away. Re-issue the browse question
+ * as soon as a goodbye matches it: a surviving publisher's answer then
+ * refreshes the record inside the one-second grace and no removal is ever
+ * reported. If nobody answers, the goodbye takes effect exactly as before. */
+void mdns_queriers_rescue_query_goodbye(DnsScope *scope, DnsAnswer *answer) {
+        DnsServiceQuerier *sq;
+        DnsResourceRecord *rr;
+        usec_t t;
+        int r;
+
+        assert(scope);
+        assert(scope->manager);
+
+        t = now(CLOCK_BOOTTIME);
+
+        HASHMAP_FOREACH(sq, scope->manager->dns_service_queriers) {
+                bool match = false;
+
+                if (sq->ifindex != 0 && sq->ifindex != dns_scope_ifindex(scope))
+                        continue;
+
+                /* Half the §10.1 grace: covers goodbye repetitions at their
+                 * usual one-second spacing, and bounds the query rate should
+                 * someone flood us with goodbyes. */
+                if (sq->last_goodbye_rescue_usec > 0 &&
+                    t < usec_add(sq->last_goodbye_rescue_usec, USEC_PER_SEC / 2))
+                        continue;
+
+                DNS_ANSWER_FOREACH(rr, answer) {
+                        /* Goodbyes arrive here with their TTL already rewritten to 1. */
+                        if (rr->ttl > 1)
+                                continue;
+
+                        if (dns_resource_key_equal(rr->key, sq->key) > 0) {
+                                match = true;
+                                break;
+                        }
+                }
+                if (!match)
+                        continue;
+
+                sq->last_goodbye_rescue_usec = t;
+
+                r = mdns_querier_send_question(sq);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to send mDNS rescue query for a goodbye, ignoring: %m");
+        }
 }
 
 int mdns_notify_browsers_unsolicited_updates(Manager *m, DnsAnswer *answer, int owner_family) {
