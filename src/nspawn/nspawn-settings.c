@@ -193,13 +193,19 @@ bool settings_private_network(Settings *s) {
                 s->network_veth_extra;
 }
 
-bool settings_network_veth(Settings *s) {
+int settings_network_veth(Settings *s) {
         assert(s);
 
-        return
-                s->network_veth > 0 ||
-                s->network_bridge ||
-                s->network_zone;
+        /* Return whether the primary veth is enabled, or -1 if Private=yes does not override it. */
+
+        if (s->network_bridge || s->network_zone)
+                return true;
+        if (s->network_veth >= 0)
+                return s->network_veth;
+        if (s->private_network > 0 && !s->network_namespace_path)
+                return -1;
+
+        return false;
 }
 
 bool settings_network_configured(Settings *s) {
