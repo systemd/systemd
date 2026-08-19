@@ -1245,6 +1245,65 @@ def test_key_cert_generation(tmp_path):
     assert re.search(r'Issuer: CN\s?=\s?SecureBoot signing key on host', out)
 
 
+def test_key_cert_generation_common_name(tmp_path):
+    opts = ukify.parse_args(
+        [
+            'genkey',
+            f'--secureboot-private-key={tmp_path / "sb.priv.pem"}',
+            f'--secureboot-certificate={tmp_path / "sb.cert.pem"}',
+            '--secureboot-certificate-common-name=ukify test key',
+        ]
+    )
+    assert opts.verb == 'genkey'
+
+    pytest.importorskip('cryptography')
+
+    ukify.generate_keys(opts)
+
+    if not shutil.which('openssl'):
+        return
+
+    out = subprocess.check_output(
+        [
+            'openssl', 'x509',
+            '-in', tmp_path / 'sb.cert.pem',
+            '-text',
+            '-noout',
+        ],
+        text=True,
+    )  # fmt: skip
+    assert re.search(r'Subject: CN\s?=\s?ukify test key', out)
+    assert re.search(r'Issuer: CN\s?=\s?ukify test key', out)
+
+
+def test_key_cert_generation_empty_common_name(tmp_path):
+    opts = ukify.parse_args(
+        [
+            'genkey',
+            f'--secureboot-private-key={tmp_path / "sb.priv.pem"}',
+            f'--secureboot-certificate={tmp_path / "sb.cert.pem"}',
+            '--secureboot-certificate-common-name=',
+        ]
+    )
+
+    with pytest.raises(ValueError, match='--secureboot-certificate-common-name= must not be empty'):
+        ukify.generate_keys(opts)
+
+
+def test_key_cert_generation_common_name_too_long(tmp_path):
+    opts = ukify.parse_args(
+        [
+            'genkey',
+            f'--secureboot-private-key={tmp_path / "sb.priv.pem"}',
+            f'--secureboot-certificate={tmp_path / "sb.cert.pem"}',
+            f'--secureboot-certificate-common-name={"x" * 65}',
+        ]
+    )
+
+    with pytest.raises(ValueError, match='is longer than 64 bytes'):
+        ukify.generate_keys(opts)
+
+
 @pytest.mark.skipif(not slow_tests, reason='slow')
 def test_join_pcrsig(capsys, kernel_initrd, tmp_path):
     if kernel_initrd is None:
