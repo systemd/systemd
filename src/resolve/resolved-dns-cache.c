@@ -249,20 +249,26 @@ void dns_cache_prune(DnsCache *c) {
         }
 }
 
-bool dns_cache_expiry_in_one_second(DnsCache *c, usec_t t) {
+bool dns_cache_expiry_in_one_second(DnsCache *c, usec_t *ret_until) {
         DnsCacheItem *i;
 
         assert(c);
 
-        /* Check if any items expire within the next second */
+        /* Check if any item expires within one second, and if so return its expiry timestamp. The
+         * comparison deliberately reads the clock itself: the answer is only meaningful against a fresh
+         * reading, never against a caller's scheduled deadline — that mixup is exactly what once broke
+         * the mDNS goodbye re-arm. */
         i = prioq_peek(c->by_expiry);
         if (!i)
                 return false;
 
-        if (i->until <= usec_add(t, USEC_PER_SEC))
-                return true;
+        if (i->until > usec_add(now(CLOCK_BOOTTIME), USEC_PER_SEC))
+                return false;
 
-        return false;
+        if (ret_until)
+                *ret_until = i->until;
+
+        return true;
 }
 
 static int dns_cache_item_prioq_compare_func(const void *a, const void *b) {
