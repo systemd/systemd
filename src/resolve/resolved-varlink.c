@@ -168,7 +168,12 @@ static void vl_on_disconnect(sd_varlink_server *s, sd_varlink *link, void *userd
                 return;
 
         DnsServiceBrowser *sb = hashmap_remove(m->dns_service_browsers, link);
-        dns_service_browser_unref(sb);
+        if (sb) {
+                /* An in-flight maintenance query holds a reference that would keep the browser — and
+                 * its armed ladder — alive past the subscription. */
+                mdns_browser_abort_maintenance_query(sb);
+                dns_service_browser_unref(sb);
+        }
 
         q = sd_varlink_get_userdata(link);
         if (!q)
