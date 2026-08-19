@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <stdio.h>
 #include <sys/sysinfo.h>
 #include <sys/utsname.h>
 
@@ -13,6 +14,7 @@
 #include "architecture.h"
 #include "confidential-virt.h"
 #include "cpu-set-util.h"
+#include "device-util.h"
 #include "env-file.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -23,8 +25,13 @@
 #include "log.h"
 #include "metrics.h"
 #include "os-util.h"
+#include "path-util.h"
+#include "procfs-util.h"
+#include "psi-util.h"
 #include "report-basic.h"
 #include "string-util.h"
+#include "time-util.h"
+#include "utf8.h"
 #include "virt.h"
 
 static int architecture_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
@@ -124,6 +131,94 @@ static int physical_memory_generate(const MetricFamily *mf, sd_varlink *link, vo
                         /* fields= */ NULL);
 }
 
+static int memory_used_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
+        int r;
+
+        assert(mf && mf->name);
+        assert(link);
+
+        /* Memory currently in use, i.e. MemTotal − MemAvailable from /proc/meminfo. Note that
+         * PhysicalMemoryBytes is not necessarily the matching total: it is capped by the root cgroup's
+         * memory limit, while /proc/meminfo always shows the whole system. */
+
+        uint64_t used;
+        r = procfs_memory_get_used(&used);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to read memory usage from /proc/meminfo, ignoring: %m");
+                return 0;
+        }
+
+        return metric_build_send_unsigned(
+                        mf,
+                        link,
+                        /* object= */ NULL,
+                        used,
+                        /* fields= */ NULL);
+}
+
+static int pressure_generate(const MetricFamily mf[static 2], sd_varlink *link, void *userdata) {
+        int r;
+
+        assert(mf && mf[0].name && mf[1].name);
+        assert(!mf[1].generate);
+        assert(link);
+
+        /* The kernel's smoothed pressure stall percentages over the last 10s, plus the cumulative stall
+         * time, as documented in https://docs.kernel.org/accounting/psi.html */
+
+        for (PressureResource resource = 0; resource < _PRESSURE_RESOURCE_MAX; resource++) {
+                const char *name = pressure_resource_to_string(resource);
+
+                _cleanup_free_ char *path = path_join("/proc/pressure", name);
+                if (!path)
+                        return -ENOMEM;
+
+                PressureType type;
+                FOREACH_ARGUMENT(type, PRESSURE_TYPE_SOME, PRESSURE_TYPE_FULL) {
+                        /* The "full" number for cpu pressure at the system level is always reported as 0,
+                         * so skip it. */
+                        if (resource == PRESSURE_CPU && type == PRESSURE_TYPE_FULL)
+                                continue;
+
+                        ResourcePressure rp;
+                        r = read_resource_pressure(path, type, &rp);
+                        if (r < 0) {
+                                bool absent = IN_SET(r, -ENOENT, -ENODATA) || ERRNO_IS_NEG_NOT_SUPPORTED(r);
+                                log_full_errno(absent ? LOG_DEBUG : LOG_WARNING, r,
+                                               "Failed to read %s pressure, ignoring: %m", name);
+                                break; /* If "some" can't be read, "full" won't work either */
+                        }
+
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *fields = NULL;
+                        r = sd_json_buildo(&fields,
+                                           SD_JSON_BUILD_PAIR_STRING("resource", name),
+                                           SD_JSON_BUILD_PAIR_STRING("type", pressure_type_to_string(type)));
+                        if (r < 0)
+                                return r;
+
+                        r = metric_build_send_double(
+                                        mf,
+                                        link,
+                                        /* object= */ NULL,
+                                        (double) rp.avg10 / LOADAVG_FIXED_POINT_1_0,
+                                        fields);
+                        if (r < 0)
+                                return r;
+
+                        r = metric_build_send_double(
+                                        mf + 1,
+                                        link,
+                                        /* object= */ NULL,
+                                        (double) rp.total / USEC_PER_SEC,
+                                        fields);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 0;
+}
+
 static int cpus_online_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
         int r;
 
@@ -141,6 +236,58 @@ static int cpus_online_generate(const MetricFamily *mf, sd_varlink *link, void *
                         /* object= */ NULL,
                         n_cpus,
                         /* fields= */ NULL);
+}
+
+static int cpu_usage_generate(const MetricFamily mf[static 2], sd_varlink *link, void *userdata) {
+        int r;
+
+        assert(mf && mf[0].name && mf[1].name);
+        assert(!mf[1].generate);
+        assert(link);
+
+        /* The aggregate "cpu" line of /proc/stat, converted from USER_HZ ticks to nanoseconds, matching
+         * the unit of io.systemd.CGroup.CpuUsage. "nice" time is folded into "user" and "irq"/"softirq"
+         * into "system", so that the published types together account for all CPU time. */
+
+        ProcfsCpuTicks ticks;
+        r = procfs_cpu_get_ticks(&ticks);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to read CPU time from /proc/stat, ignoring: %m");
+                return 0;
+        }
+
+        static const char* const types[] = { "user", "system", "idle", "iowait", "steal" };
+        static const size_t family[] = { 0, 0, 1, 1, 1 };
+        const uint64_t values[] = {
+                ticks.user + ticks.nice,
+                ticks.system + ticks.irq + ticks.softirq,
+                ticks.idle,
+                ticks.iowait,
+                ticks.steal,
+        };
+        assert_cc(ELEMENTSOF(types) == ELEMENTSOF(values));
+        assert_cc(ELEMENTSOF(types) == ELEMENTSOF(family));
+
+        for (size_t i = 0; i < ELEMENTSOF(values); i++) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *fields = NULL;
+
+                r = sd_json_buildo(&fields, SD_JSON_BUILD_PAIR_STRING("type", types[i]));
+                if (r < 0)
+                        return r;
+
+                uint64_t nsec = procfs_ticks_to_nsec(values[i]);
+
+                r = metric_build_send_unsigned(
+                                &mf[family[i]],
+                                link,
+                                /* object= */ NULL,
+                                nsec,
+                                fields);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 static int load_average_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
@@ -181,11 +328,14 @@ static int load_average_generate(const MetricFamily *mf, sd_varlink *link, void 
         return 0;
 }
 
-static int swap_generate(const MetricFamily *mf, sd_varlink *link, void *userdata) {
-        assert(mf && mf->name);
+static int swap_generate(const MetricFamily mf[static 2], sd_varlink *link, void *userdata) {
+        int r;
+
+        assert(mf && mf[0].name && mf[1].name);
+        assert(!mf[1].generate);
         assert(link);
 
-        /* The total amount of configured swap space, in bytes. */
+        /* The total amount of configured swap space and the amount currently in use, in bytes. */
 
         struct sysinfo info;
         if (sysinfo(&info) < 0)
@@ -193,15 +343,119 @@ static int swap_generate(const MetricFamily *mf, sd_varlink *link, void *userdat
 
         /* Overflow is unrealistic (would need >16 EiB of swap), but use MUL_SAFE to make this obvious to
          * static analyzers. */
-        uint64_t swap;
-        assert_se(MUL_SAFE(&swap, (uint64_t) info.totalswap, (uint64_t) info.mem_unit));
+        uint64_t total, used;
+        assert_se(MUL_SAFE(&total, (uint64_t) info.totalswap, (uint64_t) info.mem_unit));
+        assert_se(MUL_SAFE(&used, (uint64_t) LESS_BY(info.totalswap, info.freeswap), (uint64_t) info.mem_unit));
 
-        return metric_build_send_unsigned(
-                        mf,
-                        link,
-                        /* object= */ NULL,
-                        swap,
-                        /* fields= */ NULL);
+        const uint64_t values[] = { total, used };
+        for (size_t i = 0; i < ELEMENTSOF(values); i++) {
+                r = metric_build_send_unsigned(
+                                mf + i,
+                                link,
+                                /* object= */ NULL,
+                                values[i],
+                                /* fields= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int disk_io_generate(const MetricFamily mf[static 2], sd_varlink *link, void *userdata) {
+        int r;
+
+        assert(mf && mf[0].name && mf[1].name);
+        assert(!mf[1].generate);
+        assert(link);
+
+        /* Cumulative read/write byte counters of all whole physical block devices. Partitions are skipped,
+         * their traffic is already accounted for in the parent device. Stacked devices (dm, md, …) are
+         * skipped for the same reason: their traffic is accounted for again in the devices they are built
+         * on. */
+
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
+                return r;
+
+        /* Everything read below comes from sysfs directly, no udev db entry is needed. */
+        r = sd_device_enumerator_allow_uninitialized(e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_subsystem(e, "block", /* match= */ true);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_property(e, "DEVTYPE", "disk");
+        if (r < 0)
+                return r;
+
+        FOREACH_DEVICE(e, dev) {
+                const char *name, *devpath, *v;
+
+                r = sd_device_get_sysname(dev, &name);
+                if (r < 0) {
+                        log_device_warning_errno(dev, r, "Failed to get block device name, ignoring: %m");
+                        continue;
+                }
+
+                /* A non-UTF-8 name would make the JSON reply builder fail, taking down the whole method
+                 * call rather than just this device. */
+                if (!utf8_is_valid(name)) {
+                        log_device_warning(dev, "Block device name is not valid UTF-8, ignoring device.");
+                        continue;
+                }
+
+                r = sd_device_get_devpath(dev, &devpath);
+                if (r < 0) {
+                        log_device_warning_errno(dev, r, "Cannot get device path, ignoring device: %m");
+                        continue;
+                }
+
+                /* Ignore virtual devices which just reissue the io via some other device. */
+                if (path_startswith(devpath, "/devices/virtual/")) {
+                        log_device_debug(dev, "Block device is a virtual device, ignoring it.");
+                        continue;
+                }
+
+                r = sd_device_get_sysattr_value(dev, "stat", &v);
+                if (r < 0) {
+                        log_device_full_errno(dev, ERRNO_IS_NEG_DEVICE_ABSENT(r) ? LOG_DEBUG : LOG_WARNING,
+                                              r, "Failed to read 'stat' attribute, ignoring device: %m");
+                        continue;
+                }
+
+                /* Fields 3 and 7: the number of sectors read and written. The "stat" attribute always
+                 * counts in 512 byte sectors, regardless of the device's logical block size. The skipped
+                 * fields are consumed with %*s, since their values may exceed any fixed integer width. */
+                uint64_t read_sectors, write_sectors;
+                if (sscanf(v, "%*s %*s %"SCNu64" %*s %*s %*s %"SCNu64, &read_sectors, &write_sectors) < 2) {
+                        log_device_warning(dev, "Failed to parse 'stat' attribute, ignoring device.");
+                        continue;
+                }
+
+                uint64_t bytes[2];
+                if (!MUL_SAFE(&bytes[0], read_sectors, UINT64_C(512)) ||
+                    !MUL_SAFE(&bytes[1], write_sectors, UINT64_C(512))) {
+                        log_device_warning(dev, "Sector counters out of range, ignoring device.");
+                        continue;
+                }
+
+                for (size_t i = 0; i < ELEMENTSOF(bytes); i++) {
+                        r = metric_build_send_unsigned(
+                                        mf + i,
+                                        link,
+                                        /* object= */ name,
+                                        bytes[i],
+                                        /* fields= */ NULL);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 0;
 }
 
 enum {
@@ -522,7 +776,7 @@ static int virtualization_generate(const MetricFamily *mf, sd_varlink *link, voi
         }
 
 static const MetricFamily metric_family_table[] = {
-        /* Keep entries ordered alphabetically */
+        /* Keep entries (with .generate) ordered alphabetically */
         {
                 METRIC_IO_SYSTEMD_BASIC_PREFIX "Architecture",
                 "CPU architecture",
@@ -547,6 +801,34 @@ static const MetricFamily metric_family_table[] = {
                 METRIC_FAMILY_TYPE_GAUGE,
                 .generate = cpus_online_generate,
         },
+        /* METRIC_FAMILY_TYPE_COUNTER must be monotonic, but steal and iowait can go down,
+         * so CPUUsage is split into two families of different types. */
+        {
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "CPUUsage",
+                "Aggregate CPU usage across all CPUs in nanoseconds (type=user|system)",
+                METRIC_FAMILY_TYPE_COUNTER,
+                .generate = cpu_usage_generate,
+        },
+        {
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "CPUWait",
+                "Aggregate CPU wait across all CPUs in nanoseconds (type=idle|iowait|steal)",
+                METRIC_FAMILY_TYPE_GAUGE,
+        },
+        /* Keep those ↑ in sync with cpu_usage_generate(). */
+        {
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "DiskReadBytes",
+                "Per block device metric: cumulative number of bytes read "
+                "(partitions, stacked and virtual devices are excluded)",
+                METRIC_FAMILY_TYPE_COUNTER,
+                .generate = disk_io_generate,
+        },
+        {
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "DiskWriteBytes",
+                "Per block device metric: cumulative number of bytes written "
+                "(partitions, stacked and virtual devices are excluded)",
+                METRIC_FAMILY_TYPE_COUNTER,
+        },
+        /* Keep those ↑ in sync with disk_io_generate(). */
         {
                 METRIC_IO_SYSTEMD_BASIC_PREFIX "Hostname",
                 "System hostname",
@@ -593,6 +875,12 @@ static const MetricFamily metric_family_table[] = {
         MACHINE_INFO_STANDARD_FIELD("TAGS"),
         /* Keep those ↑ in sync with machine_info_generate(). */
         {
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "MemoryUsedBytes",
+                "Memory currently in use (MemTotal minus MemAvailable) in bytes",
+                METRIC_FAMILY_TYPE_GAUGE,
+                .generate = memory_used_generate,
+        },
+        {
                 METRIC_IO_SYSTEMD_BASIC_PREFIX "OSRelease.NAME",
                 "Operating system human-readable name (PRETTY_NAME= or NAME= field from os-release)",
                 METRIC_FAMILY_TYPE_STRING,
@@ -616,6 +904,18 @@ static const MetricFamily metric_family_table[] = {
                 METRIC_FAMILY_TYPE_GAUGE,
                 .generate = physical_memory_generate,
         },
+        {
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "PressureAvg10",
+                "Pressure stall percentage over the last 10s (resource=cpu|memory|io, type=some|full)",
+                METRIC_FAMILY_TYPE_GAUGE,
+                .generate = pressure_generate,
+        },
+        {
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "PressureStallSeconds",
+                "Cumulative time stalled on a resource, in seconds (resource=cpu|memory|io, type=some|full)",
+                METRIC_FAMILY_TYPE_COUNTER,
+        },
+        /* Keep those ↑ in sync with pressure_generate(). */
         {
                 /* NB: Here we use the naming of the field as per SMBIOS specification, i.e. undo the weird
                  * renaming that Linux did on the fields. When new fields are added here, please make sure to
@@ -650,6 +950,12 @@ static const MetricFamily metric_family_table[] = {
                 METRIC_FAMILY_TYPE_GAUGE,
                 .generate = swap_generate,
         },
+        {
+                METRIC_IO_SYSTEMD_BASIC_PREFIX "SwapUsedBytes",
+                "Swap space currently in use in bytes",
+                METRIC_FAMILY_TYPE_GAUGE,
+        },
+        /* Keep those ↑ in sync with swap_generate(). */
         {
                 METRIC_IO_SYSTEMD_BASIC_PREFIX "TPM2.Manufacturer",
                 "TPM2 device manufacturer (ID_TPM2_MANUFACTURER property of the tpmrm0 device)",
