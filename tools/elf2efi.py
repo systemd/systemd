@@ -533,7 +533,6 @@ def convert_elf_relocations(
     pe_reloc_s.Characteristics = 0x42000040
 
     sections.append(pe_reloc_s)
-    opt.SizeOfInitializedData += pe_reloc_s.VirtualSize
     return pe_reloc_s
 
 
