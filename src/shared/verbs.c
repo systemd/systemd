@@ -430,7 +430,7 @@ static bool verbs_array_has_verbs(const Verb verbs[], const Verb verbs_end[]) {
         return false;
 }
 
-static int print_wrapped(const char *text, bool abstract) {
+static int print_wrapped(const char *text, const char *ansi_seq) {
 
         /* Print the text wrapped at spaces to the specified width. Newlines embedded in the text
          * are preserved and each line is wrapped independently, so explicit line breaks (e.g.
@@ -456,10 +456,9 @@ static int print_wrapped(const char *text, bool abstract) {
         putchar('\n');
 
         STRV_FOREACH(line, lines2)
-                if (abstract)
-                        printf("%s%s%s%s\n",
-                               ansi_highlight(),
-                               ansi_add_italics(),
+                if (ansi_seq)
+                        printf("%s%s%s\n",
+                               ansi_seq,
                                *line,
                                ansi_normal());
                 else
@@ -473,7 +472,8 @@ int _command_print_help_full(
                 const Verb verbs_end[],
                 const Option options[],
                 const Option options_end[],
-                const char *name) {
+                const char *name,
+                const char *footer_ansi_seq) {
         int r;
 
         const Verb *cmdverb = verbs_get_command(verbs, verbs_end, name);
@@ -498,7 +498,8 @@ int _command_print_help_full(
                 help_cmdline(have_verbs ? "[OPTION…] COMMAND …" : "[OPTION…]");
         }
 
-        r = print_wrapped(cmd->abstract, /* abstract= */ true);
+        const char *seq = strjoina(ansi_highlight(), ansi_add_italics());
+        r = print_wrapped(cmd->abstract, seq);
         if (r < 0)
                 return r;
 
@@ -506,7 +507,7 @@ int _command_print_help_full(
         if (r < 0)
                 return log_error_errno(r, "Failed to print verb&option help: %m");
 
-        r = print_wrapped(cmd->footer, /* abstract= */ false);
+        r = print_wrapped(cmd->footer, footer_ansi_seq);
         if (r < 0)
                 return r;
 

@@ -351,7 +351,7 @@ static int systemctl_parse_argv(int argc, char *argv[], int log_level_shift, cha
                 OPTION_NAMESPACE("systemctl"): {}
 
                 OPTION_COMMON_HELP:
-                        return command_print_help_full("systemctl");
+                        return command_print_help_full("systemctl", /* footer_ansi_seq= */ NULL);
 
                 OPTION_COMMON_VERSION:
                         return version();

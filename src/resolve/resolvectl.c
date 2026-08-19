@@ -3498,7 +3498,7 @@ static int native_parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_NAMESPACE("resolvectl"): {}
 
                 OPTION_COMMON_HELP:
-                        return command_print_help_full("resolvectl");
+                        return command_print_help_full("resolvectl", /* footer_ansi_seq= */ NULL);
 
                 OPTION_COMMON_VERSION:
                         return version();
