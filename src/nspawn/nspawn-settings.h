@@ -245,7 +245,7 @@ Settings *settings_new(void);
 int settings_load(FILE *f, const char *path, Settings **ret);
 Settings* settings_free(Settings *s);
 
-bool settings_network_veth(Settings *s);
+int settings_network_veth(Settings *s);
 bool settings_private_network(Settings *s);
 bool settings_network_configured(Settings *s);
 
