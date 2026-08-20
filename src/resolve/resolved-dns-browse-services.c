@@ -855,6 +855,40 @@ void dns_browse_services_restart(Manager *m) {
         }
 }
 
+int dns_service_browser_validate_request(
+                const char *domain,
+                const char *type,
+                int ifindex,
+                const char **ret_invalid_parameter) {
+
+        int r;
+
+        assert(ret_invalid_parameter);
+
+        if (ifindex < 0) {
+                *ret_invalid_parameter = "ifindex";
+                return -EINVAL;
+        }
+
+        if (!isempty(type) && !dnssd_srv_type_is_valid(type)) {
+                *ret_invalid_parameter = "type";
+                return -EINVAL;
+        }
+
+        if (!isempty(domain)) {
+                r = dns_name_is_valid(domain);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        *ret_invalid_parameter = "domain";
+                        return -EINVAL;
+                }
+        }
+
+        *ret_invalid_parameter = NULL;
+        return 0;
+}
+
 int dns_service_browser_new(
                 Manager *m,
                 const char *domain,
@@ -866,6 +900,7 @@ int dns_service_browser_new(
 
         _cleanup_(dns_service_browser_unrefp) DnsServiceBrowser *sb = NULL;
         _cleanup_(dns_question_unrefp) DnsQuestion *question_idna = NULL, *question_utf8 = NULL;
+        const char *invalid_parameter;
         int r;
 
         assert(m);
@@ -874,26 +909,18 @@ int dns_service_browser_new(
         if (set_size(m->dns_service_browsers) >= DNS_SERVICE_BROWSERS_MAX)
                 return -EBUSY;
 
-        if (ifindex < 0)
-                return -EINVAL;
+        r = dns_service_browser_validate_request(domain, type, ifindex, &invalid_parameter);
+        if (r < 0)
+                return r;
 
         if (ifindex == 0)
                 log_debug("BrowseServices: browsing all mDNS interfaces");
 
         if (isempty(type))
                 type = NULL;
-        else if (!dnssd_srv_type_is_valid(type))
-                return -EINVAL;
 
         if (isempty(domain))
                 domain = "local";
-        else {
-                r = dns_name_is_valid(domain);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return -EINVAL;
-        }
 
         r = dns_question_new_service_pointer(
                         &question_utf8, type, domain, /* convert_idna= */ false);
@@ -949,6 +976,7 @@ int dns_subscribe_browse_service(
                 Manager *m, sd_varlink *link, const char *domain, const char *type, int ifindex, uint64_t flags) {
 
         _cleanup_(dns_service_browser_unrefp) DnsServiceBrowser *sb = NULL;
+        const char *invalid_parameter;
         int r;
 
         assert(m);
@@ -958,17 +986,11 @@ int dns_subscribe_browse_service(
         if (dns_service_browser_from_varlink(m, link))
                 return -EBUSY;
 
-        if (ifindex < 0)
-                return sd_varlink_error_invalid_parameter_name(link, "ifindex");
-        if (!isempty(type) && !dnssd_srv_type_is_valid(type))
-                return sd_varlink_error_invalid_parameter_name(link, "type");
-        if (!isempty(domain)) {
-                r = dns_name_is_valid(domain);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return sd_varlink_error_invalid_parameter_name(link, "domain");
-        }
+        r = dns_service_browser_validate_request(domain, type, ifindex, &invalid_parameter);
+        if (r == -EINVAL)
+                return sd_varlink_error_invalid_parameter_name(link, invalid_parameter);
+        if (r < 0)
+                return r;
 
         r = dns_service_browser_new(m, domain, type, ifindex, flags, dns_service_browser_varlink_updates, &sb);
         if (r < 0)
