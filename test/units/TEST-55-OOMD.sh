@@ -505,6 +505,47 @@ EOF
     systemctl reload systemd-oomd.service
 }
 
+# Fork an ncat listener for the given prekill hook socket and wait until it
+# accepts connections. systemd-oomd looks at the hook sockets only at kill time
+# and treats a non-connectible socket as stale, killing at once without any
+# notification (see oomd_prekill_hook() in src/oom/oomd-util.c), so a listener
+# that is not accepting yet when the bloat unit starts makes the assertions
+# below fail with an empty capture file. The probe connection transmits no
+# data, hence nothing ends up in the capture file, and -k keeps ncat listening
+# after the probe disconnects.
+start_prekill_listener() {
+    local sock="${1:?}" output="${2:?}"
+
+    ncat --recv-only -kUl "$sock" >"$output" 2>"$output.err" &
+    PREKILL_LISTENER_PIDS+=("$!")
+
+    # shellcheck disable=SC2016 # $1 is expanded by the inner shell, which gets it as an argument
+    timeout 30 bash -xec 'until ncat --send-only -U "$1" </dev/null; do sleep .5; done' bash "$sock"
+}
+
+# Check that the given listener captured the expected prekill notification. An
+# empty capture file has two very different causes (oomd never notified the
+# hook, or the listener died mid-test), so on failure log which one it was,
+# along with the listener's stderr and the hook directory contents.
+check_prekill_listener() {
+    local pid="${1:?}" sock="${2:?}" output="${3:?}" rc=0
+
+    if ! kill -0 "$pid" 2>/dev/null; then
+        wait "$pid" || rc=$?
+        echo "Listener $pid on $sock died with status $rc, captured output/stderr:"
+        cat "$output" "$output.err"
+        ls -la /run/systemd/oomd.prekill.hook/
+        return 1
+    fi
+
+    if [[ "$(jq -r .method <"$output")" != "io.systemd.oom.Prekill.Notify" ]]; then
+        echo "Listener $pid on $sock is alive but no notification arrived, captured output/stderr:"
+        cat "$output" "$output.err"
+        ls -la /run/systemd/oomd.prekill.hook/
+        return 1
+    fi
+}
+
 testcase_prekill_hook() {
     [[ "$STRESS_NG_BROKEN" == "1" ]] && { echo "stress-ng is broken on this host, skipping ${FUNCNAME[0]}"; return 0; }
 
@@ -519,21 +560,27 @@ EOF
 
     # one hook
     mkdir -p /run/systemd/oomd.prekill.hook/
-    ncat --recv-only -kUl /run/systemd/oomd.prekill.hook/althook >/tmp/oomd_event.json &
+    PREKILL_LISTENER_PIDS=()
+    start_prekill_listener /run/systemd/oomd.prekill.hook/althook /tmp/oomd_event.json
     ! systemctl start --wait TEST-55-OOMD-testbloat.service || exit 1
-    [[ $(jq -r .method </tmp/oomd_event.json) = 'io.systemd.oom.Prekill.Notify' ]]
+    check_prekill_listener "${PREKILL_LISTENER_PIDS[0]}" /run/systemd/oomd.prekill.hook/althook /tmp/oomd_event.json
 
-    rm -f /run/systemd/oomd.prekill.hook/* /tmp/oomd_event.json
+    kill "${PREKILL_LISTENER_PIDS[@]}" || :
+    rm -f /run/systemd/oomd.prekill.hook/* /tmp/oomd_event.json*
 
     # many hooks
+    PREKILL_LISTENER_PIDS=()
     for i in {1..4}; do
-        ncat --recv-only -kUl "/run/systemd/oomd.prekill.hook/althook$i" >"/tmp/oomd_event$i.json" &
+        start_prekill_listener "/run/systemd/oomd.prekill.hook/althook$i" "/tmp/oomd_event$i.json"
     done
 
     ! systemctl start --wait TEST-55-OOMD-testbloat.service || exit 1
-    for j in /tmp/oomd_event*.json; do
-        [[ $(jq -r .method <"$j") = 'io.systemd.oom.Prekill.Notify' ]]
+    for i in {1..4}; do
+        check_prekill_listener "${PREKILL_LISTENER_PIDS[$((i - 1))]}" "/run/systemd/oomd.prekill.hook/althook$i" "/tmp/oomd_event$i.json"
     done
+
+    kill "${PREKILL_LISTENER_PIDS[@]}" || :
+    rm -rf /run/systemd/oomd.prekill.hook/ /tmp/oomd_event*.json*
 }
 
 run_testcases
