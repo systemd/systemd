@@ -1281,49 +1281,35 @@ static int parse_acl_cond_exec(
                 return r;
 
         if (!S_ISDIR(st->st_mode)) {
-                _cleanup_(acl_freep) acl_t old = NULL;
 
-                old = sym_acl_get_file(path, ACL_TYPE_ACCESS);
-                if (!old)
-                        return -errno;
+                /* When replacing, use the inode mode bits as the authoritative
+                 * source. Reading the existing ACL is non-idempotent: a previous
+                 * tmpfiles run that mis-set execute bits would cause every
+                 * subsequent run to perpetuate the mistake via has_exec=true.
+                 * st_mode is stable and matches how chmod(1)/setfacl(1) define 'X'.
+                 */
+                if (!append)
+                        has_exec = (st->st_mode & (S_IXUSR | S_IXGRP | S_IXOTH)) != 0;
+                else {
+                        _cleanup_(acl_freep) acl_t old = NULL;
 
-                has_exec = false;
-
-                for (r = sym_acl_get_entry(old, ACL_FIRST_ENTRY, &entry);
-                     r > 0;
-                     r = sym_acl_get_entry(old, ACL_NEXT_ENTRY, &entry)) {
-
-                        acl_tag_t tag;
-
-                        if (sym_acl_get_tag_type(entry, &tag) < 0)
+                        old = sym_acl_get_file(path, ACL_TYPE_ACCESS);
+                        if (!old)
                                 return -errno;
 
-                        if (tag == ACL_MASK)
-                                continue;
+                        has_exec = false;
 
-                        /* If not appending, skip ACL definitions */
-                        if (!append && IN_SET(tag, ACL_USER, ACL_GROUP))
-                                continue;
-
-                        if (sym_acl_get_permset(entry, &permset) < 0)
-                                return -errno;
-
-                        r = sym_acl_get_perm(permset, ACL_EXECUTE);
-                        if (r < 0)
-                                return -errno;
-                        if (r > 0) {
-                                has_exec = true;
-                                break;
-                        }
-                }
-                if (r < 0)
-                        return -errno;
-
-                /* Check if we're about to set the execute bit in acl_access */
-                if (!has_exec && access) {
-                        for (r = sym_acl_get_entry(access, ACL_FIRST_ENTRY, &entry);
+                        for (r = sym_acl_get_entry(old, ACL_FIRST_ENTRY, &entry);
                              r > 0;
-                             r = sym_acl_get_entry(access, ACL_NEXT_ENTRY, &entry)) {
+                             r = sym_acl_get_entry(old, ACL_NEXT_ENTRY, &entry)) {
+
+                                acl_tag_t tag;
+
+                                if (sym_acl_get_tag_type(entry, &tag) < 0)
+                                        return -errno;
+
+                                if (tag == ACL_MASK)
+                                        continue;
 
                                 if (sym_acl_get_permset(entry, &permset) < 0)
                                         return -errno;
@@ -1338,6 +1324,27 @@ static int parse_acl_cond_exec(
                         }
                         if (r < 0)
                                 return -errno;
+
+                        /* Check if we're about to set the execute bit in acl_access */
+                        if (!has_exec && access) {
+                                for (r = sym_acl_get_entry(access, ACL_FIRST_ENTRY, &entry);
+                                     r > 0;
+                                     r = sym_acl_get_entry(access, ACL_NEXT_ENTRY, &entry)) {
+
+                                        if (sym_acl_get_permset(entry, &permset) < 0)
+                                                return -errno;
+
+                                        r = sym_acl_get_perm(permset, ACL_EXECUTE);
+                                        if (r < 0)
+                                                return -errno;
+                                        if (r > 0) {
+                                                has_exec = true;
+                                                break;
+                                        }
+                                }
+                                if (r < 0)
+                                        return -errno;
+                        }
                 }
         } else
                 has_exec = true;
