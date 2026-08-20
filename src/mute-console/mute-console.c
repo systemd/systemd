@@ -290,6 +290,7 @@ static int vl_server(void) {
                         &varlink_server,
                         SD_VARLINK_SERVER_ROOT_ONLY |
                         SD_VARLINK_SERVER_MYSELF_ONLY |
+                        SD_VARLINK_SERVER_ONEWAY_NEEDS_REPLY |
                         SD_VARLINK_SERVER_HANDLE_SIGINT |
                         SD_VARLINK_SERVER_HANDLE_SIGTERM,
                         /* userdata= */ NULL);
