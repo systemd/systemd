@@ -1487,7 +1487,7 @@ static int varlink_main_server_init(Manager *m) {
         if (m->varlink_server)
                 return 0;
 
-        r = varlink_server_new(&s, SD_VARLINK_SERVER_ACCOUNT_UID, m);
+        r = varlink_server_new(&s, SD_VARLINK_SERVER_ACCOUNT_UID | SD_VARLINK_SERVER_ONEWAY_NEEDS_REPLY, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
 
