@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[NetDev]
+Name=vm1
+Kind=ovs-port
+
+[OVSPort]
+Bridge=br0
+Type=internal
+Tag=100

@@ -1,0 +1,8 @@
+[NetDev]
+Name=patch0
+Kind=ovs-port
+
+[OVSPort]
+Bridge=br0
+Type=patch
+PeerPort=patch1
