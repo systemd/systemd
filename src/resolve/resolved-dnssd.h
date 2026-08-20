@@ -59,6 +59,7 @@ typedef struct DnssdRegisteredService {
 
 DnssdRegisteredService* dnssd_registered_service_free(DnssdRegisteredService *service);
 DnssdRegisteredService* dnssd_registered_service_remove(DnssdRegisteredService *service, bool send_goodbye);
+void dnssd_registered_service_attach(DnssdRegisteredService *service);
 DnssdTxtData *dnssd_txtdata_free(DnssdTxtData *txt_data);
 DnssdTxtData *dnssd_txtdata_free_all(DnssdTxtData *txt_data);
 void dnssd_registered_service_clear_on_reload(Hashmap *services);

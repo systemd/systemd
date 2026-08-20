@@ -11,6 +11,7 @@
 #include "extract-word.h"
 #include "hashmap.h"
 #include "hexdecoct.h"
+#include "log-link.h"
 #include "path-util.h"
 #include "resolved-conf.h"
 #include "resolved-dns-scope.h"
@@ -92,6 +93,36 @@ DnssdRegisteredService* dnssd_registered_service_remove(DnssdRegisteredService *
                 hashmap_remove(manager->dnssd_registered_services, service->id);
 
         return dnssd_registered_service_free(service);
+}
+
+void dnssd_registered_service_attach(DnssdRegisteredService *service) {
+        Link *link;
+        int r;
+
+        assert(service);
+        assert(service->manager);
+        assert(service->ptr_rr);
+
+        HASHMAP_FOREACH(link, service->manager->links) {
+                if (link_get_mdns_support(link) != RESOLVE_SUPPORT_YES)
+                        continue;
+
+                if (link->mdns_ipv4_scope) {
+                        r = dns_scope_add_dnssd_service(link->mdns_ipv4_scope, service);
+                        if (r < 0)
+                                log_link_warning_errno(link, r,
+                                                       "Failed to attach DNS-SD service '%s' to IPv4 scope, ignoring: %m",
+                                                       service->id);
+                }
+
+                if (link->mdns_ipv6_scope) {
+                        r = dns_scope_add_dnssd_service(link->mdns_ipv6_scope, service);
+                        if (r < 0)
+                                log_link_warning_errno(link, r,
+                                                       "Failed to attach DNS-SD service '%s' to IPv6 scope, ignoring: %m",
+                                                       service->id);
+                }
+        }
 }
 
 void dnssd_registered_service_clear_on_reload(Hashmap *services) {
