@@ -9,6 +9,7 @@
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "iovec-util.h"
 #include "journal-internal.h"
@@ -327,6 +328,36 @@ static int client_context_read_cgroup(Manager *m, ClientContext *c, const char *
         return 0;
 }
 
+static bool client_context_user_area(const ClientContext *c) {
+        assert(c);
+
+        return c->user_unit && uid_is_valid(c->owner_uid);
+}
+
+static char *system_state_file_path(const ClientContext *c, const char *name) {
+        assert(c);
+        assert(name);
+        assert(c->unit);
+
+        return strjoin("/run/systemd/units/", name, c->unit);
+}
+
+static char *client_context_state_file_path(const ClientContext *c, const char *name) {
+        assert(c);
+        assert(name);
+        assert(c->unit);
+
+        /* Per-unit state files for journald: PID 1 stores them in /run/systemd/units/, user managers store
+         * them under /run/user/<uid>/systemd/units/. Cgroups without an owner UID, e.g. capsules, have no
+         * /run/user/<uid>/ directory; key those by the enclosing system unit instead of formatting an
+         * invalid UID into the path. (Capsule managers do have a runtime directory, below /run/capsules/,
+         * but state files exported there are not read by journald.) */
+        if (client_context_user_area(c))
+                return strjoin("/run/user/", FORMAT_UID(c->owner_uid), "/systemd/units/", name, c->user_unit);
+
+        return system_state_file_path(c, name);
+}
+
 static int client_context_read_invocation_id(
                 Manager *m,
                 ClientContext *c) {
@@ -337,22 +368,18 @@ static int client_context_read_invocation_id(
         assert(m);
         assert(c);
 
-        /* Read the invocation ID of a unit off a unit.
-         * PID 1 stores it in a per-unit symlink in /run/systemd/units/
-         * User managers store it in a per-unit symlink under /run/user/<uid>/systemd/units/ */
-
         if (!c->unit)
                 return 0;
 
-        if (c->user_unit) {
-                r = asprintf(&p, "/run/user/" UID_FMT "/systemd/units/invocation:%s", c->owner_uid, c->user_unit);
-                if (r < 0)
-                        return r;
-        } else {
-                p = strjoin("/run/systemd/units/invocation:", c->unit);
-                if (!p)
-                        return -ENOMEM;
-        }
+        /* Capsules have no /run/user/<uid>/ directory, and no invocation ID was read for their
+         * units before; leave the field unset instead of attributing them to the invocation ID
+         * of the capsule manager service. */
+        if (c->user_unit && !client_context_user_area(c))
+                return 0;
+
+        p = client_context_state_file_path(c, "invocation:");
+        if (!p)
+                return -ENOMEM;
 
         r = readlink_malloc(p, &value);
         if (r < 0)
@@ -361,27 +388,62 @@ static int client_context_read_invocation_id(
         return sd_id128_from_string(value, &c->invocation_id);
 }
 
+static int log_level_max_from_state_file(const char *path) {
+        _cleanup_free_ char *value = NULL;
+        int r;
+
+        assert(path);
+
+        r = readlink_malloc(path, &value);
+        if (r < 0)
+                return r;
+
+        return log_level_from_string(value);
+}
+
 static int client_context_read_log_level_max(
                 Manager *m,
                 ClientContext *c) {
 
-        _cleanup_free_ char *value = NULL;
-        const char *p;
-        int r, ll;
+        _cleanup_free_ char *p = NULL;
+        bool user_area;
+        int r;
 
         if (!c->unit)
                 return 0;
 
-        p = strjoina("/run/systemd/units/log-level-max:", c->unit);
-        r = readlink_malloc(p, &value);
+        p = client_context_state_file_path(c, "log-level-max:");
+        if (!p)
+                return -ENOMEM;
+
+        user_area = client_context_user_area(c);
+
+        /* The per-user-unit state file lives in a directory the user owns and may replace entries
+         * in. Treat anything but a readable symlink with a valid target as if no level was
+         * exported, so that a corrupt file cannot make journald skip the session-wide fallback
+         * below. */
+        r = log_level_max_from_state_file(p);
+        if (r < 0 && r != -ENOENT) {
+                if (!user_area)
+                        return r;
+                r = -ENOENT;
+        }
+
+        /* A LogLevelMax= drop-in for user@<UID>.service applies to the whole user session; its
+         * state file is exported by PID 1 below /run/systemd/units/. Fall back to it if the user
+         * manager did not export one for the user unit. */
+        if (r == -ENOENT && user_area) {
+                p = mfree(p);
+                p = system_state_file_path(c, "log-level-max:");
+                if (!p)
+                        return -ENOMEM;
+
+                r = log_level_max_from_state_file(p);
+        }
         if (r < 0)
                 return r;
 
-        ll = log_level_from_string(value);
-        if (ll < 0)
-                return ll;
-
-        c->log_level_max = ll;
+        c->log_level_max = r;
         return 0;
 }
 
@@ -394,14 +456,16 @@ static int client_context_read_extra_fields(
         _cleanup_free_ void *data = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         struct stat st;
-        const char *p;
+        _cleanup_free_ char *p = NULL;
         uint8_t *q;
         int r;
 
         if (!c->unit)
                 return 0;
 
-        p = strjoina("/run/systemd/units/log-extra-fields:", c->unit);
+        p = system_state_file_path(c, "log-extra-fields:");
+        if (!p)
+                return -ENOMEM;
 
         if (c->extra_fields_mtime != NSEC_INFINITY) {
                 if (stat(p, &st) < 0) {
@@ -479,8 +543,7 @@ static int client_context_read_extra_fields(
 }
 
 static int client_context_read_log_ratelimit_interval(ClientContext *c) {
-        _cleanup_free_ char *value = NULL;
-        const char *p;
+        _cleanup_free_ char *p = NULL, *value = NULL;
         int r;
 
         assert(c);
@@ -488,7 +551,10 @@ static int client_context_read_log_ratelimit_interval(ClientContext *c) {
         if (!c->unit)
                 return 0;
 
-        p = strjoina("/run/systemd/units/log-rate-limit-interval:", c->unit);
+        p = system_state_file_path(c, "log-rate-limit-interval:");
+        if (!p)
+                return -ENOMEM;
+
         r = readlink_malloc(p, &value);
         if (r < 0)
                 return r;
@@ -502,8 +568,7 @@ static int client_context_read_log_ratelimit_interval(ClientContext *c) {
 }
 
 static int client_context_read_log_ratelimit_burst(ClientContext *c) {
-        _cleanup_free_ char *value = NULL;
-        const char *p;
+        _cleanup_free_ char *p = NULL, *value = NULL;
         int r;
 
         assert(c);
@@ -511,7 +576,10 @@ static int client_context_read_log_ratelimit_burst(ClientContext *c) {
         if (!c->unit)
                 return 0;
 
-        p = strjoina("/run/systemd/units/log-rate-limit-burst:", c->unit);
+        p = system_state_file_path(c, "log-rate-limit-burst:");
+        if (!p)
+                return -ENOMEM;
+
         r = readlink_malloc(p, &value);
         if (r < 0)
                 return r;
