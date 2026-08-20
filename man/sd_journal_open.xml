@@ -150,7 +150,8 @@
     automatically. This call also takes a flags argument, but it must be passed as 0 as no flags are currently
     understood for this call. Please note that in the case of a live journal, this function is only useful for
     debugging, because individual journal files can be rotated at any moment, and the opening of specific files is
-    inherently racy.</para>
+    inherently racy. Empty journal files are skipped, as if they did not exist: journal files are created empty,
+    and acquire their header shortly after creation, hence an empty journal file carries no data yet.</para>
 
     <para><function>sd_journal_open_files_fd()</function> is similar to <function>sd_journal_open_files()</function>
     but takes an array of open file descriptors that must reference journal files, instead of an array of file system
