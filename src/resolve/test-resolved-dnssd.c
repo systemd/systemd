@@ -100,6 +100,8 @@ static void assert_goodbye_packet(
         DnsResourceRecord *rr;
         size_t i;
 
+        assert(n_expected <= ELEMENTSOF(found));
+
         ASSERT_NOT_NULL(packet);
         ASSERT_EQ(packet->protocol, DNS_PROTOCOL_MDNS);
         ASSERT_EQ(DNS_PACKET_ID(packet), 0);
@@ -202,13 +204,13 @@ TEST(service_type_reference_counting) {
         establish_service_records(&scope, statik, dynamic, other);
         ASSERT_OK(dns_scope_add_dnssd_registered_services(&scope));
         ASSERT_EQ(enumeration_record_count(&scope), 2u);
-        ASSERT_OK(dns_scope_remove_dnssd_registered_services(&scope));
+        ASSERT_OK(dns_scope_remove_dnssd_registered_services(&scope, false));
         ASSERT_EQ(enumeration_record_count(&scope), 0u);
         establish_service_records(&scope, statik, dynamic, other);
         ASSERT_OK(dns_scope_add_dnssd_registered_services(&scope));
         ASSERT_EQ(enumeration_record_count(&scope), 2u);
 
-        ASSERT_OK(dns_scope_remove_dnssd_registered_services(&scope));
+        ASSERT_OK(dns_scope_remove_dnssd_registered_services(&scope, false));
         dns_zone_flush(&scope.zone);
         scope.dnssd_services = hashmap_free(scope.dnssd_services);
         scope.dnssd_service_types = hashmap_free(scope.dnssd_service_types);
@@ -216,6 +218,92 @@ TEST(service_type_reference_counting) {
         dnssd_registered_service_remove(statik, false);
         dnssd_registered_service_remove(dynamic, false);
         dnssd_registered_service_remove(other, false);
+        manager.dnssd_registered_services = hashmap_free(manager.dnssd_registered_services);
+}
+
+TEST(attachment_lifecycle) {
+        DnssdRegisteredService *service;
+        Manager manager = {};
+        DnsScope ipv4 = {
+                .manager = &manager,
+                .protocol = DNS_PROTOCOL_MDNS,
+                .family = AF_INET,
+                .announced = true,
+        }, ipv6 = {
+                .manager = &manager,
+                .protocol = DNS_PROTOCOL_MDNS,
+                .family = AF_INET6,
+                .announced = true,
+        };
+
+        service = add_published_service(&manager, "dual-stack", "_http._tcp", RESOLVE_CONFIG_SOURCE_DBUS);
+        ASSERT_OK(dns_zone_put(&ipv4.zone, &ipv4, service->srv_rr, false));
+        ASSERT_OK(dns_zone_put(&ipv6.zone, &ipv6, service->srv_rr, false));
+
+        ASSERT_EQ(dns_scope_add_dnssd_service(&ipv4, service), 1);
+        ASSERT_FALSE(ipv4.announced);
+        ASSERT_EQ(dns_scope_add_dnssd_service(&ipv4, service), 0);
+        ASSERT_EQ(hashmap_size(service->attachments), 1u);
+        ASSERT_EQ(hashmap_size(ipv4.dnssd_services), 1u);
+
+        ASSERT_EQ(dns_scope_add_dnssd_service(&ipv6, service), 1);
+        ASSERT_FALSE(ipv6.announced);
+        ASSERT_EQ(hashmap_size(service->attachments), 2u);
+        ASSERT_EQ(hashmap_size(ipv6.dnssd_services), 1u);
+
+        ASSERT_OK(dns_scope_remove_dnssd_registered_services(&ipv4, false));
+        ASSERT_EQ(hashmap_size(service->attachments), 1u);
+        ASSERT_TRUE(hashmap_contains(service->attachments, &ipv6));
+
+        for (unsigned i = 0; i < 5; i++) {
+                ASSERT_EQ(dns_scope_remove_dnssd_service(&ipv6, service, false), 1);
+                ASSERT_TRUE(hashmap_isempty(service->attachments));
+                ASSERT_OK(dns_zone_put(&ipv6.zone, &ipv6, service->srv_rr, false));
+                ASSERT_EQ(dns_scope_add_dnssd_service(&ipv6, service), 1);
+        }
+
+        ASSERT_OK(dns_scope_remove_dnssd_registered_services(&ipv6, false));
+        ASSERT_TRUE(hashmap_isempty(service->attachments));
+        ASSERT_EQ(enumeration_record_count(&ipv4), 0u);
+        ASSERT_EQ(enumeration_record_count(&ipv6), 0u);
+
+        dns_zone_flush(&ipv4.zone);
+        dns_zone_flush(&ipv6.zone);
+        ipv4.dnssd_services = hashmap_free(ipv4.dnssd_services);
+        ipv4.dnssd_service_types = hashmap_free(ipv4.dnssd_service_types);
+        ipv6.dnssd_services = hashmap_free(ipv6.dnssd_services);
+        ipv6.dnssd_service_types = hashmap_free(ipv6.dnssd_service_types);
+        dnssd_registered_service_remove(service, false);
+        manager.dnssd_registered_services = hashmap_free(manager.dnssd_registered_services);
+}
+
+TEST(attachment_rollback) {
+        DnssdRegisteredService *service;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *srv_rr = NULL;
+        Manager manager = {};
+        DnsScope scope = {
+                .manager = &manager,
+                .protocol = DNS_PROTOCOL_MDNS,
+        };
+
+        service = add_published_service(&manager, "broken", "_http._tcp", RESOLVE_CONFIG_SOURCE_DBUS);
+        srv_rr = TAKE_PTR(service->srv_rr);
+        service->srv_rr = dns_resource_record_new_full(
+                        DNS_CLASS_IN, DNS_TYPE_ANY, service->ptr_rr->ptr.name);
+        ASSERT_NOT_NULL(service->srv_rr);
+
+        ASSERT_ERROR(dns_scope_add_dnssd_service(&scope, service), EINVAL);
+        ASSERT_TRUE(hashmap_isempty(service->attachments));
+        ASSERT_TRUE(hashmap_isempty(scope.dnssd_services));
+        ASSERT_TRUE(hashmap_isempty(scope.dnssd_service_types));
+        ASSERT_NULL(dns_zone_get(&scope.zone, service->ptr_rr));
+        ASSERT_NULL(dns_zone_get(&scope.zone, service->srv_rr));
+        ASSERT_EQ(enumeration_record_count(&scope), 0u);
+
+        dns_zone_flush(&scope.zone);
+        scope.dnssd_services = hashmap_free(scope.dnssd_services);
+        scope.dnssd_service_types = hashmap_free(scope.dnssd_service_types);
+        dnssd_registered_service_remove(service, false);
         manager.dnssd_registered_services = hashmap_free(manager.dnssd_registered_services);
 }
 

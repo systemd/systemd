@@ -19,6 +19,11 @@ typedef struct DnssdTxtData {
         LIST_FIELDS(DnssdTxtData, items);
 } DnssdTxtData;
 
+typedef struct DnssdServiceAttachment {
+        DnssdRegisteredService *service;
+        DnsScope *scope;
+} DnssdServiceAttachment;
+
 typedef struct DnssdRegisteredService {
         char *path;
         char *id;
@@ -38,6 +43,9 @@ typedef struct DnssdRegisteredService {
         LIST_HEAD(DnssdTxtData, txt_data_items);
 
         Manager *manager;
+
+        /* DnsScope* -> DnssdServiceAttachment* */
+        Hashmap *attachments;
 
         /* For services registered over D-Bus, keep the owner track alive for as long as the publication exists. */
         sd_bus_track *bus_track;
