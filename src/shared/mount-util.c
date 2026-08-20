@@ -503,6 +503,7 @@ int bind_remount_recursive_with_mountinfo(
         _cleanup_fclose_ FILE *proc_self_mountinfo_opened = NULL;
         _cleanup_set_free_ Set *done = NULL;
         unsigned n_tries = 0;
+        bool made_top_mount = false;
         int r;
 
         if (!proc_self_mountinfo) {
@@ -616,10 +617,19 @@ int bind_remount_recursive_with_mountinfo(
                 if (!set_contains(done, prefix) &&
                     !(top_autofs || hashmap_contains(todo, prefix))) {
 
+                        /* A mount we made has to show up in the next snapshot. If it does not, some
+                         * enumeration is at fault, and mounting again would just stack another bind
+                         * mount on the same path every pass until the retry counter runs out. */
+                        if (made_top_mount)
+                                return log_debug_errno(SYNTHETIC_ERRNO(ENODATA),
+                                                       "Made '%s' a mount, but it has not appeared in the mount table.", prefix);
+
                         /* The prefix directory itself is not yet a mount, make it one. */
                         r = mount_nofollow(prefix, prefix, NULL, MS_BIND|MS_REC, NULL);
                         if (r < 0)
                                 return r;
+
+                        made_top_mount = true;
 
                         /* Immediately rescan, so that we pick up the new mount's flags */
                         continue;
