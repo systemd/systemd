@@ -41,6 +41,31 @@
 #define MULTICAST_RATELIMIT_INTERVAL_USEC (1*USEC_PER_SEC)
 #define MULTICAST_RATELIMIT_BURST 1000
 
+typedef struct DnssdServiceType {
+        char *name;
+        DnsResourceRecord *rr;
+        unsigned n_ref;
+} DnssdServiceType;
+
+static DnssdServiceType* dnssd_service_type_free(DnssdServiceType *type) {
+        if (!type)
+                return NULL;
+
+        dns_resource_record_unref(type->rr);
+        free(type->name);
+        return mfree(type);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(DnssdServiceType*, dnssd_service_type_free);
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                dnssd_service_type_hash_ops,
+                char,
+                dns_name_hash_func,
+                dns_name_compare_func,
+                DnssdServiceType,
+                dnssd_service_type_free);
+
 /* After how much time to repeat LLMNR requests, see RFC 4795 Section 7 */
 #define MULTICAST_RESEND_TIMEOUT_MIN_USEC (100 * USEC_PER_MSEC)
 #define MULTICAST_RESEND_TIMEOUT_MAX_USEC (1 * USEC_PER_SEC)
@@ -165,6 +190,8 @@ DnsScope* dns_scope_free(DnsScope *s) {
 
         dns_cache_flush(&s->cache);
         dns_zone_flush(&s->zone);
+        s->dnssd_services = hashmap_free(s->dnssd_services);
+        s->dnssd_service_types = hashmap_free(s->dnssd_service_types);
 
         /* Clear records of mDNS service browse subscriber, since cache bas been flushed */
         dns_browse_services_purge(s->manager, s->family);
@@ -1536,10 +1563,8 @@ static int on_announcement_timeout(sd_event_source *s, usec_t usec, void *userda
 int dns_scope_announce(DnsScope *scope, bool goodbye) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-        _cleanup_set_free_ Set *types = NULL;
         DnsZoneItem *z;
         unsigned size = 0;
-        char *service_type;
         int r;
 
         if (!scope)
@@ -1579,22 +1604,11 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
                         continue;
                 }
 
-                /* Collect service types for _services._dns-sd._udp.local RRs in a set. Only two-label names
-                 * (not selective names) are considered according to RFC6763 § 9. */
-                if (!scope->announced &&
-                    dns_resource_key_is_dnssd_two_label_ptr(z->rr->key)) {
-                        if (!set_contains(types, dns_resource_key_name(z->rr->key))) {
-                                r = set_ensure_put(&types, &dns_name_hash_ops, dns_resource_key_name(z->rr->key));
-                                if (r < 0)
-                                        return log_debug_errno(r, "Failed to add item to set: %m");
-                        }
-                }
-
                 LIST_FOREACH(by_key, i, z)
                         size++;
         }
 
-        answer = dns_answer_new(size + set_size(types));
+        answer = dns_answer_new(size);
         if (!answer)
                 return log_oom();
 
@@ -1615,30 +1629,6 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to add RR to announce: %m");
                 }
-
-        /* Since all the active services are in the zone make them discoverable now. */
-        SET_FOREACH(service_type, types) {
-                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
-
-                rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_PTR,
-                                                  "_services._dns-sd._udp.local");
-                if (!rr)
-                        return log_oom();
-
-                rr->ptr.name = strdup(service_type);
-                if (!rr->ptr.name)
-                        return log_oom();
-
-                rr->ttl = MDNS_DEFAULT_TTL;
-
-                r = dns_zone_put(&scope->zone, scope, rr, false);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to add DNS-SD PTR record to MDNS zone, ignoring: %m");
-
-                r = dns_answer_add(answer, rr, 0, 0, NULL);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to add RR to announce: %m");
-        }
 
         if (dns_answer_isempty(answer))
                 return 0;
@@ -1693,27 +1683,32 @@ static int dns_scope_add_dnssd_service_rr(
         return dns_answer_add(answer, rr, 0, flags, NULL);
 }
 
-int dns_scope_announce_dnssd_service(DnsScope *scope, DnssdRegisteredService *service, bool goodbye) {
+int dns_scope_build_dnssd_service_packet(
+                DnsScope *scope,
+                DnssdRegisteredService *service,
+                bool goodbye,
+                DnsPacket **ret) {
+
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
         unsigned n_txt = 0;
+        DnssdServiceType *type;
         int r;
 
+        assert(scope);
         assert(service);
+        assert(ret);
 
-        if (!scope || scope->protocol != DNS_PROTOCOL_MDNS)
-                return 0;
+        *ret = NULL;
 
-        r = sd_event_get_state(scope->manager->event);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to get event loop state: %m");
-        if (r == SD_EVENT_FINISHED)
+        if (scope->protocol != DNS_PROTOCOL_MDNS)
                 return 0;
 
         LIST_FOREACH(items, txt_data, service->txt_data_items)
                 n_txt++;
 
-        answer = dns_answer_new(2 + !!service->sub_ptr_rr + n_txt);
+        type = hashmap_get(scope->dnssd_service_types, dns_resource_key_name(service->ptr_rr->key));
+
+        answer = dns_answer_new(2 + !!service->sub_ptr_rr + n_txt + !!(goodbye && type && type->n_ref == 1));
         if (!answer)
                 return log_oom();
 
@@ -1721,6 +1716,11 @@ int dns_scope_announce_dnssd_service(DnsScope *scope, DnssdRegisteredService *se
                                            goodbye ? DNS_ANSWER_GOODBYE : 0);
         if (r < 0)
                 return r;
+        if (goodbye && type && type->n_ref == 1) {
+                r = dns_scope_add_dnssd_service_rr(scope, answer, type->rr, DNS_ANSWER_GOODBYE);
+                if (r < 0)
+                        return r;
+        }
         r = dns_scope_add_dnssd_service_rr(scope, answer, service->sub_ptr_rr,
                                            goodbye ? DNS_ANSWER_GOODBYE : 0);
         if (r < 0)
@@ -1745,15 +1745,131 @@ int dns_scope_announce_dnssd_service(DnsScope *scope, DnssdRegisteredService *se
         if (dns_answer_isempty(answer))
                 return 0;
 
-        r = dns_scope_make_reply_packet(scope, 0, DNS_RCODE_SUCCESS, NULL, answer, NULL, false, &packet);
+        r = dns_scope_make_reply_packet(scope, 0, DNS_RCODE_SUCCESS, NULL, answer, NULL, false, ret);
         if (r < 0)
                 return log_debug_errno(r, "Failed to build DNS-SD announcement packet: %m");
+
+        return 0;
+}
+
+int dns_scope_announce_dnssd_service(DnsScope *scope, DnssdRegisteredService *service, bool goodbye) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        int r;
+
+        assert(service);
+
+        if (!scope || scope->protocol != DNS_PROTOCOL_MDNS)
+                return 0;
+
+        r = sd_event_get_state(scope->manager->event);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get event loop state: %m");
+        if (r == SD_EVENT_FINISHED)
+                return 0;
+
+        r = dns_scope_build_dnssd_service_packet(scope, service, goodbye, &packet);
+        if (r < 0)
+                return r;
+        if (!packet)
+                return 0;
 
         r = dns_scope_emit_udp(scope, -1, AF_UNSPEC, packet);
         if (r < 0)
                 return log_debug_errno(r, "Failed to send DNS-SD announcement packet: %m");
 
         return 0;
+}
+
+static int dns_scope_add_dnssd_service(DnsScope *scope, DnssdRegisteredService *service) {
+        _cleanup_(dnssd_service_type_freep) DnssdServiceType *new_type = NULL;
+        const char *name;
+        DnssdServiceType *type;
+        int r;
+
+        assert(scope);
+        assert(service);
+        assert(service->ptr_rr);
+
+        if (hashmap_contains(scope->dnssd_services, service))
+                return 0;
+
+        name = dns_resource_key_name(service->ptr_rr->key);
+        type = hashmap_get(scope->dnssd_service_types, name);
+        if (!type) {
+                new_type = new0(DnssdServiceType, 1);
+                if (!new_type)
+                        return -ENOMEM;
+
+                new_type->name = strdup(name);
+                new_type->rr = dns_resource_record_new_full(
+                                DNS_CLASS_IN, DNS_TYPE_PTR, "_services._dns-sd._udp.local");
+                if (!new_type->name || !new_type->rr)
+                        return -ENOMEM;
+
+                new_type->rr->ptr.name = strdup(name);
+                if (!new_type->rr->ptr.name)
+                        return -ENOMEM;
+                new_type->rr->ttl = MDNS_DEFAULT_TTL;
+                new_type->n_ref = 1;
+
+                r = dns_zone_put(&scope->zone, scope, new_type->rr, false);
+                if (r < 0)
+                        return r;
+
+                r = hashmap_ensure_put(
+                                &scope->dnssd_service_types,
+                                &dnssd_service_type_hash_ops,
+                                new_type->name,
+                                new_type);
+                if (r < 0) {
+                        dns_zone_remove_rr(&scope->zone, new_type->rr);
+                        return r;
+                }
+
+                type = TAKE_PTR(new_type);
+        } else
+                type->n_ref++;
+
+        r = hashmap_ensure_put(&scope->dnssd_services, &trivial_hash_ops, service, service);
+        if (r < 0) {
+                if (--type->n_ref == 0) {
+                        dns_zone_remove_rr(&scope->zone, type->rr);
+                        dnssd_service_type_free(hashmap_remove(scope->dnssd_service_types, type->name));
+                }
+                return r;
+        }
+
+        return 1;
+}
+
+int dns_scope_remove_dnssd_service(DnsScope *scope, DnssdRegisteredService *service, bool send_goodbye) {
+        DnssdServiceType *type;
+
+        assert(scope);
+        assert(service);
+
+        if (!hashmap_remove(scope->dnssd_services, service))
+                return 0;
+
+        type = hashmap_get(scope->dnssd_service_types, dns_resource_key_name(service->ptr_rr->key));
+        assert(type);
+        assert(type->n_ref > 0);
+
+        if (send_goodbye)
+                dns_scope_announce_dnssd_service(scope, service, true);
+
+        dns_zone_remove_rr(&scope->zone, service->ptr_rr);
+        dns_zone_remove_rr(&scope->zone, service->sub_ptr_rr);
+        dns_zone_remove_rr(&scope->zone, service->srv_rr);
+        LIST_FOREACH(items, txt_data, service->txt_data_items)
+                dns_zone_remove_rr(&scope->zone, txt_data->rr);
+
+        if (--type->n_ref == 0) {
+                dns_zone_remove_rr(&scope->zone, type->rr);
+                dnssd_service_type_free(hashmap_remove(scope->dnssd_service_types, type->name));
+        }
+
+        return 1;
 }
 
 int dns_scope_add_dnssd_registered_services(DnsScope *scope) {
@@ -1769,6 +1885,14 @@ int dns_scope_add_dnssd_registered_services(DnsScope *scope) {
 
         HASHMAP_FOREACH(service, scope->manager->dnssd_registered_services) {
                 service->withdrawn = false;
+
+                r = dns_scope_add_dnssd_service(scope, service);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to add DNS-SD service type to MDNS zone: %m");
+                        continue;
+                }
+                if (r == 0)
+                        continue;
 
                 r = dns_zone_put(&scope->zone, scope, service->ptr_rr, false);
                 if (r < 0)
@@ -1795,28 +1919,15 @@ int dns_scope_add_dnssd_registered_services(DnsScope *scope) {
 }
 
 int dns_scope_remove_dnssd_registered_services(DnsScope *scope) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
         DnssdRegisteredService *service;
-        int r;
 
         assert(scope);
 
-        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_PTR,
-                                   "_services._dns-sd._udp.local");
-        if (!key)
-                return log_oom();
+        HASHMAP_FOREACH(service, scope->manager->dnssd_registered_services)
+                (void) dns_scope_remove_dnssd_service(scope, service, false);
 
-        r = dns_zone_remove_rrs_by_key(&scope->zone, key);
-        if (r < 0)
-                return r;
-
-        HASHMAP_FOREACH(service, scope->manager->dnssd_registered_services) {
-                dns_zone_remove_rr(&scope->zone, service->ptr_rr);
-                dns_zone_remove_rr(&scope->zone, service->sub_ptr_rr);
-                dns_zone_remove_rr(&scope->zone, service->srv_rr);
-                LIST_FOREACH(items, txt_data, service->txt_data_items)
-                        dns_zone_remove_rr(&scope->zone, txt_data->rr);
-        }
+        assert(hashmap_isempty(scope->dnssd_services));
+        assert(hashmap_isempty(scope->dnssd_service_types));
 
         return 0;
 }
