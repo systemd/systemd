@@ -446,7 +446,7 @@ testcase_check_default_inaccessible_paths() {
 }
 
 nspawn_settings_cleanup() {
-    for dev in sd-host-only sd-shared{1,2,3} sd-macvlan{1,2} sd-ipvlan{1,2}; do
+    for dev in sd-host-only sd-shared{1,2,3} sd-macvlan{1,2} sd-ipvlan{1,2} sd-extra0 vz-ns-test; do
         ip link del "$dev" || :
     done
 
@@ -608,6 +608,115 @@ EOF
         chown -R root:root "$root"
         systemd-nspawn --directory="$root" bash -xec '[[ "$(hostname)" == private-users ]]'
     done
+
+    # Private=yes must preserve command-line link settings and override an incompatible NamespacePath=.
+    # (https://github.com/systemd/systemd/issues/12313#issuecomment-681116926).
+    cat >"/run/systemd/nspawn/$container.nspawn" <<EOF
+[Exec]
+PrivateUsers=no
+
+[Files]
+${COVERAGE_BUILD_DIR:+"Bind=$COVERAGE_BUILD_DIR"}
+
+[Network]
+Private=yes
+EOF
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   --network-namespace-path=/proc/self/ns/net \
+                   --network-veth \
+                   --network-veth-extra=sd-extra0:extra0 \
+                   --setenv=HOST_NETNS="$(readlink /proc/self/ns/net)" \
+                   --settings=override \
+                   bash -xec '
+                       [[ "$(readlink /proc/self/ns/net)" != "$HOST_NETNS" ]]
+                       ip link show dev host0
+                       ip link show dev extra0
+                   '
+
+    # VirtualEthernet=no overrides --network-veth, while the command-line extra veth remains independent.
+    sed -i 's/Private=yes/VirtualEthernet=no/' "/run/systemd/nspawn/$container.nspawn"
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   --network-veth \
+                   --network-veth-extra=sd-extra0:extra0 \
+                   --settings=override \
+                   bash -xec '
+                       (! ip link show dev host0)
+                       ip link show dev extra0
+                       ip link set dev extra0 up
+                   '
+
+    # Neither Private=no nor VirtualEthernet=no may leave an inherited or implied Zone= behind: nspawn
+    # unconditionally removes arg_network_zone on exit, even when it did not create or join that bridge.
+    ip link add vz-ns-test type bridge
+    cat >"/run/systemd/nspawn/$container.nspawn" <<EOF
+[Exec]
+PrivateUsers=no
+
+[Files]
+${COVERAGE_BUILD_DIR:+"Bind=$COVERAGE_BUILD_DIR"}
+
+[Network]
+Private=no
+EOF
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   --network-zone=ns-test \
+                   --settings=override \
+                   true
+    ip link show dev vz-ns-test
+
+    cat >"/run/systemd/nspawn/$container.nspawn" <<EOF
+[Exec]
+PrivateUsers=no
+
+[Files]
+${COVERAGE_BUILD_DIR:+"Bind=$COVERAGE_BUILD_DIR"}
+
+[Network]
+VirtualEthernet=no
+Zone=ns-test
+EOF
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   --settings=override \
+                   true
+    ip link show dev vz-ns-test
+    ip link del vz-ns-test
+
+    # Zone= must imply both Private=yes and VirtualEthernet=yes.
+    cat >"/run/systemd/nspawn/$container.nspawn" <<EOF
+[Exec]
+PrivateUsers=no
+
+[Files]
+${COVERAGE_BUILD_DIR:+"Bind=$COVERAGE_BUILD_DIR"}
+
+[Network]
+Zone=ns-test
+EOF
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   --settings=override \
+                   bash -xec 'ip link show dev host0'
+
+    # NamespacePath= overrides command line link configuration as an exclusive network mode.
+    cat >"/run/systemd/nspawn/$container.nspawn" <<EOF
+[Exec]
+PrivateUsers=no
+
+[Files]
+${COVERAGE_BUILD_DIR:+"Bind=$COVERAGE_BUILD_DIR"}
+
+[Network]
+NamespacePath=/proc/self/ns/net
+EOF
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   --network-veth \
+                   --settings=override \
+                   true
 
     rm -fr "$root" "/run/systemd/nspawn/$container.nspawn"
 }
