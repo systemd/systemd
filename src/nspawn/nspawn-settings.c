@@ -193,13 +193,18 @@ bool settings_private_network(Settings *s) {
                 s->network_veth_extra;
 }
 
-bool settings_network_veth(Settings *s) {
+int settings_network_veth(Settings *s) {
         assert(s);
 
-        return
-                s->network_veth > 0 ||
-                s->network_bridge ||
-                s->network_zone;
+        /* Honor VirtualEthernet= setting if specified. */
+        if (s->network_veth >= 0)
+                return s->network_veth;
+
+        /* Bridge= and Zone= imply VirtualEthernet=yes. */
+        if (s->network_bridge || s->network_zone)
+                return 1;
+
+        return -1;
 }
 
 bool settings_network_configured(Settings *s) {
