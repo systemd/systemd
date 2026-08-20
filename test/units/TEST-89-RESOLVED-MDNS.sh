@@ -378,12 +378,19 @@ start_dnssd_owner_service() {
 }
 
 wait_dnssd_object() {
-    local id="${1:?}" expected="${2:?}" path tree
+    local id="${1:?}" expected="${2:?}" path
 
     path="$(systemd-run -M "$CONTAINER_1" --wait --pipe -- cat "/run/$id.ready")"
+    path="${path:?}"
+    wait_dnssd_object_path "$path" "$expected"
+}
+
+wait_dnssd_object_path() {
+    local path="${1:?}" expected="${2:?}" tree
+
     for _ in {0..19}; do
         tree="$(busctl -M "$CONTAINER_1" tree org.freedesktop.resolve1)"
-        if grep "$path" <<<"$tree" >/dev/null; then
+        if grep -F "$path" <<<"$tree" >/dev/null; then
             [[ "$expected" == present ]] && return 0
         else
             [[ "$expected" == absent ]] && return 0
@@ -391,7 +398,7 @@ wait_dnssd_object() {
         sleep 1
     done
 
-    echo >&2 "DNS-SD object for '$id' did not become $expected"
+    echo >&2 "DNS-SD object '$path' did not become $expected"
     return 1
 }
 
@@ -423,12 +430,59 @@ wait_dnssd_mdns_mode() {
     return 1
 }
 
+start_dnssd_browser() {
+    local id="${1:?}" unit
+
+    unit="dnssd-browser-$id.service"
+    systemd-run -M "$CONTAINER_1" --wait --pipe -- rm -f "/run/$id.browser"
+    systemd-run -M "$CONTAINER_1" --unit="$unit" --service-type=exec \
+        -p StandardOutput="file:/run/$id.browser" -- \
+        /usr/lib/systemd/tests/unit-tests/manual/test-resolved-dnssd-browse
+
+    timeout 30s bash -xec "while ! systemd-run -M '$CONTAINER_1' --wait --pipe -- grep -Fx updated '/run/$id.browser'; do sleep 1; done"
+}
+
+dnssd_browser_path() {
+    local id="${1:?}"
+
+    systemd-run -M "$CONTAINER_1" --wait --pipe -- sed -n '1p' "/run/$id.browser"
+}
+
+testcase_dbus_browser_lifecycle() {
+    : "D-Bus DNS-SD browsers receive updates and follow their owner"
+
+    local path
+
+    trap 'systemctl -M "$CONTAINER_1" stop dnssd-owner-browser-publisher.service dnssd-browser-browser-stop.service dnssd-browser-browser-disconnect.service 2>/dev/null || :' EXIT
+
+    start_dnssd_owner_service browser-publisher "Owner Browser"
+    wait_dnssd_owner_service "Owner Browser" visible
+
+    start_dnssd_browser browser-stop
+    path="$(dnssd_browser_path browser-stop)"
+    [[ "$path" == /org/freedesktop/resolve1/browser/* ]]
+    wait_dnssd_object_path "$path" present
+    busctl -M "$CONTAINER_1" call org.freedesktop.resolve1 "$path" \
+        org.freedesktop.resolve1.DnssdServiceBrowser Stop && exit 1
+    systemctl -M "$CONTAINER_1" kill -s USR1 dnssd-browser-browser-stop.service
+    wait_dnssd_object_path "$path" absent
+
+    start_dnssd_browser browser-disconnect
+    path="$(dnssd_browser_path browser-disconnect)"
+    [[ "$path" == /org/freedesktop/resolve1/browser/* ]]
+    wait_dnssd_object_path "$path" present
+    systemctl -M "$CONTAINER_1" stop dnssd-browser-browser-disconnect.service
+    wait_dnssd_object_path "$path" absent
+
+    echo testcase_end
+}
+
 testcase_registration_owner_lifecycle() {
     : "D-Bus DNS-SD registrations follow their owner and mDNS scopes"
 
     local owner_b_pid
 
-    trap 'systemctl -M "$CONTAINER_1" stop dnssd-owner-owner-a.service dnssd-owner-owner-b.service dnssd-owner-owner-shutdown.service 2>/dev/null || :' EXIT
+    trap 'systemctl -M "$CONTAINER_1" stop dnssd-owner-owner-a.service dnssd-owner-owner-b.service dnssd-owner-owner-shutdown.service 2>/dev/null || :; systemd-run -M "$CONTAINER_1" --wait --pipe -- resolvectl mdns host0 yes || :; systemd-run -M "$CONTAINER_1" --wait --pipe -- networkctl up host0 || :' EXIT
 
     start_dnssd_owner_service owner-a "Owner A"
     start_dnssd_owner_service owner-b "Owner B"
