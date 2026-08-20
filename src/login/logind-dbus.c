@@ -2327,7 +2327,11 @@ static int method_do_shutdown_or_sleep(
                                          handle_action_to_string(m->delayed_action->handle),
                                          handle_action_to_string(a->handle));
 
-        /* reset case we're shorting a scheduled shutdown */
+        r = bus_manager_shutdown_or_sleep_now_or_later(m, a, error);
+        if (r < 0)
+                return r;
+
+        /* Reset in case we're short-circuiting a scheduled shutdown. */
         m->unlink_nologin = false;
         manager_reset_scheduled_shutdown(m);
 
@@ -2335,10 +2339,6 @@ static int method_do_shutdown_or_sleep(
         m->scheduled_shutdown_action = action;
 
         (void) setup_wall_message_timer(m, message);
-
-        r = bus_manager_shutdown_or_sleep_now_or_later(m, a, error);
-        if (r < 0)
-                return r;
 
         return sd_bus_reply_method_return(message, NULL);
 }
