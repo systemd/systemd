@@ -331,7 +331,9 @@ static char* build_package_reference(
                        strempty(arch));
 }
 
-static void report_module_metadata(StackContext *c, const char *name, sd_json_variant *metadata) {
+static void report_module_metadata(StackContext *c, const char *name, sd_json_variant *metadata, sd_json_variant *id_json) {
+        const char *package = NULL, *version = NULL;
+
         assert(c);
         assert(name);
 
@@ -342,11 +344,10 @@ static void report_module_metadata(StackContext *c, const char *name, sd_json_va
 
         if (metadata) {
                 const char
-                        *build_id = sd_json_variant_string(sd_json_variant_by_key(metadata, "buildId")),
                         *type = sd_json_variant_string(sd_json_variant_by_key(metadata, "type")),
-                        *package = sd_json_variant_string(sd_json_variant_by_key(metadata, "name")),
-                        *version = sd_json_variant_string(sd_json_variant_by_key(metadata, "version")),
                         *arch = sd_json_variant_string(sd_json_variant_by_key(metadata, "architecture"));
+                package = sd_json_variant_string(sd_json_variant_by_key(metadata, "name"));
+                version = sd_json_variant_string(sd_json_variant_by_key(metadata, "version"));
 
                 if (package) {
                         /* Version/architecture is only meaningful with a package name.
@@ -354,10 +355,13 @@ static void report_module_metadata(StackContext *c, const char *name, sd_json_va
                         _cleanup_free_ char *id = build_package_reference(type, package, version, arch);
                         fprintf(c->m.f, " from %s", strnull(id));
                 }
-
-                if (build_id && !(package && version))
-                        fprintf(c->m.f, ", build-id=%s", build_id);
         }
+
+        /* The build-id is a per-module property (there's exactly one), so it's kept separately from the
+         * package notes; read it from the build-id object rather than from a note. */
+        const char *build_id = sd_json_variant_string(sd_json_variant_by_key(id_json, "buildId"));
+        if (build_id && !(package && version))
+                fprintf(c->m.f, ", build-id=%s", build_id);
 
         fputs("\n", c->m.f);
 }
@@ -410,7 +414,7 @@ static int parse_metadata(const char *name, sd_json_variant *id_json, Elf *elf, 
                      note_offset < data->d_size &&
                      (note_offset = sym_gelf_getnote(data, note_offset, &note_header, &name_offset, &desc_offset)) > 0;) {
 
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *w = NULL;
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
                         const char *payload = (const char *)data->d_buf + desc_offset;
 
                         if (note_header.n_namesz == 0 || note_header.n_descsz == 0)
@@ -441,28 +445,49 @@ static int parse_metadata(const char *name, sd_json_variant *id_json, Elf *elf, 
                         }
 
                         if (note_header.n_type == ELF_PACKAGE_METADATA_ID) {
-                                /* If we have a build-id, merge it in the same JSON object so that it appears all
-                                 * nicely together in the logs/metadata. */
-                                if (id_json) {
-                                        r = sd_json_variant_merge_object(&v, id_json);
-                                        if (r < 0)
-                                                return log_error_errno(r, "sd_json_variant_merge of package meta with buildId failed: %m");
-                                }
-
                                 /* Pretty-print to the buffer, so that the metadata goes as plaintext in the
                                  * journal. */
-                                report_module_metadata(c, name, v);
+                                report_module_metadata(c, name, v, id_json);
 
-                                /* Then we build a new object using the module name as the key, and merge it
-                                 * with the previous parses, so that in the end it all fits together in a single
-                                 * JSON blob. */
-                                r = sd_json_buildo(&w, SD_JSON_BUILD_PAIR_VARIANT(name, v));
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to build JSON object: %m");
+                                /* An ELF object (or a module within a core file) may carry more than one
+                                 * .note.package note, e.g. when statically linked or vendored dependencies each
+                                 * embed their own metadata. We don't stop at the first note anymore, but keep
+                                 * scanning all program headers so that no note is lost. */
+                                sd_json_variant *module = sd_json_variant_by_key(*c->package_metadata, name);
+                                if (!module) {
+                                        /* The first note describes the module's "main" package. For backwards
+                                         * compatibility it is stored flat in the module object, together with
+                                         * the module's build-id, exactly as a single note has always been. */
+                                        if (id_json) {
+                                                r = sd_json_variant_merge_object(&v, id_json);
+                                                if (r < 0)
+                                                        return log_error_errno(r, "Failed to merge build-id into package metadata: %m");
+                                        }
 
-                                r = sd_json_variant_merge_object(c->package_metadata, w);
-                                if (r < 0)
-                                        return log_error_errno(r, "sd_json_variant_merge of package meta with buildId failed: %m");
+                                        r = sd_json_variant_set_field(c->package_metadata, name, v);
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to add package metadata to JSON object: %m");
+                                } else {
+                                        /* Any further notes describe additional packages contained in the same
+                                         * module. Append them to the module's "contains" array, without
+                                         * duplicating the module-level build-id into them. The "contains" name
+                                         * is borrowed from the SPDX CONTAINS relationship type. */
+                                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *contains =
+                                                sd_json_variant_ref(sd_json_variant_by_key(module, "contains"));
+
+                                        r = sd_json_variant_append_array(&contains, v);
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to append package metadata to contains array: %m");
+
+                                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = sd_json_variant_ref(module);
+                                        r = sd_json_variant_set_field(&w, "contains", contains);
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to build module metadata object: %m");
+
+                                        r = sd_json_variant_set_field(c->package_metadata, name, w);
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to update package metadata object: %m");
+                                }
 
                                 package_metadata_found = true;
                         } else if (c->dlopen_metadata) {
@@ -479,13 +504,6 @@ static int parse_metadata(const char *name, sd_json_variant *id_json, Elf *elf, 
                         r = set_put_strdup(c->modules, name);
                         if (r < 0)
                                 return log_error_errno(r, "set_put_strdup failed: %m");
-
-                        if (!c->dlopen_metadata) {
-                                if (ret_interpreter_found)
-                                        *ret_interpreter_found = interpreter_found;
-
-                                return 1;
-                        }
                 }
         }
 
@@ -577,7 +595,7 @@ static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, 
         if (r < 0) {
                 log_warning("Could not parse number of program headers from core file: %s",
                             sym_elf_errmsg(-1)); /* -1 retrieves the most recent error */
-                report_module_metadata(c, name, id_json);
+                report_module_metadata(c, name, /* metadata= */ NULL, id_json);
 
                 return DWARF_CB_OK;
         }

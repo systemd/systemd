@@ -911,6 +911,15 @@ alias.service:7: Unknown key name 'MysteryKey' in section 'Service', ignoring.
       <ulink url="https://systemd.io/PACKAGE_METADATA_FOR_EXECUTABLE_FILES/">
       Package Metadata for Executable Files</ulink> document for more information.</para>
 
+      <para>An ELF object (or a module within a core file) may carry more than one packaging metadata note,
+      for example when statically linked or vendored dependencies each embed their own. The first note is
+      treated as the module's main package and its fields are reported directly on the module object, next to
+      the build-id, exactly as when only a single note is present. Any further notes describe additional
+      packages contained in the same module and are reported as an array under the
+      <literal>contains</literal> key, which is only present when there is more than one note. In the table
+      output the additional packages are printed as separate paragraphs. The <literal>contains</literal>
+      terminology is borrowed from the SPDX <literal>CONTAINS</literal> relationship type.</para>
+
       <example>
         <title>Print information about a core file as JSON</title>
 
@@ -930,6 +939,30 @@ alias.service:7: Unknown key name 'MysteryKey' in section 'Service', ignoring.
                 "name" : "fsverity-utils",
                 "version" : "1.3-1",
                 "buildId" : "b5e428254abf14237b0ae70ed85fffbb98a78f88"
+        }
+}
+</programlisting>
+      </example>
+
+      <example>
+        <title>A binary bundling a statically linked dependency, as JSON</title>
+
+        <programlisting>$ systemd-analyze inspect-elf --json=pretty /usr/bin/foo
+{
+        "elfType" : "executable",
+        "elfArchitecture" : "AMD x86-64",
+        "/usr/bin/foo" : {
+                "type" : "deb",
+                "name" : "foo",
+                "version" : "1.2-3",
+                "buildId" : "a3d6de4507a72d75b99611a44341face68794f7c",
+                "contains" : [
+                        {
+                                "type" : "deb",
+                                "name" : "libbar",
+                                "version" : "0.9-1"
+                        }
+                ]
         }
 }
 </programlisting>
