@@ -315,12 +315,20 @@
         <term><varname>vconsole.font=</varname></term>
         <term><varname>vconsole.font_map=</varname></term>
         <term><varname>vconsole.font_unimap=</varname></term>
+        <term><varname>vconsole.font_scale=</varname></term>
 
         <listitem>
           <para>Parameters understood by the virtual console setup logic. For details, see
           <citerefentry><refentrytitle>vconsole.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
-          <xi:include href="version-info.xml" xpointer="v186"/>
+          <para>
+            <varname>vconsole.keymap=</varname> and
+            <varname>vconsole.font=</varname> were added in version 183.
+            <varname>vconsole.keymap_toggle=</varname>,
+            <varname>vconsole.font_map=</varname>, and
+            <varname>vconsole.font_unimap=</varname> were added in version 232.
+            <varname>vconsole.font_scale=</varname> was added in version 262.
+          </para>
         </listitem>
       </varlistentry>
 
