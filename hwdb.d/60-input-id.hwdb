@@ -85,6 +85,10 @@ id-input:modalias:input:b0003v28bdp0078*
 id-input:modalias:input:b0005v045Ep0B22e0517*
  ID_INPUT_JOYSTICK=1
 
+# Yubico YubiKey
+id-input:modalias:input:b0003v1050p0407*
+ ID_INPUT_KEYBOARD=
+
 # Lite-On Tech IBM USB Travel Keyboard with Ultra Nav Mouse
 id-input:modalias:input:b0003v04B3p301Ee0100-e0,1,2,4*
  ID_INPUT_POINTINGSTICK=1
