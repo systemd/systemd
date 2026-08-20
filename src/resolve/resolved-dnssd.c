@@ -84,25 +84,13 @@ DnssdRegisteredService *dnssd_registered_service_remove(DnssdRegisteredService *
 
         if (manager)
                 HASHMAP_FOREACH(link, manager->links) {
-                        if (link->mdns_ipv4_scope) {
-                                if (send_goodbye)
-                                        (void) dns_scope_announce_dnssd_service(link->mdns_ipv4_scope, service, true);
-                                dns_zone_remove_rr(&link->mdns_ipv4_scope->zone, service->ptr_rr);
-                                dns_zone_remove_rr(&link->mdns_ipv4_scope->zone, service->sub_ptr_rr);
-                                dns_zone_remove_rr(&link->mdns_ipv4_scope->zone, service->srv_rr);
-                                LIST_FOREACH(items, txt_data, service->txt_data_items)
-                                        dns_zone_remove_rr(&link->mdns_ipv4_scope->zone, txt_data->rr);
-                        }
+                        if (link->mdns_ipv4_scope)
+                                (void) dns_scope_remove_dnssd_service(
+                                                link->mdns_ipv4_scope, service, send_goodbye);
 
-                        if (link->mdns_ipv6_scope) {
-                                if (send_goodbye)
-                                        (void) dns_scope_announce_dnssd_service(link->mdns_ipv6_scope, service, true);
-                                dns_zone_remove_rr(&link->mdns_ipv6_scope->zone, service->ptr_rr);
-                                dns_zone_remove_rr(&link->mdns_ipv6_scope->zone, service->sub_ptr_rr);
-                                dns_zone_remove_rr(&link->mdns_ipv6_scope->zone, service->srv_rr);
-                                LIST_FOREACH(items, txt_data, service->txt_data_items)
-                                        dns_zone_remove_rr(&link->mdns_ipv6_scope->zone, txt_data->rr);
-                        }
+                        if (link->mdns_ipv6_scope)
+                                (void) dns_scope_remove_dnssd_service(
+                                                link->mdns_ipv6_scope, service, send_goodbye);
                 }
 
         if (manager)
