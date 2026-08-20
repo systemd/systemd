@@ -1724,8 +1724,13 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
-        /* This must be set in unit_patch_contexts() before executing a command. */
-        assert(c->private_var_tmp >= 0 && c->private_var_tmp < _PRIVATE_TMP_MAX);
+        /* This must be set in unit_patch_contexts() before executing a command. A unit whose load failed
+         * never goes through that, yet can still be stopped, hence this is reachable. Refuse instead of
+         * asserting, this runs in PID 1. */
+        if (c->private_var_tmp < 0 || c->private_var_tmp >= _PRIVATE_TMP_MAX)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "PrivateVarTmp= is not set up, unit was not fully loaded, refusing.");
+
         r = serialize_item(f, "exec-context-private-var-tmp", private_tmp_to_string(c->private_var_tmp));
         if (r < 0)
                 return r;
