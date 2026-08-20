@@ -52,6 +52,8 @@ DnssdRegisteredService* dnssd_registered_service_free(DnssdRegisteredService *se
         if (!service)
                 return NULL;
 
+        assert(hashmap_isempty(service->attachments));
+
         /* Constructor failure may happen after owner tracking has been set up. */
         service->bus_track = sd_bus_track_unref(service->bus_track);
 
@@ -66,13 +68,14 @@ DnssdRegisteredService* dnssd_registered_service_free(DnssdRegisteredService *se
         free(service->type);
         free(service->subtype);
         free(service->name_template);
+        hashmap_free(service->attachments);
 
         return mfree(service);
 }
 
 DnssdRegisteredService* dnssd_registered_service_remove(DnssdRegisteredService *service, bool send_goodbye) {
         Manager *manager;
-        Link *link;
+        DnssdServiceAttachment *attachment;
 
         if (!service)
                 return NULL;
@@ -82,16 +85,8 @@ DnssdRegisteredService* dnssd_registered_service_remove(DnssdRegisteredService *
         /* Stop owner tracking first, so explicit removal cannot race the owner-disappearance callback. */
         service->bus_track = sd_bus_track_unref(service->bus_track);
 
-        if (manager)
-                HASHMAP_FOREACH(link, manager->links) {
-                        if (link->mdns_ipv4_scope)
-                                (void) dns_scope_remove_dnssd_service(
-                                                link->mdns_ipv4_scope, service, send_goodbye);
-
-                        if (link->mdns_ipv6_scope)
-                                (void) dns_scope_remove_dnssd_service(
-                                                link->mdns_ipv6_scope, service, send_goodbye);
-                }
+        while ((attachment = hashmap_first(service->attachments)))
+                dns_scope_remove_dnssd_service(attachment->scope, service, send_goodbye);
 
         if (manager)
                 hashmap_remove(manager->dnssd_registered_services, service->id);
