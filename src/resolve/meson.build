@@ -11,6 +11,7 @@ systemd_resolved_export_sources = files(
         'resolved-bus.c',
         'resolved-conf.c',
         'resolved-dns-browse-services.c',
+        'resolved-dns-browse-services-bus.c',
         'resolved-dns-cache.c',
         'resolved-dns-delegate.c',
         'resolved-dns-delegate-bus.c',

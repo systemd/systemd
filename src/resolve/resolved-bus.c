@@ -23,6 +23,7 @@
 #include "resolved-def.h"
 #include "resolved-dns-delegate-bus.h"
 #include "resolved-dns-delegate.h"
+#include "resolved-dns-browse-services-bus.h"
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-query.h"
 #include "resolved-dns-scope.h"
@@ -2233,6 +2234,11 @@ static const sd_bus_vtable resolve_vtable[] = {
                                               "t", flags),
                                 bus_method_resolve_service,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("BrowseServices",
+                                SD_BUS_ARGS("s", domain, "s", type, "i", ifindex, "t", flags),
+                                SD_BUS_RESULT("o", browser_path),
+                                bus_method_browse_services,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("GetLink",
                                 SD_BUS_ARGS("i", ifindex),
                                 SD_BUS_RESULT("o", path),
@@ -2339,6 +2345,7 @@ const BusObjectImplementation manager_object = {
         .vtables = BUS_VTABLES(resolve_vtable),
         .children = BUS_IMPLEMENTATIONS(&link_object,
                                         &dnssd_object,
+                                        &dns_service_browser_object,
                                         &dns_delegate_object),
 };
 
