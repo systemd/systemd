@@ -964,8 +964,6 @@ static void session_context_mangle(
                 /* ssh has been setting PAM_TTY to "ssh" (for the same reason as cron does this, see above. For further
                  * details look for "PAM_TTY_KLUDGE" in the openssh sources). */
                 c->type = "tty";
-                if (isempty(c->class))
-                        c->class = "user";
                 c->tty = NULL; /* This one is particularly sad, as this means that ssh sessions — even though
                                * usually associated with a pty — won't be tracked by their tty in
                                * logind. This is because ssh does the PAM session registration early for new
