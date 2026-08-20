@@ -566,6 +566,23 @@ static int swap_coldplug(Unit *u) {
         else if (s->from_proc_swaps)
                 new_state = SWAP_ACTIVE;
 
+        /* If /proc/swaps doesn't know this unit, and we couldn't load a fragment for it either, then it is
+         * a leftover of the serialization describing a swap that doesn't exist anymore — typically because
+         * the device link the unit is named after has been repointed at some other device in the meantime.
+         * Don't adopt such a unit: it has no device we could pass to swapoff, and since active units are
+         * never garbage collected it would stick around until the end of time. Note that units with a
+         * fragment are explicitly *not* covered by this, as those are not backed by /proc/swaps to begin
+         * with when their name doesn't match What=.
+         *
+         * Units with a control process still around are left alone too: we want to re-adopt the process
+         * and re-arm the timeout rather than drop both on the floor. Once it is gone the state machine
+         * ends up in dead anyway, as the unit isn't backed by /proc/swaps. */
+        if (!s->from_proc_swaps && u->load_state != UNIT_LOADED && !SWAP_STATE_WITH_PROCESS(new_state)) {
+                log_unit_debug(u, "Not backed by /proc/swaps and has no fragment, ignoring.");
+                unit_add_to_gc_queue(u);
+                return 0;
+        }
+
         if (new_state == s->state)
                 return 0;
 
