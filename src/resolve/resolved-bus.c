@@ -1929,6 +1929,7 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
                 return r;
         service->originator = euid;
         service->config_source = RESOLVE_CONFIG_SOURCE_DBUS;
+        service->manager = m;
 
         sender = sd_bus_message_get_sender(message);
         if (!sender)
@@ -2048,6 +2049,10 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
                 txt_data = NULL;
         }
 
+        r = dnssd_update_rrs(service);
+        if (r < 0)
+                return r;
+
         r = sd_bus_path_encode("/org/freedesktop/resolve1/dnssd", service->id, &path);
         if (r < 0)
                 return r;
@@ -2071,16 +2076,14 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         if (r < 0)
                 return r;
 
-        service->manager = m;
         service->bus_track = TAKE_PTR(bus_track);
 
         r = hashmap_ensure_put(&m->dnssd_registered_services, &string_hash_ops, service->id, service);
         if (r < 0)
                 return r;
 
-        service = NULL;
-
-        manager_refresh_rrs(m);
+        s = TAKE_PTR(service);
+        dnssd_registered_service_attach(s);
 
         return sd_bus_reply_method_return(message, "o", path);
 }
