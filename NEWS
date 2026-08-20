@@ -51,6 +51,14 @@ CHANGES WITH 262:
           rather, the symlink is maintained to ensure the socket is bound under
           the same conditions as before.
 
+        * The "TasksMax" field of the CGroup context in the io.systemd.Unit
+          varlink interface is no longer exposed as an object with "value" and
+          "scale" members. Absolute limits are now exposed as "TasksMax"
+          (integer), relative limits as "TasksMaxScale" (float, normalized so
+          that 1.0 means 100%), with exactly one of the two emitted. This
+          matches the corresponding new CGroup input fields accepted by
+          io.systemd.Unit.StartTransient().
+
         Changes in the system and service manager:
 
         * The manager now embeds a basic set of unit files (basic.target,
