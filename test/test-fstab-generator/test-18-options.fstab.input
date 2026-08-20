@@ -15,3 +15,5 @@
 /dev/sdx15 /mnt/noauto             auto noauto                                              0 0
 /dev/sdx16 /mnt/nofail             auto nofail                                              0 0
 /dev/sdx17 /mnt/wantedby-automount auto x-systemd.wanted-by=foo.service,x-systemd.automount 0 0
+/dev/sdx18 /mnt/onfailure          auto x-systemd.onfailure=foo.service                     0 0
+/dev/sdx19 /mnt/onfailure-multi    auto x-systemd.onfailure=foo.service,x-systemd.onfailure=bar.service 0 0
