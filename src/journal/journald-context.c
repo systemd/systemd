@@ -500,17 +500,22 @@ static int client_context_read_extra_fields(
         return 0;
 }
 
-static int client_context_read_log_ratelimit_interval(ClientContext *c) {
-        _cleanup_free_ char *value = NULL;
-        const char *p;
+static int client_context_read_log_ratelimit_interval(
+                Manager *m,
+                ClientContext *c) {
+
+        _cleanup_free_ char *p = NULL, *value = NULL;
         int r;
 
+        assert(m);
         assert(c);
 
         if (!c->unit)
                 return 0;
 
-        p = strjoina("/run/systemd/units/log-rate-limit-interval:", c->unit);
+        r = client_context_state_file_path(c, "log-rate-limit-interval:", &p);
+        if (r < 0)
+                return r;
 
         r = readlink_malloc(p, &value);
         if (r < 0)
@@ -524,17 +529,22 @@ static int client_context_read_log_ratelimit_interval(ClientContext *c) {
         return 0;
 }
 
-static int client_context_read_log_ratelimit_burst(ClientContext *c) {
-        _cleanup_free_ char *value = NULL;
-        const char *p;
+static int client_context_read_log_ratelimit_burst(
+                Manager *m,
+                ClientContext *c) {
+
+        _cleanup_free_ char *p = NULL, *value = NULL;
         int r;
 
+        assert(m);
         assert(c);
 
         if (!c->unit)
                 return 0;
 
-        p = strjoina("/run/systemd/units/log-rate-limit-burst:", c->unit);
+        r = client_context_state_file_path(c, "log-rate-limit-burst:", &p);
+        if (r < 0)
+                return r;
 
         r = readlink_malloc(p, &value);
         if (r < 0)
@@ -574,8 +584,8 @@ static void client_context_really_refresh(
         (void) client_context_read_invocation_id(m, c);
         (void) client_context_read_log_level_max(m, c);
         (void) client_context_read_extra_fields(m, c);
-        (void) client_context_read_log_ratelimit_interval(c);
-        (void) client_context_read_log_ratelimit_burst(c);
+        (void) client_context_read_log_ratelimit_interval(m, c);
+        (void) client_context_read_log_ratelimit_burst(m, c);
 
         c->timestamp = timestamp;
 

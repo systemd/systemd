@@ -6085,14 +6085,13 @@ void unit_export_state_files(Unit *u) {
         c = unit_get_exec_context(u);
         if (c) {
                 (void) unit_export_log_level_max(u, c->log_level_max, /* overwrite= */ false);
+                (void) unit_export_log_ratelimit_interval(u, c);
+                (void) unit_export_log_ratelimit_burst(u, c);
 
-                /* LogExtraFields= and the per-unit log rate limit settings are currently only
-                 * available in system services, not in per-user services (see systemd.exec(5)). */
-                if (MANAGER_IS_SYSTEM(u->manager)) {
+                /* LogExtraFields= is currently only available in system services, not in
+                 * per-user services (see systemd.exec(5)). */
+                if (MANAGER_IS_SYSTEM(u->manager))
                         (void) unit_export_log_extra_fields(u, c);
-                        (void) unit_export_log_ratelimit_interval(u, c);
-                        (void) unit_export_log_ratelimit_burst(u, c);
-                }
         }
 }
 
