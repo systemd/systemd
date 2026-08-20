@@ -20,6 +20,7 @@
 #include "bus-util.h"
 #include "chase.h"
 #include "compress.h"
+#include "coredumpctl.h"
 #include "dissect-image.h"
 #include "dlopen-note.h"
 #include "errno-util.h"
@@ -57,28 +58,29 @@
 
 #define SHORT_BUS_CALL_TIMEOUT_USEC (3 * USEC_PER_SEC)
 
-static usec_t arg_since = USEC_INFINITY, arg_until = USEC_INFINITY;
-static const char* arg_field = NULL;
-static const char *arg_debugger = NULL;
-static char **arg_debugger_args = NULL;
-static const char *arg_directory = NULL;
-static char *arg_root = NULL;
+usec_t arg_since = USEC_INFINITY;
+usec_t arg_until = USEC_INFINITY;
+const char *arg_field = NULL;
+const char *arg_debugger = NULL;
+char **arg_debugger_args = NULL;
+const char *arg_directory = NULL;
+char **arg_file = NULL;
+sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
+PagerFlags arg_pager_flags = 0;
+int arg_legend = true;
+size_t arg_rows_max = SIZE_MAX;
+const char *arg_output = NULL;
+bool arg_reverse = false;
+bool arg_quiet = false;
+bool arg_all = false;
+char *arg_root = NULL;
 static char *arg_image = NULL;
-static char **arg_file = NULL;
-static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
-static PagerFlags arg_pager_flags = 0;
-static int arg_legend = true;
-static size_t arg_rows_max = SIZE_MAX;
-static const char* arg_output = NULL;
-static bool arg_reverse = false;
-static bool arg_quiet = false;
-static bool arg_all = false;
 static ImagePolicy *arg_image_policy = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_debugger_args, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_file, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_file, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 COMMAND(
