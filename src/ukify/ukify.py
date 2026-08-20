@@ -37,6 +37,7 @@ import re
 import shlex
 import shutil
 import socket
+import string
 import struct
 import subprocess
 import sys
@@ -322,6 +323,9 @@ class UkifyConfig:
         return cls(**{k: v for k, v in vars(ns).items() if k in inspect.signature(cls).parameters})
 
 
+UkifyOptions = Union[argparse.Namespace, UkifyConfig]
+
+
 class Uname:
     # This class is here purely as a namespace for the functions
 
@@ -335,7 +339,7 @@ class Uname:
     TEXT_PATTERN = rb'Linux version (?P<version>\d\.\S+) \('
 
     @classmethod
-    def scrape_x86(cls, filename: Path, opts: Optional[UkifyConfig] = None) -> str:
+    def scrape_x86(cls, filename: Path, opts: Optional[UkifyOptions] = None) -> str:
         # Based on https://gitlab.archlinux.org/archlinux/mkinitcpio/mkinitcpio/-/blob/master/functions#L136
         # and https://docs.kernel.org/arch/x86/boot.html#the-real-mode-kernel-header
         with open(filename, 'rb') as f:
@@ -355,7 +359,7 @@ class Uname:
         return m.group('version')
 
     @classmethod
-    def scrape_elf(cls, filename: Path, opts: Optional[UkifyConfig] = None) -> str:
+    def scrape_elf(cls, filename: Path, opts: Optional[UkifyOptions] = None) -> str:
         readelf = find_tool('readelf', opts=opts)
 
         cmd = [
@@ -377,7 +381,7 @@ class Uname:
         return text.rstrip('\0')
 
     @classmethod
-    def scrape_generic(cls, filename: Path, opts: Optional[UkifyConfig] = None) -> str:
+    def scrape_generic(cls, filename: Path, opts: Optional[UkifyOptions] = None) -> str:
         # import libarchive
         # libarchive-c fails with
         # ArchiveError: Unrecognized archive format (errno=84, retcode=-30, archive_p=94705420454656)
@@ -391,7 +395,7 @@ class Uname:
         return m.group('version').decode()
 
     @classmethod
-    def scrape(cls, filename: Path, opts: Optional[UkifyConfig] = None) -> Optional[str]:
+    def scrape(cls, filename: Path, opts: Optional[UkifyOptions] = None) -> Optional[str]:
         for func in (cls.scrape_x86, cls.scrape_elf, cls.scrape_generic):
             try:
                 version = func(filename, opts=opts)
@@ -716,7 +720,7 @@ def check_cert_and_keys_nonexistent(opts: UkifyConfig) -> None:
 def find_tool(
     name: str,
     fallback: Optional[str] = None,
-    opts: Optional[UkifyConfig] = None,
+    opts: Optional[UkifyOptions] = None,
     msg: str = 'Tool {name} not installed!',
 ) -> Union[str, Path]:
     if opts and opts.tools:
@@ -948,6 +952,88 @@ def join_initrds(initrds: list[Path]) -> Union[Path, bytes, None]:
         seq += [initrd, padding]
 
     return b''.join(seq)
+
+
+def has_relative_devicetree(opts: UkifyOptions) -> bool:
+    return (opts.devicetree is not None and not opts.devicetree.is_absolute()) or any(
+        not path.is_absolute() for path in opts.devicetree_auto
+    )
+
+
+def devicetree_search_paths(uname: str) -> tuple[Path, ...]:
+    paths = (
+        Path('/usr/lib/firmware') / uname / 'device-tree',
+        Path(f'/usr/lib/linux-image-{uname}'),
+        Path('/usr/lib/modules') / uname / 'dtb',
+    )
+
+    return (Path(root), *paths) if (root := os.getenv('KERNEL_INSTALL_CONF_ROOT')) else paths
+
+
+def validate_uname(uname: str) -> None:
+    if not (uname and uname[0] != '.' and set(uname) <= set(string.ascii_letters + string.digits + '._+-#')):
+        raise ValueError(f'Invalid kernel version {uname!r}')
+
+
+def validate_devicetree_path(path: Path) -> None:
+    if not path.is_absolute() and (not path.parts or '..' in path.parts):
+        raise ValueError(f'Invalid DeviceTree path {path!r}')
+
+
+def resolve_devicetree_path(
+    path: Path,
+    uname: str,
+    check_exists: bool = False,
+) -> Path:
+    if path.is_absolute():
+        resolved = path
+    else:
+        for directory in devicetree_search_paths(uname):
+            resolved = directory / path
+            if resolved.is_file() and resolved.resolve().is_relative_to(directory.resolve()):
+                check_exists = False
+                break
+
+    if check_exists and not resolved.is_file():
+        raise FileNotFoundError(f'DeviceTree file {resolved} not found')
+
+    return resolved
+
+
+def validate_devicetree_options(opts: UkifyOptions) -> None:
+    if not opts.uname:
+        return
+
+    if has_relative_devicetree(opts):
+        validate_uname(opts.uname)
+
+    for path in [*([opts.devicetree] if opts.devicetree else []), *opts.devicetree_auto]:
+        validate_devicetree_path(path)
+
+
+def resolve_devicetree_options(
+    opts: UkifyOptions,
+    check_exists: bool = False,
+) -> None:
+    if not opts.uname:
+        if has_relative_devicetree(opts):
+            message = 'Kernel version unknown, cannot resolve relative DeviceTree paths'
+            if check_exists:
+                raise ValueError(message)
+            print(message, file=sys.stderr)
+        return
+
+    if opts.devicetree is not None:
+        opts.devicetree = resolve_devicetree_path(opts.devicetree, opts.uname, check_exists)
+    opts.devicetree_auto = [
+        resolve_devicetree_path(path, opts.uname, check_exists) for path in opts.devicetree_auto
+    ]
+
+
+def autodetect_uname(opts: UkifyOptions, linux: Optional[Path]) -> None:
+    if opts.uname is None and linux is not None:
+        print('Kernel version not specified, autodetecting from the kernel image.', file=sys.stderr)
+        opts.uname = Uname.scrape(linux, opts=opts)
 
 
 T = TypeVar('T')
@@ -1381,9 +1467,7 @@ def make_uki(opts: UkifyConfig) -> None:
             signtool.sign(os.fspath(linux), os.fspath(Path(linux_signed.name)), opts=opts)
             linux = Path(linux_signed.name)
 
-    if opts.uname is None and linux is not None:
-        print('Kernel version not specified, starting autodetection 😖.', file=sys.stderr)
-        opts.uname = Uname.scrape(linux, opts=opts)
+    autodetect_uname(opts, linux)
 
     uki = UKI(opts.join_pcrsig if opts.join_pcrsig else opts.stub)
     initrd = join_initrds(opts.initrd)
@@ -2530,6 +2614,17 @@ def finalize_options(opts: argparse.Namespace) -> None:
     if opts.efi_arch is None:
         opts.efi_arch = guess_efi_arch()
 
+    if opts.verb == 'build':
+        if opts.summary or has_relative_devicetree(opts):
+            autodetect_uname(opts, opts.linux)
+
+        if not opts.uname:
+            resolve_devicetree_options(opts)
+        else:
+            validate_devicetree_options(opts)
+    else:
+        validate_devicetree_options(opts)
+
     if opts.stub is None and not opts.join_pcrsig:
         if opts.linux is not None:
             opts.stub = Path(f'/usr/lib/systemd/boot/efi/linux{opts.efi_arch}.efi.stub')
@@ -2643,9 +2738,12 @@ def parse_args(args: Optional[list[str]] = None) -> argparse.Namespace:
 def main() -> None:
     opts = UkifyConfig.from_namespace(parse_args())
     if opts.summary:
+        if opts.uname:
+            resolve_devicetree_options(opts)
         # TODO: replace pprint() with some fancy formatting.
         pprint.pprint(vars(opts))
     elif opts.verb == 'build':
+        resolve_devicetree_options(opts, check_exists=True)
         check_inputs(opts)
         make_uki(opts)
     elif opts.verb == 'genkey':
