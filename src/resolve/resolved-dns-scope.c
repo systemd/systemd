@@ -188,6 +188,7 @@ DnsScope* dns_scope_free(DnsScope *s) {
         sd_event_source_disable_unref(s->mdns_goodbye_event_source);
 
         dns_cache_flush(&s->cache);
+        dns_scope_remove_dnssd_registered_services(s, /* send_goodbye= */ false);
         dns_zone_flush(&s->zone);
         s->dnssd_services = hashmap_free(s->dnssd_services);
         s->dnssd_service_types = hashmap_free(s->dnssd_service_types);
@@ -1758,9 +1759,10 @@ int dns_scope_announce_dnssd_service(DnsScope *scope, DnssdRegisteredService *se
         _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
         int r;
 
+        assert(scope);
         assert(service);
 
-        if (!scope || scope->protocol != DNS_PROTOCOL_MDNS)
+        if (scope->protocol != DNS_PROTOCOL_MDNS)
                 return 0;
 
         r = sd_event_get_state(scope->manager->event);
@@ -1782,7 +1784,20 @@ int dns_scope_announce_dnssd_service(DnsScope *scope, DnssdRegisteredService *se
         return 0;
 }
 
-static int dns_scope_add_dnssd_service(DnsScope *scope, DnssdRegisteredService *service) {
+static void dns_scope_unref_dnssd_service_type(DnsScope *scope, DnssdServiceType *type) {
+        assert(scope);
+        assert(type);
+        assert(type->n_ref > 0);
+
+        if (--type->n_ref > 0)
+                return;
+
+        dns_zone_remove_rr(&scope->zone, type->rr);
+        dnssd_service_type_free(hashmap_remove(scope->dnssd_service_types, type->name));
+}
+
+int dns_scope_add_dnssd_service(DnsScope *scope, DnssdRegisteredService *service) {
+        _cleanup_free_ DnssdServiceAttachment *attachment = NULL;
         _cleanup_(dnssd_service_type_freep) DnssdServiceType *new_type = NULL;
         const char *name;
         DnssdServiceType *type;
@@ -1792,8 +1807,21 @@ static int dns_scope_add_dnssd_service(DnsScope *scope, DnssdRegisteredService *
         assert(service);
         assert(service->ptr_rr);
 
-        if (hashmap_contains(scope->dnssd_services, service))
+        if (hashmap_contains(scope->dnssd_services, service)) {
+                assert(hashmap_contains(service->attachments, scope));
                 return 0;
+        }
+
+        assert(!hashmap_contains(service->attachments, scope));
+
+        attachment = new(DnssdServiceAttachment, 1);
+        if (!attachment)
+                return -ENOMEM;
+
+        *attachment = (DnssdServiceAttachment) {
+                .service = service,
+                .scope = scope,
+        };
 
         name = dns_resource_key_name(service->ptr_rr->key);
         type = hashmap_get(scope->dnssd_service_types, name);
@@ -1832,30 +1860,68 @@ static int dns_scope_add_dnssd_service(DnsScope *scope, DnssdRegisteredService *
         } else
                 type->n_ref++;
 
-        r = hashmap_ensure_put(&scope->dnssd_services, &trivial_hash_ops, service, service);
-        if (r < 0) {
-                if (--type->n_ref == 0) {
-                        dns_zone_remove_rr(&scope->zone, type->rr);
-                        dnssd_service_type_free(hashmap_remove(scope->dnssd_service_types, type->name));
-                }
-                return r;
+        r = dns_zone_put(&scope->zone, scope, service->ptr_rr, false);
+        if (r < 0)
+                goto rollback;
+
+        if (service->sub_ptr_rr) {
+                r = dns_zone_put(&scope->zone, scope, service->sub_ptr_rr, false);
+                if (r < 0)
+                        goto rollback;
         }
 
+        r = dns_zone_put(&scope->zone, scope, service->srv_rr, true);
+        if (r < 0)
+                goto rollback;
+
+        LIST_FOREACH(items, txt_data, service->txt_data_items) {
+                r = dns_zone_put(&scope->zone, scope, txt_data->rr, true);
+                if (r < 0)
+                        goto rollback;
+        }
+
+        r = hashmap_ensure_put(&service->attachments, &trivial_hash_ops, scope, attachment);
+        if (r < 0)
+                goto rollback;
+
+        r = hashmap_ensure_put(&scope->dnssd_services, &trivial_hash_ops, service, attachment);
+        if (r < 0) {
+                hashmap_remove(service->attachments, scope);
+                goto rollback;
+        }
+
+        TAKE_PTR(attachment);
+        scope->announced = false;
+
         return 1;
+
+rollback:
+        dns_zone_remove_rr(&scope->zone, service->ptr_rr);
+        dns_zone_remove_rr(&scope->zone, service->sub_ptr_rr);
+        dns_zone_remove_rr(&scope->zone, service->srv_rr);
+        LIST_FOREACH(items, txt_data, service->txt_data_items)
+                dns_zone_remove_rr(&scope->zone, txt_data->rr);
+
+        dns_scope_unref_dnssd_service_type(scope, type);
+
+        return r;
 }
 
 int dns_scope_remove_dnssd_service(DnsScope *scope, DnssdRegisteredService *service, bool send_goodbye) {
+        DnssdServiceAttachment *attachment;
         DnssdServiceType *type;
 
         assert(scope);
         assert(service);
 
-        if (!hashmap_remove(scope->dnssd_services, service))
+        attachment = hashmap_remove(scope->dnssd_services, service);
+        if (!attachment)
                 return 0;
+
+        assert_se(hashmap_remove(service->attachments, scope) == attachment);
 
         type = hashmap_get(scope->dnssd_service_types, dns_resource_key_name(service->ptr_rr->key));
         assert(type);
-        assert(type->n_ref > 0);
 
         if (send_goodbye)
                 dns_scope_announce_dnssd_service(scope, service, true);
@@ -1866,10 +1932,9 @@ int dns_scope_remove_dnssd_service(DnsScope *scope, DnssdRegisteredService *serv
         LIST_FOREACH(items, txt_data, service->txt_data_items)
                 dns_zone_remove_rr(&scope->zone, txt_data->rr);
 
-        if (--type->n_ref == 0) {
-                dns_zone_remove_rr(&scope->zone, type->rr);
-                dnssd_service_type_free(hashmap_remove(scope->dnssd_service_types, type->name));
-        }
+        dns_scope_unref_dnssd_service_type(scope, type);
+
+        free(attachment);
 
         return 1;
 }
@@ -1889,49 +1954,22 @@ int dns_scope_add_dnssd_registered_services(DnsScope *scope) {
                 service->withdrawn = false;
 
                 r = dns_scope_add_dnssd_service(scope, service);
-                if (r < 0) {
-                        log_warning_errno(r, "Failed to add DNS-SD service type to MDNS zone: %m");
-                        continue;
-                }
-                if (r == 0)
-                        continue;
-
-                r = dns_zone_put(&scope->zone, scope, service->ptr_rr, false);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to add PTR record to MDNS zone: %m");
-
-                if (service->sub_ptr_rr) {
-                        r = dns_zone_put(&scope->zone, scope, service->sub_ptr_rr, false);
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to add selective PTR record to MDNS zone: %m");
-                }
-
-                r = dns_zone_put(&scope->zone, scope, service->srv_rr, true);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to add SRV record to MDNS zone: %m");
-
-                LIST_FOREACH(items, txt_data, service->txt_data_items) {
-                        r = dns_zone_put(&scope->zone, scope, txt_data->rr, true);
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to add TXT record to MDNS zone: %m");
-                }
+                        log_warning_errno(r, "Failed to attach DNS-SD service '%s' to mDNS scope: %m", service->id);
         }
 
         return 0;
 }
 
-int dns_scope_remove_dnssd_registered_services(DnsScope *scope) {
-        DnssdRegisteredService *service;
+void dns_scope_remove_dnssd_registered_services(DnsScope *scope, bool send_goodbye) {
+        DnssdServiceAttachment *attachment;
 
         assert(scope);
 
-        HASHMAP_FOREACH(service, scope->manager->dnssd_registered_services)
-                (void) dns_scope_remove_dnssd_service(scope, service, false);
+        while ((attachment = hashmap_first(scope->dnssd_services)))
+                dns_scope_remove_dnssd_service(scope, attachment->service, send_goodbye);
 
-        assert(hashmap_isempty(scope->dnssd_services));
         assert(hashmap_isempty(scope->dnssd_service_types));
-
-        return 0;
 }
 
 static bool dns_scope_has_route_only_domains(DnsScope *scope) {
