@@ -820,15 +820,6 @@ static int manager_do_shutdown_action(sd_varlink *link, sd_json_variant *paramet
         if (m->delayed_action)
                 return sd_varlink_error(link, "io.systemd.Shutdown.AlreadyInProgress", /* parameters= */ NULL);
 
-        /* Reset in case we're short-circuiting a scheduled shutdown */
-        m->unlink_nologin = false;
-        manager_reset_scheduled_shutdown(m);
-
-        m->scheduled_shutdown_timeout = 0;
-        m->scheduled_shutdown_action = action;
-
-        (void) setup_wall_message_timer(m, link);
-
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         r = bus_manager_shutdown_or_sleep_now_or_later(m, a, &error);
         if (r < 0) {
@@ -837,6 +828,15 @@ static int manager_do_shutdown_action(sd_varlink *link, sd_json_variant *paramet
                                   bus_error_message(&error, r));
                 return sd_varlink_error_errno(link, r);
         }
+
+        /* Reset in case we're short-circuiting a scheduled shutdown. */
+        m->unlink_nologin = false;
+        manager_reset_scheduled_shutdown(m);
+
+        m->scheduled_shutdown_timeout = 0;
+        m->scheduled_shutdown_action = action;
+
+        (void) setup_wall_message_timer(m, link);
 
         return sd_varlink_reply(link, NULL);
 }
