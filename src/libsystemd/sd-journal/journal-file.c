@@ -542,6 +542,7 @@ static bool hash_table_is_valid(uint64_t offset, uint64_t size, uint64_t header_
 
 static int journal_file_verify_header(JournalFile *f) {
         uint64_t arena_size, header_size;
+        int r;
 
         assert(f);
         assert(f->header);
@@ -583,6 +584,15 @@ static int journal_file_verify_header(JournalFile *f) {
 
         if (UINT64_MAX - header_size < arena_size)
                 return -ENODATA;
+
+        /* The writer grows the file before it updates arena_size, hence refresh possibly stale stat data
+         * before judging (#41992), except in immutable mode, whose point is to avoid fstat(): there the
+         * checks below simply treat anything beyond the cached size as truncated. */
+        if (!f->assume_immutable && header_size + arena_size > (uint64_t) f->last_stat.st_size) {
+                r = journal_file_fstat(f);
+                if (r < 0)
+                        return r;
+        }
 
         uint64_t file_size = (uint64_t) f->last_stat.st_size;
 
@@ -714,7 +724,6 @@ static int journal_file_verify_header(JournalFile *f) {
         if (journal_file_writable(f)) {
                 sd_id128_t machine_id;
                 uint8_t state;
-                int r;
 
                 r = sd_id128_get_machine(&machine_id);
                 if (ERRNO_IS_NEG_MACHINE_ID_UNSET(r)) /* Gracefully handle the machine ID not being initialized yet */
@@ -4146,6 +4155,9 @@ int journal_file_open(
 
         assert(fd >= 0 || fname);
         assert((file_flags & ~_JOURNAL_FILE_FLAGS_ALL) == 0);
+        /* Assuming immutability makes sense only for read-only opens */
+        assert(!FLAGS_SET(file_flags, JOURNAL_ASSUME_IMMUTABLE) ||
+               (open_flags & O_ACCMODE_STRICT) == O_RDONLY);
         assert(mmap_cache);
         assert(ret);
 
@@ -4170,6 +4182,7 @@ int journal_file_open(
                                             DEFAULT_COMPRESS_THRESHOLD :
                                             MAX(MIN_COMPRESS_THRESHOLD, compress_threshold_bytes),
                 .strict_order = FLAGS_SET(file_flags, JOURNAL_STRICT_ORDER),
+                .assume_immutable = FLAGS_SET(file_flags, JOURNAL_ASSUME_IMMUTABLE),
                 .newest_boot_id_prioq_idx = PRIOQ_IDX_NULL,
                 .last_direction = _DIRECTION_INVALID,
                 .tail_timestamp_ratelimit = { .interval = USEC_PER_SEC, .burst = 1 },
