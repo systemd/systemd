@@ -21,6 +21,7 @@ coredumpctl_sources = files(
         'coredumpctl.c',
         'coredumpctl-info.c',
         'coredumpctl-journal.c',
+        'coredumpctl-list.c',
         'coredumpctl-util.c',
 )
 
