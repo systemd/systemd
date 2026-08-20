@@ -151,6 +151,9 @@ executables += [
                 'sources' : files('test-resolved-link.c'),
         },
         resolve_test_template + {
+                'sources' : files('test-resolved-dnssd.c'),
+        },
+        resolve_test_template + {
                 'sources' : files('test-dns-query.c'),
         },
         resolve_test_template + {

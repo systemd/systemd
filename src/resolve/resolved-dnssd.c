@@ -13,8 +13,10 @@
 #include "hexdecoct.h"
 #include "path-util.h"
 #include "resolved-conf.h"
+#include "resolved-dns-scope.h"
 #include "resolved-dns-zone.h"
 #include "resolved-dnssd.h"
+#include "resolved-link.h"
 #include "resolved-manager.h"
 #include "specifier.h"
 #include "string-util.h"
@@ -46,12 +48,12 @@ DnssdTxtData *dnssd_txtdata_free_all(DnssdTxtData *txt_data) {
         return dnssd_txtdata_free_all(next);
 }
 
-DnssdRegisteredService *dnssd_registered_service_free(DnssdRegisteredService *service) {
+DnssdRegisteredService* dnssd_registered_service_free(DnssdRegisteredService *service) {
         if (!service)
                 return NULL;
 
-        if (service->manager)
-                hashmap_remove(service->manager->dnssd_registered_services, service->id);
+        /* Constructor failure may happen after owner tracking has been set up. */
+        service->bus_track = sd_bus_track_unref(service->bus_track);
 
         dns_resource_record_unref(service->ptr_rr);
         dns_resource_record_unref(service->sub_ptr_rr);
@@ -68,14 +70,53 @@ DnssdRegisteredService *dnssd_registered_service_free(DnssdRegisteredService *se
         return mfree(service);
 }
 
+DnssdRegisteredService* dnssd_registered_service_remove(DnssdRegisteredService *service, bool send_goodbye) {
+        Manager *manager;
+        Link *link;
+
+        if (!service)
+                return NULL;
+
+        manager = service->manager;
+
+        /* Stop owner tracking first, so explicit removal cannot race the owner-disappearance callback. */
+        service->bus_track = sd_bus_track_unref(service->bus_track);
+
+        if (manager)
+                HASHMAP_FOREACH(link, manager->links) {
+                        if (link->mdns_ipv4_scope) {
+                                if (send_goodbye)
+                                        (void) dns_scope_announce_dnssd_service(link->mdns_ipv4_scope, service, true);
+                                dns_zone_remove_rr(&link->mdns_ipv4_scope->zone, service->ptr_rr);
+                                dns_zone_remove_rr(&link->mdns_ipv4_scope->zone, service->sub_ptr_rr);
+                                dns_zone_remove_rr(&link->mdns_ipv4_scope->zone, service->srv_rr);
+                                LIST_FOREACH(items, txt_data, service->txt_data_items)
+                                        dns_zone_remove_rr(&link->mdns_ipv4_scope->zone, txt_data->rr);
+                        }
+
+                        if (link->mdns_ipv6_scope) {
+                                if (send_goodbye)
+                                        (void) dns_scope_announce_dnssd_service(link->mdns_ipv6_scope, service, true);
+                                dns_zone_remove_rr(&link->mdns_ipv6_scope->zone, service->ptr_rr);
+                                dns_zone_remove_rr(&link->mdns_ipv6_scope->zone, service->sub_ptr_rr);
+                                dns_zone_remove_rr(&link->mdns_ipv6_scope->zone, service->srv_rr);
+                                LIST_FOREACH(items, txt_data, service->txt_data_items)
+                                        dns_zone_remove_rr(&link->mdns_ipv6_scope->zone, txt_data->rr);
+                        }
+                }
+
+        if (manager)
+                hashmap_remove(manager->dnssd_registered_services, service->id);
+
+        return dnssd_registered_service_free(service);
+}
+
 void dnssd_registered_service_clear_on_reload(Hashmap *services) {
         DnssdRegisteredService *service;
 
         HASHMAP_FOREACH(service, services)
-                if (service->config_source == RESOLVE_CONFIG_SOURCE_FILE) {
-                        hashmap_remove(services, service->id);
-                        dnssd_registered_service_free(service);
-                }
+                if (service->config_source == RESOLVE_CONFIG_SOURCE_FILE)
+                        dnssd_registered_service_remove(service, /* send_goodbye= */ true);
 }
 
 static int dnssd_id_from_path(const char *path, char **ret_id) {
@@ -158,13 +199,13 @@ static int dnssd_registered_service_load(Manager *manager, const char *path) {
                 TAKE_PTR(txt_data);
         }
 
-        r = hashmap_ensure_put(&manager->dnssd_registered_services, &string_hash_ops, service->id, service);
-        if (r < 0)
-                return r;
-
         service->manager = manager;
 
         r = dnssd_update_rrs(service);
+        if (r < 0)
+                return r;
+
+        r = hashmap_ensure_put(&manager->dnssd_registered_services, &string_hash_ops, service->id, service);
         if (r < 0)
                 return r;
 

@@ -39,6 +39,9 @@ typedef struct DnssdRegisteredService {
 
         Manager *manager;
 
+        /* For services registered over D-Bus, keep the owner track alive for as long as the publication exists. */
+        sd_bus_track *bus_track;
+
         /* Services registered via D-Bus are not removed on reload */
         ResolveConfigSource config_source;
 
@@ -46,7 +49,8 @@ typedef struct DnssdRegisteredService {
         uid_t originator;
 } DnssdRegisteredService;
 
-DnssdRegisteredService *dnssd_registered_service_free(DnssdRegisteredService *service);
+DnssdRegisteredService* dnssd_registered_service_free(DnssdRegisteredService *service);
+DnssdRegisteredService* dnssd_registered_service_remove(DnssdRegisteredService *service, bool send_goodbye);
 DnssdTxtData *dnssd_txtdata_free(DnssdTxtData *txt_data);
 DnssdTxtData *dnssd_txtdata_free_all(DnssdTxtData *txt_data);
 void dnssd_registered_service_clear_on_reload(Hashmap *services);

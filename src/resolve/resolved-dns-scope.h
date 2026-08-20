@@ -114,6 +114,7 @@ int dns_scope_ifindex(DnsScope *s);
 const char* dns_scope_ifname(DnsScope *s);
 
 int dns_scope_announce(DnsScope *scope, bool goodbye);
+int dns_scope_announce_dnssd_service(DnsScope *scope, DnssdRegisteredService *service, bool goodbye);
 
 int dns_scope_add_dnssd_registered_services(DnsScope *scope);
 int dns_scope_remove_dnssd_registered_services(DnsScope *scope);
