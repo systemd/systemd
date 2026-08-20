@@ -157,6 +157,7 @@ static int reply_query_state(DnsQuery *q) {
 }
 
 static void vl_on_disconnect(sd_varlink_server *s, sd_varlink *link, void *userdata) {
+        DnsServiceBrowser *sb;
         DnsQuery *q;
         Manager *m;
 
@@ -167,8 +168,9 @@ static void vl_on_disconnect(sd_varlink_server *s, sd_varlink *link, void *userd
         if (!m)
                 return;
 
-        DnsServiceBrowser *sb = hashmap_remove(m->dns_service_browsers, link);
-        dns_service_browser_unref(sb);
+        sb = dns_service_browser_from_varlink(m, link);
+        if (sb)
+                dns_service_browser_stop(sb);
 
         q = sd_varlink_get_userdata(link);
         if (!q)

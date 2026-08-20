@@ -13,6 +13,7 @@
 #include "event-util.h"
 #include "glyph-util.h"
 #include "log.h"
+#include "resolved-dns-browse-services.h"
 #include "resolved-dns-query.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-search-domain.h"
@@ -524,6 +525,8 @@ DnsQuery *dns_query_free(DnsQuery *q) {
 
         dnssd_discovered_service_unref(q->dnsservice_request);
 
+        if (q->service_browser_request && q->service_browser_request->query == q)
+                q->service_browser_request->query = NULL;
         dns_service_browser_unref(q->service_browser_request);
 
         hook_query_free(q->hook_query);
