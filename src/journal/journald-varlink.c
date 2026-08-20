@@ -182,7 +182,7 @@ int manager_open_varlink(Manager *m, const char *socket, int fd) {
 
         r = varlink_server_new(
                         &m->varlink_server,
-                        SD_VARLINK_SERVER_ACCOUNT_UID,
+                        SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_ONEWAY_NEEDS_REPLY,
                         m);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
