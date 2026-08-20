@@ -1822,10 +1822,6 @@ static int vl_method_list_candidate_devices(
 
         assert(link);
 
-        /* Refuse multiple requests */
-        if (sd_varlink_get_userdata(link))
-                return -EBUSY;
-
         sd_varlink_server *varlink_server = sd_varlink_get_server(link);
         sd_event *event = sd_varlink_server_get_event(varlink_server);
         Hashmap **polkit_registry = ASSERT_PTR(sd_varlink_server_get_userdata(varlink_server));
