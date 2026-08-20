@@ -850,6 +850,10 @@ Manager* manager_free(Manager *m) {
         dns_server_unlink_all(m->fallback_dns_servers);
         dns_search_domain_unlink_all(m->search_domains);
 
+        while ((s = hashmap_first(m->dnssd_registered_services)))
+                dnssd_registered_service_remove(s, /* send_goodbye= */ false);
+        m->dnssd_registered_services = hashmap_free(m->dnssd_registered_services);
+
         while ((l = hashmap_first(m->links)))
                link_free(l);
 
@@ -914,10 +918,6 @@ Manager* manager_free(Manager *m) {
         free(m->full_hostname);
         free(m->llmnr_hostname);
         free(m->mdns_hostname);
-
-        while ((s = hashmap_first(m->dnssd_registered_services)))
-               dnssd_registered_service_free(s);
-        hashmap_free(m->dnssd_registered_services);
 
         dns_trust_anchor_flush(&m->trust_anchor);
         manager_etc_hosts_flush(m);
