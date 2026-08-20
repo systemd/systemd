@@ -618,6 +618,16 @@ static int journal_file_verify_header(JournalFile *f) {
                 truncated = true;
         }
 
+        /* The remaining checks compare header fields the writer updates one at a time, without locks, as
+         * it appends. A reader racing an append can load a torn pair, e.g. a tail_entry_offset pointing
+         * past the tail_object_offset loaded a moment earlier, and would fail spuriously here (#40053).
+         * Hence run them only if the file cannot legitimately change under us: on writable opens, or if
+         * the state field says the file is settled (the writer syncs all other header updates before
+         * leaving STATE_ONLINE). The object accessors revalidate all offsets at access time anyway. Don't
+         * key this on SD_JOURNAL_ASSUME_IMMUTABLE, journalctl sets that on files with a live writer too. */
+        if (!journal_file_writable(f) && f->header->state == STATE_ONLINE)
+                return 0;
+
         uint64_t tail_object_offset = le64toh(f->header->tail_object_offset);
         if (truncated)
                 /* The tail may be in the lost region, so cap it at the last possible object header start. */
