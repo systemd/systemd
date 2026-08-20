@@ -117,6 +117,23 @@ ExecStart=true
 EOF
 done
 systemctl daemon-reload
+
+# The image boots with systemd.log_level=debug, so the 20 cyclic starts below make PID1 emit
+# thousands of debug messages per second. Under that burst journald falls behind, PID1 gives each
+# journal send at most 10ms (src/basic/log.c) and then reroutes to kmsg, which this image does not
+# ingest, so the "cycle starting with" messages asserted on below may never reach the journal.
+# Run the starts at log level info instead: the asserted messages are emitted at err and warning
+# (src/core/transaction.c) and are unaffected.
+PREV_CYCLE_LOG_LEVEL="$(systemctl log-level)"
+
+transaction_cycle_cleanup() {
+    set +e
+    systemctl log-level "$PREV_CYCLE_LOG_LEVEL"
+}
+trap transaction_cycle_cleanup EXIT
+
+systemctl log-level info
+
 for i in {0..19}; do
     # This intentionally fails with:
     #   Failed to start transaction-cycle0.service: Transaction order is cyclic. See system logs for details.
@@ -125,6 +142,10 @@ done
 
 IDS_FILE="/tmp/TEST-03-JOBS-CYCLE-IDS-$RANDOM"
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Describe '{}' | jq '.runtime.TransactionsWithOrderingCycle' >"$IDS_FILE"
+
+systemctl log-level "$PREV_CYCLE_LOG_LEVEL"
+trap - EXIT
+
 [[ "$(jq length "$IDS_FILE")" -ge 20 ]]
 journalctl --sync
 for i in {0..19}; do
