@@ -46,6 +46,9 @@ typedef struct DnsScope {
         DnsCache cache;
         DnsZone zone;
 
+        Hashmap *dnssd_services;
+        Hashmap *dnssd_service_types;
+
         OrderedHashmap *conflict_queue;
         sd_event_source *conflict_event_source;
 
@@ -114,7 +117,13 @@ int dns_scope_ifindex(DnsScope *s);
 const char* dns_scope_ifname(DnsScope *s);
 
 int dns_scope_announce(DnsScope *scope, bool goodbye);
+int dns_scope_build_dnssd_service_packet(
+                DnsScope *scope,
+                DnssdRegisteredService *service,
+                bool goodbye,
+                DnsPacket **ret);
 int dns_scope_announce_dnssd_service(DnsScope *scope, DnssdRegisteredService *service, bool goodbye);
+int dns_scope_remove_dnssd_service(DnsScope *scope, DnssdRegisteredService *service, bool send_goodbye);
 
 int dns_scope_add_dnssd_registered_services(DnsScope *scope);
 int dns_scope_remove_dnssd_registered_services(DnsScope *scope);
