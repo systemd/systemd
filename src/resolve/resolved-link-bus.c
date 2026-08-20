@@ -206,9 +206,7 @@ static int verify_unmanaged_link(Link *l, sd_bus_error *error) {
 }
 
 static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, void *userdata, sd_bus_error *error, bool extended) {
-        _cleanup_free_ char *j = NULL;
         struct in_addr_full **dns;
-        bool changed = false;
         Link *l = ASSERT_PTR(userdata);
         size_t n;
         int r;
@@ -235,57 +233,11 @@ static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, voi
                 goto finalize;
         }
 
-        for (size_t i = 0; i < n; i++) {
-                const char *s;
-
-                s = in_addr_full_to_string(dns[i]);
-                if (!s) {
-                        r = -ENOMEM;
-                        goto finalize;
-                }
-
-                if (!strextend_with_separator(&j, ", ", s)) {
-                        r = -ENOMEM;
-                        goto finalize;
-                }
-        }
-
         bus_client_log(message, "DNS server change");
 
-        dns_server_mark_all(l->dns_servers);
-
-        for (size_t i = 0; i < n; i++) {
-                DnsServer *s;
-
-                s = dns_server_find(l->dns_servers, dns[i]->family, &dns[i]->address, dns[i]->port, 0, dns[i]->server_name);
-                if (s)
-                        dns_server_move_back_and_unmark(s);
-                else {
-                        r = dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, /* delegate= */ NULL, dns[i]->family, &dns[i]->address, dns[i]->port, 0, dns[i]->server_name, RESOLVE_CONFIG_SOURCE_DBUS);
-                        if (r < 0) {
-                                dns_server_unlink_all(l->dns_servers);
-                                goto finalize;
-                        }
-
-                        changed = true;
-                }
-        }
-
-        changed = dns_server_unlink_marked(l->dns_servers) || changed;
-
-        if (changed) {
-                link_allocate_scopes(l);
-
-                (void) link_save_user(l);
-                (void) manager_write_resolv_conf(l->manager);
-                (void) manager_send_changed(l->manager, "DNS");
-                (void) manager_send_dns_configuration_changed(l->manager, l, /* reset= */ true);
-
-                if (j)
-                        log_link_info(l, "Bus client set DNS server list to: %s", j);
-                else
-                        log_link_info(l, "Bus client reset DNS server list.");
-        }
+        r = link_set_dns_servers(l, dns, n, RESOLVE_CONFIG_SOURCE_DBUS);
+        if (r < 0)
+                goto finalize;
 
         r = sd_bus_reply_method_return(message, NULL);
 

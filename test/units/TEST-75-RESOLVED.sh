@@ -1713,6 +1713,38 @@ EOF
     systemctl reload systemd-resolved
 }
 
+testcase_varlink_link_setters() {
+    # Create an interface that is not managed by networkd
+    ip link add hoge type dummy
+
+    # Cleanup
+    # shellcheck disable=SC2317
+    cleanup() {
+        ip link del hoge
+    }
+
+    trap cleanup RETURN
+
+    varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Network.Link.SetDNS \
+        '{"InterfaceName": "hoge", "Servers": [ { "Family": 2, "Address": [10,0,0,1] }, { "Family": 2, "Address": [10,0,0,2] } ] }'
+    assert_eq \
+        "$(resolvectl --json=short dns hoge | jq -rc '.[] | [ .servers[] | .addressString ]')" \
+        '["10.0.0.1","10.0.0.2"]'
+
+    varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Network.Link.SetDNS \
+        '{"InterfaceName": "hoge", "Servers": [] }'
+    assert_eq \
+        "$(resolvectl --json=short dns hoge | jq -rc '.[] | .servers')" \
+        'null'
+
+    # Make sure that resolved refuses to configure links managed by networkd, and the loopback interface.
+    varlinkctl --graceful=io.systemd.Resolve.LinkIsManaged call /run/systemd/resolve/io.systemd.Resolve io.systemd.Network.Link.SetDNS '{"InterfaceName": "dns0", "Servers": [] }' | \
+        grep 'expected error: io.systemd.Resolve.LinkIsManaged'
+
+    varlinkctl --graceful=io.systemd.Resolve.LinkIsLoopback call /run/systemd/resolve/io.systemd.Resolve io.systemd.Network.Link.SetDNS '{"InterfaceName": "lo", "Servers": [] }' | \
+        grep 'expected error: io.systemd.Resolve.LinkIsLoopback'
+}
+
 # PRE-SETUP
 systemctl unmask systemd-resolved.service
 systemctl enable --now systemd-resolved.service
