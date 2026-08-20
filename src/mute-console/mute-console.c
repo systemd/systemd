@@ -236,10 +236,6 @@ static int vl_method_mute(
         assert(link);
         assert(FLAGS_SET(flags, SD_VARLINK_METHOD_MORE));
 
-        /* Refuse multiple requests per connection. */
-        if (sd_varlink_get_userdata(link))
-                return -EBUSY;
-
         _cleanup_free_ Context *nc = new(Context, 1);
         if (!nc)
                 return -ENOMEM;
@@ -294,6 +290,7 @@ static int vl_server(void) {
                         &varlink_server,
                         SD_VARLINK_SERVER_ROOT_ONLY |
                         SD_VARLINK_SERVER_MYSELF_ONLY |
+                        SD_VARLINK_SERVER_ONEWAY_NEEDS_REPLY |
                         SD_VARLINK_SERVER_HANDLE_SIGINT |
                         SD_VARLINK_SERVER_HANDLE_SIGTERM,
                         /* userdata= */ NULL);
