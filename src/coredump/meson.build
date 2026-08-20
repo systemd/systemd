@@ -19,6 +19,7 @@ systemd_coredump_export_sources = files(
 )
 coredumpctl_sources = files(
         'coredumpctl.c',
+        'coredumpctl-core.c',
         'coredumpctl-info.c',
         'coredumpctl-journal.c',
         'coredumpctl-list.c',
