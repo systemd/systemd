@@ -1895,7 +1895,7 @@ static int dnssd_registered_service_on_bus_track(sd_bus_track *t, void *userdata
         assert(t);
 
         log_debug("Client of active request vanished, destroying DNS-SD service.");
-        dnssd_registered_service_free(s);
+        dnssd_registered_service_remove(s, /* send_goodbye= */ true);
 
         return 0;
 }
@@ -1904,7 +1904,7 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         _cleanup_(dnssd_registered_service_freep) DnssdRegisteredService *service = NULL;
         _cleanup_(sd_bus_track_unrefp) sd_bus_track *bus_track = NULL;
-        const char *id, *name_template, *type;
+        const char *id, *name_template, *type, *sender;
         _cleanup_free_ char *path = NULL;
         DnssdRegisteredService *s = NULL;
         Manager *m = ASSERT_PTR(userdata);
@@ -1929,6 +1929,14 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
                 return r;
         service->originator = euid;
         service->config_source = RESOLVE_CONFIG_SOURCE_DBUS;
+
+        sender = sd_bus_message_get_sender(message);
+        if (!sender)
+                return -ENODATA;
+
+        service->bus_owner = strdup(sender);
+        if (!service->bus_owner)
+                return log_oom();
 
         r = sd_bus_message_read(message, "sssqqq", &id, &name_template, &type,
                                 &service->port, &service->priority,
@@ -2064,6 +2072,7 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
                 return r;
 
         service->manager = m;
+        service->bus_track = TAKE_PTR(bus_track);
 
         r = hashmap_ensure_put(&m->dnssd_registered_services, &string_hash_ops, service->id, service);
         if (r < 0)
