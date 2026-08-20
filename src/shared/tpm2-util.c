@@ -10283,6 +10283,10 @@ int tpm2_tpmt_signature_to_pem(const TPMT_SIGNATURE *signature, char **ret) {
         assert(signature);
         assert(ret);
 
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
         const char *label = NULL;
         _cleanup_free_ void *sig = NULL;
         size_t sig_len = 0;
