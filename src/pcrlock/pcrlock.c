@@ -1868,7 +1868,7 @@ static int event_log_add_component_dir(EventLog *el, const char *path, char **ba
         }
 
         r = conf_files_list_strv(&files, ".pcrlock", /* root= */ NULL,
-                                 CONF_FILES_REGULAR|CONF_FILES_WARN,
+                                 CONF_FILES_REGULAR|CONF_FILES_WARN|CONF_FILES_FILTER_MASKED,
                                  (const char*const*) search);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate .pcrlock files for component '%s': %m", id);
