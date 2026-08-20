@@ -87,16 +87,16 @@ int sd_netlink_open_fd(sd_netlink **ret, int fd) {
         if (r < 0)
                 return r;
 
-        nl->fd = fd;
-        nl->protocol = protocol;
-
         r = setsockopt_int(fd, SOL_NETLINK, NETLINK_EXT_ACK, true);
         if (r < 0)
-                log_debug_errno(r, "sd-netlink: Failed to enable NETLINK_EXT_ACK option, ignoring: %m");
+                return r;
 
         r = setsockopt_int(fd, SOL_NETLINK, NETLINK_GET_STRICT_CHK, true);
         if (r < 0)
-                log_debug_errno(r, "sd-netlink: Failed to enable NETLINK_GET_STRICT_CHK option, ignoring: %m");
+                return r;
+
+        nl->fd = fd;
+        nl->protocol = protocol;
 
         r = socket_bind(nl);
         if (r < 0) {
@@ -241,6 +241,17 @@ int sd_netlink_ignore_serial(sd_netlink *nl, uint32_t serial, uint64_t timeout_u
                 return r;
 
         TAKE_PTR(s);
+        return 0;
+}
+
+int netlink_set_partial_dispatch(sd_netlink *nl, bool enable) {
+        assert_return(nl, -EINVAL);
+        assert_return(!netlink_pid_changed(nl), -ECHILD);
+
+        /* Partial dispatch relies on the kernel dumping the routes in trie order, which is
+         * guaranteed by the NETLINK_GET_STRICT_CHK option that is enabled on all sockets that
+         * sd-netlink opens (a socket could not be opened without it otherwise). */
+        nl->partial_dispatch = enable;
         return 0;
 }
 
@@ -525,6 +536,40 @@ int sd_netlink_wait(sd_netlink *nl, uint64_t timeout_usec) {
         return r;
 }
 
+int netlink_wait_for_message(sd_netlink *nl, uint64_t timeout_usec) {
+        int r;
+
+        assert_return(nl, -EINVAL);
+        assert_return(!netlink_pid_changed(nl), -ECHILD);
+
+        /* sd_netlink_wait() returns 0 both when a message is already queued and when the poll timed
+         * out without a message having arrived. If a message is queued there is nothing to wait for.
+         * Otherwise sd_netlink_get_timeout() reveals whether a reply callback is pending, in which
+         * case there is still something to process, whereas without any pending reply callback the
+         * poll timeout means the kernel has stopped producing messages (e.g. it never finished a
+         * dump). Note that this function is intended for sockets without outstanding reply
+         * callbacks, as it cannot tell the timeout of an unrelated pending request apart from a
+         * dead dump. */
+
+        if (!ordered_set_isempty(nl->rqueue))
+                return 0;
+
+        r = sd_netlink_wait(nl, timeout_usec);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                uint64_t until;
+
+                r = sd_netlink_get_timeout(nl, &until);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -ETIMEDOUT;
+        }
+
+        return 0;
+}
+
 static int timeout_compare(const void *a, const void *b) {
         const struct reply_callback *x = a, *y = b;
 
@@ -555,6 +600,9 @@ int sd_netlink_call_async(
         assert_return(m, -EINVAL);
         assert_return(callback, -EINVAL);
         assert_return(!netlink_pid_changed(nl), -ECHILD);
+
+        if (nl->partial_dispatch) /* See the comment in sd_netlink_call(). */
+                return -EOPNOTSUPP;
 
         if (hashmap_size(nl->reply_callbacks) >= REPLY_CALLBACKS_MAX)
                 return -EXFULL;
@@ -614,6 +662,9 @@ int sd_netlink_read(
 
         assert_return(nl, -EINVAL);
         assert_return(!netlink_pid_changed(nl), -ECHILD);
+
+        if (nl->partial_dispatch) /* see sd_netlink_call() */
+                return -EOPNOTSUPP;
 
         usec = timespan_to_timestamp(nl, timeout);
 
@@ -685,6 +736,12 @@ int sd_netlink_call(
         assert_return(nl, -EINVAL);
         assert_return(!netlink_pid_changed(nl), -ECHILD);
         assert_return(message, -EINVAL);
+
+        /* In partial dispatch mode the messages of a dump are never registered by serial, so a call
+         * could never be matched up with its reply. Refuse it; use sd_netlink_send() combined with
+         * sd_netlink_process() instead. */
+        if (nl->partial_dispatch)
+                return -EOPNOTSUPP;
 
         r = sd_netlink_send(nl, message, &serial);
         if (r < 0)
