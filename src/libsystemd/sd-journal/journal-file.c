@@ -584,6 +584,18 @@ static int journal_file_verify_header(JournalFile *f) {
         if (UINT64_MAX - header_size < arena_size)
                 return -ENODATA;
 
+        /* The stat data may be stale by now: the writer always grows the file before it updates
+         * arena_size, so a reader that stat()ed before the writer's latest extension may see an
+         * arena_size reaching beyond its cached st_size (#41992). Refresh the stat data once before
+         * judging, so that only an actually inconsistent file takes the truncation paths below. In
+         * immutable mode we skip the refresh, as anything beyond the cached size is considered EOF
+         * there. */
+        if (!f->assume_immutable && header_size + arena_size > (uint64_t) f->last_stat.st_size) {
+                int r = journal_file_fstat(f);
+                if (r < 0)
+                        return r;
+        }
+
         uint64_t file_size = (uint64_t) f->last_stat.st_size;
 
         /* Probably an unclean shutdown where the header was written, but the arena data was not. On write we
@@ -4170,6 +4182,7 @@ int journal_file_open(
                                             DEFAULT_COMPRESS_THRESHOLD :
                                             MAX(MIN_COMPRESS_THRESHOLD, compress_threshold_bytes),
                 .strict_order = FLAGS_SET(file_flags, JOURNAL_STRICT_ORDER),
+                .assume_immutable = FLAGS_SET(file_flags, JOURNAL_ASSUME_IMMUTABLE),
                 .newest_boot_id_prioq_idx = PRIOQ_IDX_NULL,
                 .last_direction = _DIRECTION_INVALID,
                 .tail_timestamp_ratelimit = { .interval = USEC_PER_SEC, .burst = 1 },
