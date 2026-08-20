@@ -163,6 +163,10 @@ executables += [
                 'sources' : files('test-resolved-dummy-server.c'),
                 'type' : 'manual',
         },
+        resolve_test_template + {
+                'sources' : files('test-resolved-dnssd-register.c'),
+                'type' : 'manual',
+        },
         resolve_fuzz_template + {
                 'sources' : files('fuzz-dns-packet.c'),
         },
