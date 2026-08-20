@@ -327,6 +327,36 @@ static int client_context_read_cgroup(Manager *m, ClientContext *c, const char *
         return 0;
 }
 
+static int client_context_state_file_path(
+                ClientContext *c,
+                const char *name,
+                char **ret) {
+
+        char *p;
+        int r;
+
+        assert(c);
+        assert(name);
+        assert(ret);
+
+        /* Per-unit state files for journald: PID 1 stores them in /run/systemd/units/, user managers store
+         * them under /run/user/<uid>/systemd/units/. */
+
+        if (c->user_unit) {
+                r = asprintf(&p, "/run/user/" UID_FMT "/systemd/units/%s%s",
+                             c->owner_uid, name, c->user_unit);
+                if (r < 0)
+                        return -ENOMEM;
+        } else {
+                p = strjoin("/run/systemd/units/", name, c->unit);
+                if (!p)
+                        return -ENOMEM;
+        }
+
+        *ret = p;
+        return 0;
+}
+
 static int client_context_read_invocation_id(
                 Manager *m,
                 ClientContext *c) {
@@ -337,22 +367,12 @@ static int client_context_read_invocation_id(
         assert(m);
         assert(c);
 
-        /* Read the invocation ID of a unit off a unit.
-         * PID 1 stores it in a per-unit symlink in /run/systemd/units/
-         * User managers store it in a per-unit symlink under /run/user/<uid>/systemd/units/ */
-
         if (!c->unit)
                 return 0;
 
-        if (c->user_unit) {
-                r = asprintf(&p, "/run/user/" UID_FMT "/systemd/units/invocation:%s", c->owner_uid, c->user_unit);
-                if (r < 0)
-                        return r;
-        } else {
-                p = strjoin("/run/systemd/units/invocation:", c->unit);
-                if (!p)
-                        return -ENOMEM;
-        }
+        r = client_context_state_file_path(c, "invocation:", &p);
+        if (r < 0)
+                return r;
 
         r = readlink_malloc(p, &value);
         if (r < 0)
@@ -365,14 +385,16 @@ static int client_context_read_log_level_max(
                 Manager *m,
                 ClientContext *c) {
 
-        _cleanup_free_ char *value = NULL;
-        const char *p;
+        _cleanup_free_ char *p = NULL, *value = NULL;
         int r, ll;
 
         if (!c->unit)
                 return 0;
 
-        p = strjoina("/run/systemd/units/log-level-max:", c->unit);
+        r = client_context_state_file_path(c, "log-level-max:", &p);
+        if (r < 0)
+                return r;
+
         r = readlink_malloc(p, &value);
         if (r < 0)
                 return r;
@@ -489,6 +511,7 @@ static int client_context_read_log_ratelimit_interval(ClientContext *c) {
                 return 0;
 
         p = strjoina("/run/systemd/units/log-rate-limit-interval:", c->unit);
+
         r = readlink_malloc(p, &value);
         if (r < 0)
                 return r;
@@ -512,6 +535,7 @@ static int client_context_read_log_ratelimit_burst(ClientContext *c) {
                 return 0;
 
         p = strjoina("/run/systemd/units/log-rate-limit-burst:", c->unit);
+
         r = readlink_malloc(p, &value);
         if (r < 0)
                 return r;
