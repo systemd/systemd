@@ -2046,7 +2046,7 @@ static int vl_server(void) {
 
         r = varlink_server_new(
                         &varlink_server,
-                        0,
+                        SD_VARLINK_SERVER_ONEWAY_NEEDS_REPLY,
                         /* userdata= */ &polkit_registry);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate Varlink server: %m");
