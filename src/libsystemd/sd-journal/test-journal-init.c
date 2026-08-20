@@ -2,6 +2,7 @@
 
 #include <fcntl.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "sd-journal.h"
@@ -20,6 +21,96 @@
 #include "rm-rf.h"
 #include "strv.h"
 #include "tests.h"
+#include "time-util.h"
+
+static void test_open_files_incomplete_header(const char *root) {
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_free_ char *empty = NULL, *truncated = NULL, *garbage = NULL, *valid = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        struct iovec iovec = IOVEC_MAKE_STRING("MESSAGE=hello");
+        sd_journal *j = NULL;
+        JournalFile *vf;
+        dual_timestamp ts;
+        char buf[300];
+
+        /* Journal writers create journal files empty at their final name, and write the header in a
+         * second step. With SD_JOURNAL_ASSUME_IMMUTABLE the caller declared it won't wait for changes,
+         * hence opening such a nascent file shall succeed, skip the file, and record the skip in the
+         * error map. Without the flag the caller may wait for the file to become readable, but
+         * sd_journal_open_files() pins the file set, so a file skipped at open time would be ignored
+         * forever: the open shall keep failing instead. A file with an incomplete or invalid header
+         * shall keep reporting an error in any case. */
+
+        ASSERT_NOT_NULL(empty = path_join(root, "empty.journal"));
+        ASSERT_OK_ERRNO(fd = open(empty, O_CREAT|O_WRONLY|O_CLOEXEC, 0644));
+        fd = safe_close(fd);
+
+        ASSERT_OK_ZERO(sd_journal_open_files(&j, (const char**) STRV_MAKE(empty), SD_JOURNAL_ASSUME_IMMUTABLE));
+        ASSERT_TRUE(ordered_hashmap_isempty(j->files));
+        ASSERT_TRUE(hashmap_contains(j->errors, INT_TO_PTR(-ENODATA)));
+        ASSERT_OK_ZERO(sd_journal_seek_head(j));
+        ASSERT_OK_ZERO(sd_journal_next(j));
+        sd_journal_close(j);
+        j = NULL;
+
+        ASSERT_ERROR(sd_journal_open_files(&j, (const char**) STRV_MAKE(empty), 0), ENODATA);
+        ASSERT_NULL(j);
+
+        /* An empty file among valid ones is skipped, and doesn't affect the valid ones. */
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        ASSERT_NOT_NULL(valid = path_join(root, "valid.journal"));
+        ASSERT_OK_ZERO(journal_file_open(-EBADF, valid, O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0644, UINT64_MAX,
+                                         /* metrics= */ NULL, m, /* template= */ NULL, &vf));
+        dual_timestamp_now(&ts);
+        ASSERT_OK_ZERO(journal_file_append_entry(vf, &ts, /* boot_id= */ NULL, &iovec, 1,
+                                                 /* seqnum= */ NULL, /* seqnum_id= */ NULL,
+                                                 /* ret_object= */ NULL, /* ret_offset= */ NULL));
+        (void) journal_file_offline_close(vf);
+
+        ASSERT_OK_ZERO(sd_journal_open_files(&j, (const char**) STRV_MAKE(empty, valid), SD_JOURNAL_ASSUME_IMMUTABLE));
+        ASSERT_EQ(ordered_hashmap_size(j->files), 1u);
+        ASSERT_TRUE(hashmap_contains(j->errors, INT_TO_PTR(-ENODATA)));
+        ASSERT_OK_ZERO(sd_journal_seek_head(j));
+        ASSERT_EQ(sd_journal_next(j), 1);
+        ASSERT_OK_ZERO(sd_journal_next(j));
+        sd_journal_close(j);
+        j = NULL;
+
+        ASSERT_ERROR(sd_journal_open_files(&j, (const char**) STRV_MAKE(empty, valid), 0), ENODATA);
+        ASSERT_NULL(j);
+
+        /* For caller provided fds the error is kept even with SD_JOURNAL_ASSUME_IMMUTABLE, since
+         * skipping the file would leave the fd's ownership in limbo. The fd shall remain open, as for
+         * any other failure. */
+        ASSERT_OK_ERRNO(fd = open(empty, O_RDONLY|O_CLOEXEC));
+        ASSERT_ERROR(sd_journal_open_files_fd(&j, (int[]) { fd }, 1, SD_JOURNAL_ASSUME_IMMUTABLE), ENODATA);
+        ASSERT_NULL(j);
+        ASSERT_OK_ERRNO(fcntl(fd, F_GETFD));
+        fd = safe_close(fd);
+
+        /* Only a zero size file counts as nascent: a nonzero file shorter than the header lost data to
+         * truncation, and keeps failing even with SD_JOURNAL_ASSUME_IMMUTABLE. */
+        ASSERT_NOT_NULL(truncated = path_join(root, "truncated.journal"));
+        ASSERT_OK_ERRNO(fd = open(truncated, O_CREAT|O_WRONLY|O_CLOEXEC, 0644));
+        ASSERT_EQ(write(fd, "x", 1), (ssize_t) 1);
+        fd = safe_close(fd);
+
+        ASSERT_ERROR(sd_journal_open_files(&j, (const char**) STRV_MAKE(truncated), SD_JOURNAL_ASSUME_IMMUTABLE), ENODATA);
+        ASSERT_NULL(j);
+        ASSERT_ERROR(sd_journal_open_files(&j, (const char**) STRV_MAKE(truncated), 0), ENODATA);
+        ASSERT_NULL(j);
+
+        ASSERT_NOT_NULL(garbage = path_join(root, "garbage.journal"));
+        ASSERT_OK_ERRNO(fd = open(garbage, O_CREAT|O_WRONLY|O_CLOEXEC, 0644));
+        memset(buf, 'x', sizeof(buf));
+        ASSERT_EQ(write(fd, buf, sizeof(buf)), (ssize_t) sizeof(buf));
+        fd = safe_close(fd);
+
+        ASSERT_ERROR(sd_journal_open_files(&j, (const char**) STRV_MAKE(garbage), SD_JOURNAL_ASSUME_IMMUTABLE), EBADMSG);
+        ASSERT_NULL(j);
+        ASSERT_ERROR(sd_journal_open_files(&j, (const char**) STRV_MAKE(garbage), 0), EBADMSG);
+        ASSERT_NULL(j);
+}
 
 static void test_tail_timestamp_archived_fallback(void) {
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
@@ -131,6 +222,8 @@ int main(int argc, char *argv[]) {
                 ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_journal_open_directory(&j, t, SD_JOURNAL_LOCAL_ONLY), EINVAL));
                 ASSERT_NULL(j);
         }
+
+        test_open_files_incomplete_header(t);
 
         ASSERT_OK(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL));
 
