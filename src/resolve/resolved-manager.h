@@ -164,7 +164,7 @@ typedef struct Manager {
 
         struct sigrtmin18_info sigrtmin18_info;
 
-        /* Map varlink links to DnsServiceBrowser instances. */
+        /* Set of transport-neutral DnsServiceBrowser instances. */
         Hashmap *dns_service_browsers;
 
         Hashmap *hooks;

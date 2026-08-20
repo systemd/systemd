@@ -924,7 +924,7 @@ Manager* manager_free(Manager *m) {
         manager_static_records_flush(m);
 
         while ((sb = hashmap_first(m->dns_service_browsers)))
-                dns_service_browser_free(sb);
+                dns_service_browser_stop(sb);
         hashmap_free(m->dns_service_browsers);
 
         hashmap_free(m->hooks);
