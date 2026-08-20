@@ -1672,6 +1672,90 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
         return 0;
 }
 
+static int dns_scope_add_dnssd_service_rr(
+                DnsScope *scope,
+                DnsAnswer *answer,
+                DnsResourceRecord *rr,
+                DnsAnswerFlags flags) {
+
+        DnsZoneItem *item;
+
+        assert(scope);
+        assert(answer);
+
+        if (!rr)
+                return 0;
+
+        item = dns_zone_get(&scope->zone, rr);
+        if (!item || item->state != DNS_ZONE_ITEM_ESTABLISHED)
+                return 0;
+
+        return dns_answer_add(answer, rr, 0, flags, NULL);
+}
+
+int dns_scope_announce_dnssd_service(DnsScope *scope, DnssdRegisteredService *service, bool goodbye) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        unsigned n_txt = 0;
+        int r;
+
+        assert(service);
+
+        if (!scope || scope->protocol != DNS_PROTOCOL_MDNS)
+                return 0;
+
+        r = sd_event_get_state(scope->manager->event);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get event loop state: %m");
+        if (r == SD_EVENT_FINISHED)
+                return 0;
+
+        LIST_FOREACH(items, txt_data, service->txt_data_items)
+                n_txt++;
+
+        answer = dns_answer_new(2 + !!service->sub_ptr_rr + n_txt);
+        if (!answer)
+                return log_oom();
+
+        r = dns_scope_add_dnssd_service_rr(scope, answer, service->ptr_rr,
+                                           goodbye ? DNS_ANSWER_GOODBYE : 0);
+        if (r < 0)
+                return r;
+        r = dns_scope_add_dnssd_service_rr(scope, answer, service->sub_ptr_rr,
+                                           goodbye ? DNS_ANSWER_GOODBYE : 0);
+        if (r < 0)
+                return r;
+        r = dns_scope_add_dnssd_service_rr(
+                        scope,
+                        answer,
+                        service->srv_rr,
+                        DNS_ANSWER_CACHE_FLUSH | (goodbye ? DNS_ANSWER_GOODBYE : 0));
+        if (r < 0)
+                return r;
+        LIST_FOREACH(items, txt_data, service->txt_data_items) {
+                r = dns_scope_add_dnssd_service_rr(
+                                scope,
+                                answer,
+                                txt_data->rr,
+                                DNS_ANSWER_CACHE_FLUSH | (goodbye ? DNS_ANSWER_GOODBYE : 0));
+                if (r < 0)
+                        return r;
+        }
+
+        if (dns_answer_isempty(answer))
+                return 0;
+
+        r = dns_scope_make_reply_packet(scope, 0, DNS_RCODE_SUCCESS, NULL, answer, NULL, false, &packet);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to build DNS-SD announcement packet: %m");
+
+        r = dns_scope_emit_udp(scope, -1, AF_UNSPEC, packet);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to send DNS-SD announcement packet: %m");
+
+        return 0;
+}
+
 int dns_scope_add_dnssd_registered_services(DnsScope *scope) {
         DnssdRegisteredService *service;
         int r;

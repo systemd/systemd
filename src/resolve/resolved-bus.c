@@ -1895,7 +1895,7 @@ static int dnssd_registered_service_on_bus_track(sd_bus_track *t, void *userdata
         assert(t);
 
         log_debug("Client of active request vanished, destroying DNS-SD service.");
-        dnssd_registered_service_free(s);
+        dnssd_registered_service_remove(s, /* send_goodbye= */ true);
 
         return 0;
 }
@@ -2064,6 +2064,7 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
                 return r;
 
         service->manager = m;
+        service->bus_track = TAKE_PTR(bus_track);
 
         r = hashmap_ensure_put(&m->dnssd_registered_services, &string_hash_ops, service->id, service);
         if (r < 0)
