@@ -46,6 +46,7 @@ struct DnsServiceBrowser {
         sd_varlink *link;
         sd_bus_track *bus_track;
         char *bus_owner;
+        uid_t bus_owner_uid;
         char *bus_path;
         DnsQuestion *question_idna;
         DnsQuestion *question_utf8;
@@ -54,7 +55,6 @@ struct DnsServiceBrowser {
         usec_t delay;
         DnsResourceKey *key;
         int ifindex;
-        uint64_t token;
         DnsQuery *query;
         int (*on_updates)(DnsServiceBrowser *sb, DnsServiceBrowserUpdate *updates);
         LIST_HEAD(DnssdDiscoveredService, dns_services);
@@ -113,6 +113,11 @@ int dns_service_browser_new(
                 uint64_t flags,
                 int (*on_updates)(DnsServiceBrowser *sb, DnsServiceBrowserUpdate *updates),
                 DnsServiceBrowser **ret);
+int dns_service_browser_validate_request(
+                const char *domain,
+                const char *type,
+                int ifindex,
+                const char **reterr_invalid_parameter);
 DnsServiceBrowser* dns_service_browser_from_varlink(Manager *m, sd_varlink *link);
 int mdns_notify_browsers_unsolicited_updates(Manager *m, DnsAnswer *answer, int owner_family);
 int mdns_notify_browsers_goodbye(DnsScope *scope);

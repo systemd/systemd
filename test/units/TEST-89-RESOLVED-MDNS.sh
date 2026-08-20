@@ -378,12 +378,19 @@ start_dnssd_owner_service() {
 }
 
 wait_dnssd_object() {
-    local id="${1:?}" expected="${2:?}" path tree
+    local id="${1:?}" expected="${2:?}" path
 
     path="$(systemd-run -M "$CONTAINER_1" --wait --pipe -- cat "/run/$id.ready")"
+    path="${path:?}"
+    wait_dnssd_object_path "$path" "$expected"
+}
+
+wait_dnssd_object_path() {
+    local path="${1:?}" expected="${2:?}" tree
+
     for _ in {0..19}; do
         tree="$(busctl -M "$CONTAINER_1" tree org.freedesktop.resolve1)"
-        if grep "$path" <<<"$tree" >/dev/null; then
+        if grep -F "$path" <<<"$tree" >/dev/null; then
             [[ "$expected" == present ]] && return 0
         else
             [[ "$expected" == absent ]] && return 0
@@ -391,7 +398,7 @@ wait_dnssd_object() {
         sleep 1
     done
 
-    echo >&2 "DNS-SD object for '$id' did not become $expected"
+    echo >&2 "DNS-SD object '$path' did not become $expected"
     return 1
 }
 
@@ -423,11 +430,85 @@ wait_dnssd_mdns_mode() {
     return 1
 }
 
+start_dnssd_browser() {
+    local id="${1:?}" unit
+
+    unit="dnssd-browser-$id.service"
+    systemd-run -M "$CONTAINER_1" --wait --pipe -- rm -f "/run/$id.browser"
+    systemd-run -M "$CONTAINER_1" --unit="$unit" --service-type=exec \
+        -p StandardOutput="file:/run/$id.browser" -- \
+        /usr/lib/systemd/tests/unit-tests/manual/test-resolved-dnssd-browse
+
+    timeout 30s bash -xec "while ! systemd-run -M '$CONTAINER_1' --wait --pipe -- grep -Fx updated '/run/$id.browser'; do sleep 1; done"
+}
+
+dnssd_browser_path() {
+    local id="${1:?}"
+
+    systemd-run -M "$CONTAINER_1" --wait --pipe -- sed -n '1p' "/run/$id.browser"
+}
+
 wait_unit_success() {
+    local -a state
     local unit="${1:?}"
 
     timeout 30s bash -xec "while [[ \$(systemctl -M '$CONTAINER_1' show -P ActiveState '$unit') != inactive ]]; do sleep 1; done"
-    [[ "$(systemctl -M "$CONTAINER_1" show -P Result "$unit")" == success ]]
+    readarray -t state < <(systemctl -M "$CONTAINER_1" show -p LoadState -p ActiveState -p Result --value "$unit")
+    [[ "${state[0]}" == loaded && "${state[1]}" == inactive && "${state[2]}" == success ]]
+}
+
+wait_dnssd_browser_update() {
+    local id="${1:?}" update="${2:?}"
+
+    timeout 30s bash -xec "while ! systemd-run -M '$CONTAINER_1' --wait --pipe -- grep -Fx '$update' '/run/$id.browser'; do sleep 1; done"
+}
+
+cleanup_dbus_browser_lifecycle() {
+    systemctl -M "$CONTAINER_1" stop \
+        dnssd-owner-browser-publisher.service \
+        dnssd-browser-browser-stop.service \
+        dnssd-browser-browser-disconnect.service 2>/dev/null || :
+    systemctl -M "$CONTAINER_1" reset-failed \
+        dnssd-owner-browser-publisher.service \
+        dnssd-browser-browser-stop.service \
+        dnssd-browser-browser-disconnect.service || :
+}
+
+testcase_dbus_browser_lifecycle() {
+    : "D-Bus DNS-SD browsers receive updates and follow their owner"
+
+    local error path
+
+    trap cleanup_dbus_browser_lifecycle EXIT
+
+    start_dnssd_owner_service browser-publisher "Owner Browser"
+    wait_dnssd_owner_service "Owner Browser" visible
+
+    start_dnssd_browser browser-stop
+    path="$(dnssd_browser_path browser-stop)"
+    [[ "$path" == /org/freedesktop/resolve1/browser/* ]]
+    wait_dnssd_object_path "$path" present
+    if error="$(busctl -M "$CONTAINER_1" call org.freedesktop.resolve1 "$path" \
+            org.freedesktop.resolve1.DnssdServiceBrowser Stop 2>&1)"; then
+        exit 1
+    fi
+    grep -F org.freedesktop.DBus.Error.AccessDenied <<<"$error" >/dev/null
+    systemctl -M "$CONTAINER_1" kill -s USR1 dnssd-browser-browser-stop.service
+    wait_dnssd_object_path "$path" absent
+    wait_unit_success dnssd-browser-browser-stop.service
+
+    start_dnssd_browser browser-disconnect
+    path="$(dnssd_browser_path browser-disconnect)"
+    [[ "$path" == /org/freedesktop/resolve1/browser/* ]]
+    wait_dnssd_object_path "$path" present
+    systemctl -M "$CONTAINER_1" stop dnssd-owner-browser-publisher.service
+    wait_dnssd_browser_update browser-disconnect removed
+    wait_unit_success dnssd-owner-browser-publisher.service
+    systemctl -M "$CONTAINER_1" stop dnssd-browser-browser-disconnect.service
+    wait_dnssd_object_path "$path" absent
+    wait_unit_success dnssd-browser-browser-disconnect.service
+
+    echo testcase_end
 }
 
 cleanup_registration_owner_lifecycle() {
