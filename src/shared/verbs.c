@@ -467,6 +467,27 @@ static int print_wrapped(const char *text, const char *ansi_seq) {
         return 0;
 }
 
+static const Verb* verbs_find_cmd_verbs(const Verb *cmdverb, const Verb verbs_end[]) {
+        assert(cmdverb);
+        assert(FLAGS_SET(cmdverb->flags, VERB_COMMAND_MARKER));
+        assert(cmdverb < verbs_end);
+
+        const CommandDescription *cmd = (const CommandDescription*) ASSERT_PTR(cmdverb->data);
+
+        /* With COMMAND_VERBS_SHARED, we have a group of VERB_COMMAND_MARKER entries, and
+         * then the shared verbs below. Thus, we need to skip over them to locate the
+         * first actual verb. Without COMMAND_VERBS_SHARED, the verbs start immediately
+         * after the VERB_COMMAND_MARKER entry. */
+        const Verb *actual = cmdverb + 1;
+        if (FLAGS_SET(cmd->flags, COMMAND_VERBS_SHARED))
+                while (actual < verbs_end &&
+                       FLAGS_SET(actual->flags, VERB_COMMAND_MARKER) &&
+                       FLAGS_SET(((const CommandDescription*) ASSERT_PTR(cmdverb->data))->flags,
+                                 COMMAND_VERBS_SHARED))
+                        actual++;
+        return actual;
+}
+
 int _command_print_help_full(
                 const Verb verbs[],
                 const Verb verbs_end[],
@@ -482,6 +503,7 @@ int _command_print_help_full(
                                        "Command %s not known", name);
 
         const CommandDescription *cmd = (const CommandDescription*) ASSERT_PTR(cmdverb->data);
+        const Verb *verbverbs = verbs_find_cmd_verbs(cmdverb, verbs_end);
 
         if (cmd->pager_flags)
                 pager_open(*cmd->pager_flags);
@@ -494,7 +516,7 @@ int _command_print_help_full(
                         help_cmdline(line);
                 }
         else {
-                bool have_verbs = verbs_array_has_verbs(cmdverb + 1, verbs_end);
+                bool have_verbs = verbs_array_has_verbs(verbverbs, verbs_end);
                 help_cmdline(have_verbs ? "[OPTION…] COMMAND …" : "[OPTION…]");
         }
 
@@ -505,7 +527,7 @@ int _command_print_help_full(
         if (r < 0)
                 return r;
 
-        r = print_verb_option_help(cmd, cmdverb + 1, verbs_end, options, options_end);
+        r = print_verb_option_help(cmd, verbverbs, verbs_end, options, options_end);
         if (r < 0)
                 return log_error_errno(r, "Failed to print verb&option help: %m");
 
@@ -570,9 +592,11 @@ static int command_build_json(
 
         assert(cmdverb);
         assert(FLAGS_SET(cmdverb->flags, VERB_COMMAND_MARKER));
+        assert(cmdverb < verbs_end);
         assert(ret);
 
         const CommandDescription *cmd = (const CommandDescription*) ASSERT_PTR(cmdverb->data);
+        const Verb *verbverbs = verbs_find_cmd_verbs(cmdverb, verbs_end);
 
         NULSTR_FOREACH(name, cmd->names) {
                 r = sd_json_variant_append_arrayb(&names, SD_JSON_BUILD_STRING(name));
@@ -585,7 +609,7 @@ static int command_build_json(
         if (r < 0)
                 return r;
 
-        for (const Verb *verb = cmdverb + 1; verb < verbs_end; verb++) {
+        for (const Verb *verb = verbverbs; verb < verbs_end; verb++) {
                 if (FLAGS_SET(verb->flags, VERB_COMMAND_MARKER))
                         break;  /* Start of entries for another command */
 

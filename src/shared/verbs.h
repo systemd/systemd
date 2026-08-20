@@ -8,6 +8,11 @@
 
 typedef enum CommandFlags {
         COMMAND_HELP_SEPARATE = 1 << 0,  /* Do not synchronize the width between verbs and options */
+        COMMAND_VERBS_SHARED  = 1 << 1,  /* We have a group of COMMANDs with this flag set, and then
+                                          * the VERB definitions below. The commands share the same
+                                          * set of actual VERB definitions. This is useful for programs
+                                          * which are registered under multiple names, but each one
+                                          * behaves very similarly. */
 } CommandFlags;
 
 typedef struct CommandDescription {
