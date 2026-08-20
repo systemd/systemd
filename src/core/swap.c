@@ -873,6 +873,18 @@ static void swap_enter_deactivating(Swap *s) {
 
         assert(s);
 
+        /* A swap unit can be active without ever having been loaded: if the device link it is named after
+         * disappears while the swap stays on, the next daemon-reload resurrects the unit from the
+         * serialization alone, i.e. by name and without a fragment, and coldplug restores its active state.
+         * Such a unit has no device to hand to swapoff. Don't invoke swapoff without an argument, there's
+         * nothing to deactivate — just go to dead, like swap_process_proc_swaps() does when it notices a
+         * unit disappeared from /proc/swaps. */
+        if (isempty(s->what)) {
+                log_unit_warning(UNIT(s), "Swap unit has no device, assuming it is already deactivated.");
+                swap_enter_dead(s, SWAP_SUCCESS);
+                return;
+        }
+
         s->control_command_id = SWAP_EXEC_DEACTIVATE;
         s->control_command = s->exec_command + SWAP_EXEC_DEACTIVATE;
 
