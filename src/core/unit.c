@@ -2441,6 +2441,8 @@ static int unit_log_resources(Unit *u) {
 
         (void) unit_get_cpu_usage(u, &cpu_nsec);
         if (cpu_nsec != NSEC_INFINITY) {
+                usec_t cpu_usec = cpu_nsec / NSEC_PER_USEC;
+
                 /* Format the CPU time for inclusion in the structured log message */
                 if (asprintf(&t, "CPU_USAGE_NSEC=%" PRIu64, cpu_nsec) < 0)
                         return log_oom();
@@ -2452,15 +2454,20 @@ static int unit_log_resources(Unit *u) {
                         usec_t wall_clock_usec = usec_sub_unsigned(u->inactive_enter_timestamp.monotonic, u->inactive_exit_timestamp.monotonic);
                         if (strextendf_with_separator(&message, ", ",
                                                       "Consumed %s CPU time over %s wall clock time",
-                                                      FORMAT_TIMESPAN(cpu_nsec / NSEC_PER_USEC, USEC_PER_MSEC),
+                                                      FORMAT_TIMESPAN(cpu_usec, USEC_PER_MSEC),
                                                       FORMAT_TIMESPAN(wall_clock_usec, USEC_PER_MSEC)) < 0)
                                 return log_oom();
-                } else {
-                        if (strextendf_with_separator(&message, ", ",
-                                                      "Consumed %s CPU time",
-                                                      FORMAT_TIMESPAN(cpu_nsec / NSEC_PER_USEC, USEC_PER_MSEC)) < 0)
-                                return log_oom();
-                }
+
+                        if (timestamp_is_set(wall_clock_usec)) {
+                                uint64_t centi = (cpu_usec * 100 + wall_clock_usec / 2) / wall_clock_usec;
+                                if (centi > 0)
+                                    if (strextendf(&message, " (%" PRIu64 ".%02" PRIu64 "x)", centi / 100, centi % 100) < 0)
+                                                return log_oom();
+                        }
+                } else if (strextendf_with_separator(&message, ", ",
+                                                     "Consumed %s CPU time",
+                                                     FORMAT_TIMESPAN(cpu_usec, USEC_PER_MSEC)) < 0)
+                        return log_oom();
 
                 log_level = raise_level(log_level,
                                         cpu_nsec > MENTIONWORTHY_CPU_NSEC,
