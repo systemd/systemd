@@ -3,8 +3,10 @@
 #include "sd-daemon.h"
 #include "sd-event.h"
 
+#include "dns-answer.h"
 #include "dns-packet.h"
 #include "dns-question.h"
+#include "dns-rr.h"
 #include "dns-type.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -356,6 +358,51 @@ static int server_handle_edns_code_zero(DnsPacket *packet, DnsPacket *reply) {
         return reply_append_edns(packet, reply, "\xF0\x9F\x90\xB1", DNS_RCODE_SERVFAIL, DNS_EDE_RCODE_OTHER);
 }
 
+static int server_handle_edns_success_with_address(DnsPacket *packet, DnsPacket *reply, int ede_rcode) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        DnsResourceRecord *rr = NULL;
+        const char *name;
+        int r;
+
+        assert(packet);
+        assert(reply);
+
+        name = dns_question_first_name(packet->question);
+        assert(name);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, name);
+        if (!rr)
+                return -ENOMEM;
+
+        rr->ttl = 60;
+        rr->a.in_addr.s_addr = htobe32(0);
+
+        answer = dns_answer_new(1);
+        if (!answer) {
+                dns_resource_record_unref(rr);
+                return -ENOMEM;
+        }
+
+        r = dns_answer_add(answer, rr, 1, 0, NULL);
+        dns_resource_record_unref(rr);
+        if (r < 0)
+                return r;
+
+        r = dns_packet_append_answer(reply, answer, NULL);
+        if (r < 0)
+                return r;
+
+        DNS_PACKET_HEADER(reply)->ancount = htobe16(dns_answer_size(answer));
+        return reply_append_edns(packet, reply, NULL, DNS_RCODE_SUCCESS, ede_rcode);
+}
+
+static int server_handle_edns_filtered_nxdomain(DnsPacket *packet, DnsPacket *reply) {
+        assert(packet);
+        assert(reply);
+
+        return reply_append_edns(packet, reply, NULL, DNS_RCODE_NXDOMAIN, DNS_EDE_RCODE_FILTERED);
+}
+
 static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
         _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
@@ -397,12 +444,21 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
                 r = server_handle_edns_bogus_dnssec(packet, reply);
         else if (streq_ptr(name, "edns-extra-text.forwarded.test"))
                 r = server_handle_edns_extra_text(packet, reply);
-        else if (streq_ptr(name, "edns-invalid-code.forwarded.test"))
+        else if (streq_ptr(name, "edns-invalid-code.forwarded.test") ||
+                 streq_ptr(name, "edns-invalid-code-varlink.forwarded.test"))
                 r = server_handle_edns_invalid_code(packet, reply, NULL);
-        else if (streq_ptr(name, "edns-invalid-code-with-extra-text.forwarded.test"))
+        else if (streq_ptr(name, "edns-invalid-code-with-extra-text.forwarded.test") ||
+                 streq_ptr(name, "edns-invalid-code-with-extra-text-varlink.forwarded.test"))
                 r = server_handle_edns_invalid_code(packet, reply, "Hello [#]$%~ World");
-        else if (streq_ptr(name, "edns-code-zero.forwarded.test"))
+        else if (streq_ptr(name, "edns-code-zero.forwarded.test") ||
+                 streq_ptr(name, "edns-code-zero-varlink.forwarded.test"))
                 r = server_handle_edns_code_zero(packet, reply);
+        else if (streq_ptr(name, "edns-forged.forwarded.test"))
+                r = server_handle_edns_success_with_address(packet, reply, DNS_EDE_RCODE_FORGED_ANSWER);
+        else if (streq_ptr(name, "edns-net-error.forwarded.test"))
+                r = server_handle_edns_success_with_address(packet, reply, DNS_EDE_RCODE_NET_ERROR);
+        else if (streq_ptr(name, "edns-filtered-nxdomain.forwarded.test"))
+                r = server_handle_edns_filtered_nxdomain(packet, reply);
         else
                 r = log_debug_errno(SYNTHETIC_ERRNO(EFAULT), "Unhandled name '%s', ignoring.", name);
         if (r < 0)
