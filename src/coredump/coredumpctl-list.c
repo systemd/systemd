@@ -48,7 +48,7 @@ int verb_dump_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 if (r < 0)
                         return r;
 
-                r = print_entry(j, 0, t);
+                r = print_entry(stdout, j, /* need_space= */ false, t);
                 if (r < 0)
                         return r;
         } else {
@@ -93,9 +93,11 @@ int verb_dump_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
                                         break;
                         }
 
-                        r = print_entry(j, n_found++, t);
+                        r = print_entry(stdout, j, /* need_space= */ n_found > 0, t);
                         if (r < 0)
                                 return r;
+
+                        n_found++;
 
                         if (arg_rows_max != SIZE_MAX && n_found >= arg_rows_max)
                                 break;
