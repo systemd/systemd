@@ -40,6 +40,7 @@ journalctl -q -b _SYSTEMD_USER_UNIT="$unit" -o cat | grep -Fx kept-info-message 
 # priority, so that they get their own rate limit pool and don't compete with
 # the other messages of the unit.
 unit="log-ratelimit-user-$RANDOM.service"
+# shellcheck disable=SC2016  # $i and $(seq 20) are expanded by the unit's bash, not by us
 systemd-run --user -M testuser@ --wait --service-type=exec --unit="$unit" \
             -p LogRateLimitIntervalSec=1h -p LogRateLimitBurst=1 \
             bash -ec 'sleep 0.5;
