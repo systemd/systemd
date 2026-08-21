@@ -37,57 +37,57 @@
     <para>The following interface definition is exposed:</para>
 
     <programlisting varlink-interface="io.systemd.Shutdown">
-# APIs for shutting down or rebooting the system.
-interface io.systemd.Shutdown
+<emphasis role="varlink-comment"># APIs for shutting down or rebooting the system.</emphasis>
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd.Shutdown
 
-# Power off the system
-method PowerOff(
-	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+<emphasis role="varlink-comment"># Power off the system</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> PowerOff(
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
 	allowInteractiveAuthentication: ?bool,
-	# Skip active inhibitors and force the operation
+	<emphasis role="varlink-comment"># Skip active inhibitors and force the operation</emphasis>
 	skipInhibitors: ?bool
 ) -&gt; ()
 
-# Reboot the system
-method Reboot(
-	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+<emphasis role="varlink-comment"># Reboot the system</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> Reboot(
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
 	allowInteractiveAuthentication: ?bool,
-	# Skip active inhibitors and force the operation
+	<emphasis role="varlink-comment"># Skip active inhibitors and force the operation</emphasis>
 	skipInhibitors: ?bool
 ) -&gt; ()
 
-# Halt the system
-method Halt(
-	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+<emphasis role="varlink-comment"># Halt the system</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> Halt(
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
 	allowInteractiveAuthentication: ?bool,
-	# Skip active inhibitors and force the operation
+	<emphasis role="varlink-comment"># Skip active inhibitors and force the operation</emphasis>
 	skipInhibitors: ?bool
 ) -&gt; ()
 
-# Reboot the system via kexec
-method KExec(
-	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+<emphasis role="varlink-comment"># Reboot the system via kexec</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> KExec(
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
 	allowInteractiveAuthentication: ?bool,
-	# Skip active inhibitors and force the operation
+	<emphasis role="varlink-comment"># Skip active inhibitors and force the operation</emphasis>
 	skipInhibitors: ?bool
 ) -&gt; ()
 
-# Reboot userspace only
-method SoftReboot(
-	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+<emphasis role="varlink-comment"># Reboot userspace only</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> SoftReboot(
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
 	allowInteractiveAuthentication: ?bool,
-	# Skip active inhibitors and force the operation
+	<emphasis role="varlink-comment"># Skip active inhibitors and force the operation</emphasis>
 	skipInhibitors: ?bool
 ) -&gt; ()
 
-# Another shutdown or sleep operation is already in progress
-error AlreadyInProgress()
+<emphasis role="varlink-comment"># Another shutdown or sleep operation is already in progress</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> AlreadyInProgress()
 
-# Operation denied due to active block inhibitor
-error BlockedByInhibitor(
-	# Who is holding the inhibitor
+<emphasis role="varlink-comment"># Operation denied due to active block inhibitor</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> BlockedByInhibitor(
+	<emphasis role="varlink-comment"># Who is holding the inhibitor</emphasis>
 	who: ?string,
-	# Why the inhibitor is held
+	<emphasis role="varlink-comment"># Why the inhibitor is held</emphasis>
 	why: ?string
 )
 </programlisting>
@@ -120,10 +120,10 @@ error BlockedByInhibitor(
     <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.Shutdown</screen> shows the
     interface definition as served by <replaceable>SERVICE</replaceable>, and
     <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.Shutdown.PowerOff '{}'</screen>
-    invokes its <function>PowerOff</function> method.</para>
+    invokes its <function>PowerOff()</function> method.</para>
   </refsect1>
 
-  <refsect1>
+  <refsect1><title>History</title><para>The io.systemd.Shutdown interface was added in version 261.</para><para><varname>AlreadyInProgress</varname>, <varname>BlockedByInhibitor</varname>, <function>Halt()</function>, <function>KExec()</function>, <function>PowerOff()</function>, <function>Reboot()</function>, and <function>SoftReboot()</function> were added in version 261.</para></refsect1><refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>

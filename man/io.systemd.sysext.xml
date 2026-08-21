@@ -37,14 +37,14 @@
     <para>The following interface definition is exposed:</para>
 
     <programlisting varlink-interface="io.systemd.sysext">
-interface io.systemd.sysext
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd.sysext
 
-type ImageClass(
+<emphasis role="varlink-keyword">type</emphasis> ImageClass(
 	sysext,
 	confext
 )
 
-type ImageType(
+<emphasis role="varlink-keyword">type</emphasis> ImageType(
 	directory,
 	subvolume,
 	raw,
@@ -52,36 +52,36 @@ type ImageType(
 	mstack
 )
 
-method Merge(
+<emphasis role="varlink-keyword">method</emphasis> Merge(
 	class: ?ImageClass,
 	force: ?bool,
 	noReload: ?bool,
 	noexec: ?bool,
-	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
 	allowInteractiveAuthentication: ?bool
 ) -&gt; ()
 
-method Unmerge(
+<emphasis role="varlink-keyword">method</emphasis> Unmerge(
 	class: ?ImageClass,
 	noReload: ?bool,
-	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
 	allowInteractiveAuthentication: ?bool
 ) -&gt; ()
 
-method Refresh(
+<emphasis role="varlink-keyword">method</emphasis> Refresh(
 	class: ?ImageClass,
 	force: ?bool,
 	noReload: ?bool,
 	alwaysRefresh: ?bool,
 	noexec: ?bool,
-	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
 	allowInteractiveAuthentication: ?bool
 ) -&gt; ()
 
-# [Requires 'more' flag]
-method List(
+<emphasis role="varlink-comment"># [Requires 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> List(
 	class: ?ImageClass,
-	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
 	allowInteractiveAuthentication: ?bool
 ) -&gt; (
 	Class: ImageClass,
@@ -97,9 +97,9 @@ method List(
 	LimitExclusive: ?int
 )
 
-error NoImagesFound()
+<emphasis role="varlink-keyword">error</emphasis> NoImagesFound()
 
-error AlreadyMerged(
+<emphasis role="varlink-keyword">error</emphasis> AlreadyMerged(
 	hierarchy: string
 )
 </programlisting>
@@ -134,10 +134,10 @@ error AlreadyMerged(
     <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.sysext</screen> shows the
     interface definition as served by <replaceable>SERVICE</replaceable>, and
     <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.sysext.Merge '{}'</screen>
-    invokes its <function>Merge</function> method.</para>
+    invokes its <function>Merge()</function> method.</para>
   </refsect1>
 
-  <refsect1>
+  <refsect1><title>History</title><para>The io.systemd.sysext interface was added in version 254.</para><para><varname>AlreadyMerged</varname>, <varname>ImageClass</varname>, <varname>ImageType</varname>, <function>List()</function>, <function>Merge()</function>, <varname>NoImagesFound</varname>, <function>Refresh()</function>, and <function>Unmerge()</function> were added in version 254.</para></refsect1><refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>

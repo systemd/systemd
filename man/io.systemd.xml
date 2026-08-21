@@ -37,24 +37,24 @@
     <para>The following interface definition is exposed:</para>
 
     <programlisting varlink-interface="io.systemd">
-interface io.systemd
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd
 
-# Local error if a Varlink connection is disconnected (this never crosses the wire and is synthesized locally only).
-error Disconnected()
+<emphasis role="varlink-comment"># Local error if a Varlink connection is disconnected (this never crosses the wire and is synthesized locally only).</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> Disconnected()
 
-# A method call time-out has been reached (also synthesized locally, does not cross wire)
-error TimedOut()
+<emphasis role="varlink-comment"># A method call time-out has been reached (also synthesized locally, does not cross wire)</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> TimedOut()
 
-# Some form of protocol error (also synthesized locally, does not cross wire)
-error Protocol()
+<emphasis role="varlink-comment"># Some form of protocol error (also synthesized locally, does not cross wire)</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> Protocol()
 
-# A generic Linux system error ("errno"s).
-error System(
-	# The origin of this system error, typically 'linux' to indicate Linux error numbers.
+<emphasis role="varlink-comment"># A generic Linux system error ("errno"s).</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> System(
+	<emphasis role="varlink-comment"># The origin of this system error, typically 'linux' to indicate Linux error numbers.</emphasis>
 	origin: ?string,
-	# The Linux error name, i.e. ENOENT, EHWPOISON or similar.
+	<emphasis role="varlink-comment"># The Linux error name, i.e. ENOENT, EHWPOISON or similar.</emphasis>
 	errnoName: ?string,
-	# The numeric Linux error number. Typically the name is preferable, if specified.
+	<emphasis role="varlink-comment"># The numeric Linux error number. Typically the name is preferable, if specified.</emphasis>
 	errno: ?int
 )
 </programlisting>
@@ -82,7 +82,7 @@ error System(
     interface definition as served by <replaceable>SERVICE</replaceable>.</para>
   </refsect1>
 
-  <refsect1>
+  <refsect1><title>History</title><para>The io.systemd interface was added in version 257.</para><para><varname>Disconnected</varname>, <varname>Protocol</varname>, <varname>System</varname>, and <varname>TimedOut</varname> were added in version 257.</para></refsect1><refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>

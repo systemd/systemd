@@ -37,87 +37,87 @@
     <para>The following interface definition is exposed:</para>
 
     <programlisting varlink-interface="io.systemd.MachineInstance">
-interface io.systemd.MachineInstance
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd.MachineInstance
 
-# Forcefully terminate the machine immediately
-method Terminate() -&gt; ()
+<emphasis role="varlink-comment"># Forcefully terminate the machine immediately</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> Terminate() -&gt; ()
 
-# Request a clean shutdown of the machine
-method PowerOff() -&gt; ()
+<emphasis role="varlink-comment"># Request a clean shutdown of the machine</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> PowerOff() -&gt; ()
 
-# Reboot the machine
-method Reboot() -&gt; ()
+<emphasis role="varlink-comment"># Reboot the machine</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> Reboot() -&gt; ()
 
-# Pause/freeze the machine
-method Pause() -&gt; ()
+<emphasis role="varlink-comment"># Pause/freeze the machine</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> Pause() -&gt; ()
 
-# Resume a paused machine
-method Resume() -&gt; ()
+<emphasis role="varlink-comment"># Resume a paused machine</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> Resume() -&gt; ()
 
-# Query the current status of the machine
-method Describe() -&gt; (
-	# True iff vCPUs are executing
+<emphasis role="varlink-comment"># Query the current status of the machine</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> Describe() -&gt; (
+	<emphasis role="varlink-comment"># True iff vCPUs are executing</emphasis>
 	running: bool,
-	# Backend-specific state string (e.g. 'running', 'paused', 'shutdown'); 'unknown' if unavailable
+	<emphasis role="varlink-comment"># Backend-specific state string (e.g. 'running', 'paused', 'shutdown'); 'unknown' if unavailable</emphasis>
 	status: string
 )
 
-# Subscribe to machine events. Returns a stream of events as they occur.
-# [Requires 'more' flag]
-method SubscribeEvents(
-	# If specified, only deliver events whose name matches one of these strings; null means all events
+<emphasis role="varlink-comment"># Subscribe to machine events. Returns a stream of events as they occur.</emphasis>
+<emphasis role="varlink-comment"># [Requires 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> SubscribeEvents(
+	<emphasis role="varlink-comment"># If specified, only deliver events whose name matches one of these strings; null means all events</emphasis>
 	filter: ?[]string
 ) -&gt; (
-	# Name of the event
+	<emphasis role="varlink-comment"># Name of the event</emphasis>
 	event: string,
-	# Event-specific payload
+	<emphasis role="varlink-comment"># Event-specific payload</emphasis>
 	data: ?object
 )
 
-# Attach a storage volume (passed via file descriptor) to the running machine
-method AddStorage(
-	# Index of the attached file descriptor for the storage volume
+<emphasis role="varlink-comment"># Attach a storage volume (passed via file descriptor) to the running machine</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> AddStorage(
+	<emphasis role="varlink-comment"># Index of the attached file descriptor for the storage volume</emphasis>
 	fileDescriptorIndex: int,
-	# Caller-supplied identifier for this binding (any non-empty string; machinectl uses '&lt;provider&gt;:&lt;volume&gt;' from the StorageProvider, but the form is not required)
+	<emphasis role="varlink-comment"># Caller-supplied identifier for this binding (any non-empty string; machinectl uses '&lt;provider&gt;:&lt;volume&gt;' from the StorageProvider, but the form is not required)</emphasis>
 	name: string,
-	# Backend-specific configuration
+	<emphasis role="varlink-comment"># Backend-specific configuration</emphasis>
 	config: ?string
 ) -&gt; ()
 
-# Detach a previously-attached storage volume from the running machine
-method RemoveStorage(
-	# Identifier of the binding to detach (as supplied to AddStorage)
+<emphasis role="varlink-comment"># Detach a previously-attached storage volume from the running machine</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> RemoveStorage(
+	<emphasis role="varlink-comment"># Identifier of the binding to detach (as supplied to AddStorage)</emphasis>
 	name: string
 ) -&gt; ()
 
-# Replace the backing of a previously-attached storage volume in place
-method ReplaceStorage(
-	# Index of the attached file descriptor for the new backing storage
+<emphasis role="varlink-comment"># Replace the backing of a previously-attached storage volume in place</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> ReplaceStorage(
+	<emphasis role="varlink-comment"># Index of the attached file descriptor for the new backing storage</emphasis>
 	fileDescriptorIndex: int,
-	# Identifier of the existing binding whose backing is being replaced (as supplied to AddStorage)
+	<emphasis role="varlink-comment"># Identifier of the existing binding whose backing is being replaced (as supplied to AddStorage)</emphasis>
 	name: string
 ) -&gt; ()
 
-# The connection to the machine backend is not available
-error NotConnected()
+<emphasis role="varlink-comment"># The connection to the machine backend is not available</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> NotConnected()
 
-# The requested operation is not supported
-error NotSupported()
+<emphasis role="varlink-comment"># The requested operation is not supported</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> NotSupported()
 
-# The named storage binding does not exist
-error NoSuchStorage()
+<emphasis role="varlink-comment"># The named storage binding does not exist</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> NoSuchStorage()
 
-# A storage binding with this name already exists
-error StorageExists()
+<emphasis role="varlink-comment"># A storage binding with this name already exists</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> StorageExists()
 
-# The storage binding cannot be detached at runtime (e.g. attached at boot)
-error StorageImmutable()
+<emphasis role="varlink-comment"># The storage binding cannot be detached at runtime (e.g. attached at boot)</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> StorageImmutable()
 
-# The supplied 'config' value is not valid for this backend
-error BadConfig()
+<emphasis role="varlink-comment"># The supplied 'config' value is not valid for this backend</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> BadConfig()
 
-# The supplied 'config' value is recognized but not supported by this backend
-error ConfigNotSupported()
+<emphasis role="varlink-comment"># The supplied 'config' value is recognized but not supported by this backend</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> ConfigNotSupported()
 </programlisting>
 
     <!--Autogenerated cross-references for systemd.directives, do not edit-->
@@ -168,10 +168,10 @@ error ConfigNotSupported()
     <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.MachineInstance</screen> shows the
     interface definition as served by <replaceable>SERVICE</replaceable>, and
     <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.MachineInstance.Terminate '{}'</screen>
-    invokes its <function>Terminate</function> method.</para>
+    invokes its <function>Terminate()</function> method.</para>
   </refsect1>
 
-  <refsect1>
+  <refsect1><title>History</title><para>The io.systemd.MachineInstance interface was added in version 261.</para><para><function>AddStorage()</function>, <varname>BadConfig</varname>, <varname>ConfigNotSupported</varname>, <function>Describe()</function>, <varname>NoSuchStorage</varname>, <varname>NotConnected</varname>, <varname>NotSupported</varname>, <function>Pause()</function>, <function>PowerOff()</function>, <function>Reboot()</function>, <function>RemoveStorage()</function>, <function>ReplaceStorage()</function>, <function>Resume()</function>, <varname>StorageExists</varname>, <varname>StorageImmutable</varname>, <function>SubscribeEvents()</function>, and <function>Terminate()</function> were added in version 261.</para></refsect1><refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>

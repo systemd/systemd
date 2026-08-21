@@ -37,116 +37,116 @@
     <para>The following interface definition is exposed:</para>
 
     <programlisting varlink-interface="io.systemd.StorageProvider">
-# Storage Provider API, a generic interface for acquiring access to storage volumes
-interface io.systemd.StorageProvider
+<emphasis role="varlink-comment"># Storage Provider API, a generic interface for acquiring access to storage volumes</emphasis>
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd.StorageProvider
 
-# Encodes three classes of storage volumes. This follows the kernel's nomenclature for inode types, i.e. reg, dir, blk.
-type VolumeType(
-	# Block device storage volumes, block-addressable
+<emphasis role="varlink-comment"># Encodes three classes of storage volumes. This follows the kernel's nomenclature for inode types, i.e. reg, dir, blk.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> VolumeType(
+	<emphasis role="varlink-comment"># Block device storage volumes, block-addressable</emphasis>
 	blk,
-	# Regular file storage volumes, byte-addressable
+	<emphasis role="varlink-comment"># Regular file storage volumes, byte-addressable</emphasis>
 	reg,
-	# POSIX file system storage volumes, path/offset-addressable
+	<emphasis role="varlink-comment"># POSIX file system storage volumes, path/offset-addressable</emphasis>
 	dir
 )
 
-# Determines whether to open existing or create a new storage volume.
-type CreateMode(
-	# Open if exists already, create if missing
+<emphasis role="varlink-comment"># Determines whether to open existing or create a new storage volume.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> CreateMode(
+	<emphasis role="varlink-comment"># Open if exists already, create if missing</emphasis>
 	any,
-	# Create if missing, fail if exists already
+	<emphasis role="varlink-comment"># Create if missing, fail if exists already</emphasis>
 	new,
-	# Open if exists already, fail if missing
+	<emphasis role="varlink-comment"># Open if exists already, fail if missing</emphasis>
 	open
 )
 
-# Acquires a file descriptor for a storage volume.
-method Acquire(
-	# The name of the storage volume to acquire
+<emphasis role="varlink-comment"># Acquires a file descriptor for a storage volume.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> Acquire(
+	<emphasis role="varlink-comment"># The name of the storage volume to acquire</emphasis>
 	name: string,
-	# Determines whether to open or create a storage volume
+	<emphasis role="varlink-comment"># Determines whether to open or create a storage volume</emphasis>
 	createMode: ?CreateMode,
-	# The template to use when creating a new storage volume
+	<emphasis role="varlink-comment"># The template to use when creating a new storage volume</emphasis>
 	template: ?string,
-	# Controls read/write access to the storage volume. If false and the storage volume cannot be opened in writable mode the call will fail. If null, storage volume will be acquired in writable mode if possible, read-only otherwise. If true, storage volume will be opened in read-only mode (and fail if that's not possible).
+	<emphasis role="varlink-comment"># Controls read/write access to the storage volume. If false and the storage volume cannot be opened in writable mode the call will fail. If null, storage volume will be acquired in writable mode if possible, read-only otherwise. If true, storage volume will be opened in read-only mode (and fail if that's not possible).</emphasis>
 	readOnly: ?bool,
-	# Dictates what kind of storage volume to request. Some storage volumes can be acquired either as regular file or as block device. In all other cases if this value doesn't match the volume type, the request will fail.
+	<emphasis role="varlink-comment"># Dictates what kind of storage volume to request. Some storage volumes can be acquired either as regular file or as block device. In all other cases if this value doesn't match the volume type, the request will fail.</emphasis>
 	requestAs: ?VolumeType,
-	# The size of the storage volume, if one is created. Has no effect if no storage volume is created.
+	<emphasis role="varlink-comment"># The size of the storage volume, if one is created. Has no effect if no storage volume is created.</emphasis>
 	createSizeBytes: ?int,
-	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
 	allowInteractiveAuthentication: ?bool
 ) -&gt; (
-	# Returns an index into the array of file descriptors associated with this reply. This may be used to get the file descriptor of the volume. The file descriptor must be properly opened, i.e. not an O_PATH file descriptor.
+	<emphasis role="varlink-comment"># Returns an index into the array of file descriptors associated with this reply. This may be used to get the file descriptor of the volume. The file descriptor must be properly opened, i.e. not an O_PATH file descriptor.</emphasis>
 	fileDescriptorIndex: int,
-	# The storage volume type, i.e. ultimately the inode type of the returned file descriptor
-	type: VolumeType,
-	# Whether storage volume has been opened in read-only mode
+	<emphasis role="varlink-comment"># The storage volume type, i.e. ultimately the inode type of the returned file descriptor</emphasis>
+	<emphasis role="varlink-keyword">type</emphasis>: VolumeType,
+	<emphasis role="varlink-comment"># Whether storage volume has been opened in read-only mode</emphasis>
 	readOnly: bool,
-	# Base UID for the returned file descriptor (if directory). If not specified shall default to 0.
+	<emphasis role="varlink-comment"># Base UID for the returned file descriptor (if directory). If not specified shall default to 0.</emphasis>
 	baseUID: ?int,
-	# Base GID for the returned file descriptor (if directory). If not specified shall default to 0.
+	<emphasis role="varlink-comment"># Base GID for the returned file descriptor (if directory). If not specified shall default to 0.</emphasis>
 	baseGID: ?int
 )
 
-# Lists available storage volumes.
-# [Requires 'more' flag]
-method ListVolumes(
-	# Specifies a shell glob to filter enumeration by
+<emphasis role="varlink-comment"># Lists available storage volumes.</emphasis>
+<emphasis role="varlink-comment"># [Requires 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> ListVolumes(
+	<emphasis role="varlink-comment"># Specifies a shell glob to filter enumeration by</emphasis>
 	matchName: ?string
 ) -&gt; (
-	# The storage volume's primary name
+	<emphasis role="varlink-comment"># The storage volume's primary name</emphasis>
 	name: string,
-	# Additional names
+	<emphasis role="varlink-comment"># Additional names</emphasis>
 	aliases: ?[]string,
-	# The type of the storage volume
-	type: VolumeType,
-	# Whether the storage volume is read-only.
+	<emphasis role="varlink-comment"># The type of the storage volume</emphasis>
+	<emphasis role="varlink-keyword">type</emphasis>: VolumeType,
+	<emphasis role="varlink-comment"># Whether the storage volume is read-only.</emphasis>
 	readOnly: ?bool,
-	# Size in bytes, if known
+	<emphasis role="varlink-comment"># Size in bytes, if known</emphasis>
 	sizeBytes: ?int,
-	# Used bytes, if known
+	<emphasis role="varlink-comment"># Used bytes, if known</emphasis>
 	usedBytes: ?int
 )
 
-# Lists available templates.
-# [Requires 'more' flag]
-method ListTemplates(
-	# Specifies a shell glob to filter enumeration by
+<emphasis role="varlink-comment"># Lists available templates.</emphasis>
+<emphasis role="varlink-comment"># [Requires 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> ListTemplates(
+	<emphasis role="varlink-comment"># Specifies a shell glob to filter enumeration by</emphasis>
 	matchName: ?string
 ) -&gt; (
-	# The template's name
+	<emphasis role="varlink-comment"># The template's name</emphasis>
 	name: string,
-	# The type of the storage volumes defined by this template
-	type: VolumeType
+	<emphasis role="varlink-comment"># The type of the storage volumes defined by this template</emphasis>
+	<emphasis role="varlink-keyword">type</emphasis>: VolumeType
 )
 
-# No storage volume under the specified name exists.
-error NoSuchVolume()
+<emphasis role="varlink-comment"># No storage volume under the specified name exists.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> NoSuchVolume()
 
-# A storage volume under the specified name already exists.
-error VolumeExists()
+<emphasis role="varlink-comment"># A storage volume under the specified name already exists.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> VolumeExists()
 
-# No template under the specified name exists.
-error NoSuchTemplate()
+<emphasis role="varlink-comment"># No template under the specified name exists.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> NoSuchTemplate()
 
-# The specified volume type is not supported by this backend or system.
-error TypeNotSupported()
+<emphasis role="varlink-comment"># The specified volume type is not supported by this backend or system.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> TypeNotSupported()
 
-# The volume's type does not match the requested volume type.
-error WrongType()
+<emphasis role="varlink-comment"># The volume's type does not match the requested volume type.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> WrongType()
 
-# This backend does not support storage volume creation of the requested type.
-error CreateNotSupported()
+<emphasis role="varlink-comment"># This backend does not support storage volume creation of the requested type.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> CreateNotSupported()
 
-# This backend or selected volume type requires a storage volume size to be specified if the storage volume does not exist yet and needs to be created.
-error CreateSizeRequired()
+<emphasis role="varlink-comment"># This backend or selected volume type requires a storage volume size to be specified if the storage volume does not exist yet and needs to be created.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> CreateSizeRequired()
 
-# A storage volume was to be acquired in writable mode, but only read-only access is permitted.
-error ReadOnlyVolume()
+<emphasis role="varlink-comment"># A storage volume was to be acquired in writable mode, but only read-only access is permitted.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> ReadOnlyVolume()
 
-# Template not suitable for this storage volume type.
-error BadTemplate()
+<emphasis role="varlink-comment"># Template not suitable for this storage volume type.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> BadTemplate()
 </programlisting>
 
     <!--Autogenerated cross-references for systemd.directives, do not edit-->
@@ -191,10 +191,10 @@ error BadTemplate()
     <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.StorageProvider</screen> shows the
     interface definition as served by <replaceable>SERVICE</replaceable>, and
     <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.StorageProvider.Acquire '{}'</screen>
-    invokes its <function>Acquire</function> method.</para>
+    invokes its <function>Acquire()</function> method.</para>
   </refsect1>
 
-  <refsect1>
+  <refsect1><title>History</title><para>The io.systemd.StorageProvider interface was added in version 261.</para><para><function>Acquire()</function>, <varname>BadTemplate</varname>, <varname>CreateMode</varname>, <varname>CreateNotSupported</varname>, <varname>CreateSizeRequired</varname>, <function>ListTemplates()</function>, <function>ListVolumes()</function>, <varname>NoSuchTemplate</varname>, <varname>NoSuchVolume</varname>, <varname>ReadOnlyVolume</varname>, <varname>TypeNotSupported</varname>, <varname>VolumeExists</varname>, <varname>VolumeType</varname>, and <varname>WrongType</varname> were added in version 261.</para></refsect1><refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>

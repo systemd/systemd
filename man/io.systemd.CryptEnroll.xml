@@ -37,95 +37,95 @@
     <para>The following interface definition is exposed:</para>
 
     <programlisting varlink-interface="io.systemd.CryptEnroll">
-# API for enrolling credentials into LUKS2 volumes via systemd-cryptenroll.
-interface io.systemd.CryptEnroll
+<emphasis role="varlink-comment"># API for enrolling credentials into LUKS2 volumes via systemd-cryptenroll.</emphasis>
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd.CryptEnroll
 
-# The credential types this interface knows about, used both as the enrollment mechanism and as the slot type reported by ListSlots.
-type EnrollMechanism(
-	# A regular passphrase
+<emphasis role="varlink-comment"># The credential types this interface knows about, used both as the enrollment mechanism and as the slot type reported by ListSlots.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> EnrollMechanism(
+	<emphasis role="varlink-comment"># A regular passphrase</emphasis>
 	password,
-	# A randomly generated recovery key
+	<emphasis role="varlink-comment"># A randomly generated recovery key</emphasis>
 	recovery,
-	# A PKCS#11 security token (not enrollable via this interface)
+	<emphasis role="varlink-comment"># A PKCS#11 security token (not enrollable via this interface)</emphasis>
 	pkcs11,
-	# A FIDO2 security token
+	<emphasis role="varlink-comment"># A FIDO2 security token</emphasis>
 	fido2,
-	# A TPM2 device (not enrollable via this interface)
+	<emphasis role="varlink-comment"># A TPM2 device (not enrollable via this interface)</emphasis>
 	tpm2
 )
 
-# Enroll a credential into a LUKS2 volume. When enrolling a FIDO2 token that requires user presence, the call must be made with the 'more' flag, so that the server can report when a touch is required via a 'touch' state notification.
-# [Supports 'more' flag]
-method Enroll(
-	# Path to the LUKS2 block device or image to operate on.
+<emphasis role="varlink-comment"># Enroll a credential into a LUKS2 volume. When enrolling a FIDO2 token that requires user presence, the call must be made with the 'more' flag, so that the server can report when a touch is required via a 'touch' state notification.</emphasis>
+<emphasis role="varlink-comment"># [Supports 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> Enroll(
+	<emphasis role="varlink-comment"># Path to the LUKS2 block device or image to operate on.</emphasis>
 	node: string,
-	# Which kind of credential to enroll. Only 'password', 'recovery' and 'fido2' may be enrolled via this interface for now; 'pkcs11' and 'tpm2' are rejected with an InvalidParameter error, currently.
+	<emphasis role="varlink-comment"># Which kind of credential to enroll. Only 'password', 'recovery' and 'fido2' may be enrolled via this interface for now; 'pkcs11' and 'tpm2' are rejected with an InvalidParameter error, currently.</emphasis>
 	mechanism: EnrollMechanism,
-	# How to unlock the volume for the enrollment operation is inferred from which of the following fields are set: setting unlockPassword unlocks via that password, unlockKeyFile/unlockKeyFileDescriptor via a key file, unlockFido2Device via FIDO2, unlockTpm2Device via TPM2. Exactly one must be set.
+	<emphasis role="varlink-comment"># How to unlock the volume for the enrollment operation is inferred from which of the following fields are set: setting unlockPassword unlocks via that password, unlockKeyFile/unlockKeyFileDescriptor via a key file, unlockFido2Device via FIDO2, unlockTpm2Device via TPM2. Exactly one must be set.</emphasis>
 	unlockPassword: ?string,
-	# Path to a key file to unlock the volume with.
+	<emphasis role="varlink-comment"># Path to a key file to unlock the volume with.</emphasis>
 	unlockKeyFile: ?string,
-	# Index into the file descriptors passed along with this call, identifying a key file to unlock the volume with.
+	<emphasis role="varlink-comment"># Index into the file descriptors passed along with this call, identifying a key file to unlock the volume with.</emphasis>
 	unlockKeyFileDescriptor: ?int,
-	# Path to a FIDO2 device to unlock the volume with. Leave the path empty to automatically discover a suitable device.
+	<emphasis role="varlink-comment"># Path to a FIDO2 device to unlock the volume with. Leave the path empty to automatically discover a suitable device.</emphasis>
 	unlockFido2Device: ?string,
-	# Path to a TPM2 device to unlock the volume with. Leave the path empty to automatically discover a suitable device.
+	<emphasis role="varlink-comment"># Path to a TPM2 device to unlock the volume with. Leave the path empty to automatically discover a suitable device.</emphasis>
 	unlockTpm2Device: ?string,
-	# The passphrase to enroll, when mechanism is 'password'. Contains key material.
+	<emphasis role="varlink-comment"># The passphrase to enroll, when mechanism is 'password'. Contains key material.</emphasis>
 	password: ?string,
-	# Path to the FIDO2 device to enroll, when mechanism is 'fido2'. Leave empty to automatically discover a suitable device.
+	<emphasis role="varlink-comment"># Path to the FIDO2 device to enroll, when mechanism is 'fido2'. Leave empty to automatically discover a suitable device.</emphasis>
 	fido2Device: ?string,
-	# The FIDO2 token PIN to use for enrollment. Contains key material.
+	<emphasis role="varlink-comment"># The FIDO2 token PIN to use for enrollment. Contains key material.</emphasis>
 	fido2Pin: ?string,
-	# Whether unlocking the FIDO2 enrollment shall require a client PIN. Defaults to true.
+	<emphasis role="varlink-comment"># Whether unlocking the FIDO2 enrollment shall require a client PIN. Defaults to true.</emphasis>
 	fido2WithClientPin: ?bool,
-	# Whether unlocking the FIDO2 enrollment shall require user presence (touch). Defaults to true.
+	<emphasis role="varlink-comment"># Whether unlocking the FIDO2 enrollment shall require user presence (touch). Defaults to true.</emphasis>
 	fido2WithUserPresence: ?bool,
-	# Whether unlocking the FIDO2 enrollment shall require user verification. Defaults to false.
+	<emphasis role="varlink-comment"># Whether unlocking the FIDO2 enrollment shall require user verification. Defaults to false.</emphasis>
 	fido2WithUserVerification: ?bool,
-	# Explicit list of keyslot indexes to wipe after enrolling.
+	<emphasis role="varlink-comment"># Explicit list of keyslot indexes to wipe after enrolling.</emphasis>
 	wipeSlots: ?[]int,
-	# Wipe all already-enrolled slots of these types after enrolling.
+	<emphasis role="varlink-comment"># Wipe all already-enrolled slots of these types after enrolling.</emphasis>
 	wipeTypes: ?[]EnrollMechanism,
-	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
 	allowInteractiveAuthentication: ?bool
 ) -&gt; (
-	# The keyslot the new credential was enrolled into. Set on the terminating reply only.
+	<emphasis role="varlink-comment"># The keyslot the new credential was enrolled into. Set on the terminating reply only.</emphasis>
 	slot: ?int,
-	# The keyslots wiped as part of this call, if any.
+	<emphasis role="varlink-comment"># The keyslots wiped as part of this call, if any.</emphasis>
 	wipedSlots: ?[]int,
-	# The generated recovery key, when mechanism is 'recoveryKey'. Contains key material.
+	<emphasis role="varlink-comment"># The generated recovery key, when mechanism is 'recoveryKey'. Contains key material.</emphasis>
 	recoveryKey: ?string,
-	# Progress indicator, only sent on intermediate replies when 'more' was set. Currently the only value is 'touch', signalling that the FIDO2 token is waiting for a touch. Unset on the terminating reply.
+	<emphasis role="varlink-comment"># Progress indicator, only sent on intermediate replies when 'more' was set. Currently the only value is 'touch', signalling that the FIDO2 token is waiting for a touch. Unset on the terminating reply.</emphasis>
 	state: ?string
 )
 
-# Enumerate the keyslots currently enrolled in a LUKS2 volume, one per reply. Must be called with the 'more' flag.
-# [Requires 'more' flag]
-method ListSlots(
-	# Path to the LUKS2 block device or image to operate on.
+<emphasis role="varlink-comment"># Enumerate the keyslots currently enrolled in a LUKS2 volume, one per reply. Must be called with the 'more' flag.</emphasis>
+<emphasis role="varlink-comment"># [Requires 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> ListSlots(
+	<emphasis role="varlink-comment"># Path to the LUKS2 block device or image to operate on.</emphasis>
 	node: string
 ) -&gt; (
-	# A currently enrolled keyslot index.
+	<emphasis role="varlink-comment"># A currently enrolled keyslot index.</emphasis>
 	slot: ?int,
-	# The type of the keyslot.
-	type: ?EnrollMechanism
+	<emphasis role="varlink-comment"># The type of the keyslot.</emphasis>
+	<emphasis role="varlink-keyword">type</emphasis>: ?EnrollMechanism
 )
 
-# The volume is managed by another subsystem (e.g. systemd-homed) and may not be enrolled into directly.
-error VolumeUnderForeignManagement()
+<emphasis role="varlink-comment"># The volume is managed by another subsystem (e.g. systemd-homed) and may not be enrolled into directly.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> VolumeUnderForeignManagement()
 
-# A password is required to unlock the volume, but none was provided.
-error PasswordRequired()
+<emphasis role="varlink-comment"># A password is required to unlock the volume, but none was provided.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> PasswordRequired()
 
-# The provided password did not unlock the volume.
-error PasswordIncorrect()
+<emphasis role="varlink-comment"># The provided password did not unlock the volume.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> PasswordIncorrect()
 
-# No matching FIDO2 device was found.
-error FidoDeviceNotFound()
+<emphasis role="varlink-comment"># No matching FIDO2 device was found.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> FidoDeviceNotFound()
 
-# The FIDO2 token was not interacted with in time.
-error FidoActionTimeout()
+<emphasis role="varlink-comment"># The FIDO2 token was not interacted with in time.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> FidoActionTimeout()
 </programlisting>
 
     <!--Autogenerated cross-references for systemd.directives, do not edit-->
@@ -158,10 +158,10 @@ error FidoActionTimeout()
     <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.CryptEnroll</screen> shows the
     interface definition as served by <replaceable>SERVICE</replaceable>, and
     <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.CryptEnroll.Enroll '{}'</screen>
-    invokes its <function>Enroll</function> method.</para>
+    invokes its <function>Enroll()</function> method.</para>
   </refsect1>
 
-  <refsect1>
+  <refsect1><title>History</title><para>The io.systemd.CryptEnroll interface was added in version 262.</para><para><function>Enroll()</function>, <varname>EnrollMechanism</varname>, <varname>FidoActionTimeout</varname>, <varname>FidoDeviceNotFound</varname>, <function>ListSlots()</function>, <varname>PasswordIncorrect</varname>, <varname>PasswordRequired</varname>, and <varname>VolumeUnderForeignManagement</varname> were added in version 262.</para></refsect1><refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
