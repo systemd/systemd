@@ -1,0 +1,213 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" >
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="io.systemd.SysInstall"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>io.systemd.SysInstall</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>io.systemd.SysInstall</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>io.systemd.SysInstall</refname>
+    <refpurpose>API for installing the OS to another block device.</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><interfacename>io.systemd.SysInstall</interfacename> is a Varlink interface implemented by
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>-related
+    components. It can be introspected and called with
+    <citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+    <para>API for installing the OS to another block device.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Interface Definition</title>
+
+    <para>The following interface definition is exposed:</para>
+
+    <programlisting varlink-interface="io.systemd.SysInstall">
+# API for installing the OS to another block device.
+interface io.systemd.SysInstall
+
+# Progress phase identifiers. Note that we might add more phases here, and thus identifiers. Frontends can choose to display the phase to the user in some human readable form, or not do that, but if they do it and they receive a notification for a so far unknown phase, they should just ignore it.
+type ProgressPhase(
+	encrypt_credentials,
+	install_partitions,
+	mount_partitions,
+	install_kernel,
+	install_bootloader,
+	unmount_partitions
+)
+
+# Description about the fit of an OS on a block device.
+type DeviceFit(
+	enough_free_space,
+	insufficent_free_space,
+	disk_too_small,
+	conflicting_disk_label_present
+)
+
+# Discriminator on streamed ListCandidateDevices replies in subscribe mode.
+type BlockDeviceAction(
+	# The device is currently present and a candidate. Emitted both during the initial enumeration and for live uevents (any action other than 'remove' is propagated as 'add', including the synthesized transitions when a device becomes empty or read-only and a relevant ignore* input is in effect).
+	add,
+	# The device is no longer a candidate, either because the kernel reported a remove event, or because a dynamic filter (ignoreEmpty/ignoreReadOnly) flipped it out of the candidate set. Clients should drop the device identified by 'node'. It is permitted (and harmless) to receive a 'remove' for a device the client never saw an 'add' for; clients should ignore these silently.
+	remove,
+	# Sentinel sent exactly once in subscribe mode, after the initial enumeration is complete. Everything that follows reflects live uevents. Carries no other fields.
+	ready
+)
+
+# A credential to install to target OS.
+type Credential(
+	# The id of the credential.
+	id: string,
+	# The value of the credential in base64 encoding.
+	value: string
+)
+
+# Invoke the actual installation of the OS. If invoked with 'more' enabled will report progress, otherwise will just report completion.
+# [Supports 'more' flag]
+method Run(
+	# Full path to the block device node to operate on.
+	node: string,
+	# Path to directory containing definition files.
+	definitions: ?[]string,
+	# If true, fully erase the target block device.
+	erase: bool,
+	# If true, EFI variables are modified to register the installed boot loader in the firmware's boot options database.
+	variables: ?bool,
+	# The path to a kernel image, if missing the current kernel is detected and used.
+	kernelImagePath: ?string,
+	# If true, the current locale is copied to target system
+	copyLocale: ?bool,
+	# If true, the current keymap is copied to target system
+	copyKeymap: ?bool,
+	# If true, the current timezone is copied to target system
+	copyTimezone: ?bool,
+	# A list of credentials to be installed to target system.
+	credentials: ?[]Credential
+) -&gt; (
+	# If used with the 'more' flag, a phase identifier is sent in progress updates.
+	phase: ?ProgressPhase,
+	# If used with the 'more' flag, an object identifier string is sent in progress updates.
+	object: ?string,
+	# If used with the 'more' flag, a progress percentage (specific to the work done for the specified phase+object is sent in progress updates).
+	progress: ?int
+)
+
+# Return a list of candidate block devices, i.e. that support partition scanning and other requirements for successful operation.
+# [Requires 'more' flag]
+method ListCandidateDevices(
+	# Path to directory containing definition files, used to evaluate the fit of the target OS for each block device.
+	definitions: ?[]string,
+	# If true, keep the call open after the initial enumeration and stream live add/remove notifications as block-subsystem uevents arrive. The end of the initial enumeration is marked by exactly one notification with action='ready' and no other fields. Defaults to false.
+	subscribe: ?bool
+) -&gt; (
+	# Discriminator field. Only set in subscribe mode. 'add' carries the full device record, 'remove' carries only node, 'ready' carries no other fields and is sent once after the initial enumeration.
+	action: ?BlockDeviceAction,
+	# The device node path of the block device.
+	node: ?string,
+	# List of symlinks pointing to the device node, if any.
+	symlinks: ?[]string,
+	# The Linux kernel disk sequence number identifying the medium.
+	diskseq: ?int,
+	# The size of the block device in bytes.
+	sizeBytes: ?int,
+	# The device vendor string if known.
+	vendor: ?string,
+	# The device model string if known.
+	model: ?string,
+	# The subsystem the block device belongs to if known.
+	subsystem: ?string,
+	# The fit indicating whether the OS would have enough available space on the device.
+	fit: ?DeviceFit,
+	# Minimal size of the disk required for the installation.
+	minimalSizeBytes: ?int,
+	# Additional free space needed for the installation.
+	needFreeBytes: ?int,
+	# Current allocated size of this block device.
+	currentSizeBytes: ?int
+)
+
+# An incompatible disk label present, and not told to erase it.
+error ConflictingDiskLabelPresent()
+
+# The target disk has insufficient free space to fit all requested partitions. (But the disk would fit, if emptied.)
+error InsufficientFreeSpace(
+	# Minimal size of the disk required for the installation.
+	minimalSizeBytes: ?int,
+	# Additional free space needed on the selected disk.
+	needFreeBytes: ?int,
+	# Size of the selected block device.
+	currentSizeBytes: ?int
+)
+
+# The target disk is too small to fit the installation. (Regardless if emptied or not.)
+error DiskTooSmall(
+	# Minimal size of the disk required for the installation.
+	minimalSizeBytes: ?int,
+	# Actual size of the selected block device.
+	currentSizeBytes: ?int
+)
+
+# Not a single candidate block device could be found.
+error NoCandidateDevices()
+</programlisting>
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="varlink-interface" generated="True" extra-ref="io.systemd.SysInstall"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ProgressPhase"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="DeviceFit"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="BlockDeviceAction"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="Credential"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="Run()"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="ConflictingDiskLabelPresent"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="InsufficientFreeSpace"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="DiskTooSmall"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="ListCandidateDevices()"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoCandidateDevices"/>
+
+    <!--End of Autogenerated section-->
+
+    </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.SysInstall</screen> shows the
+    interface definition as served by <replaceable>SERVICE</replaceable>, and
+    <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.SysInstall.Run '{}'</screen>
+    invokes its <function>Run</function> method.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.varlink</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

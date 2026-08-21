@@ -1,0 +1,175 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" >
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="io.systemd.UserDatabase"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>io.systemd.UserDatabase</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>io.systemd.UserDatabase</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>io.systemd.UserDatabase</refname>
+    <refpurpose>APIs for querying user and group records.</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><interfacename>io.systemd.UserDatabase</interfacename> is a Varlink interface implemented by
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>-related
+    components. It can be introspected and called with
+    <citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+    <para>APIs for querying user and group records.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Interface Definition</title>
+
+    <para>The following interface definition is exposed:</para>
+
+    <programlisting varlink-interface="io.systemd.UserDatabase">
+# APIs for querying user and group records.
+interface io.systemd.UserDatabase
+
+# Retrieve one or more user records. Look-up is either keyed by UID or user name, or if neither is specified all known records are enumerated.
+# [Supports 'more' flag]
+method GetUserRecord(
+	# The numeric 32bit UNIX UID of the record, if look-up by UID is desired.
+	uid: ?int,
+	# The UNIX user name of the record, if look-up by name is desired.
+	userName: ?string,
+	# The userdb provider service to search on. Must be set to the base name of the userdb entrypoint socket. This is necessary in order to support services that implement multiple userdb services on the same socket.
+	# Names to search for in a fuzzy fashion.
+	fuzzyNames: ?[]string,
+	# User dispositions to limit search by.
+	dispositionMask: ?[]string,
+	# Minimum UID to restrict search too.
+	uidMin: ?int,
+	# Maximum UID to restrict search too.
+	uidMax: ?int,
+	# The UUID to restrict search to.
+	uuid: ?string,
+	# The userdb provider to search on. Must be set to the name of the userdb entrypoint socket. This is necessary in order to support services that implement multiple userdb services on the same socket.
+	service: string
+) -&gt; (
+	# The retrieved user record.
+	record: object,
+	# If set to true, indicates that the user record is not complete, i.e. that the 'privileged' section has been stripped because the client lacks the privileges to access it.
+	incomplete: ?bool
+)
+
+# Retrieve one or more group records. Look-up is either keyed by GID or group name, or if neither is specified all known records are enumerated.
+# [Supports 'more' flag]
+method GetGroupRecord(
+	# The numeric 32bit UNIX GID of the record, if look-up by GID is desired.
+	gid: ?int,
+	# The UNIX group name of the record, if look-up by name is desired.
+	groupName: ?string,
+	# The userdb provider service to search on. Must be set to the base name of the userdb entrypoint socket. This is necessary in order to support services that implement multiple userdb services on the same socket.
+	# Additional names to search for in a fuzzy fashion.
+	fuzzyNames: ?[]string,
+	# Group dispositions to limit search by.
+	dispositionMask: ?[]string,
+	# Minimum GID to restrict search too.
+	gidMin: ?int,
+	# Maximum GID to restrict search too.
+	gidMax: ?int,
+	# The UUID to restrict search to.
+	uuid: ?string,
+	# The userdb provider to search on. Must be set to the name of the userdb entrypoint socket. This is necessary in order to support services that implement multiple userdb services on the same socket.
+	service: string
+) -&gt; (
+	# The retrieved group record.
+	record: object,
+	# If set to true, indicates that the group record is not complete, i.e. that the 'privileged' section has been stripped because the client lacks the privileges to access it.
+	incomplete: ?bool
+)
+
+# Retrieve membership relationships between users and groups.
+# [Supports 'more' flag]
+method GetMemberships(
+	# The UNIX user name of the user to search for memberships for.
+	userName: ?string,
+	# The UNIX group name of the group to search for memberships for.
+	groupName: ?string,
+	# The userdb provider to search on. Must be set to the base name of the userdb entrypoint socket. This is necessary in order to support services that implement multiple userdb services on the same socket.
+	service: string
+) -&gt; (
+	# The UNIX user name of a discovered membership relationship.
+	userName: string,
+	# The UNIX group name of a discovered membership relationship.
+	groupName: string
+)
+
+# Error indicating that no matching user or group record was found.
+error NoRecordFound()
+
+# Error indicating that the contacted service does not implement the specified service name.
+error BadService()
+
+# Error indicating that the backing service currently is not operational and no answer can be provided.
+error ServiceNotAvailable()
+
+# Error indicating that there's a user record matching either UID/GID or the user/group name, but not both at the same time.
+error ConflictingRecordFound()
+
+# Error indicating that there's a user record matching the primary UID/GID or user/group, but that doesn't match the additional specified matches.
+error NonMatchingRecordFound()
+
+# Error indicating that retrieval of user/group records on this service is only supported if either user/group name or UID/GID are specified, but not if nothing is specified.
+error EnumerationNotSupported()
+</programlisting>
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="varlink-interface" generated="True" extra-ref="io.systemd.UserDatabase"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="GetUserRecord()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="GetGroupRecord()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="GetMemberships()"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoRecordFound"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="BadService"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="ServiceNotAvailable"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="ConflictingRecordFound"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NonMatchingRecordFound"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="EnumerationNotSupported"/>
+
+    <!--End of Autogenerated section-->
+
+    </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.UserDatabase</screen> shows the
+    interface definition as served by <replaceable>SERVICE</replaceable>, and
+    <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.UserDatabase.GetUserRecord '{}'</screen>
+    invokes its <function>GetUserRecord</function> method.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.varlink</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

@@ -1,0 +1,205 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" >
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="io.systemd.StorageProvider"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>io.systemd.StorageProvider</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>io.systemd.StorageProvider</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>io.systemd.StorageProvider</refname>
+    <refpurpose>Storage Provider API, a generic interface for acquiring access to storage volumes</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><interfacename>io.systemd.StorageProvider</interfacename> is a Varlink interface implemented by
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>-related
+    components. It can be introspected and called with
+    <citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+    <para>Storage Provider API, a generic interface for acquiring access to storage volumes</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Interface Definition</title>
+
+    <para>The following interface definition is exposed:</para>
+
+    <programlisting varlink-interface="io.systemd.StorageProvider">
+# Storage Provider API, a generic interface for acquiring access to storage volumes
+interface io.systemd.StorageProvider
+
+# Encodes three classes of storage volumes. This follows the kernel's nomenclature for inode types, i.e. reg, dir, blk.
+type VolumeType(
+	# Block device storage volumes, block-addressable
+	blk,
+	# Regular file storage volumes, byte-addressable
+	reg,
+	# POSIX file system storage volumes, path/offset-addressable
+	dir
+)
+
+# Determines whether to open existing or create a new storage volume.
+type CreateMode(
+	# Open if exists already, create if missing
+	any,
+	# Create if missing, fail if exists already
+	new,
+	# Open if exists already, fail if missing
+	open
+)
+
+# Acquires a file descriptor for a storage volume.
+method Acquire(
+	# The name of the storage volume to acquire
+	name: string,
+	# Determines whether to open or create a storage volume
+	createMode: ?CreateMode,
+	# The template to use when creating a new storage volume
+	template: ?string,
+	# Controls read/write access to the storage volume. If false and the storage volume cannot be opened in writable mode the call will fail. If null, storage volume will be acquired in writable mode if possible, read-only otherwise. If true, storage volume will be opened in read-only mode (and fail if that's not possible).
+	readOnly: ?bool,
+	# Dictates what kind of storage volume to request. Some storage volumes can be acquired either as regular file or as block device. In all other cases if this value doesn't match the volume type, the request will fail.
+	requestAs: ?VolumeType,
+	# The size of the storage volume, if one is created. Has no effect if no storage volume is created.
+	createSizeBytes: ?int,
+	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	allowInteractiveAuthentication: ?bool
+) -&gt; (
+	# Returns an index into the array of file descriptors associated with this reply. This may be used to get the file descriptor of the volume. The file descriptor must be properly opened, i.e. not an O_PATH file descriptor.
+	fileDescriptorIndex: int,
+	# The storage volume type, i.e. ultimately the inode type of the returned file descriptor
+	type: VolumeType,
+	# Whether storage volume has been opened in read-only mode
+	readOnly: bool,
+	# Base UID for the returned file descriptor (if directory). If not specified shall default to 0.
+	baseUID: ?int,
+	# Base GID for the returned file descriptor (if directory). If not specified shall default to 0.
+	baseGID: ?int
+)
+
+# Lists available storage volumes.
+# [Requires 'more' flag]
+method ListVolumes(
+	# Specifies a shell glob to filter enumeration by
+	matchName: ?string
+) -&gt; (
+	# The storage volume's primary name
+	name: string,
+	# Additional names
+	aliases: ?[]string,
+	# The type of the storage volume
+	type: VolumeType,
+	# Whether the storage volume is read-only.
+	readOnly: ?bool,
+	# Size in bytes, if known
+	sizeBytes: ?int,
+	# Used bytes, if known
+	usedBytes: ?int
+)
+
+# Lists available templates.
+# [Requires 'more' flag]
+method ListTemplates(
+	# Specifies a shell glob to filter enumeration by
+	matchName: ?string
+) -&gt; (
+	# The template's name
+	name: string,
+	# The type of the storage volumes defined by this template
+	type: VolumeType
+)
+
+# No storage volume under the specified name exists.
+error NoSuchVolume()
+
+# A storage volume under the specified name already exists.
+error VolumeExists()
+
+# No template under the specified name exists.
+error NoSuchTemplate()
+
+# The specified volume type is not supported by this backend or system.
+error TypeNotSupported()
+
+# The volume's type does not match the requested volume type.
+error WrongType()
+
+# This backend does not support storage volume creation of the requested type.
+error CreateNotSupported()
+
+# This backend or selected volume type requires a storage volume size to be specified if the storage volume does not exist yet and needs to be created.
+error CreateSizeRequired()
+
+# A storage volume was to be acquired in writable mode, but only read-only access is permitted.
+error ReadOnlyVolume()
+
+# Template not suitable for this storage volume type.
+error BadTemplate()
+</programlisting>
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="varlink-interface" generated="True" extra-ref="io.systemd.StorageProvider"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="VolumeType"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CreateMode"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="Acquire()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="ListVolumes()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="ListTemplates()"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoSuchVolume"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="VolumeExists"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoSuchTemplate"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="TypeNotSupported"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="WrongType"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="CreateNotSupported"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="CreateSizeRequired"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="ReadOnlyVolume"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="BadTemplate"/>
+
+    <!--End of Autogenerated section-->
+
+    </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.StorageProvider</screen> shows the
+    interface definition as served by <replaceable>SERVICE</replaceable>, and
+    <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.StorageProvider.Acquire '{}'</screen>
+    invokes its <function>Acquire</function> method.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.varlink</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>
