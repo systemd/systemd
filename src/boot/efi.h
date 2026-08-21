@@ -240,6 +240,25 @@ typedef enum {
         EfiResetPlatformSpecific,
 } EFI_RESET_TYPE;
 
+#define CAPSULE_FLAGS_PERSIST_ACROSS_RESET  UINT32_C(0x00010000)
+#define CAPSULE_FLAGS_POPULATE_SYSTEM_TABLE UINT32_C(0x00020000)
+#define CAPSULE_FLAGS_INITIATE_RESET        UINT32_C(0x00040000)
+
+typedef struct {
+        EFI_GUID CapsuleGuid;
+        uint32_t HeaderSize;
+        uint32_t Flags;
+        uint32_t CapsuleImageSize;
+} EFI_CAPSULE_HEADER;
+
+typedef struct {
+        uint64_t Length;
+        union {
+                EFI_PHYSICAL_ADDRESS DataBlock;
+                EFI_PHYSICAL_ADDRESS ContinuationPointer;
+        } Union;
+} EFI_CAPSULE_BLOCK_DESCRIPTOR;
+
 typedef struct {
         uint32_t Resolution;
         uint32_t Accuracy;
@@ -422,8 +441,15 @@ typedef struct {
                         EFI_STATUS ResetStatus,
                         size_t DataSize,
                         void *ResetData);
-        void *UpdateCapsule;
-        void *QueryCapsuleCapabilities;
+        EFI_STATUS (EFIAPI *UpdateCapsule)(
+                        EFI_CAPSULE_HEADER **CapsuleHeaderArray,
+                        size_t CapsuleCount,
+                        EFI_PHYSICAL_ADDRESS ScatterGatherList);
+        EFI_STATUS (EFIAPI *QueryCapsuleCapabilities)(
+                        EFI_CAPSULE_HEADER **CapsuleHeaderArray,
+                        size_t CapsuleCount,
+                        uint64_t *MaximumCapsuleSize,
+                        EFI_RESET_TYPE *ResetType);
         void *QueryVariableInfo;
 } EFI_RUNTIME_SERVICES;
 
