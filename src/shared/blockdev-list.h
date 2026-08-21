@@ -15,6 +15,7 @@ typedef enum BlockDevListFlags {
         BLOCKDEV_LIST_REQUIRE_LUKS               = 1 << 8,  /* Only consider block devices with LUKS superblocks */
         BLOCKDEV_LIST_METADATA                   = 1 << 9,  /* Fill in model, vendor, subsystem, read_only */
         BLOCKDEV_LIST_DISKSEQ                    = 1 << 10, /* Fill in the diskseq field */
+        BLOCKDEV_LIST_RW_STATS                   = 1 << 11, /* Fill in read and write measurements */
 } BlockDevListFlags;
 
 /* The "dynamic" filters – ones the kernel can flip at runtime via sysattrs on a live device.
@@ -31,6 +32,8 @@ typedef struct BlockDevice {
         char *subsystem;
         uint64_t diskseq;
         uint64_t size;     /* in bytes */
+        uint64_t read_bytes;
+        uint64_t write_bytes;
         int read_only;
 } BlockDevice;
 
