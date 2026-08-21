@@ -97,6 +97,7 @@ static char **arg_identity_filter = NULL; /* this one is also applied to 'privil
 static char **arg_identity_filter_rlimits = NULL;
 static uint64_t arg_disk_size = UINT64_MAX;
 static uint64_t arg_disk_size_relative = UINT64_MAX;
+static bool arg_resize_after_update = false;
 static char **arg_pkcs11_token_uri = NULL;
 static char **arg_fido2_device = NULL;
 static Fido2EnrollFlags arg_fido2_lock_with = FIDO2ENROLL_PIN | FIDO2ENROLL_UP;
@@ -1634,7 +1635,7 @@ static int verb_update_home(int argc, char *argv[], uintptr_t _data, void *userd
                 username = NULL;
 
         bool and_change_password = !strv_isempty(arg_pkcs11_token_uri) || !strv_isempty(arg_fido2_device);
-        bool and_resize = arg_disk_size != UINT64_MAX || arg_disk_size_relative != UINT64_MAX;
+        bool and_resize = arg_resize_after_update;
 
         r = acquire_bus(&bus);
         if (r < 0)
@@ -4528,11 +4529,16 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
 
                 OPTION_GROUP("Resource Management User Record Properties"): {}
 
-                OPTION_LONG("disk-size", "BYTES", "Size to assign the user on disk"):
-                        r = parse_disk_size_field(match_identity ?: &arg_identity_extra_this_machine, opts.arg);
+                OPTION_LONG("disk-size", "BYTES", "Size to assign the user on disk"): {
+                        sd_json_variant **identity = match_identity ?: &arg_identity_extra_this_machine;
+
+                        r = parse_disk_size_field(identity, opts.arg);
                         if (r < 0)
                                 return r;
+                        if (identity == &arg_identity_extra_this_machine)
+                                arg_resize_after_update = !isempty(opts.arg);
                         break;
+                }
 
                 OPTION_LONG("nice", "NICE", "Nice level for user"):
                         r = parse_nice_field(match_identity ?: &arg_identity_extra, "niceLevel", opts.arg);
