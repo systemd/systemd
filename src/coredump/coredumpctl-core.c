@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <unistd.h>
-
 #include "sd-journal.h"
 
 #include "chase.h"
@@ -26,8 +24,6 @@ int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) {
         _cleanup_free_ char *filename = NULL;
         size_t len;
         int r, fd;
-        _cleanup_close_ int fdt = -EBADF;
-        char *temp = NULL;
 
         assert(!!file == !path);         /* file or path must be specified. They must not be specified together. */
         assert(!!path == !!unlink_temp); /* Those must be specified together */
@@ -68,6 +64,8 @@ int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) {
                         return log_error_errno(r, "Failed to retrieve COREDUMP field: %m");
         }
 
+        _cleanup_(unlink_and_freep) char *temp = NULL;
+        _cleanup_close_ int fdt = -EBADF;
         if (path) {
                 const char *vt;
 
@@ -95,20 +93,15 @@ int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) {
                 _cleanup_close_ int fdf = -EBADF;
 
                 fdf = open(filename, O_RDONLY | O_CLOEXEC);
-                if (fdf < 0) {
-                        r = log_error_errno(errno, "Failed to open %s: %m", filename);
-                        goto error;
-                }
+                if (fdf < 0)
+                        return log_error_errno(errno, "Failed to open %s: %m", filename);
 
                 r = decompress_stream_by_filename(filename, fdf, fd, -1);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to decompress %s: %m", filename);
-                        goto error;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to decompress %s: %m", filename);
 #else
-                r = log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                    "Cannot decompress file. Compiled without compression support.");
-                goto error;
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Cannot decompress file. Compiled without compression support.");
 #endif
         } else {
                 /* We want full data, nothing truncated. */
@@ -123,24 +116,15 @@ int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) {
                 len -= 9;
 
                 r = loop_write(fd, data, len);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to write output: %m");
-                        goto error;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write output: %m");
         }
 
         if (temp) {
-                *path = temp;
+                *path = TAKE_PTR(temp);
                 *unlink_temp = true;
         }
         return 0;
-
-error:
-        if (temp) {
-                (void) unlink(temp);
-                log_debug("Removed temporary file %s", temp);
-        }
-        return r;
 }
 
 int verb_dump_core(int argc, char *argv[], uintptr_t _data, void *userdata) {
