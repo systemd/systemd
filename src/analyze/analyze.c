@@ -198,7 +198,7 @@ static int verb_transient_settings(int argc, char *argv[], uintptr_t _data, void
 
 COMMAND(
         "systemd-analyze\0",
-        .abstract = "Profile systemd, show unit dependencies, check unit files.",
+        "Profile systemd, show unit dependencies, check unit files.",
         .man_pages = "systemd-analyze.1\0",
         .pager_flags = &arg_pager_flags,
 );
