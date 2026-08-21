@@ -99,7 +99,7 @@ TEST(mstack) {
                         _cleanup_(rmdir_and_freep) char *m = NULL;
                         ASSERT_OK(mkdtemp_malloc("/tmp/mstack-temporary-XXXXXX", &m));
 
-                        ASSERT_OK(mstack_make_mounts(mstack, m, flags));
+                        ASSERT_OK(mstack_make_mounts(mstack, m, flags, /* uid_shift= */ UID_INVALID));
 
                         _cleanup_(rmdir_and_freep) char *w = NULL;
                         ASSERT_OK(mkdtemp_malloc("/tmp/mstack-where-XXXXXX", &w));
