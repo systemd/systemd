@@ -2741,6 +2741,8 @@ void unit_release_cgroup(Unit *u, bool drop_cgroup_runtime) {
                 crt->cgroup_memory_inotify_wd = -1;
         }
 
+        crt->oom_kill_last = 0;
+
         if (drop_cgroup_runtime)
                 *(CGroupRuntime**) ((uint8_t*) u + UNIT_VTABLE(u)->cgroup_runtime_offset) = cgroup_runtime_free(crt);
 }
