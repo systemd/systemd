@@ -1381,6 +1381,33 @@ static int vl_method_reset_statistics(sd_varlink *link, sd_json_variant *paramet
         return sd_varlink_replyb(link, SD_JSON_BUILD_EMPTY_OBJECT);
 }
 
+static int vl_method_flush_caches(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(sd_varlink_get_userdata(ASSERT_PTR(link)));
+        int r;
+
+        r = verify_polkit(link, parameters, "org.freedesktop.resolve1.flush-caches");
+        if (r <= 0)
+                return r;
+
+        manager_flush_caches(m, LOG_INFO);
+
+        return sd_varlink_replyb(link, SD_JSON_BUILD_EMPTY_OBJECT);
+}
+
+static int vl_method_reset_server_features(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(sd_varlink_get_userdata(ASSERT_PTR(link)));
+        int r;
+
+        r = verify_polkit(link, parameters, "org.freedesktop.resolve1.reset-server-features");
+        if (r <= 0)
+                return r;
+
+        (void) dns_stream_disconnect_all(m);
+        manager_reset_server_features(m);
+
+        return sd_varlink_replyb(link, SD_JSON_BUILD_EMPTY_OBJECT);
+}
+
 static int vl_method_subscribe_dns_configuration(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *m = ASSERT_PTR(sd_varlink_get_userdata(ASSERT_PTR(link)));
         int r;
@@ -1464,7 +1491,9 @@ static int varlink_monitor_server_init(Manager *m) {
                         "io.systemd.Resolve.Monitor.DumpServerState", vl_method_dump_server_state,
                         "io.systemd.Resolve.Monitor.DumpStatistics", vl_method_dump_statistics,
                         "io.systemd.Resolve.Monitor.ResetStatistics", vl_method_reset_statistics,
-                        "io.systemd.Resolve.Monitor.SubscribeDNSConfiguration", vl_method_subscribe_dns_configuration);
+                        "io.systemd.Resolve.Monitor.SubscribeDNSConfiguration", vl_method_subscribe_dns_configuration,
+                        "io.systemd.Resolve.Monitor.FlushCaches", vl_method_flush_caches,
+                        "io.systemd.Resolve.Monitor.ResetServerFeatures", vl_method_reset_server_features);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
