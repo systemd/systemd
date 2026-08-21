@@ -193,8 +193,13 @@ static UserRecord* user_record_free(UserRecord *h) {
         strv_free(h->capability_ambient_set);
 
         free(h->file_system_type);
+        free(h->thin_pool);
+        free(h->thin_volume);
+        free(h->thin_volume_uuid);
         free(h->luks_cipher);
         free(h->luks_cipher_mode);
+        free(h->luks_key_type);
+        free(h->luks_integrity);
         free(h->luks_pbkdf_hash_algorithm);
         free(h->luks_pbkdf_type);
         free(h->luks_extra_mount_options);
@@ -1061,12 +1066,17 @@ static int dispatch_binding(const char *name, sd_json_variant *variant, sd_json_
                 { "partitionUuid",     SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,       offsetof(UserRecord, partition_uuid),       0              },
                 { "luksUuid",          SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,       offsetof(UserRecord, luks_uuid),            0              },
                 { "fileSystemUuid",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,       offsetof(UserRecord, file_system_uuid),     0              },
+                { "thinPool",          SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,      offsetof(UserRecord, thin_pool),            SD_JSON_STRICT },
+                { "thinVolume",        SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,      offsetof(UserRecord, thin_volume),          SD_JSON_STRICT },
+                { "thinVolumeUuid",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,      offsetof(UserRecord, thin_volume_uuid),     SD_JSON_STRICT },
                 { "uid",               SD_JSON_VARIANT_UNSIGNED,      sd_json_dispatch_uid_gid,     offsetof(UserRecord, uid),                  0              },
                 { "gid",               SD_JSON_VARIANT_UNSIGNED,      sd_json_dispatch_uid_gid,     offsetof(UserRecord, gid),                  0              },
                 { "storage",           SD_JSON_VARIANT_STRING,        json_dispatch_user_storage,   offsetof(UserRecord, storage),              0              },
                 { "fileSystemType",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,      offsetof(UserRecord, file_system_type),     SD_JSON_STRICT },
                 { "luksCipher",        SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,      offsetof(UserRecord, luks_cipher),          SD_JSON_STRICT },
                 { "luksCipherMode",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,      offsetof(UserRecord, luks_cipher_mode),     SD_JSON_STRICT },
+                { "luksKeyType",       SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,      offsetof(UserRecord, luks_key_type),        SD_JSON_STRICT },
+                { "luksIntegrity",     SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,      offsetof(UserRecord, luks_integrity),       SD_JSON_STRICT },
                 { "luksVolumeKeySize", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,      offsetof(UserRecord, luks_volume_key_size), 0              },
                 {},
         };
@@ -2175,6 +2185,9 @@ bool user_record_drop_caches(UserRecord *h) {
 AutoResizeMode user_record_auto_resize_mode(UserRecord *h) {
         assert(h);
 
+        if (h->thin_pool)
+                return AUTO_RESIZE_OFF;
+
         if (h->auto_resize_mode >= 0)
                 return h->auto_resize_mode;
 
@@ -2183,6 +2196,9 @@ AutoResizeMode user_record_auto_resize_mode(UserRecord *h) {
 
 uint64_t user_record_rebalance_weight(UserRecord *h) {
         assert(h);
+
+        if (h->thin_pool)
+                return REBALANCE_WEIGHT_OFF;
 
         if (h->rebalance_weight == REBALANCE_WEIGHT_UNSET)
                 return REBALANCE_WEIGHT_DEFAULT;

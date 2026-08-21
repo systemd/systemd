@@ -80,6 +80,94 @@
         <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>ThinPool=</varname></term>
+        <listitem><para>Configures the existing LVM thin pool used for newly created LUKS home areas that
+        do not specify an explicit image path. The value must be a volume group and thin-pool name separated
+        by a slash, for example <literal>homes/pool</literal>. Such homes use ext4. If no
+        <varname>diskSize</varname> is specified, the logical size is derived from the current thin-pool data
+        LV size plus the unallocated extents in its volume group, including space reserved for automatic pool
+        extension, rounded down to the normal home-disk alignment and limited to the supported size range. An
+        explicit <varname>diskSize</varname> remains authoritative, and may be used to impose a lower ceiling
+        or deliberately overcommit the pool. Resizing and automatic space rebalancing are disabled for these
+        fixed logical devices. The ext4 file system is mounted in provisioning mode, so
+        allocation fails before a mapping is exposed unless the complete block stack can back it.
+        Online discard is enabled by default for these block-device-backed homes; the thin pool and all
+        lower block layers must also be configured to pass discards down for unused extents to be reclaimed.
+        <command>systemd-homed</command> creates and removes only tagged
+        per-user thin volumes in this pool, and records the pool, volume name, and immutable LVM volume UUID
+        in the machine-specific user-record binding. Creating, monitoring, and sizing the pool remains an
+        administrator responsibility.</para>
+
+        <para>The pool must use immediate error-on-full behavior. Configure a new pool along these lines,
+        adjusting sizes and devices for the installation:</para>
+
+        <programlisting>pvcreate /dev/disk/by-id/…
+vgcreate homes /dev/disk/by-id/…
+lvcreate --type thin-pool --name pool --size 900G --poolmetadatasize 8G homes
+lvchange --errorwhenfull y --monitor y homes/pool</programlisting>
+
+        <para>Before creating or activating a home, <command>systemd-homed</command> verifies that the
+        configured volume is a writable, healthy thin pool, that it returns allocation errors instead of
+        queuing I/O indefinitely when full, and that neither its data nor metadata space is exhausted. It
+        warns when either usage reaches 80%, and when <command>dmeventd</command> monitoring is disabled.
+        Configure LVM thin-pool auto-extension, keep unallocated extents in the volume group for it, and
+        monitor both <literal>data_percent</literal> and <literal>metadata_percent</literal>. Metadata space
+        needs to be sized for the expected number of thin devices, snapshots, and block mappings; exhausting
+        it is as serious as exhausting data space.</para>
+
+        <para>Discard must be enabled through ext4, LUKS/device-mapper, the thin pool, and the backing
+        storage. Verify reclamation by comparing <command>lvs -o data_percent</command> before and after
+        <command>fstrim</command>; do not assume deleting files alone releases thin-pool blocks. If the pool
+        becomes full, extend its data or metadata LV before retrying activation. For a check-needed,
+        read-only, or failed pool, keep homes inactive and follow the LVM thin-pool repair procedure (normally
+        including a metadata backup and <command>lvconvert --repair</command>). Do not rename, retag, or
+        remove homed-owned thin LVs manually, since their immutable LVM UUIDs are part of the authenticated
+        home binding.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>HardwareWrappedKeys=</varname></term>
+        <listitem><para>Takes a boolean and defaults to false. When enabled, newly created thin-backed
+        LUKS/ext4 homes use a hardware-wrapped inline-encryption key. The complete block stack and storage
+        controller must support hardware-wrapped key generation, software-secret derivation, ephemeral-key
+        preparation, inline AES-256-XTS encryption through <literal>dm-inlinecrypt</literal>, and journaled
+        <literal>dm-integrity</literal> provisioning. The resulting stack is ext4 over
+        <literal>dm-integrity</literal>, <literal>dm-inlinecrypt</literal>, and the LVM thin volume. Integrity
+        uses an internal <literal>hmac(sha256)</literal> over filesystem plaintext with 4096-byte sectors,
+        32-byte tags, colocated metadata, and a fixed 32 MiB journal. The lower inline-encryption layer
+        encrypts the data, integrity tags, superblock, and journal. An explicit
+        <literal>yes</literal> fails creation if any required component is unavailable; it never falls back
+        to a raw volume key. Existing wrapped homes remain usable when this setting is later disabled. This
+        is intentionally a system-wide creation policy; no per-user <command>homectl</command> override is
+        provided. New raw-key homes continue to use the unversioned identity-token format for compatibility,
+        while version 2 is reserved for the authenticated hardware-wrapped-key envelope.</para>
+
+        <para>The wrapped key is tied to the storage hardware's wrapping identity. A LUKS header backup and
+        the user's password are not sufficient for recovery after incompatible storage-controller or
+        motherboard replacement. Keep normal LUKS header and LVM metadata backups for repair, but also keep an
+        independent encrypted file-level backup. Migrate a home while the source hardware is available by
+        unlocking it and copying its files into a newly created home on the destination; copying only the thin
+        LV or LUKS header to hardware with a different wrapping identity is not a migration method.</para>
+
+        <para>Password, recovery-key, PKCS#11, and FIDO2 enrollment changes update normal LUKS2 keyslots while
+        retaining the same wrapped data key. Online LUKS reencryption and data-key rotation are not supported
+        for this profile. Locking a newly created wrapped home requires cryptsetup, a
+        <literal>dm-inlinecrypt</literal> target version 1.1 or newer, and a <literal>dm-integrity</literal>
+        target version 1.15 or newer with suspended <literal>key wipe</literal>/<literal>key set</literal>
+        support. Older stacks return an unsupported-operation error without leaving only one layer resumed;
+        full deactivation remains supported and evicts both active keys.</para>
+
+        <para>Each protected home permanently reserves approximately 32 MiB for the integrity journal, in
+        addition to dm-integrity tags and filesystem blocks provisioned in the thin pool. Size thin-pool data
+        and metadata capacity for this overhead. Homes created before integrity support retain their existing
+        layout and do not acquire this reservation automatically.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
