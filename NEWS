@@ -102,6 +102,9 @@ CHANGES WITH 262:
         * The r and R tmpfiles.d line types now honor the age field when
           systemd-tmpfiles is invoked with --clean.
 
+        * systemd-tmpfiles no longer follows symlinks in parent directories
+          when creating directories, subvolumes, FIFOs, or device nodes.
+
         Changes in the TPM Subsystem:
 
         * The way that NvPCRs are anchored has been improved. They are now
