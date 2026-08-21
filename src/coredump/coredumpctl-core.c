@@ -45,14 +45,15 @@ static int coredump_open_tmpfile(char **ret_path, int *ret_fd) {
         return 0;
 }
 
-int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) {
+int acquire_core(sd_journal *j, int fd, char **ret_tmpfile, char **ret_path) {
         const char *data;
         _cleanup_free_ char *filename = NULL;
         size_t len;
-        int r, fd;
+        int r;
 
-        assert(!!file == !path);         /* file or path must be specified. They must not be specified together. */
-        assert(!!path == !!unlink_temp); /* Those must be specified together */
+        assert(j);
+        assert((fd >= 0) == !ret_tmpfile);
+        assert((fd >= 0) == !ret_path);
 
         /* Look for a coredump on disk first. */
         r = sd_journal_get_data(j, "COREDUMP_FILENAME", (const void**) &data, &len);
@@ -70,9 +71,9 @@ int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) {
 
                 free_and_replace(filename, resolved);
 
-                if (path && !ENDSWITH_SET(filename, ".xz", ".lz4", ".zst")) {
-                        *path = TAKE_PTR(filename);
-
+                if (ret_path && !ENDSWITH_SET(filename, ".xz", ".lz4", ".zst")) {
+                        *ret_tmpfile = NULL;
+                        *ret_path = TAKE_PTR(filename);
                         return 0;
                 }
 
@@ -92,14 +93,13 @@ int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) {
 
         _cleanup_(unlink_and_freep) char *temp = NULL;
         _cleanup_close_ int fdt = -EBADF;
-        if (path) {
+        if (fd < 0) {
                 r = coredump_open_tmpfile(&temp, &fdt);
                 if (r < 0)
                         return r;
 
                 fd = fdt;
-        } else
-                fd = fileno(file);
+        }
 
         if (filename) {
 #if HAVE_COMPRESSION
@@ -133,10 +133,11 @@ int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) {
                         return log_error_errno(r, "Failed to write output: %m");
         }
 
-        if (temp) {
-                *path = TAKE_PTR(temp);
-                *unlink_temp = true;
-        }
+        if (ret_tmpfile)
+                *ret_tmpfile = TAKE_PTR(temp);
+        if (ret_path)
+                *ret_path = NULL;
+
         return 0;
 }
 
@@ -168,7 +169,7 @@ int verb_dump_core(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         (void) print_entry(f ? stdout : stderr, j, /* need_space= */ false, /* table= */ NULL);
 
-        r = save_core(j, f ?: stdout, NULL, NULL);
+        r = acquire_core(j, fileno(f ?: stdout), /* ret_tmpfile= */ NULL, /* ret_path= */ NULL);
         if (r < 0)
                 return r;
 
