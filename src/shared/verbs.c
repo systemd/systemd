@@ -607,6 +607,7 @@ static int command_build_json(
         r = sd_json_buildo(
                         ret,
                         SD_JSON_BUILD_PAIR_VARIANT("names", names),
+                        SD_JSON_BUILD_PAIR_STRING("project", "systemd"),
                         SD_JSON_BUILD_PAIR_STRING("version", PROJECT_VERSION_FULL),
                         SD_JSON_BUILD_PAIR_STRV("features", features),
                         SD_JSON_BUILD_PAIR_CONDITION(
