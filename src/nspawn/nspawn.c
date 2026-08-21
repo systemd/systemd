@@ -3880,6 +3880,143 @@ static DissectImageFlags determine_dissect_image_flags(void) {
                  (arg_userns_ownership != USER_NAMESPACE_OWNERSHIP_AUTO) ? DISSECT_IMAGE_IDENTITY_UID : 0);
 }
 
+/* Whether we idmap the container root ourselves (as opposed to running it unmapped, or leaving the
+ * mapping to a managed userns). Consulted both here and before assembling a synthetic --volatile= mount
+ * stack, which needs to know the answer before it builds anything. */
+static bool nspawn_idmaps_root(uid_t chown_uid) {
+        return !IN_SET(arg_userns_mode, USER_NAMESPACE_NO, USER_NAMESPACE_MANAGED) &&
+                IN_SET(arg_userns_ownership,
+                       USER_NAMESPACE_OWNERSHIP_MAP,
+                       USER_NAMESPACE_OWNERSHIP_FOREIGN,
+                       USER_NAMESPACE_OWNERSHIP_AUTO) &&
+                chown_uid != 0;
+}
+
+static int determine_remount_idmapping(const char *path, RemountIdmapping *ret) {
+        int r;
+
+        assert(path);
+        assert(ret);
+
+        switch (arg_userns_ownership) {
+
+        case USER_NAMESPACE_OWNERSHIP_MAP:
+                *ret = REMOUNT_IDMAPPING_HOST_ROOT;
+                return 0;
+
+        case USER_NAMESPACE_OWNERSHIP_FOREIGN:
+                *ret = REMOUNT_IDMAPPING_FOREIGN_WITH_HOST_ROOT;
+                return 0;
+
+        case USER_NAMESPACE_OWNERSHIP_AUTO: {
+                struct stat st;
+
+                if (lstat(path, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat() container root path '%s': %m", path);
+
+                r = stat_verify_directory(&st);
+                if (r < 0)
+                        return log_error_errno(r, "Container root path '%s' is not a directory: %m", path);
+
+                *ret = uid_is_foreign(st.st_uid) ?
+                        REMOUNT_IDMAPPING_FOREIGN_WITH_HOST_ROOT :
+                        REMOUNT_IDMAPPING_HOST_ROOT;
+                return 0;
+        }
+
+        default:
+                assert_not_reached();
+        }
+}
+
+/* The mstack flags implied by the command line, for a stack loaded from a .mstack/ directory. Worked out
+ * in one place because the two read-only questions have different answers: whether the root itself may be
+ * read-only, and whether the caller's own bind@ entries must be. */
+static MStackFlags mstack_flags_from_args(void) {
+        /* Defer the caller's own bind mounts to after mount_all(), so that API VFS mounts (/proc, /sys,
+         * /dev, /run, /tmp) don't shadow them. The root, /usr, and whatever --volatile= synthesizes are
+         * all attached immediately instead. */
+        MStackFlags flags = MSTACK_DEFER_MOUNT;
+
+        /* --volatile= force-sets arg_read_only (see the argument post-processing further up), but the
+         * whole point of it is to supply a writable layer, so the tree-wide read-only must not follow
+         * from it - it is mstack's own synthetic writable layer that has to stay writable. Outside
+         * volatile mode a tree-wide read-only keeps the caller's bind@ entries read-only too, binds
+         * included: -M on a read-only .mstack image sets arg_read_only via image_is_read_only()
+         * without ever going through the command line, and its binds must not come up writable. */
+        if (arg_read_only && arg_volatile_mode == VOLATILE_NO)
+                flags |= MSTACK_RDONLY|MSTACK_BINDS_RDONLY;
+
+        /* An explicit --read-only/ReadOnly=yes still locks down the caller's own bind@ entries, even
+         * where --volatile= keeps the root writable: --volatile= governs the root, not the binds. Gate
+         * on arg_read_only_requested rather than arg_read_only, because that is what tells the two
+         * apart - --volatile= and a custom root mount both force arg_read_only without ever going
+         * through the command line, and nspawn's own bind_remount_recursive() is skipped for exactly
+         * those two. */
+        if (arg_read_only_requested)
+                flags |= MSTACK_BINDS_RDONLY;
+
+        return flags;
+}
+
+/* Neither --directory= nor --image= have a mount stack of their own; wrap the already attached root
+ * as a synthetic single-entry MStack and merge the requested --volatile= layers into it exactly as
+ * the --mstack= case does, ready for the same assembly/bind-application pipeline. */
+static int mstack_new_synthetic_volatile(
+                const char *directory,
+                VolatileMode volatile_mode,
+                uid_t tmpfs_uid_shift,
+                const char *tmpfs_selinux_context,
+                MStack **ret) {
+
+        int r;
+
+        assert(directory);
+        assert(ret);
+
+        /* AT_RECURSIVE: 'directory' may already have submounts of its own (e.g. a separately
+         * mounted /usr/) from whichever of the three mechanisms further up attached the root;
+         * without it, open_tree() would silently drop them from the clone, leaving empty
+         * mountpoint directories behind in the assembled --volatile= result. The kernel refuses
+         * a recursive clone outright (EINVAL) if the subtree contains a locked/unbindable mount
+         * anywhere in it, though - always possible for --directory=/, which may drag along the
+         * host's entire live mount tree (/proc, /sys, container-private mounts, ...); fall back
+         * to a non-recursive clone in that case; losing nested submounts is a smaller regression
+         * than failing --volatile= outright for such a root. */
+        _cleanup_close_ int root_fd = open_tree(
+                        AT_FDCWD, directory,
+                        OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_RECURSIVE|AT_SYMLINK_NOFOLLOW);
+        if (root_fd < 0 && errno == EINVAL) {
+                /* Warned rather than logged at debug: the pre-mstack setup_volatile_state()/
+                 * _overlay() worked on 'directory' in place and so never risked dropping
+                 * submounts. Taking this fallback silently would change the shape of the
+                 * container's tree - a separately mounted /usr/local, a nested subvolume - with
+                 * nothing in the default log to say it happened. */
+                log_warning("Recursive clone of '%s' refused (locked or unbindable submounts?), "
+                            "falling back to a non-recursive clone; nested submounts below it "
+                            "will not be preserved in the container.", directory);
+                root_fd = open_tree(
+                                AT_FDCWD, directory,
+                                OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW);
+        }
+        if (root_fd < 0)
+                return log_error_errno(errno, "Failed to clone root directory '%s': %m", directory);
+
+        _cleanup_(mstack_freep) MStack *mstack = NULL;
+        r = mstack_new_from_root_fd(TAKE_FD(root_fd), &mstack);
+        if (r < 0)
+                return log_error_errno(r,
+                                       "Failed to wrap root directory as a synthetic "
+                                       "mount stack: %m");
+
+        r = mstack_merge_volatile(mstack, volatile_mode, tmpfs_uid_shift, tmpfs_selinux_context);
+        if (r < 0)
+                return log_error_errno(r, "Failed to merge --volatile= into synthetic mount stack: %m");
+
+        *ret = TAKE_PTR(mstack);
+        return 0;
+}
+
 static int outer_child(
                 Barrier *barrier,
                 const char *directory,
@@ -3986,7 +4123,8 @@ static int outer_child(
                 r = mstack_make_mounts(
                                 mstack,
                                 /* temp_mount_dir= */ directory, /* !! */
-                                mstack_flags);
+                                mstack_flags,
+                                /* uid_shift= */ UID_INVALID);
                 if (r < 0)
                         return log_error_errno(r, "Failed to make .mstack/ mounts: %m");
 
@@ -6577,7 +6715,20 @@ static int run(int argc, char *argv[]) {
                 if (!IN_SET(arg_userns_mode, USER_NAMESPACE_NO, USER_NAMESPACE_MANAGED))
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--mstack= requires managed user namespacing, or user namespace turned off.");
 
-                MStackFlags mstack_flags = arg_read_only ? MSTACK_RDONLY : 0;
+                /* Root and layer images open read-only whenever the tree-wide read-only is on -
+                 * --volatile= included: it force-sets arg_read_only, and in every volatile mode root/
+                 * ends up read-only (a lower layer, the extracted /usr/, or a kept-read-only root),
+                 * so opening its image writable would run fsck()/growfs against it and change it on
+                 * disk. Outside volatile mode the bind@ images open read-only with them; under
+                 * --volatile= they stay writable unless read-only was asked for explicitly, matching
+                 * MSTACK_BINDS_RDONLY at assembly. */
+                MStackFlags mstack_flags = 0;
+                if (arg_read_only && arg_volatile_mode == VOLATILE_NO)
+                        mstack_flags |= MSTACK_RDONLY|MSTACK_BINDS_RDONLY;
+                else if (arg_read_only)
+                        mstack_flags |= MSTACK_RDONLY;
+                if (arg_read_only_requested)
+                        mstack_flags |= MSTACK_BINDS_RDONLY;
                 r = mstack_load(arg_mstack,
                                 /* dir_fd= */ -EBADF,
                                 &mstack);
