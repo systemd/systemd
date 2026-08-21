@@ -16,6 +16,7 @@
 #include "resolve-util.h"
 #include "resolved-bus.h"
 #include "resolved-def.h"
+#include "resolved-dns-scope.h"
 #include "resolved-dns-search-domain.h"
 #include "resolved-dns-server.h"
 #include "resolved-link.h"
@@ -559,6 +560,13 @@ int bus_link_method_set_mdns(sd_bus_message *message, void *userdata, sd_bus_err
         bus_client_log(message, "mDNS change");
 
         if (l->mdns_support != mode) {
+                if (l->mdns_support == RESOLVE_SUPPORT_YES && mode == RESOLVE_SUPPORT_NO) {
+                        if (l->mdns_ipv4_scope)
+                                (void) dns_scope_remove_dnssd_registered_services(l->mdns_ipv4_scope, true);
+                        if (l->mdns_ipv6_scope)
+                                (void) dns_scope_remove_dnssd_registered_services(l->mdns_ipv6_scope, true);
+                }
+
                 l->mdns_support = mode;
                 link_allocate_scopes(l);
                 link_add_rrs(l, false);
