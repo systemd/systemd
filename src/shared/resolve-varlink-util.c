@@ -2,10 +2,15 @@
 
 #include "sd-json.h"
 
+#include "alloc-util.h"
+#include "bus-polkit.h"
+#include "dns-domain.h"
 #include "dns-packet.h"
 #include "iovec-util.h"
 #include "json-util.h"
+#include "resolve-util.h"
 #include "resolve-varlink-util.h"
+#include "socket-netlink.h"
 #include "strv.h"
 
 void resolve_error_done(ResolveError *error) {
@@ -372,5 +377,204 @@ int dispatch_resolve_service_reply(const char *name, sd_json_variant *variant, s
                 return r;
 
         *ret = TAKE_STRUCT(reply);
+        return 0;
+}
+
+static int dispatch_in_addr_full(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "Family",         SD_JSON_VARIANT_INTEGER,       json_dispatch_address_family, offsetof(struct in_addr_full, family),      SD_JSON_MANDATORY },
+                { "Address",        SD_JSON_VARIANT_ARRAY,         NULL,                         0,                                          SD_JSON_MANDATORY },
+                { "Port",           SD_JSON_VARIANT_UNSIGNED,      sd_json_dispatch_uint16,      offsetof(struct in_addr_full, port),        SD_JSON_NULLABLE  },
+                { "ServerName",     SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,      offsetof(struct in_addr_full, server_name), SD_JSON_NULLABLE  },
+                { "InterfaceIndex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,        offsetof(struct in_addr_full, ifindex),     SD_JSON_RELAX     },
+                {},
+        };
+        struct in_addr_full **ret = ASSERT_PTR(userdata);
+        int r;
+
+        _cleanup_(in_addr_full_freep) struct in_addr_full *server = new0(struct in_addr_full, 1);
+        if (!server)
+                return json_log_oom(variant, flags);
+
+        r = sd_json_dispatch(variant, dispatch_table, flags & ~SD_JSON_MANDATORY, server);
+        if (r < 0)
+                return r;
+
+        struct in_addr_data data = {};
+        r = json_dispatch_in_addr_data("Address", sd_json_variant_by_key(variant, "Address"), flags, &data);
+        if (r < 0)
+                return r;
+
+        if (data.family != server->family)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Address and family are inconsistent.");
+
+        server->address = data.address;
+        if (!dns_server_address_valid(server->family, &server->address))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Invalid DNS server address.");
+
+        if (IN_SET(server->port, 53, 853))
+                server->port = 0;
+
+        *ret = TAKE_PTR(server);
+        return 0;
+}
+
+static int dispatch_in_addr_full_array(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        LinkSetDNSParameters *p = ASSERT_PTR(userdata);
+        int r;
+
+        sd_json_variant *v;
+        JSON_VARIANT_ARRAY_FOREACH(v, variant) {
+                if (!GREEDY_REALLOC0(p->servers, p->n_servers + 1))
+                        return json_log_oom(variant, flags);
+
+                r = dispatch_in_addr_full(name, v, flags, &p->servers[p->n_servers++]);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+void link_set_dns_parameters_done(LinkSetDNSParameters *p) {
+        if (!p)
+                return;
+
+        FOREACH_ARRAY(d, p->servers, p->n_servers)
+                in_addr_full_free(*d);
+        p->servers = mfree(p->servers);
+        p->n_servers = 0;
+}
+
+int dispatch_link_set_dns_parameters(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "Servers",        SD_JSON_VARIANT_ARRAY,         dispatch_in_addr_full_array,    0,                                       SD_JSON_MANDATORY },
+                { "InterfaceIndex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,          offsetof(LinkSetDNSParameters, ifindex), SD_JSON_RELAX     },
+                { "InterfaceName",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(LinkSetDNSParameters, ifname),  0                 },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+        LinkSetDNSParameters *ret = ASSERT_PTR(userdata);
+        int r;
+
+        _cleanup_(link_set_dns_parameters_done) LinkSetDNSParameters p = {};
+        r = sd_json_dispatch(variant, dispatch_table, flags, &p);
+        if (r < 0)
+                return r;
+
+        FOREACH_ARRAY(s, p.servers, p.n_servers) {
+                int ifindex = (*s)->ifindex;
+                if (ifindex != 0 && ifindex != p.ifindex)
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Invalid DNS server interface index.");
+        }
+
+        *ret = TAKE_STRUCT(p);
+        return 0;
+}
+
+static void domain_parameters_done(DomainParameters *p) {
+        if (!p)
+                return;
+
+        free(p->name);
+}
+
+static int dispatch_domain(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "Domain",    SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(DomainParameters, name),       SD_JSON_MANDATORY },
+                { "RouteOnly", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DomainParameters, route_only), SD_JSON_MANDATORY },
+                {},
+        };
+        DomainParameters *ret = ASSERT_PTR(userdata);
+        int r;
+
+        _cleanup_(domain_parameters_done) DomainParameters p = {};
+        r = sd_json_dispatch(variant, dispatch_table, flags, &p);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_STRUCT(p);
+        return 0;
+}
+
+static int dispatch_domain_array(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        LinkSetDomainsParameters *p = ASSERT_PTR(userdata);
+        int r;
+
+        sd_json_variant *v;
+        JSON_VARIANT_ARRAY_FOREACH(v, variant) {
+                if (!GREEDY_REALLOC0(p->domains, p->n_domains + 1))
+                        return json_log_oom(variant, flags);
+
+                r = dispatch_domain(name, v, flags, &p->domains[p->n_domains++]);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+void link_set_domains_parameters_done(LinkSetDomainsParameters *p) {
+        if (!p)
+                return;
+
+        FOREACH_ARRAY(d, p->domains, p->n_domains)
+                domain_parameters_done(d);
+        p->domains = mfree(p->domains);
+        p->n_domains = 0;
+}
+
+int dispatch_link_set_domains_parameters(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "Domains",        SD_JSON_VARIANT_ARRAY,         dispatch_domain_array,         0,                                           SD_JSON_MANDATORY },
+                { "InterfaceIndex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,         offsetof(LinkSetDomainsParameters, ifindex), SD_JSON_RELAX     },
+                { "InterfaceName",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LinkSetDomainsParameters, ifname),  0                 },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {},
+        };
+        LinkSetDomainsParameters *ret = ASSERT_PTR(userdata);
+        int r;
+
+        _cleanup_(link_set_domains_parameters_done) LinkSetDomainsParameters p = {};
+        r = sd_json_dispatch(variant, dispatch_table, flags, &p);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_STRUCT(p);
+        return 0;
+}
+
+void link_set_nta_parameters_done(LinkSetNTAParameters *p) {
+        if (!p)
+                return;
+
+        strv_free(p->ntas);
+}
+
+int dispatch_link_set_nta_parameters(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "NegativeTrustAnchors", SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,         offsetof(LinkSetNTAParameters, ntas),    SD_JSON_MANDATORY },
+                { "InterfaceIndex",       _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,         offsetof(LinkSetNTAParameters, ifindex), SD_JSON_RELAX     },
+                { "InterfaceName",        SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LinkSetNTAParameters, ifname),  0                 },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {},
+        };
+        LinkSetNTAParameters *ret = ASSERT_PTR(userdata);
+        int r;
+
+        _cleanup_(link_set_nta_parameters_done) LinkSetNTAParameters p = {};
+        r = sd_json_dispatch(variant, dispatch_table, flags, &p);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(i, p.ntas) {
+                r = dns_name_is_valid(*i);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Invalid negative trust anchor domain: %s", *i);
+        }
+
+        *ret = TAKE_STRUCT(p);
         return 0;
 }
