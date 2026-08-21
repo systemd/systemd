@@ -45,6 +45,46 @@ static int open_tmpfile(char **ret_path, int *ret_fd) {
         return 0;
 }
 
+static int acquire_core_from_journal(sd_journal *j, int fd, char **ret_tmpfile) {
+        int r;
+
+        assert(j);
+        assert((fd >= 0) == !ret_tmpfile);
+
+        /* We want full data, nothing truncated. */
+        sd_journal_set_data_threshold(j, 0);
+
+        const void *data;
+        size_t len;
+        r = sd_journal_get_data(j, "COREDUMP", &data, &len);
+        if (r == -ENOENT)
+                return log_error_errno(r, "Coredump entry has no core attached (neither internally in the journal nor externally on disk).");
+        if (r < 0)
+                return log_error_errno(r, "Failed to retrieve COREDUMP field: %m");
+
+        data = ASSERT_PTR(memory_startswith(data, len, "COREDUMP="));
+        len -= STRLEN("COREDUMP=");
+
+        _cleanup_(unlink_and_freep) char *temp = NULL;
+        _cleanup_close_ int fdt = -EBADF;
+        if (fd < 0) {
+                r = open_tmpfile(&temp, &fdt);
+                if (r < 0)
+                        return r;
+
+                fd = fdt;
+        }
+
+        r = loop_write(fd, data, len);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write core: %m");
+
+        if (ret_tmpfile)
+                *ret_tmpfile = TAKE_PTR(temp);
+
+        return 0;
+}
+
 int acquire_core(sd_journal *j, int fd, char **ret_tmpfile, char **ret_path) {
         const char *data;
         _cleanup_free_ char *filename = NULL;
@@ -81,14 +121,15 @@ int acquire_core(sd_journal *j, int fd, char **ret_tmpfile, char **ret_path) {
                 if (r != -ENOENT)
                         return log_error_errno(r, "Failed to retrieve COREDUMP_FILENAME field: %m");
 
-                /* Check that we can have a COREDUMP field. We still haven't set a high data threshold, so
-                 * we'll get a few kilobytes at most. */
-
-                r = sd_journal_get_data(j, "COREDUMP", (const void**) &data, &len);
-                if (r == -ENOENT)
-                        return log_error_errno(r, "Coredump entry has no core attached (neither internally in the journal nor externally on disk).");
+                /* If not found, try to obtain a coredump from a COREDUMP field. */
+                r = acquire_core_from_journal(j, fd, ret_tmpfile);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to retrieve COREDUMP field: %m");
+                        return r;
+
+                if (ret_path)
+                        *ret_path = NULL;
+
+                return 0;
         }
 
         _cleanup_(unlink_and_freep) char *temp = NULL;
@@ -116,22 +157,8 @@ int acquire_core(sd_journal *j, int fd, char **ret_tmpfile, char **ret_path) {
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Cannot decompress file. Compiled without compression support.");
 #endif
-        } else {
-                /* We want full data, nothing truncated. */
-                sd_journal_set_data_threshold(j, 0);
-
-                r = sd_journal_get_data(j, "COREDUMP", (const void**) &data, &len);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to retrieve COREDUMP field: %m");
-
-                assert(len >= 9);
-                data += 9;
-                len -= 9;
-
-                r = loop_write(fd, data, len);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to write output: %m");
-        }
+        } else
+                assert_not_reached();
 
         if (ret_tmpfile)
                 *ret_tmpfile = TAKE_PTR(temp);
