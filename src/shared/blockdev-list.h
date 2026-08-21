@@ -14,6 +14,7 @@ typedef enum BlockDevListFlags {
         BLOCKDEV_LIST_IGNORE_READ_ONLY           = 1 << 7,  /* Ignore read-only block devices */
         BLOCKDEV_LIST_REQUIRE_LUKS               = 1 << 8,  /* Only consider block devices with LUKS superblocks */
         BLOCKDEV_LIST_METADATA                   = 1 << 9,  /* Fill in model, vendor, subsystem, read_only */
+        BLOCKDEV_LIST_DISKSEQ                    = 1 << 10, /* Fill in the diskseq field */
 } BlockDevListFlags;
 
 /* The "dynamic" filters – ones the kernel can flip at runtime via sysattrs on a live device.
