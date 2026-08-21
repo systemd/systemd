@@ -2624,7 +2624,11 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         bool ro = namespace_read_only(p);
         if (ro) {
                 dissect_image_flags |= DISSECT_IMAGE_READ_ONLY;
-                mstack_flags |= MSTACK_RDONLY;
+                /* BINDS_RDONLY alongside RDONLY: the two are independent by design (see mstack.h), and
+                 * a read-only namespace wants the bind@ entries read-only too - including at
+                 * mstack_open_images() time, where a writable dissect would run fsck()/growfs against
+                 * the backing image. */
+                mstack_flags |= MSTACK_RDONLY|MSTACK_BINDS_RDONLY;
         }
 
         _cleanup_close_ int _root_mount_fd = -EBADF;
@@ -3177,7 +3181,8 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
 
         } else if (p->rootfs && p->rootfs->mstack_loaded) {
 
-                r = mstack_make_mounts(p->rootfs->mstack_loaded, root, mstack_flags);
+                r = mstack_make_mounts(p->rootfs->mstack_loaded, root, mstack_flags,
+                                       /* uid_shift= */ UID_INVALID);
                 if (r < 0)
                         return r;
 
