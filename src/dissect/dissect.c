@@ -1563,7 +1563,7 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                         output_fd = STDOUT_FILENO;
                 }
 
-                r = tar_c(dfd, output_fd, arg_target, /* flags= */ 0);
+                r = tar_c(dfd, output_fd, arg_target, /* hardlink_db_fd= */ -EBADF, /* flags= */ 0);
                 if (r < 0)
                         return r;
 

@@ -40,9 +40,15 @@
 
     <para>Allocations of UIDs/GIDs this way are transient: when a user namespace goes away, its UID/GID range
     is returned to the pool of available ranges. In order to ensure that clients cannot gain persistency in
-    their transient UID/GID range a BPF-LSM based policy is enforced that ensures that user namespaces set up
-    this way can only write to file systems they allocate themselves or that are explicitly allowlisted via
-    <command>systemd-nsresourced</command>.</para>
+    their transient UID/GID range a BPF-LSM based policy is enforced that refuses to create inodes — or
+    change ownership of them — that would end up owned by a transient UID/GID on a file system outliving the
+    user namespace the range was assigned to. Writes to file systems the user namespace allocated itself are
+    hence permitted, as those are torn down together with it, and so are writes through id-mapped mounts that
+    translate the transient range into something else before it reaches the disk. As a stacking file system
+    such as <literal>overlayfs</literal> writes to a separate upper layer that would not be covered by the
+    checks on the overlay mount itself, mounting a writable <literal>overlayfs</literal> instance is refused
+    for these user namespaces unless its upper layer, too, is torn down together with the user namespace, or
+    is an id-mapped mount that translates the transient range away before it reaches the disk.</para>
 
     <para><command>systemd-nsresourced</command> automatically ensures that any registered UID ranges show up
     in the system's NSS database via the <ulink url="https://systemd.io/USER_GROUP_API">User/Group Record
@@ -73,7 +79,7 @@
     the user namespace. When this option is enabled, the foreign UID range is mapped 1:1 into the user
     namespace, allowing processes inside to access and manipulate files owned by the foreign UID range.</para>
 
-    <para>The service provides API calls to allowlist mounts (referenced via their mount file descriptors as
+    <para>The service provides API calls to delegate mounts (referenced via their mount file descriptors as
     per Linux <function>fsmount()</function> API), to pass ownership of a cgroup subtree to the user
     namespace and to delegate a virtual Ethernet device pair to the user namespace. When used in combination
     this is sufficient to implement fully unprivileged container environments, as implemented by
