@@ -209,7 +209,16 @@
         to allow the service manager to track the service's internal state, and present it to the user.
         </para>
 
-        <xi:include href="version-info.xml" xpointer="v217"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v217"/>
+
+        <para>Transitioning to the STOPPING state is intended to be final and cannot be undone with another
+        notification. As this was previously not enforced, it is currently still accepted for compatibility.
+        In future versions of systemd, if after sending <literal>STOPPING=1</literal> the service doesn't
+        terminate within the stop timeout, remaining processes in the unit will be killed.  (Versions 259 to
+        261 accidentally already enforced this.)
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
       </varlistentry>
 
       <varlistentry>
