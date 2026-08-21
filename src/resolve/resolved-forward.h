@@ -24,6 +24,7 @@ typedef struct DnsQuestion DnsQuestion;
 typedef struct DnsResourceKey DnsResourceKey;
 typedef struct DnsResourceRecord DnsResourceRecord;
 typedef struct DnsScope DnsScope;
+typedef struct DnssdRegisteredService DnssdRegisteredService;
 typedef struct DnssdService DnssdService;
 typedef struct DnssdTxtData DnssdTxtData;
 typedef struct DnsSearchDomain DnsSearchDomain;

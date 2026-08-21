@@ -218,15 +218,11 @@ void link_add_rrs(Link *l, bool force_remove) {
         } else {
 
                 if (l->mdns_ipv4_scope) {
-                        r = dns_scope_remove_dnssd_registered_services(l->mdns_ipv4_scope);
-                        if (r < 0)
-                                log_link_warning_errno(l, r, "Failed to remove IPv4 DNS-SD services, ignoring: %m");
+                        dns_scope_remove_dnssd_registered_services(l->mdns_ipv4_scope, !force_remove);
                 }
 
                 if (l->mdns_ipv6_scope) {
-                        r = dns_scope_remove_dnssd_registered_services(l->mdns_ipv6_scope);
-                        if (r < 0)
-                                log_link_warning_errno(l, r, "Failed to remove IPv6 DNS-SD services, ignoring: %m");
+                        dns_scope_remove_dnssd_registered_services(l->mdns_ipv6_scope, !force_remove);
                 }
         }
 }
