@@ -37,58 +37,58 @@
     <para>The following interface definition is exposed:</para>
 
     <programlisting varlink-interface="io.systemd.Resolve.Monitor">
-interface io.systemd.Resolve.Monitor
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd.Resolve.Monitor
 
-type DNSProtocol(
-	# DNS
+<emphasis role="varlink-keyword">type</emphasis> DNSProtocol(
+	<emphasis role="varlink-comment"># DNS</emphasis>
 	dns,
-	# Multicast DNS
+	<emphasis role="varlink-comment"># Multicast DNS</emphasis>
 	mdns,
-	# LLMNR
+	<emphasis role="varlink-comment"># LLMNR</emphasis>
 	llmnr
 )
 
-type DNSOverTLSMode(
-	# DNSOverTLS is disabled.
+<emphasis role="varlink-keyword">type</emphasis> DNSOverTLSMode(
+	<emphasis role="varlink-comment"># DNSOverTLS is disabled.</emphasis>
 	no,
-	# DNSOverTLS is enabled.
+	<emphasis role="varlink-comment"># DNSOverTLS is enabled.</emphasis>
 	yes,
-	# Try to use DNSOverTLS, but disabled when the server does not support it.
+	<emphasis role="varlink-comment"># Try to use DNSOverTLS, but disabled when the server does not support it.</emphasis>
 	opportunistic
 )
 
-type ResolveSupport(
-	# The protocol is disabled.
+<emphasis role="varlink-keyword">type</emphasis> ResolveSupport(
+	<emphasis role="varlink-comment"># The protocol is disabled.</emphasis>
 	no,
-	# The protocol is enabled.
+	<emphasis role="varlink-comment"># The protocol is enabled.</emphasis>
 	yes,
-	# The protocol is used only for resolving.
+	<emphasis role="varlink-comment"># The protocol is used only for resolving.</emphasis>
 	resolve
 )
 
-type ResolvConfMode(
-	# /etc/resolv.conf is a symbolic link to /run/systemd/resolve/resolv.conf.
+<emphasis role="varlink-keyword">type</emphasis> ResolvConfMode(
+	<emphasis role="varlink-comment"># /etc/resolv.conf is a symbolic link to /run/systemd/resolve/resolv.conf.</emphasis>
 	uplink,
-	# /etc/resolv.conf is a symbolic link to /run/systemd/resolve/stub-resolv.conf.
+	<emphasis role="varlink-comment"># /etc/resolv.conf is a symbolic link to /run/systemd/resolve/stub-resolv.conf.</emphasis>
 	stub,
-	# /etc/resolv.conf is a symbolic link to /usr/lib/systemd/resolv.conf.
+	<emphasis role="varlink-comment"># /etc/resolv.conf is a symbolic link to /usr/lib/systemd/resolv.conf.</emphasis>
 	static,
-	# /etc/resolv.conf does not exist.
+	<emphasis role="varlink-comment"># /etc/resolv.conf does not exist.</emphasis>
 	missing,
-	# /etc/resolv.conf is not managed by systemd-resolved.
+	<emphasis role="varlink-comment"># /etc/resolv.conf is not managed by systemd-resolved.</emphasis>
 	foreign
 )
 
-type ResourceKey(
-	# The RR class, almost always IN, i.e 0x01. If unspecified defaults to IN.
+<emphasis role="varlink-keyword">type</emphasis> ResourceKey(
+	<emphasis role="varlink-comment"># The RR class, almost always IN, i.e 0x01. If unspecified defaults to IN.</emphasis>
 	class: ?int,
-	# The RR types, one of A, AAAA, PTR, …
-	type: int,
-	# The domain name.
+	<emphasis role="varlink-comment"># The RR types, one of A, AAAA, PTR, …</emphasis>
+	<emphasis role="varlink-keyword">type</emphasis>: int,
+	<emphasis role="varlink-comment"># The domain name.</emphasis>
 	name: string
 )
 
-type ResourceRecord(
+<emphasis role="varlink-keyword">type</emphasis> ResourceRecord(
 	key: ResourceKey,
 	priority: ?int,
 	weight: ?int,
@@ -150,25 +150,25 @@ type ResourceRecord(
 	replacement: ?string
 )
 
-type ResourceRecordArray(
+<emphasis role="varlink-keyword">type</emphasis> ResourceRecordArray(
 	rr: ?ResourceRecord,
 	raw: string
 )
 
-type Answer(
+<emphasis role="varlink-keyword">type</emphasis> Answer(
 	rr: ?ResourceRecord,
 	raw: string,
 	ifindex: ?int
 )
 
-type CacheEntry(
+<emphasis role="varlink-keyword">type</emphasis> CacheEntry(
 	key: ResourceKey,
 	rrs: ?[]ResourceRecordArray,
-	type: ?string,
+	<emphasis role="varlink-keyword">type</emphasis>: ?string,
 	until: int
 )
 
-type ScopeCache(
+<emphasis role="varlink-keyword">type</emphasis> ScopeCache(
 	protocol: DNSProtocol,
 	family: ?int,
 	ifindex: ?int,
@@ -178,7 +178,7 @@ type ScopeCache(
 	dnsOverTLS: ?DNSOverTLSMode
 )
 
-type TransactionStatistics(
+<emphasis role="varlink-keyword">type</emphasis> TransactionStatistics(
 	currentTransactions: int,
 	totalTransactions: int,
 	totalTimeouts: int,
@@ -187,20 +187,20 @@ type TransactionStatistics(
 	totalFailedResponsesServedStale: int
 )
 
-type CacheStatistics(
+<emphasis role="varlink-keyword">type</emphasis> CacheStatistics(
 	size: int,
 	hits: int,
 	misses: int
 )
 
-type DnssecStatistics(
+<emphasis role="varlink-keyword">type</emphasis> DnssecStatistics(
 	secure: int,
 	insecure: int,
 	bogus: int,
 	indeterminate: int
 )
 
-type ServerState(
+<emphasis role="varlink-keyword">type</emphasis> ServerState(
 	Server: string,
 	Type: string,
 	Interface: ?string,
@@ -219,89 +219,89 @@ type ServerState(
 	PacketDoOff: bool
 )
 
-# Encapsulates a DNS server address specification.
-type DNSServer(
-	# IPv4 or IPv6 address of the server.
+<emphasis role="varlink-comment"># Encapsulates a DNS server address specification.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> DNSServer(
+	<emphasis role="varlink-comment"># IPv4 or IPv6 address of the server.</emphasis>
 	address: []int,
-	# IPv4 or IPv6 address of the server, formatted as a human-readable string.
+	<emphasis role="varlink-comment"># IPv4 or IPv6 address of the server, formatted as a human-readable string.</emphasis>
 	addressString: ?string,
-	# Address family of the server, one of AF_INET or AF_INET6.
+	<emphasis role="varlink-comment"># Address family of the server, one of AF_INET or AF_INET6.</emphasis>
 	family: int,
-	# Port number of the server.
+	<emphasis role="varlink-comment"># Port number of the server.</emphasis>
 	port: int,
-	# Interface index for which this server is configured.
+	<emphasis role="varlink-comment"># Interface index for which this server is configured.</emphasis>
 	ifindex: ?int,
-	# Server Name Indication (SNI) of the server.
+	<emphasis role="varlink-comment"># Server Name Indication (SNI) of the server.</emphasis>
 	name: ?string,
-	# Indicates if the DNS server is accessible or not.
+	<emphasis role="varlink-comment"># Indicates if the DNS server is accessible or not.</emphasis>
 	accessible: bool
 )
 
-# Encapsulates a search domain specification.
-type SearchDomain(
-	# Domain name.
+<emphasis role="varlink-comment"># Encapsulates a search domain specification.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> SearchDomain(
+	<emphasis role="varlink-comment"># Domain name.</emphasis>
 	name: string,
-	# Indicates whether or not this is a routing-only domain.
+	<emphasis role="varlink-comment"># Indicates whether or not this is a routing-only domain.</emphasis>
 	routeOnly: bool,
-	# Interface index for which this search domain is configured.
+	<emphasis role="varlink-comment"># Interface index for which this search domain is configured.</emphasis>
 	ifindex: ?int
 )
 
-# Encapsulates a global or per-link DNS configuration, including configured DNS servers, search domains, and more.
-type DNSConfiguration(
-	# Interface name, if any, associated with this configuration. Empty for global configuration.
+<emphasis role="varlink-comment"># Encapsulates a global or per-link DNS configuration, including configured DNS servers, search domains, and more.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> DNSConfiguration(
+	<emphasis role="varlink-comment"># Interface name, if any, associated with this configuration. Empty for global configuration.</emphasis>
 	ifname: ?string,
-	# Interface index, if any, associated with this configuration. Empty for global configuration.
+	<emphasis role="varlink-comment"># Interface index, if any, associated with this configuration. Empty for global configuration.</emphasis>
 	ifindex: ?int,
-	# Delegate name, if any, associated with this configuration. Empty for global or link configurations.
+	<emphasis role="varlink-comment"># Delegate name, if any, associated with this configuration. Empty for global or link configurations.</emphasis>
 	delegate: ?string,
-	# Indicates whether or not this link's DNS servers will be used for resolving domain names that do not match any link's configured domains.
+	<emphasis role="varlink-comment"># Indicates whether or not this link's DNS servers will be used for resolving domain names that do not match any link's configured domains.</emphasis>
 	defaultRoute: ?bool,
-	# DNS server currently selected to use for lookups.
+	<emphasis role="varlink-comment"># DNS server currently selected to use for lookups.</emphasis>
 	currentServer: ?DNSServer,
-	# Array of configured DNS servers.
+	<emphasis role="varlink-comment"># Array of configured DNS servers.</emphasis>
 	servers: ?[]DNSServer,
-	# Array of configured fallback DNS servers, set for global configuration only.
+	<emphasis role="varlink-comment"># Array of configured fallback DNS servers, set for global configuration only.</emphasis>
 	fallbackServers: ?[]DNSServer,
-	# Array of configured search domains.
+	<emphasis role="varlink-comment"># Array of configured search domains.</emphasis>
 	searchDomains: ?[]SearchDomain,
-	# Array of configured DNSSEC negative trust anchors.
+	<emphasis role="varlink-comment"># Array of configured DNSSEC negative trust anchors.</emphasis>
 	negativeTrustAnchors: ?[]string,
-	# DNSSEC mode.
+	<emphasis role="varlink-comment"># DNSSEC mode.</emphasis>
 	dnssec: ?string,
-	# Indicates if the current DNS server supports DNSSEC. Always false if DNSSEC mode is "no".
+	<emphasis role="varlink-comment"># Indicates if the current DNS server supports DNSSEC. Always false if DNSSEC mode is "no".</emphasis>
 	dnssecSupported: ?bool,
-	# DNSOverTLS mode.
+	<emphasis role="varlink-comment"># DNSOverTLS mode.</emphasis>
 	dnsOverTLS: ?DNSOverTLSMode,
-	# LLMNR support.
+	<emphasis role="varlink-comment"># LLMNR support.</emphasis>
 	llmnr: ?string,
-	# mDNS support.
+	<emphasis role="varlink-comment"># mDNS support.</emphasis>
 	mDNS: ?ResolveSupport,
-	# resolv.conf mode, set for global configuration only.
+	<emphasis role="varlink-comment"># resolv.conf mode, set for global configuration only.</emphasis>
 	resolvConfMode: ?ResolvConfMode,
-	# Array of current DNS scopes.
+	<emphasis role="varlink-comment"># Array of current DNS scopes.</emphasis>
 	scopes: ?[]DNSScope
 )
 
-# Encapsulates a DNS scope specification.
-type DNSScope(
-	# Protocol associated with this scope.
+<emphasis role="varlink-comment"># Encapsulates a DNS scope specification.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> DNSScope(
+	<emphasis role="varlink-comment"># Protocol associated with this scope.</emphasis>
 	protocol: DNSProtocol,
-	# Address family associated with this scope.
+	<emphasis role="varlink-comment"># Address family associated with this scope.</emphasis>
 	family: ?int,
-	# Interface index associated with this scope.
+	<emphasis role="varlink-comment"># Interface index associated with this scope.</emphasis>
 	ifindex: ?int,
-	# Interface name associated with this scope.
+	<emphasis role="varlink-comment"># Interface name associated with this scope.</emphasis>
 	ifname: ?string,
-	# DNSSEC mode associated with this scope.
+	<emphasis role="varlink-comment"># DNSSEC mode associated with this scope.</emphasis>
 	dnssec: ?string,
-	# DNSOverTLS mode associated with this scope.
+	<emphasis role="varlink-comment"># DNSOverTLS mode associated with this scope.</emphasis>
 	dnsOverTLS: ?DNSOverTLSMode
 )
 
-# [Requires 'more' flag]
-method SubscribeQueryResults(
-	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+<emphasis role="varlink-comment"># [Requires 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> SubscribeQueryResults(
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
 	allowInteractiveAuthentication: ?bool
 ) -&gt; (
 	ready: ?bool,
@@ -316,22 +316,22 @@ method SubscribeQueryResults(
 	answer: ?[]Answer
 )
 
-method DumpCache(
-	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+<emphasis role="varlink-keyword">method</emphasis> DumpCache(
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
 	allowInteractiveAuthentication: ?bool
 ) -&gt; (
 	dump: []ScopeCache
 )
 
-method DumpServerState(
-	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+<emphasis role="varlink-keyword">method</emphasis> DumpServerState(
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
 	allowInteractiveAuthentication: ?bool
 ) -&gt; (
 	dump: []ServerState
 )
 
-method DumpStatistics(
-	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+<emphasis role="varlink-keyword">method</emphasis> DumpStatistics(
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
 	allowInteractiveAuthentication: ?bool
 ) -&gt; (
 	transactions: TransactionStatistics,
@@ -339,17 +339,17 @@ method DumpStatistics(
 	dnssec: DnssecStatistics
 )
 
-method ResetStatistics(
-	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+<emphasis role="varlink-keyword">method</emphasis> ResetStatistics(
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
 	allowInteractiveAuthentication: ?bool
 ) -&gt; ()
 
-# Sends the complete global and per-link DNS configurations when any changes are made to them. The current configurations are given immediately when this method is invoked.
-# [Requires 'more' flag]
-method SubscribeDNSConfiguration(
+<emphasis role="varlink-comment"># Sends the complete global and per-link DNS configurations when any changes are made to them. The current configurations are given immediately when this method is invoked.</emphasis>
+<emphasis role="varlink-comment"># [Requires 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> SubscribeDNSConfiguration(
 	allowInteractiveAuthentication: ?bool
 ) -&gt; (
-	# The current global and per-interface DNS configurations
+	<emphasis role="varlink-comment"># The current global and per-interface DNS configurations</emphasis>
 	configuration: []DNSConfiguration
 )
 </programlisting>
@@ -416,10 +416,10 @@ method SubscribeDNSConfiguration(
     <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.Resolve.Monitor</screen> shows the
     interface definition as served by <replaceable>SERVICE</replaceable>, and
     <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.Resolve.Monitor.SubscribeQueryResults '{}'</screen>
-    invokes its <function>SubscribeQueryResults</function> method.</para>
+    invokes its <function>SubscribeQueryResults()</function> method.</para>
   </refsect1>
 
-  <refsect1>
+  <refsect1><title>History</title><para>The io.systemd.Resolve.Monitor interface was added in version 254.</para><para><varname>Answer</varname>, <varname>CacheEntry</varname>, <varname>CacheStatistics</varname>, <varname>DnssecStatistics</varname>, <function>DumpCache()</function>, <function>DumpServerState()</function>, <function>DumpStatistics()</function>, <function>ResetStatistics()</function>, <varname>ResourceKey</varname>, <varname>ResourceRecord</varname>, <varname>ScopeCache</varname>, <varname>ServerState</varname>, <function>SubscribeQueryResults()</function>, and <varname>TransactionStatistics</varname> were added in version 254.</para><para><varname>ResourceRecordArray</varname> was added in version 255.</para><para><varname>DNSConfiguration</varname>, <varname>DNSServer</varname>, <varname>SearchDomain</varname>, and <function>SubscribeDNSConfiguration()</function> were added in version 258.</para><para><varname>DNSOverTLSMode</varname>, <varname>DNSProtocol</varname>, <varname>DNSScope</varname>, <varname>ResolvConfMode</varname>, and <varname>ResolveSupport</varname> were added in version 259.</para></refsect1><refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>

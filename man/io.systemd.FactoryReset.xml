@@ -22,48 +22,61 @@
 
   <refsect1>
     <title>Description</title>
-
-    <para><interfacename>io.systemd.FactoryReset</interfacename> is a Varlink interface implemented by
-    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>-related
-    components. It can be introspected and called with
-    <citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
-
-    <para>APIs to query factory reset status</para>
+    <para><interfacename>io.systemd.FactoryReset</interfacename> exposes the factory reset state of
+    the system, as defined by the
+    <ulink url="https://uapi-group.org/specifications/specs/factory_reset/">Factory Reset
+    Specification</ulink>. It is served by
+    <citerefentry><refentrytitle>systemd-factory-reset-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>-related
+    components behind <citerefentry><refentrytitle>systemd-factory-reset</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    on the <filename>/run/systemd/io.systemd.FactoryReset</filename> socket.
+    <function>GetFactoryResetMode()</function> reports the current state in the
+    <varname>FactoryResetMode</varname> enumeration: whether a factory reset is supported by the
+    hardware and currently requested, armed for the next boot, or already completed.
+    <function>CanRequestFactoryReset()</function> reports whether a reset may be scheduled at all,
+    i.e. whether the underlying storage and build support it.</para>
   </refsect1>
 
+  <refsect1>
+        <title>Security</title>
+
+    <para>Both operations are read-only reports of the current reset state; they require no
+    privileges beyond connecting to the socket. Requesting a factory reset itself is deliberately
+    not part of this interface, as it requires physical presence by design.</para>
+
+  </refsect1>
   <refsect1>
     <title>Interface Definition</title>
 
     <para>The following interface definition is exposed:</para>
 
     <programlisting varlink-interface="io.systemd.FactoryReset">
-# APIs to query factory reset status
-interface io.systemd.FactoryReset
+<emphasis role="varlink-comment"># APIs to query factory reset status</emphasis>
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd.FactoryReset
 
-# Encodes the current factory reset status
-type FactoryResetMode(
-	# Factory reset is not supported on this OS.
+<emphasis role="varlink-comment"># Encodes the current factory reset status</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> FactoryResetMode(
+	<emphasis role="varlink-comment"># Factory reset is not supported on this OS.</emphasis>
 	unsupported,
-	# Factory reset not requested.
+	<emphasis role="varlink-comment"># Factory reset not requested.</emphasis>
 	unspecified,
-	# Factory reset explicitly turned off.
+	<emphasis role="varlink-comment"># Factory reset explicitly turned off.</emphasis>
 	off,
-	# Factory reset is currently being executed.
+	<emphasis role="varlink-comment"># Factory reset is currently being executed.</emphasis>
 	on,
-	# Factory reset has been completed during the current boot.
+	<emphasis role="varlink-comment"># Factory reset has been completed during the current boot.</emphasis>
 	complete,
-	# Factory reset has been requested for the next boot.
+	<emphasis role="varlink-comment"># Factory reset has been requested for the next boot.</emphasis>
 	pending
 )
 
-# Report the current factory reset status
-method GetFactoryResetMode() -&gt; (
-	# The current factory reset mode
+<emphasis role="varlink-comment"># Report the current factory reset status</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> GetFactoryResetMode() -&gt; (
+	<emphasis role="varlink-comment"># The current factory reset mode</emphasis>
 	mode: FactoryResetMode
 )
 
-# Returns whether requesting a factory reset is available (by invoking the factory-reset.target unit).
-method CanRequestFactoryReset() -&gt; (
+<emphasis role="varlink-comment"># Returns whether requesting a factory reset is available (by invoking the factory-reset.target unit).</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> CanRequestFactoryReset() -&gt; (
 	supported: bool
 )
 </programlisting>
@@ -84,14 +97,15 @@ method CanRequestFactoryReset() -&gt; (
 
   <refsect1>
     <title>Examples</title>
+    <example>
+      <title>Query the factory reset state</title>
 
-    <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.FactoryReset</screen> shows the
-    interface definition as served by <replaceable>SERVICE</replaceable>, and
-    <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.FactoryReset.GetFactoryResetMode '{}'</screen>
-    invokes its <function>GetFactoryResetMode</function> method.</para>
+      <programlisting>$ varlinkctl call /run/systemd/io.systemd.FactoryReset \
+    io.systemd.FactoryReset.GetFactoryResetMode '{}'</programlisting>
+    </example>
   </refsect1>
 
-  <refsect1>
+  <refsect1><title>History</title><para>The io.systemd.FactoryReset interface was added in version 258.</para><para><function>CanRequestFactoryReset()</function>, <varname>FactoryResetMode</varname>, and <function>GetFactoryResetMode()</function> were added in version 258.</para></refsect1><refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>

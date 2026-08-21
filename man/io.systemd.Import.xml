@@ -37,130 +37,130 @@
     <para>The following interface definition is exposed:</para>
 
     <programlisting varlink-interface="io.systemd.Import">
-interface io.systemd.Import
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd.Import
 
-# Describes the class of images
-type ImageClass(
-	# An image to boot as a system on baremetal, in a VM or as a container
+<emphasis role="varlink-comment"># Describes the class of images</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> ImageClass(
+	<emphasis role="varlink-comment"># An image to boot as a system on baremetal, in a VM or as a container</emphasis>
 	machine,
-	# An portable service image
+	<emphasis role="varlink-comment"># An portable service image</emphasis>
 	portable,
-	# A system extension image
+	<emphasis role="varlink-comment"># A system extension image</emphasis>
 	sysext,
-	# A configuration extension image
+	<emphasis role="varlink-comment"># A configuration extension image</emphasis>
 	confext
 )
 
-# Describes the type of a images to transfer
-type RemoteType(
-	# Raw binary disk images, typically in a GPT envelope
+<emphasis role="varlink-comment"># Describes the type of a images to transfer</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> RemoteType(
+	<emphasis role="varlink-comment"># Raw binary disk images, typically in a GPT envelope</emphasis>
 	raw,
-	# A tarball, optionally compressed
+	<emphasis role="varlink-comment"># A tarball, optionally compressed</emphasis>
 	tar
 )
 
-# Describes the type of a transfer
-type TransferType(
-	# A local import of a tarball
+<emphasis role="varlink-comment"># Describes the type of a transfer</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> TransferType(
+	<emphasis role="varlink-comment"># A local import of a tarball</emphasis>
 	import_tar,
-	# A local import of a raw disk image
+	<emphasis role="varlink-comment"># A local import of a raw disk image</emphasis>
 	import_raw,
-	# A local import of a file system tree
+	<emphasis role="varlink-comment"># A local import of a file system tree</emphasis>
 	import_fs,
-	# A local export of a tarball
+	<emphasis role="varlink-comment"># A local export of a tarball</emphasis>
 	export_tar,
-	# A local export of a raw disk image
+	<emphasis role="varlink-comment"># A local export of a raw disk image</emphasis>
 	export_raw,
-	# A download of a tarball
+	<emphasis role="varlink-comment"># A download of a tarball</emphasis>
 	pull_tar,
-	# A download of a raw disk image
+	<emphasis role="varlink-comment"># A download of a raw disk image</emphasis>
 	pull_raw
 )
 
-# Describes whether and how thoroughly to verify the download before installing it locally
-type ImageVerify(
-	# No verification
+<emphasis role="varlink-comment"># Describes whether and how thoroughly to verify the download before installing it locally</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> ImageVerify(
+	<emphasis role="varlink-comment"># No verification</emphasis>
 	no,
-	# Verify that downloads match checksum file (SHA256SUMS), but do not check signature of checksum file
+	<emphasis role="varlink-comment"># Verify that downloads match checksum file (SHA256SUMS), but do not check signature of checksum file</emphasis>
 	checksum,
-	# Verify that downloads match checksum file (SHA256SUMS), and check signature of checksum file.
+	<emphasis role="varlink-comment"># Verify that downloads match checksum file (SHA256SUMS), and check signature of checksum file.</emphasis>
 	signature
 )
 
-# Structure for log messages associated with a transfer operation
-type LogMessage(
-	# The log message
+<emphasis role="varlink-comment"># Structure for log messages associated with a transfer operation</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> LogMessage(
+	<emphasis role="varlink-comment"># The log message</emphasis>
 	message: string,
-	# The priority of the log message, using the BSD syslog priority levels
+	<emphasis role="varlink-comment"># The priority of the log message, using the BSD syslog priority levels</emphasis>
 	priority: int
 )
 
-# List ongoing transfers, or query details about specific transfers
-# [Requires 'more' flag]
-method ListTransfers(
-	# Image class to filter by
+<emphasis role="varlink-comment"># List ongoing transfers, or query details about specific transfers</emphasis>
+<emphasis role="varlink-comment"># [Requires 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> ListTransfers(
+	<emphasis role="varlink-comment"># Image class to filter by</emphasis>
 	class: ?ImageClass
 ) -&gt; (
-	# A unique numeric identifier for the ongoing transfer
+	<emphasis role="varlink-comment"># A unique numeric identifier for the ongoing transfer</emphasis>
 	id: int,
-	# The type of transfer
-	type: TransferType,
-	# The remote URL
+	<emphasis role="varlink-comment"># The type of transfer</emphasis>
+	<emphasis role="varlink-keyword">type</emphasis>: TransferType,
+	<emphasis role="varlink-comment"># The remote URL</emphasis>
 	remote: string,
-	# The local image name
+	<emphasis role="varlink-comment"># The local image name</emphasis>
 	local: string,
-	# The class of the image
+	<emphasis role="varlink-comment"># The class of the image</emphasis>
 	class: ImageClass,
-	# Progress in percent
+	<emphasis role="varlink-comment"># Progress in percent</emphasis>
 	percent: float
 )
 
-# Download a .tar or .raw file. This must be called with the 'more' flag enabled. It will immediately return the numeric ID of the transfer, and then follow up with progress and log message updates, until the transfer is complete.
-# [Supports 'more' flag]
-method Pull(
-	# The remote URL to download from
+<emphasis role="varlink-comment"># Download a .tar or .raw file. This must be called with the 'more' flag enabled. It will immediately return the numeric ID of the transfer, and then follow up with progress and log message updates, until the transfer is complete.</emphasis>
+<emphasis role="varlink-comment"># [Supports 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> Pull(
+	<emphasis role="varlink-comment"># The remote URL to download from</emphasis>
 	remote: string,
-	# The local image name to download to
+	<emphasis role="varlink-comment"># The local image name to download to</emphasis>
 	local: ?string,
-	# The type of the resource
-	type: RemoteType,
-	# The image class
+	<emphasis role="varlink-comment"># The type of the resource</emphasis>
+	<emphasis role="varlink-keyword">type</emphasis>: RemoteType,
+	<emphasis role="varlink-comment"># The image class</emphasis>
 	class: ImageClass,
-	# The whether and how thoroughly to verify the download before installing it locally. Defaults to 'signature'.
+	<emphasis role="varlink-comment"># The whether and how thoroughly to verify the download before installing it locally. Defaults to 'signature'.</emphasis>
 	verify: ?ImageVerify,
-	# If true, an existing image by the local name is deleted. Defaults to false.
+	<emphasis role="varlink-comment"># If true, an existing image by the local name is deleted. Defaults to false.</emphasis>
 	force: ?bool,
-	# Whether to make the image read-only after downloading. Defaults to false.
+	<emphasis role="varlink-comment"># Whether to make the image read-only after downloading. Defaults to false.</emphasis>
 	readOnly: ?bool,
-	# Whether to keep a pristine copy of the download separate from the locally installed image. Defaults to false.
+	<emphasis role="varlink-comment"># Whether to keep a pristine copy of the download separate from the locally installed image. Defaults to false.</emphasis>
 	keepDownload: ?bool,
-	# Root directory for images. If not specified derived from the image class, and located below /var/lib/.
+	<emphasis role="varlink-comment"># Root directory for images. If not specified derived from the image class, and located below /var/lib/.</emphasis>
 	imageRoot: ?string,
-	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
 	allowInteractiveAuthentication: ?bool
 ) -&gt; (
-	# A progress update, as percent value
+	<emphasis role="varlink-comment"># A progress update, as percent value</emphasis>
 	progress: ?float,
-	# A log message about the ongoing transfer
+	<emphasis role="varlink-comment"># A log message about the ongoing transfer</emphasis>
 	log: ?LogMessage,
-	# The numeric ID of this download
+	<emphasis role="varlink-comment"># The numeric ID of this download</emphasis>
 	id: ?int
 )
 
-# A transfer for the specified file is already ongoing
-error AlreadyInProgress(
-	# The URL of the transfer already in progress.
+<emphasis role="varlink-comment"># A transfer for the specified file is already ongoing</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> AlreadyInProgress(
+	<emphasis role="varlink-comment"># The URL of the transfer already in progress.</emphasis>
 	remote: string
 )
 
-# The transfer has been cancelled on user request
-error TransferCancelled()
+<emphasis role="varlink-comment"># The transfer has been cancelled on user request</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> TransferCancelled()
 
-# The transfer failed
-error TransferFailed()
+<emphasis role="varlink-comment"># The transfer failed</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> TransferFailed()
 
-# No currently ongoing transfer
-error NoTransfers()
+<emphasis role="varlink-comment"># No currently ongoing transfer</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> NoTransfers()
 </programlisting>
 
     <!--Autogenerated cross-references for systemd.directives, do not edit-->
@@ -199,10 +199,10 @@ error NoTransfers()
     <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.Import</screen> shows the
     interface definition as served by <replaceable>SERVICE</replaceable>, and
     <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.Import.ListTransfers '{}'</screen>
-    invokes its <function>ListTransfers</function> method.</para>
+    invokes its <function>ListTransfers()</function> method.</para>
   </refsect1>
 
-  <refsect1>
+  <refsect1><title>History</title><para>The io.systemd.Import interface was added in version 257.</para><para><varname>AlreadyInProgress</varname>, <varname>ImageClass</varname>, <varname>ImageVerify</varname>, <function>ListTransfers()</function>, <varname>LogMessage</varname>, <varname>NoTransfers</varname>, <function>Pull()</function>, <varname>RemoteType</varname>, <varname>TransferCancelled</varname>, <varname>TransferFailed</varname>, and <varname>TransferType</varname> were added in version 257.</para></refsect1><refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>

@@ -37,35 +37,35 @@
     <para>The following interface definition is exposed:</para>
 
     <programlisting varlink-interface="io.systemd.Resolve.Hook">
-# Generic interface for implementing a domain name resolution hook.
-interface io.systemd.Resolve.Hook
+<emphasis role="varlink-comment"># Generic interface for implementing a domain name resolution hook.</emphasis>
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd.Resolve.Hook
 
-# Encapsulates a positive lookup answer
-type Answer(
-	# A resource record that shall be looked up. Note that this field is (currently) mostly decoration, useful for debugging, and may be omitted. The data actually used is encoded in the 'raw' field.
+<emphasis role="varlink-comment"># Encapsulates a positive lookup answer</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> Answer(
+	<emphasis role="varlink-comment"># A resource record that shall be looked up. Note that this field is (currently) mostly decoration, useful for debugging, and may be omitted. The data actually used is encoded in the 'raw' field.</emphasis>
 	rr: ?ResourceRecord,
-	# A resource record encoded in DNS wire format, in turn encoded in Base64. This is the actual data returned to the application, and should carry the same information as the 'rr' field, just in a different encoding.
+	<emphasis role="varlink-comment"># A resource record encoded in DNS wire format, in turn encoded in Base64. This is the actual data returned to the application, and should carry the same information as the 'rr' field, just in a different encoding.</emphasis>
 	raw: string
 )
 
-# Encapsulates a lookup question
-type Question(
-	# A resource record key that shall be looked up.
+<emphasis role="varlink-comment"># Encapsulates a lookup question</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> Question(
+	<emphasis role="varlink-comment"># A resource record key that shall be looked up.</emphasis>
 	key: ResourceKey
 )
 
-# Encapsulates the class/type/name part of a DNS resource record.
-type ResourceKey(
-	# The RR class, almost always IN, i.e 0x01. If unspecified defaults to IN.
+<emphasis role="varlink-comment"># Encapsulates the class/type/name part of a DNS resource record.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> ResourceKey(
+	<emphasis role="varlink-comment"># The RR class, almost always IN, i.e 0x01. If unspecified defaults to IN.</emphasis>
 	class: ?int,
-	# The RR types, one of A, AAAA, PTR, …
-	type: int,
-	# The domain name.
+	<emphasis role="varlink-comment"># The RR types, one of A, AAAA, PTR, …</emphasis>
+	<emphasis role="varlink-keyword">type</emphasis>: int,
+	<emphasis role="varlink-comment"># The domain name.</emphasis>
 	name: string
 )
 
-# Encapsulates a DNS resource record.
-type ResourceRecord(
+<emphasis role="varlink-comment"># Encapsulates a DNS resource record.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> ResourceRecord(
 	key: ResourceKey,
 	priority: ?int,
 	weight: ?int,
@@ -127,25 +127,25 @@ type ResourceRecord(
 	replacement: ?string
 )
 
-# Returns filter parameters for this hook. A hook service can implement this to reduce lookup requests, by enabling itself only for certain domains or certain numbers of labels in the name. It's recommended to implement this to reduce the number of redundant calls to each hook. Note that this is advisory only, and implementing services must be able to gracefully handle lookup requests that do not match this filter. This call is usually made with the 'more' flag set, in which case the connection is left open after the first reply, and the implementing hook services can send updates to the filter at any time. Whenever a further reply is sent the filter configured therein fully replaces any previously communicated filter.
-# [Supports 'more' flag]
-method QueryFilter() -&gt; (
-	# A list of domains this hook is interested in. Lookups for domains not listed here will not be passed to the Hook via ResolveRecord(). If this field is not set, requests for all domains will be passed to the hook. Note that this applies recursively, i.e. a domain of a lookup is considered matching the listed domains both if it exactly matches it, and in case only a suffix of it matches it. If this is set to an empty array the hook is disabled.
+<emphasis role="varlink-comment"># Returns filter parameters for this hook. A hook service can implement this to reduce lookup requests, by enabling itself only for certain domains or certain numbers of labels in the name. It's recommended to implement this to reduce the number of redundant calls to each hook. Note that this is advisory only, and implementing services must be able to gracefully handle lookup requests that do not match this filter. This call is usually made with the 'more' flag set, in which case the connection is left open after the first reply, and the implementing hook services can send updates to the filter at any time. Whenever a further reply is sent the filter configured therein fully replaces any previously communicated filter.</emphasis>
+<emphasis role="varlink-comment"># [Supports 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> QueryFilter() -&gt; (
+	<emphasis role="varlink-comment"># A list of domains this hook is interested in. Lookups for domains not listed here will not be passed to the Hook via ResolveRecord(). If this field is not set, requests for all domains will be passed to the hook. Note that this applies recursively, i.e. a domain of a lookup is considered matching the listed domains both if it exactly matches it, and in case only a suffix of it matches it. If this is set to an empty array the hook is disabled.</emphasis>
 	filterDomains: ?[]string,
-	# Require the specified number of labels or more in a domain for the hook to be considered.
+	<emphasis role="varlink-comment"># Require the specified number of labels or more in a domain for the hook to be considered.</emphasis>
 	filterLabelsMin: ?int,
-	# Require the specified number of labels or less in a domain for the hook to be considered.
+	<emphasis role="varlink-comment"># Require the specified number of labels or less in a domain for the hook to be considered.</emphasis>
 	filterLabelsMax: ?int
 )
 
-# Sent whenever a resolution request is made. This typically takes the filter parameters returned by QueryFilter() into account, but this is not guaranteed.
-method ResolveRecord(
-	# The question being looked up, i.e. a combination of resource record keys. Note that unlike DNS queries on the wire these lookups can carry multiple key requests, albeit closely related ones. Specifically, lookups for A+AAAA for the same hostname are submitted as one question, as are lookups for TXT+SRV when doing DNS-SD resolution. Moreover, when looking up resources with non-ASCII characters, they are placed together in a single question, once with labels encoded in UTF-8, and once in IDNA. Hook implementations must be able to deal with these and other similar combinations of resource key requests, and reply with all matching answers at once, or fail them as one. Partial success/failure combinations are not supported.
+<emphasis role="varlink-comment"># Sent whenever a resolution request is made. This typically takes the filter parameters returned by QueryFilter() into account, but this is not guaranteed.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> ResolveRecord(
+	<emphasis role="varlink-comment"># The question being looked up, i.e. a combination of resource record keys. Note that unlike DNS queries on the wire these lookups can carry multiple key requests, albeit closely related ones. Specifically, lookups for A+AAAA for the same hostname are submitted as one question, as are lookups for TXT+SRV when doing DNS-SD resolution. Moreover, when looking up resources with non-ASCII characters, they are placed together in a single question, once with labels encoded in UTF-8, and once in IDNA. Hook implementations must be able to deal with these and other similar combinations of resource key requests, and reply with all matching answers at once, or fail them as one. Partial success/failure combinations are not supported.</emphasis>
 	question: []Question
 ) -&gt; (
-	# A DNS response code. If a hook sets this return parameter further processing of the lookup via regular protocols such as DNS, LLMNR, mDNS is skipped, and the return code returned immediately. In other words, if a hook intends to let the request pass to normal resolution, it should not set this return parameter.
+	<emphasis role="varlink-comment"># A DNS response code. If a hook sets this return parameter further processing of the lookup via regular protocols such as DNS, LLMNR, mDNS is skipped, and the return code returned immediately. In other words, if a hook intends to let the request pass to normal resolution, it should not set this return parameter.</emphasis>
 	rcode: ?int,
-	# An answer for a lookup, i.e. a combination of resource records, matching the request. This should only be set when the 'rcode' parameter is returned as 0 (SUCCESS).
+	<emphasis role="varlink-comment"># An answer for a lookup, i.e. a combination of resource records, matching the request. This should only be set when the 'rcode' parameter is returned as 0 (SUCCESS).</emphasis>
 	answer: ?[]Answer
 )
 </programlisting>
@@ -176,10 +176,10 @@ method ResolveRecord(
     <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.Resolve.Hook</screen> shows the
     interface definition as served by <replaceable>SERVICE</replaceable>, and
     <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.Resolve.Hook.QueryFilter '{}'</screen>
-    invokes its <function>QueryFilter</function> method.</para>
+    invokes its <function>QueryFilter()</function> method.</para>
   </refsect1>
 
-  <refsect1>
+  <refsect1><title>History</title><para>The io.systemd.Resolve.Hook interface was added in version 259.</para><para><varname>Answer</varname>, <function>QueryFilter()</function>, <varname>Question</varname>, <function>ResolveRecord()</function>, <varname>ResourceKey</varname>, and <varname>ResourceRecord</varname> were added in version 259.</para></refsect1><refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>

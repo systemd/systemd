@@ -37,17 +37,17 @@
     <para>The following interface definition is exposed:</para>
 
     <programlisting varlink-interface="io.systemd.Report.Signer">
-# Backend API for signing reports. This interface shall be implemented by services linked into /run/systemd/report.sign/.
-interface io.systemd.Report.Signer
+<emphasis role="varlink-comment"># Backend API for signing reports. This interface shall be implemented by services linked into /run/systemd/report.sign/.</emphasis>
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd.Report.Signer
 
-# Sign a report, identified by a digest. This may return zero, one or more signatures, as appropriate. For example some backend might have multiple keys or algorithms available, that are appropriate, in which case it can generate multiple signatures.
-method Sign(
-	# The digest of the data to sign.
+<emphasis role="varlink-comment"># Sign a report, identified by a digest. This may return zero, one or more signatures, as appropriate. For example some backend might have multiple keys or algorithms available, that are appropriate, in which case it can generate multiple signatures.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> Sign(
+	<emphasis role="varlink-comment"># The digest of the data to sign.</emphasis>
 	digest: string,
-	# The digest algorithm used for the digest field above. For now this is always SHA256, but this might be changed eventually.
+	<emphasis role="varlink-comment"># The digest algorithm used for the digest field above. For now this is always SHA256, but this might be changed eventually.</emphasis>
 	algorithm: string
 ) -&gt; (
-	# An array of signature objects
+	<emphasis role="varlink-comment"># An array of signature objects</emphasis>
 	data: []object
 )
 </programlisting>
@@ -68,10 +68,10 @@ method Sign(
     <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.Report.Signer</screen> shows the
     interface definition as served by <replaceable>SERVICE</replaceable>, and
     <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.Report.Signer.Sign '{}'</screen>
-    invokes its <function>Sign</function> method.</para>
+    invokes its <function>Sign()</function> method.</para>
   </refsect1>
 
-  <refsect1>
+  <refsect1><title>History</title><para>The io.systemd.Report.Signer interface was added in version 261.</para><para><function>Sign()</function> was added in version 261.</para></refsect1><refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>

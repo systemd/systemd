@@ -37,96 +37,96 @@
     <para>The following interface definition is exposed:</para>
 
     <programlisting varlink-interface="io.systemd.UserDatabase">
-# APIs for querying user and group records.
-interface io.systemd.UserDatabase
+<emphasis role="varlink-comment"># APIs for querying user and group records.</emphasis>
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd.UserDatabase
 
-# Retrieve one or more user records. Look-up is either keyed by UID or user name, or if neither is specified all known records are enumerated.
-# [Supports 'more' flag]
-method GetUserRecord(
-	# The numeric 32bit UNIX UID of the record, if look-up by UID is desired.
+<emphasis role="varlink-comment"># Retrieve one or more user records. Look-up is either keyed by UID or user name, or if neither is specified all known records are enumerated.</emphasis>
+<emphasis role="varlink-comment"># [Supports 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> GetUserRecord(
+	<emphasis role="varlink-comment"># The numeric 32bit UNIX UID of the record, if look-up by UID is desired.</emphasis>
 	uid: ?int,
-	# The UNIX user name of the record, if look-up by name is desired.
+	<emphasis role="varlink-comment"># The UNIX user name of the record, if look-up by name is desired.</emphasis>
 	userName: ?string,
-	# The userdb provider service to search on. Must be set to the base name of the userdb entrypoint socket. This is necessary in order to support services that implement multiple userdb services on the same socket.
-	# Names to search for in a fuzzy fashion.
+	<emphasis role="varlink-comment"># The userdb provider service to search on. Must be set to the base name of the userdb entrypoint socket. This is necessary in order to support services that implement multiple userdb services on the same socket.</emphasis>
+	<emphasis role="varlink-comment"># Names to search for in a fuzzy fashion.</emphasis>
 	fuzzyNames: ?[]string,
-	# User dispositions to limit search by.
+	<emphasis role="varlink-comment"># User dispositions to limit search by.</emphasis>
 	dispositionMask: ?[]string,
-	# Minimum UID to restrict search too.
+	<emphasis role="varlink-comment"># Minimum UID to restrict search too.</emphasis>
 	uidMin: ?int,
-	# Maximum UID to restrict search too.
+	<emphasis role="varlink-comment"># Maximum UID to restrict search too.</emphasis>
 	uidMax: ?int,
-	# The UUID to restrict search to.
+	<emphasis role="varlink-comment"># The UUID to restrict search to.</emphasis>
 	uuid: ?string,
-	# The userdb provider to search on. Must be set to the name of the userdb entrypoint socket. This is necessary in order to support services that implement multiple userdb services on the same socket.
+	<emphasis role="varlink-comment"># The userdb provider to search on. Must be set to the name of the userdb entrypoint socket. This is necessary in order to support services that implement multiple userdb services on the same socket.</emphasis>
 	service: string
 ) -&gt; (
-	# The retrieved user record.
+	<emphasis role="varlink-comment"># The retrieved user record.</emphasis>
 	record: object,
-	# If set to true, indicates that the user record is not complete, i.e. that the 'privileged' section has been stripped because the client lacks the privileges to access it.
+	<emphasis role="varlink-comment"># If set to true, indicates that the user record is not complete, i.e. that the 'privileged' section has been stripped because the client lacks the privileges to access it.</emphasis>
 	incomplete: ?bool
 )
 
-# Retrieve one or more group records. Look-up is either keyed by GID or group name, or if neither is specified all known records are enumerated.
-# [Supports 'more' flag]
-method GetGroupRecord(
-	# The numeric 32bit UNIX GID of the record, if look-up by GID is desired.
+<emphasis role="varlink-comment"># Retrieve one or more group records. Look-up is either keyed by GID or group name, or if neither is specified all known records are enumerated.</emphasis>
+<emphasis role="varlink-comment"># [Supports 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> GetGroupRecord(
+	<emphasis role="varlink-comment"># The numeric 32bit UNIX GID of the record, if look-up by GID is desired.</emphasis>
 	gid: ?int,
-	# The UNIX group name of the record, if look-up by name is desired.
+	<emphasis role="varlink-comment"># The UNIX group name of the record, if look-up by name is desired.</emphasis>
 	groupName: ?string,
-	# The userdb provider service to search on. Must be set to the base name of the userdb entrypoint socket. This is necessary in order to support services that implement multiple userdb services on the same socket.
-	# Additional names to search for in a fuzzy fashion.
+	<emphasis role="varlink-comment"># The userdb provider service to search on. Must be set to the base name of the userdb entrypoint socket. This is necessary in order to support services that implement multiple userdb services on the same socket.</emphasis>
+	<emphasis role="varlink-comment"># Additional names to search for in a fuzzy fashion.</emphasis>
 	fuzzyNames: ?[]string,
-	# Group dispositions to limit search by.
+	<emphasis role="varlink-comment"># Group dispositions to limit search by.</emphasis>
 	dispositionMask: ?[]string,
-	# Minimum GID to restrict search too.
+	<emphasis role="varlink-comment"># Minimum GID to restrict search too.</emphasis>
 	gidMin: ?int,
-	# Maximum GID to restrict search too.
+	<emphasis role="varlink-comment"># Maximum GID to restrict search too.</emphasis>
 	gidMax: ?int,
-	# The UUID to restrict search to.
+	<emphasis role="varlink-comment"># The UUID to restrict search to.</emphasis>
 	uuid: ?string,
-	# The userdb provider to search on. Must be set to the name of the userdb entrypoint socket. This is necessary in order to support services that implement multiple userdb services on the same socket.
+	<emphasis role="varlink-comment"># The userdb provider to search on. Must be set to the name of the userdb entrypoint socket. This is necessary in order to support services that implement multiple userdb services on the same socket.</emphasis>
 	service: string
 ) -&gt; (
-	# The retrieved group record.
+	<emphasis role="varlink-comment"># The retrieved group record.</emphasis>
 	record: object,
-	# If set to true, indicates that the group record is not complete, i.e. that the 'privileged' section has been stripped because the client lacks the privileges to access it.
+	<emphasis role="varlink-comment"># If set to true, indicates that the group record is not complete, i.e. that the 'privileged' section has been stripped because the client lacks the privileges to access it.</emphasis>
 	incomplete: ?bool
 )
 
-# Retrieve membership relationships between users and groups.
-# [Supports 'more' flag]
-method GetMemberships(
-	# The UNIX user name of the user to search for memberships for.
+<emphasis role="varlink-comment"># Retrieve membership relationships between users and groups.</emphasis>
+<emphasis role="varlink-comment"># [Supports 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> GetMemberships(
+	<emphasis role="varlink-comment"># The UNIX user name of the user to search for memberships for.</emphasis>
 	userName: ?string,
-	# The UNIX group name of the group to search for memberships for.
+	<emphasis role="varlink-comment"># The UNIX group name of the group to search for memberships for.</emphasis>
 	groupName: ?string,
-	# The userdb provider to search on. Must be set to the base name of the userdb entrypoint socket. This is necessary in order to support services that implement multiple userdb services on the same socket.
+	<emphasis role="varlink-comment"># The userdb provider to search on. Must be set to the base name of the userdb entrypoint socket. This is necessary in order to support services that implement multiple userdb services on the same socket.</emphasis>
 	service: string
 ) -&gt; (
-	# The UNIX user name of a discovered membership relationship.
+	<emphasis role="varlink-comment"># The UNIX user name of a discovered membership relationship.</emphasis>
 	userName: string,
-	# The UNIX group name of a discovered membership relationship.
+	<emphasis role="varlink-comment"># The UNIX group name of a discovered membership relationship.</emphasis>
 	groupName: string
 )
 
-# Error indicating that no matching user or group record was found.
-error NoRecordFound()
+<emphasis role="varlink-comment"># Error indicating that no matching user or group record was found.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> NoRecordFound()
 
-# Error indicating that the contacted service does not implement the specified service name.
-error BadService()
+<emphasis role="varlink-comment"># Error indicating that the contacted service does not implement the specified service name.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> BadService()
 
-# Error indicating that the backing service currently is not operational and no answer can be provided.
-error ServiceNotAvailable()
+<emphasis role="varlink-comment"># Error indicating that the backing service currently is not operational and no answer can be provided.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> ServiceNotAvailable()
 
-# Error indicating that there's a user record matching either UID/GID or the user/group name, but not both at the same time.
-error ConflictingRecordFound()
+<emphasis role="varlink-comment"># Error indicating that there's a user record matching either UID/GID or the user/group name, but not both at the same time.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> ConflictingRecordFound()
 
-# Error indicating that there's a user record matching the primary UID/GID or user/group, but that doesn't match the additional specified matches.
-error NonMatchingRecordFound()
+<emphasis role="varlink-comment"># Error indicating that there's a user record matching the primary UID/GID or user/group, but that doesn't match the additional specified matches.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> NonMatchingRecordFound()
 
-# Error indicating that retrieval of user/group records on this service is only supported if either user/group name or UID/GID are specified, but not if nothing is specified.
-error EnumerationNotSupported()
+<emphasis role="varlink-comment"># Error indicating that retrieval of user/group records on this service is only supported if either user/group name or UID/GID are specified, but not if nothing is specified.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> EnumerationNotSupported()
 </programlisting>
 
     <!--Autogenerated cross-references for systemd.directives, do not edit-->
@@ -161,10 +161,10 @@ error EnumerationNotSupported()
     <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.UserDatabase</screen> shows the
     interface definition as served by <replaceable>SERVICE</replaceable>, and
     <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.UserDatabase.GetUserRecord '{}'</screen>
-    invokes its <function>GetUserRecord</function> method.</para>
+    invokes its <function>GetUserRecord()</function> method.</para>
   </refsect1>
 
-  <refsect1>
+  <refsect1><title>History</title><para>The io.systemd.UserDatabase interface was added in version 244.</para><para><varname>BadService</varname>, <varname>ConflictingRecordFound</varname>, <varname>EnumerationNotSupported</varname>, <function>GetGroupRecord()</function>, <function>GetMemberships()</function>, <function>GetUserRecord()</function>, <varname>NoRecordFound</varname>, <varname>NonMatchingRecordFound</varname>, and <varname>ServiceNotAvailable</varname> were added in version 244.</para></refsect1><refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>

@@ -37,11 +37,11 @@
     <para>The following interface definition is exposed:</para>
 
     <programlisting varlink-interface="io.systemd.Job">
-# Job management interface for the systemd service manager.
-interface io.systemd.Job
+<emphasis role="varlink-comment"># Job management interface for the systemd service manager.</emphasis>
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd.Job
 
-# Job type
-type JobType(
+<emphasis role="varlink-comment"># Job type</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> JobType(
 	start,
 	verify_active,
 	stop,
@@ -53,15 +53,15 @@ type JobType(
 	nop
 )
 
-# Job state
-type JobState(
+<emphasis role="varlink-comment"># Job state</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> JobState(
 	waiting,
 	running,
 	finished
 )
 
-# Job result
-type JobResult(
+<emphasis role="varlink-comment"># Job result</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> JobResult(
 	done,
 	canceled,
 	timeout,
@@ -77,55 +77,55 @@ type JobResult(
 	concurrency
 )
 
-# A job object
-type Job(
-	# The numeric job ID
+<emphasis role="varlink-comment"># A job object</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> Job(
+	<emphasis role="varlink-comment"># The numeric job ID</emphasis>
 	Id: int,
-	# The unit name this job operates on
+	<emphasis role="varlink-comment"># The unit name this job operates on</emphasis>
 	Unit: ?string,
-	# The job type
+	<emphasis role="varlink-comment"># The job type</emphasis>
 	JobType: JobType,
-	# Current job state. 'finished' indicates the job has completed; in that case Result is also set.
+	<emphasis role="varlink-comment"># Current job state. 'finished' indicates the job has completed; in that case Result is also set.</emphasis>
 	State: ?JobState,
-	# Job result. Only set once the job has reached the 'finished' state.
+	<emphasis role="varlink-comment"># Job result. Only set once the job has reached the 'finished' state.</emphasis>
 	Result: ?JobResult,
-	# Activation details describing what triggered this job, as key-value pairs
+	<emphasis role="varlink-comment"># Activation details describing what triggered this job, as key-value pairs</emphasis>
 	ActivationDetails: ?[string]string
 )
 
-# List queued jobs
-# [Supports 'more' flag]
-method List(
-	# If non-null, filter by job ID
+<emphasis role="varlink-comment"># List queued jobs</emphasis>
+<emphasis role="varlink-comment"># [Supports 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> List(
+	<emphasis role="varlink-comment"># If non-null, filter by job ID</emphasis>
 	id: ?int,
-	# If non-null, filter by unit name
+	<emphasis role="varlink-comment"># If non-null, filter by unit name</emphasis>
 	unit: ?string
 ) -&gt; (
-	# The numeric job ID
+	<emphasis role="varlink-comment"># The numeric job ID</emphasis>
 	Id: int,
-	# The unit name this job operates on
+	<emphasis role="varlink-comment"># The unit name this job operates on</emphasis>
 	Unit: ?string,
-	# The job type
+	<emphasis role="varlink-comment"># The job type</emphasis>
 	JobType: JobType,
-	# Current job state. 'finished' indicates the job has completed; in that case Result is also set.
+	<emphasis role="varlink-comment"># Current job state. 'finished' indicates the job has completed; in that case Result is also set.</emphasis>
 	State: ?JobState,
-	# Job result. Only set once the job has reached the 'finished' state.
+	<emphasis role="varlink-comment"># Job result. Only set once the job has reached the 'finished' state.</emphasis>
 	Result: ?JobResult,
-	# Activation details describing what triggered this job, as key-value pairs
+	<emphasis role="varlink-comment"># Activation details describing what triggered this job, as key-value pairs</emphasis>
 	ActivationDetails: ?[string]string
 )
 
-# Cancel a specific job
-method Cancel(
-	# The job ID to cancel
+<emphasis role="varlink-comment"># Cancel a specific job</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> Cancel(
+	<emphasis role="varlink-comment"># The job ID to cancel</emphasis>
 	id: int
 ) -&gt; ()
 
-# Cancel all pending jobs
-method ClearAll() -&gt; ()
+<emphasis role="varlink-comment"># Cancel all pending jobs</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> ClearAll() -&gt; ()
 
-# The specified job does not exist
-error NoSuchJob(
+<emphasis role="varlink-comment"># The specified job does not exist</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> NoSuchJob(
 	parameter: ?string
 )
 </programlisting>
@@ -160,10 +160,10 @@ error NoSuchJob(
     <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.Job</screen> shows the
     interface definition as served by <replaceable>SERVICE</replaceable>, and
     <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.Job.List '{}'</screen>
-    invokes its <function>List</function> method.</para>
+    invokes its <function>List()</function> method.</para>
   </refsect1>
 
-  <refsect1>
+  <refsect1><title>History</title><para>The io.systemd.Job interface was added in version 261.</para><para><function>Cancel()</function>, <function>ClearAll()</function>, <varname>Job</varname>, <varname>JobResult</varname>, <varname>JobState</varname>, <varname>JobType</varname>, <function>List()</function>, and <varname>NoSuchJob</varname> were added in version 261.</para></refsect1><refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>

@@ -42,6 +42,17 @@
   </a>
 </xsl:template>
 
+<!-- Varlink IDL syntax highlighting (see tools/update-varlink-docs.py). The inline styles make
+     the highlighting visible without any supporting stylesheet, e.g. when viewing the rendered
+     pages directly from the build directory; the classes allow further styling via CSS. -->
+<xsl:template match="emphasis[@role='varlink-comment']">
+  <span class="varlink-comment" style="font-style:italic;color:#77767c"><xsl:apply-templates/></span>
+</xsl:template>
+
+<xsl:template match="emphasis[@role='varlink-keyword']">
+  <span class="varlink-keyword" style="font-weight:bold;color:#1c71d8"><xsl:apply-templates/></span>
+</xsl:template>
+
 <xsl:template match="citerefentry[@project='die-net']">
   <a>
     <xsl:attribute name="href">
