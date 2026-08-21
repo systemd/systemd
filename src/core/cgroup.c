@@ -2743,6 +2743,8 @@ void unit_release_cgroup(Unit *u, bool drop_cgroup_runtime) {
 
         if (drop_cgroup_runtime)
                 *(CGroupRuntime**) ((uint8_t*) u + UNIT_VTABLE(u)->cgroup_runtime_offset) = cgroup_runtime_free(crt);
+
+        u->oom_kill_last = 0;
 }
 
 int unit_cgroup_is_empty(Unit *u) {
