@@ -91,6 +91,23 @@ int fd_verify_regular(int fd) {
         return verify_regular_at(fd, /* path= */ NULL, /* follow= */ false);
 }
 
+int fd_can_sparse(int fd) {
+        int r;
+
+        /* Determine whether sparse writes can be used for this fd. Sparse writes are only safe on regular
+         * files without O_APPEND (O_APPEND ignores lseek position, which would collapse holes). */
+
+        r = fd_verify_regular(fd);
+        if (r < 0)
+                return r;
+
+        int flags = fcntl(fd, F_GETFL);
+        if (flags < 0)
+                return -errno;
+
+        return (flags & O_ACCMODE_STRICT) != O_RDONLY && !FLAGS_SET(flags, O_APPEND);
+}
+
 static int mode_verify_directory(mode_t mode) {
         if (S_ISLNK(mode))
                 return -ELOOP;
