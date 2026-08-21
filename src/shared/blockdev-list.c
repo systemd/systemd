@@ -279,9 +279,11 @@ int blockdev_list_one(
                 }
 
                 uint64_t diskseq = UINT64_MAX;
-                r = sd_device_get_diskseq(dev, &diskseq);
-                if (r < 0)
-                        log_device_debug_errno(dev, r, "Failed to acquire diskseq of device '%s', ignoring: %m", node);
+                if (FLAGS_SET(flags, BLOCKDEV_LIST_DISKSEQ)) {
+                        r = sd_device_get_diskseq(dev, &diskseq);
+                        if (r < 0)
+                                log_device_debug_errno(dev, r, "Failed to acquire diskseq of device '%s', ignoring: %m", node);
+                }
 
                 _cleanup_free_ char *m = strdup(node);
                 if (!m)
