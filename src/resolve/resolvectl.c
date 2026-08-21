@@ -3171,16 +3171,26 @@ static int verb_revert_link(int argc, char *argv[], uintptr_t _data, void *userd
 VERB(verb_log_level, "log-level", "[LEVEL]", VERB_ANY, 2, 0,
      "Get/set logging threshold for systemd-resolved");
 static int verb_log_level(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
-        r = acquire_bus(&bus);
-        if (r < 0)
-                return r;
+        if (argc == 1) {
+                /* Show current log level */
+                _cleanup_free_ char *level_str = NULL;
+                r = varlink_get_log_level_string("/run/systemd/resolve/io.systemd.Resolve", &level_str);
+                if (r < 0)
+                        return r;
 
-        assert(IN_SET(argc, 1, 2));
+                puts(level_str);
 
-        return verb_log_control_common(bus, "org.freedesktop.resolve1", argv[0], argc == 2 ? argv[1] : NULL);
+        } else if (argc == 2) {
+                /* Set new log level */
+                r = varlink_set_log_level_string("/run/systemd/resolve/io.systemd.Resolve", argv[1]);
+                if (r < 0)
+                        return r;
+        } else
+                assert_not_reached();
+
+        return 0;
 }
 
 static int parse_protocol(const char *arg) {
