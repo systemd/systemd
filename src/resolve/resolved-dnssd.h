@@ -19,6 +19,11 @@ typedef struct DnssdTxtData {
         LIST_FIELDS(DnssdTxtData, items);
 } DnssdTxtData;
 
+typedef struct DnssdServiceAttachment {
+        DnssdRegisteredService *service;
+        DnsScope *scope;
+} DnssdServiceAttachment;
+
 typedef struct DnssdRegisteredService {
         char *path;
         char *id;
@@ -39,6 +44,14 @@ typedef struct DnssdRegisteredService {
 
         Manager *manager;
 
+        /* DnsScope* -> DnssdServiceAttachment* */
+        Hashmap *attachments;
+
+        /* For services registered over D-Bus, keep both the exact owner and the track alive for as long as
+         * the publication exists. */
+        sd_bus_track *bus_track;
+        char *bus_owner;
+
         /* Services registered via D-Bus are not removed on reload */
         ResolveConfigSource config_source;
 
@@ -47,6 +60,8 @@ typedef struct DnssdRegisteredService {
 } DnssdRegisteredService;
 
 DnssdRegisteredService *dnssd_registered_service_free(DnssdRegisteredService *service);
+DnssdRegisteredService *dnssd_registered_service_remove(DnssdRegisteredService *service, bool send_goodbye);
+void dnssd_registered_service_attach(DnssdRegisteredService *service);
 DnssdTxtData *dnssd_txtdata_free(DnssdTxtData *txt_data);
 DnssdTxtData *dnssd_txtdata_free_all(DnssdTxtData *txt_data);
 void dnssd_registered_service_clear_on_reload(Hashmap *services);

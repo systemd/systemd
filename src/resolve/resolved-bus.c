@@ -23,6 +23,7 @@
 #include "resolved-def.h"
 #include "resolved-dns-delegate-bus.h"
 #include "resolved-dns-delegate.h"
+#include "resolved-dns-browse-services-bus.h"
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-query.h"
 #include "resolved-dns-scope.h"
@@ -1895,7 +1896,7 @@ static int dnssd_registered_service_on_bus_track(sd_bus_track *t, void *userdata
         assert(t);
 
         log_debug("Client of active request vanished, destroying DNS-SD service.");
-        dnssd_registered_service_free(s);
+        dnssd_registered_service_remove(s, /* send_goodbye= */ true);
 
         return 0;
 }
@@ -1904,7 +1905,7 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         _cleanup_(dnssd_registered_service_freep) DnssdRegisteredService *service = NULL;
         _cleanup_(sd_bus_track_unrefp) sd_bus_track *bus_track = NULL;
-        const char *id, *name_template, *type;
+        const char *id, *name_template, *type, *sender;
         _cleanup_free_ char *path = NULL;
         DnssdRegisteredService *s = NULL;
         Manager *m = ASSERT_PTR(userdata);
@@ -1929,6 +1930,15 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
                 return r;
         service->originator = euid;
         service->config_source = RESOLVE_CONFIG_SOURCE_DBUS;
+        service->manager = m;
+
+        sender = sd_bus_message_get_sender(message);
+        if (!sender)
+                return -ENODATA;
+
+        service->bus_owner = strdup(sender);
+        if (!service->bus_owner)
+                return log_oom();
 
         r = sd_bus_message_read(message, "sssqqq", &id, &name_template, &type,
                                 &service->port, &service->priority,
@@ -2040,6 +2050,10 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
                 txt_data = NULL;
         }
 
+        r = dnssd_update_rrs(service);
+        if (r < 0)
+                return r;
+
         r = sd_bus_path_encode("/org/freedesktop/resolve1/dnssd", service->id, &path);
         if (r < 0)
                 return r;
@@ -2063,15 +2077,14 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         if (r < 0)
                 return r;
 
-        service->manager = m;
+        service->bus_track = TAKE_PTR(bus_track);
 
         r = hashmap_ensure_put(&m->dnssd_registered_services, &string_hash_ops, service->id, service);
         if (r < 0)
                 return r;
 
-        service = NULL;
-
-        manager_refresh_rrs(m);
+        s = TAKE_PTR(service);
+        dnssd_registered_service_attach(s);
 
         return sd_bus_reply_method_return(message, "o", path);
 }
@@ -2221,6 +2234,11 @@ static const sd_bus_vtable resolve_vtable[] = {
                                               "t", flags),
                                 bus_method_resolve_service,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("BrowseServices",
+                                SD_BUS_ARGS("s", domain, "s", type, "i", ifindex, "t", flags),
+                                SD_BUS_RESULT("o", browser_path),
+                                bus_method_browse_services,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("GetLink",
                                 SD_BUS_ARGS("i", ifindex),
                                 SD_BUS_RESULT("o", path),
@@ -2327,6 +2345,7 @@ const BusObjectImplementation manager_object = {
         .vtables = BUS_VTABLES(resolve_vtable),
         .children = BUS_IMPLEMENTATIONS(&link_object,
                                         &dnssd_object,
+                                        &dns_service_browser_object,
                                         &dns_delegate_object),
 };
 
