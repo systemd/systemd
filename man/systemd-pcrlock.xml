@@ -278,7 +278,7 @@
         automatically generate a pcrlock file from the policy discovered.</para>
 
         <para>This writes/removes the file
-        <filename>/var/lib/pcrlock.d/230-secureboot-policy.pcrlock.d/generated.pcrlock</filename>.</para>
+        <filename>/var/lib/pcrlock.d/240-secureboot-policy.pcrlock.d/generated.pcrlock</filename>.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/>
         </listitem>
