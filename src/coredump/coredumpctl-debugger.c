@@ -8,6 +8,7 @@
 #include "coredumpctl-info.h"
 #include "coredumpctl-journal.h"
 #include "coredumpctl-util.h"
+#include "fs-util.h"
 #include "log.h"
 #include "path-util.h"
 #include "pidref.h"
@@ -23,9 +24,8 @@ int verb_run_debug(int argc, char *argv[], uintptr_t _data, void *userdata) {
         };
 
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
-        _cleanup_free_ char *exe = NULL, *path = NULL;
+        _cleanup_free_ char *exe = NULL;
         _cleanup_strv_free_ char **debugger_call = NULL;
-        bool unlink_path = false;
         const char *data, *fork_name;
         size_t len;
         int r;
@@ -87,11 +87,14 @@ int verb_run_debug(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r < 0)
                 return r;
 
-        r = save_core(j, NULL, &path, &unlink_path);
+        _cleanup_(unlink_and_freep) char *temp = NULL;
+        _cleanup_free_ char *path = NULL;
+        r = acquire_core(j, /* fd= */ -EBADF, &temp, &path);
         if (r < 0)
                 return r;
 
-        r = strv_extend_many(&debugger_call, exe, "-c", path);
+        assert(!path == !!temp);
+        r = strv_extend_many(&debugger_call, exe, "-c", path ?: temp);
         if (r < 0)
                 return log_oom();
 
@@ -137,11 +140,6 @@ int verb_run_debug(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
 finish:
         (void) default_signals(SIGINT, SIGTERM);
-
-        if (unlink_path) {
-                log_debug("Removed temporary file %s", path);
-                (void) unlink(path);
-        }
 
         return r;
 }
