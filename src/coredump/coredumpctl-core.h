@@ -3,6 +3,6 @@
 
 #include "forward.h"
 
-int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp);
+int acquire_core(sd_journal *j, int fd, char **ret_tmpfile, char **ret_path);
 
 int verb_dump_core(int argc, char *argv[], uintptr_t _data, void *userdata);
