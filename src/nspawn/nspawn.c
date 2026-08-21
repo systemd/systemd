@@ -4896,16 +4896,20 @@ static int merge_settings(Settings *settings, const char *path) {
                 if (!arg_settings_trusted)
                         log_warning("Ignoring network settings, file %s is not trusted.", path);
                 else {
-                        arg_network_veth = settings_network_veth(settings);
+                        int veth = settings_network_veth(settings);
+
                         arg_private_network = settings_private_network(settings);
+
+                        if (veth >= 0) {
+                                arg_network_veth = veth > 0;
+                                free_and_replace(arg_network_bridge, settings->network_bridge);
+                                free_and_replace(arg_network_zone, settings->network_zone);
+                        }
 
                         strv_free_and_replace(arg_network_interfaces, settings->network_interfaces);
                         strv_free_and_replace(arg_network_macvlan, settings->network_macvlan);
                         strv_free_and_replace(arg_network_ipvlan, settings->network_ipvlan);
                         strv_free_and_replace(arg_network_veth_extra, settings->network_veth_extra);
-
-                        free_and_replace(arg_network_bridge, settings->network_bridge);
-                        free_and_replace(arg_network_zone, settings->network_zone);
 
                         free_and_replace(arg_network_namespace_path, settings->network_namespace_path);
                 }
