@@ -2,7 +2,6 @@
 
 #include <fcntl.h>
 #include <stdio.h>
-#include <sys/stat.h>
 #include <unistd.h>
 
 #if HAVE_XZ
@@ -49,6 +48,7 @@
 #include "dlfcn-util.h"
 #include "io-util.h"
 #include "log.h"
+#include "stat-util.h"
 #include "string-table.h"
 #include "unaligned.h"
 
@@ -1608,23 +1608,6 @@ int compress_stream(
         return 0;
 }
 
-/* Determine whether sparse writes should be used for this fd. Sparse writes are only safe on
- * regular files without O_APPEND (O_APPEND ignores lseek position, which would collapse holes). */
-static int should_sparse(int fd) {
-        struct stat st;
-
-        assert(fd >= 0);
-
-        if (fstat(fd, &st) < 0)
-                return -errno;
-
-        int flags = fcntl(fd, F_GETFL);
-        if (flags < 0)
-                return -errno;
-
-        return S_ISREG(st.st_mode) && !FLAGS_SET(flags, O_APPEND);
-}
-
 /* After sparse decompression, set the file size to the current position to account for
  * trailing holes that sparse_write() created via lseek but never extended the file size for. */
 static int finalize_sparse(int fd) {
@@ -1781,7 +1764,7 @@ int decompress_stream(
         struct decompress_stream_userdata userdata = {
                 .fd = fdt,
                 .max_bytes = max_bytes,
-                .sparse = should_sparse(fdt) > 0,
+                .sparse = fd_can_sparse(fdt) > 0,
         };
 
         buf = new(uint8_t, COMPRESS_PIPE_BUFFER_SIZE);
