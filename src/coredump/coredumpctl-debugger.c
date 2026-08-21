@@ -61,7 +61,7 @@ int verb_run_debug(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 return r;
 
         if (!arg_quiet) {
-                print_info(stdout, j, false);
+                print_entry(stdout, j, /* need_space= */ false, /* table= */ NULL);
                 fputs("\n", stdout);
         }
 
