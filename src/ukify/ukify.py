@@ -782,8 +782,27 @@ def key_path_groups(
         )
 
 
-def pe_strip_section_name(name: bytes) -> str:
-    return name.rstrip(b'\x00').decode()
+def pe_resolve_section_name(name: bytes, string_table: Optional[bytes] = None) -> str:
+    raw = name.rstrip(b'\x00')
+    if not raw.startswith(b'/'):
+        return raw.decode()
+
+    if not string_table:
+        raise PEError(f'Indirect section name {raw} but PE has no COFF string table')
+
+    string_table_offset_raw = raw[1:]
+    if not string_table_offset_raw.isdigit():
+        raise PEError(f'Section name {raw} is not a valid string table offset')
+
+    string_table_offset = int(string_table_offset_raw)
+    string_table_size = int.from_bytes(string_table[:4], 'little')
+    if not 4 <= string_table_offset < string_table_size:
+        raise PEError(f'COFF string table offset {string_table_offset} out of bounds')
+
+    if (end := string_table.find(b'\x00', string_table_offset, string_table_size)) == -1:
+        raise PEError(f'COFF string table entry at offset {string_table_offset} is not NUL-terminated')
+
+    return string_table[string_table_offset:end].decode()
 
 
 def pe_section_size(section: pefile.SectionStructure) -> int:
@@ -967,13 +986,43 @@ class PEError(Exception):
     pass
 
 
+IMAGE_SIZEOF_SYMBOL = 18
+
+
+def coff_string_table_offset(pe: pefile.PE) -> int:
+    offset: int = pe.FILE_HEADER.PointerToSymbolTable + IMAGE_SIZEOF_SYMBOL * pe.FILE_HEADER.NumberOfSymbols
+    return offset
+
+
+@dataclasses.dataclass(frozen=True)
+class SymbolTable:
+    data: bytes
+    string_table_offset: int
+
+    @staticmethod
+    def from_pe(pe: pefile.PE) -> Optional['SymbolTable']:
+        if not (start := pe.FILE_HEADER.PointerToSymbolTable):
+            return None
+
+        string_table_offset = IMAGE_SIZEOF_SYMBOL * pe.FILE_HEADER.NumberOfSymbols
+        string_table_size = pe.get_dword_from_offset(start + string_table_offset) or 0
+        data = bytes(pe.__data__[start : start + string_table_offset + string_table_size])
+        if len(data) - string_table_offset < 4:
+            raise PEError('COFF string table has invalid size')
+        return SymbolTable(data, string_table_offset)
+
+    @property
+    def string_table(self) -> bytes:
+        return self.data[self.string_table_offset :]
+
+
 def pe_add_sections(opts: UkifyConfig, uki: UKI, output: str) -> None:
     pe = pefile.PE(uki.executable, fast_load=True)
 
     # Old stubs do not have the symbol/string table stripped, even though image files should not have one.
     if symbol_table := pe.FILE_HEADER.PointerToSymbolTable:
         symbol_table_size = 18 * pe.FILE_HEADER.NumberOfSymbols
-        if string_table_size := pe.get_dword_from_offset(symbol_table + symbol_table_size):
+        if string_table_size := pe.get_dword_from_offset(coff_string_table_offset(pe)):
             symbol_table_size += string_table_size
 
         # Let's be safe and only strip it if it's at the end of the file.
@@ -1083,7 +1132,7 @@ def pe_add_sections(opts: UkifyConfig, uki: UKI, output: str) -> None:
         # the one from the kernel to it. It should be small enough to fit in the existing section, so just
         # swap the data.
         for i, s in enumerate(pe.sections[:n_original_sections]):
-            if pe_strip_section_name(s.Name) == section.name and section.name != '.dtbauto':
+            if pe_resolve_section_name(s.Name) == section.name and section.name != '.dtbauto':
                 if new_section.Misc_VirtualSize > s.SizeOfRawData:
                     raise PEError(
                         f'Not enough space in existing section {section.name} to append new data'
@@ -1118,7 +1167,7 @@ def pe_add_sections(opts: UkifyConfig, uki: UKI, output: str) -> None:
     if opts.pcrsig:
         signatures = json.loads(str(opts.pcrsig))
         for i, section in enumerate(pe.sections):
-            if pe_strip_section_name(section.Name) == '.pcrsig':
+            if pe_resolve_section_name(section.Name) == '.pcrsig':
                 j = json.loads(
                     bytes(
                         pe.__data__[
@@ -1171,8 +1220,10 @@ def merge_sbat(input_pe: list[Path], input_text: list[str]) -> str:
             print(f'{f} is not a valid PE file, not extracting SBAT section.', file=sys.stderr)
             continue
 
+        symbol_table = SymbolTable.from_pe(pe)
+        string_table = symbol_table.string_table if symbol_table else None
         for section in pe.sections:
-            if pe_strip_section_name(section.Name) == '.sbat':
+            if pe_resolve_section_name(section.Name, string_table) == '.sbat':
                 split = section.get_data().rstrip(b'\x00').decode().splitlines()
                 if not split[0].startswith('sbat,'):
                     print(f'{f} does not contain a valid SBAT section, skipping.', file=sys.stderr)
@@ -1522,8 +1573,9 @@ def make_uki(opts: UkifyConfig) -> None:
     for profile in opts.join_profiles:
         pe = pefile.PE(profile, fast_load=True)
         prev_len = len(uki.sections)
-
-        names = [pe_strip_section_name(s.Name) for s in pe.sections]
+        symbol_table = SymbolTable.from_pe(pe)
+        string_table = symbol_table.string_table if symbol_table else None
+        names = [pe_resolve_section_name(s.Name, string_table) for s in pe.sections]
         names = [n for n in names if n in to_import]
 
         if len(names) == 0:
@@ -1538,7 +1590,7 @@ def make_uki(opts: UkifyConfig) -> None:
             raise ValueError(f'Profile PE binary {profile} contains multiple .profile sections')
 
         for pesection in pe.sections:
-            n = pe_strip_section_name(pesection.Name)
+            n = pe_resolve_section_name(pesection.Name, string_table)
 
             if n not in to_import:
                 continue
@@ -1552,7 +1604,9 @@ def make_uki(opts: UkifyConfig) -> None:
             )
 
         if opts.sign_profiles:
-            pesection = next(s for s in pe.sections if pe_strip_section_name(s.Name) == '.profile')
+            pesection = next(
+                s for s in pe.sections if pe_resolve_section_name(s.Name, string_table) == '.profile'
+            )
             id = read_env_file(pesection.get_data(length=pe_section_size(pesection)).decode()).get('ID')
             if not id or id not in opts.sign_profiles:
                 print(f'Not signing expected PCR measurements for "{id}" profile', file=sys.stderr)
@@ -1805,6 +1859,8 @@ def inspect_sections(opts: UkifyConfig) -> None:
 
     for file in opts.files:
         pe = pefile.PE(file, fast_load=True)
+        symbol_table = SymbolTable.from_pe(pe)
+        string_table = symbol_table.string_table if symbol_table else None
 
         # A UKI is a flat list of PE sections with profile structure: the sections before the first
         # '.profile' section belong to the base profile, and each subsequent '.profile' section
@@ -1820,7 +1876,7 @@ def inspect_sections(opts: UkifyConfig) -> None:
         profile = base  # sections fill the base profile until the first '.profile' delimiter
 
         for section in pe.sections:
-            name = pe_strip_section_name(section.Name)
+            name = pe_resolve_section_name(section.Name, string_table)
             if emit_json and name == '.profile':
                 profile = {}
                 profiles += [profile]
