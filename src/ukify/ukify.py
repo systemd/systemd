@@ -81,6 +81,9 @@ EFI_ARCHES: list[str] = sum(EFI_ARCH_MAP.values(), [])
 DEFAULT_CONFIG_DIRS = ['/etc/systemd', '/run/systemd', '/usr/local/lib/systemd', '/usr/lib/systemd']
 DEFAULT_CONFIG_FILE = 'ukify.conf'
 
+# https://datatracker.ietf.org/doc/html/rfc5280 ub-common-name
+COMMON_NAME_MAX_LEN = 64
+
 
 class Style:
     bold = '\033[0;1;39m' if sys.stderr.isatty() else ''
@@ -297,6 +300,7 @@ class UkifyConfig:
     policy_digest: bool
     profile: Optional[str]
     sb_cert: Union[str, Path, None]
+    sb_cert_common_name: Optional[str]
     sb_cert_name: Optional[str]
     sb_cert_validity: int
     sb_certdir: Path
@@ -1682,12 +1686,24 @@ def generate_keys(opts: UkifyConfig) -> None:
     # This will generate keys and certificates and write them to the paths that
     # are specified as input paths.
     if opts.sb_key and opts.sb_cert:
-        fqdn = socket.getfqdn()
+        # The length of CN must not exceed 64 bytes
+        if opts.sb_cert_common_name is not None:
+            cn = opts.sb_cert_common_name
+            if len(cn) == 0:
+                raise ValueError('--secureboot-certificate-common-name= must not be empty')
 
-        cn = f'SecureBoot signing key on host {fqdn}'
-        if len(cn) > 64:
-            # The length of CN must not exceed 64 bytes
-            cn = cn[:61] + '...'
+            # Older p-cryptography versions (checked 41) don't check that by themselves.
+            # Newer (at least 49) do, but with a much less useful error message, so keep this extra check.
+            if len(cn) > COMMON_NAME_MAX_LEN:
+                raise ValueError(
+                    f'--secureboot-certificate-common-name= is longer than {COMMON_NAME_MAX_LEN} characters: {cn!r}'
+                )
+        else:
+            fqdn = socket.getfqdn()
+
+            cn = f'SecureBoot signing key on host {fqdn}'
+            if len(cn) > COMMON_NAME_MAX_LEN:
+                cn = cn[: COMMON_NAME_MAX_LEN - 3] + '...'
 
         key_pem, cert_pem = generate_key_cert_pair(
             common_name=cn,
@@ -2202,6 +2218,13 @@ CONFIG_ITEMS = [
             'required by --signtool=sbsign. sbsign needs a path to certificate file or engine-specific designation for SB signing'
         ),
         config_key='UKI/SecureBootCertificate',
+    ),
+    ConfigItem(
+        '--secureboot-certificate-common-name',
+        metavar='CN',
+        dest='sb_cert_common_name',
+        help="common name of a certificate created by 'genkey'",
+        config_key='UKI/SecureBootCertificateCommonName',
     ),
     ConfigItem(
         '--secureboot-certificate-dir',
