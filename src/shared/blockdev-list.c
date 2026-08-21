@@ -285,6 +285,30 @@ int blockdev_list_one(
                                 log_device_debug_errno(dev, r, "Failed to acquire diskseq of device '%s', ignoring: %m", node);
                 }
 
+                uint64_t read_bytes, write_bytes;
+                bool bytes_good = false;
+                if (FLAGS_SET(flags, BLOCKDEV_LIST_RW_STATS)) {
+                        const char *v;
+
+                        r = sd_device_get_sysattr_value(dev, "stat", &v);
+                        if (r < 0)
+                                log_device_full_errno(dev, ERRNO_IS_NEG_DEVICE_ABSENT(r) ? LOG_DEBUG : LOG_WARNING,
+                                                      r, "%s: failed to read 'stat' attribute, ignoring: %m", node);
+                        else {
+                                /* Fields 3 and 7: the number of sectors read and written. The "stat" attribute
+                                 * always counts in 512 byte sectors, regardless of the device's logical block size.
+                                 * The skipped fields are consumed with %*s, since their values may exceed any fixed
+                                 * integer width. */
+                                if (sscanf(v, "%*s %*s %"SCNu64" %*s %*s %*s %"SCNu64, &read_bytes, &write_bytes) < 2)
+                                        log_device_warning(dev, "%s: failed to parse 'stat' attribute.", node);
+                                else if (!MUL_SAFE(&read_bytes, read_bytes, UINT64_C(512)) ||
+                                         !MUL_SAFE(&write_bytes, write_bytes, UINT64_C(512)))
+                                        log_device_debug(dev, "%s: sector counters out of range, ignoring.", node);
+                                else
+                                        bytes_good = true;
+                        }
+                }
+
                 _cleanup_free_ char *m = strdup(node);
                 if (!m)
                         return log_oom();
@@ -292,11 +316,13 @@ int blockdev_list_one(
                 *ret = (BlockDevice) {
                         .node = TAKE_PTR(m),
                         .symlinks = TAKE_PTR(list),
-                        .diskseq = diskseq,
-                        .size = size,
                         .model = TAKE_PTR(model),
                         .vendor = TAKE_PTR(vendor),
                         .subsystem = TAKE_PTR(subsystem),
+                        .diskseq = diskseq,
+                        .size = size,
+                        .read_bytes = bytes_good ? read_bytes : UINT64_MAX,
+                        .write_bytes = bytes_good ? write_bytes : UINT64_MAX,
                         .read_only = ro,
                 };
 
