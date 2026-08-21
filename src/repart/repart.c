@@ -1766,12 +1766,30 @@ static int context_grow_partitions(Context *context) {
         return 0;
 }
 
-static uint64_t find_first_unused_partno(Context *context) {
+static int find_unused_partno(Context *context, sd_id128_t type_uuid, uint64_t *ret_partno) {
         uint64_t partno = 0;
+        size_t nents;
 
         assert(context);
+        assert(ret_partno);
 
-        for (partno = 0;; partno++) {
+        nents = sym_fdisk_get_npartitions(context->fdisk_context);
+        if (nents == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Partition table has no partition entries.");
+
+        /* Keep new partitions after existing partitions of the same type, as those are matched to
+         * definitions in partition number order. */
+        LIST_FOREACH(partitions, p, context->partitions)
+                if (PARTITION_EXISTS(p) && p->partno != UINT64_MAX && sd_id128_equal(p->type.uuid, type_uuid)) {
+                        if (p->partno >= nents - 1)
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
+                                                       "No free partition number available after existing partitions of type %s.",
+                                                       SD_ID128_TO_UUID_STRING(type_uuid));
+
+                        partno = MAX(partno, p->partno + 1);
+                }
+
+        for (; partno < nents; partno++) {
                 bool found = false;
                 LIST_FOREACH(partitions, p, context->partitions)
                         if (p->partno != UINT64_MAX && p->partno == partno)
@@ -1780,7 +1798,33 @@ static uint64_t find_first_unused_partno(Context *context) {
                         break;
         }
 
-        return partno;
+        if (partno >= nents)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOSPC), "No free partition number available.");
+
+        *ret_partno = partno;
+        return 0;
+}
+
+static int context_assign_partnos(Context *context) {
+        int r;
+
+        assert(context);
+
+        /* Assign numbers before context_sort_partitions() reorders the list by on-disk position, so
+         * that new partitions of the same type are numbered in definition order. */
+        LIST_FOREACH(partitions, p, context->partitions) {
+                if (!p->allocated_to_area)
+                        continue;
+
+                assert(!PARTITION_EXISTS(p));
+                assert(p->partno == UINT64_MAX);
+
+                r = find_unused_partno(context, p->type.uuid, &p->partno);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 static void context_place_partitions(Context *context) {
@@ -1811,7 +1855,6 @@ static void context_place_partitions(Context *context) {
                                 continue;
 
                         p->offset = start;
-                        p->partno = find_first_unused_partno(context);
 
                         assert(left >= p->new_size);
                         start += p->new_size;
@@ -11384,6 +11427,10 @@ static int context_ponder(Context *context) {
                         log_info("Couldn't allocate partitions with %s merged into %s, using supplement verbatim.",
                                  p->definition_path, p->supplement_for->definition_path);
         }
+
+        r = context_assign_partnos(context);
+        if (r < 0)
+                return r;
 
         /* Now that we know which new partition goes into which free area, reorder
          * the partitions list so that the list is in the right order. */
