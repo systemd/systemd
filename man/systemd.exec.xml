@@ -3366,7 +3366,9 @@ SystemCallErrorNumber=EPERM</programlisting>
         assignments made through <varname>Environment=</varname> or <varname>EnvironmentFile=</varname>, inherited from
         the system manager's global set of environment variables, inherited via <varname>PassEnvironment=</varname>,
         set by the service manager itself (such as <varname>$NOTIFY_SOCKET</varname> and such), or set by a PAM module
-        (in case <varname>PAMName=</varname> is used).</para>
+        (in case <varname>PAMName=</varname> is used). Note that variable expansion in the command lines of
+        <varname>ExecStart=</varname> and friends is not affected by this option, as it happens before the
+        unsetting is applied.</para>
 
         <para>See "Environment Variables in Spawned Processes" below for a description of how those
         settings combine to form the inherited environment. See <citerefentry
