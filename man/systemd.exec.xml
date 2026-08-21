@@ -3366,7 +3366,9 @@ SystemCallErrorNumber=EPERM</programlisting>
         assignments made through <varname>Environment=</varname> or <varname>EnvironmentFile=</varname>, inherited from
         the system manager's global set of environment variables, inherited via <varname>PassEnvironment=</varname>,
         set by the service manager itself (such as <varname>$NOTIFY_SOCKET</varname> and such), or set by a PAM module
-        (in case <varname>PAMName=</varname> is used).</para>
+        (in case <varname>PAMName=</varname> is used). Note that variable expansion in the command lines of
+        <varname>ExecStart=</varname> and friends is not affected by this option, as it happens before the
+        unsetting is applied.</para>
 
         <para>See "Environment Variables in Spawned Processes" below for a description of how those
         settings combine to form the inherited environment. See <citerefentry
@@ -4165,7 +4167,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
     <para>If the same environment variable is set by multiple of these sources, the later source — according
     to the order of the list above — wins. Note that as the final step all variables listed in
     <varname>UnsetEnvironment=</varname> are removed from the compiled environment variable list, immediately
-    before it is passed to the executed process.</para>
+    before it is passed to the executed process. This unsetting happens after variable expansion in
+    the command lines of <varname>ExecStart=</varname> and friends is performed, hence command line
+    expansion is not affected by <varname>UnsetEnvironment=</varname>.</para>
 
     <para>The general philosophy is to expose a small curated list of environment variables to processes.
     Services started by the system manager (PID 1) will be started, without additional service-specific
