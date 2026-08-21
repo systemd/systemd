@@ -180,7 +180,7 @@ int verb_dump_core(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         return log_error_errno(errno, "Failed to open \"%s\" for writing: %m", arg_output);
         }
 
-        print_info(f ? stdout : stderr, j, false);
+        print_entry(f ? stdout : stderr, j, /* need_space= */ false, /* table= */ NULL);
 
         r = save_core(j, f, NULL, NULL);
         if (r < 0)

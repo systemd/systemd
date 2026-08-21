@@ -323,7 +323,7 @@ static int coredump_fields_load(sd_journal *j, CoredumpFields *ret) {
         return 0;
 }
 
-int print_info(FILE *file, sd_journal *j, bool need_space) {
+static int print_info(FILE *file, sd_journal *j, bool need_space) {
         _cleanup_(coredump_fields_done) CoredumpFields f = {
                 .disk_size = UINT64_MAX,
         };
@@ -591,14 +591,17 @@ static int print_info_json(FILE *file, sd_journal *j) {
         return 0;
 }
 
-int print_entry(sd_journal *j, size_t n_found, Table *t) {
+int print_entry(FILE *f, sd_journal *j, bool need_space, Table *table) {
         assert(j);
 
-        if (t)
-                return print_list(stdout, j, t);
+        if (!f)
+                f = stdout;
+
+        if (table)
+                return print_list(f, j, table);
         if (arg_field)
-                return print_field(stdout, j);
+                return print_field(f, j);
         if (sd_json_format_enabled(arg_json_format_flags))
-                return print_info_json(stdout, j);
-        return print_info(stdout, j, n_found > 0);
+                return print_info_json(f, j);
+        return print_info(f, j, need_space);
 }
