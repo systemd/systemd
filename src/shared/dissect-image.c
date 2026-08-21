@@ -3555,6 +3555,16 @@ success:
 
         return 0;
 }
+
+static void dissected_image_undo_decrypt(DissectedImage *m) {
+        assert(m);
+
+        FOREACH_ELEMENT(p, m->partitions) {
+                p->decrypted_node = mfree(p->decrypted_node);
+                p->decrypted_fstype = mfree(p->decrypted_fstype);
+                p->mount_node_fd = safe_close(p->mount_node_fd);
+        }
+}
 #endif
 
 int dissected_image_decrypt(
@@ -3618,22 +3628,27 @@ int dissected_image_decrypt(
                 if (k >= 0) {
                         r = verity_partition(m, i, p, m->partitions + k, root, verity, flags, fl, d);
                         if (r < 0)
-                                return r;
+                                goto fail;
                 }
 
                 r = decrypt_partition(m, p, passphrase, flags, fl, d);
                 if (r < 0)
-                        return r;
+                        goto fail;
 
                 if (!p->decrypted_fstype && p->mount_node_fd >= 0 && p->decrypted_node) {
                         r = probe_filesystem_full(p->mount_node_fd, p->decrypted_node, 0, UINT64_MAX, /* bool restrict_fstypes= */ true, &p->decrypted_fstype);
                         if (r < 0 && r != -EUCLEAN)
-                                return r;
+                                goto fail;
                 }
         }
 
         m->decrypted_image = TAKE_PTR(d);
         return 1;
+
+fail:
+        /* Undo partial activation */
+        dissected_image_undo_decrypt(m);
+        return r;
 #else
         return -EOPNOTSUPP;
 #endif
