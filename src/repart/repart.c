@@ -1766,12 +1766,23 @@ static int context_grow_partitions(Context *context) {
         return 0;
 }
 
-static uint64_t find_first_unused_partno(Context *context) {
+static uint64_t find_first_unused_partno(Context *context, const Partition *partition) {
         uint64_t partno = 0;
 
         assert(context);
+        assert(partition);
 
-        for (partno = 0;; partno++) {
+        /*
+         * Existing partitions of the same type are matched to definitions in partition
+         * number order. Keep newly created partitions of that type after all matched
+         * existing partitions, otherwise definitions could be rematched on the next run.
+         */ 
+        LIST_FOREACH(partitions, p, context->partitions)
+                if (PARTITION_EXISTS(p) && !PARTITION_IS_FOREIGN(p) &&
+                    sd_id128_equal(p->type.uuid, partition->type.uuid))
+                        partno = MAX(partno, p->partno + 1);
+
+        for (;; partno++) {
                 bool found = false;
                 LIST_FOREACH(partitions, p, context->partitions)
                         if (p->partno != UINT64_MAX && p->partno == partno)
@@ -1811,7 +1822,7 @@ static void context_place_partitions(Context *context) {
                                 continue;
 
                         p->offset = start;
-                        p->partno = find_first_unused_partno(context);
+                        p->partno = find_first_unused_partno(context, p);
 
                         assert(left >= p->new_size);
                         start += p->new_size;
