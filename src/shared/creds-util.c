@@ -1970,7 +1970,7 @@ static const CredentialsVarlinkError credentials_varlink_error_table[] = {
         { "io.systemd.Credentials.NoSuchUser",             ESRCH,        "No such user." },
         { "io.systemd.Credentials.BadScope",               EMEDIUMTYPE,  "Scope mismatch." },
         { "io.systemd.Credentials.CantFindPCRSignature",   EHOSTDOWN,    "PCR signature required for decryption, but could not be found." },
-        { "io.systemd.Credentials.NullKeyNotAllowed",      EHWPOISON,    "The key was encrypted with a null key, but that's now allowed during decryption." },
+        { "io.systemd.Credentials.NullKeyNotAllowed",      EHWPOISON,    "The key was encrypted with a null key, but that's not allowed during decryption." },
         { "io.systemd.Credentials.KeyBelongsToOtherTPM",   EREMOTE,      "The TPM integrity check for this key failed, key probably belongs to another TPM, or was corrupted." },
         { "io.systemd.Credentials.TPMInDictionaryLockout", ENOLCK,       "The TPM is in dictionary lockout mode, cannot operate." },
         { "io.systemd.Credentials.UnexpectedPCRState" ,    EUCLEAN,      "Unexpected TPM PCR state of the system." },

@@ -105,7 +105,7 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_error_BadScope,
                 SD_VARLINK_SYMBOL_COMMENT("PCR signature required for decryption, but not found."),
                 &vl_error_CantFindPCRSignature,
-                SD_VARLINK_SYMBOL_COMMENT("The key was encrypted with a null key, but that's now allowed during decryption."),
+                SD_VARLINK_SYMBOL_COMMENT("The key was encrypted with a null key, but that's not allowed during decryption."),
                 &vl_error_NullKeyNotAllowed,
                 SD_VARLINK_SYMBOL_COMMENT("The TPM integrity check for this key failed, key probably belongs to another TPM, or was corrupted."),
                 &vl_error_KeyBelongsToOtherTPM,
