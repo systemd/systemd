@@ -3978,7 +3978,8 @@ static int outer_child(
                 r = mstack_make_mounts(
                                 mstack,
                                 /* temp_mount_dir= */ directory, /* !! */
-                                mstack_flags);
+                                mstack_flags,
+                                /* uid_shift= */ UID_INVALID);
                 if (r < 0)
                         return log_error_errno(r, "Failed to make .mstack/ mounts: %m");
 
