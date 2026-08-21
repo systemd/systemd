@@ -93,6 +93,80 @@ systemctl stop sleepforever1@b.service
 systemctl stop sleepforever1@c.service
 systemctl stop sleepforever1@d.service
 
+# Hard limits should allow a batch that exactly fits...
+cat >/run/systemd/system/concurrency-bug-fit.slice <<EOF
+[Slice]
+ConcurrencyHardMax=2
+EOF
+
+cat >/run/systemd/system/concurrency-bug-fit@.service <<EOF
+[Service]
+Slice=concurrency-bug-fit.slice
+ExecStart=sleep infinity
+EOF
+
+cat >/run/systemd/system/concurrency-bug-fit.target <<EOF
+[Unit]
+Wants=concurrency-bug-fit@a.service concurrency-bug-fit@b.service
+EOF
+
+systemctl daemon-reload
+
+systemctl --no-block start concurrency-bug-fit.target
+echo "fit exit=$?"
+
+sleep 2
+
+fit_a_state=$(systemctl is-active concurrency-bug-fit@a.service || :)
+fit_b_state=$(systemctl is-active concurrency-bug-fit@b.service || :)
+test "$(printf '%s\n%s\n' "$fit_a_state" "$fit_b_state" | grep -c '^active$')" -eq 2
+
+systemctl stop concurrency-bug-fit.target 'concurrency-bug-fit@*.service' concurrency-bug-fit.slice ||:
+systemctl reset-failed concurrency-bug-fit.target 'concurrency-bug-fit@*.service' concurrency-bug-fit.slice ||:
+
+rm /run/systemd/system/concurrency-bug-fit.slice
+rm /run/systemd/system/concurrency-bug-fit@.service
+rm /run/systemd/system/concurrency-bug-fit.target
+
+# ...and let only the overflow unit miss out.
+cat >/run/systemd/system/concurrency-bug-over.slice <<EOF
+[Slice]
+ConcurrencyHardMax=2
+EOF
+
+cat >/run/systemd/system/concurrency-bug-over@.service <<EOF
+[Service]
+Slice=concurrency-bug-over.slice
+ExecStart=sleep infinity
+EOF
+
+cat >/run/systemd/system/concurrency-bug-over.target <<EOF
+[Unit]
+Wants=concurrency-bug-over@a.service concurrency-bug-over@b.service concurrency-bug-over@c.service
+EOF
+
+systemctl daemon-reload
+
+systemctl --no-block start concurrency-bug-over.target
+echo "over exit=$?"
+
+sleep 2
+
+over_a_state=$(systemctl is-active concurrency-bug-over@a.service || :)
+over_b_state=$(systemctl is-active concurrency-bug-over@b.service || :)
+over_c_state=$(systemctl is-active concurrency-bug-over@c.service || :)
+test "$(printf '%s\n%s\n%s\n' "$over_a_state" "$over_b_state" "$over_c_state" | grep -c '^active$')" -eq 2
+test "$(printf '%s\n%s\n%s\n' "$over_a_state" "$over_b_state" "$over_c_state" | grep -c '^inactive$')" -eq 1
+
+systemctl stop concurrency-bug-over.target 'concurrency-bug-over@*.service' concurrency-bug-over.slice ||:
+systemctl reset-failed concurrency-bug-over.target 'concurrency-bug-over@*.service' concurrency-bug-over.slice ||:
+
+rm /run/systemd/system/concurrency-bug-over.slice
+rm /run/systemd/system/concurrency-bug-over@.service
+rm /run/systemd/system/concurrency-bug-over.target
+
+systemctl daemon-reload
+
 # Now go for some nesting
 systemctl start sleepforever2@a.service
 systemctl is-active sleepforever2@a.service
