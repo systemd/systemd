@@ -42,6 +42,7 @@ at_exit() {
         rm -f "$img" "$img".private.pem "$img".public.pem "$img".pcrsign
     fi
     rm -f /tmp/borked /tmp/pcrlockpwd /var/lib/systemd/pcrlock.json /var/lib/systemd/pcrlock.json.gone
+    rm -f /tmp/pcrlockcred /tmp/pcrlockcred.encrypted /tmp/pcrlockcred2.encrypted /tmp/pcrlockcred3.encrypted /tmp/refused.encrypted
     systemctl daemon-reload
 }
 
@@ -134,6 +135,25 @@ systemd-cryptenroll --unlock-key-file=/tmp/pcrlockpwd --tpm2-device=auto --tpm2-
 systemd-cryptsetup attach pcrlock "$img" - tpm2-device=auto,tpm2-pcrlock=/var/lib/systemd/pcrlock.json,headless
 systemd-cryptsetup detach pcrlock
 
+# Bind a credential to the pcrlock policy (explicit path)
+echo -n "pcrlock-cred-test" >/tmp/pcrlockcred
+systemd-creds encrypt --name=pcrlockcred --with-key=tpm2 --tpm2-pcrlock=/var/lib/systemd/pcrlock.json /tmp/pcrlockcred /tmp/pcrlockcred.encrypted
+systemd-creds decrypt --name=pcrlockcred /tmp/pcrlockcred.encrypted - | cmp - /tmp/pcrlockcred
+
+# Auto-discovery: no --tpm2-pcrlock= specified, pcrlock.json is found automatically for encryption
+systemd-creds encrypt --name=pcrlockcred2 --with-key=tpm2 /tmp/pcrlockcred /tmp/pcrlockcred2.encrypted
+systemd-creds decrypt --name=pcrlockcred2 --tpm2-pcrlock=/var/lib/systemd/pcrlock.json /tmp/pcrlockcred2.encrypted - | cmp - /tmp/pcrlockcred
+
+# Default key type (no --with-key=, i.e. auto): exercises the auto-branch pcrlock key type selection
+systemd-creds encrypt --name=pcrlockcred3 --tpm2-pcrlock=/var/lib/systemd/pcrlock.json /tmp/pcrlockcred /tmp/pcrlockcred3.encrypted
+systemd-creds decrypt --name=pcrlockcred3 /tmp/pcrlockcred3.encrypted - | cmp - /tmp/pcrlockcred
+
+# Combining pcrlock and a signed PCR policy must be refused
+(! systemd-creds encrypt --name=refused --with-key=tpm2 --tpm2-pcrlock=/var/lib/systemd/pcrlock.json --tpm2-public-key=/dev/null /tmp/pcrlockcred /tmp/refused.encrypted )
+
+# Decryption via service manager (PID1 finds the pcrlock policy automatically)
+systemd-run -p PrivateDevices=yes -p LoadCredentialEncrypted=pcrlockcred:/tmp/pcrlockcred.encrypted --pipe --wait systemd-creds cat pcrlockcred | cmp - /tmp/pcrlockcred
+
 # Ensure systemd-pcrlock not crashing on empty variant directory
 mkdir -p /var/lib/pcrlock.d/123-empty.pcrlock.d
 "$SD_PCRLOCK" predict --pcr="$PCRS"
@@ -146,6 +166,12 @@ rm -rf /var/lib/pcrlock.d/123-empty.pcrlock.d
 
 (! systemd-cryptsetup attach pcrlock "$img" - tpm2-device=auto,tpm2-pcrlock=/var/lib/systemd/pcrlock.json,headless )
 
+# The pcrlock-bound credentials must not decrypt any more either (this also verifies that the
+# auto-discovery cases above really produced pcrlock-bound credentials)
+(! systemd-creds decrypt --name=pcrlockcred /tmp/pcrlockcred.encrypted - )
+(! systemd-creds decrypt --name=pcrlockcred2 /tmp/pcrlockcred2.encrypted - )
+(! systemd-creds decrypt --name=pcrlockcred3 /tmp/pcrlockcred3.encrypted - )
+
 # Now add a component for it, rebuild policy and it should work (we'll rebuild
 # once like that, but don't provide the recovery pin. This should fail, since
 # the PCR is hosed after all. But then we'll use recovery pin, and it should
@@ -156,6 +182,9 @@ PIN=huhu "$SD_PCRLOCK" make-policy --pcr="$PCRS" --recovery-pin=query
 
 systemd-cryptsetup attach pcrlock "$img" - tpm2-device=auto,tpm2-pcrlock=/var/lib/systemd/pcrlock.json,headless
 systemd-cryptsetup detach pcrlock
+
+# The refreshed policy (PolicyAuthorizeNV) must make the credential decryptable again, without re-encryption
+systemd-creds decrypt --name=pcrlockcred /tmp/pcrlockcred.encrypted - | cmp - /tmp/pcrlockcred
 
 # And now let's do it the clean way, and generate the right policy ahead of time.
 echo -n test70-take-two | "$SD_PCRLOCK" lock-raw --pcrlock=/var/lib/pcrlock.d/920-test70.pcrlock --pcr=16
@@ -209,6 +238,11 @@ test -f /tmp/fakexbootldr/loader/credentials/"$CREDENTIAL_NAME"
 
 SYSTEMD_ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY=/tmp/fakexbootldr/loader/credentials systemd-cryptsetup attach pcrlock "$img" - tpm2-device=auto,headless
 systemd-cryptsetup detach pcrlock
+
+# The pcrlock-bound credential must be decryptable via the policy credential as well
+SYSTEMD_ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY=/tmp/fakexbootldr/loader/credentials systemd-creds decrypt --name=pcrlockcred /tmp/pcrlockcred.encrypted - | cmp - /tmp/pcrlockcred
+# But an explicitly specified policy that doesn't exist must not silently fall back to it
+(! SYSTEMD_ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY=/tmp/fakexbootldr/loader/credentials systemd-creds decrypt --name=pcrlockcred --tpm2-pcrlock=/var/lib/systemd/pcrlock.json /tmp/pcrlockcred.encrypted - )
 
 mv /var/lib/systemd/pcrlock.json.gone /var/lib/systemd/pcrlock.json
 SYSTEMD_XBOOTLDR_PATH=/tmp/fakexbootldr SYSTEMD_RELAX_XBOOTLDR_CHECKS=1 "$SD_PCRLOCK" remove-policy

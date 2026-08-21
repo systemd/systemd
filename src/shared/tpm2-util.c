@@ -9975,6 +9975,11 @@ int tpm2_pcrlock_policy_from_json(
         if (r < 0)
                 return r;
 
+        /* systemd-pcrlock always stores a serialized NV index handle. Without one the policy is unusable:
+         * tpm2_deserialize() would return no handle, which we'd then pass to PolicyAuthorizeNV. */
+        if (!iovec_is_set(&policy.nv_handle))
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "pcrlock policy lacks NV index handle, refusing.");
+
         r = tpm2_pcr_prediction_from_json(&policy.prediction, policy.algorithm, policy.prediction_json);
         if (r < 0)
                 return r;
@@ -10031,15 +10036,22 @@ static int pcrlock_policy_load_credential(
 
         ascii_strlower(c); /* Lowercase, to match what we did at encryption time */
 
+        /* The ESP/XBOOTLDR partition is untrusted, multi-boot-writable storage: anyone can drop a file named
+         * pcrlock.*.cred there. systemd-pcrlock only ever wraps the policy in a null-keyed credential (it
+         * must: the policy needs to be decodable before any pcrlock policy is available). Hence refuse
+         * everything else. In particular this breaks the recursion that a pcrlock-bound (CRED_*_PCRLOCK)
+         * credential placed here would otherwise cause: decrypting it would call right back into
+         * tpm2_pcrlock_policy_from_credentials(). */
         _cleanup_(iovec_done) struct iovec decoded = {};
         r = decrypt_credential_and_warn(
                         c,
                         now(CLOCK_REALTIME),
                         /* tpm2_device= */ NULL,
                         /* tpm2_signature_path= */ NULL,
+                        /* tpm2_pcrlock_path= */ NULL,
                         UID_INVALID,
                         data,
-                        CREDENTIAL_ALLOW_NULL,
+                        CREDENTIAL_ALLOW_NULL|CREDENTIAL_NULL_ONLY,
                         &decoded);
         if (r < 0)
                 return r;
