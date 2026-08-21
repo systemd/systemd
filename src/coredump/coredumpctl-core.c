@@ -19,6 +19,32 @@
 #include "terminal-util.h"
 #include "tmpfile-util.h"
 
+static int open_tmpfile(char **ret_path, int *ret_fd) {
+        int r;
+
+        assert(ret_path);
+        assert(ret_fd);
+
+        const char *vt;
+        r = var_tmp_dir(&vt);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire temporary directory path: %m");
+
+        _cleanup_free_ char *path = path_join(vt, "coredump-XXXXXX");
+        if (!path)
+                return log_oom();
+
+        _cleanup_close_ int fd = mkostemp_safe(path);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to create temporary file: %m");
+
+        log_debug("Created temporary file %s", path);
+
+        *ret_path = TAKE_PTR(path);
+        *ret_fd = TAKE_FD(fd);
+        return 0;
+}
+
 int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) {
         const char *data;
         _cleanup_free_ char *filename = NULL;
@@ -67,22 +93,9 @@ int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) {
         _cleanup_(unlink_and_freep) char *temp = NULL;
         _cleanup_close_ int fdt = -EBADF;
         if (path) {
-                const char *vt;
-
-                /* Create a temporary file to write the uncompressed core to. */
-
-                r = var_tmp_dir(&vt);
+                r = open_tmpfile(&temp, &fdt);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to acquire temporary directory path: %m");
-
-                temp = path_join(vt, "coredump-XXXXXX");
-                if (!temp)
-                        return log_oom();
-
-                fdt = mkostemp_safe(temp);
-                if (fdt < 0)
-                        return log_error_errno(fdt, "Failed to create temporary file: %m");
-                log_debug("Created temporary file %s", temp);
+                        return r;
 
                 fd = fdt;
         } else
