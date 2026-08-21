@@ -3161,6 +3161,81 @@ EOF
     assert_in "$imgs/leftover2.img3 : start=       26624, size=       24536, type=$esp_guid," "$output"
 }
 
+testcase_partition_number_gap() {
+    local defs imgs image output before after
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod 0755 "$defs"
+
+    image="$imgs/gap.img"
+
+    tee "$defs/10-a.conf" <<EOF
+[Partition]
+Type=linux-generic
+Label=a
+SizeMinBytes=20M
+SizeMaxBytes=20M
+EOF
+
+    tee "$defs/20-b.conf" <<EOF
+[Partition]
+Type=linux-generic
+Label=b
+SizeMinBytes=10M
+SizeMaxBytes=10M
+EOF
+
+    # Initially create two partitions with consecutive partition numbers.
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --empty=create \
+                   --size=64M \
+                   --dry-run=no \
+                   "$image"
+
+    output="$(sfdisk -d "$image")"
+    assert_rc 0 grep -Fq "$image"1" :" <<<"$output"
+    assert_rc 0 grep -Fq "$image"2" :" <<<"$output"
+
+    # Remove the first partition, leaving partition number 1 unused while
+    # partition number 2 remains occupied.
+    sfdisk --delete "$image" 1
+
+    output="$(sfdisk -d "$image")"
+    assert_rc 1 grep -Fq "$image"1" :" <<<"$output"
+    assert_rc 0 grep -Fq "$image"2" :" <<<"$output"
+
+    # Repart should append the new partition after the highest existing
+    # partition of the same type instead of filling the lower-numbered gap.
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   "$image"
+
+    output="$(sfdisk -d "$image")"
+    assert_rc 1 grep -Fq "$image"1" :" <<<"$output"
+    assert_rc 0 grep -Fq "$image"2" :" <<<"$output"
+    assert_rc 0 grep -Fq "$image"3" :" <<<"$output"
+
+    # A subsequent invocation should not rematch the definitions and modify
+    # the partition table again.
+    before="$output"
+
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   "$image"
+
+    after="$(sfdisk -d "$image")"
+    assert_eq "$before" "$after"
+}
+
 OFFLINE="yes"
 run_testcases
 
