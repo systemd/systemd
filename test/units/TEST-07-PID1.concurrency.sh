@@ -93,6 +93,29 @@ systemctl stop sleepforever1@b.service
 systemctl stop sleepforever1@c.service
 systemctl stop sleepforever1@d.service
 
+# Hard limits must account for all start jobs that are being added in the same transaction.
+cat >/run/systemd/system/concurrency-hard-batch.slice <<EOF
+[Slice]
+ConcurrencyHardMax=1
+EOF
+
+cat >/run/systemd/system/sleepforever-hard-batch@.service <<EOF
+[Service]
+Slice=concurrency-hard-batch.slice
+ExecStart=sleep infinity
+EOF
+
+systemctl daemon-reload
+
+(! systemctl --no-block start sleepforever-hard-batch@a.service sleepforever-hard-batch@b.service)
+(! systemctl is-active sleepforever-hard-batch@a.service)
+(! systemctl is-active sleepforever-hard-batch@b.service)
+
+rm /run/systemd/system/concurrency-hard-batch.slice
+rm /run/systemd/system/sleepforever-hard-batch@.service
+
+systemctl daemon-reload
+
 # Now go for some nesting
 systemctl start sleepforever2@a.service
 systemctl is-active sleepforever2@a.service

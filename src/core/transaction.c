@@ -996,6 +996,67 @@ void transaction_add_propagate_reload_jobs(
         }
 }
 
+static bool job_type_counts_towards_slice_concurrency(JobType type) {
+        return IN_SET(type, JOB_START, JOB_RESTART, JOB_RELOAD);
+}
+
+static bool unit_belongs_to_slice(Unit *unit, Slice *slice) {
+        assert(unit);
+        assert(slice);
+
+        for (Unit *parent = UNIT_GET_SLICE(unit); parent; parent = UNIT_GET_SLICE(parent))
+                if (parent == UNIT(slice))
+                        return true;
+
+        return false;
+}
+
+static unsigned transaction_count_pending_slice_activations(Transaction *tr, Slice *slice, Unit *ignore) {
+        unsigned n = 0;
+        Job *head;
+
+        assert(tr);
+        assert(slice);
+
+        HASHMAP_FOREACH(head, tr->jobs) {
+                if (head->unit == ignore)
+                        continue;
+
+                if (!UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(head->unit)))
+                        continue;
+
+                if (!unit_belongs_to_slice(head->unit, slice))
+                        continue;
+
+                LIST_FOREACH(transaction, j, head)
+                        if (job_type_counts_towards_slice_concurrency(j->type)) {
+                                n++;
+                                break;
+                        }
+        }
+
+        return n;
+}
+
+static Slice* transaction_slice_concurrency_hard_max_reached(
+                Transaction *tr,
+                Slice *slice,
+                Unit *ignore) {
+        assert(tr);
+        assert(slice);
+
+        if (slice->concurrency_hard_max != UINT_MAX &&
+            slice_get_currently_active(slice, ignore, /* with_pending= */ true) +
+            transaction_count_pending_slice_activations(tr, slice, ignore) >= slice->concurrency_hard_max)
+                return slice;
+
+        Unit *parent = UNIT_GET_SLICE(UNIT(slice));
+        if (parent)
+                return transaction_slice_concurrency_hard_max_reached(tr, SLICE(parent), ignore);
+
+        return NULL;
+}
+
 static JobType job_type_propagate_stop_graceful(Job *j) {
         JobType type;
 
@@ -1093,11 +1154,14 @@ int transaction_add_job_and_dependencies(
         if (type == JOB_START) {
                 /* The hard concurrency limit for slice units we already enforce when a job is enqueued. */
                 Slice *slice = SLICE(UNIT_GET_SLICE(unit));
-                if (slice && slice_concurrency_hard_max_reached(slice, unit))
-                        return sd_bus_error_setf(
-                                        e, BUS_ERROR_CONCURRENCY_LIMIT_REACHED,
-                                        "Concurrency limit of the slice unit '%s' (or any of its parents) the unit '%s' is contained in has been reached, refusing start job.",
-                                        UNIT(slice)->id, unit->id);
+                if (slice) {
+                        Slice *limited = transaction_slice_concurrency_hard_max_reached(tr, slice, unit);
+                        if (limited)
+                                return sd_bus_error_setf(
+                                                e, BUS_ERROR_CONCURRENCY_LIMIT_REACHED,
+                                                "Concurrency limit of the slice unit '%s' (or any of its parents) the unit '%s' is contained in has been reached, refusing start job.",
+                                                UNIT(limited)->id, unit->id);
+                }
         }
 
         /* First add the job. */
