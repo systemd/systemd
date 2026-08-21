@@ -1,0 +1,430 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" >
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="io.systemd.Resolve.Monitor"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>io.systemd.Resolve.Monitor</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>io.systemd.Resolve.Monitor</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>io.systemd.Resolve.Monitor</refname>
+    <refpurpose>Varlink interface io.systemd.Resolve.Monitor</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><interfacename>io.systemd.Resolve.Monitor</interfacename> is a Varlink interface implemented by
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>-related
+    components. It can be introspected and called with
+    <citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+
+  </refsect1>
+
+  <refsect1>
+    <title>Interface Definition</title>
+
+    <para>The following interface definition is exposed:</para>
+
+    <programlisting varlink-interface="io.systemd.Resolve.Monitor">
+interface io.systemd.Resolve.Monitor
+
+type DNSProtocol(
+	# DNS
+	dns,
+	# Multicast DNS
+	mdns,
+	# LLMNR
+	llmnr
+)
+
+type DNSOverTLSMode(
+	# DNSOverTLS is disabled.
+	no,
+	# DNSOverTLS is enabled.
+	yes,
+	# Try to use DNSOverTLS, but disabled when the server does not support it.
+	opportunistic
+)
+
+type ResolveSupport(
+	# The protocol is disabled.
+	no,
+	# The protocol is enabled.
+	yes,
+	# The protocol is used only for resolving.
+	resolve
+)
+
+type ResolvConfMode(
+	# /etc/resolv.conf is a symbolic link to /run/systemd/resolve/resolv.conf.
+	uplink,
+	# /etc/resolv.conf is a symbolic link to /run/systemd/resolve/stub-resolv.conf.
+	stub,
+	# /etc/resolv.conf is a symbolic link to /usr/lib/systemd/resolv.conf.
+	static,
+	# /etc/resolv.conf does not exist.
+	missing,
+	# /etc/resolv.conf is not managed by systemd-resolved.
+	foreign
+)
+
+type ResourceKey(
+	# The RR class, almost always IN, i.e 0x01. If unspecified defaults to IN.
+	class: ?int,
+	# The RR types, one of A, AAAA, PTR, …
+	type: int,
+	# The domain name.
+	name: string
+)
+
+type ResourceRecord(
+	key: ResourceKey,
+	priority: ?int,
+	weight: ?int,
+	port: ?int,
+	name: ?string,
+	cpu: ?string,
+	os: ?string,
+	items: ?[]string,
+	address: ?[]int,
+	mname: ?string,
+	rname: ?string,
+	serial: ?int,
+	refresh: ?int,
+	retry: ?int,
+	expire: ?int,
+	minimum: ?int,
+	exchange: ?string,
+	version: ?int,
+	size: ?int,
+	horiz_pre: ?int,
+	vert_pre: ?int,
+	latitude: ?int,
+	longitude: ?int,
+	altitude: ?int,
+	keyTag: ?int,
+	algorithm: ?int,
+	digestType: ?int,
+	digest: ?string,
+	fptype: ?int,
+	fingerprint: ?string,
+	flags: ?int,
+	protocol: ?int,
+	dnskey: ?string,
+	signer: ?string,
+	typeCovered: ?int,
+	labels: ?int,
+	originalTtl: ?int,
+	expiration: ?int,
+	inception: ?int,
+	signature: ?string,
+	nextDomain: ?string,
+	types: ?[]int,
+	iterations: ?int,
+	salt: ?string,
+	hash: ?string,
+	certUsage: ?int,
+	selector: ?int,
+	matchingType: ?int,
+	data: ?string,
+	tag: ?string,
+	value: ?string,
+	target: ?string,
+	svcparams: ?object,
+	order: ?int,
+	preference: ?int,
+	naptrFlags: ?string,
+	services: ?string,
+	regexp: ?string,
+	replacement: ?string
+)
+
+type ResourceRecordArray(
+	rr: ?ResourceRecord,
+	raw: string
+)
+
+type Answer(
+	rr: ?ResourceRecord,
+	raw: string,
+	ifindex: ?int
+)
+
+type CacheEntry(
+	key: ResourceKey,
+	rrs: ?[]ResourceRecordArray,
+	type: ?string,
+	until: int
+)
+
+type ScopeCache(
+	protocol: DNSProtocol,
+	family: ?int,
+	ifindex: ?int,
+	ifname: ?string,
+	cache: []CacheEntry,
+	dnssec: ?string,
+	dnsOverTLS: ?DNSOverTLSMode
+)
+
+type TransactionStatistics(
+	currentTransactions: int,
+	totalTransactions: int,
+	totalTimeouts: int,
+	totalTimeoutsServedStale: int,
+	totalFailedResponses: int,
+	totalFailedResponsesServedStale: int
+)
+
+type CacheStatistics(
+	size: int,
+	hits: int,
+	misses: int
+)
+
+type DnssecStatistics(
+	secure: int,
+	insecure: int,
+	bogus: int,
+	indeterminate: int
+)
+
+type ServerState(
+	Server: string,
+	Type: string,
+	Interface: ?string,
+	InterfaceIndex: ?int,
+	VerifiedFeatureLevel: string,
+	PossibleFeatureLevel: string,
+	DNSSECMode: string,
+	DNSSECSupported: bool,
+	ReceivedUDPFragmentMax: int,
+	FailedUDPAttempts: int,
+	FailedTCPAttempts: int,
+	PacketTruncated: bool,
+	PacketBadOpt: bool,
+	PacketRRSIGMissing: bool,
+	PacketInvalid: bool,
+	PacketDoOff: bool
+)
+
+# Encapsulates a DNS server address specification.
+type DNSServer(
+	# IPv4 or IPv6 address of the server.
+	address: []int,
+	# IPv4 or IPv6 address of the server, formatted as a human-readable string.
+	addressString: ?string,
+	# Address family of the server, one of AF_INET or AF_INET6.
+	family: int,
+	# Port number of the server.
+	port: int,
+	# Interface index for which this server is configured.
+	ifindex: ?int,
+	# Server Name Indication (SNI) of the server.
+	name: ?string,
+	# Indicates if the DNS server is accessible or not.
+	accessible: bool
+)
+
+# Encapsulates a search domain specification.
+type SearchDomain(
+	# Domain name.
+	name: string,
+	# Indicates whether or not this is a routing-only domain.
+	routeOnly: bool,
+	# Interface index for which this search domain is configured.
+	ifindex: ?int
+)
+
+# Encapsulates a global or per-link DNS configuration, including configured DNS servers, search domains, and more.
+type DNSConfiguration(
+	# Interface name, if any, associated with this configuration. Empty for global configuration.
+	ifname: ?string,
+	# Interface index, if any, associated with this configuration. Empty for global configuration.
+	ifindex: ?int,
+	# Delegate name, if any, associated with this configuration. Empty for global or link configurations.
+	delegate: ?string,
+	# Indicates whether or not this link's DNS servers will be used for resolving domain names that do not match any link's configured domains.
+	defaultRoute: ?bool,
+	# DNS server currently selected to use for lookups.
+	currentServer: ?DNSServer,
+	# Array of configured DNS servers.
+	servers: ?[]DNSServer,
+	# Array of configured fallback DNS servers, set for global configuration only.
+	fallbackServers: ?[]DNSServer,
+	# Array of configured search domains.
+	searchDomains: ?[]SearchDomain,
+	# Array of configured DNSSEC negative trust anchors.
+	negativeTrustAnchors: ?[]string,
+	# DNSSEC mode.
+	dnssec: ?string,
+	# Indicates if the current DNS server supports DNSSEC. Always false if DNSSEC mode is "no".
+	dnssecSupported: ?bool,
+	# DNSOverTLS mode.
+	dnsOverTLS: ?DNSOverTLSMode,
+	# LLMNR support.
+	llmnr: ?string,
+	# mDNS support.
+	mDNS: ?ResolveSupport,
+	# resolv.conf mode, set for global configuration only.
+	resolvConfMode: ?ResolvConfMode,
+	# Array of current DNS scopes.
+	scopes: ?[]DNSScope
+)
+
+# Encapsulates a DNS scope specification.
+type DNSScope(
+	# Protocol associated with this scope.
+	protocol: DNSProtocol,
+	# Address family associated with this scope.
+	family: ?int,
+	# Interface index associated with this scope.
+	ifindex: ?int,
+	# Interface name associated with this scope.
+	ifname: ?string,
+	# DNSSEC mode associated with this scope.
+	dnssec: ?string,
+	# DNSOverTLS mode associated with this scope.
+	dnsOverTLS: ?DNSOverTLSMode
+)
+
+# [Requires 'more' flag]
+method SubscribeQueryResults(
+	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	allowInteractiveAuthentication: ?bool
+) -&gt; (
+	ready: ?bool,
+	state: ?string,
+	result: ?string,
+	rcode: ?int,
+	errno: ?int,
+	extendedDNSErrorCode: ?int,
+	extendedDNSErrorMessage: ?string,
+	question: ?[]ResourceKey,
+	collectedQuestions: ?[]ResourceKey,
+	answer: ?[]Answer
+)
+
+method DumpCache(
+	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	allowInteractiveAuthentication: ?bool
+) -&gt; (
+	dump: []ScopeCache
+)
+
+method DumpServerState(
+	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	allowInteractiveAuthentication: ?bool
+) -&gt; (
+	dump: []ServerState
+)
+
+method DumpStatistics(
+	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	allowInteractiveAuthentication: ?bool
+) -&gt; (
+	transactions: TransactionStatistics,
+	cache: CacheStatistics,
+	dnssec: DnssecStatistics
+)
+
+method ResetStatistics(
+	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	allowInteractiveAuthentication: ?bool
+) -&gt; ()
+
+# Sends the complete global and per-link DNS configurations when any changes are made to them. The current configurations are given immediately when this method is invoked.
+# [Requires 'more' flag]
+method SubscribeDNSConfiguration(
+	allowInteractiveAuthentication: ?bool
+) -&gt; (
+	# The current global and per-interface DNS configurations
+	configuration: []DNSConfiguration
+)
+</programlisting>
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="varlink-interface" generated="True" extra-ref="io.systemd.Resolve.Monitor"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="SubscribeQueryResults()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="DumpCache()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="DumpServerState()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="DumpStatistics()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="ResetStatistics()"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="DNSProtocol"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="DNSOverTLSMode"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ResolveSupport"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ResolvConfMode"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ResourceKey"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ResourceRecord"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ResourceRecordArray"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="Answer"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CacheEntry"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ScopeCache"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="TransactionStatistics"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CacheStatistics"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="DnssecStatistics"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ServerState"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="DNSServer"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SearchDomain"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="DNSConfiguration"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="DNSScope"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="SubscribeDNSConfiguration()"/>
+
+    <!--End of Autogenerated section-->
+
+    </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.Resolve.Monitor</screen> shows the
+    interface definition as served by <replaceable>SERVICE</replaceable>, and
+    <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.Resolve.Monitor.SubscribeQueryResults '{}'</screen>
+    invokes its <function>SubscribeQueryResults</function> method.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.varlink</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

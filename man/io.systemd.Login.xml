@@ -1,0 +1,470 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" >
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="io.systemd.Login"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>io.systemd.Login</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>io.systemd.Login</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>io.systemd.Login</refname>
+    <refpurpose>APIs for managing login sessions.</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><interfacename>io.systemd.Login</interfacename> is a Varlink interface implemented by
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>-related
+    components. It can be introspected and called with
+    <citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+    <para>APIs for managing login sessions.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Interface Definition</title>
+
+    <para>The following interface definition is exposed:</para>
+
+    <programlisting varlink-interface="io.systemd.Login">
+# APIs for managing login sessions.
+interface io.systemd.Login
+
+# Various types of sessions
+type SessionType(
+	unspecified,
+	tty,
+	x11,
+	wayland,
+	mir,
+	web
+)
+
+# Various classes of sessions
+type SessionClass(
+	# Regular user sessions
+	user,
+	# Session of the root user that shall be open for login from earliest moment on, and not be delayed for /run/nologin
+	user_early,
+	# Regular user session whose home directory is not available right now, but will be later, at which point the session class can be upgraded to 'user'
+	user_incomplete,
+	# A user session that doesn't pull in the per-user service manager
+	user_light,
+	# The combination of user_early and user_light
+	user_early_light,
+	# Display manager greeter screen used for login
+	greeter,
+	# Similar, but a lock screen
+	lock_screen,
+	# Background session (that has no TTY, VT, Seat)
+	background,
+	# Similar, but for which no service manager is invoked
+	background_light,
+	# The special session of the service manager
+	manager,
+	# The special session of the service manager for the root user
+	manager_early
+)
+
+# Inhibition mode
+type InhibitMode(
+	# Hard inhibition; blocks the operation entirely
+	block,
+	# Weak hard inhibition; like block, but the user who set it can override it without polkit authorization
+	block_weak,
+	# Soft inhibition; delays the operation but ultimately permits it
+	delay
+)
+
+# Operations that can be inhibited
+type InhibitWhat(
+	shutdown,
+	sleep,
+	idle,
+	handle_power_key,
+	handle_suspend_key,
+	handle_hibernate_key,
+	handle_lid_switch,
+	handle_reboot_key
+)
+
+# Process identifier
+type ProcessId(
+	# Numeric UNIX PID value
+	pid: int,
+	# 64bit inode number of pidfd if known
+	pidfdId: ?int,
+	# Boot ID of the system the inode number belongs to
+	bootId: ?string
+)
+
+# Dual timestamp
+type Timestamp(
+	# Timestamp in µs in the CLOCK_REALTIME clock (wallclock)
+	realtime: ?int,
+	# Timestamp in µs in the CLOCK_MONOTONIC clock
+	monotonic: ?int
+)
+
+# Configuration aspects of a session (suitable for reuse as creation input)
+type SessionContext(
+	# Numeric UNIX UID of the user owning this session
+	UID: int,
+	# PID of the session leader
+	PID: ?ProcessId,
+	# The type of the session
+	Type: SessionType,
+	# The class of the session
+	Class: SessionClass,
+	# PAM service name
+	Service: ?string,
+	# Desktop identifier
+	Desktop: ?string,
+	# Seat this session is assigned to
+	Seat: ?string,
+	# Virtual terminal number of the session, if applicable
+	VTNr: ?int,
+	# TTY device of the session
+	TTY: ?string,
+	# X11 display of the session
+	Display: ?string,
+	# Whether this is a remote session
+	Remote: ?bool,
+	# Remote host, if this is a remote session
+	RemoteHost: ?string,
+	# Remote user, if this is a remote session
+	RemoteUser: ?string,
+	# Device paths this session has special access to
+	ExtraDeviceAccess: ?[]string
+)
+
+# Runtime state and dynamic information of a session
+type SessionRuntime(
+	# The session identifier
+	Id: string,
+	# systemd scope unit name
+	Scope: ?string,
+	# Audit session ID
+	Audit: ?int,
+	# The session timestamps
+	Timestamp: ?Timestamp,
+	# Current state of the session
+	State: string,
+	# Whether the session is active (i.e. in the foreground)
+	Active: bool,
+	# Whether the session is idle
+	IdleHint: bool,
+	# Timestamp when the session went idle, only present when IdleHint is true
+	IdleSinceHint: ?Timestamp,
+	# Whether the session is currently locked
+	LockedHint: bool,
+	# Whether this session class supports idle tracking
+	CanIdle: bool,
+	# Whether this session class supports locking
+	CanLock: bool
+)
+
+# Configuration aspects of a user
+type UserContext(
+	# Numeric UNIX UID
+	UID: int,
+	# Numeric UNIX GID
+	GID: int,
+	# User name
+	Name: string,
+	# Whether lingering is enabled for this user
+	Linger: bool,
+	# Service manager unit name
+	Service: ?string,
+	# User slice unit name
+	Slice: ?string,
+	# Path to the user's runtime directory
+	RuntimePath: ?string
+)
+
+# Runtime state and dynamic information of a user
+type UserRuntime(
+	# Display session identifier
+	Display: ?string,
+	# Current state of the user
+	State: ?string,
+	# Identifiers of sessions belonging to this user
+	Sessions: ?[]string,
+	# Timestamp when the user was 'started' for the first time
+	Timestamp: ?Timestamp,
+	# Whether the user is idle
+	IdleHint: bool,
+	# Timestamp when the user went idle, only present when IdleHint is true
+	IdleSinceHint: ?Timestamp
+)
+
+# Configuration aspects of a seat
+type SeatContext(
+	# The seat identifier
+	Id: string
+)
+
+# Runtime state and dynamic information of a seat
+type SeatRuntime(
+	# The currently active session on this seat, if any
+	ActiveSession: ?string,
+	# Identifiers of sessions assigned to this seat
+	Sessions: ?[]string,
+	# Whether this seat supports text terminal sessions
+	CanTTY: bool,
+	# Whether this seat supports graphical sessions
+	CanGraphical: bool,
+	# Whether the seat is idle
+	IdleHint: bool,
+	# Timestamp when the seat went idle, only present when IdleHint is true
+	IdleSinceHint: ?Timestamp
+)
+
+# Configuration aspects of an inhibitor
+type InhibitorContext(
+	# The inhibitor identifier
+	Id: string,
+	# What is being inhibited
+	What: []InhibitWhat,
+	# A human-readable descriptive string of who is taking the inhibition
+	Who: ?string,
+	# A human-readable descriptive string of why the inhibition is taken
+	Why: ?string,
+	# The inhibition mode
+	Mode: InhibitMode,
+	# The UID of the user taking the inhibition
+	UID: int
+)
+
+# Runtime state and dynamic information of an inhibitor
+type InhibitorRuntime(
+	# The PID of the process taking the inhibition
+	PID: ?ProcessId,
+	# The inhibitor timestamps
+	Since: ?Timestamp
+)
+
+# Allocates a new session.
+method CreateSession(
+	# Numeric UNIX UID of the user owning this session
+	UID: int,
+	# PID of the session leader
+	PID: ?ProcessId,
+	# The type of the session
+	Type: SessionType,
+	# The class of the session
+	Class: SessionClass,
+	# PAM service name
+	Service: ?string,
+	# Desktop identifier
+	Desktop: ?string,
+	# Seat this session is assigned to
+	Seat: ?string,
+	# Virtual terminal number of the session, if applicable
+	VTNr: ?int,
+	# TTY device of the session
+	TTY: ?string,
+	# X11 display of the session
+	Display: ?string,
+	# Whether this is a remote session
+	Remote: ?bool,
+	# Remote host, if this is a remote session
+	RemoteHost: ?string,
+	# Remote user, if this is a remote session
+	RemoteUser: ?string,
+	# Device paths this session has special access to
+	ExtraDeviceAccess: ?[]string
+) -&gt; (
+	# The identifier string of the session of the user.
+	Id: string,
+	# The runtime path ($XDG_RUNTIME_DIR) of the user.
+	RuntimePath: string,
+	# The original UID of this session.
+	UID: int,
+	# The seat this session has been assigned to
+	Seat: ?string,
+	# The virtual terminal number the session has been assigned to
+	VTNr: ?int,
+	# The assigned session type
+	Type: SessionType,
+	# The assigned session class
+	Class: SessionClass
+)
+
+# Releases an existing session. Currently, will be refused unless originating from the session to release itself.
+method ReleaseSession(
+	# The identifier string of the session to release. If unspecified or 'self', will return the callers session.
+	Id: ?string
+) -&gt; ()
+
+# Lists current sessions. If an Id or PID filter is provided, returns the single matching session; otherwise streams all current sessions (requires the 'more' flag).
+# [Supports 'more' flag]
+method ListSessions(
+	# If non-null, the identifier string of a session to look up. Supports the special names 'self' and 'auto' which resolve to the caller's session.
+	Id: ?string,
+	# If non-null, return the session containing the process with this PID. If both Id and PID are specified they must reference the same session, otherwise NoSuchSession is returned.
+	PID: ?ProcessId
+) -&gt; (
+	# Configuration of the session
+	context: SessionContext,
+	# Runtime information of the session
+	runtime: SessionRuntime
+)
+
+# Lists current users. If a UID or PID filter is provided, returns the single matching user; otherwise streams all current users (requires the 'more' flag).
+# [Supports 'more' flag]
+method ListUsers(
+	# If non-null, the UNIX UID of a user to look up.
+	UID: ?int,
+	# If non-null, return the user owning the cgroup containing the process with this PID. If both UID and PID are specified they must reference the same user, otherwise NoSuchUser is returned.
+	PID: ?ProcessId
+) -&gt; (
+	# Configuration of the user
+	context: UserContext,
+	# Runtime information of the user
+	runtime: UserRuntime
+)
+
+# Lists current seats. If an Id filter is provided, returns the single matching seat; otherwise streams all current seats (requires the 'more' flag).
+# [Supports 'more' flag]
+method ListSeats(
+	# If non-null, the identifier string of a seat to look up.
+	Id: ?string
+) -&gt; (
+	# Configuration of the seat
+	context: SeatContext,
+	# Runtime information of the seat
+	runtime: SeatRuntime
+)
+
+# Lists all current inhibitors.
+# [Requires 'more' flag]
+method ListInhibitors() -&gt; (
+	# Configuration of the inhibitor
+	context: InhibitorContext,
+	# Runtime information of the inhibitor
+	runtime: InhibitorRuntime
+)
+
+# No session by this name found
+error NoSuchSession()
+
+# No seat by this name found
+error NoSuchSeat()
+
+# No user by this UID found
+error NoSuchUser()
+
+# No inhibitor found
+error NoSuchInhibitor()
+
+# Process already member of a session
+error AlreadySessionMember()
+
+# The specified virtual terminal (VT) is already taken by another session
+error VirtualTerminalAlreadyTaken()
+
+# Maximum number of sessions reached
+error TooManySessions()
+
+# Failed to allocate a unit for the session
+error UnitAllocationFailed()
+
+# The session leader process does not have a pidfd
+error NoSessionPIDFD()
+</programlisting>
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="varlink-interface" generated="True" extra-ref="io.systemd.Login"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ProcessId"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="Timestamp"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SessionType"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SessionClass"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SessionContext"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SessionRuntime"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="CreateSession()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="ReleaseSession()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="ListSessions()"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="UserContext"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="UserRuntime"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="ListUsers()"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SeatContext"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SeatRuntime"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="ListSeats()"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="InhibitMode"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="InhibitWhat"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="InhibitorContext"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="InhibitorRuntime"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="ListInhibitors()"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoSuchSession"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoSuchSeat"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoSuchUser"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoSuchInhibitor"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="AlreadySessionMember"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="VirtualTerminalAlreadyTaken"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="TooManySessions"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="UnitAllocationFailed"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoSessionPIDFD"/>
+
+    <!--End of Autogenerated section-->
+
+    </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.Login</screen> shows the
+    interface definition as served by <replaceable>SERVICE</replaceable>, and
+    <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.Login.CreateSession '{}'</screen>
+    invokes its <function>CreateSession</function> method.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.varlink</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

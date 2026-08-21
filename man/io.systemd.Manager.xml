@@ -1,0 +1,445 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" >
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="io.systemd.Manager"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>io.systemd.Manager</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>io.systemd.Manager</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>io.systemd.Manager</refname>
+    <refpurpose>Varlink interface io.systemd.Manager</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><interfacename>io.systemd.Manager</interfacename> is a Varlink interface implemented by
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>-related
+    components. It can be introspected and called with
+    <citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+
+  </refsect1>
+
+  <refsect1>
+    <title>Interface Definition</title>
+
+    <para>The following interface definition is exposed:</para>
+
+    <programlisting varlink-interface="io.systemd.Manager">
+interface io.systemd.Manager
+
+type LogTarget(
+	console,
+	kmsg,
+	journal,
+	syslog,
+	console_prefixed,
+	journal_or_kmsg,
+	syslog_or_kmsg,
+	auto,
+	null
+)
+
+type OOMPolicy(
+	continue,
+	stop,
+	kill
+)
+
+type ExecOutputType(
+	inherit,
+	null,
+	tty,
+	kmsg,
+	kmsg_console,
+	journal,
+	journal_console,
+	socket,
+	fd,
+	file,
+	append,
+	truncate
+)
+
+type CGroupPressureWatch(
+	no,
+	yes,
+	auto,
+	skip
+)
+
+type EmergencyAction(
+	none,
+	exit,
+	exit_force,
+	reboot,
+	reboot_force,
+	reboot_immediate,
+	poweroff,
+	poweroff_force,
+	poweroff_immediate,
+	soft_reboot,
+	soft_reboot_force,
+	kexec,
+	kexec_force,
+	halt,
+	halt_force,
+	halt_immediate
+)
+
+type ManagerContext(
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#LogColor=
+	ShowStatus: bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#LogColor=
+	LogLevel: LogLevelStruct,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#LogColor=
+	LogTarget: LogTarget,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#ManagerEnvironment=
+	Environment: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultStandardOutput=
+	DefaultStandardOutput: ExecOutputType,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultStandardError=
+	DefaultStandardError: ExecOutputType,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#ServiceWatchdogs=
+	ServiceWatchdogs: bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultTimerAccuracySec=
+	DefaultTimerAccuracyUSec: int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultTimeoutStartSec=
+	DefaultTimeoutStartUSec: int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultTimeoutStopSec=
+	DefaultTimeoutStopUSec: int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultTimeoutAbortSec=
+	DefaultTimeoutAbortUSec: int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultDeviceTimeoutSec=
+	DefaultDeviceTimeoutUSec: int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultRestartSec=
+	DefaultRestartUSec: int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultStartLimit=
+	DefaultStartLimit: ?RateLimit,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultIOAccounting=
+	DefaultIOAccounting: bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultIPAccounting=
+	DefaultIPAccounting: bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultMemoryAccounting=
+	DefaultMemoryAccounting: bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultTasksAccounting=
+	DefaultTasksAccounting: bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultLimitCPU=
+	DefaultLimits: ResourceLimitTable,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultTasksMax=
+	DefaultTasksMax: int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultMemoryPressureThresholdUSec=
+	DefaultMemoryPressureThresholdUSec: int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultMemoryPressureWatch=
+	DefaultMemoryPressureWatch: CGroupPressureWatch,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultCPUPressureThresholdUSec=
+	DefaultCPUPressureThresholdUSec: int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultCPUPressureWatch=
+	DefaultCPUPressureWatch: CGroupPressureWatch,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultIOPressureThresholdUSec=
+	DefaultIOPressureThresholdUSec: int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultIOPressureWatch=
+	DefaultIOPressureWatch: CGroupPressureWatch,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#RuntimeWatchdogSec=
+	RuntimeWatchdogUSec: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#RebootWatchdogSec=
+	RebootWatchdogUSec: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#KExecWatchdogSec=
+	KExecWatchdogUSec: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#RuntimeWatchdogPreSec=
+	RuntimeWatchdogPreUSec: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#RuntimeWatchdogPreGovernor=
+	RuntimeWatchdogPreGovernor: ?string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#WatchdogDevice=
+	WatchdogDevice: ?string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#TimerSlackNSec=
+	TimerSlackNSec: int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultOOMPolicy=
+	DefaultOOMPolicy: OOMPolicy,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultOOMScoreAdjust=
+	DefaultOOMScoreAdjust: int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultRestrictSUIDSGID=
+	DefaultRestrictSUIDSGID: bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#CtrlAltDelBurstAction=
+	CtrlAltDelBurstAction: EmergencyAction,
+	# The console on which systemd asks for confirmation when spawning processes
+	ConfirmSpawn: ?string,
+	# Root of the control group hierarchy that the manager is running in
+	ControlGroup: ?string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultMemoryZSwapWriteback=
+	DefaultMemoryZSwapWriteback: bool
+)
+
+type ManagerRuntime(
+	# The version string of the running systemd instance
+	Version: string,
+	# A short ID string describing the architecture the systemd instance is running on
+	Architecture: string,
+	# The features that have been enabled and disabled for this build
+	Features: string,
+	# An array of strings describing the taints applied to the running system
+	Taints: ?[]string,
+	# The unit search path
+	UnitPath: []string,
+	# A short ID string describing the virtualization technology the system runs in
+	Virtualization: string,
+	# A short ID string describing the confidential virtualization technology the system runs in
+	ConfidentialVirtualization: string,
+	# Timestamp when the firmware first began execution
+	FirmwareTimestamp: ?Timestamp,
+	# Timestamp when the boot loader first began execution
+	LoaderTimestamp: ?Timestamp,
+	# Timestamp when the kernel first began execution
+	KernelTimestamp: ?Timestamp,
+	# Timestamp when the initrd first began execution
+	InitRDTimestamp: ?Timestamp,
+	# Timestamp when the initrd first began execution
+	UserspaceTimestamp: ?Timestamp,
+	# Timestamp when the system finished booting up
+	FinishTimestamp: ?Timestamp,
+	# Timestamp when shutdown began, i.e. when units started to be stopped
+	ShutdownStartTimestamp: ?Timestamp,
+	# Timestamp when all units finished stopping during shutdown
+	ShutdownFinishTimestamp: ?Timestamp,
+	# Timestamp when the previous boot began stopping units, restored across a kexec-based live update
+	PreviousShutdownStartTimestamp: ?Timestamp,
+	# Timestamp when the previous boot finished stopping units, restored across a kexec-based live update
+	PreviousShutdownFinishTimestamp: ?Timestamp,
+	# Timestamp when systemd-shutdown began execution during the previous boot, restored across a kexec-based live update
+	PreviousShutdownLateStartTimestamp: ?Timestamp,
+	# Timestamp when systemd-shutdown was about to kexec into the current kernel, restored across a kexec-based live update
+	PreviousShutdownLateFinishTimestamp: ?Timestamp,
+	# Timestamp when the manager started uploading security policies to the kernel
+	SecurityStartTimestamp: ?Timestamp,
+	# Timestamp when the manager finished uploading security policies to the kernel
+	SecurityFinishTimestamp: ?Timestamp,
+	# Timestamp when the manager started executing generators
+	GeneratorsStartTimestamp: ?Timestamp,
+	# Timestamp when the manager finished executing generators
+	GeneratorsFinishTimestamp: ?Timestamp,
+	# Timestamp when the manager first started loading units
+	UnitsLoadStartTimestamp: ?Timestamp,
+	# Timestamp when the manager first finished loading units
+	UnitsLoadFinishTimestamp: ?Timestamp,
+	# Timestamp when the manager last started loading units
+	UnitsLoadTimestamp: ?Timestamp,
+	# Timestamp when the manager started uploading security policies to the kernel in the initrd
+	InitRDSecurityStartTimestamp: ?Timestamp,
+	# Timestamp when the manager finished uploading security policies to the kernel in the initrd
+	InitRDSecurityFinishTimestamp: ?Timestamp,
+	# Timestamp when the manager started executing generators in the initrd
+	InitRDGeneratorsStartTimestamp: ?Timestamp,
+	# Timestamp when the manager finished executing generators in the initrd
+	InitRDGeneratorsFinishTimestamp: ?Timestamp,
+	# Timestamp when the manager first started loading units in the initrd
+	InitRDUnitsLoadStartTimestamp: ?Timestamp,
+	# Timestamp when the manager first finished loading units in the initrd
+	InitRDUnitsLoadFinishTimestamp: ?Timestamp,
+	# The amount of unique unit names currently loaded
+	NNames: int,
+	# The amount of failed units
+	NFailedUnits: int,
+	# The amount of currently queued jobs
+	NJobs: int,
+	# The total amount of queued jobs
+	NInstalledJobs: int,
+	# The total amount of failed jobs
+	NFailedJobs: int,
+	# IDs of transactions that encountered ordering cycle
+	TransactionsWithOrderingCycle: ?[]int,
+	# Boot progress as a floating point value between 0.0 and 1.0
+	Progress: float,
+	# Timestamp when the hardware watchdog was last pinged
+	WatchdogLastPingTimestamp: ?Timestamp,
+	# Current state of the system
+	SystemState: string,
+	# Exit code of the manager
+	ExitCode: int,
+	# Encodes how many soft-reboots were successfully completed
+	SoftRebootsCount: int,
+	# Encodes how many consecutive kexec reboots were successfully completed since the last full boot. Zero if the Live Update Orchestrator is not available.
+	KExecsCount: int,
+	# Number of successfully completed configuration reloads
+	ReloadCount: int
+)
+
+type Timestamp(
+	# Timestamp in µs in the CLOCK_REALTIME clock (wallclock)
+	realtime: ?int,
+	# Timestamp in µs in the CLOCK_MONOTONIC clock
+	monotonic: ?int
+)
+
+type ResourceLimit(
+	# The soft resource limit. RLIM_INFINITY is mapped to unset value
+	soft: ?int,
+	# The hard resource limit. RLIM_INFINITY is mapped to unset value
+	hard: ?int
+)
+
+type ResourceLimitTable(
+	# See setrlimit(2) for details
+	CPU: ?ResourceLimit,
+	FSIZE: ?ResourceLimit,
+	DATA: ?ResourceLimit,
+	STACK: ?ResourceLimit,
+	CORE: ?ResourceLimit,
+	RSS: ?ResourceLimit,
+	NOFILE: ?ResourceLimit,
+	AS: ?ResourceLimit,
+	NPROC: ?ResourceLimit,
+	MEMLOCK: ?ResourceLimit,
+	LOCKS: ?ResourceLimit,
+	SIGPENDING: ?ResourceLimit,
+	MSGQUEUE: ?ResourceLimit,
+	NICE: ?ResourceLimit,
+	RTPRIO: ?ResourceLimit,
+	RTTIME: ?ResourceLimit
+)
+
+type RateLimit(
+	# The ratelimit interval
+	intervalUSec: ?int,
+	# The ratelimit burst
+	burst: ?int
+)
+
+type LogLevelStruct(
+	# 'console' target log level
+	console: string,
+	# 'kmsg' target log level
+	kmsg: string,
+	# 'syslog' target log level
+	syslog: string,
+	# 'journal' target log level
+	journal: string
+)
+
+method Describe() -&gt; (
+	# Configuration of the manager
+	context: ManagerContext,
+	# Runtime information of the manager
+	runtime: ManagerRuntime
+)
+
+# Reexecute the main manager process
+method Reexecute() -&gt; ()
+
+# Reload the manager configuration
+method Reload() -&gt; ()
+
+# Enqueue all marked jobs
+# [Supports 'more' flag]
+method EnqueueMarkedJobs() -&gt; (
+	# Enqueued unit ID
+	unitID: ?string,
+	# ID of enqueued job (if successful)
+	jobID: ?int,
+	# Varlink error ID (on failure)
+	error: ?string,
+	# Job enqueue error message (on failure)
+	errorMessage: ?string
+)
+
+# Power off the system
+method PowerOff() -&gt; ()
+
+# Reboot the system
+method Reboot() -&gt; ()
+
+# Halt the system
+method Halt() -&gt; ()
+
+# Reboot the system via kexec
+method KExec() -&gt; ()
+
+# Soft-reboot the userspace
+method SoftReboot(
+	# New root directory for the soft reboot
+	root: ?string
+) -&gt; ()
+
+error RateLimitReached()
+</programlisting>
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="varlink-interface" generated="True" extra-ref="io.systemd.Manager"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="Describe()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="Reexecute()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="Reload()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="EnqueueMarkedJobs()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="PowerOff()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="Reboot()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="Halt()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="KExec()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="SoftReboot()"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="RateLimitReached"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ManagerContext"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ManagerRuntime"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="Timestamp"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ResourceLimit"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ResourceLimitTable"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="RateLimit"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="LogLevelStruct"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="LogTarget"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="OOMPolicy"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ExecOutputType"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CGroupPressureWatch"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="EmergencyAction"/>
+
+    <!--End of Autogenerated section-->
+
+    </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.Manager</screen> shows the
+    interface definition as served by <replaceable>SERVICE</replaceable>, and
+    <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.Manager.Describe '{}'</screen>
+    invokes its <function>Describe</function> method.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.varlink</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

@@ -1,0 +1,549 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" >
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="io.systemd.Resolve"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>io.systemd.Resolve</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>io.systemd.Resolve</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>io.systemd.Resolve</refname>
+    <refpurpose>Varlink interface io.systemd.Resolve</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><interfacename>io.systemd.Resolve</interfacename> is a Varlink interface implemented by
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>-related
+    components. It can be introspected and called with
+    <citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+
+  </refsect1>
+
+  <refsect1>
+    <title>Interface Definition</title>
+
+    <para>The following interface definition is exposed:</para>
+
+    <programlisting varlink-interface="io.systemd.Resolve">
+interface io.systemd.Resolve
+
+# The type of protocol.
+type DNSProtocol(
+	# DNS
+	dns,
+	# Multicast DNS
+	mdns,
+	# LLMNR
+	llmnr
+)
+
+# The mode of DNSOverTLS.
+type DNSOverTLSMode(
+	# DNSOverTLS is disabled.
+	no,
+	# DNSOverTLS is enabled.
+	yes,
+	# Try to use DNSOverTLS, but disabled when the server does not support it.
+	opportunistic
+)
+
+# Whether the protocol is enabled.
+type ResolveSupport(
+	# The protocol is disabled.
+	no,
+	# The protocol is enabled.
+	yes,
+	# The protocol is used only for resolving.
+	resolve
+)
+
+# The management mode of /etc/resolve.conf file.
+type ResolvConfMode(
+	# /etc/resolv.conf is a symbolic link to /run/systemd/resolve/resolv.conf.
+	uplink,
+	# /etc/resolv.conf is a symbolic link to /run/systemd/resolve/stub-resolv.conf.
+	stub,
+	# /etc/resolv.conf is a symbolic link to /usr/lib/systemd/resolv.conf.
+	static,
+	# /etc/resolv.conf does not exist.
+	missing,
+	# /etc/resolv.conf is not managed by systemd-resolved.
+	foreign
+)
+
+# Describes the update flag for browsing services, indicating whether a service was added or removed during browsing.
+type BrowseServiceUpdateFlag(
+	# Indicates that the service was added.
+	added,
+	# Indicates that the service was removed.
+	removed
+)
+
+# Encapsulates a resolved address.
+type ResolvedAddress(
+	ifindex: ?int,
+	family: int,
+	address: []int
+)
+
+# Encapsulates a resolved host name.
+type ResolvedName(
+	ifindex: ?int,
+	name: string
+)
+
+# Encapsulates resolved service information.
+type ResolvedService(
+	priority: int,
+	weight: int,
+	port: int,
+	hostname: string,
+	canonicalName: ?string,
+	addresses: ?[]ResolvedAddress
+)
+
+# Encapsulates the canonical name, type and domain of a DNS-SD or simple SRV service. Note that due to CNAME redirections and similar, a named DNS-SD service might resolve to a canonical service that is an unnamed simple SRV service. Or in other words: resolving a named service might return an unnamed canonical service.
+type ResolvedCanonical(
+	# The DNS-SD name of the service. For simple SRV services this field is absent or null.
+	name: ?string,
+	type: string,
+	domain: string
+)
+
+# The 'key' part of a DNS resource record.
+type ResourceKey(
+	# The RR class, almost always IN, i.e 0x01. If unspecified defaults to IN.
+	class: ?int,
+	# The RR types, one of A, AAAA, PTR, …
+	type: int,
+	# The domain name.
+	name: string
+)
+
+# A full DNS resource record..
+type ResourceRecord(
+	key: ResourceKey,
+	priority: ?int,
+	weight: ?int,
+	port: ?int,
+	name: ?string,
+	cpu: ?string,
+	os: ?string,
+	items: ?[]string,
+	address: ?[]int,
+	mname: ?string,
+	rname: ?string,
+	serial: ?int,
+	refresh: ?int,
+	retry: ?int,
+	expire: ?int,
+	minimum: ?int,
+	exchange: ?string,
+	version: ?int,
+	size: ?int,
+	horiz_pre: ?int,
+	vert_pre: ?int,
+	latitude: ?int,
+	longitude: ?int,
+	altitude: ?int,
+	keyTag: ?int,
+	algorithm: ?int,
+	digestType: ?int,
+	digest: ?string,
+	fptype: ?int,
+	fingerprint: ?string,
+	flags: ?int,
+	protocol: ?int,
+	dnskey: ?string,
+	signer: ?string,
+	typeCovered: ?int,
+	labels: ?int,
+	originalTtl: ?int,
+	expiration: ?int,
+	inception: ?int,
+	signature: ?string,
+	nextDomain: ?string,
+	types: ?[]int,
+	iterations: ?int,
+	salt: ?string,
+	hash: ?string,
+	certUsage: ?int,
+	selector: ?int,
+	matchingType: ?int,
+	data: ?string,
+	tag: ?string,
+	value: ?string,
+	target: ?string,
+	svcparams: ?object,
+	order: ?int,
+	preference: ?int,
+	naptrFlags: ?string,
+	services: ?string,
+	regexp: ?string,
+	replacement: ?string
+)
+
+# Encapsulates information about a resolved DNS resource record 
+type ResolvedRecord(
+	ifindex: ?int,
+	rr: ?ResourceRecord,
+	raw: string
+)
+
+# Encapsulates the service data obtained from browsing.
+type ServiceData(
+	updateFlag: BrowseServiceUpdateFlag,
+	# The address family of the service, one of AF_INET or AF_INET6.
+	family: int,
+	# The name of the service, e.g., 'My Service'. May be null if not specified.
+	name: ?string,
+	# The type of service, e.g., '_http._tcp'.
+	type: string,
+	# The domain in which the service resides, e.g., 'local'.
+	domain: string,
+	# The Linux interface index for the network interface associated with this service.
+	ifindex: int
+)
+
+# Encapsulates a DNS server address specification.
+type DNSServer(
+	# IPv4 or IPv6 address of the server.
+	address: []int,
+	# IPv4 or IPv6 address of the server, formatted as a human-readable string.
+	addressString: ?string,
+	# Address family of the server, one of AF_INET or AF_INET6.
+	family: int,
+	# Port number of the server.
+	port: int,
+	# Interface index for which this server is configured.
+	ifindex: ?int,
+	# Server Name Indication (SNI) of the server.
+	name: ?string,
+	# Indicates if the DNS server is accessible or not.
+	accessible: bool
+)
+
+# Encapsulates a search domain specification.
+type SearchDomain(
+	# Domain name.
+	name: string,
+	# Indicates whether or not this is a routing-only domain.
+	routeOnly: bool,
+	# Interface index for which this search domain is configured.
+	ifindex: ?int
+)
+
+# Encapsulates a global or per-link DNS configuration, including configured DNS servers, search domains, and more.
+type DNSConfiguration(
+	# Interface name, if any, associated with this configuration. Empty for global configuration.
+	ifname: ?string,
+	# Interface index, if any, associated with this configuration. Empty for global configuration.
+	ifindex: ?int,
+	# Delegate name, if any, associated with this configuration. Empty for global or link configurations.
+	delegate: ?string,
+	# Indicates whether or not this link's DNS servers will be used for resolving domain names that do not match any link's configured domains.
+	defaultRoute: ?bool,
+	# DNS server currently selected to use for lookups.
+	currentServer: ?DNSServer,
+	# Array of configured DNS servers.
+	servers: ?[]DNSServer,
+	# Array of configured fallback DNS servers, set for global configuration only.
+	fallbackServers: ?[]DNSServer,
+	# Array of configured search domains.
+	searchDomains: ?[]SearchDomain,
+	# Array of configured DNSSEC negative trust anchors.
+	negativeTrustAnchors: ?[]string,
+	# DNSSEC mode.
+	dnssec: ?string,
+	# Indicates if the current DNS server supports DNSSEC. Always false if DNSSEC mode is "no".
+	dnssecSupported: ?bool,
+	# DNSOverTLS mode.
+	dnsOverTLS: ?DNSOverTLSMode,
+	# LLMNR support.
+	llmnr: ?string,
+	# mDNS support.
+	mDNS: ?ResolveSupport,
+	# resolv.conf mode, set for global configuration only.
+	resolvConfMode: ?ResolvConfMode,
+	# Array of current DNS scopes.
+	scopes: ?[]DNSScope
+)
+
+# Encapsulates a DNS scope specification.
+type DNSScope(
+	# Protocol associated with this scope.
+	protocol: DNSProtocol,
+	# Address family associated with this scope.
+	family: ?int,
+	# Interface index associated with this scope.
+	ifindex: ?int,
+	# Interface name associated with this scope.
+	ifname: ?string,
+	# DNSSEC mode associated with this scope.
+	dnssec: ?string,
+	# DNSOverTLS mode associated with this scope.
+	dnsOverTLS: ?DNSOverTLSMode
+)
+
+# Resolves a hostname to one or more IP addresses.
+method ResolveHostname(
+	# The Linux interface index for the network interface to search on. Typically left unspecified, in order to search on all interfaces.
+	ifindex: ?int,
+	# The host name to resolve.
+	name: string,
+	# The address family to search for, one of AF_INET or AF_INET6.
+	family: ?int,
+	# Various search flags.
+	flags: ?int
+) -&gt; (
+	# Array of resolved IP addresses
+	addresses: []ResolvedAddress,
+	# Canonical name of the host.
+	name: string,
+	# Various flags indicating details on discovered data.
+	flags: int
+)
+
+# Resolves an IP address to a hostname.
+method ResolveAddress(
+	# The Linux interface index for the network interface to search on. Typically left unspecified, in order to search on all interfaces.
+	ifindex: ?int,
+	# The address family of the specified address, one of AF_INET or AF_INET6.
+	family: int,
+	# The IP address to look up, either 4 or 16 integers (depending if an AF_INET or AF_INET6 address shall be resolved).
+	address: []int,
+	flags: ?int
+) -&gt; (
+	names: []ResolvedName,
+	flags: int
+)
+
+# Resolves a named DNS-SD or unnamed simple SRV service.
+method ResolveService(
+	name: ?string,
+	type: ?string,
+	domain: string,
+	ifindex: ?int,
+	family: ?int,
+	flags: ?int
+) -&gt; (
+	services: []ResolvedService,
+	txt: ?[]string,
+	canonical: ResolvedCanonical,
+	flags: int
+)
+
+# Resolves a domain name to one or more DNS resource records.
+method ResolveRecord(
+	ifindex: ?int,
+	name: string,
+	class: ?int,
+	type: int,
+	flags: ?int
+) -&gt; (
+	rrs: []ResolvedRecord,
+	flags: int
+)
+
+# Starts browsing for DNS-SD services of specified type.
+# [Requires 'more' flag]
+method BrowseServices(
+	# The domain to browse for services. If null, the default browsing domain local is used.
+	domain: ?string,
+	# The service type to browse for (e.g., '_http._tcp').
+	type: ?string,
+	# The Linux interface index for the network interface to search on.
+	ifindex: ?int,
+	# Various browsing flags to modify the operation.
+	flags: ?int
+) -&gt; (
+	# An array of service data containing information about discovered services.
+	browserServiceData: []ServiceData
+)
+
+# Current global and per-link DNS configurations.
+method DumpDNSConfiguration() -&gt; (
+	# The current global and per-interface DNS configurations
+	configuration: []DNSConfiguration
+)
+
+error NoNameServers()
+
+error NoSuchResourceRecord()
+
+error QueryTimedOut()
+
+error MaxAttemptsReached()
+
+error InvalidReply()
+
+error QueryAborted()
+
+error QueryRefused()
+
+error DNSSECValidationFailed(
+	result: string,
+	extendedDNSErrorCode: ?int,
+	extendedDNSErrorMessage: ?string
+)
+
+error NoTrustAnchor()
+
+error ResourceRecordTypeUnsupported()
+
+error NetworkDown()
+
+error NoSource()
+
+error StubLoop()
+
+error DNSError(
+	rcode: int,
+	queryString: string,
+	extendedDNSErrorCode: ?int,
+	extendedDNSErrorMessage: ?string
+)
+
+error CNAMELoop()
+
+error BadAddressSize()
+
+error ResourceRecordTypeInvalidForQuery()
+
+error ZoneTransfersNotPermitted()
+
+error ResourceRecordTypeObsolete()
+
+# The DNS resource records of the specified service are not consistent (e.g. lacks a DNS-SD service type when resolved).
+error InconsistentServiceRecords()
+
+# The service is explicitly not provided on the queried domain (RFC 2782 root domain SRV record).
+error ServiceNotProvided()
+</programlisting>
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="varlink-interface" generated="True" extra-ref="io.systemd.Resolve"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="ResolveHostname()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="ResolveAddress()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="ResolveService()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="ResolveRecord()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="BrowseServices()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="DumpDNSConfiguration()"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="DNSProtocol"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="DNSOverTLSMode"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ResolveSupport"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ResolvConfMode"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ResolvedAddress"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ResolvedName"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ResolvedService"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ResolvedCanonical"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ResourceKey"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ResourceRecord"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ResolvedRecord"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="BrowseServiceUpdateFlag"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ServiceData"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="DNSServer"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SearchDomain"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="DNSConfiguration"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="DNSScope"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoNameServers"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoSuchResourceRecord"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="QueryTimedOut"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="MaxAttemptsReached"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="InvalidReply"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="QueryAborted"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="QueryRefused"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="DNSSECValidationFailed"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoTrustAnchor"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="ResourceRecordTypeUnsupported"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NetworkDown"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoSource"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="StubLoop"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="DNSError"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="CNAMELoop"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="BadAddressSize"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="ResourceRecordTypeInvalidForQuery"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="ZoneTransfersNotPermitted"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="ResourceRecordTypeObsolete"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="InconsistentServiceRecords"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="ServiceNotProvided"/>
+
+    <!--End of Autogenerated section-->
+
+    </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.Resolve</screen> shows the
+    interface definition as served by <replaceable>SERVICE</replaceable>, and
+    <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.Resolve.ResolveHostname '{}'</screen>
+    invokes its <function>ResolveHostname</function> method.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.varlink</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

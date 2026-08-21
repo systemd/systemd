@@ -1,0 +1,2415 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" >
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="io.systemd.Unit"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>io.systemd.Unit</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>io.systemd.Unit</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>io.systemd.Unit</refname>
+    <refpurpose>Varlink interface io.systemd.Unit</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><interfacename>io.systemd.Unit</interfacename> is a Varlink interface implemented by
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>-related
+    components. It can be introspected and called with
+    <citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+
+  </refsect1>
+
+  <refsect1>
+    <title>Interface Definition</title>
+
+    <para>The following interface definition is exposed:</para>
+
+    <programlisting varlink-interface="io.systemd.Unit">
+interface io.systemd.Unit
+
+type CGroupDevicePolicy(
+	auto,
+	closed,
+	strict
+)
+
+type ManagedOOMMode(
+	auto,
+	kill
+)
+
+type ManagedOOMPreference(
+	none,
+	avoid,
+	omit
+)
+
+type CGroupPressureWatch(
+	no,
+	yes,
+	auto,
+	skip
+)
+
+type CGroupController(
+	cpu,
+	cpuacct,
+	cpuset,
+	io,
+	blkio,
+	memory,
+	devices,
+	pids,
+	bpf_firewall,
+	bpf_devices,
+	bpf_foreign,
+	bpf_socket_bind,
+	bpf_restrict_network_interfaces,
+	bpf_bind_network_interface
+)
+
+type CPUSetPartition(
+	member,
+	root,
+	isolated
+)
+
+type ExecInputType(
+	null,
+	tty,
+	tty_force,
+	tty_fail,
+	socket,
+	fd,
+	data,
+	file
+)
+
+type ExecOutputType(
+	inherit,
+	null,
+	tty,
+	kmsg,
+	kmsg_console,
+	journal,
+	journal_console,
+	socket,
+	fd,
+	file,
+	append,
+	truncate
+)
+
+type ExecUtmpMode(
+	init,
+	login,
+	user
+)
+
+type ExecPreserveMode(
+	no,
+	yes,
+	restart,
+	on_success
+)
+
+type ExecKeyringMode(
+	inherit,
+	private,
+	shared
+)
+
+type MemoryTHP(
+	inherit,
+	disable,
+	madvise,
+	system
+)
+
+type ProtectProc(
+	default,
+	noaccess,
+	invisible,
+	ptraceable
+)
+
+type ProcSubset(
+	all,
+	pid
+)
+
+type ProtectSystem(
+	no,
+	yes,
+	full,
+	strict
+)
+
+type ProtectHome(
+	no,
+	yes,
+	read_only,
+	tmpfs
+)
+
+type PrivateTmp(
+	no,
+	connected,
+	disconnected
+)
+
+type PrivateUsers(
+	no,
+	self,
+	identity,
+	full,
+	managed
+)
+
+type ProtectHostname(
+	no,
+	yes,
+	private
+)
+
+type ProtectControlGroups(
+	no,
+	yes,
+	private,
+	strict
+)
+
+type PrivatePIDs(
+	no,
+	yes
+)
+
+type PrivateBPF(
+	no,
+	yes
+)
+
+type CPUSchedulingPolicy(
+	other,
+	batch,
+	idle,
+	fifo,
+	ext,
+	rr
+)
+
+type IOSchedulingClass(
+	none,
+	realtime,
+	best_effort,
+	idle
+)
+
+type NUMAPolicy(
+	default,
+	preferred,
+	bind,
+	interleave,
+	local,
+	preferred_many,
+	weighted_interleave
+)
+
+type MountPropagationFlag(
+	shared,
+	slave,
+	private
+)
+
+type KillMode(
+	control_group,
+	process,
+	mixed,
+	none
+)
+
+type AutomountResult(
+	success,
+	resources,
+	start_limit_hit,
+	mount_start_limit_hit,
+	unmounted
+)
+
+type MountResult(
+	success,
+	resources,
+	timeout,
+	exit_code,
+	signal,
+	core_dump,
+	start_limit_hit,
+	protocol
+)
+
+type PathType(
+	PathExists,
+	PathExistsGlob,
+	DirectoryNotEmpty,
+	PathChanged,
+	PathModified
+)
+
+type PathResult(
+	success,
+	resources,
+	start_limit_hit,
+	unit_start_limit_hit,
+	trigger_limit_hit
+)
+
+type OOMPolicy(
+	continue,
+	stop,
+	kill
+)
+
+type ScopeResult(
+	success,
+	resources,
+	timeout,
+	oom_kill
+)
+
+type SocketBindIPv6Only(
+	default,
+	both,
+	ipv6_only
+)
+
+type SocketTimestamping(
+	off,
+	us,
+	ns
+)
+
+type SocketDeferTrigger(
+	no,
+	yes,
+	patient
+)
+
+type SocketResult(
+	success,
+	resources,
+	timeout,
+	exit_code,
+	signal,
+	core_dump,
+	start_limit_hit,
+	trigger_limit_hit,
+	service_start_limit_hit
+)
+
+type SwapResult(
+	success,
+	resources,
+	timeout,
+	exit_code,
+	signal,
+	core_dump,
+	start_limit_hit
+)
+
+type TimerBase(
+	OnActiveUSec,
+	OnBootUSec,
+	OnStartupUSec,
+	OnUnitActiveUSec,
+	OnUnitInactiveUSec,
+	OnCalendar
+)
+
+type TimerResult(
+	success,
+	resources,
+	start_limit_hit
+)
+
+type CollectMode(
+	inactive,
+	inactive_or_failed
+)
+
+type EmergencyAction(
+	none,
+	exit,
+	exit_force,
+	reboot,
+	reboot_force,
+	reboot_immediate,
+	poweroff,
+	poweroff_force,
+	poweroff_immediate,
+	soft_reboot,
+	soft_reboot_force,
+	kexec,
+	kexec_force,
+	halt,
+	halt_force,
+	halt_immediate
+)
+
+type NotifyAccess(
+	none,
+	all,
+	exec,
+	main
+)
+
+type ServiceExitType(
+	main,
+	cgroup
+)
+
+type ServiceRestart(
+	no,
+	on_success,
+	on_failure,
+	on_abnormal,
+	on_watchdog,
+	on_abort,
+	always
+)
+
+type ServiceRestartMode(
+	normal,
+	direct,
+	debug
+)
+
+type ServiceResult(
+	success,
+	resources,
+	protocol,
+	timeout,
+	exit_code,
+	signal,
+	core_dump,
+	watchdog,
+	start_limit_hit,
+	oom_kill,
+	exec_condition
+)
+
+type ServiceTimeoutFailureMode(
+	terminate,
+	abort,
+	kill
+)
+
+# Service type
+type ServiceType(
+	simple,
+	exec,
+	forking,
+	oneshot,
+	dbus,
+	notify,
+	# Like notify, but also implements a reload protocol via SIGHUP.
+	notify_reload,
+	idle
+)
+
+# Job mode
+type JobMode(
+	fail,
+	lenient,
+	replace,
+	replace_irreversibly,
+	isolate,
+	flush,
+	ignore_dependencies,
+	ignore_requirements,
+	triggering,
+	restart_dependencies
+)
+
+# Job type (defined in io.systemd.Job)
+type JobType(
+	start,
+	verify_active,
+	stop,
+	reload,
+	reload_or_start,
+	restart,
+	try_restart,
+	try_reload,
+	nop
+)
+
+# Job state (defined in io.systemd.Job)
+type JobState(
+	waiting,
+	running,
+	finished
+)
+
+# Job result (defined in io.systemd.Job)
+type JobResult(
+	done,
+	canceled,
+	timeout,
+	failed,
+	dependency,
+	skipped,
+	invalid,
+	assert,
+	unsupported,
+	collected,
+	once,
+	frozen,
+	concurrency
+)
+
+type RateLimit(
+	# The ratelimit interval
+	intervalUSec: ?int,
+	# The ratelimit burst
+	burst: ?int
+)
+
+# An object to represent a unit's conditions
+type Condition(
+	# The condition type
+	type: string,
+	# Whether the condition is a triggering condition
+	trigger: bool,
+	# Whether the result of the condition is negated
+	negate: bool,
+	# The parameter passed to the condition
+	parameter: ?string
+)
+
+# An object to represent a unit's context
+type UnitContext(
+	# The unit type
+	Type: ?string,
+	# The unit ID
+	ID: string,
+	# The aliases of this unit
+	Names: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#Description=
+	Description: ?string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#Documentation=
+	Documentation: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#Wants=
+	Wants: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#WantedBy=
+	WantedBy: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#Requires=
+	Requires: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#WantedBy=
+	RequiredBy: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#Requisite=
+	Requisite: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#Requisite=
+	RequisiteOf: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#BindsTo=
+	BindsTo: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#BindsTo=
+	BoundBy: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#PartOf=
+	PartOf: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#PartOf=
+	ConsistsOf: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#Upholds=
+	Upholds: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#WantedBy=
+	UpheldBy: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#Conflicts=
+	Conflicts: ?[]string,
+	# The ConflictedBy= dependencies of this unit
+	ConflictedBy: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#Before=
+	Before: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#Before=
+	After: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#OnFailure=
+	OnFailure: ?[]string,
+	# The OnFailureOf= dependencies of this unit
+	OnFailureOf: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#OnSuccess=
+	OnSuccess: ?[]string,
+	# The OnSuccessOf= dependencies of this unit
+	OnSuccessOf: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#PropagatesReloadTo=
+	PropagatesReloadTo: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#PropagatesReloadTo=
+	ReloadPropagatedFrom: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#PropagatesStopTo=
+	PropagatesStopTo: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#PropagatesStopTo=
+	StopPropagatedFrom: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#JoinsNamespaceOf=
+	JoinsNamespaceOf: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#RequiresMountsFor=
+	RequiresMountsFor: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#WantsMountsFor=
+	WantsMountsFor: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#OnSuccessJobMode=
+	OnSuccessJobMode: ?JobMode,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#OnSuccessJobMode=
+	OnFailureJobMode: ?JobMode,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#IgnoreOnIsolate=
+	IgnoreOnIsolate: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#StopWhenUnneeded=
+	StopWhenUnneeded: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#RefuseManualStart=
+	RefuseManualStart: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#RefuseManualStart=
+	RefuseManualStop: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#AllowIsolate=
+	AllowIsolate: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#DefaultDependencies=
+	DefaultDependencies: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#SurviveFinalKillSignal=
+	SurviveFinalKillSignal: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#CollectMode=
+	CollectMode: ?CollectMode,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#FailureAction=
+	FailureAction: ?EmergencyAction,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#FailureAction=
+	SuccessAction: ?EmergencyAction,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#FailureActionExitStatus=
+	FailureActionExitStatus: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#FailureActionExitStatus=
+	SuccessActionExitStatus: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#JobTimeoutSec=
+	JobTimeoutUSec: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#JobTimeoutSec=
+	JobRunningTimeoutUSec: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#JobTimeoutAction=
+	JobTimeoutAction: ?EmergencyAction,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#JobTimeoutAction=
+	JobTimeoutRebootArgument: ?string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#StartLimitIntervalSec=interval
+	StartLimit: ?RateLimit,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#StartLimitIntervalSec=interval
+	StartLimitAction: ?EmergencyAction,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#RebootArgument=
+	RebootArgument: ?string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.unit.html#SourcePath=
+	SourcePath: ?string,
+	# The conditions of this unit
+	Conditions: ?[]Condition,
+	# The asserts of this unit
+	Asserts: ?[]Condition,
+	# The Triggers= dependencies of this unit
+	Triggers: ?[]string,
+	# The TriggeredBy= dependencies of this unit
+	TriggeredBy: ?[]string,
+	# The SELinux context that is used to control access to the unit
+	AccessSELinuxContext: ?string,
+	# The unit file path this unit was read from
+	FragmentPath: ?string,
+	# The paths from which drop-in files were read for this unit
+	DropInPaths: ?[]string,
+	# The unit file preset for this unit
+	UnitFilePreset: ?string,
+	# Whether this unit is transient
+	Transient: ?bool,
+	# Whether this unit is perpetual
+	Perpetual: ?bool,
+	# When true, logs about this unit will be at debug level regardless of other log level settings
+	DebugInvocation: ?bool,
+	# The cgroup context of the unit
+	CGroup: ?CGroupContext,
+	# The exec context of the unit
+	Exec: ?ExecContext,
+	# The kill context of the unit
+	Kill: ?KillContext,
+	# The service context of the unit (only for .service units)
+	Service: ?ServiceContext,
+	# The automount context of the unit
+	Automount: ?AutomountContext,
+	# The mount context of the unit
+	Mount: ?MountContext,
+	# The path context of the unit
+	Path: ?PathContext,
+	# The scope context of the unit
+	Scope: ?ScopeContext,
+	# The socket context of the unit
+	Socket: ?SocketContext,
+	# The swap context of the unit
+	Swap: ?SwapContext,
+	# The timer context of the unit
+	Timer: ?TimerContext
+)
+
+# An object to represent a unit's runtime information
+type UnitRuntime(
+	# If not empty, the field contains the name of another unit that this unit follows in state
+	Following: ?string,
+	# Reflects whether the configuration file of this unit has been loaded
+	LoadState: ?string,
+	# Reflects whether the unit is currently active or not
+	ActiveState: ?string,
+	# Reflects whether the unit is currently frozen or not
+	FreezerState: ?string,
+	# Reflect more fine-grained state that is unit-type-specific
+	SubState: ?string,
+	# Reflects the install state of the unit file
+	UnitFileState: ?string,
+	# Timestamp when the firmware first began execution
+	StateChangeTimestamp: ?Timestamp,
+	# Timestamp when the unit entered active state
+	ActiveEnterTimestamp: ?Timestamp,
+	# Timestamp when the unit exited active state
+	ActiveExitTimestamp: ?Timestamp,
+	# Timestamp when the unit entered inactive state
+	InactiveEnterTimestamp: ?Timestamp,
+	# Timestamp when the unit exited inactive state
+	InactiveExitTimestamp: ?Timestamp,
+	# Reflects whether the unit can be started or not
+	CanStart: ?bool,
+	# Reflects whether the unit can be stopped or not
+	CanStop: ?bool,
+	# Reflects whether the unit can be reloaded or not
+	CanReload: ?bool,
+	# Reflects whether the unit may be started in isolation mode
+	CanIsolate: ?bool,
+	# Returns which unit resources can be cleaned up
+	CanClean: ?[]string,
+	# Whether the unit supports the freeze operation
+	CanFreeze: ?bool,
+	# Whether the unit supports live mounting
+	CanLiveMount: ?bool,
+	# The job ID of the job currently scheduled or being executed for this unit, if there is any.
+	JobId: ?int,
+	# Whether the configuration file this unit is loaded from (i.e. FragmentPath or SourcePath) has changed since the configuration was read and hence whether a configuration reload is recommended
+	NeedDaemonReload: ?bool,
+	# Condition result of the last time the configured conditions of this unit were checked
+	ConditionResult: ?bool,
+	# Assert result of the last time the configured asserts of this unit were checked
+	AssertResult: ?bool,
+	# The last time the configured conditions of the unit have been checked
+	ConditionTimestamp: ?Timestamp,
+	# The last time the configured asserts of the unit have been checked
+	AssertTimestamp: ?Timestamp,
+	# Current invocation ID
+	InvocationID: ?string,
+	# Reflects whether the unit has been marked for reload, restart, etc.
+	Markers: ?[]string,
+	# Provides details about why a unit was activated
+	ActivationDetails: ?[]ActivationDetails,
+	# The cgroup runtime of the unit
+	CGroup: ?CGroupRuntime,
+	# The automount runtime of the unit
+	Automount: ?AutomountRuntime,
+	# The mount runtime of the unit
+	Mount: ?MountRuntime,
+	# The path runtime of the unit
+	Path: ?PathRuntime,
+	# The scope runtime of the unit
+	Scope: ?ScopeRuntime,
+	# The service runtime of the unit
+	Service: ?ServiceRuntime,
+	# The socket runtime of the unit
+	Socket: ?SocketRuntime,
+	# The swap runtime of the unit
+	Swap: ?SwapRuntime,
+	# The timer runtime of the unit
+	Timer: ?TimerRuntime
+)
+
+# A timestamp object consisting of both CLOCK_REALTIME and CLOCK_MONOTONIC timestamps
+type Timestamp(
+	# Timestamp in µs in the CLOCK_REALTIME clock (wallclock)
+	realtime: ?int,
+	# Timestamp in µs in the CLOCK_MONOTONIC clock
+	monotonic: ?int
+)
+
+# An object to represent a unit's activation details
+type ActivationDetails(
+	# Trigger unit type
+	type: string,
+	# Trigger unit name
+	name: string
+)
+
+# An object for referencing UNIX processes
+type ProcessId(
+	# Numeric UNIX PID value
+	pid: int,
+	# 64bit inode number of pidfd if known
+	pidfdId: ?int,
+	# Boot ID of the system the inode number belongs to
+	bootId: ?string
+)
+
+type CGroupTasksMax(
+	# The maximum amount of tasks
+	value: int,
+	# The scaling factor
+	scale: int
+)
+
+type CGroupIODeviceWeight(
+	# The device path
+	path: string,
+	# The device IO weight
+	weight: int
+)
+
+type CGroupIODeviceLimit(
+	# The device path
+	path: string,
+	# The device IO limit
+	limit: int
+)
+
+type CGroupIODeviceLatency(
+	# The device path
+	path: string,
+	# The device target latency
+	targetUSec: ?int
+)
+
+type CGroupAddressPrefix(
+	# The address family
+	family: int,
+	# The address
+	address: []int,
+	# The address prefix length
+	prefixLength: int
+)
+
+type CGroupSocketBind(
+	# The address family
+	family: int,
+	# The address protocol
+	protocol: string,
+	# The number of ports
+	numberOfPorts: int,
+	# The minimum port
+	minimumPort: int
+)
+
+type CGroupRestrictNetworkInterfaces(
+	# Whether this is an allow list
+	isAllowList: bool,
+	# The list of interfaces
+	interfaces: []string
+)
+
+type CGroupNFTSet(
+	# The source of this NFT set
+	source: string,
+	# The NFT protocol for this NFT set
+	protocol: string,
+	# The NFT table associated with this NFT set
+	table: string,
+	# The name of the NFT set
+	set: string
+)
+
+type CGroupBPFProgram(
+	# The BPF program attach type
+	attachType: string,
+	# The path to the BPF program
+	path: string
+)
+
+type CGroupDeviceAllow(
+	# The device path
+	path: string,
+	# The device permissions
+	permissions: string
+)
+
+# CGroup context of a unit
+type CGroupContext(
+	# Slice of the CGroup
+	Slice: ?string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#CPUWeight=weight
+	CPUWeight: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#CPUWeight=weight
+	StartupCPUWeight: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#CPUQuota=
+	CPUQuotaPerSecUSec: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#CPUQuotaPeriodSec=
+	CPUQuotaPeriodUSec: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#AllowedCPUs=
+	AllowedCPUs: ?[]int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#AllowedCPUs=
+	StartupAllowedCPUs: ?[]int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#CPUSetPartition=
+	CPUSetPartition: ?CPUSetPartition,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#MemoryAccounting=
+	MemoryAccounting: bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#MemoryMin=bytes,%20MemoryLow=bytes
+	MemoryMin: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#MemoryMin=bytes,%20MemoryLow=bytes
+	MemoryLow: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#MemoryMin=bytes,%20MemoryLow=bytes
+	StartupMemoryLow: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#MemoryHigh=bytes
+	MemoryHigh: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#MemoryHigh=bytes
+	StartupMemoryHigh: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#MemoryMax=bytes
+	MemoryMax: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#MemoryMax=bytes
+	StartupMemoryMax: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#MemorySwapMax=bytes
+	MemorySwapMax: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#MemorySwapMax=bytes
+	StartupMemorySwapMax: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#MemoryZSwapMax=bytes
+	MemoryZSwapMax: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#MemoryZSwapMax=bytes
+	StartupMemoryZSwapMax: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#MemoryZSwapWriteback=
+	MemoryZSwapWriteback: bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#AllowedMemoryNodes=
+	AllowedMemoryNodes: ?[]int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#AllowedMemoryNodes=
+	StartupAllowedMemoryNodes: ?[]int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#TasksAccounting=
+	TasksAccounting: bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#TasksMax=N
+	TasksMax: ?CGroupTasksMax,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#IOAccounting=
+	IOAccounting: bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#IOWeight=weight
+	IOWeight: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#IOWeight=weight
+	StartupIOWeight: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#IODeviceWeight=device%20weight
+	IODeviceWeight: ?[]CGroupIODeviceWeight,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#IOReadBandwidthMax=device%20bytes
+	IOReadBandwidthMax: ?[]CGroupIODeviceLimit,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#IOReadBandwidthMax=device%20bytes
+	IOWriteBandwidthMax: ?[]CGroupIODeviceLimit,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#IOReadIOPSMax=device%20IOPS
+	IOReadIOPSMax: ?[]CGroupIODeviceLimit,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#IOReadIOPSMax=device%20IOPS
+	IOWriteIOPSMax: ?[]CGroupIODeviceLimit,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#IODeviceLatencyTargetSec=device%20target
+	IODeviceLatencyTargetUSec: ?[]CGroupIODeviceLatency,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#IPAccounting=
+	IPAccounting: bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#IPAddressAllow=ADDRESS%5B/PREFIXLENGTH%5D%E2%80%A6
+	IPAddressAllow: ?[]CGroupAddressPrefix,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#IPAddressAllow=ADDRESS%5B/PREFIXLENGTH%5D%E2%80%A6
+	IPAddressDeny: ?[]CGroupAddressPrefix,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#SocketBindAllow=bind-rule
+	SocketBindAllow: ?[]CGroupSocketBind,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#SocketBindAllow=bind-rule
+	SocketBindDeny: ?[]CGroupSocketBind,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#RestrictNetworkInterfaces=
+	RestrictNetworkInterfaces: ?CGroupRestrictNetworkInterfaces,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#BindNetworkInterface=
+	BindNetworkInterface: ?string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#NFTSet=family:table:set
+	NFTSet: ?[]CGroupNFTSet,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#IPIngressFilterPath=BPF_FS_PROGRAM_PATH
+	IPIngressFilterPath: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#IPIngressFilterPath=BPF_FS_PROGRAM_PATH
+	IPEgressFilterPath: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#BPFProgram=type:program-path
+	BPFProgram: ?[]CGroupBPFProgram,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#DeviceAllow=
+	DeviceAllow: ?[]CGroupDeviceAllow,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#DevicePolicy=auto%7Cclosed%7Cstrict
+	DevicePolicy: CGroupDevicePolicy,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#Delegate=
+	Delegate: bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#DelegateSubgroup=
+	DelegateSubgroup: ?string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#DisableControllers=
+	DelegateControllers: ?[]CGroupController,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#DisableControllers=
+	DisableControllers: ?[]CGroupController,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#ManagedOOMSwap=auto%7Ckill
+	ManagedOOMSwap: ManagedOOMMode,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#ManagedOOMSwap=auto%7Ckill
+	ManagedOOMMemoryPressure: ManagedOOMMode,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#ManagedOOMMemoryPressureLimit=
+	ManagedOOMMemoryPressureLimit: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#ManagedOOMMemoryPressureDurationSec=
+	ManagedOOMMemoryPressureDurationUSec: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#ManagedOOMPreference=none%7Cavoid%7Comit
+	ManagedOOMPreference: ManagedOOMPreference,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#OOMRules=
+	OOMRules: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#MemoryPressureWatch=
+	MemoryPressureWatch: CGroupPressureWatch,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#MemoryPressureThresholdSec=
+	MemoryPressureThresholdUSec: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#CPUPressureWatch=
+	CPUPressureWatch: CGroupPressureWatch,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#CPUPressureThresholdSec=
+	CPUPressureThresholdUSec: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#IOPressureWatch=
+	IOPressureWatch: CGroupPressureWatch,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.resource-control.html#IOPressureThresholdSec=
+	IOPressureThresholdUSec: ?int,
+	# Reflects whether to forward coredumps for processes that crash within this cgroup
+	CoredumpReceive: bool
+)
+
+# CGroup runtime of a unit
+type CGroupRuntime(
+	# ID of the CGroup
+	ID: ?int,
+	# Path of the CGroup
+	Path: ?string,
+	# The current amount of memory used by the cgroup, in bytes
+	MemoryCurrent: ?int,
+	# The peak amount of memory used by the cgroup since its creation, in bytes
+	MemoryPeak: ?int,
+	# The current amount of swap space used by the cgroup, in bytes
+	MemorySwapCurrent: ?int,
+	# The peak amount of swap space used by the cgroup since its creation, in bytes
+	MemorySwapPeak: ?int,
+	# The current amount of zswap space used by the cgroup, in bytes
+	MemoryZSwapCurrent: ?int,
+	# The available memory for the cgroup, in bytes.
+	MemoryAvailable: ?int,
+	# The effective maximum amount of memory allowed for the cgroup, in bytes
+	EffectiveMemoryMax: ?int,
+	# The effective high watermark for memory usage by the cgroup, in bytes
+	EffectiveMemoryHigh: ?int,
+	# Memory NUMA nodes that the cgroup is allowed to use
+	EffectiveMemoryNodes: ?[]int,
+	# The total CPU usage time in nanoseconds (ns) for the cgroup
+	CPUUsageNSec: ?int,
+	# NUMA nodes that the cgroup is allowed to use
+	EffectiveCPUs: ?[]int,
+	# The current number of tasks (i.e., processes or threads) running within the cgroup
+	TasksCurrent: ?int,
+	# The maximum number of tasks that the cgroup is allowed to run concurrently
+	EffectiveTasksMax: ?int,
+	# The total number of bytes received by the cgroup's IP stack
+	IPIngressBytes: ?int,
+	# The total number of incoming packets received by the cgroup's IP stack
+	IPIngressPackets: ?int,
+	# iThe total number of bytes sent by the cgroup's IP stack
+	IPEgressBytes: ?int,
+	# The total number of outgoing packets sent by the cgroup's IP stack
+	IPEgressPackets: ?int,
+	# The total number of bytes read from block devices by the cgroup
+	IOReadBytes: ?int,
+	# The total number of read operations performed on block devices by the cgroup
+	IOReadOperations: ?int,
+	# The total number of bytes written to block devices by the cgroup
+	IOWriteBytes: ?int,
+	# The total number of write operations performed on block devices by the cgroup
+	IOWriteOperations: ?int,
+	# The number of processes of this unit killed by the kernel OOM killer
+	OOMKills: ?int,
+	# The number of processes of this unit killed by systemd-oomd
+	ManagedOOMKills: ?int
+)
+
+type WorkingDirectory(
+	# The path to the working directory. Mutually exclusive with 'home'
+	path: ?string,
+	# If true, use the configured user's home directory as the working directory. Mutually exclusive with 'path'
+	home: ?bool,
+	# Whether the path to the working directory is allowed to not exist
+	missingOK: ?bool
+)
+
+type PartitionMountOptions(
+	# The partition designator to which the options apply
+	partitionDesignator: string,
+	# The mount options for this partition
+	options: string
+)
+
+type BindPath(
+	# The mount source path
+	source: string,
+	# The mount destination path
+	destination: string,
+	# Whether a missing source path should be ignored
+	ignoreEnoent: bool,
+	# Mount options
+	options: []string
+)
+
+type MountImage(
+	# The path to the image to mount
+	source: string,
+	# The destination path where to mount the image
+	destination: string,
+	# Whether failure to find the image is considered fatal
+	ignoreEnoent: bool,
+	# The mount options to use for the partitions of the image
+	mountOptions: ?[]PartitionMountOptions
+)
+
+type ExtensionImage(
+	# The path to the extension image
+	source: string,
+	# Whether failure to find the extension image is considered fatal
+	ignoreEnoent: bool,
+	# The mount options to use for the partitions of the extension image
+	mountOptions: ?[]PartitionMountOptions
+)
+
+type SELinuxContext(
+	# Whether failure to set the SELinux context is ignored
+	ignore: bool,
+	# The SELinux context
+	context: string
+)
+
+type AppArmorProfile(
+	# Whether failure to configure the apparmor profile will be ignored
+	ignore: bool,
+	# The AppArmor profile
+	profile: string
+)
+
+type SmackProcessLabel(
+	# Whether failure to configure the smack process label will be ignored
+	ignore: bool,
+	# The smack process label
+	label: string
+)
+
+type ResourceLimit(
+	# The soft resource limit. RLIM_INFINITY is mapped to unset value
+	soft: ?int,
+	# The hard resource limit. RLIM_INFINITY is mapped to unset value
+	hard: ?int
+)
+
+type ResourceLimitTable(
+	# See setrlimit(2) for details
+	CPU: ?ResourceLimit,
+	FSIZE: ?ResourceLimit,
+	DATA: ?ResourceLimit,
+	STACK: ?ResourceLimit,
+	CORE: ?ResourceLimit,
+	RSS: ?ResourceLimit,
+	NOFILE: ?ResourceLimit,
+	AS: ?ResourceLimit,
+	NPROC: ?ResourceLimit,
+	MEMLOCK: ?ResourceLimit,
+	LOCKS: ?ResourceLimit,
+	SIGPENDING: ?ResourceLimit,
+	MSGQUEUE: ?ResourceLimit,
+	NICE: ?ResourceLimit,
+	RTPRIO: ?ResourceLimit,
+	RTTIME: ?ResourceLimit
+)
+
+type CPUAffinity(
+	# CPU affinity of the executed processes
+	affinity: []int,
+	# CPU affinity from NUMA
+	fromNUMA: bool
+)
+
+type ExecDirectoryQuota(
+	# Whether the quota is accounted
+	accounting: bool,
+	# Whether the quota is enforced
+	enforce: bool,
+	# The absolute quota in bytes
+	quotaAbsolute: int,
+	# The scaling factor for the quota
+	quotaScale: int
+)
+
+type ExecDirectoryPath(
+	# The path to the directory
+	path: string,
+	# A list of symlinks pointing to the directory
+	symlinks: ?[]string
+)
+
+type ExecDirectory(
+	# Exec directory paths
+	paths: []ExecDirectoryPath,
+	# The access mode of the directory
+	mode: int,
+	# The quota for the directory
+	quota: ExecDirectoryQuota
+)
+
+type TemporaryFilesystem(
+	# The destination path where the temporary filesystem should be mounted
+	path: string,
+	# The mount options for the temporary filesystem
+	options: ?string
+)
+
+type AddressFamilyList(
+	# Whether the list of address families is an allow list
+	isAllowList: bool,
+	# The list of address families
+	addressFamilies: []string
+)
+
+type FilesystemList(
+	# Whether the list of filesystems is an allow list
+	isAllowList: bool,
+	# The list of filesystems
+	filesystems: []string
+)
+
+type SystemCallList(
+	# Whether the list of system calls is an allow list
+	isAllowList: bool,
+	# The list of system calls
+	systemCalls: []string
+)
+
+type EnvironmentFile(
+	# The path to the environment file
+	path: string,
+	# Whether failure to read the environment file is fatal or not
+	graceful: bool
+)
+
+type LogFilterPattern(
+	# Whether this pattern is an allow pattern
+	isAllowList: bool,
+	# The filtering pattern
+	pattern: string
+)
+
+type LoadCredential(
+	# The credential ID
+	id: string,
+	# The credential path
+	path: string
+)
+
+type ImportCredential(
+	# The glob pattern to find credentials
+	glob: string,
+	# The rename pattern to which matching credentials should be renamed
+	rename: ?string
+)
+
+type SetCredential(
+	# The credential ID
+	id: string,
+	# The credential value encoded in base64
+	value: string
+)
+
+# Exec context of a unit
+type ExecContext(
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#ExecSearchPath=
+	ExecSearchPath: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#WorkingDirectory=
+	WorkingDirectory: ?WorkingDirectory,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#RootDirectory=
+	RootDirectory: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#RootImage=
+	RootImage: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#RootMStack=
+	RootMStack: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#RootImageOptions=
+	RootImageOptions: ?[]PartitionMountOptions,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#RootEphemeral=
+	RootEphemeral: ?bool,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#RootHash=
+	RootHash: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#RootHash=
+	RootHashPath: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#RootHashSignature=
+	RootHashSignature: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#RootHashSignature=
+	RootHashSignaturePath: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#RootVerity=
+	RootVerity: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#RootImagePolicy=
+	RootImagePolicy: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#RootImagePolicy=
+	MountImagePolicy: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#RootImagePolicy=
+	ExtensionImagePolicy: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#MountAPIVFS=
+	MountAPIVFS: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#BindLogSockets=
+	BindLogSockets: ?bool,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#ProtectProc=
+	ProtectProc: ?ProtectProc,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#ProcSubset=
+	ProcSubset: ?ProcSubset,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#BindPaths=
+	BindPaths: ?[]BindPath,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#BindPaths=
+	BindReadOnlyPaths: ?[]BindPath,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#MountImages=
+	MountImages: ?[]MountImage,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#ExtensionImages=
+	ExtensionImages: ?[]ExtensionImage,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#ExtensionDirectories=
+	ExtensionDirectories: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#User=
+	User: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#User=
+	Group: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#DynamicUser=
+	DynamicUser: ?bool,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#SupplementaryGroups=
+	SupplementaryGroups: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#SetLoginEnvironment=
+	SetLoginEnvironment: ?bool,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#PAMName=
+	PAMName: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#CapabilityBoundingSet=
+	CapabilityBoundingSet: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#AmbientCapabilities=
+	AmbientCapabilities: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#NoNewPrivileges=
+	NoNewPrivileges: ?bool,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#SecureBits=
+	SecureBits: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#SELinuxContext=
+	SELinuxContext: ?SELinuxContext,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#AppArmorProfile=
+	AppArmorProfile: ?AppArmorProfile,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#SmackProcessLabel=
+	SmackProcessLabel: ?SmackProcessLabel,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#LimitCPU=
+	Limits: ?ResourceLimitTable,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#UMask=
+	UMask: ?int,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#CoredumpFilter=
+	CoredumpFilter: ?int,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#KeyringMode=
+	KeyringMode: ?ExecKeyringMode,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#OOMScoreAdjust=
+	OOMScoreAdjust: ?int,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#TimerSlackNSec=
+	TimerSlackNSec: ?int,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#Personality=
+	Personality: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#IgnoreSIGPIPE=
+	IgnoreSIGPIPE: ?bool,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#Nice=
+	Nice: ?int,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#CPUSchedulingPolicy=
+	CPUSchedulingPolicy: ?CPUSchedulingPolicy,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#CPUSchedulingPriority=
+	CPUSchedulingPriority: ?int,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#CPUSchedulingResetOnFork=
+	CPUSchedulingResetOnFork: ?bool,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#CPUAffinity=
+	CPUAffinity: ?CPUAffinity,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#NUMAPolicy=
+	NUMAPolicy: ?NUMAPolicy,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#NUMAMask=
+	NUMAMask: ?[]int,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#IOSchedulingClass=
+	IOSchedulingClass: ?IOSchedulingClass,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#IOSchedulingPriority=
+	IOSchedulingPriority: ?int,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#MemoryKSM=
+	MemoryKSM: ?bool,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#MemoryTHP=
+	MemoryTHP: ?MemoryTHP,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#ProtectSystem=
+	ProtectSystem: ?ProtectSystem,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#ProtectHome=
+	ProtectHome: ?ProtectHome,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#RuntimeDirectory=
+	RuntimeDirectory: ?ExecDirectory,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#RuntimeDirectory=
+	StateDirectory: ?ExecDirectory,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#RuntimeDirectory=
+	CacheDirectory: ?ExecDirectory,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#RuntimeDirectory=
+	LogsDirectory: ?ExecDirectory,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#RuntimeDirectory=
+	ConfigurationDirectory: ?ExecDirectory,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#RuntimeDirectoryPreserve=
+	RuntimeDirectoryPreserve: ?ExecPreserveMode,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#TimeoutCleanSec=
+	TimeoutCleanUSec: ?int,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#ReadWritePaths=
+	ReadWritePaths: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#ReadWritePaths=
+	ReadOnlyPaths: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#ReadWritePaths=
+	InaccessiblePaths: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#ReadWritePaths=
+	ExecPaths: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#ReadWritePaths=
+	NoExecPaths: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#TemporaryFileSystem=
+	TemporaryFileSystem: ?[]TemporaryFilesystem,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#PrivateTmp=
+	PrivateTmp: ?PrivateTmp,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#PrivateDevices=
+	PrivateDevices: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#PrivateNetwork=
+	PrivateNetwork: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#NetworkNamespacePath=
+	NetworkNamespacePath: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#PrivateIPC=
+	PrivateIPC: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#IPCNamespacePath=
+	IPCNamespacePath: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#PrivatePIDs=
+	PrivatePIDs: ?PrivatePIDs,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#PrivateUsers=
+	PrivateUsers: ?PrivateUsers,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#UserNamespacePath=
+	UserNamespacePath: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#ProtectHostname=
+	ProtectHostname: ?ProtectHostname,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#ProtectClock=
+	ProtectClock: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#ProtectKernelTunables=
+	ProtectKernelTunables: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#ProtectKernelModules=
+	ProtectKernelModules: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#ProtectKernelLogs=
+	ProtectKernelLogs: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#ProtectControlGroups=
+	ProtectControlGroups: ?ProtectControlGroups,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#RestrictAddressFamilies=
+	RestrictAddressFamilies: ?AddressFamilyList,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#RestrictFileSystems=
+	RestrictFilesystems: ?FilesystemList,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#RestrictNamespaces=
+	RestrictNamespaces: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#DelegateNamespaces=
+	DelegateNamespaces: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#PrivatePBF=
+	PrivatePBF: ?PrivateBPF,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#BPFDelegateCommands=
+	BPFDelegateCommands: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#BPFDelegateMaps=
+	BPFDelegateMaps: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#BPFDelegatePrograms=
+	BPFDelegatePrograms: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#BPFDelegateAttachments=
+	BPFDelegateAttachments: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#LockPersonality=
+	LockPersonality: ?bool,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#MemoryDenyWriteExecute=
+	MemoryDenyWriteExecute: ?bool,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#RestrictRealtime=
+	RestrictRealtime: ?bool,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#RestrictSUIDSGID=
+	RestrictSUIDSGID: ?bool,
+	# Whether to remove all System V and POSIX IPC objects owned by the user and group this unit runs under
+	RemoveIPC: ?bool,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#PrivateMounts=
+	PrivateMounts: ?bool,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#MountFlags=
+	MountFlags: ?MountPropagationFlag,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#SystemCallFilter=
+	SystemCallFilter: ?SystemCallList,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#SystemCallErrorNumber=
+	SystemCallErrorNumber: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#SystemCallArchitectures=
+	SystemCallArchitectures: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#SystemCallLog=
+	SystemCallLog: ?SystemCallList,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#Environment=
+	Environment: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#EnvironmentFile=
+	EnvironmentFiles: ?[]EnvironmentFile,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#PassEnvironment=
+	PassEnvironment: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#UnsetEnvironment=
+	UnsetEnvironment: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#StandardInput=
+	StandardInput: ?ExecInputType,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#StandardOutput=
+	StandardOutput: ?ExecOutputType,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#StandardError=
+	StandardError: ?ExecOutputType,
+	# The file descriptor name to connect standard input to
+	StandardInputFileDescriptorName: ?string,
+	# The file descriptor name to connect standard output to
+	StandardOutputFileDescriptorName: ?string,
+	# The file descriptor name to connect standard error to
+	StandardErrorFileDescriptorName: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#StandardInputText=
+	StandardInputData: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#LogLevelMax=
+	LogLevelMax: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#LogExtraFields=
+	LogExtraFields: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#LogRateLimitIntervalSec=
+	LogRateLimit: ?RateLimit,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#LogFilterPatterns=
+	LogFilterPatterns: ?[]LogFilterPattern,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#LogNamespace=
+	LogNamespace: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#SyslogIdentifier=
+	SyslogIdentifier: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#SyslogFacility=
+	SyslogFacility: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#SyslogLevel=
+	SyslogLevel: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#SyslogLevelPrefix=
+	SyslogLevelPrefix: ?bool,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#TTYPath=
+	TTYPath: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#TTYReset=
+	TTYReset: ?bool,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#TTYVHangup=
+	TTYVHangup: ?bool,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#TTYRows=
+	TTYRows: ?int,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#TTYRows=
+	TTYColumns: ?int,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#TTYVTDisallocate=
+	TTYVTDisallocate: ?bool,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#LoadCredential=ID:PATH
+	LoadCredential: ?[]LoadCredential,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#LoadCredential=ID:PATH
+	LoadCredentialEncrypted: ?[]LoadCredential,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#ImportCredential=GLOB
+	ImportCredential: ?[]ImportCredential,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#SetCredential=ID:VALUE
+	SetCredential: ?[]SetCredential,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#SetCredential=ID:VALUE
+	SetCredentialEncrypted: ?[]SetCredential,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#UtmpIdentifier=
+	UtmpIdentifier: ?string,
+	# https://www.freedesktop.org/software/systemd/man262systemd.exec.html#UtmpMode=
+	UtmpMode: ?ExecUtmpMode
+)
+
+type KillContext(
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.kill.html#KillMode=
+	KillMode: ?KillMode,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.kill.html#KillSignal=
+	KillSignal: ?string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.kill.html#RestartKillSignal=
+	RestartKillSignal: ?string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.kill.html#SendSIGHUP=
+	SendSIGHUP: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.kill.html#SendSIGKILL=
+	SendSIGKILL: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.kill.html#FinalKillSignal=
+	FinalKillSignal: ?string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.kill.html#WatchdogSignal=
+	WatchdogSignal: ?string
+)
+
+type AutomountContext(
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.automount.html#Where=
+	Where: ?string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.automount.html#ExtraOptions=
+	ExtraOptions: ?string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.automount.html#DirectoryMode=
+	DirectoryMode: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.automount.html#TimeoutIdleSec=
+	TimeoutIdleUSec: ?int
+)
+
+type AutomountRuntime(
+	# Result of automount operation
+	Result: AutomountResult
+)
+
+type ExecCommand(
+	# Path
+	path: string,
+	# Arguments
+	arguments: ?[]string,
+	# Ignore failure of the command
+	ignoreFailure: ?bool,
+	# Run with full privileges
+	privileged: ?bool,
+	# Skip setuid handling
+	noSetuid: ?bool,
+	# Skip environment variable expansion
+	noEnvExpand: ?bool,
+	# Run via shell
+	viaShell: ?bool
+)
+
+type ExecCommandStatus(
+	# Process ID
+	PID: ProcessId,
+	# Timestamp when the process started
+	StartTimestamp: ?Timestamp,
+	# Timestamp when the process exited
+	ExitTimestamp: ?Timestamp,
+	# Timestamp when the process was handed off to the executor
+	HandoffTimestamp: ?Timestamp,
+	# Termination reason (si_code): CLD_EXITED, CLD_KILLED, CLD_DUMPED
+	Code: ?int,
+	# Exit code or signal number (si_status), meaning depends on Code
+	Status: ?int
+)
+
+type MountContext(
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.mount.html#What=
+	What: ?string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.mount.html#Where=
+	Where: ?string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.mount.html#Type=
+	Type: ?string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.mount.html#Options=
+	Options: ?string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.mount.html#SloppyOptions=
+	SloppyOptions: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.mount.html#LazyUnmount=
+	LazyUnmount: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.mount.html#ReadWriteOnly=
+	ReadWriteOnly: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.mount.html#ForceUnmount=
+	ForceUnmount: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.mount.html#DirectoryMode=
+	DirectoryMode: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.mount.html#TimeoutSec=
+	TimeoutUSec: ?int,
+	# Mount command
+	ExecMount: ?ExecCommand,
+	# Unmount command
+	ExecUnmount: ?ExecCommand,
+	# Remount command
+	ExecRemount: ?ExecCommand
+)
+
+type MountRuntime(
+	# PID of the current mount/remount/etc process running
+	ControlPID: ?ProcessId,
+	# Result of mount operation
+	Result: MountResult,
+	# Result of remount operation
+	ReloadResult: MountResult,
+	# Result of cleaning operation
+	CleanResult: MountResult,
+	# Reference UID
+	UID: ?int,
+	# Reference GID
+	GID: ?int
+)
+
+type PathSpec(
+	# Path spec type
+	type: PathType,
+	# Path
+	path: string
+)
+
+type PathContext(
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.path.html#PathExists=
+	Paths: ?[]PathSpec,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.path.html#Unit=
+	Unit: ?string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.path.html#MakeDirectory=
+	MakeDirectory: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.path.html#DirectoryMode=
+	DirectoryMode: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.path.html#TriggerLimitIntervalSec=
+	TriggerLimit: ?RateLimit
+)
+
+type PathRuntime(
+	# Result of path operation
+	Result: PathResult
+)
+
+type ScopeContext(
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.scope.html#OOMPolicy=
+	OOMPolicy: ?OOMPolicy,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.scope.html#RuntimeMaxSec=
+	RuntimeMaxUSec: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.scope.html#RuntimeRandomizedExtraSec=
+	RuntimeRandomizedExtraUSec: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.scope.html#TimeoutStopSec=
+	TimeoutStopUSec: ?int
+)
+
+type ScopeRuntime(
+	# Result of scope operation
+	Result: ScopeResult
+)
+
+type SocketListen(
+	# Socket type
+	type: string,
+	# Socket address
+	address: string
+)
+
+type SocketContext(
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#ListenStream=
+	Listen: ?[]SocketListen,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#SocketProtocol=
+	SocketProtocol: ?string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#BindIPv6Only=
+	BindIPv6Only: ?SocketBindIPv6Only,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#Backlog=
+	Backlog: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#BindToDevice=
+	BindToDevice: ?string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#SocketUser=
+	SocketUser: ?string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#SocketUser=
+	SocketGroup: ?string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#SocketMode=
+	SocketMode: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#DirectoryMode=
+	DirectoryMode: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#Accept=
+	Accept: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#Writable=
+	Writable: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#FlushPending=
+	FlushPending: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#MaxConnections=
+	MaxConnections: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#MaxConnectionsPerSource=
+	MaxConnectionsPerSource: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#KeepAlive=
+	KeepAlive: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#KeepAliveTimeSec=
+	KeepAliveTimeUSec: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#KeepAliveIntervalSec=
+	KeepAliveIntervalUSec: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#KeepAliveProbes=
+	KeepAliveProbes: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#NoDelay=
+	NoDelay: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#Priority=
+	Priority: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#DeferAcceptSec=
+	DeferAcceptUSec: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#ReceiveBuffer=
+	ReceiveBuffer: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#SendBuffer=
+	SendBuffer: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#IPTOS=
+	IPTOS: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#IPTTL=
+	IPTTL: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#Mark=
+	Mark: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#ReusePort=
+	ReusePort: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#SmackLabel=
+	SmackLabel: ?string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#SmackLabelIPIn=
+	SmackLabelIPIn: ?string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#SmackLabelIPOut=
+	SmackLabelIPOut: ?string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#SELinuxContextFromNet=
+	SELinuxContextFromNet: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#PipeSize=
+	PipeSize: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#MessageQueueMaxMessages=
+	MessageQueueMaxMessages: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#MessageQueueMessageSize=
+	MessageQueueMessageSize: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#FreeBind=
+	FreeBind: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#Transparent=
+	Transparent: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#Broadcast=
+	Broadcast: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#PassCredentials=
+	PassCredentials: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#PassPIDFD=
+	PassPIDFD: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#PassSecurity=
+	PassSecurity: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#PassPacketInfo=
+	PassPacketInfo: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#AcceptFileDescriptors=
+	AcceptFileDescriptors: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#Timestamping=
+	Timestamping: ?SocketTimestamping,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#TCPCongestion=
+	TCPCongestion: ?string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#ExecStartPre=
+	ExecStartPre: ?[]ExecCommand,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#ExecStartPost=
+	ExecStartPost: ?[]ExecCommand,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#ExecStopPre=
+	ExecStopPre: ?[]ExecCommand,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#ExecStopPost=
+	ExecStopPost: ?[]ExecCommand,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#TimeoutSec=
+	TimeoutUSec: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#RemoveOnStop=
+	RemoveOnStop: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#Symlinks=
+	Symlinks: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#FileDescriptorName=
+	FileDescriptorName: ?string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#TriggerLimitIntervalSec=
+	TriggerLimit: ?RateLimit,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#PollLimitIntervalSec=
+	PollLimit: ?RateLimit,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#DeferTrigger=
+	DeferTrigger: ?SocketDeferTrigger,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#DeferTriggerMaxSec=
+	DeferTriggerMaxUSec: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.socket.html#PassFileDescriptorsToExec=
+	PassFileDescriptorsToExec: ?bool
+)
+
+type SocketRuntime(
+	# PID of the current socket control process
+	ControlPID: ?ProcessId,
+	# Result of socket operation
+	Result: SocketResult,
+	# Result of cleaning operation
+	CleanResult: SocketResult,
+	# Number of current connections
+	NConnections: ?int,
+	# Number of accepted connections
+	NAccepted: ?int,
+	# Number of refused connections
+	NRefused: ?int,
+	# Reference UID
+	UID: ?int,
+	# Reference GID
+	GID: ?int
+)
+
+type SwapContext(
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.swap.html#What=
+	What: string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.swap.html#Priority=
+	Priority: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.swap.html#Options=
+	Options: ?string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.swap.html#TimeoutSec=
+	TimeoutUSec: ?int,
+	# Activate command
+	ExecActivate: ?ExecCommand,
+	# Deactivate command
+	ExecDeactivate: ?ExecCommand
+)
+
+type SwapRuntime(
+	# PID of the current swap control process
+	ControlPID: ?ProcessId,
+	# Result of swap operation
+	Result: SwapResult,
+	# Result of cleaning operation
+	CleanResult: SwapResult,
+	# Reference UID
+	UID: ?int,
+	# Reference GID
+	GID: ?int
+)
+
+type TimerSpec(
+	# Timer base type
+	base: TimerBase,
+	# Timer value in microseconds (for monotonic timers)
+	usec: ?int,
+	# Calendar specification string (for calendar timers)
+	calendar: ?string
+)
+
+type TimerContext(
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.timer.html#OnActiveSec=
+	Timers: ?[]TimerSpec,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.timer.html#Unit=
+	Unit: ?string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.timer.html#OnClockChange=
+	OnClockChange: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.timer.html#OnClockChange=
+	OnTimezoneChange: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.timer.html#AccuracySec=
+	AccuracyUSec: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.timer.html#RandomizedDelaySec=
+	RandomizedDelayUSec: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.timer.html#RandomizedOffsetSec=
+	RandomizedOffsetUSec: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.timer.html#FixedRandomDelay=
+	FixedRandomDelay: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.timer.html#Persistent=
+	Persistent: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.timer.html#WakeSystem=
+	WakeSystem: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.timer.html#RemainAfterElapse=
+	RemainAfterElapse: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.timer.html#DeferReactivation=
+	DeferReactivation: ?bool
+)
+
+type TimerRuntime(
+	# Result of timer operation
+	Result: TimerResult,
+	# Next elapse time in realtime clock
+	NextElapseUSecRealtime: ?int,
+	# Next elapse time in monotonic clock
+	NextElapseUSecMonotonic: ?int,
+	# Last time the timer triggered
+	LastTriggerUSec: ?Timestamp
+)
+
+type ExitStatusSet(
+	# Exit status codes
+	statuses: ?[]int,
+	# Signal names
+	signals: ?[]string
+)
+
+type OpenFile(
+	# Path to the file to open
+	path: string,
+	# Name for the file descriptor
+	fileDescriptorName: string,
+	# Open file flags
+	flags: ?int
+)
+
+# Service-specific context
+type ServiceContext(
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#Type=
+	Type: ?ServiceType,
+	# Index of a file descriptor passed along with the method call to connect to the service's standard input. Only settable at unit creation time via StartTransient(); never set in unit descriptions returned by List().
+	StandardInputFileDescriptor: ?int,
+	# Index of a file descriptor passed along with the method call to connect to the service's standard output. Only settable at unit creation time via StartTransient().
+	StandardOutputFileDescriptor: ?int,
+	# Index of a file descriptor passed along with the method call to connect to the service's standard error. Only settable at unit creation time via StartTransient().
+	StandardErrorFileDescriptor: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#ExitType=
+	ExitType: ?ServiceExitType,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#Restart=
+	Restart: ?ServiceRestart,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#RestartMode=
+	RestartMode: ?ServiceRestartMode,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#PIDFile=
+	PIDFile: ?string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#RestartSec=
+	RestartUSec: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#RestartSteps=
+	RestartSteps: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#RestartMaxDelaySec=
+	RestartMaxDelayUSec: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#RestartRandomizedDelaySec=
+	RestartRandomizedDelayUSec: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#TimeoutStartSec=
+	TimeoutStartUSec: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#TimeoutStopSec=
+	TimeoutStopUSec: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#TimeoutStartFailureMode=
+	TimeoutStartFailureMode: ?ServiceTimeoutFailureMode,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#TimeoutStopFailureMode=
+	TimeoutStopFailureMode: ?ServiceTimeoutFailureMode,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#RuntimeMaxSec=
+	RuntimeMaxUSec: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#RuntimeRandomizedExtraSec=
+	RuntimeRandomizedExtraUSec: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#WatchdogSec=
+	WatchdogUSec: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#RemainAfterExit=
+	RemainAfterExit: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#RootDirectoryStartOnly=
+	RootDirectoryStartOnly: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#GuessMainPID=
+	GuessMainPID: ?bool,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#SuccessExitStatus=
+	SuccessExitStatus: ?ExitStatusSet,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#RestartPreventExitStatus=
+	RestartPreventExitStatus: ?ExitStatusSet,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#RestartForceExitStatus=
+	RestartForceExitStatus: ?ExitStatusSet,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#BusName=
+	BusName: ?string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#NotifyAccess=
+	NotifyAccess: ?NotifyAccess,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#FileDescriptorStoreMax=
+	FileDescriptorStoreMax: ?int,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#FileDescriptorStorePreserve=
+	FileDescriptorStorePreserve: ?ExecPreserveMode,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#USBFunctionDescriptors=
+	USBFunctionDescriptors: ?string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#USBFunctionStrings=
+	USBFunctionStrings: ?string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#OOMPolicy=
+	OOMPolicy: ?OOMPolicy,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#OpenFile=
+	OpenFile: ?[]OpenFile,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#ExtraFileDescriptorNames=
+	ExtraFileDescriptorNames: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#ReloadSignal=
+	ReloadSignal: ?string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#RefreshOnReload=
+	RefreshOnReload: ?[]string,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#ExecCondition=
+	ExecCondition: ?[]ExecCommand,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#ExecStart=
+	ExecStart: ?[]ExecCommand,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#ExecStartPre=
+	ExecStartPre: ?[]ExecCommand,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#ExecStartPost=
+	ExecStartPost: ?[]ExecCommand,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#ExecReload=
+	ExecReload: ?[]ExecCommand,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#ExecReloadPost=
+	ExecReloadPost: ?[]ExecCommand,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#ExecStop=
+	ExecStop: ?[]ExecCommand,
+	# https://www.freedesktop.org/software/systemd/man/262/systemd.service.html#ExecStopPost=
+	ExecStopPost: ?[]ExecCommand
+)
+
+type ServiceRuntime(
+	# Main process PID
+	MainPID: ?ProcessId,
+	# Control process PID
+	ControlPID: ?ProcessId,
+	# Status text set by the service
+	StatusText: ?string,
+	# Status errno set by the service
+	StatusErrno: ?int,
+	# Status D-Bus error set by the service
+	StatusBusError: ?string,
+	# Status Varlink error set by the service
+	StatusVarlinkError: ?string,
+	# Result of service operation
+	Result: ServiceResult,
+	# Result of reload operation
+	ReloadResult: ServiceResult,
+	# Result of cleaning operation
+	CleanResult: ServiceResult,
+	# Result of live mount operation
+	LiveMountResult: ServiceResult,
+	# Number of file descriptors in the store
+	NFileDescriptorStore: ?int,
+	# Number of restarts
+	NRestarts: ?int,
+	# Next restart delay
+	RestartUSecNext: ?int,
+	# Timeout for abort
+	TimeoutAbortUSec: ?int,
+	# Main process execution status
+	ExecMain: ?ExecCommandStatus,
+	# Execution status of ExecCondition commands
+	ExecConditionStatus: ?[]ExecCommandStatus,
+	# Execution status of ExecStartPre commands
+	ExecStartPreStatus: ?[]ExecCommandStatus,
+	# Execution status of ExecStart commands
+	ExecStartStatus: ?[]ExecCommandStatus,
+	# Execution status of ExecStartPost commands
+	ExecStartPostStatus: ?[]ExecCommandStatus,
+	# Execution status of ExecReload commands
+	ExecReloadStatus: ?[]ExecCommandStatus,
+	# Execution status of ExecReloadPost commands
+	ExecReloadPostStatus: ?[]ExecCommandStatus,
+	# Execution status of ExecStop commands
+	ExecStopStatus: ?[]ExecCommandStatus,
+	# Execution status of ExecStopPost commands
+	ExecStopPostStatus: ?[]ExecCommandStatus,
+	# Reference UID
+	UID: ?int,
+	# Reference GID
+	GID: ?int
+)
+
+# A job object (defined in io.systemd.Job)
+type Job(
+	# The numeric job ID
+	Id: int,
+	# The unit name this job operates on
+	Unit: ?string,
+	# The job type
+	JobType: JobType,
+	# Current job state. 'finished' indicates the job has completed; in that case Result is also set.
+	State: ?JobState,
+	# Job result. Only set once the job has reached the 'finished' state.
+	Result: ?JobResult,
+	# Activation details describing what triggered this job, as key-value pairs
+	ActivationDetails: ?[string]string
+)
+
+# List units
+# [Supports 'more' flag]
+method List(
+	# If non-null the name of a unit.
+	name: ?string,
+	# If non-null the PID of a unit. Special value 0 means to take pid of the caller.
+	pid: ?ProcessId,
+	# If non-null the cgroup of a unit
+	cgroup: ?string,
+	# If non-null the invocation ID of a unit
+	invocationID: ?string
+) -&gt; (
+	# Configuration of the unit
+	context: UnitContext,
+	# Runtime information of the unit
+	runtime: UnitRuntime
+)
+
+# Set unit properties
+method SetProperties(
+	# The name of the unit to operate on.
+	name: string,
+	# Whether to apply the change ephemerally or persistently.
+	runtime: bool,
+	# The runtime properties to set.
+	properties: UnitRuntime
+) -&gt; ()
+
+# Create a transient unit and start it
+# [Supports 'more' flag]
+method StartTransient(
+	# Unit context. Must include ID (the unit name). Only the subset of fields settable at creation time is accepted; supplying any other field returns PropertyNotSupported.
+	context: UnitContext,
+	# Job mode. Defaults to replace.
+	mode: ?JobMode,
+	# If true and 'more' is set, stream job state change notifications. Defaults to false.
+	notifyJobChanges: ?bool,
+	# If true and 'more' is set, stream unit runtime notifications on state changes. Defaults to false.
+	notifyUnitChanges: ?bool
+) -&gt; (
+	# Unit context. Set in the final reply.
+	context: ?UnitContext,
+	# Unit runtime state. Set in the final reply and in intermediate streaming notifications when notifyUnitChanges is true.
+	runtime: ?UnitRuntime,
+	# The job that was enqueued. Always set in the final streaming reply; also included in intermediate streaming notifications when notifyJobChanges is true.
+	job: ?Job
+)
+
+# No matching unit found
+error NoSuchUnit(
+	parameter: ?string
+)
+
+# The unit is masked
+error UnitMasked()
+
+# Unit is in a fatal error state
+error UnitError()
+
+# The named property cannot be set (via SetProperties() or at creation time via StartTransient())
+error PropertyNotSupported(
+	property: ?string
+)
+
+# Job for the unit may only be enqueued by dependencies
+error OnlyByDependency()
+
+# A unit that requires D-Bus cannot be started as D-Bus is shutting down
+error DBusShuttingDown()
+
+# A unit with this name already exists
+error UnitExists()
+
+# This unit type does not support transient units
+error UnitTypeNotSupported()
+
+# The unit file content contains invalid settings
+error BadUnitSetting()
+</programlisting>
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="varlink-interface" generated="True" extra-ref="io.systemd.Unit"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="List()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="SetProperties()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="StartTransient()"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="RateLimit"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="Condition"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="UnitContext"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="UnitRuntime"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="Timestamp"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ActivationDetails"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ProcessId"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CGroupDevicePolicy"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ManagedOOMMode"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ManagedOOMPreference"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CGroupPressureWatch"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CGroupTasksMax"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CGroupIODeviceWeight"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CGroupIODeviceLimit"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CGroupIODeviceLatency"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CGroupAddressPrefix"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CGroupSocketBind"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CGroupRestrictNetworkInterfaces"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CGroupNFTSet"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CGroupBPFProgram"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CGroupController"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CGroupDeviceAllow"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CPUSetPartition"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CGroupContext"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CGroupRuntime"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ExecInputType"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ExecOutputType"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ExecUtmpMode"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ExecPreserveMode"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ExecKeyringMode"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="MemoryTHP"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ProtectProc"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ProcSubset"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ProtectSystem"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ProtectHome"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="PrivateTmp"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="PrivateUsers"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ProtectHostname"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ProtectControlGroups"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="PrivatePIDs"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="PrivateBPF"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CPUSchedulingPolicy"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="IOSchedulingClass"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="NUMAPolicy"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="MountPropagationFlag"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="WorkingDirectory"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="PartitionMountOptions"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="BindPath"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="MountImage"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ExtensionImage"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SELinuxContext"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="AppArmorProfile"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SmackProcessLabel"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ResourceLimit"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ResourceLimitTable"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CPUAffinity"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ExecDirectoryQuota"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ExecDirectoryPath"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ExecDirectory"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="TemporaryFilesystem"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="AddressFamilyList"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="FilesystemList"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SystemCallList"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="EnvironmentFile"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="LogFilterPattern"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="LoadCredential"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ImportCredential"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SetCredential"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ExecContext"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="KillMode"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="KillContext"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="AutomountContext"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="AutomountResult"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="AutomountRuntime"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ExecCommand"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ExecCommandStatus"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="MountContext"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="MountResult"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="MountRuntime"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="PathType"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="PathSpec"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="PathContext"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="PathResult"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="PathRuntime"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="OOMPolicy"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ScopeContext"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ScopeResult"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ScopeRuntime"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SocketBindIPv6Only"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SocketTimestamping"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SocketDeferTrigger"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SocketListen"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SocketContext"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SocketResult"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SocketRuntime"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SwapContext"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SwapResult"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SwapRuntime"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="TimerBase"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="TimerSpec"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="TimerContext"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="TimerResult"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="TimerRuntime"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CollectMode"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="EmergencyAction"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ExitStatusSet"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="NotifyAccess"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="OpenFile"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ServiceContext"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ServiceExitType"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ServiceRestart"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ServiceRestartMode"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ServiceResult"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ServiceRuntime"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ServiceTimeoutFailureMode"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ServiceType"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="JobMode"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="JobType"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="JobState"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="JobResult"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="Job"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoSuchUnit"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="UnitMasked"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="UnitError"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="PropertyNotSupported"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="OnlyByDependency"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="DBusShuttingDown"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="UnitExists"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="UnitTypeNotSupported"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="BadUnitSetting"/>
+
+    <!--End of Autogenerated section-->
+
+    </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.Unit</screen> shows the
+    interface definition as served by <replaceable>SERVICE</replaceable>, and
+    <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.Unit.List '{}'</screen>
+    invokes its <function>List</function> method.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.varlink</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

@@ -1,0 +1,215 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" >
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="io.systemd.NamespaceResource"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>io.systemd.NamespaceResource</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>io.systemd.NamespaceResource</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>io.systemd.NamespaceResource</refname>
+    <refpurpose>Allocate transient UID ranges for user namespace, and assign mounts, cgroups and networking devices to them</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><interfacename>io.systemd.NamespaceResource</interfacename> is a Varlink interface implemented by
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>-related
+    components. It can be introspected and called with
+    <citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+    <para>Allocate transient UID ranges for user namespace, and assign mounts, cgroups and networking devices to them</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Interface Definition</title>
+
+    <para>The following interface definition is exposed:</para>
+
+    <programlisting varlink-interface="io.systemd.NamespaceResource">
+# Allocate transient UID ranges for user namespace, and assign mounts, cgroups and networking devices to them
+interface io.systemd.NamespaceResource
+
+# The type of user range allocation to perform.
+type AllocateUserRangeType(
+	# Allocate a transient UID/GID range from the dynamic range pool. This is the default.
+	managed,
+	# Create a user namespace that maps the peer UID/GID to itself instead of allocating a transient UID range.
+	self
+)
+
+# Assigns a UID range to a client-allocated user namespace that has no UID range assigned so far, and registers it for assignment of other resources.
+method AllocateUserRange(
+	# The name for the user namespace, a short string that must be fit to be included in a file name and in a user name. This name is included in the user records announced via NSS and is otherwise useful for debugging.
+	name: string,
+	# Controls whether to mangle the provided name if needed so that it is suitable for naming a user namespace. If true this will shorten the name as necessary or randomize it if that's not sufficient. If null defaults to false.
+	mangleName: ?bool,
+	# The number of UIDs to assign. Must be 1 or 65536. If type is 'self', must be 1.
+	size: int,
+	# The target UID inside the user namespace. If not specified defaults to 0. If type is 'self', must be 0 or unset in which case the peer UID is mapped to itself.
+	target: ?int,
+	# A file descriptor to an allocated userns with no current UID range assignments
+	userNamespaceFileDescriptor: int,
+	# The type of allocation to perform. If 'managed' (the default), a transient UID/GID range is allocated from the dynamic range pool. If 'self', the peer UID/GID is mapped to itself. Defaults to 'managed'.
+	type: ?AllocateUserRangeType,
+	# Number of transient 64K container UID/GID ranges to delegate. These are mapped 1:1 into the user namespace and can be used by nested user namespaces for container workloads. Must be between 0 and 16. Defaults to 0.
+	delegateContainerRanges: ?int,
+	# If true, map the foreign UID range 1:1 into the user namespace.
+	mapForeign: ?bool
+) -&gt; (
+	# The name assigned to the user namespace. (This is particularly interesting in case mangleName was enabled).
+	name: ?string
+)
+
+# Registers an already initialized user namespace for assignment of resources.
+method RegisterUserNamespace(
+	# The name for the user namespace, a short string that must be fit to be included in a file name and in a user name, as in AllocateUserRange().
+	name: string,
+	# Controls whether to mangle the provided name if needed so that it is suitable for naming a user namespace, as in AllocateUserRange()
+	mangleName: ?bool,
+	# A user namespace file descriptor that is fully initialized
+	userNamespaceFileDescriptor: int
+) -&gt; (
+	# The name assigned to the user namespace
+	name: ?string
+)
+
+# Adds a mount to a user namespace previously allocated or registered via AllocateUserRange() or RegisterUserNamespace(). This allowlists the mount for access by the user namespace.
+method AddMountToUserNamespace(
+	# A user namespace file descriptor previously allocated via AllocateUserRange() or registered via RegisterUserNamespace().
+	userNamespaceFileDescriptor: int,
+	# A mount file descriptor for the mount to allowlist for the specified user namespace.
+	mountFileDescriptor: int
+) -&gt; ()
+
+# Adds a cgroup to a user namespace previously allocated or registered via AllocateUserRange() or RegisterUserNamespace(). This passes ownership of the referenced cgroup to the user namespace's root user, and ensures the cgroup gets deleted when the user namespace is released.
+method AddControlGroupToUserNamespace(
+	# A user namespace file descriptor previously allocated via AllocateUserRange() or registered via RegisterUserNamespace().
+	userNamespaceFileDescriptor: int,
+	# A file descriptor referencing a cgroup to assign to the root user of the specified user namespace.
+	controlGroupFileDescriptor: int
+) -&gt; ()
+
+# Adds a network interface to a user namespace previously allocated or registered via AllocateUserRange() or RegisterUserNamespace(). This creates a 'veth' or 'tap' device that is assigned to the user namespace, or owned by its root user.
+method AddNetworkToUserNamespace(
+	# A user namespace file descriptor previously allocated via AllocateUserRange() or registered via RegisterUserNamespace().
+	userNamespaceFileDescriptor: int,
+	# A network namespace file descriptor to assign the network interface to. Only applies to network interfaces of type 'veth'.
+	networkNamespaceFileDescriptor: ?int,
+	# The network interface name to use for the network interface inside the network namespace. Only applies to network interfaces of type 'veth'.
+	namespaceInterfaceName: ?string,
+	# The networking mode, one of 'veth' or 'tap'. If the former is selected a virtual Ethernet link between host and namespace is created. If the latter is selected an Ethernet Tap link is created and a file descriptor is returned for the namespace side.
+	mode: string
+) -&gt; (
+	# The chosen network interface name for the host side of the network.
+	hostInterfaceName: string,
+	# The chosen network interface name for the namespace side of the network. Only applies to network interfaces of type 'veth'.
+	namespaceInterfaceName: ?string,
+	# The file descriptor for the namespace side of the network. Only applies to network interfaces of type 'tap'.
+	interfaceFileDescriptor: ?int
+)
+
+# User namespace delegation via io.systemd.NamespaceResource is not supported.
+error UserNamespaceInterfaceNotSupported()
+
+# A user namespace under the specified name exists already.
+error NameExists()
+
+# The specified user namespace has been registered before.
+error UserNamespaceExists()
+
+# The dynamic UID range is exhausted already.
+error DynamicRangeUnavailable()
+
+# The dynamic UID range is not available on this system.
+error NoDynamicRange()
+
+# The specified user namespace has not been registered.
+error UserNamespaceNotRegistered()
+
+# The specified user namespace has no UID range assigned.
+error UserNamespaceWithoutUserRange()
+
+# The per-user namespace limit of cgroups has been reached.
+error TooManyControlGroups()
+
+# The specified cgroup has already been added to the user namespace.
+error ControlGroupAlreadyAdded()
+
+# The per-user namespace limit of network interfaces has been reached.
+error TooManyNetworkInterfaces()
+
+# The specified number of delegations exceeds the maximum allowed.
+error TooManyDelegations()
+</programlisting>
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="varlink-interface" generated="True" extra-ref="io.systemd.NamespaceResource"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="AllocateUserRangeType"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="AllocateUserRange()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="RegisterUserNamespace()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="AddMountToUserNamespace()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="AddControlGroupToUserNamespace()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="AddNetworkToUserNamespace()"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="UserNamespaceInterfaceNotSupported"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NameExists"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="UserNamespaceExists"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="DynamicRangeUnavailable"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoDynamicRange"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="UserNamespaceNotRegistered"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="UserNamespaceWithoutUserRange"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="TooManyControlGroups"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="ControlGroupAlreadyAdded"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="TooManyNetworkInterfaces"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="TooManyDelegations"/>
+
+    <!--End of Autogenerated section-->
+
+    </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.NamespaceResource</screen> shows the
+    interface definition as served by <replaceable>SERVICE</replaceable>, and
+    <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.NamespaceResource.AllocateUserRange '{}'</screen>
+    invokes its <function>AllocateUserRange</function> method.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.varlink</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

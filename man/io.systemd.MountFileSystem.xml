@@ -1,0 +1,253 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" >
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="io.systemd.MountFileSystem"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>io.systemd.MountFileSystem</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>io.systemd.MountFileSystem</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>io.systemd.MountFileSystem</refname>
+    <refpurpose>APIs for unprivileged mounting.</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><interfacename>io.systemd.MountFileSystem</interfacename> is a Varlink interface implemented by
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>-related
+    components. It can be introspected and called with
+    <citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+    <para>APIs for unprivileged mounting.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Interface Definition</title>
+
+    <para>The following interface definition is exposed:</para>
+
+    <programlisting varlink-interface="io.systemd.MountFileSystem">
+# APIs for unprivileged mounting.
+interface io.systemd.MountFileSystem
+
+# Encodes the designated purpose of a partition.
+type PartitionDesignator(
+	root,
+	usr,
+	home,
+	srv,
+	esp,
+	xbootldr,
+	swap,
+	root_verity,
+	usr_verity,
+	root_verity_sig,
+	usr_verity_sig,
+	tmp,
+	var
+)
+
+# Selects the type of UID/GID mapping to apply.
+type MountMapMode(
+	# Map the caller's UID to root in the user namespace, do not map anything else.
+	root,
+	# Map the foreign UID range to the base UID range in the user namespace (i.e. UID zero and above), covering 64K users.
+	foreign,
+	# Apply an identity (1:1) mapping, but limit it to 64K users.
+	identity,
+	# Determine automatically based on provided directory and caller.
+	auto
+)
+
+# Information about a specific partition.
+type PartitionInfo(
+	# The designator of this partition.
+	designator: PartitionDesignator,
+	# Indicates whether this partition is marked for writable (non-read-only) operations.
+	writable: bool,
+	# Indicates whether this partition is marked for automatic growing.
+	growFileSystem: bool,
+	# Indicates the numeric partition number of this partition, or null if the image does not carry a partition table, and this object covers the whole block device.
+	partitionNumber: ?int,
+	# Indicates the intended CPU architecture of the partition, in case the partition type encodes such information.
+	architecture: ?string,
+	# The partition UUID identifying the partition.
+	partitionUuid: ?string,
+	# The file system type for the mount
+	fileSystemType: string,
+	# The partition label string of this partition.
+	partitionLabel: ?string,
+	# The size of the partition in bytes.
+	size: int,
+	# The start offset of the partition in bytes.
+	offset: int,
+	# A mount file descriptor to assign to a location.
+	mountFileDescriptor: int,
+	# A relative path indicating the intended mount point for this file system, if applicable. May contain multiple paths, for certain partitions that can be mounted to multiple distinct places.
+	mountPoint: ?[]string
+)
+
+# Takes a disk image file descriptor as input, returns a set of mount file descriptors for it, plus meta information about the image and the partitions selected for mounting.
+method MountImage(
+	# File descriptor of the image file to mount and to assign to the user namespace. Must be a regular, i.e. non-O_PATH file descriptor.
+	imageFileDescriptor: int,
+	# File descriptor to the user namespace to assign this image to. If not specified uses the host user namespace.
+	userNamespaceFileDescriptor: ?int,
+	# Mounts the image read-only.
+	readOnly: ?bool,
+	# Grows the contained file systems if necessary and indicated, before mounting them.
+	growFileSystems: ?bool,
+	# Takes a literal password in case of an encrypted image
+	password: ?string,
+	# Takes an image policy string (see systemd.image-policy(7) for details) to apply while mounting the image
+	imagePolicy: ?string,
+	# The mount options to be used for the partitions of the image, keyed by the partition designator. Requires elevated privileges via polkit if specified, the polkit request details will list them in the 'mount_options' field.
+	mountOptions: ?[string]string,
+	# Whether to relax the extension release checks when mounting the image.
+	relaxExtensionReleaseChecks: ?bool,
+	# Whether to automatically reuse already set up dm-verity devices that share the same roothash.
+	veritySharing: ?bool,
+	# File descriptor of the file containing the dm-verity data, if the image is a bare filesystem rather than a DDI.
+	verityDataFileDescriptor: ?int,
+	# The expected dm-verity root hash as an hex encoded string, if the image is a bare filesystem rather than a DDI.
+	verityRootHash: ?string,
+	# The expected signature for the dm-verity root hash as a Base64 encoded string, if the image is a bare filesystem rather than a DDI.
+	verityRootHashSignature: ?string,
+	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	allowInteractiveAuthentication: ?bool
+) -&gt; (
+	# An array with information about contained partitions that have been prepared for mounting, as well as their mount file descriptors.
+	partitions: []PartitionInfo,
+	# Indicates whether the image contains only a single file system, i.e. no partition table.
+	singleFileSystem: bool,
+	# The used image policy.
+	imagePolicy: string,
+	# The size of the image in bytes.
+	imageSize: int,
+	# The sector size of the image in bytes
+	sectorSize: int,
+	# The name of the image
+	imageName: ?string,
+	# The UUID of the image
+	imageUuid: ?string
+)
+
+# Takes a directory file descriptor as input, returns a mount file descriptor.
+method MountDirectory(
+	# Directory file descriptor of the directory to assign to the user namespace. Must be a regular, i.e. non-O_PATH file descriptor.
+	directoryFileDescriptor: int,
+	# File descriptor to the user namespace to assign this directory to. If not specified uses the host user namespace.
+	userNamespaceFileDescriptor: ?int,
+	# Whether to mark the resulting mount file descriptor as read-only. If not specified defaults to false.
+	readOnly: ?bool,
+	# Which kind of UID/GID mapping to apply to the resulting mount file descriptor.
+	mode: ?MountMapMode,
+	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	allowInteractiveAuthentication: ?bool
+) -&gt; (
+	# The freshly allocated mount file descriptor for the mount.
+	mountFileDescriptor: int
+)
+
+# Creates an empty directory, owned by the foreign UID/GID range's root user, returns an open file descriptor to the directory. Access mode will be set to 0700.
+method MakeDirectory(
+	# File descriptor of the directory to create the new directory in. Must be a regular, i.e. non-O_PATH file descriptor.
+	parentFileDescriptor: int,
+	# Name of the directory to create.
+	name: string,
+	# Access mode of the directory to create. Note that the suid, sgid, sticky, world-writable bit is unconditionally masked off.
+	mode: ?int,
+	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	allowInteractiveAuthentication: ?bool
+) -&gt; (
+	# File descriptor referencing the newly created directory.
+	directoryFileDescriptor: int
+)
+
+# Disk image is not compatible with this service.
+error IncompatibleImage()
+
+# Multiple suitable root partitions found.
+error MultipleRootPartitionsFound()
+
+# No suitable root partition found.
+error RootPartitionNotFound()
+
+# The specified image policy disallows mounting this disk image
+error DeniedByImagePolicy()
+
+# The authentication key for this image is not available.
+error KeyNotFound()
+
+# Verity could not be set up.
+error VerityFailure()
+
+# A passed file descriptor has unexpected/forbidden flags set.
+error BadFileDescriptorFlags(
+	# Name of the parameter referencing the file descriptor with one or more bad flags.
+	parameter: string
+)
+</programlisting>
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="varlink-interface" generated="True" extra-ref="io.systemd.MountFileSystem"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="PartitionDesignator"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="PartitionInfo"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="MountMapMode"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="MountImage()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="MountDirectory()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="MakeDirectory()"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="IncompatibleImage"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="MultipleRootPartitionsFound"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="RootPartitionNotFound"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="DeniedByImagePolicy"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="KeyNotFound"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="VerityFailure"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="BadFileDescriptorFlags"/>
+
+    <!--End of Autogenerated section-->
+
+    </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.MountFileSystem</screen> shows the
+    interface definition as served by <replaceable>SERVICE</replaceable>, and
+    <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.MountFileSystem.MountImage '{}'</screen>
+    invokes its <function>MountImage</function> method.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.varlink</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

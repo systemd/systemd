@@ -1,0 +1,744 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" >
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="io.systemd.Network.Link"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>io.systemd.Network.Link</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>io.systemd.Network.Link</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>io.systemd.Network.Link</refname>
+    <refpurpose>Varlink interface io.systemd.Network.Link</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><interfacename>io.systemd.Network.Link</interfacename> is a Varlink interface implemented by
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>-related
+    components. It can be introspected and called with
+    <citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+
+  </refsect1>
+
+  <refsect1>
+    <title>Interface Definition</title>
+
+    <para>The following interface definition is exposed:</para>
+
+    <programlisting varlink-interface="io.systemd.Network.Link">
+interface io.systemd.Network.Link
+
+type LinkState(
+	pending,
+	initialized,
+	configuring,
+	configured,
+	unmanaged,
+	failed,
+	linger
+)
+
+type LinkAddressState(
+	off,
+	degraded,
+	routable
+)
+
+type LinkOnlineState(
+	offline,
+	partial,
+	online
+)
+
+type LinkRequiredAddressFamily(
+	any,
+	ipv4,
+	ipv6,
+	both
+)
+
+type Address(
+	# Address family (AF_INET or AF_INET6)
+	Family: int,
+	# IP address
+	Address: []int,
+	# IP address (human-readable format)
+	AddressString: string,
+	# Peer address for point-to-point interfaces
+	Peer: ?[]int,
+	# Peer address for point-to-point interfaces (human-readable format)
+	PeerString: ?string,
+	# Network prefix length
+	PrefixLength: int,
+	# Configuration source for this address
+	ConfigSource: string,
+	# Address of the configuration provider (DHCP server, router, etc.)
+	ConfigProvider: ?[]int,
+	# Address of the configuration provider (DHCP server, router, etc.) (human-readable format)
+	ConfigProviderString: ?string,
+	# Broadcast address for IPv4 networks
+	Broadcast: ?[]int,
+	# Broadcast address for IPv4 networks (human-readable format)
+	BroadcastString: ?string,
+	# Address scope (RT_SCOPE_* value)
+	Scope: ?int,
+	# Human-readable scope string
+	ScopeString: ?string,
+	# Address flags (IFA_F_* values)
+	Flags: ?int,
+	# Human-readable flags string
+	FlagsString: ?string,
+	# Address label for IPv4
+	Label: ?string,
+	# Preferred lifetime in microseconds
+	PreferredLifetimeUSec: ?int,
+	# Preferred lifetime in microseconds (deprecated, for backward compatibility)
+	PreferredLifetimeUsec: ?int,
+	# Valid lifetime in microseconds
+	ValidLifetimeUSec: ?int,
+	# Valid lifetime in microseconds (deprecated, for backward compatibility)
+	ValidLifetimeUsec: ?int,
+	# Configuration state of this address
+	ConfigState: ?string
+)
+
+type BitRates(
+	# Transmit bitrate in bits per second
+	TxBitRate: int,
+	# Receive bitrate in bits per second
+	RxBitRate: int
+)
+
+type DHCPLease(
+	# Timestamp when the lease was acquired in microseconds
+	LeaseTimestampUSec: ?int,
+	# T1 timeout (lease renewal time) in microseconds
+	Timeout1USec: ?int,
+	# T2 timeout (lease rebinding time) in microseconds
+	Timeout2USec: ?int,
+	# Hostname received from DHCP server
+	Hostname: ?string
+)
+
+type DHCPServer(
+	# Offset from the network address for the DHCP address pool
+	PoolOffset: int,
+	# Size of the DHCP address pool
+	PoolSize: int,
+	# Active DHCP leases assigned by the server
+	Leases: ?[]DHCPServerLease,
+	# Static DHCP leases configured for specific clients
+	StaticLeases: ?[]DHCPServerLease
+)
+
+type DHCPServerLease(
+	# DHCP client identifier
+	ClientId: ?[]int,
+	# Address assigned to the client
+	Address: ?[]int,
+	# Address assigned to the client (human-readable format)
+	AddressString: ?string,
+	# Hostname provided by the DHCP client
+	Hostname: ?string,
+	# Hardware address type (ARPHRD_* value)
+	HardwareAddressType: ?int,
+	# Length of hardware address in bytes
+	HardwareAddressLength: ?int,
+	# Hardware (MAC) address of the DHCP client
+	HardwareAddress: ?[]int,
+	# Lease expiration time in monotonic microseconds
+	ExpirationUSec: ?int,
+	# Lease expiration time in realtime microseconds
+	ExpirationRealtimeUSec: ?int
+)
+
+type DHCPv6Client(
+	# DHCPv6 lease information including timestamps and timeouts
+	Lease: ?DHCPLease,
+	# Delegated prefixes received from DHCPv6 server
+	Prefixes: ?[]DHCPv6ClientPD,
+	# Vendor-specific options received in DHCPv6 response
+	VendorSpecificOptions: ?[]DHCPv6ClientVendorOption,
+	# DHCP Unique Identifier (DUID) of the client
+	DUID: []int
+)
+
+type DHCPv6ClientPD(
+	# Delegated IPv6 prefix
+	Prefix: ?[]int,
+	# Human-readable delegated IPv6 prefix
+	PrefixString: ?string,
+	# Length of the delegated prefix in bits
+	PrefixLength: int,
+	# Preferred lifetime of the prefix in microseconds
+	PreferredLifetimeUSec: ?int,
+	# Valid lifetime of the prefix in microseconds
+	ValidLifetimeUSec: ?int
+)
+
+type DHCPv6ClientVendorOption(
+	# IANA enterprise number identifying the vendor
+	EnterpriseId: int,
+	# Vendor-specific sub-option code
+	SubOptionCode: int,
+	# Raw data of the vendor-specific sub-option
+	SubOptionData: string
+)
+
+type DNS(
+	# Address family (AF_INET or AF_INET6)
+	Family: int,
+	# DNS server IP address
+	Address: []int,
+	# DNS server IP address (human-readable format)
+	AddressString: string,
+	# DNS server port number
+	Port: ?int,
+	# Interface index for link-local DNS servers
+	InterfaceIndex: ?int,
+	# DNS server hostname for DoT/DoH
+	ServerName: ?string,
+	# Configuration source for this DNS server
+	ConfigSource: string,
+	# Address of the configuration provider
+	ConfigProvider: ?[]int,
+	# Address of the configuration provider (human-readable format)
+	ConfigProviderString: ?string
+)
+
+type DNSSECNegativeTrustAnchor(
+	# Domain name for which DNSSEC validation is disabled
+	DNSSECNegativeTrustAnchor: string,
+	# Configuration source for this negative trust anchor
+	ConfigSource: string
+)
+
+type DNSSetting(
+	# Link-Local Multicast Name Resolution setting
+	LLMNR: ?string,
+	# Multicast DNS setting
+	MDNS: ?string,
+	# Whether this connection can be used as a default route for DNS lookups
+	DNSDefaultRoute: ?bool,
+	# DNS-over-TLS mode setting
+	DNSOverTLS: ?string,
+	# Configuration source for this DNS setting
+	ConfigSource: string
+)
+
+type Domain(
+	# DNS search or route domain name
+	Domain: string,
+	# Configuration source for this domain
+	ConfigSource: string,
+	# Address of the configuration provider
+	ConfigProvider: ?[]int,
+	# Address of the configuration provider (human-readable format)
+	ConfigProviderString: ?string
+)
+
+type Interface(
+	# Network interface index
+	Index: int,
+	# Primary interface name
+	Name: string,
+	# Alternative interface names
+	AlternativeNames: ?[]string,
+	# Interface index of the master device (for bridge/bond slaves)
+	MasterInterfaceIndex: ?int,
+	# Interface kind (vlan, bridge, bond, etc.)
+	Kind: ?string,
+	# Interface type (ether, loopback, etc.)
+	Type: string,
+	# Kernel driver name
+	Driver: ?string,
+	# Interface flags (IFF_* values)
+	Flags: int,
+	# Human-readable interface flags
+	FlagsString: string,
+	# Kernel operational state (IF_OPER_* value)
+	KernelOperationalState: int,
+	# Human-readable kernel operational state
+	KernelOperationalStateString: string,
+	# Current MTU in bytes
+	MTU: int,
+	# Minimum allowed MTU in bytes
+	MinimumMTU: int,
+	# Maximum allowed MTU in bytes
+	MaximumMTU: int,
+	# Current hardware (MAC) address
+	HardwareAddress: ?[]int,
+	# Permanent hardware (MAC) address from factory
+	PermanentHardwareAddress: ?[]int,
+	# Broadcast address for Ethernet interfaces
+	BroadcastAddress: ?[]int,
+	# IPv6 link-local address
+	IPv6LinkLocalAddress: ?[]int,
+	# IPv6 link-local address (human-readable format)
+	IPv6LinkLocalAddressString: ?string,
+	# Wireless LAN interface type (NL80211_IFTYPE_* value)
+	WirelessLanInterfaceType: ?int,
+	# Human-readable wireless LAN interface type
+	WirelessLanInterfaceTypeString: ?string,
+	# Wireless network SSID
+	SSID: ?string,
+	# Wireless access point BSSID (MAC address)
+	BSSID: ?[]int,
+	# Administrative state (configuring, configured, etc.)
+	AdministrativeState: LinkState,
+	# Operational state (routable, degraded, etc.)
+	OperationalState: string,
+	# Carrier state (carrier, no-carrier, etc.)
+	CarrierState: string,
+	# Address configuration state
+	AddressState: LinkAddressState,
+	# IPv4 address configuration state
+	IPv4AddressState: LinkAddressState,
+	# IPv6 address configuration state
+	IPv6AddressState: LinkAddressState,
+	# Online state (online, offline, etc.)
+	OnlineState: ?LinkOnlineState,
+	# Path to .network configuration file
+	NetworkFile: ?string,
+	# Paths to .network drop-in configuration files
+	NetworkFileDropins: ?[]string,
+	# Whether this interface is required for online state
+	RequiredForOnline: ?bool,
+	# Required operational state range for considering interface online [min, max]
+	RequiredOperationalStateForOnline: ?[]string,
+	# Required address family for considering interface online
+	RequiredFamilyForOnline: ?LinkRequiredAddressFamily,
+	# Activation policy (up, always-up, manual, etc.)
+	ActivationPolicy: ?string,
+	# Path to .netdev configuration file
+	NetDevFile: ?string,
+	# Paths to .netdev drop-in configuration files
+	NetDevFileDropins: ?[]string,
+	# Path to .link configuration file
+	LinkFile: ?string,
+	# Paths to .link drop-in configuration files
+	LinkFileDropins: ?[]string,
+	# Device path in sysfs
+	Path: ?string,
+	# Hardware vendor name
+	Vendor: ?string,
+	# Hardware model name
+	Model: ?string,
+	# DNS servers configured for this interface
+	DNS: ?[]DNS,
+	# Discovery of Network-designated Resolvers (RFC9463)
+	DNR: ?[]object,
+	# NTP servers configured for this interface
+	NTP: ?[]NTP,
+	# SIP servers configured for this interface
+	SIP: ?[]SIP,
+	# DNS search domains
+	SearchDomains: ?[]Domain,
+	# DNS route-only domains
+	RouteDomains: ?[]Domain,
+	# DNSSEC negative trust anchors
+	DNSSECNegativeTrustAnchors: ?[]DNSSECNegativeTrustAnchor,
+	# DNS resolution settings (LLMNR, mDNS, etc.)
+	DNSSettings: ?[]DNSSetting,
+	# Captive portal detection URL (RFC8910)
+	CaptivePortal: ?string,
+	# IPv6 Neighbor Discovery information
+	NDisc: ?NDisc,
+	# IP addresses configured on this interface
+	Addresses: ?[]Address,
+	# Neighbor entries (ARP/NDP cache)
+	Neighbors: ?[]Neighbor,
+	# Next hops for multipath routing
+	NextHops: ?[]NextHop,
+	# Routes configured on this interface
+	Routes: ?[]Route,
+	# DHCP server configuration and leases
+	DHCPServer: ?DHCPServer,
+	# DHCPv4 client configuration and lease information
+	DHCPv4Client: ?object,
+	# DHCPv6 client configuration and lease information
+	DHCPv6Client: ?DHCPv6Client,
+	# LLDP transmit configuration for this interface
+	LLDP: ?LLDPNeighbor,
+	# Current transmit/receive bitrates from speed meter
+	BitRates: ?BitRates
+)
+
+type LLDPNeighbor(
+	# Chassis identifier in human-readable format
+	ChassisID: ?string,
+	# Raw chassis identifier bytes
+	RawChassisID: []int,
+	# Port identifier in human-readable format
+	PortID: string,
+	# Raw port identifier bytes
+	RawPortID: []int,
+	# Description of the port
+	PortDescription: ?string,
+	# System name of the LLDP neighbor
+	SystemName: ?string,
+	# System description of the LLDP neighbor
+	SystemDescription: ?string,
+	# Enabled capabilities bitmap (bridge, router, WLAN, etc.)
+	EnabledCapabilities: int,
+	# Manufacturer Usage Description URL (RFC8520)
+	MUDURL: ?string,
+	# VLAN identifier
+	VlanID: ?int
+)
+
+type NDisc(
+	# PREF64 (RFC8781) prefixes advertised via IPv6 Router Advertisements
+	PREF64: ?[]Pref64
+)
+
+type Neighbor(
+	# Address family (AF_INET or AF_INET6)
+	Family: int,
+	# IP address of the neighbor
+	Destination: []int,
+	# IP address of the neighbor (human-readable format)
+	DestinationString: string,
+	# Link layer (MAC) address of the neighbor
+	LinkLayerAddress: []int,
+	# Configuration source for this neighbor entry
+	ConfigSource: string,
+	# Configuration state of this neighbor entry
+	ConfigState: string
+)
+
+type NextHop(
+	# Next hop identifier
+	ID: int,
+	# Address family (AF_INET or AF_INET6)
+	Family: int,
+	# Gateway address for this next hop
+	Gateway: ?[]int,
+	# Gateway address for this next hop (human-readable format)
+	GatewayString: ?string,
+	# Next hop flags (RTNH_F_* values)
+	Flags: ?int,
+	# Human-readable flags string
+	FlagsString: ?string,
+	# Routing protocol identifier
+	Protocol: ?int,
+	# Human-readable routing protocol name
+	ProtocolString: ?string,
+	# Whether this is a blackhole next hop (drops packets)
+	Blackhole: ?bool,
+	# Multipath group members with weights for load balancing
+	Group: ?[]NextHopGroup,
+	# Configuration source for this next hop
+	ConfigSource: string,
+	# Address of the configuration provider
+	ConfigProvider: ?[]int,
+	# Address of the configuration provider (human-readable format)
+	ConfigProviderString: ?string,
+	# Configuration state of this next hop
+	ConfigState: ?string
+)
+
+type NextHopGroup(
+	# Next hop identifier in the multipath group
+	ID: int,
+	# Weight for load balancing (higher means more traffic)
+	Weight: int
+)
+
+type NTP(
+	# Address family (AF_INET or AF_INET6) for address-based servers
+	Family: ?int,
+	# NTP server IP address
+	Address: ?[]int,
+	# NTP server IP address (human-readable format)
+	AddressString: ?string,
+	# NTP server
+	Server: ?string,
+	# Configuration source for this NTP server
+	ConfigSource: string,
+	# Address of the configuration provider
+	ConfigProvider: ?[]int,
+	# Address of the configuration provider (human-readable format)
+	ConfigProviderString: ?string
+)
+
+type Pref64(
+	# IPv6 prefix for NAT64/DNS64
+	Prefix: ?[]int,
+	# Human-readable IPv6 prefix
+	PrefixString: ?string,
+	# Length of the prefix in bits
+	PrefixLength: int,
+	# Lifetime of the prefix in microseconds
+	LifetimeUSec: ?int,
+	# Address of router that provided this prefix
+	ConfigProvider: ?[]int,
+	# Address of router that provided this prefix (human-readable format)
+	ConfigProviderString: ?string
+)
+
+type PrivateOption(
+	# DHCP option number
+	Option: ?int,
+	# Raw data of the private DHCP option
+	PrivateOptionData: ?string
+)
+
+type Route(
+	# Address family (AF_INET or AF_INET6)
+	Family: int,
+	# Destination network address
+	Destination: []int,
+	# Destination network address (human-readable format)
+	DestinationString: string,
+	# Destination network prefix length
+	DestinationPrefixLength: int,
+	# Gateway address for this route
+	Gateway: ?[]int,
+	# Gateway address for this route (human-readable format)
+	GatewayString: ?string,
+	# Source address prefix for route selection
+	Source: ?[]int,
+	# Source address prefix for route selection (human-readable format)
+	SourceString: ?string,
+	# Source prefix length
+	SourcePrefixLength: ?int,
+	# Preferred source address for outgoing packets
+	PreferredSource: ?[]int,
+	# Preferred source address for outgoing packets (human-readable format)
+	PreferredSourceString: ?string,
+	# Type of Service (TOS) field
+	TOS: int,
+	# Route scope (RT_SCOPE_* value)
+	Scope: int,
+	# Human-readable scope string
+	ScopeString: ?string,
+	# Routing protocol identifier
+	Protocol: int,
+	# Human-readable routing protocol name
+	ProtocolString: ?string,
+	# Route type (RTN_* value)
+	Type: int,
+	# Human-readable route type
+	TypeString: ?string,
+	# Route priority/metric
+	Priority: int,
+	# Routing table number
+	Table: int,
+	# Human-readable routing table name
+	TableString: ?string,
+	# Route flags (RTM_F_* values)
+	Flags: int,
+	# Human-readable flags string
+	FlagsString: ?string,
+	# Next hop ID for multipath routing
+	NextHopID: ?int,
+	# Maximum Transmission Unit for this route
+	MTU: ?int,
+	# Route preference for IPv6 (low/medium/high)
+	Preference: ?int,
+	# Route lifetime in microseconds
+	LifetimeUSec: ?int,
+	# Configuration source for this route
+	ConfigSource: string,
+	# Address of the configuration provider
+	ConfigProvider: ?[]int,
+	# Address of the configuration provider (human-readable format)
+	ConfigProviderString: ?string,
+	# Configuration state of this route
+	ConfigState: ?string,
+	# Interface index for serialization
+	InterfaceIndex: ?int,
+	# Route metrics (RTAX_* values)
+	Metrics: ?[]int,
+	# TCP congestion control algorithm for this route
+	TCPCongestionControlAlgorithm: ?string
+)
+
+type SIP(
+	# Address family (AF_INET or AF_INET6) for address-based servers
+	Family: ?int,
+	# SIP server IP address
+	Address: ?[]int,
+	# SIP server IP address (human-readable format)
+	AddressString: ?string,
+	# SIP server domain name
+	Domain: ?string,
+	# Configuration source for this SIP server
+	ConfigSource: string,
+	# Address of the configuration provider
+	ConfigProvider: ?[]int,
+	# Address of the configuration provider (human-readable format)
+	ConfigProviderString: ?string
+)
+
+# Bring the specified link up.
+method Up(
+	# Index of the interface. If specified together with InterfaceName, both must reference the same link.
+	InterfaceIndex: ?int,
+	# Name of the interface. If specified together with InterfaceIndex, both must reference the same link.
+	InterfaceName: ?string,
+	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	allowInteractiveAuthentication: ?bool
+) -&gt; ()
+
+# Bring the specified link down.
+method Down(
+	# Index of the interface. If specified together with InterfaceName, both must reference the same link.
+	InterfaceIndex: ?int,
+	# Name of the interface. If specified together with InterfaceIndex, both must reference the same link.
+	InterfaceName: ?string,
+	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	allowInteractiveAuthentication: ?bool
+) -&gt; ()
+
+# Renew DHCP leases on the specified link.
+method Renew(
+	# Index of the interface. If specified together with InterfaceName, both must reference the same link.
+	InterfaceIndex: ?int,
+	# Name of the interface. If specified together with InterfaceIndex, both must reference the same link.
+	InterfaceName: ?string,
+	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	allowInteractiveAuthentication: ?bool
+) -&gt; ()
+
+# Force-renew DHCP server leases on the specified link.
+method ForceRenew(
+	# Index of the interface. If specified together with InterfaceName, both must reference the same link.
+	InterfaceIndex: ?int,
+	# Name of the interface. If specified together with InterfaceIndex, both must reference the same link.
+	InterfaceName: ?string,
+	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	allowInteractiveAuthentication: ?bool
+) -&gt; ()
+
+# Unconditionally reconfigure the specified link.
+method Reconfigure(
+	# Index of the interface. If specified together with InterfaceName, both must reference the same link.
+	InterfaceIndex: ?int,
+	# Name of the interface. If specified together with InterfaceIndex, both must reference the same link.
+	InterfaceName: ?string,
+	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	allowInteractiveAuthentication: ?bool
+) -&gt; ()
+
+# Describe the specified link by index or name.
+method Describe(
+	# Index of the interface. If specified together with InterfaceName, both must reference the same link.
+	InterfaceIndex: ?int,
+	# Name of the interface. If specified together with InterfaceIndex, both must reference the same link.
+	InterfaceName: ?string
+) -&gt; (
+	# Interface description
+	Interface: Interface
+)
+
+# The specified interface is not managed by systemd-networkd.
+error InterfaceUnmanaged()
+</programlisting>
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="varlink-interface" generated="True" extra-ref="io.systemd.Network.Link"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="Up()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="Down()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="Renew()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="ForceRenew()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="Reconfigure()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="Describe()"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="InterfaceUnmanaged"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="Address"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="BitRates"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="DHCPLease"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="DHCPServer"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="DHCPServerLease"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="DHCPv6Client"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="DHCPv6ClientPD"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="DHCPv6ClientVendorOption"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="DNS"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="DNSSECNegativeTrustAnchor"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="DNSSetting"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="Domain"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="Interface"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="LinkState"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="LinkAddressState"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="LinkOnlineState"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="LinkRequiredAddressFamily"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="LLDPNeighbor"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="NDisc"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="Neighbor"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="NextHop"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="NextHopGroup"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="NTP"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="Pref64"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="PrivateOption"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="Route"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SIP"/>
+
+    <!--End of Autogenerated section-->
+
+    </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.Network.Link</screen> shows the
+    interface definition as served by <replaceable>SERVICE</replaceable>, and
+    <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.Network.Link.Up '{}'</screen>
+    invokes its <function>Up</function> method.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.varlink</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

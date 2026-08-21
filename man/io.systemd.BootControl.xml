@@ -1,0 +1,367 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" >
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="io.systemd.BootControl"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>io.systemd.BootControl</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>io.systemd.BootControl</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>io.systemd.BootControl</refname>
+    <refpurpose>Boot Loader control APIs</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><interfacename>io.systemd.BootControl</interfacename> is a Varlink interface implemented by
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>-related
+    components. It can be introspected and called with
+    <citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+    <para>Boot Loader control APIs</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Interface Definition</title>
+
+    <para>The following interface definition is exposed:</para>
+
+    <programlisting varlink-interface="io.systemd.BootControl">
+# Boot Loader control APIs
+interface io.systemd.BootControl
+
+# The type of a boot entry
+type BootEntryType(
+	# Boot Loader Specification Type #1 entries (.conf files)
+	type1,
+	# Boot Loader Specification Type #2 entries (UKIs)
+	type2,
+	# Additional entries reported by boot loader
+	loader,
+	# Automatically generated entries
+	auto
+)
+
+# The source of a boot entry
+type BootEntrySource(
+	# Boot entry found in EFI system partition (ESP)
+	esp,
+	# Boot entry found in XBOOTLDR partition
+	xbootldr
+)
+
+# The operation to execute
+type Operation(
+	# Install the boot loader afresh, creating everything it needs
+	new,
+	# Just update existing boot loader binaries
+	update
+)
+
+# The boot entry token type to use.
+type BootEntryTokenType(
+	# Pick identifiers for type #1 boot entries based on /etc/machine-id
+	machine_id,
+	# Pick identifiers for type #1 boot entries based on the IMAGE_ID= field from /etc/os-release
+	os_image_id,
+	# Pick identifiers for type #1 boot entries based on the ID= field from /etc/os-release
+	os_id,
+	# Pick identifiers for type #1 boot entries based on a manually chosen string
+	literal,
+	# Choose automatically how to pick identifiers for type #1 boot entries
+	auto
+)
+
+# A structure encapsulating an addon of a boot entry
+type BootEntryAddon(
+	# The location of the global addon.
+	globalAddon: ?string,
+	# The location of the local addon.
+	localAddon: ?string,
+	# The command line options by the addon.
+	options: ?string
+)
+
+# An additional file to install
+type BootEntryExtraFile(
+	# The name of the extra file
+	filename: string,
+	# Index into array of file descriptors, pointing to a file descriptor referencing the extra file to copy in. Either this or the 'data' field below must be set – not both, not neither.
+	fileDescriptor: ?int,
+	# Literal data to place in the extra file.
+	data: ?string
+)
+
+# A structure encapsulating a boot entry
+type BootEntry(
+	type: BootEntryType,
+	# The source of the entry
+	source: BootEntrySource,
+	# The string identifier of the entry
+	id: ?string,
+	# Path to the primary definition file for the entry
+	path: ?string,
+	# Directory path of the file system root the entry was found on
+	root: ?string,
+	# The entry's title string
+	title: ?string,
+	# The possibly mangled/augmented title to show for the entry
+	showTitle: ?string,
+	# An explicitly configured sorting key for the enry
+	sortKey: ?string,
+	# The version of the entry
+	version: ?string,
+	# The kernel version from the UKI's .uname section
+	uname: ?string,
+	# Machine ID of the OS installation belonging to the entry, if known
+	machineId: ?string,
+	# EFI architecture name for this entry
+	architecture: ?string,
+	# Command line options to pass to the invoked kernel or EFI binary
+	options: ?string,
+	# Path to the Linux kernel to invoke, relative to the root directory of the file system containing the entry file
+	linux: ?string,
+	# Path to the EFI binary to invoke, relative to the root directory of the file system containing the entry file
+	efi: ?string,
+	# Path to an UKI EFI binary to invoke, relative to the root directory of the file system containing the entry file
+	uki: ?string,
+	# An UKI profile index to invoke. If not specified defaults to the first profile.
+	profile: ?int,
+	# Path to the initrd image to pass to the invoked kernel, relative to the root directory of the file system containing the entry file
+	initrd: ?[]string,
+	# Devicetree file to pass to the invoked kernel, relative to the root directory of the file system containing the entry file
+	devicetree: ?string,
+	# Devicetree overlay file to pass to the invoked kernel, relative to the root directory of the file system containing the entry file
+	devicetreeOverlay: ?[]string,
+	# Indicates whether the boot loader reported this entry on the current boot
+	isReported: bool,
+	# Indicates the number of tries left for this boot entry before it is assumed to be not working.
+	triesLeft: ?int,
+	# Indicates the number of unsuccessful tries already made for this boot entry.
+	triesDone: ?int,
+	# Indicates whether this entry is the default entry.
+	isDefault: ?bool,
+	# Indicates whether this entry has been booted.
+	isSelected: ?bool,
+	# Addon images of the entry.
+	addons: ?[]BootEntryAddon,
+	# Extra files associated with the entry.
+	extras: ?[]string,
+	# Command line options of the entry.
+	cmdline: ?string
+)
+
+# Enumerates boot entries. Method call must be called with 'more' flag set. Each response returns one entry. If no entries are defined returns the NoSuchBootEntry error.
+# [Requires 'more' flag]
+method ListBootEntries() -&gt; (
+	# A boot menu entry structure
+	entry: BootEntry
+)
+
+# Sets the reboot-to-firmware-UI flag of the firmware, if this concept exists. Returns the RebootToFirmwareNotSupported error if not.
+method SetRebootToFirmware(
+	# The new value of the reboot-to-firmware-UI flag
+	state: bool
+) -&gt; ()
+
+# Gets the current state of the reboot-to-firmware-UI flag of the firmware, if this concept exists. Returns the RebootToFirmwareNotSupported error if not.
+method GetRebootToFirmware() -&gt; (
+	# The current state of the reboot-to-firmware-UI flag
+	state: bool
+)
+
+# Install the boot loader on the ESP.
+method Install(
+	# Operation, either 'new' or 'update'
+	operation: Operation,
+	# If true, continue on various failures
+	graceful: ?bool,
+	# Index into array of file descriptors passed along with this message, pointing to file descriptor to root file system to operate on
+	rootFileDescriptor: ?int,
+	# Root directory to operate relative to. If both this and rootFileDescriptor is specified, this is purely informational. If only this is specified, it is what will be used.
+	rootDirectory: ?string,
+	# Path to the EFI System Partition mount point, resolved relative to rootDirectory/rootFileDescriptor if either is set. If not specified the ESP is auto-discovered.
+	espPath: ?string,
+	# Path to the XBOOTLDR partition mount point, resolved relative to rootDirectory/rootFileDescriptor if either is set. If not specified the XBOOTLDR partition is auto-discovered.
+	xbootldrPath: ?string,
+	# Selects how to identify boot entries
+	bootEntryTokenType: ?BootEntryTokenType,
+	# Whether to create the '$BOOT/ENTRY-TOKEN/' directory for Boot Loader Specification Type #1 snippets. If not specified this is decided automatically.
+	makeEntryDirectory: ?bool,
+	# If true the boot loader will be registered in an EFI boot entry via EFI variables, otherwise this is omitted
+	touchVariables: ?bool
+) -&gt; ()
+
+# Unlink a boot menu item
+method Unlink(
+	# Index into array of file descriptors passed along with this message, pointing to file descriptor to root file system to operate on
+	rootFileDescriptor: ?int,
+	# Root directory to operate relative to. If both this and rootFileDescriptor is specified, this is purely informational. If only this is specified, it is what will be used.
+	rootDirectory: ?string,
+	# Path to the EFI System Partition mount point, resolved relative to rootDirectory/rootFileDescriptor if either is set. If not specified the ESP is auto-discovered.
+	espPath: ?string,
+	# Path to the XBOOTLDR partition mount point, resolved relative to rootDirectory/rootFileDescriptor if either is set. If not specified the XBOOTLDR partition is auto-discovered.
+	xbootldrPath: ?string,
+	# Selects how to identify boot entries
+	bootEntryTokenType: ?BootEntryTokenType,
+	# The ID of the boot loader entry to remove.
+	id: ?string,
+	# If true, remove the oldest entry.
+	oldest: ?bool
+) -&gt; ()
+
+# Install a kernel as boot menu item
+method Link(
+	# Index into array of file descriptors passed along with this message, pointing to file descriptor to root file system to operate on
+	rootFileDescriptor: ?int,
+	# Root directory to operate relative to. If both this and rootFileDescriptor is specified, this is purely informational. If only this is specified, it is what will be used.
+	rootDirectory: ?string,
+	# Path to the EFI System Partition mount point, resolved relative to rootDirectory/rootFileDescriptor if either is set. If not specified the ESP is auto-discovered.
+	espPath: ?string,
+	# Path to the XBOOTLDR partition mount point, resolved relative to rootDirectory/rootFileDescriptor if either is set. If not specified the XBOOTLDR partition is auto-discovered.
+	xbootldrPath: ?string,
+	# Selects how to identify boot entries
+	bootEntryTokenType: ?BootEntryTokenType,
+	# The entry title for the newly created boot menu entry
+	entryTitle: ?string,
+	# The entry version for the newly created boot menu entry
+	entryVersion: ?string,
+	# The commit number for the newly created boot menu entry
+	entryCommit: ?int,
+	# Target filename for the kernel image (UKI) in the $BOOT partition
+	kernelFilename: string,
+	# Index into array of file descriptors passed along with this message, pointing to file descriptor to the kernel image to copy
+	kernelFileDescriptor: int,
+	# An array of 'extra' files for this entry, i.e. credentials, confexts, sysexts, addons.
+	extraFiles: ?[]BootEntryExtraFile,
+	# What to set the triesLeft counter of the boot menu entry to initially.
+	triesLeft: ?int,
+	# How much space to always keep free on ESP/XBOOTLDR. Defaults to 1 MiB
+	keepFree: ?int
+) -&gt; (
+	# The IDs of the created boot loader entries.
+	ids: []string
+)
+
+# Like Link(), but automatically discovers the UKI and extra resources staged below /var/lib/systemd/uki/
+method LinkAuto(
+	# Index into array of file descriptors passed along with this message, pointing to file descriptor to root file system to operate on
+	rootFileDescriptor: ?int,
+	# Root directory to operate relative to. If both this and rootFileDescriptor is specified, this is purely informational. If only this is specified, it is what will be used.
+	rootDirectory: ?string,
+	# Path to the EFI System Partition mount point, resolved relative to rootDirectory/rootFileDescriptor if either is set. If not specified the ESP is auto-discovered.
+	espPath: ?string,
+	# Path to the XBOOTLDR partition mount point, resolved relative to rootDirectory/rootFileDescriptor if either is set. If not specified the XBOOTLDR partition is auto-discovered.
+	xbootldrPath: ?string,
+	# Selects how to identify boot entries
+	bootEntryTokenType: ?BootEntryTokenType,
+	# The entry title for the newly created boot menu entry
+	entryTitle: ?string,
+	# The entry version for the newly created boot menu entry
+	entryVersion: ?string,
+	# The commit number for the newly created boot menu entry
+	entryCommit: ?int,
+	# What to set the triesLeft counter of the boot menu entry to initially.
+	triesLeft: ?int,
+	# How much space to always keep free on ESP/XBOOTLDR. Defaults to 1 MiB
+	keepFree: ?int
+) -&gt; (
+	# The IDs of the created boot loader entries.
+	ids: []string
+)
+
+# SetRebootToFirmware() and GetRebootToFirmware() return this if the firmware does not actually support the reboot-to-firmware-UI concept.
+error RebootToFirmwareNotSupported()
+
+# No boot entry defined.
+error NoSuchBootEntry()
+
+# No EFI System Partition (ESP) found.
+error NoESPFound()
+
+# Neither ESP nor XBOOTLDR found, hence no $BOOT location identified.
+error NoDollarBootFound()
+
+# The selected boot entry token could not be determined.
+error BootEntryTokenUnavailable()
+
+# The specified kernel image is not valid.
+error InvalidKernelImage()
+</programlisting>
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="varlink-interface" generated="True" extra-ref="io.systemd.BootControl"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="BootEntryType"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="BootEntrySource"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="BootEntryAddon"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="BootEntryExtraFile"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="BootEntry"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="Operation"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="ListBootEntries()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="SetRebootToFirmware()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="GetRebootToFirmware()"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="BootEntryTokenType"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="Install()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="Unlink()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="Link()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="LinkAuto()"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="RebootToFirmwareNotSupported"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoSuchBootEntry"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoESPFound"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoDollarBootFound"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="BootEntryTokenUnavailable"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="InvalidKernelImage"/>
+
+    <!--End of Autogenerated section-->
+
+    </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.BootControl</screen> shows the
+    interface definition as served by <replaceable>SERVICE</replaceable>, and
+    <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.BootControl.ListBootEntries '{}'</screen>
+    invokes its <function>ListBootEntries</function> method.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.varlink</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

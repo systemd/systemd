@@ -1,0 +1,215 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" >
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="io.systemd.MachineImage"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>io.systemd.MachineImage</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>io.systemd.MachineImage</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>io.systemd.MachineImage</refname>
+    <refpurpose>Varlink interface io.systemd.MachineImage</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><interfacename>io.systemd.MachineImage</interfacename> is a Varlink interface implemented by
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>-related
+    components. It can be introspected and called with
+    <citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+
+  </refsect1>
+
+  <refsect1>
+    <title>Interface Definition</title>
+
+    <para>The following interface definition is exposed:</para>
+
+    <programlisting varlink-interface="io.systemd.MachineImage">
+interface io.systemd.MachineImage
+
+# A enum field allowing to gracefully get metadata
+type AcquireMetadata(
+	# Do not include metadata in the output
+	no,
+	# Include metadata in the output
+	yes,
+	# Include metadata in the output, but gracefully eat up errors
+	graceful
+)
+
+# A enum field allowing to control what type of images are cleaned up
+type CleanPoolMode(
+	# Remove all unused images
+	all,
+	# Remove only hidden images
+	hidden
+)
+
+# List images
+# [Supports 'more' flag]
+method List(
+	# If non-null the name of a image to report details on.
+	name: ?string,
+	# If true the output will include image metadata fields such as 'machineInfo' and 'OSRelease'.
+	acquireMetadata: ?AcquireMetadata,
+	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	allowInteractiveAuthentication: ?bool
+) -&gt; (
+	# Name of the image
+	name: string,
+	# The file system path where image is stored
+	path: ?string,
+	# The type of this image
+	type: string,
+	# The class of this image
+	class: string,
+	# Whether the image is read-only
+	readOnly: bool,
+	# The image creation timestamp
+	creationTimestamp: ?int,
+	# The image creation timestamp
+	modificationTimestamp: ?int,
+	# The image creation timestamp
+	usage: ?int,
+	# The image disk usage (exclusive)
+	usageExclusive: ?int,
+	# The image disk usage (exclusive)
+	limit: ?int,
+	# The image disk usage limit (exclusive)
+	limitExclusive: ?int,
+	# The hostname of the image
+	hostname: ?string,
+	# The machine ID of the image
+	machineId: ?string,
+	# Machine info information of an image. It contains an array of key value pairs read from the machine-info(5) file in the image.
+	machineInfo: ?[]string,
+	# OS release information of an image. It contains an array of key value pairs read from the os-release(5) file in the image.
+	OSRelease: ?[]string
+)
+
+# Update image allowing to rename, toggle read-only flag, or set a limit
+method Update(
+	# The name of an image
+	name: string,
+	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	allowInteractiveAuthentication: ?bool,
+	# If non-null the new name of the image
+	newName: ?string,
+	# If non-null value of the read-only flag of the image
+	readOnly: ?bool,
+	# If non-null value of image quota limit
+	limit: ?int
+) -&gt; ()
+
+# Clone image
+method Clone(
+	# The name of an image
+	name: string,
+	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	allowInteractiveAuthentication: ?bool,
+	# The new name of the image
+	newName: string,
+	# If non-null value of the read-only flag of the image
+	readOnly: ?bool
+) -&gt; ()
+
+# Remove image
+method Remove(
+	# The name of an image
+	name: string,
+	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	allowInteractiveAuthentication: ?bool
+) -&gt; ()
+
+# Sets an overall quota limit on the pool of images
+method SetPoolLimit(
+	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	allowInteractiveAuthentication: ?bool,
+	# New image quota limit
+	limit: int
+) -&gt; ()
+
+# Clean unused images depending on the specified mode. Note that it does not process vendon and host images.
+# [Requires 'more' flag]
+method CleanPool(
+	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	allowInteractiveAuthentication: ?bool,
+	# Allows removing all or only hidden images
+	mode: CleanPoolMode
+) -&gt; (
+	# Image name
+	name: string,
+	# The image disk usage (exclusive)
+	usageExclusive: ?int
+)
+
+# No matching image exists
+error NoSuchImage()
+
+# Too many ongoing background operations
+error TooManyOperations()
+
+# Requested operation is not supported
+error NotSupported()
+</programlisting>
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="varlink-interface" generated="True" extra-ref="io.systemd.MachineImage"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="AcquireMetadata"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="List()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="Update()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="Clone()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="Remove()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="SetPoolLimit()"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="CleanPoolMode"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="CleanPool()"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoSuchImage"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="TooManyOperations"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NotSupported"/>
+
+    <!--End of Autogenerated section-->
+
+    </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.MachineImage</screen> shows the
+    interface definition as served by <replaceable>SERVICE</replaceable>, and
+    <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.MachineImage.List '{}'</screen>
+    invokes its <function>List</function> method.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.varlink</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

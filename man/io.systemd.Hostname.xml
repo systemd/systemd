@@ -1,0 +1,230 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" >
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="io.systemd.Hostname"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>io.systemd.Hostname</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>io.systemd.Hostname</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>io.systemd.Hostname</refname>
+    <refpurpose>APIs for querying and changing the system hostname and related machine metadata.</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><interfacename>io.systemd.Hostname</interfacename> is a Varlink interface implemented by
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>-related
+    components. It can be introspected and called with
+    <citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+    <para>APIs for querying and changing the system hostname and related machine metadata.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Interface Definition</title>
+
+    <para>The following interface definition is exposed:</para>
+
+    <programlisting varlink-interface="io.systemd.Hostname">
+# APIs for querying and changing the system hostname and related machine metadata.
+interface io.systemd.Hostname
+
+# Returns hostname, kernel, OS, hardware, firmware and other machine metadata in one call.
+method Describe(
+	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	allowInteractiveAuthentication: ?bool
+) -&gt; (
+	# The current system hostname.
+	Hostname: string,
+	# The statically configured hostname, from /etc/hostname. Null if none is configured.
+	StaticHostname: ?string,
+	# The pretty (free-form, UTF-8) hostname. Null if none is configured.
+	PrettyHostname: ?string,
+	# The fallback hostname used when neither a static nor a transient hostname is set.
+	DefaultHostname: ?string,
+	# Indicates where the current hostname originates from, one of 'static', 'transient' or 'default'.
+	HostnameSource: string,
+	# The name of an icon representing this system, following the XDG icon naming spec. Null if none is configured.
+	IconName: ?string,
+	# The chassis type of this system, e.g. 'desktop', 'laptop', 'server', 'vm', … Null if unknown.
+	Chassis: ?string,
+	# An unique identifier of the system chassis.
+	ChassisAssetTag: ?string,
+	# The deployment environment of this system, e.g. 'production' or 'staging'. Null if none is configured.
+	Deployment: ?string,
+	# A human-readable description of the physical location of this system. Null if none is configured.
+	Location: ?string,
+	# The operating system kernel name, as reported by uname(2), e.g. 'Linux'.
+	KernelName: string,
+	# The kernel release string, as reported by uname(2).
+	KernelRelease: string,
+	# The kernel version string, as reported by uname(2).
+	KernelVersion: string,
+	# 'Pretty' name of the OS. This is the primary OS identifier that is suitable for presentation to the user. Typically includes a version too, but doesn't have to.
+	OperatingSystemPrettyName: ?string,
+	# 'Fancy' name of the OS; may contain non-ASCII Unicode chars, as well as basic ANSI sequences. This is similar to 'OperatingSystemPrettyName', but is preferably used on terminals that support ANSI sequences and full Unicode.
+	OperatingSystemFancyName: ?string,
+	# The CPE name of the OS, from the CPE_NAME= field of os-release.
+	OperatingSystemCPEName: ?string,
+	# The home URL of the OS, from the HOME_URL= field of os-release.
+	OperatingSystemHomeURL: ?string,
+	# The end-of-support time of the OS, in µs since the UNIX epoch. Null if not known.
+	OperatingSystemSupportEnd: ?int,
+	# The full contents of os-release, as an array of 'KEY=VALUE' strings.
+	OperatingSystemReleaseData: ?[]string,
+	# The OS image identifier, from the IMAGE_ID= field of os-release.
+	OperatingSystemImageID: ?string,
+	# The OS image version, from the IMAGE_VERSION= field of os-release.
+	OperatingSystemImageVersion: ?string,
+	# The full contents of /etc/machine-info, as an array of 'KEY=VALUE' strings.
+	MachineInformationData: ?[]string,
+	# The hardware vendor of this system. Null if not known.
+	HardwareVendor: ?string,
+	# The hardware model of this system. Null if not known.
+	HardwareModel: ?string,
+	# The hardware serial number of this system. Reading it requires privileges. Null if not known.
+	HardwareSerial: ?string,
+	# The hardware SKU (stock keeping unit) of this system. Null if not known.
+	HardwareSKU: ?string,
+	# The hardware version of this system. Null if not known.
+	HardwareVersion: ?string,
+	# The firmware version of this system. Null if not known.
+	FirmwareVersion: ?string,
+	# The firmware vendor of this system. Null if not known.
+	FirmwareVendor: ?string,
+	# The firmware build date, in µs since the UNIX epoch. Null if not known.
+	FirmwareDate: ?int,
+	# The 128-bit machine ID of this system, formatted as a hexadecimal string.
+	MachineID: string,
+	# The 128-bit boot ID of the current boot, formatted as a hexadecimal string.
+	BootID: string,
+	# The DMI product UUID of this system. Reading it requires privileges. Null if not known.
+	ProductUUID: ?string,
+	# The AF_VSOCK context ID (CID) of this system. Null if not known.
+	VSockCID: ?int
+)
+
+# Sets the transient (runtime) hostname.
+method SetHostname(
+	# The transient (runtime) hostname to set. If null the transient hostname is reset, so that the static hostname is used again.
+	newValue: ?string,
+	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	allowInteractiveAuthentication: ?bool
+) -&gt; ()
+
+# Sets the static hostname, stored in /etc/hostname.
+method SetStaticHostname(
+	# The static hostname to set, stored in /etc/hostname. If null the static hostname is removed.
+	newValue: ?string,
+	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	allowInteractiveAuthentication: ?bool
+) -&gt; ()
+
+# Sets the pretty (free-form, UTF-8) hostname.
+method SetPrettyHostname(
+	# The pretty (free-form, UTF-8) hostname to set. If null the pretty hostname is removed.
+	newValue: ?string,
+	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	allowInteractiveAuthentication: ?bool
+) -&gt; ()
+
+# Sets the icon name representing this system.
+method SetIconName(
+	# The icon name to set. If null the icon name is removed.
+	newValue: ?string,
+	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	allowInteractiveAuthentication: ?bool
+) -&gt; ()
+
+# Sets the chassis type of this system.
+method SetChassis(
+	# The chassis type to set. If null the chassis type is removed.
+	newValue: ?string,
+	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	allowInteractiveAuthentication: ?bool
+) -&gt; ()
+
+# Sets the deployment environment of this system.
+method SetDeployment(
+	# The deployment environment to set. If null the deployment is removed.
+	newValue: ?string,
+	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	allowInteractiveAuthentication: ?bool
+) -&gt; ()
+
+# Sets the physical location of this system.
+method SetLocation(
+	# The physical location to set. If null the location is removed.
+	newValue: ?string,
+	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	allowInteractiveAuthentication: ?bool
+) -&gt; ()
+
+# Edits the machine tag list: optionally resets it to 'set', then adds 'add' and removes 'remove'.
+method SetTags(
+	# If specified, the machine tag list is first reset to exactly these tags, before the 'add' and 'remove' fields are applied. If null, the current tag list is used as basis instead.
+	set: ?[]string,
+	# Machine tags to add to the list.
+	add: ?[]string,
+	# Machine tags to remove from the list.
+	remove: ?[]string,
+	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	allowInteractiveAuthentication: ?bool
+) -&gt; ()
+</programlisting>
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="varlink-interface" generated="True" extra-ref="io.systemd.Hostname"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="Describe()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="SetHostname()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="SetStaticHostname()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="SetPrettyHostname()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="SetIconName()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="SetChassis()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="SetDeployment()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="SetLocation()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="SetTags()"/>
+
+    <!--End of Autogenerated section-->
+
+    </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.Hostname</screen> shows the
+    interface definition as served by <replaceable>SERVICE</replaceable>, and
+    <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.Hostname.Describe '{}'</screen>
+    invokes its <function>Describe</function> method.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.varlink</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>
