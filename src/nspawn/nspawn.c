@@ -230,6 +230,16 @@ static unsigned arg_delegate_container_ranges = 0;
 static UserNamespaceOwnership arg_userns_ownership = _USER_NAMESPACE_OWNERSHIP_INVALID;
 static int arg_kill_signal = 0;
 static SettingsMask arg_settings_mask = 0;
+/* Whether read-only was actually asked for, as opposed to arg_read_only, which --volatile= and a
+ * custom root mount also force. Deliberately not derived from arg_settings_mask: that mask is
+ * precedence bookkeeping between the command line and .nspawn files, and --settings= rewrites it
+ * wholesale in both directions - so it answers a different question than 'did the user ask'. */
+static bool arg_read_only_requested = false;
+/* Whether the image or machine image we run was found to be read-only, as reported by
+ * image_is_read_only(): like arg_read_only_requested this is a fact about the input rather than
+ * precedence bookkeeping - an image's bind@ entries cannot be made writable, --volatile= or not,
+ * and dissecting them writable would run fsck()/growfs against it. */
+static bool arg_image_read_only = false;
 static int arg_settings_trusted = -1;
 static char **arg_parameters = NULL;
 static const char *arg_container_service_name = "systemd-nspawn";
@@ -3090,8 +3100,12 @@ static int determine_names(void) {
                         if (r < 0)
                                 return log_oom();
 
-                        if (!arg_ephemeral)
-                                arg_read_only = arg_read_only || image_is_read_only(i);
+                        if (!arg_ephemeral) {
+                                bool ro = image_is_read_only(i);
+
+                                arg_read_only = arg_read_only || ro;
+                                arg_image_read_only = arg_image_read_only || ro;
+                        }
                 } else {
                         r = safe_getcwd(&arg_directory);
                         if (r < 0)
@@ -3986,7 +4000,8 @@ static int outer_child(
                 r = mstack_make_mounts(
                                 mstack,
                                 /* temp_mount_dir= */ directory, /* !! */
-                                mstack_flags);
+                                mstack_flags,
+                                /* uid_shift= */ UID_INVALID);
                 if (r < 0)
                         return log_error_errno(r, "Failed to make .mstack/ mounts: %m");
 
@@ -6577,7 +6592,18 @@ static int run(int argc, char *argv[]) {
                 if (!IN_SET(arg_userns_mode, USER_NAMESPACE_NO, USER_NAMESPACE_MANAGED))
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--mstack= requires managed user namespacing, or user namespace turned off.");
 
-                MStackFlags mstack_flags = arg_read_only ? MSTACK_RDONLY : 0;
+                /* Root and layer images open read-only whenever the tree-wide read-only is on -
+                 * --volatile= included: it force-sets arg_read_only, and in every volatile mode root/
+                 * ends up read-only (a lower layer, the extracted /usr/, or a kept-read-only root),
+                 * so opening its image writable would run fsck()/growfs against it and change it on
+                 * disk. The bind@ images follow suit whenever the read-only is explicit or comes
+                 * from the image itself; only --volatile='s own force-set arg_read_only leaves them
+                 * writable, matching MSTACK_BINDS_RDONLY at assembly. */
+                MStackFlags mstack_flags = 0;
+                if (arg_read_only)
+                        mstack_flags |= MSTACK_RDONLY;
+                if (arg_image_read_only || arg_read_only_requested)
+                        mstack_flags |= MSTACK_BINDS_RDONLY;
                 r = mstack_load(arg_mstack,
                                 /* dir_fd= */ -EBADF,
                                 &mstack);
