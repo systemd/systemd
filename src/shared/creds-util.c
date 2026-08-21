@@ -1715,12 +1715,96 @@ int decrypt_credential_and_warn(const char *validate_name, usec_t validate_times
 
 #endif
 
-int ipc_encrypt_credential(const char *name, usec_t timestamp, usec_t not_after, uid_t uid, const struct iovec *input, CredentialFlags flags, struct iovec *ret) {
+int credential_key_make_scoped(sd_id128_t *with_key) {
+        static const struct {
+                sd_id128_t unscoped;
+                sd_id128_t scoped;
+        } table[] = {
+                { _CRED_AUTO, _CRED_AUTO_SCOPED },
+                { CRED_AES256_GCM_BY_HOST, CRED_AES256_GCM_BY_HOST_SCOPED },
+                {
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC,
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED,
+                },
+                {
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK,
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED,
+                },
+                {
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK,
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK,
+                },
+                {
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_PINNED_SRK,
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED_PINNED_SRK,
+                },
+        };
+
+        assert(with_key);
+
+        FOREACH_ELEMENT(i, table)
+                if (sd_id128_in_set(*with_key, i->unscoped, i->scoped)) {
+                        *with_key = i->scoped;
+                        return 0;
+                }
+
+        return -EOPNOTSUPP;
+}
+
+int credential_key_to_varlink(sd_id128_t with_key, const char **ret) {
+        const char *s;
+
+        assert(ret);
+
+        if (sd_id128_in_set(with_key, _CRED_AUTO, _CRED_AUTO_SCOPED))
+                s = "auto";
+        else if (sd_id128_equal(with_key, _CRED_AUTO_TPM2))
+                s = "tpm2";
+        else if (sd_id128_equal(with_key, _CRED_AUTO_INITRD))
+                s = "auto_initrd";
+        else if (sd_id128_in_set(with_key, CRED_AES256_GCM_BY_HOST, CRED_AES256_GCM_BY_HOST_SCOPED))
+                s = "host";
+        else if (sd_id128_in_set(
+                                with_key,
+                                CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK,
+                                CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK_PINNED_SRK))
+                s = "tpm2_with_public_key";
+        else if (sd_id128_in_set(
+                                with_key,
+                                CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC,
+                                CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED,
+                                CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK,
+                                CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK))
+                s = "host_tpm2";
+        else if (sd_id128_in_set(
+                                with_key,
+                                CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK,
+                                CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED,
+                                CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_PINNED_SRK,
+                                CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED_PINNED_SRK))
+                s = "host_tpm2_with_public_key";
+        else if (sd_id128_equal(with_key, CRED_AES256_GCM_BY_NULL))
+                s = "null";
+        else
+                return -EOPNOTSUPP;
+
+        *ret = s;
+        return 0;
+}
+
+int ipc_encrypt_credential(sd_id128_t with_key, const char *name, usec_t timestamp, usec_t not_after, uid_t uid, const struct iovec *input, CredentialFlags flags, struct iovec *ret) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        const char *with_key_name = NULL;
         int r;
 
         assert(input && iovec_is_valid(input));
         assert(ret);
+
+        if (!sd_id128_in_set(with_key, _CRED_AUTO, _CRED_AUTO_SCOPED)) {
+                r = credential_key_to_varlink(with_key, &with_key_name);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to serialize credential key type: %m");
+        }
 
         r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.Credentials");
         if (r < 0)
@@ -1751,6 +1835,7 @@ int ipc_encrypt_credential(const char *name, usec_t timestamp, usec_t not_after,
                         SD_JSON_BUILD_PAIR_CONDITION(timestamp != USEC_INFINITY, "timestamp", SD_JSON_BUILD_UNSIGNED(timestamp)),
                         SD_JSON_BUILD_PAIR_CONDITION(not_after != USEC_INFINITY, "notAfter",  SD_JSON_BUILD_UNSIGNED(not_after)),
                         SD_JSON_BUILD_PAIR_CONDITION(!FLAGS_SET(flags, CREDENTIAL_ANY_SCOPE), "scope", SD_JSON_BUILD_STRING(uid_is_valid(uid) ? "user" : "system")),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!with_key_name, "withKey", SD_JSON_BUILD_STRING(with_key_name)),
                         SD_JSON_BUILD_PAIR_CONDITION(uid_is_valid(uid), "uid", SD_JSON_BUILD_UNSIGNED(uid)),
                         SD_JSON_BUILD_PAIR_CONDITION((flags & (CREDENTIAL_ALLOW_NULL|CREDENTIAL_REFUSE_NULL)) != 0, "allowNull", SD_JSON_BUILD_BOOLEAN(flags & CREDENTIAL_ALLOW_NULL)),
                         SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", FLAGS_SET(flags, CREDENTIAL_IPC_ALLOW_INTERACTIVE)));
