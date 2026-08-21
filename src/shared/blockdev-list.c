@@ -10,6 +10,7 @@
 #include "device-util.h"
 #include "devnum-util.h"
 #include "errno-util.h"
+#include "path-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -163,6 +164,29 @@ int blockdev_list_one(
 
                 if (devnum_set_and_equal(devno, root_devno) ||
                     devnum_set_and_equal(devno, whole_root_devno))
+                        goto no_match;
+        }
+
+        if (FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_VIRTUAL)) {
+                const char *devpath;
+
+                r = sd_device_get_devpath(dev, &devpath);
+                if (r < 0) {
+                        log_device_warning_errno(dev, r, "Failed to acquire device path of discovered block device '%s', ignoring: %m", node);
+                        goto skipped;
+                }
+
+                if (path_startswith(devpath, "/devices/virtual/"))
+                        goto no_match;
+        }
+
+        if (FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_PARTITIONS)) {
+                r = device_is_devtype(dev, "partition");
+                if (r < 0) {
+                        log_device_warning_errno(dev, r, "Failed to check if device is a partition '%s', ignoring: %m", node);
+                        goto skipped;
+                }
+                if (r > 0)
                         goto no_match;
         }
 
