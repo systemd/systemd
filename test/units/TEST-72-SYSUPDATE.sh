@@ -1182,7 +1182,7 @@ rm -rf "$CONFIGDIR" "$WORKDIR/blobs"
 rm -f "$WORKDIR/source/notifytest-v1.bin" "$WORKDIR/source/SHA256SUMS" \
       "$WORKDIR/notify-recorder.py" "$NOTIFY_LOG"
 
-test_signature_verification() {
+test_signature_verification_gpg() {
     if ! command -v gpg >/dev/null; then
         echo "gpg not available, skipping signature verification test"
         return 0
@@ -1198,12 +1198,12 @@ test_signature_verification() {
         return 0
     fi
 
-    local sigdir="$WORKDIR/sigtest-source"
-    local defdir="$WORKDIR/sigtest-defs"
-    local gpghome="$WORKDIR/sigtest-gpghome"
-    local other_home="$WORKDIR/sigtest-otherhome"
-    local target="$WORKDIR/sigtest-target"
-    local keyring="$WORKDIR/sigtest-keyring"
+    local sigdir="$WORKDIR/sigtest-gpg-source"
+    local defdir="$WORKDIR/sigtest-gpg-defs"
+    local gpghome="$WORKDIR/sigtest-gpg-gpghome"
+    local other_home="$WORKDIR/sigtest-gpg-otherhome"
+    local target="$WORKDIR/sigtest-gpg-target"
+    local keyring="$WORKDIR/sigtest-gpg-keyring"
     local top_fpr keys
 
     SIGTEST_GPGHOME="$gpghome"
@@ -1281,7 +1281,151 @@ EOF
     cmp "$sigdir/payload-v2.raw" "$target/payload-v2.raw"
 }
 
-test_signature_verification
+test_signature_verification_pkcs7() {
+    if ! command -v openssl >/dev/null; then
+        echo "openssl not available, skipping signature verification test"
+        return 0
+    fi
+
+    local sigdir="$WORKDIR/sigtest-pkcs7-source"
+    local defdir="$WORKDIR/sigtest-pkcs7-defs"
+    local target="$WORKDIR/sigtest-pkcs7-target"
+
+    local os
+    os="$(
+        . /etc/os-release || exit
+        printf '%s' "$ID"
+    )"
+    local voa_root="$WORKDIR/sigtest-pkcs7-voa-root"
+    local voa_signing_dir="$voa_root/$os/image/default/x509"
+    local voa_signing="$voa_signing_dir/signing-certificate.pem"
+    local voa_ca_dir="$voa_root/$os/trust-anchor-image/default/x509"
+    local voa_ca="$voa_ca_dir/ca-certificate.pem"
+
+    ossl_cms_sign_manifest() {
+        openssl cms -sign -binary \
+            -in "$sigdir/SHA256SUMS" \
+            -signer "$voa_signing" \
+            -inkey "$WORKDIR/signer-key.pem" \
+            -outform DER \
+            -out "$sigdir/SHA256SUMS.p7s"
+    }
+    ossl_gen_rsa() {
+        local file="$1"
+        openssl genpkey \
+            -algorithm RSA \
+            -out "$file" \
+            -pkeyopt rsa_keygen_bits:2048
+    }
+
+    mkdir -p "$sigdir" "$defdir" "$target" "$voa_ca_dir" "$voa_signing_dir"
+
+    dd if=/dev/urandom of="$sigdir/payload-v1.raw" bs=1024 count=8 status=none
+    (cd "$sigdir" && sha256sum payload-v1.raw > SHA256SUMS)
+
+    ossl_gen_rsa "$WORKDIR/ca-key.pem"
+    openssl req \
+        -new \
+        -x509 \
+        -days 365 \
+        -key "$WORKDIR/ca-key.pem" \
+        -out "$voa_ca" \
+        -subj "/CN=Testing CA"
+
+    ossl_gen_rsa "$WORKDIR/signer-key.pem"
+    openssl req \
+        -new \
+        -key "$WORKDIR/signer-key.pem" \
+        -out "$WORKDIR/signer.csr" \
+        -subj "/CN=Testing Signer"
+
+    cat > "$WORKDIR/codesign.ext" <<EOF
+basicConstraints=critical,CA:FALSE
+keyUsage=critical,digitalSignature
+extendedKeyUsage=codeSigning
+subjectKeyIdentifier=hash
+authorityKeyIdentifier=keyid
+EOF
+    openssl x509 \
+        -req \
+        -in "$WORKDIR/signer.csr" \
+        -CA "$voa_ca" \
+        -CAkey "$WORKDIR/ca-key.pem" \
+        -set_serial 1 \
+        -days 365 \
+        -extfile "$WORKDIR/codesign.ext" \
+        -out "$voa_signing"
+
+    ossl_cms_sign_manifest
+
+    cat >"$defdir/01-sigtest.transfer" <<EOF
+[Source]
+Type=url-file
+Path=file://$sigdir
+MatchPattern=payload-@v.raw
+
+[Target]
+Type=regular-file
+Path=$target
+MatchPattern=payload-@v.raw
+InstancesMax=3
+EOF
+
+    SYSTEMD_VOA_ROOT="$voa_root" "$SYSUPDATE" --definitions="$defdir" check-new
+    SYSTEMD_VOA_ROOT="$voa_root" "$SYSUPDATE" --definitions="$defdir" update
+    cmp "$sigdir/payload-v1.raw" "$target/payload-v1.raw"
+
+    # Negative test: Sign without code signing purpose
+    dd if=/dev/urandom of="$sigdir/payload-v2.raw" bs=1024 count=8 status=none
+
+    openssl x509 \
+        -req \
+        -in "$WORKDIR/signer.csr" \
+        -CA "$voa_ca" \
+        -CAkey "$WORKDIR/ca-key.pem" \
+        -set_serial 2 \
+        -days 365 \
+        -out "$voa_signing"
+
+    (cd "$sigdir" && sha256sum payload-v1.raw payload-v2.raw > SHA256SUMS)
+    ossl_cms_sign_manifest
+
+    if SYSTEMD_VOA_ROOT="$voa_root" "$SYSUPDATE" --definitions="$defdir" update; then
+        echo "ERROR: accepted an update signed with invalid purpose" >&2
+        exit 1
+    fi
+    if [ -f "$target/payload-v2.raw" ]; then
+        echo "ERROR: payload-v2 should not have been installed" >&2
+        exit 1
+    fi
+
+    # Negative test: Sign with certificate not signed by CA
+    dd if=/dev/urandom of="$sigdir/payload-v3.raw" bs=1024 count=8 status=none
+
+    openssl x509 \
+        -req \
+        -in "$WORKDIR/signer.csr" \
+        -days 365 \
+        -extfile "$WORKDIR/codesign.ext" \
+        -key "$WORKDIR/signer-key.pem" \
+        -out "$voa_signing"
+
+
+    (cd "$sigdir" && sha256sum payload-v1.raw payload-v2.raw payload-v3.raw > SHA256SUMS)
+    ossl_cms_sign_manifest
+
+    if SYSTEMD_VOA_ROOT="$voa_root" "$SYSUPDATE" --definitions="$defdir" update; then
+        echo "ERROR: accepted an update signed with a certificate not signed by a trust anchor" >&2
+        exit 1
+    fi
+    if [ -f "$target/payload-v3.raw" ]; then
+        echo "ERROR: payload-v3 should not have been installed" >&2
+        exit 1
+    fi
+}
+
+test_signature_verification_gpg
+test_signature_verification_pkcs7
 
 # Test '**/' as prefix in MatchPattern= for subpaths in SHA256SUMS
 rm -rf "$CONFIGDIR" "$WORKDIR/blobs" "$WORKDIR/source/sub"

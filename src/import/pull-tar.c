@@ -31,6 +31,7 @@
 #include "time-util.h"
 #include "tmpfile-util.h"
 #include "uid-classification.h"
+#include "voa-util.h"
 #include "web-util.h"
 
 typedef enum TarProgress {
@@ -46,6 +47,7 @@ typedef struct TarPull {
 
         ImportFlags flags;
         ImportVerify verify;
+        VOAContext voa_context;
         char *image_root;
 
         PullJob *tar_job;
@@ -479,6 +481,7 @@ static void tar_pull_job_on_finished(PullJob *j) {
 
                 clear_progress_bar(/* prefix= */ NULL);
                 r = pull_verify(p->verify,
+                                p->voa_context,
                                 p->tar_job,
                                 p->checksum_job,
                                 p->signature_job,
@@ -711,6 +714,7 @@ int tar_pull_start(
                 const char *local,
                 ImportFlags flags,
                 ImportVerify verify,
+                VOAContext voa_context,
                 const struct iovec *checksum) {
 
         int r;
@@ -719,6 +723,8 @@ int tar_pull_start(
         assert(verify == _IMPORT_VERIFY_INVALID || verify < _IMPORT_VERIFY_MAX);
         assert(verify == _IMPORT_VERIFY_INVALID || verify >= 0);
         assert((verify < 0) || !iovec_is_set(checksum));
+        assert(voa_context >= 0);
+        assert(voa_context < _VOA_CONTEXT_MAX);
         assert(!(flags & ~IMPORT_PULL_FLAGS_MASK_TAR));
         assert(!(flags & IMPORT_PULL_SETTINGS) || !(flags & IMPORT_DIRECT));
         assert(!(flags & IMPORT_PULL_SETTINGS) || !iovec_is_set(checksum));
@@ -738,6 +744,7 @@ int tar_pull_start(
 
         p->flags = flags;
         p->verify = verify;
+        p->voa_context = voa_context;
 
         /* Set up download job for TAR file */
         r = pull_job_new(&p->tar_job, url, p->glue, p);

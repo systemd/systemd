@@ -169,14 +169,14 @@
       and then written to the target file or partition. This resource type is only available for sources, not
       for targets. The list of available versions of resources of this type is encoded in
       <filename>SHA256SUMS</filename> manifest files, accompanied by
-      <filename>SHA256SUMS.gpg</filename> detached signatures.</para></listitem>
+      <filename>SHA256SUMS.gpg</filename> or <filename>SHA256SUMS.p7s</filename> detached signatures.</para></listitem>
 
       <listitem><para>The <literal>url-tar</literal> resource type is similar, but the file must be a
       <filename>.tar</filename> archive. When an update takes place, the file is decompressed and unpacked
       into a directory or btrfs subvolume. This resource type is only available for sources, not for
       targets. Just like <literal>url-file</literal>, <literal>url-tar</literal> version enumeration makes
       use of <filename>SHA256SUMS</filename> files, authenticated via
-      <filename>SHA256SUMS.gpg</filename>.</para></listitem>
+      <filename>SHA256SUMS.gpg</filename> or <filename>SHA256SUMS.p7s</filename>.</para></listitem>
 
       <listitem><para>The <literal>regular-file</literal> resource type encapsulates a local regular file on
       disk. During updates the file is uncompressed and written to the target file or partition. This
@@ -502,7 +502,8 @@
         <filename>SHA256SUMS</filename> manifest files, via their detached signature files
         <filename>SHA256SUMS.gpg</filename> in combination with the system keyring
         <filename>/usr/lib/systemd/import-pubring.pgp</filename> or
-        <filename>/etc/systemd/import-pubring.pgp</filename>).</para>
+        <filename>/etc/systemd/import-pubring.pgp</filename>, or detached PKCS#7 signatures
+        <filename>SHA256SUMS.p7s</filename> and X.509 certificates discovered in accordance with <ulink url="https://uapi-group.org/specifications/specs/file_hierarchy_for_the_verification_of_os_artifacts/">UAPI.11 File Hierarchy for the Verification of OS Artifacts (VOA)</ulink>, where <literal>$context</literal> is <literal>default</literal>).</para>
 
         <para>This option is essential to provide integrity guarantees for downloaded resources and thus
         should be left enabled, outside of test environments.</para>
@@ -619,7 +620,8 @@
         <para>If the source type is selected as <constant>url-file</constant> or
         <constant>url-tar</constant> this must be a HTTP/HTTPS URL. The URL is suffixed with
         <filename>/SHA256SUMS</filename> to acquire the manifest file, with
-        <filename>/SHA256SUMS.gpg</filename> to acquire the detached signature file for it, and with the file
+        <filename>/SHA256SUMS.gpg</filename> or <filename>/SHA256SUMS.p7s</filename>
+        to acquire the detached signature file for it, and with the file
         names listed in the manifest file in case an update is executed and a resource shall be
         downloaded.</para>
 
@@ -1030,7 +1032,7 @@ InstancesMax=2</programlisting></para>
 
         <itemizedlist>
           <listitem><para><filename>SHA256SUMS</filename> – The manifest file, containing available files and their SHA256 hashes</para></listitem>
-          <listitem><para><filename>SHA256SUMS.gpg</filename> – The detached cryptographic signature for the manifest file</para></listitem>
+          <listitem><para><filename>SHA256SUMS.gpg</filename> or <filename>SHA256SUMS.p7s</filename> – The detached cryptographic signature for the manifest file</para></listitem>
           <listitem><para><filename>foobarOS_7_8b8186b1-2b4e-4eb6-ad39-8d4d18d2a8fb.verity.xz</filename> – The Verity image for version 7</para></listitem>
           <listitem><para><filename>foobarOS_7_f4d1234f-3ebf-47c4-b31d-4052982f9a2f.root.xz</filename> – The root file system image for version 7</para></listitem>
           <listitem><para><filename>foobarOS_7.efi</filename> – The unified kernel image for version 7</para></listitem>
