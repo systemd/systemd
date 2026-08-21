@@ -88,9 +88,6 @@ static int acquire_core_from_journal(sd_journal *j, int fd, char **ret_tmpfile) 
 }
 
 int acquire_core(sd_journal *j, int fd, char **ret_tmpfile, char **ret_path) {
-        const char *data;
-        _cleanup_free_ char *filename = NULL;
-        size_t len;
         int r;
 
         assert(j);
@@ -98,31 +95,10 @@ int acquire_core(sd_journal *j, int fd, char **ret_tmpfile, char **ret_path) {
         assert((fd >= 0) == !ret_path);
 
         /* Look for a coredump on disk first. */
+        const char *data;
+        size_t len;
         r = sd_journal_get_data(j, "COREDUMP_FILENAME", (const void**) &data, &len);
-        if (r == 0) {
-                _cleanup_free_ char *resolved = NULL;
-
-                r = retrieve(data, len, "COREDUMP_FILENAME", &filename);
-                if (r < 0)
-                        return r;
-                assert(r > 0);
-
-                r = chase_and_access(filename, arg_root, CHASE_PREFIX_ROOT, F_OK, &resolved);
-                if (r < 0)
-                        return log_error_errno(r, "Cannot access \"%s%s\": %m", strempty(arg_root), filename);
-
-                free_and_replace(filename, resolved);
-
-                if (ret_path && !ENDSWITH_SET(filename, ".xz", ".lz4", ".zst")) {
-                        *ret_tmpfile = NULL;
-                        *ret_path = TAKE_PTR(filename);
-                        return 0;
-                }
-
-        } else {
-                if (r != -ENOENT)
-                        return log_error_errno(r, "Failed to retrieve COREDUMP_FILENAME field: %m");
-
+        if (r == -ENOENT) {
                 /* If not found, try to obtain a coredump from a COREDUMP field. */
                 r = acquire_core_from_journal(j, fd, ret_tmpfile);
                 if (r < 0)
@@ -131,6 +107,27 @@ int acquire_core(sd_journal *j, int fd, char **ret_tmpfile, char **ret_path) {
                 if (ret_path)
                         *ret_path = NULL;
 
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to retrieve COREDUMP_FILENAME field: %m");
+
+        _cleanup_free_ char *filename = NULL;
+        r = retrieve(data, len, "COREDUMP_FILENAME", &filename);
+        if (r < 0)
+                return r;
+        assert(r > 0);
+
+        _cleanup_free_ char *path = NULL;
+        r = chase_and_access(filename, arg_root, CHASE_PREFIX_ROOT, F_OK, &path);
+        if (r < 0)
+                return log_error_errno(r, "Cannot access \"%s%s\": %m", strempty(arg_root), filename);
+
+        free_and_replace(filename, path);
+
+        if (ret_path && !ENDSWITH_SET(filename, ".xz", ".lz4", ".zst")) {
+                *ret_tmpfile = NULL;
+                *ret_path = TAKE_PTR(filename);
                 return 0;
         }
 
