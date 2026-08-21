@@ -5448,11 +5448,9 @@ static void service_notify_message_process_state(Service *s, char * const *tags)
                 return;
         }
 
-        /* Disallow resurrecting a dying service */
-        if (s->notify_state == NOTIFY_STOPPING)
-                return;
-
         if (strv_contains(tags, "READY=1")) {
+                if (s->notify_state == NOTIFY_STOPPING)
+                        log_unit_error(UNIT(s), "Service resurrecting from STOPPING (to READY). This is no longer supported and will stop working soon!");
 
                 if (s->type == SERVICE_NOTIFY_RELOAD && s->state == SERVICE_START) {
                         r = service_check_reload_signal_handler(s, ", refusing service startup", ", ignoring");
@@ -5498,6 +5496,8 @@ static void service_notify_message_process_state(Service *s, char * const *tags)
                         service_enter_reload_post(s);
 
         } else if (strv_contains(tags, "RELOADING=1")) {
+                if (s->notify_state == NOTIFY_STOPPING)
+                        log_unit_error(UNIT(s), "Service resurrecting from STOPPING (to RELOADING). This is no longer supported and will stop working soon!");
 
                 s->notify_state = NOTIFY_RELOADING;
 
