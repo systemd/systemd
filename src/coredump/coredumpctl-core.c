@@ -29,7 +29,7 @@ int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) {
         _cleanup_close_ int fdt = -EBADF;
         char *temp = NULL;
 
-        assert(!(file && path));         /* At most one can be specified */
+        assert(!!file == !path);         /* file or path must be specified. They must not be specified together. */
         assert(!!path == !!unlink_temp); /* Those must be specified together */
 
         /* Look for a coredump on disk first. */
@@ -87,22 +87,8 @@ int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) {
                 log_debug("Created temporary file %s", temp);
 
                 fd = fdt;
-        } else {
-                /* If neither path or file are specified, we will write to stdout. Let's now check if stdout
-                 * is connected to a tty. We checked that the file exists, or that the core might be stored
-                 * in the journal. In this second case, if we found the entry, in all likelihood we will be
-                 * able to access the COREDUMP= field. In either case, we stop before doing any "real" work,
-                 * i.e. before starting decompression or reading from the file or creating temporary files. */
-                if (!file) {
-                        if (on_tty())
-                                return log_error_errno(SYNTHETIC_ERRNO(ENOTTY),
-                                                       "Refusing to dump core to tty"
-                                                       " (use shell redirection or specify --output).");
-                        file = stdout;
-                }
-
+        } else
                 fd = fileno(file);
-        }
 
         if (filename) {
 #if HAVE_COMPRESSION
@@ -178,11 +164,14 @@ int verb_dump_core(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 f = fopen(arg_output, "we");
                 if (!f)
                         return log_error_errno(errno, "Failed to open \"%s\" for writing: %m", arg_output);
-        }
+        } else if (on_tty())
+                /* We will write core to stdout. Let's refuse if stdout is connected to a tty. */
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTTY),
+                                       "Refusing to dump core to tty (use shell redirection or specify --output).");
 
         (void) print_entry(f ? stdout : stderr, j, /* need_space= */ false, /* table= */ NULL);
 
-        r = save_core(j, f, NULL, NULL);
+        r = save_core(j, f ?: stdout, NULL, NULL);
         if (r < 0)
                 return r;
 
