@@ -6,6 +6,7 @@
 
 #include "chase.h"
 #include "compress.h"
+#include "copy.h"
 #include "coredumpctl.h"
 #include "coredumpctl-core.h"
 #include "coredumpctl-info.h"
@@ -119,17 +120,31 @@ int acquire_core(sd_journal *j, int fd, char **ret_tmpfile, char **ret_path) {
         assert(r > 0);
 
         _cleanup_free_ char *path = NULL;
-        r = chase_and_access(filename, arg_root, CHASE_PREFIX_ROOT, F_OK, &path);
+        _cleanup_close_ int fdf_opath = -EBADF;
+        r = chase(filename, arg_root, CHASE_PREFIX_ROOT | CHASE_MUST_BE_REGULAR, &path, &fdf_opath);
         if (r < 0)
-                return log_error_errno(r, "Cannot access \"%s%s\": %m", strempty(arg_root), filename);
+                return log_error_errno(r, "Failed to open '%s%s': %m", strempty(arg_root), filename);
 
-        free_and_replace(filename, path);
+        Compression c = compression_from_filename(path);
+        if (c == COMPRESSION_NONE) {
+                if (fd >= 0) {
+                        r = copy_bytes(fdf_opath, fd, /* max_bytes= */ UINT64_MAX, /* copy_flags= */ 0);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to dump '%s': %m", path);
+                }
 
-        if (ret_path && !ENDSWITH_SET(filename, ".xz", ".lz4", ".zst")) {
-                *ret_tmpfile = NULL;
-                *ret_path = TAKE_PTR(filename);
+                if (ret_tmpfile)
+                        *ret_tmpfile = NULL;
+                if (ret_path)
+                        *ret_path = TAKE_PTR(path);
+
                 return 0;
         }
+
+#if HAVE_COMPRESSION
+        _cleanup_close_ int fdf = fd_reopen(fdf_opath, O_RDONLY | O_CLOEXEC);
+        if (fdf < 0)
+                return log_error_errno(r, "Failed to open '%s': %m", path);
 
         _cleanup_(unlink_and_freep) char *temp = NULL;
         _cleanup_close_ int fdt = -EBADF;
@@ -141,23 +156,9 @@ int acquire_core(sd_journal *j, int fd, char **ret_tmpfile, char **ret_path) {
                 fd = fdt;
         }
 
-        if (filename) {
-#if HAVE_COMPRESSION
-                _cleanup_close_ int fdf = -EBADF;
-
-                fdf = open(filename, O_RDONLY | O_CLOEXEC);
-                if (fdf < 0)
-                        return log_error_errno(errno, "Failed to open %s: %m", filename);
-
-                r = decompress_stream_by_filename(filename, fdf, fd, -1);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to decompress %s: %m", filename);
-#else
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "Cannot decompress file. Compiled without compression support.");
-#endif
-        } else
-                assert_not_reached();
+        r = decompress_stream(c, fdf, fd, /* max_bytes= */ UINT64_MAX);
+        if (r < 0)
+                return log_error_errno(r, "Failed to decompress '%s': %m", path);
 
         if (ret_tmpfile)
                 *ret_tmpfile = TAKE_PTR(temp);
@@ -165,6 +166,10 @@ int acquire_core(sd_journal *j, int fd, char **ret_tmpfile, char **ret_path) {
                 *ret_path = NULL;
 
         return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "Cannot decompress file. Compiled without compression support.");
+#endif
 }
 
 int verb_dump_core(int argc, char *argv[], uintptr_t _data, void *userdata) {
