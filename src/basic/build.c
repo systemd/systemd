@@ -214,6 +214,12 @@ const char* const systemd_features =
         " -BTF"
 #endif
 
+#if HAVE_BPF_SOCK_READ_XATTR
+        " +BPF_SOCK_READ_XATTR"
+#else
+        " -BPF_SOCK_READ_XATTR"
+#endif
+
 #if HAVE_XKBCOMMON
         " +XKBCOMMON"
 #else

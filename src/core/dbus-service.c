@@ -355,6 +355,8 @@ const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_PROPERTY("RestartMode", "s", property_get_restart_mode, offsetof(Service, restart_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PIDFile", "s", NULL, offsetof(Service, pid_file), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NotifyAccess", "s", property_get_notify_access, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("NotifyRateLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Service, notify_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("NotifyRateLimitBurst", "u", bus_property_get_unsigned, offsetof(Service, notify_ratelimit.burst), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RestartUSec", "t", bus_property_get_usec, offsetof(Service, restart_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RestartSteps", "u", bus_property_get_unsigned, offsetof(Service, restart_steps), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RestartMaxDelayUSec", "t", bus_property_get_usec, offsetof(Service, restart_max_delay_usec), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -687,6 +689,12 @@ static int bus_service_set_transient_property(
 
         if (streq(name, "NotifyAccess"))
                 return bus_set_transient_notify_access(u, name, &s->notify_access, message, flags, reterr_error);
+
+        if (streq(name, "NotifyRateLimitIntervalUSec"))
+                return bus_set_transient_usec(u, name, &s->notify_ratelimit.interval, message, flags, reterr_error);
+
+        if (streq(name, "NotifyRateLimitBurst"))
+                return bus_set_transient_unsigned(u, name, &s->notify_ratelimit.burst, message, flags, reterr_error);
 
         if (streq(name, "PIDFile")) {
                 _cleanup_free_ char *n = NULL;
