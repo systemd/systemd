@@ -407,36 +407,6 @@ int inaccessible_mount_parse(CustomMount **l, size_t *n, const char *s) {
         return 0;
 }
 
-int tmpfs_patch_options(
-                const char *options,
-                uid_t uid_shift,
-                const char *selinux_apifs_context,
-                char **ret) {
-
-        _cleanup_free_ char *buf = NULL;
-
-        assert(ret);
-
-        if (options) {
-                buf = strdup(options);
-                if (!buf)
-                        return -ENOMEM;
-        }
-
-        if (uid_shift != UID_INVALID)
-                if (strextendf_with_separator(&buf, ",", "uid=" UID_FMT ",gid=" UID_FMT, uid_shift, uid_shift) < 0)
-                        return -ENOMEM;
-
-#if HAVE_SELINUX
-        if (selinux_apifs_context)
-                if (strextendf_with_separator(&buf, ",", "context=\"%s\"", selinux_apifs_context) < 0)
-                        return -ENOMEM;
-#endif
-
-        *ret = TAKE_PTR(buf);
-        return !!*ret;
-}
-
 int mount_sysfs(const char *dest, MountSettingsMask mount_settings) {
         _cleanup_free_ char *top = NULL, *full = NULL;;
         unsigned long extra_flags = 0;
