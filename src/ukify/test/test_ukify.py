@@ -543,6 +543,20 @@ def test_sections(kernel_initrd, tmp_path):
     shutil.rmtree(tmp_path)
 
 
+@pytest.mark.parametrize(
+    'name, string_table, match',
+    [
+        (b'/4', None, 'no COFF string table'),
+        (b'/abc', b'\0' * 8, 'not a valid string table offset'),
+        (b'/100', (8).to_bytes(4, 'little') + b'.foo\0', 'out of bounds'),
+        (b'/4', (8).to_bytes(4, 'little') + b'.foo', 'not NUL-terminated'),
+    ],
+)
+def test_pe_resolve_section_name_invalid_input(name, string_table, match):
+    with pytest.raises(ukify.PEError, match=match):
+        ukify.pe_resolve_section_name(name, string_table)
+
+
 def test_addon(tmp_path):
     output = f'{tmp_path}/addon.efi'
     args = [
