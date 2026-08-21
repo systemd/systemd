@@ -3198,16 +3198,16 @@ EOF
                    "$image"
 
     output="$(sfdisk -d "$image")"
-    assert_rc 0 grep -Fq "$image"1" :" <<<"$output"
-    assert_rc 0 grep -Fq "$image"2" :" <<<"$output"
+    assert_rc 0 grep -Fq "${image}1 :" <<<"$output"
+    assert_rc 0 grep -Fq "${image}2 :" <<<"$output"
 
     # Remove the first partition, leaving partition number 1 unused while
     # partition number 2 remains occupied.
     sfdisk --delete "$image" 1
 
     output="$(sfdisk -d "$image")"
-    assert_rc 1 grep -Fq "$image"1" :" <<<"$output"
-    assert_rc 0 grep -Fq "$image"2" :" <<<"$output"
+    assert_rc 1 grep -Fq "${image}1 :" <<<"$output"
+    assert_rc 0 grep -Fq "${image}2 :" <<<"$output"
 
     # Repart should append the new partition after the highest existing
     # partition of the same type instead of filling the lower-numbered gap.
@@ -3218,9 +3218,9 @@ EOF
                    "$image"
 
     output="$(sfdisk -d "$image")"
-    assert_rc 1 grep -Fq "$image"1" :" <<<"$output"
-    assert_rc 0 grep -Fq "$image"2" :" <<<"$output"
-    assert_rc 0 grep -Fq "$image"3" :" <<<"$output"
+    assert_rc 1 grep -Fq "${image}1 :" <<<"$output"
+    assert_rc 0 grep -Fq "${image}2 :" <<<"$output"
+    assert_rc 0 grep -Fq "${image}3 :" <<<"$output"
 
     # A subsequent invocation should not rematch the definitions and modify
     # the partition table again.
