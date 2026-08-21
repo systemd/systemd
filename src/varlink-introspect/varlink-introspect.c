@@ -7,9 +7,12 @@
 
 #include "alloc-util.h"
 #include "build.h"
+#include "fileio.h"
 #include "log.h"
 #include "main-func.h"
+#include "mkdir.h"
 #include "options.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "verbs.h"
 #include "varlink-idl-json.h"
@@ -59,6 +62,37 @@ static int verb_dump(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return 0;
 }
 
+static int verb_export(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        int r;
+
+        assert(argc >= 2);
+        assert(argv[1]);
+
+        r = mkdir_p(argv[1], 0755);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create directory '%s': %m", argv[1]);
+
+        FOREACH_ELEMENT(i, varlink_idl_interfaces) {
+                const sd_varlink_interface *interface = *i;
+                _cleanup_free_ char *path = NULL, *text = NULL;
+
+                /* Same canonical formatting as dump(), see above. */
+                r = sd_varlink_idl_format(interface, &text);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to format interface '%s': %m", interface->name);
+
+                r = asprintf(&path, "%s/%s.varlink", argv[1], interface->name);
+                if (r < 0)
+                        return log_oom();
+
+                r = write_string_file(path, text, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write '%s': %m", path);
+        }
+
+        return 0;
+}
+
 static int verb_dump_json(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         const sd_varlink_interface *interface;
@@ -89,6 +123,7 @@ COMMAND(
 VERB_NOARG(verb_list, "list", "List all built-in Varlink interfaces");
 VERB(verb_dump, "dump", "INTERFACE", 2, 2, 0, "Dump textual IDL for an interface");
 VERB(verb_dump_json, "dump-json", "INTERFACE", 2, 2, 0, "Dump JSON representation of an interface");
+VERB(verb_export, "export", "DIRECTORY", 2, 2, 0, "Export all interfaces as canonical IDL files");
 VERB_COMMON_HELP_AUTO("systemd-varlink-introspect");
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
