@@ -2451,9 +2451,10 @@ static int unit_log_resources(Unit *u) {
                     dual_timestamp_is_set(&u->inactive_enter_timestamp)) {
                         usec_t wall_clock_usec = usec_sub_unsigned(u->inactive_enter_timestamp.monotonic, u->inactive_exit_timestamp.monotonic);
                         if (strextendf_with_separator(&message, ", ",
-                                                      "Consumed %s CPU time over %s wall clock time",
+                                                      "Consumed %s CPU time over %s wall clock time (%.2fx)",
                                                       FORMAT_TIMESPAN(cpu_nsec / NSEC_PER_USEC, USEC_PER_MSEC),
-                                                      FORMAT_TIMESPAN(wall_clock_usec, USEC_PER_MSEC)) < 0)
+                                                      FORMAT_TIMESPAN(wall_clock_usec, USEC_PER_MSEC),
+                                                      wall_clock_usec > 0 ? (double) (cpu_nsec / NSEC_PER_USEC) / wall_clock_usec : 0.0) < 0)
                                 return log_oom();
                 } else {
                         if (strextendf_with_separator(&message, ", ",
