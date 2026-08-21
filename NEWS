@@ -600,6 +600,11 @@ CHANGES WITH 261:
         * A new per-partition Discard= setting may be used to control
           the persistent "allow-discards" flag of LUKS encrypted partitions.
 
+        * CopyFiles= lines can now contain a "move" flag which causes the
+          source files and directories to be removed after they have been
+          successfully copied into the partition. Files excluded from the copy
+          (e.g. via ExcludeFiles=) are left in place.
+
         Changes in systemd-sysupdate:
 
         * systemd-sysupdate now emits READY=1 via sd_notify() after the

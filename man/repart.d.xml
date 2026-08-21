@@ -478,6 +478,56 @@
             <xi:include href="version-info.xml" xpointer="v258"/></listitem>
 
           </varlistentry>
+
+          <varlistentry>
+            <term><varname>move</varname></term>
+            <listitem><para>If specified, the source files and directories will be removed after being
+            successfully copied to the newly created partition. This option takes no value. This can be
+            useful to implement move semantics when populating partitions, either from temporary staging
+            directories or when reorganizing an existing system (e.g., moving <filename>/var</filename> to
+            a separate partition during first boot).</para>
+
+            <para>The removal is performed only after all partitions have been populated and the partition
+            table has been written, so that source files are removed exclusively once the copied data has been
+            durably committed. Sources are therefore never removed during a dry run (see
+            <option>--dry-run=</option> in
+            <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>).
+            If an error occurs while copying, the source is left untouched. The removal is however not
+            transactional with respect to the overall operation: should the removal itself fail partway
+            through, source files that were already removed are not restored.</para>
+
+            <para>The files are removed from the copy source, i.e. the directory specified with
+            <option>--copy-source=</option>, or — if that is not used — the <option>--root=</option> root, or,
+            if neither is specified, the host's root directory. The removal is permanent and irreversible, and
+            the source must be writable for it to succeed. Use this option with care, in particular when the
+            copy source is the running host. Note that <option>--image=</option> is mounted read-only, hence
+            this option cannot be combined with it: such a configuration is refused up-front, before anything
+            is written. (It is accepted with a warning when <option>--dry-run=yes</option> is used, as nothing
+            is removed then.) Use <option>--copy-source=</option> to point at a writable directory
+            instead.</para>
+
+            <para>When the source is a directory, only its contents are removed while the directory itself is
+            kept. Files that were excluded from the copy (for example via <varname>ExcludeFiles=</varname>, or —
+            when populating the root partition — the mount points of other partitions) are never copied and are
+            therefore left in place. Any directory below the source that turns out to be a mount point of a
+            different file system is never descended into during removal, since whatever is mounted there does
+            not belong to the copy source; the mount point itself is left in place too. Note that this is not
+            generally true of the copy step, which may still copy across such a mount point (unless it was
+            explicitly excluded), so a nested mount that isn't otherwise excluded can end up duplicated into the
+            new partition without its original being removed. btrfs subvolumes encountered below the source are
+            emptied but never removed themselves, since a subvolume is a first class object of the file system
+            that may be referenced by snapshots, quota groups or <option>subvol=</option> mount options, and
+            cannot be restored by recreating a directory. Directories that still hold any such retained entries
+            are kept as well. If any file below the source cannot be copied (for example a device node or
+            symlink on a file system or in an environment that does not support it), the operation fails and the
+            source is left intact rather than removing files that were not copied. If the top-level source path
+            given in <varname>CopyFiles=</varname> is itself a symbolic link, its target's contents are what get
+            copied (as usual for <varname>CopyFiles=</varname>), but only the symbolic link itself is removed,
+            not the file it points to, since that file may be referenced from elsewhere.</para>
+
+            <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+
+          </varlistentry>
         </variablelist>
 
         <para>This option has no effect if the partition already exists: it cannot be used to copy additional

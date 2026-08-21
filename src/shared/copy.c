@@ -46,11 +46,6 @@
  * reasonably call the progress function still */
 #define PROGRESS_STEP_SIZE (1U*U64_MB)
 
-/* A safety net for descending recursively into file system trees to copy. On Linux PATH_MAX is 4096, which means the
- * deepest valid path one can build is around 2048, which we hence use as a safety net here, to not spin endlessly in
- * case of bind mount cycles and suchlike. */
-#define COPY_DEPTH_MAX 2048U
-
 static ssize_t try_copy_file_range(
                 int fd_in, loff_t *off_in,
                 int fd_out, loff_t *off_out,

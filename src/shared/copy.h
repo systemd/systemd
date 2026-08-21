@@ -3,6 +3,11 @@
 
 #include "forward.h"
 
+/* A safety net for descending recursively into file system trees to copy. On Linux PATH_MAX is 4096, which means the
+ * deepest valid path one can build is around 2048, which we hence use as a safety net here, to not spin endlessly in
+ * case of bind mount cycles and suchlike. */
+#define COPY_DEPTH_MAX 2048U
+
 typedef enum CopyFlags {
         COPY_MERGE                        = 1 << 0,  /* Merge existing trees with our new one to copy */
         COPY_REPLACE                      = 1 << 1,  /* Replace an existing file if there's one */
