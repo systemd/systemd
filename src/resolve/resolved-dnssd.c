@@ -11,10 +11,13 @@
 #include "extract-word.h"
 #include "hashmap.h"
 #include "hexdecoct.h"
+#include "log-link.h"
 #include "path-util.h"
 #include "resolved-conf.h"
+#include "resolved-dns-scope.h"
 #include "resolved-dns-zone.h"
 #include "resolved-dnssd.h"
+#include "resolved-link.h"
 #include "resolved-manager.h"
 #include "specifier.h"
 #include "string-util.h"
@@ -50,8 +53,10 @@ DnssdRegisteredService *dnssd_registered_service_free(DnssdRegisteredService *se
         if (!service)
                 return NULL;
 
-        if (service->manager)
-                hashmap_remove(service->manager->dnssd_registered_services, service->id);
+        assert(hashmap_isempty(service->attachments));
+
+        /* Constructor failure may happen after owner tracking has been set up. */
+        service->bus_track = sd_bus_track_unref(service->bus_track);
 
         dns_resource_record_unref(service->ptr_rr);
         dns_resource_record_unref(service->sub_ptr_rr);
@@ -64,18 +69,68 @@ DnssdRegisteredService *dnssd_registered_service_free(DnssdRegisteredService *se
         free(service->type);
         free(service->subtype);
         free(service->name_template);
+        hashmap_free(service->attachments);
 
         return mfree(service);
+}
+
+DnssdRegisteredService *dnssd_registered_service_remove(DnssdRegisteredService *service, bool send_goodbye) {
+        Manager *manager;
+        DnssdServiceAttachment *attachment;
+
+        if (!service)
+                return NULL;
+
+        manager = service->manager;
+
+        /* Stop owner tracking first, so explicit removal cannot race the owner-disappearance callback. */
+        service->bus_track = sd_bus_track_unref(service->bus_track);
+
+        while ((attachment = hashmap_first(service->attachments)))
+                dns_scope_remove_dnssd_service(attachment->scope, service, send_goodbye);
+
+        if (manager)
+                hashmap_remove(manager->dnssd_registered_services, service->id);
+
+        return dnssd_registered_service_free(service);
+}
+
+void dnssd_registered_service_attach(DnssdRegisteredService *service) {
+        Link *link;
+        int r;
+
+        assert(service);
+        assert(service->manager);
+        assert(service->ptr_rr);
+
+        HASHMAP_FOREACH(link, service->manager->links) {
+                if (link_get_mdns_support(link) != RESOLVE_SUPPORT_YES)
+                        continue;
+
+                if (link->mdns_ipv4_scope) {
+                        r = dns_scope_add_dnssd_service(link->mdns_ipv4_scope, service);
+                        if (r < 0)
+                                log_link_warning_errno(link, r,
+                                                       "Failed to attach DNS-SD service '%s' to IPv4 scope, ignoring: %m",
+                                                       service->id);
+                }
+
+                if (link->mdns_ipv6_scope) {
+                        r = dns_scope_add_dnssd_service(link->mdns_ipv6_scope, service);
+                        if (r < 0)
+                                log_link_warning_errno(link, r,
+                                                       "Failed to attach DNS-SD service '%s' to IPv6 scope, ignoring: %m",
+                                                       service->id);
+                }
+        }
 }
 
 void dnssd_registered_service_clear_on_reload(Hashmap *services) {
         DnssdRegisteredService *service;
 
         HASHMAP_FOREACH(service, services)
-                if (service->config_source == RESOLVE_CONFIG_SOURCE_FILE) {
-                        hashmap_remove(services, service->id);
-                        dnssd_registered_service_free(service);
-                }
+                if (service->config_source == RESOLVE_CONFIG_SOURCE_FILE)
+                        dnssd_registered_service_remove(service, /* send_goodbye= */ true);
 }
 
 static int dnssd_id_from_path(const char *path, char **ret_id) {
@@ -158,13 +213,13 @@ static int dnssd_registered_service_load(Manager *manager, const char *path) {
                 TAKE_PTR(txt_data);
         }
 
-        r = hashmap_ensure_put(&manager->dnssd_registered_services, &string_hash_ops, service->id, service);
-        if (r < 0)
-                return r;
-
         service->manager = manager;
 
         r = dnssd_update_rrs(service);
+        if (r < 0)
+                return r;
+
+        r = hashmap_ensure_put(&manager->dnssd_registered_services, &string_hash_ops, service->id, service);
         if (r < 0)
                 return r;
 

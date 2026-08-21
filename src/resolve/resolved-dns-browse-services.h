@@ -8,6 +8,7 @@
 #include "dns-rr.h"
 
 typedef struct DnsServiceBrowser DnsServiceBrowser;
+typedef struct DnsServiceBrowserUpdate DnsServiceBrowserUpdate;
 typedef struct DnssdDiscoveredService DnssdDiscoveredService;
 typedef struct DnsQuery DnsQuery;
 typedef struct DnsScope DnsScope;
@@ -41,6 +42,9 @@ struct DnsServiceBrowser {
         unsigned n_ref;
         Manager *manager;
         sd_varlink *link;
+        sd_bus_track *bus_track;
+        char *bus_owner;
+        char *bus_path;
         DnsQuestion *question_idna;
         DnsQuestion *question_utf8;
         uint64_t flags;
@@ -49,10 +53,23 @@ struct DnsServiceBrowser {
         DnsResourceKey *key;
         int ifindex;
         uint64_t token;
+        DnsQuery *query;
+        int (*on_updates)(DnsServiceBrowser *sb, DnsServiceBrowserUpdate *updates);
         LIST_HEAD(DnssdDiscoveredService, dns_services);
 };
 
+struct DnsServiceBrowserUpdate {
+        const char *update;
+        int family;
+        char *name;
+        char *type;
+        char *domain;
+        int ifindex;
+        LIST_FIELDS(DnsServiceBrowserUpdate, updates);
+};
+
 DnsServiceBrowser *dns_service_browser_free(DnsServiceBrowser *sb);
+void dns_service_browser_stop(DnsServiceBrowser *sb);
 void dns_remove_service(DnsServiceBrowser *sb, DnssdDiscoveredService *service);
 DnssdDiscoveredService *dns_service_free(DnssdDiscoveredService *service);
 
@@ -86,5 +103,13 @@ int dns_subscribe_browse_service(
                 const char *type,
                 int ifindex,
                 uint64_t flags);
+int dns_service_browser_new(
+                Manager *m,
+                DnsServiceBrowser **ret,
+                const char *domain,
+                const char *type,
+                int ifindex,
+                uint64_t flags,
+                int (*on_updates)(DnsServiceBrowser *sb, DnsServiceBrowserUpdate *updates));
 int mdns_notify_browsers_unsolicited_updates(Manager *m, DnsAnswer *answer, int owner_family);
 int mdns_notify_browsers_goodbye(DnsScope *scope);
