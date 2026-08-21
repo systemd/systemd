@@ -1988,19 +1988,20 @@ static int verb_flush_caches(int argc, char *argv[], uintptr_t _data, void *user
 VERB(verb_reset_server_features, "reset-server-features", NULL, VERB_ANY, 1, 0,
      "Forget learnt DNS server feature levels");
 static int verb_reset_server_features(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
-        r = acquire_bus(&bus);
-        if (r < 0)
-                return r;
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
-        r = bus_call_method(bus, bus_resolve_mgr, "ResetServerFeatures", &error, NULL, NULL);
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        r = sd_varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve.Monitor");
         if (r < 0)
-                return log_error_errno(r, "Failed to reset server features: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to connect to /run/systemd/resolve/io.systemd.Resolve.Monitor: %m");
 
-        return 0;
+        return varlink_callbo_and_log(
+                        vl,
+                        "io.systemd.Resolve.Monitor.ResetServerFeatures",
+                        /* reply = */ NULL,
+                        SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password));
 }
 
 static int print_question(char prefix, const char *color, sd_json_variant *question) {
