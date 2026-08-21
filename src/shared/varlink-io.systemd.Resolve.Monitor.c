@@ -137,6 +137,10 @@ static SD_VARLINK_DEFINE_METHOD(
                 FlushCaches,
                 VARLINK_DEFINE_POLKIT_INPUT);
 
+static SD_VARLINK_DEFINE_METHOD(
+                ResetServerFeatures,
+                VARLINK_DEFINE_POLKIT_INPUT);
+
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Resolve_Monitor,
                 "io.systemd.Resolve.Monitor",
@@ -170,4 +174,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("Sends the complete global and per-link DNS configurations when any changes are made to them. The current configurations are given immediately when this method is invoked."),
                 &vl_method_SubscribeDNSConfiguration,
                 SD_VARLINK_SYMBOL_COMMENT("Flushes all DNS resource record caches the service maintains locally."),
-                &vl_method_FlushCaches);
+                &vl_method_FlushCaches,
+                SD_VARLINK_SYMBOL_COMMENT("Flushes all feature level information the resolver learnt about specific servers, and ensures that the server feature probing logic is started from the beginning with the next look-up request."),
+                &vl_method_ResetServerFeatures);
