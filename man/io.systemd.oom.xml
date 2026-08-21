@@ -22,29 +22,40 @@
 
   <refsect1>
     <title>Description</title>
-
-    <para><interfacename>io.systemd.oom</interfacename> is a Varlink interface implemented by
-    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>-related
-    components. It can be introspected and called with
-    <citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
-
-
+    <para><interfacename>io.systemd.oom</interfacename> is the internal interface between the
+    service manager (<citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+    PID 1) and <citerefentry><refentrytitle>systemd-oomd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    served by the latter on the <filename>/run/systemd/oom/io.systemd.ManagedOOM</filename> socket.
+    PID 1 watches unit cgroups and reports them to systemd-oomd via
+    <function>ReportManagedOOMCGroups()</function>, together with the
+    <varname>ManagedOOMMode</varname> configured per unit (for example
+    <literal>kill</literal>) and the involved <varname>ControlGroup</varname> properties such as
+    pressure limits and property rules. It is not intended to be consumed by third-party
+    programs.</para>
   </refsect1>
 
+  <refsect1>
+        <title>Security</title>
+
+    <para>The interface is an implementation detail of the PID 1 ↔ systemd-oomd protocol. The
+    socket is owned by the system oomd instance; callers other than PID 1 have no business
+    invoking it.</para>
+
+  </refsect1>
   <refsect1>
     <title>Interface Definition</title>
 
     <para>The following interface definition is exposed:</para>
 
     <programlisting varlink-interface="io.systemd.oom">
-interface io.systemd.oom
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd.oom
 
-type ManagedOOMMode(
+<emphasis role="varlink-keyword">type</emphasis> ManagedOOMMode(
 	auto,
 	kill
 )
 
-type ControlGroup(
+<emphasis role="varlink-keyword">type</emphasis> ControlGroup(
 	mode: ManagedOOMMode,
 	path: string,
 	property: string,
@@ -53,7 +64,7 @@ type ControlGroup(
 	rules: ?[]string
 )
 
-method ReportManagedOOMCGroups(
+<emphasis role="varlink-keyword">method</emphasis> ReportManagedOOMCGroups(
 	cgroups: []ControlGroup
 ) -&gt; ()
 </programlisting>
@@ -74,14 +85,15 @@ method ReportManagedOOMCGroups(
 
   <refsect1>
     <title>Examples</title>
+    <example>
+      <title>Inspect the interface exposed by systemd-oomd</title>
 
-    <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.oom</screen> shows the
-    interface definition as served by <replaceable>SERVICE</replaceable>, and
-    <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.oom.ReportManagedOOMCGroups '{}'</screen>
-    invokes its <function>ReportManagedOOMCGroups</function> method.</para>
+      <programlisting>$ varlinkctl introspect /run/systemd/oom/io.systemd.ManagedOOM \
+    io.systemd.oom</programlisting>
+    </example>
   </refsect1>
 
-  <refsect1>
+  <refsect1><title>History</title><para>The io.systemd.oom interface was added in version 249.</para><para><varname>ControlGroup</varname>, <varname>ManagedOOMMode</varname>, and <function>ReportManagedOOMCGroups()</function> were added in version 249.</para></refsect1><refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>

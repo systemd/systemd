@@ -37,12 +37,12 @@
     <para>The following interface definition is exposed:</para>
 
     <programlisting varlink-interface="io.systemd.oom.Prekill">
-# Prekill notifications from oomd
-interface io.systemd.oom.Prekill
+<emphasis role="varlink-comment"># Prekill notifications from oomd</emphasis>
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd.oom.Prekill
 
-# Notify about an imminent OOM kill
-method Notify(
-	# The cgroup which is going to be killed
+<emphasis role="varlink-comment"># Notify about an imminent OOM kill</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> Notify(
+	<emphasis role="varlink-comment"># The cgroup which is going to be killed</emphasis>
 	cgroup: string
 ) -&gt; ()
 </programlisting>
@@ -63,10 +63,10 @@ method Notify(
     <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.oom.Prekill</screen> shows the
     interface definition as served by <replaceable>SERVICE</replaceable>, and
     <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.oom.Prekill.Notify '{}'</screen>
-    invokes its <function>Notify</function> method.</para>
+    invokes its <function>Notify()</function> method.</para>
   </refsect1>
 
-  <refsect1>
+  <refsect1><title>History</title><para>The io.systemd.oom.Prekill interface was added in version 260.</para><para><function>Notify()</function> was added in version 260.</para></refsect1><refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>

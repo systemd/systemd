@@ -37,11 +37,11 @@
     <para>The following interface definition is exposed:</para>
 
     <programlisting varlink-interface="io.systemd.SysInstall">
-# API for installing the OS to another block device.
-interface io.systemd.SysInstall
+<emphasis role="varlink-comment"># API for installing the OS to another block device.</emphasis>
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd.SysInstall
 
-# Progress phase identifiers. Note that we might add more phases here, and thus identifiers. Frontends can choose to display the phase to the user in some human readable form, or not do that, but if they do it and they receive a notification for a so far unknown phase, they should just ignore it.
-type ProgressPhase(
+<emphasis role="varlink-comment"># Progress phase identifiers. Note that we might add more phases here, and thus identifiers. Frontends can choose to display the phase to the user in some human readable form, or not do that, but if they do it and they receive a notification for a so far unknown phase, they should just ignore it.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> ProgressPhase(
 	encrypt_credentials,
 	install_partitions,
 	mount_partitions,
@@ -50,119 +50,119 @@ type ProgressPhase(
 	unmount_partitions
 )
 
-# Description about the fit of an OS on a block device.
-type DeviceFit(
+<emphasis role="varlink-comment"># Description about the fit of an OS on a block device.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> DeviceFit(
 	enough_free_space,
 	insufficent_free_space,
 	disk_too_small,
 	conflicting_disk_label_present
 )
 
-# Discriminator on streamed ListCandidateDevices replies in subscribe mode.
-type BlockDeviceAction(
-	# The device is currently present and a candidate. Emitted both during the initial enumeration and for live uevents (any action other than 'remove' is propagated as 'add', including the synthesized transitions when a device becomes empty or read-only and a relevant ignore* input is in effect).
+<emphasis role="varlink-comment"># Discriminator on streamed ListCandidateDevices replies in subscribe mode.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> BlockDeviceAction(
+	<emphasis role="varlink-comment"># The device is currently present and a candidate. Emitted both during the initial enumeration and for live uevents (any action other than 'remove' is propagated as 'add', including the synthesized transitions when a device becomes empty or read-only and a relevant ignore* input is in effect).</emphasis>
 	add,
-	# The device is no longer a candidate, either because the kernel reported a remove event, or because a dynamic filter (ignoreEmpty/ignoreReadOnly) flipped it out of the candidate set. Clients should drop the device identified by 'node'. It is permitted (and harmless) to receive a 'remove' for a device the client never saw an 'add' for; clients should ignore these silently.
+	<emphasis role="varlink-comment"># The device is no longer a candidate, either because the kernel reported a remove event, or because a dynamic filter (ignoreEmpty/ignoreReadOnly) flipped it out of the candidate set. Clients should drop the device identified by 'node'. It is permitted (and harmless) to receive a 'remove' for a device the client never saw an 'add' for; clients should ignore these silently.</emphasis>
 	remove,
-	# Sentinel sent exactly once in subscribe mode, after the initial enumeration is complete. Everything that follows reflects live uevents. Carries no other fields.
+	<emphasis role="varlink-comment"># Sentinel sent exactly once in subscribe mode, after the initial enumeration is complete. Everything that follows reflects live uevents. Carries no other fields.</emphasis>
 	ready
 )
 
-# A credential to install to target OS.
-type Credential(
-	# The id of the credential.
+<emphasis role="varlink-comment"># A credential to install to target OS.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> Credential(
+	<emphasis role="varlink-comment"># The id of the credential.</emphasis>
 	id: string,
-	# The value of the credential in base64 encoding.
+	<emphasis role="varlink-comment"># The value of the credential in base64 encoding.</emphasis>
 	value: string
 )
 
-# Invoke the actual installation of the OS. If invoked with 'more' enabled will report progress, otherwise will just report completion.
-# [Supports 'more' flag]
-method Run(
-	# Full path to the block device node to operate on.
+<emphasis role="varlink-comment"># Invoke the actual installation of the OS. If invoked with 'more' enabled will report progress, otherwise will just report completion.</emphasis>
+<emphasis role="varlink-comment"># [Supports 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> Run(
+	<emphasis role="varlink-comment"># Full path to the block device node to operate on.</emphasis>
 	node: string,
-	# Path to directory containing definition files.
+	<emphasis role="varlink-comment"># Path to directory containing definition files.</emphasis>
 	definitions: ?[]string,
-	# If true, fully erase the target block device.
+	<emphasis role="varlink-comment"># If true, fully erase the target block device.</emphasis>
 	erase: bool,
-	# If true, EFI variables are modified to register the installed boot loader in the firmware's boot options database.
+	<emphasis role="varlink-comment"># If true, EFI variables are modified to register the installed boot loader in the firmware's boot options database.</emphasis>
 	variables: ?bool,
-	# The path to a kernel image, if missing the current kernel is detected and used.
+	<emphasis role="varlink-comment"># The path to a kernel image, if missing the current kernel is detected and used.</emphasis>
 	kernelImagePath: ?string,
-	# If true, the current locale is copied to target system
+	<emphasis role="varlink-comment"># If true, the current locale is copied to target system</emphasis>
 	copyLocale: ?bool,
-	# If true, the current keymap is copied to target system
+	<emphasis role="varlink-comment"># If true, the current keymap is copied to target system</emphasis>
 	copyKeymap: ?bool,
-	# If true, the current timezone is copied to target system
+	<emphasis role="varlink-comment"># If true, the current timezone is copied to target system</emphasis>
 	copyTimezone: ?bool,
-	# A list of credentials to be installed to target system.
+	<emphasis role="varlink-comment"># A list of credentials to be installed to target system.</emphasis>
 	credentials: ?[]Credential
 ) -&gt; (
-	# If used with the 'more' flag, a phase identifier is sent in progress updates.
+	<emphasis role="varlink-comment"># If used with the 'more' flag, a phase identifier is sent in progress updates.</emphasis>
 	phase: ?ProgressPhase,
-	# If used with the 'more' flag, an object identifier string is sent in progress updates.
+	<emphasis role="varlink-comment"># If used with the 'more' flag, an object identifier string is sent in progress updates.</emphasis>
 	object: ?string,
-	# If used with the 'more' flag, a progress percentage (specific to the work done for the specified phase+object is sent in progress updates).
+	<emphasis role="varlink-comment"># If used with the 'more' flag, a progress percentage (specific to the work done for the specified phase+object is sent in progress updates).</emphasis>
 	progress: ?int
 )
 
-# Return a list of candidate block devices, i.e. that support partition scanning and other requirements for successful operation.
-# [Requires 'more' flag]
-method ListCandidateDevices(
-	# Path to directory containing definition files, used to evaluate the fit of the target OS for each block device.
+<emphasis role="varlink-comment"># Return a list of candidate block devices, i.e. that support partition scanning and other requirements for successful operation.</emphasis>
+<emphasis role="varlink-comment"># [Requires 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> ListCandidateDevices(
+	<emphasis role="varlink-comment"># Path to directory containing definition files, used to evaluate the fit of the target OS for each block device.</emphasis>
 	definitions: ?[]string,
-	# If true, keep the call open after the initial enumeration and stream live add/remove notifications as block-subsystem uevents arrive. The end of the initial enumeration is marked by exactly one notification with action='ready' and no other fields. Defaults to false.
+	<emphasis role="varlink-comment"># If true, keep the call open after the initial enumeration and stream live add/remove notifications as block-subsystem uevents arrive. The end of the initial enumeration is marked by exactly one notification with action='ready' and no other fields. Defaults to false.</emphasis>
 	subscribe: ?bool
 ) -&gt; (
-	# Discriminator field. Only set in subscribe mode. 'add' carries the full device record, 'remove' carries only node, 'ready' carries no other fields and is sent once after the initial enumeration.
+	<emphasis role="varlink-comment"># Discriminator field. Only set in subscribe mode. 'add' carries the full device record, 'remove' carries only node, 'ready' carries no other fields and is sent once after the initial enumeration.</emphasis>
 	action: ?BlockDeviceAction,
-	# The device node path of the block device.
+	<emphasis role="varlink-comment"># The device node path of the block device.</emphasis>
 	node: ?string,
-	# List of symlinks pointing to the device node, if any.
+	<emphasis role="varlink-comment"># List of symlinks pointing to the device node, if any.</emphasis>
 	symlinks: ?[]string,
-	# The Linux kernel disk sequence number identifying the medium.
+	<emphasis role="varlink-comment"># The Linux kernel disk sequence number identifying the medium.</emphasis>
 	diskseq: ?int,
-	# The size of the block device in bytes.
+	<emphasis role="varlink-comment"># The size of the block device in bytes.</emphasis>
 	sizeBytes: ?int,
-	# The device vendor string if known.
+	<emphasis role="varlink-comment"># The device vendor string if known.</emphasis>
 	vendor: ?string,
-	# The device model string if known.
+	<emphasis role="varlink-comment"># The device model string if known.</emphasis>
 	model: ?string,
-	# The subsystem the block device belongs to if known.
+	<emphasis role="varlink-comment"># The subsystem the block device belongs to if known.</emphasis>
 	subsystem: ?string,
-	# The fit indicating whether the OS would have enough available space on the device.
+	<emphasis role="varlink-comment"># The fit indicating whether the OS would have enough available space on the device.</emphasis>
 	fit: ?DeviceFit,
-	# Minimal size of the disk required for the installation.
+	<emphasis role="varlink-comment"># Minimal size of the disk required for the installation.</emphasis>
 	minimalSizeBytes: ?int,
-	# Additional free space needed for the installation.
+	<emphasis role="varlink-comment"># Additional free space needed for the installation.</emphasis>
 	needFreeBytes: ?int,
-	# Current allocated size of this block device.
+	<emphasis role="varlink-comment"># Current allocated size of this block device.</emphasis>
 	currentSizeBytes: ?int
 )
 
-# An incompatible disk label present, and not told to erase it.
-error ConflictingDiskLabelPresent()
+<emphasis role="varlink-comment"># An incompatible disk label present, and not told to erase it.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> ConflictingDiskLabelPresent()
 
-# The target disk has insufficient free space to fit all requested partitions. (But the disk would fit, if emptied.)
-error InsufficientFreeSpace(
-	# Minimal size of the disk required for the installation.
+<emphasis role="varlink-comment"># The target disk has insufficient free space to fit all requested partitions. (But the disk would fit, if emptied.)</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> InsufficientFreeSpace(
+	<emphasis role="varlink-comment"># Minimal size of the disk required for the installation.</emphasis>
 	minimalSizeBytes: ?int,
-	# Additional free space needed on the selected disk.
+	<emphasis role="varlink-comment"># Additional free space needed on the selected disk.</emphasis>
 	needFreeBytes: ?int,
-	# Size of the selected block device.
+	<emphasis role="varlink-comment"># Size of the selected block device.</emphasis>
 	currentSizeBytes: ?int
 )
 
-# The target disk is too small to fit the installation. (Regardless if emptied or not.)
-error DiskTooSmall(
-	# Minimal size of the disk required for the installation.
+<emphasis role="varlink-comment"># The target disk is too small to fit the installation. (Regardless if emptied or not.)</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> DiskTooSmall(
+	<emphasis role="varlink-comment"># Minimal size of the disk required for the installation.</emphasis>
 	minimalSizeBytes: ?int,
-	# Actual size of the selected block device.
+	<emphasis role="varlink-comment"># Actual size of the selected block device.</emphasis>
 	currentSizeBytes: ?int
 )
 
-# Not a single candidate block device could be found.
-error NoCandidateDevices()
+<emphasis role="varlink-comment"># Not a single candidate block device could be found.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> NoCandidateDevices()
 </programlisting>
 
     <!--Autogenerated cross-references for systemd.directives, do not edit-->
@@ -199,10 +199,10 @@ error NoCandidateDevices()
     <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.SysInstall</screen> shows the
     interface definition as served by <replaceable>SERVICE</replaceable>, and
     <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.SysInstall.Run '{}'</screen>
-    invokes its <function>Run</function> method.</para>
+    invokes its <function>Run()</function> method.</para>
   </refsect1>
 
-  <refsect1>
+  <refsect1><title>History</title><para>The io.systemd.SysInstall interface was added in version 262.</para><para><varname>BlockDeviceAction</varname>, <varname>ConflictingDiskLabelPresent</varname>, <varname>Credential</varname>, <varname>DeviceFit</varname>, <varname>DiskTooSmall</varname>, <varname>InsufficientFreeSpace</varname>, <function>ListCandidateDevices()</function>, <varname>NoCandidateDevices</varname>, <varname>ProgressPhase</varname>, and <function>Run()</function> were added in version 262.</para></refsect1><refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>

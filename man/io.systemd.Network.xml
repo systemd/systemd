@@ -37,9 +37,9 @@
     <para>The following interface definition is exposed:</para>
 
     <programlisting varlink-interface="io.systemd.Network">
-interface io.systemd.Network
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd.Network
 
-type LinkState(
+<emphasis role="varlink-keyword">type</emphasis> LinkState(
 	pending,
 	initialized,
 	configuring,
@@ -49,670 +49,670 @@ type LinkState(
 	linger
 )
 
-type LinkAddressState(
+<emphasis role="varlink-keyword">type</emphasis> LinkAddressState(
 	off,
 	degraded,
 	routable
 )
 
-type LinkOnlineState(
+<emphasis role="varlink-keyword">type</emphasis> LinkOnlineState(
 	offline,
 	partial,
 	online
 )
 
-type LinkRequiredAddressFamily(
+<emphasis role="varlink-keyword">type</emphasis> LinkRequiredAddressFamily(
 	any,
 	ipv4,
 	ipv6,
 	both
 )
 
-type Address(
-	# Address family (AF_INET or AF_INET6)
+<emphasis role="varlink-keyword">type</emphasis> Address(
+	<emphasis role="varlink-comment"># Address family (AF_INET or AF_INET6)</emphasis>
 	Family: int,
-	# IP address
+	<emphasis role="varlink-comment"># IP address</emphasis>
 	Address: []int,
-	# IP address (human-readable format)
+	<emphasis role="varlink-comment"># IP address (human-readable format)</emphasis>
 	AddressString: string,
-	# Peer address for point-to-point interfaces
+	<emphasis role="varlink-comment"># Peer address for point-to-point interfaces</emphasis>
 	Peer: ?[]int,
-	# Peer address for point-to-point interfaces (human-readable format)
+	<emphasis role="varlink-comment"># Peer address for point-to-point interfaces (human-readable format)</emphasis>
 	PeerString: ?string,
-	# Network prefix length
+	<emphasis role="varlink-comment"># Network prefix length</emphasis>
 	PrefixLength: int,
-	# Configuration source for this address
+	<emphasis role="varlink-comment"># Configuration source for this address</emphasis>
 	ConfigSource: string,
-	# Address of the configuration provider (DHCP server, router, etc.)
+	<emphasis role="varlink-comment"># Address of the configuration provider (DHCP server, router, etc.)</emphasis>
 	ConfigProvider: ?[]int,
-	# Address of the configuration provider (DHCP server, router, etc.) (human-readable format)
+	<emphasis role="varlink-comment"># Address of the configuration provider (DHCP server, router, etc.) (human-readable format)</emphasis>
 	ConfigProviderString: ?string,
-	# Broadcast address for IPv4 networks
+	<emphasis role="varlink-comment"># Broadcast address for IPv4 networks</emphasis>
 	Broadcast: ?[]int,
-	# Broadcast address for IPv4 networks (human-readable format)
+	<emphasis role="varlink-comment"># Broadcast address for IPv4 networks (human-readable format)</emphasis>
 	BroadcastString: ?string,
-	# Address scope (RT_SCOPE_* value)
+	<emphasis role="varlink-comment"># Address scope (RT_SCOPE_* value)</emphasis>
 	Scope: ?int,
-	# Human-readable scope string
+	<emphasis role="varlink-comment"># Human-readable scope string</emphasis>
 	ScopeString: ?string,
-	# Address flags (IFA_F_* values)
+	<emphasis role="varlink-comment"># Address flags (IFA_F_* values)</emphasis>
 	Flags: ?int,
-	# Human-readable flags string
+	<emphasis role="varlink-comment"># Human-readable flags string</emphasis>
 	FlagsString: ?string,
-	# Address label for IPv4
+	<emphasis role="varlink-comment"># Address label for IPv4</emphasis>
 	Label: ?string,
-	# Preferred lifetime in microseconds
+	<emphasis role="varlink-comment"># Preferred lifetime in microseconds</emphasis>
 	PreferredLifetimeUSec: ?int,
-	# Preferred lifetime in microseconds (deprecated, for backward compatibility)
+	<emphasis role="varlink-comment"># Preferred lifetime in microseconds (deprecated, for backward compatibility)</emphasis>
 	PreferredLifetimeUsec: ?int,
-	# Valid lifetime in microseconds
+	<emphasis role="varlink-comment"># Valid lifetime in microseconds</emphasis>
 	ValidLifetimeUSec: ?int,
-	# Valid lifetime in microseconds (deprecated, for backward compatibility)
+	<emphasis role="varlink-comment"># Valid lifetime in microseconds (deprecated, for backward compatibility)</emphasis>
 	ValidLifetimeUsec: ?int,
-	# Configuration state of this address
+	<emphasis role="varlink-comment"># Configuration state of this address</emphasis>
 	ConfigState: ?string
 )
 
-type BitRates(
-	# Transmit bitrate in bits per second
+<emphasis role="varlink-keyword">type</emphasis> BitRates(
+	<emphasis role="varlink-comment"># Transmit bitrate in bits per second</emphasis>
 	TxBitRate: int,
-	# Receive bitrate in bits per second
+	<emphasis role="varlink-comment"># Receive bitrate in bits per second</emphasis>
 	RxBitRate: int
 )
 
-type DHCPLease(
-	# Timestamp when the lease was acquired in microseconds
+<emphasis role="varlink-keyword">type</emphasis> DHCPLease(
+	<emphasis role="varlink-comment"># Timestamp when the lease was acquired in microseconds</emphasis>
 	LeaseTimestampUSec: ?int,
-	# T1 timeout (lease renewal time) in microseconds
+	<emphasis role="varlink-comment"># T1 timeout (lease renewal time) in microseconds</emphasis>
 	Timeout1USec: ?int,
-	# T2 timeout (lease rebinding time) in microseconds
+	<emphasis role="varlink-comment"># T2 timeout (lease rebinding time) in microseconds</emphasis>
 	Timeout2USec: ?int,
-	# Hostname received from DHCP server
+	<emphasis role="varlink-comment"># Hostname received from DHCP server</emphasis>
 	Hostname: ?string
 )
 
-type DHCPServer(
-	# Offset from the network address for the DHCP address pool
+<emphasis role="varlink-keyword">type</emphasis> DHCPServer(
+	<emphasis role="varlink-comment"># Offset from the network address for the DHCP address pool</emphasis>
 	PoolOffset: int,
-	# Size of the DHCP address pool
+	<emphasis role="varlink-comment"># Size of the DHCP address pool</emphasis>
 	PoolSize: int,
-	# Active DHCP leases assigned by the server
+	<emphasis role="varlink-comment"># Active DHCP leases assigned by the server</emphasis>
 	Leases: ?[]DHCPServerLease,
-	# Static DHCP leases configured for specific clients
+	<emphasis role="varlink-comment"># Static DHCP leases configured for specific clients</emphasis>
 	StaticLeases: ?[]DHCPServerLease
 )
 
-type DHCPServerLease(
-	# DHCP client identifier
+<emphasis role="varlink-keyword">type</emphasis> DHCPServerLease(
+	<emphasis role="varlink-comment"># DHCP client identifier</emphasis>
 	ClientId: ?[]int,
-	# Address assigned to the client
+	<emphasis role="varlink-comment"># Address assigned to the client</emphasis>
 	Address: ?[]int,
-	# Address assigned to the client (human-readable format)
+	<emphasis role="varlink-comment"># Address assigned to the client (human-readable format)</emphasis>
 	AddressString: ?string,
-	# Hostname provided by the DHCP client
+	<emphasis role="varlink-comment"># Hostname provided by the DHCP client</emphasis>
 	Hostname: ?string,
-	# Hardware address type (ARPHRD_* value)
+	<emphasis role="varlink-comment"># Hardware address type (ARPHRD_* value)</emphasis>
 	HardwareAddressType: ?int,
-	# Length of hardware address in bytes
+	<emphasis role="varlink-comment"># Length of hardware address in bytes</emphasis>
 	HardwareAddressLength: ?int,
-	# Hardware (MAC) address of the DHCP client
+	<emphasis role="varlink-comment"># Hardware (MAC) address of the DHCP client</emphasis>
 	HardwareAddress: ?[]int,
-	# Lease expiration time in monotonic microseconds
+	<emphasis role="varlink-comment"># Lease expiration time in monotonic microseconds</emphasis>
 	ExpirationUSec: ?int,
-	# Lease expiration time in realtime microseconds
+	<emphasis role="varlink-comment"># Lease expiration time in realtime microseconds</emphasis>
 	ExpirationRealtimeUSec: ?int
 )
 
-type DHCPv6Client(
-	# DHCPv6 lease information including timestamps and timeouts
+<emphasis role="varlink-keyword">type</emphasis> DHCPv6Client(
+	<emphasis role="varlink-comment"># DHCPv6 lease information including timestamps and timeouts</emphasis>
 	Lease: ?DHCPLease,
-	# Delegated prefixes received from DHCPv6 server
+	<emphasis role="varlink-comment"># Delegated prefixes received from DHCPv6 server</emphasis>
 	Prefixes: ?[]DHCPv6ClientPD,
-	# Vendor-specific options received in DHCPv6 response
+	<emphasis role="varlink-comment"># Vendor-specific options received in DHCPv6 response</emphasis>
 	VendorSpecificOptions: ?[]DHCPv6ClientVendorOption,
-	# DHCP Unique Identifier (DUID) of the client
+	<emphasis role="varlink-comment"># DHCP Unique Identifier (DUID) of the client</emphasis>
 	DUID: []int
 )
 
-type DHCPv6ClientPD(
-	# Delegated IPv6 prefix
+<emphasis role="varlink-keyword">type</emphasis> DHCPv6ClientPD(
+	<emphasis role="varlink-comment"># Delegated IPv6 prefix</emphasis>
 	Prefix: ?[]int,
-	# Human-readable delegated IPv6 prefix
+	<emphasis role="varlink-comment"># Human-readable delegated IPv6 prefix</emphasis>
 	PrefixString: ?string,
-	# Length of the delegated prefix in bits
+	<emphasis role="varlink-comment"># Length of the delegated prefix in bits</emphasis>
 	PrefixLength: int,
-	# Preferred lifetime of the prefix in microseconds
+	<emphasis role="varlink-comment"># Preferred lifetime of the prefix in microseconds</emphasis>
 	PreferredLifetimeUSec: ?int,
-	# Valid lifetime of the prefix in microseconds
+	<emphasis role="varlink-comment"># Valid lifetime of the prefix in microseconds</emphasis>
 	ValidLifetimeUSec: ?int
 )
 
-type DHCPv6ClientVendorOption(
-	# IANA enterprise number identifying the vendor
+<emphasis role="varlink-keyword">type</emphasis> DHCPv6ClientVendorOption(
+	<emphasis role="varlink-comment"># IANA enterprise number identifying the vendor</emphasis>
 	EnterpriseId: int,
-	# Vendor-specific sub-option code
+	<emphasis role="varlink-comment"># Vendor-specific sub-option code</emphasis>
 	SubOptionCode: int,
-	# Raw data of the vendor-specific sub-option
+	<emphasis role="varlink-comment"># Raw data of the vendor-specific sub-option</emphasis>
 	SubOptionData: string
 )
 
-type DNS(
-	# Address family (AF_INET or AF_INET6)
+<emphasis role="varlink-keyword">type</emphasis> DNS(
+	<emphasis role="varlink-comment"># Address family (AF_INET or AF_INET6)</emphasis>
 	Family: int,
-	# DNS server IP address
+	<emphasis role="varlink-comment"># DNS server IP address</emphasis>
 	Address: []int,
-	# DNS server IP address (human-readable format)
+	<emphasis role="varlink-comment"># DNS server IP address (human-readable format)</emphasis>
 	AddressString: string,
-	# DNS server port number
+	<emphasis role="varlink-comment"># DNS server port number</emphasis>
 	Port: ?int,
-	# Interface index for link-local DNS servers
+	<emphasis role="varlink-comment"># Interface index for link-local DNS servers</emphasis>
 	InterfaceIndex: ?int,
-	# DNS server hostname for DoT/DoH
+	<emphasis role="varlink-comment"># DNS server hostname for DoT/DoH</emphasis>
 	ServerName: ?string,
-	# Configuration source for this DNS server
+	<emphasis role="varlink-comment"># Configuration source for this DNS server</emphasis>
 	ConfigSource: string,
-	# Address of the configuration provider
+	<emphasis role="varlink-comment"># Address of the configuration provider</emphasis>
 	ConfigProvider: ?[]int,
-	# Address of the configuration provider (human-readable format)
+	<emphasis role="varlink-comment"># Address of the configuration provider (human-readable format)</emphasis>
 	ConfigProviderString: ?string
 )
 
-type DNSSECNegativeTrustAnchor(
-	# Domain name for which DNSSEC validation is disabled
+<emphasis role="varlink-keyword">type</emphasis> DNSSECNegativeTrustAnchor(
+	<emphasis role="varlink-comment"># Domain name for which DNSSEC validation is disabled</emphasis>
 	DNSSECNegativeTrustAnchor: string,
-	# Configuration source for this negative trust anchor
+	<emphasis role="varlink-comment"># Configuration source for this negative trust anchor</emphasis>
 	ConfigSource: string
 )
 
-type DNSSetting(
-	# Link-Local Multicast Name Resolution setting
+<emphasis role="varlink-keyword">type</emphasis> DNSSetting(
+	<emphasis role="varlink-comment"># Link-Local Multicast Name Resolution setting</emphasis>
 	LLMNR: ?string,
-	# Multicast DNS setting
+	<emphasis role="varlink-comment"># Multicast DNS setting</emphasis>
 	MDNS: ?string,
-	# Whether this connection can be used as a default route for DNS lookups
+	<emphasis role="varlink-comment"># Whether this connection can be used as a default route for DNS lookups</emphasis>
 	DNSDefaultRoute: ?bool,
-	# DNS-over-TLS mode setting
+	<emphasis role="varlink-comment"># DNS-over-TLS mode setting</emphasis>
 	DNSOverTLS: ?string,
-	# Configuration source for this DNS setting
+	<emphasis role="varlink-comment"># Configuration source for this DNS setting</emphasis>
 	ConfigSource: string
 )
 
-type Domain(
-	# DNS search or route domain name
+<emphasis role="varlink-keyword">type</emphasis> Domain(
+	<emphasis role="varlink-comment"># DNS search or route domain name</emphasis>
 	Domain: string,
-	# Configuration source for this domain
+	<emphasis role="varlink-comment"># Configuration source for this domain</emphasis>
 	ConfigSource: string,
-	# Address of the configuration provider
+	<emphasis role="varlink-comment"># Address of the configuration provider</emphasis>
 	ConfigProvider: ?[]int,
-	# Address of the configuration provider (human-readable format)
+	<emphasis role="varlink-comment"># Address of the configuration provider (human-readable format)</emphasis>
 	ConfigProviderString: ?string
 )
 
-type Interface(
-	# Network interface index
+<emphasis role="varlink-keyword">type</emphasis> Interface(
+	<emphasis role="varlink-comment"># Network interface index</emphasis>
 	Index: int,
-	# Primary interface name
+	<emphasis role="varlink-comment"># Primary interface name</emphasis>
 	Name: string,
-	# Alternative interface names
+	<emphasis role="varlink-comment"># Alternative interface names</emphasis>
 	AlternativeNames: ?[]string,
-	# Interface index of the master device (for bridge/bond slaves)
+	<emphasis role="varlink-comment"># Interface index of the master device (for bridge/bond slaves)</emphasis>
 	MasterInterfaceIndex: ?int,
-	# Interface kind (vlan, bridge, bond, etc.)
+	<emphasis role="varlink-comment"># Interface kind (vlan, bridge, bond, etc.)</emphasis>
 	Kind: ?string,
-	# Interface type (ether, loopback, etc.)
+	<emphasis role="varlink-comment"># Interface type (ether, loopback, etc.)</emphasis>
 	Type: string,
-	# Kernel driver name
+	<emphasis role="varlink-comment"># Kernel driver name</emphasis>
 	Driver: ?string,
-	# Interface flags (IFF_* values)
+	<emphasis role="varlink-comment"># Interface flags (IFF_* values)</emphasis>
 	Flags: int,
-	# Human-readable interface flags
+	<emphasis role="varlink-comment"># Human-readable interface flags</emphasis>
 	FlagsString: string,
-	# Kernel operational state (IF_OPER_* value)
+	<emphasis role="varlink-comment"># Kernel operational state (IF_OPER_* value)</emphasis>
 	KernelOperationalState: int,
-	# Human-readable kernel operational state
+	<emphasis role="varlink-comment"># Human-readable kernel operational state</emphasis>
 	KernelOperationalStateString: string,
-	# Current MTU in bytes
+	<emphasis role="varlink-comment"># Current MTU in bytes</emphasis>
 	MTU: int,
-	# Minimum allowed MTU in bytes
+	<emphasis role="varlink-comment"># Minimum allowed MTU in bytes</emphasis>
 	MinimumMTU: int,
-	# Maximum allowed MTU in bytes
+	<emphasis role="varlink-comment"># Maximum allowed MTU in bytes</emphasis>
 	MaximumMTU: int,
-	# Current hardware (MAC) address
+	<emphasis role="varlink-comment"># Current hardware (MAC) address</emphasis>
 	HardwareAddress: ?[]int,
-	# Permanent hardware (MAC) address from factory
+	<emphasis role="varlink-comment"># Permanent hardware (MAC) address from factory</emphasis>
 	PermanentHardwareAddress: ?[]int,
-	# Broadcast address for Ethernet interfaces
+	<emphasis role="varlink-comment"># Broadcast address for Ethernet interfaces</emphasis>
 	BroadcastAddress: ?[]int,
-	# IPv6 link-local address
+	<emphasis role="varlink-comment"># IPv6 link-local address</emphasis>
 	IPv6LinkLocalAddress: ?[]int,
-	# IPv6 link-local address (human-readable format)
+	<emphasis role="varlink-comment"># IPv6 link-local address (human-readable format)</emphasis>
 	IPv6LinkLocalAddressString: ?string,
-	# Wireless LAN interface type (NL80211_IFTYPE_* value)
+	<emphasis role="varlink-comment"># Wireless LAN interface type (NL80211_IFTYPE_* value)</emphasis>
 	WirelessLanInterfaceType: ?int,
-	# Human-readable wireless LAN interface type
+	<emphasis role="varlink-comment"># Human-readable wireless LAN interface type</emphasis>
 	WirelessLanInterfaceTypeString: ?string,
-	# Wireless network SSID
+	<emphasis role="varlink-comment"># Wireless network SSID</emphasis>
 	SSID: ?string,
-	# Wireless access point BSSID (MAC address)
+	<emphasis role="varlink-comment"># Wireless access point BSSID (MAC address)</emphasis>
 	BSSID: ?[]int,
-	# Administrative state (configuring, configured, etc.)
+	<emphasis role="varlink-comment"># Administrative state (configuring, configured, etc.)</emphasis>
 	AdministrativeState: LinkState,
-	# Operational state (routable, degraded, etc.)
+	<emphasis role="varlink-comment"># Operational state (routable, degraded, etc.)</emphasis>
 	OperationalState: string,
-	# Carrier state (carrier, no-carrier, etc.)
+	<emphasis role="varlink-comment"># Carrier state (carrier, no-carrier, etc.)</emphasis>
 	CarrierState: string,
-	# Address configuration state
+	<emphasis role="varlink-comment"># Address configuration state</emphasis>
 	AddressState: LinkAddressState,
-	# IPv4 address configuration state
+	<emphasis role="varlink-comment"># IPv4 address configuration state</emphasis>
 	IPv4AddressState: LinkAddressState,
-	# IPv6 address configuration state
+	<emphasis role="varlink-comment"># IPv6 address configuration state</emphasis>
 	IPv6AddressState: LinkAddressState,
-	# Online state (online, offline, etc.)
+	<emphasis role="varlink-comment"># Online state (online, offline, etc.)</emphasis>
 	OnlineState: ?LinkOnlineState,
-	# Path to .network configuration file
+	<emphasis role="varlink-comment"># Path to .network configuration file</emphasis>
 	NetworkFile: ?string,
-	# Paths to .network drop-in configuration files
+	<emphasis role="varlink-comment"># Paths to .network drop-in configuration files</emphasis>
 	NetworkFileDropins: ?[]string,
-	# Whether this interface is required for online state
+	<emphasis role="varlink-comment"># Whether this interface is required for online state</emphasis>
 	RequiredForOnline: ?bool,
-	# Required operational state range for considering interface online [min, max]
+	<emphasis role="varlink-comment"># Required operational state range for considering interface online [min, max]</emphasis>
 	RequiredOperationalStateForOnline: ?[]string,
-	# Required address family for considering interface online
+	<emphasis role="varlink-comment"># Required address family for considering interface online</emphasis>
 	RequiredFamilyForOnline: ?LinkRequiredAddressFamily,
-	# Activation policy (up, always-up, manual, etc.)
+	<emphasis role="varlink-comment"># Activation policy (up, always-up, manual, etc.)</emphasis>
 	ActivationPolicy: ?string,
-	# Path to .netdev configuration file
+	<emphasis role="varlink-comment"># Path to .netdev configuration file</emphasis>
 	NetDevFile: ?string,
-	# Paths to .netdev drop-in configuration files
+	<emphasis role="varlink-comment"># Paths to .netdev drop-in configuration files</emphasis>
 	NetDevFileDropins: ?[]string,
-	# Path to .link configuration file
+	<emphasis role="varlink-comment"># Path to .link configuration file</emphasis>
 	LinkFile: ?string,
-	# Paths to .link drop-in configuration files
+	<emphasis role="varlink-comment"># Paths to .link drop-in configuration files</emphasis>
 	LinkFileDropins: ?[]string,
-	# Device path in sysfs
+	<emphasis role="varlink-comment"># Device path in sysfs</emphasis>
 	Path: ?string,
-	# Hardware vendor name
+	<emphasis role="varlink-comment"># Hardware vendor name</emphasis>
 	Vendor: ?string,
-	# Hardware model name
+	<emphasis role="varlink-comment"># Hardware model name</emphasis>
 	Model: ?string,
-	# DNS servers configured for this interface
+	<emphasis role="varlink-comment"># DNS servers configured for this interface</emphasis>
 	DNS: ?[]DNS,
-	# Discovery of Network-designated Resolvers (RFC9463)
+	<emphasis role="varlink-comment"># Discovery of Network-designated Resolvers (RFC9463)</emphasis>
 	DNR: ?[]object,
-	# NTP servers configured for this interface
+	<emphasis role="varlink-comment"># NTP servers configured for this interface</emphasis>
 	NTP: ?[]NTP,
-	# SIP servers configured for this interface
+	<emphasis role="varlink-comment"># SIP servers configured for this interface</emphasis>
 	SIP: ?[]SIP,
-	# DNS search domains
+	<emphasis role="varlink-comment"># DNS search domains</emphasis>
 	SearchDomains: ?[]Domain,
-	# DNS route-only domains
+	<emphasis role="varlink-comment"># DNS route-only domains</emphasis>
 	RouteDomains: ?[]Domain,
-	# DNSSEC negative trust anchors
+	<emphasis role="varlink-comment"># DNSSEC negative trust anchors</emphasis>
 	DNSSECNegativeTrustAnchors: ?[]DNSSECNegativeTrustAnchor,
-	# DNS resolution settings (LLMNR, mDNS, etc.)
+	<emphasis role="varlink-comment"># DNS resolution settings (LLMNR, mDNS, etc.)</emphasis>
 	DNSSettings: ?[]DNSSetting,
-	# Captive portal detection URL (RFC8910)
+	<emphasis role="varlink-comment"># Captive portal detection URL (RFC8910)</emphasis>
 	CaptivePortal: ?string,
-	# IPv6 Neighbor Discovery information
+	<emphasis role="varlink-comment"># IPv6 Neighbor Discovery information</emphasis>
 	NDisc: ?NDisc,
-	# IP addresses configured on this interface
+	<emphasis role="varlink-comment"># IP addresses configured on this interface</emphasis>
 	Addresses: ?[]Address,
-	# Neighbor entries (ARP/NDP cache)
+	<emphasis role="varlink-comment"># Neighbor entries (ARP/NDP cache)</emphasis>
 	Neighbors: ?[]Neighbor,
-	# Next hops for multipath routing
+	<emphasis role="varlink-comment"># Next hops for multipath routing</emphasis>
 	NextHops: ?[]NextHop,
-	# Routes configured on this interface
+	<emphasis role="varlink-comment"># Routes configured on this interface</emphasis>
 	Routes: ?[]Route,
-	# DHCP server configuration and leases
+	<emphasis role="varlink-comment"># DHCP server configuration and leases</emphasis>
 	DHCPServer: ?DHCPServer,
-	# DHCPv4 client configuration and lease information
+	<emphasis role="varlink-comment"># DHCPv4 client configuration and lease information</emphasis>
 	DHCPv4Client: ?object,
-	# DHCPv6 client configuration and lease information
+	<emphasis role="varlink-comment"># DHCPv6 client configuration and lease information</emphasis>
 	DHCPv6Client: ?DHCPv6Client,
-	# LLDP transmit configuration for this interface
+	<emphasis role="varlink-comment"># LLDP transmit configuration for this interface</emphasis>
 	LLDP: ?LLDPNeighbor,
-	# Current transmit/receive bitrates from speed meter
+	<emphasis role="varlink-comment"># Current transmit/receive bitrates from speed meter</emphasis>
 	BitRates: ?BitRates
 )
 
-type LLDPNeighbor(
-	# Chassis identifier in human-readable format
+<emphasis role="varlink-keyword">type</emphasis> LLDPNeighbor(
+	<emphasis role="varlink-comment"># Chassis identifier in human-readable format</emphasis>
 	ChassisID: ?string,
-	# Raw chassis identifier bytes
+	<emphasis role="varlink-comment"># Raw chassis identifier bytes</emphasis>
 	RawChassisID: []int,
-	# Port identifier in human-readable format
+	<emphasis role="varlink-comment"># Port identifier in human-readable format</emphasis>
 	PortID: string,
-	# Raw port identifier bytes
+	<emphasis role="varlink-comment"># Raw port identifier bytes</emphasis>
 	RawPortID: []int,
-	# Description of the port
+	<emphasis role="varlink-comment"># Description of the port</emphasis>
 	PortDescription: ?string,
-	# System name of the LLDP neighbor
+	<emphasis role="varlink-comment"># System name of the LLDP neighbor</emphasis>
 	SystemName: ?string,
-	# System description of the LLDP neighbor
+	<emphasis role="varlink-comment"># System description of the LLDP neighbor</emphasis>
 	SystemDescription: ?string,
-	# Enabled capabilities bitmap (bridge, router, WLAN, etc.)
+	<emphasis role="varlink-comment"># Enabled capabilities bitmap (bridge, router, WLAN, etc.)</emphasis>
 	EnabledCapabilities: int,
-	# Manufacturer Usage Description URL (RFC8520)
+	<emphasis role="varlink-comment"># Manufacturer Usage Description URL (RFC8520)</emphasis>
 	MUDURL: ?string,
-	# VLAN identifier
+	<emphasis role="varlink-comment"># VLAN identifier</emphasis>
 	VlanID: ?int
 )
 
-type LLDPNeighborsByInterface(
-	# Network interface index
+<emphasis role="varlink-keyword">type</emphasis> LLDPNeighborsByInterface(
+	<emphasis role="varlink-comment"># Network interface index</emphasis>
 	InterfaceIndex: int,
-	# Primary interface name
+	<emphasis role="varlink-comment"># Primary interface name</emphasis>
 	InterfaceName: string,
-	# Alternative interface names
+	<emphasis role="varlink-comment"># Alternative interface names</emphasis>
 	InterfaceAlternativeNames: ?[]string,
-	# LLDP neighbors discovered on this interface
+	<emphasis role="varlink-comment"># LLDP neighbors discovered on this interface</emphasis>
 	Neighbors: []LLDPNeighbor
 )
 
-type NDisc(
-	# PREF64 (RFC8781) prefixes advertised via IPv6 Router Advertisements
+<emphasis role="varlink-keyword">type</emphasis> NDisc(
+	<emphasis role="varlink-comment"># PREF64 (RFC8781) prefixes advertised via IPv6 Router Advertisements</emphasis>
 	PREF64: ?[]Pref64
 )
 
-type Neighbor(
-	# Address family (AF_INET or AF_INET6)
+<emphasis role="varlink-keyword">type</emphasis> Neighbor(
+	<emphasis role="varlink-comment"># Address family (AF_INET or AF_INET6)</emphasis>
 	Family: int,
-	# IP address of the neighbor
+	<emphasis role="varlink-comment"># IP address of the neighbor</emphasis>
 	Destination: []int,
-	# IP address of the neighbor (human-readable format)
+	<emphasis role="varlink-comment"># IP address of the neighbor (human-readable format)</emphasis>
 	DestinationString: string,
-	# Link layer (MAC) address of the neighbor
+	<emphasis role="varlink-comment"># Link layer (MAC) address of the neighbor</emphasis>
 	LinkLayerAddress: []int,
-	# Configuration source for this neighbor entry
+	<emphasis role="varlink-comment"># Configuration source for this neighbor entry</emphasis>
 	ConfigSource: string,
-	# Configuration state of this neighbor entry
+	<emphasis role="varlink-comment"># Configuration state of this neighbor entry</emphasis>
 	ConfigState: string
 )
 
-type NextHop(
-	# Next hop identifier
+<emphasis role="varlink-keyword">type</emphasis> NextHop(
+	<emphasis role="varlink-comment"># Next hop identifier</emphasis>
 	ID: int,
-	# Address family (AF_INET or AF_INET6)
+	<emphasis role="varlink-comment"># Address family (AF_INET or AF_INET6)</emphasis>
 	Family: int,
-	# Gateway address for this next hop
+	<emphasis role="varlink-comment"># Gateway address for this next hop</emphasis>
 	Gateway: ?[]int,
-	# Gateway address for this next hop (human-readable format)
+	<emphasis role="varlink-comment"># Gateway address for this next hop (human-readable format)</emphasis>
 	GatewayString: ?string,
-	# Next hop flags (RTNH_F_* values)
+	<emphasis role="varlink-comment"># Next hop flags (RTNH_F_* values)</emphasis>
 	Flags: ?int,
-	# Human-readable flags string
+	<emphasis role="varlink-comment"># Human-readable flags string</emphasis>
 	FlagsString: ?string,
-	# Routing protocol identifier
+	<emphasis role="varlink-comment"># Routing protocol identifier</emphasis>
 	Protocol: ?int,
-	# Human-readable routing protocol name
+	<emphasis role="varlink-comment"># Human-readable routing protocol name</emphasis>
 	ProtocolString: ?string,
-	# Whether this is a blackhole next hop (drops packets)
+	<emphasis role="varlink-comment"># Whether this is a blackhole next hop (drops packets)</emphasis>
 	Blackhole: ?bool,
-	# Multipath group members with weights for load balancing
+	<emphasis role="varlink-comment"># Multipath group members with weights for load balancing</emphasis>
 	Group: ?[]NextHopGroup,
-	# Configuration source for this next hop
+	<emphasis role="varlink-comment"># Configuration source for this next hop</emphasis>
 	ConfigSource: string,
-	# Address of the configuration provider
+	<emphasis role="varlink-comment"># Address of the configuration provider</emphasis>
 	ConfigProvider: ?[]int,
-	# Address of the configuration provider (human-readable format)
+	<emphasis role="varlink-comment"># Address of the configuration provider (human-readable format)</emphasis>
 	ConfigProviderString: ?string,
-	# Configuration state of this next hop
+	<emphasis role="varlink-comment"># Configuration state of this next hop</emphasis>
 	ConfigState: ?string
 )
 
-type NextHopGroup(
-	# Next hop identifier in the multipath group
+<emphasis role="varlink-keyword">type</emphasis> NextHopGroup(
+	<emphasis role="varlink-comment"># Next hop identifier in the multipath group</emphasis>
 	ID: int,
-	# Weight for load balancing (higher means more traffic)
+	<emphasis role="varlink-comment"># Weight for load balancing (higher means more traffic)</emphasis>
 	Weight: int
 )
 
-type NTP(
-	# Address family (AF_INET or AF_INET6) for address-based servers
+<emphasis role="varlink-keyword">type</emphasis> NTP(
+	<emphasis role="varlink-comment"># Address family (AF_INET or AF_INET6) for address-based servers</emphasis>
 	Family: ?int,
-	# NTP server IP address
+	<emphasis role="varlink-comment"># NTP server IP address</emphasis>
 	Address: ?[]int,
-	# NTP server IP address (human-readable format)
+	<emphasis role="varlink-comment"># NTP server IP address (human-readable format)</emphasis>
 	AddressString: ?string,
-	# NTP server
+	<emphasis role="varlink-comment"># NTP server</emphasis>
 	Server: ?string,
-	# Configuration source for this NTP server
+	<emphasis role="varlink-comment"># Configuration source for this NTP server</emphasis>
 	ConfigSource: string,
-	# Address of the configuration provider
+	<emphasis role="varlink-comment"># Address of the configuration provider</emphasis>
 	ConfigProvider: ?[]int,
-	# Address of the configuration provider (human-readable format)
+	<emphasis role="varlink-comment"># Address of the configuration provider (human-readable format)</emphasis>
 	ConfigProviderString: ?string
 )
 
-type Pref64(
-	# IPv6 prefix for NAT64/DNS64
+<emphasis role="varlink-keyword">type</emphasis> Pref64(
+	<emphasis role="varlink-comment"># IPv6 prefix for NAT64/DNS64</emphasis>
 	Prefix: ?[]int,
-	# Human-readable IPv6 prefix
+	<emphasis role="varlink-comment"># Human-readable IPv6 prefix</emphasis>
 	PrefixString: ?string,
-	# Length of the prefix in bits
+	<emphasis role="varlink-comment"># Length of the prefix in bits</emphasis>
 	PrefixLength: int,
-	# Lifetime of the prefix in microseconds
+	<emphasis role="varlink-comment"># Lifetime of the prefix in microseconds</emphasis>
 	LifetimeUSec: ?int,
-	# Address of router that provided this prefix
+	<emphasis role="varlink-comment"># Address of router that provided this prefix</emphasis>
 	ConfigProvider: ?[]int,
-	# Address of router that provided this prefix (human-readable format)
+	<emphasis role="varlink-comment"># Address of router that provided this prefix (human-readable format)</emphasis>
 	ConfigProviderString: ?string
 )
 
-type PrivateOption(
-	# DHCP option number
+<emphasis role="varlink-keyword">type</emphasis> PrivateOption(
+	<emphasis role="varlink-comment"># DHCP option number</emphasis>
 	Option: ?int,
-	# Raw data of the private DHCP option
+	<emphasis role="varlink-comment"># Raw data of the private DHCP option</emphasis>
 	PrivateOptionData: ?string
 )
 
-type Route(
-	# Address family (AF_INET or AF_INET6)
+<emphasis role="varlink-keyword">type</emphasis> Route(
+	<emphasis role="varlink-comment"># Address family (AF_INET or AF_INET6)</emphasis>
 	Family: int,
-	# Destination network address
+	<emphasis role="varlink-comment"># Destination network address</emphasis>
 	Destination: []int,
-	# Destination network address (human-readable format)
+	<emphasis role="varlink-comment"># Destination network address (human-readable format)</emphasis>
 	DestinationString: string,
-	# Destination network prefix length
+	<emphasis role="varlink-comment"># Destination network prefix length</emphasis>
 	DestinationPrefixLength: int,
-	# Gateway address for this route
+	<emphasis role="varlink-comment"># Gateway address for this route</emphasis>
 	Gateway: ?[]int,
-	# Gateway address for this route (human-readable format)
+	<emphasis role="varlink-comment"># Gateway address for this route (human-readable format)</emphasis>
 	GatewayString: ?string,
-	# Source address prefix for route selection
+	<emphasis role="varlink-comment"># Source address prefix for route selection</emphasis>
 	Source: ?[]int,
-	# Source address prefix for route selection (human-readable format)
+	<emphasis role="varlink-comment"># Source address prefix for route selection (human-readable format)</emphasis>
 	SourceString: ?string,
-	# Source prefix length
+	<emphasis role="varlink-comment"># Source prefix length</emphasis>
 	SourcePrefixLength: ?int,
-	# Preferred source address for outgoing packets
+	<emphasis role="varlink-comment"># Preferred source address for outgoing packets</emphasis>
 	PreferredSource: ?[]int,
-	# Preferred source address for outgoing packets (human-readable format)
+	<emphasis role="varlink-comment"># Preferred source address for outgoing packets (human-readable format)</emphasis>
 	PreferredSourceString: ?string,
-	# Type of Service (TOS) field
+	<emphasis role="varlink-comment"># Type of Service (TOS) field</emphasis>
 	TOS: int,
-	# Route scope (RT_SCOPE_* value)
+	<emphasis role="varlink-comment"># Route scope (RT_SCOPE_* value)</emphasis>
 	Scope: int,
-	# Human-readable scope string
+	<emphasis role="varlink-comment"># Human-readable scope string</emphasis>
 	ScopeString: ?string,
-	# Routing protocol identifier
+	<emphasis role="varlink-comment"># Routing protocol identifier</emphasis>
 	Protocol: int,
-	# Human-readable routing protocol name
+	<emphasis role="varlink-comment"># Human-readable routing protocol name</emphasis>
 	ProtocolString: ?string,
-	# Route type (RTN_* value)
+	<emphasis role="varlink-comment"># Route type (RTN_* value)</emphasis>
 	Type: int,
-	# Human-readable route type
+	<emphasis role="varlink-comment"># Human-readable route type</emphasis>
 	TypeString: ?string,
-	# Route priority/metric
+	<emphasis role="varlink-comment"># Route priority/metric</emphasis>
 	Priority: int,
-	# Routing table number
+	<emphasis role="varlink-comment"># Routing table number</emphasis>
 	Table: int,
-	# Human-readable routing table name
+	<emphasis role="varlink-comment"># Human-readable routing table name</emphasis>
 	TableString: ?string,
-	# Route flags (RTM_F_* values)
+	<emphasis role="varlink-comment"># Route flags (RTM_F_* values)</emphasis>
 	Flags: int,
-	# Human-readable flags string
+	<emphasis role="varlink-comment"># Human-readable flags string</emphasis>
 	FlagsString: ?string,
-	# Next hop ID for multipath routing
+	<emphasis role="varlink-comment"># Next hop ID for multipath routing</emphasis>
 	NextHopID: ?int,
-	# Maximum Transmission Unit for this route
+	<emphasis role="varlink-comment"># Maximum Transmission Unit for this route</emphasis>
 	MTU: ?int,
-	# Route preference for IPv6 (low/medium/high)
+	<emphasis role="varlink-comment"># Route preference for IPv6 (low/medium/high)</emphasis>
 	Preference: ?int,
-	# Route lifetime in microseconds
+	<emphasis role="varlink-comment"># Route lifetime in microseconds</emphasis>
 	LifetimeUSec: ?int,
-	# Configuration source for this route
+	<emphasis role="varlink-comment"># Configuration source for this route</emphasis>
 	ConfigSource: string,
-	# Address of the configuration provider
+	<emphasis role="varlink-comment"># Address of the configuration provider</emphasis>
 	ConfigProvider: ?[]int,
-	# Address of the configuration provider (human-readable format)
+	<emphasis role="varlink-comment"># Address of the configuration provider (human-readable format)</emphasis>
 	ConfigProviderString: ?string,
-	# Configuration state of this route
+	<emphasis role="varlink-comment"># Configuration state of this route</emphasis>
 	ConfigState: ?string,
-	# Interface index for serialization
+	<emphasis role="varlink-comment"># Interface index for serialization</emphasis>
 	InterfaceIndex: ?int,
-	# Route metrics (RTAX_* values)
+	<emphasis role="varlink-comment"># Route metrics (RTAX_* values)</emphasis>
 	Metrics: ?[]int,
-	# TCP congestion control algorithm for this route
+	<emphasis role="varlink-comment"># TCP congestion control algorithm for this route</emphasis>
 	TCPCongestionControlAlgorithm: ?string
 )
 
-type RoutingPolicyRule(
-	# Address family (AF_INET or AF_INET6)
+<emphasis role="varlink-keyword">type</emphasis> RoutingPolicyRule(
+	<emphasis role="varlink-comment"># Address family (AF_INET or AF_INET6)</emphasis>
 	Family: int,
-	# Source address prefix to match
+	<emphasis role="varlink-comment"># Source address prefix to match</emphasis>
 	FromPrefix: ?[]int,
-	# Source address prefix to match (human-readable format)
+	<emphasis role="varlink-comment"># Source address prefix to match (human-readable format)</emphasis>
 	FromPrefixString: ?string,
-	# Length of source prefix in bits
+	<emphasis role="varlink-comment"># Length of source prefix in bits</emphasis>
 	FromPrefixLength: ?int,
-	# Destination address prefix to match
+	<emphasis role="varlink-comment"># Destination address prefix to match</emphasis>
 	ToPrefix: ?[]int,
-	# Destination address prefix to match (human-readable format)
+	<emphasis role="varlink-comment"># Destination address prefix to match (human-readable format)</emphasis>
 	ToPrefixString: ?string,
-	# Length of destination prefix in bits
+	<emphasis role="varlink-comment"># Length of destination prefix in bits</emphasis>
 	ToPrefixLength: ?int,
-	# Routing protocol identifier
+	<emphasis role="varlink-comment"># Routing protocol identifier</emphasis>
 	Protocol: int,
-	# Human-readable routing protocol name
+	<emphasis role="varlink-comment"># Human-readable routing protocol name</emphasis>
 	ProtocolString: string,
-	# Type of Service (TOS) field to match
+	<emphasis role="varlink-comment"># Type of Service (TOS) field to match</emphasis>
 	TOS: int,
-	# Rule action type (FR_ACT_* value)
+	<emphasis role="varlink-comment"># Rule action type (FR_ACT_* value)</emphasis>
 	Type: int,
-	# Human-readable rule action type
+	<emphasis role="varlink-comment"># Human-readable rule action type</emphasis>
 	TypeString: string,
-	# IP protocol number to match
+	<emphasis role="varlink-comment"># IP protocol number to match</emphasis>
 	IPProtocol: int,
-	# Human-readable IP protocol name
+	<emphasis role="varlink-comment"># Human-readable IP protocol name</emphasis>
 	IPProtocolString: string,
-	# Rule priority (lower value means higher priority)
+	<emphasis role="varlink-comment"># Rule priority (lower value means higher priority)</emphasis>
 	Priority: int,
-	# Firewall mark value to match
+	<emphasis role="varlink-comment"># Firewall mark value to match</emphasis>
 	FirewallMark: int,
-	# Firewall mark mask to apply
+	<emphasis role="varlink-comment"># Firewall mark mask to apply</emphasis>
 	FirewallMask: int,
-	# Routing table number to use
+	<emphasis role="varlink-comment"># Routing table number to use</emphasis>
 	Table: ?int,
-	# Human-readable routing table name
+	<emphasis role="varlink-comment"># Human-readable routing table name</emphasis>
 	TableString: ?string,
-	# Whether rule matching is inverted
+	<emphasis role="varlink-comment"># Whether rule matching is inverted</emphasis>
 	Invert: bool,
-	# Suppress route lookup if prefix length is less than or equal to this value
+	<emphasis role="varlink-comment"># Suppress route lookup if prefix length is less than or equal to this value</emphasis>
 	SuppressPrefixLength: ?int,
-	# Suppress route lookup if interface group matches
+	<emphasis role="varlink-comment"># Suppress route lookup if interface group matches</emphasis>
 	SuppressInterfaceGroup: ?int,
-	# Source port range to match [start, end]
+	<emphasis role="varlink-comment"># Source port range to match [start, end]</emphasis>
 	SourcePort: ?[]int,
-	# Destination port range to match [start, end]
+	<emphasis role="varlink-comment"># Destination port range to match [start, end]</emphasis>
 	DestinationPort: ?[]int,
-	# User ID range to match [start, end]
+	<emphasis role="varlink-comment"># User ID range to match [start, end]</emphasis>
 	User: ?[]int,
-	# Incoming interface name to match
+	<emphasis role="varlink-comment"># Incoming interface name to match</emphasis>
 	IncomingInterface: ?string,
-	# Outgoing interface name to match
+	<emphasis role="varlink-comment"># Outgoing interface name to match</emphasis>
 	OutgoingInterface: ?string,
-	# Configuration source for this rule
+	<emphasis role="varlink-comment"># Configuration source for this rule</emphasis>
 	ConfigSource: string,
-	# Configuration state of this rule
+	<emphasis role="varlink-comment"># Configuration state of this rule</emphasis>
 	ConfigState: string
 )
 
-type SIP(
-	# Address family (AF_INET or AF_INET6) for address-based servers
+<emphasis role="varlink-keyword">type</emphasis> SIP(
+	<emphasis role="varlink-comment"># Address family (AF_INET or AF_INET6) for address-based servers</emphasis>
 	Family: ?int,
-	# SIP server IP address
+	<emphasis role="varlink-comment"># SIP server IP address</emphasis>
 	Address: ?[]int,
-	# SIP server IP address (human-readable format)
+	<emphasis role="varlink-comment"># SIP server IP address (human-readable format)</emphasis>
 	AddressString: ?string,
-	# SIP server domain name
+	<emphasis role="varlink-comment"># SIP server domain name</emphasis>
 	Domain: ?string,
-	# Configuration source for this SIP server
+	<emphasis role="varlink-comment"># Configuration source for this SIP server</emphasis>
 	ConfigSource: string,
-	# Address of the configuration provider
+	<emphasis role="varlink-comment"># Address of the configuration provider</emphasis>
 	ConfigProvider: ?[]int,
-	# Address of the configuration provider (human-readable format)
+	<emphasis role="varlink-comment"># Address of the configuration provider (human-readable format)</emphasis>
 	ConfigProviderString: ?string
 )
 
-method Describe() -&gt; (
-	# All network interfaces managed by systemd-networkd
+<emphasis role="varlink-keyword">method</emphasis> Describe() -&gt; (
+	<emphasis role="varlink-comment"># All network interfaces managed by systemd-networkd</emphasis>
 	Interfaces: ?[]Interface,
-	# All configured next hops for multipath routing
+	<emphasis role="varlink-comment"># All configured next hops for multipath routing</emphasis>
 	NextHops: ?[]NextHop,
-	# All configured routes across all interfaces
+	<emphasis role="varlink-comment"># All configured routes across all interfaces</emphasis>
 	Routes: ?[]Route,
-	# All configured routing policy rules
+	<emphasis role="varlink-comment"># All configured routing policy rules</emphasis>
 	RoutingPolicyRules: ?[]RoutingPolicyRule
 )
 
-method GetStates() -&gt; (
-	# Overall address configuration state across all interfaces
+<emphasis role="varlink-keyword">method</emphasis> GetStates() -&gt; (
+	<emphasis role="varlink-comment"># Overall address configuration state across all interfaces</emphasis>
 	AddressState: LinkAddressState,
-	# IPv4 address configuration state across all interfaces
+	<emphasis role="varlink-comment"># IPv4 address configuration state across all interfaces</emphasis>
 	IPv4AddressState: LinkAddressState,
-	# IPv6 address configuration state across all interfaces
+	<emphasis role="varlink-comment"># IPv6 address configuration state across all interfaces</emphasis>
 	IPv6AddressState: LinkAddressState,
-	# Carrier state across all interfaces
+	<emphasis role="varlink-comment"># Carrier state across all interfaces</emphasis>
 	CarrierState: string,
-	# Online state across all interfaces
+	<emphasis role="varlink-comment"># Online state across all interfaces</emphasis>
 	OnlineState: ?LinkOnlineState,
-	# Operational state across all interfaces
+	<emphasis role="varlink-comment"># Operational state across all interfaces</emphasis>
 	OperationalState: string
 )
 
-method GetNamespaceId() -&gt; (
-	# Network namespace inode number
+<emphasis role="varlink-keyword">method</emphasis> GetNamespaceId() -&gt; (
+	<emphasis role="varlink-comment"># Network namespace inode number</emphasis>
 	NamespaceId: int,
-	# Network namespace ID (cookie) assigned by the kernel
+	<emphasis role="varlink-comment"># Network namespace ID (cookie) assigned by the kernel</emphasis>
 	NamespaceNSID: ?int
 )
 
-method GetLLDPNeighbors(
-	# Filter by interface index (optional)
+<emphasis role="varlink-keyword">method</emphasis> GetLLDPNeighbors(
+	<emphasis role="varlink-comment"># Filter by interface index (optional)</emphasis>
 	InterfaceIndex: ?int,
-	# Filter by interface name (optional)
+	<emphasis role="varlink-comment"># Filter by interface name (optional)</emphasis>
 	InterfaceName: ?string
 ) -&gt; (
-	# LLDP neighbors grouped by interface
+	<emphasis role="varlink-comment"># LLDP neighbors grouped by interface</emphasis>
 	Neighbors: []LLDPNeighborsByInterface
 )
 
-method Reload(
-	# If true (default), reload config files and reconfigure all matching network interfaces. If false, only reload config files without reconfiguring interfaces; use 'networkctl reconfigure' afterwards to apply changes selectively.
+<emphasis role="varlink-keyword">method</emphasis> Reload(
+	<emphasis role="varlink-comment"># If true (default), reload config files and reconfigure all matching network interfaces. If false, only reload config files without reconfiguring interfaces; use 'networkctl reconfigure' afterwards to apply changes selectively.</emphasis>
 	reconfigureLinks: ?bool,
-	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
 	allowInteractiveAuthentication: ?bool
 ) -&gt; ()
 
-method SetPersistentStorage(
-	# Whether persistent storage is ready and writable
+<emphasis role="varlink-keyword">method</emphasis> SetPersistentStorage(
+	<emphasis role="varlink-comment"># Whether persistent storage is ready and writable</emphasis>
 	Ready: bool
 ) -&gt; ()
 
-error AlreadyReloading()
+<emphasis role="varlink-keyword">error</emphasis> AlreadyReloading()
 
-error StorageReadOnly()
+<emphasis role="varlink-keyword">error</emphasis> StorageReadOnly()
 </programlisting>
 
     <!--Autogenerated cross-references for systemd.directives, do not edit-->
@@ -803,10 +803,10 @@ error StorageReadOnly()
     <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.Network</screen> shows the
     interface definition as served by <replaceable>SERVICE</replaceable>, and
     <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.Network.Describe '{}'</screen>
-    invokes its <function>Describe</function> method.</para>
+    invokes its <function>Describe()</function> method.</para>
   </refsect1>
 
-  <refsect1>
+  <refsect1><title>History</title><para>The io.systemd.Network interface was added in version 255.</para><para><function>GetNamespaceId()</function>, and <function>GetStates()</function> were added in version 255.</para><para><function>GetLLDPNeighbors()</function>, <varname>LLDPNeighbor</varname>, <varname>LLDPNeighborsByInterface</varname>, <function>SetPersistentStorage()</function>, and <varname>StorageReadOnly</varname> were added in version 256.</para><para><varname>Address</varname>, <varname>DHCPLease</varname>, <varname>DHCPServer</varname>, <varname>DHCPServerLease</varname>, <varname>DHCPv6Client</varname>, <varname>DHCPv6ClientPD</varname>, <varname>DHCPv6ClientVendorOption</varname>, <varname>DNS</varname>, <varname>DNSSECNegativeTrustAnchor</varname>, <varname>DNSSetting</varname>, <function>Describe()</function>, <varname>Domain</varname>, <varname>Interface</varname>, <varname>LinkAddressState</varname>, <varname>LinkOnlineState</varname>, <varname>LinkRequiredAddressFamily</varname>, <varname>LinkState</varname>, <varname>NDisc</varname>, <varname>NTP</varname>, <varname>Neighbor</varname>, <varname>NextHop</varname>, <varname>NextHopGroup</varname>, <varname>Pref64</varname>, <varname>PrivateOption</varname>, <varname>Route</varname>, <varname>RoutingPolicyRule</varname>, and <varname>SIP</varname> were added in version 259.</para><para><varname>AlreadyReloading</varname>, and <varname>BitRates</varname> were added in version 261.</para><para><function>Reload()</function> was added in version 262.</para></refsect1><refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>

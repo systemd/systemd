@@ -37,14 +37,14 @@
     <para>The following interface definition is exposed:</para>
 
     <programlisting varlink-interface="io.systemd.SysUpdate.Notify">
-interface io.systemd.SysUpdate.Notify
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd.SysUpdate.Notify
 
-type Resource(
+<emphasis role="varlink-keyword">type</emphasis> Resource(
 	transfer: string,
 	path: ?string
 )
 
-method OnCompletedUpdate(
+<emphasis role="varlink-keyword">method</emphasis> OnCompletedUpdate(
 	component: ?string,
 	version: ?string,
 	resources: ?[]Resource
@@ -69,10 +69,10 @@ method OnCompletedUpdate(
     <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.SysUpdate.Notify</screen> shows the
     interface definition as served by <replaceable>SERVICE</replaceable>, and
     <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.SysUpdate.Notify.OnCompletedUpdate '{}'</screen>
-    invokes its <function>OnCompletedUpdate</function> method.</para>
+    invokes its <function>OnCompletedUpdate()</function> method.</para>
   </refsect1>
 
-  <refsect1>
+  <refsect1><title>History</title><para>The io.systemd.SysUpdate.Notify interface was added in version 262.</para><para><function>OnCompletedUpdate()</function>, and <varname>Resource</varname> were added in version 262.</para></refsect1><refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>

@@ -37,11 +37,11 @@
     <para>The following interface definition is exposed:</para>
 
     <programlisting varlink-interface="io.systemd.Login">
-# APIs for managing login sessions.
-interface io.systemd.Login
+<emphasis role="varlink-comment"># APIs for managing login sessions.</emphasis>
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd.Login
 
-# Various types of sessions
-type SessionType(
+<emphasis role="varlink-comment"># Various types of sessions</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> SessionType(
 	unspecified,
 	tty,
 	x11,
@@ -50,44 +50,44 @@ type SessionType(
 	web
 )
 
-# Various classes of sessions
-type SessionClass(
-	# Regular user sessions
+<emphasis role="varlink-comment"># Various classes of sessions</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> SessionClass(
+	<emphasis role="varlink-comment"># Regular user sessions</emphasis>
 	user,
-	# Session of the root user that shall be open for login from earliest moment on, and not be delayed for /run/nologin
+	<emphasis role="varlink-comment"># Session of the root user that shall be open for login from earliest moment on, and not be delayed for /run/nologin</emphasis>
 	user_early,
-	# Regular user session whose home directory is not available right now, but will be later, at which point the session class can be upgraded to 'user'
+	<emphasis role="varlink-comment"># Regular user session whose home directory is not available right now, but will be later, at which point the session class can be upgraded to 'user'</emphasis>
 	user_incomplete,
-	# A user session that doesn't pull in the per-user service manager
+	<emphasis role="varlink-comment"># A user session that doesn't pull in the per-user service manager</emphasis>
 	user_light,
-	# The combination of user_early and user_light
+	<emphasis role="varlink-comment"># The combination of user_early and user_light</emphasis>
 	user_early_light,
-	# Display manager greeter screen used for login
+	<emphasis role="varlink-comment"># Display manager greeter screen used for login</emphasis>
 	greeter,
-	# Similar, but a lock screen
+	<emphasis role="varlink-comment"># Similar, but a lock screen</emphasis>
 	lock_screen,
-	# Background session (that has no TTY, VT, Seat)
+	<emphasis role="varlink-comment"># Background session (that has no TTY, VT, Seat)</emphasis>
 	background,
-	# Similar, but for which no service manager is invoked
+	<emphasis role="varlink-comment"># Similar, but for which no service manager is invoked</emphasis>
 	background_light,
-	# The special session of the service manager
+	<emphasis role="varlink-comment"># The special session of the service manager</emphasis>
 	manager,
-	# The special session of the service manager for the root user
+	<emphasis role="varlink-comment"># The special session of the service manager for the root user</emphasis>
 	manager_early
 )
 
-# Inhibition mode
-type InhibitMode(
-	# Hard inhibition; blocks the operation entirely
+<emphasis role="varlink-comment"># Inhibition mode</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> InhibitMode(
+	<emphasis role="varlink-comment"># Hard inhibition; blocks the operation entirely</emphasis>
 	block,
-	# Weak hard inhibition; like block, but the user who set it can override it without polkit authorization
+	<emphasis role="varlink-comment"># Weak hard inhibition; like block, but the user who set it can override it without polkit authorization</emphasis>
 	block_weak,
-	# Soft inhibition; delays the operation but ultimately permits it
+	<emphasis role="varlink-comment"># Soft inhibition; delays the operation but ultimately permits it</emphasis>
 	delay
 )
 
-# Operations that can be inhibited
-type InhibitWhat(
+<emphasis role="varlink-comment"># Operations that can be inhibited</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> InhibitWhat(
 	shutdown,
 	sleep,
 	idle,
@@ -98,290 +98,290 @@ type InhibitWhat(
 	handle_reboot_key
 )
 
-# Process identifier
-type ProcessId(
-	# Numeric UNIX PID value
+<emphasis role="varlink-comment"># Process identifier</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> ProcessId(
+	<emphasis role="varlink-comment"># Numeric UNIX PID value</emphasis>
 	pid: int,
-	# 64bit inode number of pidfd if known
+	<emphasis role="varlink-comment"># 64bit inode number of pidfd if known</emphasis>
 	pidfdId: ?int,
-	# Boot ID of the system the inode number belongs to
+	<emphasis role="varlink-comment"># Boot ID of the system the inode number belongs to</emphasis>
 	bootId: ?string
 )
 
-# Dual timestamp
-type Timestamp(
-	# Timestamp in µs in the CLOCK_REALTIME clock (wallclock)
+<emphasis role="varlink-comment"># Dual timestamp</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> Timestamp(
+	<emphasis role="varlink-comment"># Timestamp in µs in the CLOCK_REALTIME clock (wallclock)</emphasis>
 	realtime: ?int,
-	# Timestamp in µs in the CLOCK_MONOTONIC clock
+	<emphasis role="varlink-comment"># Timestamp in µs in the CLOCK_MONOTONIC clock</emphasis>
 	monotonic: ?int
 )
 
-# Configuration aspects of a session (suitable for reuse as creation input)
-type SessionContext(
-	# Numeric UNIX UID of the user owning this session
+<emphasis role="varlink-comment"># Configuration aspects of a session (suitable for reuse as creation input)</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> SessionContext(
+	<emphasis role="varlink-comment"># Numeric UNIX UID of the user owning this session</emphasis>
 	UID: int,
-	# PID of the session leader
+	<emphasis role="varlink-comment"># PID of the session leader</emphasis>
 	PID: ?ProcessId,
-	# The type of the session
+	<emphasis role="varlink-comment"># The type of the session</emphasis>
 	Type: SessionType,
-	# The class of the session
+	<emphasis role="varlink-comment"># The class of the session</emphasis>
 	Class: SessionClass,
-	# PAM service name
+	<emphasis role="varlink-comment"># PAM service name</emphasis>
 	Service: ?string,
-	# Desktop identifier
+	<emphasis role="varlink-comment"># Desktop identifier</emphasis>
 	Desktop: ?string,
-	# Seat this session is assigned to
+	<emphasis role="varlink-comment"># Seat this session is assigned to</emphasis>
 	Seat: ?string,
-	# Virtual terminal number of the session, if applicable
+	<emphasis role="varlink-comment"># Virtual terminal number of the session, if applicable</emphasis>
 	VTNr: ?int,
-	# TTY device of the session
+	<emphasis role="varlink-comment"># TTY device of the session</emphasis>
 	TTY: ?string,
-	# X11 display of the session
+	<emphasis role="varlink-comment"># X11 display of the session</emphasis>
 	Display: ?string,
-	# Whether this is a remote session
+	<emphasis role="varlink-comment"># Whether this is a remote session</emphasis>
 	Remote: ?bool,
-	# Remote host, if this is a remote session
+	<emphasis role="varlink-comment"># Remote host, if this is a remote session</emphasis>
 	RemoteHost: ?string,
-	# Remote user, if this is a remote session
+	<emphasis role="varlink-comment"># Remote user, if this is a remote session</emphasis>
 	RemoteUser: ?string,
-	# Device paths this session has special access to
+	<emphasis role="varlink-comment"># Device paths this session has special access to</emphasis>
 	ExtraDeviceAccess: ?[]string
 )
 
-# Runtime state and dynamic information of a session
-type SessionRuntime(
-	# The session identifier
+<emphasis role="varlink-comment"># Runtime state and dynamic information of a session</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> SessionRuntime(
+	<emphasis role="varlink-comment"># The session identifier</emphasis>
 	Id: string,
-	# systemd scope unit name
+	<emphasis role="varlink-comment"># systemd scope unit name</emphasis>
 	Scope: ?string,
-	# Audit session ID
+	<emphasis role="varlink-comment"># Audit session ID</emphasis>
 	Audit: ?int,
-	# The session timestamps
+	<emphasis role="varlink-comment"># The session timestamps</emphasis>
 	Timestamp: ?Timestamp,
-	# Current state of the session
+	<emphasis role="varlink-comment"># Current state of the session</emphasis>
 	State: string,
-	# Whether the session is active (i.e. in the foreground)
+	<emphasis role="varlink-comment"># Whether the session is active (i.e. in the foreground)</emphasis>
 	Active: bool,
-	# Whether the session is idle
+	<emphasis role="varlink-comment"># Whether the session is idle</emphasis>
 	IdleHint: bool,
-	# Timestamp when the session went idle, only present when IdleHint is true
+	<emphasis role="varlink-comment"># Timestamp when the session went idle, only present when IdleHint is true</emphasis>
 	IdleSinceHint: ?Timestamp,
-	# Whether the session is currently locked
+	<emphasis role="varlink-comment"># Whether the session is currently locked</emphasis>
 	LockedHint: bool,
-	# Whether this session class supports idle tracking
+	<emphasis role="varlink-comment"># Whether this session class supports idle tracking</emphasis>
 	CanIdle: bool,
-	# Whether this session class supports locking
+	<emphasis role="varlink-comment"># Whether this session class supports locking</emphasis>
 	CanLock: bool
 )
 
-# Configuration aspects of a user
-type UserContext(
-	# Numeric UNIX UID
+<emphasis role="varlink-comment"># Configuration aspects of a user</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> UserContext(
+	<emphasis role="varlink-comment"># Numeric UNIX UID</emphasis>
 	UID: int,
-	# Numeric UNIX GID
+	<emphasis role="varlink-comment"># Numeric UNIX GID</emphasis>
 	GID: int,
-	# User name
+	<emphasis role="varlink-comment"># User name</emphasis>
 	Name: string,
-	# Whether lingering is enabled for this user
+	<emphasis role="varlink-comment"># Whether lingering is enabled for this user</emphasis>
 	Linger: bool,
-	# Service manager unit name
+	<emphasis role="varlink-comment"># Service manager unit name</emphasis>
 	Service: ?string,
-	# User slice unit name
+	<emphasis role="varlink-comment"># User slice unit name</emphasis>
 	Slice: ?string,
-	# Path to the user's runtime directory
+	<emphasis role="varlink-comment"># Path to the user's runtime directory</emphasis>
 	RuntimePath: ?string
 )
 
-# Runtime state and dynamic information of a user
-type UserRuntime(
-	# Display session identifier
+<emphasis role="varlink-comment"># Runtime state and dynamic information of a user</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> UserRuntime(
+	<emphasis role="varlink-comment"># Display session identifier</emphasis>
 	Display: ?string,
-	# Current state of the user
+	<emphasis role="varlink-comment"># Current state of the user</emphasis>
 	State: ?string,
-	# Identifiers of sessions belonging to this user
+	<emphasis role="varlink-comment"># Identifiers of sessions belonging to this user</emphasis>
 	Sessions: ?[]string,
-	# Timestamp when the user was 'started' for the first time
+	<emphasis role="varlink-comment"># Timestamp when the user was 'started' for the first time</emphasis>
 	Timestamp: ?Timestamp,
-	# Whether the user is idle
+	<emphasis role="varlink-comment"># Whether the user is idle</emphasis>
 	IdleHint: bool,
-	# Timestamp when the user went idle, only present when IdleHint is true
+	<emphasis role="varlink-comment"># Timestamp when the user went idle, only present when IdleHint is true</emphasis>
 	IdleSinceHint: ?Timestamp
 )
 
-# Configuration aspects of a seat
-type SeatContext(
-	# The seat identifier
+<emphasis role="varlink-comment"># Configuration aspects of a seat</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> SeatContext(
+	<emphasis role="varlink-comment"># The seat identifier</emphasis>
 	Id: string
 )
 
-# Runtime state and dynamic information of a seat
-type SeatRuntime(
-	# The currently active session on this seat, if any
+<emphasis role="varlink-comment"># Runtime state and dynamic information of a seat</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> SeatRuntime(
+	<emphasis role="varlink-comment"># The currently active session on this seat, if any</emphasis>
 	ActiveSession: ?string,
-	# Identifiers of sessions assigned to this seat
+	<emphasis role="varlink-comment"># Identifiers of sessions assigned to this seat</emphasis>
 	Sessions: ?[]string,
-	# Whether this seat supports text terminal sessions
+	<emphasis role="varlink-comment"># Whether this seat supports text terminal sessions</emphasis>
 	CanTTY: bool,
-	# Whether this seat supports graphical sessions
+	<emphasis role="varlink-comment"># Whether this seat supports graphical sessions</emphasis>
 	CanGraphical: bool,
-	# Whether the seat is idle
+	<emphasis role="varlink-comment"># Whether the seat is idle</emphasis>
 	IdleHint: bool,
-	# Timestamp when the seat went idle, only present when IdleHint is true
+	<emphasis role="varlink-comment"># Timestamp when the seat went idle, only present when IdleHint is true</emphasis>
 	IdleSinceHint: ?Timestamp
 )
 
-# Configuration aspects of an inhibitor
-type InhibitorContext(
-	# The inhibitor identifier
+<emphasis role="varlink-comment"># Configuration aspects of an inhibitor</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> InhibitorContext(
+	<emphasis role="varlink-comment"># The inhibitor identifier</emphasis>
 	Id: string,
-	# What is being inhibited
+	<emphasis role="varlink-comment"># What is being inhibited</emphasis>
 	What: []InhibitWhat,
-	# A human-readable descriptive string of who is taking the inhibition
+	<emphasis role="varlink-comment"># A human-readable descriptive string of who is taking the inhibition</emphasis>
 	Who: ?string,
-	# A human-readable descriptive string of why the inhibition is taken
+	<emphasis role="varlink-comment"># A human-readable descriptive string of why the inhibition is taken</emphasis>
 	Why: ?string,
-	# The inhibition mode
+	<emphasis role="varlink-comment"># The inhibition mode</emphasis>
 	Mode: InhibitMode,
-	# The UID of the user taking the inhibition
+	<emphasis role="varlink-comment"># The UID of the user taking the inhibition</emphasis>
 	UID: int
 )
 
-# Runtime state and dynamic information of an inhibitor
-type InhibitorRuntime(
-	# The PID of the process taking the inhibition
+<emphasis role="varlink-comment"># Runtime state and dynamic information of an inhibitor</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> InhibitorRuntime(
+	<emphasis role="varlink-comment"># The PID of the process taking the inhibition</emphasis>
 	PID: ?ProcessId,
-	# The inhibitor timestamps
+	<emphasis role="varlink-comment"># The inhibitor timestamps</emphasis>
 	Since: ?Timestamp
 )
 
-# Allocates a new session.
-method CreateSession(
-	# Numeric UNIX UID of the user owning this session
+<emphasis role="varlink-comment"># Allocates a new session.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> CreateSession(
+	<emphasis role="varlink-comment"># Numeric UNIX UID of the user owning this session</emphasis>
 	UID: int,
-	# PID of the session leader
+	<emphasis role="varlink-comment"># PID of the session leader</emphasis>
 	PID: ?ProcessId,
-	# The type of the session
+	<emphasis role="varlink-comment"># The type of the session</emphasis>
 	Type: SessionType,
-	# The class of the session
+	<emphasis role="varlink-comment"># The class of the session</emphasis>
 	Class: SessionClass,
-	# PAM service name
+	<emphasis role="varlink-comment"># PAM service name</emphasis>
 	Service: ?string,
-	# Desktop identifier
+	<emphasis role="varlink-comment"># Desktop identifier</emphasis>
 	Desktop: ?string,
-	# Seat this session is assigned to
+	<emphasis role="varlink-comment"># Seat this session is assigned to</emphasis>
 	Seat: ?string,
-	# Virtual terminal number of the session, if applicable
+	<emphasis role="varlink-comment"># Virtual terminal number of the session, if applicable</emphasis>
 	VTNr: ?int,
-	# TTY device of the session
+	<emphasis role="varlink-comment"># TTY device of the session</emphasis>
 	TTY: ?string,
-	# X11 display of the session
+	<emphasis role="varlink-comment"># X11 display of the session</emphasis>
 	Display: ?string,
-	# Whether this is a remote session
+	<emphasis role="varlink-comment"># Whether this is a remote session</emphasis>
 	Remote: ?bool,
-	# Remote host, if this is a remote session
+	<emphasis role="varlink-comment"># Remote host, if this is a remote session</emphasis>
 	RemoteHost: ?string,
-	# Remote user, if this is a remote session
+	<emphasis role="varlink-comment"># Remote user, if this is a remote session</emphasis>
 	RemoteUser: ?string,
-	# Device paths this session has special access to
+	<emphasis role="varlink-comment"># Device paths this session has special access to</emphasis>
 	ExtraDeviceAccess: ?[]string
 ) -&gt; (
-	# The identifier string of the session of the user.
+	<emphasis role="varlink-comment"># The identifier string of the session of the user.</emphasis>
 	Id: string,
-	# The runtime path ($XDG_RUNTIME_DIR) of the user.
+	<emphasis role="varlink-comment"># The runtime path ($XDG_RUNTIME_DIR) of the user.</emphasis>
 	RuntimePath: string,
-	# The original UID of this session.
+	<emphasis role="varlink-comment"># The original UID of this session.</emphasis>
 	UID: int,
-	# The seat this session has been assigned to
+	<emphasis role="varlink-comment"># The seat this session has been assigned to</emphasis>
 	Seat: ?string,
-	# The virtual terminal number the session has been assigned to
+	<emphasis role="varlink-comment"># The virtual terminal number the session has been assigned to</emphasis>
 	VTNr: ?int,
-	# The assigned session type
+	<emphasis role="varlink-comment"># The assigned session type</emphasis>
 	Type: SessionType,
-	# The assigned session class
+	<emphasis role="varlink-comment"># The assigned session class</emphasis>
 	Class: SessionClass
 )
 
-# Releases an existing session. Currently, will be refused unless originating from the session to release itself.
-method ReleaseSession(
-	# The identifier string of the session to release. If unspecified or 'self', will return the callers session.
+<emphasis role="varlink-comment"># Releases an existing session. Currently, will be refused unless originating from the session to release itself.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> ReleaseSession(
+	<emphasis role="varlink-comment"># The identifier string of the session to release. If unspecified or 'self', will return the callers session.</emphasis>
 	Id: ?string
 ) -&gt; ()
 
-# Lists current sessions. If an Id or PID filter is provided, returns the single matching session; otherwise streams all current sessions (requires the 'more' flag).
-# [Supports 'more' flag]
-method ListSessions(
-	# If non-null, the identifier string of a session to look up. Supports the special names 'self' and 'auto' which resolve to the caller's session.
+<emphasis role="varlink-comment"># Lists current sessions. If an Id or PID filter is provided, returns the single matching session; otherwise streams all current sessions (requires the 'more' flag).</emphasis>
+<emphasis role="varlink-comment"># [Supports 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> ListSessions(
+	<emphasis role="varlink-comment"># If non-null, the identifier string of a session to look up. Supports the special names 'self' and 'auto' which resolve to the caller's session.</emphasis>
 	Id: ?string,
-	# If non-null, return the session containing the process with this PID. If both Id and PID are specified they must reference the same session, otherwise NoSuchSession is returned.
+	<emphasis role="varlink-comment"># If non-null, return the session containing the process with this PID. If both Id and PID are specified they must reference the same session, otherwise NoSuchSession is returned.</emphasis>
 	PID: ?ProcessId
 ) -&gt; (
-	# Configuration of the session
+	<emphasis role="varlink-comment"># Configuration of the session</emphasis>
 	context: SessionContext,
-	# Runtime information of the session
+	<emphasis role="varlink-comment"># Runtime information of the session</emphasis>
 	runtime: SessionRuntime
 )
 
-# Lists current users. If a UID or PID filter is provided, returns the single matching user; otherwise streams all current users (requires the 'more' flag).
-# [Supports 'more' flag]
-method ListUsers(
-	# If non-null, the UNIX UID of a user to look up.
+<emphasis role="varlink-comment"># Lists current users. If a UID or PID filter is provided, returns the single matching user; otherwise streams all current users (requires the 'more' flag).</emphasis>
+<emphasis role="varlink-comment"># [Supports 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> ListUsers(
+	<emphasis role="varlink-comment"># If non-null, the UNIX UID of a user to look up.</emphasis>
 	UID: ?int,
-	# If non-null, return the user owning the cgroup containing the process with this PID. If both UID and PID are specified they must reference the same user, otherwise NoSuchUser is returned.
+	<emphasis role="varlink-comment"># If non-null, return the user owning the cgroup containing the process with this PID. If both UID and PID are specified they must reference the same user, otherwise NoSuchUser is returned.</emphasis>
 	PID: ?ProcessId
 ) -&gt; (
-	# Configuration of the user
+	<emphasis role="varlink-comment"># Configuration of the user</emphasis>
 	context: UserContext,
-	# Runtime information of the user
+	<emphasis role="varlink-comment"># Runtime information of the user</emphasis>
 	runtime: UserRuntime
 )
 
-# Lists current seats. If an Id filter is provided, returns the single matching seat; otherwise streams all current seats (requires the 'more' flag).
-# [Supports 'more' flag]
-method ListSeats(
-	# If non-null, the identifier string of a seat to look up.
+<emphasis role="varlink-comment"># Lists current seats. If an Id filter is provided, returns the single matching seat; otherwise streams all current seats (requires the 'more' flag).</emphasis>
+<emphasis role="varlink-comment"># [Supports 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> ListSeats(
+	<emphasis role="varlink-comment"># If non-null, the identifier string of a seat to look up.</emphasis>
 	Id: ?string
 ) -&gt; (
-	# Configuration of the seat
+	<emphasis role="varlink-comment"># Configuration of the seat</emphasis>
 	context: SeatContext,
-	# Runtime information of the seat
+	<emphasis role="varlink-comment"># Runtime information of the seat</emphasis>
 	runtime: SeatRuntime
 )
 
-# Lists all current inhibitors.
-# [Requires 'more' flag]
-method ListInhibitors() -&gt; (
-	# Configuration of the inhibitor
+<emphasis role="varlink-comment"># Lists all current inhibitors.</emphasis>
+<emphasis role="varlink-comment"># [Requires 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> ListInhibitors() -&gt; (
+	<emphasis role="varlink-comment"># Configuration of the inhibitor</emphasis>
 	context: InhibitorContext,
-	# Runtime information of the inhibitor
+	<emphasis role="varlink-comment"># Runtime information of the inhibitor</emphasis>
 	runtime: InhibitorRuntime
 )
 
-# No session by this name found
-error NoSuchSession()
+<emphasis role="varlink-comment"># No session by this name found</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> NoSuchSession()
 
-# No seat by this name found
-error NoSuchSeat()
+<emphasis role="varlink-comment"># No seat by this name found</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> NoSuchSeat()
 
-# No user by this UID found
-error NoSuchUser()
+<emphasis role="varlink-comment"># No user by this UID found</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> NoSuchUser()
 
-# No inhibitor found
-error NoSuchInhibitor()
+<emphasis role="varlink-comment"># No inhibitor found</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> NoSuchInhibitor()
 
-# Process already member of a session
-error AlreadySessionMember()
+<emphasis role="varlink-comment"># Process already member of a session</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> AlreadySessionMember()
 
-# The specified virtual terminal (VT) is already taken by another session
-error VirtualTerminalAlreadyTaken()
+<emphasis role="varlink-comment"># The specified virtual terminal (VT) is already taken by another session</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> VirtualTerminalAlreadyTaken()
 
-# Maximum number of sessions reached
-error TooManySessions()
+<emphasis role="varlink-comment"># Maximum number of sessions reached</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> TooManySessions()
 
-# Failed to allocate a unit for the session
-error UnitAllocationFailed()
+<emphasis role="varlink-comment"># Failed to allocate a unit for the session</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> UnitAllocationFailed()
 
-# The session leader process does not have a pidfd
-error NoSessionPIDFD()
+<emphasis role="varlink-comment"># The session leader process does not have a pidfd</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> NoSessionPIDFD()
 </programlisting>
 
     <!--Autogenerated cross-references for systemd.directives, do not edit-->
@@ -456,10 +456,10 @@ error NoSessionPIDFD()
     <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.Login</screen> shows the
     interface definition as served by <replaceable>SERVICE</replaceable>, and
     <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.Login.CreateSession '{}'</screen>
-    invokes its <function>CreateSession</function> method.</para>
+    invokes its <function>CreateSession()</function> method.</para>
   </refsect1>
 
-  <refsect1>
+  <refsect1><title>History</title><para>The io.systemd.Login interface was added in version &gt;= 0.60.0.</para><para><varname>AlreadySessionMember</varname>, <function>CreateSession()</function>, <varname>InhibitMode</varname>, <varname>InhibitWhat</varname>, <varname>InhibitorContext</varname>, <varname>InhibitorRuntime</varname>, <function>ListInhibitors()</function>, <function>ListSeats()</function>, <function>ListSessions()</function>, <function>ListUsers()</function>, <varname>NoSessionPIDFD</varname>, <varname>NoSuchInhibitor</varname>, <varname>NoSuchSeat</varname>, <varname>NoSuchSession</varname>, <varname>NoSuchUser</varname>, <varname>ProcessId</varname>, <function>ReleaseSession()</function>, <varname>SeatContext</varname>, <varname>SeatRuntime</varname>, <varname>SessionClass</varname>, <varname>SessionContext</varname>, <varname>SessionRuntime</varname>, <varname>SessionType</varname>, <varname>Timestamp</varname>, <varname>TooManySessions</varname>, <varname>UnitAllocationFailed</varname>, <varname>UserContext</varname>, <varname>UserRuntime</varname>, and <varname>VirtualTerminalAlreadyTaken</varname> were added in version &gt;= 0.60.0.</para></refsect1><refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>

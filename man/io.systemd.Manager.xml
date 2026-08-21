@@ -37,9 +37,9 @@
     <para>The following interface definition is exposed:</para>
 
     <programlisting varlink-interface="io.systemd.Manager">
-interface io.systemd.Manager
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd.Manager
 
-type LogTarget(
+<emphasis role="varlink-keyword">type</emphasis> LogTarget(
 	console,
 	kmsg,
 	journal,
@@ -51,13 +51,13 @@ type LogTarget(
 	null
 )
 
-type OOMPolicy(
+<emphasis role="varlink-keyword">type</emphasis> OOMPolicy(
 	continue,
 	stop,
 	kill
 )
 
-type ExecOutputType(
+<emphasis role="varlink-keyword">type</emphasis> ExecOutputType(
 	inherit,
 	null,
 	tty,
@@ -72,14 +72,14 @@ type ExecOutputType(
 	truncate
 )
 
-type CGroupPressureWatch(
+<emphasis role="varlink-keyword">type</emphasis> CGroupPressureWatch(
 	no,
 	yes,
 	auto,
 	skip
 )
 
-type EmergencyAction(
+<emphasis role="varlink-keyword">type</emphasis> EmergencyAction(
 	none,
 	exit,
 	exit_force,
@@ -98,198 +98,198 @@ type EmergencyAction(
 	halt_immediate
 )
 
-type ManagerContext(
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#LogColor=
+<emphasis role="varlink-keyword">type</emphasis> ManagerContext(
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#LogColor=</emphasis>
 	ShowStatus: bool,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#LogColor=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#LogColor=</emphasis>
 	LogLevel: LogLevelStruct,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#LogColor=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#LogColor=</emphasis>
 	LogTarget: LogTarget,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#ManagerEnvironment=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#ManagerEnvironment=</emphasis>
 	Environment: ?[]string,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultStandardOutput=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#DefaultStandardOutput=</emphasis>
 	DefaultStandardOutput: ExecOutputType,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultStandardError=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#DefaultStandardError=</emphasis>
 	DefaultStandardError: ExecOutputType,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#ServiceWatchdogs=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#ServiceWatchdogs=</emphasis>
 	ServiceWatchdogs: bool,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultTimerAccuracySec=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#DefaultTimerAccuracySec=</emphasis>
 	DefaultTimerAccuracyUSec: int,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultTimeoutStartSec=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#DefaultTimeoutStartSec=</emphasis>
 	DefaultTimeoutStartUSec: int,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultTimeoutStopSec=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#DefaultTimeoutStopSec=</emphasis>
 	DefaultTimeoutStopUSec: int,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultTimeoutAbortSec=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#DefaultTimeoutAbortSec=</emphasis>
 	DefaultTimeoutAbortUSec: int,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultDeviceTimeoutSec=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#DefaultDeviceTimeoutSec=</emphasis>
 	DefaultDeviceTimeoutUSec: int,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultRestartSec=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#DefaultRestartSec=</emphasis>
 	DefaultRestartUSec: int,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultStartLimit=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#DefaultStartLimit=</emphasis>
 	DefaultStartLimit: ?RateLimit,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultIOAccounting=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#DefaultIOAccounting=</emphasis>
 	DefaultIOAccounting: bool,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultIPAccounting=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#DefaultIPAccounting=</emphasis>
 	DefaultIPAccounting: bool,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultMemoryAccounting=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#DefaultMemoryAccounting=</emphasis>
 	DefaultMemoryAccounting: bool,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultTasksAccounting=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#DefaultTasksAccounting=</emphasis>
 	DefaultTasksAccounting: bool,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultLimitCPU=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#DefaultLimitCPU=</emphasis>
 	DefaultLimits: ResourceLimitTable,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultTasksMax=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#DefaultTasksMax=</emphasis>
 	DefaultTasksMax: int,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultMemoryPressureThresholdUSec=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#DefaultMemoryPressureThresholdUSec=</emphasis>
 	DefaultMemoryPressureThresholdUSec: int,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultMemoryPressureWatch=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#DefaultMemoryPressureWatch=</emphasis>
 	DefaultMemoryPressureWatch: CGroupPressureWatch,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultCPUPressureThresholdUSec=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#DefaultCPUPressureThresholdUSec=</emphasis>
 	DefaultCPUPressureThresholdUSec: int,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultCPUPressureWatch=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#DefaultCPUPressureWatch=</emphasis>
 	DefaultCPUPressureWatch: CGroupPressureWatch,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultIOPressureThresholdUSec=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#DefaultIOPressureThresholdUSec=</emphasis>
 	DefaultIOPressureThresholdUSec: int,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultIOPressureWatch=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#DefaultIOPressureWatch=</emphasis>
 	DefaultIOPressureWatch: CGroupPressureWatch,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#RuntimeWatchdogSec=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#RuntimeWatchdogSec=</emphasis>
 	RuntimeWatchdogUSec: ?int,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#RebootWatchdogSec=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#RebootWatchdogSec=</emphasis>
 	RebootWatchdogUSec: ?int,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#KExecWatchdogSec=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#KExecWatchdogSec=</emphasis>
 	KExecWatchdogUSec: ?int,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#RuntimeWatchdogPreSec=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#RuntimeWatchdogPreSec=</emphasis>
 	RuntimeWatchdogPreUSec: ?int,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#RuntimeWatchdogPreGovernor=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#RuntimeWatchdogPreGovernor=</emphasis>
 	RuntimeWatchdogPreGovernor: ?string,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#WatchdogDevice=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#WatchdogDevice=</emphasis>
 	WatchdogDevice: ?string,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#TimerSlackNSec=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#TimerSlackNSec=</emphasis>
 	TimerSlackNSec: int,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultOOMPolicy=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#DefaultOOMPolicy=</emphasis>
 	DefaultOOMPolicy: OOMPolicy,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultOOMScoreAdjust=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#DefaultOOMScoreAdjust=</emphasis>
 	DefaultOOMScoreAdjust: int,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultRestrictSUIDSGID=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#DefaultRestrictSUIDSGID=</emphasis>
 	DefaultRestrictSUIDSGID: bool,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#CtrlAltDelBurstAction=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#CtrlAltDelBurstAction=</emphasis>
 	CtrlAltDelBurstAction: EmergencyAction,
-	# The console on which systemd asks for confirmation when spawning processes
+	<emphasis role="varlink-comment"># The console on which systemd asks for confirmation when spawning processes</emphasis>
 	ConfirmSpawn: ?string,
-	# Root of the control group hierarchy that the manager is running in
+	<emphasis role="varlink-comment"># Root of the control group hierarchy that the manager is running in</emphasis>
 	ControlGroup: ?string,
-	# https://www.freedesktop.org/software/systemd/man/262/systemd-system.conf.html#DefaultMemoryZSwapWriteback=
+	<emphasis role="varlink-comment"># https://www.freedesktop.org/software/systemd/man/263/systemd-system.conf.html#DefaultMemoryZSwapWriteback=</emphasis>
 	DefaultMemoryZSwapWriteback: bool
 )
 
-type ManagerRuntime(
-	# The version string of the running systemd instance
+<emphasis role="varlink-keyword">type</emphasis> ManagerRuntime(
+	<emphasis role="varlink-comment"># The version string of the running systemd instance</emphasis>
 	Version: string,
-	# A short ID string describing the architecture the systemd instance is running on
+	<emphasis role="varlink-comment"># A short ID string describing the architecture the systemd instance is running on</emphasis>
 	Architecture: string,
-	# The features that have been enabled and disabled for this build
+	<emphasis role="varlink-comment"># The features that have been enabled and disabled for this build</emphasis>
 	Features: string,
-	# An array of strings describing the taints applied to the running system
+	<emphasis role="varlink-comment"># An array of strings describing the taints applied to the running system</emphasis>
 	Taints: ?[]string,
-	# The unit search path
+	<emphasis role="varlink-comment"># The unit search path</emphasis>
 	UnitPath: []string,
-	# A short ID string describing the virtualization technology the system runs in
+	<emphasis role="varlink-comment"># A short ID string describing the virtualization technology the system runs in</emphasis>
 	Virtualization: string,
-	# A short ID string describing the confidential virtualization technology the system runs in
+	<emphasis role="varlink-comment"># A short ID string describing the confidential virtualization technology the system runs in</emphasis>
 	ConfidentialVirtualization: string,
-	# Timestamp when the firmware first began execution
+	<emphasis role="varlink-comment"># Timestamp when the firmware first began execution</emphasis>
 	FirmwareTimestamp: ?Timestamp,
-	# Timestamp when the boot loader first began execution
+	<emphasis role="varlink-comment"># Timestamp when the boot loader first began execution</emphasis>
 	LoaderTimestamp: ?Timestamp,
-	# Timestamp when the kernel first began execution
+	<emphasis role="varlink-comment"># Timestamp when the kernel first began execution</emphasis>
 	KernelTimestamp: ?Timestamp,
-	# Timestamp when the initrd first began execution
+	<emphasis role="varlink-comment"># Timestamp when the initrd first began execution</emphasis>
 	InitRDTimestamp: ?Timestamp,
-	# Timestamp when the initrd first began execution
+	<emphasis role="varlink-comment"># Timestamp when the initrd first began execution</emphasis>
 	UserspaceTimestamp: ?Timestamp,
-	# Timestamp when the system finished booting up
+	<emphasis role="varlink-comment"># Timestamp when the system finished booting up</emphasis>
 	FinishTimestamp: ?Timestamp,
-	# Timestamp when shutdown began, i.e. when units started to be stopped
+	<emphasis role="varlink-comment"># Timestamp when shutdown began, i.e. when units started to be stopped</emphasis>
 	ShutdownStartTimestamp: ?Timestamp,
-	# Timestamp when all units finished stopping during shutdown
+	<emphasis role="varlink-comment"># Timestamp when all units finished stopping during shutdown</emphasis>
 	ShutdownFinishTimestamp: ?Timestamp,
-	# Timestamp when the previous boot began stopping units, restored across a kexec-based live update
+	<emphasis role="varlink-comment"># Timestamp when the previous boot began stopping units, restored across a kexec-based live update</emphasis>
 	PreviousShutdownStartTimestamp: ?Timestamp,
-	# Timestamp when the previous boot finished stopping units, restored across a kexec-based live update
+	<emphasis role="varlink-comment"># Timestamp when the previous boot finished stopping units, restored across a kexec-based live update</emphasis>
 	PreviousShutdownFinishTimestamp: ?Timestamp,
-	# Timestamp when systemd-shutdown began execution during the previous boot, restored across a kexec-based live update
+	<emphasis role="varlink-comment"># Timestamp when systemd-shutdown began execution during the previous boot, restored across a kexec-based live update</emphasis>
 	PreviousShutdownLateStartTimestamp: ?Timestamp,
-	# Timestamp when systemd-shutdown was about to kexec into the current kernel, restored across a kexec-based live update
+	<emphasis role="varlink-comment"># Timestamp when systemd-shutdown was about to kexec into the current kernel, restored across a kexec-based live update</emphasis>
 	PreviousShutdownLateFinishTimestamp: ?Timestamp,
-	# Timestamp when the manager started uploading security policies to the kernel
+	<emphasis role="varlink-comment"># Timestamp when the manager started uploading security policies to the kernel</emphasis>
 	SecurityStartTimestamp: ?Timestamp,
-	# Timestamp when the manager finished uploading security policies to the kernel
+	<emphasis role="varlink-comment"># Timestamp when the manager finished uploading security policies to the kernel</emphasis>
 	SecurityFinishTimestamp: ?Timestamp,
-	# Timestamp when the manager started executing generators
+	<emphasis role="varlink-comment"># Timestamp when the manager started executing generators</emphasis>
 	GeneratorsStartTimestamp: ?Timestamp,
-	# Timestamp when the manager finished executing generators
+	<emphasis role="varlink-comment"># Timestamp when the manager finished executing generators</emphasis>
 	GeneratorsFinishTimestamp: ?Timestamp,
-	# Timestamp when the manager first started loading units
+	<emphasis role="varlink-comment"># Timestamp when the manager first started loading units</emphasis>
 	UnitsLoadStartTimestamp: ?Timestamp,
-	# Timestamp when the manager first finished loading units
+	<emphasis role="varlink-comment"># Timestamp when the manager first finished loading units</emphasis>
 	UnitsLoadFinishTimestamp: ?Timestamp,
-	# Timestamp when the manager last started loading units
+	<emphasis role="varlink-comment"># Timestamp when the manager last started loading units</emphasis>
 	UnitsLoadTimestamp: ?Timestamp,
-	# Timestamp when the manager started uploading security policies to the kernel in the initrd
+	<emphasis role="varlink-comment"># Timestamp when the manager started uploading security policies to the kernel in the initrd</emphasis>
 	InitRDSecurityStartTimestamp: ?Timestamp,
-	# Timestamp when the manager finished uploading security policies to the kernel in the initrd
+	<emphasis role="varlink-comment"># Timestamp when the manager finished uploading security policies to the kernel in the initrd</emphasis>
 	InitRDSecurityFinishTimestamp: ?Timestamp,
-	# Timestamp when the manager started executing generators in the initrd
+	<emphasis role="varlink-comment"># Timestamp when the manager started executing generators in the initrd</emphasis>
 	InitRDGeneratorsStartTimestamp: ?Timestamp,
-	# Timestamp when the manager finished executing generators in the initrd
+	<emphasis role="varlink-comment"># Timestamp when the manager finished executing generators in the initrd</emphasis>
 	InitRDGeneratorsFinishTimestamp: ?Timestamp,
-	# Timestamp when the manager first started loading units in the initrd
+	<emphasis role="varlink-comment"># Timestamp when the manager first started loading units in the initrd</emphasis>
 	InitRDUnitsLoadStartTimestamp: ?Timestamp,
-	# Timestamp when the manager first finished loading units in the initrd
+	<emphasis role="varlink-comment"># Timestamp when the manager first finished loading units in the initrd</emphasis>
 	InitRDUnitsLoadFinishTimestamp: ?Timestamp,
-	# The amount of unique unit names currently loaded
+	<emphasis role="varlink-comment"># The amount of unique unit names currently loaded</emphasis>
 	NNames: int,
-	# The amount of failed units
+	<emphasis role="varlink-comment"># The amount of failed units</emphasis>
 	NFailedUnits: int,
-	# The amount of currently queued jobs
+	<emphasis role="varlink-comment"># The amount of currently queued jobs</emphasis>
 	NJobs: int,
-	# The total amount of queued jobs
+	<emphasis role="varlink-comment"># The total amount of queued jobs</emphasis>
 	NInstalledJobs: int,
-	# The total amount of failed jobs
+	<emphasis role="varlink-comment"># The total amount of failed jobs</emphasis>
 	NFailedJobs: int,
-	# IDs of transactions that encountered ordering cycle
+	<emphasis role="varlink-comment"># IDs of transactions that encountered ordering cycle</emphasis>
 	TransactionsWithOrderingCycle: ?[]int,
-	# Boot progress as a floating point value between 0.0 and 1.0
+	<emphasis role="varlink-comment"># Boot progress as a floating point value between 0.0 and 1.0</emphasis>
 	Progress: float,
-	# Timestamp when the hardware watchdog was last pinged
+	<emphasis role="varlink-comment"># Timestamp when the hardware watchdog was last pinged</emphasis>
 	WatchdogLastPingTimestamp: ?Timestamp,
-	# Current state of the system
+	<emphasis role="varlink-comment"># Current state of the system</emphasis>
 	SystemState: string,
-	# Exit code of the manager
+	<emphasis role="varlink-comment"># Exit code of the manager</emphasis>
 	ExitCode: int,
-	# Encodes how many soft-reboots were successfully completed
+	<emphasis role="varlink-comment"># Encodes how many soft-reboots were successfully completed</emphasis>
 	SoftRebootsCount: int,
-	# Encodes how many consecutive kexec reboots were successfully completed since the last full boot. Zero if the Live Update Orchestrator is not available.
-	KExecsCount: int,
-	# Number of successfully completed configuration reloads
+	<emphasis role="varlink-comment"># Encodes how many consecutive kexec reboots were successfully completed since the last full boot. Zero if the Live Update Orchestrator is not available.</emphasis>
+	KExecCount: int,
+	<emphasis role="varlink-comment"># Number of successfully completed configuration reloads</emphasis>
 	ReloadCount: int
 )
 
-type Timestamp(
-	# Timestamp in µs in the CLOCK_REALTIME clock (wallclock)
+<emphasis role="varlink-keyword">type</emphasis> Timestamp(
+	<emphasis role="varlink-comment"># Timestamp in µs in the CLOCK_REALTIME clock (wallclock)</emphasis>
 	realtime: ?int,
-	# Timestamp in µs in the CLOCK_MONOTONIC clock
+	<emphasis role="varlink-comment"># Timestamp in µs in the CLOCK_MONOTONIC clock</emphasis>
 	monotonic: ?int
 )
 
-type ResourceLimit(
-	# The soft resource limit. RLIM_INFINITY is mapped to unset value
+<emphasis role="varlink-keyword">type</emphasis> ResourceLimit(
+	<emphasis role="varlink-comment"># The soft resource limit. RLIM_INFINITY is mapped to unset value</emphasis>
 	soft: ?int,
-	# The hard resource limit. RLIM_INFINITY is mapped to unset value
+	<emphasis role="varlink-comment"># The hard resource limit. RLIM_INFINITY is mapped to unset value</emphasis>
 	hard: ?int
 )
 
-type ResourceLimitTable(
-	# See setrlimit(2) for details
+<emphasis role="varlink-keyword">type</emphasis> ResourceLimitTable(
+	<emphasis role="varlink-comment"># See setrlimit(2) for details</emphasis>
 	CPU: ?ResourceLimit,
 	FSIZE: ?ResourceLimit,
 	DATA: ?ResourceLimit,
@@ -308,69 +308,69 @@ type ResourceLimitTable(
 	RTTIME: ?ResourceLimit
 )
 
-type RateLimit(
-	# The ratelimit interval
+<emphasis role="varlink-keyword">type</emphasis> RateLimit(
+	<emphasis role="varlink-comment"># The ratelimit interval</emphasis>
 	intervalUSec: ?int,
-	# The ratelimit burst
+	<emphasis role="varlink-comment"># The ratelimit burst</emphasis>
 	burst: ?int
 )
 
-type LogLevelStruct(
-	# 'console' target log level
+<emphasis role="varlink-keyword">type</emphasis> LogLevelStruct(
+	<emphasis role="varlink-comment"># 'console' target log level</emphasis>
 	console: string,
-	# 'kmsg' target log level
+	<emphasis role="varlink-comment"># 'kmsg' target log level</emphasis>
 	kmsg: string,
-	# 'syslog' target log level
+	<emphasis role="varlink-comment"># 'syslog' target log level</emphasis>
 	syslog: string,
-	# 'journal' target log level
+	<emphasis role="varlink-comment"># 'journal' target log level</emphasis>
 	journal: string
 )
 
-method Describe() -&gt; (
-	# Configuration of the manager
+<emphasis role="varlink-keyword">method</emphasis> Describe() -&gt; (
+	<emphasis role="varlink-comment"># Configuration of the manager</emphasis>
 	context: ManagerContext,
-	# Runtime information of the manager
+	<emphasis role="varlink-comment"># Runtime information of the manager</emphasis>
 	runtime: ManagerRuntime
 )
 
-# Reexecute the main manager process
-method Reexecute() -&gt; ()
+<emphasis role="varlink-comment"># Reexecute the main manager process</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> Reexecute() -&gt; ()
 
-# Reload the manager configuration
-method Reload() -&gt; ()
+<emphasis role="varlink-comment"># Reload the manager configuration</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> Reload() -&gt; ()
 
-# Enqueue all marked jobs
-# [Supports 'more' flag]
-method EnqueueMarkedJobs() -&gt; (
-	# Enqueued unit ID
+<emphasis role="varlink-comment"># Enqueue all marked jobs</emphasis>
+<emphasis role="varlink-comment"># [Supports 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> EnqueueMarkedJobs() -&gt; (
+	<emphasis role="varlink-comment"># Enqueued unit ID</emphasis>
 	unitID: ?string,
-	# ID of enqueued job (if successful)
+	<emphasis role="varlink-comment"># ID of enqueued job (if successful)</emphasis>
 	jobID: ?int,
-	# Varlink error ID (on failure)
-	error: ?string,
-	# Job enqueue error message (on failure)
+	<emphasis role="varlink-comment"># Varlink error ID (on failure)</emphasis>
+	<emphasis role="varlink-keyword">error</emphasis>: ?string,
+	<emphasis role="varlink-comment"># Job enqueue error message (on failure)</emphasis>
 	errorMessage: ?string
 )
 
-# Power off the system
-method PowerOff() -&gt; ()
+<emphasis role="varlink-comment"># Power off the system</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> PowerOff() -&gt; ()
 
-# Reboot the system
-method Reboot() -&gt; ()
+<emphasis role="varlink-comment"># Reboot the system</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> Reboot() -&gt; ()
 
-# Halt the system
-method Halt() -&gt; ()
+<emphasis role="varlink-comment"># Halt the system</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> Halt() -&gt; ()
 
-# Reboot the system via kexec
-method KExec() -&gt; ()
+<emphasis role="varlink-comment"># Reboot the system via kexec</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> KExec() -&gt; ()
 
-# Soft-reboot the userspace
-method SoftReboot(
-	# New root directory for the soft reboot
+<emphasis role="varlink-comment"># Soft-reboot the userspace</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> SoftReboot(
+	<emphasis role="varlink-comment"># New root directory for the soft reboot</emphasis>
 	root: ?string
 ) -&gt; ()
 
-error RateLimitReached()
+<emphasis role="varlink-keyword">error</emphasis> RateLimitReached()
 </programlisting>
 
     <!--Autogenerated cross-references for systemd.directives, do not edit-->
@@ -431,10 +431,10 @@ error RateLimitReached()
     <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.Manager</screen> shows the
     interface definition as served by <replaceable>SERVICE</replaceable>, and
     <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.Manager.Describe '{}'</screen>
-    invokes its <function>Describe</function> method.</para>
+    invokes its <function>Describe()</function> method.</para>
   </refsect1>
 
-  <refsect1>
+  <refsect1><title>History</title><para>The io.systemd.Manager interface was added in version 258.</para><para><function>Describe()</function>, <varname>LogLevelStruct</varname>, <varname>ManagerContext</varname>, <varname>ManagerRuntime</varname>, <varname>RateLimit</varname>, <varname>ResourceLimit</varname>, <varname>ResourceLimitTable</varname>, and <varname>Timestamp</varname> were added in version 258.</para><para><varname>RateLimitReached</varname>, <function>Reexecute()</function>, and <function>Reload()</function> were added in version 259.</para><para><function>EnqueueMarkedJobs()</function> was added in version 260.</para><para><varname>CGroupPressureWatch</varname>, <varname>EmergencyAction</varname>, <varname>ExecOutputType</varname>, <function>Halt()</function>, <function>KExec()</function>, <varname>LogTarget</varname>, <varname>OOMPolicy</varname>, <function>PowerOff()</function>, <function>Reboot()</function>, and <function>SoftReboot()</function> were added in version 261.</para></refsect1><refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>

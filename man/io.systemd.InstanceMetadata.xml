@@ -37,11 +37,11 @@
     <para>The following interface definition is exposed:</para>
 
     <programlisting varlink-interface="io.systemd.InstanceMetadata">
-# APIs for acquiring cloud IMDS information.
-interface io.systemd.InstanceMetadata
+<emphasis role="varlink-comment"># APIs for acquiring cloud IMDS information.</emphasis>
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd.InstanceMetadata
 
-# Well known data fields
-type WellKnown(
+<emphasis role="varlink-comment"># Well known data fields</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> WellKnown(
 	base,
 	hostname,
 	region,
@@ -54,72 +54,72 @@ type WellKnown(
 	userdata_base64
 )
 
-# Acquire data.
-method Get(
-	# The key to retrieve
+<emphasis role="varlink-comment"># Acquire data.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> Get(
+	<emphasis role="varlink-comment"># The key to retrieve</emphasis>
 	key: ?string,
-	# Start with a well-known key
+	<emphasis role="varlink-comment"># Start with a well-known key</emphasis>
 	wellKnown: ?WellKnown,
-	# The network interface to use
-	interface: ?int,
-	# Refresh cached data if older (CLOCK_BOOTTIME, µs)
+	<emphasis role="varlink-comment"># The network interface to use</emphasis>
+	<emphasis role="varlink-keyword">interface</emphasis>: ?int,
+	<emphasis role="varlink-comment"># Refresh cached data if older (CLOCK_BOOTTIME, µs)</emphasis>
 	refreshUSec: ?int,
-	# Whether to accept cached data
+	<emphasis role="varlink-comment"># Whether to accept cached data</emphasis>
 	cache: ?bool,
-	# The firewall mark value to use
+	<emphasis role="varlink-comment"># The firewall mark value to use</emphasis>
 	firewallMark: ?int,
-	# Controls whether to wait for connectivity
+	<emphasis role="varlink-comment"># Controls whether to wait for connectivity</emphasis>
 	wait: ?bool,
-	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
 	allowInteractiveAuthentication: ?bool
 ) -&gt; (
-	# The data in Base64 encoding.
+	<emphasis role="varlink-comment"># The data in Base64 encoding.</emphasis>
 	data: string,
-	# The interface the data was found on.
-	interface: ?int
+	<emphasis role="varlink-comment"># The interface the data was found on.</emphasis>
+	<emphasis role="varlink-keyword">interface</emphasis>: ?int
 )
 
-# Get information about cloud vendor and IMDS connectivity.
-method GetVendorInfo() -&gt; (
-	# The detected cloud vendor
+<emphasis role="varlink-comment"># Get information about cloud vendor and IMDS connectivity.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> GetVendorInfo() -&gt; (
+	<emphasis role="varlink-comment"># The detected cloud vendor</emphasis>
 	vendor: ?string,
-	# The URL to acquire the token from
+	<emphasis role="varlink-comment"># The URL to acquire the token from</emphasis>
 	tokenUrl: ?string,
-	# The HTTP header to configure the refresh timeout for the token in
+	<emphasis role="varlink-comment"># The HTTP header to configure the refresh timeout for the token in</emphasis>
 	refreshHeaderName: ?string,
-	# The base URL to acquire the data from
+	<emphasis role="varlink-comment"># The base URL to acquire the data from</emphasis>
 	dataUrl: ?string,
-	# A suffix to append to the data URL
+	<emphasis role="varlink-comment"># A suffix to append to the data URL</emphasis>
 	dataUrlSuffix: ?string,
-	# The HTTP header to pass the token in when requesting data
+	<emphasis role="varlink-comment"># The HTTP header to pass the token in when requesting data</emphasis>
 	tokenHeaderName: ?string,
-	# Additional HTTP headers to pass when acquiring data
+	<emphasis role="varlink-comment"># Additional HTTP headers to pass when acquiring data</emphasis>
 	extraHeader: ?[]string,
-	# IPv4 address of IMDS server
+	<emphasis role="varlink-comment"># IPv4 address of IMDS server</emphasis>
 	addressIPv4: ?[]int,
-	# IPv6 address of IMDS server
+	<emphasis role="varlink-comment"># IPv6 address of IMDS server</emphasis>
 	addressIPv6: ?[]int,
-	# Well-known fields
+	<emphasis role="varlink-comment"># Well-known fields</emphasis>
 	wellKnown: ?object
 )
 
-# The requested key is not found on the IMDS server.
-error KeyNotFound()
+<emphasis role="varlink-comment"># The requested key is not found on the IMDS server.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> KeyNotFound()
 
-# IMDS is disabled or otherwise not available.
-error NotAvailable()
+<emphasis role="varlink-comment"># IMDS is disabled or otherwise not available.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> NotAvailable()
 
-# IMDS is not supported.
-error NotSupported()
+<emphasis role="varlink-comment"># IMDS is not supported.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> NotSupported()
 
-# Well-known key is not set.
-error WellKnownKeyUnset()
+<emphasis role="varlink-comment"># Well-known key is not set.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> WellKnownKeyUnset()
 
-# Communication with IMDS failed.
-error CommunicationFailure()
+<emphasis role="varlink-comment"># Communication with IMDS failed.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> CommunicationFailure()
 
-# Timeout reached
-error Timeout()
+<emphasis role="varlink-comment"># Timeout reached</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> Timeout()
 </programlisting>
 
     <!--Autogenerated cross-references for systemd.directives, do not edit-->
@@ -154,10 +154,10 @@ error Timeout()
     <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.InstanceMetadata</screen> shows the
     interface definition as served by <replaceable>SERVICE</replaceable>, and
     <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.InstanceMetadata.Get '{}'</screen>
-    invokes its <function>Get</function> method.</para>
+    invokes its <function>Get()</function> method.</para>
   </refsect1>
 
-  <refsect1>
+  <refsect1><title>History</title><para>The io.systemd.InstanceMetadata interface was added in version 261.</para><para><varname>CommunicationFailure</varname>, <function>Get()</function>, <function>GetVendorInfo()</function>, <varname>KeyNotFound</varname>, <varname>NotAvailable</varname>, <varname>NotSupported</varname>, <varname>Timeout</varname>, <varname>WellKnown</varname>, and <varname>WellKnownKeyUnset</varname> were added in version 261.</para></refsect1><refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>

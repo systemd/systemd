@@ -37,11 +37,11 @@
     <para>The following interface definition is exposed:</para>
 
     <programlisting varlink-interface="io.systemd.MountFileSystem">
-# APIs for unprivileged mounting.
-interface io.systemd.MountFileSystem
+<emphasis role="varlink-comment"># APIs for unprivileged mounting.</emphasis>
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd.MountFileSystem
 
-# Encodes the designated purpose of a partition.
-type PartitionDesignator(
+<emphasis role="varlink-comment"># Encodes the designated purpose of a partition.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> PartitionDesignator(
 	root,
 	usr,
 	home,
@@ -57,144 +57,144 @@ type PartitionDesignator(
 	var
 )
 
-# Selects the type of UID/GID mapping to apply.
-type MountMapMode(
-	# Map the caller's UID to root in the user namespace, do not map anything else.
+<emphasis role="varlink-comment"># Selects the type of UID/GID mapping to apply.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> MountMapMode(
+	<emphasis role="varlink-comment"># Map the caller's UID to root in the user namespace, do not map anything else.</emphasis>
 	root,
-	# Map the foreign UID range to the base UID range in the user namespace (i.e. UID zero and above), covering 64K users.
+	<emphasis role="varlink-comment"># Map the foreign UID range to the base UID range in the user namespace (i.e. UID zero and above), covering 64K users.</emphasis>
 	foreign,
-	# Apply an identity (1:1) mapping, but limit it to 64K users.
+	<emphasis role="varlink-comment"># Apply an identity (1:1) mapping, but limit it to 64K users.</emphasis>
 	identity,
-	# Determine automatically based on provided directory and caller.
+	<emphasis role="varlink-comment"># Determine automatically based on provided directory and caller.</emphasis>
 	auto
 )
 
-# Information about a specific partition.
-type PartitionInfo(
-	# The designator of this partition.
+<emphasis role="varlink-comment"># Information about a specific partition.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> PartitionInfo(
+	<emphasis role="varlink-comment"># The designator of this partition.</emphasis>
 	designator: PartitionDesignator,
-	# Indicates whether this partition is marked for writable (non-read-only) operations.
+	<emphasis role="varlink-comment"># Indicates whether this partition is marked for writable (non-read-only) operations.</emphasis>
 	writable: bool,
-	# Indicates whether this partition is marked for automatic growing.
+	<emphasis role="varlink-comment"># Indicates whether this partition is marked for automatic growing.</emphasis>
 	growFileSystem: bool,
-	# Indicates the numeric partition number of this partition, or null if the image does not carry a partition table, and this object covers the whole block device.
+	<emphasis role="varlink-comment"># Indicates the numeric partition number of this partition, or null if the image does not carry a partition table, and this object covers the whole block device.</emphasis>
 	partitionNumber: ?int,
-	# Indicates the intended CPU architecture of the partition, in case the partition type encodes such information.
+	<emphasis role="varlink-comment"># Indicates the intended CPU architecture of the partition, in case the partition type encodes such information.</emphasis>
 	architecture: ?string,
-	# The partition UUID identifying the partition.
+	<emphasis role="varlink-comment"># The partition UUID identifying the partition.</emphasis>
 	partitionUuid: ?string,
-	# The file system type for the mount
+	<emphasis role="varlink-comment"># The file system type for the mount</emphasis>
 	fileSystemType: string,
-	# The partition label string of this partition.
+	<emphasis role="varlink-comment"># The partition label string of this partition.</emphasis>
 	partitionLabel: ?string,
-	# The size of the partition in bytes.
+	<emphasis role="varlink-comment"># The size of the partition in bytes.</emphasis>
 	size: int,
-	# The start offset of the partition in bytes.
+	<emphasis role="varlink-comment"># The start offset of the partition in bytes.</emphasis>
 	offset: int,
-	# A mount file descriptor to assign to a location.
+	<emphasis role="varlink-comment"># A mount file descriptor to assign to a location.</emphasis>
 	mountFileDescriptor: int,
-	# A relative path indicating the intended mount point for this file system, if applicable. May contain multiple paths, for certain partitions that can be mounted to multiple distinct places.
+	<emphasis role="varlink-comment"># A relative path indicating the intended mount point for this file system, if applicable. May contain multiple paths, for certain partitions that can be mounted to multiple distinct places.</emphasis>
 	mountPoint: ?[]string
 )
 
-# Takes a disk image file descriptor as input, returns a set of mount file descriptors for it, plus meta information about the image and the partitions selected for mounting.
-method MountImage(
-	# File descriptor of the image file to mount and to assign to the user namespace. Must be a regular, i.e. non-O_PATH file descriptor.
+<emphasis role="varlink-comment"># Takes a disk image file descriptor as input, returns a set of mount file descriptors for it, plus meta information about the image and the partitions selected for mounting.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> MountImage(
+	<emphasis role="varlink-comment"># File descriptor of the image file to mount and to assign to the user namespace. Must be a regular, i.e. non-O_PATH file descriptor.</emphasis>
 	imageFileDescriptor: int,
-	# File descriptor to the user namespace to assign this image to. If not specified uses the host user namespace.
+	<emphasis role="varlink-comment"># File descriptor to the user namespace to assign this image to. If not specified uses the host user namespace.</emphasis>
 	userNamespaceFileDescriptor: ?int,
-	# Mounts the image read-only.
+	<emphasis role="varlink-comment"># Mounts the image read-only.</emphasis>
 	readOnly: ?bool,
-	# Grows the contained file systems if necessary and indicated, before mounting them.
+	<emphasis role="varlink-comment"># Grows the contained file systems if necessary and indicated, before mounting them.</emphasis>
 	growFileSystems: ?bool,
-	# Takes a literal password in case of an encrypted image
+	<emphasis role="varlink-comment"># Takes a literal password in case of an encrypted image</emphasis>
 	password: ?string,
-	# Takes an image policy string (see systemd.image-policy(7) for details) to apply while mounting the image
+	<emphasis role="varlink-comment"># Takes an image policy string (see systemd.image-policy(7) for details) to apply while mounting the image</emphasis>
 	imagePolicy: ?string,
-	# The mount options to be used for the partitions of the image, keyed by the partition designator. Requires elevated privileges via polkit if specified, the polkit request details will list them in the 'mount_options' field.
+	<emphasis role="varlink-comment"># The mount options to be used for the partitions of the image, keyed by the partition designator. Requires elevated privileges via polkit if specified, the polkit request details will list them in the 'mount_options' field.</emphasis>
 	mountOptions: ?[string]string,
-	# Whether to relax the extension release checks when mounting the image.
+	<emphasis role="varlink-comment"># Whether to relax the extension release checks when mounting the image.</emphasis>
 	relaxExtensionReleaseChecks: ?bool,
-	# Whether to automatically reuse already set up dm-verity devices that share the same roothash.
+	<emphasis role="varlink-comment"># Whether to automatically reuse already set up dm-verity devices that share the same roothash.</emphasis>
 	veritySharing: ?bool,
-	# File descriptor of the file containing the dm-verity data, if the image is a bare filesystem rather than a DDI.
+	<emphasis role="varlink-comment"># File descriptor of the file containing the dm-verity data, if the image is a bare filesystem rather than a DDI.</emphasis>
 	verityDataFileDescriptor: ?int,
-	# The expected dm-verity root hash as an hex encoded string, if the image is a bare filesystem rather than a DDI.
+	<emphasis role="varlink-comment"># The expected dm-verity root hash as an hex encoded string, if the image is a bare filesystem rather than a DDI.</emphasis>
 	verityRootHash: ?string,
-	# The expected signature for the dm-verity root hash as a Base64 encoded string, if the image is a bare filesystem rather than a DDI.
+	<emphasis role="varlink-comment"># The expected signature for the dm-verity root hash as a Base64 encoded string, if the image is a bare filesystem rather than a DDI.</emphasis>
 	verityRootHashSignature: ?string,
-	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
 	allowInteractiveAuthentication: ?bool
 ) -&gt; (
-	# An array with information about contained partitions that have been prepared for mounting, as well as their mount file descriptors.
+	<emphasis role="varlink-comment"># An array with information about contained partitions that have been prepared for mounting, as well as their mount file descriptors.</emphasis>
 	partitions: []PartitionInfo,
-	# Indicates whether the image contains only a single file system, i.e. no partition table.
+	<emphasis role="varlink-comment"># Indicates whether the image contains only a single file system, i.e. no partition table.</emphasis>
 	singleFileSystem: bool,
-	# The used image policy.
+	<emphasis role="varlink-comment"># The used image policy.</emphasis>
 	imagePolicy: string,
-	# The size of the image in bytes.
+	<emphasis role="varlink-comment"># The size of the image in bytes.</emphasis>
 	imageSize: int,
-	# The sector size of the image in bytes
+	<emphasis role="varlink-comment"># The sector size of the image in bytes</emphasis>
 	sectorSize: int,
-	# The name of the image
+	<emphasis role="varlink-comment"># The name of the image</emphasis>
 	imageName: ?string,
-	# The UUID of the image
+	<emphasis role="varlink-comment"># The UUID of the image</emphasis>
 	imageUuid: ?string
 )
 
-# Takes a directory file descriptor as input, returns a mount file descriptor.
-method MountDirectory(
-	# Directory file descriptor of the directory to assign to the user namespace. Must be a regular, i.e. non-O_PATH file descriptor.
+<emphasis role="varlink-comment"># Takes a directory file descriptor as input, returns a mount file descriptor.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> MountDirectory(
+	<emphasis role="varlink-comment"># Directory file descriptor of the directory to assign to the user namespace. Must be a regular, i.e. non-O_PATH file descriptor.</emphasis>
 	directoryFileDescriptor: int,
-	# File descriptor to the user namespace to assign this directory to. If not specified uses the host user namespace.
+	<emphasis role="varlink-comment"># File descriptor to the user namespace to assign this directory to. If not specified uses the host user namespace.</emphasis>
 	userNamespaceFileDescriptor: ?int,
-	# Whether to mark the resulting mount file descriptor as read-only. If not specified defaults to false.
+	<emphasis role="varlink-comment"># Whether to mark the resulting mount file descriptor as read-only. If not specified defaults to false.</emphasis>
 	readOnly: ?bool,
-	# Which kind of UID/GID mapping to apply to the resulting mount file descriptor.
+	<emphasis role="varlink-comment"># Which kind of UID/GID mapping to apply to the resulting mount file descriptor.</emphasis>
 	mode: ?MountMapMode,
-	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
 	allowInteractiveAuthentication: ?bool
 ) -&gt; (
-	# The freshly allocated mount file descriptor for the mount.
+	<emphasis role="varlink-comment"># The freshly allocated mount file descriptor for the mount.</emphasis>
 	mountFileDescriptor: int
 )
 
-# Creates an empty directory, owned by the foreign UID/GID range's root user, returns an open file descriptor to the directory. Access mode will be set to 0700.
-method MakeDirectory(
-	# File descriptor of the directory to create the new directory in. Must be a regular, i.e. non-O_PATH file descriptor.
+<emphasis role="varlink-comment"># Creates an empty directory, owned by the foreign UID/GID range's root user, returns an open file descriptor to the directory. Access mode will be set to 0700.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> MakeDirectory(
+	<emphasis role="varlink-comment"># File descriptor of the directory to create the new directory in. Must be a regular, i.e. non-O_PATH file descriptor.</emphasis>
 	parentFileDescriptor: int,
-	# Name of the directory to create.
+	<emphasis role="varlink-comment"># Name of the directory to create.</emphasis>
 	name: string,
-	# Access mode of the directory to create. Note that the suid, sgid, sticky, world-writable bit is unconditionally masked off.
+	<emphasis role="varlink-comment"># Access mode of the directory to create. Note that the suid, sgid, sticky, world-writable bit is unconditionally masked off.</emphasis>
 	mode: ?int,
-	# Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
 	allowInteractiveAuthentication: ?bool
 ) -&gt; (
-	# File descriptor referencing the newly created directory.
+	<emphasis role="varlink-comment"># File descriptor referencing the newly created directory.</emphasis>
 	directoryFileDescriptor: int
 )
 
-# Disk image is not compatible with this service.
-error IncompatibleImage()
+<emphasis role="varlink-comment"># Disk image is not compatible with this service.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> IncompatibleImage()
 
-# Multiple suitable root partitions found.
-error MultipleRootPartitionsFound()
+<emphasis role="varlink-comment"># Multiple suitable root partitions found.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> MultipleRootPartitionsFound()
 
-# No suitable root partition found.
-error RootPartitionNotFound()
+<emphasis role="varlink-comment"># No suitable root partition found.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> RootPartitionNotFound()
 
-# The specified image policy disallows mounting this disk image
-error DeniedByImagePolicy()
+<emphasis role="varlink-comment"># The specified image policy disallows mounting this disk image</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> DeniedByImagePolicy()
 
-# The authentication key for this image is not available.
-error KeyNotFound()
+<emphasis role="varlink-comment"># The authentication key for this image is not available.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> KeyNotFound()
 
-# Verity could not be set up.
-error VerityFailure()
+<emphasis role="varlink-comment"># Verity could not be set up.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> VerityFailure()
 
-# A passed file descriptor has unexpected/forbidden flags set.
-error BadFileDescriptorFlags(
-	# Name of the parameter referencing the file descriptor with one or more bad flags.
+<emphasis role="varlink-comment"># A passed file descriptor has unexpected/forbidden flags set.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> BadFileDescriptorFlags(
+	<emphasis role="varlink-comment"># Name of the parameter referencing the file descriptor with one or more bad flags.</emphasis>
 	parameter: string
 )
 </programlisting>
@@ -239,10 +239,10 @@ error BadFileDescriptorFlags(
     <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.MountFileSystem</screen> shows the
     interface definition as served by <replaceable>SERVICE</replaceable>, and
     <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.MountFileSystem.MountImage '{}'</screen>
-    invokes its <function>MountImage</function> method.</para>
+    invokes its <function>MountImage()</function> method.</para>
   </refsect1>
 
-  <refsect1>
+  <refsect1><title>History</title><para>The io.systemd.MountFileSystem interface was added in version 256.</para><para><varname>DeniedByImagePolicy</varname>, <varname>IncompatibleImage</varname>, <varname>KeyNotFound</varname>, <function>MountImage()</function>, <varname>MultipleRootPartitionsFound</varname>, <varname>PartitionDesignator</varname>, <varname>PartitionInfo</varname>, <varname>RootPartitionNotFound</varname>, and <varname>VerityFailure</varname> were added in version 256.</para><para><function>MakeDirectory()</function>, <function>MountDirectory()</function>, and <varname>MountMapMode</varname> were added in version 258.</para><para><varname>BadFileDescriptorFlags</varname> was added in version 259.</para></refsect1><refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
