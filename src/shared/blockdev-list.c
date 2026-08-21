@@ -363,6 +363,13 @@ int blockdev_list(BlockDevListFlags flags, BlockDevice **ret_devices, size_t *re
         if (r < 0)
                 return log_error_errno(r, "Failed to add subsystem match: %m");
 
+        if (!(flags & (BLOCKDEV_LIST_REQUIRE_LUKS | BLOCKDEV_LIST_SHOW_SYMLINKS | BLOCKDEV_LIST_METADATA))) {
+                /* If everything we need comes from the device name or sysfs directly, no udev db entry is needed. */
+                r = sd_device_enumerator_allow_uninitialized(e);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to allow uninitialized devices, ignoring: %m");
+        }
+
         if (FLAGS_SET(flags, BLOCKDEV_LIST_REQUIRE_LUKS)) {
                 /* blockdev_list_one() enforces this filter authoritatively; the enumerator match is just
                  * an optimization so we don't iterate non-LUKS devices here. */
