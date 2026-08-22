@@ -2811,6 +2811,192 @@ EOF
     losetup -d "$loop"
 }
 
+testcase_encrypt_add_token() {
+    local defs imgs loop token_json metadata_json metadata_b64
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod 0755 "$defs"
+
+    echo "*** testcase for EncryptAddToken= (plain type name, no extra data) ***"
+
+    tee "$defs/root.conf" <<EOF
+[Partition]
+Type=linux-generic
+Format=ext4
+Encrypt=key-file
+EncryptAddToken=test-dummy-token
+EOF
+
+    systemd-repart --pretty=yes \
+                   --definitions "$defs" \
+                   --empty=create \
+                   --size=100M \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --offline=no \
+                   "$imgs/enctoken-plain.img"
+
+    loop="$(losetup -P --show --find "$imgs/enctoken-plain.img")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'; losetup -d '$loop'" RETURN
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "${loop:?}p1"
+
+    cryptsetup luksDump "${loop}p1" | grep "test-dummy-token" >/dev/null
+
+    token_json="$(cryptsetup token export --token-id 0 "${loop}p1")"
+    echo "$token_json" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+assert d['type'] == 'test-dummy-token', 'Wrong token type: {}'.format(d['type'])
+assert '0' in d.get('keyslots', []), 'keyslot 0 not referenced by token: {}'.format(d)
+"
+
+    losetup -d "$loop"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+
+    echo "*** testcase for EncryptAddToken= (type + extra data via :data: base64) ***"
+
+    rm -f "$defs/root.conf"
+
+    # Build base64-encoded JSON for the extra metadata (no type/keyslots)
+    metadata_json='{"trustee.kbs.url":"http://kbs-service:8080"}'
+    metadata_b64="$(echo -n "$metadata_json" | base64 -w0)"
+
+    tee "$defs/root.conf" <<EOF
+[Partition]
+Type=linux-generic
+Format=ext4
+Encrypt=key-file
+EncryptAddToken=test-dummy-token:data:${metadata_b64}
+EOF
+
+    systemd-repart --pretty=yes \
+                   --definitions "$defs" \
+                   --empty=create \
+                   --size=100M \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --offline=no \
+                   "$imgs/enctoken-data.img"
+
+    loop="$(losetup -P --show --find "$imgs/enctoken-data.img")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'; losetup -d '$loop'" RETURN
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "${loop:?}p1"
+
+    cryptsetup luksDump "${loop}p1" | grep "test-dummy-token" >/dev/null
+
+    token_json="$(cryptsetup token export --token-id 0 "${loop}p1")"
+    echo "$token_json" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+assert d['type'] == 'test-dummy-token', 'Wrong token type: {}'.format(d['type'])
+assert d.get('trustee.kbs.url') == 'http://kbs-service:8080', 'Extra field not preserved: {}'.format(d)
+assert '0' in d.get('keyslots', []), 'keyslot 0 not referenced by token: {}'.format(d)
+"
+
+    losetup -d "$loop"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+
+    echo "*** testcase for EncryptAddToken= (type + extra data via :file:) ***"
+
+    rm -f "$defs/root.conf"
+
+    echo -n '{"trustee.kbs.url":"http://kbs-service:9090"}' > "$imgs/token-meta.json"
+
+    tee "$defs/root.conf" <<EOF
+[Partition]
+Type=linux-generic
+Format=ext4
+Encrypt=key-file
+EncryptAddToken=test-dummy-token:file:${imgs}/token-meta.json
+EOF
+
+    systemd-repart --pretty=yes \
+                   --definitions "$defs" \
+                   --empty=create \
+                   --size=100M \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --offline=no \
+                   "$imgs/enctoken-file.img"
+
+    loop="$(losetup -P --show --find "$imgs/enctoken-file.img")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'; losetup -d '$loop'" RETURN
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "${loop:?}p1"
+
+    token_json="$(cryptsetup token export --token-id 0 "${loop}p1")"
+    echo "$token_json" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+assert d['type'] == 'test-dummy-token', 'Wrong token type: {}'.format(d['type'])
+assert d.get('trustee.kbs.url') == 'http://kbs-service:9090', 'Extra field from file not preserved: {}'.format(d)
+assert '0' in d.get('keyslots', []), 'keyslot 0 not referenced by token: {}'.format(d)
+"
+
+    losetup -d "$loop"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+
+    echo "*** testcase for EncryptAddToken= (multiple tokens on one partition) ***"
+
+    rm -f "$defs/root.conf"
+
+    metadata_b64="$(echo -n '{"extra-key":"extra-val"}' | base64 -w0)"
+
+    tee "$defs/root.conf" <<EOF
+[Partition]
+Type=linux-generic
+Format=ext4
+Encrypt=key-file
+EncryptAddToken=first-token
+EncryptAddToken=second-token:data:${metadata_b64}
+EOF
+
+    systemd-repart --pretty=yes \
+                   --definitions "$defs" \
+                   --empty=create \
+                   --size=100M \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --offline=no \
+                   "$imgs/enctoken-multi.img"
+
+    loop="$(losetup -P --show --find "$imgs/enctoken-multi.img")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'; losetup -d '$loop'" RETURN
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "${loop:?}p1"
+
+    # Both tokens should appear in luksDump
+    cryptsetup luksDump "${loop}p1" | grep "first-token" >/dev/null
+    cryptsetup luksDump "${loop}p1" | grep "second-token" >/dev/null
+
+    # Verify each token individually
+    cryptsetup token export --token-id 0 "${loop}p1" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+assert d['type'] == 'first-token', 'Wrong first token type: {}'.format(d['type'])
+assert '0' in d.get('keyslots', []), 'keyslot not in first token: {}'.format(d)
+"
+    cryptsetup token export --token-id 1 "${loop}p1" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+assert d['type'] == 'second-token', 'Wrong second token type: {}'.format(d['type'])
+assert d.get('extra-key') == 'extra-val', 'Extra field missing in second token: {}'.format(d)
+assert '0' in d.get('keyslots', []), 'keyslot not in second token: {}'.format(d)
+"
+
+    losetup -d "$loop"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+}
+
 testcase_fstab_crypttab_in_repart() {
     local defs imgs root volume
 
