@@ -1895,14 +1895,12 @@ Compression compressor_type(const Compressor *c) {
         return c ? c->type : _COMPRESSION_INVALID;
 }
 
-int decompressor_detect(Decompressor **ret, const void *data, size_t size) {
-#if HAVE_XZ || HAVE_LZ4 || HAVE_ZSTD || HAVE_ZLIB || HAVE_BZIP2
+int decompressor_detect(Decompressor **decompressor, const void *data, size_t size) {
         int r;
-#endif
 
-        assert(ret);
+        assert(decompressor);
 
-        if (*ret)
+        if (*decompressor)
                 return 1;
 
         if (size < COMPRESSION_MAGIC_BYTES_MAX)
@@ -1911,113 +1909,27 @@ int decompressor_detect(Decompressor **ret, const void *data, size_t size) {
         assert(data);
 
         Compression type = compression_detect_from_magic(data);
-
-        _cleanup_(compressor_freep) Decompressor *c = new0(Decompressor, 1);
-        if (!c)
-                return -ENOMEM;
-
-        switch (type) {
-
-#if HAVE_XZ
-        case COMPRESSION_XZ: {
-                r = dlopen_xz(LOG_DEBUG);
-                if (r < 0)
-                        return r;
-
-                lzma_ret xzr = sym_lzma_stream_decoder(&c->xz, UINT64_MAX, LZMA_TELL_UNSUPPORTED_CHECK | LZMA_CONCATENATED);
-                if (xzr != LZMA_OK)
-                        return -EIO;
-
-                break;
-        }
-#endif
-
-#if HAVE_LZ4
-        case COMPRESSION_LZ4: {
-                r = dlopen_lz4(LOG_DEBUG);
-                if (r < 0)
-                        return r;
-
-                size_t rc = sym_LZ4F_createDecompressionContext(&c->d_lz4, LZ4F_VERSION);
-                if (sym_LZ4F_isError(rc))
-                        return -ENOMEM;
-
-                break;
-        }
-#endif
-
-#if HAVE_ZSTD
-        case COMPRESSION_ZSTD: {
-                r = dlopen_zstd(LOG_DEBUG);
-                if (r < 0)
-                        return r;
-
-                c->d_zstd = sym_ZSTD_createDCtx();
-                if (!c->d_zstd)
-                        return -ENOMEM;
-
-                break;
-        }
-#endif
-
-#if HAVE_ZLIB
-        case COMPRESSION_GZIP: {
-                r = dlopen_zlib(LOG_DEBUG);
-                if (r < 0)
-                        return r;
-
-                r = sym_inflateInit2_(&c->gzip, /* windowBits= */ ZLIB_WBITS_GZIP, ZLIB_VERSION, (int) sizeof(c->gzip));
-                if (r != Z_OK)
-                        return -EIO;
-
-                break;
-        }
-#endif
-
-#if HAVE_BZIP2
-        case COMPRESSION_BZIP2: {
-                r = dlopen_bzip2(LOG_DEBUG);
-                if (r < 0)
-                        return r;
-
-                r = sym_BZ2_bzDecompressInit(&c->bzip2, /* verbosity= */ 0, /* small= */ 0);
-                if (r != BZ_OK)
-                        return -EIO;
-
-                break;
-        }
-#endif
-
-        default:
-                if (type != _COMPRESSION_INVALID)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                               "Detected %s compression, but support is not compiled in.",
-                                               compression_to_string(type));
+        if (type == _COMPRESSION_INVALID)
                 type = COMPRESSION_NONE;
-                break;
-        }
 
-        c->type = type;
-        c->encoding = false;
+        log_debug("Detected compression type: %s", compression_to_string(type));
 
-        log_debug("Detected compression type: %s", compression_to_string(c->type));
-        *ret = TAKE_PTR(c);
+        r = dlopen_compress(type, LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        r = decompressor_new(decompressor, type);
+        if (r < 0)
+                return r;
+
         return 1;
 }
 
-int decompressor_force_off(Decompressor **ret) {
-        assert(ret);
+int decompressor_force_off(Decompressor **decompressor) {
+        assert(decompressor);
 
-        *ret = compressor_free(*ret);
-
-        Decompressor *c = new0(Decompressor, 1);
-        if (!c)
-                return -ENOMEM;
-
-        c->type = COMPRESSION_NONE;
-        c->encoding = false;
-        *ret = c;
-        return 0;
+        *decompressor = compressor_free(*decompressor);
+        return decompressor_new(decompressor, COMPRESSION_NONE);
 }
 
 int decompressor_push(Decompressor *c, const void *data, size_t size, DecompressorCallback callback, void *userdata) {
