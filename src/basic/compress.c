@@ -1952,9 +1952,6 @@ int decompressor_force_off(Decompressor **decompressor) {
 }
 
 int decompressor_push(Decompressor *c, const void *data, size_t size, DecompressorCallback callback, void *userdata) {
-#if HAVE_XZ || HAVE_LZ4 || HAVE_ZSTD || HAVE_ZLIB || HAVE_BZIP2
-        _cleanup_free_ uint8_t *buffer = NULL;
-#endif
         int r;
 
         assert(c);
@@ -1969,6 +1966,7 @@ int decompressor_push(Decompressor *c, const void *data, size_t size, Decompress
         assert(data);
 
 #if HAVE_XZ || HAVE_LZ4 || HAVE_ZSTD || HAVE_ZLIB || HAVE_BZIP2
+        _cleanup_free_ uint8_t *buffer = NULL;
         if (c->type != COMPRESSION_NONE) {
                 buffer = new(uint8_t, COMPRESS_PIPE_BUFFER_SIZE);
                 if (!buffer)
