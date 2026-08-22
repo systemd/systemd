@@ -2,6 +2,7 @@
 
 #include <unistd.h>
 
+#include "sd-id128.h"
 #include "sd-journal.h"
 #include "sd-messages.h"
 
@@ -31,6 +32,10 @@ int coredump_backtrace(int argc, char *argv[]) {
                 return r;
 
         (void) iovw_replace_string_field(&context.iovw, "MESSAGE_ID=", SD_MESSAGE_BACKTRACE_STR);
+
+        sd_id128_t id;
+        if (sd_id128_randomize(&id) >= 0)
+                (void) iovw_replace_string_field(&context.iovw, "COREDUMP_ID=", SD_ID128_TO_STRING(id));
 
         for (;;) {
                 r = journal_importer_process_data(&importer);
