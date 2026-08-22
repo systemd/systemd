@@ -328,6 +328,7 @@ conf.set_quoted('USER_KEYRING_PATH_LEGACY',                   pkgsysconfdir / 'i
 conf.set_quoted('USER_PRESET_DIR',                            userpresetdir)
 conf.set_quoted('VARLINK_BRIDGES_DIR',                        varlinkbridgesdir)
 conf.set_quoted('VENDOR_KEYRING_PATH',                        libexecdir / 'import-pubring.pgp')
+conf.set_quoted('VENDOR_KEYRING_PATH_LEGACY',                 libexecdir / 'import-pubring.gpg')
 
 conf.set('ANSI_OK_COLOR',                                     'ANSI_' + get_option('ok-color').underscorify().to_upper())
 conf.set10('ENABLE_URLIFY',                                   get_option('urlify'))
