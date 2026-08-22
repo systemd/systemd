@@ -33,6 +33,8 @@ except ImportError:
 # Function filter: Maps wrapper/sentinel symbols to real symbols or an empty list (ignore).
 FUNCTION_FILTER = {
     # Filtered out (internal helpers, verbose loggers, sentinels)
+    'dlopen_compress': [],
+    'dlopen_compress_journal': [],
     'dlopen_safe': [],
     'dlopen_verbose': [],
     'dlopen_many_sym_or_warn_sentinel': [],
