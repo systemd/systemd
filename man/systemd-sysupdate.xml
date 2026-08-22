@@ -99,6 +99,32 @@
   </refsect1>
 
   <refsect1>
+    <title>Configuration</title>
+
+    <para>The global source URL may be configured in
+    <filename>/etc/systemd/sysupdate.conf</filename>,
+    <filename>/run/systemd/sysupdate.conf</filename>,
+    <filename>/usr/local/lib/systemd/sysupdate.conf</filename> or
+    <filename>/usr/lib/systemd/sysupdate.conf</filename>. Drop-ins are read from the corresponding
+    <filename>sysupdate.conf.d/</filename> directories.</para>
+
+    <para>The <literal>[SysUpdate]</literal> section supports the following setting:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><varname>SourceURL=</varname></term>
+
+        <listitem><para>Configures the source URL used by the <literal>%U</literal> specifier in transfer
+        definitions. The URL must be HTTP, HTTPS, or (for testing) a <literal>file</literal> URL. Transfer
+        definitions must explicitly use <literal>%U</literal> in <varname>Path=</varname> for this setting to
+        have an effect.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>Command</title>
 
     <para>The following commands are understood:</para>
@@ -487,6 +513,15 @@
         <varname>PathRelativeTo=explicit</varname> will be interpreted relative to the specified path.</para>
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--source-url=</option></term>
+
+        <listitem><para>Overrides the global <varname>SourceURL=</varname> setting for this invocation. The URL
+        must be HTTP, HTTPS, or (for testing) a <literal>file</literal> URL.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="no-pager" />

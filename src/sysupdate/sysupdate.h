@@ -28,6 +28,7 @@ typedef struct Context {
         ImagePolicy *image_policy;
         bool offline;
         char *transfer_source;
+        char *source_url;
 
         /* Loaded state: */
         LoopDevice *loop_device;

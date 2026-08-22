@@ -109,6 +109,46 @@ int config_parse_url_specifiers_many(
         return 0;
 }
 
+int config_parse_source_url(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        int r;
+        const char *root = userdata;
+        char **url = ASSERT_PTR(data);
+
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *url = mfree(*url);
+                return 0;
+        }
+
+        _cleanup_free_ char *resolved = NULL;
+        r = specifier_printf(rvalue, SIZE_MAX, system_and_tmp_specifier_table, root, NULL, &resolved);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to expand specifiers in %s=, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        if (!http_url_is_valid(resolved) && !file_url_is_valid(resolved)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "%s= URL is not valid, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        return free_and_replace(*url, resolved);
+}
+
 int config_parse_condition(
                 const char *unit,
                 const char *filename,
