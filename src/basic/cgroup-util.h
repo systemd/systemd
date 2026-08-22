@@ -186,6 +186,7 @@ static inline int cg_path_get_unit(const char *path, char **ret_unit) {
         return cg_path_get_unit_full(path, ret_unit, NULL);
 }
 int cg_path_get_unit_path(const char *path, char **ret_unit);
+int cg_path_get_leaf_unit_path(const char *path, char **ret);
 int cg_path_get_user_unit_full(const char *path, char **ret_unit, char **ret_subgroup);
 static inline int cg_path_get_user_unit(const char *path, char **ret_unit) {
         return cg_path_get_user_unit_full(path, ret_unit, NULL);

@@ -9,7 +9,9 @@
 #include "nulstr-util.h"
 #include "pcre2-util.h"
 #include "set.h"
+#include "string-util.h"
 #include "strv.h"
+#include "syslog-util.h"
 
 /* This consumes both `allow_list` and `deny_list` arguments. Hence, those arguments are not owned by the
  * caller anymore and should not be freed. */
@@ -100,6 +102,50 @@ int client_context_read_log_filter_patterns(ClientContext *c, const char *cgroup
 
         client_set_filtering_patterns(c, TAKE_PTR(allow_list), TAKE_PTR(deny_list));
 
+        return 0;
+}
+
+int client_context_read_log_level_max(ClientContext *c, const char *cgroup) {
+        int r;
+
+        assert(c);
+
+        _cleanup_free_ char *unit_cgroup = NULL;
+        /* Like client_context_read_log_filter_patterns() above, but for LogLevelMax=: the level is
+         * exported as an xattr by the manager that owns the unit, PID 1 for system units and the
+         * user manager for user units. Hence, if the sender is below a user manager, read the
+         * xattr off the user unit's cgroup rather than the user manager's own one. */
+        r = cg_path_get_leaf_unit_path(cgroup, &unit_cgroup);
+        if (r == -ENXIO)
+                r = cg_path_get_unit_path(cgroup, &unit_cgroup);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get the unit's cgroup path for %s: %m", cgroup);
+
+        _cleanup_free_ char *value = NULL;
+        r = cg_get_xattr(unit_cgroup, "user.journald_log_level_max", &value, /* ret_size= */ NULL);
+        if (ERRNO_IS_NEG_XATTR_ABSENT(r)) {
+                /* The unit itself exports no level. Fall back to the cgroup of the enclosing
+                 * system unit, i.e. the user or capsule manager service the sender lives below: a
+                 * LogLevelMax= set there applies to its whole subtree, e.g. to the user manager's
+                 * own processes, which run in a subgroup below it. */
+                _cleanup_free_ char *enclosing_cgroup = NULL;
+
+                if (cg_path_get_unit_path(cgroup, &enclosing_cgroup) >= 0 &&
+                    !streq(unit_cgroup, enclosing_cgroup))
+                        r = cg_get_xattr(enclosing_cgroup, "user.journald_log_level_max", &value, /* ret_size= */ NULL);
+        }
+        if (ERRNO_IS_NEG_XATTR_ABSENT(r)) {
+                c->log_level_max = -1;
+                return 0;
+        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get user.journald_log_level_max xattr for %s: %m", cgroup);
+
+        r = log_level_from_string(value);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse log level max xattr '%s' for %s.", value, cgroup);
+
+        c->log_level_max = r;
         return 0;
 }
 
