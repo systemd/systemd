@@ -1,0 +1,78 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sysupdate.conf" conditional='ENABLE_SYSUPDATE'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sysupdate.conf</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sysupdate.conf</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sysupdate.conf</refname>
+    <refname>sysupdate.conf.d</refname>
+    <refpurpose>Configuration files for systemd-sysupdate</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><simplelist>
+      <member><filename>/etc/systemd/sysupdate.conf</filename></member>
+      <member><filename>/run/systemd/sysupdate.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/sysupdate.conf</filename></member>
+      <member><filename>/usr/lib/systemd/sysupdate.conf</filename></member>
+      <member><filename>/etc/systemd/sysupdate.conf.d/*.conf</filename></member>
+      <member><filename>/run/systemd/sysupdate.conf.d/*.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/sysupdate.conf.d/*.conf</filename></member>
+      <member><filename>/usr/lib/systemd/sysupdate.conf.d/*.conf</filename></member>
+    </simplelist></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>These configuration files set the default source URL used by
+    <citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    Transfer definitions use the <literal>%U</literal> specifier to refer to this URL.</para>
+  </refsect1>
+
+  <xi:include href="standard-conf.xml" xpointer="main-conf" />
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood in the <literal>[SysUpdate]</literal> section:</para>
+
+    <variablelist class='config-directives'>
+      <varlistentry>
+        <term><varname>SourceURL=</varname></term>
+
+        <listitem><para>Configures the source URL used by the <literal>%U</literal> specifier in transfer
+        definitions. The URL must be HTTP, HTTPS, or, for testing, a normalized <literal>file://</literal>
+        URL. Transfer definitions must explicitly use <literal>%U</literal> in <varname>Path=</varname> for
+        this setting to have an effect. The command line <option>--source-url=</option> switch overrides the
+        configured value for a single invocation.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

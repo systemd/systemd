@@ -369,6 +369,40 @@ static int config_parse_resource_pattern(
         return 0;
 }
 
+static int specifier_source_url(
+                char specifier,
+                const void *data,
+                const char *root,
+                const void *userdata,
+                char **ret) {
+
+        const Transfer *t = ASSERT_PTR(userdata);
+
+        if (!t->context->source_url)
+                return -ENXIO;
+
+        return strdup_to(ret, t->context->source_url);
+}
+
+static bool contains_specifier(const char *text, char specifier) {
+        assert(text);
+
+        for (const char *p = text; *p; p++) {
+                if (*p != '%')
+                        continue;
+
+                p++;
+                if (!*p)
+                        break;
+                if (*p == '%')
+                        continue;
+                if (*p == specifier)
+                        return true;
+        }
+
+        return false;
+}
+
 static int config_parse_resource_path(
                 const char *unit,
                 const char *filename,
@@ -380,9 +414,22 @@ static int config_parse_resource_path(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
+        static const Specifier source_specifier_table[] = {
+                { 'U', specifier_source_url, NULL },
+                COMMON_SYSTEM_SPECIFIERS,
+                COMMON_TMP_SPECIFIERS,
+                {}
+        };
+        static const Specifier target_specifier_table[] = {
+                COMMON_SYSTEM_SPECIFIERS,
+                COMMON_TMP_SPECIFIERS,
+                {}
+        };
         _cleanup_free_ char *resolved = NULL;
         Resource *rr = ASSERT_PTR(data);
         Transfer *t = ASSERT_PTR(userdata);
+        const Specifier *specifier_table;
+        bool is_source;
         int r;
 
         assert(rvalue);
@@ -393,8 +440,22 @@ static int config_parse_resource_path(
                 return 0;
         }
 
-        r = specifier_printf(rvalue, PATH_MAX-1, system_and_tmp_specifier_table, t->context->root, NULL, &resolved);
+        is_source = streq(section, "Source");
+        if (!is_source && contains_specifier(rvalue, 'U'))
+                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "%%U is only supported in [Source] Path=, refusing: %s", rvalue);
+
+        specifier_table = is_source ? source_specifier_table : target_specifier_table;
+
+        r = specifier_printf(rvalue, PATH_MAX-1, specifier_table, t->context->root, t, &resolved);
         if (r < 0) {
+                if (r == -ENXIO) {
+                        rr->path = mfree(rr->path);
+                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(ENXIO),
+                                          "SourceURL= or --source-url= must be configured for %%U in Path=, refusing: %s",
+                                          rvalue);
+                }
+
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to expand specifiers in Path=, ignoring: %s", rvalue);
                 return 0;
@@ -675,10 +736,10 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
                 /* We unofficially support file:// in addition to http:// and https:// for url
                  * sources. That's mostly for testing, since it relieves us from having to set up a HTTP
                  * server, and CURL abstracts this away from us thankfully. */
-                if (RESOURCE_IS_URL(t->source.type))
-                        if (!http_url_is_valid(t->source.path) && !file_url_is_valid(t->source.path))
-                                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                                  "Source path is not a valid HTTP or HTTPS URL: %s", t->source.path);
+                if (RESOURCE_IS_URL(t->source.type) &&
+                    !sysupdate_source_url_is_valid(t->source.path))
+                        return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                          "Source path is not a valid HTTP or HTTPS or file URL: %s", t->source.path);
         }
 
         if (strv_isempty(t->source.patterns))
