@@ -424,6 +424,32 @@ int dlopen_bzip2(int log_level) {
 #endif
 }
 
+static int dlopen_compress_journal(Compression c, int log_level) {
+        switch (c) {
+        case COMPRESSION_NONE:
+                return 0;
+        case COMPRESSION_XZ:
+                return dlopen_xz(log_level);
+        case COMPRESSION_LZ4:
+                return dlopen_lz4(log_level);
+        case COMPRESSION_ZSTD:
+                return dlopen_zstd(log_level);
+        default:
+                return -EOPNOTSUPP;
+        }
+}
+
+static int dlopen_compress(Compression c, int log_level) {
+        switch (c) {
+        case COMPRESSION_GZIP:
+                return dlopen_zlib(log_level);
+        case COMPRESSION_BZIP2:
+                return dlopen_bzip2(log_level);
+        default:
+                return dlopen_compress_journal(c, log_level);
+        }
+}
+
 static int compress_blob_xz(
                 const void *src,
                 uint64_t src_size,
@@ -1676,7 +1702,7 @@ static int decompress_stream_write_callback(const void *data, size_t size, void 
 }
 
 static int decompressor_new(Decompressor **ret, Compression type) {
-#if HAVE_XZ || HAVE_LZ4 || HAVE_ZSTD || HAVE_ZLIB || HAVE_BZIP2
+#if HAVE_ZLIB || HAVE_BZIP2
         int r;
 #endif
 
@@ -1692,10 +1718,6 @@ static int decompressor_new(Decompressor **ret, Compression type) {
 
 #if HAVE_XZ
         case COMPRESSION_XZ:
-                r = dlopen_xz(LOG_DEBUG);
-                if (r < 0)
-                        return r;
-
                 if (sym_lzma_stream_decoder(&c->xz, UINT64_MAX, LZMA_TELL_UNSUPPORTED_CHECK | LZMA_CONCATENATED) != LZMA_OK)
                         return -EIO;
                 break;
@@ -1703,10 +1725,6 @@ static int decompressor_new(Decompressor **ret, Compression type) {
 
 #if HAVE_LZ4
         case COMPRESSION_LZ4: {
-                r = dlopen_lz4(LOG_DEBUG);
-                if (r < 0)
-                        return r;
-
                 size_t rc = sym_LZ4F_createDecompressionContext(&c->d_lz4, LZ4F_VERSION);
                 if (sym_LZ4F_isError(rc))
                         return -ENOMEM;
@@ -1717,10 +1735,6 @@ static int decompressor_new(Decompressor **ret, Compression type) {
 
 #if HAVE_ZSTD
         case COMPRESSION_ZSTD:
-                r = dlopen_zstd(LOG_DEBUG);
-                if (r < 0)
-                        return r;
-
                 c->d_zstd = sym_ZSTD_createDCtx();
                 if (!c->d_zstd)
                         return -ENOMEM;
@@ -1729,10 +1743,6 @@ static int decompressor_new(Decompressor **ret, Compression type) {
 
 #if HAVE_ZLIB
         case COMPRESSION_GZIP:
-                r = dlopen_zlib(LOG_DEBUG);
-                if (r < 0)
-                        return r;
-
                 r = sym_inflateInit2_(&c->gzip, /* windowBits= */ ZLIB_WBITS_GZIP, ZLIB_VERSION, (int) sizeof(c->gzip));
                 if (r != Z_OK)
                         return -EIO;
@@ -1741,10 +1751,6 @@ static int decompressor_new(Decompressor **ret, Compression type) {
 
 #if HAVE_BZIP2
         case COMPRESSION_BZIP2:
-                r = dlopen_bzip2(LOG_DEBUG);
-                if (r < 0)
-                        return r;
-
                 r = sym_BZ2_bzDecompressInit(&c->bzip2, /* verbosity= */ 0, /* small= */ 0);
                 if (r != BZ_OK)
                         return -EIO;
@@ -1773,6 +1779,10 @@ int decompress_stream(
 
         assert(fdf >= 0);
         assert(fdt >= 0);
+
+        r = dlopen_compress(type, LOG_DEBUG);
+        if (r < 0)
+                return r;
 
         r = decompressor_new(&c, type);
         if (r < 0)
