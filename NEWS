@@ -26,6 +26,11 @@ CHANGES WITH 262:
           have been provided. This clears the way for a new
           "systemd-sysupdate@.service" unit for varlink activation of sysupdate.
 
+        * The default OpenPGP keyring lookup now combines the vendor keyring in
+          /usr with the local keyring in /etc. Deployments that relied on a
+          single /etc keyring to exclude vendor trust should set
+          $SYSTEMD_OPENPGP_KEYRING explicitly.
+
         * TPM-sealed credentials are now pinned to the TPM's SRK. This prevents
           MITM interposer attacks from stealing the decrypted credentials by
           ensuring that communication with the TPM is protected by a private key
