@@ -115,7 +115,7 @@ error:
 
 static int print_list(FILE *file, sd_journal *j, Table *t) {
         _cleanup_free_ char
-                *mid = NULL, *pid = NULL, *uid = NULL, *gid = NULL,
+                *mid = NULL, *cid = NULL, *pid = NULL, *uid = NULL, *gid = NULL,
                 *sgnl = NULL, *exe = NULL, *comm = NULL,
                 *filename = NULL, *truncated = NULL;
         const void *d;
@@ -125,6 +125,7 @@ static int print_list(FILE *file, sd_journal *j, Table *t) {
         const char *present = NULL, *color = NULL;
         uint64_t size = UINT64_MAX;
         bool normal_coredump, has_inline_coredump;
+        sd_id128_t coredump_id = SD_ID128_NULL;
         uid_t uid_as_int = UID_INVALID;
         gid_t gid_as_int = GID_INVALID;
         pid_t pid_as_int = 0;
@@ -135,6 +136,7 @@ static int print_list(FILE *file, sd_journal *j, Table *t) {
 
         SD_JOURNAL_FOREACH_DATA(j, d, l) {
                 RETRIEVE(d, l, "MESSAGE_ID", mid);
+                RETRIEVE(d, l, "COREDUMP_ID", cid);
                 RETRIEVE(d, l, "COREDUMP_PID", pid);
                 RETRIEVE(d, l, "COREDUMP_UID", uid);
                 RETRIEVE(d, l, "COREDUMP_GID", gid);
@@ -154,6 +156,8 @@ static int print_list(FILE *file, sd_journal *j, Table *t) {
                 return 0;
         }
 
+        if (cid)
+                (void) sd_id128_from_string(cid, &coredump_id);
         (void) parse_uid(uid, &uid_as_int);
         (void) parse_gid(gid, &gid_as_int);
         (void) parse_pid(pid, &pid_as_int);
@@ -182,6 +186,13 @@ static int print_list(FILE *file, sd_journal *j, Table *t) {
         if (STRPTR_IN_SET(present, "present", "journal") && truncated && parse_boolean(truncated) > 0)
                 present = "truncated";
 
+        if (sd_id128_is_null(coredump_id))
+                r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
+        else
+                r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_ID128, &coredump_id);
+        if (r < 0)
+                return table_log_add_error(r);
+
         r = table_add_many(
                         t,
                         TABLE_TIMESTAMP, ts,
@@ -201,6 +212,7 @@ static int print_list(FILE *file, sd_journal *j, Table *t) {
 
 typedef enum CoredumpField {
         COREDUMP_FIELD_MID,
+        COREDUMP_FIELD_ID,
         COREDUMP_FIELD_PID,
         COREDUMP_FIELD_UID,
         COREDUMP_FIELD_GID,
@@ -232,6 +244,7 @@ typedef enum CoredumpField {
 
 static const char* const coredump_field_table[_COREDUMP_FIELD_MAX] = {
         [COREDUMP_FIELD_MID]              = "MESSAGE_ID",
+        [COREDUMP_FIELD_ID]               = "COREDUMP_ID",
         [COREDUMP_FIELD_PID]              = "COREDUMP_PID",
         [COREDUMP_FIELD_UID]              = "COREDUMP_UID",
         [COREDUMP_FIELD_GID]              = "COREDUMP_GID",
@@ -263,6 +276,7 @@ static const char* const coredump_field_table[_COREDUMP_FIELD_MAX] = {
 typedef struct CoredumpFields {
         char *fields[_COREDUMP_FIELD_MAX];
 
+        sd_id128_t coredump_id;
         bool normal_coredump;
         const char *storage_state;  /* points to a static string, not owned */
         const char *storage_color;  /* points to a static string, not owned */
@@ -297,6 +311,12 @@ static int coredump_fields_load(sd_journal *j, CoredumpFields *f) {
                 }
 
         f->normal_coredump = streq_ptr(f->fields[COREDUMP_FIELD_MID], SD_MESSAGE_COREDUMP_STR);
+
+        if (f->fields[COREDUMP_FIELD_ID]) {
+                r = sd_id128_from_string(f->fields[COREDUMP_FIELD_ID], &f->coredump_id);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to parse coredump ID '%s', ignoring: %m", f->fields[COREDUMP_FIELD_ID]);
+        }
 
         if (f->fields[COREDUMP_FIELD_FILENAME]) {
                 r = resolve_filename(arg_root, &f->fields[COREDUMP_FIELD_FILENAME]);
@@ -345,6 +365,9 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
 
         if (need_space)
                 fputs("\n", file);
+
+        if (!sd_id128_is_null(f.coredump_id))
+                fprintf(file, "           ID: %s\n", SD_ID128_TO_STRING(f.coredump_id));
 
         if (f.fields[COREDUMP_FIELD_COMM])
                 fprintf(file,
@@ -551,6 +574,7 @@ static int print_info_json(FILE *file, sd_journal *j) {
                 (void) safe_atou64(f.fields[COREDUMP_FIELD_TIMESTAMP], &ts);
 
         r = sd_json_build(&v, SD_JSON_BUILD_OBJECT(
+                SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(f.coredump_id), "ID", SD_JSON_BUILD_ID128(f.coredump_id)),
                 SD_JSON_BUILD_PAIR_CONDITION(pid_is_valid(pid_as_int), "PID", SD_JSON_BUILD_UNSIGNED(pid_as_int)),
                 SD_JSON_BUILD_PAIR_CONDITION(!pid_is_valid(pid_as_int) && !!f.fields[COREDUMP_FIELD_PID], "PID", SD_JSON_BUILD_STRING(f.fields[COREDUMP_FIELD_PID])),
                 SD_JSON_BUILD_PAIR_CONDITION(pid_is_valid(tid_as_int), "TID", SD_JSON_BUILD_UNSIGNED(tid_as_int)),
