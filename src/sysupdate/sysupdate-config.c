@@ -3,12 +3,29 @@
 #include "alloc-util.h"
 #include "condition.h"
 #include "log.h"
+#include "path-util.h"
 #include "specifier.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sysupdate-config.h"
 #include "web-util.h"
+
+bool sysupdate_source_url_is_valid(const char *url) {
+        const char *path;
+
+        if (isempty(url))
+                return false;
+
+        if (http_url_is_valid(url))
+                return true;
+
+        path = startswith(url, "file://");
+        if (!path)
+                return false;
+
+        return path_is_absolute(path) && path_is_normalized(path);
+}
 
 int config_parse_url_specifiers(
                 const char *unit,
@@ -107,6 +124,45 @@ int config_parse_url_specifiers_many(
                 return log_oom();
 
         return 0;
+}
+
+int config_parse_source_url(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        const char *root = userdata;
+        char **url = ASSERT_PTR(data);
+        int r;
+
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *url = mfree(*url);
+                return 0;
+        }
+
+        _cleanup_free_ char *resolved = NULL;
+        r = specifier_printf(rvalue, SIZE_MAX, system_and_tmp_specifier_table, root, NULL, &resolved);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to expand specifiers in %s=, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        if (!sysupdate_source_url_is_valid(resolved)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "%s= URL is not valid, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        return free_and_replace(*url, resolved);
 }
 
 int config_parse_condition(

@@ -72,6 +72,7 @@ static int arg_verify = -1;
 static ImagePolicy *arg_image_policy = NULL;
 static bool arg_offline = false;
 static char *arg_transfer_source = NULL;
+static char *arg_source_url = NULL;
 static bool arg_varlink = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_definitions, freep);
@@ -80,6 +81,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_component, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_transfer_source, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_source_url, freep);
 
 COMMAND(
         "systemd-sysupdate\0",
@@ -135,6 +137,7 @@ void context_done(Context *c) {
         c->component_documentation = strv_free(c->component_documentation);
         c->image_policy = image_policy_free(c->image_policy);
         c->transfer_source = mfree(c->transfer_source);
+        c->source_url = mfree(c->source_url);
 
         target_identifier_done(&c->target_identifier);
         condition_free_list(c->component_suggest_on);
@@ -167,6 +170,9 @@ static int context_from_cmdline(Context *ret) {
                 return log_oom();
 
         if (strdup_to(&context.transfer_source, arg_transfer_source) < 0)
+                return log_oom();
+
+        if (strdup_to(&context.source_url, arg_source_url) < 0)
                 return log_oom();
 
         if (arg_image_policy) {
@@ -203,6 +209,9 @@ static int context_from_base_with_component(const Context *base, const char *com
                 return log_oom();
 
         if (strdup_to(&context.transfer_source, base->transfer_source) < 0)
+                return log_oom();
+
+        if (strdup_to(&context.source_url, base->source_url) < 0)
                 return log_oom();
 
         if (base->image_policy) {
@@ -346,6 +355,38 @@ static int read_transfers(
         return 0;
 }
 
+static int context_read_config(Context *c) {
+        _cleanup_free_ char *source_url = NULL;
+        const ConfigTableItem table[] = {
+                { "SysUpdate", "SourceURL", config_parse_source_url, 0, &source_url },
+                {}
+        };
+        int r;
+
+        assert(c);
+
+        if (arg_source_url)
+                return 0;
+
+        r = config_parse_standard_file_with_dropins_full(
+                        c->root,
+                        /* root_fd= */ -EBADF,
+                        "systemd/sysupdate.conf",
+                        "SysUpdate\0",
+                        config_item_table_lookup, table,
+                        CONFIG_PARSE_WARN,
+                        /* userdata= */ (void*) c->root,
+                        /* ret_stats_by_path= */ NULL,
+                        /* ret_dropin_files= */ NULL);
+        if (r < 0)
+                return r;
+
+        if (source_url)
+                free_and_replace(c->source_url, source_url);
+
+        return 0;
+}
+
 static int read_component(Context *c) {
         int r;
 
@@ -429,6 +470,10 @@ static int context_read_definitions(Context *c, const char* node, ReadDefinition
                 dirs = strv_new(CONF_PATHS("sysupdate.d"));
         if (!dirs)
                 return log_oom();
+
+        r = context_read_config(c);
+        if (r < 0)
+                return r;
 
         r = read_component(c);
         if (r < 0)
@@ -3395,6 +3440,16 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         if (r < 0)
                                 return r;
 
+                        break;
+
+                OPTION_LONG("source-url", "URL",
+                            "Specify the source URL"):
+                        if (!sysupdate_source_url_is_valid(opts.arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Source URL is not valid: %s", opts.arg);
+
+                        r = free_and_strdup_warn(&arg_source_url, opts.arg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 OPTION('m', "instances-max", "INT",

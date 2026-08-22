@@ -626,6 +626,13 @@
         <para>For all other source resource types this must be a local path in the file system, referring to
         a local directory to find the versions of this resource in.</para>
 
+        <para>For <constant>url-file</constant> and <constant>url-tar</constant> sources, the
+        <literal>%U</literal> specifier may be used to refer to the configured source URL. See
+        <citerefentry><refentrytitle>sysupdate.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+        configuring it, and
+        <citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for overriding it on the command line.</para>
+
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
