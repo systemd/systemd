@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
