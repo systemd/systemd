@@ -2013,6 +2013,12 @@ static int build_describe_response(Context *c, bool privileged, sd_json_variant 
         (void) load_os_release_pairs(/* root= */ NULL, &os_release_pairs);
         (void) load_env_file_pairs(/* f= */ NULL, etc_machine_info(), &machine_info_pairs);
 
+        /* Silently drop any invalid tags that might have been written into the file by hand */
+        _cleanup_strv_free_ char **tags = NULL;
+        r = machine_tags_from_string(c->data[PROP_TAGS], /* graceful= */ true, &tags);
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse machine tags '%s', ignoring: %m", strnull(c->data[PROP_TAGS]));
+
         r = sd_json_buildo(
                         &v,
                         SD_JSON_BUILD_PAIR_STRING("Hostname", hn ?: dhn),
@@ -2037,6 +2043,7 @@ static int build_describe_response(Context *c, bool privileged, sd_json_variant 
                         SD_JSON_BUILD_PAIR_STRING("OperatingSystemImageID", c->data[PROP_OS_IMAGE_ID]),
                         SD_JSON_BUILD_PAIR_STRING("OperatingSystemImageVersion", c->data[PROP_OS_IMAGE_VERSION]),
                         SD_JSON_BUILD_PAIR("MachineInformationData", JSON_BUILD_STRV_ENV_PAIR(machine_info_pairs)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(tags), "MachineTags", SD_JSON_BUILD_STRV(tags)),
                         SD_JSON_BUILD_PAIR_STRING("HardwareVendor", vendor ?: c->data[PROP_HARDWARE_VENDOR]),
                         SD_JSON_BUILD_PAIR_STRING("HardwareModel", model ?: c->data[PROP_HARDWARE_MODEL]),
                         SD_JSON_BUILD_PAIR_STRING("HardwareSerial", serial),
