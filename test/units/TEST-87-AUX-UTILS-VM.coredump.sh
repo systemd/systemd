@@ -199,6 +199,15 @@ coredumpctl info "$CORE_TEST_BIN" | grep "TID:" >/dev/null
 # Check the field is queryable in the journal
 coredumpctl -F COREDUMP_TID
 
+# Test cases for Coredump ID
+LATEST_ID=$(coredumpctl list -n 1 --json=short "$CORE_TEST_BIN" | jq -r '.[0].id')
+[[ -n "$LATEST_ID" ]]
+[[ "$LATEST_ID" != null ]]
+coredumpctl list COREDUMP_ID="$LATEST_ID" | grep -q "$LATEST_ID"
+coredumpctl info COREDUMP_ID="$LATEST_ID" | grep -q "ID:"
+coredumpctl info --json=short COREDUMP_ID="$LATEST_ID" | jq -e '.ID == "'$LATEST_ID'"'
+coredumpctl info --json=pretty COREDUMP_ID="$LATEST_ID" | jq -e '.ID == "'$LATEST_ID'"'
+
 # If COREDUMP_CODE= is present, check that the expected code is SI_USER (0).
 if coredumpctl -F COREDUMP_CODE | grep "^0$" >/dev/null; then
     coredumpctl info "$CORE_TEST_BIN" | grep --fixed-strings "Signal: 5 (TRAP) si_code: SI_USER" >/dev/null
