@@ -54,6 +54,7 @@ DEVEL_PACKAGES=(
     libbpf-dev
     libcurl4-gnutls-dev
     libfdisk-dev
+    libfdt-dev
     libfido2-dev
     libgpg-error-dev
     liblz4-dev
