@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-id128.h"
 #include "sd-messages.h"
 
 #include "coredumpctl.h"
@@ -15,11 +16,16 @@
 static int add_match(sd_journal *j, const char *match) {
         _cleanup_free_ char *p = NULL;
         const char *field;
+        char id_str[SD_ID128_STRING_MAX];
+        sd_id128_t id;
         int r;
 
         if (strchr(match, '='))
                 field = NULL;
-        else if (is_path(match)) {
+        else if (sd_id128_from_string(match, &id) >= 0) {
+                match = sd_id128_to_string(id, id_str);
+                field = "COREDUMP_ID";
+        } else if (is_path(match)) {
                 r = path_make_absolute_cwd(match, &p);
                 if (r < 0)
                         return log_error_errno(r, "path_make_absolute_cwd(\"%s\"): %m", match);
