@@ -540,7 +540,7 @@ static bool hash_table_is_valid(uint64_t offset, uint64_t size, uint64_t header_
         return true;
 }
 
-static int journal_file_verify_header(JournalFile *f) {
+static int journal_file_verify_header_once(JournalFile *f) {
         uint64_t arena_size, header_size;
 
         assert(f);
@@ -583,6 +583,18 @@ static int journal_file_verify_header(JournalFile *f) {
 
         if (UINT64_MAX - header_size < arena_size)
                 return -ENODATA;
+
+        /* The stat data may be stale by now: the writer always grows the file before it updates
+         * arena_size, so a reader that stat()ed before the writer's latest extension may see an
+         * arena_size reaching beyond its cached st_size (#41992). Refresh the stat data once before
+         * judging, so that only an actually inconsistent file takes the truncation paths below. In
+         * immutable mode we skip the refresh, as anything beyond the cached size is considered EOF
+         * there. */
+        if (!f->assume_immutable && header_size + arena_size > (uint64_t) f->last_stat.st_size) {
+                int r = journal_file_fstat(f);
+                if (r < 0)
+                        return r;
+        }
 
         uint64_t file_size = (uint64_t) f->last_stat.st_size;
 
@@ -744,6 +756,39 @@ static int journal_file_verify_header(JournalFile *f) {
         }
 
         return 0;
+}
+
+static int journal_file_verify_header(JournalFile *f) {
+        int r;
+
+        assert(f);
+
+        r = journal_file_verify_header_once(f);
+
+        /* A live writer updates the header fields of an appended entry one at a time: it advances
+         * tail_object_offset when it allocates the entry object, and bumps tail_entry_offset only once it
+         * has linked the entry, as the last of the entry's header fields (linking the entry's data objects
+         * afterwards can move tail_object_offset and n_objects again). A reader that loads two such fields
+         * with an append completing in between hence sees a torn pair that fails the consistency checks
+         * above with -ENODATA, e.g. a tail_entry_offset already pointing past the tail_object_offset it
+         * loaded a moment earlier (#40053). The header is mapped shared, so rerunning the checks reloads
+         * the fields. Retry a couple of times before giving up, so that only a file that fails validation
+         * consistently is rejected. Writable opens keep failing immediately as before. Note that we retry
+         * in SD_JOURNAL_ASSUME_IMMUTABLE mode too: the point of that flag is to avoid fstat(), and the
+         * retry issues no fstat() (the stat refresh above stays disabled for it), while journalctl sets
+         * the flag for every invocation without --follow, which is exactly how #40053 is hit. */
+        if (!journal_file_writable(f))
+                for (unsigned i = 0; i < 2 && r == -ENODATA; i++) {
+                        /* Primarily a compiler barrier: the checks read f->header through plain
+                         * non-volatile loads, so without it the compiler could reuse the values it
+                         * already loaded and turn the rerun into a no-op. Visibility of the writer's
+                         * stores follows from cache coherence on the shared mapping; the fence also
+                         * pairs with the write fence the writer issues before linking an entry. */
+                        __atomic_thread_fence(__ATOMIC_SEQ_CST);
+                        r = journal_file_verify_header_once(f);
+                }
+
+        return r;
 }
 
 int journal_file_fstat(JournalFile *f) {
@@ -4170,6 +4215,7 @@ int journal_file_open(
                                             DEFAULT_COMPRESS_THRESHOLD :
                                             MAX(MIN_COMPRESS_THRESHOLD, compress_threshold_bytes),
                 .strict_order = FLAGS_SET(file_flags, JOURNAL_STRICT_ORDER),
+                .assume_immutable = FLAGS_SET(file_flags, JOURNAL_ASSUME_IMMUTABLE),
                 .newest_boot_id_prioq_idx = PRIOQ_IDX_NULL,
                 .last_direction = _DIRECTION_INVALID,
                 .tail_timestamp_ratelimit = { .interval = USEC_PER_SEC, .burst = 1 },
