@@ -11,6 +11,7 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "errno-util.h"
+#include "escape.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -268,7 +269,12 @@ static int device_set_seqnum(sd_device *device, const char *str) {
         return 0;
 }
 
-static int device_amend(sd_device *device, const char *key, const char *value) {
+static int device_amend(
+                sd_device *device,
+                const char *key,
+                const char *value,
+                bool ignore_invalid_property_value) {
+
         int r;
 
         assert(device);
@@ -377,6 +383,15 @@ static int device_amend(sd_device *device, const char *key, const char *value) {
                         return log_device_debug_errno(device, r, "sd-device: Failed to parse udev database version '%s': %m", value);
         } else {
                 r = device_add_property_internal(device, key, value);
+                if (r == -EINVAL && ignore_invalid_property_value &&
+                    !isempty(key) && in_charset(key, ALPHANUMERICAL "_.")) {
+                        _cleanup_free_ char *escaped_value = cescape(value);
+
+                        log_device_debug_errno(device, r,
+                                               "sd-device: Failed to add property '%s=%s', ignoring: %m",
+                                               key, strnull(escaped_value));
+                        return 0;
+                }
                 if (r < 0)
                         return log_device_debug_errno(device, r, "sd-device: Failed to add property '%s=%s': %m", key, value);
         }
@@ -387,6 +402,7 @@ static int device_amend(sd_device *device, const char *key, const char *value) {
 static int device_append(
                 sd_device *device,
                 char *key,
+                bool ignore_invalid_property_value,
                 const char **_major,
                 const char **_minor) {
 
@@ -413,7 +429,7 @@ static int device_append(
         else if (streq(key, "MINOR"))
                 minor = value;
         else {
-                r = device_amend(device, key, value);
+                r = device_amend(device, key, value, ignore_invalid_property_value);
                 if (r < 0)
                         return r;
         }
@@ -470,7 +486,7 @@ int device_new_from_strv(sd_device **ret, char **strv) {
                 return r;
 
         STRV_FOREACH(key, strv) {
-                r = device_append(device, *key, &major, &minor);
+                r = device_append(device, *key, /* ignore_invalid_property_value= */ false, &major, &minor);
                 if (r < 0)
                         return r;
         }
@@ -519,7 +535,7 @@ int device_new_from_nulstr(sd_device **ret, char *nulstr, size_t len) {
                  * Let's drop the newline and remaining characters after the newline. */
                 truncate_nl(key);
 
-                r = device_append(device, key, &major, &minor);
+                r = device_append(device, key, /* ignore_invalid_property_value= */ true, &major, &minor);
                 if (r < 0)
                         return r;
         }
@@ -673,7 +689,7 @@ int device_clone_with_db(sd_device *device, sd_device **ret) {
                         minor = ordered_hashmap_get(device->properties, "MINOR");
                         r = device_set_devnum(dest, val, minor);
                 } else
-                        r = device_amend(dest, key, val);
+                        r = device_amend(dest, key, val, /* ignore_invalid_property_value= */ false);
                 if (r < 0)
                         return r;
 
