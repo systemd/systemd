@@ -1302,7 +1302,7 @@ static int parse_acl_cond_exec(
                                 continue;
 
                         /* If not appending, skip ACL definitions */
-                        if (!append && IN_SET(tag, ACL_USER, ACL_GROUP))
+                        if (!append && IN_SET(tag, ACL_USER, ACL_USER_OBJ, ACL_GROUP, ACL_GROUP_OBJ))
                                 continue;
 
                         if (sym_acl_get_permset(entry, &permset) < 0)
