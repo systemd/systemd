@@ -119,6 +119,32 @@ TEST(path_get_unit_path) {
         check_p_g_u_p("/_session-2.scope/_foobar@pie.service/pa/po", 0, "/_session-2.scope");
 }
 
+static void check_p_g_l_u_p(const char *path, int code, const char *result) {
+        _cleanup_free_ char *unit_path = NULL;
+        int r;
+
+        r = cg_path_get_leaf_unit_path(path, &unit_path);
+        printf("%s: %s → %s %d expected %s %d\n", __func__, path, unit_path, r, strnull(result), code);
+        assert_se(r == code);
+        ASSERT_STREQ(unit_path, result);
+}
+
+TEST(path_get_leaf_unit_path) {
+        check_p_g_l_u_p("/system.slice/foobar.service/sdfdsaf", 0, "/system.slice/foobar.service");
+        check_p_g_l_u_p("/system.slice/getty@tty5.service/aaa/bbb", 0, "/system.slice/getty@tty5.service");
+        check_p_g_l_u_p("/_session-2.scope/_foobar@pie.service/pa/po", 0, "/_session-2.scope");
+        check_p_g_l_u_p("/user.slice/user-1000.slice/user@1000.service/server.service", 0, "/user.slice/user-1000.slice/user@1000.service/server.service");
+        check_p_g_l_u_p("/user.slice/user-1000.slice/user@1000.service/server.service/subgroup", 0, "/user.slice/user-1000.slice/user@1000.service/server.service");
+        check_p_g_l_u_p("/user.slice/_user-1000.slice/user@1000.service/foobar.slice/foobar@pie.service", 0, "/user.slice/_user-1000.slice/user@1000.service/foobar.slice/foobar@pie.service");
+        check_p_g_l_u_p("/user.slice/user-1000.slice/user@1000.service", -ENXIO, NULL);
+        check_p_g_l_u_p("/user.slice/user-1000.slice/user@1000.service/", -ENXIO, NULL);
+        check_p_g_l_u_p("/user.slice/user-1000.slice/user@.service/server.service", -ENXIO, NULL);
+        check_p_g_l_u_p("/capsule.slice/capsule@test.service/app.slice/run-p9-i1.service", 0, "/capsule.slice/capsule@test.service/app.slice/run-p9-i1.service");
+        check_p_g_l_u_p("/capsule.slice/capsule@usr-joe.service/foo.slice/foo-bar.slice/run-p9-i1.service", 0, "/capsule.slice/capsule@usr-joe.service/foo.slice/foo-bar.slice/run-p9-i1.service");
+        check_p_g_l_u_p("/capsule.slice/capsule@#.service/foo.slice/run-p9-i1.service", -ENXIO, NULL);
+        check_p_g_l_u_p("/system.slice/getty####@tty6.service/xxx", -ENXIO, NULL);
+}
+
 static void check_p_g_u_u(const char *path, int code, const char *result) {
         _cleanup_free_ char *unit = NULL;
         int r;
