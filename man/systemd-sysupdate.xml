@@ -99,6 +99,16 @@
   </refsect1>
 
   <refsect1>
+    <title>Configuration</title>
+
+    <para>The default source URL is configured in
+    <citerefentry><refentrytitle>sysupdate.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+    <para>Transfer definitions must explicitly use <literal>%U</literal> in <varname>Path=</varname> for this
+    setting to have an effect.</para>
+  </refsect1>
+
+  <refsect1>
     <title>Command</title>
 
     <para>The following commands are understood:</para>
@@ -489,6 +499,15 @@
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--source-url=</option></term>
+
+        <listitem><para>Overrides the configured source URL for this invocation. The URL must be HTTP,
+        HTTPS, or (for testing) a normalized <literal>file://</literal> URL.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="no-legend" />
       <xi:include href="standard-options.xml" xpointer="json" />
@@ -509,6 +528,7 @@
       <member><citerefentry><refentrytitle>sysupdate.features</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>sysupdate.components</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-sysupdated.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sysupdate.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>

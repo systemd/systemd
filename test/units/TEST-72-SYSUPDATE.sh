@@ -1348,6 +1348,209 @@ EOF
 cmp "$WORKDIR/source/sub/blob-v11.bin" "$WORKDIR/blobs/blob-v11.bin"
 rm "$CONFIGDIR/01-explicit-url.transfer"
 
+# A configured source URL can be selected explicitly with the %U specifier,
+# overridden in a drop-in, and overridden on the command line. It also works
+# with subdirectory URLs and url-tar sources.
+URL_ROOT="$WORKDIR/url-root"
+URL_MAIN_SOURCE="$WORKDIR/url-main-source"
+URL_DROPIN_SOURCE="$WORKDIR/url-dropin-source"
+URL_COMMAND_SOURCE="$WORKDIR/url-command-source"
+URL_SUB_SOURCE="$WORKDIR/url-sub-source"
+mkdir -p "$URL_ROOT/etc/systemd/sysupdate.conf.d" "$URL_ROOT/run/sysupdate.d" \
+         "$URL_MAIN_SOURCE" "$URL_DROPIN_SOURCE" "$URL_COMMAND_SOURCE" \
+         "$URL_SUB_SOURCE/sub"
+printf 'main-source\n' >"$URL_MAIN_SOURCE/blob-v11.bin"
+printf 'dropin-source\n' >"$URL_DROPIN_SOURCE/blob-v21.bin"
+printf 'command-source\n' >"$URL_COMMAND_SOURCE/blob-v22.bin"
+printf 'sub-source\n' >"$URL_SUB_SOURCE/sub/blob-v31.bin"
+(cd "$URL_MAIN_SOURCE" && sha256sum blob-v11.bin >SHA256SUMS)
+(cd "$URL_DROPIN_SOURCE" && sha256sum blob-v21.bin >SHA256SUMS)
+(cd "$URL_COMMAND_SOURCE" && sha256sum blob-v22.bin >SHA256SUMS)
+(cd "$URL_SUB_SOURCE/sub" && sha256sum blob-v31.bin >SHA256SUMS)
+cat >"$URL_ROOT/etc/systemd/sysupdate.conf" <<EOF
+[SysUpdate]
+SourceURL=file://$URL_MAIN_SOURCE
+EOF
+cat >"$URL_ROOT/run/sysupdate.d/01-source-url.transfer" <<EOF
+[Source]
+Type=url-file
+Path=%U
+MatchPattern=blob-@v.bin
+
+[Target]
+Type=regular-file
+Path=/var/lib/sysupdate-url
+MatchPattern=blob-@v.bin
+InstancesMax=2
+EOF
+"$SYSUPDATE" --root="$URL_ROOT" --verify=no update v11
+cmp "$URL_MAIN_SOURCE/blob-v11.bin" "$URL_ROOT/var/lib/sysupdate-url/blob-v11.bin"
+rm -rf "$URL_ROOT/var/lib/sysupdate-url"
+
+cat >"$URL_ROOT/etc/systemd/sysupdate.conf.d/80-dropin.conf" <<EOF
+[SysUpdate]
+SourceURL=file://$URL_DROPIN_SOURCE
+EOF
+"$SYSUPDATE" --root="$URL_ROOT" --verify=no update v21
+cmp "$URL_DROPIN_SOURCE/blob-v21.bin" "$URL_ROOT/var/lib/sysupdate-url/blob-v21.bin"
+rm -rf "$URL_ROOT/var/lib/sysupdate-url"
+
+"$SYSUPDATE" --root="$URL_ROOT" --source-url="file://$URL_COMMAND_SOURCE" --verify=no update v22
+cmp "$URL_COMMAND_SOURCE/blob-v22.bin" "$URL_ROOT/var/lib/sysupdate-url/blob-v22.bin"
+rm -rf "$URL_ROOT/var/lib/sysupdate-url"
+
+cat >"$URL_ROOT/etc/systemd/sysupdate.conf" <<EOF
+[SysUpdate]
+SourceURL=file://$URL_SUB_SOURCE
+EOF
+rm -f "$URL_ROOT/etc/systemd/sysupdate.conf.d/80-dropin.conf"
+cat >"$URL_ROOT/run/sysupdate.d/01-source-url.transfer" <<EOF
+[Source]
+Type=url-file
+Path=%U/sub
+MatchPattern=blob-@v.bin
+
+[Target]
+Type=regular-file
+Path=/var/lib/sysupdate-url-sub
+MatchPattern=blob-@v.bin
+InstancesMax=2
+EOF
+"$SYSUPDATE" --root="$URL_ROOT" --verify=no update v31
+cmp "$URL_SUB_SOURCE/sub/blob-v31.bin" "$URL_ROOT/var/lib/sysupdate-url-sub/blob-v31.bin"
+
+cat >"$URL_ROOT/etc/systemd/sysupdate.conf" <<EOF
+[SysUpdate]
+SourceURL=file://$WORKDIR/source
+EOF
+cat >"$URL_ROOT/run/sysupdate.d/01-source-url.transfer" <<EOF
+[Source]
+Type=url-tar
+Path=%U
+MatchPattern=dir-@v.tar.gz
+
+[Target]
+Type=directory
+Path=/var/lib/sysupdate-url-tar
+CurrentSymlink=/var/lib/sysupdate-url-tar/current
+MatchPattern=dir-@v
+InstancesMax=2
+EOF
+"$SYSUPDATE" --root="$URL_ROOT" --verify=no update v11
+cmp "$WORKDIR/source/dir-v11/foo.txt" "$URL_ROOT/var/lib/sysupdate-url-tar/current/foo.txt"
+
+# Invalid SourceURL= settings in sysupdate.conf are ignored, but the update
+# still succeeds if the transfer file uses an explicit URL.
+URL_INVALID_ROOT="$WORKDIR/url-invalid-root"
+URL_INVALID_SOURCE="$WORKDIR/url-invalid-source"
+mkdir -p "$URL_INVALID_ROOT/etc/systemd" "$URL_INVALID_ROOT/run/sysupdate.d" \
+         "$URL_INVALID_SOURCE"
+printf 'invalid-source\n' >"$URL_INVALID_SOURCE/blob-v41.bin"
+(cd "$URL_INVALID_SOURCE" && sha256sum blob-v41.bin >SHA256SUMS)
+cat >"$URL_INVALID_ROOT/etc/systemd/sysupdate.conf" <<EOF
+[SysUpdate]
+SourceURL=nonsense
+EOF
+cat >"$URL_INVALID_ROOT/run/sysupdate.d/01-source-url.transfer" <<EOF
+[Source]
+Type=url-file
+Path=file://$URL_INVALID_SOURCE
+MatchPattern=blob-@v.bin
+
+[Target]
+Type=regular-file
+Path=/var/lib/sysupdate-url
+MatchPattern=blob-@v.bin
+InstancesMax=2
+EOF
+"$SYSUPDATE" --root="$URL_INVALID_ROOT" --verify=no update v41 |& tee "$URL_INVALID_ROOT/invalid.log"
+grep -F "SourceURL= URL is not valid, ignoring" "$URL_INVALID_ROOT/invalid.log" >/dev/null
+cmp "$URL_INVALID_SOURCE/blob-v41.bin" "$URL_INVALID_ROOT/var/lib/sysupdate-url/blob-v41.bin"
+
+# An empty SourceURL= drops the configured source URL and %U then fails closed.
+cat >"$URL_ROOT/etc/systemd/sysupdate.conf" <<EOF
+[SysUpdate]
+SourceURL=file://$URL_MAIN_SOURCE
+EOF
+mkdir -p "$URL_ROOT/etc/systemd/sysupdate.conf.d"
+cat >"$URL_ROOT/etc/systemd/sysupdate.conf.d/90-empty.conf" <<EOF
+[SysUpdate]
+SourceURL=
+EOF
+cat >"$URL_ROOT/run/sysupdate.d/01-source-url.transfer" <<EOF
+[Source]
+Type=url-file
+Path=%U
+MatchPattern=blob-@v.bin
+
+[Target]
+Type=regular-file
+Path=/var/lib/sysupdate-url
+MatchPattern=blob-@v.bin
+InstancesMax=2
+EOF
+if "$SYSUPDATE" --root="$URL_ROOT" --verify=no update v11 |& tee "$URL_ROOT/empty.log"; then
+    echo "ERROR: accepted %U without a configured source URL" >&2
+    exit 1
+fi
+grep -F "SourceURL= or --source-url= must be configured" "$URL_ROOT/empty.log" >/dev/null
+
+rm -f "$URL_ROOT/etc/systemd/sysupdate.conf.d/90-empty.conf"
+rm -f "$URL_ROOT/etc/systemd/sysupdate.conf"
+if "$SYSUPDATE" --root="$URL_ROOT" --verify=no update v11 |& tee "$URL_ROOT/missing.log"; then
+    echo "ERROR: accepted %U without sysupdate.conf" >&2
+    exit 1
+fi
+grep -F "SourceURL= or --source-url= must be configured" "$URL_ROOT/missing.log" >/dev/null
+
+# %U is only meaningful in [Source] Path=.
+cat >"$URL_ROOT/etc/systemd/sysupdate.conf" <<EOF
+[SysUpdate]
+SourceURL=file://$URL_MAIN_SOURCE
+EOF
+cat >"$URL_ROOT/run/sysupdate.d/01-source-url.transfer" <<EOF
+[Source]
+Type=url-file
+Path=%U
+MatchPattern=blob-@v.bin
+
+[Target]
+Type=regular-file
+Path=%U
+MatchPattern=blob-@v.bin
+InstancesMax=2
+EOF
+if "$SYSUPDATE" --root="$URL_ROOT" --verify=no update v11 |& tee "$URL_ROOT/target-specifier.log"; then
+    echo "ERROR: accepted %U in [Target] Path=" >&2
+    exit 1
+fi
+grep -F "%U is only supported in [Source] Path=" "$URL_ROOT/target-specifier.log" >/dev/null
+
+# Restore a valid transfer file so the command-line validation is exercised on
+# its own.
+cat >"$URL_ROOT/run/sysupdate.d/01-source-url.transfer" <<EOF
+[Source]
+Type=url-file
+Path=%U
+MatchPattern=blob-@v.bin
+
+[Target]
+Type=regular-file
+Path=/var/lib/sysupdate-url
+MatchPattern=blob-@v.bin
+InstancesMax=2
+EOF
+
+# --source-url= must be validated before any transfer parsing happens.
+if "$SYSUPDATE" --root="$URL_ROOT" --source-url=nonsense --verify=no update v11 |& tee "$URL_ROOT/cmdline-invalid.log"; then
+    echo "ERROR: accepted an invalid --source-url=" >&2
+    exit 1
+fi
+grep -F "Source URL is not valid" "$URL_ROOT/cmdline-invalid.log" >/dev/null
+
+rm -rf "$URL_ROOT" "$URL_INVALID_ROOT" "$URL_MAIN_SOURCE" "$URL_DROPIN_SOURCE" \
+       "$URL_COMMAND_SOURCE" "$URL_SUB_SOURCE" "$URL_INVALID_SOURCE"
+
 # Rejection test for a manifest entry containing ".."
 rm -rf "$WORKDIR/blobs"
 mkdir -p "$WORKDIR/blobs"
