@@ -50,6 +50,8 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_OUTPUT(OperatingSystemImageVersion, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The full contents of /etc/machine-info, as an array of 'KEY=VALUE' strings."),
                 SD_VARLINK_DEFINE_OUTPUT(MachineInformationData, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("The machine tags, from the TAGS= field of /etc/machine-info, with any invalid tags filtered out. Null if none configured."),
+                SD_VARLINK_DEFINE_OUTPUT(MachineTags, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
                 SD_VARLINK_FIELD_COMMENT("The hardware vendor of this system. Null if not known."),
                 SD_VARLINK_DEFINE_OUTPUT(HardwareVendor, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The hardware model of this system. Null if not known."),
