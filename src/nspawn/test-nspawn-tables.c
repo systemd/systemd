@@ -4,11 +4,34 @@
 #include "test-tables.h"
 #include "tests.h"
 
-int main(int argc, char **argv) {
-        test_setup_logging(LOG_DEBUG);
+TEST(settings_network_veth) {
+        struct {
+                const char *name;
+                Settings settings;
+                int expected;
+        } cases[] = {
+                { "unset",          { .private_network = -1, .network_veth = -1 },  0 },
+                { "private-no",     { .private_network =  0, .network_veth = -1 },  0 },
+                { "private-yes",    { .private_network =  1, .network_veth = -1 }, -1 },
+                { "private-path",   { .private_network =  1, .network_veth = -1,
+                                        .network_namespace_path = (char*) "/run/netns/test" }, 0 },
+                { "veth-no",        { .private_network = -1, .network_veth =  0 },  0 },
+                { "veth-yes",       { .private_network = -1, .network_veth =  1 },  1 },
+                { "bridge-veth-no", { .private_network = -1, .network_veth =  0,
+                                        .network_bridge = (char*) "br0" }, 1 },
+                { "zone",           { .private_network = -1, .network_veth = -1,
+                                        .network_zone = (char*) "vz-test" }, 1 },
+        };
 
+        FOREACH_ELEMENT(c, cases) {
+                log_info("/* %s */", c->name);
+                ASSERT_EQ(settings_network_veth(&c->settings), c->expected);
+        }
+}
+
+TEST(tables) {
         test_table(ResolvConfMode, resolv_conf_mode, RESOLV_CONF_MODE);
         test_table(TimezoneMode, timezone_mode, TIMEZONE_MODE);
-
-        return 0;
 }
+
+DEFINE_TEST_MAIN(LOG_DEBUG);
