@@ -44,25 +44,18 @@ TEST(compress_decompress_blob) {
                 for (size_t t = 0; t < 2; t++) {
                         const char *input = t == 0 ? text : data;
                         size_t input_len = t == 0 ? sizeof(text) : sizeof(data);
-                        bool may_fail = t == 1;
 
-                        char compressed[512];
+                        char compressed[sizeof(data) * 4];
                         size_t csize;
                         _cleanup_free_ char *decompressed = NULL;
-                        int r;
 
                         log_info("/* testing %s %s blob compression/decompression */", label, input);
 
-                        r = compress_blob(c, input, input_len, compressed, sizeof(compressed), &csize, -1);
-                        if (r == -ENOBUFS) {
-                                log_info_errno(r, "compression failed: %m");
-                                ASSERT_TRUE(may_fail);
-                        } else {
-                                ASSERT_OK(r);
-                                ASSERT_OK_ZERO(decompress_blob(c, compressed, csize, (void **) &decompressed, &csize, 0));
-                                ASSERT_NOT_NULL(decompressed);
-                                ASSERT_EQ(memcmp(decompressed, input, input_len), 0);
-                        }
+                        ASSERT_OK(compress_blob(c, input, input_len, compressed, sizeof(compressed), &csize, -1));
+
+                        ASSERT_OK_ZERO(decompress_blob(c, compressed, csize, (void **) &decompressed, &csize, 0));
+                        ASSERT_NOT_NULL(decompressed);
+                        ASSERT_EQ(memcmp(decompressed, input, input_len), 0);
 
                         ASSERT_FAIL(decompress_blob(c, "garbage", 7, (void **) &decompressed, &csize, 0));
                 }
