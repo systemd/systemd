@@ -2111,11 +2111,13 @@ int decompressor_push(Decompressor *c, const void *data, size_t size, Decompress
 }
 
 int compressor_new(Compressor **ret, Compression type) {
-#if HAVE_XZ || HAVE_LZ4 || HAVE_ZSTD || HAVE_ZLIB || HAVE_BZIP2
         int r;
-#endif
 
         assert(ret);
+
+        r = dlopen_compress(type, LOG_DEBUG);
+        if (r < 0)
+                return r;
 
         _cleanup_(compressor_freep) Compressor *c = new0(Compressor, 1);
         if (!c)
@@ -2131,10 +2133,6 @@ int compressor_new(Compressor **ret, Compression type) {
 
 #if HAVE_XZ
         case COMPRESSION_XZ: {
-                r = dlopen_xz(LOG_DEBUG);
-                if (r < 0)
-                        return r;
-
                 lzma_ret xzr = sym_lzma_easy_encoder(&c->xz, LZMA_PRESET_DEFAULT, LZMA_CHECK_CRC64);
                 if (xzr != LZMA_OK)
                         return -EIO;
@@ -2146,10 +2144,6 @@ int compressor_new(Compressor **ret, Compression type) {
 
 #if HAVE_LZ4
         case COMPRESSION_LZ4: {
-                r = dlopen_lz4(LOG_DEBUG);
-                if (r < 0)
-                        return r;
-
                 size_t rc = sym_LZ4F_createCompressionContext(&c->c_lz4, LZ4F_VERSION);
                 if (sym_LZ4F_isError(rc))
                         return -ENOMEM;
@@ -2172,10 +2166,6 @@ int compressor_new(Compressor **ret, Compression type) {
 
 #if HAVE_ZSTD
         case COMPRESSION_ZSTD:
-                r = dlopen_zstd(LOG_DEBUG);
-                if (r < 0)
-                        return r;
-
                 c->c_zstd = sym_ZSTD_createCCtx();
                 if (!c->c_zstd)
                         return -ENOMEM;
@@ -2195,10 +2185,6 @@ int compressor_new(Compressor **ret, Compression type) {
 
 #if HAVE_ZLIB
         case COMPRESSION_GZIP:
-                r = dlopen_zlib(LOG_DEBUG);
-                if (r < 0)
-                        return r;
-
                 r = sym_deflateInit2_(&c->gzip,
                                       Z_DEFAULT_COMPRESSION,
                                       /* method= */ Z_DEFLATED,
@@ -2215,10 +2201,6 @@ int compressor_new(Compressor **ret, Compression type) {
 
 #if HAVE_BZIP2
         case COMPRESSION_BZIP2:
-                r = dlopen_bzip2(LOG_DEBUG);
-                if (r < 0)
-                        return r;
-
                 r = sym_BZ2_bzCompressInit(&c->bzip2, /* blockSize100k= */ 9, /* verbosity= */ 0, /* workFactor= */ 0);
                 if (r != BZ_OK)
                         return -EIO;
