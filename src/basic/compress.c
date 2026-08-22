@@ -1715,6 +1715,8 @@ static int decompressor_new(Decompressor **ret, Compression type) {
         c->type = _COMPRESSION_INVALID;
 
         switch (type) {
+        case COMPRESSION_NONE:
+                break;
 
 #if HAVE_XZ
         case COMPRESSION_XZ:
@@ -1758,7 +1760,7 @@ static int decompressor_new(Decompressor **ret, Compression type) {
 #endif
 
         default:
-                return -EOPNOTSUPP;
+                assert_not_reached();
         }
 
         c->type = type;
@@ -1779,6 +1781,9 @@ int decompress_stream(
 
         assert(fdf >= 0);
         assert(fdt >= 0);
+
+        if (type == COMPRESSION_NONE)
+                return -EOPNOTSUPP;
 
         r = dlopen_compress(type, LOG_DEBUG);
         if (r < 0)
