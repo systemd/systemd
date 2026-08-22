@@ -50,6 +50,7 @@ _systemd-sysupdate() {
                --image
                --image-policy
                --transfer-source
+               --source-url
                -m --instances-max
                --sync
                --verify
@@ -84,6 +85,9 @@ _systemd-sysupdate() {
             --definitions|--root|--transfer-source)
                 comps=$(compgen -A directory -- "$cur" )
                 compopt -o dirnames
+                ;;
+            --source-url)
+                comps=''
                 ;;
             --image)
                 comps=$(compgen -A file -- "$cur" )
