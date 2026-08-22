@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -20,6 +21,7 @@
 #include "gpt.h"
 #include "hashmap.h"
 #include "hexdecoct.h"
+#include "format-util.h"
 #include "install-file.h"
 #include "mkdir.h"
 #include "notify-recv.h"
@@ -33,6 +35,7 @@
 #include "signal-util.h"
 #include "specifier.h"
 #include "stdio-util.h"
+#include "stat-util.h"
 #include "strv.h"
 #include "sync-util.h"
 #include "sysupdate.h"
@@ -1244,6 +1247,46 @@ static int run_callout(
         return sd_event_loop(event);
 }
 
+static int transfer_check_target_free_space(const Transfer *t, const Instance *i) {
+        _cleanup_close_ int parent_fd = -EBADF;
+        const char *target_name = "target";
+        uint64_t free_bytes;
+        int r;
+
+        assert(t);
+        assert(i);
+
+        if (t->target.type != RESOURCE_REGULAR_FILE)
+                return 0;
+
+        if (i->metadata.size == UINT64_MAX)
+                return 0;
+
+        assert(t->final_path);
+
+        if (t->target.path_relative_to != PATH_RELATIVE_TO_EXPLICIT)
+                target_name = path_relative_to_to_string(t->target.path_relative_to);
+
+        parent_fd = open_parent(t->final_path, O_RDONLY|O_CLOEXEC|O_DIRECTORY, 0);
+        if (parent_fd < 0)
+                return log_error_errno(parent_fd, "Failed to open parent directory of '%s': %m", t->final_path);
+
+        r = vfs_free_bytes(parent_fd, &free_bytes);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine free space for '%s': %m", t->final_path);
+
+        if (free_bytes < i->metadata.size)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
+                                       "Not enough free space on the %s filesystem for '%s' while acquiring '%s': need %s, have %s.",
+                                       target_name,
+                                       t->final_path,
+                                       i->path,
+                                       FORMAT_BYTES(i->metadata.size),
+                                       FORMAT_BYTES(free_bytes));
+
+        return 0;
+}
+
 /* Build the filenames and paths which is normally done by transfer_acquire_instance(), but for partial
  * and pending instances which are about to be installed (in which case, transfer_acquire_instance() is
  * skipped). */
@@ -1401,6 +1444,10 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
         assert(where);
 
         log_info("%s Acquiring %s %s %s...", glyph(GLYPH_DOWNLOAD), i->path, glyph(GLYPH_ARROW_RIGHT), where);
+
+        r = transfer_check_target_free_space(t, i);
+        if (r < 0)
+                return r;
 
         if (RESOURCE_IS_URL(i->resource->type)) {
                 /* For URL sources we require the SHA256 sum to be known so that we can validate the
