@@ -5346,7 +5346,7 @@ int tpm2_calculate_policy_or(const TPM2B_DIGEST *branches, size_t n_branches, TP
                 return -EINVAL;
         if (n_branches == 1)
                 log_warning("PolicyOR with a single branch submitted, this is weird.");
-        if (n_branches > 8)
+        if (n_branches > TPM2_POLICY_OR_MAX_BRANCHES)
                 return -E2BIG;
 
         r = dlopen_tpm2(LOG_ERR);
@@ -9737,8 +9737,10 @@ int tpm2_calculate_policy_super_pcr(
                 if (ordered_set_size(prediction->results[pcr]) <= 1) /* We only care for PCRs with 2 or more variants in this loop */
                         continue;
 
-                if (ordered_set_size(prediction->results[pcr]) > 8)
-                        return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "PCR policies with more than 8 alternatives per PCR are currently not supported.");
+                if (ordered_set_size(prediction->results[pcr]) > TPM2_POLICY_OR_MAX_BRANCHES)
+                        return log_error_errno(SYNTHETIC_ERRNO(E2BIG),
+                                               "PCR policies with more than %u alternatives per PCR are currently not supported.",
+                                               TPM2_POLICY_OR_MAX_BRANCHES);
 
                 ORDERED_SET_FOREACH(banks, prediction->results[pcr]) {
                         /* Start from the super PCR policy from the previous PCR we looked at so far. */
@@ -9847,8 +9849,10 @@ int tpm2_policy_super_pcr(
                         continue;
 
                 n_branches = ordered_set_size(prediction->results[pcr]);
-                if (n_branches < 1 || n_branches > 8)
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Number of variants per PCR not in range 1…8");
+                if (n_branches < 1 || n_branches > TPM2_POLICY_OR_MAX_BRANCHES)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Number of variants per PCR not in range 1…%u",
+                                               TPM2_POLICY_OR_MAX_BRANCHES);
 
                 if (n_branches == 1) /* Single choice PCRs are already covered by the loop above */
                         continue;
