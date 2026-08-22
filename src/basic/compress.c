@@ -1657,12 +1657,16 @@ struct decompress_stream_userdata {
         int fd;
         uint64_t max_bytes;
         uint64_t total_out;
+        uint64_t skip; /* bytes to discard from the very start of the decompressed stream before anything is
+                        * actually written */
         bool sparse;
 };
 
 static int decompress_stream_write_callback(const void *data, size_t size, void *userdata) {
         struct decompress_stream_userdata *u = ASSERT_PTR(userdata);
 
+        /* Accounting (max_bytes/total_out) happens against the *full* decompressed stream, including the
+         * part we're about to skip. */
         if (u->max_bytes != UINT64_MAX) {
                 if (u->max_bytes < size)
                         return -EFBIG;
@@ -1670,6 +1674,20 @@ static int decompress_stream_write_callback(const void *data, size_t size, void 
         }
 
         u->total_out += size;
+
+        if (u->skip > 0) {
+                if (u->skip >= size) {
+                        u->skip -= size;
+                        return 0;
+                }
+
+                data = (const uint8_t*) data + u->skip;
+                size -= u->skip;
+                u->skip = 0;
+        }
+
+        if (size == 0)
+                return 0;
 
         if (u->sparse) {
                 /* Note: sparse_write() does not retry on EINTR and converts short writes to -EIO.
