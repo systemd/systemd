@@ -10,6 +10,7 @@
 #include "copy.h"
 #include "fd-util.h"
 #include "io-util.h"
+#include "memfd-util.h"
 #include "path-util.h"
 #include "random-util.h"
 #include "tests.h"
@@ -59,6 +60,98 @@ TEST(compress_decompress_blob) {
                         ASSERT_EQ(memcmp(decompressed, input, input_len), 0);
 
                         ASSERT_FAIL(decompress_blob(c, "garbage", 7, (void **) &decompressed, &csize, 0));
+                }
+        }
+}
+
+static void verify_memfd(int fd, size_t sz, const void *expected, size_t expected_size) {
+        ASSERT_EQ(sz, expected_size);
+
+        uint64_t sz64;
+        ASSERT_OK(memfd_get_size(fd, &sz64));
+        ASSERT_EQ(sz64, (uint64_t) expected_size);
+
+        _cleanup_free_ void *buf = ASSERT_NOT_NULL(malloc(expected_size));
+        ASSERT_OK_EQ_ERRNO(pread(fd, buf, expected_size, 0), (ssize_t) expected_size);
+        ASSERT_EQ(memcmp(buf, expected, expected_size), 0);
+}
+
+TEST(decompress_blob_to_fd) {
+        for (Compression c = 0; c < _COMPRESSION_MAX; c++) {
+                if (c == COMPRESSION_NONE || !compression_supported(c))
+                        continue;
+
+                for (size_t t = 0; t < 2; t++) {
+                        const char *input = t == 0 ? text : data;
+                        size_t input_len = t == 0 ? sizeof(text) : sizeof(data);
+
+                        log_info("/* testing %s %s blob decompression to fd */", compression_to_string(c), input);
+
+                        char compressed[sizeof(data) * 4];
+                        size_t csize;
+                        ASSERT_OK(compress_blob(c, input, input_len, compressed, sizeof(compressed), &csize, -1));
+
+                        _cleanup_close_ int fd = ASSERT_OK(memfd_new("decompress-blob-to-fd-test"));
+                        size_t sz;
+
+                        ASSERT_OK(decompress_blob_to_fd(c, compressed, csize, fd, UINT64_MAX, /* skip= */ 0, &sz));
+                        verify_memfd(fd, sz, input, input_len);
+
+                        /* check with the skip parameter */
+                        size_t skip = input_len / 2;
+                        ASSERT_OK_ERRNO(lseek(fd, skip, SEEK_SET));
+                        ASSERT_OK_ERRNO(ftruncate(fd, skip));
+                        ASSERT_OK(decompress_blob_to_fd(c, compressed, csize, fd, UINT64_MAX, skip, &sz));
+                        verify_memfd(fd, sz + skip, input, input_len);
+                }
+
+                {
+                        log_info("/* testing %s huge blob decompression to fd */", compression_to_string(c));
+
+                        _cleanup_(compressor_freep) Compressor *compressor = NULL;
+                        _cleanup_free_ void *compressed = NULL, *finish_buf = NULL;
+                        size_t compressed_size = 0, compressed_alloc = 0, finish_size = 0, finish_alloc = 0;
+
+                        ASSERT_OK(compressor_new(&compressor, c));
+                        ASSERT_OK(compressor_start(compressor, huge, HUGE_SIZE, &compressed, &compressed_size, &compressed_alloc));
+                        ASSERT_OK(compressor_finish(compressor, &finish_buf, &finish_size, &finish_alloc));
+                        compressor = compressor_free(compressor);
+
+                        size_t total_compressed = compressed_size + finish_size;
+                        _cleanup_free_ char *full_compressed = ASSERT_NOT_NULL(malloc(total_compressed + 1));
+                        memcpy_safe(mempcpy(full_compressed, compressed, compressed_size), finish_buf, finish_size);
+                        full_compressed[total_compressed] = 'a'; /* append garbage data */
+
+                        _cleanup_close_ int fd = ASSERT_OK(memfd_new("decompress-blob-to-fd-huge-test"));
+                        size_t sz;
+
+                        /* check with compressed data with the valid length */
+                        ASSERT_OK(decompress_blob_to_fd(c, full_compressed, total_compressed, fd, UINT64_MAX, /* skip= */ 0, &sz));
+                        verify_memfd(fd, sz, huge, HUGE_SIZE);
+
+                        /* check with the skip parameter */
+                        size_t skip = HUGE_SIZE / 2;
+                        ASSERT_OK_ERRNO(lseek(fd, skip, SEEK_SET));
+                        ASSERT_OK_ERRNO(ftruncate(fd, skip));
+                        ASSERT_OK(decompress_blob_to_fd(c, full_compressed, total_compressed, fd, UINT64_MAX, skip, &sz));
+                        verify_memfd(fd, sz + skip, huge, HUGE_SIZE);
+
+                        /* check if compressed data with garbage is refused */
+                        ASSERT_OK_ERRNO(lseek(fd, 0, SEEK_SET));
+                        ASSERT_ERROR(decompress_blob_to_fd(c, full_compressed, total_compressed + 1, fd, UINT64_MAX, /* skip= */ 0, &sz), EBADMSG);
+
+                        /* check if truncated compressed data is refused */
+                        ASSERT_OK_ERRNO(lseek(fd, 0, SEEK_SET));
+                        ASSERT_ERROR(decompress_blob_to_fd(c, full_compressed, total_compressed - 1, fd, UINT64_MAX, /* skip= */ 0, &sz), EBADMSG);
+
+                        /* check if decompressor clears previous data in fd */
+                        ASSERT_OK_ERRNO(lseek(fd, 0, SEEK_SET));
+                        ASSERT_OK(decompress_blob_to_fd(c, full_compressed, total_compressed, fd, UINT64_MAX, /* skip= */ 0, &sz));
+                        verify_memfd(fd, sz, huge, HUGE_SIZE);
+
+                        /* check if zero sized compressed data is refused */
+                        ASSERT_OK_ERRNO(lseek(fd, 0, SEEK_SET));
+                        ASSERT_ERROR(decompress_blob_to_fd(c, full_compressed, 0, fd, UINT64_MAX, /* skip= */ 0, &sz), EBADMSG);
                 }
         }
 }
