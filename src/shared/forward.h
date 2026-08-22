@@ -47,6 +47,7 @@ typedef enum UnitFileState UnitFileState;
 typedef enum UserDBFlags UserDBFlags;
 typedef enum UserRecordLoadFlags UserRecordLoadFlags;
 typedef enum UserStorage UserStorage;
+typedef enum VolatileMode VolatileMode;
 
 typedef struct Argon2IdParameters Argon2IdParameters;
 typedef struct AskPasswordRequest AskPasswordRequest;
