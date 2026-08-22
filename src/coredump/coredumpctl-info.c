@@ -115,7 +115,7 @@ error:
 
 static int print_list(FILE *file, sd_journal *j, Table *t) {
         _cleanup_free_ char
-                *mid = NULL, *pid = NULL, *uid = NULL, *gid = NULL,
+                *mid = NULL, *cid = NULL, *pid = NULL, *uid = NULL, *gid = NULL,
                 *sgnl = NULL, *exe = NULL, *comm = NULL,
                 *filename = NULL, *truncated = NULL;
         const void *d;
@@ -125,6 +125,7 @@ static int print_list(FILE *file, sd_journal *j, Table *t) {
         const char *present = NULL, *color = NULL;
         uint64_t size = UINT64_MAX;
         bool normal_coredump, has_inline_coredump;
+        sd_id128_t coredump_id = SD_ID128_NULL;
         uid_t uid_as_int = UID_INVALID;
         gid_t gid_as_int = GID_INVALID;
         pid_t pid_as_int = 0;
@@ -135,6 +136,7 @@ static int print_list(FILE *file, sd_journal *j, Table *t) {
 
         SD_JOURNAL_FOREACH_DATA(j, d, l) {
                 RETRIEVE(d, l, "MESSAGE_ID", mid);
+                RETRIEVE(d, l, "COREDUMP_ID", cid);
                 RETRIEVE(d, l, "COREDUMP_PID", pid);
                 RETRIEVE(d, l, "COREDUMP_UID", uid);
                 RETRIEVE(d, l, "COREDUMP_GID", gid);
@@ -154,6 +156,8 @@ static int print_list(FILE *file, sd_journal *j, Table *t) {
                 return 0;
         }
 
+        if (cid)
+                (void) sd_id128_from_string(cid, &coredump_id);
         (void) parse_uid(uid, &uid_as_int);
         (void) parse_gid(gid, &gid_as_int);
         (void) parse_pid(pid, &pid_as_int);
@@ -181,6 +185,13 @@ static int print_list(FILE *file, sd_journal *j, Table *t) {
 
         if (STRPTR_IN_SET(present, "present", "journal") && truncated && parse_boolean(truncated) > 0)
                 present = "truncated";
+
+        if (sd_id128_is_null(coredump_id))
+                r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
+        else
+                r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_ID128, &coredump_id);
+        if (r < 0)
+                return table_log_add_error(r);
 
         r = table_add_many(
                         t,
