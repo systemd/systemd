@@ -246,6 +246,21 @@ int dhcp6_lease_get_rapid_commit(sd_dhcp6_lease *lease, bool *ret) {
         return 0;
 }
 
+int dhcp6_lease_set_register_addresses(sd_dhcp6_lease *lease) {
+        assert(lease);
+
+        lease->register_addresses = true;
+        return 0;
+}
+
+int dhcp6_lease_get_register_addresses(sd_dhcp6_lease *lease, bool *ret) {
+        assert(lease);
+        assert(ret);
+
+        *ret = lease->register_addresses;
+        return 0;
+}
+
 int sd_dhcp6_lease_get_address(sd_dhcp6_lease *lease, struct in6_addr *ret) {
         assert_return(lease, -EINVAL);
 
@@ -1027,6 +1042,15 @@ static int dhcp6_lease_parse_message(
                         r = dhcp6_lease_add_vendor_option(lease, optval, optlen);
                         if (r < 0)
                                 log_dhcp6_client_errno(client, r, "Failed to parse vendor option, ignoring: %m");
+
+                        break;
+                case SD_DHCP6_OPTION_ADDR_REG_ENABLE:
+                        if (optlen != 0)
+                                log_dhcp6_client(client, "Received address registration enable option with an invalid length (%zu), ignoring.", optlen);
+
+                        r = dhcp6_lease_set_register_addresses(lease);
+                        if (r < 0)
+                                return log_dhcp6_client_errno(client, r, "Failed to set address registration flag: %m");
 
                         break;
                 }
