@@ -27,7 +27,6 @@
 #include "selinux-util.h"
 #include "set.h"
 #include "string-util.h"
-#include "syslog-util.h"
 #include "time-util.h"
 #include "unaligned.h"
 #include "user-util.h"
@@ -300,6 +299,7 @@ static int client_context_read_cgroup(Manager *m, ClientContext *c, const char *
         }
 
         (void) client_context_read_log_filter_patterns(c, t);
+        (void) client_context_read_log_level_max(c, t);
 
         /* Let's shortcut this if the cgroup path didn't change */
         if (streq_ptr(c->cgroup, t))
@@ -386,65 +386,6 @@ static int client_context_read_invocation_id(
                 return r;
 
         return sd_id128_from_string(value, &c->invocation_id);
-}
-
-static int log_level_max_from_state_file(const char *path) {
-        _cleanup_free_ char *value = NULL;
-        int r;
-
-        assert(path);
-
-        r = readlink_malloc(path, &value);
-        if (r < 0)
-                return r;
-
-        return log_level_from_string(value);
-}
-
-static int client_context_read_log_level_max(
-                Manager *m,
-                ClientContext *c) {
-
-        _cleanup_free_ char *p = NULL;
-        bool user_area;
-        int r;
-
-        if (!c->unit)
-                return 0;
-
-        p = client_context_state_file_path(c, "log-level-max:");
-        if (!p)
-                return -ENOMEM;
-
-        user_area = client_context_user_area(c);
-
-        /* The per-user-unit state file lives in a directory the user owns and may replace entries
-         * in. Treat anything but a readable symlink with a valid target as if no level was
-         * exported, so that a corrupt file cannot make journald skip the session-wide fallback
-         * below. */
-        r = log_level_max_from_state_file(p);
-        if (r < 0 && r != -ENOENT) {
-                if (!user_area)
-                        return r;
-                r = -ENOENT;
-        }
-
-        /* A LogLevelMax= drop-in for user@<UID>.service applies to the whole user session; its
-         * state file is exported by PID 1 below /run/systemd/units/. Fall back to it if the user
-         * manager did not export one for the user unit. */
-        if (r == -ENOENT && user_area) {
-                p = mfree(p);
-                p = system_state_file_path(c, "log-level-max:");
-                if (!p)
-                        return -ENOMEM;
-
-                r = log_level_max_from_state_file(p);
-        }
-        if (r < 0)
-                return r;
-
-        c->log_level_max = r;
-        return 0;
 }
 
 static int client_context_read_extra_fields(
@@ -616,7 +557,6 @@ static void client_context_really_refresh(
 
         (void) client_context_read_cgroup(m, c, unit_id);
         (void) client_context_read_invocation_id(m, c);
-        (void) client_context_read_log_level_max(m, c);
         (void) client_context_read_extra_fields(m, c);
         (void) client_context_read_log_ratelimit_interval(c);
         (void) client_context_read_log_ratelimit_burst(c);

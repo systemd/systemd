@@ -885,6 +885,28 @@ static int cgroup_log_xattr_apply(Unit *u) {
         return 0;
 }
 
+static void cgroup_log_level_max_xattr_apply(Unit *u) {
+        const ExecContext *c;
+
+        assert(u);
+
+        c = unit_get_exec_context(u);
+        if (!c)
+                /* Some unit types have a cgroup context but no exec context, so they cannot have a
+                 * LogLevelMax= configured. */
+                return;
+
+        /* Export LogLevelMax= as a cgroup xattr, so that journald can pick it up for messages of
+         * this unit. This works the same for system and user units: the manager that owns the unit
+         * sets the xattr on the unit's cgroup, and journald reads it from there, regardless of
+         * which manager the unit belongs to. */
+        if (u->debug_invocation || c->log_level_max >= 0) {
+                char level = '0' + LOG_PRI(u->debug_invocation ? LOG_DEBUG : c->log_level_max);
+                unit_set_xattr_graceful(u, "user.journald_log_level_max", &level, 1);
+        } else
+                unit_remove_xattr_graceful(u, "user.journald_log_level_max");
+}
+
 static void cgroup_invocation_id_xattr_apply(Unit *u) {
         bool b;
 
@@ -945,12 +967,13 @@ static void cgroup_survive_xattr_apply(Unit *u) {
                 unit_remove_xattr_graceful(u, "user.survive_final_kill_signal");
 }
 
-static void cgroup_xattr_apply(Unit *u) {
+void cgroup_xattr_apply(Unit *u) {
         assert(u);
 
         /* The 'user.*' xattrs can be set from a user manager. */
         cgroup_oomd_xattr_apply(u);
         cgroup_log_xattr_apply(u);
+        cgroup_log_level_max_xattr_apply(u);
         cgroup_coredump_xattr_apply(u);
 
         if (!MANAGER_IS_SYSTEM(u->manager))

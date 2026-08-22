@@ -5914,46 +5914,6 @@ static int unit_export_invocation_id(Unit *u) {
         return 0;
 }
 
-static int unit_export_log_level_max(Unit *u, int log_level_max, bool overwrite) {
-        _cleanup_free_ char *p = NULL;
-        char buf[2];
-        int r;
-
-        assert(u);
-
-        /* When the debug_invocation logic runs, overwrite will be true as we always want to switch the max
-         * log level that the journal applies, and we want to always restore the previous level once done */
-
-        if (!overwrite && u->exported_log_level_max && log_level_max >= 0)
-                return 0;
-
-        r = unit_get_state_file_path(u, "log-level-max:", &p);
-        if (r < 0)
-                return log_unit_debug_errno(u, r, "Failed to get path of maximum log level symlink: %m");
-
-        if (log_level_max < 0) {
-                /* No maximum log level configured. Remove a possibly stale symlink, e.g. one written by a
-                 * previous user manager instance: the runtime directory survives
-                 * "systemctl restart user@<UID>.service", so without this nothing would ever unlink it and
-                 * the unit would stay capped at a level that nothing configured anymore. */
-                (void) unlink(p);
-                u->exported_log_level_max = false;
-                return 0;
-        }
-
-        assert(log_level_max <= 7);
-
-        buf[0] = '0' + log_level_max;
-        buf[1] = 0;
-
-        r = symlink_atomic(buf, p);
-        if (r < 0)
-                return log_unit_debug_errno(u, r, "Failed to create maximum log level symlink %s: %m", p);
-
-        u->exported_log_level_max = true;
-        return 0;
-}
-
 static int unit_export_log_extra_fields(Unit *u, const ExecContext *c) {
         _cleanup_free_ char *p = NULL;
         int r;
@@ -6090,17 +6050,13 @@ void unit_export_state_files(Unit *u) {
         (void) unit_export_invocation_id(u);
 
         c = unit_get_exec_context(u);
-        if (c) {
-                (void) unit_export_log_level_max(u, c->log_level_max, /* overwrite= */ false);
-
+        if (c && MANAGER_IS_SYSTEM(u->manager)) {
                 /* LogExtraFields= and the per-unit log rate limit settings are currently only
                  * available in system services, not in per-user services. For LogExtraFields=
                  * this is documented in systemd.exec(5). */
-                if (MANAGER_IS_SYSTEM(u->manager)) {
-                        (void) unit_export_log_extra_fields(u, c);
-                        (void) unit_export_log_ratelimit_interval(u, c);
-                        (void) unit_export_log_ratelimit_burst(u, c);
-                }
+                (void) unit_export_log_extra_fields(u, c);
+                (void) unit_export_log_ratelimit_interval(u, c);
+                (void) unit_export_log_ratelimit_burst(u, c);
         }
 }
 
@@ -6121,16 +6077,6 @@ void unit_unlink_state_files(Unit *u) {
                 if (r >= 0) {
                         (void) unlink(invocation_path);
                         u->exported_invocation_id = false;
-                }
-        }
-
-        if (u->exported_log_level_max) {
-                _cleanup_free_ char *p = NULL;
-
-                r = unit_get_state_file_path(u, "log-level-max:", &p);
-                if (r >= 0) {
-                        (void) unlink(p);
-                        u->exported_log_level_max = false;
                 }
         }
 
@@ -6166,8 +6112,6 @@ void unit_unlink_state_files(Unit *u) {
 }
 
 int unit_set_debug_invocation(Unit *u, bool enable) {
-        int r;
-
         assert(u);
 
         if (u->debug_invocation == enable)
@@ -6176,14 +6120,7 @@ int unit_set_debug_invocation(Unit *u, bool enable) {
         u->debug_invocation = enable;
 
         /* Ensure that the new log level is exported for the journal, in place of the previous one */
-        if (u->exported_log_level_max) {
-                const ExecContext *ec = unit_get_exec_context(u);
-                if (ec) {
-                        r = unit_export_log_level_max(u, enable ? LOG_PRI(LOG_DEBUG) : ec->log_level_max, /* overwrite= */ true);
-                        if (r < 0)
-                                return r;
-                }
-        }
+        cgroup_xattr_apply(u);
 
         return 1;
 }
