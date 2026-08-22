@@ -36,6 +36,7 @@ local -a opts=(
     '--image=[Operate on disk image as filesystem root]:image file:_files'
     '--image-policy=[Specify disk image dissection policy]:policy'
     '--transfer-source=[Specify the directory to transfer sources from]:directory:_directories'
+    '--source-url=[Specify the source URL]:URL'
     {-m+,--instances-max=}'[How many instances to maintain]:number'
     '--sync=[Control whether to sync data to disk]:bool:(yes no)'
     '--verify=[Force signature verification on or off]:bool:(yes no)'

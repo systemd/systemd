@@ -1348,6 +1348,39 @@ EOF
 cmp "$WORKDIR/source/sub/blob-v11.bin" "$WORKDIR/blobs/blob-v11.bin"
 rm "$CONFIGDIR/01-explicit-url.transfer"
 
+# A configured source URL can be selected explicitly with the %U specifier,
+# and overridden on the command line.
+URL_ROOT="$WORKDIR/url-root"
+URL_CONFIG_SOURCE="$WORKDIR/url-config-source"
+URL_COMMAND_SOURCE="$WORKDIR/url-command-source"
+mkdir -p "$URL_ROOT/etc/systemd" "$URL_ROOT/run/sysupdate.d" \
+         "$URL_CONFIG_SOURCE" "$URL_COMMAND_SOURCE"
+printf 'config-source\n' >"$URL_CONFIG_SOURCE/blob-v21.bin"
+printf 'command-source\n' >"$URL_COMMAND_SOURCE/blob-v22.bin"
+(cd "$URL_CONFIG_SOURCE" && sha256sum blob-v21.bin >SHA256SUMS)
+(cd "$URL_COMMAND_SOURCE" && sha256sum blob-v22.bin >SHA256SUMS)
+cat >"$URL_ROOT/etc/systemd/sysupdate.conf" <<EOF
+[SysUpdate]
+SourceURL=file://$URL_CONFIG_SOURCE
+EOF
+cat >"$URL_ROOT/run/sysupdate.d/01-source-url.transfer" <<EOF
+[Source]
+Type=url-file
+Path=%U
+MatchPattern=blob-@v.bin
+
+[Target]
+Type=regular-file
+Path=/var/lib/sysupdate-url
+MatchPattern=blob-@v.bin
+InstancesMax=2
+EOF
+"$SYSUPDATE" --root="$URL_ROOT" --verify=no update v21
+cmp "$URL_CONFIG_SOURCE/blob-v21.bin" "$URL_ROOT/var/lib/sysupdate-url/blob-v21.bin"
+"$SYSUPDATE" --root="$URL_ROOT" --source-url="file://$URL_COMMAND_SOURCE" --verify=no update v22
+cmp "$URL_COMMAND_SOURCE/blob-v22.bin" "$URL_ROOT/var/lib/sysupdate-url/blob-v22.bin"
+rm -rf "$URL_ROOT" "$URL_CONFIG_SOURCE" "$URL_COMMAND_SOURCE"
+
 # Rejection test for a manifest entry containing ".."
 rm -rf "$WORKDIR/blobs"
 mkdir -p "$WORKDIR/blobs"

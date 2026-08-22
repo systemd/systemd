@@ -369,6 +369,21 @@ static int config_parse_resource_pattern(
         return 0;
 }
 
+static int specifier_source_url(
+                char specifier,
+                const void *data,
+                const char *root,
+                const void *userdata,
+                char **ret) {
+
+        const Transfer *t = ASSERT_PTR(userdata);
+
+        if (!t->context->source_url)
+                return -ENXIO;
+
+        return strdup_to(ret, t->context->source_url);
+}
+
 static int config_parse_resource_path(
                 const char *unit,
                 const char *filename,
@@ -380,6 +395,12 @@ static int config_parse_resource_path(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
+        const Specifier specifier_table[] = {
+                { 'U', specifier_source_url, NULL },
+                COMMON_SYSTEM_SPECIFIERS,
+                COMMON_TMP_SPECIFIERS,
+                {}
+        };
         _cleanup_free_ char *resolved = NULL;
         Resource *rr = ASSERT_PTR(data);
         Transfer *t = ASSERT_PTR(userdata);
@@ -393,7 +414,7 @@ static int config_parse_resource_path(
                 return 0;
         }
 
-        r = specifier_printf(rvalue, PATH_MAX-1, system_and_tmp_specifier_table, t->context->root, NULL, &resolved);
+        r = specifier_printf(rvalue, PATH_MAX-1, specifier_table, t->context->root, t, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to expand specifiers in Path=, ignoring: %s", rvalue);
