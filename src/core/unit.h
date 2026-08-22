@@ -475,7 +475,6 @@ typedef struct Unit {
 
         /* Remember which unit state files we created */
         bool exported_invocation_id:1;
-        bool exported_log_level_max:1;
         bool exported_log_extra_fields:1;
         bool exported_log_ratelimit_interval:1;
         bool exported_log_ratelimit_burst:1;

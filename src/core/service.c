@@ -2542,7 +2542,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                 }
 
                 /* If the relevant option is set, and the unit doesn't already have logging level set to
-                 * debug, enable it now. Make sure to overwrite the state in /run/systemd/units/ too, to
+                 * debug, enable it now. Make sure to update the log level exported to journald too, to
                  * ensure journald doesn't prune the messages. The previous state is saved and restored
                  * once the auto-restart flow ends. */
                 if (s->restart_mode == SERVICE_RESTART_MODE_DEBUG) {
