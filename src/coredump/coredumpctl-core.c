@@ -12,7 +12,6 @@
 #include "coredumpctl-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
-#include "io-util.h"
 #include "log.h"
 #include "path-util.h"
 #include "stat-util.h"
@@ -53,20 +52,6 @@ static int acquire_core_from_journal(sd_journal *j, int fd, char **ret_tmpfile) 
         assert(j);
         assert((fd >= 0) == !ret_tmpfile);
 
-        /* We want full data, nothing truncated. */
-        sd_journal_set_data_threshold(j, 0);
-
-        const void *data;
-        size_t len;
-        r = sd_journal_get_data(j, "COREDUMP", &data, &len);
-        if (r == -ENOENT)
-                return log_error_errno(r, "Coredump entry has no core attached (neither internally in the journal nor externally on disk).");
-        if (r < 0)
-                return log_error_errno(r, "Failed to retrieve COREDUMP field: %m");
-
-        data = ASSERT_PTR(memory_startswith(data, len, "COREDUMP="));
-        len -= STRLEN("COREDUMP=");
-
         _cleanup_(unlink_and_freep) char *temp = NULL;
         _cleanup_close_ int fdt = -EBADF;
         if (fd < 0) {
@@ -77,9 +62,14 @@ static int acquire_core_from_journal(sd_journal *j, int fd, char **ret_tmpfile) 
                 fd = fdt;
         }
 
-        r = loop_write(fd, data, len);
+        /* We want full data, nothing truncated. */
+        sd_journal_set_data_threshold(j, 0);
+
+        r = sd_journal_get_data_to_fd(j, "COREDUMP", SD_JOURNAL_DATA_SKIP_FIELD, fd, /* ret_size= */ NULL);
+        if (r == -ENOENT)
+                return log_error_errno(r, "Coredump entry has no core attached (neither internally in the journal nor externally on disk).");
         if (r < 0)
-                return log_error_errno(r, "Failed to write core: %m");
+                return log_error_errno(r, "Failed to retrieve COREDUMP field: %m");
 
         if (ret_tmpfile)
                 *ret_tmpfile = TAKE_PTR(temp);
