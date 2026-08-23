@@ -488,6 +488,24 @@ testcase_tags() {
     # Invalid tags are refused.
     (! varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags '{"add":["in valid"]}')
 
+    # Describe() exposes the parsed tag list as MachineTags, on both transports.
+    varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags '{"set":["foo","bar"]}'
+    assert_eq "$(varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}' | jq --compact-output .MachineTags)" '["bar","foo"]'
+    assert_eq "$(busctl call --json=short org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 Describe | jq --compact-output '.data[0] | fromjson | .MachineTags')" '["bar","foo"]'
+    assert_eq "$(busctl get-property org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 Tags)" 'as 2 "bar" "foo"'
+    # The field is an empty list if no tags are configured (as with the D-Bus Tags property).
+    varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags '{"set":[]}'
+    assert_eq "$(varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}' | jq --compact-output .MachineTags)" "[]"
+    assert_eq "$(busctl call --json=short org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 Describe | jq --compact-output '.data[0] | fromjson | .MachineTags')" "[]"
+    assert_eq "$(busctl get-property org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 Tags)" 'as 0'
+    # Invalid tags edited into /etc/machine-info by hand are gracefully dropped from MachineTags
+    # and D-Bus's Tags property, while MachineInformationData still carries the raw TAGS= line.
+    echo 'TAGS=good:-invalid' >/etc/machine-info
+    assert_eq "$(varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}' | jq --compact-output .MachineTags)" '["good"]'
+    assert_eq "$(busctl call --json=short org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 Describe | jq --compact-output '.data[0] | fromjson | .MachineTags')" '["good"]'
+    assert_eq "$(busctl get-property org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 Tags)" 'as 1 "good"'
+    assert_eq "$(varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}' | jq --raw-output '.MachineInformationData[] | select(startswith("TAGS="))')" "TAGS=good:-invalid"
+
     hostnamectl tags ""
 }
 

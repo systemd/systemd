@@ -77,6 +77,13 @@ CHANGES WITH 262:
           should be provisioned as far as possible without ever blocking on a
           prompt.
 
+        Changes in systemd-hostnamed:
+
+        * The Describe() method (for both D-Bus and Varlink) now exposes the
+          parsed machine tag list as a new MachineTags field, so that Varlink
+          clients no longer need to parse the raw TAGS= line out of
+          MachineInformationData themselves.
+
         Changes in systemd-networkd:
 
         * A new IPv4ProxyARPAddress= setting has been added to the [Network]
