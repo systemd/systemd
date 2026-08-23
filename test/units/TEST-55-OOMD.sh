@@ -508,6 +508,40 @@ EOF
 testcase_prekill_hook() {
     [[ "$STRESS_NG_BROKEN" == "1" ]] && { echo "stress-ng is broken on this host, skipping ${FUNCNAME[0]}"; return 0; }
 
+    local -a hook_pids=()
+
+    cleanup_prekill_hooks() {
+        trap - RETURN EXIT
+        if ((${#hook_pids[@]} > 0)); then
+            kill "${hook_pids[@]}" 2>/dev/null || :
+            wait "${hook_pids[@]}" 2>/dev/null || :
+        fi
+    }
+
+    start_prekill_hook() {
+        local socket="$1" output="$2" pid
+
+        timeout -k 5s 1m ncat --recv-only -Ul "$socket" >"$output" &
+        pid=$!
+        hook_pids+=("$pid")
+
+        until ss -H -xl | grep -F "$socket" >/dev/null; do
+            kill -0 "$pid" 2>/dev/null || return 1
+            sleep 0.05
+        done
+    }
+
+    wait_prekill_hooks() {
+        local pid
+
+        for pid in "${hook_pids[@]}"; do
+            wait "$pid"
+        done
+        hook_pids=()
+    }
+
+    trap cleanup_prekill_hooks RETURN EXIT
+
     cat >/run/systemd/oomd.conf.d/99-oomd-prekill-test.conf <<'EOF'
 [OOM]
 PrekillHookTimeoutSec=3s
@@ -519,18 +553,24 @@ EOF
 
     # one hook
     mkdir -p /run/systemd/oomd.prekill.hook/
-    ncat --recv-only -kUl /run/systemd/oomd.prekill.hook/althook >/tmp/oomd_event.json &
+    start_prekill_hook \
+        /run/systemd/oomd.prekill.hook/althook \
+        /tmp/oomd_event.json
     ! systemctl start --wait TEST-55-OOMD-testbloat.service || exit 1
+    wait_prekill_hooks
     [[ $(jq -r .method </tmp/oomd_event.json) = 'io.systemd.oom.Prekill.Notify' ]]
 
     rm -f /run/systemd/oomd.prekill.hook/* /tmp/oomd_event.json
 
     # many hooks
     for i in {1..4}; do
-        ncat --recv-only -kUl "/run/systemd/oomd.prekill.hook/althook$i" >"/tmp/oomd_event$i.json" &
+        start_prekill_hook \
+            "/run/systemd/oomd.prekill.hook/althook$i" \
+            "/tmp/oomd_event$i.json"
     done
 
     ! systemctl start --wait TEST-55-OOMD-testbloat.service || exit 1
+    wait_prekill_hooks
     for j in /tmp/oomd_event*.json; do
         [[ $(jq -r .method <"$j") = 'io.systemd.oom.Prekill.Notify' ]]
     done
