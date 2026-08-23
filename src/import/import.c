@@ -275,7 +275,7 @@ static int verb_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return -r;
 }
 
-VERB_COMMON_HELP_AUTO_HIDDEN("systemd-import");
+VERB_COMMON_HELP_AUTO_HIDDEN();
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         int r;
@@ -289,7 +289,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return command_print_help("systemd-import");
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();

@@ -143,7 +143,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_GROUP("Output"): {}
 
                 OPTION_COMMON_HELP:
-                        return command_print_help("systemd-vpick");
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();

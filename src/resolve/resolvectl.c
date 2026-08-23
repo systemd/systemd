@@ -3229,7 +3229,7 @@ static void help_dns_classes(void) {
         DUMP_STRING_TABLE(dns_class, int, _DNS_CLASS_MAX);
 }
 
-VERB_COMMON_HELP_AUTO_HIDDEN("resolvectl");
+VERB_COMMON_HELP_AUTO_PROGRAM_HIDDEN("resolvectl");
 
 COMMAND(
         "systemd-resolve\0",
@@ -3498,7 +3498,7 @@ static int native_parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_NAMESPACE("resolvectl"): {}
 
                 OPTION_COMMON_HELP:
-                        return command_print_help("resolvectl");
+                        return command_print_help_full("resolvectl");
 
                 OPTION_COMMON_VERSION:
                         return version();

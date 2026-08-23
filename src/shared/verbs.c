@@ -229,14 +229,13 @@ static const Verb* verbs_get_command(const Verb verbs[], const Verb verbs_end[],
         assert(verbs_end > verbs);
         assert((uintptr_t) verbs % sizeof(void*) == 0);
         assert(FLAGS_SET(verbs[0].flags, VERB_COMMAND_MARKER) || verbs[0].verb);
-        assert(name);
 
         for (const Verb *verb = verbs; verb < verbs_end; verb++) {
                 if (!FLAGS_SET(verb->flags, VERB_COMMAND_MARKER))
                         continue;
 
                 const CommandDescription *cmd = (const CommandDescription*) ASSERT_PTR(verb->data);
-                if (nulstr_contains(cmd->names, name))
+                if (!name || nulstr_contains(cmd->names, name))
                         return verb;
         }
 
@@ -469,7 +468,7 @@ static int print_wrapped(const char *text, bool abstract) {
         return 0;
 }
 
-int _command_print_help(
+int _command_print_help_full(
                 const Verb verbs[],
                 const Verb verbs_end[],
                 const Option options[],

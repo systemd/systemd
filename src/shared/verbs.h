@@ -131,26 +131,28 @@ int _verbs_get_help_table(
         VERB(verb_help, "help", NULL, VERB_ANY, VERB_ANY, 0, NULL);     \
         _VERB_COMMON_HELP_IMPL(impl)
 
-#define VERB_COMMON_HELP_AUTO(program)                                  \
-        VERB_FULL(verb_help_auto, "help", NULL, VERB_ANY, VERB_ANY, 0, (uintptr_t) program, "Show this help")
+#define VERB_COMMON_HELP_AUTO_FULL(program, help)                       \
+        VERB_FULL(verb_help_auto, "help", NULL, VERB_ANY, VERB_ANY, 0, /* dat= */ (uintptr_t) program, /* help= */ help)
+#define VERB_COMMON_HELP_AUTO_PROGRAM(program) VERB_COMMON_HELP_AUTO_FULL(program, "Show this help")
+#define VERB_COMMON_HELP_AUTO_PROGRAM_HIDDEN(program) VERB_COMMON_HELP_AUTO_FULL(program, /* help= */ NULL)
+#define VERB_COMMON_HELP_AUTO() VERB_COMMON_HELP_AUTO_PROGRAM(/* program= */ NULL)
+#define VERB_COMMON_HELP_AUTO_HIDDEN() VERB_COMMON_HELP_AUTO_PROGRAM_HIDDEN(/* program= */ NULL)
 
-#define VERB_COMMON_HELP_AUTO_HIDDEN(program)                           \
-        VERB_FULL(verb_help_auto, "help", NULL, VERB_ANY, VERB_ANY, 0, (uintptr_t) program, NULL)
-
-int _command_print_help(
+int _command_print_help_full(
                 const Verb verbs[],
                 const Verb verbs_end[],
                 const Option options[],
                 const Option options_end[],
                 const char *name);
-#define command_print_help(name)                                        \
-        _command_print_help(                                            \
+#define command_print_help_full(name)                                   \
+        _command_print_help_full(                                       \
                 __start_SYSTEMD_VERBS, __stop_SYSTEMD_VERBS,            \
                 __start_SYSTEMD_OPTIONS, __stop_SYSTEMD_OPTIONS,        \
                 name)
+#define command_print_help() command_print_help_full(/* name= */ NULL)
 
 static inline int verb_help_auto(int argc, char **argv, uintptr_t data, void *userdata) {
-        return command_print_help((const char*) ASSERT_PTR(data));
+        return command_print_help_full((const char*) data);
 }
 
 /* Print a machine-readable description of the program's commands, verbs, and options in the format
