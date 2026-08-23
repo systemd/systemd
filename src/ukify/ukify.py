@@ -778,8 +778,14 @@ def key_path_groups(
         )
 
 
-def pe_strip_section_name(name: bytes) -> str:
-    return name.rstrip(b'\x00').decode()
+def pe_resolve_section_name(name: bytes, string_table: bytes = b'') -> str:
+    raw = name.rstrip(b'\x00')
+    if not raw.startswith(b'/'):
+        return raw.decode()
+
+    offset = int(raw[1:])
+    end = string_table.find(b'\x00', offset)
+    return string_table[offset:end].decode()
 
 
 def pe_section_size(section: pefile.SectionStructure) -> int:
@@ -963,21 +969,49 @@ class PEError(Exception):
     pass
 
 
+IMAGE_SIZEOF_SYMBOL = 18
+
+
+def coff_string_table_offset(pe: pefile.PE) -> int:
+    offset: int = pe.FILE_HEADER.PointerToSymbolTable + IMAGE_SIZEOF_SYMBOL * pe.FILE_HEADER.NumberOfSymbols
+    return offset
+
+
 def pe_add_sections(opts: UkifyConfig, uki: UKI, output: str) -> None:
     pe = pefile.PE(uki.executable, fast_load=True)
 
-    # Old stubs do not have the symbol/string table stripped, even though image files should not have one.
-    if symbol_table := pe.FILE_HEADER.PointerToSymbolTable:
-        symbol_table_size = 18 * pe.FILE_HEADER.NumberOfSymbols
-        if string_table_size := pe.get_dword_from_offset(symbol_table + symbol_table_size):
-            symbol_table_size += string_table_size
+    coff_string_table = b''
+    security = pe.OPTIONAL_HEADER.DATA_DIRECTORY[pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_SECURITY']]
+    if security.VirtualAddress != 0:
+        if not opts.pcrsig:
+            # We could strip the signatures, but why would anyone sign the stub?
+            raise PEError('Stub image is signed, refusing')
+    else:
+        string_table_in_use = any(section.Name.startswith(b'/') for section in pe.sections)
+        if symbol_table_start := pe.FILE_HEADER.PointerToSymbolTable:
+            symbol_table_size = IMAGE_SIZEOF_SYMBOL * pe.FILE_HEADER.NumberOfSymbols
+            if string_table_size := pe.get_dword_from_offset(coff_string_table_offset(pe)):
+                symbol_table_size += string_table_size
 
-        # Let's be safe and only strip it if it's at the end of the file.
-        if symbol_table + symbol_table_size == len(pe.__data__):
-            pe.__data__ = pe.__data__[:symbol_table]
-            pe.FILE_HEADER.PointerToSymbolTable = 0
-            pe.FILE_HEADER.NumberOfSymbols = 0
-            pe.FILE_HEADER.IMAGE_FILE_LOCAL_SYMS_STRIPPED = True
+            if string_table_in_use:
+                # Keep referenced table (e.g. for long DWARF section names) and move to new end of file.
+                coff_string_table = bytes(
+                    pe.__data__[symbol_table_start : symbol_table_start + symbol_table_size]
+                )
+            else:
+                # Clean up unused symbol/string table (e.g. from old stubs where it was not stripped).
+                pe.FILE_HEADER.NumberOfSymbols = 0
+                pe.FILE_HEADER.IMAGE_FILE_LOCAL_SYMS_STRIPPED = True
+                pe.FILE_HEADER.PointerToSymbolTable = 0
+
+            # Adjust existing sections pointing beyond the symbol table, e.g. offline PCR signing
+            # involving older ukify.
+            removed_end = round_up(symbol_table_start + symbol_table_size, pe.OPTIONAL_HEADER.FileAlignment)
+            for section in pe.sections:
+                if section.PointerToRawData >= removed_end:
+                    section.PointerToRawData -= removed_end - symbol_table_start
+
+            pe.__data__ = pe.__data__[:symbol_table_start] + pe.__data__[removed_end:]
 
     # pylint thinks that Structure doesn't have various members that it has…
     # pylint: disable=no-member
@@ -1019,15 +1053,6 @@ def pe_add_sections(opts: UkifyConfig, uki: UKI, output: str) -> None:
         if 'VirtualAddress is beyond' in w:
             continue
         raise PEError(f'pefile warnings treated as errors: {warnings}')
-
-    # When attaching signatures we are operating on an existing UKI which might be signed
-    if not opts.pcrsig:
-        security = pe.OPTIONAL_HEADER.DATA_DIRECTORY[
-            pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_SECURITY']
-        ]
-        if security.VirtualAddress != 0:
-            # We could strip the signatures, but why would anyone sign the stub?
-            raise PEError('Stub image is signed, refusing')
 
     # Remember how many sections originate from systemd-stub
     n_original_sections = len(pe.sections)
@@ -1079,7 +1104,7 @@ def pe_add_sections(opts: UkifyConfig, uki: UKI, output: str) -> None:
         # the one from the kernel to it. It should be small enough to fit in the existing section, so just
         # swap the data.
         for i, s in enumerate(pe.sections[:n_original_sections]):
-            if pe_strip_section_name(s.Name) == section.name and section.name != '.dtbauto':
+            if pe_resolve_section_name(s.Name) == section.name and section.name != '.dtbauto':
                 if new_section.Misc_VirtualSize > s.SizeOfRawData:
                     raise PEError(
                         f'Not enough space in existing section {section.name} to append new data'
@@ -1114,7 +1139,7 @@ def pe_add_sections(opts: UkifyConfig, uki: UKI, output: str) -> None:
     if opts.pcrsig:
         signatures = json.loads(str(opts.pcrsig))
         for i, section in enumerate(pe.sections):
-            if pe_strip_section_name(section.Name) == '.pcrsig':
+            if pe_resolve_section_name(section.Name) == '.pcrsig':
                 j = json.loads(
                     bytes(
                         pe.__data__[
@@ -1148,6 +1173,10 @@ def pe_add_sections(opts: UkifyConfig, uki: UKI, output: str) -> None:
                     + pe.__data__[section.PointerToRawData + section.SizeOfRawData :]
                 )
 
+    if coff_string_table:
+        pe.FILE_HEADER.PointerToSymbolTable = len(pe.__data__)
+        pe.__data__ += coff_string_table
+
     pe.OPTIONAL_HEADER.CheckSum = 0
     pe.OPTIONAL_HEADER.SizeOfImage = round_up(
         pe.sections[-1].VirtualAddress + pe.sections[-1].Misc_VirtualSize,
@@ -1168,7 +1197,7 @@ def merge_sbat(input_pe: list[Path], input_text: list[str]) -> str:
             continue
 
         for section in pe.sections:
-            if pe_strip_section_name(section.Name) == '.sbat':
+            if pe_resolve_section_name(section.Name) == '.sbat':
                 split = section.get_data().rstrip(b'\x00').decode().splitlines()
                 if not split[0].startswith('sbat,'):
                     print(f'{f} does not contain a valid SBAT section, skipping.', file=sys.stderr)
@@ -1516,8 +1545,13 @@ def make_uki(opts: UkifyConfig) -> None:
     for profile in opts.join_profiles:
         pe = pefile.PE(profile, fast_load=True)
         prev_len = len(uki.sections)
+        string_table = (
+            bytes(pe.__data__[coff_string_table_offset(pe) :])
+            if pe.FILE_HEADER.PointerToSymbolTable
+            else b''
+        )
 
-        names = [pe_strip_section_name(s.Name) for s in pe.sections]
+        names = [pe_resolve_section_name(s.Name, string_table) for s in pe.sections]
         names = [n for n in names if n in to_import]
 
         if len(names) == 0:
@@ -1532,7 +1566,7 @@ def make_uki(opts: UkifyConfig) -> None:
             raise ValueError(f'Profile PE binary {profile} contains multiple .profile sections')
 
         for pesection in pe.sections:
-            n = pe_strip_section_name(pesection.Name)
+            n = pe_resolve_section_name(pesection.Name, string_table)
 
             if n not in to_import:
                 continue
@@ -1546,7 +1580,9 @@ def make_uki(opts: UkifyConfig) -> None:
             )
 
         if opts.sign_profiles:
-            pesection = next(s for s in pe.sections if pe_strip_section_name(s.Name) == '.profile')
+            pesection = next(
+                s for s in pe.sections if pe_resolve_section_name(s.Name, string_table) == '.profile'
+            )
             id = read_env_file(pesection.get_data(length=pe_section_size(pesection)).decode()).get('ID')
             if not id or id not in opts.sign_profiles:
                 print(f'Not signing expected PCR measurements for "{id}" profile', file=sys.stderr)
@@ -1787,6 +1823,11 @@ def inspect_sections(opts: UkifyConfig) -> None:
 
     for file in opts.files:
         pe = pefile.PE(file, fast_load=True)
+        string_table = (
+            bytes(pe.__data__[coff_string_table_offset(pe) :])
+            if pe.FILE_HEADER.PointerToSymbolTable
+            else b''
+        )
 
         # A UKI is a flat list of PE sections with profile structure: the sections before the first
         # '.profile' section belong to the base profile, and each subsequent '.profile' section
@@ -1802,7 +1843,7 @@ def inspect_sections(opts: UkifyConfig) -> None:
         profile = base  # sections fill the base profile until the first '.profile' delimiter
 
         for section in pe.sections:
-            name = pe_strip_section_name(section.Name)
+            name = pe_resolve_section_name(section.Name, string_table)
             if emit_json and name == '.profile':
                 profile = {}
                 profiles += [profile]
