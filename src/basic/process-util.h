@@ -72,6 +72,8 @@ int pidref_wait_for_terminate_and_check(const char *name, PidRef *pidref, WaitFl
 
 int kill_and_sigcont(pid_t pid, int sig);
 
+int procfs_get_stat_flags(const char *path, unsigned long long *ret);
+
 int pid_is_kernel_thread(pid_t pid);
 int pidref_is_kernel_thread(const PidRef *pid);
 
