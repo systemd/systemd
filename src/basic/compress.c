@@ -424,6 +424,32 @@ int dlopen_bzip2(int log_level) {
 #endif
 }
 
+int dlopen_compress_journal(Compression c, int log_level) {
+        switch (c) {
+        case COMPRESSION_NONE:
+                return 0;
+        case COMPRESSION_XZ:
+                return dlopen_xz(log_level);
+        case COMPRESSION_LZ4:
+                return dlopen_lz4(log_level);
+        case COMPRESSION_ZSTD:
+                return dlopen_zstd(log_level);
+        default:
+                return -EOPNOTSUPP;
+        }
+}
+
+int dlopen_compress(Compression c, int log_level) {
+        switch (c) {
+        case COMPRESSION_GZIP:
+                return dlopen_zlib(log_level);
+        case COMPRESSION_BZIP2:
+                return dlopen_bzip2(log_level);
+        default:
+                return dlopen_compress_journal(c, log_level);
+        }
+}
+
 static int compress_blob_xz(
                 const void *src,
                 uint64_t src_size,
