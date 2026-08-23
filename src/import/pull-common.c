@@ -125,6 +125,22 @@ static int hash_url(const char *url, char **ret) {
         return 0;
 }
 
+static int keyring_add_if_exists(char ***keyrings, const char *path) {
+        assert(keyrings);
+        assert(path);
+
+        if (access(path, F_OK) < 0) {
+                if (errno != ENOENT)
+                        log_warning_errno(errno,
+                                          "Failed to check if keyring '%s' exists and is readable, ignoring: %m",
+                                          path);
+
+                return 0;
+        }
+
+        return strv_extend(keyrings, path);
+}
+
 int pull_make_path(const char *url, const char *etag, const char *image_root, const char *prefix, const char *suffix, char **ret) {
         _cleanup_free_ char *escaped_url = NULL, *escaped_etag = NULL;
         char *path;
@@ -410,8 +426,9 @@ static int verify_gpg(
         _cleanup_(rm_rf_physical_and_freep) char *gpg_home = NULL;
         char sig_file_path[] = "/tmp/sigXXXXXX";
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
-        _cleanup_free_ char *keyring_copy = NULL;
-        const char *keyring_override, *keyring_source;
+        _cleanup_strv_free_ char **cmd = NULL;
+        _cleanup_strv_free_ char **keyring_sources = NULL, **keyring_copies = NULL;
+        const char *keyring_override;
         int r;
 
         assert(iovec_is_valid(payload));
@@ -448,28 +465,95 @@ static int verify_gpg(
                 goto finish;
         }
 
-        if (keyring_override)
-                keyring_source = keyring_override;
-        else if (access(USER_KEYRING_PATH, F_OK) >= 0)
-                keyring_source = USER_KEYRING_PATH;
-        else if (access(USER_KEYRING_PATH_LEGACY, F_OK) >= 0)
-                keyring_source = USER_KEYRING_PATH_LEGACY;
-        else
-                keyring_source = VENDOR_KEYRING_PATH;
+        if (keyring_override) {
+                r = strv_extend(&keyring_sources, keyring_override);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to store custom keyring path: %m");
+                        goto finish;
+                }
+        } else {
+                r = keyring_add_if_exists(&keyring_sources, USER_KEYRING_PATH);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to collect keyring '%s': %m", USER_KEYRING_PATH);
+                        goto finish;
+                }
+
+                if (strv_isempty(keyring_sources)) {
+                        r = keyring_add_if_exists(&keyring_sources, USER_KEYRING_PATH_LEGACY);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to collect keyring '%s': %m", USER_KEYRING_PATH_LEGACY);
+                                goto finish;
+                        }
+                }
+
+                r = keyring_add_if_exists(&keyring_sources, VENDOR_KEYRING_PATH);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to collect keyring '%s': %m", VENDOR_KEYRING_PATH);
+                        goto finish;
+                }
+        }
+
+        if (strv_isempty(keyring_sources))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                       "No OpenPGP keyrings found, checked '%s', '%s', and '%s'.",
+                                       USER_KEYRING_PATH, USER_KEYRING_PATH_LEGACY, VENDOR_KEYRING_PATH);
 
         /* For whatever reason gpg --auto-key-import writes the key material embedded in the signature
          * (the signing subkey) back into the keyring it verifies against instead of just using it
          * temporarily. Verify against a throwaway copy in the tmp home so we never write to the
          * original keyring. */
-        keyring_copy = path_join(gpg_home, "keyring.gpg");
-        if (!keyring_copy) {
+        size_t keyring_source_idx = 0;
+        STRV_FOREACH(keyring_source, keyring_sources) {
+                r = strv_extendf(&keyring_copies, "%s/keyring-%zu.gpg", gpg_home, keyring_source_idx);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to allocate temporary keyring path: %m");
+                        goto finish;
+                }
+
+                r = copy_file(*keyring_source, keyring_copies[keyring_source_idx], 0, 0600, /* copy_flags= */ 0);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to copy keyring '%s': %m", *keyring_source);
+                        goto finish;
+                }
+
+                keyring_source_idx++;
+        }
+
+        cmd = strv_new(
+                        "gpg",
+                        "--no-options",
+                        "--no-default-keyring",
+                        "--no-auto-key-locate",
+                        "--no-auto-check-trustdb",
+                        "--batch",
+                        "--trust-model=always",
+                        "--auto-key-import",
+                        "--import-options=merge-only,import-clean");
+        if (!cmd) {
                 r = log_oom();
                 goto finish;
         }
 
-        r = copy_file(keyring_source, keyring_copy, 0, 0600, /* copy_flags= */ 0);
+        r = strv_extendf(&cmd, "--homedir=%s", gpg_home);
         if (r < 0) {
-                log_error_errno(r, "Failed to copy keyring '%s': %m", keyring_source);
+                log_error_errno(r, "Failed to build gpg command line: %m");
+                goto finish;
+        }
+
+        STRV_FOREACH(keyring_source, keyring_copies) {
+                r = strv_extendf(&cmd, "--keyring=%s", *keyring_source);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to build gpg command line: %m");
+                        goto finish;
+                }
+        }
+
+        if (iovec_is_set(signature))
+                r = strv_extend_many(&cmd, "--verify", sig_file_path, "-");
+        else
+                r = strv_extend(&cmd, "--verify");
+        if (r < 0) {
+                log_error_errno(r, "Failed to build gpg command line: %m");
                 goto finish;
         }
 
@@ -482,38 +566,10 @@ static int verify_gpg(
         if (r < 0)
                 return r;
         if (r == 0) {
-                const char *cmd[] = {
-                        "gpg",
-                        "--no-options",
-                        "--no-default-keyring",
-                        "--no-auto-key-locate",
-                        "--no-auto-check-trustdb",
-                        "--batch",
-                        "--trust-model=always",
-                        "--auto-key-import",
-                        "--import-options=merge-only,import-clean",
-                        NULL, /* --homedir= */
-                        NULL, /* --keyring= */
-                        NULL, /* --verify */
-                        NULL, /* signature file */
-                        NULL, /* dash */
-                        NULL  /* trailing NULL */
-                };
-                size_t k = ELEMENTSOF(cmd) - 6;
-
                 /* Child */
 
-                cmd[k++] = strjoina("--homedir=", gpg_home);
-                cmd[k++] = strjoina("--keyring=", keyring_copy);
-                cmd[k++] = "--verify";
-                if (signature) {
-                        cmd[k++] = sig_file_path;
-                        cmd[k++] = "-";
-                        cmd[k++] = NULL;
-                }
-
-                execvp("gpg2", (char * const *) cmd);
-                execvp("gpg", (char * const *) cmd);
+                execvp("gpg2", cmd);
+                execvp("gpg", cmd);
                 log_error_errno(errno, "Failed to execute gpg: %m");
                 _exit(EXIT_FAILURE);
         }
