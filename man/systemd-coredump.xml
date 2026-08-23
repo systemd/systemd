@@ -20,14 +20,20 @@
     <refname>systemd-coredump</refname>
     <refname>systemd-coredump.socket</refname>
     <refname>systemd-coredump@.service</refname>
+    <refname>systemd-coredump-register.service</refname>
+    <refname>systemd-coredumpd.service</refname>
     <refpurpose>Acquire, save and process core dumps</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
     <para><filename>/usr/lib/systemd/systemd-coredump</filename></para>
     <para><filename>/usr/lib/systemd/systemd-coredump</filename> <option>--backtrace</option></para>
-    <para><filename>systemd-coredump@.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-coredump</filename> <option>--manager</option></para>
+    <para><filename>/usr/lib/systemd/systemd-coredump</filename> <option>--check-requirements</option></para>
     <para><filename>systemd-coredump.socket</filename></para>
+    <para><filename>systemd-coredump@.service</filename></para>
+    <para><filename>systemd-coredump-register.service</filename></para>
+    <para><filename>systemd-coredumpd.service</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
@@ -64,29 +70,190 @@
     Handling</ulink>.</para>
 
     <refsect2>
-      <title>Invocation of <command>systemd-coredump</command></title>
+      <title>Overview</title>
 
-      <para>The <command>systemd-coredump</command> executable does the actual work. It is invoked twice:
-      once as the handler by the kernel, and the second time in the
-      <filename>systemd-coredump@.service</filename> to actually write the data to the journal and process
-      and save the core file.</para>
+      <para>The <command>systemd-coredump</command> executable does the actual work, but is invoked
+      differently depending on the capabilities of the running kernel.</para>
 
-      <para>When the kernel invokes <command>systemd-coredump</command> to handle a core dump, it runs in
-      privileged mode, and will connect to the socket created by the
+      <para>When the kernel supports the kernel coredump socket protocol (see "Kernel Requirements" below,
+      generally kernel v6.19 or newer), <filename>systemd-coredumpd.service</filename> creates and listens on
+      a Unix socket, and <filename>systemd-coredump-register.service</filename> writes the socket path to
+      <filename>/proc/sys/kernel/core_pattern</filename>. When a process crashes, the kernel connects to the
+      socket, and sends the core dump of the process through the socket. Then,
+      <filename>systemd-coredumpd.service</filename> transfers the core to the corresponding container if the
+      crashed process is in a container environment, otherwise saves the core in the local storage and writes
+      information about the crashed process to journal.</para>
+
+      <para>When the running kernel does not meet those requirements, the executable
+      <command>systemd-coredump</command> is invoked twice: once as the handler by the kernel, and the second
+      time in the <filename>systemd-coredump@.service</filename> to actually write the data to the journal and
+      process and save the core file.</para>
+
+      <para>When the kernel invokes <command>systemd-coredump</command> to handle a core dump this way, it
+      runs in privileged mode, and will connect to the socket created by the
       <filename>systemd-coredump.socket</filename> unit, which in turn will spawn an unprivileged
       <filename>systemd-coredump@.service</filename> instance to process the core dump. Hence
       <filename>systemd-coredump.socket</filename> and <filename>systemd-coredump@.service</filename> are
       helper units which do the actual processing of core dumps and are subject to normal service
       management.</para>
 
-      <para>It is also possible to invoke <command>systemd-coredump</command> with
-      <option>--backtrace</option> option. In this case, <command>systemd-coredump</command> expects a
-      journal entry in the journal
-      <ulink url="https://systemd.io/JOURNAL_EXPORT_FORMATS#journal-export-format">Journal Export Format</ulink>
-      on standard input. The entry should contain a <varname>MESSAGE=</varname> field and any additional
-      metadata fields the caller deems reasonable. <command>systemd-coredump</command> will append additional
-      metadata fields in the same way it does for core dumps received from the kernel. In this mode, no core
-      dump is stored in the journal.</para>
+      <para>See "Units" below for details on the individual units involved in either mode.</para>
+    </refsect2>
+
+    <refsect2>
+      <title>Command-line Options</title>
+
+      <para><command>systemd-coredump</command> is normally not invoked directly by the user, but by the
+      kernel, or by the units described below. It supports the following modes of invocation:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term>(no option)</term>
+
+          <listitem><para>Handles a single core dump. This is the mode the kernel uses to invoke
+          <command>systemd-coredump</command> directly (via <varname>kernel.core_pattern</varname>) on
+          kernels that do not support the kernel coredump socket protocol, as well as the mode used by
+          <filename>systemd-coredump@.service</filename> to actually process and save a core dump that was
+          handed to it via <filename>systemd-coredump.socket</filename>.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--backtrace</option></term>
+
+          <listitem><para><command>systemd-coredump</command> expects a journal entry in the
+          <ulink url="https://systemd.io/JOURNAL_EXPORT_FORMATS#journal-export-format">Journal Export
+          Format</ulink> on standard input. The entry should contain a <varname>MESSAGE=</varname> field and
+          any additional metadata fields the caller deems reasonable.
+          <command>systemd-coredump</command> will append additional metadata fields in the same way it does
+          for core dumps received from the kernel. In this mode, no core dump is stored in the
+          journal.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--manager</option></term>
+
+          <listitem><para>Runs <command>systemd-coredump</command> as the long-running manager process that
+          listens on the kernel coredump socket, accepts connections from the kernel, and forks off worker
+          processes to process each individual core dump. This is the mode used internally by
+          <filename>systemd-coredumpd.service</filename> and is not intended to be invoked interactively.
+          See "Units" below for details.</para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--check-requirements</option></term>
+
+          <listitem><para>Checks whether the running kernel and execution environment fulfil the
+          requirements for the kernel coredump socket protocol (see "Kernel Requirements" below), and exits
+          with a non-zero status if they are not met. This is used internally as the
+          <varname>ExecCondition=</varname> of <filename>systemd-coredumpd.service</filename> and
+          <filename>systemd-coredump-register.service</filename>, so that those units are skipped, without
+          being marked as failed, on systems where the feature is unavailable. It is not intended to be
+          invoked interactively.</para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>Kernel Requirements for the Coredump Socket</title>
+
+      <para>The kernel coredump socket protocol, used by <filename>systemd-coredumpd.service</filename> and
+      <filename>systemd-coredump-register.service</filename>, requires:</para>
+
+      <itemizedlist>
+        <listitem><para>A kernel that supports the <constant>PIDFD_INFO_COREDUMP</constant> (since kernel
+        v6.16) and <constant>PIDFD_INFO_COREDUMP_SIGNAL</constant> (since kernel v6.19) flags for the
+        <citerefentry project='man-pages'><refentrytitle>ioctl_pidfd_get_info</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        operation. Support for these flags is used as an indicator that the kernel is also new enough to
+        support the request-mode (<literal>@@</literal>-prefixed) kernel coredump socket
+        <varname>kernel.core_pattern</varname>, which was introduced in kernel v6.17.</para></listitem>
+
+        <listitem><para><command>systemd-coredump</command> must be running in the initial PID, USER, and
+        TIME namespaces, i.e. on the host, not inside a container.</para></listitem>
+      </itemizedlist>
+
+      <para>These conditions are checked with <command>systemd-coredump</command>
+      <option>--check-requirements</option> before <filename>systemd-coredumpd.service</filename> and
+      <filename>systemd-coredump-register.service</filename> are started. If the requirements are not met,
+      <command>systemd-coredump</command> instead falls back to the legacy invocation via
+      <filename>systemd-coredump.socket</filename> and <filename>systemd-coredump@.service</filename>.</para>
+    </refsect2>
+
+    <refsect2>
+      <title>Units</title>
+
+      <para>The following units are involved in processing core dumps. Which of them are active depends on
+      whether the kernel coredump socket protocol is available, see "Kernel Requirements" above.</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><filename>systemd-coredumpd.service</filename></term>
+
+          <listitem><para>A long-running manager service, started early at boot on kernels that support the
+          kernel coredump socket protocol. It creates and listens on the <constant>AF_UNIX</constant> socket
+          <filename>/run/systemd/coredumpd/kernel</filename> (this path is also passed to the kernel via
+          <varname>kernel.core_pattern</varname> by <filename>systemd-coredump-register.service</filename>,
+          see below). When the kernel connects to this socket to submit a core dump,
+          <filename>systemd-coredumpd.service</filename> accepts the connection and forks off a worker
+          process to receive and process that specific core dump, up to a limit of 8 concurrently running
+          workers (once this limit is reached, no further connections are accepted until a worker finishes).
+          Workers that run for longer than 5 minutes are killed automatically.</para>
+
+          <para>The configuration in
+          <citerefentry><refentrytitle>coredump.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          is read once when <filename>systemd-coredumpd.service</filename> starts. Since the service keeps
+          running afterwards (rather than being invoked anew for every core dump, as
+          <filename>systemd-coredump@.service</filename> is), changes to
+          <filename>coredump.conf</filename> and its drop-ins are <emphasis>not</emphasis> picked up
+          automatically. Reload the service to apply configuration changes, see
+          <citerefentry><refentrytitle>coredump.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for details.</para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><filename>systemd-coredump-register.service</filename></term>
+
+          <listitem><para>A oneshot unit, automatically pulled in and bound to the lifetime of
+          <filename>systemd-coredumpd.service</filename> (it is not meant to be started or stopped manually).
+          Once <filename>systemd-coredumpd.service</filename> is up, this unit points the kernel at it by
+          setting <varname>kernel.core_pattern</varname> to the request-mode (<literal>@@</literal>-prefixed)
+          socket path <filename>/run/systemd/coredumpd/kernel</filename>, and persists this setting to
+          <filename>/run/sysctl.d/60-coredump.conf</filename> via
+          <citerefentry><refentrytitle>systemd-sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+          When <filename>systemd-coredumpd.service</filename> is stopped,
+          <filename>systemd-coredump-register.service</filename> is stopped along with it and reverts
+          <varname>kernel.core_pattern</varname> to its previous value.</para>
+
+          <para>Because <filename>/run/sysctl.d/60-coredump.conf</filename> takes precedence, per the usual
+          <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          ordering rules, over the <filename>/usr/lib/sysctl.d/50-coredump.conf</filename> file described in
+          "Configuration" below, masking or overriding <filename>50-coredump.conf</filename> alone is
+          <emphasis>not</emphasis> sufficient to install a custom <varname>kernel.core_pattern</varname> on a
+          system where <filename>systemd-coredumpd.service</filename> is active. See "Configuration" below
+          for how to prevent this.</para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><filename>systemd-coredump.socket</filename></term>
+          <term><filename>systemd-coredump@.service</filename></term>
+
+          <listitem><para>Legacy handler units, used on kernels that do not support the kernel coredump
+          socket protocol (see "Kernel Requirements" above). The kernel invokes
+          <command>systemd-coredump</command> directly and in privileged mode for each crash; that instance
+          connects to <filename>systemd-coredump.socket</filename>, which in turn spawns an unprivileged
+          <filename>systemd-coredump@.service</filename> instance to actually process and save the core
+          dump. Unlike <filename>systemd-coredumpd.service</filename>, a fresh
+          <filename>systemd-coredump@.service</filename> instance is started for every core dump, so it
+          always reads the current <filename>coredump.conf</filename> configuration.</para></listitem>
+        </varlistentry>
+      </variablelist>
     </refsect2>
 
     <refsect2>
@@ -150,6 +317,21 @@
     <citerefentry><refentrytitle>systemd-sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
     </para>
 
+    <para>On systems where <filename>systemd-coredumpd.service</filename> is active (see "Kernel
+    Requirements" and "Units" above), <filename>systemd-coredump-register.service</filename> writes its own
+    <varname>kernel.core_pattern</varname> setting to <filename>/run/sysctl.d/60-coredump.conf</filename>
+    whenever <filename>systemd-coredumpd.service</filename> is running, and this file takes precedence over
+    <filename>/usr/lib/sysctl.d/50-coredump.conf</filename>. As a result, masking or overriding
+    <filename>50-coredump.conf</filename> alone does <emphasis>not</emphasis> override the default
+    <varname>kernel.core_pattern</varname> on such systems, since <filename>60-coredump.conf</filename> will
+    still take effect. To set a custom <varname>kernel.core_pattern</varname> of your own on a system where
+    <filename>systemd-coredumpd.service</filename> is available, you must additionally stop (if currently
+    running) and mask <filename>systemd-coredumpd.service</filename>:
+    <programlisting>systemctl mask --now systemd-coredumpd.service</programlisting>
+    Masking <filename>systemd-coredumpd.service</filename> also prevents
+    <filename>systemd-coredump-register.service</filename>, which is bound to it, from running and writing
+    <filename>60-coredump.conf</filename>.</para>
+
     <para>In order to be used in the <option>--backtrace</option> mode, an appropriate backtrace
     handler must be installed on the sender side. For example, in case of
     <citerefentry project='die-net'><refentrytitle>python</refentrytitle><manvolnum>1</manvolnum></citerefentry>, this
@@ -160,9 +342,14 @@
     <para>The behavior of <command>systemd-coredump</command> itself is configured through the configuration file
     <filename>/etc/systemd/coredump.conf</filename> and corresponding snippets
     <filename>/etc/systemd/coredump.conf.d/*.conf</filename>, see
-    <citerefentry><refentrytitle>coredump.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>. A new
-    instance of <command>systemd-coredump</command> is invoked upon receiving every core dump. Therefore, changes
-    in these files will take effect the next time a core dump is received.</para>
+    <citerefentry><refentrytitle>coredump.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>. When
+    core dumps are processed via <filename>systemd-coredump@.service</filename> (see "Units" above), a new
+    instance of <command>systemd-coredump</command> is invoked upon receiving every core dump, and changes in
+    these files will take effect the next time a core dump is received. When core dumps are instead processed
+    by the long-running <filename>systemd-coredumpd.service</filename>, configuration changes require an
+    explicit reload of that service to take effect; see
+    <citerefentry><refentrytitle>coredump.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details.</para>
 
     <para>Resources used by core dump files are restricted in two ways. Parameters like maximum size of acquired
     core dumps and files can be set in files <filename>/etc/systemd/coredump.conf</filename> and snippets mentioned
