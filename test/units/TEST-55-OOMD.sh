@@ -519,7 +519,7 @@ EOF
 
     # one hook
     mkdir -p /run/systemd/oomd.prekill.hook/
-    ncat --recv-only -kUl /run/systemd/oomd.prekill.hook/althook >/tmp/oomd_event.json &
+    socat -u UNIX-LISTEN:/run/systemd/oomd.prekill.hook/althook STDOUT >/tmp/oomd_event.json &
     ! systemctl start --wait TEST-55-OOMD-testbloat.service || exit 1
     [[ $(jq -r .method </tmp/oomd_event.json) = 'io.systemd.oom.Prekill.Notify' ]]
 
@@ -527,7 +527,7 @@ EOF
 
     # many hooks
     for i in {1..4}; do
-        ncat --recv-only -kUl "/run/systemd/oomd.prekill.hook/althook$i" >"/tmp/oomd_event$i.json" &
+        socat -u "UNIX-LISTEN:/run/systemd/oomd.prekill.hook/althook$i" STDOUT >"/tmp/oomd_event$i.json" &
     done
 
     ! systemctl start --wait TEST-55-OOMD-testbloat.service || exit 1
