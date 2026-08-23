@@ -1,0 +1,340 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-notify"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-notify</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-notify</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-notify</refname>
+    <refpurpose>Notify service manager about start-up completion and other daemon status changes</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-notify</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="opt" rep="repeat">VARIABLE=VALUE</arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-notify</command> <arg choice="plain">--exec</arg> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="opt" rep="repeat">VARIABLE=VALUE</arg> <arg choice="plain">; --</arg> <arg choice="req" rep="repeat">CMDLINE</arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-notify</command> <arg choice="plain">--fork</arg> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="plain">--</arg> <arg choice="req" rep="repeat">CMDLINE</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-notify</command> may be called by service scripts to notify the invoking service
+    manager about status changes. It can be used to send arbitrary information, encoded in an
+    environment-block-like list of strings. Most importantly, it can be used for start-up completion
+    notification.</para>
+
+    <para>This is mostly just a wrapper around <function>sd_notify()</function> and makes this functionality
+    available to shell scripts. For details see
+    <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    </para>
+
+    <para>The command line may carry a list of environment variables to send as part of the status
+    update.</para>
+
+    <para>Note that systemd will refuse reception of status updates from this command unless
+    <varname>NotifyAccess=</varname> is appropriately set for the service unit this command is called
+    from. See
+    <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details.</para>
+
+    <para>Note that <function>sd_notify()</function> notifications may be attributed to units correctly only
+    if either the sending process is still around at the time the service manager processes the message, or
+    if the sending process is explicitly runtime-tracked by the service manager. The latter is the case if
+    the service manager originally forked off the process, i.e. on all processes that match
+    <varname>NotifyAccess=</varname><option>main</option> or
+    <varname>NotifyAccess=</varname><option>exec</option>. Conversely, if an auxiliary process of the unit
+    sends an <function>sd_notify()</function> message and immediately exits, the service manager might not be
+    able to properly attribute the message to the unit, and thus will ignore it, even if
+    <varname>NotifyAccess=</varname><option>all</option> is set for it. To address this
+    <command>systemd-notify</command> will wait until the notification message has been processed by the
+    service manager. When <option>--no-block</option> is used, this synchronization for reception of
+    notifications is disabled, and hence the aforementioned race may occur if the invoking process is not the
+    service manager or spawned by the service manager.</para>
+
+    <para><command>systemd-notify</command> will first attempt to invoke <function>sd_notify()</function>
+    pretending to have the PID of the parent process of <command>systemd-notify</command> (i.e. the invoking
+    process). This will only succeed when invoked with sufficient privileges.  On failure, it will then fall
+    back to invoking it under its own PID. This behaviour is useful in order that when the tool is invoked
+    from a shell script the shell process — and not the <command>systemd-notify</command> process — appears
+    as sender of the message, which in turn is helpful if the shell process is the main process of a service,
+    due to the limitations of <varname>NotifyAccess=</varname><option>all</option>. Use the
+    <option>--pid=</option> switch to tweak this behaviour.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--ready</option></term>
+
+        <listitem><para>Inform the invoking service manager about service start-up or configuration reload
+        completion. This is equivalent to <command>systemd-notify READY=1</command>. For details about the
+        semantics of this option see
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--reloading</option></term>
+
+        <listitem><para>Inform the invoking service manager about the beginning of a configuration reload
+        cycle. This is equivalent to <command>systemd-notify RELOADING=1</command> (but implicitly also sets
+        a <varname>MONOTONIC_USEC=</varname> field as required for <varname>Type=notify-reload</varname>
+        services, see
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details). For details about the semantics of this option see
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--stopping</option></term>
+
+        <listitem><para>Inform the invoking service manager about the beginning of the shutdown phase of the
+        service. This is equivalent to <command>systemd-notify STOPPING=1</command>. For details about the
+        semantics of this option see
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--pid=</option></term>
+
+        <listitem><para>Inform the service manager about the main PID of the service. Takes a PID as argument.
+        If the argument is specified as <literal>auto</literal> or omitted, the PID of the process that
+        invoked <command>systemd-notify</command> is used, except if that's the service manager. If the
+        argument is specified as <literal>self</literal>, the PID of the <command>systemd-notify</command>
+        command itself is used, and if <literal>parent</literal> is specified the calling process' PID is
+        used — even if it is the service manager. <option>--pid=auto</option> is equivalent to <command>systemd-notify
+        --pid=$PID</command>. For details about the semantics of this option see
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+
+        <para><command>systemd-notify</command> will first attempt to invoke <function>sd_notify()</function>
+        pretending to have the PID specified with <option>--pid=</option>. This will only succeed when
+        invoked with sufficient privileges. On failure, it will then fall back to invoking it under its own
+        PID. Effectively, this means that a privileged invocation of <command>systemd-notify --pid=</command>
+        may circumvent <varname>NotifyAccess=main</varname> or <varname>NotifyAccess=exec</varname>
+        restrictions enforced for a service.</para>
+
+        <para>If this switch is used in an unprivileged <command>systemd-notify</command> invocation from a
+        process that shall become the new main process of a service — and which is not the process forked off
+        by the service manager (or the current main process) —, then it is essential to set
+        <varname>NotifyAccess=all</varname> in the service unit file, or otherwise the notification will be
+        ignored for security reasons. See
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--uid=<replaceable>USER</replaceable></option></term>
+
+        <listitem><para>Set the user ID to send the notification from. Takes a UNIX user name or numeric UID. When
+        specified the notification message will be sent with the specified UID as sender, in place of the user the
+        command was invoked as. This option requires sufficient privileges in order to be able manipulate the user
+        identity of the process.</para>
+
+        <xi:include href="version-info.xml" xpointer="v237"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--status=</option></term>
+
+        <listitem><para>Send a free-form human-readable status string for the daemon to the service
+        manager. This option takes the status string as argument. This is equivalent to
+        <command>systemd-notify STATUS=…</command>. For details about the semantics of this option see
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>. This
+        information is shown in
+        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+        <command>status</command> output, among other places.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--booted</option></term>
+
+        <listitem><para>Returns 0 if the system was booted up with systemd, non-zero otherwise. If this
+        option is passed, no message is sent. This option is hence unrelated to the other options. For
+        details about the semantics of this option, see
+        <citerefentry><refentrytitle>sd_booted</refentrytitle><manvolnum>3</manvolnum></citerefentry>. An
+        alternate way to check for this state is to call
+        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> with
+        the <command>is-system-running</command> command. It will output <literal>offline</literal> if the
+        system was not booted with systemd, though the return value has a different meaning.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--no-block</option></term>
+
+        <listitem><para>Do not synchronously wait for the requested operation to finish.  Use of this option
+        is only recommended when <command>systemd-notify</command> is spawned by the service manager, or when
+        the invoking process is directly spawned by the service manager and has enough privileges to allow
+        <command>systemd-notify</command> to send the notification on its behalf. Sending notifications with
+        this option set is prone to race conditions in all other cases.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--exec</option></term>
+
+        <listitem><para>If specified <command>systemd-notify</command> will execute another command line
+        after it completed its operation, replacing its own process. If used, the list of assignments to
+        include in the message sent must be followed by a <literal>;</literal> character (as separate
+        argument), followed by the command line to execute. This permits "chaining" of commands, i.e. issuing
+        one operation, followed immediately by another, without changing PIDs.</para>
+
+        <para>Note that many shells interpret <literal>;</literal> as their own separator for command lines,
+        hence when <command>systemd-notify</command> is invoked from a shell the semicolon must usually be
+        escaped as <literal>\;</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fd=</option></term>
+
+        <listitem><para>Send a file descriptor along with the notification message. This is useful when
+        invoked in services that have the <varname>FileDescriptorStoreMax=</varname> setting enabled, see
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details. The specified file descriptor must be passed to <command>systemd-notify</command> when
+        invoked. This option may be used multiple times to pass multiple file descriptors in a single
+        notification message.</para>
+
+        <para>To use this functionality from a
+        <citerefentry project='man-pages'><refentrytitle>bash</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        shell, use an expression like the following:</para>
+        <programlisting>systemd-notify --fd=4 --fd=5 4&lt;/some/file 5&lt;/some/other/file</programlisting>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fdname=</option></term>
+
+        <listitem><para>Set a name to assign to the file descriptors passed via <option>--fd=</option> (see
+        above). This controls the <literal>FDNAME=</literal> field. This setting may only be specified once,
+        and applies to all file descriptors passed. Invoke this tool multiple times in case multiple file
+        descriptors with different file descriptor names shall be submitted.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fork</option></term>
+
+        <listitem><para>Instead of sending a notification message, fork off a command line and wait until a
+        <literal>READY=1</literal> message is received from it. In other words: this makes
+        <command>systemd-notify</command> the receiver of notification messages instead of the sender,
+        swapping roles. This is useful to quickly fork off a process that implements the
+        <function>sd_notify()</function> protocol from a shell script. The invoked command line will have
+        standard input and standard output connected to <filename>/dev/null</filename>, but standard error
+        will be inherited from the invoking process. The numeric process ID is written to standard output by
+        <command>systemd-notify</command> (unless <option>--quiet</option> is specified), which may be used
+        to later terminate the forked off process.</para>
+
+        <para>Note that processes forked off like this will likely remain running after
+        <command>systemd-notify</command> already returned, which hence will result in them being reparented
+        to the closest process reaper process, i.e. typically the per-user or system service manager.</para>
+
+        <para>Note that this option should not be used to invoke full services ad-hoc, use
+        <command>systemd-run</command> for that.</para>
+
+        <para>Also note that when invoked with this switch <command>systemd-notify</command> will exit
+        successfully under two distinction conditions:
+
+        <orderedlist>
+          <listitem><para><command>systemd-notify</command> received a <literal>READY=1</literal>
+          notification from the child it just forked off.</para></listitem>
+
+          <listitem><para>The child process exited cleanly (with exit status zero) before sending
+          <literal>READY=1</literal>.</para></listitem>
+        </orderedlist></para>
+
+        <para>Example use:<programlisting># PID=$(systemd-notify --fork -- mycommand)
+…
+kill "$PID"
+unset PID</programlisting></para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--quiet</option></term>
+        <term><option>-q</option></term>
+
+        <listitem><para>Turn off output of the numeric process ID when <option>--fork</option> is used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned, a non-zero failure code
+    otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Example</title>
+
+    <example>
+      <title>Start-up Notification and Status Updates</title>
+
+      <para>A simple shell daemon that sends start-up notifications after having set up its communication
+      channel. During runtime it sends further status updates to the init system:</para>
+
+      <programlisting>#!/bin/sh
+
+mkfifo /tmp/waldo
+systemd-notify --ready --status="Waiting for data…"
+
+while : ; do
+        read -r a &lt; /tmp/waldo
+        systemd-notify --status="Processing $a"
+
+        # Do something with $a …
+
+        systemd-notify --status="Waiting for data…"
+done</programlisting>
+    </example>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_booted</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

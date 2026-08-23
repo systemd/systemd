@@ -1,0 +1,184 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="udev_device_has_tag"
+  xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>udev_device_has_tag</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>udev_device_has_tag</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>udev_device_has_tag</refname>
+    <refname>udev_device_has_current_tag</refname>
+    <refname>udev_device_get_devlinks_list_entry</refname>
+    <refname>udev_device_get_properties_list_entry</refname>
+    <refname>udev_device_get_tags_list_entry</refname>
+    <refname>udev_device_get_current_tags_list_entry</refname>
+    <refname>udev_device_get_sysattr_list_entry</refname>
+    <refname>udev_device_get_property_value</refname>
+    <refname>udev_device_get_sysattr_value</refname>
+    <refname>udev_device_set_sysattr_value</refname>
+
+    <refpurpose>Retrieve or set device attributes</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;libudev.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>udev_device_has_tag</function></funcdef>
+        <paramdef>struct udev_device *<parameter>udev_device</parameter></paramdef>
+        <paramdef>const char *<parameter>tag</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>udev_device_has_current_tag</function></funcdef>
+        <paramdef>struct udev_device *<parameter>udev_device</parameter></paramdef>
+        <paramdef>const char *<parameter>tag</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>struct udev_list_entry *<function>udev_device_get_devlinks_list_entry</function></funcdef>
+        <paramdef>struct udev_device *<parameter>udev_device</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>struct udev_list_entry *<function>udev_device_get_properties_list_entry</function></funcdef>
+        <paramdef>struct udev_device *<parameter>udev_device</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>struct udev_list_entry *<function>udev_device_get_tags_list_entry</function></funcdef>
+        <paramdef>struct udev_device *<parameter>udev_device</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>struct udev_list_entry *<function>udev_device_get_current_tags_list_entry</function></funcdef>
+        <paramdef>struct udev_device *<parameter>udev_device</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>struct udev_list_entry *<function>udev_device_get_sysattr_list_entry</function></funcdef>
+        <paramdef>struct udev_device *<parameter>udev_device</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>const char *<function>udev_device_get_property_value</function></funcdef>
+        <paramdef>struct udev_device *<parameter>udev_device</parameter></paramdef>
+        <paramdef>const char *<parameter>key</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>const char *<function>udev_device_get_sysattr_value</function></funcdef>
+        <paramdef>struct udev_device *<parameter>udev_device</parameter></paramdef>
+        <paramdef>const char *<parameter>sysattr</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>udev_device_set_sysattr_value</function></funcdef>
+        <paramdef>struct udev_device *<parameter>udev_device</parameter></paramdef>
+        <paramdef>const char *<parameter>sysattr</parameter></paramdef>
+        <paramdef>const char *<parameter>value</parameter></paramdef>
+      </funcprototype>
+
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>udev_device_has_tag()</function> returns a value larger than zero if the specified
+    device object has the indicated tag assigned to it, and zero otherwise. See
+    <citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry> for details on
+    the tags concept. <function>udev_device_has_current_tag()</function> executes a similar check, however
+    only determines whether the indicated tag was set as result of the most recent event seen for the
+    device. Tags are "sticky", i.e. once set for a device they remain on the device until the device is
+    unplugged, even if the rules run for later events of the same device do not set them anymore. Any tag for
+    which <function>udev_device_has_current_tag()</function> returns true will hence also return true when
+    passed to <function>udev_device_has_tag()</function>, but the opposite might not be true, in case a tag is
+    no longer configured by the rules applied to the most recent device even.</para>
+
+    <para><function>udev_device_get_tags_list_entry()</function> returns a
+    <structname>udev_list_entry</structname> object, encapsulating a list of tags set for the specified
+    device. Similar, <function>udev_device_get_current_tags_list_entry()</function> returns a list of tags
+    set for the specified device as effect of the most recent device event seen (see above for details on the
+    difference).</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, <function>udev_device_has_tag()</function> and
+    <function>udev_device_has_current_tag()</function> return positive or <constant>0</constant>, depending
+    on whether the device has the given tag or not.  On failure, a negative error code is returned.</para>
+
+    <para>On success, <function>udev_device_get_devlinks_list_entry()</function>,
+    <function>udev_device_get_properties_list_entry()</function>,
+    <function>udev_device_get_tags_list_entry()</function>,
+    <function>udev_device_get_current_tags_list_entry()</function> and
+    <function>udev_device_get_sysattr_list_entry()</function> return a pointer to the first entry of the
+    retrieved list. If that list is empty, or if an error occurred, <constant>NULL</constant> is
+    returned.</para>
+
+    <para>On success,
+    <function>udev_device_get_property_value()</function> and
+    <function>udev_device_get_sysattr_value()</function> return a
+    pointer to a constant string of the requested value. On error,
+    <constant>NULL</constant> is returned. Attributes that may
+    contain <constant>NUL</constant> bytes should not be retrieved
+    with <function>udev_device_get_sysattr_value()</function>;
+    instead, read them directly from the files within the device's
+    <property>syspath</property>.</para>
+
+    <para>On success,
+    <function>udev_device_set_sysattr_value()</function> returns
+    an integer greater than, or equal to, <constant>0</constant>.
+    On failure, a negative error code is returned. Values that
+    contain <constant>NUL</constant> bytes should not be set with
+    this function; instead, write them directly to the files within
+    the device's <property>syspath</property>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>History</title>
+    <para><function>udev_device_get_devlinks_list_entry()</function>,
+    <function>udev_device_get_properties_list_entry()</function>,
+    <function>udev_device_get_tags_list_entry()</function>,
+    <function>udev_device_get_sysattr_list_entry()</function>,
+    <function>udev_device_get_property_value()</function>,
+    <function>udev_device_has_tag()</function>,
+    <function>udev_device_get_sysattr_value()</function>, and
+    <function>udev_device_set_sysattr_value()</function> were added in version 221.</para>
+    <para><function>udev_device_has_current_tag()</function> and
+    <function>udev_device_get_current_tags_list_entry()</function> were added in version 247.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>udev_new</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>udev_device_new_from_syspath</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>udev_device_get_syspath</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>udev_enumerate_new</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>udev_monitor_new_from_netlink</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>udev_list_entry</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

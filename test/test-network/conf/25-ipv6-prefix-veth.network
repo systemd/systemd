@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=veth99
+
+[Network]
+IPv6AcceptRA=true
+
+[IPv6AcceptRA]
+UseDomains=yes
+# just a random label which should exist
+NetLabel=system_u:object_r:root_t:s0
+NFTSet=address:inet:sd_test:addr6 prefix:inet:sd_test:network6 ifindex:inet:sd_test:ifindex

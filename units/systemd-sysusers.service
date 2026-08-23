@@ -1,0 +1,39 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Create System Users
+Documentation=man:sysusers.d(5) man:systemd-sysusers.service(8)
+
+ConditionNeedsUpdate=|/etc
+ConditionCredential=|sysusers.extra
+
+DefaultDependencies=no
+After=systemd-remount-fs.service
+After=systemd-tmpfiles-setup-dev-early.service
+Before=systemd-tmpfiles-setup-dev.service
+Before=sysinit.target systemd-update-done.service
+Conflicts=shutdown.target initrd-switch-root.target
+Before=shutdown.target initrd-switch-root.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=systemd-sysusers
+TimeoutSec=90s
+
+# Optionally, pick up a root password and shell for the root user from a
+# credential passed to the service manager. This is useful for importing this
+# data from nspawn's --set-credential= switch.
+ImportCredential=passwd.hashed-password.root
+ImportCredential=passwd.plaintext-password.root
+ImportCredential=passwd.shell.root
+
+# Also, allow configuring extra sysusers lines via a credential
+ImportCredential=sysusers.*

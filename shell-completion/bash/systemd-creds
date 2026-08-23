@@ -1,0 +1,186 @@
+# shellcheck shell=bash
+# systemd-creds(1) completion                   -*- shell-script -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# This file is part of systemd.
+#
+# systemd is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
+#
+# systemd is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
+
+__contains_word() {
+    local w word=$1; shift
+    for w in "$@"; do
+        [[ $w = "$word" ]] && return
+    done
+}
+
+__get_tpm2_devices() {
+    local a b c
+    systemd-creds --no-legend --quiet --tpm2-device=list 2>/dev/null |
+        { while read -r a b c; do echo " $a"; done; }
+}
+
+__get_creds() {
+    local a b c
+    local mode=$1; shift 1
+    systemd-creds list $mode --no-legend --no-pager $1 2>/dev/null |
+        { while read -r a b c; do echo " $a"; done; }
+}
+
+_systemd_creds() {
+    local verb comps mode i
+    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]} words cword
+    local -A OPTS=(
+        [STANDALONE]='-h --help --version --no-pager --no-legend --no-ask-password
+                      -H -T --system --user -p --pretty --allow-null'
+        [ARG]='--tpm2-device
+               --tpm2-device-key
+               --tpm2-pcrs
+               --tpm2-public-key
+               --tpm2-public-key-pcrs
+               --tpm2-signature
+               --json
+               --transcode
+               --newline
+               --name
+               --timestamp
+               --not-after
+               --with-key
+               --uid'
+    )
+
+    local -A VERBS=(
+        [STANDALONE]='list setup'
+        [CAT]='cat'
+        [ENCRYPT]='encrypt'
+        [DECRYPT]='decrypt'
+    )
+
+    local -A OPTS_FOR_VERB=(
+        [CAT]='--help
+               --version
+               --no-pager
+               --no-legend
+               --user
+               --system'
+        [ENCRYPT]='--help
+                   --version
+                   --no-pager
+                   --no-legend
+                   --no-ask-password
+                   --uid
+                   --with-key
+                   -H
+                   -T
+                   --tpm2-device
+                   --tpm2-pcrs
+                   --tpm2-public-key
+                   --tpm2-public-key-pcrs
+                   --tpm2-signature
+                   --not-after
+                   --name
+                   --timestamp
+                   --pretty'
+        [DECRYPT]='--help
+                   --version
+                   --no-pager
+                   --no-legend
+                   --no-ask-password
+                   --uid
+                   --tpm2-device
+                   --tpm2-pcrs
+                   --tpm2-public-key
+                   --tpm2-public-key-pcrs
+                   --tpm2-signature
+                   --name
+                   --timestamp
+                   --allow-null'
+    )
+
+    _init_completion || return
+
+    if __contains_word "--user" ${COMP_WORDS[*]}; then
+        mode=--user
+    elif __contains_word "--system" ${COMP_WORDS[*]}; then
+        mode=--system
+    else
+        mode=''
+    fi
+
+    if __contains_word "$prev" ${OPTS[ARG]}; then
+        case $prev in
+            --tpm2-public-key|--tpm2-signature)
+                comps=$(compgen -A file -- "$cur")
+                compopt -o filenames
+                ;;
+            --tpm2-device)
+                comps="auto list $(__get_tpm2_devices)"
+                ;;
+            --json)
+                comps=$( systemd-creds --json=help 2>/dev/null )
+                ;;
+            --transcode)
+                comps=$( systemd-creds --no-legend --transcode=help 2>/dev/null )
+                ;;
+            --with-key)
+                comps=$( systemd-creds --no-legend --with-key=help 2>/dev/null )
+                ;;
+        esac
+        COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+        return 0
+    fi
+
+    if [[ -z ${verb-} && "$cur" = -* ]]; then
+        COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
+        return 0
+    fi
+
+    for ((i=0; i < COMP_CWORD; i++)); do
+        if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]} &&
+                ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
+            verb=${COMP_WORDS[i]}
+            break
+        fi
+    done
+
+    if [[ -z ${verb-} ]]; then
+        comps=${VERBS[*]}
+    elif __contains_word "$verb" ${VERBS[STANDALONE]}; then
+        comps=''
+    elif __contains_word "$verb" ${VERBS[CAT]}; then
+        if [[ $cur = -* ]]; then
+            comps=${OPTS_FOR_VERB[CAT]}
+        else
+            comps=$( __get_creds $mode )
+        fi
+    elif __contains_word "$verb" ${VERBS[ENCRYPT]}; then
+        if [[ $cur = -* ]]; then
+            comps=${OPTS_FOR_VERB[ENCRYPT]}
+        else
+            comps=$( compgen -A file -- "$cur" )
+            compopt -o filenames
+        fi
+    elif __contains_word "$verb" ${VERBS[DECRYPT]}; then
+        if [[ $cur = -* ]]; then
+            comps=${OPTS_FOR_VERB[DECRYPT]}
+        else
+            comps=$( compgen -A file -- "$cur" )
+            compopt -o filenames
+        fi
+    fi
+
+    COMPREPLY=( $(compgen -W '${comps-}' -- "$cur") )
+    return 0
+}
+
+complete -F _systemd_creds systemd-creds

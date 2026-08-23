@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<its:rules xmlns:its="http://www.w3.org/2005/11/its"
+           version="2.0">
+  <its:translateRule selector="//*" translate="no"/>
+  <its:translateRule selector="//action/description |
+                               //action/message"
+                     translate="yes"/>
+</its:rules>

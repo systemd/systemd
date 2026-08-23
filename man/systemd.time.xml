@@ -1,0 +1,329 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd.time">
+
+  <refentryinfo>
+    <title>systemd.time</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd.time</refentrytitle>
+    <manvolnum>7</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd.time</refname>
+    <refpurpose>Time and date specifications</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>In systemd, timestamps, time spans, and calendar events are
+    displayed and may be specified in closely related syntaxes.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Displaying Time Spans</title>
+
+    <para>Time spans refer to time durations. On display, systemd will present time spans as a space-separated series
+    of time values each suffixed by a time unit. Example:</para>
+
+    <programlisting>2h 30min</programlisting>
+
+    <para>All specified time values are meant to be added up. The above hence refers to 150 minutes. Display is
+    locale-independent, only English names for the time units are used.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Parsing Time Spans</title>
+
+    <para>When parsing, systemd will accept the same time span syntax.
+    Separating spaces may be omitted. The following time units are
+    understood:</para>
+
+    <itemizedlist>
+      <listitem><para>usec, us, μs</para></listitem>
+      <listitem><para>msec, ms</para></listitem>
+      <listitem><para>seconds, second, sec, s</para></listitem>
+      <listitem><para>minutes, minute, min, m</para></listitem>
+      <listitem><para>hours, hour, hr, h</para></listitem>
+      <listitem><para>days, day, d</para></listitem>
+      <listitem><para>weeks, week, w</para></listitem>
+      <listitem><para>months, month, M (defined as 30.44 days)</para></listitem>
+      <listitem><para>years, year, y (defined as 365.25 days)</para></listitem>
+    </itemizedlist>
+
+    <para>If no time unit is specified, generally seconds are assumed, but some exceptions exist and are marked as
+    such. In a few cases <literal>ns</literal>, <literal>nsec</literal> is accepted too, where the granularity of the
+    time span permits this. Parsing is generally locale-independent, non-English names for the time units are not
+    accepted.</para>
+
+    <para>Examples for valid time span specifications:</para>
+
+    <programlisting>2 h
+2hours
+48hr
+1y 12month
+55s500ms
+300ms20s 5day</programlisting>
+
+    <para>One can use the <command>timespan</command> command of
+    <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    to normalise a textual time span for testing and validation purposes.</para>
+
+    <para>Internally, systemd generally operates with microsecond time granularity, while the default time
+    unit in user-configurable time spans is usually seconds (see above). This disparity becomes visible when
+    comparing the same settings in the (high-level) unit file syntax with the matching (more low-level) D-Bus
+    properties (which are what
+    <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+    <command>show</command> command displays). The former typically are suffixed with <literal>…Sec</literal>
+    to indicate the default unit of seconds, the latter are typically suffixed with <literal>…USec</literal>
+    to indicate the underlying low-level time unit, even if they both encapsulate the very same
+    settings.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Displaying Timestamps</title>
+
+    <para>Timestamps refer to specific, unique points in time. On
+    display, systemd will format these in the local timezone as
+    follows:</para>
+
+    <programlisting>Fri 2012-11-23 23:02:15 CET</programlisting>
+
+    <para>The weekday is printed in the abbreviated English language form. The formatting is locale-independent.</para>
+
+    <para>In some cases timestamps are shown in the UTC timezone instead of the local timezone, which is indicated via
+    the <literal>UTC</literal> timezone specifier in the output.</para>
+
+    <para>In some cases timestamps are shown with microsecond granularity. In this case, the sub-second remainder is
+    separated by a full stop from the seconds component.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Parsing Timestamps</title>
+
+    <para>When parsing, systemd will accept a similar syntax, but some fields can be omitted,
+    and the space between the date and time can be replaced with a <literal>T</literal>
+    (à la the <ulink url="https://tools.ietf.org/html/rfc3339">RFC 3339</ulink> profile of ISO 8601);
+    thus, in CET, the following are all identical:
+    <literal>Fri 2012-11-23 23:02:15 CET</literal>,
+    <literal>Fri 2012-11-23T23:02:15</literal>,
+    <literal>2012-11-23T23:02:15 CET</literal>,
+    <literal>2012-11-23 23:02:15</literal>.</para>
+
+    <para>The timezone defaults to the current timezone if not specified explicitly.
+    It may be given after a space, like above, in which case it can be:
+    <literal>UTC</literal>,
+    an entry in the installed IANA timezone database (e.g. <literal>CET</literal>, <literal>Asia/Tokyo</literal>,
+    where the complete list can be obtained with <command>timedatectl list-timezones</command> (see
+    <citerefentry><refentrytitle>timedatectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>)),
+    or <literal>±<replaceable>05</replaceable></literal>,
+    <literal>±<replaceable>05</replaceable><replaceable>30</replaceable></literal>,
+    <literal>±<replaceable>05</replaceable>:<replaceable>30</replaceable></literal>,
+    <literal>Z</literal>.</para>   <!-- glibc %z -->
+
+    <para>It may also be affixed directly to the timestamp, in which case it must correspond
+    to one of the formats defined in the
+    <ulink url="https://tools.ietf.org/html/rfc3339">RFC 3339</ulink> profile of ISO 8601:
+    <literal>±<replaceable>05</replaceable>:<replaceable>30</replaceable></literal> or <literal>Z</literal>.
+    Thus, the following are also identical to the above:
+    <literal>2012-11-23T23:02:15+01:00</literal>,
+    <literal>2012-11-23 22:02:15Z</literal>.</para>
+
+    <para>A timestamp can start with a field containing a weekday, which can be in an abbreviated
+    (<literal>Wed</literal>) or non-abbreviated (<literal>Wednesday</literal>) English language form (case
+    does not matter), regardless of the locale.
+    However, if a weekday <emphasis>is</emphasis> specified and does not match the date, the timestamp is rejected.</para>
+
+    <para>If the date is omitted, it defaults to today. If the time is omitted, it defaults to 00:00:00.
+    Fractional seconds can be specified down to 1µs precision. The seconds field can also be omitted, defaulting to 0.</para>
+
+    <para>There are special tokens that can be used in place of timestamps:
+    <literal>now</literal> may be
+    used to refer to the current time (or of the invocation of the
+    command that is currently executed). <literal>today</literal>,
+    <literal>yesterday</literal>, and <literal>tomorrow</literal> refer to
+    00:00:00 of the current day, the day before, or the next day,
+    respectively.</para>
+
+    <para>Relative times are also accepted: a time span (see above) prefixed with
+    <literal>+</literal> is evaluated to the current time plus the
+    specified time span. Correspondingly, a time span that is prefixed
+    with <literal>-</literal> is evaluated to the current time minus
+    the specified time span. Instead of prefixing the time span with
+    <literal>+</literal> or <literal>-</literal>, it may also be
+    suffixed with a space and the word <literal>left</literal> or
+    <literal>ago</literal>.</para>
+
+    <para>Finally, an integer prefixed with <literal>@</literal> is
+    evaluated relative to the UNIX epoch – 1970-01-01 00:00:00 UTC.</para>
+
+    <para>Examples for valid timestamps and their normalized form (assuming the current time was 2012-11-23
+    18:15:22 and the timezone was UTC+8, for example <literal>TZ=:Asia/Shanghai</literal>):</para>
+
+    <programlisting>  Fri 2012-11-23 11:12:13 → Fri 2012-11-23 11:12:13
+      2012-11-23 11:12:13 → Fri 2012-11-23 11:12:13
+  2012-11-23 11:12:13 UTC → Fri 2012-11-23 19:12:13
+     2012-11-23T11:12:13Z → Fri 2012-11-23 19:12:13
+   2012-11-23T11:12+02:00 → Fri 2012-11-23 17:12:00
+               2012-11-23 → Fri 2012-11-23 00:00:00
+                 12-11-23 → Fri 2012-11-23 00:00:00
+                 11:12:13 → Fri 2012-11-23 11:12:13
+                    11:12 → Fri 2012-11-23 11:12:00
+                      now → Fri 2012-11-23 18:15:22
+                    today → Fri 2012-11-23 00:00:00
+                today UTC → Fri 2012-11-23 16:00:00
+                yesterday → Fri 2012-11-22 00:00:00
+                 tomorrow → Fri 2012-11-24 00:00:00
+tomorrow Pacific/Auckland → Thu 2012-11-23 19:00:00
+                 +3h30min → Fri 2012-11-23 21:45:22
+                      -5s → Fri 2012-11-23 18:15:17
+                11min ago → Fri 2012-11-23 18:04:22
+              @1395716396 → Tue 2014-03-25 03:59:56</programlisting>
+
+    <para>Note that timestamps displayed by remote systems with a non-matching timezone are usually not parsable
+    locally, as the timezone component is not understood (unless it happens to be <literal>UTC</literal>).</para>
+
+    <para>Timestamps may also be specified with microsecond granularity. The sub-second remainder is expected separated
+    by a full stop from the seconds component. Example:</para>
+
+    <programlisting>2014-03-25 03:59:56.654563</programlisting>
+
+    <para>In some cases, systemd will display a relative timestamp (relative to the current time, or the time of
+    invocation of the command) instead of or in addition to an absolute timestamp as described above. A relative
+    timestamp is formatted as follows:</para>
+
+    <programlisting>2 months 5 days ago</programlisting>
+
+    <para>Note that a relative timestamp is also accepted where a timestamp is expected (see above).</para>
+
+    <para>Use the <command>timestamp</command> command of
+    <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry> to
+    validate and normalize timestamps for testing purposes.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Calendar Events</title>
+
+    <para>Calendar events may be used to refer to one or more points
+    in time in a single expression. They form a superset of the
+    absolute timestamps explained above:</para>
+
+    <programlisting>Thu,Fri 2012-*-1,5 11:12:13</programlisting>
+
+    <para>The above refers to 11:12:13 of the first or fifth day of
+    any month of the year 2012, but only if that day is a Thursday or
+    Friday.</para>
+
+    <para>The weekday specification is optional. If specified, it
+    should consist of one or more English language weekday names,
+    either in the abbreviated (Wed) or non-abbreviated (Wednesday)
+    form (case does not matter), separated by commas. Specifying two
+    weekdays separated by <literal>..</literal> refers to a range of
+    continuous weekdays. <literal>,</literal> and <literal>..</literal>
+    may be combined freely.</para>
+
+    <para>In the date and time specifications, any component may be specified as <literal>*</literal> in
+    which case any value will match. Alternatively, each component can be specified as a list of values
+    separated by commas. Values may be suffixed with <literal>/</literal> and a repetition value, which
+    indicates that the value itself and the value plus all multiples of the repetition value are matched.
+    Two values separated by <literal>..</literal> may be used to indicate a range of values; ranges may also
+    be followed with <literal>/</literal> and a repetition value, in which case the expression matches all
+    times starting with the start value, and continuing with all multiples of the repetition value relative
+    to the start value, ending at the end value the latest.</para>
+
+    <para>A date specification may use <literal>~</literal> to indicate the last day in a month. For example,
+    <literal>*-02~03</literal> means "the third last day in February," and <literal>Mon *-05~07/1</literal>
+    means "the last Monday in May."</para>
+
+    <para>The seconds component may contain decimal fractions both in
+    the value and the repetition. All fractions are rounded to 6
+    decimal places.</para>
+
+    <para>Either time or date specification may be omitted, in which
+    case 00:00:00 and *-*-* is implied, respectively. If the
+    seconds component is not specified, <literal>:00</literal> is
+    assumed.</para>
+
+    <para>Timezone can be specified as the literal string <literal>UTC</literal>, or
+    the local timezone, similar to the supported syntax of timestamps (see above), or the timezone
+    in the IANA timezone database format (also see above).</para>
+
+  <para>The following special expressions may be used as shorthands for longer normalized forms:</para>
+
+    <programlisting>    minutely → *-*-* *:*:00
+      hourly → *-*-* *:00:00
+       daily → *-*-* 00:00:00
+     monthly → *-*-01 00:00:00
+      weekly → Mon *-*-* 00:00:00
+      yearly → *-01-01 00:00:00
+   quarterly → *-01,04,07,10-01 00:00:00
+semiannually → *-01,07-01 00:00:00
+</programlisting>
+
+    <para>Examples for valid timestamps and their
+    normalized form:</para>
+
+<programlisting>  Sat,Thu,Mon..Wed,Sat..Sun → Mon..Thu,Sat,Sun *-*-* 00:00:00
+      Mon,Sun 12-*-* 2,1:23 → Mon,Sun 2012-*-* 01,02:23:00
+                    Wed *-1 → Wed *-*-01 00:00:00
+           Wed..Wed,Wed *-1 → Wed *-*-01 00:00:00
+                 Wed, 17:48 → Wed *-*-* 17:48:00
+Wed..Sat,Tue 12-10-15 1:2:3 → Tue..Sat 2012-10-15 01:02:03
+                *-*-7 0:0:0 → *-*-07 00:00:00
+                      10-15 → *-10-15 00:00:00
+        monday *-12-* 17:00 → Mon *-12-* 17:00:00
+  Mon,Fri *-*-3,1,2 *:30:45 → Mon,Fri *-*-01,02,03 *:30:45
+       12,14,13,12:20,10,30 → *-*-* 12,13,14:10,20,30:00
+            12..14:10,20,30 → *-*-* 12..14:10,20,30:00
+  mon,fri *-1/2-1,3 *:30:45 → Mon,Fri *-01/2-01,03 *:30:45
+             03-05 08:05:40 → *-03-05 08:05:40
+                   08:05:40 → *-*-* 08:05:40
+                      05:40 → *-*-* 05:40:00
+     Sat,Sun 12-05 08:05:40 → Sat,Sun *-12-05 08:05:40
+           Sat,Sun 08:05:40 → Sat,Sun *-*-* 08:05:40
+           2003-03-05 05:40 → 2003-03-05 05:40:00
+ 05:40:23.4200004/3.1700005 → *-*-* 05:40:23.420000/3.170001
+             2003-02..04-05 → 2003-02..04-05 00:00:00
+       2003-03-05 05:40 UTC → 2003-03-05 05:40:00 UTC
+                 2003-03-05 → 2003-03-05 00:00:00
+                      03-05 → *-03-05 00:00:00
+                     hourly → *-*-* *:00:00
+                      daily → *-*-* 00:00:00
+                  daily UTC → *-*-* 00:00:00 UTC
+                    monthly → *-*-01 00:00:00
+                     weekly → Mon *-*-* 00:00:00
+    weekly Pacific/Auckland → Mon *-*-* 00:00:00 Pacific/Auckland
+                     yearly → *-01-01 00:00:00
+                   annually → *-01-01 00:00:00
+                      *:2/3 → *-*-* *:02/3:00</programlisting>
+
+      <para>Calendar events are used by timer units, see
+      <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      for details.</para>
+
+      <para>Use the <command>calendar</command> command of
+      <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry> to validate
+      and normalize calendar time specifications for testing purposes. The tool also calculates when a specified
+      calendar event would occur next.</para>
+  </refsect1>
+
+  <refsect1>
+      <title>See Also</title>
+      <para><simplelist type="inline">
+        <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      </simplelist></para>
+  </refsect1>
+
+</refentry>

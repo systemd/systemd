@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for Group
+
+[Service]
+ExecStart=bash -x -c 'test "$$(id -n -g)" = "nobody"'
+Type=oneshot
+Group=nobody

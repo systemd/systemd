@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test DynamicUser= migrate StateDirectory= (preparation)
+
+[Service]
+ExecStart=test -w %S/test-dynamicuser-migrate
+ExecStart=test -w %S/test-dynamicuser-migrate2/hoge
+ExecStart=test ! -L %S/test-dynamicuser-migrate
+ExecStart=test ! -L %S/test-dynamicuser-migrate2/hoge
+ExecStart=test -d %S/test-dynamicuser-migrate
+ExecStart=test -d %S/test-dynamicuser-migrate2/hoge
+ExecStart=touch %S/test-dynamicuser-migrate/yay
+ExecStart=touch %S/test-dynamicuser-migrate2/hoge/yayyay
+ExecStart=bash -x -c 'test "$$STATE_DIRECTORY" = "%S/test-dynamicuser-migrate:%S/test-dynamicuser-migrate2/hoge"'
+
+Type=oneshot
+DynamicUser=no
+StateDirectory=test-dynamicuser-migrate test-dynamicuser-migrate2/hoge

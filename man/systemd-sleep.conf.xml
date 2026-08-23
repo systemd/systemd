@@ -1,0 +1,286 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-sleep.conf"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>systemd-sleep.conf</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-sleep.conf</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-sleep.conf</refname>
+    <refname>sleep.conf.d</refname>
+    <refpurpose>Suspend and hibernation configuration file</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><simplelist>
+      <member><filename>/etc/systemd/sleep.conf</filename></member>
+      <member><filename>/run/systemd/sleep.conf</filename></member>
+      <member><filename>/usr/lib/systemd/sleep.conf</filename></member>
+      <member><filename>/etc/systemd/sleep.conf.d/*.conf</filename></member>
+      <member><filename>/run/systemd/sleep.conf.d/*.conf</filename></member>
+      <member><filename>/usr/lib/systemd/sleep.conf.d/*.conf</filename></member>
+    </simplelist></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd</command> supports four general
+    power-saving modes:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term>suspend</term>
+
+        <listitem><para>a low-power state
+        where execution of the OS is paused,
+        and complete power loss might result
+        in lost data, and which is fast to
+        enter and exit. This corresponds to
+        suspend, standby, or freeze states as
+        understood by the kernel.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v203"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>hibernate</term>
+
+        <listitem><para>a low-power state
+        where execution of the OS is paused,
+        and complete power loss does not
+        result in lost data, and which might
+        be slow to enter and exit. This
+        corresponds to the hibernation as
+        understood by the kernel.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v203"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>hybrid-sleep</term>
+
+        <listitem><para>a low-power state
+        where execution of the OS is paused,
+        which might be slow to enter, and on
+        complete power loss does not result in
+        lost data but might be slower to exit
+        in that case. This mode is called
+        suspend-to-both by the kernel.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v203"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>suspend-then-hibernate</term>
+
+        <listitem>
+          <para>A low power state where the system is initially suspended (the state is stored in RAM).
+          When the battery level is too low (less than 5%) or a certain timespan has passed, whichever
+          happens first, the system is automatically woken up and then hibernated. This establishes a balance
+          between speed and safety.</para>
+
+          <para>If the system has no battery, it would be hibernated after <varname>HibernateDelaySec=</varname>
+          has passed. If not set, then defaults to <literal>2h</literal>.</para>
+
+          <para>If the system has battery, low-battery alarms (ACPI _BTP) are tried first for detecting
+          battery percentage and wake up the system for hibernation. If <varname>HibernateDelaySec=</varname>
+          is also set, an additional timer is configured so that the system hibernates on whichever comes
+          first: low battery or the configured delay. If ACPI _BTP is not available, the system would
+          regularly wake up to check the time and detect the battery percentage/discharging rate. The rate
+          is used to schedule the next detection. If that is also not available,
+          <varname>SuspendEstimationSec=</varname> is used as last resort.</para>
+
+          <xi:include href="version-info.xml" xpointer="v239"/>
+        </listitem>
+      </varlistentry>
+
+    </variablelist>
+
+    <para>Settings in these files determine what strings
+    will be written to
+    <filename>/sys/power/disk</filename> and
+    <filename>/sys/power/state</filename> by
+    <citerefentry><refentrytitle>systemd-sleep</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    when
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    attempts to suspend or hibernate the machine.
+    See
+    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    for a general description of the syntax.</para>
+  </refsect1>
+
+  <xi:include href="standard-conf.xml" xpointer="main-conf" />
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options can be configured in the
+    [Sleep] section of
+    <filename>/etc/systemd/sleep.conf</filename> or a
+    <filename>sleep.conf.d</filename> file:</para>
+
+    <variablelist class='config-directives'>
+      <varlistentry>
+        <term><varname>AllowSuspend=</varname></term>
+        <term><varname>AllowHibernation=</varname></term>
+        <term><varname>AllowHybridSleep=</varname></term>
+        <term><varname>AllowSuspendThenHibernate=</varname></term>
+
+        <listitem><para>By default, any power-saving mode is advertised if possible (i.e.
+        the kernel supports that mode, the necessary resources are available). Those
+        switches can be used to disable specific modes.</para>
+
+        <para>If <varname>AllowHibernation=no</varname> or <varname>AllowSuspend=no</varname> is
+        used, this implies <varname>AllowSuspendThenHibernate=no</varname> and
+        <varname>AllowHybridSleep=no</varname>, since those methods use both suspend and hibernation
+        internally. <varname>AllowSuspendThenHibernate=yes</varname> and
+        <varname>AllowHybridSleep=yes</varname> can be used to override and enable those specific
+        modes.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>SuspendState=</varname></term>
+
+        <listitem><para>The string to be written to <filename>/sys/power/state</filename> by <citerefentry>
+        <refentrytitle>systemd-suspend.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        More than one value can be specified by separating multiple values with whitespace. They will be
+        tried in turn, until one is written without error. If none of the writes succeed, the operation will
+        be aborted.</para>
+
+        <para>The allowed set of values is determined by the kernel and is shown in the file itself (use
+        <command>cat /sys/power/state</command> to display). See <ulink
+        url="https://docs.kernel.org/admin-guide/pm/sleep-states.html#basic-sysfs-interfaces-for-system-suspend-and-hibernation">
+          Basic sysfs Interfaces for System Suspend and Hibernation</ulink> for more details.</para>
+
+        <para>
+        <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        uses this value when suspending.</para>
+
+        <xi:include href="version-info.xml" xpointer="v203"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>HibernateMode=</varname></term>
+
+        <listitem><para>The string to be written to <filename>/sys/power/disk</filename> by <citerefentry>
+        <refentrytitle>systemd-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        More than one value can be specified by separating multiple values with whitespace. They will be
+        tried in turn, until one is written without error. If none of the writes succeed, the operation will
+        be aborted.</para>
+
+        <para>The allowed set of values is determined by the kernel and is shown in the file itself (use
+        <command>cat /sys/power/disk</command> to display). See the kernel documentation page
+        <ulink url="https://docs.kernel.org/admin-guide/pm/sleep-states.html#basic-sysfs-interfaces-for-system-suspend-and-hibernation">
+          Basic sysfs Interfaces for System Suspend and Hibernation</ulink> for more details.</para>
+
+        <para>
+        <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        uses the value of <varname>HibernateMode=</varname> when hibernating.</para>
+
+        <xi:include href="version-info.xml" xpointer="v203"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>MemorySleepMode=</varname></term>
+
+        <listitem><para>The string to be written to <filename>/sys/power/mem_sleep</filename>
+        when <option>SuspendState=mem</option> or <command>hybrid-sleep</command> is used.
+        More than one value can be specified by separating multiple values with whitespace. They will be
+        tried in turn, until one is written without error. If none of the writes succeed, the operation will
+        be aborted. Defaults to empty, i.e. the kernel default or kernel command line option
+        <varname>mem_sleep_default=</varname> is respected.</para>
+
+        <para>The allowed set of values is determined by the kernel and is shown in the file itself (use
+        <command>cat /sys/power/mem_sleep</command> to display). See the kernel documentation page
+        <ulink url="https://docs.kernel.org/admin-guide/pm/sleep-states.html#basic-sysfs-interfaces-for-system-suspend-and-hibernation">
+          Basic sysfs Interfaces for System Suspend and Hibernation</ulink> for more details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>HibernateDelaySec=</varname></term>
+
+        <listitem>
+          <para>The amount of time the system spends in suspend mode before the system is
+          automatically put into hibernate mode. Only used by
+          <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+          Refer to <command>suspend-then-hibernate</command> for details on how this option interacts with
+          other options/system battery state.</para>
+
+          <xi:include href="version-info.xml" xpointer="v239"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>HibernateOnACPower=</varname></term>
+
+        <listitem>
+          <para>Whether to allow hibernation when the system has AC power. Only used by
+          <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          when <varname>HibernateDelaySec=</varname> is set.</para>
+
+          <para>If this option is disabled, the countdown of <varname>HibernateDelaySec=</varname> starts only
+          after AC power is disconnected, keeping the system in the suspend state otherwise.</para>
+
+          <para>This option is only effective on systems with a battery.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>SuspendEstimationSec=</varname></term>
+
+        <listitem>
+          <para>The RTC alarm will wake the system after the specified timespan to measure the system battery
+          capacity level and estimate battery discharging rate. Only used by
+          <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+          Refer to <command>suspend-then-hibernate</command> for details on how this option interacts with
+          other options/system battery state.</para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Example: freeze</title>
+
+    <para>Example: to exploit the <quote>freeze</quote> mode added
+    in Linux 3.9, one can use <command>systemctl suspend</command>
+    with
+    <programlisting>[Sleep]
+SuspendState=freeze</programlisting></para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd-sleep</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-suspend.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-hybrid-sleep.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

@@ -1,0 +1,28 @@
+; SPDX-License-Identifier: LGPL-2.1-or-later
+$TTL 86400
+$ORIGIN untrusted.test.
+
+@ IN SOA ns1.unsigned.test. root.unsigned.test. (
+    42   ; serial
+    3H   ; refresh
+    15M  ; retry
+    1W   ; expire
+    1D   ; minimum TTL
+)
+
+; NS info
+@                     NS   ns1.unsigned.test.
+
+*.wild                TXT  "this is an untrusted wildcard"
+
+@                     MX   10 mail.untrusted.test.
+
+                      A    10.0.0.121
+                      AAAA fd00:dead:beef:cafe::121
+mail                  A    10.0.0.122
+
+myservice             A    10.0.0.123
+                      AAAA fd00:dead:beef:cafe::123
+_mysvc._tcp           SRV  10 5 1234 myservice
+
+5a786cdc59c161cdafd818143705026636962198c66ed4c5b3da321e._openpgpkey OPENPGPKEY AAECAw==

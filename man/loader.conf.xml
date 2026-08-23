@@ -1,0 +1,544 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="loader.conf" conditional='ENABLE_BOOTLOADER'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>loader.conf</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>loader.conf</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>loader.conf</refname>
+    <refpurpose>Configuration file for systemd-boot</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename><replaceable>ESP</replaceable>/loader/loader.conf</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>
+    <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> reads
+    <filename><replaceable>ESP</replaceable>/loader/loader.conf</filename>. This file configures whether the
+    menu is shown and for how long, the font, audible beep, types of menu entries to show, the default
+    choice, and some aspects of Secure Boot enrollment and firmware handling. See the list of available
+    options below.</para>
+
+    <para>The file uses UTF-8 encoding and consists of series of lines separated by "line feed" (i.e. ASCII
+    code 10). Lines that are empty or start with the comment sign (<literal>#</literal>) are ignored. Other
+    lines consist of an option name, followed by whitespace, and the option value.
+    </para>
+
+    <para>Boolean arguments may be written as
+    <literal>yes</literal>/<literal>y</literal>/<literal>true</literal>/<literal>t</literal>/<literal>on</literal>/<literal>1</literal>
+    or
+    <literal>no</literal>/<literal>n</literal>/<literal>false</literal>/<literal>f</literal>/<literal>off</literal>/<literal>0</literal>.
+    </para>
+
+    <para>Note: <command>systemd-boot</command> will also read boot loader entry files,
+    type #1 (<filename><replaceable>ESP</replaceable>/loader/entries/*.conf</filename> and
+    <filename><replaceable>XBOOTLDR</replaceable>/loader/entries/*.conf</filename>)
+    and type #2 (<filename><replaceable>ESP</replaceable>/EFI/Linux/*.uki</filename>
+    and <filename><replaceable>XBOOTLDR</replaceable>/EFI/Linux/*.uki</filename>).
+    Those files are described by the
+    <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader
+    Specification</ulink>.</para>
+
+    <para>Note: the behaviour of <command>systemd-boot</command> is also influenced by EFI variables. Some of
+    the settings specified in this file can be overridden by those, for example the default boot menu entry
+    or the menu timeouts. See
+    <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+    details.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following configuration are supported in <filename>loader.conf</filename>:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term>default</term>
+
+        <listitem><para>A glob pattern to select the default entry by id, which is the
+        file name including literal suffix <literal>.conf</literal>. The default entry
+        may be changed in the boot menu itself, in which case the name of the
+        selected entry will be stored as an EFI variable, overriding this option.
+        </para>
+
+        <para>If set to <literal>@saved</literal> the chosen entry will be saved as an EFI variable
+        on every boot and automatically selected the next time the boot loader starts.</para>
+
+        <table>
+          <title>Automatically detected entries will use the following names:</title>
+
+          <tgroup cols='2'>
+            <colspec colname='name' />
+            <colspec colname='expl' />
+            <thead>
+              <row>
+                <entry>Name</entry>
+                <entry>Description</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>auto-efi-default</entry>
+                <entry>EFI Default Loader</entry>
+              </row>
+              <row>
+                <entry>auto-efi-shell</entry>
+                <entry>EFI Shell</entry>
+              </row>
+              <row>
+                <entry>auto-osx</entry>
+                <entry>macOS</entry>
+              </row>
+              <row>
+                <entry>auto-poweroff</entry>
+                <entry>Power Off The System</entry>
+              </row>
+              <row>
+                <entry>auto-reboot</entry>
+                <entry>Reboot The System</entry>
+              </row>
+              <row>
+                <entry>auto-reboot-to-firmware-setup</entry>
+                <entry>Reboot Into Firmware Interface</entry>
+              </row>
+              <row>
+                <entry>auto-windows</entry>
+                <entry>Windows Boot Manager</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
+
+        <para>Supported glob wildcard patterns are <literal>?</literal>, <literal>*</literal>, and
+        <literal>[…]</literal> (including ranges). Note that these patterns use the same syntax as
+        <citerefentry project='man-pages'><refentrytitle>glob</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+        but do not support all features. In particular, set negation and named character classes are not
+        supported. The matching is done case-insensitively on the entry ID (as shown by <command>bootctl
+        list</command>).</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>timeout</term>
+
+        <listitem><para>How long the boot menu should be shown before the default
+        entry is booted, in seconds. This may be changed in the boot menu itself and
+        will be stored as an EFI variable in that case, overriding this option.
+        </para>
+
+        <para>If set to <literal>menu-disabled</literal> or <literal>menu-hidden</literal> or <literal>0</literal>
+        (the default), no menu is shown and the default entry will be booted immediately. Unless
+        <literal>menu-disabled</literal> is used, the menu can be shown
+        by pressing and holding a key before systemd-boot is launched. Setting this to
+        <literal>menu-force</literal> disables the timeout while always showing the menu.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>console-mode</term>
+
+        <listitem><para>This option configures the resolution of the console. This may be changed in
+        the boot menu itself and will be stored as an EFI variable in that case, overriding this
+        option.</para>
+
+        <para>Takes a number or one of the special values listed below. The following
+        values may be used:</para>
+
+        <variablelist>
+          <varlistentry>
+            <term>0</term>
+            <listitem>
+              <para>Standard UEFI 80x25 mode</para>
+
+            <xi:include href="version-info.xml" xpointer="v239"/>
+            </listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term>1</term>
+            <listitem>
+              <para>80x50 mode, not supported by all devices</para>
+
+            <xi:include href="version-info.xml" xpointer="v239"/>
+            </listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term>2</term>
+            <listitem>
+              <para>the first non-standard mode provided by the device
+              firmware, if any</para>
+
+              <xi:include href="version-info.xml" xpointer="v239"/>
+            </listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term>auto</term>
+            <listitem>
+              <para>Pick a suitable mode automatically using heuristics</para>
+
+            <xi:include href="version-info.xml" xpointer="v239"/>
+            </listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term>max</term>
+            <listitem>
+              <para>Pick the highest-numbered available mode</para>
+
+            <xi:include href="version-info.xml" xpointer="v239"/>
+            </listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term>keep</term>
+            <listitem>
+              <para>Keep the mode selected by firmware (the default)</para>
+
+            <xi:include href="version-info.xml" xpointer="v239"/>
+            </listitem>
+          </varlistentry>
+        </variablelist>
+
+          <xi:include href="version-info.xml" xpointer="v239"/>
+
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>editor</term>
+
+        <listitem><para>Takes a boolean argument. Enable (the default) or disable the
+        editor. The editor should be disabled if the machine can be accessed by
+        unauthorized persons.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>auto-entries</term>
+
+        <listitem><para>Takes a boolean argument. Enable (the default) or disable
+        entries for other boot entries found on the boot partition. In particular,
+        this may be useful when loader entries are created to show replacement
+        descriptions for those entries.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>auto-firmware</term>
+
+        <listitem><para>A boolean controlling the presence of the <literal>Reboot Into Firmware
+        Interface</literal> entry (enabled by default). If this is disabled, the firmware interface may still
+        be reached by using the <keycap>f</keycap> key.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>auto-reboot</term>
+
+        <listitem><para>A boolean controlling the presence of the <literal>Reboot The System</literal>
+        entry (disabled by default). Even if this is disabled, the system may still be rebooted by pressing
+        <keycombo><keycap>Shift</keycap><keycap>b</keycap></keycombo>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>auto-poweroff</term>
+
+        <listitem><para>A boolean controlling the presence of the <literal>Power Off The System</literal>
+        entry (disabled by default). Even if this is disabled, the system may still be powered off by
+        pressing <keycombo><keycap>Shift</keycap><keycap>o</keycap></keycombo>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>beep</term>
+
+        <listitem><para>Takes a boolean argument. If timeout enabled beep every second, otherwise beep n
+        times when n-th entry in boot menu is selected (default disabled). Currently, only x86 is supported,
+        where it uses the PC speaker.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>secure-boot-enroll</term>
+
+        <listitem><para>Danger: this feature might soft-brick your device if used improperly.</para>
+
+        <para>Controls enrollment of secure boot keys found on the ESP if the system is in setup mode:
+        <variablelist>
+          <varlistentry>
+            <term><option>if-safe</option></term>
+            <listitem><para>This is the default. Same behavior as <option>manual</option>, but will try to automatically
+            enroll the key named <literal>auto</literal> if it is considered to be safe. Currently, this is only
+            the case if the system is running inside a virtual machine.</para>
+
+            <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>manual</option></term>
+            <listitem><para>Boot entries for found secure boot keys are created that allow manual
+            enrollment.</para>
+
+            <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>off</option></term>
+            <listitem><para>No action is taken.</para>
+
+            <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>force</option></term>
+            <listitem><para>Always enroll the <literal>auto</literal> key if found. Note that a warning
+            message with a timeout will still be shown if this operation is unknown to be safe.</para>
+
+            <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+          </varlistentry>
+        </variablelist>
+        </para>
+
+        <para>The different sets of variables can be set up under
+        <filename>/loader/keys/<replaceable>NAME</replaceable></filename> where
+        <replaceable>NAME</replaceable> is the name that is going to be used as the name of the entry. This
+        allows one to ship multiple sets of Secure Boot variables and choose which one to enroll at runtime.
+        </para>
+
+        <para>Supported Secure Boot variables are one database for authorized images, one for the key
+        exchange key (KEK) and one for the platform key (PK). For more information, refer to the
+        <ulink url="https://uefi.org/specifications">UEFI specification</ulink>, under Secure Boot and Driver
+        Signing. Another resource that describe the interplay of the different variables is the
+        <ulink url="https://edk2-docs.gitbook.io/understanding-the-uefi-secure-boot-chain/secure_boot_chain_in_uefi/uefi_secure_boot">
+        EDK2 documentation</ulink>.</para>
+
+        <para>A complete set of UEFI variable includes <filename>db.auth</filename>, <filename>KEK.auth</filename>
+        and <filename>PK.auth</filename>. Note that these files need to be authenticated UEFI variables. See
+        below for an example of how to generate them from regular X.509 keys.</para>
+
+        <programlisting>uuid=$(systemd-id128 new --uuid)
+for key in PK KEK db; do
+  openssl req -new -x509 -subj "/CN=${key}/" -keyout "${key}.key" -out "${key}.pem"
+  openssl x509 -outform DER -in "${key}.pem" -out "${key}.der"
+  sbsiglist --owner "${uuid}" --type x509 --output "${key}.esl" "${key}.der"
+done
+
+# See also: <ulink url="https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/windows-secure-boot-key-creation-and-management-guidance">Windows Secure Boot Key Creation and Management Guidance</ulink>
+curl --location \
+     "https://go.microsoft.com/fwlink/p/?linkid=321192" -o ms-db-2011.der \
+     "https://go.microsoft.com/fwlink/p/?linkid=321185" -o ms-kek-2011.der \
+     "https://go.microsoft.com/fwlink/p/?linkid=321194" -o ms-uefi-db-2011.der \
+     "https://go.microsoft.com/fwlink/p/?linkid=2239776" -o ms-db-2023.der \
+     "https://go.microsoft.com/fwlink/p/?linkid=2239775" -o ms-kek-2023.der \
+     "https://go.microsoft.com/fwlink/p/?linkid=2239872" -o ms-uefi-db-2023.der
+sha1sum -c &lt;&lt;END
+580a6f4cc4e4b669b9ebdc1b2b3e087b80d0678d  ms-db-2011.der
+31590bfd89c9d74ed087dfac66334b3931254b30  ms-kek-2011.der
+46def63b5ce61cf8ba0de2e6639c1019d0ed14f3  ms-uefi-db-2011.der
+45a0fa32604773c82433c3b7d59e7466b3ac0c67  ms-db-2023.der
+459ab6fb5e284d272d5e3e6abc8ed663829d632b  ms-kek-2023.der
+b5eeb4a6706048073f0ed296e7f580a790b59eaa  ms-uefi-db-2023.der
+END
+for key in ms-*.der; do
+  sbsiglist --owner 77fa9abd-0359-4d32-bd60-28f4e78f784b --type x509 --output "${key%der}esl" "${key}"
+done
+
+# Optionally add Microsoft Windows certificates (needed to boot into Windows).
+cat ms-db-*.esl >>db.esl
+
+# Optionally add Microsoft UEFI certificates for firmware drivers / option ROMs and third-party
+# boot loaders (including shim). This is highly recommended on real hardware as not including this
+# may soft-brick your device (see next paragraph).
+cat ms-uefi-*.esl >>db.esl
+
+# Optionally add Microsoft KEK certificates. Recommended if either of the Microsoft keys is used as
+# the official UEFI revocation database is signed with this key. The revocation database can be
+# updated with <citerefentry project='man-pages'><refentrytitle>fwupdmgr</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+cat ms-kek-*.esl >>KEK.esl
+
+attr=NON_VOLATILE,RUNTIME_ACCESS,BOOTSERVICE_ACCESS,TIME_BASED_AUTHENTICATED_WRITE_ACCESS
+sbvarsign --attr "${attr}" --key PK.key --cert PK.pem --output PK.auth PK PK.esl
+sbvarsign --attr "${attr}" --key PK.key --cert PK.pem --output KEK.auth KEK KEK.esl
+sbvarsign --attr "${attr}" --key KEK.key --cert KEK.pem --output db.auth db db.esl
+</programlisting>
+
+        <para>This feature is considered dangerous because even if all the required files are signed with the
+        keys being loaded, some files necessary for the system to function properly still won't be. This
+        is especially the case with Option ROMs (e.g. for storage controllers or graphics cards). See
+        <ulink url="https://github.com/Foxboron/sbctl/wiki/FAQ#option-rom">Secure Boot and Option ROMs</ulink>
+        for more details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>secure-boot-enroll-action</term>
+        <listitem>
+          <para>Specifies the action to take after the automatic enrollment of secure boot keys is completed.</para>
+          <variablelist>
+            <varlistentry>
+              <term>reboot</term>
+              <listitem>
+                <para>Reboot the system after enrollment. This is the default.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term>shutdown</term>
+              <listitem>
+                <para>Shut down the system after enrollment.</para>
+              </listitem>
+            </varlistentry>
+          </variablelist>
+          <para>This option is only relevant if <literal>secure-boot-enroll</literal> is enabled.</para>
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>secure-boot-enroll-timeout-sec</term>
+        <listitem>
+          <para>How long the warning should be shown in seconds before the key enrollment process starts.</para>
+          <para>If set to <literal>hidden</literal> or <literal>0</literal>, no warning is shown and the keys
+          will be enrolled immediately. The default timeout (if not set explicitly) is 15 seconds.</para>
+          <para>This option is only relevant if <literal>secure-boot-enroll</literal> is enabled.</para>
+          <xi:include href="version-info.xml" xpointer="v259"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>reboot-for-bitlocker</term>
+
+        <listitem><para>Caveat: This feature is experimental, and is likely to be changed (or removed in its
+        current form) in a future version of systemd.</para>
+
+        <para>Work around BitLocker requiring a recovery key when the boot loader was updated (disabled by
+        default).</para>
+
+        <para>Try to detect BitLocker encrypted drives along with an active TPM. If both are found and
+        Windows Boot Manager is selected in the boot menu, set the <literal>BootNext</literal> EFI variable
+        and restart the system. The firmware will then start Windows Boot Manager directly, leaving the TPM
+        PCRs in expected states so that Windows can unseal the encryption key. This allows
+        <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> to
+        be updated without having to provide the recovery key for BitLocker drive unlocking.</para>
+
+        <para>Note that the PCRs that Windows uses can be configured with the
+        <literal>Configure TPM platform validation profile for native UEFI firmware configurations</literal>
+        group policy under <literal>Computer Configuration\Administrative Templates\Windows Components\BitLocker Drive Encryption</literal>.
+        When Secure Boot is enabled, changing this to PCRs <literal>0,2,7,11</literal> should be safe.
+        The TPM key protector needs to be removed and then added back for the PCRs on an already
+        encrypted drive to change. If PCR 4 is not measured, this setting can be disabled to speed
+        up booting into Windows.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>reboot-on-error</term>
+
+        <listitem><para>Controls auto reboot in case the selected entry fails to start.
+
+        <variablelist>
+          <varlistentry>
+            <term><option>yes</option></term>
+            <listitem><para>Reboot the system if the selected boot entry failed to start.</para></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>no</option></term>
+            <listitem><para>Don't reboot - pass control back to EFI firmware.</para></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>auto</option></term>
+            <listitem>
+            <para>Perform the reboot if and only if boot counting is enabled for this entry and the tries
+            left counter wasn't already at 0.</para>
+
+            <para>This is the default, as it is typically a safe option, that ensures a clean measurement log
+            on each boot attempt, but also does not risk an unbounded reboot loop.</para>
+            </listitem>
+          </varlistentry>
+
+        </variablelist>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>log-level</term>
+
+        <listitem><para>Controls the log level used by
+        <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        </para>
+
+        <para>Valid values are <literal>emerg</literal>, <literal>alert</literal>, <literal>crit</literal>,
+        <literal>err</literal>, <literal>warning</literal>, <literal>notice</literal>,
+        <literal>info</literal>, and <literal>debug</literal>.</para>
+
+        <para>If unspecified, <literal>info</literal> will be used, unless one has already been configured
+        via an SMBIOS Type 11 string, see
+        <citerefentry><refentrytitle>smbios-type-11</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        </para>
+
+        <para>Note that the configured level will only be used after <filename>loader.conf</filename> has
+        been parsed, so log messages generated before that point may be unaffected by this setting.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Example</title>
+
+    <programlisting># /boot/efi/loader/loader.conf
+timeout 0
+default 01234567890abcdef1234567890abdf0-*
+editor no
+</programlisting>
+
+    <para>The menu will not be shown by default (the menu can still be shown by
+    pressing and holding a key during boot). One of the entries with files with a
+    name starting with <literal>01234567890abcdef1234567890abdf0-</literal> will be
+    selected by default. If more than one entry matches, the one with the highest
+    priority will be selected (generally the one with the highest version number).
+    The editor will be disabled, so it is not possible to alter the kernel command
+    line.</para>
+  </refsect1>
+
+  <refsect1>
+      <title>See Also</title>
+      <para><simplelist type="inline">
+        <member><citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      </simplelist></para>
+  </refsect1>
+</refentry>

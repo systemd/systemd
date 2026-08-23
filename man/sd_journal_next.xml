@@ -1,0 +1,176 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd_journal_next" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_journal_next</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_journal_next</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_journal_next</refname>
+    <refname>sd_journal_previous</refname>
+    <refname>sd_journal_step_one</refname>
+    <refname>sd_journal_next_skip</refname>
+    <refname>sd_journal_previous_skip</refname>
+    <refname>SD_JOURNAL_FOREACH</refname>
+    <refname>SD_JOURNAL_FOREACH_BACKWARDS</refname>
+    <refpurpose>Advance or set back the read pointer in the journal</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-journal.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_journal_next</function></funcdef>
+        <paramdef>sd_journal *<parameter>j</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_journal_previous</function></funcdef>
+        <paramdef>sd_journal *<parameter>j</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_journal_step_one</function></funcdef>
+        <paramdef>sd_journal *<parameter>j</parameter></paramdef>
+        <paramdef>int <parameter>advanced</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_journal_next_skip</function></funcdef>
+        <paramdef>sd_journal *<parameter>j</parameter></paramdef>
+        <paramdef>uint64_t <parameter>skip</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_journal_previous_skip</function></funcdef>
+        <paramdef>sd_journal *<parameter>j</parameter></paramdef>
+        <paramdef>uint64_t <parameter>skip</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef><function>SD_JOURNAL_FOREACH</function></funcdef>
+        <paramdef>sd_journal *<parameter>j</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef><function>SD_JOURNAL_FOREACH_BACKWARDS</function></funcdef>
+        <paramdef>sd_journal *<parameter>j</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_journal_next()</function> advances the read
+    pointer into the journal by one entry. The only argument taken is
+    a journal context object as allocated via
+    <citerefentry><refentrytitle>sd_journal_open</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    After successful invocation the entry may be read with functions
+    such as
+    <citerefentry><refentrytitle>sd_journal_get_data</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+
+    <para>Similarly, <function>sd_journal_previous()</function> sets
+    the read pointer back one entry.</para>
+
+    <para><function>sd_journal_step_one()</function> also moves the read pointer. If the current location
+    is the head of the journal, e.g. when this is called following
+    <function>sd_journal_seek_head()</function>, then this is equivalent to
+    <function>sd_journal_next()</function>, and the argument <varname>advanced</varname> will be ignored.
+    Similarly, if the current location is the tail of the journal, e.g. when this is called following
+    <function>sd_journal_seek_tail()</function>, then this is equivalent to
+    <function>sd_journal_previous()</function>, and <varname>advanced</varname> will be ignored. Otherwise,
+    this is equivalent to <function>sd_journal_next()</function> when <varname>advanced</varname> is
+    non-zero, and <function>sd_journal_previous()</function> when <varname>advanced</varname> is zero.</para>
+
+    <para><function>sd_journal_next_skip()</function> and
+    <function>sd_journal_previous_skip()</function> advance/set back the read pointer by multiple
+    entries at once, as specified in the <varname>skip</varname> parameter. The <varname>skip</varname>
+    parameter must be less than or equal to 2147483647 (2³¹-1).</para>
+
+    <para>The journal is strictly ordered by reception time, and hence
+    advancing to the next entry guarantees that the entry then
+    pointing to is later in time than then previous one, or has the
+    same timestamp.</para>
+
+    <para>Note that
+    <citerefentry><refentrytitle>sd_journal_get_data</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    and related calls will fail unless
+    <function>sd_journal_next()</function> has been invoked at least
+    once in order to position the read pointer on a journal
+    entry.</para>
+
+    <para>Note that the <function>SD_JOURNAL_FOREACH()</function>
+    macro may be used as a wrapper around
+    <citerefentry><refentrytitle>sd_journal_seek_head</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    and <function>sd_journal_next()</function> in order to make
+    iterating through the journal easier. See below for an example.
+    Similarly, <function>SD_JOURNAL_FOREACH_BACKWARDS()</function> may
+    be used for iterating the journal in reverse order.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>The four calls return the number of entries advanced/set
+    back on success or a negative errno-style error code. When the end
+    or beginning of the journal is reached, a number smaller than
+    requested is returned. More specifically, if
+    <function>sd_journal_next()</function> or
+    <function>sd_journal_previous()</function> reach the end/beginning
+    of the journal they will return 0, instead of 1 when they are
+    successful. This should be considered an EOF marker.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Notes</title>
+
+    <xi:include href="threads-aware.xml" xpointer="strict"/>
+
+    <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para>Iterating through the journal:</para>
+
+    <programlisting><xi:include href="journal-iterate-foreach.c" parse="text" /></programlisting>
+  </refsect1>
+
+  <refsect1>
+    <title>History</title>
+    <para><function>sd_journal_next()</function>,
+    <function>sd_journal_previous()</function>,
+    <function>sd_journal_next_skip()</function>,
+    <function>sd_journal_previous_skip()</function>,
+    <function>SD_JOURNAL_FOREACH()</function>, and
+    <function>SD_JOURNAL_FOREACH_BACKWARDS()</function> were added in version 187.</para>
+    <para><function>sd_journal_step_one()</function> was added in version 254.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_journal_open</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_journal_get_data</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_journal_get_realtime_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_journal_get_cursor</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

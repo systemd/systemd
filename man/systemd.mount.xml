@@ -1,0 +1,707 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd.mount" xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>systemd.mount</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd.mount</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd.mount</refname>
+    <refpurpose>Mount unit configuration</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename><replaceable>mount</replaceable>.mount</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>A unit configuration file whose name ends in
+    <literal>.mount</literal> encodes information about a file system
+    mount point controlled and supervised by systemd.</para>
+
+    <para>This man page lists the configuration options specific to
+    this unit type. See
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for the common options of all unit configuration files. The common
+    configuration items are configured in the generic [Unit] and
+    [Install] sections. The mount specific configuration options are
+    configured in the [Mount] section.</para>
+
+    <para>Additional options are listed in
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+    which define the execution environment the
+    <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    program is executed in, and in
+    <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+    which define the way the processes are terminated, and in
+    <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+    which configure resource control settings for the processes of the
+    service.</para>
+
+    <para>Note that the options <varname>User=</varname> and
+    <varname>Group=</varname> are not useful for mount units.
+    systemd passes two parameters to
+    <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>;
+    the values of <varname>What=</varname> and <varname>Where=</varname>.
+    When invoked in this way,
+    <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    does not read any options from <filename>/etc/fstab</filename>, and
+    must be run as UID 0.</para>
+
+    <para>Mount units must be named after the mount point directories they control. Example: the mount point
+    <filename index="false">/home/lennart</filename> must be configured in a unit file
+    <filename>home-lennart.mount</filename>.  For details about the escaping logic used to convert a file
+    system path to a unit name, see
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Note
+    that mount units cannot be templated, nor is possible to add multiple names to a mount unit by creating
+    symlinks to its unit file.</para>
+
+    <para>Optionally, a mount unit may be accompanied by an automount
+    unit, to allow on-demand or parallelized mounting. See
+    <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+    <para>Mount points created at runtime (independently of unit files
+    or <filename>/etc/fstab</filename>) will be monitored by systemd
+    and appear like any other mount unit in systemd. See
+    <filename>/proc/self/mountinfo</filename> description in
+    <citerefentry project='man-pages'><refentrytitle>proc</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+
+    <para>Some file systems have special semantics as API file systems
+    for kernel-to-userspace and userspace-to-userspace interfaces. Some
+    of them may not be changed via mount units, and cannot be
+    disabled. For a longer discussion see <ulink
+    url="https://systemd.io/API_FILE_SYSTEMS">API
+    File Systems</ulink>.</para>
+
+    <para>The
+    <citerefentry><refentrytitle>systemd-mount</refentrytitle><manvolnum>1</manvolnum></citerefentry> command
+    allows creating <filename>.mount</filename> and <filename>.automount</filename> units dynamically and
+    transiently from the command line.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Automatic Dependencies</title>
+
+    <refsect2>
+      <title>Implicit Dependencies</title>
+
+      <para>The following dependencies are implicitly added:</para>
+
+      <itemizedlist>
+        <listitem><para>If a mount unit is beneath another mount unit in the file
+        system hierarchy, both a requirement dependency and an ordering
+        dependency between both units are created automatically.</para></listitem>
+
+        <listitem><para>Block device backed file systems automatically gain <varname>Requires=</varname>,
+        <varname>StopPropagatedFrom=</varname>, and <varname>After=</varname> type dependencies on the
+        device unit encapsulating the block device (see <varname>x-systemd.device-bound=</varname> for details).
+        </para></listitem>
+
+        <listitem><para>If traditional file system quota is enabled for a mount unit, automatic
+        <varname>Wants=</varname> and <varname>Before=</varname> dependencies on
+        <filename>systemd-quotacheck@.service</filename> and <filename>quotaon@.service</filename>
+        are added.</para></listitem>
+
+        <listitem><para>Additional implicit dependencies may be added as result of execution and
+        resource control parameters as documented in
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        and
+        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para></listitem>
+      </itemizedlist>
+    </refsect2>
+
+    <refsect2>
+      <title>Default Dependencies</title>
+
+      <para>The following dependencies are added unless <varname>DefaultDependencies=no</varname> is set:</para>
+
+      <itemizedlist>
+        <listitem><para>All mount units acquire automatic <varname>Before=</varname> and <varname>Conflicts=</varname> on
+        <filename>umount.target</filename> in order to be stopped during shutdown.</para></listitem>
+
+        <listitem><para>Mount units referring to local file systems automatically gain
+        an <varname>After=</varname> dependency on <filename>local-fs-pre.target</filename>, and a
+        <varname>Before=</varname> dependency on <filename>local-fs.target</filename> unless one or more
+        mount options among <option>nofail</option>, <option>x-systemd.wanted-by=</option>,
+        and <option>x-systemd.required-by=</option> is set. See below for detailed information.</para>
+
+        <para>Additionally, an <varname>After=</varname> dependency on <filename>swap.target</filename>
+        is added when the file system type is <literal>tmpfs</literal>.</para>
+        </listitem>
+
+        <listitem><para>Network mount units automatically acquire <varname>After=</varname> dependencies on
+        <filename>remote-fs-pre.target</filename>, <filename>network.target</filename>,
+        plus <varname>After=</varname> and <varname>Wants=</varname> dependencies on <filename>network-online.target</filename>,
+        and a <varname>Before=</varname> dependency on <filename>remote-fs.target</filename>, unless
+        one or more mount options among <option>nofail</option>, <option>x-systemd.wanted-by=</option>,
+        and <option>x-systemd.required-by=</option> is set.</para></listitem>
+      </itemizedlist>
+
+      <para>Mount units referring to local and network file systems are distinguished by their file system type
+      specification. In some cases this is not sufficient (for example network block device based mounts, such as
+      iSCSI), in which case <option>_netdev</option> may be added to the mount option string of the unit, which forces
+      systemd to consider the mount unit a network mount.</para>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title><filename>fstab</filename></title>
+
+    <para>Mount units may either be configured via unit files, or via <filename>/etc/fstab</filename> (see
+    <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for details). Mounts listed in <filename>/etc/fstab</filename> will be converted into native units
+    dynamically at boot and when the configuration of the system manager is reloaded. In general, configuring
+    mount points through <filename>/etc/fstab</filename> is the preferred approach to manage mounts for
+    humans. For tooling, writing mount units should be preferred over editing <filename>/etc/fstab</filename>.
+    See <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    for details about the conversion from <filename>/etc/fstab</filename> to mount units.</para>
+
+    <para>The NFS mount option <option>bg</option> for NFS background mounts
+    as documented in <citerefentry project='man-pages'><refentrytitle>nfs</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    is detected by <command>systemd-fstab-generator</command> and the options
+    are transformed so that systemd fulfills the job-control implications of
+    that option.  Specifically <command>systemd-fstab-generator</command> acts
+    as though <literal>x-systemd.mount-timeout=infinity,retry=10000</literal> was
+    prepended to the option list, and <literal>fg,nofail</literal> was appended.
+    Depending on specific requirements, it may be appropriate to provide some of
+    these options explicitly, or to make use of the
+    <literal>x-systemd.automount</literal> option described below instead
+    of using <literal>bg</literal>.</para>
+
+    <para>When reading <filename>/etc/fstab</filename> a few special
+    mount options are understood by systemd which influence how
+    dependencies are created for mount points. systemd will create a
+    dependency of type <varname>Wants=</varname> or
+    <option>Requires=</option> (see option <option>nofail</option>
+    below), from either <filename>local-fs.target</filename> or
+    <filename>remote-fs.target</filename>, depending whether the file
+    system is local or remote.</para>
+
+    <variablelist class='fstab-options'>
+
+      <varlistentry>
+        <term><option>x-systemd.requires=</option></term>
+
+        <listitem><para>Configures a <varname>Requires=</varname> and
+        an <varname>After=</varname> dependency between the created
+        mount unit and another systemd unit, such as a device or mount
+        unit. The argument should be a unit name, or an absolute path
+        to a device node or mount point.  This option may be specified
+        more than once. This option is particularly useful for mount
+        point declarations that need an additional device to be around
+        (such as an external journal device for journal file systems)
+        or an additional mount to be in place (such as an overlay file
+        system that merges multiple mount points). See
+        <varname>After=</varname> and <varname>Requires=</varname> in
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details.</para>
+
+        <para>Note that this option always applies to the created mount unit
+        only regardless whether <option>x-systemd.automount</option> has been
+        specified.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>x-systemd.wants=</option></term>
+
+        <listitem><para>Configures a <varname>Wants=</varname> and
+        an <varname>After=</varname> dependency between the created
+        mount unit and another systemd unit, similar to the
+        <varname>x-systemd.requires=</varname> option.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>x-systemd.before=</option></term>
+        <term><option>x-systemd.after=</option></term>
+
+        <listitem><para>In the created mount unit, configures a
+        <varname>Before=</varname> or <varname>After=</varname>
+        dependency on another systemd unit, such as a mount unit.
+        The argument should be a unit name or an absolute path
+        to a mount point. This option may be specified more than once.
+        This option is particularly useful for mount point declarations
+        with <option>nofail</option> option that are mounted
+        asynchronously but need to be mounted before or after some unit
+        start, for example, before <filename>local-fs.target</filename>
+        unit.
+        See <varname>Before=</varname> and <varname>After=</varname> in
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details.</para>
+
+        <para>Note that these options always apply to the created mount unit
+        only regardless whether <option>x-systemd.automount</option> has been
+        specified.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>x-systemd.wanted-by=</option></term>
+        <term><option>x-systemd.required-by=</option></term>
+
+        <listitem><para>In the created mount unit, configures a <varname>WantedBy=</varname> or
+        <varname>RequiredBy=</varname> dependency on another unit. This option may be specified more than once.
+        If this is specified, the default dependencies (see above) other than <filename>umount.target</filename>
+        on the created mount unit, e.g. <filename>local-fs.target</filename>, are not automatically created.
+        Hence it is likely that some ordering dependencies need to be set up manually through
+        <option>x-systemd.before=</option> and <option>x-systemd.after=</option>. See <varname>WantedBy=</varname>
+        and <varname>RequiredBy=</varname> in
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>x-systemd.wants-mounts-for=</option></term>
+        <term><option>x-systemd.requires-mounts-for=</option></term>
+
+        <listitem><para>Configures a
+        <varname>RequiresMountsFor=</varname> or <varname>WantsMountsFor=</varname>
+        dependency between the created mount unit and other mount units. The
+        argument must be an absolute path. This option may be specified more than
+        once. See <varname>RequiresMountsFor=</varname> or <varname>WantsMountsFor=</varname> in
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/></listitem>
+       </varlistentry>
+
+      <varlistentry>
+        <term><option>x-systemd.graceful-option=</option></term>
+
+        <listitem><para>Additional mount option that shall be appended if supported by the kernel.
+        This may be used to configure mount options that are optional and only enabled on kernels that
+        support them. Note that this is supported only for native kernel mount options (i.e. explicitly not
+        for mount options implemented in userspace, such as those processed by
+        <command>/usr/bin/mount</command> itself, by FUSE or by mount helpers such as
+        <command>mount.nfs</command>). This option may be specified more than once.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>x-systemd.device-bound=</option></term>
+
+        <listitem><para>Takes a boolean argument. If true or no argument, a <varname>BindsTo=</varname> dependency
+        on the backing device is set. If false, the mount unit is not stopped no matter whether the backing device
+        is still present. This is useful when the file system is backed by volume managers. If not set, and the mount
+        comes from unit fragments, i.e. generated from <filename>/etc/fstab</filename> by <citerefentry>
+        <refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry> or loaded from
+        a manually configured mount unit, a combination of <varname>Requires=</varname> and <varname>StopPropagatedFrom=</varname>
+        dependencies is set on the backing device, otherwise only <varname>Requires=</varname> is used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>x-systemd.automount</option></term>
+
+        <listitem><para>An automount unit will be created for the file
+        system. See
+        <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>x-systemd.idle-timeout=</option></term>
+
+        <listitem><para>Configures the idle timeout of the
+        automount unit. See <varname>TimeoutIdleSec=</varname> in
+        <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/></listitem>
+      </varlistentry>
+
+      <varlistentry id='device-timeout'>
+        <term><option>x-systemd.device-timeout=</option></term>
+
+        <listitem><para>Configure how long systemd should wait for a
+        device to show up before giving up on an entry from
+        <filename>/etc/fstab</filename>. Specify a time in seconds or
+        explicitly append a unit such as <literal>s</literal>,
+        <literal>min</literal>, <literal>h</literal>,
+        <literal>ms</literal>.</para>
+
+        <para>Note that this option can only be used in
+        <filename>/etc/fstab</filename>, and will be
+        ignored when part of the <varname>Options=</varname>
+        setting in a unit file.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>x-systemd.mount-timeout=</option></term>
+
+        <listitem><para>Configure how long systemd should wait for the
+        mount command to finish before giving up on an entry from
+        <filename>/etc/fstab</filename>. Specify a time in seconds or
+        explicitly append a unit such as <literal>s</literal>,
+        <literal>min</literal>, <literal>h</literal>,
+        <literal>ms</literal>.</para>
+
+        <para>Note that this option can only be used in
+        <filename>/etc/fstab</filename>, and will be
+        ignored when part of the <varname>Options=</varname>
+        setting in a unit file.</para>
+
+        <para>See <varname>TimeoutSec=</varname> below for
+        details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>x-systemd.makefs</option></term>
+
+        <listitem><para>The file system will be initialized
+        on the device. If the device is not "empty", i.e. it contains any signature,
+        the operation will be skipped. It is hence expected that this option
+        remains set even after the device has been initialized.</para>
+
+        <para>Note that this option can only be used in
+        <filename>/etc/fstab</filename>, and will be ignored when part of the
+        <varname>Options=</varname> setting in a unit file.</para>
+
+        <para>See
+        <citerefentry><refentrytitle>systemd-makefs@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        </para>
+
+        <para><citerefentry project='man-pages'><refentrytitle>wipefs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        may be used to remove any signatures from a block device to force
+        <option>x-systemd.makefs</option> to reinitialize the device.</para>
+
+        <xi:include href="version-info.xml" xpointer="v236"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>x-systemd.growfs</option></term>
+
+        <listitem><para>The file system will be grown to occupy the full block
+        device. If the file system is already at maximum size, no action will
+        be performed. It is hence expected that this option remains set even after
+        the file system has been grown. Only certain file system types are supported,
+        see
+        <citerefentry><refentrytitle>systemd-makefs@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for details.</para>
+
+        <para>Note that this option can only be used in
+        <filename>/etc/fstab</filename>, and will be ignored when part of the
+        <varname>Options=</varname> setting in a unit file.</para>
+
+        <xi:include href="version-info.xml" xpointer="v236"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>x-systemd.pcrfs</option></term>
+
+        <listitem><para>Measures file system identity information (mount point, type, label, UUID, partition
+        label, partition UUID) into PCR 15 after the file system has been mounted. This ensures the
+        <citerefentry><refentrytitle>systemd-pcrfs@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        or <filename>systemd-pcrfs-root.service</filename> services are pulled in by the mount unit.</para>
+
+        <para>Note that this option can only be used in <filename>/etc/fstab</filename>, and will be ignored
+        when part of the <varname>Options=</varname> setting in a unit file. It is also implied for the root
+        and <filename>/usr/</filename> partitions discovered by
+        <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>x-systemd.validatefs</option></term>
+
+        <listitem><para>Validates mount constraint metadata of the mounted file system after mounting
+        it. This ensures the
+        <citerefentry><refentrytitle>systemd-validatefs@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        service is pulled in by the mount unit.</para>
+
+        <para>Note that this option can only be used in <filename>/etc/fstab</filename>, and will be ignored
+        when part of the <varname>Options=</varname> setting in a unit file. It is also implied for all
+        partitions discovered by
+        <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>x-systemd.rw-only</option></term>
+
+        <listitem><para>If a mount operation fails to mount the file system
+        read-write, it normally tries mounting the file system read-only instead.
+        This option disables that behaviour, and causes the mount to fail
+        immediately instead. This option is translated into the
+        <varname>ReadWriteOnly=</varname> setting in a unit file.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>_netdev</option></term>
+
+        <listitem><para>Normally the file system type is used to determine if a
+        mount is a "network mount", i.e. if it should only be started after the
+        network is available. Using this option overrides this detection and
+        specifies that the mount requires network.</para>
+
+        <para>Network mount units are ordered between <filename>remote-fs-pre.target</filename>
+        and <filename>remote-fs.target</filename>, instead of
+        <filename>local-fs-pre.target</filename> and <filename>local-fs.target</filename>.
+        They also pull in <filename>network-online.target</filename> and are ordered after
+        it and <filename>network.target</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>noauto</option></term>
+        <term><option>auto</option></term>
+
+        <listitem><para>With <option>noauto</option>, the mount unit will not be added as a dependency for
+        <filename>local-fs.target</filename> or <filename>remote-fs.target</filename>. This means that it
+        will not be mounted automatically during boot, unless it is pulled in by some other unit. The
+        <option>auto</option> option has the opposite meaning and is the default.</para>
+
+        <para>Note that if <option>x-systemd.automount</option> (see above) is used, neither
+        <option>auto</option> nor <option>noauto</option> have any effect. The matching automount unit will
+        be added as a dependency to the appropriate target.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>nofail</option></term>
+
+        <listitem><para>With <option>nofail</option>, this mount will be only wanted, not required, by
+        <filename>local-fs.target</filename> or <filename>remote-fs.target</filename>. Moreover, the mount unit is not
+        ordered before these target units. This means that the boot will continue without waiting for the mount unit
+        and regardless whether the mount point can be mounted successfully.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>x-initrd.mount</option></term>
+
+        <listitem><para>An additional filesystem to be mounted in the initrd. See
+        <filename>initrd-fs.target</filename> description in
+        <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>. This
+        is both an indicator to the initrd to mount this partition early and an indicator to the host to
+        leave the partition mounted until final shutdown. Or in other words, if this flag is set it is
+        assumed the mount shall be active during the entire regular runtime of the system, i.e. established
+        before the initrd transitions into the host all the way until the host transitions to the final
+        shutdown phase.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>If a mount point is configured in both
+    <filename>/etc/fstab</filename> and a unit file that is stored
+    below <filename>/usr/</filename>, the former will take precedence.
+    If the unit file is stored below <filename>/etc/</filename>, it
+    will take precedence. This means: native unit files take
+    precedence over traditional configuration files, but this is
+    superseded by the rule that configuration in
+    <filename>/etc/</filename> will always take precedence over
+    configuration in <filename>/usr/</filename>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>Mount unit files may include [Unit] and [Install] sections, which are described in
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+
+    <para>Mount unit files must include a [Mount] section, which carries
+    information about the file system mount points it supervises. A
+    number of options that may be used in this section are shared with
+    other unit types. These options are documented in
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry> and
+    <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    The options specific to the [Mount] section of mount units are the
+    following:</para>
+
+    <variablelist class='unit-directives'>
+
+      <varlistentry>
+        <term><varname>What=</varname></term>
+        <listitem><para>Takes an absolute path or a fstab-style identifier of a device node, file or
+        other resource to mount. See <citerefentry
+        project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
+        details. If this refers to a device node, a dependency on the respective device unit is automatically
+        created. (See
+        <citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for more information.) This option is mandatory. Note that the usual specifier expansion is applied
+        to this setting, literal percent characters should hence be written as <literal
+        class='specifiers'>%%</literal>. If this mount is a bind mount and the specified path does not exist
+        yet it is created as directory.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Where=</varname></term>
+        <listitem><para>Takes an absolute path of a file or directory for the mount point; in particular, the
+        destination cannot be a symbolic link.  If the mount point does not exist at the time of mounting, it
+        is created as either a directory or a file. The former is the usual case; the latter is done only if this mount
+        is a bind mount and the source (<varname>What=</varname>) is not a directory.
+        This string must be reflected in the unit filename. (See above.) This option
+        is mandatory.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Type=</varname></term>
+        <listitem><para>Takes a string for the file system type. See
+        <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for details. This setting is optional.</para>
+
+        <para>If the type is <literal>overlay</literal>, and <literal>upperdir=</literal> or
+        <literal>workdir=</literal> are specified as options and the directories do not exist, they will be created.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Options=</varname></term>
+
+        <listitem><para>Mount options to use when mounting. This takes a comma-separated list of options. This setting
+        is optional. Note that the usual specifier expansion is applied to this setting, literal percent characters
+        should hence be written as <literal class='specifiers'>%%</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>SloppyOptions=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If true, parsing of
+        the options specified in <varname>Options=</varname> is
+        relaxed, and unknown mount options are tolerated. This
+        corresponds with
+        <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
+        <parameter>-s</parameter> switch. Defaults to
+        off.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LazyUnmount=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If true, detach the
+        filesystem from the filesystem hierarchy at time of the unmount
+        operation, and clean up all references to the filesystem as
+        soon as they are not busy anymore.
+        This corresponds with
+        <citerefentry project='man-pages'><refentrytitle>umount</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
+        <parameter>-l</parameter> switch. Defaults to
+        off.</para>
+
+        <xi:include href="version-info.xml" xpointer="v232"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ReadWriteOnly=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If false, a mount
+        point that shall be mounted read-write but cannot be mounted
+        so is retried to be mounted read-only. If true the operation
+        will fail immediately after the read-write mount attempt did
+        not succeed. This corresponds with
+        <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
+        <parameter>-w</parameter> switch. Defaults to
+        off.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ForceUnmount=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If true, force an
+        unmount (in case of an unreachable NFS system).
+        This corresponds with
+        <citerefentry project='man-pages'><refentrytitle>umount</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
+        <parameter>-f</parameter> switch. Defaults to
+        off.</para>
+
+        <xi:include href="version-info.xml" xpointer="v232"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DirectoryMode=</varname></term>
+        <listitem><para>Directories of mount points (and any parent
+        directories) are automatically created if needed. This option
+        specifies the file system access mode used when creating these
+        directories. Takes an access mode in octal notation. Defaults
+        to 0755.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>TimeoutSec=</varname></term>
+        <listitem><para>Configures the time to wait for the mount
+        command to finish. If a command does not exit within the
+        configured time, the mount will be considered failed and be
+        shut down again. All commands still running will be terminated
+        forcibly via <constant>SIGTERM</constant>, and after another
+        delay of this time with <constant>SIGKILL</constant>. (See
+        <option>KillMode=</option> in
+        <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>.)
+        Takes a unit-less value in seconds, or a time span value such
+        as "5min 20s". Pass 0 to disable the timeout logic. The
+        default value is set from <varname>DefaultTimeoutStartSec=</varname> option in
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <xi:include href="systemd.service.xml" xpointer="shared-unit-options" />
+  </refsect1>
+
+  <refsect1>
+      <title>See Also</title>
+      <para><simplelist type="inline">
+        <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry project='man-pages'><refentrytitle>proc</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-mount</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      </simplelist></para>
+  </refsect1>
+
+</refentry>

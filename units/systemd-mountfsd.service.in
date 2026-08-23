@@ -1,0 +1,48 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=DDI File System Mounter
+Documentation=man:systemd-mountfsd.service(8)
+Wants=modprobe@loop.service modprobe@dm_mod.service
+Requires=systemd-mountfsd.socket
+After=modprobe@loop.service modprobe@dm_mod.service
+Conflicts=shutdown.target
+Before=sysinit.target shutdown.target
+DefaultDependencies=no
+
+[Service]
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_SYS_RESOURCE CAP_BPF CAP_PERFMON CAP_SETGID CAP_SETUID CAP_DAC_OVERRIDE CAP_CHOWN CAP_SYS_ADMIN CAP_SYS_PTRACE CAP_SYS_CHROOT
+ExecStart={{LIBEXECDIR}}/systemd-mountfsd
+IPAddressDeny=any
+LimitNOFILE={{HIGH_RLIMIT_NOFILE}}
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+
+# FIXME: libseccomp (as of 2.6.0) doesn't know the open_tree_attr() system call
+# yet which we need. Thus, applying any system call filter would block this
+# system call unconditionally, which is not desirable. This should be added
+# back once libseccomp is updated. See
+# https://github.com/seccomp/libseccomp/issues/465
+
+#SystemCallArchitectures=native
+#SystemCallErrorNumber=EPERM
+#SystemCallFilter=@system-service @mount
+Type=notify
+NotifyAccess=all
+FileDescriptorStoreMax=4096
+{{SERVICE_WATCHDOG}}
+
+[Install]
+Also=systemd-mountfsd.socket

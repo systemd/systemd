@@ -1,0 +1,149 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="systemd-veritysetup-generator" conditional='HAVE_LIBCRYPTSETUP'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-veritysetup-generator</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-veritysetup-generator</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-veritysetup-generator</refname>
+    <refpurpose>Unit generator for verity protected block devices</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>/usr/lib/systemd/system-generators/systemd-veritysetup-generator</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-veritysetup-generator</command> is a generator that translates kernel command line
+    options configuring verity protected block devices into native systemd units early at boot and when
+    configuration of the system manager is reloaded. This will create
+    <citerefentry><refentrytitle>systemd-veritysetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    units as necessary.</para>
+
+    <para>Currently, only two verity devices may be set up with this generator, backing the root and <filename>/usr</filename> file systems of the
+    OS.</para>
+
+    <para><command>systemd-veritysetup-generator</command> implements
+    <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Kernel Command Line</title>
+
+    <para><command>systemd-veritysetup-generator</command>
+    understands the following kernel command line parameters:</para>
+
+    <variablelist class='kernel-commandline-options'>
+      <varlistentry>
+        <term><varname>systemd.verity=</varname></term>
+        <term><varname>rd.systemd.verity=</varname></term>
+
+        <listitem><para>Takes a boolean argument. Defaults to <literal>yes</literal>. If
+        <literal>no</literal>, disables the generator entirely. <varname>rd.systemd.verity=</varname> is
+        honored only in the initrd while <varname>systemd.verity=</varname> is honored by both the main
+        system and in the initrd.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>veritytab=</varname></term>
+        <term><varname>rd.veritytab=</varname></term>
+
+        <listitem><para>Takes a boolean argument. Defaults to <literal>yes</literal>. If
+        <literal>no</literal>, causes the generator to ignore any devices configured in
+        <filename>/etc/veritytab</filename>. <varname>rd.veritytab=</varname> is honored only in the initrd
+        while <varname>veritytab=</varname> is honored by both the main system and in the initrd.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>roothash=</varname></term>
+
+        <listitem><para>Takes a root hash value for the root file system. Expects a hash value formatted in hexadecimal
+        characters of the appropriate length (i.e. most likely 256 bit/64 characters, or longer). If not specified via
+        <varname>systemd.verity_root_data=</varname> and <varname>systemd.verity_root_hash=</varname>, the hash and
+        data devices to use are automatically derived from the specified hash value. Specifically, the data partition
+        device is looked for under a GPT partition UUID derived from the first 128-bit of the root hash, the hash
+        partition device is looked for under a GPT partition UUID derived from the last 128-bit of the root hash. Hence
+        it is usually sufficient to specify the root hash to boot from a verity protected root file system, as
+        device paths are automatically determined from it — as long as the partition table is properly set up.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.verity_root_data=</varname></term>
+        <term><varname>systemd.verity_root_hash=</varname></term>
+
+        <listitem><para>These two settings take block device paths as arguments and may be used to explicitly
+        configure the data partition and hash partition to use for setting up the verity protection for the root file
+        system. If not specified, these paths are automatically derived from the <varname>roothash=</varname> argument
+        (see above).</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.verity_root_options=</varname></term>
+
+        <listitem><para>Takes a comma-separated list of dm-verity options. Expects the following options
+        <option>superblock=<replaceable>BOOLEAN</replaceable></option>,
+        <option>format=<replaceable>NUMBER</replaceable></option>,
+        <option>data-block-size=<replaceable>BYTES</replaceable></option>,
+        <option>hash-block-size=<replaceable>BYTES</replaceable></option>,
+        <option>data-blocks=<replaceable>BLOCKS</replaceable></option>,
+        <option>hash-offset=<replaceable>BYTES</replaceable></option>,
+        <option>salt=<replaceable>HEX</replaceable></option>, <option>uuid=<replaceable>UUID</replaceable></option>,
+        <option>ignore-corruption</option>, <option>restart-on-corruption</option>, <option>ignore-zero-blocks</option>,
+        <option>check-at-most-once</option>, <option>panic-on-corruption</option>,
+        <option>hash=<replaceable>HASH</replaceable></option>, <option>fec-device=<replaceable>PATH</replaceable></option>,
+        <option>fec-offset=<replaceable>BYTES</replaceable></option>, <option>fec-roots=<replaceable>NUM</replaceable></option> and
+        <option>root-hash-signature=<replaceable>PATH</replaceable>|base64:<replaceable>HEX</replaceable></option>. See
+        <citerefentry project='man-pages'><refentrytitle>veritysetup</refentrytitle><manvolnum>8</manvolnum></citerefentry> for more
+        details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>usrhash=</varname></term>
+        <term><varname>systemd.verity_usr_data=</varname></term>
+        <term><varname>systemd.verity_usr_hash=</varname></term>
+        <term><varname>systemd.verity_usr_options=</varname></term>
+
+        <listitem><para>Equivalent to their counterparts for the root file system as described above, but
+        apply to the <filename>/usr/</filename> file system instead.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-veritysetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>veritysetup</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

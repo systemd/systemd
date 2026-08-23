@@ -1,0 +1,85 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd_id128_randomize" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_id128_randomize</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_id128_randomize</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_id128_randomize</refname>
+    <refpurpose>Generate 128-bit IDs</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-id128.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_id128_randomize</function></funcdef>
+        <paramdef>sd_id128_t *<parameter>ret</parameter></paramdef>
+      </funcprototype>
+
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_id128_randomize()</function> generates a new randomized 128-bit ID and returns it in
+    <parameter>ret</parameter>. Every invocation returns a new randomly generated ID. This uses the
+    <citerefentry
+    project='man-pages'><refentrytitle>getrandom</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+    kernel random number generator.</para>
+
+    <para>Note that <function>sd_id128_randomize()</function> always returns a UUID Variant 1 Version 4
+    compatible ID. It is hence guaranteed that this function will never return the ID consisting of all zero
+    or all one bits (<constant>SD_ID128_NULL</constant>, <constant>SD_ID128_ALLF</constant>).</para>
+
+    <para>For more information about the <literal>sd_id128_t</literal>
+    type, see
+    <citerefentry><refentrytitle>sd-id128</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+
+    <para><citerefentry><refentrytitle>systemd-id128</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+    <command>new</command> command may be used as a command line front-end for
+    <function>sd_id128_randomize()</function>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>The call returns 0 on success (in which case
+    <parameter>ret</parameter> is filled in), or a negative
+    errno-style error code.</para>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>History</title>
+    <para><function>sd_id128_randomize()</function> was added in version 187.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-id128</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>getrandom</refentrytitle><manvolnum>2</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_id128_get_machine</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[NetDev]
+Name=wg97
+Kind=wireguard
+
+[WireGuard]
+#PrivateKey=EEGlnEPYJV//kbvvIqxKkQwOiS+UENyPncC4bF46ong=
+ListenPort=51821
+FwMark=1235

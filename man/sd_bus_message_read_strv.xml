@@ -1,0 +1,131 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd_bus_message_read_strv" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_bus_message_read_strv</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_message_read_strv</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_message_read_strv</refname>
+    <refname>sd_bus_message_read_strv_extend</refname>
+
+    <refpurpose>Access an array of strings in a message</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_message_read_strv</function></funcdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+        <paramdef>char ***<parameter>l</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_message_read_strv_extend</function></funcdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+        <paramdef>char ***<parameter>l</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_bus_message_read_strv()</function> reads an array of string-like items from the
+    message <parameter>m</parameter>. The "read pointer" in the message must be right before an array of
+    strings (D-Bus type <literal>as</literal>), object paths (D-Bus type <literal>ao</literal>), or
+    signatures (D-Bus type <literal>ag</literal>). On success, a pointer to a
+    <constant>NULL</constant>-terminated array of strings (strv) is returned in the output parameter
+    <parameter>l</parameter>. Note that ownership of this array is transferred to the caller. Hence, the
+    caller is responsible for freeing this array and its contents. Also note that as a matter of
+    optimization, if an empty array is encountered a <constant>NULL</constant> pointer might be returned
+    here, and should be considered equivalent to an array with zero entries.</para>
+
+    <para><function>sd_bus_message_read_strv_extend()</function> is similar, but the second parameter is an
+    input-output parameter. If <parameter>*l</parameter> is <constant>NULL</constant>, if behaves identically
+    to <function>sd_bus_message_read_strv()</function>. Otherwise, <parameter>*l</parameter> must point to a
+    strv, which will be reallocated and extended with additional strings. This function is particularly
+    useful when combining multiple lists of strings in a message or messages into a single array of strings.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, these functions return a non-negative integer. On failure, they return a negative
+    errno-style error code.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para><parameter>m</parameter> or <parameter>l</parameter> are <constant>NULL</constant>.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EPERM</constant></term>
+
+          <listitem><para>The message is not sealed.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EBADMSG</constant></term>
+
+          <listitem><para>The message cannot be parsed.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENXIO</constant></term>
+
+          <listitem><para>The message "read pointer" is not right before an array of the appropriate type.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-notes.xml"/>
+
+  <refsect1>
+    <title>History</title>
+    <para><function>sd_bus_message_read_strv()</function> was added in version 246.</para>
+    <para><function>sd_bus_message_read_strv_extend()</function> was added in version 252.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_bus_message_read</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

@@ -1,0 +1,298 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd-id128"
+  xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd-id128</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd-id128</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd-id128</refname>
+    <refname>SD_ID128_ALLF</refname>
+    <refname>SD_ID128_CONST_STR</refname>
+    <refname>SD_ID128_FORMAT_STR</refname>
+    <refname>SD_ID128_FORMAT_VAL</refname>
+    <refname>SD_ID128_MAKE</refname>
+    <refname>SD_ID128_MAKE_STR</refname>
+    <refname>SD_ID128_MAKE_UUID_STR</refname>
+    <refname>SD_ID128_NULL</refname>
+    <refname>SD_ID128_UUID_FORMAT_STR</refname>
+    <refname>sd_id128_equal</refname>
+    <refname>sd_id128_string_equal</refname>
+    <refname>sd_id128_in_set</refname>
+    <refname>sd_id128_in_set_sentinel</refname>
+    <refname>sd_id128_in_setv</refname>
+    <refname>sd_id128_is_allf</refname>
+    <refname>sd_id128_is_null</refname>
+    <refname>sd_id128_t</refname>
+    <refpurpose>APIs for processing 128-bit IDs</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-id128.h&gt;</funcsynopsisinfo>
+    </funcsynopsis>
+
+    <para>
+      <constant>SD_ID128_ALLF</constant>
+    </para>
+    <para>
+      <constant>SD_ID128_NULL</constant>
+    </para>
+    <para>
+      <constant>SD_ID128_CONST_STR(<replaceable>id</replaceable>)</constant>
+    </para>
+    <para>
+      <constant>SD_ID128_FORMAT_STR</constant>
+    </para>
+    <para>
+      <constant>SD_ID128_FORMAT_VAL(<replaceable>id</replaceable>)</constant>
+    </para>
+    <para>
+      <constant>SD_ID128_MAKE(<replaceable>v0</replaceable>, <replaceable>v1</replaceable>, <replaceable>v2</replaceable>, <replaceable>v3</replaceable>, <replaceable>v4</replaceable>, <replaceable>v5</replaceable>, <replaceable>v6</replaceable>, <replaceable>v7</replaceable>, <replaceable>v8</replaceable>, <replaceable>v9</replaceable>, <replaceable>vA</replaceable>, <replaceable>vB</replaceable>, <replaceable>vC</replaceable>, <replaceable>vD</replaceable>, <replaceable>vE</replaceable>, <replaceable>vF</replaceable>)</constant>
+    </para>
+    <para>
+      <constant>SD_ID128_MAKE_STR(<replaceable>v0</replaceable>, <replaceable>v1</replaceable>, <replaceable>v2</replaceable>, <replaceable>v3</replaceable>, <replaceable>v4</replaceable>, <replaceable>v5</replaceable>, <replaceable>v6</replaceable>, <replaceable>v7</replaceable>, <replaceable>v8</replaceable>, <replaceable>v9</replaceable>, <replaceable>vA</replaceable>, <replaceable>vB</replaceable>, <replaceable>vC</replaceable>, <replaceable>vD</replaceable>, <replaceable>vE</replaceable>, <replaceable>vF</replaceable>)</constant>
+    </para>
+    <para>
+      <constant>SD_ID128_MAKE_UUID_STR(<replaceable>v0</replaceable>, <replaceable>v1</replaceable>, <replaceable>v2</replaceable>, <replaceable>v3</replaceable>, <replaceable>v4</replaceable>, <replaceable>v5</replaceable>, <replaceable>v6</replaceable>, <replaceable>v7</replaceable>, <replaceable>v8</replaceable>, <replaceable>v9</replaceable>, <replaceable>vA</replaceable>, <replaceable>vB</replaceable>, <replaceable>vC</replaceable>, <replaceable>vD</replaceable>, <replaceable>vE</replaceable>, <replaceable>vF</replaceable>)</constant>
+    </para>
+    <para>
+      <constant>SD_ID128_UUID_FORMAT_STR</constant>
+    </para>
+
+    <funcsynopsis>
+      <funcprototype>
+        <funcdef>int <function>sd_id128_equal</function></funcdef>
+        <paramdef>sd_id128_t <parameter>a</parameter></paramdef>
+        <paramdef>sd_id128_t <parameter>b</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_id128_string_equal</function></funcdef>
+        <paramdef>const char *<parameter>a</parameter></paramdef>
+        <paramdef>sd_id128_t <parameter>b</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_id128_is_null</function></funcdef>
+        <paramdef>sd_id128_t <parameter>id</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_id128_is_allf</function></funcdef>
+        <paramdef>sd_id128_t <parameter>id</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_id128_in_setv</function></funcdef>
+        <paramdef>sd_id128_t <parameter>id</parameter></paramdef>
+        <paramdef>va_list <parameter>ap</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_id128_in_set_sentinel</function></funcdef>
+        <paramdef>sd_id128_t <parameter>id</parameter></paramdef>
+        <paramdef>…</paramdef>
+        <paramdef><parameter><constant>SD_ID128_NULL</constant></parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_id128_in_set</function></funcdef>
+        <paramdef>sd_id128_t <parameter>id</parameter></paramdef>
+        <paramdef>…</paramdef>
+      </funcprototype>
+    </funcsynopsis>
+
+    <cmdsynopsis>
+      <command>pkg-config --cflags --libs libsystemd</command>
+    </cmdsynopsis>
+
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>sd-id128.h</filename> is part of
+    <citerefentry><refentrytitle>libsystemd</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
+    provides APIs to generate, convert, and compare 128-bit ID values. The 128-bit ID values processed and
+    generated by these APIs are a generalization of OSF UUIDs as defined by <ulink
+    url="https://tools.ietf.org/html/rfc4122">RFC 4122</ulink> but use a simpler string format. These
+    functions impose no structure on the used IDs, much unlike OSF UUIDs or Microsoft GUIDs, but are mostly
+    compatible with those types of IDs.
+    </para>
+
+    <para>A 128-bit ID is implemented as the following
+    union type:</para>
+
+    <programlisting>typedef union sd_id128 {
+  uint8_t bytes[16];
+  uint64_t qwords[2];
+} sd_id128_t;</programlisting>
+
+    <para>This union type allows accessing the 128-bit ID as 16 separate bytes or two 64-bit words. It is
+    generally safer to access the ID components by their 8-bit array to avoid endianness issues. This union
+    is intended to be passed by value (as opposed to pass-by-reference) and may be directly manipulated by
+    clients.</para>
+
+    <para>A couple of macros are defined to denote and decode 128-bit
+    IDs:</para>
+
+    <para><function>SD_ID128_MAKE()</function> is used to write a constant ID in source code. A commonly used
+    idiom is to assign a name to an ID using this macro:</para>
+
+    <programlisting>#define SD_MESSAGE_COREDUMP SD_ID128_MAKE(fc,2e,22,bc,6e,e6,47,b6,b9,07,29,ab,34,a2,50,b1)</programlisting>
+
+    <para><constant>SD_ID128_NULL</constant> defines an ID consisting of only <constant>NUL</constant> bytes
+    (i.e. all bits off).</para>
+
+    <para><constant>SD_ID128_ALLF</constant> defines an ID consisting of only <constant>0xFF</constant> bytes
+    (i.e. all bits on).</para>
+
+    <para><function>SD_ID128_MAKE_STR()</function> is similar to <function>SD_ID128_MAKE()</function>, but
+    creates a <type>const char*</type> expression that can be conveniently used in message formats and
+    such:</para>
+
+    <programlisting>#include &lt;stdio.h&gt;
+#define SD_MESSAGE_COREDUMP_STR SD_ID128_MAKE_STR(fc,2e,22,bc,6e,e6,47,b6,b9,07,29,ab,34,a2,50,b1)
+
+int main(int argc, char **argv) {
+  puts("Match for coredumps: MESSAGE_ID=" SD_MESSAGE_COREDUMP_STR);
+}</programlisting>
+
+    <para><function>SD_ID128_CONST_STR()</function> converts constant IDs into constant strings for
+    output. The following example code will output the string "fc2e22bc6ee647b6b90729ab34a250b1":</para>
+    <programlisting>int main(int argc, char *argv[]) {
+  puts("Match for coredumps: %s", SD_ID128_CONST_STR(SD_MESSAGE_COREDUMP));
+}</programlisting>
+
+    <para><constant>SD_ID128_FORMAT_STR</constant> and <function>SD_ID128_FORMAT_VAL()</function> is used to
+    format an ID in a <citerefentry
+    project='man-pages'><refentrytitle>printf</refentrytitle><manvolnum>3</manvolnum></citerefentry> format
+    string, as shown in the following example:</para>
+
+    <programlisting>int main(int argc, char *argv[]) {
+  sd_id128_t id;
+  id = SD_ID128_MAKE(ee,89,be,71,bd,6e,43,d6,91,e6,c5,5d,eb,03,02,07);
+  printf("The ID encoded in this C file is " SD_ID128_FORMAT_STR ".\n", SD_ID128_FORMAT_VAL(id));
+  return 0;
+}</programlisting>
+
+    <para><constant>SD_ID128_UUID_FORMAT_STR</constant> and <function>SD_ID128_MAKE_UUID_STR()</function>
+    are similar to
+    <constant>SD_ID128_FORMAT_STR</constant> and <function>SD_ID128_MAKE_STR()</function>,
+    but include separating hyphens to conform to the
+    "<ulink url="https://en.wikipedia.org/wiki/Universally_unique_identifier#Format">UUID canonical representation</ulink>".
+    They format the string based on <ulink
+    url="https://tools.ietf.org/html/rfc4122">RFC4122</ulink> Variant 1 rules, i.e. converting from Big
+    Endian byte order. This matches behaviour of most other Linux userspace infrastructure. It's probably
+    best to avoid UUIDs of other variants, in order to avoid unnecessary ambiguities. All 128-bit IDs
+    generated by the sd-id128 APIs strictly conform to Variant 1 Version 4 UUIDs, as per RFC 4122.</para>
+
+    <para><function>sd_id128_equal()</function> compares two 128-bit IDs:</para>
+
+    <programlisting>int main(int argc, char *argv[]) {
+  sd_id128_t a, b, c;
+  a = SD_ID128_MAKE(ee,89,be,71,bd,6e,43,d6,91,e6,c5,5d,eb,03,02,07);
+  b = SD_ID128_MAKE(f2,28,88,9c,5f,09,44,15,9d,d7,04,77,58,cb,e7,3e);
+  c = a;
+  assert(sd_id128_equal(a, c));
+  assert(!sd_id128_equal(a, b));
+  return 0;
+}</programlisting>
+
+    <para><function>sd_id128_string_equal()</function> is similar to <function>sd_id128_equal()</function>,
+    but the first ID is formatted as <type>const char*</type>. The same restrictions apply as to the first
+    argument of <function>sd_id128_from_string()</function>.</para>
+
+    <para><function>sd_id128_is_null()</function> checks if an ID consists of only <constant>NUL</constant>
+    bytes:</para>
+
+    <programlisting>assert(sd_id128_is_null(SD_ID128_NULL));</programlisting>
+
+    <para>Similarly, <function>sd_id128_is_allf()</function> checks if an ID consists of only
+    <constant>0xFF</constant> bytes (all bits on):</para>
+
+    <programlisting>assert(sd_id128_is_allf(SD_ID128_ALLF));</programlisting>
+
+    <para><function>sd_id128_in_set_sentinel()</function> takes a list of IDs and returns true if the first
+    argument is equal to any of the subsequent arguments. The argument list is terminated by an
+    <constant>SD_ID128_NULL</constant> sentinel, which must be present.</para>
+
+    <para><function>sd_id128_in_set()</function> is a convenience function that takes a list of IDs and
+    returns true if the first argument is equal to any of the subsequent arguments:</para>
+
+    <programlisting>int main(int argc, char *argv[]) {
+  sd_id12_t a = SD_ID128_MAKE(ee,89,be,71,bd,6e,43,d6,91,e6,c5,5d,eb,03,02,07);
+  assert(sd_id128_in_set(a, a));
+  assert(sd_id128_in_set(a, a, a));
+  assert(!sd_id128_in_set(a));
+  assert(!sd_id128_in_set(a,
+                          SD_ID128_MAKE(f2,28,88,9c,5f,09,44,15,9d,d7,04,77,58,cb,e7,3e)
+                          SD_ID128_MAKE(2f,88,28,5f,9c,44,09,9d,d7,15,77,04,bc,85,7e,e3)
+                          SD_ID128_ALLF));
+  return 0;
+}
+</programlisting>
+
+    <para><function>sd_id128_in_set()</function> is defined as a macro over
+    <function>sd_id128_in_set_sentinel()</function>, adding the <constant>SD_ID128_NULL</constant> sentinel
+    automatically. Since <function>sd_id128_in_set_sentinel()</function> uses
+    <constant>SD_ID128_NULL</constant> as the sentinel, <constant>SD_ID128_NULL</constant> cannot be
+    otherwise placed in the argument list.</para>
+
+    <para><function>sd_id128_in_setv()</function> is similar to
+    <function>sd_id128_in_set_sentinel()</function>, but takes a <structname>struct varargs</structname>
+    argument.</para>
+
+    <para>New randomized IDs may be generated with
+    <citerefentry><refentrytitle>systemd-id128</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+    <command>new</command> command.</para>
+
+    <para>See
+    <citerefentry><refentrytitle>sd_id128_to_string</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_id128_randomize</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>sd_id128_get_machine</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    for information about other implemented functions.</para>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>History</title>
+    <para><function>sd_id128_equal()</function>,
+    <function>sd_id128_string_equal()</function>,
+    <function>sd_id128_is_null()</function>,
+    <function>sd_id128_is_allf()</function>,
+    <function>sd_id128_in_setv()</function>,
+    <function>sd_id128_in_set_sentinel()</function>, and
+    <function>sd_id128_in_set()</function> were added in version 252.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_id128_to_string</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_id128_randomize</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_id128_get_machine</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>printf</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

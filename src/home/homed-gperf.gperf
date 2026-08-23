@@ -1,0 +1,24 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+%{
+_Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
+#if __GNUC__ >= 15
+_Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
+#endif
+#include <stddef.h>
+#include "conf-parser.h"
+#include "homed-conf.h"
+#include "homed-manager.h"
+%}
+struct ConfigPerfItem;
+%null_strings
+%language=ANSI-C
+%define slot-name section_and_lvalue
+%define hash-function-name homed_gperf_hash
+%define lookup-function-name homed_gperf_lookup
+%readonly-tables
+%omit-struct-type
+%struct-type
+%includes
+%%
+Home.DefaultStorage,        config_parse_default_storage,          0, offsetof(Manager, default_storage)
+Home.DefaultFileSystemType, config_parse_default_file_system_type, 0, offsetof(Manager, default_file_system_type)

@@ -1,0 +1,1670 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="homectl" conditional='ENABLE_HOMED'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>homectl</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>homectl</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>homectl</refname>
+    <refname>systemd-homed-firstboot.service</refname>
+    <refpurpose>Create, remove, change or inspect home directories</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>homectl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="req">COMMAND</arg>
+      <arg choice="opt" rep="repeat">NAME</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>homectl</command> may be used to create, remove, change or inspect a user's home
+    directory. It's primarily a command interfacing with
+    <citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    which manages home directories of users.</para>
+
+    <para>Home directories managed by <filename>systemd-homed.service</filename> are self-contained, and thus
+    include the user's full metadata record in the home's data storage itself, making them easy to migrate
+    between machines. In particular, a home directory describes a matching user record, and every user record
+    managed by <filename>systemd-homed.service</filename> also implies existence and encapsulation of a home
+    directory. The user account and home directory become the same concept.</para>
+
+    <para>The following backing storage mechanisms are supported:</para>
+
+    <itemizedlist>
+      <listitem><para>An individual LUKS2 encrypted loopback file for a user, stored in
+      <filename>/home/*.home</filename>. At login the file system contained in this files is mounted, after
+      the LUKS2 encrypted volume has been attached. The user's password is identical to the encryption
+      passphrase of the LUKS2 volume. Access to data without preceding user authentication is thus not
+      possible, even for the system administrator. This storage mechanism provides the strongest data
+      security and is thus recommended.</para></listitem>
+
+      <listitem><para>Similar, but the LUKS2 encrypted file system is located on regular block device, such
+      as a USB storage stick. In this mode home directories and all data they include are nicely migratable
+      between machines, simply by plugging the USB stick into different systems at different
+      times.</para></listitem>
+
+      <listitem><para>An encrypted directory using <literal>fscrypt</literal> on file systems that support it
+      (at the moment this is primarily <literal>ext4</literal>), located in
+      <filename>/home/*.homedir</filename>. This mechanism also provides encryption, but substantially
+      weaker than LUKS2, as most file system metadata is unprotected. Moreover
+      it currently does not support changing user passwords once the home directory has been
+      created.</para></listitem>
+
+      <listitem><para>A <literal>btrfs</literal> subvolume for each user, also located in
+      <filename>/home/*.homedir</filename>. This provides no encryption, but good quota
+      support.</para></listitem>
+
+      <listitem><para>A regular directory for each user, also located in
+      <filename>/home/*.homedir</filename>. This provides no encryption, but is a suitable fallback
+      available on all machines, even where LUKS2, <literal>fscrypt</literal> or <literal>btrfs</literal>
+      support is not available.</para></listitem>
+
+      <listitem><para>An individual Windows file share (CIFS) for each user.</para></listitem>
+    </itemizedlist>
+
+    <para>Note that <filename>systemd-homed.service</filename> and <command>homectl</command> will not manage
+    "classic" UNIX user accounts as created with <citerefentry
+    project='man-pages'><refentrytitle>useradd</refentrytitle><manvolnum>8</manvolnum></citerefentry> or
+    similar tools. In particular, this functionality is not suitable for managing system users (i.e. users
+    with a UID below 1000) but is exclusive to regular ("human") users.</para>
+
+    <para>Note that users/home directories managed via <command>systemd-homed.service</command> do not show
+    up in <filename>/etc/passwd</filename> and similar files, they are synthesized via glibc NSS during
+    runtime. They are thus resolvable and may be enumerated via the <citerefentry
+    project='man-pages'><refentrytitle>getent</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    tool.</para>
+
+    <para>This tool interfaces directly with <filename>systemd-homed.service</filename>, and may execute
+    specific commands on the home directories it manages. Since every home directory managed that way also
+    defines a JSON user and group record these home directories may also be inspected and enumerated via
+    <citerefentry><refentrytitle>userdbctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+    <para>Home directories managed by <filename>systemd-homed.service</filename> are usually in one of two
+    states, or in a transition state between them: when <literal>active</literal> they are unlocked and
+    mounted, and thus accessible to the system and its programs; when <literal>inactive</literal> they are
+    not mounted and thus not accessible. Activation happens automatically at login of the user and usually
+    can only complete after a password (or other authentication token) has been supplied. Deactivation
+    happens after the user fully logged out. A home directory remains active as long as the user is logged in
+    at least once, i.e. has at least one login session. When the user logs in a second time simultaneously
+    the home directory remains active. It is deactivated only after the last of the user's sessions
+    ends.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following general options are understood (further options that control the various properties
+    of user records managed by <filename>systemd-homed.service</filename> are documented further
+    down):</para>
+
+    <variablelist>
+
+      <varlistentry>
+        <term><option>--identity=<replaceable>FILE</replaceable></option></term>
+
+        <listitem><para>Read the user's JSON record from the specified file. If passed as
+        <literal>-</literal> read the user record from standard input. The supplied JSON object must follow
+        the structure documented in <ulink url="https://systemd.io/USER_RECORD">JSON User Records</ulink>.
+        This option may be used in conjunction with the <command>create</command> and
+        <command>update</command> commands (see below), where it allows configuring the user record in JSON
+        as-is, instead of setting the individual user record properties (see below).</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--json=<replaceable>FORMAT</replaceable></option></term>
+        <term><option>-j</option></term>
+
+        <listitem><para>Controls whether to output the user record in JSON format, if the
+        <command>inspect</command> command (see below) is used. Takes one of <literal>pretty</literal>,
+        <literal>short</literal> or <literal>off</literal>. If <literal>pretty</literal> human-friendly
+        whitespace and newlines are inserted in the output to make the JSON data more readable. If
+        <literal>short</literal> all superfluous whitespace is suppressed. If <literal>off</literal> (the
+        default) the user information is not shown in JSON format but in a friendly human-readable formatting
+        instead. The <option>-j</option> option picks <literal>pretty</literal> when run interactively and
+        <literal>short</literal> otherwise.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--export-format=<replaceable>FORMAT</replaceable></option></term>
+        <term><option>-E</option></term>
+        <term><option>-EE</option></term>
+
+        <listitem><para>When used with the <command>inspect</command> verb in JSON mode (see above) may be
+        used to suppress certain aspects of the JSON user record on output. Specifically, if
+        <literal>stripped</literal> format is used the binding and runtime fields of the record are
+        removed. If <literal>minimal</literal> format is used the cryptographic signature is removed too. If
+        <literal>full</literal> format is used the full JSON record is shown (this is the default). This
+        option is useful for copying an existing user record to a different system in order to create a
+        similar user there with the same settings. Specifically: <command>homectl inspect -EE | ssh
+        root@othersystem homectl create -i-</command> may be used as simple command line for replicating a
+        user on another host. <option>-E</option> is equivalent to <option>-j --export-format=stripped</option>,
+        <option>-EE</option> to <option>-j --export-format=minimal</option>. Note that when replicating user
+        accounts user records acquired in <literal>stripped</literal> mode will retain the original
+        cryptographic signatures and thus may only be modified when the private key to update them is available
+        on the destination machine. When replicating users in <literal>minimal</literal> mode, the signature
+        is removed during the replication and thus the record will be implicitly signed with the key of the destination
+        machine and may be updated there without any private key replication.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--offline</option></term>
+
+        <listitem><para>Do not attempt to update the copy of the user record and blob directory that is embedded inside
+        of the home area. This allows for operation on home areas that are absent, or without needing to authenticate as
+        the user being modified.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--key-name=</option></term>
+
+        <listitem><para>When used with the <command>add-signing-key</command> command, specify or override
+        the name under which to store the public key being added. The specified name can be chosen freely,
+        but must be suffixed with <literal>.public</literal>. If this option is not used the name is derived
+        from the specified filename. If a key is read from standard input this option is mandatory in order
+        to provide a suitable name for the key being added.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--seize=</option></term>
+
+        <listitem><para>Takes a boolean argument. When used with <command>create</command> or
+        <command>register</command>, controls whether to strip cryptographic signatures from the provided
+        JSON user records, which has the effect of signing them with the local signing key
+        (<filename>local.public</filename>) instead. If this switch is set to true, added user records
+        hence become locally managed (and thus can be modified locally), while if it is set to false the user
+        records remain managed and owned by its origin (and thus cannot be modified locally). This switch
+        defaults to true for <command>create</command> and false for <command>register</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--prompt-new-user</option></term>
+
+        <listitem><para>If used in conjunction with <command>firstboot</command> and no regular user account
+        exists on the system so far the tool will interactively query for user information and create an
+        account.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--prompt-shell=</option></term>
+
+        <listitem><para>Takes a boolean argument. Controls whether to interactively query for a login shell,
+        if <command>firstboot --prompt-new-user</command> is used. Defaults to true.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--prompt-groups=</option></term>
+
+        <listitem><para>Takes a boolean argument. Controls whether to interactively query for auxiliary
+        groups to add the new user to, if <command>firstboot --prompt-new-user</command> is used. Defaults to
+        true.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--chrome=</option></term>
+
+        <listitem><para>Takes a boolean argument. By default the interactive user creation via
+        <command>firstboot --prompt-new-user</command> screen will show reverse color "chrome" bars at the
+        top and the bottom of the terminal screen, which may be disabled by setting this option to
+        false.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--mute-console=</option></term>
+
+        <listitem><para>Takes a boolean argument. If true kernel log output and service manager status output
+        to the system console is temporarily disabled while <command>firstboot --prompt-new-user</command> is
+        running, so that its own output is not interrupted. Defaults to false.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--match=this|other|any|auto</option></term>
+        <term><option>-A</option></term>
+        <term><option>-N</option></term>
+        <term><option>-T</option></term>
+
+        <listitem><para>Option <option>--match=</option> takes one of <literal>this</literal>,
+        <literal>other</literal>, <literal>any</literal> or <literal>auto</literal>. Some user record
+        settings can be defined to match only specific machines, or all machines but one, or all machines.
+        With this switch it is possibly to control to which machines to apply the settings appearing on the
+        command line after it. If <literal>this</literal> is specified the setting will only apply to the
+        local system (positive match), if <literal>other</literal> it will apply to all but the local system
+        (negative match), if <literal>any</literal> it will apply to all systems (unless there's a matching
+        positive or negative per-machine setting). If <literal>auto</literal> returns to the default logic:
+        whether a setting applies by default to the local system or all systems depends on the option in
+        question.</para>
+
+        <para>Note that only some user record settings can be conditioned like this. This option has no
+        effect on the others and is ignored there. This option may appear multiple times in a single command
+        line to apply settings conditioned by different matches to the same user record. See <ulink
+        url="https://systemd.io/USER_RECORD">JSON User Records</ulink> for details on which settings may be
+        used with such per-machine matching and which ones may not.</para>
+
+        <para><option>-A</option> is a shortcut for <option>--match=any</option>, <option>-T</option> is
+        short for <option>--match=this</option> and <option>-N</option> is short for
+        <option>--match=other</option>.</para>
+
+        <para>Here's an example call that sets the storage field to <literal>luks</literal> on the local
+        system, but to <literal>cifs</literal> on all others:</para>
+
+        <programlisting># homectl update lennart -T --storage=luks -N --storage=cifs</programlisting>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <xi:include href="user-system-options.xml" xpointer="host" />
+      <xi:include href="user-system-options.xml" xpointer="machine" />
+
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="no-legend" />
+      <xi:include href="standard-options.xml" xpointer="no-ask-password" />
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>General User Record Properties</title>
+
+    <para>The following options control various properties of the user records/home directories that
+    <filename>systemd-homed.service</filename> manages. These switches may be used in conjunction with the
+    <command>create</command> and <command>update</command> commands for configuring various aspects of the
+    home directory and the user account:</para>
+
+    <variablelist>
+
+      <varlistentry>
+        <term><option>--real-name=<replaceable>NAME</replaceable></option></term>
+        <term><option>-c</option> <replaceable>NAME</replaceable></term>
+
+        <listitem><para>The real name for the user. This corresponds with the GECOS field on classic UNIX NSS
+        records.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--realm=<replaceable>REALM</replaceable></option></term>
+
+        <listitem><para>The realm for the user. The realm associates a user with a specific organization or
+        installation, and allows distinguishing users of the same name defined in different contexts. The
+        realm can be any string that also qualifies as valid DNS domain name, and it is recommended to use
+        the organization's or installation's domain name for this purpose, but this is not enforced nor
+        required. On each system only a single user of the same name may exist, and if a user with the same
+        name and realm is seen it is assumed to refer to the same user while a user with the same name but
+        different realm is considered a different user. Note that this means that two users sharing the same
+        name but with distinct realms are not allowed on the same system. Assigning a realm to a user is
+        optional.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--alias=<replaceable>NAME</replaceable><optional>,<replaceable>NAME…</replaceable></optional></option></term>
+
+        <listitem><para>Additional names for the user. Takes one or more valid UNIX user names, separated by
+        commas. May be used multiple times to define multiple aliases. An alias username may be specified
+        wherever the primary user name may be specified, and resolves to the same user record.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--email-address=<replaceable>EMAIL</replaceable></option></term>
+
+        <listitem><para>Takes an electronic mail address to associate with the user. On log-in the
+        <varname>$EMAIL</varname> environment variable is initialized from this value.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--location=<replaceable>TEXT</replaceable></option></term>
+
+        <listitem><para>Takes location specification for this user. This is free-form text, which might or
+        might not be usable by geo-location applications. Example: <option>--location="Berlin,
+        Germany"</option> or <option>--location="Basement, Room 3a"</option></para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--birth-date=<optional><replaceable>DATE</replaceable></optional></option></term>
+
+        <listitem><para>Takes a birth date for the user in ISO 8601 calendar date format
+        (<literal>YYYY-MM-DD</literal>). The earliest representable year is 1900. If an empty string is
+        passed the birth date is reset to unset.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--icon-name=<replaceable>ICON</replaceable></option></term>
+
+        <listitem><para>Takes an icon name to associate with the user, following the scheme defined by the <ulink
+        url="https://standards.freedesktop.org/icon-naming-spec/icon-naming-spec-latest.html">Icon Naming
+        Specification</ulink>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--home-dir=<replaceable>PATH</replaceable></option></term>
+        <term><option>-d<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>Takes a path to use as home directory for the user. Note that this is the directory
+        the user's home directory is mounted to while the user is logged in. This is not where the user's
+        data is actually stored, see <option>--image-path=</option> for that. If not specified, defaults to
+        <filename>/home/$USER</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--uid=<replaceable>UID</replaceable></option></term>
+
+        <listitem><para>Takes a preferred numeric UNIX UID to assign this user. If a user is to be created
+        with the specified UID and it is already taken by a different user on the local system then creation
+        of the home directory is refused. Note though, if after creating the home directory it is used on a
+        different system and the configured UID is taken by another user there, then
+        <command>systemd-homed</command> may assign the user a different UID on that system. The specified
+        UID must be outside of the system user range. It is recommended to use the 60001…60513 UID range for
+        this purpose. If not specified, the UID is automatically picked. If the home directory is found to be
+        owned by a different UID when logging in, the home directory and everything underneath it will have
+        its ownership changed automatically before login completes.</para>
+
+        <para>Note that changing this option for existing home directories generally has no effect on home
+        directories that already have been registered locally (have a local <emphasis>binding</emphasis>), as
+        the UID used for an account on the local system is determined when the home directory is first
+        activated on it, and then remains in effect until the home directory is removed.</para>
+
+        <para>Note that users managed by <command>systemd-homed</command> always have a matching group
+        associated with the same name as well as a GID matching the UID of the user. Thus, configuring the
+        GID separately is not permitted.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--member-of=<replaceable>GROUP</replaceable></option></term>
+        <term><option>-G</option> <replaceable>GROUP</replaceable></term>
+
+        <listitem><para>Takes a comma-separated list of auxiliary UNIX groups this user shall belong
+        to. Example: <option>--member-of=wheel</option> to provide the user with administrator
+        privileges. Note that <command>systemd-homed</command> does not manage any groups besides a group
+        matching the user in name and numeric UID/GID. Thus any groups listed here must be registered
+        independently, for example with <citerefentry
+        project='man-pages'><refentrytitle>groupadd</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        Any non-existent groups are ignored. This option may be used more than once, in which case all
+        specified group lists are combined. If the user is currently a member of a group which is not listed,
+        the user will be removed from the group.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--capability-bounding-set=<replaceable>CAPABILITIES</replaceable></option></term>
+        <term><option>--capability-ambient-set=<replaceable>CAPABILITIES</replaceable></option></term>
+
+        <listitem><para>These options take a space separated list of process capabilities
+        (e.g. <constant>CAP_WAKE_ALARM</constant>, <constant>CAP_BLOCK_SUSPEND</constant>, …) that shall be
+        set in the capability bounding and ambient sets for all the user's sessions. See <citerefentry
+        project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for details on the capabilities concept. These options may be used more than once, in which case the
+        specified lists are combined. If the parameter begins with a <literal>~</literal> character the
+        effect is inverted: the specified capability is dropped from the specific set.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+      </varlistentry>
+
+
+      <varlistentry>
+        <term><option>--access-mode=<replaceable>MODE</replaceable></option></term>
+
+        <listitem><para>Takes a UNIX file access mode written in octal. Configures the access mode of the
+        home directory itself. Note that this is only used when the directory is first created, and the user
+        may change this any time afterwards. Example:
+        <option>--access-mode=0700</option></para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--umask=<replaceable>MASK</replaceable></option></term>
+
+        <listitem><para>Takes the access mode mask (in octal syntax) to apply to newly created files and
+        directories of the user ("umask"). If set this controls the initial umask set for all login sessions of
+        the user, possibly overriding the system's defaults.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--skel=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>Takes a file system path to a directory. Specifies the skeleton directory to
+        initialize the home directory with. All files and directories in the specified path are copied into
+        any newly create home directory. If not specified, defaults to <filename>/etc/skel/</filename>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--shell=<replaceable>SHELL</replaceable></option></term>
+
+        <listitem><para>Takes a file system path. Specifies the shell binary to execute on terminal
+        logins. If not specified, defaults to <filename>/bin/bash</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--setenv=<replaceable>VARIABLE</replaceable>[=<replaceable>VALUE</replaceable>]</option></term>
+
+        <listitem><para>Takes an environment variable assignment to set for all user processes. May be used
+        multiple times to set multiple environment variables. When <literal>=</literal> and
+        <replaceable>VALUE</replaceable> are omitted, the value of the variable with the same name in the
+        program environment will be used.</para>
+
+        <para>Note that a number of other settings also result in environment variables to be set for the
+        user, including <option>--email=</option>, <option>--timezone=</option> and
+        <option>--language=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--timezone=<replaceable>TIMEZONE</replaceable></option></term>
+
+        <listitem><para>Takes a time zone location name that sets the timezone for the specified user. When
+        the user logs in the <varname>$TZ</varname> environment variable is initialized from this
+        setting. Example: <option>--timezone=Europe/Amsterdam</option> will result in the environment
+        variable <literal>TZ=:Europe/Amsterdam</literal>. (<literal>:</literal> is used intentionally as part
+        of the timezone specification, see
+        <citerefentry project='man-pages'><refentrytitle>tzset</refentrytitle><manvolnum>3</manvolnum></citerefentry>.)
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--language=<replaceable>LANG</replaceable></option></term>
+
+        <listitem><para>Takes a comma- or colon-separated list of languages preferred by the user, ordered
+        by descending priority. The <varname>$LANG</varname> and <varname>$LANGUAGE</varname> environment
+        variables are initialized from this value on login, and thus values suitable for these environment
+        variables are accepted here, for example <option>--language=de_DE.UTF-8</option>. This option may
+        be used more than once, in which case the language lists are concatenated.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--default-area=<replaceable>AREA</replaceable></option></term>
+
+        <listitem><para>Takes a string identifying a home directory "area" to use as default. Areas are
+        secondary home directories within the primary home directory of a user. When logging in a user can
+        specify the area they wish to log into, which ensures that the <varname>$HOME</varname> environment
+        variable is set to <filename>~/Areas/</filename> suffixed by the area name.</para>
+
+        <para>For details on the area concept see
+        <citerefentry><refentrytitle>pam_systemd_home</refentrytitle><manvolnum>8</manvolnum></citerefentry>. Note
+        that this option just defines the default, which can be overridden at login time.</para>
+
+        <para>When this option is specified with an empty string as value any previously declared default area
+        is removed from the user record.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Authentication User Record Properties</title>
+    <variablelist>
+      <varlistentry>
+        <term><option>--ssh-authorized-keys=<replaceable>KEYS</replaceable></option></term>
+        <listitem><para>Either takes a SSH authorized key line to associate with the user record or a
+        <literal>@</literal> character followed by a path to a file to read one or more such lines from. SSH
+        keys configured this way are made available to SSH to permit access to this home directory and user
+        record. This option may be used more than once to configure multiple SSH keys.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--pkcs11-token-uri=<replaceable>URI</replaceable></option></term>
+        <listitem><para>Takes an RFC 7512 PKCS#11 URI referencing a security token (e.g. YubiKey or PIV
+        smartcard) that shall be able to unlock the user account. The security token URI should reference a
+        security token with exactly one pair of X.509 certificate and private key. A random secret key is
+        then generated, encrypted with the public key of the X.509 certificate, and stored as part of the
+        user record. At login time it is decrypted with the PKCS#11 module and then used to unlock the
+        account and associated resources. See below for an example how to set up authentication with a
+        security token.</para>
+
+        <para>Instead of a valid PKCS#11 URI, the special strings <literal>list</literal> and
+        <literal>auto</literal> may be specified. If <literal>list</literal> is passed, a brief table of
+        suitable, currently plugged in PKCS#11 hardware tokens is shown, along with their URIs. If
+        <literal>auto</literal> is passed, a suitable PKCS#11 hardware token is automatically selected (this
+        operation will fail if there isn't exactly one suitable token discovered). The latter is a useful
+        shortcut for the most common case where a single PKCS#11 hardware token is plugged in.</para>
+
+        <para>Note that many hardware security tokens implement both PKCS#11/PIV and FIDO2 with the
+        <literal>hmac-secret</literal> extension (for example: the YubiKey 5 series), as supported with the
+        <option>--fido2-device=</option> option below. Both mechanisms are similarly powerful, though FIDO2
+        is the more modern technology. PKCS#11/PIV tokens have the benefit of being recognizable before
+        authentication and hence can be used for implying the user identity to use for logging in, which
+        FIDO2 does not allow. PKCS#11/PIV devices generally require initialization (i.e. storing a
+        private/public key pair on them, see example below) before they can be used; FIDO2 security tokens
+        generally do not required that, and work out of the box.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fido2-credential-algorithm=<replaceable>STRING</replaceable></option></term>
+        <listitem><para>Specify COSE algorithm used in credential generation. The default value is
+        <literal>es256</literal>. Supported values are <literal>es256</literal>, <literal>rs256</literal>
+        and <literal>eddsa</literal>.</para>
+
+        <para><literal>es256</literal> denotes ECDSA over NIST P-256 with SHA-256. <literal>rs256</literal>
+        denotes 2048-bit RSA with PKCS#1.5 padding and SHA-256. <literal>eddsa</literal> denotes
+        EDDSA over Curve25519 with SHA-512.</para>
+
+        <para>Note that your authenticator may choose not to support some algorithms.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fido2-device=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>Takes a path to a Linux <literal>hidraw</literal> device
+        (e.g. <filename>/dev/hidraw1</filename>), referring to a FIDO2 security token implementing the
+        <literal>hmac-secret</literal> extension that shall be able to unlock the user account. A random salt
+        value is generated on the host and passed to the FIDO2 device, which calculates a HMAC hash of the
+        salt using an internal secret key. The result is then used as the key to unlock the user account. The
+        random salt is included in the user record, so that whenever authentication is needed it can be
+        passed to the FIDO2 token again.</para>
+
+        <para>Instead of a valid path to a FIDO2 <literal>hidraw</literal> device the special strings
+        <literal>list</literal> and <literal>auto</literal> may be specified. If <literal>list</literal> is
+        passed, a brief table of suitable discovered FIDO2 devices is shown. If <literal>auto</literal> is
+        passed, a suitable FIDO2 token is automatically selected, if exactly one is discovered. The latter is
+        a useful shortcut for the most common case where a single FIDO2 hardware token is plugged in.</para>
+
+        <para>Note that FIDO2 devices suitable for this option must implement the
+        <literal>hmac-secret</literal> extension. Most current devices (such as the YubiKey 5 series) do. If
+        the extension is not implemented the device cannot be used for unlocking home directories.</para>
+
+        <para>The FIDO2 device may be subsequently removed by setting the device path to an empty string
+        (e.g. <command>homectl update $USER --fido2-device=""</command>).</para>
+
+        <para>Note that many hardware security tokens implement both FIDO2 and PKCS#11/PIV (and thus may be
+        used with either <option>--fido2-device=</option> or <option>--pkcs11-token-uri=</option>), for a
+        discussion see above.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fido2-with-client-pin=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>When enrolling a FIDO2 security token, controls whether to require the user to enter
+        a PIN when unlocking the account (the FIDO2 <literal>clientPin</literal> feature). Defaults to
+        <literal>yes</literal>. (Note: this setting is without effect if the security token does not support
+        the <literal>clientPin</literal> feature at all, or does not allow enabling or disabling
+        it.)</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fido2-with-user-presence=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>When enrolling a FIDO2 security token, controls whether to require the user to
+        verify presence (tap the token, the FIDO2 <literal>up</literal> feature) when unlocking the account.
+        Defaults to <literal>yes</literal>. (Note: this setting is without effect if the security token does not support
+        the <literal>up</literal> feature at all, or does not allow enabling or disabling it.)
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fido2-with-user-verification=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>When enrolling a FIDO2 security token, controls whether to require user verification
+        when unlocking the account (the FIDO2 <literal>uv</literal> feature). Defaults to
+        <literal>no</literal>. (Note: this setting is without effect if the security token does not support
+        the <literal>uv</literal> feature at all, or does not allow enabling or disabling it.)</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--recovery-key=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>Accepts a boolean argument. If enabled a recovery key is configured for the
+        account. A recovery key is a computer generated access key that may be used to regain access to an
+        account if the password has been forgotten or the authentication token lost. The key is generated and
+        shown on screen, and should be printed or otherwise transferred to a secure location. A recovery key
+        may be entered instead of a regular password to unlock the account.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Blob Directory User Record Properties</title>
+    <variablelist>
+      <varlistentry>
+        <term><option>--blob=<replaceable>PATH</replaceable></option></term>
+        <term><option>-b</option> <replaceable>PATH</replaceable></term>
+        <term><option>--blob=<replaceable>FILENAME</replaceable>=<replaceable>PATH</replaceable></option></term>
+        <term><option>-b</option> <replaceable>FILENAME</replaceable>=<replaceable>PATH</replaceable></term>
+
+        <listitem><para>Accepts either a directory path, or a file name followed by a file path. If just a
+        directory path is specified, then the user's entire blob directory is replaced the specified path.
+        Note that this replacement is performed before per-file manipulations are applied, which means these per-file
+        manipulations will be applied on top of the specified directory. If a filename and file path are specified, then
+        the single specified blob file will be overwritten with the specified path. If completely blank, the entire blob
+        directory is emptied out (which also resets all previous blob-related flags up to this point). If a filename is
+        specified but the corresponding path is blank, that single file will be deleted from the blob directory. All changes
+        are performed in temporary copies of the specified files in directories, which means that the originals specified on
+        the command line are not modified. See <ulink url="https://systemd.io/USER_RECORD_BLOB_DIRS">User Record Blob Directories</ulink>
+        for more information about blob directories.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+    <varlistentry>
+        <term><option>--avatar=<replaceable>PATH</replaceable></option></term>
+        <term><option>--login-background=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>Accept a file path. If set, the specified file is used to overwrite the
+        corresponding file in the user's blob directory. If blank, the corresponding file is deleted
+        from the blob directory. Essentially, these options are shortcuts to
+        <option>--blob=<replaceable>FILENAME</replaceable>=<replaceable>PATH</replaceable></option>
+        for the known filenames defined in
+        <ulink url="https://systemd.io/USER_RECORD_BLOB_DIRS">User Record Blob Directories</ulink>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Account Management User Record Properties</title>
+    <variablelist>
+      <varlistentry>
+        <term><option>--locked=<replaceable>BOOLEAN</replaceable></option></term>
+
+        <listitem><para>Takes a boolean argument. Specifies whether this user account shall be locked. If
+        true logins into this account are prohibited, if false (the default) they are permitted (of course,
+        only if authorization otherwise succeeds).</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--not-before=<replaceable>TIMESTAMP</replaceable></option></term>
+        <term><option>--not-after=<replaceable>TIMESTAMP</replaceable></option></term>
+
+        <listitem><para>These options take a timestamp string, in the format documented in
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry> and
+        configures points in time before and after logins into this account are not
+        permitted.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--rate-limit-interval=<replaceable>SECS</replaceable></option></term>
+        <term><option>--rate-limit-burst=<replaceable>NUMBER</replaceable></option></term>
+
+        <listitem><para>Configures a rate limit on authentication attempts for this user. If the user
+        attempts to authenticate more often than the specified number, on a specific system, within the
+        specified time interval authentication is refused until the time interval passes. Defaults to 10
+        times per 1min.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--password-hint=<replaceable>TEXT</replaceable></option></term>
+
+        <listitem><para>Takes a password hint to store alongside the user record. This string is stored
+        accessible only to privileged users and the user itself and may not be queried by other users.
+        Example: <option>--password-hint="My first pet's name"</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--enforce-password-policy=<replaceable>BOOL</replaceable></option></term>
+        <term><option>-P</option></term>
+
+        <listitem><para>Takes a boolean argument. Configures whether to enforce the system's password policy
+        for this user, regarding quality and strength of selected passwords. Defaults to
+        on. <option>-P</option> is short for
+        <option>--enforce-password-policy=no</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--password-change-now=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>Takes a boolean argument. If true the user is asked to change their password on next
+        login.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--password-change-min=<replaceable>TIME</replaceable></option></term>
+        <term><option>--password-change-max=<replaceable>TIME</replaceable></option></term>
+        <term><option>--password-change-warn=<replaceable>TIME</replaceable></option></term>
+        <term><option>--password-change-inactive=<replaceable>TIME</replaceable></option></term>
+
+        <listitem><para>Each of these options takes a time span specification as argument (in the syntax
+        documented in
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>) and
+        configures various aspects of the user's password expiration policy. Specifically,
+        <option>--password-change-min=</option> configures how much time has to pass after changing the
+        password of the user until the password may be changed again. If the user tries to change their
+        password before this time passes the attempt is refused. <option>--password-change-max=</option>
+        configures how soon after it has been changed the password expires and needs to be changed again.
+        After this time passes logging in may only proceed after the password is changed.
+        <option>--password-change-warn=</option> specifies how much earlier than then the time configured
+        with <option>--password-change-max=</option> the user is warned at login to change their password as
+        it will expire soon. Finally, <option>--password-change-inactive=</option> configures the time which
+        has to pass after the password as expired until the user is not permitted to log in or change the
+        password anymore. Note that these options only apply to password authentication, and do not apply to
+        other forms of authentication, for example PKCS#11-based security token
+        authentication.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Resource Management User Record Properties</title>
+    <variablelist>
+      <varlistentry>
+        <term><option>--disk-size=<replaceable>BYTES</replaceable></option></term>
+        <listitem><para>Either takes a size in bytes as argument (possibly using the usual K, M, G, …
+        suffixes for 1024 base values), a percentage value, or the special strings <literal>min</literal> or
+        <literal>max</literal>, and configures the disk space to assign to the user. If a percentage value is
+        specified (i.e. the argument suffixed with <literal>%</literal>) it is taken relative to the
+        available disk space of the backing file system. If specified as <literal>min</literal> assigns the
+        minimal disk space permitted by the constraints of the backing file system and other limits, when
+        specified as <literal>max</literal> assigns the maximum disk space available. If the LUKS2 backend is
+        used this configures the size of the loopback file and file system contained therein. For the other
+        storage backends configures disk quota using the filesystem's native quota logic, if available. If
+        not specified, defaults to 85% of the available disk space for the LUKS2 backend and to no quota for
+        the others.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--nice=<replaceable>NICE</replaceable></option></term>
+
+        <listitem><para>Takes the numeric scheduling priority ("nice level") to apply to the processes of the user at login
+        time. Takes a numeric value in the range -20 (highest priority) to 19 (lowest priority).</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--rlimit=<replaceable>LIMIT</replaceable>=<replaceable>VALUE</replaceable><optional>:<replaceable>VALUE</replaceable></optional></option></term>
+
+        <listitem><para>Allows configuration of resource limits for processes of this user, see <citerefentry
+        project='man-pages'><refentrytitle>getrlimit</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        for details. Takes a resource limit name (e.g. <literal>LIMIT_NOFILE</literal>) followed by an equal
+        sign, followed by a numeric limit. Optionally, separated by colon a second numeric limit may be
+        specified. If two are specified this refers to the soft and hard limits, respectively. If only one
+        limit is specified the setting sets both limits in one.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tasks-max=<replaceable>TASKS</replaceable></option></term>
+
+        <listitem><para>Takes a non-zero unsigned integer as argument. Configures the maximum number of tasks
+        (i.e. threads, where each process is at least one thread) the user may have at any given time. This
+        limit applies to all tasks forked off the user's sessions, even if they change user identity via
+        <citerefentry project='man-pages'><refentrytitle>su</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        or a similar tool. Use <option>--rlimit=LIMIT_NPROC=</option> to place a limit on the tasks actually
+        running under the UID of the user, thus excluding any child processes that might have changed user
+        identity. This controls the <varname>TasksMax=</varname> setting of the per-user systemd slice unit
+        <filename>user-$UID.slice</filename>. See
+        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for further details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--memory-high=<replaceable>BYTES</replaceable></option></term>
+        <term><option>--memory-max=<replaceable>BYTES</replaceable></option></term>
+
+        <listitem><para>Set a limit on the memory a user may take up on a system at any given time in bytes
+        (the usual K, M, G, … suffixes are supported, to the base of 1024). This includes all memory used by
+        the user itself and all processes they forked off that changed user credentials. This controls the
+        <varname>MemoryHigh=</varname> and <varname>MemoryMax=</varname> settings of the per-user systemd
+        slice unit <filename>user-$UID.slice</filename>. See
+        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for further details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--cpu-weight=<replaceable>WEIGHT</replaceable></option></term>
+        <term><option>--io-weight=<replaceable>WEIGHT</replaceable></option></term>
+
+        <listitem><para>Set CPU and IO scheduling weights of the processes of the user, including those of
+        processes forked off by the user that changed user credentials. Takes a numeric value in the range
+        1…10000. This controls the <varname>CPUWeight=</varname> and <varname>IOWeight=</varname> settings of
+        the per-user systemd slice unit <filename>user-$UID.slice</filename>. See
+        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for further details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Storage User Record Properties</title>
+    <variablelist>
+      <varlistentry>
+        <term><option>--tmp-limit=<replaceable>BYTES</replaceable></option></term>
+        <term><option>--tmp-limit=<replaceable>PERCENT</replaceable></option></term>
+        <term><option>--dev-shm-limit=<replaceable>BYTES</replaceable></option></term>
+        <term><option>--dev-shm-limit=<replaceable>PERCENT</replaceable></option></term>
+
+        <listitem><para>Controls the per-user quota on <filename>/tmp/</filename> and
+        <filename>/dev/shm/</filename> that is applied when the user logs in. Takes either an absolute value
+        in bytes (with the usual K, M, G, T suffixes to the base of 1024), or a percentage. In the latter
+        case the limit is applied relative to the size of the respective file system. This limit is only
+        applied if the relevant file system is <literal>tmpfs</literal> and has no effect otherwise. Note
+        that if these options are not used, a default quota might still be enforced (typically 80%.)</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--storage=<replaceable>STORAGE</replaceable></option></term>
+
+        <listitem><para>Selects the storage mechanism to use for this home directory. Takes one of
+        <literal>luks</literal>, <literal>fscrypt</literal>, <literal>directory</literal>,
+        <literal>subvolume</literal>, <literal>cifs</literal>. For details about these mechanisms, see
+        above. If a new home directory is created and the storage type is not specifically specified,
+        <citerefentry><refentrytitle>homed.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        defines which default storage to use.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--image-path=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>Takes a file system path. Configures where to place the user's home directory. When
+        LUKS2 storage is used refers to the path to the loopback file, otherwise to the path to the home
+        directory (which may be in <filename>/home/</filename> or any other accessible filesystem). When
+        unspecified defaults to <filename>/home/$USER.home</filename> when LUKS storage is used and
+        <filename>/home/$USER.homedir</filename> for the other storage mechanisms. Not defined for the
+        <literal>cifs</literal> storage mechanism. To use LUKS2 storage on a regular block device (for
+        example a USB stick) pass the path to the block device here. Specifying the path to a directory here
+        when using LUKS2 storage is not allowed. Similar, specifying the path to a regular file or device
+        node is not allowed if any of the other storage backends are used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--drop-caches=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>Automatically flush OS file system caches on logout. This is useful in combination
+        with the fscrypt storage backend to ensure the OS does not keep decrypted versions of the files and
+        directories in memory (and accessible) after logout. This option is also supported on other backends,
+        but should not bring any benefit there. Defaults to off, except if the selected storage backend is
+        fscrypt, where it defaults to on. Note that flushing OS caches will negatively influence performance
+        of the OS shortly after logout.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>LUKS Storage User Record Properties</title>
+    <variablelist>
+      <varlistentry>
+        <term><option>--fs-type=<replaceable>TYPE</replaceable></option></term>
+
+        <listitem><para>When LUKS2 storage is used configures the file system type to use inside the home
+        directory LUKS2 container. One of <literal>btrfs</literal>, <literal>ext4</literal>,
+        <literal>xfs</literal>. If not specified
+        <citerefentry><refentrytitle>homed.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        defines which default file system type to use. Note that <literal>xfs</literal> is not recommended as
+        its support for file system resizing is too limited.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--luks-discard=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>When LUKS2 storage is used configures whether to enable the
+        <literal>discard</literal> feature of the file system. If enabled the file system on top of the LUKS2
+        volume will report empty block information to LUKS2 and the loopback file below, ensuring that empty
+        space in the home directory is returned to the backing file system below the LUKS2 volume, resulting
+        in a "sparse" loopback file. This option mostly defaults to off, since this permits over-committing
+        home directories which results in I/O errors if the underlying file system runs full while the upper
+        file system wants to allocate a block. Such I/O errors are generally not handled well by file systems
+        nor applications. When LUKS2 storage is used on top of regular block devices (instead of on top a
+        loopback file) the discard logic defaults to on.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--luks-offline-discard=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>Similar to <option>--luks-discard=</option>, controls the trimming of the file
+        system. However, while <option>--luks-discard=</option> controls what happens when the home directory
+        is active, <option>--luks-offline-discard=</option> controls what happens when it becomes inactive,
+        i.e. whether to trim/allocate the storage when deactivating the home directory. This option defaults
+        to on, to ensure disk space is minimized while a user is not logged in.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--luks-extra-mount-options=<replaceable>OPTIONS</replaceable></option></term>
+
+        <listitem><para>Takes a string containing additional mount options to use when mounting the LUKS
+        volume. If specified, this string will be appended to the default, built-in mount
+        options. Defaults to "compress=zstd:1,noacl,user_subvol_rm_allowed".</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--luks-cipher=<replaceable>CIPHER</replaceable></option></term>
+        <term><option>--luks-cipher-mode=<replaceable>MODE</replaceable></option></term>
+        <term><option>--luks-volume-key-size=<replaceable>BYTES</replaceable></option></term>
+        <term><option>--luks-pbkdf-type=<replaceable>TYPE</replaceable></option></term>
+        <term><option>--luks-pbkdf-hash-algorithm=<replaceable>ALGORITHM</replaceable></option></term>
+        <term><option>--luks-pbkdf-force-iterations=<replaceable>ITERATIONS</replaceable></option></term>
+        <term><option>--luks-pbkdf-time-cost=<replaceable>SECONDS</replaceable></option></term>
+        <term><option>--luks-pbkdf-memory-cost=<replaceable>BYTES</replaceable></option></term>
+        <term><option>--luks-pbkdf-parallel-threads=<replaceable>THREADS</replaceable></option></term>
+        <term><option>--luks-sector-size=<replaceable>BYTES</replaceable></option></term>
+
+        <listitem><para>Configures various cryptographic parameters for the LUKS2 storage mechanism. See
+        <citerefentry
+        project='man-pages'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for details on the specific attributes.</para>
+
+        <para>Note that <command>homectl</command> uses bytes for key size, like
+        <filename>/proc/crypto</filename>, but <citerefentry
+        project='man-pages'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        uses bits.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--auto-resize-mode=</option></term>
+
+        <listitem><para>Configures whether to automatically grow and/or shrink the backing file system on
+        login and logout. Takes one of the strings <literal>off</literal>, <literal>grow</literal>,
+        <literal>shrink-and-grow</literal>. Only applies to the LUKS2 backend currently, and if the btrfs
+        file system is used inside it (since only then online growing/shrinking of the file system is
+        supported). Defaults to <literal>shrink-and-grow</literal>, if LUKS2/btrfs is used, otherwise is
+        off. If set to <literal>off</literal> no automatic shrinking/growing during login or logout is
+        done. If set to <literal>grow</literal> the home area is grown to the size configured via
+        <option>--disk-size=</option> should it currently be smaller. If it already matches the configured
+        size or is larger no operation is executed. If set to <literal>shrink-and-grow</literal> the home
+        area is also resized during logout to the minimal size the used disk space and file system
+        constraints permit. This mode thus ensures that while a home area is activated it is sized to the
+        configured size, but while deactivated it is compacted taking up only the minimal space possible.
+        Note that if the system is powered off abnormally or if the user otherwise not logged out cleanly the
+        shrinking operation will not take place, and the user has to re-login/logout again before it is
+        executed again.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--rebalance-weight=</option></term>
+
+        <listitem><para>Configures the weight parameter for the free disk space rebalancing logic. Only
+        applies to the LUKS2 backend (since for the LUKS2 backend disk space is allocated from a per-user
+        loopback file system instead of immediately from a common pool like the other backends do it). In
+        regular intervals free disk space in the active home areas and their backing storage is redistributed
+        among them, taking the weight value configured here into account. Expects an integer in the range
+        1…10000, or the special string <literal>off</literal>. If not specified, defaults to 100. The weight
+        is used to scale free space made available to the home areas: a home area with a weight of 200 will
+        get twice the free space as one with a weight of 100; a home area with a weight of 50 will get half
+        of that. The backing file system will be assigned space for a weight of 20. If set to
+        <literal>off</literal> no automatic free space distribution is done for this home area. Note that
+        resizing the home area explicitly (with <command>homectl resize</command> see below) will implicitly
+        turn off the automatic rebalancing. To reenable the automatic rebalancing use
+        <option>--rebalance-weight=</option> with an empty parameter.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Mounting User Record Properties</title>
+    <variablelist>
+      <varlistentry>
+        <term><option>--nosuid=<replaceable>BOOL</replaceable></option></term>
+        <term><option>--nodev=<replaceable>BOOL</replaceable></option></term>
+        <term><option>--noexec=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>Configures the <literal>nosuid</literal>, <literal>nodev</literal> and
+        <literal>noexec</literal> mount options for the home directories. By default, <literal>nodev</literal>
+        and <literal>nosuid</literal> are on, while <literal>noexec</literal> is off. For details about these
+        mount options see <citerefentry
+        project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>CIFS User Record Properties</title>
+    <variablelist>
+      <varlistentry>
+        <term><option>--cifs-domain=<replaceable>DOMAIN</replaceable></option></term>
+        <term><option>--cifs-user-name=<replaceable>USER</replaceable></option></term>
+        <term><option>--cifs-service=<replaceable>SERVICE</replaceable></option></term>
+        <term><option>--cifs-extra-mount-options=<replaceable>OPTIONS</replaceable></option></term>
+
+        <listitem><para>Configures the Windows File Sharing (CIFS) domain and user to associate with the home
+        directory/user account, as well as the file share ("service") to mount as directory. The latter is
+        used when <literal>cifs</literal> storage is selected. The file share should be specified in format
+        <literal>//<replaceable>host</replaceable>/<replaceable>share</replaceable>/<replaceable>directory/…</replaceable></literal>. The
+        directory part is optional — if not specified, the home directory will be placed in the top-level
+        directory of the share. The <option>--cifs-extra-mount-options=</option> setting allows specifying
+        additional mount options when mounting the share, see <citerefentry
+        project='man-pages'><refentrytitle>mount.cifs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Login Behaviour Record Properties</title>
+    <variablelist>
+      <varlistentry>
+        <term><option>--stop-delay=<replaceable>SECS</replaceable></option></term>
+
+        <listitem><para>Configures the time the per-user service manager shall continue to run after the all
+        sessions of the user ended. The default is configured in
+        <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> (for
+        home directories of LUKS2 storage located on removable media this defaults to 0 though). A longer
+        time makes sure quick, repetitive logins are more efficient as the user's service manager does not
+        have to be started every time.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--kill-processes=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>Configures whether to kill all processes of the user on logout. The default is
+        configured in
+        <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--auto-login=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>Takes a boolean argument. Configures whether the graphical UI of the system should
+        automatically log this user in if possible. Defaults to off. If less or more than one user is marked
+        this way automatic login is disabled.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--session-launcher=<replaceable>LAUNCHER</replaceable></option></term>
+
+        <listitem><para>Takes a string argument. Configures the user's preferred session launcher
+        .desktop entry file (i.e. <literal>gnome</literal>, <literal>plasma</literal>, or other names that
+        appear in <filename>/usr/share/xesssions/</filename> or <filename>/usr/share/wayland-sessions</filename>).
+        This is read by the display manager to pick the default session that is launched when the user logs in.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--session-type=<replaceable>TYPE</replaceable></option></term>
+
+        <listitem><para>Takes a string argument. Configures the user's preferred session type
+        (i.e. <literal>x11</literal>, <literal>wayland</literal>, and other values accepted by
+        <varname>$XDG_SESSION_TYPE</varname>). This is read by the display manage to pick the
+        default session type the user is logged into.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
+
+    <para>The following commands are understood:</para>
+
+    <variablelist>
+
+      <varlistentry>
+        <term><command>list</command></term>
+
+        <listitem><para>List all home directories (along with brief details) currently managed by
+        <filename>systemd-homed.service</filename>. This command is also executed if none is specified on the
+        command line. (Note that the list of users shown by this command does not include users managed by
+        other subsystems, such as system users or any traditional users listed in
+        <filename>/etc/passwd</filename>.)</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>activate</command> <replaceable>USER</replaceable> [<replaceable>USER…</replaceable>]</term>
+
+        <listitem><para>Activate one or more home directories. The home directories of each listed user will
+        be activated and made available under their mount points (typically in
+        <filename>/home/$USER</filename>). Note that any home activated this way stays active indefinitely,
+        until it is explicitly deactivated again (with <command>deactivate</command>, see below), or the user
+        logs in and out again and it thus is deactivated due to the automatic deactivation-on-logout
+        logic.</para>
+
+        <para>Activation of a home directory involves various operations that depend on the selected storage
+        mechanism. If the LUKS2 mechanism is used, this generally involves: inquiring the user for a
+        password, setting up a loopback device, validating and activating the LUKS2 volume, checking the file
+        system, mounting the file system, and potentially changing the ownership of all included files to the
+        correct UID/GID.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>deactivate</command> <replaceable>USER</replaceable> [<replaceable>USER…</replaceable>]</term>
+
+        <listitem><para>Deactivate one or more home directories. This undoes the effect of
+        <command>activate</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>inspect</command> <replaceable>USER</replaceable> [<replaceable>USER…</replaceable>]</term>
+
+        <listitem><para>Show various details about the specified home directories. This shows various
+        information about the home directory and its user account, including runtime data such as current
+        state, disk use and similar. Combine with <option>--json=</option> to show the detailed JSON user
+        record instead, possibly combined with <option>--export-format=</option> to suppress certain aspects
+        of the output.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>authenticate</command> <replaceable>USER</replaceable> [<replaceable>USER…</replaceable>]</term>
+
+        <listitem><para>Validate authentication credentials of a home directory. This queries the caller for
+        a password (or similar) and checks that it correctly unlocks the home directory. This leaves the home
+        directory in the state it is in, i.e. it leaves the home directory in inactive state if it was
+        inactive before, and in active state if it was active before.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>create</command> <replaceable>USER</replaceable></term>
+        <term><command>create</command> <option>--identity=<replaceable>PATH</replaceable></option> <optional><replaceable>USER</replaceable></optional></term>
+
+        <listitem><para>Create a new home directory/user account of the specified name. Use the various
+        user record property options (as documented above) to control various aspects of the home directory
+        and its user accounts.</para>
+
+        <para>The specified user name should follow the strict syntax described on <ulink
+        url="https://systemd.io/USER_NAMES">User/Group Name Syntax</ulink>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>adopt</command> <replaceable>PATH</replaceable> [<replaceable>PATH</replaceable>…]</term>
+
+        <listitem><para>Adopts one or more existing home directories on the local system. Takes one or more paths to
+        <filename>*.home</filename> LUKS home directories or <filename>*.homedir/</filename> standalone home
+        directories or subvolumes previously created by <filename>systemd-homed</filename> and makes them
+        available locally for login. The referenced files are not moved. This is an alternative for moving
+        such home directories into <filename>/home/</filename> (where they would be picked up
+        automatically).</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>register</command> <replaceable>FILE</replaceable> [<replaceable>FILE</replaceable>…]</term>
+
+        <listitem><para>Registers one or more users, without creating their home directories. Takes one or
+        more paths to JSON user record files. If the path is specified as <literal>-</literal> reads the
+        JSON user record from standard input.</para>
+
+        <para>Registering a user makes it accessible on the local system without creating a new home
+        directory. This is particularly useful for making a user accessible on a system it was not originally
+        created on.</para>
+
+        <para>Here's an example how to make a local user account with its home directory accessible on a
+        remote system, using SMB/CIFS file sharing. With Samba installed in its default configuration invoke
+        as <literal>root</literal>:</para>
+
+        <programlisting># smbpasswd -a lennart</programlisting>
+
+        <para>Continue as regular user <literal>lennart</literal>:</para>
+
+<programlisting>$ homectl update lennart --ssh-authorized-keys=… -N --storage=cifs --cifs-service="//$HOSTNAME/lennart"
+$ homectl get-signing-key | ssh targetsystem homectl add-signing-key --key-name="$HOSTNAME".public
+$ homectl inspect -E lennart | ssh targetsystem homectl register -
+$ ssh lennart@targetsystem</programlisting>
+
+        <para>This first ensures the user account <literal>lennart</literal> is known to and accessible by
+        Samba. It then registers a local SSH access that shall be used for accessing this user, and
+        configures CIFS as default storage for non-local systems on the account. It then adds the local
+        system's account signing key to the target system. Then it registers the local user account with the
+        target system. Finally it logs into the account on the target system. The target system will then
+        connect back via SMB/CIFS to access the home directory.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>unregister</command> <replaceable>USER</replaceable>…</term>
+
+        <listitem><para>Unregisters one or more user accounts. This only removes the user record from the
+        local system, it does not delete the home directory. The home directory can be readded via the
+        <command>register</command> or <command>adopt</command> command later, on this or another
+        system. Note that unregistering a user whose home directory is placed in <filename>/home/</filename>
+        will not make the user disappear from the local user database, as all supported home directories
+        placed there will show up in the user database. However, the user record will become "unfixated",
+        i.e. lose its binding to the local system. When logged into it will automatically regain the binding,
+        and acquire a local UID/GID pair.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>remove</command> <replaceable>USER</replaceable></term>
+
+        <listitem><para>Remove a home directory/user account. This will remove both the home directory's user
+        record and the home directory itself, and thus delete all files and directories owned by the
+        user.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>update</command> <replaceable>USER</replaceable></term>
+        <term><command>update</command> <option>--identity=<replaceable>PATH</replaceable></option> <optional><replaceable>USER</replaceable></optional></term>
+
+        <listitem><para>Update a home directory/user account. Use the various user record property options
+        (as documented above) to make changes to the account, or alternatively provide a full, updated JSON
+        user record via the <option>--identity=</option> option.</para>
+
+        <para>Note that changes to user records not signed by a cryptographic private key available locally
+        are not permitted, unless <option>--identity=</option> is used with a user record that is already
+        correctly signed by a recognized private key.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>passwd</command> <replaceable>USER</replaceable></term>
+
+        <listitem><para>Change the password of the specified home directory/user account.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>resize</command> <replaceable>USER</replaceable> <replaceable>BYTES</replaceable></term>
+
+        <listitem><para>Change the disk space assigned to the specified home directory. If the LUKS2 storage
+        mechanism is used this will automatically resize the loopback file and the file system contained
+        within. Note that if <literal>ext4</literal> is used inside of the LUKS2 volume, it is necessary to
+        deactivate the home directory before shrinking it (i.e the user has to log out). Growing can be done
+        while the home directory is active. If <literal>xfs</literal> is used inside of the LUKS2 volume the
+        home directory may not be shrunk whatsoever. On all three of <literal>ext4</literal>,
+        <literal>xfs</literal> and <literal>btrfs</literal> the home directory may be grown while the user is
+        logged in, and on the latter also shrunk while the user is logged in. If the
+        <literal>subvolume</literal>, <literal>directory</literal>, <literal>fscrypt</literal> storage
+        mechanisms are used, resizing will change file system quota. The size parameter may make use of the
+        usual suffixes B, K, M, G, T (to the base of 1024). The special strings <literal>min</literal> and
+        <literal>max</literal> may be specified in place of a numeric size value, for minimizing or
+        maximizing disk space assigned to the home area, taking constraints of the file system, disk usage inside
+        the home area and on the backing storage into account.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>lock</command> <replaceable>USER</replaceable></term>
+
+        <listitem><para>Temporarily suspend access to the user's home directory and remove any associated
+        cryptographic keys from memory. Any attempts to access the user's home directory will stall until the
+        home directory is unlocked again (i.e. re-authenticated). This functionality is primarily intended to
+        be used during system suspend to make sure the user's data cannot be accessed until the user
+        re-authenticates on resume. This operation is only defined for home directories that use the LUKS2
+        storage mechanism.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>unlock</command> <replaceable>USER</replaceable></term>
+
+        <listitem><para>Resume access to the user's home directory again, undoing the effect of
+        <command>lock</command> above. This requires authentication of the user, as the cryptographic keys
+        required for access to the home directory need to be reacquired.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>lock-all</command></term>
+
+        <listitem><para>Execute the <command>lock</command> command on all suitable home directories at
+        once. This operation is generally executed on system suspend (i.e. by <command>systemctl
+        suspend</command> and related commands), to ensure all active user's cryptographic keys for accessing
+        their home directories are removed from memory.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>deactivate-all</command></term>
+
+        <listitem><para>Execute the <command>deactivate</command> command on all active home directories at
+        once. This operation is generally executed on system shut down (i.e. by <command>systemctl
+        poweroff</command> and related commands), to ensure all active user's home directories are fully
+        deactivated before <filename>/home/</filename> and related file systems are unmounted.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>with</command> <replaceable>USER</replaceable> <replaceable>COMMAND…</replaceable></term>
+
+        <listitem><para>Activate the specified user's home directory, run the specified command (under the
+        caller's identity, not the specified user's) and deactivate the home directory afterwards again
+        (unless the user is logged in otherwise). This command is useful for running privileged backup
+        scripts and such, but requires authentication with the user's credentials in order to be able to
+        unlock the user's home directory.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>rebalance</command></term>
+
+        <listitem><para>Rebalance free disk space between active home areas and the backing storage. See
+        <option>--rebalance-weight=</option> above. This executes no operation unless there's at least one
+        active LUKS2 home area that has disk space rebalancing enabled. This operation is synchronous: it
+        will only complete once disk space is rebalanced according to the rebalancing weights. Note that
+        rebalancing also takes place automatically in the background in regular intervals. Use this command
+        to synchronously ensure disk space is properly redistributed before initiating an operation requiring
+        large amounts of disk space.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>firstboot</command></term>
+
+        <listitem><para>This command is supposed to be invoked during the initial boot of the system. It
+        checks whether any regular home area exists so far, and if not queries the user interactively on the
+        console for user name and password and creates one (only if <option>--prompt-new-user</option> is
+        specified). Alternatively, if one or more service credentials whose name starts with
+        <literal>home.create.</literal> are passed to the command (containing a user record in JSON format)
+        these users are automatically created at boot.</para>
+
+        <para>This command is invoked by the <filename>systemd-homed-firstboot.service</filename> service
+        unit.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>list-signing-keys</command></term>
+
+        <listitem><para>Show a list of public keys that home directories can be signed with to be allowed for
+        local login. One such key (<filename>local.public</filename>) will be generated automatically for
+        signing locally created home directories, but additional public keys may be registered to accept home
+        directories from other origins too (see <command>add-signing-key</command> below).</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>get-signing-key</command> [<replaceable>NAME…</replaceable>]</term>
+
+        <listitem><para>Write the public key identified by the specified name to standard output (in PEM
+        format). If no name is specified defaults to <filename>local.public</filename>, i.e. the
+        automatically generated key for locally created home directories.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>add-signing-key</command> [<replaceable>FILE…</replaceable>]</term>
+
+        <listitem><para>Add public key(s) from the specified PEM key file(s) to the list of keys that home
+        areas have to be signed by to be permitted for local login. If a path of <literal>-</literal> is
+        specified, or if no file is specified at all, the key will be read from standard input. The key file
+        name(s) must carry the <filename>.public</filename> suffix, and the file name(s) will be used to name
+        the key(s) once added, too. If a key is added from standard input the key name must be specified
+        explicitly via <option>--key-name=</option>, see above.</para>
+
+        <para>This command is useful for permitting local home directories to be used on a remote
+        system. Example:</para>
+
+        <programlisting>homectl get-signing-key | ssh myotherhost homectl add-signing-key --key-name="$HOSTNAME".public</programlisting>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>remove-signing-key</command> <replaceable>NAME…</replaceable></term>
+
+        <listitem><para>Remove the public key identified by the specified name from the list of keys that
+        control from which origins to permit home directories for login.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Credentials</title>
+
+    <para>When invoked with the <command>firstboot</command> command, <command>homectl</command> supports the
+    service credentials logic as implemented by
+    <varname>ImportCredential=</varname>/<varname>LoadCredential=</varname>/<varname>SetCredential=</varname>
+    (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details). The following credentials are used when passed in:</para>
+
+    <variablelist class='system-credentials'>
+      <varlistentry>
+        <term><varname>home.create.*</varname></term>
+
+        <listitem><para>If one or more credentials whose names begin with <literal>home.create.</literal>,
+        followed by a valid UNIX username are passed, a new home area is created, one for each specified user
+        record.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Kernel Command Line</title>
+
+    <variablelist class='kernel-commandline-options'>
+      <varlistentry>
+        <term><varname>systemd.firstboot=</varname></term>
+
+        <listitem><para>This boolean will disable the effect of <command>homectl firstboot</command>
+        command. It's primarily interpreted by
+        <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
+
+    <para>When a command is invoked with <command>with</command>, the exit status of the child is
+    propagated. Effectively, <command>homectl</command> will exit without error if the command is
+    successfully invoked <emphasis>and</emphasis> finishes successfully.</para>
+  </refsect1>
+
+  <xi:include href="common-variables.xml" />
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Create a user <literal>waldo</literal> in the administrator group <literal>wheel</literal>, and
+      assign 500 MiB disk space to them.</title>
+
+      <programlisting>homectl create waldo --real-name="Waldo McWaldo" -G wheel --disk-size=500M</programlisting>
+    </example>
+
+    <example>
+      <title>Create a user <literal>wally</literal> on a USB stick, and assign a maximum of 500 concurrent
+      tasks to them.</title>
+
+      <programlisting>homectl create wally --real-name="Wally McWally" --image-path=/dev/disk/by-id/usb-SanDisk_Ultra_Fit_476fff954b2b5c44-0:0 --tasks-max=500</programlisting>
+    </example>
+
+    <example>
+      <title>Change nice level of user <literal>odlaw</literal> to +5 and make sure the environment variable
+      <varname>$SOME</varname> is set to the string <literal>THING</literal> for them on login.</title>
+
+      <programlisting>homectl update odlaw --nice=5 --setenv=SOME=THING</programlisting>
+    </example>
+
+    <example>
+      <title>Set up authentication with a YubiKey security token using PKCS#11/PIV:</title>
+
+      <programlisting># Clear the Yubikey from any old keys (careful!)
+ykman piv reset
+
+# Generate a new private/public key pair on the device, store the public key in 'pubkey.pem'.
+ykman piv generate-key -a RSA2048 9d pubkey.pem
+
+# Create a self-signed certificate from this public key, and store it on the device.
+ykman piv generate-certificate --subject "Knobelei" 9d pubkey.pem
+
+# We do not need the public key on disk anymore
+rm pubkey.pem
+
+# Allow the security token to unlock the account of user 'lafcadio'.
+homectl update lafcadio --pkcs11-token-uri=auto</programlisting>
+    </example>
+
+    <example>
+      <title>Set up authentication with a FIDO2 security token:</title>
+
+      <programlisting># Allow a FIDO2 security token to unlock the account of user 'nihilbaxter'.
+homectl update nihilbaxter --fido2-device=auto</programlisting>
+    </example>
+
+    <example>
+      <title>Add a recovery key to an existing user account:</title>
+
+      <programlisting># Generate and add a recovery key for user 'emily'.
+homectl update emily --recovery-key=yes</programlisting>
+    </example>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>homed.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>userdbctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>useradd</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

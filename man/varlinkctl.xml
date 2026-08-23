@@ -1,0 +1,645 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="varlinkctl"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>varlinkctl</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>varlinkctl</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>varlinkctl</refname>
+    <refpurpose>Introspect with and invoke Varlink services</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>varlinkctl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">info</arg>
+      <arg choice="plain"><replaceable>ADDRESS</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>varlinkctl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">list-interfaces</arg>
+      <arg choice="plain"><replaceable>ADDRESS</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>varlinkctl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">list-methods</arg>
+      <arg choice="plain"><replaceable>ADDRESS</replaceable></arg>
+      <arg choice="opt" rep="repeat"><replaceable>INTERFACE</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>varlinkctl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">introspect</arg>
+      <arg choice="plain"><replaceable>ADDRESS</replaceable></arg>
+      <arg choice="opt" rep="repeat"><replaceable>INTERFACE</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>varlinkctl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">call</arg>
+      <arg choice="plain"><replaceable>ADDRESS</replaceable></arg>
+      <arg choice="plain"><replaceable>METHOD</replaceable></arg>
+      <arg choice="opt"><replaceable>ARGUMENTS</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>varlinkctl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">--exec</arg>
+      <arg choice="plain">call</arg>
+      <arg choice="plain"><replaceable>ADDRESS</replaceable></arg>
+      <arg choice="plain"><replaceable>METHOD</replaceable></arg>
+      <arg choice="plain"><replaceable>ARGUMENTS</replaceable></arg>
+      <arg choice="plain">--</arg>
+      <arg choice="plain"><replaceable>CMDLINE</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>varlinkctl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">serve</arg>
+      <arg choice="plain"><replaceable>METHOD</replaceable></arg>
+      <arg choice="req" rep="repeat"><replaceable>CMDLINE</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>varlinkctl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">list-registry</arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>varlinkctl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">list-sockets</arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>varlinkctl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">validate-idl</arg>
+      <arg choice="opt"><replaceable>FILE</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>varlinkctl</command> may be used to introspect and invoke <ulink
+    url="https://varlink.org/">Varlink</ulink> services.</para>
+
+    <para>Services are referenced by one of the following:</para>
+
+    <itemizedlist>
+      <listitem><para>A Varlink service reference starting with the <literal>unix:</literal> string, followed
+      by an absolute <constant>AF_UNIX</constant> socket path, or by <literal>@</literal> and an arbitrary
+      string (the latter for referencing sockets in the abstract namespace). In this case, a stream socket
+      connection is made to the specified socket.</para></listitem>
+
+      <listitem><para>A Varlink service reference starting with the <literal>exec:</literal> string, followed
+      by an absolute path of a binary to execute. In this case, the specified process is forked off locally,
+      with a connected stream socket passed in.</para></listitem>
+
+      <listitem><para>A Varlink service reference starting with the <literal>ssh-unix:</literal> string, followed
+      by an SSH host specification, followed by <literal>:</literal>, followed by an absolute
+      <constant>AF_UNIX</constant> socket path. (This requires OpenSSH 9.4 or newer on the server side,
+      and abstract namespace sockets are not supported.)</para></listitem>
+
+      <listitem><para>A Varlink service reference starting with the <literal>ssh-exec:</literal> string,
+      followed by an SSH host specification, followed by <literal>:</literal>, followed by a command line. In
+      this case, the command is invoked and the Varlink protocol is spoken on the standard input and output of
+      the invoked command.</para></listitem>
+    </itemizedlist>
+
+    <para>For convenience, these two simpler (redundant) service address syntaxes are also supported:</para>
+
+    <itemizedlist>
+      <listitem><para>A file system path to an <constant>AF_UNIX</constant> socket, either absolute
+      (i.e. begins with <literal>/</literal>) or relative (in which case it must begin with
+      <literal>./</literal>).</para></listitem>
+
+      <listitem><para>A file system path to an executable, either absolute or relative (as above, must begin
+      with <literal>/</literal> or <literal>./</literal>, respectively).</para></listitem>
+    </itemizedlist>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
+
+    <para>The following commands are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><command>info</command> <replaceable>ADDRESS</replaceable></term>
+
+        <listitem><para>Shows brief information about the specified service, including vendor name and list of
+        implemented interfaces. Expects a service address in one of the formats described above.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>list-interfaces</command> <replaceable>ADDRESS</replaceable></term>
+
+        <listitem><para>Shows a list of interfaces implemented by the specified service. Expects a service
+        address in one of the formats described above.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>list-methods</command> <replaceable>ADDRESS</replaceable> [<replaceable>INTERFACE…</replaceable>]</term>
+
+        <listitem><para>Shows a list of methods implemented by the specified service. Expects a service address
+        in one of the formats described above as well as one or more interface names. If no interface name is
+        specified, lists all methods of all interfaces implemented by the service, otherwise just the methods
+        in the specified interfaces.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>introspect</command> <replaceable>ADDRESS</replaceable> [<replaceable>INTERFACE…</replaceable>]</term>
+
+        <listitem><para>Shows the interface definitions of the specified interfaces provided by the specified
+        service. Expects a service address in one of the formats described above and optionally one or more
+        Varlink interface names. If no interface names are specified, shows all provided interfaces by the
+        service.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>call</command> <replaceable>ADDRESS</replaceable> <replaceable>METHOD</replaceable> [<replaceable>ARGUMENTS</replaceable>]</term>
+
+        <listitem><para>Calls the specified method of the specified service. Expects a service address in the
+        format described above, a fully qualified Varlink method name, and a JSON arguments object. If the
+        arguments object is not specified, it is read from STDIN instead. To pass an empty list of
+        parameters, specify the empty object <literal>{}</literal>.</para>
+
+        <para>The reply parameters are written as JSON objects to STDOUT.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>serve</command> <replaceable>METHOD</replaceable> <replaceable>CMDLINE…</replaceable></term>
+
+        <listitem><para>Run a Varlink server that accepts protocol upgrade requests for the specified method
+        and connects the upgraded connection to the standard input and output of the specified command. This
+        can act as a server-side counterpart to <command>call</command> <option>--upgrade</option>.</para>
+
+        <para>The listening socket must be passed via socket activation (i.e. the
+        <varname>$LISTEN_FDS</varname> protocol), making this command suitable for use in socket-activated
+        service units. When a client calls the specified method with the upgrade flag, the server sends a
+        reply confirming the upgrade, then forks and executes the given command line with the upgraded
+        connection on its standard input and output.</para>
+
+        <para>This effectively turns any command that speaks a protocol over standard input/output into a
+        Varlink service, discoverable via the service registry and authenticated via socket credentials.
+        Because each connection is handled by a forked child process, the service unit can apply systemd's
+        sandboxing options (such as <varname>ProtectSystem=</varname>, etc.) and does not operate in the
+        caller's environment.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>list-registry</command></term>
+
+        <listitem><para>Shows a list of Varlink services currently registered in the service registry, plus
+        their entrypoint sockets. (Currently, this simply enumerates the sockets and symlinked sockets in
+        <filename>/run/varlink/registry/</filename>, see below.)</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>list-sockets</command></term>
+
+        <listitem><para>Shows a list of listening <constant>AF_UNIX</constant> stream sockets on the local
+        system that are marked as Varlink entrypoints, along with whether the calling user has write (i.e.
+        connect) access to each of them. A socket is considered a Varlink entrypoint if its inode carries the
+        <varname>user.varlink</varname> extended attribute set to <literal>entrypoint</literal>.</para>
+
+        <para>Sockets are enumerated via the kernel's <constant>sock_diag</constant> netlink interface, and
+        hence this is not restricted to sockets in <filename>/run/varlink/registry/</filename> (as
+        <command>list-registry</command> is), but covers all file-system bound listening Varlink sockets,
+        regardless of their location. This requires kernel support for extended attributes on socket inodes,
+        which is available since Linux 7.0.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>validate-idl</command> [<replaceable>FILE</replaceable>]</term>
+
+        <listitem><para>Reads a Varlink interface definition file, parses and validates it, then outputs it
+        with syntax highlighting. This checks for syntax and internal consistency of the interface. Expects a
+        file name to read the interface definition from. If omitted, reads the interface definition from
+        STDIN.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>help</command></term>
+
+        <listitem><para>Shows command syntax help.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--more</option></term>
+
+        <listitem><para>When used with <command>call</command>: expect multiple method replies. If this flag
+        is set, the method call is sent with the <constant>more</constant> flag set, which tells the service
+        to generate multiple replies, if needed. The command remains running until the service sends a reply
+        message that indicates it is the last in the series (or if the configured timeout is reached, see
+        below). This flag should be set only for method calls that support this mechanism.</para>
+
+        <para>If this mode is enabled, output is automatically switched to JSON-SEQ mode, so that individual
+        reply objects can be easily discerned.</para>
+
+        <para>This switch has no effect on the method call timeout applied by default. Regardless of
+        whether <option>--more</option> is specified or not, the default timeout will be 45s. Use
+        <option>--timeout=</option> (see below) to change or disable the timeout. When invoking a method
+        call that continuously returns updates, it is typically desirable to disable the timeout with
+        <option>--timeout=infinity</option>. On the other hand, when invoking a <option>--more</option>
+        method call for the purpose of enumerating objects (which likely will complete quickly), it is
+        typically beneficial to leave the timeout logic enabled, for robustness reasons.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-E</option></term>
+
+        <listitem><para>A shortcut for <option>--more --timeout=infinity</option>. This switch is
+        useful for method calls that implement subscription to a continuous stream of updates.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--collect</option></term>
+
+        <listitem><para>This is similar to <option>--more</option>, but collects all responses in a JSON
+        array, and prints it, rather than in JSON-SEQ mode.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--oneway</option></term>
+
+        <listitem><para>When used with <command>call</command>: do not expect a method reply. If this flag
+        is set, the method call is sent with the <constant>oneway</constant> flag set (the command exits
+        immediately after), which tells the service not to generate a reply.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--upgrade</option></term>
+
+        <listitem><para>When used with <command>call</command>: request a protocol upgrade. The method call
+        is sent with the <constant>upgrade</constant> flag set. The service is expected to send a single
+        reply confirming the upgrade. After the reply, the Varlink protocol is no longer in effect on
+        the connection.</para>
+
+        <para>If <option>--exec</option> is not specified, <command>varlinkctl</command> acts as a
+        bidirectional proxy: data read from standard input is forwarded to the upgraded connection, and data
+        received from the connection is written to standard output.</para>
+
+        <para>If <option>--exec</option> is specified, the upgraded connection socket is placed on both
+        standard input and standard output of the invoked process. This is similar to the regular
+        <option>--exec</option> behavior (without <option>--upgrade</option>), which places the method call
+        reply on standard input. The invoked process can thus simply read from and write to
+        stdin/stdout to communicate over the upgraded protocol.</para>
+
+        <para>This option may not be combined with <option>--more</option>, <option>--oneway</option>,
+        <option>--collect</option>, <option>--graceful=</option>, or <option>--push-fd=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--json=<replaceable>MODE</replaceable></option></term>
+
+        <listitem>
+          <para>Selects the JSON output formatting, either <literal>pretty</literal> for nicely indented,
+          colorized output, or <literal>short</literal> for terse output with minimal whitespace and no
+          newlines. Defaults to <literal>short</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-j</option></term>
+
+        <listitem>
+          <para>Equivalent to <option>--json=pretty</option> when invoked interactively from a terminal. Otherwise,
+          it is equivalent to <option>--json=short</option>, in particular when the output is piped to some other
+          program.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--quiet</option></term>
+        <term><option>-q</option></term>
+
+        <listitem>
+          <para>Suppress output of method call replies.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--graceful=</option></term>
+
+        <listitem>
+          <para>Takes a qualified Varlink error name, i.e. an interface name, suffixed by an error name,
+          separated by a dot, e.g. <literal>org.varlink.service.InvalidParameter</literal>. Ensures that, if
+          a method call fails with the specified error, this will be treated as success, i.e. will cause the
+          <command>varlinkctl</command> invocation to exit with a zero exit status. This option may be used more
+          than once in order to treat multiple different errors as successes.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--timeout=</option></term>
+
+        <listitem>
+          <para>Expects a timeout in seconds as parameter. By default, a timeout of 45s is enforced. To turn
+          off the timeout, specify <literal>infinity</literal> or an empty string.</para>
+
+          <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--exec</option></term>
+
+        <listitem>
+          <para>Once the method call issued via <command>call</command> completed successfully, chainload the
+          specified command line, with the method call output parameters serialized to JSON passed into
+          standard input (and standard output and standard error inherited from the invoking
+          process). Moreover any file descriptors passed back on the underlying communication socket are
+          passed to the invoked process via the usual <varname>$LISTEN_FDS</varname> protocol. This
+          functionality may be used to consume replies that come with associated file descriptors in a
+          reasonable way.</para>
+
+          <para>Now that if <option>--exec</option> is specified the third parameter to
+          <command>call</command> is not optional (i.e. the method call parameters).</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--push-fd=</option></term>
+
+        <listitem>
+          <para>Takes a numeric file descriptor number as parameter. May be used to pass a file
+          descriptor along with the method call, if the underlying transport supports this. May be used
+          multiple times to pass multiple file descriptors, retaining the order in which they are
+          specified. The specified file descriptors must be passed to the <command>varlinkctl</command>
+          invocation. Optionally, in place of a numeric file descriptor number an absolute or relative file
+          system path (the latter must be prefixed with <literal>./</literal>) may be specified, which is
+          opened in read-only mode.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--system</option></term>
+        <term><option>--user</option></term>
+
+        <listitem>
+          <para>Determines whether to query to the per-system or per-user registry when using the
+          <command>list-registry</command> command. By default, the per-system registry is queried.</para>
+        </listitem>
+
+        <xi:include href="version-info.xml" xpointer="v260"/>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="no-ask-password" />
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Files &amp; Directories</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><filename>/run/varlink/registry/</filename></term>
+
+        <listitem>
+          <para>Directory containing <constant>AF_UNIX</constant> entrypoint socket inodes (or symlinks to
+          them) of well-known, public Varlink interfaces on the local system. They are named after the
+          Varlink interface they implement.</para>
+
+          <para>Use <command>varlinkctl list-registry</command> to show the contents of this
+          directory.</para>
+
+          <para>(Inodes that neither qualify as socket inodes nor as symlinks to them shall be ignored. A
+          future extension might introduce regular files and directories to enhance the registry
+          functionality.)</para>
+
+          <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Investigating a Service</title>
+
+      <para>The following three commands inspect the <literal>io.systemd.Resolve</literal> service
+      implemented by
+      <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      listing general service information and implemented interfaces, and then displaying the interface
+      definition of its primary interface:</para>
+
+      <programlisting>$ varlinkctl info /run/systemd/resolve/io.systemd.Resolve
+    Vendor: The systemd Project
+   Product: systemd (systemd-resolved)
+   Version: 254 (254-1522-g4790521^)
+       URL: https://systemd.io/
+Interfaces: io.systemd
+            io.systemd.Resolve
+            org.varlink.service
+$ varlinkctl list-interfaces /run/systemd/resolve/io.systemd.Resolve
+io.systemd
+io.systemd.Resolve
+org.varlink.service
+$ varlinkctl introspect /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve
+interface io.systemd.Resolve
+type ResolvedAddress(
+        ifindex: ?int,
+        …</programlisting>
+
+    <para>(Interface definition has been truncated in the example above, in the interest of brevity.)</para>
+    </example>
+
+    <example>
+      <title>Invoking a Method</title>
+
+      <para>The following command resolves a hostname via
+      <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
+      <function>ResolveHostname</function> method call.</para>
+
+      <programlisting>$ varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveHostname '{"name":"systemd.io","family":2}' -j
+{
+        "addresses" : [
+                {
+                        "ifindex" : 2,
+                        "family" : 2,
+                        "address" : [
+                                185,
+                                199,
+                                111,
+                                153
+                        ]
+                }
+        ],
+        "name" : "systemd.io",
+        "flags" : 1048577
+}</programlisting>
+    </example>
+
+    <example>
+      <title>Investigating a Service Executable</title>
+
+      <para>The following command inspects the <filename>/usr/lib/systemd/systemd-pcrextend</filename>
+      executable and the IPC APIs it provides. It then invokes a method on it:</para>
+
+      <programlisting># varlinkctl info /usr/lib/systemd/systemd-pcrextend
+    Vendor: The systemd Project
+   Product: systemd (systemd-pcrextend)
+   Version: 254 (254-1536-g97734fb)
+       URL: https://systemd.io/
+Interfaces: io.systemd
+            io.systemd.PCRExtend
+            org.varlink.service
+# varlinkctl introspect /usr/lib/systemd/systemd-pcrextend io.systemd.PCRExtend
+interface io.systemd.PCRExtend
+
+method Extend(
+        pcr: int,
+        text: ?string,
+        data: ?string
+) -> ()
+# varlinkctl call /usr/lib/systemd/systemd-pcrextend io.systemd.PCRExtend.Extend '{"pcr":15,"text":"foobar"}'
+{}</programlisting>
+    </example>
+
+    <example>
+      <title>Invoking a method remotely via SSH</title>
+
+      <para>The following command acquires a report about the identity of a remote host
+      <literal>somehost</literal> from
+      <citerefentry><refentrytitle>systemd-hostnamed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      by connecting via SSH to the <constant>AF_UNIX</constant> socket the service listens on:</para>
+
+      <programlisting># varlinkctl call ssh-unix:somehost:/run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}'</programlisting>
+
+      <para>To invoke a Varlink service binary directly on the remote host, rather than talking to a service
+      via <constant>AF_UNIX</constant> can be done like this:</para>
+
+      <programlisting># varlinkctl call ssh-exec:somehost:systemd-creds org.varlink.service.GetInfo '{}'</programlisting>
+    </example>
+
+    <example>
+      <title>Serving a Sandboxed Decompressor via Protocol Upgrade</title>
+
+      <para>The following socket and service units expose <command>xz</command> decompression as a Varlink
+      service. Clients connect and send compressed data over the upgraded connection, receiving decompressed
+      output in return.</para>
+
+      <programlisting># /etc/systemd/system/varlink-decompress-xz.socket
+[Socket]
+ListenStream=/run/varlink/registry/com.example.Decompress.XZ
+
+[Install]
+WantedBy=sockets.target
+
+# /etc/systemd/system/varlink-decompress-xz.service
+[Service]
+ExecStart=varlinkctl serve com.example.Decompress.XZ xz -d
+DynamicUser=yes
+PrivateNetwork=yes
+ProtectSystem=strict
+ProtectHome=yes
+NoNewPrivileges=yes
+SystemCallFilter=~@privileged @resources
+MemoryMax=256M</programlisting>
+
+      <para>A client can then decompress data through this service:</para>
+
+      <programlisting>$ echo "hello" | xz | varlinkctl call --upgrade \
+        unix:/run/varlink/registry/com.example.Decompress.XZ \
+        com.example.Decompress.XZ '{}'
+hello</programlisting>
+
+      <para>For quick testing without unit files, <command>systemd-socket-activate</command> can be used
+      to provide the listening socket:</para>
+
+      <programlisting>$ systemd-socket-activate -l /tmp/decompress.sock -- varlinkctl serve com.example.Decompress.XZ xz -d &amp;
+$ echo "hello" | xz | varlinkctl call --upgrade unix:/tmp/decompress.sock com.example.Decompress.XZ '{}'
+hello</programlisting>
+    </example>
+
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>busctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><ulink url="https://varlink.org/">Varlink</ulink></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

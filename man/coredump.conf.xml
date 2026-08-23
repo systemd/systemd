@@ -1,0 +1,199 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="coredump.conf" conditional="ENABLE_COREDUMP"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>coredump.conf</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>coredump.conf</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>coredump.conf</refname>
+    <refname>coredump.conf.d</refname>
+    <refpurpose>Core dump storage configuration files</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><simplelist>
+      <member><filename>/etc/systemd/coredump.conf</filename></member>
+      <member><filename>/run/systemd/coredump.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/coredump.conf</filename></member>
+      <member><filename>/usr/lib/systemd/coredump.conf</filename></member>
+      <member><filename>/etc/systemd/coredump.conf.d/*.conf</filename></member>
+      <member><filename>/run/systemd/coredump.conf.d/*.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/coredump.conf.d/*.conf</filename></member>
+      <member><filename>/usr/lib/systemd/coredump.conf.d/*.conf</filename></member>
+    </simplelist></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>These files configure the behavior of
+    <citerefentry><refentrytitle>systemd-coredump</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    a handler for core dumps invoked by the kernel. Whether <command>systemd-coredump</command> is used
+    is determined by the kernel's
+    <varname>kernel.core_pattern</varname> <citerefentry project='man-pages'><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    setting. See
+    <citerefentry><refentrytitle>systemd-coredump</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    and
+    <citerefentry project='man-pages'><refentrytitle>core</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    pages for the details.</para>
+  </refsect1>
+
+  <xi:include href="standard-conf.xml" xpointer="main-conf" />
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>All options are configured in the
+    [Coredump] section:</para>
+
+    <variablelist class='config-directives'>
+
+      <varlistentry>
+        <term><varname>Storage=</varname></term>
+
+        <listitem><para>Controls where to store cores. One of <literal>none</literal>,
+        <literal>external</literal>, and <literal>journal</literal>. When <literal>none</literal>, the core
+        dumps may be logged (including the backtrace if possible), but not stored permanently. When
+        <literal>external</literal> (the default), cores will be stored in
+        <filename>/var/lib/systemd/coredump/</filename>.  When <literal>journal</literal>, cores will be
+        stored in the journal and rotated following normal journal rotation patterns.</para>
+
+        <para>When cores are stored in the journal, they might be compressed following journal compression
+        settings, see
+        <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        When cores are stored externally, they will be compressed by default, see below.</para>
+
+        <para>Note that in order to process a coredump (i.e. extract a stack trace) the core must be written
+        to disk first. Thus, unless <varname>ProcessSizeMax=</varname> is set to 0 (see below), the core will
+        be written to <filename>/var/lib/systemd/coredump/</filename> either way (under a temporary filename,
+        or even in an unlinked file), <varname>Storage=</varname> thus only controls whether to leave it
+        there even after it was processed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Compress=</varname></term>
+
+        <listitem><para>Controls compression for external
+        storage. Takes a boolean argument, which defaults to
+        <literal>yes</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ProcessSizeMax=</varname></term>
+
+        <listitem><para>The maximum size in bytes of a core which will be processed. Core dumps exceeding
+        this size may be stored, but the stack trace will not be generated.  Like other sizes in this same
+        config file, the usual suffixes to the base of 1024 are allowed (B, K, M, G, T, P, and E). Defaults
+        to 1G on 32-bit systems, 32G on 64-bit systems.</para>
+
+        <para>Setting <varname>Storage=none</varname> and <varname>ProcessSizeMax=0</varname>
+        disables all coredump handling except for a log entry.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>EnterNamespace=</varname></term>
+
+        <listitem><para>For processes belonging to a PID namespace, controls whether
+        <citerefentry><refentrytitle>systemd-coredump</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        shall attempt to process core dumps on the host, using debug
+        information from the file system hierarchy (i.e. the mount namespace) of the process that
+        crashed. Access to the process' file system hierarchy might be necessary to generate a fully
+        symbolized backtrace. If set to <literal>yes</literal>, <command>systemd-coredump</command> will
+        obtain the tree of mounts from the crashing process' mount namespace and will try to generate the stack
+        trace in host context using the debug information of binaries and libraries contained in the crashing
+        process' hierarchy. Defaults to <literal>no</literal>, i.e. no attempt is made to acquire external
+        debug information from the process' mount namespace, in order to maximize security. This option has
+        no effect on processes that are part of the host's PID namespace.</para>
+
+        <para>Note that the coredump of the namespaced process is still saved in
+        <filename>/var/lib/systemd/coredump/</filename> on the host even if
+        <varname>EnterNamespace=</varname> is set to <literal>no</literal> (subject to
+        <varname>Storage=</varname>).</para>
+
+        <para>Note that <varname>EnterNamespace=</varname> only has an effect if a core dump is generated by
+        a container whose unit does not have <varname>CoredumpReceive=</varname> enabled.</para>
+
+        <para>Note that it's typically preferable to let containers and other namespace-based sandboxes
+        process their own coredumps, if possible, for best security. This may be enabled on the container's
+        unit via the <varname>CoredumpReceive=</varname> setting, see
+        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ExternalSizeMax=</varname></term>
+        <term><varname>JournalSizeMax=</varname></term>
+
+        <listitem><para>The maximum (compressed or uncompressed) size in bytes of a coredump to be saved in
+        separate files on disk (default: 1G on 32-bit systems, 32G on 64-bit systems) or in the journal
+        (default: 767M). Note that the journal service enforces a hard limit on journal log records of 767M,
+        and will ignore larger submitted log records. Hence, <varname>JournalSizeMax=</varname> may be
+        lowered relative to the default, but not increased. Unit suffixes are allowed just as in
+        <option>ProcessSizeMax=</option>.</para>
+
+        <para><varname>ExternalSizeMax=infinity</varname> sets the core size to unlimited.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>MaxUse=</varname></term>
+        <term><varname>KeepFree=</varname></term>
+
+        <listitem><para>Enforce limits on the disk space, specified
+        in bytes, taken up by externally stored core dumps.
+        Unit suffixes are allowed just as in <option>ProcessSizeMax=</option>.
+        <option>MaxUse=</option> makes
+        sure that old core dumps are removed as soon as the total disk
+        space taken up by core dumps grows beyond this limit (defaults
+        to 10% of the total disk size, capped at 4GiB, minimum 1MiB). 
+        <option>KeepFree=</option> controls how much disk space to keep
+        free at least (defaults to 15% of the total disk size, limited 
+        to a maximum of 4GiB). Note that the disk space used
+        by core dumps might temporarily exceed these limits while
+        core dumps are processed. <option>MaxUse=</option> takes precedence.
+        Note that old core dumps are also
+        removed based on time via
+        <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        Set either value to 0 to turn off size-based cleanup.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>Use <programlisting>systemd-analyze cat-config systemd/coredump.conf</programlisting>
+    to display the full config.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>coredumpctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

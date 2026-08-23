@@ -1,0 +1,8 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+{
+global:
+        pam_sm_close_session;
+        pam_sm_open_session;
+local: *;
+};

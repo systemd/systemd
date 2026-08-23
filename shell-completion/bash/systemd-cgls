@@ -1,0 +1,75 @@
+# shellcheck shell=bash
+# systemd-cgls(1) completion                  -*- shell-script -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# This file is part of systemd.
+#
+# systemd is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
+#
+# systemd is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
+
+__contains_word() {
+    local w word=$1; shift
+    for w in "$@"; do
+        [[ $w = "$word" ]] && return
+    done
+}
+
+__get_machines() {
+    local a b
+    { machinectl list --full --max-addresses=0 --no-legend --no-pager 2>/dev/null; echo ".host"; } |
+        { while read -r a b; do echo " $a"; done; } |
+        sort -u
+}
+
+__get_units_have_cgroup() {
+    systemctl $1 --full --no-legend --no-pager --plain list-units 2>/dev/null | {
+        while read -r a b c d; do
+            [[ $c == "active" && ${a##*.} =~ (service|socket|mount|swap|slice|scope) ]] && echo " $a"
+        done
+    }
+}
+
+_systemd_cgls() {
+    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]} words cword
+    local i verb comps
+
+    local -A OPTS=(
+        [STANDALONE]='-h --help --version --all -l --full -k --no-pager --xattr=no --cgroup-id=no'
+        [ARG]='-c --cgroup-id -M --machine -u --unit --user-unit -x --xattr'
+    )
+
+    _init_completion || return
+
+    if __contains_word "$prev" ${OPTS[ARG]}; then
+        case $prev in
+            --machine|-M)
+                comps=$( __get_machines )
+                ;;
+            --unit|-u)
+                comps=$( __get_units_have_cgroup --system )
+                ;;
+            -c|--cgroup-id|-x|--xattr)
+                comps='yes no'
+                ;;
+            --user-unit)
+                comps=$( __get_units_have_cgroup --user )
+                ;;
+        esac
+        COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+        return 0
+    fi
+
+    COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
+}
+
+complete -F _systemd_cgls systemd-cgls

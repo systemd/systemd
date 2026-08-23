@@ -1,0 +1,192 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!--
+  SPDX-License-Identifier: LGPL-2.1-or-later
+
+  Copyright © 2016 Red Hat, Inc.
+-->
+<refentry id="environment.d" conditional='ENABLE_ENVIRONMENT_D'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>environment.d</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>environment.d</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>environment.d</refname>
+    <refpurpose>Definition of user service environment</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><simplelist>
+      <member><filename>~/.config/environment.d/*.conf</filename></member>
+      <member><filename>/etc/environment.d/*.conf</filename></member>
+      <member><filename>/run/environment.d/*.conf</filename></member>
+      <member><filename>/usr/local/lib/environment.d/*.conf</filename></member>
+      <member><filename>/usr/lib/environment.d/*.conf</filename></member>
+      <member><filename>/etc/environment</filename></member>
+    </simplelist></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>Configuration files in the <filename>environment.d/</filename> directories contain lists of
+    environment variable assignments passed to services started by the systemd user instance.
+    <citerefentry><refentrytitle>systemd-environment-d-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    parses them and updates the environment exported by the systemd user instance. See below for an
+    discussion of which processes inherit those variables.</para>
+
+    <para>The user-level configuration directory defaults to <filename>~/.config/environment.d/</filename>.
+    If <varname>$XDG_CONFIG_HOME</varname> is set to an absolute path in the user service manager
+    environment (e.g. via PAM or <filename>/etc/environment</filename>), it takes precedence over
+    <filename>~/.config/</filename>. Note that this creates a bootstrapping consideration: variables
+    set in <filename>environment.d/</filename> files, including <varname>$XDG_CONFIG_HOME</varname>
+    itself, are not available when the generator determines which directory to read.</para>
+
+    <para>It is recommended to use numerical prefixes for file names to simplify ordering.</para>
+
+    <para>For backwards compatibility, a symlink to <filename>/etc/environment</filename> is
+    installed, so this file is also parsed.</para>
+  </refsect1>
+
+  <xi:include href="standard-conf.xml" xpointer="confd" />
+
+  <refsect1>
+    <title>Configuration Format</title>
+
+    <para>The configuration files contain a list of
+    <literal><replaceable>KEY</replaceable>=<replaceable>VALUE</replaceable></literal> environment
+    variable assignments, separated by newlines. The right hand side of these assignments may
+    reference previously defined environment variables, using the <literal>${OTHER_KEY}</literal>
+    and <literal>$OTHER_KEY</literal> format. It is also possible to use
+    <literal>${<replaceable>FOO</replaceable>:-<replaceable>DEFAULT_VALUE</replaceable>}</literal>
+    to expand in the same way as <literal>${<replaceable>FOO</replaceable>}</literal> unless the
+    expansion would be empty, in which case it expands to <replaceable>DEFAULT_VALUE</replaceable>,
+    and use
+    <literal>${<replaceable>FOO</replaceable>:+<replaceable>ALTERNATE_VALUE</replaceable>}</literal>
+    to expand to <replaceable>ALTERNATE_VALUE</replaceable> as long as
+    <literal>${<replaceable>FOO</replaceable>}</literal> would have expanded to a non-empty value.
+    You can escape a literal dollar sign <literal>$</literal> by doubling it, as in
+    <literal>$$</literal>.</para>
+
+    <para>A backslash character <literal>\</literal> followed by a newline acts as a line
+    continuation (both characters are discarded); in all other cases, the backslash is consumed and
+    the following character is included literally in the value. This can be used to preserve
+    leading/trailing whitespace or include literal backslashes.</para>
+
+    <para>You may optionally enclose the right hand side of assignments in pairs of either
+    <constant>'</constant>single quotes<constant>'</constant> or <constant>"</constant>double
+    quotes<constant>"</constant>; these will be stripped from the value before saving it. Using
+    either quoting style does not affect variable expansion; however, single quotes disable
+    backslash escaping entirely, while double quoting removes backslashes that precede double quotes
+    <literal>"</literal>, dollar signs <literal>$</literal>, backslashes <literal>\</literal>,
+    backticks <literal>`</literal>, and newlines, and leaves all other backslashes in place.</para>
+
+    <para>Leading and trailing whitespace characters are stripped from both the left and right hand
+    sides of the assignment. To preserve such spaces in the value, you can either enclose the entire
+    value in quotes, or escape the space characters with backslashes. You can also include literal
+    newlines in the value by enclosing it in quotes.</para>
+
+    <para>Each <replaceable>KEY</replaceable> must be a valid variable name. Empty lines and lines
+    beginning with the comment characters <literal>#</literal> or <literal>;</literal> are ignored.
+    No other elements of shell syntax are supported.</para>
+
+    <refsect2>
+      <title>Examples</title>
+      <example>
+        <title>Setup environment to allow access to a program installed in
+        <filename index="false">/opt/foo</filename></title>
+
+        <para><filename index="false">/etc/environment.d/60-foo.conf</filename>:
+        </para>
+        <programlisting>
+FOO_DEBUG=force-software-gl,log-verbose
+PATH=/opt/foo/bin:$PATH
+LD_LIBRARY_PATH=/opt/foo/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+XDG_DATA_DIRS=/opt/foo/share:${XDG_DATA_DIRS:-/usr/local/share/:/usr/share/}
+</programlisting>
+      </example>
+
+      <example>
+        <title>Escaping and variable expansion</title>
+
+        <para><filename index="false">/etc/environment.d/70-bar.conf</filename>:
+        </para>
+        <programlisting>
+# A comment
+test_var=(variable)
+; Another comment
+test_comment=value # This is a part of the variable, and not a comment!
+
+test_none= \ before\
+after "" '' \${test_var}
+test_double=" \ before\
+after "" '' \${test_var}"
+test_single=' \ before\
+after "" '' \${test_var}'
+
+# The above example produces the following environment variables, written using
+# C-style string escapes:
+#
+# test_var="(variable)"
+# test_comment="value # This is a part of the variable, and not a comment!"
+# test_none=" beforeafter \"\" '' (variable)"
+# test_double=" \\ beforeafter  '' (variable)"
+# test_single=" \\ before\\\nafter \"\"  \\(variable)"
+</programlisting>
+      </example>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Applicability</title>
+
+    <para>Environment variables exported by the user service manager (<command>systemd --user</command>
+    instance started in the <filename>user@<replaceable>uid</replaceable>.service</filename> system service)
+    are passed to any services started by that service manager. In particular, this may include services
+    which run user shells. For example in the GNOME environment, the graphical terminal emulator runs as the
+    <filename>gnome-terminal-server.service</filename> user unit, which in turn runs the user shell, so that
+    shell will inherit environment variables exported by the user manager. For other instances of the shell,
+    not launched by the user service manager, the environment they inherit is defined by the program that
+    starts them. Hint: in general,
+    <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry> units
+    contain programs launched by systemd, and
+    <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry> units
+    contain programs launched by something else.</para>
+
+    <para>Note that these files do not affect the environment block of the service manager itself, but
+    exclusively the environment blocks passed to the services it manages. Environment variables set that way
+    thus cannot be used to influence behaviour of the service manager. In order to make changes to the
+    service manager's environment block the environment must be modified before the user's service manager is
+    invoked, for example from the system service manager or via a PAM module.</para>
+
+    <para>Specifically, for ssh logins, the
+    <citerefentry project='man-pages'><refentrytitle>sshd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    service builds an environment that is a combination of variables forwarded from the remote system and
+    defined by <command>sshd</command>, see the discussion in
+    <citerefentry project='man-pages'><refentrytitle>ssh</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+    A graphical display session will have an analogous mechanism to define the environment. Note that some
+    managers query the systemd user instance for the exported environment and inject this configuration into
+    programs they start, using <command>systemctl show-environment</command> or the underlying D-Bus call.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-environment-d-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.environment-generator</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

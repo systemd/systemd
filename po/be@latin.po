@@ -1,0 +1,1484 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# Belarusian translation for systemd.
+#
+#
+# Viktar Vaŭčkievič <victorenator@gmail.com>, 2015, 2016.
+msgid ""
+msgstr ""
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-06-01 11:49+0200\n"
+"PO-Revision-Date: 2026-08-02 00:07+0000\n"
+"Last-Translator: Anonymous <noreply@weblate.org>\n"
+"Language-Team: Belarusian (Latin script) <https://"
+"translate.fedoraproject.org/projects/systemd/main/be_Latn/>\n"
+"Language: be@latin\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
+"n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
+"X-Generator: Weblate 2026.7.1\n"
+
+#: src/core/org.freedesktop.systemd1.policy.in:22
+msgid "Send passphrase back to system"
+msgstr "Adpravić paroĺ nazad sistemie"
+
+#: src/core/org.freedesktop.systemd1.policy.in:23
+msgid ""
+"Authentication is required to send the entered passphrase back to the system."
+msgstr "Nieabchodna aŭtentyfikacyja dlia adpraŭki parolia nazad sistemie."
+
+#: src/core/org.freedesktop.systemd1.policy.in:33
+msgid "Manage system services or other units"
+msgstr "Kiravać servisami i inšymi sistemnymi adzinkami"
+
+#: src/core/org.freedesktop.systemd1.policy.in:34
+msgid "Authentication is required to manage system services or other units."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia kiravannia servisami i inšymi sistemnymi "
+"adzinkami."
+
+#: src/core/org.freedesktop.systemd1.policy.in:43
+msgid "Manage system service or unit files"
+msgstr "Kiravać fajlami servisaŭ i inšych sistemnych adzinak"
+
+#: src/core/org.freedesktop.systemd1.policy.in:44
+msgid "Authentication is required to manage system service or unit files."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia kiravannia fajlami servisaŭ i inšych "
+"sistemnych adzinak."
+
+#: src/core/org.freedesktop.systemd1.policy.in:54
+msgid "Set or unset system and service manager environment variables"
+msgstr "Ustaliavać abo skinuć zmiennyja asiaroddzia sistemnaha menedžera"
+
+#: src/core/org.freedesktop.systemd1.policy.in:55
+msgid ""
+"Authentication is required to set or unset system and service manager "
+"environment variables."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia abo skidu zmiennych "
+"asiaroddzia sistemnaha menedžera."
+
+#: src/core/org.freedesktop.systemd1.policy.in:64
+msgid "Reload the systemd state"
+msgstr "Pieračytać stan systemd"
+
+#: src/core/org.freedesktop.systemd1.policy.in:65
+msgid "Authentication is required to reload the systemd state."
+msgstr "Nieabchodna aŭtentyfikacyja dlia pieračytannia stanu systemd."
+
+#: src/core/org.freedesktop.systemd1.policy.in:74
+msgid "Dump the systemd state without rate limits"
+msgstr ""
+
+#: src/core/org.freedesktop.systemd1.policy.in:75
+#, fuzzy
+msgid ""
+"Authentication is required to dump the systemd state without rate limits."
+msgstr "Nieabchodna aŭtentyfikacyja dlia pieračytannia stanu systemd."
+
+#: src/home/org.freedesktop.home1.policy:13
+msgid "Create a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:14
+#, fuzzy
+msgid "Authentication is required to create a user's home area."
+msgstr "Nieabchodna aŭtentyfikacyja dlia pieračytannia stanu systemd."
+
+#: src/home/org.freedesktop.home1.policy:23
+msgid "Remove a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:24
+#, fuzzy
+msgid "Authentication is required to remove a user's home area."
+msgstr "Nieabchodna aŭtentyfikacyja dlia pieračytannia stanu systemd."
+
+#: src/home/org.freedesktop.home1.policy:33
+msgid "Check credentials of a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:34
+#, fuzzy
+msgid ""
+"Authentication is required to check credentials against a user's home area."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia kiravannia aktyŭnymi siesijami, "
+"karystaĺnikami i miescami."
+
+#: src/home/org.freedesktop.home1.policy:43
+msgid "Update a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:44
+#, fuzzy
+msgid "Authentication is required to update a user's home area."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia dalučennia prylad da pracoŭnych miescaŭ."
+
+#: src/home/org.freedesktop.home1.policy:53
+msgid "Update your home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:54
+#, fuzzy
+msgid "Authentication is required to update your home area."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia dalučennia prylad da pracoŭnych miescaŭ."
+
+#: src/home/org.freedesktop.home1.policy:63
+msgid "Resize a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:64
+#, fuzzy
+msgid "Authentication is required to resize a user's home area."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia ŭsieahuĺnaha paviedamliennia"
+
+#: src/home/org.freedesktop.home1.policy:73
+msgid "Change password of a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:74
+#, fuzzy
+msgid ""
+"Authentication is required to change the password of a user's home area."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia kiravannia aktyŭnymi siesijami, "
+"karystaĺnikami i miescami."
+
+#: src/home/org.freedesktop.home1.policy:83
+msgid "Activate a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:84
+#, fuzzy
+msgid "Authentication is required to activate a user's home area."
+msgstr "Nieabchodna aŭtentyfikacyja dlia pieračytannia stanu systemd."
+
+#: src/home/org.freedesktop.home1.policy:93
+msgid "Manage Home Directory Signing Keys"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:94
+#, fuzzy
+msgid "Authentication is required to manage signing keys for home directories."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia kiravannia servisami i inšymi sistemnymi "
+"adzinkami."
+
+#: src/home/pam_systemd_home.c:327
+#, c-format
+msgid ""
+"Home of user %s is currently absent, please plug in the necessary storage "
+"device or backing file system."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:332
+#, c-format
+msgid "Too frequent login attempts for user %s, try again later."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:344
+msgid "Password: "
+msgstr ""
+
+#: src/home/pam_systemd_home.c:346
+#, c-format
+msgid "Password incorrect or not sufficient for authentication of user %s."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:347
+msgid "Sorry, try again: "
+msgstr ""
+
+#: src/home/pam_systemd_home.c:369
+msgid "Recovery key: "
+msgstr ""
+
+#: src/home/pam_systemd_home.c:371
+#, c-format
+msgid ""
+"Password/recovery key incorrect or not sufficient for authentication of user "
+"%s."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:372
+msgid "Sorry, reenter recovery key: "
+msgstr ""
+
+#: src/home/pam_systemd_home.c:392
+#, c-format
+msgid "Security token of user %s not inserted."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:393 src/home/pam_systemd_home.c:396
+msgid "Try again with password: "
+msgstr ""
+
+#: src/home/pam_systemd_home.c:395
+#, c-format
+msgid ""
+"Password incorrect or not sufficient, and configured security token of user "
+"%s not inserted."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:415
+msgid "Security token PIN: "
+msgstr ""
+
+#: src/home/pam_systemd_home.c:432
+#, c-format
+msgid "Please authenticate physically on security token of user %s."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:443
+#, c-format
+msgid "Please confirm presence on security token of user %s."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:454
+#, c-format
+msgid "Please verify user on security token of user %s."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:463
+msgid ""
+"Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
+"insertion might suffice.)"
+msgstr ""
+
+#: src/home/pam_systemd_home.c:471
+#, c-format
+msgid "Security token PIN incorrect for user %s."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:472 src/home/pam_systemd_home.c:491
+#: src/home/pam_systemd_home.c:510
+msgid "Sorry, retry security token PIN: "
+msgstr ""
+
+#: src/home/pam_systemd_home.c:490
+#, c-format
+msgid "Security token PIN of user %s incorrect (only a few tries left!)"
+msgstr ""
+
+#: src/home/pam_systemd_home.c:509
+#, c-format
+msgid "Security token PIN of user %s incorrect (only one try left!)"
+msgstr ""
+
+#: src/home/pam_systemd_home.c:676
+#, c-format
+msgid "Home of user %s is currently not active, please log in locally first."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:678
+#, c-format
+msgid "Home of user %s is currently locked, please unlock locally first."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:712
+#, c-format
+msgid "Too many unsuccessful login attempts for user %s, refusing."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:1021
+msgid "User record is blocked, prohibiting access."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:1025
+msgid "User record is not valid yet, prohibiting access."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:1029
+msgid "User record is not valid anymore, prohibiting access."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:1034 src/home/pam_systemd_home.c:1083
+msgid "User record not valid, prohibiting access."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:1044
+#, c-format
+msgid "Too many logins, try again in %s."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:1055
+msgid "Password change required."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:1059
+msgid "Password expired, change required."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:1065
+msgid "Password is expired, but can't change, refusing login."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:1069
+msgid "Password will expire soon, please change."
+msgstr ""
+
+#: src/hostname/org.freedesktop.hostname1.policy:20
+msgid "Set hostname"
+msgstr "Ustaliavać imia vuzla"
+
+#: src/hostname/org.freedesktop.hostname1.policy:21
+msgid "Authentication is required to set the local hostname."
+msgstr "Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia imia vuzla."
+
+#: src/hostname/org.freedesktop.hostname1.policy:30
+msgid "Set static hostname"
+msgstr "Ustaliavać statyčnaje imia vuzla"
+
+#: src/hostname/org.freedesktop.hostname1.policy:31
+msgid ""
+"Authentication is required to set the statically configured local hostname, "
+"as well as the pretty hostname."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia jak statyčnaha tak i "
+"pryhožaha imia vuzla."
+
+#: src/hostname/org.freedesktop.hostname1.policy:41
+msgid "Set machine information"
+msgstr "Ustaliavać infarmacyju ab mašynie"
+
+#: src/hostname/org.freedesktop.hostname1.policy:42
+msgid "Authentication is required to set local machine information."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia infarmacyi ab lakaĺnaj "
+"mašynie."
+
+#: src/hostname/org.freedesktop.hostname1.policy:51
+msgid "Get product UUID"
+msgstr ""
+
+#: src/hostname/org.freedesktop.hostname1.policy:52
+#, fuzzy
+msgid "Authentication is required to get product UUID."
+msgstr "Nieabchodna aŭtentyfikacyja dlia pieračytannia stanu '$(unit)'."
+
+#: src/hostname/org.freedesktop.hostname1.policy:61
+msgid "Get hardware serial number"
+msgstr ""
+
+#: src/hostname/org.freedesktop.hostname1.policy:62
+#, fuzzy
+msgid "Authentication is required to get hardware serial number."
+msgstr "Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia sistemnaha času."
+
+#: src/hostname/org.freedesktop.hostname1.policy:71
+#, fuzzy
+msgid "Get system description"
+msgstr "Ustaliavać sistemny časavy pojas"
+
+#: src/hostname/org.freedesktop.hostname1.policy:72
+#, fuzzy
+msgid "Authentication is required to get system description."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia sistemnaha časavoha pojasu."
+
+#: src/import/org.freedesktop.import1.policy:22
+#, fuzzy
+msgid "Import a disk image"
+msgstr "Impartavać vobraz VM abo kantejniera"
+
+#: src/import/org.freedesktop.import1.policy:23
+#, fuzzy
+msgid "Authentication is required to import an image."
+msgstr "Nieabchodna aŭtentyfikacyja dlia impartu vobraza VM abo kantejniera"
+
+#: src/import/org.freedesktop.import1.policy:32
+#, fuzzy
+msgid "Export a disk image"
+msgstr "Ekspartavać vobraz VM abo kantejniera"
+
+#: src/import/org.freedesktop.import1.policy:33
+#, fuzzy
+msgid "Authentication is required to export disk image."
+msgstr "Nieabchodna aŭtentyfikacyja dlia ekspartu vobraza VM abo kantejniera"
+
+#: src/import/org.freedesktop.import1.policy:42
+#, fuzzy
+msgid "Download a disk image"
+msgstr "Spampavać vobraz VM abo kantejniera"
+
+#: src/import/org.freedesktop.import1.policy:43
+#, fuzzy
+msgid "Authentication is required to download a disk image."
+msgstr "Nieabchodna aŭtentyfikacyja dlia spampoŭki vobraza VM abo kantejniera"
+
+#: src/import/org.freedesktop.import1.policy:52
+msgid "Cancel transfer of a disk image"
+msgstr ""
+
+#: src/import/org.freedesktop.import1.policy:53
+#, fuzzy
+msgid ""
+"Authentication is required to cancel the ongoing transfer of a disk image."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia kiravannia aktyŭnymi siesijami, "
+"karystaĺnikami i miescami."
+
+#: src/locale/org.freedesktop.locale1.policy:22
+msgid "Set system locale"
+msgstr "Ustaliavać sistemnuju lakaĺ"
+
+#: src/locale/org.freedesktop.locale1.policy:23
+msgid "Authentication is required to set the system locale."
+msgstr "Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia sistemnaj lakali."
+
+#: src/locale/org.freedesktop.locale1.policy:33
+msgid "Set system keyboard settings"
+msgstr "Ustaliavać sistemnyja nalady klavijatury"
+
+#: src/locale/org.freedesktop.locale1.policy:34
+msgid "Authentication is required to set the system keyboard settings."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia sistemnych nalad klavijatury."
+
+#: src/login/org.freedesktop.login1.policy:22
+msgid "Allow applications to inhibit system shutdown"
+msgstr "Dazvolić prahramam pieraškadžać vykliučenniu sistemy"
+
+#: src/login/org.freedesktop.login1.policy:23
+msgid ""
+"Authentication is required for an application to inhibit system shutdown."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia dazvolu prahramam pieraškadžać vykliučenniu "
+"sistemy."
+
+#: src/login/org.freedesktop.login1.policy:33
+msgid "Allow applications to delay system shutdown"
+msgstr "Dazvolić prahramam zatrymlivać vykliučennie sistemy"
+
+#: src/login/org.freedesktop.login1.policy:34
+msgid "Authentication is required for an application to delay system shutdown."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia dazvolu prahramam zatrymlivać vykliučennie "
+"sistemy."
+
+#: src/login/org.freedesktop.login1.policy:44
+msgid "Allow applications to inhibit system sleep"
+msgstr "Dazvolić prahramam pieraškadžać zasypanniu sistemy"
+
+#: src/login/org.freedesktop.login1.policy:45
+msgid "Authentication is required for an application to inhibit system sleep."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia dazvolu prahramam pieraškadžać zasypanniu "
+"sistemy."
+
+#: src/login/org.freedesktop.login1.policy:55
+msgid "Allow applications to delay system sleep"
+msgstr "Dazvolić prahramam zatrymlivać zasypannie sistemy"
+
+#: src/login/org.freedesktop.login1.policy:56
+msgid "Authentication is required for an application to delay system sleep."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia dazvolu prahramam zatrymlivać zasypannie "
+"sistemy."
+
+#: src/login/org.freedesktop.login1.policy:65
+msgid "Allow applications to inhibit automatic system suspend"
+msgstr "Dazvolić prahramam pieraškadžać aŭtamatyčnamu prypynienniu sistemy"
+
+#: src/login/org.freedesktop.login1.policy:66
+msgid ""
+"Authentication is required for an application to inhibit automatic system "
+"suspend."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia dazvolu prahramam pieraškadžać "
+"aŭtamatyčnamu prypynienniu sistemy."
+
+#: src/login/org.freedesktop.login1.policy:75
+msgid "Allow applications to inhibit system handling of the power key"
+msgstr ""
+"Dazvolić prahramam pieraškadžać sistemie apracoŭvać klavišu vykliučennia"
+
+#: src/login/org.freedesktop.login1.policy:76
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the power key."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia dazvolu prahramam pieraškadžać sistemie "
+"apracoŭvać klavišu vykliučennia."
+
+#: src/login/org.freedesktop.login1.policy:86
+msgid "Allow applications to inhibit system handling of the suspend key"
+msgstr ""
+"Dazvolić prahramam pieraškadžać sistemie apracoŭvać klavišu prypyniennia"
+
+#: src/login/org.freedesktop.login1.policy:87
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the suspend key."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia dazvolu prahramam pieraškadžać sistemie "
+"apracoŭvać klavišu prypyniennia."
+
+#: src/login/org.freedesktop.login1.policy:97
+msgid "Allow applications to inhibit system handling of the hibernate key"
+msgstr "Dazvolić prahramam pieraškadžać sistemie apracoŭvać klavišu hibiernacyi"
+
+#: src/login/org.freedesktop.login1.policy:98
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the hibernate key."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia dazvolu prahramam pieraškadžać sistemie "
+"apracoŭvać klavišu hibiernacyi."
+
+#: src/login/org.freedesktop.login1.policy:107
+msgid "Allow applications to inhibit system handling of the lid switch"
+msgstr ""
+"Dazvolić prahramam pieraškadžać sistemie apracoŭvać zakryccio kryški noŭtbuka"
+
+#: src/login/org.freedesktop.login1.policy:108
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the lid switch."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia dazvolu prahramam pieraškadžać sistemie "
+"apracoŭvać zakryccio kryški noŭtbuka."
+
+#: src/login/org.freedesktop.login1.policy:117
+#, fuzzy
+msgid "Allow applications to inhibit system handling of the reboot key"
+msgstr ""
+"Dazvolić prahramam pieraškadžać sistemie apracoŭvać klavišu vykliučennia"
+
+#: src/login/org.freedesktop.login1.policy:118
+#, fuzzy
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the reboot key."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia dazvolu prahramam pieraškadžać sistemie "
+"apracoŭvać klavišu vykliučennia."
+
+#: src/login/org.freedesktop.login1.policy:128
+msgid "Allow non-logged-in user to run programs"
+msgstr ""
+"Dazvolić karystaĺniku, jakija jašče nie ŭvajšoŭ u sistemu, vykonvać prahramy"
+
+#: src/login/org.freedesktop.login1.policy:129
+msgid "Explicit request is required to run programs as a non-logged-in user."
+msgstr ""
+"Nieabchodny vidavočny zapyt dlia vykanannia prahram karystaĺnika, jaki jašče "
+"nie ŭvajšoŭ u sistemu."
+
+#: src/login/org.freedesktop.login1.policy:138
+msgid "Allow non-logged-in users to run programs"
+msgstr ""
+"Dazvolić karystaĺnikam, jakija jašče nie ŭvajšli ŭ sistemu, vykonvać prahramy"
+
+#: src/login/org.freedesktop.login1.policy:139
+msgid "Authentication is required to run programs as a non-logged-in user."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia vykanannia prahram karystaĺnika, jaki jašče "
+"nie ŭvajšoŭ u sistemu."
+
+#: src/login/org.freedesktop.login1.policy:148
+msgid "Allow attaching devices to seats"
+msgstr "Dazvolić dalučać prylady da pracoŭnych miescaŭ"
+
+#: src/login/org.freedesktop.login1.policy:149
+msgid "Authentication is required to attach a device to a seat."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia dalučennia prylad da pracoŭnych miescaŭ."
+
+#: src/login/org.freedesktop.login1.policy:159
+msgid "Flush device to seat attachments"
+msgstr "Adkliučać prylady ad pracoŭnych miescaŭ"
+
+#: src/login/org.freedesktop.login1.policy:160
+msgid "Authentication is required to reset how devices are attached to seats."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia adkliučennia prylad ad pracoŭnych miescaŭ."
+
+#: src/login/org.freedesktop.login1.policy:169
+msgid "Power off the system"
+msgstr "Vykliučyć sistemu"
+
+#: src/login/org.freedesktop.login1.policy:170
+msgid "Authentication is required to power off the system."
+msgstr "Nieabchodna aŭtentyfikacyja dlia vykliučennia sistemy."
+
+#: src/login/org.freedesktop.login1.policy:180
+msgid "Power off the system while other users are logged in"
+msgstr "Vykliučyć sistemu pry prysutnasci inšych karystaĺnikaŭ"
+
+#: src/login/org.freedesktop.login1.policy:181
+msgid ""
+"Authentication is required to power off the system while other users are "
+"logged in."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia vykliučennia sistemy pry prysutnasci inšych "
+"karystaĺnikaŭ."
+
+#: src/login/org.freedesktop.login1.policy:191
+msgid "Power off the system while an application is inhibiting this"
+msgstr "Vykliučyć sistemu, kali prahramy pieraškadžajuć hetamu"
+
+#: src/login/org.freedesktop.login1.policy:192
+msgid ""
+"Authentication is required to power off the system while an application is "
+"inhibiting this."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia vykliučennia sistemy, kali prahramy "
+"pieraškadžajuć hetamu."
+
+#: src/login/org.freedesktop.login1.policy:202
+msgid "Reboot the system"
+msgstr "Pierazahruzić sistemu"
+
+#: src/login/org.freedesktop.login1.policy:203
+msgid "Authentication is required to reboot the system."
+msgstr "Nieabchodna aŭtentyfikacyja dlia pierazahruzki sistemy."
+
+#: src/login/org.freedesktop.login1.policy:213
+msgid "Reboot the system while other users are logged in"
+msgstr "Pierazahruzić sistemu pry prysutnasci inšych karystaĺnikaŭ"
+
+#: src/login/org.freedesktop.login1.policy:214
+msgid ""
+"Authentication is required to reboot the system while other users are logged "
+"in."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia pierazahruzki sistemy pry prysutnasci "
+"inšych karystaĺnikaŭ."
+
+#: src/login/org.freedesktop.login1.policy:224
+msgid "Reboot the system while an application is inhibiting this"
+msgstr "Pierazahruzić sistemu, kali prahramy pieraškadžajuć hetamu"
+
+#: src/login/org.freedesktop.login1.policy:225
+msgid ""
+"Authentication is required to reboot the system while an application is "
+"inhibiting this."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia pierazahruzki sistemy, kali prahramy "
+"pieraškadžajuć hetamu."
+
+#: src/login/org.freedesktop.login1.policy:235
+#, fuzzy
+msgid "Halt the system"
+msgstr "Hibiernavać sistemu"
+
+#: src/login/org.freedesktop.login1.policy:236
+#, fuzzy
+msgid "Authentication is required to halt the system."
+msgstr "Nieabchodna aŭtentyfikacyja dlia hibiernacyi sistemy."
+
+#: src/login/org.freedesktop.login1.policy:246
+#, fuzzy
+msgid "Halt the system while other users are logged in"
+msgstr "Hibiernavać sistemu pry prysutnasci inšych karystaĺnikaŭ"
+
+#: src/login/org.freedesktop.login1.policy:247
+#, fuzzy
+msgid ""
+"Authentication is required to halt the system while other users are logged "
+"in."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia hibiernacyi sistemy pry prysutnasci inšych "
+"karystaĺnikaŭ."
+
+#: src/login/org.freedesktop.login1.policy:257
+#, fuzzy
+msgid "Halt the system while an application is inhibiting this"
+msgstr "Hibiernavać sistemu, kali prahramy pieraškadžajuć hetamu"
+
+#: src/login/org.freedesktop.login1.policy:258
+#, fuzzy
+msgid ""
+"Authentication is required to halt the system while an application is "
+"inhibiting this."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia hibiernacyi sistemy, kali prahramy "
+"pieraškadžajuć hetamu."
+
+#: src/login/org.freedesktop.login1.policy:268
+msgid "Suspend the system"
+msgstr "Prypynić sistemu"
+
+#: src/login/org.freedesktop.login1.policy:269
+msgid "Authentication is required to suspend the system."
+msgstr "Nieabchodna aŭtentyfikacyja dlia prypyniennia sistemy."
+
+#: src/login/org.freedesktop.login1.policy:278
+msgid "Suspend the system while other users are logged in"
+msgstr "Prypynić sistemu pry prysutnasci inšych karystaĺnikaŭ"
+
+#: src/login/org.freedesktop.login1.policy:279
+msgid ""
+"Authentication is required to suspend the system while other users are "
+"logged in."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia prypyniennia sistemy pry prysutnasci inšych "
+"karystaĺnikaŭ."
+
+#: src/login/org.freedesktop.login1.policy:289
+msgid "Suspend the system while an application is inhibiting this"
+msgstr "Prypynić sistemu, kali prahramy pieraškadžajuć hetamu"
+
+#: src/login/org.freedesktop.login1.policy:290
+msgid ""
+"Authentication is required to suspend the system while an application is "
+"inhibiting this."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia prypyniennia sistemy, kali prahramy "
+"pieraškadžajuć hetamu."
+
+#: src/login/org.freedesktop.login1.policy:300
+msgid "Hibernate the system"
+msgstr "Hibiernavać sistemu"
+
+#: src/login/org.freedesktop.login1.policy:301
+msgid "Authentication is required to hibernate the system."
+msgstr "Nieabchodna aŭtentyfikacyja dlia hibiernacyi sistemy."
+
+#: src/login/org.freedesktop.login1.policy:310
+msgid "Hibernate the system while other users are logged in"
+msgstr "Hibiernavać sistemu pry prysutnasci inšych karystaĺnikaŭ"
+
+#: src/login/org.freedesktop.login1.policy:311
+msgid ""
+"Authentication is required to hibernate the system while other users are "
+"logged in."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia hibiernacyi sistemy pry prysutnasci inšych "
+"karystaĺnikaŭ."
+
+#: src/login/org.freedesktop.login1.policy:321
+msgid "Hibernate the system while an application is inhibiting this"
+msgstr "Hibiernavać sistemu, kali prahramy pieraškadžajuć hetamu"
+
+#: src/login/org.freedesktop.login1.policy:322
+msgid ""
+"Authentication is required to hibernate the system while an application is "
+"inhibiting this."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia hibiernacyi sistemy, kali prahramy "
+"pieraškadžajuć hetamu."
+
+#: src/login/org.freedesktop.login1.policy:332
+msgid "Manage active sessions, users and seats"
+msgstr "Kiravać aktyŭnymi siesijami, karystaĺnikami i pracoŭnymi miescami"
+
+#: src/login/org.freedesktop.login1.policy:333
+msgid "Authentication is required to manage active sessions, users and seats."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia kiravannia aktyŭnymi siesijami, "
+"karystaĺnikami i miescami."
+
+#: src/login/org.freedesktop.login1.policy:342
+msgid "Lock or unlock active sessions"
+msgstr "Blakavać abo razblakavać aktyŭnuju siesiju"
+
+#: src/login/org.freedesktop.login1.policy:343
+msgid "Authentication is required to lock or unlock active sessions."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia blakiroŭki abo razblakiroŭki aktyŭnaj "
+"siesii."
+
+#: src/login/org.freedesktop.login1.policy:352
+msgid "Set the reboot \"reason\" in the kernel"
+msgstr ""
+
+#: src/login/org.freedesktop.login1.policy:353
+#, fuzzy
+msgid "Authentication is required to set the reboot \"reason\" in the kernel."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia sistemnaha časavoha pojasu."
+
+#: src/login/org.freedesktop.login1.policy:363
+#, fuzzy
+msgid "Indicate to the firmware to boot to setup interface"
+msgstr "Dazvolić ukazannie prašyŭcy na zahruzku interfiejsu nalad"
+
+#: src/login/org.freedesktop.login1.policy:364
+msgid ""
+"Authentication is required to indicate to the firmware to boot to setup "
+"interface."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia ŭkazannia prašyŭcy na zahruzku interfiejsu "
+"nalad."
+
+#: src/login/org.freedesktop.login1.policy:374
+msgid "Indicate to the boot loader to boot to the boot loader menu"
+msgstr ""
+
+#: src/login/org.freedesktop.login1.policy:375
+#, fuzzy
+msgid ""
+"Authentication is required to indicate to the boot loader to boot to the "
+"boot loader menu."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia ŭkazannia prašyŭcy na zahruzku interfiejsu "
+"nalad."
+
+#: src/login/org.freedesktop.login1.policy:385
+msgid "Indicate to the boot loader to boot a specific entry"
+msgstr ""
+
+#: src/login/org.freedesktop.login1.policy:386
+#, fuzzy
+msgid ""
+"Authentication is required to indicate to the boot loader to boot into a "
+"specific boot loader entry."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia ŭkazannia prašyŭcy na zahruzku interfiejsu "
+"nalad."
+
+#: src/login/org.freedesktop.login1.policy:396
+msgid "Set a wall message"
+msgstr "Ustaliavać usieahuĺnaje paviedamliennie"
+
+#: src/login/org.freedesktop.login1.policy:397
+#, fuzzy
+msgid "Authentication is required to set a wall message."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia ŭsieahuĺnaha paviedamliennia"
+
+#: src/login/org.freedesktop.login1.policy:406
+msgid "Change Session"
+msgstr ""
+
+#: src/login/org.freedesktop.login1.policy:407
+#, fuzzy
+msgid "Authentication is required to change the virtual terminal."
+msgstr "Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia imia vuzla."
+
+#: src/machine/org.freedesktop.machine1.policy:22
+msgid "Log into a local container"
+msgstr "Uvajsci ŭ lakaĺny kantejnier"
+
+#: src/machine/org.freedesktop.machine1.policy:23
+msgid "Authentication is required to log into a local container."
+msgstr "Nieabchodna aŭtentyfikacyja dlia ŭvachodu ŭ lakaĺny kantejnier."
+
+#: src/machine/org.freedesktop.machine1.policy:32
+msgid "Log into the local host"
+msgstr "Uvajsci ŭ lakaĺny vuziel"
+
+#: src/machine/org.freedesktop.machine1.policy:33
+msgid "Authentication is required to log into the local host."
+msgstr "Nieabchodna aŭtentyfikacyja dlia ŭvachodu ŭ lakaĺny vuziel."
+
+#: src/machine/org.freedesktop.machine1.policy:42
+msgid "Acquire a shell in a local container"
+msgstr "Atrymać abalonku na lakaĺnym kantejniery"
+
+#: src/machine/org.freedesktop.machine1.policy:43
+msgid "Authentication is required to acquire a shell in a local container."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia atrymannia abalonki na lakaĺnym kantejniery."
+
+#: src/machine/org.freedesktop.machine1.policy:53
+msgid "Acquire a shell on the local host"
+msgstr "Atrymać abalonku na lakaĺnym vuzlie"
+
+#: src/machine/org.freedesktop.machine1.policy:54
+msgid "Authentication is required to acquire a shell on the local host."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia atrymannia abalonki na lakaĺnym vuzlie."
+
+#: src/machine/org.freedesktop.machine1.policy:64
+msgid "Acquire a pseudo TTY in a local container"
+msgstr "Atrymać psieŭda TTY na lakaĺnym kantejniery"
+
+#: src/machine/org.freedesktop.machine1.policy:65
+msgid ""
+"Authentication is required to acquire a pseudo TTY in a local container."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia atrymannia psieŭda TTY na lakaĺnym "
+"kantejniery."
+
+#: src/machine/org.freedesktop.machine1.policy:74
+msgid "Acquire a pseudo TTY on the local host"
+msgstr "Atrymać psieŭda TTY na lakaĺnym vuzlie"
+
+#: src/machine/org.freedesktop.machine1.policy:75
+msgid "Authentication is required to acquire a pseudo TTY on the local host."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia atrymannia psieŭda TTY na lakaĺnym vuzlie."
+
+#: src/machine/org.freedesktop.machine1.policy:84
+msgid "Manage local virtual machines and containers"
+msgstr "Kiravać lakaĺnymi virtuaĺnymi mašynami abo kantejnierami"
+
+#: src/machine/org.freedesktop.machine1.policy:85
+msgid ""
+"Authentication is required to manage local virtual machines and containers."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia kiravannia lakaĺnymi virtuaĺnymi mašynami i "
+"kantejnierami."
+
+#: src/machine/org.freedesktop.machine1.policy:95
+msgid "Inspect local virtual machines and containers"
+msgstr ""
+
+#: src/machine/org.freedesktop.machine1.policy:96
+msgid ""
+"Authentication is required to inspect local virtual machines and containers."
+msgstr ""
+
+#: src/machine/org.freedesktop.machine1.policy:105
+#, fuzzy
+msgid "Create a local virtual machine or container"
+msgstr "Kiravać lakaĺnymi virtuaĺnymi mašynami abo kantejnierami"
+
+#: src/machine/org.freedesktop.machine1.policy:106
+#, fuzzy
+msgid ""
+"Authentication is required to create a local virtual machine or container."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia kiravannia lakaĺnymi virtuaĺnymi mašynami i "
+"kantejnierami."
+
+#: src/machine/org.freedesktop.machine1.policy:116
+#, fuzzy
+msgid "Register a local virtual machine or container"
+msgstr "Kiravać lakaĺnymi virtuaĺnymi mašynami abo kantejnierami"
+
+#: src/machine/org.freedesktop.machine1.policy:117
+#, fuzzy
+msgid ""
+"Authentication is required to register a local virtual machine or container."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia kiravannia lakaĺnymi virtuaĺnymi mašynami i "
+"kantejnierami."
+
+#: src/machine/org.freedesktop.machine1.policy:126
+msgid "Manage local virtual machine and container images"
+msgstr "Kiravać vobrazami lakaĺnych virtuaĺnych mašyn i kantejnieraŭ"
+
+#: src/machine/org.freedesktop.machine1.policy:127
+msgid ""
+"Authentication is required to manage local virtual machine and container "
+"images."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia kiravannia vobrazami lakaĺnych virtuaĺnych "
+"mašyn i kantejnieraŭ."
+
+#: src/machine/org.freedesktop.machine1.policy:137
+msgid "Inspect local virtual machine and container images"
+msgstr ""
+
+#: src/machine/org.freedesktop.machine1.policy:138
+msgid ""
+"Authentication is required to inspect local virtual machine and container "
+"images."
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:22
+msgid "Set NTP servers"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:23
+#, fuzzy
+msgid "Authentication is required to set NTP servers."
+msgstr "Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia sistemnaha času."
+
+#: src/network/org.freedesktop.network1.policy:33
+#: src/resolve/org.freedesktop.resolve1.policy:44
+msgid "Set DNS servers"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:34
+#: src/resolve/org.freedesktop.resolve1.policy:45
+#, fuzzy
+msgid "Authentication is required to set DNS servers."
+msgstr "Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia sistemnaha času."
+
+#: src/network/org.freedesktop.network1.policy:44
+#: src/resolve/org.freedesktop.resolve1.policy:55
+msgid "Set domains"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:45
+#: src/resolve/org.freedesktop.resolve1.policy:56
+#, fuzzy
+msgid "Authentication is required to set domains."
+msgstr "Nieabchodna aŭtentyfikacyja dlia spyniennia '$(unit)'."
+
+#: src/network/org.freedesktop.network1.policy:55
+#: src/resolve/org.freedesktop.resolve1.policy:66
+msgid "Set default route"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:56
+#: src/resolve/org.freedesktop.resolve1.policy:67
+#, fuzzy
+msgid "Authentication is required to set default route."
+msgstr "Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia imia vuzla."
+
+#: src/network/org.freedesktop.network1.policy:66
+#: src/resolve/org.freedesktop.resolve1.policy:77
+msgid "Enable/disable LLMNR"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:67
+#: src/resolve/org.freedesktop.resolve1.policy:78
+#, fuzzy
+msgid "Authentication is required to enable or disable LLMNR."
+msgstr "Nieabchodna aŭtentyfikacyja dlia hibiernacyi sistemy."
+
+#: src/network/org.freedesktop.network1.policy:77
+#: src/resolve/org.freedesktop.resolve1.policy:88
+msgid "Enable/disable multicast DNS"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:78
+#: src/resolve/org.freedesktop.resolve1.policy:89
+#, fuzzy
+msgid "Authentication is required to enable or disable multicast DNS."
+msgstr "Nieabchodna aŭtentyfikacyja dlia ŭvachodu ŭ lakaĺny vuziel."
+
+#: src/network/org.freedesktop.network1.policy:88
+#: src/resolve/org.freedesktop.resolve1.policy:99
+msgid "Enable/disable DNS over TLS"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:89
+#: src/resolve/org.freedesktop.resolve1.policy:100
+#, fuzzy
+msgid "Authentication is required to enable or disable DNS over TLS."
+msgstr "Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia imia vuzla."
+
+#: src/network/org.freedesktop.network1.policy:99
+#: src/resolve/org.freedesktop.resolve1.policy:110
+msgid "Enable/disable DNSSEC"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:100
+#: src/resolve/org.freedesktop.resolve1.policy:111
+#, fuzzy
+msgid "Authentication is required to enable or disable DNSSEC."
+msgstr "Nieabchodna aŭtentyfikacyja dlia hibiernacyi sistemy."
+
+#: src/network/org.freedesktop.network1.policy:110
+#: src/resolve/org.freedesktop.resolve1.policy:121
+msgid "Set DNSSEC Negative Trust Anchors"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:111
+#: src/resolve/org.freedesktop.resolve1.policy:122
+#, fuzzy
+msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
+msgstr "Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia sistemnaj lakali."
+
+#: src/network/org.freedesktop.network1.policy:121
+msgid "Revert NTP settings"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:122
+#, fuzzy
+msgid "Authentication is required to reset NTP settings."
+msgstr "Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia sistemnaha času."
+
+#: src/network/org.freedesktop.network1.policy:132
+msgid "Revert DNS settings"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:133
+#, fuzzy
+msgid "Authentication is required to reset DNS settings."
+msgstr "Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia sistemnaha času."
+
+#: src/network/org.freedesktop.network1.policy:143
+msgid "DHCP server sends force renew message"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:144
+#, fuzzy
+msgid ""
+"Authentication is required to send a force renew message from the DHCP "
+"server."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia ŭsieahuĺnaha paviedamliennia"
+
+#: src/network/org.freedesktop.network1.policy:154
+msgid "Renew dynamic addresses"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:155
+#, fuzzy
+msgid "Authentication is required to renew dynamic addresses."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia ŭsieahuĺnaha paviedamliennia"
+
+#: src/network/org.freedesktop.network1.policy:165
+msgid "Reload network settings"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:166
+#, fuzzy
+msgid "Authentication is required to reload network settings."
+msgstr "Nieabchodna aŭtentyfikacyja dlia pieračytannia stanu systemd."
+
+#: src/network/org.freedesktop.network1.policy:176
+msgid "Reconfigure network interface"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:177
+#, fuzzy
+msgid "Authentication is required to reconfigure network interface."
+msgstr "Nieabchodna aŭtentyfikacyja dlia pierazahruzki sistemy."
+
+#: src/network/org.freedesktop.network1.policy:187
+msgid "Specify whether persistent storage for systemd-networkd is available"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:188
+msgid ""
+"Authentication is required to specify whether persistent storage for systemd-"
+"networkd is available."
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:198
+msgid "Manage network links"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:199
+msgid "Authentication is required to manage network links."
+msgstr ""
+
+#: src/portable/org.freedesktop.portable1.policy:13
+msgid "Inspect a portable service image"
+msgstr ""
+
+#: src/portable/org.freedesktop.portable1.policy:14
+#, fuzzy
+msgid "Authentication is required to inspect a portable service image."
+msgstr "Nieabchodna aŭtentyfikacyja dlia impartu vobraza VM abo kantejniera"
+
+#: src/portable/org.freedesktop.portable1.policy:23
+msgid "Attach or detach a portable service image"
+msgstr ""
+
+#: src/portable/org.freedesktop.portable1.policy:24
+#, fuzzy
+msgid ""
+"Authentication is required to attach or detach a portable service image."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia dalučennia prylad da pracoŭnych miescaŭ."
+
+#: src/portable/org.freedesktop.portable1.policy:34
+msgid "Delete or modify portable service image"
+msgstr ""
+
+#: src/portable/org.freedesktop.portable1.policy:35
+#, fuzzy
+msgid ""
+"Authentication is required to delete or modify a portable service image."
+msgstr "Nieabchodna aŭtentyfikacyja dlia spampoŭki vobraza VM abo kantejniera"
+
+#: src/resolve/org.freedesktop.resolve1.policy:22
+msgid "Register a DNS-SD service"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:23
+#, fuzzy
+msgid "Authentication is required to register a DNS-SD service."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia ŭsieahuĺnaha paviedamliennia"
+
+#: src/resolve/org.freedesktop.resolve1.policy:33
+msgid "Unregister a DNS-SD service"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:34
+#, fuzzy
+msgid "Authentication is required to unregister a DNS-SD service."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia ŭsieahuĺnaha paviedamliennia"
+
+#: src/resolve/org.freedesktop.resolve1.policy:132
+msgid "Revert name resolution settings"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:133
+#, fuzzy
+msgid "Authentication is required to reset name resolution settings."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia sistemnych nalad klavijatury."
+
+#: src/resolve/org.freedesktop.resolve1.policy:143
+msgid "Subscribe query results"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:144
+#, fuzzy
+msgid "Authentication is required to subscribe query results."
+msgstr "Nieabchodna aŭtentyfikacyja dlia prypyniennia sistemy."
+
+#: src/resolve/org.freedesktop.resolve1.policy:154
+msgid "Subscribe to DNS configuration"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:155
+#, fuzzy
+msgid "Authentication is required to subscribe to DNS configuration."
+msgstr "Nieabchodna aŭtentyfikacyja dlia prypyniennia sistemy."
+
+#: src/resolve/org.freedesktop.resolve1.policy:165
+msgid "Dump cache"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:166
+#, fuzzy
+msgid "Authentication is required to dump cache."
+msgstr "Nieabchodna aŭtentyfikacyja dlia spyniennia '$(unit)'."
+
+#: src/resolve/org.freedesktop.resolve1.policy:176
+msgid "Dump server state"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:177
+#, fuzzy
+msgid "Authentication is required to dump server state."
+msgstr "Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia sistemnaha času."
+
+#: src/resolve/org.freedesktop.resolve1.policy:187
+msgid "Dump statistics"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:188
+#, fuzzy
+msgid "Authentication is required to dump statistics."
+msgstr "Nieabchodna aŭtentyfikacyja dlia spyniennia '$(unit)'."
+
+#: src/resolve/org.freedesktop.resolve1.policy:198
+msgid "Reset statistics"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:199
+#, fuzzy
+msgid "Authentication is required to reset statistics."
+msgstr "Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia sistemnaha času."
+
+#: src/resolve/org.freedesktop.resolve1.policy:209
+msgid "Flush DNS caches"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:210
+msgid "Authentication is required to flush DNS caches."
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:220
+msgid "Reset server features"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:221
+msgid "Authentication is required to reset server features."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:38
+msgid "Check for system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:39
+#, fuzzy
+msgid "Authentication is required to check for system updates."
+msgstr "Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia sistemnaha času."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:48
+msgid "Cancel checking for system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:49
+msgid "Authentication is required to cancel checking for system updates."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:58
+msgid "Install system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:59
+#, fuzzy
+msgid "Authentication is required to install system updates."
+msgstr "Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia sistemnaha času."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:68
+msgid "Cancel installing system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:69
+msgid "Authentication is required to cancel installing system updates."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:78
+msgid "Install specific system version"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:79
+#, fuzzy
+msgid ""
+"Authentication is required to update the system to a specific (possibly old) "
+"version."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia sistemnaha časavoha pojasu."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:88
+msgid "Cancel installing specific system version"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:89
+msgid ""
+"Authentication is required to cancel updating the system to a specific "
+"(possibly old) version."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:98
+msgid "Clean up old system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:99
+msgid "Authentication is required to clean up old system updates."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:108
+msgid "Cancel cleaning up old system updates"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:109
+msgid "Authentication is required to cancel cleanup of old system updates."
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:118
+msgid "Manage optional features"
+msgstr ""
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:119
+#, fuzzy
+msgid "Authentication is required to manage optional features."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia kiravannia aktyŭnymi siesijami, "
+"karystaĺnikami i miescami."
+
+#: src/timedate/org.freedesktop.timedate1.policy:22
+msgid "Set system time"
+msgstr "Ustaliavać sistemny čas"
+
+#: src/timedate/org.freedesktop.timedate1.policy:23
+msgid "Authentication is required to set the system time."
+msgstr "Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia sistemnaha času."
+
+#: src/timedate/org.freedesktop.timedate1.policy:33
+msgid "Set system timezone"
+msgstr "Ustaliavać sistemny časavy pojas"
+
+#: src/timedate/org.freedesktop.timedate1.policy:34
+msgid "Authentication is required to set the system timezone."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia sistemnaha časavoha pojasu."
+
+#: src/timedate/org.freedesktop.timedate1.policy:43
+msgid "Set RTC to local timezone or UTC"
+msgstr "Ustaliavać časavy pojas (miascovy abo UTC), u jakim RTC zachoŭvaje čas"
+
+#: src/timedate/org.freedesktop.timedate1.policy:44
+msgid ""
+"Authentication is required to control whether the RTC stores the local or "
+"UTC time."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia časavoha pojasu (miascovy abo "
+"UTC), u jakim zachoŭvajecca čas u RTC."
+
+#: src/timedate/org.freedesktop.timedate1.policy:53
+msgid "Turn network time synchronization on or off"
+msgstr "Ukliučyć abo vykliučyć sinchranizacyju času pa sietcy"
+
+#: src/timedate/org.freedesktop.timedate1.policy:54
+msgid ""
+"Authentication is required to control whether network time synchronization "
+"shall be enabled."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia ŭkliučennia abo vykliučennia sinchranizacyi "
+"času pa sietcy."
+
+#: src/core/dbus-unit.c:372
+msgid "Authentication is required to start '$(unit)'."
+msgstr "Nieabchodna aŭtentyfikacyja dlia zapusku '$(unit)'."
+
+#: src/core/dbus-unit.c:373
+msgid "Authentication is required to stop '$(unit)'."
+msgstr "Nieabchodna aŭtentyfikacyja dlia spyniennia '$(unit)'."
+
+#: src/core/dbus-unit.c:374
+msgid "Authentication is required to reload '$(unit)'."
+msgstr "Nieabchodna aŭtentyfikacyja dlia pieračytannia stanu '$(unit)'."
+
+#: src/core/dbus-unit.c:375 src/core/dbus-unit.c:376
+msgid "Authentication is required to restart '$(unit)'."
+msgstr "Nieabchodna aŭtentyfikacyja dlia pierazapusku '$(unit)'."
+
+#: src/core/dbus-unit.c:568
+#, fuzzy
+msgid ""
+"Authentication is required to send a UNIX signal to the processes of '$"
+"(unit)'."
+msgstr "Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia ŭlascivasciej '$(unit)'."
+
+#: src/core/dbus-unit.c:621
+#, fuzzy
+msgid ""
+"Authentication is required to send a UNIX signal to the processes of "
+"subgroup of '$(unit)'."
+msgstr "Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia ŭlascivasciej '$(unit)'."
+
+#: src/core/dbus-unit.c:649
+msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia anuliavannia pamylkovaha stanu '$(unit)'."
+
+#: src/core/dbus-unit.c:679
+msgid "Authentication is required to set properties on '$(unit)'."
+msgstr "Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia ŭlascivasciej '$(unit)'."
+
+#: src/core/dbus-unit.c:776
+#, fuzzy
+msgid ""
+"Authentication is required to delete files and directories associated with '$"
+"(unit)'."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia anuliavannia pamylkovaha stanu '$(unit)'."
+
+#: src/core/dbus-unit.c:813
+#, fuzzy
+msgid ""
+"Authentication is required to freeze or thaw the processes of '$(unit)' unit."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia anuliavannia pamylkovaha stanu '$(unit)'."
+
+#: src/shared/libfido2-util.c:500 src/shared/libfido2-util.c:557
+msgid "Please confirm presence on security token to unlock."
+msgstr ""
+
+#: src/shared/libfido2-util.c:516
+msgid "Please verify user on security token to unlock."
+msgstr ""
+
+#: src/shared/libfido2-util.c:936
+#, c-format
+msgid ""
+"Please enter security token PIN (remaining attempts before lock-out: %d):"
+msgstr ""
+
+#: src/shared/libfido2-util.c:948
+msgid "Please enter security token PIN:"
+msgstr ""
+
+#, fuzzy
+#~ msgid "Authentication is required to cleanup old system updates."
+#~ msgstr "Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia sistemnaha času."
+
+#~ msgid "Authentication is required to kill '$(unit)'."
+#~ msgstr "Nieabchodna aŭtentyfikacyja dlia zabojstva '$(unit)'."

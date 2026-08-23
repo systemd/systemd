@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Issue 16115 Repro with on-failure
+
+[Service]
+Type=simple
+Restart=on-failure
+ExecCondition=false
+ExecStart=sleep 100
+RestartSec=1

@@ -1,0 +1,32 @@
+---
+
+name: Gather Pull Request Metadata
+
+on:
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  gather-metadata:
+    if: github.repository == 'systemd/systemd'
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Repository checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - id: metadata
+        name: Gather Pull Request Metadata
+        uses: redhat-plumbers-in-action/gather-pull-request-metadata@ecc2e46fe4f0b2e9a7b236d6012bc9f74af318d0
+
+      - name: Upload Pull Request Metadata artifact
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: Pull Request Metadata
+          path: ${{ steps.metadata.outputs.metadata-file }}
+          retention-days: 1

@@ -1,0 +1,23 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Arbitrary Executable File Formats File System
+Documentation=https://docs.kernel.org/admin-guide/binfmt-misc.html
+Documentation=https://systemd.io/API_FILE_SYSTEMS
+DefaultDependencies=no
+
+[Mount]
+What=binfmt_misc
+Where=/proc/sys/fs/binfmt_misc
+Type=binfmt_misc
+Options=nosuid,nodev,noexec
+
+[Install]
+WantedBy=sysinit.target

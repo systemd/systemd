@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Create a lot of memory pressure
+
+[Service]
+# A VERY small memory.high will cause the 'stress-ng' (trying to use a lot of memory)
+# to throttle and be put under heavy pressure.
+MemoryHigh=3M
+Slice=TEST-55-OOMD-workload.slice
+ExecStart=stress-ng --timeout 3m --vm 10 --vm-bytes 200M --vm-keep

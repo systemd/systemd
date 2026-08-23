@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/systemd/tests/testdata/TEST-03-JOBS.units/succeeds-on-restart.sh
+Restart=on-failure
+RestartMode=normal

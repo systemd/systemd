@@ -1,0 +1,232 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="systemd.preset">
+
+  <refentryinfo>
+    <title>systemd.preset</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd.preset</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd.preset</refname>
+    <refpurpose>Service enablement presets</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><simplelist>
+      <member><filename>/etc/systemd/system-preset/*.preset</filename></member>
+      <member><filename>/run/systemd/system-preset/*.preset</filename></member>
+      <member><filename>/usr/local/lib/systemd/system-preset/*.preset</filename></member>
+      <member><filename>/usr/lib/systemd/system-preset/*.preset</filename></member>
+      <member><filename>/etc/systemd/user-preset/*.preset</filename></member>
+      <member><filename>/run/systemd/user-preset/*.preset</filename></member>
+      <member><filename>/usr/local/lib/systemd/user-preset/*.preset</filename></member>
+      <member><filename>/usr/lib/systemd/user-preset/*.preset</filename></member>
+      <member><filename>/etc/systemd/initrd-preset/*.preset</filename></member>
+      <member><filename>/run/systemd/initrd-preset/*.preset</filename></member>
+      <member><filename>/usr/local/lib/systemd/initrd-preset/*.preset</filename></member>
+      <member><filename>/usr/lib/systemd/initrd-preset/*.preset</filename></member>
+    </simplelist></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>Preset files may be used to encode policy which units shall be enabled by default and which ones
+    shall be disabled. They are read by <command>systemctl preset</command> which uses this information to
+    enable or disable a unit. Depending on that policy, <command>systemctl preset</command> is identical to
+    <command>systemctl enable</command> or <command>systemctl disable</command>.
+
+    <command>systemctl preset</command> is used by the post install scriptlets of rpm packages (or other OS
+    package formats), to enable/disable specific units by default on package installation, enforcing
+    distribution, spin, or administrator preset policy. This allows choosing a certain set of units to be
+    enabled/disabled even before installing the actual package. For more information, see
+    <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+    <para>It is not recommended to ship preset files within the respective software packages implementing the
+    units, but rather centralize them in a distribution or spin default policy, which can be amended by
+    administrator policy, see below.</para>
+
+    <para>If no preset files exist, preset operations will enable all units that are installed by default. If
+    this is not desired and all units shall rather be disabled, it is necessary to ship a preset file with a
+    single, catchall "<filename>disable *</filename>" line. (See example 1, below.)</para>
+
+    <para>When the machine is booted for the first time,
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> will
+    enable/disable all units according to preset policy, similarly to <command>systemctl
+    preset-all</command>. Also see <varname>ConditionFirstBoot=</varname> in
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> and
+    "First Boot Semantics" in
+    <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Preset File Format</title>
+
+    <para>The preset files contain a list of directives, one per line. Empty lines and lines whose first
+    non-whitespace character is <literal>#</literal> or <literal>;</literal> are ignored.  Each directive
+    consists of one of the words <literal>enable</literal>, <literal>disable</literal>, or
+    <literal>ignore</literal>, followed by whitespace and a unit name. The unit name may contain shell-style
+    wildcards.</para>
+
+    <para>For the enable directive for template units, one or more instance names may be specified as a
+    space-separated list after the unit name. In this case, those instances will be enabled instead of the
+    instance specified via DefaultInstance= in the unit.</para>
+
+    <para>Presets must refer to the "real" unit file, and not to any aliases. See
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for a description of unit aliasing.</para>
+
+    <para>Three different directives are understood: <literal>enable</literal> may be used to enable units by
+    default, <literal>disable</literal> to disable units by default, and <literal>ignore</literal> to ignore
+    units and leave existing configuration intact.</para>
+
+    <para>If multiple lines apply to a unit name, the first matching
+    one takes precedence over all others.</para>
+
+    <para>Each preset file shall be named in the style of
+    <filename>&lt;priority&gt;-&lt;policy-name&gt;.preset</filename>. Files
+    in <filename>/etc/</filename> override files with the same name in
+    <filename>/usr/lib/</filename> and <filename>/run/</filename>.
+    Files in <filename>/run/</filename> override files with the same
+    name in <filename>/usr/lib/</filename>. Packages should install
+    their preset files in <filename>/usr/lib/</filename>. Files in
+    <filename>/etc/</filename> are reserved for the local
+    administrator, who may use this logic to override the preset files
+    installed by vendor packages. All preset files are sorted by their
+    filename in lexicographic order, regardless of which of the
+    directories they reside in. If multiple files specify the same
+    unit name, the entry in the file with the lexicographically
+    earliest name will be applied. It is recommended to prefix all
+    filenames with a two-digit number and a dash, to simplify the
+    ordering of the files.</para>
+
+    <para>If the administrator wants to disable a preset file supplied
+    by the vendor, the recommended way is to place a symlink to
+    <filename>/dev/null</filename> in
+    <filename>/etc/systemd/system-preset/</filename> bearing the same
+    filename.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Default to off</title>
+
+      <programlisting># /usr/lib/systemd/system-preset/99-default.preset
+
+disable *</programlisting>
+    </example>
+
+    <para>This disables all units. Due to the filename prefix
+    <literal>99-</literal>, it will be read last and hence can easily
+    be overridden by spin or administrator preset policy.</para>
+
+    <example>
+      <title>Enable multiple template instances</title>
+
+      <programlisting># /usr/lib/systemd/system-preset/80-dirsrv.preset
+
+enable dirsrv@.service foo bar baz</programlisting>
+    </example>
+
+    <para>This enables all three of <filename>dirsrv@foo.service</filename>,
+    <filename>dirsrv@bar.service</filename> and <filename>dirsrv@baz.service</filename>.</para>
+
+    <example>
+      <title>A GNOME spin</title>
+
+      <programlisting># /usr/lib/systemd/system-preset/50-gnome.preset
+
+enable gdm.service
+enable colord.service
+enable accounts-daemon.service
+enable avahi-daemon.*</programlisting>
+
+    </example>
+
+    <para>This enables the three mentioned units, plus all
+    <filename>avahi-daemon</filename> regardless of which unit type. A
+    file like this could be useful for inclusion in a GNOME spin of a
+    distribution. It will ensure that the units necessary for GNOME
+    are properly enabled as they are installed. It leaves all other
+    units untouched, and subject to other (later) preset files, for
+    example like the one from the first example above.</para>
+
+    <example>
+      <title>Administrator policy</title>
+
+      <programlisting># /etc/systemd/system-preset/00-lennart.preset
+
+enable httpd.service
+enable sshd.service
+enable postfix.service
+disable *</programlisting>
+    </example>
+
+    <para>This enables three specific services and disables all
+    others. This is useful for administrators to specifically select
+    the units to enable, and disable all others. Due to the filename
+    prefix <literal>00-</literal> it will be read early and
+    override all other preset policy files.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Motivation for the preset logic</title>
+
+    <para>Different distributions have different policies on which services shall be enabled by default when
+    the package they are shipped in is installed. On Fedora all services stay off by default, so that
+    installing a package will not cause a service to be enabled (with some exceptions). On Debian all
+    services are immediately enabled by default, so that installing a package will cause its services to be
+    enabled right-away.</para>
+
+    <para>Even within a single distribution, different spins (flavours, remixes, whatever you might want to
+    call them) of a distribution also have different policies on what services to enable, and what services
+    to leave off. For example, Fedora Workstation will enable <command>gdm</command> as display manager by
+    default, while the Fedora KDE spin will enable <command>sddm</command> instead.</para>
+
+    <para>Different sites might also have different policies what to turn on by default and what to turn
+    off. For example, one administrator would prefer to enforce the policy of "<command>sshd</command> should
+    be always on, but everything else off", while another one might say "<command>snmpd</command> always on,
+    and for everything else use the distribution policy defaults".</para>
+
+    <para>Traditionally, policy about which services shall be enabled were implemented in each package
+    individually. This made it cumbersome to implement different policies per spin or per site, or to create
+    software packages that do the right thing on more than one distribution. The enablement mechanism was
+    also encoding the enablement policy.</para>
+
+    <para>The preset mechanism allows clean separation of the enablement mechanism (inside the package
+    scriptlets, by invoking <command>systemctl preset</command>) and enablement policy (centralized in the
+    preset files), and lifts the configuration out of individual packages. Preset files may be written for
+    specific distributions, for specific spins or for specific sites, in order to enforce different policies
+    as needed. It is recommended to apply the policy encoded in preset files in package installation
+    scriptlets.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-delta</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+
+    <para><citerefentry><refentrytitle>daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    has a discussion of packaging scriptlets.</para>
+
+    <para>Fedora page introducing the use of presets:
+    <ulink url="https://fedoraproject.org/wiki/Features/PackagePresets">Features/PackagePresets</ulink>.
+    </para>
+  </refsect1>
+
+</refentry>

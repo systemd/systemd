@@ -1,0 +1,137 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="nss-mymachines" conditional='ENABLE_NSS_MYMACHINES'>
+
+  <refentryinfo>
+    <title>nss-mymachines</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>nss-mymachines</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>nss-mymachines</refname>
+    <refname>libnss_mymachines.so.2</refname>
+    <refpurpose>Hostname resolution for local container instances</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>libnss_mymachines.so.2</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>nss-mymachines</command> is a plug-in module for the GNU Name Service Switch (NSS) functionality of
+    the GNU C Library (<command>glibc</command>), providing hostname resolution for the names of containers running
+    locally that are registered with
+    <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>. The
+    container names are resolved to the IP addresses of the specific container, ordered by their scope. This
+    functionality only applies to containers using network namespacing (see the description of
+    <option>--private-network</option> in
+    <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>).
+    Note that the name that is resolved is the one registered with <command>systemd-machined</command>, which
+    may be different than the hostname configured inside of the container.</para>
+
+    <para>Note that this NSS module only makes available names of the containers running immediately below
+    the current system context. It does not provide host name resolution for containers running side-by-side
+    with the invoking system context, or containers further up or down the container hierarchy. Or in other
+    words, on the host system it provides host name resolution for the containers running immediately below
+    the host environment. When used inside a container environment however, it will not be able to provide
+    name resolution for containers running on the host (as those are siblings and not children of the current
+    container environment), but instead only for nested containers running immediately below its own
+    container environment.</para>
+
+    <para>To activate the NSS module, add <literal>mymachines</literal> to the line starting with
+    <literal>hosts:</literal> in <filename>/etc/nsswitch.conf</filename>.</para>
+
+    <para>It is recommended to place <literal>mymachines</literal> before the <literal>resolve</literal> or
+    <literal>dns</literal> entry of the <literal>hosts:</literal> line of
+    <filename>/etc/nsswitch.conf</filename> in order to make sure that its mappings are preferred over other
+    resolvers such as DNS.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Configuration in <filename>/etc/nsswitch.conf</filename></title>
+
+    <para>Here is an example <filename>/etc/nsswitch.conf</filename> file that enables
+    <command>nss-mymachines</command> correctly:</para>
+
+    <!-- synchronize with other nss-* man pages and factory/etc/nsswitch.conf -->
+    <programlisting>passwd:         files systemd
+group:          files [SUCCESS=merge] systemd
+shadow:         files systemd
+gshadow:        files systemd
+
+hosts:          <command>mymachines</command> resolve [!UNAVAIL=return] files myhostname dns
+networks:       files
+
+protocols:      db files
+services:       db files
+ethers:         db files
+rpc:            db files
+
+netgroup:       nis</programlisting>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Example: Mappings provided by <filename>nss-mymachines</filename></title>
+
+    <para>The container <literal>rawhide</literal> is spawned using
+    <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>:
+    </para>
+
+    <programlisting># systemd-nspawn -M rawhide --boot --network-veth --private-users=pick
+Spawning container rawhide on /var/lib/machines/rawhide.
+Selected user namespace base 20119552 and range 65536.
+...
+
+$ machinectl --max-addresses=3
+MACHINE CLASS     SERVICE        OS     VERSION ADDRESSES
+rawhide container systemd-nspawn fedora 30      169.254.40.164 fe80::94aa:3aff:fe7b:d4b9
+
+$ ping -c1 rawhide
+PING rawhide(fe80::94aa:3aff:fe7b:d4b9%ve-rawhide (fe80::94aa:3aff:fe7b:d4b9%ve-rawhide)) 56 data bytes
+64 bytes from fe80::94aa:3aff:fe7b:d4b9%ve-rawhide (fe80::94aa:3aff:fe7b:d4b9%ve-rawhide): icmp_seq=1 ttl=64 time=0.045 ms
+...
+$ ping -c1 -4 rawhide
+PING rawhide (169.254.40.164) 56(84) bytes of data.
+64 bytes from 169.254.40.164 (169.254.40.164): icmp_seq=1 ttl=64 time=0.064 ms
+...
+
+# machinectl shell rawhide /sbin/ip a
+Connected to machine rawhide. Press ^] three times within 1s to exit session.
+1: lo: &lt;LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    ...
+2: host0@if21: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default qlen 1000
+    link/ether 96:aa:3a:7b:d4:b9 brd ff:ff:ff:ff:ff:ff link-netnsid 0
+    inet 169.254.40.164/16 brd 169.254.255.255 scope link host0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::94aa:3aff:fe7b:d4b9/64 scope link
+       valid_lft forever preferred_lft forever
+Connection to machine rawhide terminated.
+</programlisting>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>nss-systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>nss-resolve</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>nss-myhostname</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>nsswitch.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>getent</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

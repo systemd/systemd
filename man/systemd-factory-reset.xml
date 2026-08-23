@@ -1,0 +1,176 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="systemd-factory-reset"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-factory-reset</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-factory-reset</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-factory-reset</refname>
+    <refname>systemd-factory-reset-request.service</refname>
+    <refname>systemd-factory-reset-complete.service</refname>
+    <refname>systemd-factory-reset.socket</refname>
+    <refname>systemd-factory-reset@.service</refname>
+    <refpurpose>Request or complete a factory reset operation, or query current factory reset mode</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>/usr/lib/systemd/systemd-factory-reset</filename></para>
+    <para><filename>systemd-factory-reset-request.service</filename></para>
+    <para><filename>systemd-factory-reset-complete.service</filename></para>
+    <para><filename>systemd-factory-reset.socket</filename></para>
+    <para><filename>systemd-factory-reset@.service</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-factory-reset</filename> is a tool that can query the current factory reset
+    state, request factory request operations or complete them.</para>
+
+    <para>Some of the functionality is also available via the
+    <filename>/run/systemd/io.systemd.FactoryReset</filename> Varlink service (implemented via the
+    <filename>systemd-factory-reset.socket</filename>/<filename>systemd-factory-reset@.service</filename>
+    units).</para>
+
+    <para>See <ulink url="https://systemd.io/FACTORY_RESET">Factory Reset</ulink> for an overview of the
+    factory reset logic.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
+
+    <para>The <filename>/usr/lib/systemd/systemd-factory-reset</filename> executable may also be invoked from the
+    command line, taking one of the following command arguments:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>status</option></term>
+
+        <listitem><para>Report current factory reset state. Reports one of <literal>unsupported</literal> (if
+        the OS does not support a factory reset logic), <literal>unspecified</literal> (if no factory reset
+        was requested, but it wasn't turned off explicitly either), <literal>off</literal> (if the factory
+        reset logic was explicitly turned off via the kernel command line option), <literal>on</literal> (if
+        the factory reset is currently enabled and executed), <literal>complete</literal> (if the factory
+        reset logic ran during the current boot but is complete now), <literal>pending</literal> (if a
+        factory reset has been requested for the next boot).</para>
+
+        <para>Returns with an exit status of 0 if the factory reset mechanism is currently not in effect, 10
+        if a factory reset is currently being executed, or 11 if it is pending for the next boot.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>request</option></term>
+
+        <listitem><para>Request a factory reset operation to be executed on next boot.</para>
+
+        <para>Note that this is a relatively low-level operation. The primary interface for requesting a
+        factory reset operation is by starting the <filename>factory-reset.target</filename>
+        unit.</para>
+
+        <para>This sets the <varname>FactoryResetRequest</varname> EFI variable, see below.</para>
+
+        <para>This operation is executed when the <filename>systemd-factory-reset-request.service</filename>
+        unit is started (which is typically one of the services hooked into
+        and ordered before <filename>factory-reset.target</filename>).</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>cancel</option></term>
+
+        <listitem><para>Cancel any previously requested (but not yet executed) factory reset
+        operation.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>complete</option></term>
+
+        <listitem><para>Mark an ongoing factory reset operation as complete.</para>
+
+        <para>This operation is executed when the <filename>systemd-factory-reset-complete.service</filename>
+        unit is started (which is typically one of the services hooked into and ordered after
+        <filename>factory-reset-now.target</filename>).</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--retrigger</option></term>
+
+        <listitem><para>When used with the <command>complete</command> command retriggers all block devices,
+        which might result in auto-discovered devices being usable that previously weren't because the factory
+        reset logic was in place.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--quiet</option></term>
+        <term><option>-q</option></term>
+
+        <listitem><para>Suppresses the state output of <command>status</command>, but still sets the exit
+        status as documented.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>EFI Variables</title>
+
+    <para>The following EFI variable is set and read by <command>systemd-factory-reset</command>, under the
+    vendor UUID <literal>8cf2644b-4b0b-428f-9387-6d876050dc67</literal>, for communication between this boot
+    and the next.</para>
+
+    <variablelist class='efi-variables'>
+      <varlistentry>
+        <term><varname>FactoryResetRequest</varname></term>
+
+        <listitem><para>Set whenever a factory reset is requested from the next boot, deleted once the
+        factory reset is complete. Contains JSON data describing the requesting OS, in order to avoid
+        confusion in multi-boot systems.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-factory-reset-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><ulink url="https://systemd.io/FACTORY_RESET">Factory Reset</ulink></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

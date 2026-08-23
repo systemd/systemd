@@ -1,0 +1,106 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-timedated.service" conditional='ENABLE_TIMEDATED'>
+
+  <refentryinfo>
+    <title>systemd-timedated.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-timedated.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-timedated.service</refname>
+    <refname>systemd-timedated</refname>
+    <refpurpose>Time and date bus mechanism</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-timedated.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-timedated</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-timedated.service</filename> is a system service
+    that may be used as a mechanism to change the system clock and
+    timezone, as well as to enable/disable network time synchronization.
+    <filename>systemd-timedated</filename> is automatically activated
+    on request and terminates itself when it is unused.</para>
+
+    <para>The tool
+    <citerefentry><refentrytitle>timedatectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    is a command line client to this service.</para>
+
+    <para><filename>systemd-timedated</filename> currently offers access to
+    the following four settings:
+    <itemizedlist>
+      <listitem><para>The system time</para></listitem>
+
+      <listitem><para>The system timezone</para></listitem>
+
+      <listitem><para>A boolean controlling whether the system RTC is in local or UTC
+      timezone</para></listitem>
+
+      <listitem><para>Whether the time synchronization service is enabled/started or
+      disabled/stopped, see next section.</para></listitem>
+    </itemizedlist></para>
+
+    <para>See
+    <citerefentry><refentrytitle>org.freedesktop.timedate1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>org.freedesktop.LogControl1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for information about the D-Bus API.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>List of network time synchronization services</title>
+
+    <para><command>systemd-timedated</command> will look for files with a <literal>.list</literal> extension
+    in <filename>ntp-units.d/</filename> directories. Each file is parsed as a list of unit names, one per
+    line. Empty lines and lines with comments (<literal>#</literal>) are ignored.  Files are read from
+    <filename>/usr/lib/systemd/ntp-units.d/</filename> and the corresponding directories under
+    <filename>/etc/</filename>, <filename>/run/</filename>, <filename>/usr/local/lib/</filename>. Files in
+    <filename>/etc/</filename> override files with the same name in <filename>/run/</filename>,
+    <filename>/usr/local/lib/</filename>, and <filename>/usr/lib/</filename>. Files in
+    <filename>/run/</filename> override files with the same name under <filename>/usr/</filename>. Packages
+    should install their configuration files in <filename>/usr/lib/</filename> (distribution packages) or
+    <filename>/usr/local/lib/</filename> (local installs).</para>
+
+    <example>
+      <title><filename>ntp-units.d/</filename> entry for <command>systemd-timesyncd</command></title>
+      <programlisting># /usr/lib/systemd/ntp-units.d/80-systemd-timesync.list
+systemd-timesyncd.service
+</programlisting>
+    </example>
+
+    <para>If the environment variable <varname>$SYSTEMD_TIMEDATED_NTP_SERVICES</varname> is set,
+    <command>systemd-timedated</command> will parse the contents of that variable as a colon-separated list
+    of unit names. When set, this variable overrides the file-based list described above.</para>
+
+    <example>
+      <title>An override that specifies that <command>chronyd</command> should be used if available</title>
+      <programlisting>SYSTEMD_TIMEDATED_NTP_SERVICES=chronyd.service:systemd-timesyncd.service</programlisting>
+    </example>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>timedatectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>localtime</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>hwclock</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-timesyncd</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>org.freedesktop.timedate1</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

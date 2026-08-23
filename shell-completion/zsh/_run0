@@ -1,0 +1,70 @@
+#compdef run0
+
+(( $+functions[_run0_unit_properties] )) ||
+_run0_unit_properties() {
+    local -a props=(
+        BlockIOAccounting  BlockIODeviceWeight   BlockIOReadBandwidth
+        BlockIOWeight      BlockIOWriteBandwidth CPUAccounting
+        CPUShares          DeviceAllow           DevicePolicy
+        Environment        EnvironmentFile       ExitType
+        FinalKillSignal    Group                 InaccessiblePaths
+        KillMode           KillSignal            LimitAS
+        LimitCORE          LimitCPU              LimitDATA
+        LimitFSIZE         LimitLOCKS            LimitMEMLOCK
+        LimitMSGQUEUE      LimitNICE             LimitNOFILE
+        LimitNPROC         LimitRSS              LimitRTPRIO
+        LimitRTTIME        LimitSIGPENDING       LimitSTACK
+        MemoryAccounting   MemoryLimit           Nice
+        NoNewPrivileges    OOMScoreAdjust        PassEnvironment
+        PrivateDevices     PrivateNetwork        PrivateTmp
+        ProtectHome        ProtectSystem         ReadOnlyPaths
+        ReadWritePaths     RestartKillSignal     RootDirectory
+        RuntimeDirectory   SendSIGHUP            SendSIGKILL
+        SyslogFacility     SyslogIdentifier      SyslogLevel
+        SyslogLevelPrefix  TTYPath               TimerSlackNSec
+        User               WorkingDirectory
+    )
+    _values -S= 'properties' ${^props}'::()'
+}
+
+(( $+functions[_run0_slices] )) ||
+_run0_slices() {
+    local -a slices=(
+        ${(@f)"$(_call_program slice-units systemctl --no-pager --legend=no --plain list-units --all -t slice 2>/dev/null)"}
+    )
+    slices=( ${slices%% *} )
+    _describe -t slice-units 'slice unit' slices
+}
+
+local -a args=(
+    '(-n --non-interactive --no-ask-password)'{-n,--non-interactive,--no-ask-password}'[Do not query the user for authentication]'
+    '--unit=[Use this unit name instead of an automatically generated one]'
+    {'*--property=','*-p+'}'[Sets a property on the service unit created]:property:_run0_unit_properties'
+    '--description=[Provide a description for the service unit]:TEXT'
+    '--slice=[Make the new .service unit part of the specified slice]:slice unit:_run0_slices'
+    '--slice-inherit[Make the new service unit part of the current slice]'
+    '(--user -u)'{--user=,-u+}'[Switch to the specified user]:user:_users'
+    '(--group -g)'{--group=,-g+}'[Switch to the specified group]:group:_groups'
+    '--nice=[Run with specified nice level]:nice value'
+    '(--chdir -D -i --same-root-dir)'{--chdir=,-D+}'[Run within the specified working directory]:directory:_files -/'
+    '(-k --reset-timestamp)'{-k,--reset-timestamp}'[Revoke temporary authorization for this terminal]'
+    '(-K --remove-timestamp)'{-K,--remove-timestamp}'[Revoke temporary authorizations for this user session]'
+    '(-v --validate)'{-v,--validate}'[Request authorization from polkit]'
+    '(-i)'--via-shell"[Invoke command via target user's login shell]"
+    '(--via-shell --chdir -D --same-root-dir)'-i"[Shortcut for --via-shell --chdir='~']"
+    '*--setenv=[Set the specified environment variable in the session]:environment variable:_parameters -g "*export*" -S = -q'
+    '--background=[Change the terminal background color to the specified ANSI color]:ansi color'
+    '(--pty-late --pipe)'--pty'[Request allocation of a pseudo TTY for stdio]'
+    '(--pty --pipe)'--pty-late'[Just like --pty, but leave TTY access to agents until unit is started up]'
+    "(--pty --pty-late)--pipe[request passing the caller's STDIO file descriptors directly through]"
+    '--shell-prompt-prefix=[Set $SHELL_PROMPT_PREFIX]:PREFIX'
+    '--lightweight=[Control whether to register a session with service manager or without]:bool:_values bool true false'
+    '--machine=[Execute the operation on a local container]:machine:_sd_machines'
+    '--area=[Home area to log into]:AREA'
+    '(- *)'{-h,--help}'[Show the help text and exit]'
+    '(- *)'{-V,--version}'[Print a short version string and exit]'
+    '--empower[Give privileges to selected or current user]'
+    '(--chdir -D -i)--same-root-dir[Execute the run0 session in the same root directory that the run0 command is executed in]'
+)
+
+_arguments -S $args '*:: :{_normal -p $service}'

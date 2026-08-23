@@ -1,0 +1,71 @@
+<?xml version="1.0"?>
+<!DOCTYPE variablelist PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<variablelist xmlns:xi="http://www.w3.org/2001/XInclude">
+  <varlistentry id='user'>
+    <term><option>--user</option></term>
+
+    <listitem id='user-text'>
+      <para>Talk to the service manager of the calling user,
+      rather than the service manager of the system.</para>
+    </listitem>
+  </varlistentry>
+
+  <varlistentry id='system'>
+    <term><option>--system</option></term>
+
+    <listitem id='system-text'>
+      <para>Talk to the service manager of the system. This is the
+      implied default.</para>
+    </listitem>
+  </varlistentry>
+
+  <varlistentry id='host'>
+    <term><option>-H</option></term>
+    <term><option>--host=</option></term>
+
+    <listitem id='host-text'>
+      <para>Execute the operation remotely. Specify a hostname, or a
+      username and hostname separated by <literal>@</literal>, to
+      connect to. The hostname may optionally be suffixed by a
+      port ssh is listening on, separated by <literal>:</literal>, and then a
+      container name, separated by <literal>/</literal>, which
+      connects directly to a specific container on the specified
+      host. This will use SSH to talk to the remote machine manager
+      instance. Container names may be enumerated with
+      <command>machinectl -H
+      <replaceable>HOST</replaceable></command>. Put IPv6 addresses in brackets.</para>
+    </listitem>
+  </varlistentry>
+
+  <varlistentry id='machine'>
+    <term><option>-M</option></term>
+    <term><option>--machine=</option></term>
+
+    <listitem id='machine-text'>
+      <para>Execute operation on a local container. Specify a container name to connect to, optionally
+      prefixed by a user name to connect as and a separating <literal>@</literal> character. If the special
+      string <literal>.host</literal> is used in place of the container name, a connection to the local
+      system is made (which is useful to connect to a specific user's user bus: <literal>--user
+      --machine=lennart@.host</literal>). If the <literal>@</literal> syntax is not used, the connection is
+      made as root user. If the <literal>@</literal> syntax is used either the left hand side or the right hand
+      side may be omitted (but not both) in which case the local user name and <literal>.host</literal> are
+      implied.</para>
+    </listitem>
+  </varlistentry>
+
+  <varlistentry id='capsule'>
+    <term><option>-C</option></term>
+    <term><option>--capsule=</option></term>
+
+    <listitem id='capsule-text'>
+      <para>Execute operation on a capsule. Specify a capsule name to connect to. See
+      <citerefentry><refentrytitle>capsule@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+      details about capsules.</para>
+
+      <xi:include href="version-info.xml" xpointer="v256"/>
+    </listitem>
+  </varlistentry>
+</variablelist>

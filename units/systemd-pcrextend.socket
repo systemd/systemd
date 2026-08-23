@@ -1,0 +1,30 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=TPM PCR Measurements
+Documentation=man:systemd-pcrextend(8)
+DefaultDependencies=no
+After=tpm2.target
+Before=sockets.target
+ConditionSecurity=measured-os
+
+[Socket]
+ListenStream=/run/systemd/io.systemd.PCRExtend
+Symlinks=/run/varlink/registry/io.systemd.PCRExtend
+FileDescriptorName=varlink
+SocketMode=0644
+Accept=yes
+MaxConnectionsPerSource=16
+XAttrEntryPoint=user.varlink=entrypoint
+XAttrListen=user.varlink=listen
+XAttrAccept=user.varlink=server
+
+[Install]
+WantedBy=sockets.target

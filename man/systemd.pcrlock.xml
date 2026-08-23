@@ -1,0 +1,299 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<refentry id="systemd.pcrlock"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd.pcrlock</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd.pcrlock</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd.pcrlock</refname>
+    <refname>systemd.pcrlock.d</refname>
+    <refpurpose>PCR measurement prediction files</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><simplelist>
+      <member><filename>/etc/pcrlock.d/*.pcrlock</filename></member>
+      <member><filename>/etc/pcrlock.d/*.pcrlock.d/*.pcrlock</filename></member>
+      <member><filename>/run/pcrlock.d/*.pcrlock</filename></member>
+      <member><filename>/run/pcrlock.d/*.pcrlock.d/*.pcrlock</filename></member>
+      <member><filename>/var/lib/pcrlock.d/*.pcrlock</filename></member>
+      <member><filename>/var/lib/pcrlock.d/*.pcrlock.d/*.pcrlock</filename></member>
+      <member><filename>/usr/local/lib/pcrlock.d/*.pcrlock</filename></member>
+      <member><filename>/usr/local/lib/pcrlock.d/*.pcrlock.d/*.pcrlock</filename></member>
+      <member><filename>/usr/lib/pcrlock.d/*.pcrlock</filename></member>
+      <member><filename>/usr/lib/pcrlock.d/*.pcrlock.d/*.pcrlock</filename></member>
+    </simplelist></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>*.pcrlock</filename> files define expected TPM2 PCR measurements of components involved
+    in the boot
+    process. <citerefentry><refentrytitle>systemd-pcrlock</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    uses such pcrlock files to analyze and predict TPM2 PCR measurements. The pcrlock files are JSON arrays
+    that follow a subset of the <ulink
+    url="https://trustedcomputinggroup.org/resource/canonical-event-log-format/">TCG Canonical Event Log Format
+    (CEL-JSON)</ulink> specification. Specifically the <literal>recnum</literal>, <literal>content</literal>,
+    and <literal>content_type</literal> record fields are not used and ignored if present. Each pcrlock file
+    defines one set of expected, ordered PCR measurements of a specific component of the boot.</para>
+
+    <para>*.pcrlock files may be placed in various <filename>.d/</filename> drop-in directories (see above
+    for a full list). All matching files discovered in these directories are sorted alphabetically by their
+    file name (without taking the actual directory they were found in into account): pcrlock files with
+    alphabetically earlier names are expected to cover measurements done before those with alphabetically
+    later names. In order to make positioning pcrlock files in the boot process convenient the files are
+    expected (by convention, this is not enforced) to be named
+    <literal><replaceable>NNN</replaceable>-<replaceable>component</replaceable>.pcrlock</literal> (where
+    <replaceable>NNN</replaceable> is a three-digit decimal number), for example
+    <filename>750-enter-initrd.pcrlock</filename>.</para>
+
+    <para>For various components of the boot process more than one alternative pcrlock file shall be
+    supported (i.e. "variants"). For example to cover multiple kernels installed in parallel in the access
+    policy, or multiple versions of the boot loader. This can be done by placing
+    <filename>*.pcrlock.d/*.pcrlock</filename> in the drop-in dirs, i.e. a common directory for a specific
+    component, that contains one or more pcrlock files each covering one <emphasis>variant</emphasis> of the
+    component. Example: <filename>650-kernel.pcrlock.d/6.5.5-200.fc38.x86_64.pcrlock</filename> and
+    <filename>650-kernel.pcrlock.d/6.5.7-100.fc38.x86_64.pcrlock</filename></para>
+
+    <para>Use <command>systemd-pcrlock list-components</command> to list all pcrlock files currently
+    installed.</para>
+
+    <para>Use the various <command>lock-*</command> commands of <command>systemd-pcrlock</command> to
+    automatically generate suitable pcrlock files for various types of resources.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Well-known Components</title>
+
+    <para>Components of the boot process may be defined freely by the administrator or OS vendor. The
+    following components are well-known however, and are defined by systemd. The list below is useful for
+    ordering local pcrlock files properly against these components of the boot.</para>
+
+    <variablelist>
+
+      <varlistentry>
+        <term><filename>240-secureboot-policy.pcrlock</filename></term>
+
+        <listitem><para>The SecureBoot policy, as recorded to PCR 7. May be generated via
+        <command>systemd-pcrlock lock-secureboot-policy</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>250-firmware-code-early.pcrlock</filename></term>
+
+        <listitem><para>Firmware code measurements, as recorded to PCR 0 and 2, up to the separator
+        measurement (see <filename>400-secureboot-separator.pcrlock</filename> below). May be generated via
+        <command>systemd-pcrlock lock-firmware-code</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>250-firmware-config-early.pcrlock</filename></term>
+
+        <listitem><para>Firmware configuration measurements, as recorded to PCR 1 and 3, up to the separator
+        measurement (see <filename>400-secureboot-separator.pcrlock</filename> below). May be generated via
+        <command>systemd-pcrlock lock-firmware-config</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>350-action-efi-application.pcrlock</filename></term>
+
+        <listitem><para>The EFI "Application" measurement done once by the firmware. Statically defined.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>400-secureboot-separator.pcrlock</filename></term>
+
+        <listitem><para>The EFI "separator" measurement on PCR 7 done once by the firmware to indicate where
+        firmware control transitions into boot loader/OS control. Statically defined.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>500-separator.pcrlock</filename></term>
+
+        <listitem><para>The EFI "separator" measurements on PCRs 0-6 done once by the firmware to indicate
+        where firmware control transitions into boot loader/OS control. Statically defined.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>550-firmware-code-late.pcrlock</filename></term>
+
+        <listitem><para>Firmware code measurements, as recorded to PCR 0 and 2, after the separator
+        measurement (see <filename>400-secureboot-separator.pcrlock</filename> above). May be generated via
+        <command>systemd-pcrlock lock-firmware-code</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>550-firmware-config-late.pcrlock</filename></term>
+
+        <listitem><para>Firmware configuration measurements, as recorded to PCR 1 and 3, after the separator
+        measurement (see <filename>400-secureboot-separator.pcrlock</filename> above). May be generated via
+        <command>systemd-pcrlock lock-firmware-config</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>600-gpt.pcrlock</filename></term>
+
+        <listitem><para>The GPT partition table of the booted medium, as recorded to PCR 5 by the
+        firmware. May be generated via <command>systemd-pcrlock lock-gpt</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>620-secureboot-authority.pcrlock</filename></term>
+
+        <listitem><para>The SecureBoot authority, as recorded to PCR 7. May be generated via
+        <command>systemd-pcrlock lock-secureboot-authority</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>700-action-efi-exit-boot-services.pcrlock</filename></term>
+
+        <listitem><para>The EFI action generated when <function>ExitBootServices()</function> is generated,
+        i.e. when the UEFI environment is left and the OS takes over. Covers the PCR 5 measurement. Statically
+        defined.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>710-kernel-cmdline.pcrlock</filename></term>
+
+        <listitem><para>The kernel command line, as measured by the Linux kernel to PCR 9. May be generated
+        via <command>systemd-pcrlock lock-kernel-cmdline</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>720-kernel-initrd.pcrlock</filename></term>
+
+        <listitem><para>The kernel initrd, as measured by the Linux kernel to PCR 9. May be generated
+        via <command>systemd-pcrlock lock-kernel-initrd</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>750-enter-initrd.pcrlock</filename></term>
+
+        <listitem><para>The measurement to PCR 11
+        <citerefentry><refentrytitle>systemd-pcrphase-initrd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        makes when the initrd initializes. Statically defined.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>800-leave-initrd.pcrlock</filename></term>
+
+        <listitem><para>The measurement to PCR 11
+        <citerefentry><refentrytitle>systemd-pcrphase-initrd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        makes when the initrd finishes. Statically defined.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>820-machine-id.pcrlock</filename></term>
+
+        <listitem><para>The measurement to PCR 15
+        <citerefentry><refentrytitle>systemd-pcrmachine.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        makes at boot, covering <filename>/etc/machine-id</filename> contents. May be generated via
+        <command>systemd-pcrlock lock-machine-id</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>830-root-file-system.pcrlock</filename></term>
+
+        <listitem><para>The measurement to PCR 15
+        <citerefentry><refentrytitle>systemd-pcrfs-root.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        makes at boot, covering the root file system identity. May be generated
+        via <command>systemd-pcrlock lock-file-system</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>850-sysinit.pcrlock</filename></term>
+
+        <listitem><para>The measurement to PCR 11
+        <citerefentry><refentrytitle>systemd-pcrphase-sysinit.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        makes when the main userspace did basic initialization and will now proceed to start regular system
+        services. Statically defined.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>900-ready.pcrlock</filename></term>
+
+        <listitem><para>The measurement to PCR 11
+        <citerefentry><refentrytitle>systemd-pcrphase.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        makes when the system fully booted up. Statically defined.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>950-shutdown.pcrlock</filename></term>
+
+        <listitem><para>The measurement to PCR 11
+        <citerefentry><refentrytitle>systemd-pcrphase.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        makes when the system begins shutdown. Statically defined.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>990-final.pcrlock</filename></term>
+
+        <listitem><para>The measurement to PCR 11
+        <citerefentry><refentrytitle>systemd-pcrphase-sysinit.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        makes when the system is close to finishing shutdown. Statically defined.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-pcrlock</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

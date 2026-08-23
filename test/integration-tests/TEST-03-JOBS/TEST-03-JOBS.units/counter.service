@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+BindsTo=sleep-infinity-restart-normal.service sleep-infinity-restart-direct.service
+After=sleep-infinity-restart-normal.service sleep-infinity-restart-direct.service
+
+[Service]
+Type=notify
+ExecStart=/usr/lib/systemd/tests/testdata/TEST-03-JOBS.units/counter.sh

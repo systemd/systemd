@@ -1,0 +1,97 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+#pragma once
+
+#include <linux/if_bonding.h>
+
+#include "forward.h"
+
+/*
+ * Maximum number of targets supported by the kernel for a single
+ * bond netdev.
+ */
+#define NETDEV_BOND_ARP_TARGETS_MAX 16
+
+typedef enum BondMode {
+        NETDEV_BOND_MODE_BALANCE_RR    = BOND_MODE_ROUNDROBIN,
+        NETDEV_BOND_MODE_ACTIVE_BACKUP = BOND_MODE_ACTIVEBACKUP,
+        NETDEV_BOND_MODE_BALANCE_XOR   = BOND_MODE_XOR,
+        NETDEV_BOND_MODE_BROADCAST     = BOND_MODE_BROADCAST,
+        NETDEV_BOND_MODE_802_3AD       = BOND_MODE_8023AD,
+        NETDEV_BOND_MODE_BALANCE_TLB   = BOND_MODE_TLB,
+        NETDEV_BOND_MODE_BALANCE_ALB   = BOND_MODE_ALB,
+        _NETDEV_BOND_MODE_MAX,
+        _NETDEV_BOND_MODE_INVALID      = -EINVAL,
+} BondMode;
+
+typedef enum BondXmitHashPolicy {
+        NETDEV_BOND_XMIT_HASH_POLICY_LAYER2   = BOND_XMIT_POLICY_LAYER2,
+        NETDEV_BOND_XMIT_HASH_POLICY_LAYER34  = BOND_XMIT_POLICY_LAYER34,
+        NETDEV_BOND_XMIT_HASH_POLICY_LAYER23  = BOND_XMIT_POLICY_LAYER23,
+        NETDEV_BOND_XMIT_HASH_POLICY_ENCAP23  = BOND_XMIT_POLICY_ENCAP23,
+        NETDEV_BOND_XMIT_HASH_POLICY_ENCAP34  = BOND_XMIT_POLICY_ENCAP34,
+        _NETDEV_BOND_XMIT_HASH_POLICY_MAX,
+        _NETDEV_BOND_XMIT_HASH_POLICY_INVALID = -EINVAL,
+} BondXmitHashPolicy;
+
+typedef enum BondLacpRate {
+        NETDEV_BOND_LACP_RATE_SLOW,
+        NETDEV_BOND_LACP_RATE_FAST,
+        _NETDEV_BOND_LACP_RATE_MAX,
+        _NETDEV_BOND_LACP_RATE_INVALID = -EINVAL,
+} BondLacpRate;
+
+typedef enum BondAdSelect {
+        NETDEV_BOND_AD_SELECT_STABLE,
+        NETDEV_BOND_AD_SELECT_BANDWIDTH,
+        NETDEV_BOND_AD_SELECT_COUNT,
+        _NETDEV_BOND_AD_SELECT_MAX,
+        _NETDEV_BOND_AD_SELECT_INVALID = -EINVAL,
+} BondAdSelect;
+
+typedef enum BondFailOverMac {
+        NETDEV_BOND_FAIL_OVER_MAC_NONE,
+        NETDEV_BOND_FAIL_OVER_MAC_ACTIVE,
+        NETDEV_BOND_FAIL_OVER_MAC_FOLLOW,
+        _NETDEV_BOND_FAIL_OVER_MAC_MAX,
+        _NETDEV_BOND_FAIL_OVER_MAC_INVALID = -EINVAL,
+} BondFailOverMac;
+
+typedef enum BondArpValidate {
+        NETDEV_BOND_ARP_VALIDATE_NONE,
+        NETDEV_BOND_ARP_VALIDATE_ACTIVE,
+        NETDEV_BOND_ARP_VALIDATE_BACKUP,
+        NETDEV_BOND_ARP_VALIDATE_ALL,
+        _NETDEV_BOND_ARP_VALIDATE_MAX,
+        _NETDEV_BOND_ARP_VALIDATE_INVALID = -EINVAL,
+} BondArpValidate;
+
+typedef enum BondArpAllTargets {
+        NETDEV_BOND_ARP_ALL_TARGETS_ANY,
+        NETDEV_BOND_ARP_ALL_TARGETS_ALL,
+        _NETDEV_BOND_ARP_ALL_TARGETS_MAX,
+        _NETDEV_BOND_ARP_ALL_TARGETS_INVALID = -EINVAL,
+} BondArpAllTargets;
+
+typedef enum BondPrimaryReselect {
+        NETDEV_BOND_PRIMARY_RESELECT_ALWAYS,
+        NETDEV_BOND_PRIMARY_RESELECT_BETTER,
+        NETDEV_BOND_PRIMARY_RESELECT_FAILURE,
+        _NETDEV_BOND_PRIMARY_RESELECT_MAX,
+        _NETDEV_BOND_PRIMARY_RESELECT_INVALID = -EINVAL,
+} BondPrimaryReselect;
+
+DECLARE_STRING_TABLE_LOOKUP(bond_mode, BondMode);
+
+DECLARE_STRING_TABLE_LOOKUP(bond_xmit_hash_policy, BondXmitHashPolicy);
+
+DECLARE_STRING_TABLE_LOOKUP(bond_lacp_rate, BondLacpRate);
+
+DECLARE_STRING_TABLE_LOOKUP(bond_fail_over_mac, BondFailOverMac);
+
+DECLARE_STRING_TABLE_LOOKUP(bond_ad_select, BondAdSelect);
+
+DECLARE_STRING_TABLE_LOOKUP(bond_arp_validate, BondArpValidate);
+
+DECLARE_STRING_TABLE_LOOKUP(bond_arp_all_targets, BondArpAllTargets);
+
+DECLARE_STRING_TABLE_LOOKUP(bond_primary_reselect, BondPrimaryReselect);

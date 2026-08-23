@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for UMask default
+
+[Service]
+ExecStart=bash -x -c 'rm /tmp/test-exec-umask; touch /tmp/test-exec-umask; mode=$$(stat -c %%a /tmp/test-exec-umask); test "$$mode" = "644"'
+Type=oneshot
+PrivateTmp=yes

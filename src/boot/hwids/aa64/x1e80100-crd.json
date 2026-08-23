@@ -1,0 +1,16 @@
+{
+    "type": "devicetree",
+    "name": "Qualcomm SCP_HAMOA",
+    "compatible": "qcom,x1e80100-crd",
+    "hwids": [
+        "e73870a5-90e8-528d-93fd-3da59f78df18",
+        "2405af0b-d21d-5196-a228-4acffe7b3a10",
+        "8fa88c58-23eb-5aea-9ea7-c4a98ded7352",
+        "7faef667-9eb2-53f4-9764-26fe0e92fbff",
+        "b6d4eee8-30f3-564a-8246-e83935cf8dbb",
+        "4bb05d50-6c4f-525d-a9ec-8924afd6edea",
+        "339fc6d2-e0f4-5226-9dd9-62c4dc41881d",
+        "d52e3fb6-202c-5cfa-a27c-e3ffe15339fb",
+        "361b3d63-be90-52c2-8798-a05fbd68b773"
+    ]
+}

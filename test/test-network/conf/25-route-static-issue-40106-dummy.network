@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=dummy99
+
+[Network]
+ConfigureWithoutCarrier=true
+VLAN=vlan99

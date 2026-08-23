@@ -1,0 +1,346 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-pcrphase.service" conditional='ENABLE_BOOTLOADER HAVE_OPENSSL HAVE_TPM2'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-pcrphase.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-pcrphase.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-pcrphase.service</refname>
+    <refname>systemd-pcrphase-sysinit.service</refname>
+    <refname>systemd-pcrphase-initrd.service</refname>
+    <refname>systemd-pcrmachine.service</refname>
+    <refname>systemd-pcrosseparator.service</refname>
+    <refname>systemd-pcrproduct.service</refname>
+    <refname>systemd-pcrlogin@.service</refname>
+    <refname>systemd-pcrfs-root.service</refname>
+    <refname>systemd-pcrfs@.service</refname>
+    <refname>systemd-pcrnvdone.service</refname>
+    <refname>systemd-pcrphase-factory-reset.service</refname>
+    <refname>systemd-pcrphase-storage-target-mode.service</refname>
+    <refname>systemd-pcrextend</refname>
+    <refpurpose>Measure boot phases, machine ID, product UUID, user records and file system identity into TPM PCRs and NvPCRs</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-pcrphase.service</filename></para>
+    <para><filename>systemd-pcrphase-sysinit.service</filename></para>
+    <para><filename>systemd-pcrphase-initrd.service</filename></para>
+    <para><filename>systemd-pcrmachine.service</filename></para>
+    <para><filename>systemd-pcrosseparator.service</filename></para>
+    <para><filename>systemd-pcrproduct.service</filename></para>
+    <para><filename>systemd-pcrlogin@.service</filename></para>
+    <para><filename>systemd-pcrfs-root.service</filename></para>
+    <para><filename>systemd-pcrfs@.service</filename></para>
+    <para><filename>systemd-pcrnvdone.service</filename></para>
+    <para><filename>systemd-pcrphase-factory-reset.service</filename></para>
+    <para><filename>systemd-pcrphase-storage-target-mode.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-pcrextend</filename> <replaceable>WORD</replaceable></para>
+    <para><filename>/usr/lib/systemd/systemd-pcrextend</filename> <option>--file-system=<replaceable>PATH</replaceable></option></para>
+    <para><filename>/usr/lib/systemd/systemd-pcrextend</filename> <option>--machine-id</option></para>
+    <para><filename>/usr/lib/systemd/systemd-pcrextend</filename> <option>--product-id</option></para>
+    <para><filename>/usr/lib/systemd/systemd-pcrextend</filename> <option>--login=<replaceable>UID</replaceable>|<replaceable>USER</replaceable></option></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-pcrphase.service</filename>,
+    <filename>systemd-pcrphase-sysinit.service</filename>, and
+    <filename>systemd-pcrphase-initrd.service</filename> are system services that measure specific strings
+    into TPM2 PCR 11 during boot at various milestones of the boot process.</para>
+
+    <para><filename>systemd-pcrmachine.service</filename> is a system service that measures the machine ID
+    (see <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>) into
+    PCR 15.</para>
+
+    <para><filename>systemd-pcrosseparator.service</filename> is a system service that measures the word
+    <literal>os-separator</literal> into PCRs 0-7, 9, 12-14. This acts as additional separator measurement
+    separating pre-boot (i.e. firmware + bootloader) measurements from OS measurements, and in particular
+    "seals" off the firmware PCRs.</para>
+
+    <para><filename>systemd-pcrproduct.service</filename> is a system service that measures the firmware
+    product UUID (as provided by one of SMBIOS, Devicetree, …) into a NvPCR named
+    <literal>hardware</literal>.</para>
+
+    <para><filename>systemd-pcrlogin@.service</filename> is a template service that measures the (reduced,
+    canonical JSON) user record of the user indicated by its instance identifier (a UID) into a NvPCR named
+    <literal>login</literal>. It is started by
+    <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    on the user's first login of the current boot, much like
+    <citerefentry><refentrytitle>user-runtime-dir@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    Unlike the latter it is intentionally never stopped again: it is a <varname>Type=oneshot</varname> service
+    with <varname>RemainAfterExit=yes</varname> in <filename>system.slice</filename>, so each user is measured
+    exactly once per boot regardless of how often they log in and out (NvPCR extensions form a hash chain, so
+    measuring the same record twice would otherwise make the NvPCR value unpredictable). The resulting
+    <literal>login</literal> NvPCR (together with the
+    <filename>/run/log/systemd/tpm2-measure.log</filename> event log) thus provides a TPM-backed,
+    append-only record of which user identities were activated during the current boot.</para>
+
+    <para><filename>systemd-pcrnvdone.service</filename> is a system service that measures a separator event
+    into PCR 9 once all NvPCRs have completed initialization.</para>
+
+    <para><filename>systemd-pcrfs-root.service</filename> and <filename>systemd-pcrfs@.service</filename> are
+    services that measure file system identity information (i.e. mount point, file system type, label and
+    UUID, partition label and UUID) into PCR 15. <filename>systemd-pcrfs-root.service</filename> does so for
+    the root file system, <filename>systemd-pcrfs@.service</filename> is a template unit that measures the
+    file system indicated by its instance identifier instead.</para>
+
+    <para>These services require
+    <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> to be
+    used in a unified kernel image (UKI). They execute no operation when the stub has not been used to invoke
+    the kernel. The stub will measure the invoked kernel and associated vendor resources into PCR 11 before
+    handing control to it; once userspace is invoked these services then will extend TPM2 PCR 11 with certain
+    literal strings indicating phases of the boot process. During a regular boot process PCR 11 is extended
+    with the following strings:</para>
+
+    <orderedlist>
+      <listitem><para><literal>enter-initrd</literal> — early when the initrd initializes, before activating
+      system extension images for the initrd. It acts as a barrier between the time where the kernel
+      initializes and where the initrd starts operating and enables system extension images, i.e. code
+      shipped outside of the UKI. (This extension happens when the
+      <citerefentry><refentrytitle>systemd-pcrphase-initrd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      service is started.)</para></listitem>
+
+      <listitem><para><literal>leave-initrd</literal> — when the initrd is about to transition into the host
+      file system. It acts as barrier between initrd code and host OS code. (This extension happens when the
+      <citerefentry><refentrytitle>systemd-pcrphase-sysinit.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      service is stopped.)</para></listitem>
+
+      <listitem><para><literal>sysinit</literal> — when basic system initialization is complete (which
+      includes local file systems having been mounted), and the system begins starting regular system
+      services. (This extension happens when the
+      <citerefentry><refentrytitle>systemd-pcrphase-sysinit.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      service is started.)</para></listitem>
+
+      <listitem><para><literal>ready</literal> — during later boot-up, after remote file systems have been
+      activated (i.e. after <filename>remote-fs.target</filename>), but before users are permitted to log in
+      (i.e. before <filename>systemd-user-sessions.service</filename>). It acts as barrier between the time
+      where unprivileged regular users are still prohibited to log in and where they are allowed to log in.
+      (This extension happens when the
+      <citerefentry><refentrytitle>systemd-pcrphase-sysinit.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      service is started.)
+      </para></listitem>
+
+      <listitem><para><literal>shutdown</literal> — when the system shutdown begins. It acts as barrier
+      between the time the system is fully up and running and where it is about to shut down. (This extension
+      happens when the <filename>systemd-pcrphase.service</filename> service is stopped.)</para></listitem>
+
+      <listitem><para><literal>final</literal> — at the end of system shutdown. It acts as barrier between
+      the time the service manager still runs and when it transitions into the final shutdown phase where
+      service management is not available anymore. (This extension happens when the
+      <citerefentry><refentrytitle>systemd-pcrphase-sysinit.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      service is stopped.)</para></listitem>
+    </orderedlist>
+
+    <para>During a regular system lifecycle, PCR 11 is extended with the strings
+    <literal>enter-initrd</literal>, <literal>leave-initrd</literal>, <literal>sysinit</literal>,
+    <literal>ready</literal>, <literal>shutdown</literal>, and <literal>final</literal>.</para>
+
+    <para>Specific phases of the boot process may be referenced via the series of strings measured, separated
+    by colons (the "phase path"). For example, the phase path for the regular system runtime is
+    <literal>enter-initrd:leave-initrd:sysinit:ready</literal>, while the one for the initrd is just
+    <literal>enter-initrd</literal>. The phase path for the boot phase before the initrd is an empty string;
+    because that's hard to pass around a single colon (<literal>:</literal>) may be used instead. Note that
+    the aforementioned six strings are just the default strings and individual systems might measure other
+    strings at other times, and thus implement different and more fine-grained boot phases to bind policy
+    to.</para>
+
+    <para>By binding policy of TPM2 objects to a specific phase path it is possible to restrict access to
+    them to specific phases of the boot process, for example making it impossible to access the root file
+    system's encryption key after the system transitioned from the initrd into the host root file system.
+    </para>
+
+    <para>Use
+    <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry> to
+    pre-calculate expected PCR 11 values for specific boot phases (via the <option>--phase=</option> switch).
+    </para>
+
+    <para><filename>systemd-pcrfs-root.service</filename> and <filename>systemd-pcrfs@.service</filename> are
+    automatically pulled into the initial transaction by
+    <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    for the root and <filename>/var/</filename> file
+    systems. <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    will do this for all mounts with the <option>x-systemd.pcrfs</option> mount option in
+    <filename>/etc/fstab</filename>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The <filename>/usr/lib/systemd/systemd-pcrextend</filename> executable may also be invoked from the
+    command line, where it expects the word to extend into a PCR or NvPCR, as well as the following
+    switches:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--bank=</option></term>
+
+        <listitem><para>Takes the PCR banks to extend the specified word into. If not specified, the tool
+        automatically determines all enabled PCR banks and measures the word into all of
+        them.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--pcr=</option></term>
+
+        <listitem><para>Takes the index of the PCR to extend. If <option>--machine-id</option> or
+        <option>--file-system=</option> are specified defaults to 15, otherwise (and unless
+        <option>--product-id</option> is specified) defaults to 11. May be specified multiple times, in order
+        to measure to multiple PCRs at the same time. May not be combined with
+        <option>--nvpcr=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--nvpcr=</option></term>
+
+        <listitem><para>Takes a name of an NvPCR to extend. NvPCRs are additional PCRs implemented via TPM NV
+        indexes. The name should be a short string such as <literal>hardware</literal> or
+        <literal>disk-encryption</literal>. If <option>--product-id</option> is specified defaults
+        <literal>hardware</literal>. May not be combined with <option>--pcr=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tpm2-device=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>Controls which TPM2 device to use. Expects a device node path referring to the TPM2
+        chip (e.g. <filename>/dev/tpmrm0</filename>). Alternatively the special value <literal>auto</literal>
+        may be specified, in order to automatically determine the device node of a suitable TPM2 device (of
+        which there must be exactly one). The special value <literal>list</literal> may be used to enumerate
+        all suitable TPM2 devices currently discovered.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--graceful</option></term>
+
+        <listitem><para>If no TPM2 firmware, kernel subsystem, kernel driver or device support is found, exit
+        with exit status 0 (i.e. indicate success). If this is not specified, any attempt to measure without a
+        TPM2 device will cause the invocation to fail.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--machine-id</option></term>
+
+        <listitem><para>Instead of measuring a word specified on the command line into PCR 11, measure the
+        host's machine ID into PCR 15.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--product-id</option></term>
+
+        <listitem><para>Instead of measuring a word specified on the command line into PCR 11, measure the
+        firmware's product UUID into an NvPCR named <literal>hardware</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--login=</option></term>
+
+        <listitem><para>Instead of measuring a word specified on the command line into PCR 11, measure the
+        user record of the specified user into an NvPCR named <literal>login</literal>. The parameter must be a
+        user name or numeric UID. The record is reduced to its <literal>regular</literal>,
+        <literal>perMachine</literal> and <literal>binding</literal> sections (i.e. the privileged, secret,
+        status and signature sections are stripped, so that for example password hash changes do not perturb
+        the NvPCR), normalized and serialized to canonical JSON before measurement. This is primarily used by
+        <filename>systemd-pcrlogin@.service</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--file-system=</option></term>
+
+        <listitem><para>Instead of measuring a word specified on the command line into PCR 11, measure
+        identity information of the specified file system into PCR 15. The parameter must be the path to the
+        established mount point of the file system to measure.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--event-type=</option></term>
+
+        <listitem><para>Set the event log event type for this measurement. Pass <literal>help</literal> for a
+        list of currently defined identifiers. Defaults to an appropriate value for
+        <option>--machine-id</option>, <option>--product-id</option>, <option>--file-system=</option>,
+        <option>--login=</option>, and otherwise to <literal>phase</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Files</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><filename>/run/log/systemd/tpm2-measure.log</filename></term>
+
+        <listitem><para>Measurements are logged into an event log file maintained in
+        <filename>/run/log/systemd/tpm2-measure.log</filename>, which contains a <ulink
+        url="https://www.rfc-editor.org/rfc/rfc7464.html">JSON-SEQ</ulink> series of objects that follow the
+        general structure of the <ulink
+        url="https://trustedcomputinggroup.org/resource/canonical-event-log-format/">TCG Canonical Event Log
+        Format (CEL-JSON)</ulink> event objects (but lack the <literal>recnum</literal>
+        field).</para>
+
+        <para>A <constant>LOCK_EX</constant> BSD file lock (<citerefentry
+        project='man-pages'><refentrytitle>flock</refentrytitle><manvolnum>2</manvolnum></citerefentry>) on
+        the log file is acquired while the measurement is made and the file is updated. Thus, applications
+        that intend to acquire a consistent quote from the TPM with the associated snapshot of the event log
+        should acquire a <constant>LOCK_SH</constant> lock while doing so.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>/usr/lib/nvpcr/*.nvpcr</filename></term>
+
+        <listitem><para>Definition files for NvPCRs.</para>
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><ulink url="https://systemd.io/TPM2_PCR_MEASUREMENTS">TPM2 PCR Measurements Made by systemd</ulink></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

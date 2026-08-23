@@ -1,0 +1,123 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="systemd-vconsole-setup.service" conditional='ENABLE_VCONSOLE'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-vconsole-setup.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-vconsole-setup.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-vconsole-setup.service</refname>
+    <refname>systemd-vconsole-setup</refname>
+    <refpurpose>Configure the virtual consoles</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-vconsole-setup.service</filename></para>
+    <cmdsynopsis>
+      <command>/usr/lib/systemd/systemd-vconsole-setup</command>
+      <arg choice="opt">TTY</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-vconsole-setup</command> sets up and configures either all virtual consoles, or
+    — if the optional <replaceable>TTY</replaceable> parameter is provided — a specific one. When the system
+    is booting up, <filename>systemd-vconsole-setup.service</filename> is called by
+    <citerefentry><refentrytitle>systemd-udevd</refentrytitle><manvolnum>8</manvolnum></citerefentry> during
+    VT console subsystem initialization. Also,
+    <citerefentry><refentrytitle>systemd-localed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    invokes it as needed when language or console changes are made.
+    Internally, this program calls
+    <citerefentry project='mankier'><refentrytitle>loadkeys</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    and
+    <citerefentry project='die-net'><refentrytitle>setfont</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    </para>
+
+    <para>Execute <command>systemctl restart systemd-vconsole-setup.service</command> in order to apply any manual
+    changes made to <filename>/etc/vconsole.conf</filename>.</para>
+
+    <para>See <citerefentry><refentrytitle>vconsole.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    information about the configuration files and kernel command line options understood by this program.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Credentials</title>
+
+    <para><command>systemd-vconsole-setup</command> supports the service credentials logic as implemented by
+    <varname>ImportCredential=</varname>/<varname>LoadCredential=</varname>/<varname>SetCredential=</varname>
+    (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details). The following credentials are used when passed in:</para>
+
+    <variablelist class='system-credentials'>
+      <varlistentry>
+        <term><varname>vconsole.keymap</varname></term>
+        <term><varname>vconsole.keymap_toggle</varname></term>
+
+        <listitem><para>The keymap (and toggle keymap) to apply. The matching options in
+        <filename>vconsole.conf</filename> and on the kernel command line take precedence over these
+        credentials.</para>
+
+        <para>Note the relationship to the <varname>firstboot.keymap</varname> credential understood by
+        <citerefentry><refentrytitle>systemd-firstboot.service</refentrytitle><manvolnum>1</manvolnum></citerefentry>:
+        both ultimately affect the same setting, but <varname>firstboot.keymap</varname> is written into
+        <filename>/etc/vconsole.conf</filename> on first boot (if not already configured), and then read from
+        there by <command>systemd-vconsole-setup</command>, while <varname>vconsole.keymap</varname> is read
+        on every boot, and is not persisted to disk (but any configuration in
+        <filename>vconsole.conf</filename> will take precedence if present).</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>vconsole.font</varname></term>
+        <term><varname>vconsole.font_map</varname></term>
+        <term><varname>vconsole.font_unimap</varname></term>
+
+        <listitem><para>The console font settings to apply. The matching options in
+        <filename>vconsole.conf</filename> and on the kernel command line take precedence over these
+        credentials.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Firmware-provided keyboard layout</title>
+
+    <para>If the boot loader reports the firmware-configured keyboard layout via the
+    <varname>LoaderKeyboardLayout</varname> EFI variable (see the
+    <ulink url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>),
+    <command>systemd-vconsole-setup</command> uses it as the lowest-priority fallback for the
+    keymap. The RFC 4646 / BCP 47 language tag reported by the firmware (e.g. <literal>de-DE</literal>) is
+    matched against the optional sixth column of <filename>/usr/share/systemd/kbd-model-map</filename>,
+    which lists the language tags each virtual-console keymap covers. Credentials,
+    <filename>/etc/vconsole.conf</filename>, and kernel command line options all override this
+    firmware-provided default.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>vconsole.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry project='mankier'><refentrytitle>loadkeys</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>setfont</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-localed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

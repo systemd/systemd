@@ -1,0 +1,137 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd_journal_stream_fd" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_journal_stream_fd</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_journal_stream_fd</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_journal_stream_fd</refname>
+    <refname>sd_journal_stream_fd_with_namespace</refname>
+    <refpurpose>Create log stream file descriptor to the journal</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-journal.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_journal_stream_fd</function></funcdef>
+        <paramdef>const char *<parameter>identifier</parameter></paramdef>
+        <paramdef>int <parameter>priority</parameter></paramdef>
+        <paramdef>int <parameter>level_prefix</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_journal_stream_fd_with_namespace</function></funcdef>
+        <paramdef>const char *<parameter>name_space</parameter></paramdef>
+        <paramdef>const char *<parameter>identifier</parameter></paramdef>
+        <paramdef>int <parameter>priority</parameter></paramdef>
+        <paramdef>int <parameter>level_prefix</parameter></paramdef>
+      </funcprototype>
+
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_journal_stream_fd()</function> may be used to create a log stream file descriptor.
+    Log messages written to this file descriptor as simple newline-separated text strings are written
+    to the journal. This file descriptor can be used internally by applications or be made standard output
+    or standard error of other processes executed.</para>
+
+    <para><function>sd_journal_stream_fd()</function> takes a short program identifier string as
+    first argument, which will be written to the journal as SYSLOG_IDENTIFIER= field for each log entry
+    (see
+    <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    for more information). The second argument shall be the default priority level for all messages.
+    The priority level is one of
+    <constant>LOG_EMERG</constant>, <constant>LOG_ALERT</constant>,
+    <constant>LOG_CRIT</constant>, <constant>LOG_ERR</constant>,
+    <constant>LOG_WARNING</constant>, <constant>LOG_NOTICE</constant>,
+    <constant>LOG_INFO</constant>, <constant>LOG_DEBUG</constant>, as
+    defined in <filename>syslog.h</filename>, see
+    <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    for details. The third argument is a boolean: if true kernel-style
+    log level prefixes (such as <constant>SD_WARNING</constant>) are
+    interpreted, see
+    <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    for more information.</para>
+
+    <para><function>sd_journal_stream_fd_with_namespace()</function> is similar to
+    <function>sd_journal_stream_fd()</function>, but takes an additional <parameter>name_space</parameter> parameter
+    that specifies which journal namespace to operate on. If specified as <constant>NULL</constant> the call
+    is identical to <function>sd_journal_stream_fd()</function>. For details about journal namespaces, see
+    <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+    <para>It is recommended that applications log UTF-8 messages only with this API, but this is not enforced.</para>
+
+    <para>Each invocation of these functions allocates a new log stream file descriptor,
+    that is not shared with prior or later invocations. The file descriptor is write-only (its reading direction
+    is shut down), and <constant>O_NONBLOCK</constant> is turned off initially.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>The call returns a valid write-only file descriptor on success or a negative errno-style error code.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Signal safety</title>
+
+    <para><function>sd_journal_stream_fd()</function> and <function>sd_journal_stream_fd_with_namespace()</function>
+    are "async signal safe" in the meaning of <citerefentry
+    project='man-pages'><refentrytitle>signal-safety</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Notes</title>
+
+    <xi:include href="threads-aware.xml" xpointer="safe"/>
+
+    <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para>Creating a log stream suitable for
+    <citerefentry project='man-pages'><refentrytitle>fprintf</refentrytitle><manvolnum>3</manvolnum></citerefentry>:</para>
+
+    <programlisting><xi:include href="journal-stream-fd.c" parse="text" /></programlisting>
+  </refsect1>
+
+  <refsect1>
+    <title>History</title>
+    <para><function>sd_journal_stream_fd()</function> was added in version 187.</para>
+    <para><function>sd_journal_stream_fd_with_namespace()</function> was added in version 256.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_journal_print</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>fprintf</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

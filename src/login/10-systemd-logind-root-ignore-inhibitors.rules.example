@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: MIT-0
+//
+// This config file is installed as part of systemd.
+// It may be freely copied and edited (following the MIT No Attribution license).
+//
+// This example can be enabled by symlinking this file to
+// /etc/polkit-1/rules.d/10-systemd-logind-root-ignore-inhibitors.rules
+
+// Allow the root user to ignore inhibitors when calling reboot etc.
+polkit.addRule(function(action, subject) {
+    if ((action.id == "org.freedesktop.login1.power-off-ignore-inhibit" ||
+         action.id == "org.freedesktop.login1.reboot-ignore-inhibit" ||
+         action.id == "org.freedesktop.login1.halt-ignore-inhibit" ||
+         action.id == "org.freedesktop.login1.suspend-ignore-inhibit" ||
+         action.id == "org.freedesktop.login1.hibernate-ignore-inhibit") &&
+        subject.user == "root") {
+
+        return polkit.Result.YES;
+    }
+});

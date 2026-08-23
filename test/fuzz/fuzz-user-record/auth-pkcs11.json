@@ -1,0 +1,33 @@
+{
+    "userName": "pkcs11user",
+    "realName": "PKCS#11 Token User",
+    "uid": 2001,
+    "gid": 2001,
+    "homeDirectory": "/home/pkcs11user",
+    "shell": "/bin/bash",
+    "disposition": "regular",
+    "storage": "luks",
+    "imagePath": "/home/pkcs11user.home",
+    "pkcs11TokenUri": [
+        "pkcs11:model=PKCS%2315%20emulated;manufacturer=piv_II;serial=00000000;token=pkcs11user",
+        "pkcs11:model=YubiKey;manufacturer=Yubico;serial=12345678;token=PIV"
+    ],
+    "privileged": {
+        "pkcs11EncryptedKey": [
+            {
+                "uri": "pkcs11:model=PKCS%2315%20emulated;manufacturer=piv_II;serial=00000000;token=pkcs11user",
+                "data": "SGVsbG8gV29ybGQhIFRoaXMgaXMgYSB0ZXN0IGVuY3J5cHRlZCBrZXkgZm9yIFBLQ1MjMTEu",
+                "hashedPassword": "$6$pkcs11salt$encryptedkeyhashforpkcs11authentication"
+            },
+            {
+                "uri": "pkcs11:model=YubiKey;manufacturer=Yubico;serial=12345678;token=PIV",
+                "data": "QW5vdGhlciBlbmNyeXB0ZWQga2V5IGZvciBhIGRpZmZlcmVudCB0b2tlbi4=",
+                "hashedPassword": "$6$yubisalt$encryptedkeyhashforyubikey"
+            }
+        ]
+    },
+    "secret": {
+        "tokenPin": ["123456"],
+        "pkcs11ProtectedAuthenticationPathPermitted": true
+    }
+}

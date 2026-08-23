@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test DynamicUser with SupplementaryGroups=
+
+[Service]
+ExecStart=bash -x -c 'for g in $$(id -G); do test "$$g" = "1" && exit 0; done; exit 1'
+ExecStart=bash -x -c 'for g in $$(id -G); do test "$$g" = "2" && exit 0; done; exit 1'
+Type=oneshot
+DynamicUser=yes
+SupplementaryGroups=1 2
+EnvironmentFile=-/usr/lib/systemd/systemd-asan-env
+ReadWritePaths=-/coverage

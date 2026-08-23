@@ -1,0 +1,231 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="pam_systemd_home" conditional='ENABLE_PAM_HOME'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>pam_systemd_home</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>pam_systemd_home</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>pam_systemd_home</refname>
+    <refpurpose>Authenticate users and mount home directories via <filename>systemd-homed.service</filename>
+    </refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>pam_systemd_home.so</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>pam_systemd_home</command> ensures that home directories managed by
+    <citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    are automatically activated (mounted) on user login, and are deactivated (unmounted) when the last
+    session of the user ends. For such users, it also provides authentication (when per-user disk encryption
+    is used, the disk encryption key is derived from the authentication credential supplied at login time),
+    account management (the <ulink url="https://systemd.io/USER_RECORD/">JSON user record</ulink> embedded in
+    the home store contains account details), and implements the updating of the encryption password (which
+    is also used for user authentication).</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist class='pam-directives'>
+
+      <varlistentry>
+        <term><varname>suspend=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If true, the home directory of the user will be suspended
+        automatically during system suspend; if false it will remain active. Automatic suspending of the home
+        directory improves security substantially as secret key material is automatically removed from memory
+        before the system is put to sleep and must be re-acquired (through user re-authentication) when
+        coming back from suspend. It is recommended to set this parameter for all PAM applications that have
+        support for automatically re-authenticating via PAM on system resume. If multiple sessions of the
+        same user are open in parallel the user's home directory will be left unsuspended on system suspend
+        as long as at least one of the sessions does not set this parameter to on. Defaults to
+        off.</para>
+
+        <para>Note that TTY logins generally do not support re-authentication on system resume.
+        Re-authentication on system resume is primarily a concept implementable in graphical environments, in
+        the form of lock screens brought up automatically when the system goes to sleep. This means that if a
+        user concurrently uses graphical login sessions that implement the required re-authentication
+        mechanism and console logins that do not, the home directory is not locked during suspend, due to the
+        logic explained above. That said, it is possible to set this field for TTY logins too, ignoring the
+        fact that TTY logins actually do not support the re-authentication mechanism. In that case the TTY
+        sessions will appear hung until the user logs in on another virtual terminal (regardless of whether via
+        another TTY session or graphically) which will resume the home directory and unblock the original TTY
+        session. (Do note that lack of screen locking on TTY sessions means even though the TTY session
+        appears hung, keypresses can still be queued into it, and the existing screen contents be read
+        without re-authentication; this limitation is unrelated to the home directory management
+        <command>pam_systemd_home</command> and <filename>systemd-homed.service</filename> implement.)</para>
+
+        <para>Turning this option on by default is highly recommended for all sessions, but only if the
+        service managing these sessions correctly implements the aforementioned re-authentication. Note that
+        the re-authentication must take place from a component running outside of the user's context, so that
+        it does not require access to the user's home directory for operation. Traditionally, most desktop
+        environments do not implement screen locking this way, and need to be updated
+        accordingly.</para>
+
+        <para>This setting may also be controlled via the <varname>$SYSTEMD_HOME_SUSPEND</varname>
+        environment variable (see below), which <command>pam_systemd_home</command> reads during initialization and sets
+        for sessions. If both the environment variable is set and the module parameter specified the latter
+        takes precedence.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>debug</varname><optional>=</optional></term>
+
+        <listitem><para>Takes an optional boolean argument. If yes or without the argument, the module will log
+        debugging information as it operates.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Home Area Support</title>
+
+    <para>Home directories managed by
+    <citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    support multiple home "areas", which are additional secondary home directories of the user within the
+    primary home directory. An example: at login time if a user <literal>lennart</literal> with a home
+    directory of <filename>/home/lennart</filename> specifies <literal>lennart%versuch1</literal> as account
+    name during login, then <command>pam_systemd_home</command> will execute a login into
+    <literal>lennart</literal> but ensure that the <varname>$HOME</varname> variable is set to
+    <filename>/home/lennart/Areas/versuch1</filename> instead of the usual
+    <filename>/home/lennart</filename>.</para>
+
+    <para>This is particularly useful when sharing the same home directory between multiple systems (for
+    example between a host and a VM), with the desire to share the home directory to a large degree, but
+    still have separate session configuration in place.</para>
+
+    <para>Note that the default area to log into can also be encoded in the user record, and it can be
+    specified among
+    <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    configuration parameters. However, an explicit area specified at login time (via the <literal>%</literal>
+    described above) overrides any such default. Also note that simply suffixing an account with
+    <literal>%</literal> at login time (i.e. specifying an empty area name) has the effect of ensuring a
+    login into the primary home directory, overriding any default area configuration via the user record or
+    PAM.</para>
+
+    <para>Note that not all login mechanisms are compatible with the <literal>%</literal> syntax at login
+    time. Most notably <citerefentry
+    project='man-pages'><refentrytitle>ssh</refentrytitle><manvolnum>8</manvolnum></citerefentry> is not.</para>
+
+    <para>Note that the area directory to log into must exist for the area specification to be respected. If
+    an area is specified during login via the <literal>%</literal> logic (or the other mentioned mechanisms)
+    and it does not actually exist the request will be ignored, and the user will log into the primary home
+    directory instead.</para>
+
+    <para>Typically, in order to make use of the mechanism set up an area first, like this:</para>
+
+    <programlisting>lennart@zeta$ mkdir -p ~/Areas
+lennart@zeta$ cp -av /etc/skel ~/Areas/versuch1</programlisting>
+
+    <para>This should be enough to log into the newly created area, either via a regular terminal (using
+    <literal>lennart%versuch1</literal> when prompted for a user name), or via
+    <citerefentry><refentrytitle>run0</refentrytitle><manvolnum>1</manvolnum></citerefentry>:</para>
+
+    <programlisting>lennart@zeta$ run0 --area=versuch1</programlisting>
+  </refsect1>
+
+  <refsect1>
+    <title>Module Types Provided</title>
+
+    <para>The module implements all four PAM operations: <option>auth</option> (to allow authentication using
+    the encrypted data), <option>account</option> (because users with
+    <filename>systemd-homed.service</filename> user accounts are described in a <ulink
+    url="https://systemd.io/USER_RECORD/">JSON user record</ulink> and may be configured in more detail than
+    in the traditional Linux user database), <option>session</option> (because user sessions must be tracked
+    in order to implement automatic release when the last session of the user is gone),
+    <option>password</option> (to change the encryption password — also used for user authentication —
+    through PAM).</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Environment</title>
+
+    <para>The following environment variables are initialized by the module and available to the processes of the
+    user's session:</para>
+
+    <variablelist class='environment-variables'>
+      <varlistentry>
+        <term><varname>$SYSTEMD_HOME=1</varname></term>
+
+        <listitem><para>Indicates that the user's home directory is managed by <filename>systemd-homed.service</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$SYSTEMD_HOME_SUSPEND=</varname></term>
+
+        <listitem><para>Indicates whether the session has been registered with the suspend mechanism enabled
+        or disabled (see above). The variable's value is either <literal>0</literal> or
+        <literal>1</literal>. Note that the module both reads the variable when initializing, and sets it for
+        sessions.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+      </varlistentry>
+
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Example</title>
+
+    <para>Here's an example PAM configuration fragment that permits users managed by
+    <filename>systemd-homed.service</filename> to log in:</para>
+
+    <programlisting>#%PAM-1.0
+    <command>-auth     [success=done authtok_err=bad perm_denied=bad maxtries=bad default=ignore] pam_systemd_home.so</command>
+auth      sufficient pam_unix.so
+auth      required   pam_deny.so
+
+account   required   pam_nologin.so
+<command>-account  [success=done authtok_expired=bad new_authtok_reqd=bad maxtries=bad acct_expired=bad default=ignore] pam_systemd_home.so</command>
+account   required   pam_unix.so
+
+<command>-password sufficient pam_systemd_home.so</command>
+password  sufficient pam_unix.so sha512 shadow try_first_pass
+password  required   pam_deny.so
+
+-session  optional   pam_keyinit.so revoke
+-session  optional   pam_loginuid.so
+<command>-session  optional   pam_systemd_home.so</command>
+-session  optional   pam_systemd.so
+session   required   pam_unix.so</programlisting>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>homed.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>homectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>pam.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>pam.d</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>pam</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

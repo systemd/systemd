@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=A unit with multiple dashes
+Documentation=man:test
+
+[Service]
+ExecStart=true

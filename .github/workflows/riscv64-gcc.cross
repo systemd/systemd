@@ -1,0 +1,21 @@
+[binaries]
+c = 'riscv64-linux-gnu-gcc'
+cpp = 'riscv64-linux-gnu-g++'
+ar = 'riscv64-linux-gnu-gcc-ar'
+nm = 'riscv64-linux-gnu-gcc-nm'
+strip = 'riscv64-linux-gnu-strip'
+pkgconfig = 'pkg-config'
+
+[properties]
+needs_exe_wrapper = true
+pkg_config_libdir = '/usr/lib/riscv64-linux-gnu/pkgconfig:/usr/share/pkgconfig'
+c_args = ['-O2', '-pipe', '-g', '-feliminate-unused-debug-types']
+c_link_args = ['-fuse-ld=bfd', '-Wl,-O1', '-Wl,--hash-style=gnu', '-Wl,--as-needed', '-Wl,-z,relro,-z,now,-z,noexecstack']
+cpp_args = []
+cpp_link_args = ['-fuse-ld=bfd', '-Wl,-O1', '-Wl,--hash-style=gnu', '-Wl,--as-needed', '-Wl,-z,relro,-z,now,-z,noexecstack']
+
+[host_machine]
+system = 'linux'
+cpu_family = 'riscv64'
+cpu = 'riscv64'
+endian = 'little'

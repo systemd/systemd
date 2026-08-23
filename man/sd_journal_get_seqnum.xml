@@ -1,0 +1,110 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd_journal_get_seqnum"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_journal_get_seqnum</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_journal_get_seqnum</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_journal_get_seqnum</refname>
+    <refpurpose>Read sequence number from the current journal entry</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-journal.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_journal_get_seqnum</function></funcdef>
+        <paramdef>sd_journal *<parameter>j</parameter></paramdef>
+        <paramdef>uint64_t *<parameter>ret_seqnum</parameter></paramdef>
+        <paramdef>sd_id128_t *<parameter>ret_seqnum_id</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_journal_get_seqnum()</function> returns the sequence number of the current journal
+    entry. It takes three arguments: the journal context object, a pointer to a 64-bit unsigned integer to
+    store the sequence number in, and a buffer to return the 128-bit sequence number ID in.</para>
+
+    <para>When writing journal entries to disk each <command>systemd-journald</command> instance will number
+    them sequentially, starting from 1 for the first entry written after subsystem initialization. Each such
+    series of sequence numbers is associated with a 128-bit sequence number ID which is initialized randomly,
+    once at <command>systemd-journal</command> initialization. Thus, while multiple instances of
+    <command>systemd-journald</command> will assign the same sequence numbers to their written journal
+    entries, they will have a distinct sequence number IDs. The sequence number is assigned at the moment of
+    writing the entry to disk. If log entries are rewritten (for example because the volatile logs from
+    <filename>/run/log/</filename> are flushed to <filename>/var/log/</filename> via
+    <filename>systemd-journald-flush.service</filename>) they will get new sequence numbers assigned.</para>
+
+    <para>Sequence numbers may be used to order entries (entries associated with the same sequence number ID
+    and lower sequence numbers should be ordered chronologically before those with higher sequence numbers),
+    and to detect lost entries. Note that journal service instances typically write to multiple journal files
+    in parallel (for example because <varname>SplitMode=</varname> is used), in which case each journal file
+    will only contain a subset of the sequence numbers. To recover the full stream of journal entries the
+    files must be combined ("interleaved"), a process that primarily relies on the sequence numbers. When
+    journal files are rotated (due to size or time limits), the series of sequence numbers is continued in
+    the replacement files. All journal files generated from the same journal instance will carry the same
+    sequence number ID.</para>
+
+    <para>As the sequence numbers are assigned at the moment of writing the journal entries to disk they do
+    not exist if storage is disabled via <varname>SplitMode=</varname>.</para>
+
+    <para>The <varname>ret_seqnum</varname> and <varname>ret_seqnum_id</varname> parameters may be specified
+    as <constant>NULL</constant> in which case the relevant data is not returned (but the call will otherwise
+    succeed).</para>
+
+    <para>Note that these functions will not work before
+    <citerefentry><refentrytitle>sd_journal_next</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    (or related call) has been called at least
+    once, in order to position the read pointer at a valid entry.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para><function>sd_journal_get_seqnum()</function> returns 0 on success or a negative errno-style error
+    code..</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Notes</title>
+
+    <xi:include href="threads-aware.xml" xpointer="strict"/>
+
+    <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
+  </refsect1>
+
+  <refsect1>
+    <title>History</title>
+    <para><function>sd_journal_get_seqnum()</function> was added in version 254.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_journal_open</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_journal_next</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_journal_get_data</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_journal_get_monotonic_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

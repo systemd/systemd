@@ -1,0 +1,501 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="coredumpctl" conditional='ENABLE_COREDUMP'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>coredumpctl</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>coredumpctl</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>coredumpctl</refname>
+    <refpurpose>Retrieve and process saved core dumps and metadata</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>coredumpctl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="req">COMMAND</arg>
+      <arg choice="opt" rep="repeat">PID|COMM|EXE|MATCH</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>coredumpctl</command> is a tool that can be used to retrieve and process core
+    dumps and metadata which were saved by
+    <citerefentry><refentrytitle>systemd-coredump</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
+
+    <para>The following commands are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><command>list</command></term>
+
+        <listitem><para>List core dumps captured in the journal
+        matching specified characteristics. If no command is
+        specified, this is the implied default.</para>
+
+        <para>The output is designed to be human-readable and contains a table with the following
+        columns:</para>
+        <variablelist>
+          <varlistentry>
+            <term>TIME</term>
+            <listitem><para>The timestamp of the crash, as reported by the kernel.</para>
+
+            <xi:include href="version-info.xml" xpointer="v233"/>
+            </listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term>PID</term>
+            <listitem><para>The identifier of the process that crashed.</para>
+
+            <xi:include href="version-info.xml" xpointer="v233"/>
+            </listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term>UID</term>
+            <term>GID</term>
+            <listitem><para>The user and group identifiers of the process that crashed.</para>
+
+            <xi:include href="version-info.xml" xpointer="v233"/>
+            </listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term>SIGNAL</term>
+            <listitem><para>The signal that caused the process to crash, when applicable.
+            </para>
+
+            <xi:include href="version-info.xml" xpointer="v233"/></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term>COREFILE</term>
+            <listitem><para>Information whether the coredump was stored, and whether
+            it is still accessible: <literal>none</literal> means the core was
+            not stored, <literal>-</literal> means that it was not available (for
+            example because the process was not terminated by a signal),
+            <literal>present</literal> means that the core file is accessible by the
+            current user, <literal>journal</literal> means that the core was stored
+            in the <literal>journal</literal>, <literal>truncated</literal> is the
+            same as one of the previous two, but the core was too large and was not
+            stored in its entirety, <literal>error</literal> means that the core file
+            cannot be accessed, most likely because of insufficient permissions, and
+            <literal>missing</literal> means that the core was stored in a file, but
+            this file has since been removed.</para>
+
+            <xi:include href="version-info.xml" xpointer="v233"/></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term>EXE</term>
+            <listitem><para>The full path to the executable. For backtraces of scripts
+            this is the name of the interpreter.</para>
+
+            <xi:include href="version-info.xml" xpointer="v233"/></listitem>
+          </varlistentry>
+        </variablelist>
+
+        <para>It's worth noting that different restrictions apply to
+        data saved in the journal and core dump files saved in
+        <filename>/var/lib/systemd/coredump</filename>, see overview in
+        <citerefentry><refentrytitle>systemd-coredump</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        Thus it may very well happen that a particular core dump is still listed
+        in the journal while its corresponding core dump file has already been
+        removed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>info</command></term>
+
+        <listitem><para>Show detailed information about the last core dump
+        or core dumps matching specified characteristics
+        captured in the journal.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>dump</command></term>
+
+        <listitem><para>Extract the last core dump matching specified
+        characteristics. The core dump will be written on standard
+        output, unless an output file is specified with
+        <option>--output=</option>. </para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>debug</command></term>
+
+        <listitem><para>Invoke a debugger on the last core dump
+        matching specified characteristics. By default,
+        <citerefentry project='man-pages'><refentrytitle>gdb</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        will be used. This may be changed using the <option>--debugger=</option>
+        option or the <varname>$SYSTEMD_DEBUGGER</varname> environment
+        variable. Use the <option>--debugger-arguments=</option> option to pass extra
+        command line arguments to the debugger.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+    </variablelist>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="no-legend" />
+      <xi:include href="standard-options.xml" xpointer="json" />
+
+      <varlistentry>
+        <term><option>-1</option></term>
+
+        <listitem><para>Show information of the most recent core dump only, instead of listing all known core
+        dumps. Equivalent to <option>--reverse -n 1</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-n</option> <replaceable>INT</replaceable></term>
+
+        <listitem><para>Show at most the specified number of entries. The specified parameter must be an
+        integer greater or equal to 1.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-S</option></term>
+        <term><option>--since</option></term>
+
+        <listitem><para>Only print entries which are since the specified date.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-U</option></term>
+        <term><option>--until</option></term>
+
+        <listitem><para>Only print entries which are until the specified date.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-r</option></term>
+        <term><option>--reverse</option></term>
+
+        <listitem><para>Reverse output so that the newest entries are displayed first.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-F</option> <replaceable>FIELD</replaceable></term>
+        <term><option>--field=<replaceable>FIELD</replaceable></option></term>
+
+        <listitem><para>Print all possible data values the specified
+        field takes in matching core dump entries of the
+        journal.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-o</option> <replaceable>FILE</replaceable></term>
+        <term><option>--output=<replaceable>FILE</replaceable></option></term>
+
+        <listitem><para>Write the core to <option>FILE</option>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--debugger=<replaceable>DEBUGGER</replaceable></option></term>
+
+        <listitem><para>Use the given debugger for the <command>debug</command>
+        command. If not given and <varname>$SYSTEMD_DEBUGGER</varname> is unset, then
+        <citerefentry project='man-pages'><refentrytitle>gdb</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        will be used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-A</option> <replaceable>ARGS</replaceable></term>
+        <term><option>--debugger-arguments=<replaceable>ARGS</replaceable></option></term>
+
+        <listitem><para>Pass the given <replaceable>ARGS</replaceable> as extra command line arguments
+        to the debugger. Quote as appropriate when <replaceable>ARGS</replaceable> contain whitespace.
+        (See Examples.)</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--file=<replaceable>GLOB</replaceable></option></term>
+
+        <listitem><para>Takes a file glob as an argument. If
+        specified, coredumpctl will operate on the specified journal
+        files matching <replaceable>GLOB</replaceable> instead of the
+        default runtime and system journal paths. May be specified
+        multiple times, in which case files will be suitably
+        interleaved.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-D</option> <replaceable>DIR</replaceable></term>
+        <term><option>--directory=<replaceable>DIR</replaceable></option></term>
+
+        <listitem><para>Use the journal files in the specified <option>DIR</option>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v225"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--root=<replaceable>ROOT</replaceable></option></term>
+
+        <listitem><para>Use root directory <option>ROOT</option> when searching for coredumps.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--image=<replaceable>image</replaceable></option></term>
+
+        <listitem><para>Takes a path to a disk image file or block device node. If specified, all operations
+        are applied to file system in the indicated disk image. This option is similar to
+        <option>--root=</option>, but operates on file systems stored in disk images or block devices. The
+        disk image should either contain just a file system or a set of file systems within a GPT partition
+        table, following the <ulink
+        url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2
+        Discoverable Partitions Specification</ulink>. For further information on supported disk images, see
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+        switch of the same name.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="image-policy-open" />
+
+      <varlistentry>
+        <term><option>-q</option></term>
+        <term><option>--quiet</option></term>
+
+        <listitem><para>Suppresses informational messages about lack
+        of access to journal files and possible in-flight coredumps.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--all</option></term>
+
+        <listitem><para>Look at all available journal files in <filename>/var/log/journal/</filename>
+        (excluding journal namespaces) instead of only local ones.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Matching</title>
+
+    <para>A match can be:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><replaceable>PID</replaceable></term>
+
+        <listitem><para>Process ID of the
+        process that dumped
+        core. An integer.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><replaceable>COMM</replaceable></term>
+
+        <listitem><para>Name of the executable (matches
+        <option>COREDUMP_COMM=</option>). Must not contain slashes.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><replaceable>EXE</replaceable></term>
+
+        <listitem><para>Path to the executable (matches
+        <option>COREDUMP_EXE=</option>). Must contain at least one
+        slash. </para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><replaceable>MATCH</replaceable></term>
+
+        <listitem><para>General journalctl match filter, must contain an equals
+        sign (<literal>=</literal>). See
+        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+    <para>On success, 0 is returned; otherwise, a non-zero failure
+    code is returned. Not finding any matching core dumps is treated as
+    failure.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Environment</title>
+
+    <variablelist class='environment-variables'>
+      <varlistentry>
+        <term><varname>$SYSTEMD_DEBUGGER</varname></term>
+        <listitem><para>Use the given debugger for the <command>debug</command>
+        command. See the <option>--debugger=</option> option.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>List all the core dumps of a program</title>
+
+      <programlisting>$ coredumpctl list /usr/lib64/firefox/firefox
+TIME       PID  UID  GID SIG     COREFILE EXE                         SIZE
+Tue …   8018 1000 1000 SIGSEGV missing  /usr/lib64/firefox/firefox     -
+Wed … 251609 1000 1000 SIGTRAP missing  /usr/lib64/firefox/firefox     -
+Fri … 552351 1000 1000 SIGSEGV present  /usr/lib64/firefox/firefox 28.7M
+</programlisting>
+
+       <para>The journal has three entries pertaining to <filename>/usr/lib64/firefox/firefox</filename>, and
+       only the last entry still has an available core file (in external storage on disk).</para>
+
+       <para>Note that <filename>coredumpctl</filename> needs access to the journal files to retrieve the
+       relevant entries from the journal. Thus, an unprivileged user will normally only see information about
+       crashing programs of this user.</para>
+    </example>
+
+    <example>
+      <title>Invoke <command>gdb</command> on the last core dump</title>
+
+      <programlisting>$ coredumpctl debug</programlisting>
+    </example>
+
+    <example>
+      <title>Use <command>gdb</command> to display full register info from the last core dump</title>
+
+      <programlisting>$ coredumpctl debug --debugger-arguments="-batch -ex 'info all-registers'"</programlisting>
+    </example>
+
+    <example>
+      <title>Show information about a core dump matched by PID</title>
+
+      <programlisting>$ coredumpctl info 6654
+           PID: 6654 (bash)
+           UID: 1000 (user)
+           GID: 1000 (user)
+        Signal: 11 (SEGV)
+     Timestamp: Mon 2021-01-01 00:00:01 CET (20s ago)
+  Command Line: bash -c $'kill -SEGV $$'
+    Executable: /usr/bin/bash
+ Control Group: /user.slice/user-1000.slice/…
+          Unit: user@1000.service
+     User Unit: vte-spawn-….scope
+         Slice: user-1000.slice
+     Owner UID: 1000 (user)
+       Boot ID: …
+    Machine ID: …
+      Hostname: …
+       Storage: /var/lib/systemd/coredump/core.bash.1000.….zst (present)
+  Size on Disk: 51.7K
+       Message: Process 130414 (bash) of user 1000 dumped core.
+
+                Stack trace of thread 130414:
+                #0  0x00007f398142358b kill (libc.so.6 + 0x3d58b)
+                #1  0x0000558c2c7fda09 kill_builtin (bash + 0xb1a09)
+                #2  0x0000558c2c79dc59 execute_builtin.lto_priv.0 (bash + 0x51c59)
+                #3  0x0000558c2c79709c execute_simple_command (bash + 0x4b09c)
+                #4  0x0000558c2c798408 execute_command_internal (bash + 0x4c408)
+                #5  0x0000558c2c7f6bdc parse_and_execute (bash + 0xaabdc)
+                #6  0x0000558c2c85415c run_one_command.isra.0 (bash + 0x10815c)
+                #7  0x0000558c2c77d040 main (bash + 0x31040)
+                #8  0x00007f398140db75 __libc_start_main (libc.so.6 + 0x27b75)
+                #9  0x0000558c2c77dd1e _start (bash + 0x31d1e)
+</programlisting>
+    </example>
+
+    <example>
+      <title>Extract the last core dump of /usr/bin/bar to a file named
+      <filename index="false">bar.coredump</filename></title>
+
+      <programlisting>$ coredumpctl -o bar.coredump dump /usr/bin/bar</programlisting>
+    </example>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd-coredump</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>coredump.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>gdb</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

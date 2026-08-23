@@ -1,0 +1,588 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="pam_systemd" conditional='HAVE_PAM' xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>pam_systemd</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>pam_systemd</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>pam_systemd</refname>
+    <refpurpose>Register user sessions in the systemd login manager</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>pam_systemd.so</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>pam_systemd</command> registers user sessions with
+    the systemd login manager
+    <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    and hence the systemd control group hierarchy.</para>
+
+    <para>The module also applies various resource management and runtime parameters to the new session, as
+    configured in the <ulink url="https://systemd.io/USER_RECORD">JSON User Records</ulink> of the user, when
+    one is defined.</para>
+
+    <para>On login, this module — in conjunction with <filename>systemd-logind.service</filename> — ensures the
+    following:</para>
+
+    <orderedlist>
+      <listitem><para>If it does not exist yet, the user runtime directory <filename>/run/user/$UID</filename> is
+      either created or mounted as new <literal>tmpfs</literal> file system with quota applied, and its ownership
+      changed to the user that is logging in.</para></listitem>
+
+      <listitem><para>The <varname>$XDG_SESSION_ID</varname> environment variable is initialized. If auditing is
+      available and <command>pam_loginuid.so</command> was run before this module (which is highly recommended), the
+      variable is initialized from the auditing session id (<filename>/proc/self/sessionid</filename>). Otherwise, an
+      independent session counter is used.</para></listitem>
+
+      <listitem><para>A new systemd scope unit is created for the session. If this is the first concurrent session of
+      the user, an implicit per-user slice unit below <filename>user.slice</filename> is automatically created and the
+      scope placed into it. An instance of the system service <filename>user@.service</filename>, which runs the
+      systemd user manager instance, is started.</para></listitem>
+
+      <listitem><para>The <literal>$TZ</literal>, <literal>$EMAIL</literal> and <literal>$LANG</literal>
+      environment variables are configured for the user, based on the respective data from the user's JSON
+      record (if it is defined). Moreover, any environment variables explicitly configured in the user record
+      are imported, and the umask, nice level, and resource limits initialized.</para></listitem>
+    </orderedlist>
+
+    <para>On logout, this module ensures the following:</para>
+
+    <orderedlist>
+      <listitem><para>If enabled in
+      <citerefentry><refentrytitle>logind.conf</refentrytitle>
+      <manvolnum>5</manvolnum></citerefentry> (<varname>KillUserProcesses=</varname>), all processes of the session are
+      terminated. If the last concurrent session of a user ends, the user's systemd instance will be terminated too,
+      and so will the user's slice unit.</para></listitem>
+
+      <listitem><para>If the last concurrent session of a user ends,
+      the user runtime directory <filename>/run/user/$UID</filename> and all its
+      contents are removed, too.</para></listitem>
+    </orderedlist>
+
+    <para>If the system was not booted up with systemd as init system,
+    this module does nothing and immediately returns
+    <constant>PAM_SUCCESS</constant>.</para>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist class='pam-directives'>
+
+      <varlistentry>
+        <term><varname>class=</varname></term>
+
+        <listitem><para>Takes a string argument which sets the session class. The
+        <varname>XDG_SESSION_CLASS</varname> environment variable (see below) takes precedence. See
+        <citerefentry><refentrytitle>sd_session_get_class</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        for a way to query the class of a session. The following session classes are defined:</para>
+
+        <table>
+          <title>Session Classes</title>
+          <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+            <colspec colname="name" />
+            <colspec colname="explanation" />
+            <thead>
+              <row>
+                <entry>Name</entry>
+                <entry>Explanation</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry><constant>user</constant></entry>
+                <entry>A regular interactive user session. This is the default class for sessions for which a TTY or X display is known at session registration time.</entry>
+              </row>
+              <row>
+                <entry><constant>user-early</constant></entry>
+                <entry>Similar to <constant>user</constant> but sessions of this class are not ordered after <citerefentry><refentrytitle>systemd-user-sessions.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>, i.e. may be started before regular sessions are allowed to be established. This session class is the default for sessions of the root user that would otherwise qualify for the <constant>user</constant> class, see above. (Added in v256.)</entry>
+              </row>
+              <row>
+                <entry><constant>user-light</constant></entry>
+                <entry>Similar to <constant>user</constant>, but sessions of this class will not pull in the <citerefentry><refentrytitle>user@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry> of the user, and thus possibly have no service manager of the user running. (Added in v258.)</entry>
+              </row>
+              <row>
+                <entry><constant>user-early-light</constant></entry>
+                <entry>Similar to <constant>user-early</constant>, but sessions of this class will not pull in the <citerefentry><refentrytitle>user@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry> of the user, and thus possibly have no service manager of the user running. (Added in v258.)</entry>
+              </row>
+              <row>
+                <entry><constant>user-incomplete</constant></entry>
+                <entry>Similar to <constant>user</constant> but for sessions which are not fully set up yet, i.e. have no home directory mounted or similar. This is used by <citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> to allow users to log in via <citerefentry project='man-pages'><refentrytitle>ssh</refentrytitle><manvolnum>1</manvolnum></citerefentry> before their home directory is mounted, delaying the mount until the user provided the unlock password. Sessions of this class are upgraded to the regular <constant>user</constant> class once the home directory is activated.</entry>
+              </row>
+              <row>
+                <entry><constant>greeter</constant></entry>
+                <entry>Similar to <constant>user</constant> but for sessions that are spawned by a display manager ephemerally and which prompt the user for login credentials.</entry>
+              </row>
+              <row>
+                <entry><constant>lock-screen</constant></entry>
+                <entry>Similar to <constant>user</constant> but for sessions that are spawned by a display manager ephemerally and which show a lock screen that can be used to unlock locked user accounts or sessions.</entry>
+              </row>
+              <row>
+                <entry><constant>background</constant></entry>
+                <entry>Used for background sessions, such as those invoked by <citerefentry project='die-net'><refentrytitle>cron</refentrytitle><manvolnum>8</manvolnum></citerefentry> and similar tools. This is the default class for sessions for which no TTY or X display is known at session registration time.</entry>
+              </row>
+              <row>
+                <entry><constant>background-light</constant></entry>
+                <entry>Similar to <constant>background</constant>, but sessions of this class will not pull in the <citerefentry><refentrytitle>user@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry> of the user, and thus possibly have no service manager of the user running. (Added in v256.)</entry>
+              </row>
+              <row>
+                <entry><constant>manager</constant></entry>
+                <entry>The <citerefentry><refentrytitle>user@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry> service of the user is registered under this session class. (Added in v256.)</entry>
+              </row>
+              <row>
+                <entry><constant>manager-early</constant></entry>
+                <entry>Similar to <constant>manager</constant>, but for the root user. Compare with the <constant>user</constant> vs. <constant>user-early</constant> situation. (Added in v256.)</entry>
+              </row>
+              <row>
+                <entry><constant>none</constant></entry>
+                <entry>Skips registering this session with logind. No session scope will be created, and the user service manager will not be started. (Added in v258.)</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
+
+        <para>If no session class is specified via either the PAM module option or via the
+        <varname>$XDG_SESSION_CLASS</varname> environment variable, the class is automatically chosen, depending on
+        various session parameters, such as the session type (if known), whether the session has a TTY or X11
+        display, and the user disposition. Note that various tools allow setting the session class for newly
+        allocated PAM sessions explicitly by means of the <varname>$XDG_SESSION_CLASS</varname> environment variable.
+        For example, classic UNIX cronjobs support environment variable assignments (see
+        <citerefentry project='man-pages'><refentrytitle>crontab</refentrytitle><manvolnum>5</manvolnum></citerefentry>),
+        which may be used to choose between the <constant>background</constant> and
+        <constant>background-light</constant> session class individually per cronjob, or
+        <command>run0 --setenv=XDG_SESSION_CLASS=user-light</command> may be used
+        to choose between <constant>user</constant> and <constant>user-light</constant> for invoked privileged sessions.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v197"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>type=</varname></term>
+
+        <listitem><para>Takes a string argument which sets the session type. The <varname>XDG_SESSION_TYPE</varname>
+        environment variable (see below) takes precedence. One of <constant>unspecified</constant>,
+        <constant>tty</constant>, <constant>x11</constant>, <constant>wayland</constant>, <constant>mir</constant>, or
+        <constant>web</constant>. See
+        <citerefentry><refentrytitle>sd_session_get_type</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
+        details about the session type.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>desktop=</varname></term>
+
+        <listitem><para>Takes a single, short identifier string for the desktop environment. The
+        <varname>XDG_SESSION_DESKTOP</varname> environment variable (see below) takes precedence. This may be used to
+        indicate the session desktop used, where this applies and if this information is available. For example:
+        <constant>GNOME</constant>, or <constant>KDE</constant>. It is recommended to use the same identifiers and
+        capitalization as for <varname>$XDG_CURRENT_DESKTOP</varname>, as defined by the <ulink
+        url="https://standards.freedesktop.org/desktop-entry-spec/latest/">Desktop Entry
+        Specification</ulink>. (However, note that the option only takes a single item, and not a colon-separated list
+        like <varname>$XDG_CURRENT_DESKTOP</varname>.) See
+        <citerefentry><refentrytitle>sd_session_get_desktop</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
+        further details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>area=</varname></term>
+
+        <listitem><para>Takes a filename as parameter. If specified and the user logs into their account the
+        <varname>$HOME</varname> environment variable will be set to <filename>~/Areas/</filename> suffixed
+        by the specified string, but only if that directory exists. Moreover, the
+        <varname>$XDG_AREA</varname> variable will be set to the (unprefixed) parameter.</para>
+
+        <para>This functionality may be used to maintain multiple separate secondary home directories within
+        the primary home directory of the user. Typically, the area to log into is specified while logging
+        in, if the account permits that (accounts provided by
+        <citerefentry><refentrytitle>pam_systemd_home</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        do), but this parameter may be used to define a default if that's not provided.</para>
+
+        <para>Note that this only adjusts <varname>$HOME</varname> during login, it does not affect the
+        otherwise reported home directory of the user. Specifically this means that <citerefentry
+        project='man-pages'><refentrytitle>sshd</refentrytitle><manvolnum>8</manvolnum></citerefentry> will
+        continue to look for SSH keys of the user only in the primary home directory of the user, not in any
+        of their areas.</para>
+
+        <para>Note that the default area to log into can also be configured as part of the user account. The
+        area specified via <varname>area=</varname> overrides the default area configured there. Also note
+        that if the area is specified explicitly by the user at login time, it overrides both. Also note that
+        setting this parameter to an empty string has the effect of undoing the effect of any default area
+        configured as part of the user record, i.e. ensuring the user logs into the primary home directory of
+        their account.</para>
+
+        <para>For details on the area concept see
+        <citerefentry><refentrytitle>pam_systemd_home</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>inhibit=</varname></term>
+
+        <listitem><para>Takes a colon-separated list of inhibitor lock types to acquire for the duration of
+        the session. The <varname>XDG_SESSION_INHIBIT</varname> environment variable (see below) takes
+        precedence. Inhibitor locks prevent the system from performing certain actions, such as sleeping.
+        The supported lock types are the same as for the
+        <citerefentry><refentrytitle>systemd-inhibit</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        command, e.g. <constant>shutdown</constant>, <constant>sleep</constant>, <constant>idle</constant>.
+        If not set, no inhibitor lock is acquired. The lock is taken in block mode, the requested
+        actions are fully inhibited as long as the session is active.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>inhibit-why=</varname></term>
+
+        <listitem><para>Takes a short human-readable string describing the reason for the inhibitor lock
+        acquired via <varname>inhibit=</varname>. The <varname>XDG_SESSION_INHIBIT_WHY</varname>
+        environment variable (see below) takes precedence. Defaults to <literal>Active PAM session</literal>
+        if not set. Only has an effect if <varname>inhibit=</varname> or
+        <varname>XDG_SESSION_INHIBIT</varname> is set.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>default-capability-bounding-set=</varname></term>
+        <term><varname>default-capability-ambient-set=</varname></term>
+
+        <listitem><para>Takes a comma-separated list of process capabilities (e.g.
+        <constant>CAP_WAKE_ALARM</constant>, <constant>CAP_BLOCK_SUSPEND</constant>, …) to set for the
+        invoked session's processes, if the user record does not encode appropriate sets of capabilities
+        directly. See <citerefentry
+        project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for details on the capabilities concept. If not specified, the default bounding set is left as is
+        (i.e. usually contains the full set of capabilities). The default ambient set is set to
+        <constant>CAP_WAKE_ALARM</constant> for regular users if the PAM session is associated with a local
+        seat or if it is invoked for the systemd user service <filename>user@.service</filename>. Otherwise,
+        defaults to the empty set.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>debug</varname><optional>=</optional></term>
+
+        <listitem><para>Takes an optional boolean argument. If yes or without the argument, the module will log
+        debugging information as it operates.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Module Types Provided</title>
+
+    <para>Only <option>session</option> is provided.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Environment</title>
+
+    <para>The following environment variables are initialized by the module and available to the processes of the
+    user's session:</para>
+
+    <variablelist class='environment-variables'>
+      <varlistentry>
+        <term><varname>$XDG_SESSION_ID</varname></term>
+
+        <listitem><para>A short session identifier, suitable to be used in filenames. The string itself should be
+        considered opaque, although often it is just the audit session ID as reported by
+        <filename>/proc/self/sessionid</filename>. Each ID will be assigned only once during machine uptime. It may
+        hence be used to uniquely label files or other resources of this session. Combine this ID with the boot
+        identifier, as returned by
+        <citerefentry><refentrytitle>sd_id128_get_boot</refentrytitle><manvolnum>3</manvolnum></citerefentry>, for a
+        globally unique identifier.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$XDG_RUNTIME_DIR</varname></term>
+
+        <listitem><para>Path to a user-private user-writable directory
+        that is bound to the user login time on the machine. It is
+        automatically created the first time a user logs in and
+        removed on the user's final logout. If a user logs in twice at
+        the same time, both sessions will see the same
+        <varname>$XDG_RUNTIME_DIR</varname> and the same contents. If
+        a user logs in once, then logs out again, and logs in again,
+        the directory contents will have been lost in between, but
+        applications should not rely on this behavior and must be able
+        to deal with stale files. To store session-private data in
+        this directory, the user should include the value of
+        <varname>$XDG_SESSION_ID</varname> in the filename. This
+        directory shall be used for runtime file system objects such
+        as <constant>AF_UNIX</constant> sockets, FIFOs, PID files and
+        similar. It is guaranteed that this directory is local and
+        offers the greatest possible file system feature set the
+        operating system provides. For further details, see the <ulink
+        url="https://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG
+        Base Directory Specification</ulink>. <varname>$XDG_RUNTIME_DIR</varname>
+        is not set if the current user is not the original user of the session.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$TZ</varname></term>
+        <term><varname>$EMAIL</varname></term>
+        <term><varname>$LANG</varname></term>
+
+        <listitem><para>If a JSON user record is known for the user logging in these variables are
+        initialized from the respective data in the record.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$SHELL_PROMPT_PREFIX</varname></term>
+        <term><varname>$SHELL_PROMPT_SUFFIX</varname></term>
+        <term><varname>$SHELL_WELCOME</varname></term>
+
+        <listitem><para>These environment variables are initialized from the service credentials
+        <literal>shell.prompt.prefix</literal>, <literal>shell.prompt.suffix</literal> and
+        <literal>shell.welcome</literal> if set. They are passed to the invoked session processes, where they
+        are imported into any shell prompt (specifically <varname>$SHELL_PROMPT_PREFIX</varname> is added as
+        prefix to <varname>$PS1</varname>, and <varname>$SHELL_PROMPT_SUFFIX</varname> as suffix) or printed
+        on screen when a shell first initializes.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+    </variablelist>
+
+    <para>The following environment variables are read by the module and may be used by the PAM service to pass
+    metadata to the module. If these variables are not set when the PAM module is invoked but can be determined
+    otherwise they are set by the module, so that these variables are initialized for the session and applications if
+    known at all.</para>
+
+    <variablelist class='environment-variables'>
+      <varlistentry>
+        <term><varname>$XDG_SESSION_TYPE</varname></term>
+
+        <listitem><para>The session type. This may be used instead of <varname>type=</varname> on the module parameter
+        line, and is usually preferred.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$XDG_SESSION_CLASS</varname></term>
+
+        <listitem><para>The session class. This may be used instead of <varname>class=</varname> on the module parameter
+        line, and is usually preferred.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$XDG_SESSION_DESKTOP</varname></term>
+
+        <listitem><para>The desktop identifier. This may be used instead of <varname>desktop=</varname> on the module
+        parameter line, and is usually preferred.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$XDG_SEAT</varname></term>
+
+        <listitem><para>The seat name the session shall be registered
+        for, if any.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$XDG_VTNR</varname></term>
+
+        <listitem><para>The VT number the session shall be registered
+        for, if any. (Only applies to seats with a VT available, such
+        as <literal>seat0</literal>)</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$XDG_AREA</varname></term>
+
+        <listitem><para>If an area (secondary home directories of the user, within the primary home
+        directory) to log into has been selected this variable is set to the area name (without any path
+        prefix). It is otherwise unset. For details about areas, see above.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$XDG_SESSION_EXTRA_DEVICE_ACCESS</varname></term>
+
+        <listitem><para>The set of additional hardware devices that the session shall be granted access to.
+        For every <literal><replaceable>ID</replaceable></literal> in the list, the session is granted
+        access to all devices tagged with <literal>xaccess-<replaceable>ID</replaceable></literal> in udev.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$XDG_SESSION_INHIBIT</varname></term>
+
+        <listitem><para>The inhibitor lock types to acquire for the duration of the session, as a
+        colon-separated list. This may be used instead of <varname>inhibit=</varname> on the module
+        parameter line.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$XDG_SESSION_INHIBIT_WHY</varname></term>
+
+        <listitem><para>The reason string for the inhibitor lock. This may be used instead of
+        <varname>inhibit-why=</varname> on the module parameter line.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>If not set, <command>pam_systemd</command> will initialize
+    <varname>$XDG_SEAT</varname> and <varname>$XDG_VTNR</varname>
+    based on the <varname>$DISPLAY</varname> variable (if the latter is set).</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Session limits</title>
+
+    <para>PAM modules earlier in the stack, that is those that come before <command>pam_systemd.so</command>,
+    can set session scope limits using the PAM context objects. The data for these objects is provided as <constant>NUL</constant>-terminated C strings
+    and maps directly to the respective unit resource control directives. Note that these limits apply to individual sessions of the user,
+    they do not apply to all user processes as a combined whole. In particular, the per-user <command>user@.service</command> unit instance,
+    which runs the <command>systemd --user</command> manager process and its children, and is tracked outside of any session, being shared
+    by all the user's sessions, is not covered by these limits.
+    </para>
+
+    <para> See
+    <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information about the resources.
+    Also, see <citerefentry project='man-pages'><refentrytitle>pam_set_data</refentrytitle><manvolnum>3</manvolnum></citerefentry> for additional information about how to set
+    the context objects.
+    </para>
+
+    <variablelist class='pam-directives'>
+      <varlistentry>
+        <term><varname>systemd.memory_max=</varname></term>
+
+        <listitem><para>Sets unit <varname>MemoryMax=</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.tasks_max=</varname></term>
+
+        <listitem><para>Sets unit <varname>TasksMax=</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.cpu_weight=</varname></term>
+
+        <listitem><para>Sets unit <varname>CPUWeight=</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.io_weight=</varname></term>
+
+        <listitem><para>Sets unit <varname>IOWeight=</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.runtime_max_sec=</varname></term>
+
+        <listitem><para>Sets unit <varname>RuntimeMaxSec=</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v244"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>Example data as can be provided from an another PAM module:
+      <programlisting>
+pam_set_data(handle, "systemd.memory_max", (void *)"200M", cleanup);
+pam_set_data(handle, "systemd.tasks_max",  (void *)"50",   cleanup);
+pam_set_data(handle, "systemd.cpu_weight", (void *)"100",  cleanup);
+pam_set_data(handle, "systemd.io_weight",  (void *)"340",  cleanup);
+pam_set_data(handle, "systemd.runtime_max_sec", (void *)"3600", cleanup);
+</programlisting>
+    </para>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Example</title>
+
+    <para>Here's an example PAM configuration fragment that allows users sessions to be managed by
+    <filename>systemd-logind.service</filename>:</para>
+
+    <programlisting>#%PAM-1.0
+-auth     [success=done authtok_err=bad perm_denied=bad maxtries=bad default=ignore] pam_systemd_home.so
+auth      sufficient pam_unix.so
+auth      required   pam_deny.so
+
+account   required   pam_nologin.so
+-account  [success=done authtok_expired=bad new_authtok_reqd=bad maxtries=bad acct_expired=bad default=ignore] pam_systemd_home.so
+account   required   pam_unix.so
+
+-password sufficient pam_systemd_home.so
+password  sufficient pam_unix.so sha512 shadow try_first_pass
+password  required   pam_deny.so
+
+-session  optional   pam_keyinit.so revoke
+-session  optional   pam_loginuid.so
+-session  optional   pam_systemd_home.so
+<command>-session  optional   pam_systemd.so</command>
+session   required   pam_unix.so</programlisting>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-user-sessions.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>user@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>loginctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>pam_systemd_home</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-inhibit</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>pam.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>pam.d</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>pam</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>pam_loginuid</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

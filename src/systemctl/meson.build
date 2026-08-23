@@ -1,0 +1,70 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+systemctl_sources = files(
+        'systemctl-add-dependency.c',
+        'systemctl-cancel-job.c',
+        'systemctl-clean-or-freeze.c',
+        'systemctl-edit.c',
+        'systemctl-enable.c',
+        'systemctl-is-active.c',
+        'systemctl-is-enabled.c',
+        'systemctl-is-system-running.c',
+        'systemctl-kill.c',
+        'systemctl-list-dependencies.c',
+        'systemctl-list-jobs.c',
+        'systemctl-list-machines.c',
+        'systemctl-list-unit-files.c',
+        'systemctl-list-units.c',
+        'systemctl-log-setting.c',
+        'systemctl-main.c',
+        'systemctl-mount.c',
+        'systemctl-preset-all.c',
+        'systemctl-reset-failed.c',
+        'systemctl-service-watchdogs.c',
+        'systemctl-set-default.c',
+        'systemctl-set-environment.c',
+        'systemctl-set-property.c',
+        'systemctl-show.c',
+        'systemctl-start-special.c',
+        'systemctl-switch-root.c',
+        'systemctl-trivial-method.c',
+        'systemctl-whoami.c',
+)
+systemctl_export_sources = files(
+        'systemctl-compat-halt.c',
+        'systemctl-compat-shutdown.c',
+        'systemctl-daemon-reload.c',
+        'systemctl-logind.c',
+        'systemctl-start-unit.c',
+        'systemctl-util.c',
+        'systemctl.c',
+)
+
+executables += [
+        executable_template + {
+                'name' : 'systemctl',
+                'public' : true,
+                'sources' : systemctl_sources,
+                'export' : systemctl_export_sources,
+                'dependencies' : [
+                        liblz4_cflags,
+                        libxz_cflags,
+                        libzstd_cflags,
+                ],
+                'install' : get_option('link-systemctl-shared') ? 'yes' : 'static',
+                'install_tag' : 'systemctl',
+        },
+        fuzz_template + {
+                'sources' : files('fuzz-systemctl-parse-argv.c'),
+                'import' : ['systemctl'],
+                'dependencies' : [
+                        libselinux_cflags,
+                ],
+        },
+]
+
+foreach alias : ['halt', 'poweroff', 'reboot', 'shutdown']
+        install_symlink(alias,
+                        pointing_to : sbin_to_bin + 'systemctl',
+                        install_dir : sbindir)
+endforeach

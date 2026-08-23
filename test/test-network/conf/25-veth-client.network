@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=client
+
+[Network]
+IPv6AcceptRA=yes
+
+[IPv6AcceptRA]
+UseDNS=no
+UseDomains=no

@@ -1,0 +1,169 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="journal-upload.conf" conditional='HAVE_MICROHTTPD'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>journal-upload.conf</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>journal-upload.conf</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>journal-upload.conf</refname>
+    <refname>journal-upload.conf.d</refname>
+    <refpurpose>Configuration files for the journal upload service</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>/etc/systemd/journal-upload.conf</filename></para>
+    <para><filename>/run/systemd/journal-upload.conf</filename></para>
+    <para><filename>/usr/lib/systemd/journal-upload.conf</filename></para>
+    <para><filename>/etc/systemd/journal-upload.conf.d/*.conf</filename></para>
+    <para><filename>/run/systemd/journal-upload.conf.d/*.conf</filename></para>
+    <para><filename>/usr/lib/systemd/journal-upload.conf.d/*.conf</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>These files configure various parameters of
+    <citerefentry><refentrytitle>systemd-journal-upload.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    See
+    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    for a general description of the syntax.</para>
+  </refsect1>
+
+  <xi:include href="standard-conf.xml" xpointer="main-conf" />
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>All options are configured in the [Upload] section:</para>
+
+    <variablelist class='config-directives'>
+      <varlistentry>
+        <term><varname>URL=</varname></term>
+
+        <listitem><para>The URL to upload the journal entries to. See the description
+        of <option>--url=</option> option in
+        <citerefentry><refentrytitle>systemd-journal-upload</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for the description of possible values. There is no default value, so either this
+        option or the command-line option must be always present to make an upload.</para>
+
+        <xi:include href="version-info.xml" xpointer="v232"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ServerKeyFile=</varname></term>
+
+        <listitem><para>SSL key in PEM format.</para>
+
+        <xi:include href="version-info.xml" xpointer="v232"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ServerCertificateFile=</varname></term>
+
+        <listitem><para>SSL CA certificate in PEM format.</para>
+
+        <xi:include href="version-info.xml" xpointer="v232"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>TrustedCertificateFile=</varname></term>
+
+        <listitem><para>SSL CA certificate.</para>
+
+        <xi:include href="version-info.xml" xpointer="v232"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>NetworkTimeoutSec=</varname></term>
+
+        <listitem><para>When network connectivity to the server is lost, this option
+        configures the time to wait for the connectivity to get restored. If the server is
+        not reachable over the network for the configured time, <command>systemd-journal-upload</command>
+        exits. Takes a value in seconds (or in other time units if suffixed with "ms", "min", "h", etc).
+        For details, see <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Compression=</varname></term>
+
+        <listitem>
+          <para>Configures compression algorithm to be applied to logs data before sending. Takes a space
+          separated list of compression algorithms, or <literal>no</literal>. Supported algorithms are
+          <literal>zstd</literal>, <literal>xz</literal>, or <literal>lz4</literal>. Optionally, each
+          algorithm followed by a colon (<literal>:</literal>) and its compression level, for example
+          <literal>zstd:4</literal>. The compression level is expected to be a positive integer. When
+          <literal>no</literal> is specified, no compression algorithm will be applied to data to be sent.
+          This option can be specified multiple times. If an empty string is assigned, then all previous
+          assignments are cleared. Defaults to unset, and all supported compression algorithms with their
+          default compression levels are listed.</para>
+
+          <para>Example:
+          <programlisting>Compression=zstd:4 lz4:2</programlisting></para>
+
+          <para>Even when compression is enabled, the initial requests are sent without compression.
+          It becomes effective either if <literal>ForceCompression=</literal> is enabled,
+          or the server response contains <literal>Accept-Encoding</literal> headers with a list of
+          compression algorithms that contains one of the algorithms specified in this option.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ForceCompression=</varname></term>
+
+        <listitem><para>Takes a boolean value, enforces using compression without content encoding negotiation.
+        Defaults to <literal>false</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Header=</varname></term>
+
+        <listitem><para>Specifies an additional HTTP header to be added to each request to a URL.
+        Takes a pair of header name and value separated with a colon(<literal>:</literal>),
+        e.g. <literal>Name:Value</literal>.
+        Header name can contain alphanumeric values, <literal>_</literal> and <literal>-</literal> symbols additionally.
+        This option may be specified more than once, in which case all listed headers will be set.
+        If the same header name is listed more than once, all its unique values will be concatenated with comma.
+        Setting <varname>Header=</varname> to empty string clears all previous assignments.
+        </para>
+
+        <para>Example:
+        <programlisting>Header=HeaderName: HeaderValue
+Header=HeaderName: NewValue
+Header=HeaderName: HeaderValue</programlisting>
+
+        adds <literal>HeaderName</literal> header with <literal>HeaderValue, NewValue</literal> to each HTTP request.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+  </refsect1>
+
+  <refsect1>
+      <title>See Also</title>
+      <para><simplelist type="inline">
+        <member><citerefentry><refentrytitle>systemd-journal-upload.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      </simplelist></para>
+  </refsect1>
+
+</refentry>

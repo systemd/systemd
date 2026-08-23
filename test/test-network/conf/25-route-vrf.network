@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=dummy98
+
+[Network]
+IPv6AcceptRA=no
+VRF=vrf99
+Address=192.168.100.2/24
+Gateway=192.168.100.1

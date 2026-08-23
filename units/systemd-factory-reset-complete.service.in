@@ -1,0 +1,24 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Mark the Factory Reset as Completed
+Documentation=man:systemd-factory-reset-complete.service(8)
+DefaultDependencies=no
+Requires=factory-reset-now.target
+After=factory-reset-now.target
+Conflicts=shutdown.target
+Before=shutdown.target
+RefuseManualStart=yes
+RefuseManualStop=yes
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart={{LIBEXECDIR}}/systemd-factory-reset complete --retrigger

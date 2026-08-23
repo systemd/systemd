@@ -1,0 +1,167 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+
+<!--
+  SPDX-License-Identifier: LGPL-2.1-or-later
+
+  Copyright © 2015 Chris Morgan
+-->
+
+<refentry id="journal-remote.conf" conditional='HAVE_MICROHTTPD'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>journal-remote.conf</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>journal-remote.conf</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>journal-remote.conf</refname>
+    <refname>journal-remote.conf.d</refname>
+    <refpurpose>Configuration files for the service accepting remote journal uploads</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><simplelist>
+      <member><filename>/etc/systemd/journal-remote.conf</filename></member>
+      <member><filename>/run/systemd/journal-remote.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/journal-remote.conf</filename></member>
+      <member><filename>/usr/lib/systemd/journal-remote.conf</filename></member>
+      <member><filename>/etc/systemd/journal-remote.conf.d/*.conf</filename></member>
+      <member><filename>/run/systemd/journal-remote.conf.d/*.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/journal-remote.conf.d/*.conf</filename></member>
+      <member><filename>/usr/lib/systemd/journal-remote.conf.d/*.conf</filename></member>
+    </simplelist></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>These files configure various parameters of
+    <citerefentry><refentrytitle>systemd-journal-remote.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    See
+    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    for a general description of the syntax.</para>
+  </refsect1>
+
+  <xi:include href="standard-conf.xml" xpointer="main-conf" />
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>All options are configured in the
+    [Remote] section:</para>
+
+    <variablelist class='config-directives'>
+      <varlistentry>
+        <term><varname>Seal=</varname></term>
+
+        <listitem><para>Periodically sign the data in the journal using Forward Secure Sealing.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v229"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>SplitMode=</varname></term>
+
+        <listitem><para>One of <literal>host</literal> or <literal>none</literal>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ServerKeyFile=</varname></term>
+
+        <listitem><para>SSL key in PEM format.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ServerCertificateFile=</varname></term>
+
+        <listitem><para>SSL certificate in PEM format.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>TrustedCertificateFile=</varname></term>
+
+        <listitem><para>SSL CA certificate.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>MaxUse=</varname></term>
+        <term><varname>KeepFree=</varname></term>
+        <term><varname>MaxFileSize=</varname></term>
+        <term><varname>MaxFiles=</varname></term>
+
+        <listitem><para>These are analogous to <varname>SystemMaxUse=</varname>,
+        <varname>SystemKeepFree=</varname>, <varname>SystemMaxFileSize=</varname>
+        and <varname>SystemMaxFiles=</varname> in
+        <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <para><varname>MaxUse=</varname> controls how much disk space
+        the <command>systemd-journal-remote</command> may use up at most.
+        <varname>KeepFree=</varname> controls how much disk
+        space <command>systemd-journal-remote</command> shall leave free for other uses.
+        <command>systemd-journal-remote</command> will respect both limits
+        and use the smaller of the two values.</para>
+
+        <para><varname>MaxFiles=</varname> controls how many
+        individual journal files to keep at most. Note that only
+        archived files are deleted to reduce the number of files until
+        this limit is reached; active files will stay around. This
+        means that, in effect, there might still be more journal files
+        around in total than this limit after a vacuuming operation is
+        complete.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Compression=</varname></term>
+
+        <listitem>
+          <para>Configurs acceptable compression algorithms to be announced through
+          <literal>Accept-Encoding</literal> HTTP header. The header suggests
+          <command>systemd-journal-upload</command> to compress data to be sent. Takes a space separated
+          list of compression algorithms, or <literal>no</literal>. Supported algorithms are
+          <literal>zstd</literal>, <literal>xz</literal>, or <literal>lz4</literal>. When a list of
+          algorithms is specified, <literal>Accept-Encoding</literal> header will be constructed with
+          priorities based on the order of the algorithms in the list. When <literal>no</literal>,
+          <literal>Accept-Encoding</literal> header will not be sent. This option can be specified multiple
+          times. If an empty string is assigned, then all the previous assignments are cleared. Defaults to
+          unset and all supported compression algorithms will be listed in the header.</para>
+
+          <para>Example:
+          <programlisting>Compression=zstd lz4</programlisting></para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+
+  </refsect1>
+
+  <refsect1>
+      <title>See Also</title>
+      <para><simplelist type="inline">
+        <member><citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-journal-remote.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      </simplelist></para>
+  </refsect1>
+
+</refentry>

@@ -1,0 +1,98 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="pstore.conf" conditional="ENABLE_PSTORE"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>pstore.conf</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>pstore.conf</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>pstore.conf</refname>
+    <refname>pstore.conf.d</refname>
+    <refpurpose>PStore configuration file</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><simplelist>
+      <member><filename>/etc/systemd/pstore.conf</filename></member>
+      <member><filename>/run/systemd/pstore.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/pstore.conf</filename></member>
+      <member><filename>/usr/lib/systemd/pstore.conf</filename></member>
+      <member><filename>/etc/systemd/pstore.conf.d/*.conf</filename></member>
+      <member><filename>/run/systemd/pstore.conf.d/*.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/pstore.conf.d/*.conf</filename></member>
+      <member><filename>/usr/lib/systemd/pstore.conf.d/*.conf</filename></member>
+    </simplelist></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>This file configures the behavior of
+    <citerefentry><refentrytitle>systemd-pstore</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    a tool for archiving the contents of the persistent storage filesystem,
+    <ulink url="https://docs.kernel.org/admin-guide/abi-testing.html#abi-sys-fs-pstore">pstore</ulink>.
+    </para>
+  </refsect1>
+
+  <xi:include href="standard-conf.xml" xpointer="main-conf" />
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>All options are configured in the
+    [PStore] section:</para>
+
+    <variablelist class='config-directives'>
+
+      <varlistentry>
+        <term><varname>Storage=</varname></term>
+
+        <listitem><para>Controls where to archive (i.e. copy) files from the pstore filesystem. One of <literal>none</literal>,
+        <literal>external</literal>, and <literal>journal</literal>. When
+        <literal>none</literal>, the tool exits without processing files in the pstore filesystem.
+        When <literal>external</literal> (the default), files are archived into <filename>/var/lib/systemd/pstore/</filename>,
+        and logged into the journal.
+        When <literal>journal</literal>, pstore file contents are logged only in the journal.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/>
+        </listitem>
+
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Unlink=</varname></term>
+
+        <listitem><para>Controls whether or not files are removed from pstore after processing.
+        Takes a boolean value. When true, a pstore file is removed from the pstore once it has been
+        archived (either to disk or into the journal). When false, processing of pstore files occurs
+        normally, but the files remain in the pstore.
+        The default is true in order to maintain the pstore in a nearly empty state, so that the pstore
+        has storage available for the next kernel error event.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>Use <programlisting>systemd-analyze cat-config systemd/pstore.conf</programlisting>
+    to display the full config.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd-pstore.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

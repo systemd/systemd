@@ -1,0 +1,36 @@
+# This file is part of systemd.
+#
+# Database for remote controllable lights that should be accessible to the seat
+# owner, such as Bluetooth or USB lights that are used in conjuction with the
+# computer like streaming lights.
+#
+# The lookup keys are $MODALIAS strings, see udev's hwdb builtin.
+#
+# To add local entries, create a new file
+#   /etc/udev/hwdb.d/71-lights-local.hwdb
+# and add your rules there. To load the new rules execute (as root):
+#   systemd-hwdb update
+#   udevadm trigger /dev/…
+#
+# If your changes are generally applicable, send them as a pull request to
+#   https://github.com/systemd/systemd
+# or create a bug report on https://github.com/systemd/systemd/issues and
+# include your new rules, a description of the device, and the output of
+#   udevadm info
+# for the device.
+#
+# Allowed properties are:
+#   ID_AV_LIGHTS=0|1
+
+################
+# Logitech
+################
+# Litra Beam
+bluetooth:v046DpC901*
+usb:v046DpC901*
+ ID_AV_LIGHTS=1
+
+# Litra Glow
+bluetooth:v046DpC900*
+usb:v046DpC900*
+ ID_AV_LIGHTS=1

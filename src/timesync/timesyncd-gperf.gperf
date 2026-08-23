@@ -1,0 +1,31 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+%{
+_Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
+#if __GNUC__ >= 15
+_Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
+#endif
+#include <stddef.h>
+#include "conf-parser.h"
+#include "timesyncd-conf.h"
+#include "timesyncd-manager.h"
+#include "timesyncd-server.h"
+%}
+struct ConfigPerfItem;
+%null_strings
+%language=ANSI-C
+%define slot-name section_and_lvalue
+%define hash-function-name timesyncd_gperf_hash
+%define lookup-function-name timesyncd_gperf_lookup
+%readonly-tables
+%omit-struct-type
+%struct-type
+%includes
+%%
+Time.NTP,                            config_parse_servers, SERVER_SYSTEM,   0
+Time.Servers,                        config_parse_servers, SERVER_SYSTEM,   0
+Time.FallbackNTP,                    config_parse_servers, SERVER_FALLBACK, 0
+Time.RootDistanceMaxSec,             config_parse_sec,     0,               offsetof(Manager, root_distance_max_usec)
+Time.PollIntervalMinSec,             config_parse_sec,     0,               offsetof(Manager, poll_interval_min_usec)
+Time.PollIntervalMaxSec,             config_parse_sec,     0,               offsetof(Manager, poll_interval_max_usec)
+Time.ConnectionRetrySec,             config_parse_sec,     0,               offsetof(Manager, connection_retry_usec)
+Time.SaveIntervalSec,                config_parse_sec,     0,               offsetof(Manager, save_time_interval_usec)

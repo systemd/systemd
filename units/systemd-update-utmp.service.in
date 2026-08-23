@@ -1,0 +1,26 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Record System Boot/Shutdown in UTMP
+Documentation=man:systemd-update-utmp.service(8) man:utmp(5)
+ConditionPathExists=!/etc/initrd-release
+
+DefaultDependencies=no
+After=systemd-remount-fs.service systemd-tmpfiles-setup.service auditd.service
+Before=sysinit.target
+Conflicts=shutdown.target
+Before=shutdown.target
+RequiresMountsFor=/var/log/wtmp
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart={{LIBEXECDIR}}/systemd-update-utmp reboot
+ExecStop={{LIBEXECDIR}}/systemd-update-utmp shutdown

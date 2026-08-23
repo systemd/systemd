@@ -1,0 +1,223 @@
+#compdef udevadm
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+(( $+functions[_udevadm_info] )) ||
+_udevadm_info(){
+    _arguments \
+        '(-)'{-h,--help}'[Print help]' \
+        '(-)'{-V,--version}'[Print version of the program]' \
+        '--query=[Query the database for specified type of device data. It needs the --path or --name to identify the specified device.]:type:(name symlink path property all)' \
+        '--path=[The devpath of the device to query.]:sys files:_files -W /sys' \
+        '--name=[The name of the device node or a symlink to query]:device files:_files -W /dev' \
+        '--root[Print absolute paths in name or symlink query.]' \
+        '--attribute-walk[Print all sysfs properties of the specified device that can be used in udev rules to match the specified device]' \
+        '--export[Print output as key/value pairs.]' \
+        '--export-prefix=[Add a prefix to the key name of exported values.]:prefix' \
+        '--device-id-of-file=[Print major/minor numbers of the underlying device, where the file lives on.]:files:_udevadm_mounts' \
+        '--export-db[Export the content of the udev database.]' \
+        '--cleanup-db[Cleanup the udev database.]' \
+        '--value[When showing properties, print only their values.]' \
+        '--property=[Show only properties by this name.]:NAME' \
+        '*::devpath:_path_files -g "*(-/,-%)"'
+}
+
+(( $+functions[_udevadm_trigger] )) ||
+_udevadm_trigger(){
+    _arguments \
+        '(-)'{-h,--help}'[Show help]' \
+        '(-)'{-V,--version}'[Show package version]' \
+        '--verbose[Print the list of devices which will be triggered.]' \
+        '--dry-run[Do not actually trigger the event.]' \
+        '--quiet[Suppress error logging in triggering events.]' \
+        '--type=[Trigger a specific type of devices.]:types:(all devices subsystems failed)' \
+        '--action=[Type of event to be triggered.]:actions:(add change remove move online offline bind unbind)' \
+        '--subsystem-match=[Trigger events for devices which belong to a matching subsystem.]:SUBSYSTEM' \
+        '--subsystem-nomatch=[Do not trigger events for devices which belong to a matching subsystem.]:SUBSYSTEM' \
+        '--attr-match=attribute=[Trigger events for devices with a matching sysfs attribute.]:FILE' \
+        '--attr-nomatch=attribute=[Do not trigger events for devices with a matching sysfs attribute.]:FILE' \
+        '--property-match=[Trigger events for devices with a matching property value.]:KEY=VALUE' \
+        '--tag-match=[Trigger events for devices with a matching tag.]:TAG' \
+        '--sysname-match=[Trigger events for devices with a matching sys device name.]:NAME' \
+        '--parent-match=[Trigger events for all children of a given device.]:NAME' \
+        '--include-parents[Also trigger parent devices of found devices.]' \
+        '--initialized-match[Trigger events for devices that are already initialized.]' \
+        '--initialized-nomatch[Trigger events for devices that are not initialized yet.]' \
+        '--uuid[Print synthetic uevent UUID.]' \
+        '--prioritized-subsystem=[Trigger events for devices which belong to a matching subsystem earlier.]:SUBSYSTEM' \
+        '*::devpath:_path_files -g "*(-/,-%)"'
+}
+
+(( $+functions[_udevadm_settle] )) ||
+_udevadm_settle(){
+    _arguments \
+        '(-)'{-h,--help}'[Print help]' \
+        '(-)'{-V,--version}'[Print version of the program]' \
+        '(-t --timeout)'{-t,--timeout=}'[Maximum number of seconds to wait for the event queue to become empty.]:SEC' \
+        '(-E --exit-if-exists)'{-E,--exit-if-exists=}'[Stop waiting if file exists.]:files:_files'
+}
+
+(( $+functions[_udevadm_control] )) ||
+_udevadm_control(){
+    _arguments \
+        '(-)'{-h,--help}'[Show help]' \
+        '(-)'{-V,--version}'[Show package version]' \
+        '(-e --exit)'{-e,--exit}'[Signal and wait for systemd-udevd to exit.]' \
+        '(-l --log-level)'{-l,--log-level=}'[Set the internal log level of systemd-udevd.]:LEVEL:(err info debug)' \
+        '(-s --stop-exec-queue)'{-s,--stop-exec-queue}'[Signal systemd-udevd to stop executing new events. Incoming events will be queued.]' \
+        '(-S --start-exec-queue)'{-S,--start-exec-queue}'[Signal systemd-udevd to enable the execution of events.]' \
+        '(-R --reload)'{-R,--reload}'[Signal systemd-udevd to reload the rules files and other databases like the kernel module index.]' \
+        '(-p --property)'{-p,--property=}'[Set a global property for all events.]:KEY=VALUE' \
+        '(-m --children-max=)'{-m,--children-max=}'[Set the maximum number of events.]:N' \
+        '--trace=[Enable/disable trace logging.]:BOOL' \
+        '--revert[Revert previously set configurations.]' \
+        '(-t --timeout=)'{-t,--timeout=}'[The maximum number of seconds to wait for a reply from systemd-udevd.]:SECONDS'
+}
+
+(( $+functions[_udevadm_monitor] )) ||
+_udevadm_monitor(){
+    _arguments \
+        '(-)'{-h,--help}'[Show help]' \
+        '(-)'{-V,--version}'[Show package version]' \
+        '(-k --kernel)'{-k,--kernel}'[Print the kernel uevents.]' \
+        '(-u --udev)'{-u,--udev}'[Print the udev event after the rule processing.]' \
+        '(-p --property)'{-p,--property}'[Also print the properties of the event.]' \
+        '(-s --subsystem-match)'{-s,--subsystem-match=}'[Filter events by subsystem/\[devtype\].]:SUBSYSTEM' \
+        '(-t --tag-match)'{-t,--tag-match=}'[Filter events by property.]:TAG'
+}
+
+(( $+functions[_udevadm_test] )) ||
+_udevadm_test(){
+    _arguments \
+        '(-)'{-h,--help}'[Show help]' \
+        '(-)'{-V,--version}'[Show package version]' \
+        '--action=[The action string.]:actions:(add change remove move online offline bind unbind)' \
+        '(-N --resolve-names)'{-N,--resolve-names=}'[When to resolve names.]:resolve:(early late never)' \
+        '--subsystem=[The subsystem string.]' \
+        '(-D --extra-rules-dir=)'{-D,--extra-rules-dir=}'[Also load rules from the directory.]' \
+        '(-v --verbose)'{-v,--verbose}'[Show verbose logs.]' \
+        '--json=[Generate JSON output]:MODE:(pretty short off)' \
+        '*::devpath:_files -W /sys'
+}
+
+(( $+functions[_udevadm_test-builtin] )) ||
+_udevadm_test-builtin(){
+    if (( CURRENT == 2 )); then
+        _arguments \
+            '(- *)'{-h,--help}'[Print help]' \
+            '(- *)'{-V,--version}'[Print version of the program]' \
+            '--action=[The action string.]:actions:(add change remove move online offline bind unbind)' \
+            '*::builtins:(blkid btrfs dissect_image factory_reset hwdb input_id keyboard kmod net_driver net_id net_setup_link path_id uaccess usb_id)'
+    elif  (( CURRENT == 3 )); then
+        _arguments \
+            '--action=[The action string.]:actions:(add change remove move online offline bind unbind)' \
+            '(- *)--help[Print help text]' \
+            '*::syspath:_files -W /sys'
+    else
+        _arguments \
+            '--action=[The action string.]:actions:(add change remove move online offline bind unbind)' \
+            '(- *)--help[Print help text]'
+    fi
+}
+
+(( $+functions[_udevadm_verify] )) ||
+_udevadm_verify(){
+    _arguments \
+        '(- *)'{-h,--help}'[Show help]' \
+        '(- *)'{-V,--version}'[Show package version]' \
+        '(-N --resolve-names)'{-N,--resolve-names=}'[When to resolve names.]:resolve:(early late never)' \
+        '--root=[Operate on catalog hierarchy under specified directory]:directories:_directories' \
+        --no-summary'[Do not show summary.]' \
+        --no-style'[Ignore style issues.]' \
+        '*::files:_files'
+}
+
+(( $+functions[_udevadm_cat] )) ||
+_udevadm_cat(){
+    _arguments \
+        '(- *)'{-h,--help}'[Show help]' \
+        '(- *)'{-V,--version}'[Show package version]' \
+        '--root=[Operate on catalog hierarchy under specified directory]:directories:_directories' \
+        --tldr'[Skip comments and empty lines.]' \
+        --config'[Show udev.conf.]' \
+        '*::files:_files'
+}
+
+(( $+functions[_udevadm_wait] )) ||
+_udevadm_wait(){
+    _arguments \
+        '(- *)'{-h,--help}'[Print help]' \
+        '(- *)'{-V,--version}'[Print version of the program]' \
+        '--timeout=[Maximum number of seconds to wait for the devices being created.]:SEC' \
+        '--initialized=[Wait for devices being initialized by systemd-udevd.]:boolean:(yes no)' \
+        '--removed[Wait for devices being removed.]' \
+        '--settle[Also wait for udev queue being empty.]' \
+        '*::devpath:_files -W /dev'
+}
+
+(( $+functions[_udevadm_lock] )) ||
+_udevadm_lock(){
+    _arguments \
+        '(- *)'{-h,--help}'[Print help]' \
+        '(- *)'{-V,--version}'[Print version of the program]' \
+        '(-t --timeout)'{-t,--timeout=}'[Maximum number of seconds to wait for the devices being locked.]:SECS' \
+        '(-d --device)'{-d,--device=}'[Block device to lock.]:DEVICE' \
+        '(-b --backing)'{-b,--backing=}'[File whose backing block device to lock.]:FILE' \
+        '(-p --print)'{-p,--print}'[Only show which block device the lock would be taken on.]'
+}
+
+(( $+functions[_udevadm_mounts] )) ||
+_udevadm_mounts(){
+    local dev_tmp dpath_tmp mp_tmp mline
+
+    tmp=( "${(@f)$(< /proc/self/mounts)}" )
+    dev_tmp=( "${(@)${(@)tmp%% *}:#none}" )
+    mp_tmp=( "${(@)${(@)tmp#* }%% *}" )
+
+    local MATCH
+    mp_tmp=("${(@q)mp_tmp//(#m)\\[0-7](#c3)/${(#)$(( 8#${MATCH[2,-1]} ))}}")
+    dpath_tmp=( "${(@Mq)dev_tmp:#/*}" )
+    dev_tmp=( "${(@q)dev_tmp:#/*}" )
+
+    _alternative \
+        'device-paths: device path:compadd -a dpath_tmp' \
+        'directories:mount point:compadd -a mp_tmp'
+}
+
+(( $+functions[_udevadm_commands] )) ||
+_udevadm_commands(){
+    local -a _udevadm_cmds
+    _udevadm_cmds=(
+        'info:query sysfs or the udev database'
+        'trigger:request events from the kernel'
+        'settle:wait for the event queue to finish'
+        'control:control the udev daemon'
+        'monitor:listen to kernel and udev events'
+        'test:test an event run'
+        'test-builtin:test a built-in command'
+        'verify:verify udev rules files'
+        'wait:wait for devices or device symlinks being created'
+        'lock:lock a block device and run a command'
+    )
+
+    if ((CURRENT == 1)); then
+        _describe -t commands 'udevadm commands' _udevadm_cmds
+    else
+        local curcontext="$curcontext"
+        cmd="${${_udevadm_cmds[(r)$words[1]:*]%%:*}}"
+        if (($#cmd)); then
+            if (( $+functions[_udevadm_$cmd] )); then
+                _udevadm_$cmd
+            else
+                _message "no options for $cmd"
+            fi
+        else
+            _message "no more options"
+        fi
+    fi
+}
+
+_arguments \
+    '--debug[Print debug messages to stderr]' \
+    '(- *)--version[Print version number]' \
+    '(- *)--help[Print help text]' \
+    '*::udevadm commands:_udevadm_commands'

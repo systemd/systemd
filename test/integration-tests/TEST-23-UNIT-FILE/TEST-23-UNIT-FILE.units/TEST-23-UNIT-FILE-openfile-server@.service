@@ -1,0 +1,7 @@
+[Unit]
+Description=OpenFile= test server service
+
+[Service]
+ExecStart=echo "Socket"
+StandardInput=socket
+StandardOutput=socket

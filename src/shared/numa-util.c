@@ -1,0 +1,263 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include <sched.h>
+
+#include "alloc-util.h"
+#include "cpu-set-util.h"
+#include "dirent-util.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "log.h"
+#include "numa-util.h"
+#include "parse-util.h"
+#include "stdio-util.h"
+#include "string-table.h"
+#include "string-util.h"
+
+bool numa_policy_is_valid(const NUMAPolicy *policy) {
+        assert(policy);
+
+        if (!mpol_is_valid(numa_policy_get_type(policy)))
+                return false;
+
+        if (!policy->nodes.set &&
+            !IN_SET(numa_policy_get_type(policy), MPOL_DEFAULT, MPOL_LOCAL, MPOL_PREFERRED))
+                return false;
+
+        if (policy->nodes.set &&
+            numa_policy_get_type(policy) == MPOL_PREFERRED &&
+            cpu_set_count(&policy->nodes) != 1)
+                return false;
+
+        return true;
+}
+
+static int numa_policy_to_mempolicy(const NUMAPolicy *policy, unsigned long *ret_maxnode, unsigned long **ret_nodes) {
+        unsigned node, bits = 0, ulong_bits;
+        _cleanup_free_ unsigned long *out = NULL;
+
+        assert(policy);
+        assert(ret_maxnode);
+        assert(ret_nodes);
+
+        if (IN_SET(numa_policy_get_type(policy), MPOL_DEFAULT, MPOL_LOCAL) ||
+            (numa_policy_get_type(policy) == MPOL_PREFERRED && !policy->nodes.set)) {
+                *ret_nodes = NULL;
+                *ret_maxnode = 0;
+                return 0;
+        }
+
+        bits = policy->nodes.allocated * 8;
+        ulong_bits = sizeof(unsigned long) * 8;
+
+        out = new0(unsigned long, DIV_ROUND_UP(policy->nodes.allocated, sizeof(unsigned long)));
+        if (!out)
+                return -ENOMEM;
+
+        /* We don't make any assumptions about internal type libc is using to store NUMA node mask.
+           Hence we need to convert the node mask to the representation expected by set_mempolicy() */
+        for (node = 0; node < bits; node++)
+                if (CPU_ISSET_S(node, policy->nodes.allocated, policy->nodes.set))
+                        out[node / ulong_bits] |= 1ul << (node % ulong_bits);
+
+        *ret_nodes = TAKE_PTR(out);
+        *ret_maxnode = bits + 1;
+        return 0;
+}
+
+int apply_numa_policy(const NUMAPolicy *policy) {
+        int r;
+        _cleanup_free_ unsigned long *nodes = NULL;
+        unsigned long maxnode;
+
+        assert(policy);
+
+        if (get_mempolicy(NULL, NULL, 0, NULL, 0) < 0 && errno == ENOSYS)
+                /* NUMA syscall interface not available (kernel compiled without NUMA support).
+                 * Return -ENOSYS so callers can distinguish this from -EOPNOTSUPP, which we
+                 * return below when the syscall interface exists but the requested policy is
+                 * not supported by this kernel version. */
+                return -ENOSYS;
+
+        if (!numa_policy_is_valid(policy))
+                return -EINVAL;
+
+        r = numa_policy_to_mempolicy(policy, &maxnode, &nodes);
+        if (r < 0)
+                return r;
+
+        r = set_mempolicy(numa_policy_get_type(policy), nodes, maxnode);
+        if (r < 0) {
+                // FIXME: This compatibility code path shall be removed once kernel 6.9
+                //        becomes the new minimal baseline (MPOL_WEIGHTED_INTERLEAVE).
+                if (errno == EINVAL && IN_SET(numa_policy_get_type(policy),
+                                             MPOL_PREFERRED_MANY, MPOL_WEIGHTED_INTERLEAVE))
+                        return -EOPNOTSUPP;
+                return -errno;
+        }
+
+        return 0;
+}
+
+int numa_node_get_cpus(size_t node, CPUSet *ret) {
+        char p[STRLEN("/sys/devices/system/node/node//cpulist") + DECIMAL_STR_MAX(size_t) + 1];
+        _cleanup_free_ char *cpulist = NULL;
+        int r;
+
+        assert(ret);
+
+        xsprintf(p, "/sys/devices/system/node/node%zu/cpulist", node);
+
+        r = read_virtual_file(p, SIZE_MAX, &cpulist, /* ret_size= */ NULL);
+        if (r < 0)
+                return r;
+
+        return parse_cpu_set(cpulist, ret);
+}
+
+int numa_to_cpu_set(const NUMAPolicy *policy, CPUSet *ret) {
+        _cleanup_(cpu_set_done) CPUSet s = {};
+        int r;
+
+        assert(policy);
+        assert(ret);
+
+        for (size_t i = 0; i < policy->nodes.allocated * 8; i++) {
+                if (!CPU_ISSET_S(i, policy->nodes.allocated, policy->nodes.set))
+                        continue;
+
+                _cleanup_(cpu_set_done) CPUSet part = {};
+                r = numa_node_get_cpus(i, &part);
+                if (r < 0)
+                        return r;
+
+                r = cpu_set_add_set(&s, &part);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_STRUCT(s);
+
+        return 0;
+}
+
+static int numa_max_node(void) {
+        _cleanup_closedir_ DIR *d = NULL;
+        int r, max_node = 0;
+
+        d = opendir("/sys/devices/system/node");
+        if (!d)
+                return -errno;
+
+        FOREACH_DIRENT(de, d, break) {
+                int node;
+                const char *n;
+
+                if (de->d_type != DT_DIR)
+                        continue;
+
+                n = startswith(de->d_name, "node");
+                if (!n)
+                        continue;
+
+                r = safe_atoi(n, &node);
+                if (r < 0)
+                        continue;
+
+                if (node > max_node)
+                        max_node = node;
+        }
+
+        return max_node;
+}
+
+int numa_get_node_from_cpu(unsigned cpu, unsigned *ret) {
+        _cleanup_closedir_ DIR *d = NULL;
+        int r;
+
+        assert(ret);
+
+        d = opendir("/sys/devices/system/node");
+        if (!d)
+                return -errno;
+
+        FOREACH_DIRENT(de, d, break) {
+                char p[STRLEN("/sys/devices/system/node/node/cpulist") + DECIMAL_STR_MAX(unsigned) + 1];
+                _cleanup_(cpu_set_done) CPUSet cpus = {};
+                _cleanup_free_ char *cpulist = NULL;
+                const char *n;
+                unsigned node;
+
+                if (de->d_type != DT_DIR)
+                        continue;
+
+                n = startswith(de->d_name, "node");
+                if (!n)
+                        continue;
+
+                r = safe_atou(n, &node);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to parse node number %s to unsigned, ignoring: %m", n);
+                        continue;
+                }
+
+                xsprintf(p, "/sys/devices/system/node/node%u/cpulist", node);
+
+                r = read_virtual_file(p, SIZE_MAX, &cpulist, /* ret_size= */ NULL);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to read %s, ignoring: %m", p);
+                        continue;
+                }
+
+                r = parse_cpu_set(cpulist, &cpus);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to parse cpu set %s, ignoring: %m", cpulist);
+                        continue;
+                }
+
+                if (CPU_ISSET_S(cpu, cpus.allocated, cpus.set)) {
+                        *ret = node;
+                        return 0;
+                }
+        }
+
+        /* CPU not found in any NUMA node, assume node 0 */
+        log_debug("CPU %u not found in any NUMA node, assuming node 0.", cpu);
+        *ret = 0;
+
+        return 0;
+}
+
+int numa_mask_add_all(CPUSet *mask) {
+        int m;
+
+        assert(mask);
+
+        m = numa_max_node();
+        if (m < 0) {
+                log_debug_errno(m, "Failed to determine maximum NUMA node index, assuming 1023: %m");
+                m = 1023; /* CONFIG_NODES_SHIFT is set to 10 on x86_64, i.e. 1024 NUMA nodes in total */
+        }
+
+        for (int i = 0; i <= m; i++) {
+                int r;
+
+                r = cpu_set_add(mask, i);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static const char* const mpol_table[] = {
+        [MPOL_DEFAULT]             = "default",
+        [MPOL_PREFERRED]           = "preferred",
+        [MPOL_BIND]                = "bind",
+        [MPOL_INTERLEAVE]          = "interleave",
+        [MPOL_LOCAL]               = "local",
+        [MPOL_PREFERRED_MANY]      = "preferred-many",
+        [MPOL_WEIGHTED_INTERLEAVE] = "weighted-interleave",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(mpol, int);

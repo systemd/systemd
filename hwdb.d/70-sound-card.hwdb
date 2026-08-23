@@ -1,0 +1,114 @@
+# This file is part of systemd.
+#
+# Database of sound hardware that gets misdetected.
+#
+# The lookup keys are $MODALIAS strings, see udev's hwdb builtin.
+#
+# To add local entries, create a new file
+#   /etc/udev/hwdb.d/71-sound-card-local.hwdb
+# and add your rules there. To load the new rules execute (as root):
+#   systemd-hwdb update
+#   udevadm trigger /dev/…
+#
+# If your changes are generally applicable, send them as a pull request to
+#   https://github.com/systemd/systemd
+# or create a bug report on https://github.com/systemd/systemd/issues and
+# include your new rules, a description of the device, and the output of
+#   udevadm info
+# for the device.
+#
+# Allowed properties are:
+#   SOUND_FORM_FACTOR
+
+###########################################################
+# Bestechnic (Edifier)
+###########################################################
+# Edifier M60
+usb:v2D99pA094*
+ SOUND_FORM_FACTOR=speaker
+
+###########################################################
+# Corsair
+###########################################################
+# Void Headsets
+usb:v1B1Cp0A51*
+ SOUND_FORM_FACTOR=headset
+
+###########################################################
+# Fractal
+###########################################################
+# Fractal Scape Dongle
+usb:v36BCp0001*
+ SOUND_FORM_FACTOR=headset
+
+###########################################################
+# Microsoft
+###########################################################
+# Xbox Wireless Dongle
+usb:v045Ep02E6*
+usb:v045Ep02FE*
+usb:v045Ep02F9*
+usb:v045Ep091E*
+ SOUND_FORM_FACTOR=headset
+
+###########################################################
+# Razer
+###########################################################
+# BlackShark V3 Pro
+usb:v1532p0577*
+ SOUND_FORM_FACTOR=headset
+
+###########################################################
+# Sony
+###########################################################
+# DualSense (PS5)
+usb:v054Cp0CE6*
+# DualSense Edge (PS5)
+usb:v054Cp0DF2*
+# DualShock 4 [CUH-ZCT1x]
+usb:v054Cp05C4*
+# DualShock 4 [CUH-ZCT2x]
+usb:v054Cp09CC*
+ SOUND_FORM_FACTOR=controller
+
+###########################################################
+# Steelseries
+###########################################################
+# Arctis Headsets
+usb:v1038p12B3*
+usb:v1038p12B6*
+usb:v1038p1260*
+usb:v1038p1252*
+usb:v1038p1280*
+usb:v1038p12D5*
+usb:v1038p12D7*
+usb:v1038p12AD*
+usb:v1038p220E*
+usb:v1038p2212*
+usb:v1038p2216*
+usb:v1038p2236*
+usb:v1038p12C2*
+usb:v1038p1290*
+usb:v1038p1294*
+usb:v1038p12EC*
+usb:v1038p2269*
+usb:v1038p226D*
+usb:v1038p2232*
+usb:v1038p2253*
+usb:v1038p2202*
+usb:v1038p2206*
+usb:v1038p220A*
+usb:v1038p2258*
+usb:v1038p223A*
+usb:v1038p227A*
+usb:v1038p22A1*
+usb:v1038p227E*
+usb:v1038p229E*
+usb:v1038p22AD*
+usb:v1038p22A9*
+usb:v1038p22A4*
+usb:v1038p22A5*
+usb:v1038p22A7*
+usb:v1038p12E0*
+usb:v1038p12E5*
+ SOUND_FORM_FACTOR=headset

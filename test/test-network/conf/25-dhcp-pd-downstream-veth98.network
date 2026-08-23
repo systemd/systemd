@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=veth98
+
+[Network]
+IPv6PrivacyExtensions=yes
+IPv6AcceptRA=no
+DHCP=no
+DHCPPrefixDelegation=yes
+IPv6SendRA=yes
+
+[DHCPPrefixDelegation]
+UplinkInterface=veth99
+SubnetId=9
+Announce=yes
+Token=eui64
+Token=::1a:2b:3c:4d
+
+[IPv6SendRA]
+EmitDNS=no
+EmitDomains=no

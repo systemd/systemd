@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=bridge99
+
+[Network]
+LinkLocalAddressing=yes
+IPv6AcceptRA=no
+ConfigureWithoutCarrier=yes
+Address=10.1.2.3/24
+Gateway=10.1.2.1

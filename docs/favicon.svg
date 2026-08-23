@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16">
+    <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+    <g transform="translate(380 -506.52)">
+        <rect ry="16.875" rx="16.875" y="2409.281" x="4128.568" height="90" width="90" fill="#201a26" transform="matrix(.17778 0 0 .17778 -1113.968 78.203)" stroke-width="5.625"/>
+        <g fill="none" stroke="#fff" stroke-width="2">
+            <path d="M-377 513.02h-1.5v3h1.5M-367 513.02h1.5v3h-1.5" stroke-width="1"/>
+        </g>
+        <path d="M-368 516.77v-4.5l-3 1.25-1 1 1 1z" fill="#30d475"/>
+        <circle cx="-374.25" cy="514.52" r="1.75" fill="#30d475"/>
+    </g>
+</svg>

@@ -1,0 +1,28 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Update Boot Loader Random Seed
+Documentation=man:systemd-boot-random-seed.service(8) man:random(4)
+
+DefaultDependencies=no
+After=local-fs.target systemd-random-seed.service
+Conflicts=shutdown.target
+Before=sysinit.target shutdown.target
+
+ConditionVirtualization=!container
+ConditionPathExists=!/etc/initrd-release
+# Only run this if the boot loader can support random seed initialization.
+ConditionPathExists=|/sys/firmware/efi/efivars/LoaderFeatures-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f
+ConditionPathExists=|/sys/firmware/efi/efivars/StubFeatures-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=bootctl --graceful random-seed

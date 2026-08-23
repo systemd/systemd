@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for RuntimeDirectoryMode
+
+[Service]
+ExecStart=bash -x -c 'mode=$$(stat -c %%a %t/test-exec_runtimedirectory-mode); test "$$mode" = "750"'
+ExecStart=bash -x -c 'test "$$RUNTIME_DIRECTORY" = "%t/test-exec_runtimedirectory-mode"'
+Type=oneshot
+RuntimeDirectory=test-exec_runtimedirectory-mode
+RuntimeDirectoryMode=0750

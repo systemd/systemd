@@ -1,0 +1,1 @@
+audit(1542398162.211:744): pid=7376 uid=1000 auid=1000 ses=6 subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 msg='op=PAM:accounting grantors=pam_unix,pam_localuser acct="vagrant" exe="/usr/bin/sudo" hostname=? addr=? terminal=/dev/pts/1 res=success'

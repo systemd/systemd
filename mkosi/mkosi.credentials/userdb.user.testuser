@@ -1,0 +1,10 @@
+{
+    "userName": "testuser",
+    "uid": 4711,
+    "disposition": "regular",
+    "enforcePasswordPolicy": false,
+    "shell": "/bin/bash",
+    "privileged": {
+        "hashedPassword": ["$1$kqp7NF1f$tNnQcshPX53CSfRKTQD0R1"]
+    }
+}

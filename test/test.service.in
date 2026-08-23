@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=%N
+Wants=basic.target network.target @wants@
+After=basic.target network.target @after@
+@unit@
+
+[Service]
+ExecStartPre=rm -f /failed /testok
+ExecStart=@command@
+ExecStartPost=/usr/lib/systemd/tests/testdata/units/post.sh
+Type=oneshot
+MemoryAccounting=@memory-accounting@
+Environment=SYSTEMD_PAGER= SYSTEMD_NSS_LOG_LEVEL=info @env@
+UnsetEnvironment=JOURNAL_STREAM
+@service@

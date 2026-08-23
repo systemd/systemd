@@ -1,0 +1,149 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include <sys/socket.h>         /* IWYU pragma: keep */
+
+#include "sd-json.h"
+#include "sd-messages.h"
+
+#include "alloc-util.h"
+#include "ansi-color.h"
+#include "battery-util.h"
+#include "build.h"
+#include "fd-util.h"
+#include "glyph-util.h"
+#include "log.h"
+#include "main-func.h"
+#include "plymouth-util.h"
+#include "proc-cmdline.h"
+#include "terminal-util.h"
+#include "time-util.h"
+#include "verbs.h"
+
+#define BATTERY_LOW_MESSAGE \
+        "Battery level critically low. Please connect your charger or the system will power off in 10 seconds."
+#define BATTERY_RESTORED_MESSAGE \
+        "A.C. power restored, continuing."
+
+static bool arg_doit = true;
+
+COMMAND(
+        "systemd-battery-check\0",
+        "Check battery level to see whether there's enough charge.",
+        .man_pages = "systemd-battery-check.8\0",
+);
+
+static int plymouth_send_message(const char *mode, const char *message) {
+        _cleanup_free_ char *plymouth_message = NULL;
+        int c, r;
+
+        assert(mode);
+        assert(message);
+
+        c = asprintf(&plymouth_message,
+                     "C\x02%c%s%c"
+                     "M\x02%c%s%c",
+                     (int) strlen(mode) + 1, mode, '\x00',
+                     (int) strlen(message) + 1, message, '\x00');
+        if (c < 0)
+                return log_oom();
+
+        /* We set SOCK_NONBLOCK here so that we rather drop the message than wait for plymouth */
+        r = plymouth_send_raw(plymouth_message, c, SOCK_NONBLOCK);
+        if (r < 0)
+                return log_full_errno(ERRNO_IS_NO_PLYMOUTH(r) ? LOG_DEBUG : LOG_WARNING, r,
+                                      "Failed to communicate with plymouth: %m");
+
+        return 0;
+}
+
+static int parse_argv(int argc, char *argv[]) {
+        assert(argc >= 0);
+        assert(argv);
+
+        OptionParser opts = { argc, argv };
+
+        FOREACH_OPTION_OR_RETURN(c, &opts)
+                switch (c) {
+
+                OPTION_COMMON_HELP:
+                        return command_print_help("systemd-battery-check");
+
+                OPTION_COMMON_VERSION:
+                        return version();
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
+                }
+
+        if (option_parser_get_n_args(&opts) != 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "%s takes no argument.",
+                                       program_invocation_short_name);
+        return 1;
+}
+
+static int run(int argc, char *argv[]) {
+        _cleanup_free_ char *plymouth_message = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        log_setup();
+
+        r = parse_argv(argc, argv);
+        if (r <= 0)
+                return r;
+
+        r = proc_cmdline_get_bool("systemd.battery_check", PROC_CMDLINE_STRIP_RD_PREFIX|PROC_CMDLINE_TRUE_WHEN_MISSING, &arg_doit);
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse systemd.battery_check= kernel command line option, ignoring: %m");
+
+        if (!arg_doit) {
+                log_info("Checking battery status and AC power existence is disabled by the kernel command line, skipping execution.");
+                return 0;
+        }
+
+        r = battery_is_discharging_and_low();
+        if (r < 0) {
+                log_warning_errno(r, "Failed to check battery status, ignoring: %m");
+                return 0;
+        }
+        if (r == 0)
+                return 0;
+        log_struct(LOG_EMERG,
+                   LOG_MESSAGE("%s " BATTERY_LOW_MESSAGE, glyph(GLYPH_LOW_BATTERY)),
+                   LOG_MESSAGE_ID(SD_MESSAGE_BATTERY_LOW_WARNING_STR));
+
+        fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
+        if (fd < 0)
+                log_warning_errno(fd, "Failed to open console, ignoring: %m");
+        else
+                dprintf(fd, ANSI_HIGHLIGHT_RED "%s " BATTERY_LOW_MESSAGE ANSI_NORMAL "\n",
+                        glyph_full(GLYPH_LOW_BATTERY, /* force_utf= */ false));
+
+        if (asprintf(&plymouth_message, "%s " BATTERY_LOW_MESSAGE,
+                     glyph_full(GLYPH_LOW_BATTERY, /* force_utf= */ true)) < 0)
+                return log_oom();
+
+        (void) plymouth_send_message("shutdown", plymouth_message);
+
+        usleep_safe(10 * USEC_PER_SEC);
+
+        r = battery_is_discharging_and_low();
+        if (r < 0)
+                return log_warning_errno(r, "Failed to check battery status, assuming not charged yet, powering off: %m");
+        if (r > 0) {
+                log_struct(LOG_EMERG,
+                           LOG_MESSAGE("Battery level critically low, powering off."),
+                           LOG_MESSAGE_ID(SD_MESSAGE_BATTERY_LOW_POWEROFF_STR));
+                return r;
+        }
+
+        log_info(BATTERY_RESTORED_MESSAGE);
+        if (fd >= 0)
+                dprintf(fd, BATTERY_RESTORED_MESSAGE "\n");
+        (void) plymouth_send_message("boot-up", BATTERY_RESTORED_MESSAGE);
+
+        return 0;
+}
+
+DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

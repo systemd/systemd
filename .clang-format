@@ -1,0 +1,148 @@
+# This configuration file can be used to auto-format the code base.
+# Not all guidelines specified in CODING_STYLE are followed, so the
+# result MUST NOT be committed indiscriminately, but each automated
+# change should be reviewed and only the appropriate ones committed.
+#
+# The easiest way to apply the formatting to your changes ONLY,
+# is to use the git-clang-format script (usually installed with clang-format).
+#
+# -  Fix up formatting before committing
+# 1. Edit and stage your files.
+# 2. Run `git clang-format`.
+# 3. Verify + correct + (un)stage changes.
+# 4. Commit.
+#
+# -  Fix up formatting after committing
+# 1. Commit your changes.
+# 2. Run `git clang-format HEAD~` - Refer the commit *before* your changes here.
+# 3. Verify + correct changes, `git difftool -d` can help here.
+# 4. Stage + commit, potentially with `--amend` (means to fixup the last commit).
+#
+# To run clang-format on all sourcefiles, use the following line:
+# $ git ls-files 'src/*.[ch]' 'src/*.cc' | xargs clang-format -i -style=file
+#
+# You can find more information on the different config parameters in this file here:
+# https://clang.llvm.org/docs/ClangFormatStyleOptions.html
+---
+AccessModifierOffset: -4
+AlignAfterOpenBracket: AlwaysBreak
+AlignArrayOfStructures: Right
+AlignEscapedNewlines: Left
+AlignOperands: false
+AllowShortFunctionsOnASingleLine: None
+AlwaysBreakBeforeMultilineStrings: true
+AlwaysBreakTemplateDeclarations: Yes
+BinPackArguments: false
+BinPackParameters: false
+BraceWrapping:
+  AfterEnum: false
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+  SplitEmptyNamespace: false
+BreakBeforeBraces: Custom
+BreakBeforeTernaryOperators: false
+BreakInheritanceList: BeforeComma
+BreakStringLiterals: false
+ColumnLimit: 109
+CompactNamespaces: true
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+ConstructorInitializerIndentWidth: 8
+ContinuationIndentWidth: 16
+Cpp11BracedListStyle: false
+ForEachMacros:
+  - BITMAP_FOREACH
+  - CMSG_FOREACH
+  - _DNS_ANSWER_FOREACH
+  - DNS_ANSWER_FOREACH
+  - _DNS_ANSWER_FOREACH_FLAGS
+  - DNS_ANSWER_FOREACH_FLAGS
+  - _DNS_ANSWER_FOREACH_FULL
+  - DNS_ANSWER_FOREACH_FULL
+  - _DNS_ANSWER_FOREACH_IFINDEX
+  - DNS_ANSWER_FOREACH_IFINDEX
+  - _DNS_QUESTION_FOREACH
+  - DNS_QUESTION_FOREACH
+  - FDSET_FOREACH
+  - FOREACH_BTRFS_IOCTL_SEARCH_HEADER
+  - FOREACH_DEVICE
+  - FOREACH_DEVICE_AND_SUBSYSTEM
+  - FOREACH_DEVICE_DEVLINK
+  - FOREACH_DEVICE_PROPERTY
+  - FOREACH_DEVICE_SYSATTR
+  - FOREACH_DEVICE_TAG
+  - FOREACH_DIRENT
+  - FOREACH_DIRENT_ALL
+  - FOREACH_INOTIFY_EVENT
+  - FOREACH_STRING
+  - FOREACH_SUBSYSTEM
+  - HASHMAP_FOREACH
+  - HASHMAP_FOREACH_IDX
+  - HASHMAP_FOREACH_KEY
+  - JOURNAL_FOREACH_DATA_RETVAL
+  - JSON_VARIANT_ARRAY_FOREACH
+  - JSON_VARIANT_OBJECT_FOREACH
+  - LIST_FOREACH
+  - LIST_FOREACH_AFTER
+  - LIST_FOREACH_BEFORE
+  - LIST_FOREACH_OTHERS
+  - LIST_FOREACH_SAFE
+  - MESSAGE_FOREACH_PART
+  - NULSTR_FOREACH
+  - NULSTR_FOREACH_PAIR
+  - OBJECT_PATH_FOREACH_PREFIX
+  - ORDERED_HASHMAP_FOREACH
+  - ORDERED_HASHMAP_FOREACH_KEY
+  - ORDERED_SET_FOREACH
+  - PATH_FOREACH_PREFIX
+  - PATH_FOREACH_PREFIX_MORE
+  - SD_HWDB_FOREACH_PROPERTY
+  - SD_JOURNAL_FOREACH
+  - SD_JOURNAL_FOREACH_BACKWARDS
+  - SD_JOURNAL_FOREACH_DATA
+  - SD_JOURNAL_FOREACH_FIELD
+  - SD_JOURNAL_FOREACH_UNIQUE
+  - SECCOMP_FOREACH_LOCAL_ARCH
+  - SET_FOREACH
+  - SET_FOREACH_MOVE
+  - STRV_FOREACH
+  - STRV_FOREACH_BACKWARDS
+  - STRV_FOREACH_PAIR
+IncludeBlocks: Regroup
+IncludeCategories:
+  # "vmlinux.h" must always be included first in BPF programs before anything else.
+  - Regex:           '^"vmlinux.h"$'
+    Priority:        1
+  # <bpf/*.h> headers must be included after <linux/types.h> by design.
+  - Regex:           '^<bpf/.*\.h>$'
+    Priority:        2
+    SortPriority:    3
+  - Regex:           '^<.*\.h>$'
+    Priority:        2
+  - Regex:           '^"_?sd-.*\.h"$'
+    Priority:        4
+  - Regex:           '^"libudev\.h"$'
+    Priority:        4
+  - Regex:           '^"audit_type-to-name.h"$'
+    Priority:        6
+  - Regex:           '.*'
+    Priority:        5
+# Make sure the "main header" is not treated any differently than other headers.
+IncludeIsMainRegex: '^$'
+IndentPPDirectives: AfterHash
+IndentWidth: 8
+IndentWrappedFunctionNames: true
+MaxEmptyLinesToKeep: 2
+PenaltyBreakAssignment: 65
+PenaltyBreakBeforeFirstCallParameter: 16
+PenaltyBreakComment: 320
+PenaltyBreakFirstLessLess: 50
+PenaltyBreakString: 0
+PenaltyExcessCharacter: 10
+PenaltyReturnTypeOnItsOwnLine: 100
+PointerAlignment: Right
+SpaceAfterCStyleCast: true
+SpaceAroundPointerQualifiers: Both
+SpaceBeforeParens: ControlStatementsExceptForEachMacros
+SpacesInAngles: true
+TabWidth: 8
+UseCRLF: false

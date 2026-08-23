@@ -1,0 +1,155 @@
+<?xml version="1.0"?>
+<!DOCTYPE variablelist PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<variablelist>
+  <varlistentry id='help'>
+    <term><option>-h</option></term>
+    <term><option>--help</option></term>
+
+    <listitem id='help-text'>
+      <para id='help-para'>Print a short help text and exit.
+    </para></listitem>
+  </varlistentry>
+
+  <varlistentry id='version'>
+    <term><option>--version</option></term>
+
+    <listitem id='version-text'>
+      <para>Print a short version string and exit.</para>
+    </listitem>
+  </varlistentry>
+
+  <varlistentry id='no-pager'>
+    <term><option>--no-pager</option></term>
+
+    <listitem>
+      <para>Do not pipe output into a pager.</para>
+    </listitem>
+  </varlistentry>
+
+  <varlistentry id='no-ask-password'>
+    <term><option>--no-ask-password</option></term>
+
+    <listitem><para>Do not query the user for authentication for privileged operations.</para></listitem>
+  </varlistentry>
+
+  <varlistentry id='legend'>
+    <term><option>--legend=<replaceable>BOOL</replaceable></option></term>
+
+    <listitem>
+      <para>Enable or disable printing of the legend, i.e. column headers and the footer with hints. The
+      legend is printed by default, unless disabled with <option>--quiet</option> or similar.</para>
+    </listitem>
+  </varlistentry>
+
+  <varlistentry id='no-legend'>
+    <term><option>--no-legend</option></term>
+
+    <listitem>
+      <para>Do not print the legend, i.e. column headers and the
+      footer with hints.</para>
+    </listitem>
+  </varlistentry>
+
+  <varlistentry id='cat-config'>
+    <term><option>--cat-config</option></term>
+
+    <listitem>
+      <para>Copy the contents of config files to standard output.
+      Before each file, the filename is printed as a comment.</para>
+    </listitem>
+  </varlistentry>
+
+  <varlistentry id='tldr'>
+    <term><option>--tldr</option></term>
+
+    <listitem>
+      <para>Copy the contents of config files to standard output. Only the "interesting" parts of the
+      configuration files are printed, comments and empty lines are skipped. Before each file, the filename
+      is printed as a comment.</para>
+    </listitem>
+  </varlistentry>
+
+  <varlistentry id='json'>
+    <term><option>--json=<replaceable>MODE</replaceable></option></term>
+
+    <listitem><para>Shows output formatted as JSON. Expects one of <literal>short</literal> (for the
+    shortest possible output without any redundant whitespace or line breaks), <literal>pretty</literal>
+    (for a pretty version of the same, with indentation and line breaks) or <literal>off</literal> (to turn
+    off JSON output, the default).</para></listitem>
+  </varlistentry>
+
+  <varlistentry id='j'>
+    <term><option>-j</option></term>
+
+    <listitem><para>Equivalent to <option>--json=pretty</option> if running on a terminal, and
+    <option>--json=short</option> otherwise.</para></listitem>
+  </varlistentry>
+
+  <varlistentry id='signal'>
+    <term><option>-s</option></term>
+    <term><option>--signal=</option></term>
+
+    <listitem>
+      <para>When used with <command>kill</command>, choose which signal to send to selected processes. Must
+      be one of the well-known signal specifiers such as <constant>SIGTERM</constant>,
+      <constant>SIGINT</constant> or <constant>SIGSTOP</constant>. If omitted, defaults to
+      <option>SIGTERM</option>.</para>
+
+      <para>The special value <literal>help</literal> will list the known values and the program will exit
+      immediately, and the special value <literal>list</literal> will list known values along with the
+      numerical signal numbers and the program will exit immediately.</para>
+    </listitem>
+  </varlistentry>
+
+  <varlistentry id='image-policy-open'>
+    <term><option>--image-policy=<replaceable>policy</replaceable></option></term>
+
+    <listitem><para>Takes an image policy string as argument, as per
+    <citerefentry><refentrytitle>systemd.image-policy</refentrytitle><manvolnum>7</manvolnum></citerefentry>. The
+    policy is enforced when operating on the disk image specified via <option>--image=</option>, see
+    above. If not specified, defaults to the <literal>*</literal> policy, i.e. all recognized file systems
+    in the image are used.</para></listitem>
+  </varlistentry>
+
+  <varlistentry id='image-filter'>
+    <term><option>--image-filter=<replaceable>filter</replaceable></option></term> <listitem><para>Takes an
+    image filter string as argument, as per
+    <citerefentry><refentrytitle>systemd.image-filter</refentrytitle><manvolnum>7</manvolnum></citerefentry>. The
+    filter is taken into consideration when operating on the disk image specified via
+    <option>--image=</option>, see above. If not specified no filtering is applied.</para></listitem>
+  </varlistentry>
+
+  <varlistentry id='esp-path'>
+    <term><option>--esp-path=</option></term>
+
+    <listitem>
+      <para>Path to the EFI System Partition (ESP). If not specified, <filename>/efi/</filename>,
+      <filename>/boot/</filename>, and <filename>/boot/efi/</filename> are checked in turn. It is
+      recommended to mount the ESP to <filename>/efi/</filename>, if possible.</para>
+    </listitem>
+  </varlistentry>
+
+  <varlistentry id='boot-path'>
+    <term><option>--boot-path=</option></term>
+
+    <listitem>
+      <para>Path to the Extended Boot Loader partition, as defined in the
+      <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink>.
+      If not specified, <filename>/boot/</filename> is checked. It is recommended to mount the Extended Boot
+      Loader partition to <filename>/boot/</filename>, if possible.</para>
+    </listitem>
+  </varlistentry>
+
+  <varlistentry id='option-P'>
+    <term><option>-P</option></term>
+
+    <listitem>
+      <para>Equivalent to <option>--value</option> <option>--property=</option>, i.e. shows the value of the
+      property without the property name or <literal>=</literal>. Note that using <option>-P</option> once
+      will also affect all properties listed with <option>-p</option>/<option>--property=</option>.</para>
+    </listitem>
+  </varlistentry>
+</variablelist>

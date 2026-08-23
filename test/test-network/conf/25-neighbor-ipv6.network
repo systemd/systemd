@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=ip6gretun97
+
+[Network]
+IPv6AcceptRA=no
+Address=2001:db8:0:f102::16/64
+LinkLocalAddressing=no
+
+[Neighbor]
+Address=2001:db8:0:f102::17
+LinkLayerAddress=2a00:ffde:4567:edde::4988
+
+[Neighbor]
+# unmatching link layer address length
+Address=2001:db8:0:f102::18
+LinkLayerAddress=11:22:33:44:55:66

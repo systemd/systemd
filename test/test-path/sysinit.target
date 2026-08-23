@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+[Unit]
+Description=System Initialization
+Documentation=man:systemd.special(7)
+Conflicts=emergency.service emergency.target
+Wants=local-fs.target swap.target
+After=local-fs.target swap.target emergency.service emergency.target

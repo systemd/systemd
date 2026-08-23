@@ -1,0 +1,963 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="systemd-cryptenroll" xmlns:xi="http://www.w3.org/2001/XInclude" conditional='HAVE_LIBCRYPTSETUP'>
+
+  <refentryinfo>
+    <title>systemd-cryptenroll</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-cryptenroll</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-cryptenroll</refname>
+    <refpurpose>Enroll PKCS#11, FIDO2, TPM2 token/devices to LUKS2 encrypted volumes</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-cryptenroll</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="opt">DEVICE</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-cryptenroll</command> is a tool for enrolling hardware security tokens and devices
+    into a LUKS2 encrypted volume, which may then be used to unlock the volume during boot. Specifically, it
+    supports tokens and credentials of the following kind to be enrolled:</para>
+
+    <orderedlist>
+      <listitem><para>PKCS#11 security tokens and smartcards that may carry an RSA or EC key pair (e.g.
+      various YubiKeys)</para></listitem>
+
+      <listitem><para>FIDO2 security tokens that implement the <literal>hmac-secret</literal> extension (most
+      FIDO2 keys, including YubiKeys)</para></listitem>
+
+      <listitem><para>TPM2 security devices</para></listitem>
+
+      <listitem><para>Regular passphrases</para></listitem>
+
+      <listitem><para>Recovery keys. These are similar to regular passphrases, however are randomly generated
+      on the computer and thus generally have higher entropy than user-chosen passphrases. Their character
+      set has been designed to ensure they are easy to type in, while having high entropy. They may also be
+      scanned off screen using QR codes. Recovery keys may be used for unlocking LUKS2 volumes wherever
+      passphrases are accepted. They are intended to be used in combination with an enrolled hardware
+      security token, as a recovery option when the token is lost.</para></listitem>
+    </orderedlist>
+
+    <para>In addition, the tool may be used to enumerate currently enrolled security tokens and wipe a subset
+    of them. The latter may be combined with the enrollment operation of a new security token, in order to
+    update or replace enrollments.</para>
+
+    <para>The tool supports only LUKS2 volumes, as it stores token meta-information in the LUKS2 JSON token
+    area, which is not available in other encryption formats.</para>
+
+    <para><command>systemd-cryptsetup</command> operates on the device backing <filename>/var/</filename> if
+    no device is specified explicitly, and no wipe operation is requested. (Note that in the typical case
+    where <filename>/var/</filename> is on the same file system as the root file system, this hence enrolls a
+    key into the backing device of the root file system.)</para>
+
+    <refsect2>
+      <title>TPM2 PCRs and policies</title>
+
+      <para>PCRs allow binding of the encryption of secrets to specific software versions and system state,
+      so that the enrolled key is only accessible (may be "unsealed") if specific trusted software and/or
+      configuration is used. Such bindings may be created with the option <option>--tpm2-pcrs=</option>
+      described below.</para>
+
+      <para>Secrets may also be bound indirectly: a signed policy for a state of some combination of PCR
+      values is provided, and the secret is bound to the public part of the key used to sign this policy.
+      This means that the owner of a key can generate a sequence of signed policies, for specific software
+      versions and system states, and the secret can be decrypted as long as the machine state matches one of
+      those policies. For example, a vendor may provide such a policy for each kernel+initrd update, allowing
+      users to encrypt secrets so that they can be decrypted when running any kernel+initrd signed by the
+      vendor. Such bindings may be created with the options <option>--tpm2-public-key=</option>,
+      <option>--tpm2-public-key-pcrs=</option>, <option>--tpm2-signature=</option> described below.
+      </para>
+
+      <para>See <ulink url="https://uapi-group.org/specifications/specs/linux_tpm_pcr_registry/">UAPI.7 Linux
+      TPM PCR Registry</ulink> for an authoritative list of PCRs and how they are updated. The table below
+      contains a quick reference, describing in particular the PCRs modified by systemd.</para>
+
+      <table>
+        <title>Well-known PCR Definitions</title>
+
+        <!-- See: https://trustedcomputinggroup.org/resource/pc-client-specific-platform-firmware-profile-specification/ -->
+        <!-- See: https://github.com/rhboot/shim/blob/main/README.tpm -->
+        <!-- See: https://www.gnu.org/software/grub/manual/grub/html_node/Measured-Boot.html -->
+        <!-- See: https://sourceforge.net/p/linux-ima/wiki/Home/ -->
+        <!-- See: https://github.com/tianocore-docs/edk2-TrustedBootChain/blob/main/4_Other_Trusted_Boot_Chains.md -->
+        <!-- See: https://wiki.archlinux.org/title/Trusted_Platform_Module#Accessing_PCR_registers -->
+
+        <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+          <colspec colname="pcr" />
+          <colspec colname="name" />
+          <colspec colname="definition" />
+
+          <thead>
+            <row>
+              <entry>PCR</entry>
+              <entry>name</entry>
+              <entry>Explanation</entry>
+            </row>
+          </thead>
+
+          <tbody>
+            <row>
+              <entry>0</entry>
+              <entry>platform-code</entry>
+              <entry>Core system firmware executable code; changes on firmware updates</entry>
+            </row>
+
+            <row>
+              <entry>1</entry>
+              <entry>platform-config</entry>
+              <entry>Core system firmware data/host platform configuration; typically contains serial and model numbers, changes on basic hardware/CPU/RAM replacements</entry>
+            </row>
+
+            <row>
+              <entry>2</entry>
+              <entry>external-code</entry>
+              <entry>Extended or pluggable executable code; includes option ROMs on pluggable hardware</entry>
+            </row>
+
+            <row>
+              <entry>3</entry>
+              <entry>external-config</entry>
+              <entry>Extended or pluggable firmware data; includes information about pluggable hardware</entry>
+            </row>
+
+            <row>
+              <entry>4</entry>
+              <entry>boot-loader-code</entry>
+              <entry>Boot loader and additional drivers, PE binaries invoked by the boot loader; changes on boot loader updates. <citerefentry><refentrytitle>sd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures system extension images read from the ESP here too (see <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>).</entry>
+            </row>
+
+            <row>
+              <entry>5</entry>
+              <entry>boot-loader-config</entry>
+              <entry>GPT/Partition table; changes when the partitions are added, modified, or removed</entry>
+            </row>
+
+            <row>
+              <entry>7</entry>
+              <entry>secure-boot-policy</entry>
+              <entry>Secure Boot state; changes when UEFI SecureBoot mode is enabled/disabled, or firmware certificates (PK, KEK, db, dbx, …) changes.</entry>
+            </row>
+
+            <row>
+              <entry>9</entry>
+              <entry>kernel-initrd</entry>
+              <entry>The Linux kernel measures all initrds it receives into this PCR.</entry>
+              <!-- Strictly speaking only Linux >= 5.17 using the LOAD_FILE2 protocol, see https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=f046fff8bc4c4d8f8a478022e76e40b818f692df -->
+            </row>
+
+            <row>
+              <entry>10</entry>
+              <entry>ima</entry>
+              <entry>The IMA project measures its runtime state into this PCR.</entry>
+            </row>
+
+            <row>
+              <entry>11</entry>
+              <entry>kernel-boot</entry>
+              <entry><citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures the ELF kernel image, embedded initrd and other payload of the PE image it is placed in into this PCR. <citerefentry><refentrytitle>systemd-pcrphase.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> measures boot phase strings into this PCR at various milestones of the boot process.</entry>
+            </row>
+
+            <row>
+              <entry>12</entry>
+              <entry>kernel-config</entry>
+              <entry><citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures the kernel command line into this PCR. <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures any manually specified kernel command line (i.e. a kernel command line that overrides the one embedded in the unified PE image) and loaded credentials into this PCR.</entry>
+            </row>
+
+            <row>
+              <entry>13</entry>
+              <entry>sysexts</entry>
+              <entry><citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures any <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry> images it passes to the booted kernel into this PCR.</entry>
+            </row>
+
+            <row>
+              <entry>14</entry>
+              <entry>shim-policy</entry>
+              <entry>The shim project measures its "MOK" certificates and hashes into this PCR.</entry>
+            </row>
+
+            <row>
+              <entry>15</entry>
+              <entry>system-identity</entry>
+              <entry><citerefentry><refentrytitle>systemd-cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry> optionally measures the volume key of activated LUKS volumes into this PCR. <citerefentry><refentrytitle>systemd-pcrmachine.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> measures the <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> into this PCR. <citerefentry><refentrytitle>systemd-pcrfs@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> measures mount points, file system UUIDs, labels, partition UUIDs of the root and <filename>/var/</filename> filesystems into this PCR.</entry>
+            </row>
+
+            <row>
+              <entry>16</entry>
+              <entry>debug</entry>
+              <entry>Debug</entry>
+            </row>
+
+            <row>
+              <entry>23</entry>
+              <entry>application-support</entry>
+              <entry>Application Support</entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </table>
+
+      <para>In general, encrypted volumes would be bound to some combination of PCRs 7, 11, and 14 (if
+      shim/MOK is used). In order to allow firmware and OS version updates, it is typically not advisable to
+      use PCRs such as 0 and 2, since the program code they cover should already be covered indirectly
+      through the certificates measured into PCR 7. Validation through certificates hashes is typically
+      preferable over validation through direct measurements as it is less brittle in context of OS/firmware
+      updates: the measurements will change on every update, but signatures should remain unchanged. See the
+      <ulink url="https://uapi-group.org/specifications/specs/linux_tpm_pcr_registry/">UAPI.7 Linux TPM PCR
+      Registry</ulink> for more discussion.</para>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Limitations</title>
+
+    <para>Note that currently when enrolling a new key of one of the five supported types listed above, it is
+    required to first provide a passphrase, a recovery key, a FIDO2 token, or a TPM2 key. It's currently not
+    supported to unlock a device with a PKCS#11 key in order to enroll a new PKCS#11 key. Thus, if in future
+    key roll-over is desired it is generally recommended to ensure a passphrase, a recovery key, a FIDO2
+    token, or a TPM2 key is always enrolled.</para>
+
+    <para>Also note that support for enrolling multiple FIDO2 tokens is currently limited. When multiple FIDO2
+    tokens are enrolled, <command>systemd-cryptsetup</command> will perform pre-flight requests to attempt to
+    identify which of the enrolled tokens are currently plugged in. However, this is not possible for FIDO2
+    tokens with user verification (UV, usually via biometrics), in which case it will fall back to attempting
+    each enrolled token one by one. This will result in multiple prompts for PIN and user verification. This
+    limitation does not apply to PKCS#11 tokens.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Compatibility</title>
+
+    <para>Security technology both in systemd and in the general industry constantly evolves. In order to
+    provide best security guarantees, the way TPM2, FIDO2, PKCS#11 devices are enrolled is regularly updated
+    in newer versions of systemd. Whenever this happens the following compatibility guarantees are given:</para>
+
+    <itemizedlist>
+      <listitem><para>Old enrollments continue to be supported and may be unlocked with newer versions of
+      <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para></listitem>
+
+      <listitem><para>The opposite is not guaranteed however: it might not be possible to unlock volumes with
+      enrollments done with a newer version of <command>systemd-cryptenroll</command> with an older version
+      of <command>systemd-cryptsetup</command>.</para></listitem>
+    </itemizedlist>
+
+    <para>That said, it is generally recommended to use matching versions of
+    <command>systemd-cryptenroll</command> and <command>systemd-cryptsetup</command>, since this is best
+    tested and supported.</para>
+
+    <para>It might be advisable to re-enroll existing enrollments to take benefit of newer security features,
+    as they are added to systemd.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Unlocking</title>
+
+    <para>The following options are understood that may be used to unlock the device in preparation of the enrollment operations:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--unlock-empty</option></term>
+
+        <listitem><para>Use an empty password/passphrase to unlock the volume, instead of reading one from
+        stdin. This is useful to unlock volumes that are currently protected by an empty password, in order to
+        enroll a different, stronger unlock mechanism.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--unlock-key-file=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>Use a file instead of a password/passphrase read from stdin to unlock the volume.
+        Expects the PATH to the file containing your key to unlock the volume. Currently there is nothing like
+        <option>--key-file-offset=</option> or <option>--key-file-size=</option> so this file has to only
+        contain the full key.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--unlock-fido2-device=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>Use a FIDO2 device instead of a password/passphrase read from stdin to unlock the
+        volume. Expects a <filename>hidraw</filename> device referring to the FIDO2 device (e.g.
+        <filename>/dev/hidraw1</filename>). Alternatively the special value <literal>auto</literal> may be
+        specified, in order to automatically determine the device node of a currently plugged in security
+        token (of which there must be exactly one). This automatic discovery is unsupported if
+        <option>--fido2-device=</option> option is also specified. Note that currently FIDO2 devices
+        enrolled without an accompanying LUKS2 token (i.e. <option>--fido2-parameters-in-header=no</option>)
+        cannot be used for unlocking.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--unlock-tpm2-device=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>Use a TPM2 device instead of a password/passphrase read from stdin to unlock the
+        volume. Expects a device node path referring to the TPM2 chip (e.g. <filename>/dev/tpmrm0</filename>).
+        Alternatively the special value <literal>auto</literal> may be specified, in order to automatically
+        determine the device node of a currently discovered TPM2 device (of which there must be exactly one).
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--unlock-headless</option></term>
+
+        <listitem><para>Try the unlock mechanisms suitable for headless operation in turn, without requiring
+        any interactive input. If a TPM2 device is available the volume is unlocked via TPM2, and otherwise
+        (or if TPM2 unlocking fails) an empty password is attempted. This is primarily useful in automated
+        provisioning scenarios where a volume is first set up with a TPM2 enrollment or an empty password and
+        a stronger unlock mechanism shall be enrolled subsequently.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Simple Enrollment</title>
+
+    <para>The following options are understood that may be used to enroll simple user input based
+    unlocking:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--password</option></term>
+
+        <listitem><para>Enroll a regular password/passphrase. This command is mostly equivalent to
+        <command>cryptsetup luksAddKey</command>, however may be combined with
+        <option>--wipe-slot=</option> in one call, see below.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--recovery-key</option></term>
+
+        <listitem><para>Enroll a recovery key. Recovery keys are mostly identical to passphrases, but are
+        computer-generated instead of being chosen by a human, and thus have a guaranteed high entropy. The
+        key uses a character set that is easy to type in, and may be scanned off screen via a QR code.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Interactive Enrollment</title>
+
+    <para>The following options are understood that drive an interactive enrollment wizard, intended to be
+    run on first boot (similar in spirit to
+    <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>):</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--firstboot</option></term>
+
+        <listitem><para>Run an interactive wizard that lets the user enroll a passphrase, a recovery key, or a
+        FIDO2 security token (one menu entry per suitable token currently plugged in). If credentials of any
+        of these types are already enrolled, the wizard additionally offers to wipe them. Pressing enter at
+        the top-level menu leaves the volume unchanged. This option may not be combined with an explicit
+        enrollment type or with <option>--wipe-slot=</option>. As with the other commands, the volume to
+        operate on is the one backing <filename>/var/</filename> if none is specified. Honours the
+        <varname>systemd.firstboot=</varname> kernel command line option.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--prompt-suppress=<replaceable>TYPE</replaceable>…</option></term>
+
+        <listitem><para>Takes a comma-separated list of slot types, out of <literal>password</literal>,
+        <literal>recovery</literal>, <literal>pkcs11</literal>, <literal>fido2</literal> and
+        <literal>tpm2</literal>. Only useful together with <option>--firstboot</option>: if a slot of any of
+        the listed types is already enrolled on the volume, the wizard does nothing and exits successfully.
+        This is useful to hook the wizard into the boot process while ensuring it stays quiet once suitable
+        credentials have been set up.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--chrome=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>Takes a boolean argument, defaults to on. Only useful together with
+        <option>--firstboot</option>: if enabled the interactive wizard draws a coloured bar across the top and
+        bottom of the terminal to visually frame the prompt. Pass <option>--chrome=no</option> to disable this
+        decoration, for example when running on a terminal that does not render it well.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--mute-console=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>Takes a boolean argument, defaults to off. Only useful together with
+        <option>--firstboot</option>: if enabled the kernel and PID 1 are asked to refrain from writing log
+        messages to the console while the interactive wizard is shown, so that such output does not interfere
+        with the prompt. The console is unmuted again once the wizard exits.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>PKCS#11 Enrollment</title>
+
+    <para>The following option is understood that may be used to enroll PKCS#11 tokens:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--pkcs11-token-uri=<replaceable>URI</replaceable></option></term>
+
+        <listitem><para>Enroll a PKCS#11 security token or smartcard (e.g. a YubiKey). Expects a PKCS#11 URI
+        that allows finding an X.509 certificate or a public key on the token. The URI must also be suitable
+        to find a related private key after changing the type of object in it. Alternatively the special
+        value <literal>auto</literal> may be specified, in order to automatically determine the suitable URI
+        if a single security token containing a single key pair is plugged in. The special value
+        <literal>list</literal> may be used to enumerate all suitable PKCS#11 tokens currently plugged in.
+        </para>
+
+        <para>The PKCS#11 token must contain an RSA or EC key pair which will be used to unlock a LUKS2 volume.
+        For RSA, a randomly generated volume key is encrypted with a public key in the token, and stored in
+        the LUKS2 JSON token header area. To unlock a volume, the stored encrypted volume key will be decrypted
+        with a private key in the token. For ECC, ECDH algorithm is used: we generate a pair of EC keys in
+        the same EC group, then derive a shared secret using the generated private key and the public key
+        in the token. The derived shared secret is used as a volume key. The generated public key is
+        stored in the LUKS2 JSON token header area. The generated private key is erased. To unlock a volume,
+        we derive the shared secret with the stored public key and a private key in the token.</para>
+
+        <para>In order to unlock a LUKS2 volume with an enrolled PKCS#11 security token, specify the
+        <option>pkcs11-uri=</option> option in the respective <filename>/etc/crypttab</filename> line:</para>
+
+        <programlisting>myvolume /dev/sda1 none pkcs11-uri=auto</programlisting>
+
+        <para>See
+        <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry> for a
+        more comprehensive example of a <command>systemd-cryptenroll</command> invocation and its matching
+        <filename>/etc/crypttab</filename> line.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>FIDO2 Enrollment</title>
+
+    <para>The following options are understood that may be used to enroll FIDO2 tokens:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--fido2-device=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>Enroll a FIDO2 security token that implements the <literal>hmac-secret</literal>
+        extension (e.g. a YubiKey). Expects a <filename>hidraw</filename> device referring to the FIDO2
+        device (e.g. <filename>/dev/hidraw1</filename>). Alternatively the special value
+        <literal>auto</literal> may be specified, in order to automatically determine the device node of a
+        currently plugged in security token (of which there must be exactly one). This automatic discovery
+        is unsupported if <option>--unlock-fido2-device=</option> option is also specified. The special value
+        <literal>list</literal> may be used to enumerate all suitable FIDO2 tokens currently plugged in. Note
+        that many hardware security tokens that implement FIDO2 also implement the older PKCS#11
+        standard. Typically FIDO2 is preferable, given it is simpler to use and more modern.</para>
+
+        <para>In order to unlock a LUKS2 volume with an enrolled FIDO2 security token, specify the
+        <option>fido2-device=</option> option in the respective <filename>/etc/crypttab</filename> line:</para>
+
+        <programlisting>myvolume /dev/sda1 none fido2-device=auto</programlisting>
+
+        <para>See
+        <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry> for a
+        more comprehensive example of a <command>systemd-cryptenroll</command> invocation and its matching
+        <filename>/etc/crypttab</filename> line.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fido2-credential-algorithm=<replaceable>STRING</replaceable></option></term>
+        <listitem><para>Specify COSE algorithm used in credential generation. The default value is
+        <literal>es256</literal>. Supported values are <literal>es256</literal>, <literal>rs256</literal>
+        and <literal>eddsa</literal>.</para>
+
+        <para><literal>es256</literal> denotes ECDSA over NIST P-256 with SHA-256. <literal>rs256</literal>
+        denotes 2048-bit RSA with PKCS#1.5 padding and SHA-256. <literal>eddsa</literal> denotes
+        EDDSA over Curve25519 with SHA-512.</para>
+
+        <para>Note that your authenticator may choose not to support some algorithms.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fido2-salt-file=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>When enrolling a FIDO2 security token, specifies the path to a file or an
+        <constant>AF_UNIX</constant> socket from which we should read the salt value to be used in the
+        HMAC operation performed by the FIDO2 security token. If this option is not specified, the salt
+        will be randomly generated.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fido2-parameters-in-header=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>When enrolling a FIDO2 security token, controls whether to store FIDO2
+        parameters in a token in the LUKS2 superblock. Defaults to <literal>yes</literal>.
+        If set to <literal>no</literal>, the <option>fido2-cid=</option> option has to be specified manually
+        in the respective <filename>/etc/crypttab</filename> line along with a key file. See
+        <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fido2-with-client-pin=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>When enrolling a FIDO2 security token, controls whether to require the user to enter
+        a PIN when unlocking the volume (the FIDO2 <literal>clientPin</literal> feature). Defaults to
+        <literal>yes</literal>. Note that this setting has no effect if the security token does not
+        support the <literal>clientPin</literal> feature, or does not allow the client PIN requirement
+        to be enabled or disabled for the requested operation.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fido2-with-user-presence=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>When enrolling a FIDO2 security token, controls whether to require the user to
+        verify presence (tap the token, the FIDO2 <literal>up</literal> feature) when unlocking the volume.
+        Defaults to <literal>yes</literal>. Note that this setting has no effect if the security token does not
+        support the <literal>up</literal> feature, or does not allow the user presence requirement to be
+        enabled or disabled for the requested operation.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fido2-with-user-verification=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>When enrolling a FIDO2 security token, controls whether to require user verification
+        when unlocking the volume (the FIDO2 <literal>uv</literal> feature). Defaults to
+        <literal>no</literal>. Note that this setting has no effect if the security token does not
+        support the <literal>uv</literal> feature, or does not allow the user verification requirement
+        to be enabled or disabled for the requested operation.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>TPM2 Enrollment</title>
+
+    <para>The following options are understood that may be used to enroll TPM2 devices:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--tpm2-device=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>Enroll a TPM2 security chip. Expects a device node path referring to the TPM2 chip
+        (e.g. <filename>/dev/tpmrm0</filename>). Alternatively the special value <literal>auto</literal> may
+        be specified, in order to automatically determine the device node of a currently discovered TPM2
+        device (of which there must be exactly one). The special value <literal>list</literal> may be used to
+        enumerate all suitable TPM2 devices currently discovered.</para>
+
+        <para>In order to unlock a LUKS2 volume with an enrolled TPM2 security chip, specify the
+        <option>tpm2-device=</option> option in the respective <filename>/etc/crypttab</filename> line:</para>
+
+        <programlisting>myvolume /dev/sda1 none tpm2-device=auto</programlisting>
+
+        <para>See
+        <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry> for a
+        more comprehensive example of a <command>systemd-cryptenroll</command> invocation and its matching
+        <filename>/etc/crypttab</filename> line.</para>
+
+        <para>Use <option>--tpm2-pcrs=</option> (see below) to configure which TPM2 PCR indexes to bind the
+        enrollment to.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tpm2-device-key=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>Enroll a TPM2 security chip using its public key. Expects a path referring to the
+        TPM2 public key in TPM2B_PUBLIC format. This cannot be used with <option>--tpm2-device=</option>, as
+        it performs the same operation, but without connecting to the TPM2 security chip; instead the
+        enrollment is calculated using the provided TPM2 key. This is useful in situations where the TPM2
+        security chip is not available at the time of enrollment.</para>
+
+        <para>The key, in most cases, should be the Storage Root Key (SRK) from a local TPM2 security
+        chip. If a key from a different handle (not the SRK) is used, you must specify its handle index using
+        <option>--tpm2-seal-key-handle=</option>.</para>
+
+        <para>The
+        <citerefentry><refentrytitle>systemd-tpm2-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        service writes the SRK to <filename>/run/systemd/tpm2-srk-public-key.tpm2b_public</filename>
+        automatically during boot, in the correct format.</para>
+
+        <para>Alternatively, you may use <command>systemd-analyze srk</command> to retrieve the SRK from the
+        TPM2 security chip explicitly. See
+        <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for details. Example:</para>
+
+        <programlisting>systemd-analyze srk &gt; srk.tpm2b_public</programlisting>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tpm2-seal-key-handle=<replaceable>HANDLE</replaceable></option></term>
+
+        <listitem><para>Configures which parent key to use for sealing, using the TPM handle (index) of the
+        key. This is used to "seal" (encrypt) a secret and must be used later to "unseal" (decrypt) the
+        secret. Expects a hexadecimal 32bit integer, optionally prefixed with
+        <literal>0x</literal>. Allowable values are any handle index in the persistent
+        (<literal>0x81000000</literal>-<literal>0x81ffffff</literal>) or transient
+        (<literal>0x80000000</literal>-<literal>0x80ffffff</literal>) ranges. Since transient handles are
+        lost after a TPM reset, and may be flushed during TPM context switching, they should not be used
+        except for very specific use cases, e.g. testing.</para>
+
+        <para>The default is the Storage Root Key (SRK) handle index <literal>0x81000001</literal>. A value
+        of 0 will use the default. For the SRK handle, a new key will be created and stored in the TPM if one
+        does not already exist; for any other handle, the key must already exist in the TPM at the specified
+        handle index.</para>
+
+        <para>This should not be changed unless you know what you are doing.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tpm2-pcrs=<replaceable>PCR<optional>+PCR...</optional></replaceable></option></term>
+
+        <listitem><para>Configures the TPM2 PCRs (Platform Configuration Registers) to bind to when
+        enrollment is requested via <option>--tpm2-device=</option>. Takes a list of PCR entries, where each
+        entry starts with a name or numeric index in the range 0…23, optionally followed by
+        <literal>:</literal> and a hash algorithm name (specifying the PCR bank), optionally followed by
+        <literal>=</literal> and a hash digest value. Multiple PCR entries are separated by
+        <literal>+</literal>. If an empty string is specified, binds the enrollment to no PCRs at all (this
+        is also the default, if this option is not used). See the table above for a list of available
+        PCRs.</para>
+
+        <para>Example: <option>--tpm2-pcrs=boot-loader-code+platform-config+boot-loader-config</option>
+        specifies that PCR registers 4, 1, and 5 should be used.</para>
+        <para>Example: <option>--tpm2-pcrs=7:sha256</option> specifies that PCR register 7 from the SHA256
+        bank should be used.</para>
+        <para>Example: <option>--tpm2-pcrs=4:sha1=3a3f780f11a4b49969fcaa80cd6e3957c33b2275</option>
+        specifies that PCR register 4 from the SHA1 bank should be used, and a hash digest value of
+        3a3f780f11a4b49969fcaa80cd6e3957c33b2275 will be used instead of reading the current PCR
+        value.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tpm2-with-pin=<replaceable>BOOL|direct</replaceable></option></term>
+
+        <listitem><para>When enrolling a TPM2 device, controls whether to require the user to enter a PIN
+        when unlocking the volume in addition to PCR binding, based on TPM2 policy authentication. Takes a
+        boolean or the special value <literal>direct</literal>. Defaults to <literal>no</literal>.
+        Despite being called PIN, any character can be used, not just numbers.
+        </para>
+
+        <para>When enabled (<literal>yes</literal>), the PIN is hardened with Argon2id before it is passed
+        to the TPM, making the TPM a second factor rather than a single point of failure: a compromised TPM
+        alone does not expose the volume key without the PIN. When <literal>direct</literal> is used, the PIN
+        is hashed with PBKDF2 and used directly (compatible with systemd v253 and later).</para>
+
+        <para>Note that incorrect PIN entry when unlocking increments the TPM dictionary attack lockout
+        mechanism, and may lock out users for a prolonged time, depending on its configuration. The lockout
+        mechanism is a global property of the TPM, <command>systemd-cryptenroll</command> does not control or
+        configure the lockout mechanism. You may use tpm2-tss tools to inspect or configure the dictionary
+        attack lockout, with <citerefentry
+        project='mankier'><refentrytitle>tpm2_getcap</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        and <citerefentry
+        project='mankier'><refentrytitle>tpm2_dictionarylockout</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        commands, respectively.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tpm2-argon2id-memory=<replaceable>BYTES</replaceable></option></term>
+
+        <listitem><para>When enrolling a TPM2 with PIN hardening enabled, sets the Argon2id memory cost,
+        in bytes. By default, the memory cost is auto-detected from available RAM (up to 50% of total
+        physical memory), with a minimum of 64 MiB. When specified, the benchmark calibrates only
+        iterations to the target time; the memory cost is used as specified. To express large values
+        comfortably, use suffixes such as <literal>K</literal>, <literal>M</literal>, <literal>G</literal>
+        (for kilobytes, megabytes, gigabytes).</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tpm2-argon2id-iterations=<replaceable>NUM</replaceable></option></term>
+
+        <listitem><para>When enrolling a TPM2 with PIN hardening enabled, sets the Argon2id iteration
+        count. Defaults to auto-calibrated by a benchmark to reach the target unlock time. When
+        specified, the benchmark calibrates only memory cost to the target time; the iteration count
+        is used as specified.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tpm2-argon2id-parallelism=<replaceable>NUM</replaceable></option></term>
+
+        <listitem><para>When enrolling a TPM2 with PIN hardening enabled, sets the Argon2id
+        parallelism (lane count). Defaults to the number of online CPUs.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tpm2-argon2id-iter-time=<replaceable>SEC</replaceable></option></term>
+
+        <listitem><para>When enrolling a TPM2 with PIN hardening enabled, sets the target benchmark
+        time for the Argon2id parameter calibration, in seconds. Defaults to 2 seconds. The benchmark
+        adjusts memory cost and/or iteration count so that the actual derivation time falls within a
+        tolerance window of the specified target time.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tpm2-public-key=<replaceable>PATH</replaceable></option></term>
+        <term><option>--tpm2-public-key-pcrs=<replaceable>PCR<optional>+PCR...</optional></replaceable></option></term>
+        <term><option>--tpm2-signature=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>Configures a TPM2 signed PCR policy to bind encryption to. The
+        <option>--tpm2-public-key=</option> option accepts a path to a PEM encoded RSA public key, to bind
+        the encryption to. If this is not specified explicitly, but a file
+        <filename>tpm2-pcr-public-key.pem</filename> exists in one of the directories
+        <filename>/etc/systemd/</filename>, <filename>/run/systemd/</filename>,
+        <filename>/usr/lib/systemd/</filename> (searched in this order), it is automatically used. The
+        <option>--tpm2-public-key-pcrs=</option> option takes a list of TPM2 PCR indexes to bind to (same
+        syntax as <option>--tpm2-pcrs=</option> described above). If not specified, defaults to 11 (i.e. this
+        binds the policy to any unified kernel image for which a PCR signature can be provided).</para>
+
+        <para>Note the difference between <option>--tpm2-pcrs=</option> and
+        <option>--tpm2-public-key-pcrs=</option>: the former binds decryption to the current, specific PCR
+        values; the latter binds decryption to any set of PCR values for which a signature by the specified
+        public key can be provided. The latter is hence more useful in scenarios where software updates shall
+        be possible without losing access to all previously encrypted LUKS2 volumes. Like with
+        <option>--tpm2-pcrs=</option>, names defined in the table above can also be used to specify the
+        registers, for instance
+        <option>--tpm2-public-key-pcrs=boot-loader-code+system-identity</option>.</para>
+
+        <para>The <option>--tpm2-signature=</option> option takes a path to a TPM2 PCR signature file as
+        generated by the
+        <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        tool. If this is not specified explicitly, a suitable signature file
+        <filename>tpm2-pcr-signature.json</filename> is searched for in <filename>/etc/systemd/</filename>,
+        <filename>/run/systemd/</filename>, <filename>/usr/lib/systemd/</filename> (in this order) and used.
+        If a signature file is specified or found it is used to verify if the volume can be unlocked with it
+        given the current PCR state, before the new slot is written to disk. This is intended as safety net
+        to ensure that access to a volume is not lost if a public key is enrolled for which no valid
+        signature for the current PCR state is available. If the supplied signature does not unlock the
+        current PCR state and public key combination, no slot is enrolled and the operation will fail. If no
+        signature file is specified or found no such safety verification is done.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tpm2-public-key-policyref=<replaceable>STRING</replaceable></option></term>
+
+        <listitem><para>Configures the policy reference to use together with the signed PCR policy enrolled via
+        <option>--tpm2-public-key=</option>. The policy reference is an opaque string that is incorporated
+        into the resulting authorization policy (via the <constant>TPM2_PolicyAuthorize</constant> assertion),
+        so that the slot can only be unlocked by a signed policy that was generated with the same policy
+        reference. This must match the policy reference passed to the <option>--policyref=</option> option of
+        <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        when the signature was generated. It can be used to bind a slot to signatures for a specific boot
+        phase, even when a single signing key is used to produce signatures for multiple phases.</para>
+
+        <para>This option can be used to select a policy reference that is only bound to a signature for the
+        initrd phase, in order to create a slot that can only be unlocked from the initrd. For example, if
+        such a signature is created by supplying <option>--phase=enter-initrd</option> and
+        <option>--policyref=initrd</option> to
+        <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry>:
+        </para>
+
+        <programlisting>systemd-cryptenroll --tpm2-device=auto --tpm2-public-key-policyref=initrd /dev/sda1</programlisting>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tpm2-pcrlock=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>Configures a TPM2 pcrlock policy to bind encryption to. Expects a path to a pcrlock
+        policy file as generated by the
+        <citerefentry><refentrytitle>systemd-pcrlock</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        tool. If a TPM2 device is enrolled and this option is not used but a file
+        <filename>pcrlock.json</filename> is found in <filename>/run/systemd/</filename> or
+        <filename>/var/lib/systemd/</filename> it is automatically used. Assign an empty string to turn this
+        behaviour off.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Other Options</title>
+
+    <para>The following additional options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--wipe-slot=<replaceable>SLOT<optional>,SLOT...</optional></replaceable></option></term>
+
+        <listitem><para>Wipes one or more LUKS2 key slots. Takes a comma separated list of numeric slot
+        indexes, or the special strings <literal>all</literal> (for wiping all key slots),
+        <literal>empty</literal> (for wiping all key slots that are unlocked by an empty passphrase),
+        <literal>password</literal> (for wiping all key slots that are unlocked by a traditional passphrase),
+        <literal>recovery</literal> (for wiping all key slots that are unlocked by a recovery key),
+        <literal>pkcs11</literal> (for wiping all key slots that are unlocked by a PKCS#11 token),
+        <literal>fido2</literal> (for wiping all key slots that are unlocked by a FIDO2 token),
+        <literal>tpm2</literal> (for wiping all key slots that are unlocked by a TPM2 chip), or any
+        combination of these strings or numeric indexes, in which case all slots matching either are
+        wiped. As safety precaution an operation that wipes all slots without exception (so that the volume
+        cannot be unlocked at all anymore, unless the volume key is known) is refused.</para>
+
+        <para>This switch may be used alone, in which case only the requested wipe operation is executed. It
+        may also be used in combination with any of the enrollment options listed above, in which case the
+        enrollment is completed first, and only when successful the wipe operation executed — and the newly
+        added slot is always excluded from the wiping. Combining enrollment and slot wiping may thus be used to
+        update existing enrollments:</para>
+
+        <programlisting>systemd-cryptenroll /dev/sda1 --wipe-slot=tpm2 --tpm2-device=auto --unlock-tpm2-device=auto</programlisting>
+
+        <para>The above command will enroll the TPM2 chip, and then wipe all previously created TPM2
+        enrollments on the LUKS2 volume, leaving only the newly created one. Combining wiping and enrollment
+        may also be used to replace enrollments of different types, for example for changing from a PKCS#11
+        enrollment to a FIDO2 one:</para>
+
+        <programlisting>systemd-cryptenroll /dev/sda1 --wipe-slot=pkcs11 --fido2-device=auto</programlisting>
+
+        <para>Or for replacing an enrolled empty password by TPM2:</para>
+
+        <programlisting>systemd-cryptenroll /dev/sda1 --wipe-slot=empty --tpm2-device=auto</programlisting>
+
+        <xi:include href="version-info.xml" xpointer="v248"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--list-devices</option></term>
+
+        <listitem><para>Show a list of candidate block devices this command may operate on. Specifically,
+        this enumerates block devices currently present that contain a LUKS superblock, and shows their
+        device node paths along with any of their symlinks. The devices must implement the
+        <option>hmac-secret</option> extension to be usable.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+    </variablelist>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Credentials</title>
+
+    <para><command>systemd-cryptenroll</command> supports the service credentials logic as implemented by
+    <varname>ImportCredential=</varname>/<varname>LoadCredential=</varname>/<varname>SetCredential=</varname>
+    (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details). The following credentials are used when passed in:</para>
+
+    <variablelist class='system-credentials'>
+      <varlistentry>
+        <term><varname>cryptenroll.passphrase</varname></term>
+        <term><varname>cryptenroll.new-passphrase</varname></term>
+
+        <listitem><para>May contain the passphrase to unlock the volume with/to newly enroll.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>cryptenroll.tpm2-pin</varname></term>
+        <term><varname>cryptenroll.new-tpm2-pin</varname></term>
+
+        <listitem><para>May contain the TPM2 PIN to unlock the volume with/to newly enroll.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>cryptenroll.fido2-pin</varname></term>
+
+        <listitem><para>If a FIDO2 token is enrolled this may contain the PIN of the token.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>cryptenroll.pkcs11-pin</varname></term>
+
+        <listitem><para>If a PKCS#11 token is enrolled this may contain the PIN of the token.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para><citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry> and
+    <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    contain various examples employing <command>systemd-cryptenroll</command>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+     </simplelist></para>
+  </refsect1>
+
+</refentry>

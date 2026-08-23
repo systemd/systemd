@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Bad sched priority for RR
+
+[Service]
+ExecStart=true
+CPUSchedulingPriority=-1
+CPUSchedulingPriority=100
+CPUSchedulingPolicy=rr

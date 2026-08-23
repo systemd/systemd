@@ -1,0 +1,155 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+%{
+_Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
+#if __GNUC__ >= 15
+_Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
+#endif
+#include <stddef.h>
+#include "condition.h"
+#include "conf-parser.h"
+#include "ethtool-util.h"
+#include "link-config.h"
+#include "net-condition.h"
+#include "netif-sriov.h"
+#include "socket-util.h"
+%}
+struct ConfigPerfItem;
+%null_strings
+%language=ANSI-C
+%define slot-name section_and_lvalue
+%define hash-function-name link_config_gperf_hash
+%define lookup-function-name link_config_gperf_lookup
+%readonly-tables
+%omit-struct-type
+%struct-type
+%includes
+%%
+Match.MACAddress,                          config_parse_hw_addrs,                 0,                             offsetof(LinkConfig, match.hw_addr)
+Match.PermanentMACAddress,                 config_parse_hw_addrs,                 0,                             offsetof(LinkConfig, match.permanent_hw_addr)
+Match.OriginalName,                        config_parse_match_ifnames,            0,                             offsetof(LinkConfig, match.ifname)
+Match.Path,                                config_parse_match_strv,               0,                             offsetof(LinkConfig, match.path)
+Match.Driver,                              config_parse_match_strv,               0,                             offsetof(LinkConfig, match.driver)
+Match.Type,                                config_parse_match_strv,               0,                             offsetof(LinkConfig, match.iftype)
+Match.Kind,                                config_parse_match_strv,               0,                             offsetof(LinkConfig, match.kind)
+Match.Property,                            config_parse_match_property,           0,                             offsetof(LinkConfig, match.property)
+Match.Host,                                config_parse_net_condition,            CONDITION_HOST,                offsetof(LinkConfig, conditions)
+Match.Virtualization,                      config_parse_net_condition,            CONDITION_VIRTUALIZATION,      offsetof(LinkConfig, conditions)
+Match.KernelCommandLine,                   config_parse_net_condition,            CONDITION_KERNEL_COMMAND_LINE, offsetof(LinkConfig, conditions)
+Match.KernelVersion,                       config_parse_net_condition,            CONDITION_VERSION,             offsetof(LinkConfig, conditions)
+Match.Version,                             config_parse_net_condition,            CONDITION_VERSION,             offsetof(LinkConfig, conditions)
+Match.Credential,                          config_parse_net_condition,            CONDITION_CREDENTIAL,          offsetof(LinkConfig, conditions)
+Match.Architecture,                        config_parse_net_condition,            CONDITION_ARCHITECTURE,        offsetof(LinkConfig, conditions)
+Match.Firmware,                            config_parse_net_condition,            CONDITION_FIRMWARE,            offsetof(LinkConfig, conditions)
+Match.MachineTag,                          config_parse_net_condition,            CONDITION_MACHINE_TAG,         offsetof(LinkConfig, conditions)
+Link.Description,                          config_parse_string,                   0,                             offsetof(LinkConfig, description)
+/* udev property */
+Link.Property,                             config_parse_udev_property,            0,                             offsetof(LinkConfig, properties)
+Link.ImportProperty,                       config_parse_udev_property_name,       0,                             offsetof(LinkConfig, import_properties)
+Link.UnsetProperty,                        config_parse_udev_property_name,       0,                             offsetof(LinkConfig, unset_properties)
+/* rtnl setlink */
+Link.MACAddressPolicy,                     config_parse_mac_address_policy,       0,                             offsetof(LinkConfig, mac_address_policy)
+Link.MACAddress,                           config_parse_hw_addr,                  0,                             offsetof(LinkConfig, hw_addr)
+Link.NamePolicy,                           config_parse_name_policy,              0,                             offsetof(LinkConfig, name_policy)
+Link.Name,                                 config_parse_ifname,                   0,                             offsetof(LinkConfig, name)
+Link.AlternativeName,                      config_parse_ifnames,                  IFNAME_VALID_ALTERNATIVE,      offsetof(LinkConfig, alternative_names)
+Link.AlternativeNamesPolicy,               config_parse_alternative_names_policy, 0,                             offsetof(LinkConfig, alternative_names_policy)
+Link.Alias,                                config_parse_ifalias,                  0,                             offsetof(LinkConfig, alias)
+Link.TransmitQueues,                       config_parse_rx_tx_queues,             0,                             offsetof(LinkConfig, txqueues)
+Link.ReceiveQueues,                        config_parse_rx_tx_queues,             0,                             offsetof(LinkConfig, rxqueues)
+Link.TransmitQueueLength,                  config_parse_txqueuelen,               0,                             offsetof(LinkConfig, txqueuelen)
+Link.MTUBytes,                             config_parse_mtu,                      AF_UNSPEC,                     offsetof(LinkConfig, mtu)
+Link.GenericSegmentOffloadMaxBytes,        config_parse_iec_size,                 0,                             offsetof(LinkConfig, gso_max_size)
+Link.GenericSegmentOffloadMaxSegments,     config_parse_uint32,                   0,                             offsetof(LinkConfig, gso_max_segments)
+/* ethtool link settings */
+Link.BitsPerSecond,                        config_parse_si_uint64,                0,                             offsetof(LinkConfig, speed)
+Link.Duplex,                               config_parse_duplex,                   0,                             offsetof(LinkConfig, duplex)
+Link.AutoNegotiation,                      config_parse_tristate,                 0,                             offsetof(LinkConfig, autonegotiation)
+Link.Advertise,                            config_parse_advertise,                0,                             offsetof(LinkConfig, advertise)
+Link.Port,                                 config_parse_port,                     0,                             offsetof(LinkConfig, port)
+Link.MDI,                                  config_parse_mdi,                      0,                             offsetof(LinkConfig, mdi)
+/* ethtool WoL settings */
+Link.WakeOnLan,                            config_parse_wol,                      0,                             offsetof(LinkConfig, wol)
+Link.WakeOnLanPassword,                    config_parse_wol_password,             0,                             0
+/* ethtool features */
+Link.ReceiveChecksumOffload,               config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_RXCSUM])
+Link.TransmitChecksumOffload,              config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_TXCSUM])
+Link.ScatterGather,                        config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_SG])
+Link.ScatterGatherFragmentList,            config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_FRAGLIST])
+Link.GenericSegmentationOffload,           config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_GSO])
+Link.TCPSegmentationOffload,               config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_TSO])
+Link.TCPECNSegmentationOffload,            config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_TSO_ECN])
+Link.TCPMangleIdSegmentationOffload,       config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_TSO_MANGLEID])
+Link.TCP6SegmentationOffload,              config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_TSO6])
+Link.PartialGenericSegmentationOffload,    config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_GSO_PARTIAL])
+Link.UDPSegmentationOffload,               config_parse_warn_compat,              DISABLED_LEGACY,               0
+Link.GenericReceiveOffload,                config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_GRO])
+Link.GenericReceiveOffloadHardware,        config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_GRO_HW])
+Link.GenericReceiveOffloadList,            config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_GRO_FRAGLIST])
+Link.GenericReceiveOffloadUDPForwarding,   config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_GRO_UDP_FWD])
+Link.LargeReceiveOffload,                  config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_LRO])
+Link.ReceiveVLANCTAGHardwareAcceleration,  config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_HW_VLAN_CTAG_RX])
+Link.TransmitVLANCTAGHardwareAcceleration, config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_HW_VLAN_CTAG_TX])
+Link.ReceiveVLANCTAGFilter,                config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_HW_VLAN_CTAG_FILTER])
+Link.TransmitVLANSTAGHardwareAcceleration, config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_HW_VLAN_STAG_TX])
+Link.NTupleFilter,                         config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_NTUPLE])
+Link.ReceiveFCS,                           config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_RXFCS])
+Link.ReceiveAll,                           config_parse_tristate,                 0,                             offsetof(LinkConfig, features[NET_DEV_FEAT_RXALL])
+/* ethtool channels */
+Link.RxChannels,                           config_parse_ring_buffer_or_channel,   0,                             offsetof(LinkConfig, channels.rx)
+Link.TxChannels,                           config_parse_ring_buffer_or_channel,   0,                             offsetof(LinkConfig, channels.tx)
+Link.OtherChannels,                        config_parse_ring_buffer_or_channel,   0,                             offsetof(LinkConfig, channels.other)
+Link.CombinedChannels,                     config_parse_ring_buffer_or_channel,   0,                             offsetof(LinkConfig, channels.combined)
+/* ethtool ring parameters */
+Link.RxBufferSize,                         config_parse_ring_buffer_or_channel,   0,                             offsetof(LinkConfig, ring.rx)
+Link.RxMiniBufferSize,                     config_parse_ring_buffer_or_channel,   0,                             offsetof(LinkConfig, ring.rx_mini)
+Link.RxJumboBufferSize,                    config_parse_ring_buffer_or_channel,   0,                             offsetof(LinkConfig, ring.rx_jumbo)
+Link.TxBufferSize,                         config_parse_ring_buffer_or_channel,   0,                             offsetof(LinkConfig, ring.tx)
+/* ethtool pause parameters */
+Link.RxFlowControl,                        config_parse_tristate,                 0,                             offsetof(LinkConfig, rx_flow_control)
+Link.TxFlowControl,                        config_parse_tristate,                 0,                             offsetof(LinkConfig, tx_flow_control)
+Link.AutoNegotiationFlowControl,           config_parse_tristate,                 0,                             offsetof(LinkConfig, autoneg_flow_control)
+/* ethtool coalesce settings */
+Link.RxCoalesceSec,                        config_parse_coalesce_sec,             0,                             offsetof(LinkConfig, coalesce.rx_coalesce_usecs)
+Link.RxMaxCoalescedFrames,                 config_parse_coalesce_u32,             0,                             offsetof(LinkConfig, coalesce.rx_max_coalesced_frames)
+Link.RxCoalesceIrqSec,                     config_parse_coalesce_sec,             0,                             offsetof(LinkConfig, coalesce.rx_coalesce_usecs_irq)
+Link.RxMaxCoalescedIrqFrames,              config_parse_coalesce_u32,             0,                             offsetof(LinkConfig, coalesce.rx_max_coalesced_frames_irq)
+Link.TxCoalesceSec,                        config_parse_coalesce_sec,             0,                             offsetof(LinkConfig, coalesce.tx_coalesce_usecs)
+Link.TxMaxCoalescedFrames,                 config_parse_coalesce_u32,             0,                             offsetof(LinkConfig, coalesce.tx_max_coalesced_frames)
+Link.TxCoalesceIrqSec,                     config_parse_coalesce_sec,             0,                             offsetof(LinkConfig, coalesce.tx_coalesce_usecs_irq)
+Link.TxMaxCoalescedIrqFrames,              config_parse_coalesce_u32,             0,                             offsetof(LinkConfig, coalesce.tx_max_coalesced_frames_irq)
+Link.StatisticsBlockCoalesceSec,           config_parse_coalesce_sec,             0,                             offsetof(LinkConfig, coalesce.stats_block_coalesce_usecs)
+Link.UseAdaptiveRxCoalesce,                config_parse_tristate,                 0,                             offsetof(LinkConfig, coalesce.use_adaptive_rx_coalesce)
+Link.UseAdaptiveTxCoalesce,                config_parse_tristate,                 0,                             offsetof(LinkConfig, coalesce.use_adaptive_tx_coalesce)
+Link.CoalescePacketRateLow,                config_parse_coalesce_u32,             0,                             offsetof(LinkConfig, coalesce.pkt_rate_low)
+Link.RxCoalesceLowSec,                     config_parse_coalesce_sec,             0,                             offsetof(LinkConfig, coalesce.rx_coalesce_usecs_low)
+Link.RxMaxCoalescedLowFrames,              config_parse_coalesce_u32,             0,                             offsetof(LinkConfig, coalesce.rx_max_coalesced_frames_low)
+Link.TxCoalesceLowSec,                     config_parse_coalesce_sec,             0,                             offsetof(LinkConfig, coalesce.tx_coalesce_usecs_low)
+Link.TxMaxCoalescedLowFrames,              config_parse_coalesce_u32,             0,                             offsetof(LinkConfig, coalesce.tx_max_coalesced_frames_low)
+Link.CoalescePacketRateHigh,               config_parse_coalesce_u32,             0,                             offsetof(LinkConfig, coalesce.pkt_rate_high)
+Link.RxCoalesceHighSec,                    config_parse_coalesce_sec,             0,                             offsetof(LinkConfig, coalesce.rx_coalesce_usecs_high)
+Link.RxMaxCoalescedHighFrames,             config_parse_coalesce_u32,             0,                             offsetof(LinkConfig, coalesce.rx_max_coalesced_frames_high)
+Link.TxCoalesceHighSec,                    config_parse_coalesce_sec,             0,                             offsetof(LinkConfig, coalesce.tx_coalesce_usecs_high)
+Link.TxMaxCoalescedHighFrames,             config_parse_coalesce_u32,             0,                             offsetof(LinkConfig, coalesce.tx_max_coalesced_frames_high)
+Link.CoalescePacketRateSampleIntervalSec,  config_parse_coalesce_sec,             0,                             offsetof(LinkConfig, coalesce.rate_sample_interval)
+/* Rx RPS CPU mask */
+Link.ReceivePacketSteeringCPUMask,         config_parse_rps_cpu_mask,             0,                             offsetof(LinkConfig, rps_cpu_mask)
+/* IRQ affinity settings */
+Link.IRQAffinityPolicy,                    config_parse_irq_affinity_policy,      0,                             offsetof(LinkConfig, irq_affinity_policy)
+Link.IRQAffinity,                          config_parse_cpu_set,                  0,                             offsetof(LinkConfig, irq_affinity_cpus)
+Link.IRQAffinityNUMA,                      config_parse_irq_affinity_numa,        0,                             offsetof(LinkConfig, irq_affinity_numa)
+/* SR-IOV settings */
+Link.SR-IOVVirtualFunctions,               config_parse_sr_iov_num_vfs,           0,                             offsetof(LinkConfig, sr_iov_num_vfs)
+SR-IOV.VirtualFunction,                    config_parse_sr_iov_uint32,            0,                             offsetof(LinkConfig, sr_iov_by_section)
+SR-IOV.VLANId,                             config_parse_sr_iov_uint32,            0,                             offsetof(LinkConfig, sr_iov_by_section)
+SR-IOV.QualityOfService,                   config_parse_sr_iov_uint32,            0,                             offsetof(LinkConfig, sr_iov_by_section)
+SR-IOV.VLANProtocol,                       config_parse_sr_iov_vlan_proto,        0,                             offsetof(LinkConfig, sr_iov_by_section)
+SR-IOV.MACSpoofCheck,                      config_parse_sr_iov_boolean,           0,                             offsetof(LinkConfig, sr_iov_by_section)
+SR-IOV.QueryReceiveSideScaling,            config_parse_sr_iov_boolean,           0,                             offsetof(LinkConfig, sr_iov_by_section)
+SR-IOV.Trust,                              config_parse_sr_iov_boolean,           0,                             offsetof(LinkConfig, sr_iov_by_section)
+SR-IOV.LinkState,                          config_parse_sr_iov_link_state,        0,                             offsetof(LinkConfig, sr_iov_by_section)
+SR-IOV.MACAddress,                         config_parse_sr_iov_mac,               0,                             offsetof(LinkConfig, sr_iov_by_section)
+/* ethtool EEE settings */
+EnergyEfficientEthernet.Enable,            config_parse_tristate,                 0,                             offsetof(LinkConfig, eee_enabled)
+EnergyEfficientEthernet.TxLowPowerIdle,    config_parse_tristate,                 0,                             offsetof(LinkConfig, eee_tx_lpi_enabled)
+EnergyEfficientEthernet.TxLowPowerIdleSec, config_parse_sec,                      0,                             offsetof(LinkConfig, eee_tx_lpi_timer_usec)
+EnergyEfficientEthernet.LinkMode,          config_parse_advertise,                0,                             offsetof(LinkConfig, eee_advertise)

@@ -1,0 +1,2 @@
+[IPv6AcceptRA]
+DenyList=70:: 70::

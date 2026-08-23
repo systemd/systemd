@@ -1,0 +1,87 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-bsod.service" conditional='HAVE_QRENCODE ENABLE_INITRD'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-bsod</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-bsod.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-bsod.service</refname>
+    <refname>systemd-bsod</refname>
+    <refpurpose>Displays boot-time emergency log message in full screen</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-bsod.service</filename></para>
+    <cmdsynopsis>
+      <command>/usr/lib/systemd/systemd-bsod</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-bsod.service</filename> is used to display a blue screen which contains a message
+    relating to a boot failure, including a QR code which can be scanned to get helpful information about the
+    failure.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood by <command>systemd-bsod</command>:</para>
+
+    <variablelist>
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+
+      <varlistentry>
+        <term><option>-c</option></term>
+        <term><option>--continuous</option></term>
+
+        <listitem><para>When specified, <command>systemd-bsod</command> waits continuously for changes in the
+        journal if it does not find any emergency messages on the initial attempt.</para>
+
+         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tty=<replaceable></replaceable></option></term>
+
+        <listitem><para>Specify the TTY to output to. By default, <command>systemd-bsod</command> will
+        automatically find a free VT to display the message on. If this option is specified a TTY may be
+        selected explicitly. Use <option>--tty=/dev/tty</option> to direct output to the terminal the command
+        is invoked on.</para>
+
+         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success (displaying the journal message successfully), 0 is returned, a non-zero failure code otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=dummy98
+
+[Network]
+IPv6AcceptRA=no
+Address=2001:db8:1:1::1/64
+DNS=2001:db8:1:1::2
+Domains=example.com

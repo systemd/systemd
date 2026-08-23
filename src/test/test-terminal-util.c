@@ -1,0 +1,577 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/ioctl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+#include "alloc-util.h"
+#include "ansi-color.h"
+#include "env-util.h"
+#include "errno-util.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "memfd-util.h"
+#include "path-util.h"
+#include "process-util.h"
+#include "stat-util.h"
+#include "string-util.h"
+#include "strv.h"
+#include "terminal-util.h"
+#include "tests.h"
+#include "time-util.h"
+#include "tmpfile-util.h"
+
+#define LOREM_IPSUM "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor " \
+        "incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation " \
+        "ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit " \
+        "in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat " \
+        "non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
+
+TEST(colors_enabled) {
+        log_info("colors_enabled: %s", yes_no(colors_enabled()));
+}
+
+TEST(read_one_char) {
+        _cleanup_fclose_ FILE *file = NULL;
+        char r;
+        bool need_nl;
+        _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-read_one_char.XXXXXX";
+
+        ASSERT_OK_ZERO(fmkostemp_safe(name, "r+", &file));
+
+        ASSERT_OK_ERRNO(fputs("c\n", file));
+        rewind(file);
+        ASSERT_OK(read_one_char(file, &r, 1000000, /* echo= */ true, &need_nl));
+        ASSERT_FALSE(need_nl);
+        ASSERT_EQ(r, 'c');
+        ASSERT_FAIL(read_one_char(file, &r, 1000000, /* echo= */ true, &need_nl));
+
+        rewind(file);
+        ASSERT_OK_ERRNO(fputs("foobar\n", file));
+        rewind(file);
+        ASSERT_FAIL(read_one_char(file, &r, 1000000, /* echo= */ true, &need_nl));
+
+        rewind(file);
+        ASSERT_OK_ERRNO(fputs("\n", file));
+        rewind(file);
+        ASSERT_FAIL(read_one_char(file, &r, 1000000, /* echo= */ true, &need_nl));
+}
+
+TEST(getttyname_malloc) {
+        _cleanup_free_ char *ttyname = NULL;
+
+        _cleanup_close_ int master = ASSERT_OK_ERRNO(posix_openpt(O_RDWR|O_NOCTTY));
+        ASSERT_OK(getttyname_malloc(master, &ttyname));
+        log_info("ttyname = %s", ttyname);
+
+        ASSERT_TRUE(PATH_IN_SET(ttyname, "ptmx", "pts/ptmx"));
+}
+
+typedef struct {
+        const char *name;
+        const char* (*func)(void);
+} Color;
+
+static const Color colors[] = {
+        { "normal", ansi_normal },
+        { "highlight", ansi_highlight },
+        { "black", ansi_black },
+        { "red", ansi_red },
+        { "green", ansi_green },
+        { "yellow", ansi_yellow },
+        { "blue", ansi_blue },
+        { "magenta", ansi_magenta },
+        { "cyan", ansi_cyan },
+        { "white", ansi_white },
+        { "grey", ansi_grey },
+
+        { "bright-black", ansi_bright_black },
+        { "bright-red", ansi_bright_red },
+        { "bright-green", ansi_bright_green },
+        { "bright-yellow", ansi_bright_yellow },
+        { "bright-blue", ansi_bright_blue },
+        { "bright-magenta", ansi_bright_magenta },
+        { "bright-cyan", ansi_bright_cyan },
+        { "bright-white", ansi_bright_white },
+
+        { "highlight-black", ansi_highlight_black },
+        { "highlight-red", ansi_highlight_red },
+        { "highlight-green", ansi_highlight_green },
+        { "highlight-yellow (original)", _ansi_highlight_yellow },
+        { "highlight-yellow (replacement)", ansi_highlight_yellow },
+        { "highlight-blue", ansi_highlight_blue },
+        { "highlight-magenta", ansi_highlight_magenta },
+        { "highlight-cyan", ansi_highlight_cyan },
+        { "highlight-white", ansi_highlight_white },
+        { "highlight-grey", ansi_highlight_grey },
+
+        { "underline", ansi_underline },
+        { "highlight-underline", ansi_highlight_underline },
+        { "highlight-red-underline", ansi_highlight_red_underline },
+        { "highlight-green-underline", ansi_highlight_green_underline },
+        { "highlight-yellow-underline", ansi_highlight_yellow_underline },
+        { "highlight-blue-underline", ansi_highlight_blue_underline },
+        { "highlight-magenta-underline", ansi_highlight_magenta_underline },
+        { "highlight-grey-underline", ansi_highlight_grey_underline },
+};
+
+TEST(colors) {
+        FOREACH_ELEMENT(color, colors)
+                printf("<%s%s%s>\n", colors->func(), color->name, ansi_normal());
+}
+
+TEST(text) {
+        for (size_t i = 0; !streq(colors[i].name, "underline"); i++) {
+                bool blwh = strstr(colors[i].name, "black")
+                        || strstr(colors[i].name, "white");
+
+                printf("\n"
+                       "Testing color %s%s\n%s%s%s\n",
+                       colors[i].name,
+                       blwh ? "" : ", this text should be readable",
+                       colors[i].func(),
+                       LOREM_IPSUM,
+                       ansi_normal());
+        }
+}
+
+TEST(get_ctty) {
+        _cleanup_free_ char *ctty = NULL;
+        struct stat st;
+        dev_t devnr;
+        int r;
+
+        r = get_ctty(0, &devnr, &ctty);
+        if (r < 0) {
+                log_notice_errno(r, "Apparently called without a controlling TTY, cutting get_ctty() test short: %m");
+                return;
+        }
+
+        /* In almost all cases STDIN will match our controlling TTY. Let's verify that and then compare paths */
+        ASSERT_OK_ERRNO(fstat(STDIN_FILENO, &st));
+        if (S_ISCHR(st.st_mode) && st.st_rdev == devnr) {
+                _cleanup_free_ char *stdin_name = NULL;
+
+                ASSERT_OK(getttyname_malloc(STDIN_FILENO, &stdin_name));
+                ASSERT_TRUE(path_equal(stdin_name, ctty));
+        } else
+                log_notice("Not invoked with stdin == ctty, cutting get_ctty() test short");
+}
+
+TEST(get_default_background_color) {
+        double red, green, blue;
+        int r;
+
+        usec_t n = now(CLOCK_MONOTONIC);
+        r = get_default_background_color(&red, &green, &blue);
+        log_info("%s took %s", __func__+5,
+                 FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), n), USEC_PER_MSEC));
+        if (r < 0)
+                log_notice_errno(r, "Can't get terminal default background color: %m");
+        else
+                log_notice("R=%g G=%g B=%g", red, green, blue);
+}
+
+TEST(terminal_get_size_csi18) {
+        unsigned rows, columns;
+        int r;
+
+        usec_t n = now(CLOCK_MONOTONIC);
+        r = terminal_get_size(STDIN_FILENO, STDOUT_FILENO, &rows, &columns, /* try_dsr= */ false, /* try_csi18= */ true);
+        log_info("%s took %s", __func__+5,
+                 FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), n), USEC_PER_MSEC));
+        if (r < 0)
+                return (void) log_notice_errno(r, "Can't get screen dimensions via CSI 18: %m");
+
+        log_notice("terminal size via CSI 18: rows=%u columns=%u", rows, columns);
+
+        struct winsize ws = {};
+
+        if (ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) < 0)
+                log_warning_errno(errno, "Can't get terminal size via ioctl, ignoring: %m");
+        else
+                log_notice("terminal size via ioctl: rows=%u columns=%u", ws.ws_row, ws.ws_col);
+}
+
+TEST(terminal_get_size_dsr) {
+        unsigned rows, columns;
+        int r;
+
+        usec_t n = now(CLOCK_MONOTONIC);
+        r = terminal_get_size(STDIN_FILENO, STDOUT_FILENO, &rows, &columns, /* try_dsr= */ true, /* try_csi18= */ false);
+        log_info("%s took %s", __func__+5,
+                 FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), n), USEC_PER_MSEC));
+        if (r < 0)
+                return (void) log_notice_errno(r, "Can't get screen dimensions via DSR: %m");
+
+        log_notice("terminal size via DSR: rows=%u columns=%u", rows, columns);
+
+        struct winsize ws = {};
+
+        if (ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) < 0)
+                log_warning_errno(errno, "Can't get terminal size via ioctl, ignoring: %m");
+        else
+                log_notice("terminal size via ioctl: rows=%u columns=%u", ws.ws_row, ws.ws_col);
+}
+
+TEST(terminal_fix_size) {
+        int r;
+
+        usec_t n = now(CLOCK_MONOTONIC);
+
+        r = terminal_fix_size(STDIN_FILENO, STDOUT_FILENO);
+        log_info("%s took %s", __func__+5,
+                 FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), n), USEC_PER_MSEC));
+        if (r < 0)
+                log_warning_errno(r, "Failed to fix terminal size: %m");
+        else if (r == 0)
+                log_notice("Not fixing terminal size, nothing to do.");
+        else
+                log_notice("Fixed terminal size.");
+}
+
+TEST(terminal_get_terminfo_by_dcs) {
+        _cleanup_free_ char *name = NULL;
+        int r;
+
+        /* We need a non-blocking read-write fd. */
+        _cleanup_close_ int fd = fd_reopen(STDIN_FILENO, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (fd < 0)
+                return (void) log_info_errno(fd, "Cannot reopen stdin in read-write mode: %m");
+
+        usec_t n = now(CLOCK_MONOTONIC);
+
+        r = terminal_get_terminfo_by_dcs(fd, &name);
+        log_info("%s took %s", __func__+5,
+                 FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), n), USEC_PER_MSEC));
+        if (r < 0)
+                return (void) log_info_errno(r, "Can't get terminal terminfo via DCS: %m");
+        log_info("terminal terminfo via DCS: %s, $TERM: %s", name, strnull(getenv("TERM")));
+}
+
+TEST(have_terminfo_file) {
+        int r;
+
+        FOREACH_STRING(s,
+                       "linux",
+                       "xterm",
+                       "vt220",
+                       "xterm-256color",
+                       "nosuchfile") {
+                r = have_terminfo_file(s);
+                log_info("%s: %s → %s", __func__+5, s, r >= 0 ? yes_no(r) : STRERROR(r));
+                ASSERT_OK(r);
+        }
+}
+
+TEST(query_term_for_tty) {
+        int r;
+
+        FOREACH_STRING(s,
+                       "/dev/console",
+                       "/dev/stdin",
+                       "/dev/stdout") {
+                _cleanup_free_ char *term = NULL;
+
+                r = query_term_for_tty(s, &term);
+                log_info("%s: %s → %s/%s", __func__+5, s, STRERROR(r), strnull(term));
+        }
+}
+
+TEST(terminal_is_pty_fd) {
+        int r;
+
+        _cleanup_close_ int fd1 = ASSERT_OK(openpt_allocate(O_RDWR, /* ret_peer_path= */ NULL));
+        ASSERT_OK_POSITIVE(terminal_is_pty_fd(fd1));
+
+        _cleanup_close_ int fd2 = ASSERT_OK(pty_open_peer(fd1, O_RDWR|O_CLOEXEC|O_NOCTTY));
+        ASSERT_OK_POSITIVE(terminal_is_pty_fd(fd2));
+
+        fd1 = safe_close(fd1);
+        fd2 = safe_close(fd2);
+
+        fd1 = ASSERT_OK_ERRNO(open("/dev/null", O_RDONLY|O_CLOEXEC));
+        ASSERT_OK_ZERO(terminal_is_pty_fd(fd1));
+
+        /* In container managers real tty devices might be weird, avoid them. */
+        r = path_is_read_only_fs("/sys");
+        if (r != 0)
+                return;
+
+        FOREACH_STRING(p, "/dev/ttyS0", "/dev/tty1") {
+                _cleanup_close_ int tfd = -EBADF;
+
+                tfd = open_terminal(p, O_CLOEXEC|O_NOCTTY|O_RDONLY|O_NONBLOCK);
+                if (tfd == -ENOENT)
+                        continue;
+                if (tfd < 0)  {
+                        log_notice_errno(tfd, "Failed to open '%s', skipping: %m", p);
+                        continue;
+                }
+
+                ASSERT_LE(terminal_is_pty_fd(tfd), 0);
+        }
+}
+
+static void test_get_color_mode_with_env(const char *key, const char *val, ColorMode expected) {
+        ASSERT_OK_ERRNO(setenv(key, val, true));
+        reset_terminal_feature_caches();
+        log_info("get_color_mode($%s=%s): %s", key, val, color_mode_to_string(get_color_mode()));
+        ASSERT_EQ(get_color_mode(), expected);
+}
+
+TEST(get_color_mode) {
+        log_info("get_color_mode(default): %s", color_mode_to_string(get_color_mode()));
+        ASSERT_OK(get_color_mode());
+
+        test_get_color_mode_with_env("SYSTEMD_COLORS", "0",     COLOR_OFF);
+        test_get_color_mode_with_env("SYSTEMD_COLORS", "no",    COLOR_OFF);
+        test_get_color_mode_with_env("SYSTEMD_COLORS", "16",    COLOR_16);
+        test_get_color_mode_with_env("SYSTEMD_COLORS", "256",   COLOR_256);
+        test_get_color_mode_with_env("SYSTEMD_COLORS", "24bit", COLOR_24BIT);
+
+        test_get_color_mode_with_env("SYSTEMD_COLORS", "auto-16",    terminal_is_dumb() ? COLOR_OFF : COLOR_16);
+        test_get_color_mode_with_env("SYSTEMD_COLORS", "auto-256",   terminal_is_dumb() ? COLOR_OFF : COLOR_256);
+        test_get_color_mode_with_env("SYSTEMD_COLORS", "auto-24bit", terminal_is_dumb() ? COLOR_OFF : COLOR_24BIT);
+        ASSERT_OK_ERRNO(setenv("COLORTERM", "truecolor", true));
+        /* SYSTEMD_COLORS=1/yes/true all map to COLOR_TRUE and must force colors on
+         * even when stdout is not a TTY (piped). With COLORTERM=truecolor, we get 24bit. */
+        test_get_color_mode_with_env("SYSTEMD_COLORS", "1",          COLOR_24BIT);
+        test_get_color_mode_with_env("SYSTEMD_COLORS", "yes",        COLOR_24BIT);
+        ASSERT_OK_ERRNO(unsetenv("COLORTERM"));
+        /* Without COLORTERM, COLOR_TRUE still bypasses the TTY check but autodetects depth. */
+        test_get_color_mode_with_env("SYSTEMD_COLORS", "true",       COLOR_256);
+
+        ASSERT_OK_ERRNO(setenv("NO_COLOR", "1", true));
+        /* COLOR_TRUE also bypasses NO_COLOR. */
+        test_get_color_mode_with_env("SYSTEMD_COLORS", "true",       COLOR_256);
+        test_get_color_mode_with_env("SYSTEMD_COLORS", "auto-16",    COLOR_OFF);
+        test_get_color_mode_with_env("SYSTEMD_COLORS", "auto-256",   COLOR_OFF);
+        test_get_color_mode_with_env("SYSTEMD_COLORS", "auto-24bit", COLOR_OFF);
+        test_get_color_mode_with_env("SYSTEMD_COLORS", "42",         COLOR_OFF);
+        test_get_color_mode_with_env("SYSTEMD_COLORS", "invalid",    COLOR_OFF);
+        ASSERT_OK_ERRNO(unsetenv("NO_COLOR"));
+        ASSERT_OK_ERRNO(unsetenv("SYSTEMD_COLORS"));
+
+        test_get_color_mode_with_env("COLORTERM", "truecolor", terminal_is_dumb() ? COLOR_OFF : COLOR_24BIT);
+        test_get_color_mode_with_env("COLORTERM", "24bit",     terminal_is_dumb() ? COLOR_OFF : COLOR_24BIT);
+        test_get_color_mode_with_env("COLORTERM", "invalid",   terminal_is_dumb() ? COLOR_OFF : COLOR_256);
+        test_get_color_mode_with_env("COLORTERM", "42",        terminal_is_dumb() ? COLOR_OFF : COLOR_256);
+        ASSERT_OK_ERRNO(unsetenv("COLORTERM"));
+        reset_terminal_feature_caches();
+}
+
+TEST(terminal_reset_defensive) {
+        int r;
+
+        r = terminal_reset_defensive(STDOUT_FILENO, /* flags= */ 0);
+        if (r < 0)
+                log_notice_errno(r, "Failed to reset terminal: %m");
+}
+
+TEST(pty_open_peer) {
+        _cleanup_free_ char *pty_path = NULL;
+
+        _cleanup_close_ int pty_fd = ASSERT_OK(openpt_allocate(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK, &pty_path));
+        ASSERT_NOT_NULL(pty_path);
+
+        _cleanup_close_ int peer_fd = ASSERT_OK(pty_open_peer(pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC));
+
+        static const char x[] = { 'x', '\n' };
+        ASSERT_OK_EQ_ERRNO(write(pty_fd, x, sizeof(x)), (ssize_t) sizeof(x));
+
+        char buf[3];
+        ASSERT_OK_EQ_ERRNO(read(peer_fd, &buf, sizeof(buf)), (ssize_t) sizeof(x));
+        ASSERT_EQ(buf[0], x[0]);
+        ASSERT_EQ(buf[1], x[1]);
+}
+
+TEST(terminal_new_session) {
+        int r;
+
+        _cleanup_close_ int pty_fd = ASSERT_OK(openpt_allocate(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK, NULL));
+        _cleanup_close_ int peer_fd = ASSERT_OK(pty_open_peer(pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC));
+
+        r = pidref_safe_fork_full(
+                        "test-term-session",
+                        (int[]) { peer_fd, peer_fd, peer_fd },
+                        NULL, 0,
+                        FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_WAIT|FORK_REARRANGE_STDIO,
+                        NULL);
+        ASSERT_OK(r);
+        if (r == 0) {
+                ASSERT_OK(terminal_new_session());
+                ASSERT_OK(get_ctty_devnr(0, NULL));
+
+                terminal_detach_session();
+                ASSERT_ERROR(get_ctty_devnr(0, NULL), ENXIO);
+
+                ASSERT_OK(terminal_new_session());
+                ASSERT_OK(get_ctty_devnr(0, NULL));
+
+                terminal_detach_session();
+                ASSERT_OK(rearrange_stdio(-EBADF, STDOUT_FILENO, STDERR_FILENO));
+                ASSERT_ERROR(get_ctty_devnr(0, NULL), ENXIO);
+                ASSERT_ERROR(terminal_new_session(), ENXIO);
+
+                _exit(EXIT_SUCCESS);
+        }
+}
+
+static void show_menu_capture(
+                char **menu,
+                size_t n_columns,
+                size_t column_width,
+                const char *grey_prefix,
+                bool with_numbers,
+                const char *columns_env,
+                char **ret) {
+
+        int r;
+
+        /* Runs show_menu() in a forked child whose stdout is connected to a memfd, so we can capture its
+         * output verbatim and byte-compare it. The child sets $COLUMNS explicitly so we can exercise
+         * show_menu() at various terminal widths regardless of the actual terminal the test runs on. */
+
+        _cleanup_close_ int mfd = ASSERT_OK(memfd_new("test-show-menu"));
+
+        r = pidref_safe_fork_full(
+                        "test-show-menu",
+                        (int[]) { -EBADF, mfd, STDERR_FILENO },
+                        /* except_fds= */ NULL, /* n_except_fds= */ 0,
+                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_WAIT|FORK_REARRANGE_STDIO|FORK_FLUSH_STDIO,
+                        /* ret= */ NULL);
+        ASSERT_OK(r);
+        if (r == 0) {
+                /* Child: stdout is now the memfd. */
+
+                ASSERT_OK(set_unset_env("COLUMNS", columns_env, /* overwrite= */ true));
+
+                /* Pin $LINES to a large value so the "press any key to proceed" pager (which would block on
+                 * stdin) is never reached, and turn off colors so the captured output stays free of ANSI
+                 * escape sequences. */
+                ASSERT_OK_ERRNO(setenv("LINES", "1000", /* overwrite= */ true));
+                ASSERT_OK_ERRNO(setenv("SYSTEMD_COLORS", "0", /* overwrite= */ true));
+                reset_terminal_feature_caches();
+
+                ASSERT_OK(show_menu(menu, n_columns, column_width, /* ellipsize_percentage= */ 50, grey_prefix, with_numbers));
+                ASSERT_OK_ZERO_ERRNO(fflush(stdout));
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        /* Parent: read back whatever the child wrote. The memfd's file offset is shared with the child's
+         * dup'd fd, so rewind before reading. */
+        _cleanup_fclose_ FILE *f = ASSERT_NOT_NULL(fdopen(TAKE_FD(mfd), "re"));
+        rewind(f);
+
+        _cleanup_free_ char *content = NULL;
+        ASSERT_OK(read_full_stream(f, &content, /* ret_size= */ NULL));
+
+        log_info("=== show_menu(n_columns=%zu, column_width=%zu, grey_prefix=%s, with_numbers=%s, COLUMNS=%s) ===\n%s",
+                 n_columns, column_width, strnull(grey_prefix), yes_no(with_numbers), strnull(columns_env), content);
+
+        if (ret)
+                *ret = TAKE_PTR(content);
+}
+
+TEST(show_menu) {
+        char **menu = STRV_MAKE("alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf");
+
+        /* NULL list: must not crash (the assert(x) was dropped) and must produce no output at all. */
+        FOREACH_STRING(cols, "200", "80", "10", "1") {
+                _cleanup_free_ char *content = NULL;
+                show_menu_capture(/* menu= */ NULL, /* n_columns= */ 3, /* column_width= */ SIZE_MAX,
+                                  /* grey_prefix= */ NULL, /* with_numbers= */ true, /* columns_env= */ cols, &content);
+                ASSERT_STREQ(content, "");
+        }
+
+        /* Empty (but non-NULL) list: also no output. */
+        {
+                _cleanup_free_ char *content = NULL;
+                show_menu_capture(/* menu= */ STRV_EMPTY, /* n_columns= */ 3, /* column_width= */ SIZE_MAX,
+                                  /* grey_prefix= */ NULL, /* with_numbers= */ false, /* columns_env= */ "80", &content);
+                ASSERT_STREQ(content, "");
+        }
+
+        /* The longest entry in 'menu' is 7 cells wide, so the column width is always clamped up to the 10-cell
+         * minimum, no matter how wide or narrow $COLUMNS is — every width must yield byte-identical output.
+         * This pins down the multi-column layout (3 columns, column-major numbering 1..7), the "never narrower
+         * than 10" clamp and the LESS_BY() underflow guard at absurdly tiny widths. */
+        static const char menu_expected[] =
+                "   1) alpha        4) delta        7) golf      \n"
+                "   2) bravo        5) echo      \n"
+                "   3) charlie      6) foxtrot   \n";
+
+        FOREACH_STRING(cols, "200", "80", "40", "20", "10", "5", "1") {
+                _cleanup_free_ char *content = NULL;
+                show_menu_capture(menu, /* n_columns= */ 3, /* column_width= */ SIZE_MAX,
+                                  /* grey_prefix= */ NULL, /* with_numbers= */ true, /* columns_env= */ cols, &content);
+                ASSERT_STREQ(content, menu_expected);
+        }
+
+        /* $COLUMNS unset: stdout is a memfd (not a tty), so columns() falls back to its 80-column default,
+         * which gives the very same layout. */
+        {
+                _cleanup_free_ char *content = NULL;
+                show_menu_capture(menu, /* n_columns= */ 3, /* column_width= */ SIZE_MAX,
+                                  /* grey_prefix= */ NULL, /* with_numbers= */ true, /* columns_env= */ NULL, &content);
+                ASSERT_STREQ(content, menu_expected);
+        }
+
+        /* Single column, no numbers: one entry per row, each padded to the 10-cell minimum. */
+        {
+                _cleanup_free_ char *content = NULL;
+                show_menu_capture(menu, /* n_columns= */ 1, /* column_width= */ SIZE_MAX,
+                                  /* grey_prefix= */ NULL, /* with_numbers= */ false, /* columns_env= */ "200", &content);
+                ASSERT_STREQ(content,
+                             "alpha     \n"
+                             "bravo     \n"
+                             "charlie   \n"
+                             "delta     \n"
+                             "echo      \n"
+                             "foxtrot   \n"
+                             "golf      \n");
+        }
+
+        /* A menu whose longest entry (14 cells) exceeds the 10-cell minimum, so the column width now tracks
+         * the content (widest+1 == 15). At a wide terminal it stays a 3-column grid... */
+        char **menu2 = STRV_MAKE("fourteen-chars", "short", "two");
+        {
+                _cleanup_free_ char *content = NULL;
+                show_menu_capture(menu2, /* n_columns= */ 3, /* column_width= */ SIZE_MAX,
+                                  /* grey_prefix= */ NULL, /* with_numbers= */ true, /* columns_env= */ "200", &content);
+                ASSERT_STREQ(content,
+                             "   1) fourteen-chars    2) short             3) two            \n");
+        }
+
+        /* ...but at a narrow terminal show_menu() falls back to a single linear column (n_columns forced to
+         * 1), still wide enough to print every entry in full. */
+        {
+                _cleanup_free_ char *content = NULL;
+                show_menu_capture(menu2, /* n_columns= */ 3, /* column_width= */ SIZE_MAX,
+                                  /* grey_prefix= */ NULL, /* with_numbers= */ true, /* columns_env= */ "30", &content);
+                ASSERT_STREQ(content,
+                             "   1) fourteen-chars \n"
+                             "   2) short          \n"
+                             "   3) two            \n");
+        }
+
+        /* Explicit column width (the COLUMNS-derived path is skipped entirely) together with a grey prefix:
+         * matching entries get the prefix printed via the grey branch, non-matching ones don't. The captured
+         * bytes are identical either way since colors are disabled. */
+        char **prefixed = STRV_MAKE("net.foo", "net.bar", "other", "net.baz");
+        {
+                _cleanup_free_ char *content = NULL;
+                show_menu_capture(prefixed, /* n_columns= */ 2, /* column_width= */ 20,
+                                  /* grey_prefix= */ "net.", /* with_numbers= */ true, /* columns_env= */ "200", &content);
+                ASSERT_STREQ(content,
+                             "   1) net.foo                3) other               \n"
+                             "   2) net.bar                4) net.baz             \n");
+        }
+}
+
+DEFINE_TEST_MAIN(LOG_INFO);

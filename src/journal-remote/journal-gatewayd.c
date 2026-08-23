@@ -1,0 +1,1310 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include <fcntl.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+#include "sd-bus.h"
+#include "sd-daemon.h"
+#include "sd-journal.h"
+#include "sd-json.h"
+
+#include "alloc-util.h"
+#include "build.h"
+#include "bus-locator.h"
+#include "errno-util.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "glob-util.h"
+#include "hostname-setup.h"
+#include "hostname-util.h"
+#include "journal-internal.h"
+#include "journal-remote.h"
+#include "log.h"
+#include "logs-show.h"
+#include "main-func.h"
+#include "memory-util.h"
+#include "microhttpd-util.h"
+#include "os-util.h"
+#include "output-mode.h"
+#include "parse-util.h"
+#include "signal-util.h"
+#include "string-util.h"
+#include "time-util.h"
+#include "tmpfile-util.h"
+#include "verbs.h"
+
+#define JOURNAL_WAIT_TIMEOUT (10*USEC_PER_SEC)
+
+static char *arg_key_pem = NULL;
+static char *arg_cert_pem = NULL;
+static char *arg_trust_pem = NULL;
+static bool arg_merge = false;
+static int arg_journal_type = 0;
+static char *arg_directory = NULL;
+static char **arg_file = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(arg_key_pem, erase_and_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_cert_pem, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_trust_pem, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_file, strv_freep);
+
+COMMAND(
+        "systemd-journal-gatewayd\0",
+        "Serve journal events over HTTP.",
+        .man_pages = "systemd-journal-gatewayd.service.8\0",
+);
+
+typedef struct RequestMeta {
+        sd_journal *journal;
+
+        OutputMode mode;
+
+        char *cursor;
+        usec_t since, until;
+        int64_t n_skip;
+        uint64_t n_entries;
+        bool n_entries_set, since_set, until_set;
+
+        sd_id128_t previous_boot_id;
+        int32_t boot_index;
+
+        FILE *tmp;
+        uint64_t delta, size;
+
+        int argument_parse_error;
+
+        bool follow;
+        bool discrete;
+} RequestMeta;
+
+static const char* const mime_types[_OUTPUT_MODE_MAX] = {
+        [OUTPUT_SHORT] = "text/plain",
+        [OUTPUT_JSON] = "application/json",
+        [OUTPUT_JSON_SSE] = "text/event-stream",
+        [OUTPUT_JSON_SEQ] = "application/json-seq",
+        [OUTPUT_EXPORT] = "application/vnd.fdo.journal",
+};
+
+static RequestMeta *request_meta(void **connection_cls) {
+        RequestMeta *m;
+
+        assert(connection_cls);
+        if (*connection_cls)
+                return *connection_cls;
+
+        m = new0(RequestMeta, 1);
+        if (!m)
+                return NULL;
+
+        *connection_cls = m;
+        return m;
+}
+
+static void request_meta_free(
+                void *cls,
+                struct MHD_Connection *connection,
+                void **connection_cls,
+                enum MHD_RequestTerminationCode toe) {
+        RequestMeta *m;
+
+        assert(connection_cls);
+        m = *connection_cls;
+
+        if (!m)
+                return;
+
+        sd_journal_close(m->journal);
+
+        safe_fclose(m->tmp);
+
+        free(m->cursor);
+        free(m);
+}
+
+static int open_journal(RequestMeta *m) {
+        assert(m);
+
+        if (m->journal)
+                return 0;
+
+        if (arg_directory)
+                return sd_journal_open_directory(&m->journal, arg_directory, arg_journal_type);
+        else if (arg_file)
+                return sd_journal_open_files(&m->journal, (const char**) arg_file, 0);
+        else
+                return sd_journal_open(&m->journal, (arg_merge ? 0 : SD_JOURNAL_LOCAL_ONLY) | arg_journal_type);
+}
+
+static int request_meta_ensure_tmp(RequestMeta *m) {
+        assert(m);
+
+        if (m->tmp)
+                rewind(m->tmp);
+        else {
+                _cleanup_close_ int fd = -EBADF;
+
+                fd = open_tmpfile_unlinkable("/tmp", O_RDWR|O_CLOEXEC);
+                if (fd < 0)
+                        return fd;
+
+                m->tmp = take_fdopen(&fd, "w+");
+                if (!m->tmp)
+                        return -errno;
+        }
+
+        return 0;
+}
+
+static ssize_t request_reader_entries(
+                void *cls,
+                uint64_t pos,
+                char *buf,
+                size_t max) {
+
+        RequestMeta *m = ASSERT_PTR(cls);
+        dual_timestamp previous_ts = DUAL_TIMESTAMP_NULL;
+        sd_id128_t previous_boot_id = SD_ID128_NULL;
+        int r;
+        size_t n, k;
+
+        assert(buf);
+        assert(max > 0);
+        assert(pos >= m->delta);
+
+        pos -= m->delta;
+
+        while (pos >= m->size) {
+                off_t sz;
+                bool wait_for_events = false;
+
+                /* End of this entry, so let's serialize the next
+                 * one */
+
+                if (m->n_entries_set &&
+                    m->n_entries <= 0)
+                        return MHD_CONTENT_READER_END_OF_STREAM;
+
+                if (m->n_skip < 0) {
+                        /* request_parse_range_skip_and_n_entries() rejects INT64_MIN, so the negation
+                         * below cannot overflow. */
+                        assert(m->n_skip >= -INT64_MAX);
+                        r = sd_journal_previous_skip(m->journal, (uint64_t) -m->n_skip + 1);
+                } else if (m->n_skip > 0) {
+                        r = sd_journal_next_skip(m->journal, (uint64_t) m->n_skip + 1);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to skip journal entries: %m");
+                                return MHD_CONTENT_READER_END_WITH_ERROR;
+                        }
+                        /* We skipped beyond the end, make sure entries between the cursor and n_skip offset
+                         * from it are not returned. */
+                        if ((uint64_t) r < (uint64_t) m->n_skip + 1) {
+                                m->n_skip -= r;
+
+                                if (!m->follow)
+                                        return MHD_CONTENT_READER_END_OF_STREAM;
+                                wait_for_events = true;
+                        }
+                } else
+                        r = sd_journal_next(m->journal);
+
+                if (r < 0) {
+                        log_error_errno(r, "Failed to advance journal pointer: %m");
+                        return MHD_CONTENT_READER_END_WITH_ERROR;
+                } else if (r == 0) {
+                        if (!m->follow)
+                                return MHD_CONTENT_READER_END_OF_STREAM;
+                        wait_for_events = true;
+                }
+
+                if (wait_for_events) {
+                        r = sd_journal_wait(m->journal, (uint64_t) JOURNAL_WAIT_TIMEOUT);
+                        if (r < 0) {
+                                log_error_errno(r, "Couldn't wait for journal event: %m");
+                                return MHD_CONTENT_READER_END_WITH_ERROR;
+                        }
+                        if (r == SD_JOURNAL_NOP)
+                                break;
+
+                        continue;
+                }
+
+                if (m->discrete) {
+                        assert(m->cursor);
+
+                        r = sd_journal_test_cursor(m->journal, m->cursor);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to test cursor: %m");
+                                return MHD_CONTENT_READER_END_WITH_ERROR;
+                        }
+
+                        if (r == 0)
+                                return MHD_CONTENT_READER_END_OF_STREAM;
+                }
+
+                if (m->until_set) {
+                        usec_t usec;
+
+                        r = sd_journal_get_realtime_usec(m->journal, &usec);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to determine timestamp: %m");
+                                return MHD_CONTENT_READER_END_WITH_ERROR;
+                        }
+                        if (usec > m->until)
+                                return MHD_CONTENT_READER_END_OF_STREAM;
+                }
+                pos -= m->size;
+                m->delta += m->size;
+
+                if (m->n_entries_set)
+                        m->n_entries -= 1;
+
+                m->n_skip = 0;
+
+                r = request_meta_ensure_tmp(m);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to create temporary file: %m");
+                        return MHD_CONTENT_READER_END_WITH_ERROR;
+                }
+
+                r = show_journal_entry(m->tmp, m->journal, m->mode, 0, OUTPUT_FULL_WIDTH,
+                                   NULL, NULL, NULL, &previous_ts, &previous_boot_id);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to serialize item: %m");
+                        return MHD_CONTENT_READER_END_WITH_ERROR;
+                }
+
+                sz = ftello(m->tmp);
+                if (sz < 0) {
+                        log_error_errno(errno, "Failed to retrieve file position: %m");
+                        return MHD_CONTENT_READER_END_WITH_ERROR;
+                }
+
+                m->size = (uint64_t) sz;
+        }
+
+        if (m->tmp == NULL && m->follow)
+                return 0;
+
+        if (fseeko(m->tmp, pos, SEEK_SET) < 0) {
+                log_error_errno(errno, "Failed to seek to position: %m");
+                return MHD_CONTENT_READER_END_WITH_ERROR;
+        }
+
+        n = m->size - pos;
+        if (n < 1)
+                return 0;
+        if (n > max)
+                n = max;
+
+        errno = 0;
+        k = fread(buf, 1, n, m->tmp);
+        if (k != n) {
+                log_error("Failed to read from file: %s", STRERROR_OR_EOF(errno));
+                return MHD_CONTENT_READER_END_WITH_ERROR;
+        }
+
+        return (ssize_t) k;
+}
+
+static int request_parse_accept(
+                RequestMeta *m,
+                struct MHD_Connection *connection) {
+
+        const char *header;
+
+        assert(m);
+        assert(connection);
+
+        header = sym_MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Accept");
+        if (!header)
+                return 0;
+
+        if (streq(header, mime_types[OUTPUT_JSON]))
+                m->mode = OUTPUT_JSON;
+        else if (streq(header, mime_types[OUTPUT_JSON_SSE]))
+                m->mode = OUTPUT_JSON_SSE;
+        else if (streq(header, mime_types[OUTPUT_JSON_SEQ]))
+                m->mode = OUTPUT_JSON_SEQ;
+        else if (streq(header, mime_types[OUTPUT_EXPORT]))
+                m->mode = OUTPUT_EXPORT;
+        else
+                m->mode = OUTPUT_SHORT;
+
+        return 0;
+}
+
+static int request_parse_range_skip_and_n_entries(
+                RequestMeta *m,
+                const char *colon) {
+
+        const char *p, *colon2;
+        int r;
+
+        colon2 = strchr(colon + 1, ':');
+        if (colon2) {
+                _cleanup_free_ char *t = NULL;
+
+                t = strndup(colon + 1, colon2 - colon - 1);
+                if (!t)
+                        return -ENOMEM;
+
+                r = safe_atoi64(t, &m->n_skip);
+                if (r < 0)
+                        return r;
+
+                /* The consumer negates n_skip, and negating INT64_MIN in signed arithmetic is undefined
+                 * behaviour, so reject it up front. */
+                if (m->n_skip == INT64_MIN)
+                        return -ERANGE;
+        }
+
+        p = (colon2 ?: colon) + 1;
+        if (!isempty(p)) {
+                r = safe_atou64(p, &m->n_entries);
+                if (r < 0)
+                        return r;
+
+                if (m->n_entries <= 0)
+                        return -EINVAL;
+
+                m->n_entries_set = true;
+        }
+
+        return 0;
+}
+
+static int request_parse_range_entries(
+                RequestMeta *m,
+                const char *entries_request) {
+
+        const char *colon;
+        int r;
+
+        assert(m);
+        assert(entries_request);
+
+        colon = strchr(entries_request, ':');
+        if (!colon)
+                m->cursor = strdup(entries_request);
+        else {
+                r = request_parse_range_skip_and_n_entries(m, colon);
+                if (r < 0)
+                        return r;
+
+                m->cursor = strndup(entries_request, colon - entries_request);
+        }
+        if (!m->cursor)
+                return -ENOMEM;
+
+        m->cursor[strcspn(m->cursor, WHITESPACE)] = 0;
+        if (isempty(m->cursor))
+                m->cursor = mfree(m->cursor);
+
+        return 0;
+}
+
+static int request_parse_range_time(
+                RequestMeta *m,
+                const char *time_request) {
+
+        _cleanup_free_ char *until = NULL;
+        const char *colon;
+        int r;
+
+        assert(m);
+        assert(time_request);
+
+        colon = strchr(time_request, ':');
+        if (!colon)
+                return -EINVAL;
+
+        if (colon - time_request > 0) {
+                _cleanup_free_ char *t = NULL;
+
+                t = strndup(time_request, colon - time_request);
+                if (!t)
+                        return -ENOMEM;
+
+                r = parse_sec(t, &m->since);
+                if (r < 0)
+                        return r;
+
+                m->since_set = true;
+        }
+
+        time_request = colon + 1;
+        colon = strchr(time_request, ':');
+        if (!colon)
+                until = strdup(time_request);
+        else {
+                r = request_parse_range_skip_and_n_entries(m, colon);
+                if (r < 0)
+                        return r;
+
+                until = strndup(time_request, colon - time_request);
+        }
+        if (!until)
+                return -ENOMEM;
+
+        if (!isempty(until)) {
+                r = parse_sec(until, &m->until);
+                if (r < 0)
+                        return r;
+
+                m->until_set = true;
+                if (m->until < m->since)
+                        return -EINVAL;
+        }
+
+        return 0;
+}
+
+static int request_parse_range(
+                RequestMeta *m,
+                struct MHD_Connection *connection) {
+
+        const char *range, *range_after_eq;
+
+        assert(m);
+        assert(connection);
+
+        range = sym_MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Range");
+        if (!range)
+                return 0;
+
+        /* Safety upper bound to make Coverity happy. Apache2 has a default limit of 8KB:
+         * https://httpd.apache.org/docs/2.2/mod/core.html#limitrequestfieldsize */
+        if (strlen(range) > JOURNAL_SERVER_MEMORY_MAX)
+                return -EINVAL;
+
+        m->n_skip = 0;
+
+        range_after_eq = startswith(range, "entries=");
+        if (range_after_eq)
+                return request_parse_range_entries(m, skip_leading_chars(range_after_eq, /* bad= */ NULL));
+
+        range_after_eq = startswith(range, "realtime=");
+        if (range_after_eq)
+                return request_parse_range_time(m, skip_leading_chars(range_after_eq, /* bad= */ NULL));
+
+        return 0;
+}
+
+static mhd_result request_parse_arguments_iterator(
+                void *cls,
+                enum MHD_ValueKind kind,
+                const char *key,
+                const char *value) {
+
+        RequestMeta *m = ASSERT_PTR(cls);
+        int r;
+
+        if (isempty(key)) {
+                m->argument_parse_error = -EINVAL;
+                return MHD_NO;
+        }
+
+        if (streq(key, "follow")) {
+                if (isempty(value)) {
+                        m->follow = true;
+                        return MHD_YES;
+                }
+
+                r = parse_boolean(value);
+                if (r < 0) {
+                        m->argument_parse_error = r;
+                        return MHD_NO;
+                }
+
+                m->follow = r;
+                return MHD_YES;
+        }
+
+        if (streq(key, "discrete")) {
+                if (isempty(value)) {
+                        m->discrete = true;
+                        return MHD_YES;
+                }
+
+                r = parse_boolean(value);
+                if (r < 0) {
+                        m->argument_parse_error = r;
+                        return MHD_NO;
+                }
+
+                m->discrete = r;
+                return MHD_YES;
+        }
+
+        if (streq(key, "boot")) {
+                if (isempty(value))
+                        r = true;
+                else {
+                        r = parse_boolean(value);
+                        if (r < 0) {
+                                m->argument_parse_error = r;
+                                return MHD_NO;
+                        }
+                }
+
+                if (r) {
+                        r = add_match_boot_id(m->journal, SD_ID128_NULL);
+                        if (r < 0) {
+                                m->argument_parse_error = r;
+                                return MHD_NO;
+                        }
+                }
+
+                return MHD_YES;
+        }
+
+        r = journal_add_match_pair(m->journal, key, strempty(value));
+        if (r < 0) {
+                m->argument_parse_error = r;
+                return MHD_NO;
+        }
+
+        return MHD_YES;
+}
+
+static int request_parse_arguments(
+                RequestMeta *m,
+                struct MHD_Connection *connection) {
+
+        assert(m);
+        assert(connection);
+
+        m->argument_parse_error = 0;
+        sym_MHD_get_connection_values(connection, MHD_GET_ARGUMENT_KIND, request_parse_arguments_iterator, m);
+
+        return m->argument_parse_error;
+}
+
+static int request_handler_entries(
+                struct MHD_Connection *connection,
+                void *connection_cls) {
+
+        _cleanup_(MHD_destroy_responsep) struct MHD_Response *response = NULL;
+        RequestMeta *m = ASSERT_PTR(connection_cls);
+        int r;
+
+        assert(connection);
+
+        r = open_journal(m);
+        if (r < 0)
+                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to open journal: %m");
+
+        if (request_parse_accept(m, connection) < 0)
+                return mhd_respond(connection, MHD_HTTP_BAD_REQUEST, "Failed to parse Accept header.");
+
+        if (request_parse_range(m, connection) < 0)
+                return mhd_respond(connection, MHD_HTTP_BAD_REQUEST, "Failed to parse Range header.");
+
+        if (request_parse_arguments(m, connection) < 0)
+                return mhd_respond(connection, MHD_HTTP_BAD_REQUEST, "Failed to parse URL arguments.");
+
+        if (m->discrete) {
+                if (!m->cursor)
+                        return mhd_respond(connection, MHD_HTTP_BAD_REQUEST, "Discrete seeks require a cursor specification.");
+
+                m->n_entries = 1;
+                m->n_entries_set = true;
+        }
+
+        if (m->cursor)
+                r = sd_journal_seek_cursor(m->journal, m->cursor);
+        else if (m->since_set)
+                r = sd_journal_seek_realtime_usec(m->journal, m->since);
+        else if (m->n_skip >= 0)
+                r = sd_journal_seek_head(m->journal);
+        else if (m->until_set && m->n_skip < 0)
+                r = sd_journal_seek_realtime_usec(m->journal, m->until);
+        else if (m->n_skip < 0)
+                r = sd_journal_seek_tail(m->journal);
+
+        if (r < 0)
+                return mhd_respond(connection, MHD_HTTP_BAD_REQUEST, "Failed to seek in journal.");
+
+        response = sym_MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 4*1024, request_reader_entries, m, NULL);
+        if (!response)
+                return respond_oom(connection);
+
+        if (sym_MHD_add_response_header(response, "Content-Type", mime_types[m->mode]) == MHD_NO)
+                return respond_oom(connection);
+
+        return sym_MHD_queue_response(connection, MHD_HTTP_OK, response);
+}
+
+static int output_field(FILE *f, OutputMode m, const char *d, size_t l) {
+        const char *eq;
+        size_t j;
+
+        eq = memchr(d, '=', l);
+        if (!eq)
+                return -EINVAL;
+
+        j = l - (eq - d + 1);
+
+        if (m == OUTPUT_JSON) {
+                fprintf(f, "{ \"%.*s\" : ", (int) (eq - d), d);
+                json_escape(f, eq+1, j, OUTPUT_FULL_WIDTH);
+                fputs(" }\n", f);
+        } else {
+                fwrite(eq+1, 1, j, f);
+                fputc('\n', f);
+        }
+
+        return 0;
+}
+
+static ssize_t request_reader_fields(
+                void *cls,
+                uint64_t pos,
+                char *buf,
+                size_t max) {
+
+        RequestMeta *m = ASSERT_PTR(cls);
+        int r;
+        size_t n, k;
+
+        assert(buf);
+        assert(max > 0);
+        assert(pos >= m->delta);
+
+        pos -= m->delta;
+
+        while (pos >= m->size) {
+                off_t sz;
+                const void *d;
+                size_t l;
+
+                /* End of this field, so let's serialize the next
+                 * one */
+
+                r = sd_journal_enumerate_unique(m->journal, &d, &l);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to advance field index: %m");
+                        return MHD_CONTENT_READER_END_WITH_ERROR;
+                } else if (r == 0)
+                        return MHD_CONTENT_READER_END_OF_STREAM;
+
+                pos -= m->size;
+                m->delta += m->size;
+
+                r = request_meta_ensure_tmp(m);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to create temporary file: %m");
+                        return MHD_CONTENT_READER_END_WITH_ERROR;
+                }
+
+                r = output_field(m->tmp, m->mode, d, l);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to serialize item: %m");
+                        return MHD_CONTENT_READER_END_WITH_ERROR;
+                }
+
+                sz = ftello(m->tmp);
+                if (sz < 0) {
+                        log_error_errno(errno, "Failed to retrieve file position: %m");
+                        return MHD_CONTENT_READER_END_WITH_ERROR;
+                }
+
+                m->size = (uint64_t) sz;
+        }
+
+        if (fseeko(m->tmp, pos, SEEK_SET) < 0) {
+                log_error_errno(errno, "Failed to seek to position: %m");
+                return MHD_CONTENT_READER_END_WITH_ERROR;
+        }
+
+        n = m->size - pos;
+        if (n > max)
+                n = max;
+
+        errno = 0;
+        k = fread(buf, 1, n, m->tmp);
+        if (k != n) {
+                log_error("Failed to read from file: %s", STRERROR_OR_EOF(errno));
+                return MHD_CONTENT_READER_END_WITH_ERROR;
+        }
+
+        return (ssize_t) k;
+}
+
+static int request_handler_fields(
+                struct MHD_Connection *connection,
+                const char *field,
+                void *connection_cls) {
+
+        _cleanup_(MHD_destroy_responsep) struct MHD_Response *response = NULL;
+        RequestMeta *m = ASSERT_PTR(connection_cls);
+        int r;
+
+        assert(connection);
+
+        r = open_journal(m);
+        if (r < 0)
+                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to open journal: %m");
+
+        if (request_parse_accept(m, connection) < 0)
+                return mhd_respond(connection, MHD_HTTP_BAD_REQUEST, "Failed to parse Accept header.");
+
+        r = sd_journal_query_unique(m->journal, field);
+        if (r < 0)
+                return mhd_respond(connection, MHD_HTTP_BAD_REQUEST, "Failed to query unique fields.");
+
+        response = sym_MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 4*1024, request_reader_fields, m, NULL);
+        if (!response)
+                return respond_oom(connection);
+
+        if (sym_MHD_add_response_header(response, "Content-Type", mime_types[m->mode == OUTPUT_JSON ? OUTPUT_JSON : OUTPUT_SHORT]) == MHD_NO)
+                return respond_oom(connection);
+
+        return sym_MHD_queue_response(connection, MHD_HTTP_OK, response);
+}
+
+static int request_handler_redirect(
+                struct MHD_Connection *connection,
+                const char *target) {
+
+        _cleanup_free_ char *page = NULL;
+        _cleanup_(MHD_destroy_responsep) struct MHD_Response *response = NULL;
+
+        assert(connection);
+        assert(target);
+
+        if (asprintf(&page, "<html><body>Please continue to the <a href=\"%s\">journal browser</a>.</body></html>", target) < 0)
+                return respond_oom(connection);
+
+        response = sym_MHD_create_response_from_buffer(strlen(page), page, MHD_RESPMEM_MUST_FREE);
+        if (!response)
+                return respond_oom(connection);
+        TAKE_PTR(page);
+
+        if (sym_MHD_add_response_header(response, "Content-Type", "text/html") == MHD_NO ||
+            sym_MHD_add_response_header(response, "Location", target) == MHD_NO)
+                return respond_oom(connection);
+
+        return sym_MHD_queue_response(connection, MHD_HTTP_MOVED_PERMANENTLY, response);
+}
+
+static int request_handler_file(
+                struct MHD_Connection *connection,
+                const char *path,
+                const char *mime_type) {
+
+        _cleanup_(MHD_destroy_responsep) struct MHD_Response *response = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        struct stat st;
+
+        assert(connection);
+        assert(path);
+        assert(mime_type);
+
+        fd = open(path, O_RDONLY|O_CLOEXEC);
+        if (fd < 0)
+                return mhd_respondf(connection, errno, MHD_HTTP_NOT_FOUND, "Failed to open file %s: %m", path);
+
+        if (fstat(fd, &st) < 0)
+                return mhd_respondf(connection, errno, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to stat file: %m");
+
+        response = sym_MHD_create_response_from_fd_at_offset64(st.st_size, fd, 0);
+        if (!response)
+                return respond_oom(connection);
+        TAKE_FD(fd);
+
+        if (sym_MHD_add_response_header(response, "Content-Type", mime_type) == MHD_NO)
+                return respond_oom(connection);
+
+        return sym_MHD_queue_response(connection, MHD_HTTP_OK, response);
+}
+
+static int get_virtualization(char **v) {
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        char *b = NULL;
+        int r;
+
+        assert(v);
+
+        r = sd_bus_default_system(&bus);
+        if (r < 0)
+                return r;
+
+        r = bus_get_property_string(bus, bus_systemd_mgr, "Virtualization", NULL, &b);
+        if (r < 0)
+                return r;
+
+        if (isempty(b)) {
+                free(b);
+                *v = NULL;
+                return 0;
+        }
+
+        *v = b;
+        return 1;
+}
+
+static int request_handler_machine(
+                struct MHD_Connection *connection,
+                void *connection_cls) {
+
+        _cleanup_(MHD_destroy_responsep) struct MHD_Response *response = NULL;
+        RequestMeta *m = ASSERT_PTR(connection_cls);
+        int r;
+        _cleanup_free_ char *hostname = NULL, *pretty_name = NULL, *os_name = NULL;
+        uint64_t cutoff_from = 0, cutoff_to = 0, usage = 0;
+        sd_id128_t mid, bid;
+        _cleanup_free_ char *v = NULL, *json = NULL;
+
+        assert(connection);
+
+        r = open_journal(m);
+        if (r < 0)
+                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to open journal: %m");
+
+        r = sd_id128_get_machine(&mid);
+        if (r < 0)
+                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine machine ID: %m");
+
+        r = sd_id128_get_boot(&bid);
+        if (r < 0)
+                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine boot ID: %m");
+
+        hostname = gethostname_malloc();
+        if (!hostname)
+                return respond_oom(connection);
+
+        r = sd_journal_get_usage(m->journal, &usage);
+        if (r < 0)
+                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine disk usage: %m");
+
+        r = sd_journal_get_cutoff_realtime_usec(m->journal, &cutoff_from, &cutoff_to);
+        if (r < 0)
+                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine disk usage: %m");
+
+        (void) parse_os_release(
+                        NULL,
+                        "PRETTY_NAME", &pretty_name,
+                        "NAME=", &os_name);
+        (void) get_virtualization(&v);
+
+        r = asprintf(&json,
+                     "{ \"machine_id\" : \"" SD_ID128_FORMAT_STR "\","
+                     "\"boot_id\" : \"" SD_ID128_FORMAT_STR "\","
+                     "\"hostname\" : \"%s\","
+                     "\"os_pretty_name\" : \"%s\","
+                     "\"virtualization\" : \"%s\","
+                     "\"usage\" : \"%"PRIu64"\","
+                     "\"cutoff_from_realtime\" : \"%"PRIu64"\","
+                     "\"cutoff_to_realtime\" : \"%"PRIu64"\" }\n",
+                     SD_ID128_FORMAT_VAL(mid),
+                     SD_ID128_FORMAT_VAL(bid),
+                     hostname_cleanup(hostname),
+                     os_release_pretty_name(pretty_name, os_name),
+                     v ?: "bare",
+                     usage,
+                     cutoff_from,
+                     cutoff_to);
+        if (r < 0)
+                return respond_oom(connection);
+
+        response = sym_MHD_create_response_from_buffer(strlen(json), json, MHD_RESPMEM_MUST_FREE);
+        if (!response)
+                return respond_oom(connection);
+        TAKE_PTR(json);
+
+        if (sym_MHD_add_response_header(response, "Content-Type", "application/json") == MHD_NO)
+                return respond_oom(connection);
+
+        return sym_MHD_queue_response(connection, MHD_HTTP_OK, response);
+}
+
+static int output_boot(FILE *f, LogId boot, int boot_display_index) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+        int r;
+
+        r = sd_json_build(
+                        &json,
+                        SD_JSON_BUILD_OBJECT(
+                                        SD_JSON_BUILD_PAIR_INTEGER("index", boot_display_index),
+                                        SD_JSON_BUILD_PAIR_ID128("boot_id", boot.id),
+                                        SD_JSON_BUILD_PAIR_UNSIGNED("first_entry", boot.first_usec),
+                                        SD_JSON_BUILD_PAIR_UNSIGNED("last_entry", boot.last_usec)));
+        if (r < 0)
+                return r;
+
+        return sd_json_variant_dump(json, SD_JSON_FORMAT_SEQ, f, /* prefix= */ NULL);
+}
+
+static ssize_t request_reader_boots(
+                void *cls,
+                uint64_t pos,
+                char *buf,
+                size_t max) {
+
+        RequestMeta *m = ASSERT_PTR(cls);
+        int r;
+
+        assert(buf);
+        assert(max > 0);
+        assert(pos >= m->delta);
+
+        pos -= m->delta;
+
+        while (pos >= m->size) {
+                LogId boot;
+                off_t sz;
+
+                /* We're seeking from tail (newest boot) so advance to older. */
+                r = discover_next_id(
+                                m->journal,
+                                LOG_BOOT_ID,
+                                /* boot_id */ SD_ID128_NULL,
+                                /* unit= */ NULL,
+                                m->previous_boot_id,
+                                /* advance_older= */ true,
+                                &boot);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to advance boot index: %m");
+                        return MHD_CONTENT_READER_END_WITH_ERROR;
+                }
+                if (r == 0)
+                        return MHD_CONTENT_READER_END_OF_STREAM;
+
+                pos -= m->size;
+                m->delta += m->size;
+
+                r = request_meta_ensure_tmp(m);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to create temporary file: %m");
+                        return MHD_CONTENT_READER_END_WITH_ERROR;
+                }
+
+                r = output_boot(m->tmp, boot, m->boot_index);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to serialize boot: %m");
+                        return MHD_CONTENT_READER_END_WITH_ERROR;
+                }
+
+                sz = ftello(m->tmp);
+                if (sz < 0) {
+                        log_error_errno(errno, "Failed to retrieve file position: %m");
+                        return MHD_CONTENT_READER_END_WITH_ERROR;
+                }
+
+                m->size = (uint64_t) sz;
+
+                m->previous_boot_id = boot.id;
+                m->boot_index -= 1;
+        }
+
+        if (fseeko(m->tmp, pos, SEEK_SET) < 0) {
+                log_error_errno(errno, "Failed to seek to position: %m");
+                return MHD_CONTENT_READER_END_WITH_ERROR;
+        }
+
+        size_t n = MIN(m->size - pos, max);
+
+        errno = 0;
+        size_t k = fread(buf, 1, n, m->tmp);
+        if (k != n) {
+                log_error("Failed to read from file: %s", STRERROR_OR_EOF(errno));
+                return MHD_CONTENT_READER_END_WITH_ERROR;
+        }
+
+        return (ssize_t) k;
+}
+
+static int request_handler_boots(
+                struct MHD_Connection *connection,
+                void *connection_cls) {
+
+        _cleanup_(MHD_destroy_responsep) struct MHD_Response *response = NULL;
+        RequestMeta *m = ASSERT_PTR(connection_cls);
+        int r;
+
+        assert(connection);
+
+        r = open_journal(m);
+        if (r < 0)
+                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to open journal: %m");
+
+        m->previous_boot_id = SD_ID128_NULL;
+        m->boot_index = 0;
+        r = sd_journal_seek_tail(m->journal); /* seek to newest */
+        if (r < 0)
+                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to seek in journal: %m");
+
+        response = sym_MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 4*1024, request_reader_boots, m, NULL);
+        if (!response)
+                return respond_oom(connection);
+
+        if (sym_MHD_add_response_header(response, "Content-Type", "application/json-seq") == MHD_NO)
+                return respond_oom(connection);
+
+        return sym_MHD_queue_response(connection, MHD_HTTP_OK, response);
+}
+
+static mhd_result request_handler(
+                void *cls,
+                struct MHD_Connection *connection,
+                const char *url,
+                const char *method,
+                const char *version,
+                const char *upload_data,
+                size_t *upload_data_size,
+                void **connection_cls) {
+        int r, code;
+
+        assert(connection);
+        assert(connection_cls);
+        assert(url);
+        assert(method);
+
+        if (!streq(method, "GET"))
+                return mhd_respond(connection, MHD_HTTP_NOT_ACCEPTABLE, "Unsupported method.");
+
+        if (!*connection_cls) {
+                if (!request_meta(connection_cls))
+                        return respond_oom(connection);
+                return MHD_YES;
+        }
+
+        if (arg_trust_pem) {
+                r = check_permissions(connection, &code, NULL);
+                if (r < 0)
+                        return code;
+        }
+
+        if (streq(url, "/"))
+                return request_handler_redirect(connection, "/browse");
+
+        if (streq(url, "/entries"))
+                return request_handler_entries(connection, *connection_cls);
+
+        if (startswith(url, "/fields/"))
+                return request_handler_fields(connection, url + 8, *connection_cls);
+
+        if (streq(url, "/browse"))
+                return request_handler_file(connection, DOCUMENT_ROOT "/browse.html", "text/html");
+
+        if (streq(url, "/machine"))
+                return request_handler_machine(connection, *connection_cls);
+
+        if (streq(url, "/boots"))
+                return request_handler_boots(connection, *connection_cls);
+
+        return mhd_respond(connection, MHD_HTTP_NOT_FOUND, "Not found.");
+}
+
+static int parse_argv(int argc, char *argv[]) {
+        assert(argc >= 0);
+        assert(argv);
+
+        OptionParser opts = { argc, argv };
+        int r;
+
+        FOREACH_OPTION_OR_RETURN(c, &opts)
+                switch (c) {
+
+                OPTION_COMMON_HELP:
+                        return command_print_help("systemd-journal-gatewayd");
+
+                OPTION_COMMON_VERSION:
+                        return version();
+
+                OPTION_LONG("cert", "CERT.PEM", "Server certificate in PEM format"):
+                        if (arg_cert_pem)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Certificate file specified twice");
+                        r = read_full_file_full(
+                                        AT_FDCWD, opts.arg, UINT64_MAX, SIZE_MAX,
+                                        READ_FULL_FILE_CONNECT_SOCKET,
+                                        NULL,
+                                        &arg_cert_pem, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to read certificate file: %m");
+                        assert(arg_cert_pem);
+                        break;
+
+                OPTION_LONG("key", "KEY.PEM", "Server key in PEM format"):
+                        if (arg_key_pem)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Key file specified twice");
+                        r = read_full_file_full(
+                                        AT_FDCWD, opts.arg, UINT64_MAX, SIZE_MAX,
+                                        READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
+                                        NULL,
+                                        &arg_key_pem, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to read key file: %m");
+                        assert(arg_key_pem);
+                        break;
+
+                OPTION_LONG("trust", "CERT.PEM", "Certificate authority certificate in PEM format"):
+#if HAVE_GNUTLS
+                        if (arg_trust_pem)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "CA certificate file specified twice");
+                        r = read_full_file_full(
+                                        AT_FDCWD, opts.arg, UINT64_MAX, SIZE_MAX,
+                                        READ_FULL_FILE_CONNECT_SOCKET,
+                                        NULL,
+                                        &arg_trust_pem, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to read CA certificate file: %m");
+                        assert(arg_trust_pem);
+                        break;
+#else
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Option --trust= is not available.");
+#endif
+
+                OPTION_LONG("system", NULL, "Serve system journal"):
+                        arg_journal_type |= SD_JOURNAL_SYSTEM;
+                        break;
+
+                OPTION_LONG("user", NULL, "Serve the user journal for the current user"):
+                        arg_journal_type |= SD_JOURNAL_CURRENT_USER;
+                        break;
+
+                OPTION('m', "merge", NULL, "Serve all available journals"):
+                        arg_merge = true;
+                        break;
+
+                OPTION('D', "directory", "PATH", "Serve journal files in directory"):
+                        r = free_and_strdup_warn(&arg_directory, opts.arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("file", "PATH", "Serve this journal file"):
+                        r = glob_extend(&arg_file, opts.arg, GLOB_NOCHECK);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add paths: %m");
+                        break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
+                }
+
+        if (option_parser_get_n_args(&opts) > 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This program does not take arguments.");
+
+        if (!!arg_key_pem != !!arg_cert_pem)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Certificate and key files must be specified together");
+
+        if (arg_trust_pem && !arg_key_pem)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "CA certificate can only be used with certificate file");
+
+        return 1;
+}
+
+static int run(int argc, char *argv[]) {
+        _cleanup_(MHD_stop_daemonp) struct MHD_Daemon *d = NULL;
+        static const struct sigaction sigterm = {
+                .sa_handler = nop_signal_handler,
+                .sa_flags = SA_RESTART,
+        };
+        struct MHD_OptionItem opts[] = {
+                { MHD_OPTION_EXTERNAL_LOGGER,
+                  (intptr_t) microhttpd_logger, NULL },
+                { MHD_OPTION_NOTIFY_COMPLETED,
+                  (intptr_t) request_meta_free, NULL },
+                { MHD_OPTION_END, 0, NULL },
+                { MHD_OPTION_END, 0, NULL },
+                { MHD_OPTION_END, 0, NULL },
+                { MHD_OPTION_END, 0, NULL },
+                { MHD_OPTION_END, 0, NULL },
+        };
+        int opts_pos = 2;
+
+        /* We force MHD_USE_ITC here, in order to make sure
+         * libmicrohttpd doesn't use shutdown() on our listening
+         * socket, which would break socket re-activation. See
+         *
+         * https://lists.gnu.org/archive/html/libmicrohttpd/2015-09/msg00014.html
+         * https://github.com/systemd/systemd/pull/1286
+         */
+
+        int flags =
+                MHD_USE_DEBUG |
+                MHD_USE_DUAL_STACK |
+                MHD_USE_ITC |
+                MHD_USE_POLL_INTERNAL_THREAD |
+                MHD_USE_THREAD_PER_CONNECTION;
+        int r, n;
+
+        COMPRESS_JOURNAL_NOTE;
+        LIBGNUTLS_NOTE(suggested);
+        LIBMICROHTTPD_NOTE(required);
+
+        log_setup();
+
+        r = parse_argv(argc, argv);
+        if (r <= 0)
+                return r;
+
+        r = dlopen_microhttpd(LOG_ERR);
+        if (r < 0)
+                return r;
+
+        journal_browse_prepare();
+
+        assert_se(sigaction(SIGTERM, &sigterm, NULL) >= 0);
+
+        r = setup_gnutls_logger(NULL);
+        if (r < 0)
+                return r;
+
+        n = sd_listen_fds(1);
+        if (n < 0)
+                return log_error_errno(n, "Failed to determine passed sockets: %m");
+        if (n > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Can't listen on more than one socket.");
+
+        if (n == 1)
+                opts[opts_pos++] = (struct MHD_OptionItem)
+                        { MHD_OPTION_LISTEN_SOCKET, SD_LISTEN_FDS_START };
+
+        if (arg_key_pem) {
+                assert(arg_cert_pem);
+                opts[opts_pos++] = (struct MHD_OptionItem)
+                        { MHD_OPTION_HTTPS_MEM_KEY, 0, arg_key_pem };
+                opts[opts_pos++] = (struct MHD_OptionItem)
+                        { MHD_OPTION_HTTPS_MEM_CERT, 0, arg_cert_pem };
+                flags |= MHD_USE_TLS;
+        }
+
+        if (arg_trust_pem) {
+                assert(flags & MHD_USE_TLS);
+                opts[opts_pos++] = (struct MHD_OptionItem)
+                        { MHD_OPTION_HTTPS_MEM_TRUST, 0, arg_trust_pem };
+        }
+
+        d = sym_MHD_start_daemon(
+                        flags,
+                        /* port= */ 19531,
+                        /* acp= */ NULL,
+                        /* acp_cls= */ NULL,
+                        request_handler,
+                        /* dh_cls= */ NULL,
+                        MHD_OPTION_ARRAY,
+                        opts,
+                        MHD_OPTION_END);
+        if (!d)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to start daemon!");
+
+        pause();
+
+        return 0;
+}
+
+DEFINE_MAIN_FUNCTION(run);

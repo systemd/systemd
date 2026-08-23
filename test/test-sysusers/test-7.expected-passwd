@@ -1,0 +1,5 @@
+bin:x:1:1::/:NOLOGIN
+daemon:x:2:2::/:NOLOGIN
+mail:x:8:12::/var/spool/mail:NOLOGIN
+ftp:x:14:11::/srv/ftp:NOLOGIN
+http:x:33:33::/srv/http:NOLOGIN

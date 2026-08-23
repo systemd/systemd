@@ -1,0 +1,60 @@
+Y = Comprehensively Implemented, to the point appropriate for resolved
+D = Comprehensively Implemented, by a dependency of resolved
+! = Missing and something we might want to implement
+~ = Needs no explicit support or doesn't apply
+? = Is this relevant today?
+  = We are working on this
+
+Y https://tools.ietf.org/html/rfc1034 → DOMAIN NAMES - CONCEPTS AND FACILITIES
+Y https://tools.ietf.org/html/rfc1035 → DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION
+? https://tools.ietf.org/html/rfc1101 → DNS Encoding of Network Names and Other Types
+Y https://tools.ietf.org/html/rfc1123 → Requirements for Internet Hosts — Application and Support
+~ https://tools.ietf.org/html/rfc1464 → Using the Domain Name System To Store Arbitrary String Attributes
+Y https://tools.ietf.org/html/rfc1536 → Common DNS Implementation Errors and Suggested Fixes
+Y https://tools.ietf.org/html/rfc1876 → A Means for Expressing Location Information in the Domain Name System
+Y https://tools.ietf.org/html/rfc2181 → Clarifications to the DNS Specification
+Y https://tools.ietf.org/html/rfc2308 → Negative Caching of DNS Queries (DNS NCACHE)
+Y https://tools.ietf.org/html/rfc2782 → A DNS RR for specifying the location of services (DNS SRV)
+D https://tools.ietf.org/html/rfc3492 → Punycode: A Bootstring encoding of Unicode for Internationalized Domain Names in Applications (IDNA)
+Y https://tools.ietf.org/html/rfc3596 → DNS Extensions to Support IP Version 6
+Y https://tools.ietf.org/html/rfc3597 → Handling of Unknown DNS Resource Record (RR) Types
+Y https://tools.ietf.org/html/rfc4033 → DNS Security Introduction and Requirements
+Y https://tools.ietf.org/html/rfc4034 → Resource Records for the DNS Security Extensions
+Y https://tools.ietf.org/html/rfc4035 → Protocol Modifications for the DNS Security Extensions
+! https://tools.ietf.org/html/rfc4183 → A Suggested Scheme for DNS Resolution of Networks and Gateways
+Y https://tools.ietf.org/html/rfc4255 → Using DNS to Securely Publish Secure Shell (SSH) Key Fingerprints
+Y https://tools.ietf.org/html/rfc4343 → Domain Name System (DNS) Case Insensitivity Clarification
+~ https://tools.ietf.org/html/rfc4470 → Minimally Covering NSEC Records and DNSSEC On-line Signing
+Y https://tools.ietf.org/html/rfc4501 → Domain Name System Uniform Resource Identifiers
+Y https://tools.ietf.org/html/rfc4509 → Use of SHA-256 in DNSSEC Delegation Signer (DS) Resource Records (RRs)
+~ https://tools.ietf.org/html/rfc4592 → The Role of Wildcards in the Domain Name System
+~ https://tools.ietf.org/html/rfc4697 → Observed DNS Resolution Misbehavior
+Y https://tools.ietf.org/html/rfc4795 → Link-Local Multicast Name Resolution (LLMNR)
+Y https://tools.ietf.org/html/rfc5011 → Automated Updates of DNS Security (DNSSEC) Trust Anchors
+Y https://tools.ietf.org/html/rfc5155 → DNS Security (DNSSEC) Hashed Authenticated Denial of Existence
+Y https://tools.ietf.org/html/rfc5452 → Measures for Making DNS More Resilient against Forged Answers
+Y https://tools.ietf.org/html/rfc5702 → Use of SHA-2 Algorithms with RSA in DNSKEY and RRSIG Resource Records for DNSSEC
+Y https://tools.ietf.org/html/rfc5890 → Internationalized Domain Names for Applications (IDNA): Definitions and Document Framework
+Y https://tools.ietf.org/html/rfc5891 → Internationalized Domain Names in Applications (IDNA): Protocol
+Y https://tools.ietf.org/html/rfc5966 → DNS Transport over TCP - Implementation Requirements
+Y https://tools.ietf.org/html/rfc6303 → Locally Served DNS Zones
+Y https://tools.ietf.org/html/rfc6604 → xNAME RCODE and Status Bits Clarification
+Y https://tools.ietf.org/html/rfc6605 → Elliptic Curve Digital Signature Algorithm (DSA) for DNSSEC
+  https://tools.ietf.org/html/rfc6672 → DNAME Redirection in the DNS
+! https://tools.ietf.org/html/rfc6731 → Improved Recursive DNS Server Selection for Multi-Interfaced Nodes
+Y https://tools.ietf.org/html/rfc6761 → Special-Use Domain Names
+  https://tools.ietf.org/html/rfc6762 → Multicast DNS
+  https://tools.ietf.org/html/rfc6763 → DNS-Based Service Discovery
+~ https://tools.ietf.org/html/rfc6781 → DNSSEC Operational Practices, Version 2
+Y https://tools.ietf.org/html/rfc6840 → Clarifications and Implementation Notes for DNS Security (DNSSEC)
+Y https://tools.ietf.org/html/rfc6891 → Extension Mechanisms for DNS (EDNS(0))
+Y https://tools.ietf.org/html/rfc6944 → Applicability Statement: DNS Security (DNSSEC) DNSKEY Algorithm Implementation Status
+Y https://tools.ietf.org/html/rfc6975 → Signaling Cryptographic Algorithm Understanding in DNS Security Extensions (DNSSEC)
+Y https://tools.ietf.org/html/rfc7129 → Authenticated Denial of Existence in the DNS
+Y https://tools.ietf.org/html/rfc7646 → Definition and Use of DNSSEC Negative Trust Anchors
+~ https://tools.ietf.org/html/rfc7719 → DNS Terminology
+Y https://tools.ietf.org/html/rfc8080 → Edwards-Curve Digital Security Algorithm (EdDSA) for DNSSEC
+
+Also relevant:
+
+  https://www.iab.org/documents/correspondence-reports-documents/2013-2/iab-statement-dotless-domains-considered-harmful/

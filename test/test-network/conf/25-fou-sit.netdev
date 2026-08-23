@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[NetDev]
+Name=sittun96
+Kind=sit
+
+[Tunnel]
+Local=10.65.223.238
+Remote=10.65.223.239
+Independent=true
+
+FooOverUDP=yes
+FOUDestinationPort=55555

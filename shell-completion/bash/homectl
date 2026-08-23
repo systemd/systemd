@@ -1,0 +1,209 @@
+# shellcheck shell=bash
+# homectl(1) completion                               -*- shell-script -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# This file is part of systemd.
+#
+# systemd is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
+#
+# systemd is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
+
+__contains_word () {
+    local w word=$1; shift
+    for w in "$@"; do
+        [[ $w = "$word" ]] && return
+    done
+}
+
+__get_machines() {
+    local a b
+    machinectl list --full --no-legend --no-pager 2>/dev/null |
+        { while read -r a b; do echo " $a"; done; }
+}
+
+__get_homes() {
+    homectl --no-pager --no-legend list 2>/dev/null
+}
+
+_homectl() {
+    local i verb comps
+    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+
+    local -A OPTS=(
+        [STANDALONE]='-h --help --version
+                     --no-pager --no-legend --no-ask-password
+                     -j -E -P -A -N -T'
+        [ARG]='      -H --host
+                     -M --machine
+                        --identity
+                        --json
+                        --export-format
+                     -c --real-name
+                        --realm
+                        --email-address
+                        --location
+                        --icon-name
+                     -d --home-dir
+                        --uid
+                     -G --member-of
+                        --skel
+                        --shell
+                        --setenv
+                        --timezone
+                        --language
+                        --ssh-authorized-keys
+                        --pkcs11-token-uri
+                        --locked
+                        --not-before
+                        --not-after
+                        --rate-limit-interval
+                        --rate-limit-burst
+                        --password-hint
+                        --enforce-password-policy
+                        --password-change-now
+                        --password-change-min
+                        --password-change-max
+                        --password-change-warn
+                        --password-change-inactive
+                        --disk-size
+                        --access-mode
+                        --umask
+                        --nice
+                        --rlimit
+                        --tasks-max
+                        --memory-high
+                        --memory-max
+                        --cpu-weight
+                        --io-weight
+                        --storage
+                        --image-path
+                        --fs-type
+                        --luks-discard
+                        --luks-offline-discard
+                        --luks-cipher
+                        --luks-cipher-mode
+                        --luks-volume-key-size
+                        --luks-pbkdf-type
+                        --luks-pbkdf-hash-algorithm
+                        --luks-pbkdf-force-iterations
+                        --luks-pbkdf-time-cost
+                        --luks-pbkdf-memory-cost
+                        --luks-pbkdf-parallel-threads
+                        --luks-sector-size
+                        --nosuid
+                        --nodev
+                        --noexec
+                        --cifs-domain
+                        --cifs-user-name
+                        --cifs-service
+                        --stop-delay
+                        --kill-processes
+                        --auto-login
+                     -b --blob
+                        --avatar
+                        --login-background
+                        --session-launcher
+                        --session-type
+                        --key-name
+                        --seize
+                        --match'
+    )
+
+    if __contains_word "$prev" ${OPTS[ARG]}; then
+        case $prev in
+            --host|-H)
+                comps=$(compgen -A hostname)
+                ;;
+            --machine|-M)
+                comps=$( __get_machines )
+                ;;
+            --identity|--image-path|--avatar|--login-background)
+                comps=$(compgen -A file -- "$cur" )
+                compopt -o filenames
+                ;;
+            --json)
+                comps='pretty short off'
+                ;;
+            --export-format)
+                comps='full stripped minimal'
+                ;;
+            --locked|--enforce-password-policy|--password-change-now|--luks-discard|--luks-offline-discard|--nosuid|--nodev|--noexec|--kill-processes|--auto-login)
+                comps='yes no'
+                ;;
+            -d|--home-dir|--skel|-b|--blob)
+                comps=$(compgen -A directory -- "$cur" )
+                compopt -o dirnames
+                ;;
+            -G|--member-of)
+                comps=$(compgen -A group -- "$cur" )
+                ;;
+            --shell)
+                comps=$(cat /etc/shells)
+                ;;
+            --fs-type)
+                comps='btrfs ext4 xfs'
+                ;;
+            --cifs-user-name)
+                comps=$(compgen -A user -- "$cur" )
+                ;;
+            --language)
+                comps=$(localectl list-locales 2>/dev/null)
+                ;;
+            --session-launcher)
+                comps=$(find /usr/share/{x,wayland-}sessions/ -type f -name '*.desktop' -exec basename {} .desktop \; 2>/dev/null | sort -u)
+                ;;
+            --session-type)
+                comps='wayland x11 tty'
+                ;;
+        esac
+        COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+        return 0
+    fi
+
+    if [[ "$cur" = -* ]]; then
+        COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
+        return 0
+    fi
+
+    local -A VERBS=(
+        [STANDALONE]='list lock-all register unregister adopt'
+        [CREATE]='create'
+        [NAMES]='activate deactivate inspect authenticate remove lock unlock'
+        [NAME]='update passwd'
+        [RESIZE]='resize'
+        [WITH]='with'
+    )
+
+    for ((i=0; i < COMP_CWORD; i++)); do
+        if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]}; then
+            verb=${COMP_WORDS[i]}
+            break
+        fi
+    done
+
+    if [[ -z ${verb-} ]]; then
+        comps=${VERBS[*]}
+    elif __contains_word "$verb" ${VERBS[NAME]}; then
+        comps=$(__get_homes)
+    elif __contains_word "$verb" ${VERBS[NAMES]}; then
+        comps=$(__get_homes)
+    elif __contains_word "$verb" ${VERBS[STANDALONE]} ${VERBS[CREATE]} ${VERBS[RESIZE]}; then
+        comps=$(__get_homes)
+    elif __contains_word "$verb" ${VERBS[WITH]}; then
+        comps=$(__get_homes)
+    fi
+
+    COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+    return 0
+}
+
+complete -F _homectl homectl

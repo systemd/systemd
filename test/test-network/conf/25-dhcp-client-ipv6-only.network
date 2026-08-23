@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=veth99
+
+[Network]
+# DHCPv4 is also enabled here, but will be stopped when an IPv6 address is acquired.
+DHCP=yes
+IPv6Token=::1a:2b:3c:4d
+
+[DHCPv4]
+IPv6OnlyMode=yes
+
+[Route]
+Gateway=_ipv6ra
+Destination=2001:1234:5:9fff:ff:ff:ff:ff/128
+
+[IPv6AcceptRA]
+# To check DNS and NTP servers are really obtained by DHCPv6
+UseDNS=no

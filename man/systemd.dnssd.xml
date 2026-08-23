@@ -1,0 +1,251 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd.dnssd"
+          xmlns:xi="http://www.w3.org/2001/XInclude"
+          conditional='ENABLE_RESOLVE'>
+
+  <refentryinfo>
+    <title>systemd.dnssd</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd.dnssd</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd.dnssd</refname>
+    <refpurpose>DNS-SD configuration</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename><replaceable>network_service</replaceable>.dnssd</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>DNS-SD setup is performed by
+    <citerefentry><refentrytitle>systemd-resolved</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    </para>
+
+    <para>The main network service file must have the extension <filename>.dnssd</filename>; other
+    extensions are ignored.</para>
+
+    <para>The <filename>.dnssd</filename> files are read from the files located in the system network
+    directories <filename>/usr/lib/systemd/dnssd</filename> and
+    <filename>/usr/local/lib/systemd/dnssd</filename>, the volatile runtime network directory
+    <filename>/run/systemd/dnssd</filename> and the local administration network directory
+    <filename>/etc/systemd/dnssd</filename>. All configuration files are collectively sorted and processed in
+    lexicographic order, regardless of the directories in which they live. However, files with identical filenames
+    replace each other. Files in <filename>/etc/</filename> have the highest priority, files in
+    <filename>/run/</filename> take precedence over files with the same name in
+    <filename>/usr/lib/</filename>. This can be used to override a system-supplied configuration file with a
+    local file if needed.</para>
+
+    <para>Along with the network service file <filename>foo.dnssd</filename>, a "drop-in" directory
+    <filename>foo.dnssd.d/</filename> may exist. All files with the suffix
+    <literal>.conf</literal> from this directory will be parsed after the file itself is
+    parsed. This is useful to alter or add configuration settings, without having to modify the main
+    configuration file. Each drop-in file must have appropriate section headers.</para>
+
+    <para>In addition to <filename>/etc/systemd/dnssd</filename>, drop-in <literal>.d</literal> directories
+    can be placed in <filename>/usr/lib/systemd/dnssd</filename> or <filename>/run/systemd/dnssd</filename>
+    directories. Drop-in files in <filename>/etc/</filename> take precedence over those in
+    <filename>/run/</filename> which in turn take precedence over those in <filename>/usr/lib/</filename> or
+    <filename>/usr/local/lib</filename>. Drop-in files under any of these directories take precedence over
+    the main network service file wherever located.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>[Service] Section Options</title>
+
+      <para>The network service file contains a [Service]
+      section, which specifies a discoverable network service announced in a
+      local network with Multicast DNS broadcasts.</para>
+
+      <variablelist class='network-directives'>
+        <varlistentry>
+          <term><varname>Name=</varname></term>
+          <listitem>
+            <para>An instance name of the network service as defined in the section 4.1.1 of <ulink
+            url="https://tools.ietf.org/html/rfc6763">RFC 6763</ulink>, e.g. <literal>webserver</literal>.</para>
+            <para>The option supports simple specifier expansion. The following expansions are understood:</para>
+            <table class='specifiers'>
+              <title>Specifiers available</title>
+              <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+                <colspec colname="spec" />
+                <colspec colname="mean" />
+                <colspec colname="detail" />
+                <thead>
+                  <row>
+                    <entry>Specifier</entry>
+                    <entry>Meaning</entry>
+                    <entry>Details</entry>
+                  </row>
+                </thead>
+                <tbody>
+                  <xi:include href="standard-specifiers.xml" xpointer="a"/>
+                  <xi:include href="standard-specifiers.xml" xpointer="A"/>
+                  <xi:include href="standard-specifiers.xml" xpointer="b"/>
+                  <xi:include href="standard-specifiers.xml" xpointer="B"/>
+                  <xi:include href="standard-specifiers.xml" xpointer="H"/>
+                  <xi:include href="standard-specifiers.xml" xpointer="m"/>
+                  <xi:include href="standard-specifiers.xml" xpointer="M"/>
+                  <xi:include href="standard-specifiers.xml" xpointer="o"/>
+                  <xi:include href="standard-specifiers.xml" xpointer="v"/>
+                  <xi:include href="standard-specifiers.xml" xpointer="w"/>
+                  <xi:include href="standard-specifiers.xml" xpointer="W"/>
+                  <xi:include href="standard-specifiers.xml" xpointer="percent"/>
+                </tbody>
+              </tgroup>
+            </table>
+
+              <xi:include href="version-info.xml" xpointer="v236"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Type=</varname></term>
+          <listitem>
+            <para>A type of the network service as defined in the section 4.1.2 of <ulink
+            url="https://tools.ietf.org/html/rfc6763">RFC 6763</ulink>, e.g. <literal>_http._tcp</literal>.
+            </para>
+
+          <xi:include href="version-info.xml" xpointer="v236"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>SubType=</varname></term>
+          <listitem>
+            <para>A subtype of the network service as defined in the section 7.1 of <ulink
+            url="https://tools.ietf.org/html/rfc6763">RFC 6763</ulink>, e.g. <literal>_printer</literal>.
+            </para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Port=</varname></term>
+          <listitem>
+            <para>An IP port number of the network service.</para>
+
+          <xi:include href="version-info.xml" xpointer="v236"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Priority=</varname></term>
+          <listitem>
+            <para>A priority number set in <constant class='dns'>SRV</constant> resource records corresponding
+            to the network service.</para>
+
+          <xi:include href="version-info.xml" xpointer="v236"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Weight=</varname></term>
+          <listitem>
+            <para>A weight number set in <constant class='dns'>SRV</constant> resource records corresponding
+            to the network service.</para>
+
+          <xi:include href="version-info.xml" xpointer="v236"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>TxtText=</varname></term>
+          <listitem>
+            <para>A whitespace-separated list of arbitrary key/value pairs
+            conveying additional information about the named service in the corresponding TXT resource record,
+            e.g. <literal>path=/portal/index.html</literal>. Keys and values can contain C-style escape
+            sequences which get translated upon reading configuration files.
+            </para>
+            <para>This option together with <varname>TxtData=</varname> may be specified more than once, in which
+            case multiple TXT resource records will be created for the service. If the empty string is assigned to
+            this option, the list is reset and all prior assignments will have no effect.
+            </para>
+
+            <xi:include href="version-info.xml" xpointer="v236"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>TxtData=</varname></term>
+          <listitem>
+            <para>A whitespace-separated list of arbitrary key/value pairs
+            conveying additional information about the named service in the corresponding TXT resource record
+            where values are base64-encoded string representing any binary data,
+            e.g. <literal>data=YW55IGJpbmFyeSBkYXRhCg==</literal>. Keys can contain C-style escape
+            sequences which get translated upon reading configuration files.
+            </para>
+            <para>This option together with <varname>TxtText=</varname> may be specified more than once, in which
+            case multiple TXT resource records will be created for the service. If the empty string is assigned to
+            this option, the list is reset and all prior assignments will have no effect.
+            </para>
+
+            <xi:include href="version-info.xml" xpointer="v236"/>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+    <example>
+      <title>HTTP service</title>
+
+      <programlisting># /etc/systemd/dnssd/http.dnssd
+[Service]
+Name=%H
+Type=_http._tcp
+Port=80
+TxtText=path=/stats/index.html t=temperature_sensor</programlisting>
+
+      <para>This makes the http server running on the host discoverable in the local network
+      given MulticastDNS is enabled on the network interface.</para>
+
+      <para>Now the utility <literal>resolvectl</literal> should be able to resolve the
+      service to the host's name:</para>
+
+      <programlisting>$ resolvectl service meteo._http._tcp.local
+meteo._http._tcp.local: meteo.local:80 [priority=0, weight=0]
+                        169.254.208.106%senp0s21f0u2u4
+                        fe80::213:3bff:fe49:8aa%senp0s21f0u2u4
+                        path=/stats/index.html
+                        t=temperature_sensor
+                        (meteo/_http._tcp/local)
+
+-- Information acquired via protocol mDNS/IPv6 in 4.0ms.
+-- Data is authenticated: yes</programlisting>
+
+      <para><literal>Avahi</literal> running on a different host in the same local network should see the service as well:</para>
+
+      <programlisting>$ avahi-browse -a -r
++ enp3s0 IPv6 meteo                                         Web Site             local
++ enp3s0 IPv4 meteo                                         Web Site             local
+= enp3s0 IPv6 meteo                                         Web Site             local
+   hostname = [meteo.local]
+   address = [fe80::213:3bff:fe49:8aa]
+   port = [80]
+   txt = ["path=/stats/index.html" "t=temperature_sensor"]
+= enp3s0 IPv4 meteo                                         Web Site             local
+   hostname = [meteo.local]
+   address = [169.254.208.106]
+   port = [80]
+   txt = ["path=/stats/index.html" "t=temperature_sensor"]</programlisting>
+
+    </example>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>resolvectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

@@ -1,0 +1,242 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include <sys/stat.h>
+#include <unistd.h>
+
+#include "ansi-color.h"
+#include "bus-util.h"
+#include "log.h"
+#include "networkctl.h"
+#include "networkctl-util.h"
+#include "polkit-agent.h"
+#include "string-util.h"
+#include "strv.h"
+#include "varlink-util.h"
+
+int varlink_connect_networkd(sd_varlink **ret_varlink) {
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
+        sd_json_variant *reply;
+        uint64_t id;
+        int r;
+
+        r = sd_varlink_connect_address(&vl, "/run/systemd/netif/io.systemd.Network");
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to network service /run/systemd/netif/io.systemd.Network: %m");
+
+        (void) sd_varlink_set_description(vl, "varlink-network");
+
+        r = sd_varlink_set_allow_fd_passing_output(vl, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allow passing file descriptor through varlink: %m");
+
+        r = varlink_call_and_log(vl, "io.systemd.Network.GetNamespaceId", /* parameters= */ NULL, &reply);
+        if (r < 0)
+                return r;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "NamespaceId", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint64, 0, SD_JSON_MANDATORY },
+                {},
+        };
+
+        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &id);
+        if (r < 0)
+                return r;
+
+        if (id == 0)
+                log_debug("systemd-networkd.service not running in a network namespace (?), skipping netns check.");
+        else {
+                struct stat st;
+
+                if (stat("/proc/self/ns/net", &st) < 0)
+                        return log_error_errno(errno, "Failed to determine our own network namespace ID: %m");
+
+                if (id != st.st_ino)
+                        return log_error_errno(SYNTHETIC_ERRNO(EREMOTE),
+                                               "networkctl must be invoked in same network namespace as systemd-networkd.service.");
+        }
+
+        if (ret_varlink)
+                *ret_varlink = TAKE_PTR(vl);
+        return 0;
+}
+
+int reload_networkd(bool reconfigure_links) {
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
+        int r;
+
+        r = varlink_connect_networkd(&vl);
+        if (r < 0)
+                return r;
+
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
+        sd_json_variant *reply = NULL;
+        const char *error_id = NULL;
+        r = sd_varlink_callbo(
+                        vl,
+                        "io.systemd.Network.Reload",
+                        &reply,
+                        &error_id,
+                        SD_JSON_BUILD_PAIR_BOOLEAN("reconfigureLinks", reconfigure_links),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password));
+        if (r < 0)
+                return log_error_errno(r, "Failed to call io.systemd.Network.Reload varlink method: %m");
+
+        if (error_id) {
+                if (streq(error_id, SD_VARLINK_ERROR_METHOD_NOT_FOUND)) {
+                        if (!reconfigure_links)
+                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                                       "Installed version of systemd-networkd does not support --no-reconfigure.");
+
+                        /* Older networkd without io.systemd.Network.Reload, fall back to io.systemd.service.Reload. */
+                        return varlink_callbo_and_log(
+                                        vl,
+                                        "io.systemd.service.Reload",
+                                        /* reply= */ NULL,
+                                        SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password));
+                }
+
+                r = sd_varlink_error_to_errno(error_id, reply);
+                if (r != -EBADR)
+                        return log_error_errno(r, "Failed to call io.systemd.Network.Reload varlink method: %m");
+                return log_error_errno(r, "Failed to call io.systemd.Network.Reload varlink method: %s", error_id);
+        }
+
+        return 0;
+}
+
+int reload_udevd(void) {
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
+        int r;
+
+        r = sd_varlink_connect_address(&vl, "/run/udev/io.systemd.Udev");
+        if (r == -ENOENT) {
+                log_debug("systemd-udevd is not running, skipping reload.");
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to udev: %m");
+
+        (void) sd_varlink_set_description(vl, "udev");
+
+        return varlink_call_and_log(vl, "io.systemd.service.Reload", /* parameters= */ NULL, /* reply= */ NULL);
+}
+
+bool networkd_is_running(void) {
+        static int cached = -1;
+        int r;
+
+        if (cached < 0) {
+                r = access("/run/systemd/netif/state", F_OK);
+                if (r < 0) {
+                        if (errno != ENOENT)
+                                log_debug_errno(errno,
+                                                "Failed to determine whether networkd is running, assuming it's not: %m");
+
+                        cached = false;
+                } else
+                        cached = true;
+        }
+
+        return cached;
+}
+
+void operational_state_to_color(const char *name, const char *state, const char **on, const char **off) {
+        if (STRPTR_IN_SET(state, "routable", "enslaved") ||
+            (streq_ptr(name, "lo") && streq_ptr(state, "carrier"))) {
+                if (on)
+                        *on = ansi_highlight_green();
+                if (off)
+                        *off = ansi_normal();
+        } else if (streq_ptr(state, "degraded")) {
+                if (on)
+                        *on = ansi_highlight_yellow();
+                if (off)
+                        *off = ansi_normal();
+        } else {
+                if (on)
+                        *on = "";
+                if (off)
+                        *off = "";
+        }
+}
+
+void setup_state_to_color(const char *state, const char **on, const char **off) {
+        if (streq_ptr(state, "configured")) {
+                if (on)
+                        *on = ansi_highlight_green();
+                if (off)
+                        *off = ansi_normal();
+        } else if (streq_ptr(state, "configuring")) {
+                if (on)
+                        *on = ansi_highlight_yellow();
+                if (off)
+                        *off = ansi_normal();
+        } else if (STRPTR_IN_SET(state, "failed", "linger")) {
+                if (on)
+                        *on = ansi_highlight_red();
+                if (off)
+                        *off = ansi_normal();
+        } else {
+                if (on)
+                        *on = "";
+                if (off)
+                        *off = "";
+        }
+}
+
+void online_state_to_color(const char *state, const char **on, const char **off) {
+        if (streq_ptr(state, "online")) {
+                if (on)
+                        *on = ansi_highlight_green();
+                if (off)
+                        *off = ansi_normal();
+        } else if (streq_ptr(state, "partial")) {
+                if (on)
+                        *on = ansi_highlight_yellow();
+                if (off)
+                        *off = ansi_normal();
+        } else {
+                if (on)
+                        *on = "";
+                if (off)
+                        *off = "";
+        }
+}
+
+int acquire_link_description(sd_varlink *vl, int ifindex, sd_json_variant **ret) {
+        int r;
+
+        assert(vl);
+        assert(ifindex > 0);
+        assert(ret);
+
+        sd_json_variant *v; /* borrowed from vl, do not unref */
+        r = varlink_callbo_and_log(
+                        vl,
+                        "io.systemd.Network.Link.Describe",
+                        &v,
+                        SD_JSON_BUILD_PAIR_INTEGER("InterfaceIndex", ifindex));
+        if (r < 0)
+                return r;
+
+        *ret = sd_json_variant_ref(v);
+        return 0;
+}
+
+int json_variant_find_object(sd_json_variant *v, char * const *object_names, sd_json_variant **ret) {
+        assert(object_names);
+        assert(ret);
+
+        if (!v || sd_json_variant_is_null(v))
+                return -ENODATA;
+
+        STRV_FOREACH(name, object_names) {
+                v = sd_json_variant_by_key(v, *name);
+                if (!v || sd_json_variant_is_null(v))
+                        return -ENODATA;
+        }
+
+        *ret = v;
+        return 0;
+}

@@ -1,0 +1,12 @@
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+# See tmpfiles.d(5) for details.
+
+{% if LINK_SSHD_USERDB_DROPIN %}
+L {{SSHDCONFDIR}}/20-systemd-userdb.conf - - - - {{LIBEXECDIR}}/sshd_config.d/20-systemd-userdb.conf
+{% endif %}

@@ -1,0 +1,6 @@
+#autoload
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+_alternative \
+    'users-hosts:: _user_at_host' \
+    'hosts:: _hosts'

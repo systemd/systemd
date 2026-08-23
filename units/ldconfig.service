@@ -1,0 +1,28 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Rebuild Dynamic Linker Cache
+Documentation=man:ldconfig(8)
+
+ConditionNeedsUpdate=|/etc
+ConditionFileNotEmpty=|!/etc/ld.so.cache
+
+DefaultDependencies=no
+# systemd-confext.service or systemd-tmpfiles-setup.service might put the ld.so.conf configuration files in place so
+# order it after those.
+After=local-fs.target systemd-confext.service systemd-tmpfiles-setup.service
+Before=sysinit.target systemd-update-done.service
+Conflicts=shutdown.target initrd-switch-root.target
+Before=shutdown.target initrd-switch-root.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=ldconfig -X

@@ -1,0 +1,15 @@
+{
+    "userName": "cifsuser",
+    "realName": "CIFS Home User",
+    "uid": 1001,
+    "gid": 1001,
+    "homeDirectory": "/home/cifsuser",
+    "shell": "/bin/bash",
+    "disposition": "regular",
+    "storage": "cifs",
+    "cifsDomain": "EXAMPLE",
+    "cifsUserName": "cifsuser",
+    "cifsService": "//fileserver.example.com/homes/cifsuser",
+    "cifsExtraMountOptions": "vers=3.0,seal,sec=krb5",
+    "memberOf": ["users", "domain-users"]
+}

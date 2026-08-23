@@ -1,0 +1,234 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!--
+  SPDX-License-Identifier: LGPL-2.1-or-later
+
+-->
+<refentry id="integritytab" conditional='HAVE_LIBCRYPTSETUP' xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>integritytab</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>integritytab</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>integritytab</refname>
+    <refpurpose>Configuration for integrity block devices</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>/etc/integritytab</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>The <filename>/etc/integritytab</filename> file describes
+    integrity protected block devices that are set up during
+    system boot.</para>
+
+    <para>Empty lines and lines starting with the <literal>#</literal>
+    character are ignored. Each of the remaining lines describes one
+    verity integrity protected block device. Fields are delimited by
+    white space.</para>
+
+    <para>Each line is in the form<programlisting><replaceable>volume-name</replaceable> <replaceable>block-device</replaceable>
+    <replaceable>[keyfile|-]</replaceable> <replaceable>[options|-]</replaceable></programlisting>
+    The first two fields are mandatory, the remaining two are optional and only required if user specified non-default options during integrity format.</para>
+
+    <para>The first field contains the name of the resulting integrity volume; its block device is set up
+    below <filename>/dev/mapper/</filename>.</para>
+
+    <para>The second field contains a path to the underlying block device, or a specification of a block device via
+    <literal>UUID=</literal> followed by the UUID,
+    <literal>PARTUUID=</literal> followed by the partition UUID,
+    <literal>LABEL=</literal> followed by the label,
+    <literal>PARTLABEL=</literal> followed by the partition label.
+    </para>
+
+    <para>The third field if present contains an absolute filename path to a key file or a <literal>-</literal>
+    to specify none.  When the filename is present, the "integrity-algorithm" defaults to <literal>hmac-sha256</literal>
+    with the key length derived from the number of bytes in the key file.  At this time the only supported integrity algorithms
+    when using key file are hmac-sha256, hmac-sha512, phmac-sha256, and hmac-sha512.  The maximum size of the key file is 4096 bytes.
+    </para>
+
+     <para>The fourth field, if present, is a comma-delimited list of options or a <literal>-</literal> to specify none. The following options are
+    recognized:</para>
+      <variablelist>
+
+      <varlistentry>
+        <term><option>allow-discards</option></term>
+
+        <listitem><para>
+        Allow the use of discard (TRIM) requests for the device.
+        This option is available since the Linux kernel version 5.7.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>mode=(journal|bitmap|direct)</option></term>
+
+        <listitem><para>
+        Enable journaled, bitmapped or direct (passthrough) mode. Journaled mode is the default when this option is not specified.
+        It provides safety against crashes, but can be slow because all data has to be written twice.
+        Bitmap mode is more efficient since it requires only a single write, but it is less reliable because if data corruption happens when the machine crashes, it might not be detected.
+        Direct mode disables the journal and the bitmap. Corresponds to the "direct writes" mode documented in
+        <ulink url="https://docs.kernel.org/admin-guide/device-mapper/dm-integrity.html">the dm-integrity documentation</ulink>.
+        Note that without a journal, if there is a crash, it is possible that the integrity tags and data will not match. If used, the journal-*
+        options below will have no effect if passed.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>journal-watermark=[0..100]%</option></term>
+
+        <listitem><para>
+        Journal watermark in percent. When the journal percentage exceeds this watermark, the journal flush will be started.  Setting a value of
+        "0%" uses default value.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>journal-commit-time=[0..N]</option></term>
+
+        <listitem><para>
+        Commit time in milliseconds. When this time passes (and no explicit flush operation was issued), the journal is written.  Setting a value of
+        zero uses default value.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>data-device=/dev/disk/by-...</option></term>
+
+        <listitem><para>
+        Specify a separate block device that contains existing data. The second field specified in the
+        integritytab for block device then will contain calculated integrity tags and journal for data-device,
+        but not the end user data.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>integrity-algorithm=[crc32c|crc32|xxhash64|sha1|sha256|hmac-sha256|hmac-sha512|phmac-sha256|phmac-sha512]</option></term>
+
+        <listitem><para>
+        The algorithm used for integrity checking.  The default is crc32c. Must match option used during format.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>_netdev</option></term>
+
+        <listitem><para>Marks this veritysetup device as requiring network. It will be started after the
+        network is available, similarly to
+        <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        units marked with <option>_netdev</option>. The service unit to set up this device will be ordered
+        between <filename>remote-fs-pre.target</filename> and
+        <filename>remote-integritysetup.target</filename>, instead of
+        <filename>integritysetup-pre.target</filename> and <filename>integritysetup.target</filename>.</para>
+
+        <para>Hint: if this device is used for a mount point that is specified in <citerefentry
+        project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>, the
+        <option>_netdev</option> option should also be used for the mount point. Otherwise, a dependency loop
+        might be created where the mount point will be pulled in by <filename>local-fs.target</filename>,
+        while the service to configure the network is usually only started <emphasis>after</emphasis> the
+        local file system has been mounted.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>noauto</option></term>
+
+        <listitem><para>This device will not be added to <filename>integritysetup.target</filename>.  This
+        means that it will not be automatically enabled on boot, unless something else pulls it in. In
+        particular, if the device is used for a mount point, it'll be enabled automatically during boot,
+        unless the mount point itself is also disabled with <option>noauto</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>nofail</option></term>
+
+        <listitem><para>This device will not be a hard dependency of
+        <filename>integritysetup.target</filename>. It'll still be pulled in and started, but the system will
+        not wait for the device to show up and be enabled, and boot will not fail if this is
+        unsuccessful. Note that other units that depend on the enabled device may still fail. In particular,
+        if the device is used for a mount point, the mount point itself also needs to have the
+        <option>nofail</option> option, or the boot will fail if the device is not enabled
+        successfully.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>At early boot and when the system manager configuration is
+    reloaded, this file is translated into native systemd units by
+    <citerefentry><refentrytitle>systemd-integritysetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+    <example>
+      <title>/etc/integritytab</title>
+      <para>Set up two integrity protected block devices. </para>
+
+      <programlisting>home PARTUUID=4973d0b8-1b15-c449-96ec-94bab7f6a7b8 - journal-commit-time=10,allow-discards,journal-watermark=55%
+data PARTUUID=5d4b1808-be76-774d-88af-03c4c3a41761 - allow-discards
+</programlisting>
+    </example>
+
+    <example>
+      <title>/etc/integritytab</title>
+      <para>Set up 1 integrity protected block device using defaults </para>
+
+      <programlisting>home PARTUUID=4973d0b8-1b15-c449-96ec-94bab7f6a7b8</programlisting>
+    </example>
+
+    <example>
+      <title>/etc/integritytab</title>
+      <para>Set up 1 integrity device using existing data block device which contains user data </para>
+
+      <programlisting>home PARTUUID=4973d0b8-1b15-c449-96ec-94bab7f6a7b8 - data-device=/dev/disk/by-uuid/9276d9c0-d4e3-4297-b4ff-3307cd0d092f</programlisting>
+    </example>
+
+    <example>
+      <title>/etc/integritytab</title>
+      <para>Set up 1 integrity device using a HMAC key file using defaults </para>
+
+      <programlisting>home PARTUUID=4973d0b8-1b15-c449-96ec-94bab7f6a7b8 /etc/hmac.key</programlisting>
+    </example>
+
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-integritysetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-integritysetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>integritysetup</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

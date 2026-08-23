@@ -1,0 +1,1054 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+# Message catalog for systemd's own messages
+
+# The catalog format is documented on
+# https://systemd.io/CATALOG
+
+# For an explanation why we do all this, see https://xkcd.com/1024/
+
+-- f77379a8490b408bbe5f6940505a777b
+Subject: The journal has been started
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The system journal process has started up, opened the journal
+files for writing and is now ready to process requests.
+
+-- d93fb3c9c24d451a97cea615ce59c00b
+Subject: The journal has been stopped
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The system journal process has shut down and closed all currently
+active journal files.
+
+-- ec387f577b844b8fa948f33cad9a75e6
+Subject: Disk space used by the journal
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+@JOURNAL_NAME@ (@JOURNAL_PATH@) is currently using @CURRENT_USE_PRETTY@.
+Maximum allowed usage is set to @MAX_USE_PRETTY@.
+Leaving at least @DISK_KEEP_FREE_PRETTY@ free (of currently available @DISK_AVAILABLE_PRETTY@ of disk space).
+Enforced usage limit is thus @LIMIT_PRETTY@, of which @AVAILABLE_PRETTY@ are still available.
+
+The limits controlling how much disk space is used by the journal may
+be configured with SystemMaxUse=, SystemKeepFree=, SystemMaxFileSize=,
+RuntimeMaxUse=, RuntimeKeepFree=, RuntimeMaxFileSize= settings in
+/etc/systemd/journald.conf. See journald.conf(5) for details.
+
+-- a596d6fe7bfa4994828e72309e95d61e
+Subject: Messages from a service have been suppressed
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:journald.conf(5)
+
+A service has logged too many messages within a time period. Messages
+from the service have been dropped.
+
+Note that only messages from the service in question have been
+dropped, other services' messages are unaffected.
+
+The limits controlling when messages are dropped may be configured
+with RateLimitIntervalSec= and RateLimitBurst= in
+/etc/systemd/journald.conf or LogRateLimitIntervalSec= and LogRateLimitBurst=
+in the unit file. See journald.conf(5) and systemd.exec(5) for details.
+
+-- e9bf28e6e834481bb6f48f548ad13606
+Subject: Journal messages have been missed
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Kernel messages have been lost as the journal system has been unable
+to process them quickly enough.
+
+-- fc2e22bc6ee647b6b90729ab34a250b1
+Subject: Process @COREDUMP_PID@ (@COREDUMP_COMM@) dumped core
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:core(5)
+
+Process @COREDUMP_PID@ (@COREDUMP_COMM@) crashed and dumped core.
+
+This usually indicates a programming error in the crashing program and
+should be reported to its vendor as a bug.
+
+-- 5aadd8e954dc4b1a8c954d63fd9e1137
+Subject: Core file was truncated to @SIZE_LIMIT@ bytes.
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:coredump.conf(5)
+
+The process had more memory mapped than the configured maximum for processing
+and storage by systemd-coredump(8). Only the first @SIZE_LIMIT@ bytes were
+saved. This core might still be usable, but various tools like gdb(1) will warn
+about the file being truncated.
+
+-- 8d45620c1a4348dbb17410da57c60c66
+Subject: A new session @SESSION_ID@ has been created for user @USER_ID@
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: sd-login(3)
+
+A new session with the ID @SESSION_ID@ has been created for the user @USER_ID@.
+
+The leading process of the session is @LEADER@.
+
+-- 3354939424b4456d9802ca8333ed424a
+Subject: Session @SESSION_ID@ has been terminated
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: sd-login(3)
+
+A session with the ID @SESSION_ID@ has been terminated.
+
+-- fcbefc5da23d428093f97c82a9290f7b
+Subject: A new seat @SEAT_ID@ is now available
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: sd-login(3)
+
+A new seat @SEAT_ID@ has been configured and is now available.
+
+-- e7852bfe46784ed0accde04bc864c2d5
+Subject: Seat @SEAT_ID@ has now been removed
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: sd-login(3)
+
+A seat @SEAT_ID@ has been removed and is no longer available.
+
+-- b2bcbaf5edf948e093ce50bbea0e81ec
+Subject: The Secure Attention Key (SAK) was pressed on @SEAT_ID@
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd-logind.service(8)
+
+The Secure Attention Key (SAK), Ctrl+Alt+Shift+Esc, was pressed on @SEAT_ID@.
+
+Pressing the SAK indicates an explicit request by the user for the system to display a secure login dialog or greeter.
+
+-- c7a787079b354eaaa9e77b371893cd27
+Subject: Time change
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The system clock has been changed to @REALTIME@ microseconds after January 1st, 1970.
+
+-- 45f82f4aef7a4bbf942ce861d1f20990
+Subject: Time zone change to @TIMEZONE@
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The system timezone has been changed to @TIMEZONE@.
+
+-- b07a249cd024414a82dd00cd181378ff
+Subject: System start-up is now complete
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+All system services necessary queued for starting at boot have been
+started. Note that this does not mean that the machine is now idle as services
+might still be busy with completing start-up.
+
+Kernel start-up required @KERNEL_USEC@ microseconds.
+
+Initrd start-up required @INITRD_USEC@ microseconds.
+
+Userspace start-up required @USERSPACE_USEC@ microseconds.
+
+-- eed00a68ffd84e31882105fd973abdd1
+Subject: User manager start-up is now complete
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The user manager instance for user @_UID@ has been started. All services queued
+for starting have been started. Note that other services might still be starting
+up or be started at any later time.
+
+Startup of the manager took @USERSPACE_USEC@ microseconds.
+
+-- 6bbd95ee977941e497c48be27c254128
+Subject: System sleep state @SLEEP@ entered
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The system has now entered the @SLEEP@ sleep state.
+
+-- 8811e6df2a8e40f58a94cea26f8ebf14
+Subject: System sleep state @SLEEP@ left
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The system has now left the @SLEEP@ sleep state.
+
+-- 98268866d1d54a499c4e98921d93bc40
+Subject: System shutdown initiated
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+System shutdown has been initiated. The shutdown has now begun and
+all system services will be terminated and all file systems will be unmounted.
+
+-- c14aaf76ec284a5fa1f105f88dfb061c
+Subject: System factory reset initiated
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+System factory reset has been initiated. The precise operation this
+executes is implementation-defined, but typically has the effect of
+reverting the system's state and configuration to vendor defaults.
+
+-- d9ec5e95e4b646aaaea2fd05214edbda
+Subject: Container init crashed
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Container init has crashed and exited.
+The details of the crash can be obtained from the container manager.
+
+-- 3ed0163e868a4417ab8b9e210407a96c
+Subject: System reboot failed after crash
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Reboot has failed when systemd attempted to reboot after a crash.
+
+-- 645c735537634ae0a32b15a7c6cba7d4
+Subject: Init execution froze
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Systemd froze execution after fatal error.
+
+-- 5addb3a06a734d3396b794bf98fb2d01
+Subject: Init received fatal signal while coredump is disabled
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Systemd received fatal signal, but core dumping is disabled.
+
+-- 5c9e98de4ab94c6a9d04d0ad793bd903
+Subject: Init received fatal signal but fork failed
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Systemd received fatal signal, but failed to fork to dump the core.
+
+-- 5e6f1f5e4db64a0eaee3368249d20b94
+Subject: Init received fatal signal from unknown sender process
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 83f84b35ee264f74a3896a9717af34cb
+Subject: Init received fatal signal from our own process
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 3a73a98baf5b4b199929e3226c0be783
+Subject: Init received fatal signal from other process
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 2ed18d4f78ca47f0a9bc25271c26adb4
+Subject: Init received fatal signal but waitpid() failed
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Systemd received fatal signal, but waitpid() failed when
+trying to dump the core.
+
+-- 56b1cd96f24246c5b607666fda952356
+Subject: Init received fatal signal but coredump failed
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 4ac7566d4d7548f4981f629a28f0f829
+Subject: Init received fatal signal and dumped core
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 38e8b1e039ad469291b18b44c553a5b7
+Subject: Init failed to fork crash shell
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Systemd crashed and failed to fork off crash shell.
+
+-- 872729b47dbe473eb768ccecd477beda
+Subject: Crash shell failed to execute
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Systemd crashed and failed to spawn crash shell.
+
+-- 658a67adc1c940b3b3316e7e8628834a
+Subject: Manager failed to load SELinux policy
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- e6f456bd92004d9580160b2207555186
+Subject: Battery level critically low, waiting for charger
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Battery level is critically low. Please connect your charger
+or the system will power off in 10 seconds.
+
+-- 267437d33fdd41099ad76221cc24a335
+Subject: Battery level critically low, powering off
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 79e05b67bc4545d1922fe47107ee60c5
+Subject: Manager failed to run main loop
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- dbb136b10ef4457ba47a795d62f108c9
+Subject: User manager failed to determine $XDG_RUNTIME_DIR path
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- ed158c2df8884fa584eead2d902c1032
+Subject: Init failed to drop capability bounding set of usermode helpers
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 42695b500df048298bee37159caa9f2e
+Subject: Init failed to drop capability bounding set
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- bfc2430724ab44499735b4f94cca9295
+Subject: User manager failed to disable new privileges
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 59288af523be43a28d494e41e26e4510
+Subject: Manager failed to start default target
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 689b4fcc97b4486ea5da92db69c9e314
+Subject: Manager failed to isolate default target
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 5ed836f1766f4a8a9fc5da45aae23b29
+Subject: Manager failed to collect passed file descriptors
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 6a40fbfbd2ba4b8db02fb40c9cd090d7
+Subject: Init failed to fix up environment variables
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 0e54470984ac419689743d957a119e2e
+Subject: Failed to allocate manager object
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- d67fa9f847aa4b048a2ae33535331adb
+Subject: Manager failed to write Smack onlycap list
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- af55a6f75b544431b72649f36ff6d62c
+Subject: Critical error while doing system shutdown
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- d18e0339efb24a068d9c1060221048c2
+Subject: Init failed to fork off valgrind helper
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 7d4958e842da4a758f6c1cdc7b36dcc5
+Subject: A start job for unit @UNIT@ has begun execution
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+A start job for unit @UNIT@ has begun execution.
+
+The job identifier is @JOB_ID@.
+
+-- 39f53479d3a045ac8e11786248231fbf
+Subject: A start job for unit @UNIT@ has finished successfully
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+A start job for unit @UNIT@ has finished successfully.
+
+The job identifier is @JOB_ID@.
+
+-- be02cf6855d2428ba40df7e9d022f03d
+Subject: A start job for unit @UNIT@ has failed
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+A start job for unit @UNIT@ has finished with a failure.
+
+The job identifier is @JOB_ID@ and the job result is @JOB_RESULT@.
+
+-- de5b426a63be47a7b6ac3eaac82e2f6f
+Subject: A stop job for unit @UNIT@ has begun execution
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+A stop job for unit @UNIT@ has begun execution.
+
+The job identifier is @JOB_ID@.
+
+-- 9d1aaa27d60140bd96365438aad20286
+Subject: A stop job for unit @UNIT@ has finished
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+A stop job for unit @UNIT@ has finished.
+
+The job identifier is @JOB_ID@ and the job result is @JOB_RESULT@.
+
+-- d34d037fff1847e6ae669a370e694725
+Subject: A reload job for unit @UNIT@ has begun execution
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+A reload job for unit @UNIT@ has begun execution.
+
+The job identifier is @JOB_ID@.
+
+-- 7b05ebc668384222baa8881179cfda54
+Subject: A reload job for unit @UNIT@ has finished
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+A reload job for unit @UNIT@ has finished.
+
+The job identifier is @JOB_ID@ and the job result is @JOB_RESULT@.
+
+-- 641257651c1b4ec9a8624d7a40a9e1e7
+Subject: Process @EXECUTABLE@ could not be executed
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The process @EXECUTABLE@ could not be executed and failed.
+
+The error number returned by this process is @ERRNO@.
+
+-- 0027229ca0644181a76c4e92458afa2e
+Subject: One or more messages could not be forwarded to syslog
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+One or more messages could not be forwarded to the syslog service
+running side-by-side with journald. This usually indicates that the
+syslog implementation has not been able to keep up with the speed of
+messages queued.
+
+-- 1dee0369c7fc4736b7099b38ecb46ee7
+Subject: Mount point is not empty
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The directory @WHERE@ is specified as the mount point (second field in
+/etc/fstab or Where= field in systemd unit file) and is not empty.
+This does not interfere with mounting, but the pre-existing files in
+this directory become inaccessible. To see those over-mounted files,
+please manually mount the underlying file system to a secondary
+location.
+
+-- 1edabb4eda2a49c19bc0206f24b43889
+Subject: Mount point path contains symlinks
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The path @WHERE@ is specified as a mount point path (second field in /etc/fstab
+or Where= field in systemd unit file) and is not canonical, i.e. contains one
+or more symlinks as path elements. This is generally not supported and such
+mount attempts are refused, because the mount table information exposed by the
+kernel and the requested path would deviate once established. Please
+canonicalize paths before requesting a mount to be established.
+
+-- 24d8d4452573402496068381a6312df2
+Subject: A virtual machine or container has been started
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The virtual machine @NAME@ with its leader PID @LEADER@ has been
+started is now ready to use.
+
+-- 58432bd3bace477cb514b56381b8a758
+Subject: A virtual machine or container has been terminated
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The virtual machine @NAME@ with its leader PID @LEADER@ has been
+shut down.
+
+-- 36db2dfa5a9045e1bd4af5f93e1cf057
+Subject: DNSSEC mode has been turned off, as server doesn't support it
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd-resolved.service(8)
+Documentation: man:resolved.conf(5)
+
+The resolver service (systemd-resolved.service) has detected that the
+configured DNS server does not support DNSSEC, and DNSSEC validation has been
+turned off as result.
+
+This event will take place if DNSSEC=allow-downgrade is configured in
+resolved.conf and the configured DNS server is incompatible with DNSSEC. Note
+that using this mode permits DNSSEC downgrade attacks, as an attacker might be
+able turn off DNSSEC validation on the system by inserting DNS replies in the
+communication channel that result in a downgrade like this.
+
+This event might be indication that the DNS server is indeed incompatible with
+DNSSEC or that an attacker has successfully managed to stage such a downgrade
+attack.
+
+-- 1675d7f172174098b1108bf8c7dc8f5d
+Subject: DNSSEC validation failed
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd-resolved.service(8)
+
+A DNS query or resource record set failed DNSSEC validation. This is usually
+indication that the communication channel used was tampered with.
+
+-- 4d4408cfd0d144859184d1e65d7c8a65
+Subject: A DNSSEC trust anchor has been revoked
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd-resolved.service(8)
+
+A DNSSEC trust anchor has been revoked. A new trust anchor has to be
+configured, or the operating system needs to be updated, to provide an updated
+DNSSEC trust anchor.
+
+-- 5eb03494b6584870a536b337290809b3
+Subject: Automatic restarting of a unit has been scheduled
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Automatic restarting of the unit @UNIT@ has been scheduled, as the result for
+the configured Restart= setting for the unit.
+
+-- ae8f7b866b0347b9af31fe1c80b127c0
+Subject: Resources consumed by unit runtime
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The unit @UNIT@ completed and consumed the indicated resources.
+
+-- 7ad2d189f7e94e70a38c781354912448
+Subject: Unit succeeded
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The unit @UNIT@ has successfully entered the 'dead' state.
+
+-- 0e4284a0caca4bfc81c0bb6786972673
+Subject: Unit skipped
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The unit @UNIT@ was skipped due to an ExecCondition= command failure, and has
+entered the 'dead' state with result '@UNIT_RESULT@'.
+
+-- d9b373ed55a64feb8242e02dbe79a49c
+Subject: Unit failed
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The unit @UNIT@ has entered the 'failed' state with result '@UNIT_RESULT@'.
+
+-- 98e322203f7a4ed290d09fe03c09fe15
+Subject: Unit process exited
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+An @COMMAND@= process belonging to unit @UNIT@ has exited.
+
+The process' exit code is '@EXIT_CODE@' and its exit status is @EXIT_STATUS@.
+
+-- 50876a9db00f4c40bde1a2ad381c3a1b
+Subject: The system is configured in a way that might cause problems
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The following "tags" are possible:
+- "unmerged-usr" - /bin, /sbin, /lib* are not symlinks to their counterparts
+  under /usr/
+- "unmerged-bin" - /usr/sbin is not a symlink to /usr/bin/
+- "var-run-bad" — /var/run is not a symlink to /run/
+- "cgroupsv1" - the system is using the deprecated cgroup v1 hierarchy
+- "local-hwclock" - the local hardware clock (RTC) is configured to be in
+  local time rather than UTC
+- "support-ended" - the system is running past the end of support declared
+  by the vendor
+- "old-kernel" - the system is running a kernel version that is older than
+  the minimum supported by this version of systemd
+- "overflowuid-not-65534" — the kernel user ID used for "unknown" users (with
+  NFS or user namespaces) is not 65534
+- "overflowgid-not-65534" — the kernel group ID used for "unknown" users (with
+  NFS or user namespaces) is not 65534
+- "short-uid-range" - the UID range assigned to the running systemd instance
+  covers less than 0…65534
+- "short-gid-range" - the GID range assigned to the running systemd instance
+  covers less than 0…65534
+Current system is tagged as @TAINT@.
+
+-- fe6faa94e7774663a0da52717891d8ef
+Subject: A process of @UNIT@ unit has been killed by the OOM killer.
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+A process of unit @UNIT has been killed by the Linux kernel out-of-memory (OOM)
+killer logic. This usually indicates that the system is low on memory and that
+memory needed to be freed. A process associated with @UNIT@ has been determined
+as the best process to terminate and has been forcibly terminated by the
+kernel.
+
+Note that the memory pressure might or might not have been caused by @UNIT@.
+
+-- b61fdac612e94b9182285b998843061f
+Subject: Accepting user/group name @USER_GROUP_NAME@, which does not match strict user/group name rules.
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: https://systemd.io/USER_NAMES
+
+The user/group name @USER_GROUP_NAME@ has been specified, which is accepted
+according the relaxed user/group name rules, but does not qualify under the
+strict rules.
+
+The strict user/group name rules written as regular expression are:
+
+^[a-zA-Z_][a-zA-Z0-9_-]{0,30}$
+
+The relaxed user/group name rules accept all names, except for the empty
+string; names containing NUL bytes, control characters, colon or slash
+characters; names not valid UTF-8; names with leading or trailing whitespace;
+the strings "." or ".."; fully numeric strings, or strings beginning in a
+hyphen and otherwise fully numeric.
+
+-- 1b3bb94037f04bbf81028e135a12d293
+Subject: Failed to generate valid unit name from path '@MOUNT_POINT@'.
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The following mount point path could not be converted into a valid .mount
+unit name:
+
+    @MOUNT_POINT@
+
+Typically this means that the path to the mount point is longer than allowed
+for valid unit names.
+
+systemd dynamically synthesizes .mount units for all mount points appearing on
+the system. For that a simple escaping algorithm is applied: the absolute path
+name is used, with all "/" characters replaced by "-" (the leading one is
+removed). Moreover, any non-alphanumeric characters (as well as any of ":",
+"-", "_", ".", "\") are replaced by "\xNN" where "NN" is the hexadecimal code
+of the character. Finally, ".mount" is suffixed. The resulting string must be
+under 256 characters in length to be a valid unit name. This restriction is
+made in order for all unit names to also be suitable as file names. If a mount
+point appears that — after escaping — is longer than this limit it cannot be
+mapped to a unit. In this case systemd will refrain from synthesizing a unit
+and cannot be used to manage the mount point. It will not appear in the service
+manager's unit table and thus also not be torn down safely and automatically at
+system shutdown.
+
+It is generally recommended to avoid such overly long mount point paths, or —
+if used anyway – manage them independently of systemd, i.e. establish them as
+well as tear them down automatically at system shutdown by other software.
+
+-- b480325f9c394a7b802c231e51a2752c
+Subject: Special user @OFFENDING_USER@ configured, this is not safe!
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: https://systemd.io/UIDS-GIDS
+
+The unit @UNIT@ is configured to use User=@OFFENDING_USER@.
+
+This is not safe. The @OFFENDING_USER@ user's main purpose on Linux-based
+operating systems is to be the owner of files that otherwise cannot be mapped
+to any local user. It's used by the NFS client and Linux user namespacing,
+among others. By running a unit's processes under the identity of this user
+they might possibly get read and even write access to such files that cannot
+otherwise be mapped.
+
+It is strongly recommended to avoid running services under this user identity,
+in particular on systems using NFS or running containers. Allocate a user ID
+specific to this service, either statically via systemd-sysusers or dynamically
+via the DynamicUser= service setting.
+
+-- 1c0454c1bd2241e0ac6fefb4bc631433
+Subject: systemd-udev-settle.service is deprecated.
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Usage of the systemd service unit systemd-udev-settle.service is deprecated. It
+inserts artificial delays into the boot process without providing the
+guarantees other subsystems traditionally assumed it provides. Relying on this
+service is racy, and it is generally a bug to make use of it and depend on it.
+
+Traditionally, this service's job was to wait until all devices a system
+possesses have been fully probed and initialized, delaying boot until this
+phase is completed. However, today's systems and hardware generally don't work
+this way anymore, hardware today may show up any time and take any time to be
+probed and initialized. Thus, in the general case, it's no longer possible to
+correctly delay boot until "all devices" have been processed, as it is not
+clear what "all devices" means and when they have been found. This is in
+particular the case if USB hardware or network-attached hardware is used.
+
+Modern software that requires some specific hardware (such as a network device
+or block device) to operate should only wait for the specific devices it needs
+to show up, and otherwise operate asynchronously initializing devices as they
+appear during boot and during runtime without delaying the boot process.
+
+It is a defect of the software in question if it doesn't work this way, and
+still pulls systemd-udev-settle.service into the boot process.
+
+Please file a bug report against the following units, with a request for it to
+be updated to operate in a hotplug fashion without depending on
+systemd-udev-settle.service:
+
+    @OFFENDING_UNITS@
+
+-- 7c8a41f37b764941a0e1780b1be2f037
+Subject: Initial clock synchronization
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+For the first time during the current boot an NTP synchronization has been
+acquired and the local system clock adjustment has been initiated.
+
+-- 3f7d5ef3e54f4302b4f0b143bb270cab
+Subject: TPM PCR Extended
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The Trusted Platform Module's (TPM) Platform Configuration Register (PCR)
+@PCR@, on banks @BANKS@, has been extended with the string '@MEASURING@'.
+
+System state, configuration and properties are cryptographically measured into
+the security chip in an irreversible way to provide local and remote
+attestation of system state and identity.
+
+For example, whenever the system transitions to a new runtime phase, the
+PCRs ares extended with a different string, to ensure that security
+policies for TPM-bound secrets and other resources are limited to specific
+phases of the runtime.
+
+-- 4c2e46d266a747c6ac1460aa54484fa7
+Subject: TPM NvPCR Extended
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The Trusted Platform Module's (TPM) additional Platform Configuration Register
+(PCR) stored in non-volatile indexes (NV Indexes) @NVPCR@, has been extended
+with the string '@MEASURING@'.
+
+System state, configuration and properties are cryptographically measured into
+the security chip in an irreversible way to provide local and remote
+attestation of system state and identity.
+
+-- f9b0be465ad540d0850ad32172d57c21
+Subject: Memory Trimmed
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Memory of process @_PID@ (@_COMM@) has been trimmed.
+
+Either on user request or as result of a memory pressure event, memory of the
+process has been trimmed, returning unneeded allocation caches and other
+resources back to the OS kernel, making them available for other components of
+the OS.
+
+@TRIMMED_BYTES@ of memory were returned to the OS, which took @TRIMMED_USEC@
+micro-seconds (μs).
+
+-- a8fa8dacdb1d443e9503b8be367a6adb
+Subject: SysV Service Found
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+A System V service script @SYSVSCRIPT@ has been found on the system that lacks
+a native systemd unit. An automatic unit file @UNIT@ has been generated for
+compatibility.
+
+Note that these automatically generated compatibility unit files cannot replace
+native unit files as they generally slow down the system (by creating
+unnecessary, additional synchronization points), are less robust (as SysV services
+cannot properly be lifecycle tracked or automatically restarted) and less
+secure (as no sandboxing restrictions can be enforced).
+
+Compatibility support for System V services in systemd is deprecated. Please
+make sure to update the package in question to provide proper, native systemd
+unit files. Contact vendor if necessary. Compatibility support for System V
+services is deprecated and will be removed soon.
+
+-- 187c62eb1e7f463bb530394f52cb090f
+Subject: A Portable Service has been attached
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: https://systemd.io/PORTABLE_SERVICES/
+
+A new Portable Service @PORTABLE_ROOT@ (with extensions: @PORTABLE_EXTENSION@) has
+been attached to the system and is now available for use. The list of attached
+Portable Services can be queried with 'portablectl list'.
+
+-- 76c5c754d628490d8ecba4c9d042112b
+Subject: A Portable Service has been detached
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: https://systemd.io/PORTABLE_SERVICES/
+
+A Portable Service @PORTABLE_ROOT@ (with extensions: @PORTABLE_EXTENSION@) has been
+detached from the system and is no longer available for use. The list of attached
+Portable Services can be queried with 'portablectl list'.
+
+-- ad7089f928ac4f7ea00c07457d47ba8a
+Subject: Authorization failure while attempting to enroll SRK into TPM
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd-tpm2-setup.service(8)
+
+An authorization failure occurred while attempting to enroll a Storage Root Key
+(SRK) on the Trusted Platform Module (TPM). Most likely this means that a
+PIN/Password (authValue) has been set on the Owner hierarchy of the TPM.
+
+Automatic SRK enrollment on TPMs in such scenarios is not supported. In order
+to unset the PIN/password protection on the owner hierarchy issue a command
+like the following: 'tpm2_changeauth -c o -p <OLDPW> ""'.
+
+-- 8d813b6becf04b859d99760cbb56dff1
+Subject: Authorization failure while attempting to enroll EK into TPM
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd-tpm2-setup.service(8)
+
+An authorization failure occurred while attempting to enroll an Endorsement Key
+(EK) on the Trusted Platform Module (TPM). Most likely this means that a
+PIN/Password (authValue) has been set on the Owner and/or Endorsement hierarchy
+of the TPM.
+
+Automatic EK enrollment on TPMs in such scenarios is not supported. In order
+to unset the PIN/password protection on the owner or endorsement hierarchy,
+issue a command like the following: 'tpm2_changeauth -c <o,e> -p <OLDPW> ""'.
+
+-- 9cf56b8baf9546cf9478783a8de42113
+Subject: A foreign process changed a sysctl systemd-networkd manages
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The sysctl configuration setting @SYSCTL@, which is managed by
+systemd-networkd, has been changed by another, unrelated process
+("@OBJECT_COMM@", PID @OBJECT_PID@). This represents a conflict of ownership
+and will likely result in problems later on.
+
+Value changed to "@NEWVALUE@", which should be "@OURVALUE@".
+
+-- 438188861e0b427a9d638a90487a0ca6
+Subject: TPM clear requested
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd-tpm2-clear.service(8)
+
+A request to clear the TPM security chip has been issued to the firmware. This
+is typically done as part of a comprehensive factory reset operation, and
+ensures that on the next boot process the firmware will reset the TPM, after
+interactively requesting confirmation by the user.
+
+Clearing the TPM has the effect of invalidating all keys locked to the TPM,
+including full disk encryption keys. Because of that care should be taken that
+access to relevant resources is retained via other means.
+
+-- 1f4e0a44a88649939aaea34fc6da8c95
+Subject: Process @COREDUMP_PID@ (@COREDUMP_COMM@) terminated abnormally
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd-coredump(8)
+
+Process @COREDUMP_PID@ (@COREDUMP_COMM@) terminated abnormally and generated a
+stack trace.
+
+This usually indicates a programming error in the crashing program and should
+be reported to its vendor as a bug. A program stack trace is available that
+indicates where the issue was encountered, which may be used to track down the
+problem.
+
+-- d989611b15e44c9dbf31e3c81256e4ed
+Subject: systemd-oomd killed one or more processes in unit @UNIT@
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd-oomd.service(8)
+
+One or more processes in the @UNIT@ unit have been killed by systemd-oomd, in
+order to counter an out-of-memory situation on the system. This usually
+indicates that the system is low on memory and systemd-oomd decided to
+terminate one or more processes to reduce memory pressure.
+
+Note that the memory pressure might or might not have been caused by @UNIT@.
+
+-- 010190138f494e29a0ef6669749531aa
+Subject: No valid unit name can be generated for device @DEVICE@
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd(1)
+
+A kernel device @DEVICE@ has been encountered whose identification cannot be
+turned into a valid systemd unit name. This typically indicates a problematic
+device hierarchy (i.e. too deep nesting of buses) or drivers.
+
+For devices like this no .device unit will be created that follows the
+underlying kernel device's state, and hence no dependencies on such a unit can
+be fulfilled.
+
+-- 7db73c8af0d94eeb822ae04323fe6ab6
+Subject: The system clock has been changed
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd(1) man:systemd-timesyncd.service(8)
+
+The system clock has been moved @DIRECTION@, the new time is
+@REALTIME_USEC@ microseconds after the epoch.
+
+Typically, this should only happen on major misconfiguration of the system
+clock or when the system lacks a battery-buffered hardware clock (or the
+battery has expired).
+
+-- 8739789eca064325af15a8ed0ecfc556
+Subject: Sending a keep-alive to the hardware watchdog device failed
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd(1)
+
+An error occurred while sending a keep-alive message to the hardware watchdog
+device @WATCHDOG_DEVICE@. This usually indicates driver or hardware problems.
+
+Failure to issue keep-alive messages regularly to the watchdog hardware might
+result in automatic reboots of the system.
+
+-- 375ac151ef9d4de39068b3efbfed0cee
+Subject: Opening of the configure watchdog device failed
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd(1)
+
+An error occurred while opening the hardware watchdog device
+@WATCHDOG_DEVICE@. This usually indicates invalid configuration
+(i.e. configuration not matching the local system), or driver or hardware
+problems.
+
+If watchdog support is configured, but the watchdog hardware cannot be opened
+the system will not be protected by the watchdog logic.
+
+-- f27a3f94406a4783b946a9bc849e9452
+Subject: Unit ordering cycle found
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd(1)
+
+A unit transaction (with ID @TRANSACTION_ID@) was initiated that contains
+an ordering cycle, i.e. some unit that was requested to be started
+(either directly, or indirectly due to a requirement dependency such as
+Wants= or Requires=) is ordered before some other unit (via After=/Before=),
+but that latter unit is also ordered before the former by some dependency
+(either directly or indirectly).
+
+Ordering cycles consist of at least two units, but might involve many
+more. They generally indicate a bug in the unit definitions, as a unit
+conceptually cannot be run both before and after some other unit, it must be
+strictly ordered either before or after.
+
+The ordering cycle is shown in the log message. An attempt will be made to
+remove unit jobs from the transaction in order to make the transaction succeed
+at least partially. Note that such cycle breaking is not going to correct the
+issue, it is just an attempt to make the outcome less problematic.
+
+The correct fix is to analyze the cycle in question and then break the cycle at
+the right place by removing the right After= or Before= lines from one or more
+of the involved unit files.
+
+-- 5084367542f7472dbc6a94125d5debce
+Subject: Unit job deleted due to an ordering cycle
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd(1)
+
+In order to address an ordering cycle between units that have been added to a
+transaction a job has been removed from the transaction.
+
+The removed job is '@DELETED_TYPE@' for unit @DELETED_UNIT@.
+
+The removal of the job is done in order to minimize the negative effect of an
+ordering cycle — it is not going to fix the underlying problem, which is a bug
+in the involved unit files. The deleted job might be fundamental for the other
+units in the transaction to operate, which hence might fail.
+
+-- b3112ddad19045538c76685ba5918a80
+Subject: Unable to break ordering cycle between units
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd(1)
+
+An unsuccessful attempt has been made to break an ordering cycle between units
+for which jobs have been enqueued as part of a transaction. The transaction
+will fail.
+
+-- 3405205d368e49feb5ab3925fee13874
+Subject: Non-system user or group used for device ownership
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd(1) systemd-udevd(8) systemd-networkd(8)
+
+The ownership of a device managed by systemd-udevd or systemd-networkd is
+assigned to a "regular" (non-system) user or group. This is currently allowed
+for compatibility, but is deprecated and discouraged. Ownership of a device
+node grants the privileges to change ACLs, the group, access mode, or set
+labels or extended attributes, which creates a conflict of management, because
+both udev and the user are in power to change these attributes. In addition,
+device nodes appear early in boot, while regular users may appear only later.
+
+For devices managed by systemd-udevd, it is instead recommended to use the
+"uaccess"/"xaccess" mechanisms to grant limited and temporary access to device
+nodes, see sd-login(8).
+
+-- ab984ea008964fb88d6e389fb513fb94
+Subject: TPM NV index space exhausted, unable to initialize NvPCR
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The Trusted Platform Module's (TPM) NV index space has been exhausted, and an
+additional NvPCR, i.e. additional Platform Configuration Register (PCR) stored in
+non-volatile indexes (NV Indexes), could not be initialized.
+
+This typically means the persistent NV index memory available on the TPM is
+taken up by other resources, or is extremely limited. A TPM reset might help
+recovering space (but will invalidate all TPM bound keys and resources).
+
+-- 8f07a5b814ca4762b89fcc3082e48aed
+Subject: TPM NV index backed PCRs not supported on the local TPM
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The Trusted Platform Module's (TPM) NV index support is too limited to properly
+implement NV index backed additional PCRs. NvPCRs will not be allocated or
+initialized, and will not be available on the system.
+
+-- eac6d394c925493deac2ba99f3c2bb11
+Subject: An optional dependency for @FEATURE@ is not installed
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The @FEATURE@ feature that was requested depends on an optional component that
+is loaded at runtime (for example a shared library opened via dlopen(3)), but
+that component is not installed on this system.
+
+As a result @FEATURE@ is unavailable, and is either skipped, disabled, or
+degraded to a fallback mode. Refer to the accompanying log message for the
+specific dependency that is missing, then install it to enable @FEATURE@.

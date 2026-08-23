@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+if conf.get('ENABLE_REPART') != 1
+        subdir_done()
+endif
+
+executables += [
+        executable_template + {
+                'name' : 'systemd-repart',
+                'public' : true,
+                'export' : files(
+                        'iso9660.c',
+                        'repart.c',
+                        'repart-list-candidate-devices.c',
+                ),
+                'dependencies' : [
+                        libblkid_cflags,
+                        libcryptsetup_cflags,
+                        libfdisk_cflags,
+                        libmount_cflags,
+                        libopenssl_cflags,
+                        tpm2_cflags,
+                ],
+        },
+]
+
+install_data('definitions/confext.repart.d/10-root.conf',             install_dir : repartdefinitionsdir / 'confext.repart.d')
+install_data('definitions/confext.repart.d/20-root-verity.conf',      install_dir : repartdefinitionsdir / 'confext.repart.d')
+install_data('definitions/confext.repart.d/30-root-verity-sig.conf',  install_dir : repartdefinitionsdir / 'confext.repart.d')
+install_data('definitions/portable.repart.d/10-root.conf',            install_dir : repartdefinitionsdir / 'portable.repart.d')
+install_data('definitions/portable.repart.d/20-root-verity.conf',     install_dir : repartdefinitionsdir / 'portable.repart.d')
+install_data('definitions/portable.repart.d/30-root-verity-sig.conf', install_dir : repartdefinitionsdir / 'portable.repart.d')
+install_data('definitions/sysext.repart.d/10-root.conf',              install_dir : repartdefinitionsdir / 'sysext.repart.d')
+install_data('definitions/sysext.repart.d/20-root-verity.conf',       install_dir : repartdefinitionsdir / 'sysext.repart.d')
+install_data('definitions/sysext.repart.d/30-root-verity-sig.conf',   install_dir : repartdefinitionsdir / 'sysext.repart.d')

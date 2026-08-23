@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=ForeverPrintHola service
+
+[Service]
+Type=exec
+ExecStart=bash -x -c 'while :; do printf "Hola\n" || touch /tmp/i-lose-my-logs; sleep 1; done'

@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[NetDev]
+Name=fou99
+Kind=fou
+
+[FooOverUDP]
+Encapsulation=FooOverUDP
+Port=55555
+Protocol=ipip

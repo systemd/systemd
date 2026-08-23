@@ -1,0 +1,933 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="machinectl" conditional='ENABLE_MACHINED'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>machinectl</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>machinectl</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>machinectl</refname>
+    <refpurpose>Control the systemd machine manager</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>machinectl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="req">COMMAND</arg>
+      <arg choice="opt" rep="repeat">NAME</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>machinectl</command> may be used to introspect and
+    control the state of the
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    virtual machine and container registration manager
+    <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+    <para><command>machinectl</command> may be used to execute
+    operations on machines and images. Machines in this sense are
+    considered running instances of:</para>
+
+    <itemizedlist>
+      <listitem><para>Virtual Machines (VMs) that virtualize hardware
+      to run full operating system (OS) instances (including their kernels)
+      in a virtualized environment on top of the host OS.</para></listitem>
+
+      <listitem><para>Containers that share the hardware and
+      OS kernel with the host OS, in order to run
+      OS userspace instances on top the host OS.</para></listitem>
+
+      <listitem><para>The host system itself.</para></listitem>
+    </itemizedlist>
+
+    <para>Machines are identified by names that follow the same rules
+    as UNIX and DNS hostnames. For details, see below.</para>
+
+    <para>Machines are instantiated from disk or file system images that
+    frequently — but not necessarily — carry the same name as machines running
+    from them. Images in this sense may be:</para>
+
+    <itemizedlist>
+      <listitem><para>Directory trees containing an OS, including the
+      top-level directories <filename>/usr/</filename>,
+      <filename>/etc/</filename>, and so on.</para></listitem>
+
+      <listitem><para>btrfs subvolumes containing OS trees, similar to regular directory trees.</para></listitem>
+
+      <listitem><para>Binary "raw" disk image files containing MBR or GPT partition tables and Linux file
+      systems.</para></listitem>
+
+      <listitem><para>Similarly, block devices containing MBR or GPT partition tables and file systems.</para></listitem>
+
+      <listitem><para>The file system tree of the host OS itself.</para></listitem>
+    </itemizedlist>
+
+    <para>Images may be downloaded, imported and exported via the
+    <citerefentry><refentrytitle>importctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    tool.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
+
+    <para>The following commands are understood:</para>
+
+    <refsect2><title>Machine Commands</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><command>list</command></term>
+
+        <listitem><para>List currently running (online) virtual
+        machines and containers. To enumerate machine images that can
+        be started, use <command>list-images</command> (see
+        below). Note that this command hides the special
+        <literal>.host</literal> machine by default. Use the
+        <option>--all</option> switch to show it.</para>
+
+        <xi:include href="version-info.xml" xpointer="v206"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>status</command> <replaceable>NAME</replaceable>…</term>
+
+        <listitem><para>Show runtime status information about
+        one or more virtual machines and containers, followed by the
+        most recent log data from the journal. This function is
+        intended to generate human-readable output. If you are looking
+        for computer-parsable output, use <command>show</command>
+        instead. Note that the log data shown is reported by the
+        virtual machine or container manager, and frequently contains
+        console output of the machine, but not necessarily journal
+        contents of the machine itself.</para>
+
+        <xi:include href="version-info.xml" xpointer="v206"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>show</command> [<replaceable>NAME</replaceable>…]</term>
+
+        <listitem><para>Show properties of one or more registered virtual machines or containers or the manager
+        itself. If no argument is specified, properties of the manager will be shown. If a NAME is specified,
+        properties of this virtual machine or container are shown. By default, empty properties are suppressed. Use
+        <option>--all</option> to show those too.  To select specific properties to show, use
+        <option>--property=</option>. This command is intended to be used whenever computer-parsable output is
+        required, and does not print the control group tree or journal entries. Use <command>status</command> if you
+        are looking for formatted human-readable output.</para>
+
+        <xi:include href="version-info.xml" xpointer="v206"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>start</command> <replaceable>NAME</replaceable>…</term>
+
+        <listitem><para>Start a container as a system service, using
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+        This starts <filename>systemd-nspawn@.service</filename>,
+        instantiated for the specified machine name, similar to the
+        effect of <command>systemctl start</command> on the service
+        name. <command>systemd-nspawn</command> looks for a container
+        image by the specified name in
+        <filename>/var/lib/machines/</filename> (and other search
+        paths, see below) and runs it. Use
+        <command>list-images</command> (see below) for listing
+        available container images to start.</para>
+
+        <para>Note that
+        <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        also interfaces with a variety of other container and VM
+        managers, <command>systemd-nspawn</command> is just one
+        implementation of it. Most of the commands available in
+        <command>machinectl</command> may be used on containers or VMs
+        controlled by other managers, not just
+        <command>systemd-nspawn</command>. Starting VMs and container
+        images on those managers requires manager-specific
+        tools.</para>
+
+        <para>To interactively start a container on the command line
+        with full access to the container's console, please invoke
+        <command>systemd-nspawn</command> directly. To stop a running
+        container use <command>machinectl poweroff</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>login</command> [<replaceable>NAME</replaceable>]</term>
+
+        <listitem><para>Open an interactive terminal login session in
+        a container or on the local host. If an argument is supplied,
+        it refers to the container machine to connect to. If none is
+        specified, or the container name is specified as the empty
+        string, or the special machine name <literal>.host</literal>
+        (see below) is specified, the connection is made to the local
+        host instead. This will create a TTY connection to a specific
+        container or the local host and asks for the execution of a
+        getty on it. Note that this is only supported for containers
+        running
+        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        as init system.</para>
+
+        <para>This command will open a full login prompt on the
+        container or the local host, which then asks for username and
+        password. Use <command>shell</command> (see below) or
+        <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        with the <option>--machine=</option> switch to directly invoke
+        a single command, either interactively or in the
+        background.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>shell</command> [[<replaceable>NAME</replaceable>@]<replaceable>NAME</replaceable> [<replaceable>PATH</replaceable> [<replaceable>ARGUMENTS</replaceable>…]]] </term>
+
+        <listitem><para>Open an interactive shell session in a
+        container or on the local host. The first argument refers to
+        the container machine to connect to. If none is specified, or
+        the machine name is specified as the empty string, or the
+        special machine name <literal>.host</literal> (see below) is
+        specified, the connection is made to the local host
+        instead. This works similarly to <command>login</command>, but
+        immediately invokes a user process. This command runs the
+        specified executable with the specified arguments, or the
+        default shell for the user if none is specified, or
+        <filename>/bin/sh</filename> if no default shell is found. By default,
+        <option>--uid=</option>, or by prefixing the machine name with
+        a username and an <literal>@</literal> character, a different
+        user may be selected. Use <option>--setenv=</option> to set
+        environment variables for the executed process.</para>
+
+        <para>Note that <command>machinectl shell</command> does not propagate the exit code/status of the invoked
+        shell process. Use <command>systemd-run</command> instead if that information is required (see below).</para>
+
+        <para>Using the <command>shell</command> command without arguments (thus invoking the executed shell
+        or command on the local host), is in many ways similar to a <citerefentry
+        project='die-net'><refentrytitle>su</refentrytitle><manvolnum>1</manvolnum></citerefentry> session,
+        but, unlike <command>su</command>, completely isolates the new session from the originating session,
+        so that it shares no process or session properties and is in a clean well-defined state. It will be
+        tracked in a new utmp, login, audit, security, and keyring sessions, and will not inherit any
+        environment variables or resource limits, among other properties.</para>
+
+        <para>Note that
+        <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry> with
+        its <option>--machine=</option> switch may be used in place of the <command>machinectl
+        shell</command> command, and allows non-interactive operation, more detailed and low-level
+        configuration of the invoked unit, as well as access to runtime and exit code/status information of
+        the invoked shell process. In particular, use <command>systemd-run</command>'s
+        <option>--wait</option> switch to propagate exit status information of the invoked process. Use
+        <command>systemd-run</command>'s <option>--pty</option> switch to acquire an interactive shell,
+        similarly to <command>machinectl shell</command>. In general, <command>systemd-run</command> is
+        preferable for scripting purposes. However, note that <command>systemd-run</command> might require
+        higher privileges than <command>machinectl shell</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v225"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>enable</command> <replaceable>NAME</replaceable>…</term>
+        <term><command>disable</command> <replaceable>NAME</replaceable>…</term>
+
+        <listitem><para>Enable or disable a container as a system service to start at system boot, using
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+        This enables or disables <filename>systemd-nspawn@.service</filename>, instantiated for the specified
+        machine name, similarly to the effect of <command>systemctl enable</command> or <command>systemctl
+        disable</command> on the service name.</para>
+
+        <para>This command implicitly reloads the system manager configuration after completing the operation.
+        Note that this command does not implicitly start or power off the containers that are being operated on.
+        If this is desired, combine the command with the <option>--now</option> switch.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>poweroff</command> <replaceable>NAME</replaceable>…</term>
+
+        <listitem><para>Power off one or more machines. For VMs managed by
+        <citerefentry><refentrytitle>systemd-vmspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        this sends an ACPI powerdown request via QMP. For containers, this
+        sends SIGRTMIN+4 to the container's init process, which causes
+        systemd-compatible init systems to shut down cleanly. This
+        operation does not work on containers that do not run a
+        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>-compatible
+        init system, such as sysvinit. Use
+        <command>stop</command> as alias for <command>poweroff</command>.
+        Use <command>terminate</command> (see below) to immediately
+        terminate a machine without cleanly shutting it down.</para>
+
+        <xi:include href="version-info.xml" xpointer="v212"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>reboot</command> <replaceable>NAME</replaceable>…</term>
+
+        <listitem><para>Reboot one or more machines. For VMs managed by
+        <citerefentry><refentrytitle>systemd-vmspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        this sends a system reset request via QMP. For containers, this
+        sends SIGINT to the container's init process, which is roughly
+        equivalent to pressing Ctrl+Alt+Del on a non-containerized
+        system, and is compatible with containers running any system
+        manager. Use <command>restart</command> as alias for
+        <command>reboot</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>pause</command> <replaceable>NAME</replaceable>…</term>
+
+        <listitem><para>Pause one or more machines. For VMs managed by
+        <citerefentry><refentrytitle>systemd-vmspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        this freezes vCPU execution at the hypervisor level — the guest
+        operating system is not notified and does not observe an ACPI suspend.
+        From the guest's perspective time simply stops until the machine is
+        resumed with <command>resume</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>resume</command> <replaceable>NAME</replaceable>…</term>
+
+        <listitem><para>Resume one or more previously paused machines.
+        This restarts execution after a <command>pause</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>terminate</command> <replaceable>NAME</replaceable>…</term>
+
+        <listitem><para>Immediately terminates a virtual machine or
+        container, without cleanly shutting it down. This kills all
+        processes of the virtual machine or container and deallocates
+        all resources attached to that instance. Use
+        <command>poweroff</command> to issue a clean shutdown
+        request.</para>
+
+        <xi:include href="version-info.xml" xpointer="v206"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>kill</command> <replaceable>NAME</replaceable>…</term>
+
+        <listitem><para>Send a signal to one or more processes of the
+        virtual machine or container. This means processes as seen by
+        the host, not the processes inside the virtual machine or
+        container. Use <option>--kill-whom=</option> to select which
+        process to kill. Use <option>--signal=</option> to select the
+        signal to send.</para>
+
+        <xi:include href="version-info.xml" xpointer="v206"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>bind</command> <replaceable>NAME</replaceable> <replaceable>PATH</replaceable> [<replaceable>PATH</replaceable>]</term>
+
+        <listitem><para>Bind mounts a file or directory from the host into the specified container. The first path
+        argument is the source file or directory on the host, the second path argument is the destination file or
+        directory in the container. When the latter is omitted, the destination path in the container is the same as
+        the source path on the host. When combined with the <option>--read-only</option> switch, a read-only bind
+        mount is created. When combined with the <option>--mkdir</option> switch, the destination path is first created
+        before the mount is applied. Note that this option is currently only supported for
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> containers,
+        and only if user namespacing (<option>--private-users</option>) is not used. This command supports bind
+        mounting directories, regular files, device nodes, <constant>AF_UNIX</constant> socket nodes, as well as
+        FIFOs.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>bind-volume</command> <replaceable>NAME</replaceable> <replaceable>SPEC</replaceable></term>
+
+        <listitem><para>Acquire a storage volume from a
+        <citerefentry><refentrytitle>storagectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        provider and attach it to the running machine. <replaceable>SPEC</replaceable> is a string of the form
+        <literal><replaceable>PROVIDER</replaceable>:<replaceable>VOLUME</replaceable>[:<replaceable>CONFIG</replaceable>][:<replaceable>K=V</replaceable>,…]</literal>,
+        identical in grammar to the <option>--bind-volume=</option> argument of
+        <citerefentry><refentrytitle>systemd-vmspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+        <para>The attached volume is identified by the name <literal><replaceable>PROVIDER</replaceable>:<replaceable>VOLUME</replaceable></literal>
+        and may be detached at runtime via <command>unbind-volume</command>. Currently only supported for
+        <command>systemd-vmspawn</command> machines that expose an
+        <constant>io.systemd.MachineInstance</constant> control socket.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>unbind-volume</command> <replaceable>NAME</replaceable> <replaceable>STORAGE-NAME</replaceable></term>
+
+        <listitem><para>Detach a storage volume from the running machine. <replaceable>STORAGE-NAME</replaceable>
+        is the <literal><replaceable>PROVIDER</replaceable>:<replaceable>VOLUME</replaceable></literal>
+        identifier that was specified at <command>bind-volume</command> time. Volumes that were attached at machine
+        startup (e.g. via <option>--bind-volume=</option> on
+        <citerefentry><refentrytitle>systemd-vmspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>)
+        cannot be detached and will fail with
+        <constant>io.systemd.MachineInstance.StorageImmutable</constant>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>copy-to</command> <replaceable>NAME</replaceable> <replaceable>PATH</replaceable> [<replaceable>PATH</replaceable>] <option>--force</option></term>
+
+        <listitem><para>Copies files or directories from the host
+        system into a running container. Takes a container name,
+        followed by the source path on the host and the destination
+        path in the container. If the destination path is omitted, the
+        same as the source path is used.</para>
+
+        <para>If host and container share the same user and group namespace, file ownership by numeric user ID and
+        group ID is preserved for the copy, otherwise all files and directories in the copy will be owned by the root
+        user and group (UID/GID 0).</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>copy-from</command> <replaceable>NAME</replaceable> <replaceable>PATH</replaceable> [<replaceable>PATH</replaceable>] <option>--force</option></term>
+
+        <listitem><para>Copies files or directories from a container
+        into the host system. Takes a container name, followed by the
+        source path in the container and the destination path on the host.
+        If the destination path is omitted, the same as the source path
+        is used.</para>
+
+        <para>If host and container share the same user and group namespace, file ownership by numeric user ID and
+        group ID is preserved for the copy, otherwise all files and directories in the copy will be owned by the root
+        user and group (UID/GID 0).</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
+      </varlistentry>
+    </variablelist></refsect2>
+
+    <refsect2><title>Image Commands</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><command>list-images</command></term>
+
+        <listitem><para>Show a list of locally installed container and
+        VM images. This enumerates all raw disk images and container
+        directories and subvolumes in
+        <filename>/var/lib/machines/</filename> (and other search
+        paths, see below). Use <command>start</command> (see above) to
+        run a container off one of the listed images. Note that, by
+        default, containers whose name begins with a dot
+        (<literal>.</literal>) are not shown. To show these too,
+        specify <option>--all</option>. Note that a special image
+        <literal>.host</literal> always implicitly exists and refers
+        to the image the host itself is booted from.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>image-status</command> [<replaceable>NAME</replaceable>…]</term>
+
+        <listitem><para>Show terse status information about one or
+        more container or VM images. This function is intended to
+        generate human-readable output. Use
+        <command>show-image</command> (see below) to generate
+        computer-parsable output instead.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>show-image</command> [<replaceable>NAME</replaceable>…]</term>
+
+        <listitem><para>Show properties of one or more registered
+        virtual machine or container images, or the manager itself. If
+        no argument is specified, properties of the manager will be
+        shown. If a NAME is specified, properties of this virtual
+        machine or container image are shown. By default, empty
+        properties are suppressed. Use <option>--all</option> to show
+        those too. To select specific properties to show, use
+        <option>--property=</option>. This command is intended to be
+        used whenever computer-parsable output is required. Use
+        <command>image-status</command> if you are looking for
+        formatted human-readable output.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>edit</command> <replaceable>NAME|FILE</replaceable></term>
+
+        <listitem><para>Edit the settings file of the specified machines. For the format of the settings
+        file, refer to
+        <citerefentry project='man-pages'><refentrytitle>systemd.nspawn</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        If an existing settings file of the given machine cannot be found, <command>edit</command>
+        automatically create a new settings file from scratch under
+        <filename>/etc/systemd/nspawn/</filename>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>cat</command> <replaceable>NAME|FILE</replaceable></term>
+
+        <listitem><para>Show the settings file of the specified machines.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>clone</command> <replaceable>NAME</replaceable> <replaceable>NAME</replaceable></term>
+
+        <listitem><para>Clones a container or VM image. The arguments specify the name of the image to clone and the
+        name of the newly cloned image. Note that plain directory container images are cloned into btrfs subvolume
+        images with this command, if the underlying file system supports this.  Note that cloning a container or VM
+        image is optimized for file systems that support copy-on-write, and might not be efficient on others, due to
+        file system limitations.</para>
+
+        <para>Note that this command leaves hostname, machine ID and
+        all other settings that could identify the instance
+        unmodified. The original image and the cloned copy will hence
+        share these credentials, and it might be necessary to manually
+        change them in the copy.</para>
+
+        <para>If combined with the <option>--read-only</option> switch a read-only cloned image is
+        created.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>rename</command> <replaceable>NAME</replaceable> <replaceable>NAME</replaceable></term>
+
+        <listitem><para>Renames a container or VM image. The
+        arguments specify the name of the image to rename and the new
+        name of the image.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>read-only</command> <replaceable>NAME</replaceable> [<replaceable>BOOL</replaceable>]</term>
+
+        <listitem><para>Marks or (unmarks) a container or VM image
+        read-only. Takes a VM or container image name, followed by a
+        boolean as arguments. If the boolean is omitted, positive is
+        implied, i.e. the image is marked read-only.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>remove</command> <replaceable>NAME</replaceable>…</term>
+
+        <listitem><para>Removes one or more container or VM images.
+        The special image <literal>.host</literal>, which refers to
+        the host's own directory tree, may not be
+        removed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>set-limit</command> [<replaceable>NAME</replaceable>] <replaceable>BYTES</replaceable></term>
+
+        <listitem><para>Sets the maximum size in bytes that a specific
+        container or VM image, or all images, may grow up to on disk
+        (disk quota). Takes either one or two parameters. The first,
+        optional parameter refers to a container or VM image name. If
+        specified, the size limit of the specified image is changed. If
+        omitted, the overall size limit of the sum of all images stored
+        locally is changed. The final argument specifies the size
+        limit in bytes, possibly suffixed by the usual K, M, G, T
+        units. If the size limit shall be disabled, specify
+        <literal>-</literal> as size.</para>
+
+        <para>Note that per-container size limits are only supported on btrfs file systems.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>clean</command></term>
+
+        <listitem><para>Remove hidden VM or container images (or all). This command removes all hidden machine images
+        from <filename>/var/lib/machines/</filename>, i.e. those whose name begins with a dot. Use <command>machinectl
+        list-images --all</command> to see a list of all machine images, including the hidden ones.</para>
+
+        <para>When combined with the <option>--all</option> switch removes all images, not just hidden ones. This
+        command effectively empties <filename>/var/lib/machines/</filename>.</para>
+
+        <para>Note that commands such as <command>importctl pull-tar</command> or <command>importctl
+        pull-raw</command> usually create hidden, read-only, unmodified machine images from the downloaded image first,
+        before cloning a writable working copy of it, in order to avoid duplicate downloads in case of images that are
+        reused multiple times. Use <command>machinectl clean</command> to remove old, hidden images created this
+        way.</para>
+
+        <xi:include href="version-info.xml" xpointer="v230"/></listitem>
+      </varlistentry>
+
+    </variablelist></refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>-p</option></term>
+        <term><option>--property=</option></term>
+
+        <listitem><para>When showing machine or image properties,
+        limit the output to certain properties as specified by the
+        argument. If not specified, all set properties are shown. The
+        argument should be a property name, such as
+        <literal>Name</literal>. If specified more than once, all
+        properties with the specified names are
+        shown.</para>
+
+        <xi:include href="version-info.xml" xpointer="v206"/></listitem>
+      </varlistentry>
+
+       <varlistentry>
+        <term><option>--value</option></term>
+
+        <listitem><para>When printing properties with <command>show</command>, only print the value,
+        and skip the property name and <literal>=</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v230"/></listitem>
+      </varlistentry>
+
+      <xi:include href="timedatectl.xml" xpointer="option-P"/>
+
+      <varlistentry>
+        <term><option>-a</option></term>
+        <term><option>--all</option></term>
+
+        <listitem><para>When showing machine or image properties, show
+        all properties regardless of whether they are set or
+        not.</para>
+
+        <para>When listing VM or container images, do not suppress
+        images beginning in a dot character
+        (<literal>.</literal>).</para>
+
+        <para>When cleaning VM or container images, remove all images, not just hidden ones.</para>
+
+        <xi:include href="version-info.xml" xpointer="v206"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-l</option></term>
+        <term><option>--full</option></term>
+
+        <listitem><para>Do not ellipsize process tree entries or table. This implies
+        <option>--max-addresses=full</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v206"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--kill-whom=</option></term>
+
+        <listitem><para>When used with <command>kill</command>, choose which processes to kill. Must be one
+        of <option>leader</option>, <option>supervisor</option>, or <option>all</option> to select whether to
+        kill only the leader process of the machine, the supervisor process of the machine, or all processes
+        of the machine. If omitted, defaults to <option>all</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v206"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="signal" />
+
+      <varlistentry>
+         <term><option>--uid=</option></term>
+
+         <listitem><para>When used with the <command>shell</command> command, chooses the user ID to
+         open the interactive shell session as. If the argument to the <command>shell</command>
+         command also specifies a user name, this option is ignored. If the name is not specified
+         in either way, <literal>root</literal> will be used by default. Note that this switch is
+         not supported for the <command>login</command> command (see below).</para>
+
+         <xi:include href="version-info.xml" xpointer="v225"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-E <replaceable>NAME</replaceable>[=<replaceable>VALUE</replaceable>]</option></term>
+        <term><option>--setenv=<replaceable>NAME</replaceable>[=<replaceable>VALUE</replaceable>]</option></term>
+
+        <listitem><para>When used with the <command>shell</command> command, sets an environment variable for
+        the executed shell. This option may be used more than once to set multiple variables. When
+        <literal>=</literal> and <replaceable>VALUE</replaceable> are omitted, the value of the variable with
+        the same name in the program environment will be used.</para>
+
+        <para>Note that this option is not supported for the <command>login</command> command.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v230"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--mkdir</option></term>
+
+        <listitem><para>When used with <command>bind</command>, creates the destination file or directory before
+        applying the bind mount. Note that even though the name of this option suggests that it is suitable only for
+        directories, this option also creates the destination file node to mount over if the object to mount is not
+        a directory, but a regular file, device node, socket or FIFO.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--read-only</option></term>
+
+        <listitem><para>When used with <command>bind</command>, creates a read-only bind mount.</para>
+
+        <para>When used with <command>clone</command> a read-only container or VM image is created.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-n</option></term>
+        <term><option>--lines=</option></term>
+
+        <listitem><para>When used with <command>status</command>,
+        controls the number of journal lines to show, counting from
+        the most recent ones. Takes a positive integer argument.
+        Defaults to 10.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-o</option></term>
+        <term><option>--output=</option></term>
+
+        <listitem><para>When used with <command>status</command>,
+        controls the formatting of the journal entries that are shown.
+        For the available choices, see
+        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+        Defaults to <literal>short</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--runner=</option><option>nspawn</option>|<option>vmspawn</option></term>
+
+        <listitem><para>When operating on machines choose whether to use
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        or
+        <citerefentry><refentrytitle>systemd-vmspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+        By default
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        is used.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-V</option></term>
+
+        <listitem><para><option>-V</option> is a shorthand for <option>--runner=vmspawn</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--now</option></term>
+
+        <listitem>
+          <para>When used with <command>enable</command> or <command>disable</command>,
+          the containers will also be started or powered off. The start or poweroff
+          operation is only carried out when the respective enable or disable
+          operation has been successful.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--force</option></term>
+
+        <listitem><para>Replace target file when copying files.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--max-addresses=</option></term>
+
+        <listitem><para>When used with the <option>list-machines</option> command, limits the number of IP
+        addresses shown for every machine. Defaults to 1. All addresses can be requested with
+        <literal>all</literal>. If the limit is 0, the address column is not shown. Otherwise, if the machine
+        has more addresses than shown, <literal>…</literal> follows the last address.</para>
+
+        <xi:include href="version-info.xml" xpointer="v232"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-q</option></term>
+        <term><option>--quiet</option></term>
+
+        <listitem><para>Suppresses additional informational output while running.</para>
+
+        <xi:include href="version-info.xml" xpointer="v236"/></listitem>
+      </varlistentry>
+
+      <xi:include href="user-system-options.xml" xpointer="host" />
+
+      <varlistentry>
+        <term><option>-M</option></term>
+        <term><option>--machine=</option></term>
+
+        <listitem><para>Connect to
+        <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        running in a local container, to perform the specified operation within
+        the container.</para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="no-legend" />
+      <xi:include href="standard-options.xml" xpointer="no-ask-password" />
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Machine and Image Names</title>
+
+    <para>The <command>machinectl</command> tool operates on machines
+    and images whose names must be chosen following strict
+    rules. Machine names must be suitable for use as hostnames
+    following a conservative subset of DNS and UNIX/Linux
+    semantics. Specifically, they must consist of one or more
+    non-empty label strings, separated by dots. No leading or trailing
+    dots are allowed. No sequences of multiple dots are allowed. The
+    label strings may only consist of alphanumeric characters as well
+    as the dash. The maximum length of a machine name is 64 characters.</para>
+
+    <para>A special machine with the name <literal>.host</literal>
+    refers to the running host system itself. This is useful for execution
+    operations or inspecting the host system as well. Note that
+    <command>machinectl list</command> will not show this special
+    machine unless the <option>--all</option> switch is specified.</para>
+
+    <para>Requirements on image names are less strict, however, they must be
+    valid UTF-8, must be suitable as file names (hence not be the
+    single or double dot, and not include a slash), and may not
+    contain control characters. Since many operations search for an
+    image by the name of a requested machine, it is recommended to name
+    images in the same strict fashion as machines.</para>
+
+    <para>A special image with the name <literal>.host</literal>
+    refers to the image of the running host system. It hence
+    conceptually maps to the special <literal>.host</literal> machine
+    name described above. Note that <command>machinectl
+    list-images</command> will not show this special image either, unless
+    <option>--all</option> is specified.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Files and Directories</title>
+
+    <para>Machine images are preferably stored in
+    <filename>/var/lib/machines/</filename>, but are also searched for
+    in <filename>/usr/local/lib/machines/</filename> and
+    <filename>/usr/lib/machines/</filename>. For compatibility reasons,
+    the directory <filename>/var/lib/container/</filename> is
+    searched, too. Note that images stored below
+    <filename>/usr/</filename> are always considered read-only. It is
+    possible to symlink machines images from other directories into
+    <filename>/var/lib/machines/</filename> to make them available for
+    control with <command>machinectl</command>.</para>
+
+    <para>Note that some image operations are only supported, efficient or atomic on btrfs file systems.</para>
+
+    <para>Disk images are understood by
+    <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    and <command>machinectl</command> in three formats:</para>
+
+    <itemizedlist>
+      <listitem><para>A simple directory tree, containing the files
+      and directories of the container to boot.</para></listitem>
+
+      <listitem><para>Subvolumes (on btrfs file systems), which are
+      similar to the simple directories, described above. However,
+      they have additional benefits, such as efficient cloning and
+      quota reporting.</para></listitem>
+
+      <listitem><para>"Raw" disk images, i.e. binary images of disks
+      with a GPT or MBR partition table. Images of this type are
+      regular files with the suffix
+      <literal>.raw</literal>.</para></listitem>
+    </itemizedlist>
+
+    <para>See
+    <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    for more information on image formats, in particular its
+    <option>--directory=</option> and <option>--image=</option>
+    options.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <xi:include href="importctl.xml" xpointer="example-import-raw" />
+
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned, a non-zero failure code
+    otherwise.</para>
+  </refsect1>
+
+  <xi:include href="common-variables.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>importctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>tar</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>xz</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>gzip</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>bzip2</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>zstd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

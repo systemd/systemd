@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=test1
+
+[Network]
+LinkLocalAddressing=yes
+IPv6AcceptRA=no
+IPv6StableSecretAddress=0123:4567:89ab:cdef:0123:4567:89ab:cdef

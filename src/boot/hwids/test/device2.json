@@ -1,0 +1,9 @@
+{
+    "type": "devicetree",
+    "name": "Device 2",
+    "compatible": "test,device-2",
+    "hwids": [
+        "6ff16153-a32f-548a-9cd7-3574a5d0caa4",
+        "0afb4762-c5bb-5fba-887b-d56ce73ee793"
+    ]
+}

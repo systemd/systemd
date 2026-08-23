@@ -1,0 +1,13 @@
+{
+    "userName": "tmpfsuser",
+    "realName": "Tmpfs Limits Test User",
+    "uid": 3014,
+    "gid": 3014,
+    "homeDirectory": "/home/tmpfsuser",
+    "shell": "/bin/bash",
+    "disposition": "regular",
+    "tmpLimit": 1073741824,
+    "tmpLimitScale": 214748364,
+    "devShmLimit": 536870912,
+    "devShmLimitScale": 107374182
+}

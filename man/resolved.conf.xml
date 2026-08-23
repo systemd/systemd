@@ -1,0 +1,473 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="resolved.conf" conditional='ENABLE_RESOLVE'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>resolved.conf</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>resolved.conf</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>resolved.conf</refname>
+    <refname>resolved.conf.d</refname>
+    <refpurpose>Network Name Resolution configuration files</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><simplelist>
+      <member><filename>/etc/systemd/resolved.conf</filename></member>
+      <member><filename>/run/systemd/resolved.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/resolved.conf</filename></member>
+      <member><filename>/usr/lib/systemd/resolved.conf</filename></member>
+      <member><filename>/etc/systemd/resolved.conf.d/*.conf</filename></member>
+      <member><filename>/run/systemd/resolved.conf.d/*.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/resolved.conf.d/*.conf</filename></member>
+      <member><filename>/usr/lib/systemd/resolved.conf.d/*.conf</filename></member>
+    </simplelist></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>These configuration files control local DNS and LLMNR
+    name resolution.</para>
+
+  </refsect1>
+
+  <xi:include href="standard-conf.xml" xpointer="main-conf" />
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are available in the [Resolve] section:</para>
+
+    <variablelist class='network-directives'>
+
+      <varlistentry>
+        <term><varname>DNS=</varname></term>
+        <listitem><para>A space-separated list of IPv4 and IPv6 addresses to use as system DNS servers. Each address can
+        optionally take a port number separated with <literal>:</literal>, a network interface name or index separated with
+        <literal>%</literal>, and a Server Name Indication (SNI) separated with <literal>#</literal>. When IPv6 address is
+        specified with a port number, then the address must be in the square brackets. That is, the acceptable full formats
+        are <literal>111.222.333.444:9953%ifname#example.com</literal> for IPv4 and
+        <literal>[1111:2222::3333]:9953%ifname#example.com</literal> for IPv6. DNS requests are sent to one of the listed
+        DNS servers in parallel to suitable per-link DNS servers acquired from
+        <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> or
+        set at runtime by external applications.  For compatibility reasons, if this setting is not specified, the DNS
+        servers listed in <filename>/etc/resolv.conf</filename> are used instead, if that file exists and any servers
+        are configured in it. This setting defaults to the empty list.</para>
+
+        <xi:include href="version-info.xml" xpointer="v213"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>FallbackDNS=</varname></term>
+        <listitem><para>A space-separated list of IPv4 and IPv6 addresses to use as the fallback DNS servers. Please see
+        <varname>DNS=</varname> for acceptable format of addresses. Any per-link DNS servers obtained from
+        <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        take precedence over this setting, as do any servers set via <varname>DNS=</varname> above or
+        <filename>/etc/resolv.conf</filename>. This setting is hence only used if no other DNS server information is
+        known. If this option is not given, a compiled-in list of DNS servers is used instead.</para>
+
+        <xi:include href="version-info.xml" xpointer="v216"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Domains=</varname></term>
+        <listitem><para>A space-separated list of domains, optionally prefixed with <literal>~</literal>,
+        used for two distinct purposes described below. Defaults to the empty list.</para>
+
+        <para>Any domains <emphasis>not</emphasis> prefixed with <literal>~</literal> are used as search
+        suffixes when resolving single-label hostnames (domain names which contain no dot), in order to
+        qualify them into fully-qualified domain names (FQDNs). These "search domains" are strictly processed
+        in the order they are specified in, until the name with the suffix appended is found. For
+        compatibility reasons, if this setting is not specified, the search domains listed in
+        <filename>/etc/resolv.conf</filename> with the <varname>search</varname> keyword are used instead, if
+        that file exists and any domains are configured in it.</para>
+
+        <para>The domains prefixed with <literal>~</literal> are called "route-only domains". All domains
+        listed here (<emphasis>both search domains and route-only domains</emphasis> after removing the
+        <literal>~</literal> prefix) define a search path that preferably directs DNS queries to this
+        interface. This search path has an effect only when suitable per-link DNS servers are known. Such
+        servers may be defined through the <varname>DNS=</varname> setting (see above) and dynamically at run
+        time, for example from DHCP leases. If no per-link DNS servers are known, route-only domains have no
+        effect.</para>
+
+        <para>Use the construct <literal>~.</literal> (which is composed from <literal>~</literal> to
+        indicate a route-only domain and <literal>.</literal> to indicate the DNS root domain that is the
+        implied suffix of all DNS domains) to use the DNS servers defined for this link preferably for all
+        domains.</para>
+
+        <para>See "Protocols and Routing" in
+        <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for details of how search and route-only domains are used.</para>
+
+        <para>Note that configuring the MulticastDNS domain <literal>local</literal> as search or routing
+        domain has the effect of routing lookups for this domain to classic unicast DNS. This may be used to
+        provide compatibility with legacy installations that use this domain in a unicast DNS context,
+        against the IANA assignment of this domain to pure MulticastDNS purposes. Search and routing domains
+        are a unicast DNS concept, they <emphasis>cannot</emphasis> be used to resolve single-label lookups
+        via MulticastDNS.</para>
+
+        <xi:include href="version-info.xml" xpointer="v229"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LLMNR=</varname></term>
+        <listitem><para>Takes a boolean argument or
+        <literal>resolve</literal>. Controls Link-Local Multicast Name
+        Resolution support (<ulink
+        url="https://tools.ietf.org/html/rfc4795">RFC 4795</ulink>) on
+        the local host. If true, enables full LLMNR responder and
+        resolver support. If false, disables both. If set to
+        <literal>resolve</literal>, only resolution support is enabled,
+        but responding is disabled. Note that
+        <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        also maintains per-link LLMNR settings. LLMNR will be
+        enabled on a link only if the per-link and the
+        global setting is on.</para>
+
+        <xi:include href="version-info.xml" xpointer="v216"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>MulticastDNS=</varname></term>
+        <listitem><para>Takes a boolean argument or
+        <literal>resolve</literal>. Controls Multicast DNS support (<ulink
+        url="https://tools.ietf.org/html/rfc6762">RFC 6762</ulink>) on
+        the local host. If true, enables full Multicast DNS responder and
+        resolver support. If false, disables both. If set to
+        <literal>resolve</literal>, only resolution support is enabled,
+        but responding is disabled. Note that
+        <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        also maintains per-link Multicast DNS settings. Multicast DNS will be
+        enabled on a link only if the per-link and the
+        global setting is on.</para>
+
+        <xi:include href="version-info.xml" xpointer="v234"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DNSSEC=</varname></term>
+        <listitem><para>Takes a boolean argument or <literal>allow-downgrade</literal>.</para>
+
+        <para>If set to true, all DNS lookups are DNSSEC-validated locally (excluding LLMNR and Multicast
+        DNS). If the response to a lookup request is detected to be invalid a lookup failure is returned to
+        applications. Note that this mode requires a DNS server that supports DNSSEC. If the DNS server does
+        not properly support DNSSEC all validations will fail.</para>
+
+        <para>If set to <literal>allow-downgrade</literal>, DNSSEC validation is attempted, but if the server
+        does not support DNSSEC properly, DNSSEC mode is automatically disabled. Note that this mode makes
+        DNSSEC validation vulnerable to "downgrade" attacks, where an attacker might be able to trigger a
+        downgrade to non-DNSSEC mode by synthesizing a DNS response that suggests DNSSEC was not
+        supported.</para>
+
+        <para>If set to false, DNS lookups are not DNSSEC validated.</para>
+
+        <para>Note that DNSSEC validation requires retrieval of additional DNS data, and thus results in a
+        small DNS lookup time penalty.</para>
+
+        <para>DNSSEC requires knowledge of "trust anchors" to prove
+        data integrity. The trust anchor for the Internet root domain
+        is built into the resolver, additional trust anchors may be
+        defined with
+        <citerefentry><refentrytitle>dnssec-trust-anchors.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        Trust anchors may change at regular intervals, and old trust
+        anchors may be revoked. In such a case DNSSEC validation is
+        not possible until new trust anchors are configured locally or
+        the resolver software package is updated with the new root
+        trust anchor. In effect, when the built-in trust anchor is
+        revoked and <varname>DNSSEC=</varname> is true, all further
+        lookups will fail, as it cannot be proved anymore whether
+        lookups are correctly signed, or validly unsigned. If
+        <varname>DNSSEC=</varname> is set to
+        <literal>allow-downgrade</literal> the resolver will
+        automatically turn off DNSSEC validation in such a case.</para>
+
+        <para>Client programs looking up DNS data will be informed
+        whether lookups could be verified using DNSSEC, or whether the
+        returned data could not be verified (either because the data
+        was found unsigned in the DNS, or the DNS server did not
+        support DNSSEC or no appropriate trust anchors were known). In
+        the latter case, it is assumed that client programs employ a
+        secondary scheme to validate the returned DNS data, should
+        this be required.</para>
+
+        <para>It is recommended to set <varname>DNSSEC=</varname> to
+        true on systems where it is known that the DNS server supports
+        DNSSEC correctly, and where software or trust anchor updates
+        happen regularly. On other systems it is recommended to set
+        <varname>DNSSEC=</varname> to
+        <literal>allow-downgrade</literal>.</para>
+
+        <para>In addition to this global DNSSEC setting
+        <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        also maintains per-link DNSSEC settings. For system DNS
+        servers (see above), only the global DNSSEC setting is in
+        effect. For per-link DNS servers the per-link
+        setting is in effect, unless it is unset in which case the
+        global setting is used instead.</para>
+
+        <para>Site-private DNS zones generally conflict with DNSSEC
+        operation, unless a negative (if the private zone is not
+        signed) or positive (if the private zone is signed) trust
+        anchor is configured for them. If
+        <literal>allow-downgrade</literal> mode is selected, it is
+        attempted to detect site-private DNS zones using top-level
+        domains (TLDs) that are not known by the DNS root server. This
+        logic does not work in all private zone setups.</para>
+
+        <para>Defaults to <literal>&DEFAULT_DNSSEC_MODE;</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v229"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DNSOverTLS=</varname></term>
+        <listitem>
+        <para>Takes a boolean argument or <literal>opportunistic</literal>. If
+        true all connections to the server will be encrypted. Note that this
+        mode requires a DNS server that supports DNS-over-TLS and has a valid
+        certificate. If the hostname was specified in <varname>DNS=</varname>
+        by using the format <literal>address#server_name</literal> it
+        is used to validate its certificate and also to enable Server Name
+        Indication (SNI) when opening a TLS connection. Otherwise
+        the certificate is checked against the server's IP.
+        If the DNS server does not support DNS-over-TLS all DNS requests will fail.</para>
+
+        <para>When set to <literal>opportunistic</literal>
+        DNS request are attempted to send encrypted with DNS-over-TLS.
+        If the DNS server does not support TLS, DNS-over-TLS is disabled.
+        Note that this mode makes DNS-over-TLS vulnerable to "downgrade"
+        attacks, where an attacker might be able to trigger a downgrade
+        to non-encrypted mode by synthesizing a response that suggests
+        DNS-over-TLS was not supported. If set to false, DNS lookups
+        are send over UDP.</para>
+
+        <para>Note that DNS-over-TLS requires additional data to be
+        send for setting up an encrypted connection, and thus results
+        in a small DNS look-up time penalty.</para>
+
+        <para>Note that in <literal>opportunistic</literal> mode the
+        resolver is not capable of authenticating the server, so it is
+        vulnerable to "man-in-the-middle" attacks.</para>
+
+        <para>In addition to this global <varname>DNSOverTLS=</varname> setting
+        <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        also maintains per-link <varname>DNSOverTLS=</varname> settings. For system DNS servers (see above), only the global
+        <varname>DNSOverTLS=</varname> setting is in effect. For per-link DNS servers the per-link setting is in effect, unless
+        it is unset in which case the global setting is used instead.</para>
+
+        <para>Defaults to <literal>&DEFAULT_DNS_OVER_TLS_MODE;</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Cache=</varname></term>
+        <listitem><para>Takes a boolean or <literal>no-negative</literal> as argument. If
+        <literal>yes</literal> (the default), resolving a domain name which already got queried earlier will
+        return the previous result as long as it is still valid, and thus does not result in a new network
+        request. Be aware that turning off caching comes at a performance penalty, which is particularly high
+        when DNSSEC is used. If <literal>no-negative</literal>, only positive answers are cached.</para>
+
+        <para>Note that caching is turned off by default for host-local DNS servers.
+        See <varname>CacheFromLocalhost=</varname> for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v231"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>CacheFromLocalhost=</varname></term>
+        <listitem><para>Takes a boolean as argument. If <literal>no</literal> (the default), and response cames from
+        host-local IP address (such as 127.0.0.1 or ::1), the result would not be cached in order to avoid
+        potential duplicate local caching.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DNSCacheSize=</varname></term>
+        <term><varname>MulticastDNSCacheSize=</varname></term>
+        <term><varname>LLMNRCacheSize=</varname></term>
+        <listitem><para>Takes a non-negative integer. Configures the maximum number of DNS resource record
+        entries that may be stored in the per-scope cache for unicast DNS, Multicast DNS (mDNS), and
+        Link-Local Multicast Name Resolution (LLMNR) respectively. Each defaults to 4096. The maximum
+        allowed value is 16777216 (2^24). Setting any of these to 0 effectively disables caching for the
+        respective protocol. These settings are only effective when <varname>Cache=</varname> is set to
+        <literal>yes</literal> or <literal>no-negative</literal>. If <varname>Cache=no</varname>, caching
+        is fully disabled regardless of these values.</para>
+
+        <para>Note that Multicast DNS relies heavily on caching for request suppression and efficient
+        operation. It is recommended to keep <varname>MulticastDNSCacheSize=</varname> at a reasonably high
+        value even when reducing <varname>DNSCacheSize=</varname>.</para>
+
+        <para>Note that <command>systemd-resolved</command> automatically flushes all caches on system
+        memory pressure, thus in most cases manual cache size configuration should not be necessary.</para>
+
+        <para>Note that caching is turned off by default for host-local DNS servers.
+        See <varname>CacheFromLocalhost=</varname> for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DNSStubListener=</varname></term>
+        <listitem><para>Takes a boolean argument or one of <literal>udp</literal> and
+        <literal>tcp</literal>. If <literal>udp</literal>, a DNS stub resolver will listen for UDP requests
+        on addresses 127.0.0.53 and 127.0.0.54, port 53. If <literal>tcp</literal>, the stub will listen for
+        TCP requests on the same addresses and port. If <literal>yes</literal> (the default), the stub listens
+        for both UDP and TCP requests. If <literal>no</literal>, the stub listener is disabled.</para>
+
+        <xi:include href="systemd-resolved.service.xml" xpointer="proxy-stub" />
+
+        <para>Note that the DNS stub listener is turned off implicitly when its listening address and port are already
+        in use.</para>
+
+        <xi:include href="version-info.xml" xpointer="v232"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>RefuseRecordTypes=</varname></term>
+        <listitem><para>Takes a list of DNS record types separated by space.
+        Specified record types in each query will be refused. This option can be specified multiple times.
+        If an empty string is specified, then all previous assignments are cleared.</para>
+        <para>Examples:
+        <programlisting>RefuseRecordTypes=AAAA SRV TXT</programlisting>
+        </para>
+
+        <para>Note that to refuse AAAA record (unlike SRV, TXT, etc.) completely, please also disable IPv6 stack in kernel
+        with "sysctl -w net.ipv6.conf.all.disable_ipv6=1".</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DNSStubListenerExtra=</varname></term>
+        <listitem><para>Takes an IPv4 or IPv6 address to listen on. The address may be optionally
+        prefixed with a protocol name (<literal>udp</literal> or <literal>tcp</literal>) separated with
+        <literal>:</literal>. If the protocol is not specified, the service will listen on both UDP and
+        TCP. It may be also optionally suffixed by a numeric port number with separator
+        <literal>:</literal>. When an IPv6 address is specified with a port number, then the address
+        must be in the square brackets. If the port is not specified, then the service uses port 53.
+        Note that this is independent of the primary DNS stub configured with
+        <varname>DNSStubListener=</varname>, and only configures <emphasis>additional</emphasis>
+        sockets to listen on. This option can be specified multiple times. If an empty string is
+        assigned, then the all previous assignments are cleared. Defaults to unset.</para>
+
+        <para>Examples:
+        <programlisting>DNSStubListenerExtra=192.168.10.10
+DNSStubListenerExtra=2001:db8:0:f102::10
+DNSStubListenerExtra=192.168.10.11:9953
+DNSStubListenerExtra=[2001:db8:0:f102::11]:9953
+DNSStubListenerExtra=tcp:192.168.10.12
+DNSStubListenerExtra=udp:2001:db8:0:f102::12
+DNSStubListenerExtra=tcp:192.168.10.13:9953
+DNSStubListenerExtra=udp:[2001:db8:0:f102::13]:9953</programlisting>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ReadEtcHosts=</varname></term>
+        <listitem><para>Takes a boolean argument. If <literal>yes</literal> (the default),
+        <command>systemd-resolved</command> will read <filename>/etc/hosts</filename>, and try to resolve
+        hosts or addresses by using the entries in the file before sending query to DNS servers.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ReadStaticRecords=</varname></term>
+        <listitem><para>Takes a boolean argument. If <literal>yes</literal> (the default),
+        <command>systemd-resolved</command> will read
+        <filename>/etc/systemd/resolve/static.d/*.rr</filename>,
+        <filename>/run/systemd/resolve/static.d/*.rr</filename>,
+        <filename>/usr/local/lib/systemd/resolve/static.d/*.rr</filename>,
+        <filename>/usr/lib/systemd/resolve/static.d/*.rr</filename>, and try to resolve lookups by using the
+        entries in these files before sending query to DNS servers. This functionality is very similar to the
+        one controlled by <varname>ReadEtcHosts=</varname>, but allows more flexible control of DNS resource
+        records fields beyond just A/AAAA/PTR. See
+        <citerefentry><refentrytitle>systemd.rr</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+        details.</para>
+
+        <para>If both this option and <varname>ReadEtcHosts=</varname> are enabled then this mechanism takes
+        precedence: any records discovered via static resource records will take precedence over records
+        under the same name from <filename>/etc/hosts</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ResolveUnicastSingleLabel=</varname></term>
+        <listitem><para>Takes a boolean argument. When false (the default),
+        <command>systemd-resolved</command> will not resolve A and AAAA queries for single-label names over
+        classic DNS. Note that such names may still be resolved if search domains are specified (see
+        <varname>Domains=</varname> above), or using other mechanisms, in particular via LLMNR or from
+        <filename>/etc/hosts</filename>. When true, queries for single-label names will be forwarded to
+        global DNS servers even if no search domains are defined.
+        </para>
+
+        <para>This option is provided for compatibility with configurations where <emphasis>public DNS
+        servers are not used</emphasis>. Forwarding single-label names to servers not under your control is
+        not standard-conformant, see <ulink
+        url="https://www.iab.org/documents/correspondence-reports-documents/2013-2/iab-statement-dotless-domains-considered-harmful/">IAB
+        Statement</ulink>, and may create a privacy and security risk.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>StaleRetentionSec=</varname><replaceable>SECONDS</replaceable></term>
+        <listitem><para>Takes a duration value, which determines the length of time DNS resource records can
+        be retained in the cache beyond their Time To Live (TTL). This allows these records to be returned as
+        stale records. By default, this value is set to zero, meaning that DNS resource records are not
+        stored in the cache after their TTL expires.</para>
+
+        <para>This is useful when a DNS server failure occurs or becomes unreachable. In such cases,
+        <citerefentry><refentrytitle>systemd-resolved</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        continues to use the stale records to answer DNS queries, particularly when no valid response can be
+        obtained from the upstream DNS servers. However, this does not apply to NXDOMAIN responses, as those
+        are still perfectly valid responses. This feature enhances resilience against DNS infrastructure
+        failures and outages.</para>
+
+        <para><command>systemd-resolved</command> always attempts to reach the upstream DNS servers first,
+        before providing the client application with any stale data. If this feature is enabled, cache will
+        not be flushed when changing servers.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+      <title>See Also</title>
+      <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>dnssec-trust-anchors.d</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.rr</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      </simplelist></para>
+  </refsect1>
+
+</refentry>

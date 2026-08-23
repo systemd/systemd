@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# This test cannot use a dummy interface: IPv6 addresses
+# are added without having to go through tentative state
+
+[Match]
+Name=bond199
+
+[Network]
+LinkLocalAddressing=ipv6
+Address=2001:1234:56:8f63::1/64
+Address=2001:1234:56:8f63::2/64
+IPv6AcceptRA=no
+
+[Route]
+Destination=abcd::/16
+Gateway=2001:1234:56:8f63::1:1
+PreferredSource=2001:1234:56:8f63::2

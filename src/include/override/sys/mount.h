@@ -1,0 +1,86 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+#pragma once
+
+#include <fcntl.h>
+#include <linux/fs.h>
+#include <linux/mount.h> /* IWYU pragma: export */
+#include <stddef.h>
+#include <stdint.h>
+#include <sys/ioctl.h>
+
+/* Since glibc-2.37 (774058d72942249f71d74e7f2b639f77184160a6), sys/mount.h includes linux/mount.h, and
+ * we can safely include both headers in the same source file. However, we cannot do that with older glibc.
+ * To avoid conflicts, let's not use glibc's sys/mount.h, and provide our own minimal implementation.
+ * Fortunately, most of definitions we need are covered by linux/fs.h and linux/mount.h, so only one enum
+ * and a few function prototypes need to be defined here. */
+
+/* Possible value for FLAGS parameter of `umount2'.  */
+enum
+{
+        MNT_FORCE = 1,                /* Force unmounting.  */
+#define MNT_FORCE MNT_FORCE
+        MNT_DETACH = 2,               /* Just detach from the tree.  */
+#define MNT_DETACH MNT_DETACH
+        MNT_EXPIRE = 4,               /* Mark for expiry.  */
+#define MNT_EXPIRE MNT_EXPIRE
+        UMOUNT_NOFOLLOW = 8           /* Don't follow symlink on umount.  */
+#define UMOUNT_NOFOLLOW UMOUNT_NOFOLLOW
+};
+
+/* Mount a filesystem.  */
+extern int mount(const char *__special_file, const char *__dir, const char *__fstype, unsigned long int __rwflag, const void *__data);
+
+/* Unmount a filesystem.  */
+extern int umount(const char *__special_file);
+
+/* Unmount a filesystem.  Force unmounting if FLAGS is set to MNT_FORCE.  */
+extern int umount2(const char *__special_file, int __flags);
+
+/* Open the filesystem referenced by FS_NAME so it can be configured for mounting. */
+/* Defined since glibc-2.36.
+ * Supported since kernel v5.2 (24dcb3d90a1f67fe08c68a004af37df059d74005). */
+int fsopen_shim(const char *fsname, unsigned flags);
+#define fsopen fsopen_shim
+
+/* Create a mount representation for the FD created by fsopen using
+   FLAGS with ATTR_FLAGS describing how the mount is to be performed.  */
+/* Defined since glibc-2.36.
+ * Supported since kernel v5.2 (93766fbd2696c2c4453dd8e1070977e9cd4e6b6d). */
+int fsmount_shim(int fd, unsigned flags, unsigned ms_flags);
+#define fsmount fsmount_shim
+
+/* Add the mounted FROM_DFD referenced by FROM_PATHNAME filesystem returned
+   by fsmount in the hierarchy in the place TO_DFD reference by TO_PATHNAME
+   using FLAGS.  */
+/* Defined since glibc-2.36.
+ * Supported since kernel v5.2 (2db154b3ea8e14b04fee23e3fdfd5e9d17fbc6ae). */
+int move_mount_shim(int from_dfd, const char *from_pathname, int to_dfd, const char *to_pathname, unsigned flags);
+#define move_mount move_mount_shim
+
+/* Set parameters and trigger CMD action on the FD context.  KEY, VALUE,
+   and AUX are used depending ng of the CMD.  */
+/* Defined since glibc-2.36.
+ * Supported since kernel v5.2 (ecdab150fddb42fe6a739335257949220033b782). */
+int fsconfig_shim(int fd, unsigned cmd, const char *key, const void *value, int aux);
+#define fsconfig fsconfig_shim
+
+/* Open the mount point FILENAME in directory DFD using FLAGS.  */
+/* Defined since glibc-2.36.
+ * Supported since kernel v5.2 (a07b20004793d8926f78d63eb5980559f7813404). */
+int open_tree_shim(int dfd, const char *filename, unsigned flags);
+#define open_tree open_tree_shim
+
+/* Change the mount properties of the mount or an entire mount tree.  If
+   PATH is a relative pathname, then it is interpreted relative to the
+   directory referred to by the file descriptor dirfd.  Otherwise if DFD is
+   the special value AT_FDCWD then PATH is interpreted relative to the current
+   working directory of the calling process.  */
+/* Defined since glibc-2.36.
+ * Supported since kernel v5.12 (2a1867219c7b27f928e2545782b86daaf9ad50bd). */
+int mount_setattr_shim(int dfd, const char *path, unsigned flags, struct mount_attr *attr, size_t size);
+#define mount_setattr mount_setattr_shim
+
+/* Not defined in glibc yet as of glibc-2.41.
+ * Supported since kernel v6.15 (c4a16820d90199409c9bf01c4f794e1e9e8d8fd8). */
+int open_tree_attr_shim(int dfd, const char *filename, unsigned int flags, struct mount_attr *attr, size_t size);
+#define open_tree_attr open_tree_attr_shim

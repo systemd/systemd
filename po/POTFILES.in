@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+src/core/org.freedesktop.systemd1.policy.in
+src/home/org.freedesktop.home1.policy
+src/home/pam_systemd_home.c
+src/hostname/org.freedesktop.hostname1.policy
+src/import/org.freedesktop.import1.policy
+src/locale/org.freedesktop.locale1.policy
+src/login/org.freedesktop.login1.policy
+src/machine/org.freedesktop.machine1.policy
+src/network/org.freedesktop.network1.policy
+src/portable/org.freedesktop.portable1.policy
+src/resolve/org.freedesktop.resolve1.policy
+src/sysupdate/org.freedesktop.sysupdate1.policy
+src/timedate/org.freedesktop.timedate1.policy
+src/core/dbus-unit.c
+src/shared/libfido2-util.c

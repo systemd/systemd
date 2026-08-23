@@ -1,0 +1,6 @@
+[NetDev]
+Name=w
+Kind=wireguard
+[WireGuardPeer]
+Endpoint=:0
+Endpoint=:8

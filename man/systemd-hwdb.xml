@@ -1,0 +1,91 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-hwdb" conditional="ENABLE_HWDB"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-hwdb</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-hwdb</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-hwdb</refname><refpurpose>hardware database management tool</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-hwdb <optional>options</optional> update</command>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-hwdb <optional>options</optional> query <replaceable>modalias</replaceable></command>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1><title>Description</title>
+    <para><command>systemd-hwdb</command> expects a command and command
+    specific arguments.  It manages the binary hardware database.</para>
+  </refsect1>
+
+  <refsect1><title>Options</title>
+    <variablelist>
+      <varlistentry>
+        <term><option>--usr</option></term>
+        <listitem>
+          <para>Generate in /usr/lib/udev instead of /etc/udev.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>-r</option></term>
+        <term><option>--root=<replaceable>PATH</replaceable></option></term>
+        <listitem>
+          <para>Alternate root path in the filesystem.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>-s</option></term>
+        <term><option>--strict</option></term>
+        <listitem>
+          <para>When updating, return non-zero exit value on any parsing error.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/>
+        </listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+    </variablelist>
+
+    <refsect2><title>systemd-hwdb
+      <optional><replaceable>options</replaceable></optional>
+      update</title>
+      <para>Update the binary database.</para>
+    </refsect2>
+
+    <refsect2><title>systemd-hwdb
+      <optional><replaceable>options</replaceable></optional>
+      query
+      <replaceable>MODALIAS</replaceable>
+    </title>
+      <para>Query database and print result.</para>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>hwdb</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+</refentry>

@@ -1,0 +1,82 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+# This is intended to be included by mkosi.build.chroot,
+# and sets the following variables and one common function:
+# - $MKOSI_CFLAGS
+# - $MKOSI_LDFLAGS
+# - $MKOSI_MESON_OPTIONS
+
+MKOSI_CFLAGS="-O0 -g"
+if ((LLVM)); then
+    # TODO: Remove -fno-sanitize-function when https://github.com/systemd/systemd/issues/29972 is fixed.
+    MKOSI_CFLAGS="$MKOSI_CFLAGS -shared-libasan -fno-sanitize=function"
+fi
+
+MKOSI_LDFLAGS=""
+if ((LLVM)) && [[ -n "$SANITIZERS" ]]; then
+    MKOSI_LDFLAGS="$MKOSI_LDFLAGS -Wl,-rpath=$(realpath "$(clang --print-runtime-dir)")"
+fi
+
+MKOSI_MESON_OPTIONS="-D mode=developer -D vcs-tag=${VCS_TAG:-true} -D b_sanitize=${SANITIZERS:-none} -Dtime-epoch=1744207869"
+if ((WIPE)) && [[ -d "$BUILDDIR/meson-private" ]]; then
+    MKOSI_MESON_OPTIONS="$MKOSI_MESON_OPTIONS --wipe"
+fi
+
+if ((COVERAGE)); then
+    MKOSI_MESON_OPTIONS="$MKOSI_MESON_OPTIONS -D b_coverage=true"
+    MKOSI_CFLAGS="$MKOSI_CFLAGS -fprofile-dir=/coverage"
+fi
+
+make_sysext_unsigned() {
+    if ! ((SYSEXT)); then
+        return
+    fi
+
+    mkdir -p /usr/lib/systemd/repart/definitions/sysext-unsigned.repart.d
+    cat >/usr/lib/systemd/repart/definitions/sysext-unsigned.repart.d/10-root.conf <<EOF
+[Partition]
+Type=root
+Format=erofs
+CopyFiles=/usr/
+Minimize=best
+EOF
+
+    . /usr/lib/os-release
+
+    mkdir -p "$1"/usr/lib/extension-release.d
+    cat >"$1"/usr/lib/extension-release.d/extension-release.systemd <<EOF
+ID=$ID
+SYSEXT_ID=systemd
+SYSEXT_SCOPE=system
+ARCHITECTURE=$ARCHITECTURE
+EOF
+
+    if [[ -n "$VERSION_ID" ]]; then
+        cat >>"$1"/usr/lib/extension-release.d/extension-release.systemd <<EOF
+VERSION_ID=$VERSION_ID
+EOF
+    fi
+
+    if [[ -n "$SYSEXT_LEVEL" ]]; then
+        cat >>"$1"/usr/lib/extension-release.d/extension-release.systemd <<EOF
+SYSEXT_LEVEL=$SYSEXT_LEVEL
+EOF
+    fi
+
+    rm -f "$BUILDDIR"/systemd.raw
+
+    local fstype
+
+    if command -v mkfs.erofs; then
+        fstype=erofs
+    else
+        fstype=squashfs
+    fi
+
+    env SYSTEMD_REPART_OVERRIDE_FSTYPE_ROOT="$fstype" \
+    "$BUILDDIR"/systemd-repart \
+        --make-ddi=sysext-unsigned \
+        --copy-source="$1" \
+        --pretty=no \
+        "$BUILDDIR"/systemd.raw
+}

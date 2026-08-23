@@ -1,0 +1,79 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="systemd-backlight_.service" conditional='ENABLE_BACKLIGHT'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-backlight@.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-backlight@.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-backlight@.service</refname>
+    <refname>systemd-backlight</refname>
+    <refpurpose>Load and save the display backlight brightness at boot and shutdown</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-backlight@.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-backlight</filename> save [backlight|leds]:DEVICE</para>
+    <para><filename>/usr/lib/systemd/systemd-backlight</filename> load [backlight|leds]:DEVICE</para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-backlight@.service</filename> is a service that restores the brightness of
+    a display backlight or LED (e.g. keyboard backlight) device at early boot, and saves it at shutdown.
+    The brightness is stored in <filename>/var/lib/systemd/backlight/</filename>.</para>
+
+    <para>On restoring brightness of a display backlight device, <command>systemd-backlight</command> reads
+    <varname>ID_BACKLIGHT_CLAMP</varname> udev property, that takes a boolean value or a percentage (needs to
+    be suffixed with <literal>%</literal>, e.g. <literal>30%</literal>). When a percentage is specified, the
+    saved brightness is clamped to a value of at least 1 or the specified percentage of the maximum
+    brightness, whichever is greater. When unset or set to true, the brightness is clamped in the same way
+    with percentage 5%. When false, the saved brightness will not be clamped, and loaded as is.</para>
+
+    <para>On restoring brightness of a LED device, <command>systemd-backlight</command> reads
+    <varname>ID_LEDS_CLAMP</varname> udev property, that also takes a boolean value or a percentage. When a
+    percentage is specified, the saved brightness is clamped to the specified percentage of the maximum
+    brightness. When set to true, the brightness is clamped in the same way with percentage 5%. When unset or
+    set to false, the saved brightness will not be clamped, and loaded as is.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Kernel Command Line</title>
+
+    <para><filename>systemd-backlight</filename> understands the
+    following kernel command line parameter:</para>
+
+    <variablelist class='kernel-commandline-options'>
+      <varlistentry>
+        <term><varname>systemd.restore_state=</varname></term>
+
+        <listitem><para>Takes a boolean argument. Defaults to
+        <literal>1</literal>. If <literal>0</literal>, does not
+        restore the backlight settings on boot. However, settings will
+        still be stored on shutdown. </para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

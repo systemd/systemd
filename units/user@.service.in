@@ -1,0 +1,36 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=User Manager for UID %i
+Documentation=man:user@.service(5)
+BindsTo=user-runtime-dir@%i.service
+# Order after the user record measurement (see user-runtime-dir@.service), so the user's record is measured
+# into the 'login' TPM2 NvPCR before the user manager starts. Ordering only, so login is never blocked on it.
+After=systemd-logind.service user-runtime-dir@%i.service dbus.service systemd-oomd.service systemd-pcrlogin@%i.service
+IgnoreOnIsolate=yes
+
+[Service]
+User=%i
+PAMName=systemd-user
+Type=notify-reload
+ExecStart={{LIBEXECDIR}}/systemd --user
+Slice=user-%i.slice
+# Reexecute the manager on service reload, instead of reloading.
+# This provides a synchronous method for restarting all user manager
+# instances after upgrade.
+ReloadSignal=RTMIN+25
+KillMode=mixed
+Delegate=pids memory cpu
+DelegateSubgroup=init.scope
+TasksMax=infinity
+TimeoutStopSec={{ DEFAULT_USER_TIMEOUT_SEC*4//3 }}s
+KeyringMode=inherit
+OOMScoreAdjust=100
+MemoryPressureWatch=skip

@@ -1,0 +1,20 @@
+{
+    "type": "devicetree",
+    "name": "Acer Swift 14 Go Pro AI",
+    "compatible": "acer,swift-sfa14-11",
+    "hwids": [
+        "730dea6f-efd9-5686-a975-656c9b8423f1",
+        "97f3186d-0ad3-5f8a-98bb-72674271590d",
+        "39379ca2-ff12-5f56-b54f-05064dc42166",
+        "c6d7090e-7535-5a11-aa9e-c61e2bf3e21c",
+        "b4835065-fd33-5d49-99d2-4e8a16147c23",
+        "74439855-9bdf-5cf1-9bf8-4057ee0fb250",
+        "7e4796fa-aa40-55f4-ac92-7350759fe5b7",
+        "eb342e11-e7f8-5b4b-b193-d379f676ec8b",
+        "3e7aed1f-e80e-59b9-a0e7-0011d93d05ba",
+        "488a4452-62a8-5362-87ba-8265d0d0ef61",
+        "3e7aed1f-e80e-59b9-a0e7-0011d93d05ba",
+        "dace3a5d-f5c6-5b0b-b15c-ff1ebfc2f5c2",
+        "c97fd9d6-efec-54e0-a6e2-3ba4cadd9655"
+    ]
+}

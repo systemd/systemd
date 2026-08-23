@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=dummy98
+
+[Link]
+MTUBytes=9000
+
+[Network]
+Bridge=bridge99
+
+[Bridge]
+Cost=400
+HairPin = true
+Isolated = true
+FastLeave = true
+UnicastFlood = true
+MulticastFlood = false
+MulticastToUnicast = true
+NeighborSuppression = true
+Learning = false
+Priority = 23
+UseBPDU = true
+AllowPortToBeRoot=true

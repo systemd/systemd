@@ -1,0 +1,44 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Home Area Manager
+Documentation=man:systemd-homed.service(8)
+Documentation=man:org.freedesktop.home1(5)
+After=home.mount dbus.service
+
+[Service]
+BusName=org.freedesktop.home1
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER CAP_FSETID CAP_SETGID CAP_SETUID CAP_SYS_RESOURCE CAP_SETPCAP CAP_DAC_READ_SEARCH CAP_SETFCAP
+DeviceAllow=/dev/loop-control rw
+DeviceAllow=/dev/mapper/control rw
+DeviceAllow=/dev/btrfs-control rw
+DeviceAllow=block-* rw
+DeviceAllow=char-hidraw rw
+ExecStart={{LIBEXECDIR}}/systemd-homed
+KillMode=mixed
+LimitNOFILE={{HIGH_RLIMIT_NOFILE}}
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
+RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_ALG AF_INET AF_INET6
+RestrictNamespaces=mnt user
+RestrictRealtime=yes
+StateDirectory=systemd/home
+CacheDirectory=systemd/home
+SystemCallArchitectures=native
+SystemCallErrorNumber=EPERM
+SystemCallFilter=@system-service @mount quotactl quotactl_fd
+TimeoutStopSec=3min
+{{SERVICE_WATCHDOG}}
+
+[Install]
+WantedBy=multi-user.target
+Alias=dbus-org.freedesktop.home1.service
+Also=systemd-homed-activate.service

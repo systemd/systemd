@@ -1,0 +1,43 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+%{
+_Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
+#if __GNUC__ >= 15
+_Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
+#endif
+#include <stddef.h>
+#include "conf-parser.h"
+#include "dns-packet.h"
+#include "resolved-conf.h"
+#include "resolved-dns-server.h"
+#include "resolved-manager.h"
+%}
+struct ConfigPerfItem;
+%null_strings
+%language=ANSI-C
+%define slot-name section_and_lvalue
+%define hash-function-name resolved_gperf_hash
+%define lookup-function-name resolved_gperf_lookup
+%readonly-tables
+%omit-struct-type
+%struct-type
+%includes
+%%
+Resolve.DNS,                       config_parse_dns_servers,             DNS_SERVER_SYSTEM,   0
+Resolve.FallbackDNS,               config_parse_dns_servers,             DNS_SERVER_FALLBACK, 0
+Resolve.Domains,                   config_parse_search_domains,          0,                   0
+Resolve.LLMNR,                     config_parse_resolve_support,         0,                   offsetof(Manager, llmnr_support)
+Resolve.MulticastDNS,              config_parse_resolve_support,         0,                   offsetof(Manager, mdns_support)
+Resolve.DNSSEC,                    config_parse_dnssec_mode,             0,                   offsetof(Manager, dnssec_mode)
+Resolve.DNSOverTLS,                config_parse_dns_over_tls_mode,       0,                   offsetof(Manager, dns_over_tls_mode)
+Resolve.Cache,                     config_parse_dns_cache_mode,          DNS_CACHE_MODE_YES,  offsetof(Manager, enable_cache)
+Resolve.DNSStubListener,           config_parse_dns_stub_listener_mode,  0,                   offsetof(Manager, dns_stub_listener_mode)
+Resolve.ReadEtcHosts,              config_parse_bool,                    0,                   offsetof(Manager, read_etc_hosts)
+Resolve.ReadStaticRecords,         config_parse_bool,                    0,                   offsetof(Manager, read_static_records)
+Resolve.ResolveUnicastSingleLabel, config_parse_bool,                    0,                   offsetof(Manager, resolve_unicast_single_label)
+Resolve.DNSStubListenerExtra,      config_parse_dns_stub_listener_extra, 0,                   offsetof(Manager, dns_extra_stub_listeners)
+Resolve.CacheFromLocalhost,        config_parse_bool,                    0,                   offsetof(Manager, cache_from_localhost)
+Resolve.DNSCacheSize,              config_parse_dns_cache_max,           DNS_PROTOCOL_DNS,    0
+Resolve.MulticastDNSCacheSize,     config_parse_dns_cache_max,           DNS_PROTOCOL_MDNS,   0
+Resolve.LLMNRCacheSize,            config_parse_dns_cache_max,           DNS_PROTOCOL_LLMNR,  0
+Resolve.StaleRetentionSec,         config_parse_sec,                     0,                   offsetof(Manager, stale_retention_usec)
+Resolve.RefuseRecordTypes,         config_parse_record_types,            0,                   offsetof(Manager, refuse_record_types)

@@ -1,0 +1,171 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd_hwdb_get" xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>sd_hwdb_get</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_hwdb_get</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_hwdb_get</refname>
+    <refname>sd_hwdb_seek</refname>
+    <refname>sd_hwdb_enumerate</refname>
+    <refname>SD_HWDB_FOREACH_PROPERTY</refname>
+
+    <refpurpose>Seek to a location in hwdb or access entries</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-hwdb.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_hwdb_get</function></funcdef>
+        <paramdef>sd_hwdb *<parameter>hwdb</parameter></paramdef>
+        <paramdef>const char *<parameter>modalias</parameter></paramdef>
+        <paramdef>const char *<parameter>key</parameter></paramdef>
+        <paramdef>const char **<parameter>value</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_hwdb_seek</function></funcdef>
+        <paramdef>sd_hwdb *<parameter>hwdb</parameter></paramdef>
+        <paramdef>const char *<parameter>modalias</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_hwdb_enumerate</function></funcdef>
+        <paramdef>sd_hwdb *<parameter>hwdb</parameter></paramdef>
+        <paramdef>const char **<parameter>key</parameter></paramdef>
+        <paramdef>const char **<parameter>value</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef><function>SD_HWDB_FOREACH_PROPERTY</function></funcdef>
+        <paramdef>hwdb</paramdef>
+        <paramdef>modalias</paramdef>
+        <paramdef>key</paramdef>
+        <paramdef>value</paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_hwdb_get()</function> queries the <parameter>hwdb</parameter> object created earlier
+    with <citerefentry><refentrytitle>sd_hwdb_new</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
+    entries matching the specified string <parameter>modalias</parameter>, and returns the value
+    corresponding to the key <parameter>key</parameter>. The value is returned as a
+    <constant>NUL</constant>-terminated string in <parameter>value</parameter>. It must not be modified by
+    the caller and is valid as long as a reference to <parameter>hwdb</parameter> is kept. When multiple
+    patterns in the database match <parameter>modalias</parameter>, the one with the highest priority is
+    used. See <citerefentry><refentrytitle>hwdb</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+    details.</para>
+
+    <para><function>sd_hwdb_seek()</function> selects entries matching the specified string
+    <parameter>modalias</parameter>. Subsequent queries with <function>sd_hwdb_enumerate()</function> will
+    access the key-value pairs for that string.</para>
+
+    <para><function>sd_hwdb_enumerate()</function> returns (in turn) all the key-value pairs defined for the
+    string used with <function>sd_hwdb_seek()</function>. Each pair is returned as
+    <constant>NUL</constant>-terminated strings in <parameter>key</parameter> and
+    <parameter>value</parameter>. The strings must not be modified by the caller and are valid as long as a
+    reference to <parameter>hwdb</parameter> is kept. When multiple patterns in the database match
+    <parameter>modalias</parameter>, the combination of all matching key-value pairs is used. See
+    <citerefentry><refentrytitle>hwdb</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+    details.</para>
+
+    <para>The <function>SD_HWDB_FOREACH_PROPERTY()</function> macro combines
+    <function>sd_hwdb_seek()</function> and <function>sd_hwdb_enumerate()</function>. No error handling is
+    performed and iteration simply stops on error. See the example below.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, <function>sd_hwdb_get()</function> and <function>sd_hwdb_seek()</function> return a
+    non-negative integer. On failure, they return a negative errno-style error code.</para>
+
+    <para><function>sd_hwdb_enumerate()</function> returns a positive integer if another key-value pair was found or zero if
+    all entries have already been enumerated. On failure, it returns a negative errno-style error code.
+    </para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>A parameter is <constant>NULL</constant>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOENT</constant></term>
+
+          <listitem><para>An entry for the specified <parameter>modalias</parameter> was not found.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EAGAIN</constant></term>
+
+          <listitem><para><function>sd_hwdb_seek()</function> was not called before
+          <function>sd_hwdb_enumerate()</function>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Look up hwdb entries for a USB device</title>
+
+      <programlisting><xi:include href="hwdb-usb-device.c" parse="text" /></programlisting>
+
+      <para>The effect is similar to calling <command>systemd-hwdb query usb:v046DpC534</command>.
+      </para>
+    </example>
+  </refsect1>
+
+  <refsect1>
+    <title>History</title>
+    <para><function>sd_hwdb_get()</function>,
+    <function>sd_hwdb_seek()</function>,
+    <function>sd_hwdb_enumerate()</function>, and
+    <function>SD_HWDB_FOREACH_PROPERTY()</function> were added in version 246.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-hwdb</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-hwdb</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

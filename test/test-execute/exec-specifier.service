@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for specifiers
+
+[Service]
+Type=oneshot
+ExecStart=test %n = exec-specifier.service
+ExecStart=test %N = exec-specifier
+ExecStart=test %p = exec-specifier
+ExecStart=test %P = exec/specifier
+ExecStart=test %i = ""
+ExecStart=test %I = ""
+ExecStart=test %j = specifier
+ExecStart=test %J = specifier
+ExecStart=test %f = /exec/specifier
+ExecStart=test %T = /tmp
+ExecStart=test %V = /var/tmp
+ExecStart=test %d = %t/credentials/%n
+ExecStart=bash -c 'test %u = $$(id -un)'
+ExecStart=bash -c 'test %U = $$(id -u)'
+ExecStart=bash -c 'test %g = $$(id -gn)'
+ExecStart=bash -c 'test %G = $$(id -g)'
+ExecStart=test %h = /root
+ExecStart=bash -c 'test -x %s'
+ExecStart=bash -c 'test %b = $$(cat /proc/sys/kernel/random/boot_id | sed -e 's/-//g')'
+ExecStart=bash -c 'test %H = $$(uname -n)'
+ExecStart=bash -c 'test %v = $$(uname -r)'

@@ -1,0 +1,51 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=veth99
+
+[Network]
+DHCP=ipv4
+IPv6AcceptRA=no
+Address=192.168.5.250/24
+Tunnel=sit-dhcp4
+
+[DHCPv4]
+RequestAddress=192.168.5.110
+UseDomains=yes
+UseMTU=yes
+UseRoutes=yes
+RoutesToDNS=yes
+RouteTable=211
+RouteMetric=24
+UseHostname=yes
+Hostname=test-hostname
+SendOption=12:string:test
+SendHostname=yes
+ClientIdentifier=mac
+VendorClassIdentifier=FooBarVendorTest
+Label=test-label
+ListenPort=5555
+SendDecline=yes
+# DenyList= will be ignored
+AllowList=192.168.5.0/24 192.168.6.0/24
+DenyList=192.168.5.0/24
+# just a random label which should exist
+NetLabel=system_u:object_r:root_t:s0
+NFTSet=address:inet:sd_test:addr4 prefix:inet:sd_test:network4 ifindex:inet:sd_test:ifindex
+
+[Route]
+Destination=192.168.5.0/24
+
+[Route]
+Destination=192.168.6.0/24
+
+[Route]
+Destination=192.168.7.0/24
+
+[Route]
+Gateway=_dhcp4
+Destination=192.0.2.0/24
+
+[Route]
+Gateway=_dhcp4
+Destination=198.51.100.0/24
+Table=212

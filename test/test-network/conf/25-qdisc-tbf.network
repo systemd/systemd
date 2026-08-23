@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=dummy98
+
+[Network]
+IPv6AcceptRA=no
+Address=10.1.2.3/16
+
+[TokenBucketFilter]
+Parent=root
+Handle=0035
+Rate=1G
+BurstBytes=5000
+LatencySec=70msec
+PeakRate=100G
+MTUBytes=1000000
+
+[PFIFO]
+Parent=35:0
+Handle=0037
+PacketLimit=100000

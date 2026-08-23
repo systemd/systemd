@@ -1,0 +1,15 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+@@
+constant s;
+@@
+(
+#define STRLEN
+&
+- sizeof(s)-1
++ STRLEN(s)
+)
+@@
+constant s;
+@@
+- strlen(s)
++ STRLEN(s)

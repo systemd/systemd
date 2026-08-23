@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=GNOME Settings Daemon's power plugin
+Exec=/usr/libexec/gsd-power
+OnlyShowIn=GNOME;
+NoDisplay=true
+X-GNOME-Autostart-Phase=Initialization
+X-GNOME-Autostart-Notify=true
+X-GNOME-AutoRestart=true
+X-GNOME-HiddenUnderSystemd=true

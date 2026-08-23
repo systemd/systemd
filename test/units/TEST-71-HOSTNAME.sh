@@ -1,0 +1,548 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+set -eux
+set -o pipefail
+
+# shellcheck source=test/units/test-control.sh
+. "$(dirname "$0")"/test-control.sh
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
+restore_hostname() {
+    if [[ -e /tmp/hostname.bak ]]; then
+        mv /tmp/hostname.bak /etc/hostname
+    else
+        rm -f /etc/hostname
+    fi
+}
+
+testcase_hostname() {
+    local orig=
+
+    if [[ -f /etc/hostname ]]; then
+        cp /etc/hostname /tmp/hostname.bak
+        orig=$(cat /etc/hostname)
+    fi
+
+    trap restore_hostname RETURN
+
+    # should activate daemon and work
+    if [[ -n "$orig" ]]; then
+        assert_in "Static hostname: $orig" "$(hostnamectl)"
+    fi
+    assert_in "Kernel: $(uname -s) $(uname -r | sed 's/\+/\\+/g')" "$(hostnamectl)"
+
+    # change hostname
+    assert_rc 0 hostnamectl set-hostname testhost
+    assert_eq "$(cat /etc/hostname)" "testhost"
+    assert_in "Static hostname: testhost" "$(hostnamectl)"
+
+    if [[ -n "$orig" ]]; then
+        # reset to original
+        assert_rc 0 hostnamectl set-hostname "$orig"
+        assert_eq "$(cat /etc/hostname)" "$orig"
+        assert_in "Static hostname: $orig" "$(hostnamectl)"
+    fi
+}
+
+restore_machine_info() {
+    if [[ -e /tmp/machine-info.bak ]]; then
+        mv /tmp/machine-info.bak /etc/machine-info
+    else
+        rm -f /etc/machine-info
+    fi
+}
+
+get_chassis() (
+    # shellcheck source=/dev/null
+    . /etc/machine-info
+
+    echo "$CHASSIS"
+)
+
+stop_hostnamed() {
+    systemctl stop --job-mode=replace-irreversibly systemd-hostnamed.service
+    # Reset trigger limit. This might fail if the unit was unloaded already, so ignore any errors.
+    systemctl reset-failed systemd-hostnamed || :
+}
+
+testcase_chassis() {
+    local i
+
+    if [[ -f /etc/machine-info ]]; then
+        cp /etc/machine-info /tmp/machine-info.bak
+    fi
+
+    trap restore_machine_info RETURN
+
+    # Invalid chassis type is refused
+    assert_rc 1 hostnamectl chassis hoge
+
+    # Valid chassis types
+    for i in vm container desktop laptop convertible server tablet handset watch embedded; do
+        hostnamectl chassis "$i"
+        assert_eq "$(hostnamectl chassis)" "$i"
+        assert_eq "$(get_chassis)" "$i"
+    done
+
+    stop_hostnamed
+    rm -f /etc/machine-info
+
+    # fallback chassis type
+    if systemd-detect-virt --quiet --container; then
+        assert_eq "$(hostnamectl chassis)" container
+    elif systemd-detect-virt --quiet --vm; then
+        assert_eq "$(hostnamectl chassis)" vm
+    fi
+}
+
+restore_sysfs_dmi() {
+    umount /sys/class/dmi/id
+    rm -rf /run/systemd/system/systemd-hostnamed.service.d
+    systemctl daemon-reload
+    stop_hostnamed
+}
+
+fake_sysfs_dmi() {
+    # Ignore /sys being mounted as tmpfs
+    mkdir -p /run/systemd/system/systemd-hostnamed.service.d/
+    cat >/run/systemd/system/systemd-hostnamed.service.d/override.conf <<EOF
+[Service]
+Environment="SYSTEMD_DEVICE_VERIFY_SYSFS=0"
+Environment="SYSTEMD_HOSTNAME_FORCE_DMI=1"
+EOF
+    systemctl daemon-reload
+
+    mount -t tmpfs none /sys/class/dmi/id
+    echo '1' >/sys/class/dmi/id/uevent
+}
+
+testcase_firmware_date() {
+    # No DMI on s390x or ppc
+    if [[ ! -d /sys/class/dmi/id ]]; then
+        echo "/sys/class/dmi/id not found, skipping firmware date tests."
+        return 0
+    fi
+
+    trap restore_sysfs_dmi RETURN
+
+    fake_sysfs_dmi
+
+    echo '09/08/2000' >/sys/class/dmi/id/bios_date
+    stop_hostnamed
+    assert_in '2000-09-08' "$(hostnamectl)"
+
+    echo '2022' >/sys/class/dmi/id/bios_date
+    stop_hostnamed
+    assert_not_in 'Firmware Date' "$(hostnamectl)"
+
+    echo 'garbage' >/sys/class/dmi/id/bios_date
+    stop_hostnamed
+    assert_not_in 'Firmware Date' "$(hostnamectl)"
+}
+
+testcase_hardware_serial() {
+    # No DMI on s390x or ppc
+    if [[ ! -d /sys/class/dmi/id ]]; then
+        echo "/sys/class/dmi/id not found, skipping firmware date tests."
+        return 0
+    fi
+
+    trap restore_sysfs_dmi RETURN
+
+    fake_sysfs_dmi
+
+    echo '1234' >/sys/class/dmi/id/board_serial
+    stop_hostnamed
+    assert_eq "$(hostnamectl --json=short | jq --raw-output .HardwareSerial)" "1234"
+
+    # product_serial is preferred over board_serial
+    echo '4321' >/sys/class/dmi/id/product_serial
+    stop_hostnamed
+    assert_eq "$(hostnamectl --json=short | jq --raw-output .HardwareSerial)" "4321"
+}
+
+testcase_nss-myhostname() {
+    local database host i
+
+    if ! check_nss_module myhostname; then
+        return 0
+    fi
+
+    HOSTNAME="$(hostnamectl hostname)"
+
+    # Set up a dummy network for _gateway and _outbound labels
+    ip link add foo type dummy
+    ip link set up dev foo
+    ip addr add 10.0.0.2/24 dev foo
+    for i in {128..150}; do
+        ip addr add "10.0.0.$i/24" dev foo
+    done
+    ip route add 10.0.0.1 dev foo
+    ip route add default via 10.0.0.1 dev foo
+
+    # Note: `getent hosts` probes gethostbyname2(), whereas `getent ahosts` probes gethostbyname3()
+    #       and gethostbyname4() (through getaddrinfo() -> gaih_inet() -> get_nss_addresses())
+    getent hosts -s myhostname
+    getent ahosts -s myhostname
+
+    # With IPv6 disabled
+    sysctl -w net.ipv6.conf.all.disable_ipv6=1
+    # Everything under .localhost and .localhost.localdomain should resolve to localhost
+    for host in {foo.,foo.bar.baz.,.,}localhost{,.} {foo.,foo.bar.baz.,.,}localhost.localdomain{,.}; do
+        run_and_grep "^127\.0\.0\.1\s+localhost$" getent hosts -s myhostname "$host"
+        run_and_grep "^127\.0\.0\.1\s+STREAM\s+localhost" getent ahosts -s myhostname "$host"
+        run_and_grep "^127\.0\.0\.1\s+STREAM\s+localhost" getent ahostsv4 -s myhostname "$host"
+        (! getent ahostsv6 -s myhostname localhost)
+    done
+    for i in 2 {128..150}; do
+        run_and_grep "^10\.0\.0\.$i\s+$HOSTNAME$" getent hosts -s myhostname "$HOSTNAME"
+        run_and_grep "^10\.0\.0\.$i\s+" getent ahosts -s myhostname "$HOSTNAME"
+        run_and_grep "^10\.0\.0\.$i\s+" getent ahostsv4 -s myhostname "$HOSTNAME"
+        run_and_grep "^10\.0\.0\.$i\s+$HOSTNAME$" getent hosts -s myhostname "10.0.0.$i"
+        run_and_grep "^10\.0\.0\.$i\s+STREAM\s+10\.0\.0\.$i$" getent ahosts -s myhostname "10.0.0.$i"
+        run_and_grep "^10\.0\.0\.$i\s+STREAM\s+10\.0\.0\.$i$" getent ahostsv4 -s myhostname "10.0.0.$i"
+    done
+    for database in hosts ahosts ahostsv4 ahostsv6; do
+        (! getent "$database" -s myhostname ::1)
+    done
+    (! getent ahostsv6 -s myhostname "$HOSTNAME")
+    run_and_grep -n "^fe80:[^ ]+\s+STREAM$" getent ahosts -s myhostname "$HOSTNAME"
+
+    # With IPv6 enabled
+    sysctl -w net.ipv6.conf.all.disable_ipv6=0
+    # Everything under .localhost and .localhost.localdomain should resolve to localhost
+    for host in {foo.,foo.bar.baz.,.,}localhost{,.} {foo.,foo.bar.baz.,.,}localhost.localdomain{,.}; do
+        run_and_grep "^::1\s+localhost$" getent hosts -s myhostname "$host"
+        run_and_grep "^::1\s+STREAM" getent ahosts -s myhostname "$host"
+        run_and_grep "^127\.0\.0\.1\s+STREAM" getent ahosts -s myhostname "$host"
+        run_and_grep "^127\.0\.0\.1\s+STREAM" getent ahostsv4 -s myhostname "$host"
+        run_and_grep -n "^::1\s+STREAM" getent ahostsv4 -s myhostname "$host"
+        run_and_grep "^::1\s+STREAM" getent ahostsv6 -s myhostname "$host"
+        run_and_grep -n "^127\.0\.0\.1\s+STREAM" getent ahostsv6 -s myhostname "$host"
+    done
+    for i in 2 {128..150}; do
+        run_and_grep "^10\.0\.0\.$i\s+" getent ahosts -s myhostname "$HOSTNAME"
+        run_and_grep "^10\.0\.0\.$i\s+" getent ahostsv4 -s myhostname "$HOSTNAME"
+        run_and_grep "^10\.0\.0\.$i\s+STREAM\s+10\.0\.0\.$i$" getent ahosts -s myhostname "10.0.0.$i"
+        run_and_grep "^10\.0\.0\.$i\s+STREAM\s+10\.0\.0\.$i$" getent ahostsv4 -s myhostname "10.0.0.$i"
+    done
+    run_and_grep "^fe80:[^ ]+\s+$HOSTNAME$" getent hosts -s myhostname "$HOSTNAME"
+    run_and_grep "^fe80:[^ ]+\s+STREAM" getent ahosts -s myhostname "$HOSTNAME"
+    run_and_grep "^127\.0\.0\.1\s+localhost$" getent hosts -s myhostname 127.0.0.1
+    run_and_grep "^127\.0\.0\.1\s+STREAM\s+127\.0\.0\.1$" getent ahosts -s myhostname 127.0.0.1
+    run_and_grep "^::ffff:127\.0\.0\.1\s+STREAM\s+127\.0\.0\.1$" getent ahostsv6 -s myhostname 127.0.0.1
+    run_and_grep "^127\.0\.0\.2\s+$HOSTNAME$" getent hosts -s myhostname 127.0.0.2
+    run_and_grep "^::1\s+localhost $HOSTNAME$" getent hosts -s myhostname ::1
+    run_and_grep "^::1\s+STREAM\s+::1$" getent ahosts -s myhostname ::1
+    (! getent ahostsv4 -s myhostname ::1)
+
+    # _gateway
+    for host in _gateway{,.} 10.0.0.1; do
+        run_and_grep "^10\.0\.0\.1\s+_gateway$" getent hosts -s myhostname "$host"
+        run_and_grep "^10\.0\.0\.1\s+STREAM" getent ahosts -s myhostname "$host"
+    done
+
+    # _outbound
+    for host in _outbound{,.} 10.0.0.2; do
+        run_and_grep "^10\.0\.0\.2\s+" getent hosts -s myhostname "$host"
+        run_and_grep "^10\.0\.0\.2\s+STREAM" getent ahosts -s myhostname "$host"
+    done
+
+    # Non-existent records
+    for database in hosts ahosts ahostsv4 ahostsv6; do
+        (! getent "$database" -s myhostname this.should.not.exist)
+    done
+    (! getent hosts -s myhostname 10.254.254.1)
+    (! getent hosts -s myhostname fd00:dead:beef:cafe::1)
+}
+
+test_varlink() {
+    A="$(mktemp -u)"
+    B="$(mktemp -u)"
+    varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}' --json=short > "$A"
+    hostnamectl --json=short > "$B"
+    cmp "$A" "$B"
+}
+
+testcase_wildcard() {
+    SAVED=""
+    [[ -f /etc/hostname ]] && SAVED="$(cat /etc/hostname)"
+    trap 'hostnamectl set-hostname "$SAVED"' RETURN
+
+    P='foo-??-??.????bar'
+    hostnamectl set-hostname "$P"
+    H="$(hostname)"
+    # Validate that the hostname is not the literal pattern, but matches the pattern shell style
+    assert_neq "$H" "$P"
+    # shellcheck disable=SC2053 # glob matching is intended here
+    [[ "$H" == $P ]]
+    assert_eq "$(cat /etc/hostname)" "$P"
+
+    assert_in "Static hostname: foo-" "$(hostnamectl)"
+}
+
+restore_wildcard_words() {
+    rm -rf /etc/systemd/hostname-wordlist
+    if [[ -d /tmp/hostname-wordlist.bak ]]; then
+        mv /tmp/hostname-wordlist.bak /etc/systemd/hostname-wordlist
+    fi
+    hostnamectl set-hostname "$SAVED"
+}
+
+testcase_wildcard_words() {
+    # The n-th '$' token is substituted deterministically from the machine ID using the
+    # word list file named after its position (see hostname(5) and hostname-wordlist/README).
+    SAVED=""
+    [[ -f /etc/hostname ]] && SAVED="$(cat /etc/hostname)"
+    [[ -d /etc/systemd/hostname-wordlist ]] && mv /etc/systemd/hostname-wordlist /tmp/hostname-wordlist.bak
+    trap restore_wildcard_words EXIT
+
+    mkdir -p /etc/systemd/hostname-wordlist
+    printf 'wildly\nquietly\n' >/etc/systemd/hostname-wordlist/1
+    printf 'happy\nsad\n'      >/etc/systemd/hostname-wordlist/2
+    printf 'octopus\nfalcon\n' >/etc/systemd/hostname-wordlist/3
+
+    # each '$' expands to a word from the list at its position
+    hostnamectl set-hostname '$-$-$'
+    H="$(hostname)"
+    assert_neq "$H" '$-$-$'
+    assert_eq "$(cat /etc/hostname)" '$-$-$'
+    IFS='-' read -r w1 w2 w3 <<<"$H"
+    grep -Fx -- "$w1" /etc/systemd/hostname-wordlist/1 >/dev/null
+    grep -Fx -- "$w2" /etc/systemd/hostname-wordlist/2 >/dev/null
+    grep -Fx -- "$w3" /etc/systemd/hostname-wordlist/3 >/dev/null
+
+    # the choice is deterministic: setting the same template again yields the same name
+    hostnamectl set-hostname testhost
+    hostnamectl set-hostname '$-$-$'
+    assert_eq "$(hostname)" "$H"
+}
+
+teardown_hostnamed_alternate_paths() {
+    set +eu
+
+    rm -rf /run/systemd/system/systemd-hostnamed.service.d
+    systemctl daemon-reload
+    systemctl restart systemd-hostnamed
+    if [[ -f /etc/hostname ]]; then
+        orig=$(cat /etc/hostname)
+        if [[ -n "${orig}" ]]; then
+            hostnamectl hostname "${orig}"
+        fi
+    fi
+}
+
+testcase_hostnamed_alternate_paths() {
+    trap teardown_hostnamed_alternate_paths RETURN
+
+    mkdir -p /run/alternate-path
+
+    mkdir -p /run/systemd/system/systemd-hostnamed.service.d
+    cat >/run/systemd/system/systemd-hostnamed.service.d/override.conf <<EOF
+[Service]
+Environment=SYSTEMD_ETC_HOSTNAME=/run/alternate-path/myhostname
+Environment=SYSTEMD_ETC_MACHINE_INFO=/run/alternate-path/mymachine-info
+EOF
+    systemctl daemon-reload
+    systemctl restart systemd-hostnamed
+
+    assert_rc 0 hostnamectl set-hostname heisenberg
+    assert_rc 0 hostnamectl chassis watch
+
+    output=$(hostnamectl)
+    assert_in "Static hostname: heisenberg" "$output"
+    assert_in "Chassis: watch" "$output"
+    assert_in "heisenberg" "$(cat /run/alternate-path/myhostname)"
+    assert_in "CHASSIS=watch" "$(cat /run/alternate-path/mymachine-info)"
+}
+
+testcase_get_machine_info() {
+    if [[ -f /etc/machine-info ]]; then
+        cp /etc/machine-info /tmp/machine-info.bak
+    fi
+
+    trap restore_machine_info RETURN
+
+    # Test all standard cached fields
+    cat >/etc/machine-info <<EOF
+PRETTY_HOSTNAME="Pretty Test"
+ICON_NAME=computer-laptop
+CHASSIS=laptop
+DEPLOYMENT=production
+LOCATION="Server Room 42"
+HARDWARE_VENDOR="Test Vendor"
+HARDWARE_MODEL="Test Model"
+HARDWARE_SKU="SKU-001"
+HARDWARE_VERSION="v1.0"
+TEST_CUSTOM_FIELD_1=still-here
+EOF
+
+    # Custom field should still work alongside standard fields
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s TEST_CUSTOM_FIELD_1 | cut -d'"' -f2)" "still-here"
+    # Should fail for a field that doesn't exist
+    assert_rc 1 busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s NONEXISTENT_FIELD
+    # Should fail for an empty field name
+    assert_rc 1 busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s ""
+    # Should fail for an invalid field name
+    assert_rc 1 busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s "invalid-name!"
+
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s PRETTY_HOSTNAME | cut -d'"' -f2)" "Pretty Test"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s ICON_NAME | cut -d'"' -f2)" "computer-laptop"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s CHASSIS | cut -d'"' -f2)" "laptop"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s DEPLOYMENT | cut -d'"' -f2)" "production"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s LOCATION | cut -d'"' -f2)" "Server Room 42"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s HARDWARE_VENDOR | cut -d'"' -f2)" "Test Vendor"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s HARDWARE_MODEL | cut -d'"' -f2)" "Test Model"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s HARDWARE_SKU | cut -d'"' -f2)" "SKU-001"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s HARDWARE_VERSION | cut -d'"' -f2)" "v1.0"
+
+    # Verify cache consistency for all standard fields against D-Bus properties
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s PRETTY_HOSTNAME | cut -d'"' -f2)" \
+              "$(busctl get-property org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 PrettyHostname | cut -d'"' -f2)"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s ICON_NAME | cut -d'"' -f2)" \
+              "$(busctl get-property org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 IconName | cut -d'"' -f2)"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s CHASSIS | cut -d'"' -f2)" \
+              "$(busctl get-property org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 Chassis | cut -d'"' -f2)"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s DEPLOYMENT | cut -d'"' -f2)" \
+              "$(busctl get-property org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 Deployment | cut -d'"' -f2)"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s LOCATION | cut -d'"' -f2)" \
+              "$(busctl get-property org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 Location | cut -d'"' -f2)"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s HARDWARE_VENDOR | cut -d'"' -f2)" \
+              "$(busctl get-property org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 HardwareVendor | cut -d'"' -f2)"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s HARDWARE_MODEL | cut -d'"' -f2)" \
+              "$(busctl get-property org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 HardwareModel | cut -d'"' -f2)"
+
+    # Test file modification is reflected (cache invalidation via stat)
+    cat >/etc/machine-info <<EOF
+PRETTY_HOSTNAME="Updated Host"
+TEST_CUSTOM_FIELD_1=updated-value
+EOF
+
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s PRETTY_HOSTNAME | cut -d'"' -f2)" "Updated Host"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s TEST_CUSTOM_FIELD_1 | cut -d'"' -f2)" "updated-value"
+    # Fields removed from the file should now fail
+    assert_rc 1 busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s CHASSIS
+}
+
+testcase_tags() {
+    if [[ -f /etc/machine-info ]]; then
+        cp /etc/machine-info /tmp/machine-info.bak
+    fi
+
+    trap restore_machine_info RETURN
+
+    # Start from a clean slate.
+    hostnamectl tags ""
+    assert_eq "$(hostnamectl tags)" ""
+
+    # Plain arguments replace the whole list; each argument may itself be a colon-separated list, and the
+    # result is deduplicated and sorted.
+    hostnamectl tags foo bar:baz
+    assert_eq "$(hostnamectl tags)" "bar:baz:foo"
+
+    # A leading '+' adds, a leading '-' removes, and the prefix applies to all (colon-separated) tags of
+    # the argument.
+    hostnamectl tags +quux
+    assert_eq "$(hostnamectl tags)" "bar:baz:foo:quux"
+    hostnamectl tags -- -foo
+    assert_eq "$(hostnamectl tags)" "bar:baz:quux"
+    hostnamectl tags -- +alpha:beta -bar:baz
+    assert_eq "$(hostnamectl tags)" "alpha:beta:quux"
+
+    # Adding an existing tag and removing a non-existing one are no-ops.
+    hostnamectl tags +alpha
+    assert_eq "$(hostnamectl tags)" "alpha:beta:quux"
+    hostnamectl tags -- -nonexistent
+    assert_eq "$(hostnamectl tags)" "alpha:beta:quux"
+
+    # Plain and prefixed arguments may not be mixed.
+    (! hostnamectl tags foo +bar)
+    (! hostnamectl tags +bar foo)
+    # Invalid tag characters are refused.
+    (! hostnamectl tags "in valid")
+    (! hostnamectl tags "+in/valid")
+
+    # The AddAndRemoveTags() D-Bus method directly.
+    hostnamectl tags ""
+    busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 \
+            AddAndRemoveTags asas 2 one two 0
+    assert_eq "$(hostnamectl tags)" "one:two"
+    busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 \
+            AddAndRemoveTags asas 1 three 1 one
+    assert_eq "$(hostnamectl tags)" "three:two"
+
+    # The SetTags() Varlink method: 'set' resets the list, then 'add'/'remove' are applied on top.
+    varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags \
+            '{"set":["x","y"],"add":["z"],"remove":["x"]}'
+    assert_eq "$(hostnamectl tags)" "y:z"
+    # An explicit empty 'set' clears the list first.
+    varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags '{"set":[]}'
+    assert_eq "$(hostnamectl tags)" ""
+    # Without 'set' the current list is the basis.
+    varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags '{"add":["aaa","bbb"]}'
+    assert_eq "$(hostnamectl tags)" "aaa:bbb"
+    varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags '{"remove":["aaa"]}'
+    assert_eq "$(hostnamectl tags)" "bbb"
+    # Invalid tags are refused.
+    (! varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.SetTags '{"add":["in valid"]}')
+
+    hostnamectl tags ""
+}
+
+testcase_varlink_setters() {
+    local bus=/run/systemd/io.systemd.Hostname
+
+    if [[ -f /etc/hostname ]]; then
+        cp /etc/hostname /tmp/hostname.bak
+    fi
+    if [[ -f /etc/machine-info ]]; then
+        cp /etc/machine-info /tmp/machine-info.bak
+    fi
+
+    trap 'restore_hostname; restore_machine_info' RETURN
+
+    # Static hostname.
+    varlinkctl call "$bus" io.systemd.Hostname.SetStaticHostname '{"newValue":"vl-static"}'
+    assert_eq "$(cat /etc/hostname)" "vl-static"
+    assert_in "Static hostname: vl-static" "$(hostnamectl)"
+
+    varlinkctl call "$bus" io.systemd.Hostname.SetStaticHostname '{"newValue":null}'
+    test ! -e /etc/hostname
+
+    # Transient hostname; a null value resets it back to the fallback
+    varlinkctl call "$bus" io.systemd.Hostname.SetHostname '{"newValue":"vl-transient"}'
+    assert_eq "$(hostname)" "vl-transient"
+    varlinkctl call "$bus" io.systemd.Hostname.SetHostname '{"newValue":null}'
+    assert_neq "$(hostname)" "vl-transient"
+
+    # Machine-info fields.
+    varlinkctl call "$bus" io.systemd.Hostname.SetPrettyHostname '{"newValue":"Pretty VL"}'
+    assert_eq "$(hostnamectl --json=short | jq --raw-output .PrettyHostname)" "Pretty VL"
+
+    varlinkctl call "$bus" io.systemd.Hostname.SetIconName '{"newValue":"computer-vl"}'
+    assert_eq "$(hostnamectl --json=short | jq --raw-output .IconName)" "computer-vl"
+
+    varlinkctl call "$bus" io.systemd.Hostname.SetChassis '{"newValue":"tablet"}'
+    assert_eq "$(hostnamectl chassis)" "tablet"
+
+    varlinkctl call "$bus" io.systemd.Hostname.SetDeployment '{"newValue":"staging"}'
+    assert_eq "$(hostnamectl --json=short | jq --raw-output .Deployment)" "staging"
+
+    varlinkctl call "$bus" io.systemd.Hostname.SetLocation '{"newValue":"Rack 7"}'
+    assert_eq "$(hostnamectl --json=short | jq --raw-output .Location)" "Rack 7"
+
+    # A null value removes the field again.
+    varlinkctl call "$bus" io.systemd.Hostname.SetLocation '{"newValue":null}'
+    assert_eq "$(hostnamectl --json=short | jq --raw-output .Location)" "null"
+
+    # Invalid values are refused.
+    (! varlinkctl call "$bus" io.systemd.Hostname.SetChassis '{"newValue":"nonsense"}')
+    (! varlinkctl call "$bus" io.systemd.Hostname.SetIconName '{"newValue":"in/valid"}')
+    (! varlinkctl call "$bus" io.systemd.Hostname.SetStaticHostname '{"newValue":"invalid hostname"}')
+}
+
+run_testcases
+
+touch /testok

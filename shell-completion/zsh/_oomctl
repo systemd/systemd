@@ -1,0 +1,28 @@
+#compdef oomctl
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+(( $+functions[_oomctl_commands] )) || _oomctl_commands()
+{
+    local -a _oomctl_cmds
+    _oomctl_cmds=(
+        "dump:Show the current state of cgroups and system contexts"
+        "help:Prints a short help text and exits."
+    )
+    if (( CURRENT == 1 )); then
+        _describe -t commands 'oomctl command' _oomctl_cmds
+    else
+        local curcontext="$curcontext"
+        cmd="${${_oomctl_cmds[(r)$words[1]:*]%%:*}}"
+        if (( $+functions[_oomctl_$cmd] )); then
+            _oomctl_$cmd
+        else
+            _message "no more options"
+        fi
+    fi
+}
+
+_arguments \
+    '(- *)'{-h,--help}'[Prints a short help text and exits.]' \
+    '(- *)--version[Prints a short version string and exits.]' \
+    '--no-pager[Do not pipe output into a pager]' \
+    '*::oomctl command:_oomctl_commands'

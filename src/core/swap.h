@@ -1,0 +1,101 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+#pragma once
+
+/***
+  Copyright © 2010 Maarten Lankhorst
+***/
+
+#include "cgroup.h"
+#include "core-forward.h"
+#include "execute.h"
+#include "pidref.h"
+#include "unit.h"
+
+typedef enum SwapExecCommand {
+        SWAP_EXEC_ACTIVATE,
+        SWAP_EXEC_DEACTIVATE,
+        _SWAP_EXEC_COMMAND_MAX,
+        _SWAP_EXEC_COMMAND_INVALID = -EINVAL,
+} SwapExecCommand;
+
+typedef enum SwapResult {
+        SWAP_SUCCESS,
+        SWAP_FAILURE_RESOURCES,
+        SWAP_FAILURE_TIMEOUT,
+        SWAP_FAILURE_EXIT_CODE,
+        SWAP_FAILURE_SIGNAL,
+        SWAP_FAILURE_CORE_DUMP,
+        SWAP_FAILURE_START_LIMIT_HIT,
+        _SWAP_RESULT_MAX,
+        _SWAP_RESULT_INVALID = -EINVAL,
+} SwapResult;
+
+typedef struct SwapParameters {
+        char *what;
+        char *options;
+        int priority;
+        bool priority_set;
+} SwapParameters;
+
+typedef struct Swap {
+        Unit meta;
+
+        char *what;
+
+        /* If the device has already shown up, this is the device
+         * node, which might be different from what, due to
+         * symlinks */
+        char *devnode;
+
+        SwapParameters parameters_proc_swaps;
+        SwapParameters parameters_fragment;
+
+        bool from_proc_swaps:1;
+        bool from_fragment:1;
+
+        /* Used while looking for swaps that vanished or got added
+         * from/to /proc/swaps */
+        bool is_active:1;
+        bool just_activated:1;
+
+        SwapResult result;
+        SwapResult clean_result;
+
+        usec_t timeout_usec;
+
+        ExecCommand exec_command[_SWAP_EXEC_COMMAND_MAX];
+        ExecContext exec_context;
+        KillContext kill_context;
+        CGroupContext cgroup_context;
+
+        ExecRuntime *exec_runtime;
+        CGroupRuntime *cgroup_runtime;
+
+        SwapState state, deserialized_state;
+
+        ExecCommand* control_command;
+        SwapExecCommand control_command_id;
+        PidRef control_pid;
+
+        sd_event_source *timer_event_source;
+
+        /* In order to be able to distinguish dependencies on
+        different device nodes we might end up creating multiple
+        devices for the same swap. We chain them up here. */
+
+        LIST_FIELDS(struct Swap, same_devnode);
+} Swap;
+
+extern const UnitVTable swap_vtable;
+
+int swap_process_device_new(Manager *m, sd_device *dev);
+int swap_process_device_remove(Manager *m, sd_device *dev);
+
+int swap_get_priority(const Swap *s);
+const char* swap_get_options(const Swap *s);
+
+DECLARE_STRING_TABLE_LOOKUP(swap_exec_command, SwapExecCommand);
+
+DECLARE_STRING_TABLE_LOOKUP(swap_result, SwapResult);
+
+DEFINE_CAST(SWAP, Swap);

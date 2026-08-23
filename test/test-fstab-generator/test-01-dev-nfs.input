@@ -1,0 +1,1 @@
+root=/dev/nfs nfsroot=192.168.0.1:/nfsroot/root1:rw

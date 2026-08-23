@@ -1,0 +1,158 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+set -o nounset
+
+LIBSYSTEMD="$(mkosi-chroot ldconfig -p | grep libsystemd.so.0 | sed 's/[^/]*\//\//')"
+
+if [[ ! -f "$BUILDROOT/$LIBSYSTEMD" ]]; then
+    exit 0
+fi
+
+# ASAN and syscall filters aren't compatible with each other. Also, drop any memory limits
+# as these are quite unpredictable when running under sanitizers.
+find "$BUILDROOT"/{etc,usr/lib}/systemd/system/ -name '*.service' -type f | while read -r unit; do
+    if grep -q -e MemoryDeny -e MemoryMax -e MemoryHigh -e MemorySwapMax -e SystemCall "$unit" ; then
+        mkdir -p "$unit.d"
+        cat > "$unit.d/sanitizer-compat.conf" <<EOF
+[Service]
+MemoryDenyWriteExecute=no
+MemoryMax=
+MemoryHigh=
+MemorySwapMax=
+SystemCallFilter=
+EOF
+    fi
+done
+
+# 'systemd-hwdb update' takes > 50s when built with sanitizers so let's not run it by default.
+systemctl --root="$BUILDROOT" mask systemd-hwdb-update.service
+
+ASAN_RT_PATH="$(grep libasan.so < <(mkosi-chroot ldd "$LIBSYSTEMD") | cut -d ' ' -f 3)"
+if [[ -z "$ASAN_RT_PATH" ]]; then
+    ASAN_RT_PATH="$(grep libclang_rt.asan < <(mkosi-chroot ldd "$LIBSYSTEMD") | cut -d ' ' -f 3)"
+
+    # As clang's ASan DSO is usually in a non-standard path, let's check if the RUNPATH is set accordingly.
+    if mkosi-chroot ldd "$LIBSYSTEMD" | grep -q "libclang_rt.asan.*not found"; then
+        echo >&2 "clang's ASan DSO libclang_rt.asan is not present in the runtime library path"
+        exit 1
+    fi
+fi
+if [[ -z "$ASAN_RT_PATH" ]]; then
+    echo >&2 "systemd is not linked against the ASan DSO"
+    echo >&2 "gcc does this by default, for clang compile with -shared-libasan"
+    exit 1
+fi
+
+wrap=(
+    /usr/lib/polkit-1/polkitd
+    /usr/lib/systemd/tests/testdata/TEST-74-AUX-UTILS.units/proxy-echo.py
+    /usr/libexec/polkit-1/polkitd
+    /usr/lib/systemd/tests/integration-tests/TEST-74-AUX-UTILS/TEST-74-AUX-UTILS.units/fake-imds.py
+    /usr/lib/systemd/tests/integration-tests/TEST-74-AUX-UTILS/TEST-74-AUX-UTILS.units/fake-report-server.py
+    agetty
+    btrfs
+    capsh
+    chgrp
+    chown
+    cryptsetup
+    curl
+    dbus-broker-launch
+    dbus-daemon
+    delv
+    dfuzzer
+    dhcpd
+    dig
+    dnf
+    dnf5
+    dmsetup
+    dnsmasq
+    findmnt
+    getent
+    getfacl
+    groupadd
+    groupmod
+    groups
+    id
+    integritysetup
+    iscsiadm
+    iscsid
+    keymgr
+    knotc
+    knotd
+    kpartx
+    logger
+    login
+    ls
+    lsblk
+    lsns
+    lsof
+    lvm
+    mdadm
+    mkfs.btrfs
+    mkfs.erofs
+    mkfs.ext4
+    mksquashfs
+    mount
+    mountpoint
+    multipath
+    multipathd
+    nvme
+    p11-kit
+    pkill
+    ps
+    setfacl
+    setpriv
+    socat
+    sshd
+    stat
+    stress-ng
+    su
+    swapoff
+    swapon
+    tar
+    tgtd
+    # The tpm2 tools (tpm2_readpublic, tpm2_pcrextend, ...) all are symlinks to tpm2
+    tpm2
+    umount
+    unix_chkpwd
+    useradd
+    userdel
+    veritysetup
+)
+
+for bin in "${wrap[@]}"; do
+    if ! mkosi-chroot bash -c "command -v $bin" >/dev/null; then
+        continue
+    fi
+
+    if [[ "$bin" == getent ]]; then
+        enable_lsan=1
+    else
+        enable_lsan=0
+    fi
+
+    target="$(mkosi-chroot bash -c "command -v $bin")"
+
+    mv "$BUILDROOT/$target" "$BUILDROOT/$target.orig"
+
+    cat >"$BUILDROOT/$target" <<EOF
+#!/bin/bash
+# Preload the ASan runtime DSO, otherwise ASan will complain
+export LD_PRELOAD="$ASAN_RT_PATH"
+# Disable LSan to speed things up, since we don't care about leak reports
+# from 'external' binaries. In addition, disable quarantine (for use-after-free
+# detection) and malloc stack frame collection as we don't care about these in
+# 'external' binaries either, and they just unnecessarily hog up memory & cpu
+# cycles.
+export ASAN_OPTIONS=detect_leaks=$enable_lsan:quarantine_size_mb=0:malloc_context_size=0
+# Set argv[0] to the original binary name without the ".orig" suffix
+exec -a "\$0" -- "${target}.orig" "\$@"
+EOF
+    chmod +x "$BUILDROOT/$target"
+done
+
+cat >"$BUILDROOT"/usr/lib/systemd/systemd-asan-env <<EOF
+LD_PRELOAD=$ASAN_RT_PATH
+LSAN_OPTIONS=detect_leaks=0
+EOF

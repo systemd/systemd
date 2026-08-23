@@ -1,0 +1,183 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=dummy98
+
+[Network]
+IPv6AcceptRA=no
+Address=10.1.2.3/16
+Address=10.1.2.4/16
+Address=10.2.2.4/16
+Address=2001:db8:0:f101::15/64
+Address=2001:db8:0:f101::16/64
+Address=2001:db8:0:f102::15/64
+# these lines are ignored
+Address=hogehoge
+Address=foofoo
+
+## With Label=
+[Address]
+Address=10.3.1.1/24
+Label=label1
+
+[Address]
+Address=10.3.2.1/24
+Label=label2
+
+[Address]
+Address=10.3.3.1/24
+Label=
+
+## With Broadcast=
+[Address]
+Address=10.4.1.1/24
+Broadcast=no
+
+[Address]
+Address=10.4.2.1/24
+Broadcast=yes
+
+[Address]
+Address=10.4.3.1/24
+Broadcast=10.4.3.63
+
+[Address]
+# Invalid broadcast
+Address=10.4.4.1/24
+Broadcast=yes
+Broadcast=
+Broadcast=::1
+
+[Address]
+# broadcast cannot set for IPv6 address
+Address=2001:db8:0:f101::2/64
+Broadcast=::1
+
+## With/without Peer=
+[Address]
+Address=10.5.1.1/24
+Peer=10.5.1.101/24
+
+[Address]
+Address=10.5.2.1/24
+Peer=10.5.2.101/24
+
+[Address]
+Address=10.5.3.1/24
+#Peer= (no-peer)
+
+[Address]
+Address=2001:db8:0:f103::1/128
+Peer=2001:db8:0:f103::101/128
+
+[Address]
+Address=2001:db8:0:f103::2/128
+Peer=2001:db8:0:f103::102/128
+
+[Address]
+Address=2001:db8:0:f103::3/128
+#Peer= (no-peer)
+
+[Address]
+# address and peer must be in the same family
+Address=10.5.4.1/24
+Peer=2001:db8:0:f103::10/128
+
+[Address]
+# address and peer must be in the same family
+Address=2001:db8:0:f103::4/64
+Peer=192.168.0.1
+
+[Address]
+# invalid peer, this section will be ignored
+Address=10.5.5.1/24
+Peer=hoge
+
+## With Scope=
+[Address]
+Address=10.6.1.1/24
+Scope=global
+
+[Address]
+Address=10.6.2.1/24
+Scope=link
+
+## For lifetime
+[Address]
+Address=10.7.1.1/24
+PreferredLifetime=infinity
+
+[Address]
+Address=10.7.2.1/24
+PreferredLifetime=0
+
+[Address]
+Address=2001:db8:0:f104::1/64
+PreferredLifetime=infinity
+
+[Address]
+Address=2001:db8:0:f104::2/64
+PreferredLifetime=0
+
+## For RouteMetric=
+[Address]
+Address=10.8.1.1/24
+RouteMetric=128
+
+[Address]
+# invalid metric
+Address=10.8.2.1/24
+RouteMetric=hoge
+
+[Address]
+Address=2001:db8:0:f105::1/64
+RouteMetric=128
+
+## For flags
+[Address]
+Address=10.9.1.1/24
+AddPrefixRoute=no
+
+[Address]
+Address=10.9.2.1/24
+AddPrefixRoute=yes
+
+[Address]
+# invalid flags for IPv4 address
+Address=10.9.3.1/24
+HomeAddress=yes
+ManageTemporaryAddress=yes
+
+[Address]
+Address=2001:db8:0:f106::1/64
+HomeAddress=no
+ManageTemporaryAddress=no
+AddPrefixRoute=no
+
+[Address]
+Address=2001:db8:0:f106::2/64
+HomeAddress=yes
+ManageTemporaryAddress=yes
+AddPrefixRoute=yes
+
+# TODO: add tests for AutoJoin=
+
+## null address
+[Address]
+Address=0.0.0.0/16
+Label=subnet16
+
+[Address]
+Address=0.0.0.0/24
+Label=subnet24
+
+[Address]
+Address=::/73
+
+[Address]
+Address=::/74
+
+[Address]
+Address=10.10.1.1/24
+# just a random label which should exist
+NetLabel=system_u:object_r:root_t:s0
+NFTSet=address:inet:sd_test:addr4 prefix:inet:sd_test:network4 ifindex:inet:sd_test:ifindex

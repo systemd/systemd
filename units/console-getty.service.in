@@ -1,0 +1,41 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Console Getty
+Documentation=man:agetty(8) man:systemd-getty-generator(8)
+After=systemd-user-sessions.service plymouth-quit-wait.service getty-pre.target
+Before=getty.target
+
+# OCI containers may be run without a console
+ConditionPathExists=/dev/console
+
+[Service]
+ExecStart=-{{AGETTY}} --noreset --noclear --keep-baud 115200,57600,38400,9600 - ${TERM}
+Type=idle
+Restart=always
+UtmpIdentifier=cons
+StandardInput=tty
+StandardOutput=tty
+TTYPath=/dev/console
+TTYReset=yes
+TTYVHangup=yes
+{% if not ENABLE_LOGIND %}
+KillMode=process
+{% endif %}
+IgnoreSIGPIPE=no
+SendSIGHUP=yes
+ImportCredential=tty.console.agetty.*:agetty.
+ImportCredential=tty.console.login.*:login.
+ImportCredential=agetty.*
+ImportCredential=login.*
+ImportCredential=shell.*
+
+[Install]
+WantedBy=getty.target

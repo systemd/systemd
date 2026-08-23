@@ -1,0 +1,23 @@
+[MAIN]
+extension-pkg-allow-list=lxml
+
+[MESSAGES CONTROL]
+disable=fixme,
+        invalid-name,
+        line-too-long,
+        missing-class-docstring,
+        missing-docstring,
+        missing-function-docstring,
+        missing-module-docstring,
+        too-few-public-methods,
+        too-many-arguments,
+        too-many-boolean-expressions,
+        too-many-branches,
+        too-many-instance-attributes,
+        too-many-instance-attributes,
+        too-many-lines,
+        too-many-locals,
+        too-many-public-methods,
+        too-many-return-statements,
+        too-many-statements,
+        unspecified-encoding,

@@ -1,0 +1,18 @@
+{
+    "type": "devicetree",
+    "name": "Acer Aspire 1",
+    "compatible": "acer,aspire1",
+    "hwids": [
+        "45d37dbe-40fb-57bd-a257-55f422d4dc0a",
+        "373bfde5-ffaa-504c-84f3-f8f5357dfc29",
+        "e12521bf-0ed8-5406-af87-adad812c57c5",
+        "faa12ed4-bd49-5471-8f74-75c2267c3b46",
+        "965e3681-de3b-5e39-bb62-7d4917d7e36f",
+        "82fe1869-361c-56b2-b853-631747e64aa7",
+        "7e15f49e-04b4-5d56-a567-e7a15ba2aca1",
+        "7c107a7f-2d77-51aa-aef8-8d777e26ffbc",
+        "68b38fff-aadc-512c-937b-99d9c13eb484",
+        "260192d4-06d4-5124-ab46-ba210f4c14d7",
+        "175f000b-3d05-5c01-aedd-817b1a141f93"
+    ]
+}

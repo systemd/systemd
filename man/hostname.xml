@@ -1,0 +1,168 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="hostname" xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>hostname</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>hostname</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>hostname</refname>
+    <refpurpose>Local hostname configuration file</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>/etc/hostname</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>The <filename>/etc/hostname</filename> file configures the name of the local system. Unless
+    overridden as described in the next section,
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> will set this
+    hostname during boot using the
+    <citerefentry><refentrytitle>sethostname</refentrytitle><manvolnum>2</manvolnum></citerefentry> system
+    call.</para>
+
+    <para>The file should contain a single newline-terminated hostname string. Comments (lines starting with
+    a <literal>#</literal>) are ignored. The hostname should be composed of up to 64 7-bit ASCII lower-case
+    alphanumeric characters or hyphens forming a valid DNS domain name. It is strongly recommended that this
+    name contains only a single DNS label, i.e does not contain any dots. This recommendation reflects both
+    usual expectations of applications, and the fact that the Linux kernel limits the length of the system
+    hostname to 64 (i.e. close to the maximum DNS label length of 63) rather than 255 (the maximum DNS domain
+    name length). When applied, invalid characters will be filtered out in an attempt to make the name valid,
+    but obviously it is recommended to use a valid name and not rely on this filtering.</para>
+
+    <para id="question-mark-hostname-pattern">If the question mark character <literal>?</literal> appears in
+    the hostname, it is automatically substituted by a hexadecimal character derived from the
+    <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> when
+    applied, securely and deterministically by cryptographic hashing. Example:
+    <literal>foobar-????-????</literal> will automatically expand to <literal>foobar-92a9-061c</literal> or
+    similar, depending on the local machine ID.</para>
+
+    <para id="word-hostname-pattern">In addition, the token <literal>$</literal> is substituted by a word picked
+    deterministically from a word list, again derived from the
+    <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> by
+    cryptographic hashing. Each <literal>$</literal> is positional: the first <literal>$</literal> uses the word
+    list file named <filename>1</filename>, the second <filename>2</filename>, and so on. This allows
+    human-friendly names, for example <literal>$-$-$-????</literal> might expand to
+    <literal>wildly-happy-octopus-92a9</literal>. The word lists are searched for in
+    <filename>/etc/systemd/hostname-wordlist/</filename>, <filename>/run/systemd/hostname-wordlist/</filename>,
+    <filename>/usr/local/lib/systemd/hostname-wordlist/</filename> and
+    <filename>/usr/lib/systemd/hostname-wordlist/</filename> (the first directory providing a given list wins,
+    lists are not merged); one word per line, with empty lines and lines starting with <literal>#</literal>
+    ignored.</para>
+
+    <para>The word for each token is derived deterministically from the machine ID and recomputed on every
+    boot (the lists are not loaded wholesale: a word is chosen by hashing to a byte offset into the file).
+    Consequently the word lists must be kept stable: changing a list (adding, removing, or reordering words)
+    may change the name a machine already has, so installations that rely on persistent hostnames must not
+    modify the lists after deployment. If a referenced list is missing the
+    name is treated as invalid and the built-in fallback hostname is used. The combined name space is the
+    product of the list sizes, so collisions follow the birthday bound; append a few <literal>?</literal>
+    characters for extra entropy when uniqueness across a large fleet matters.</para>
+
+    <para>Note that hostname can be at most 64 characters long. The word lists and the pattern should be
+    chosen so that the longest possible expansion (the longest words from each list plus any literal and
+    <literal>?</literal> characters and separators) stays within this limit. An expanded name that exceeds
+    the limit is considered invalid and the built-in fallback hostname is used.</para>
+
+    <para>Because the name only stays stable as long as the pattern and word lists are unchanged, the
+    preferred way to obtain a stable, generated hostname is to provide the pattern through the
+    <varname>firstboot.hostname</varname> credential (see
+    <citerefentry><refentrytitle>systemd.system-credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry>)
+    rather than placing it directly in this file. Concretely, write the pattern to
+    <filename>/etc/credstore/firstboot.hostname</filename> (see the description of
+    <varname>LoadCredential=</varname> in
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for the
+    credential store): when firstboot runs on the live system the credential is resolved once and the
+    concrete result is persisted here, so the word lists may be updated afterwards without changing the
+    hostname. A pattern placed directly in <filename>/etc/hostname</filename> (or provisioned into an offline
+    image) is instead re-evaluated on every boot, which only really makes sense for systems that keep the
+    wordlist and the pattern stable.</para>
+
+    <xi:include href="version-info.xml" xpointer="v262"/>
+
+    <para>You may use
+    <citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry> to change
+    the value of this file during runtime from the command line. Use
+    <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry> to
+    initialize it on mounted (but not booted) system images.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Hostname semantics</title>
+
+    <para><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> and the
+    associated tools will obtain the hostname in the following ways:</para>
+    <itemizedlist>
+      <listitem><para>If the kernel command line parameter <varname>systemd.hostname=</varname> specifies a
+      valid hostname,
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> will use it
+      to set the hostname during early boot, see
+      <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      </para></listitem>
+
+      <listitem><para>Otherwise, the "static" hostname specified by <filename>/etc/hostname</filename> as
+      described above will be used.</para></listitem>
+
+      <listitem><para>Otherwise, a transient hostname may be set during runtime, for example based on
+      information in a DHCP lease, see
+      <citerefentry><refentrytitle>systemd-hostnamed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+      Both <ulink url="https://developer.gnome.org/NetworkManager/stable/">NetworkManager</ulink> and
+      <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      allow this. Note that
+      <citerefentry><refentrytitle>systemd-hostnamed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      gives higher priority to the static hostname, so the transient hostname will only be used if the static
+      hostname is not configured.</para></listitem>
+
+      <listitem><para>Otherwise, a fallback hostname configured at compilation time will be used
+      (<literal>&FALLBACK_HOSTNAME;</literal>).</para></listitem>
+
+      <!-- what about the "linux" fallback fallback? -->
+    </itemizedlist>
+
+    <para>Effectively, the static hostname has higher priority than a transient hostname, which has higher
+    priority than the fallback hostname. Transient hostnames are equivalent, so setting a new transient
+    hostname causes the previous transient hostname to be forgotten. The hostname specified on the kernel
+    command line is like a transient hostname, with the exception that it has higher priority when the
+    machine boots. Also note that those are the semantics implemented by systemd tools, but other programs
+    may also set the hostname.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>History</title>
+
+    <para>The simple configuration file format of
+    <filename>/etc/hostname</filename> originates from Debian
+    GNU/Linux.</para>
+  </refsect1>
+
+  <refsect1>
+      <title>See Also</title>
+      <para><simplelist type="inline">
+        <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>sethostname</refentrytitle><manvolnum>2</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-hostnamed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      </simplelist></para>
+  </refsect1>
+
+</refentry>

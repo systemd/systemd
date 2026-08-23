@@ -1,0 +1,224 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include <fnmatch.h>
+#include <stdio.h>
+
+#include "sd-hwdb.h"
+
+#include "alloc-util.h"
+#include "device-private.h"
+#include "device-util.h"
+#include "hwdb-util.h"
+#include "options.h"
+#include "string-util.h"
+#include "udev-builtin.h"
+
+static sd_hwdb *hwdb = NULL;
+
+int udev_builtin_hwdb_lookup(
+                UdevEvent *event,
+                const char *prefix,
+                const char *modalias,
+                const char *filter) {
+
+        _cleanup_free_ char *lookup = NULL;
+        const char *key, *value;
+        int n = 0, r;
+
+        if (!hwdb)
+                return -ENOENT;
+
+        if (prefix) {
+                lookup = strjoin(prefix, modalias);
+                if (!lookup)
+                        return -ENOMEM;
+                modalias = lookup;
+        }
+
+        SD_HWDB_FOREACH_PROPERTY(hwdb, modalias, key, value) {
+                if (filter && fnmatch(filter, key, FNM_NOESCAPE) != 0)
+                        continue;
+
+                r = udev_builtin_add_property(event, key, value);
+                if (r == -ENOMEM)
+                        return r;
+                if (r >= 0)
+                        n++;
+        }
+        return n;
+}
+
+static const char* modalias_usb(sd_device *dev, char *s, size_t size) {
+        const char *n = NULL;
+        uint16_t v, p;
+
+        if (device_get_sysattr_u16_full(dev, "idVendor", 16, &v) < 0)
+                return NULL;
+        if (device_get_sysattr_u16_full(dev, "idProduct", 16, &p) < 0)
+                return NULL;
+        (void) device_get_sysattr_safe_string(dev, "product", &n);
+
+        (void) snprintf(s, size, "usb:v%04Xp%04X:%s", v, p, strempty(n));
+        return s;
+}
+
+static int udev_builtin_hwdb_search(
+                UdevEvent *event,
+                sd_device *srcdev,
+                const char *subsystem,
+                const char *prefix,
+                const char *filter) {
+
+        sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
+        char s[LINE_MAX];
+        bool last = false;
+        int r = 0;
+
+        assert(event);
+
+        if (!srcdev)
+                srcdev = dev;
+
+        for (sd_device *d = srcdev; d; ) {
+                const char *modalias = NULL;
+
+                /* look only at devices of a specific subsystem */
+                if (subsystem) {
+                        r = device_in_subsystem(d, subsystem);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                goto next;
+                }
+
+                (void) sd_device_get_property_value(d, "MODALIAS", &modalias);
+
+                r = device_is_subsystem_devtype(d, "usb", "usb_device");
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        /* if the usb_device does not have a modalias, compose one */
+                        if (!modalias)
+                                modalias = modalias_usb(d, s, sizeof(s));
+
+                        /* avoid looking at any parent device, they are usually just a USB hub */
+                        last = true;
+                }
+
+                if (!modalias)
+                        goto next;
+
+                log_device_debug(dev, "hwdb modalias key: \"%s\"", modalias);
+
+                r = udev_builtin_hwdb_lookup(event, prefix, modalias, filter);
+                if (r > 0)
+                        break;
+
+                if (last)
+                        break;
+next:
+                if (sd_device_get_parent(d, &d) < 0)
+                        break;
+        }
+
+        return r;
+}
+
+static int builtin_hwdb(UdevEvent *event, int argc, char *argv[]) {
+        const char *filter = NULL, *device = NULL, *subsystem = NULL, *prefix = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *srcdev = NULL;
+        sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
+        int r;
+
+        if (!hwdb)
+                return -EINVAL;
+
+        OptionParser opts = { argc, argv, .namespace = "udev-builtin-hwdb" };
+
+        FOREACH_OPTION_OR_RETURN(c, &opts)
+                switch (c) {
+
+                OPTION_NAMESPACE("udev-builtin-hwdb"): {}
+
+                OPTION('f', "filter", "FILTER", NULL):
+                        filter = opts.arg;
+                        break;
+
+                OPTION('d', "device", "DEVICE", NULL):
+                        device = opts.arg;
+                        break;
+
+                OPTION('s', "subsystem", "SUBSYSTEM", NULL):
+                        subsystem = opts.arg;
+                        break;
+
+                OPTION('p', "lookup-prefix", "PREFIX", NULL):
+                        prefix = opts.arg;
+                        break;
+                }
+
+        /* query a specific key given as argument */
+        char *modalias = option_parser_get_arg(&opts, 0);
+        if (modalias) {
+                r = udev_builtin_hwdb_lookup(event, prefix, modalias, filter);
+                if (r < 0)
+                        return log_device_debug_errno(dev, r, "Failed to look up hwdb: %m");
+                if (r == 0)
+                        return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ENODATA), "No entry found from hwdb.");
+                return r;
+        }
+
+        /* read data from another device than the device we will store the data */
+        if (device) {
+                r = sd_device_new_from_device_id(&srcdev, device);
+                if (r < 0)
+                        return log_device_debug_errno(dev, r, "Failed to create sd_device object '%s': %m", device);
+        }
+
+        r = udev_builtin_hwdb_search(event, srcdev, subsystem, prefix, filter);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to look up hwdb: %m");
+        if (r == 0)
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ENODATA), "No entry found from hwdb.");
+        return r;
+}
+
+/* called at udev startup and reload */
+static int builtin_hwdb_init(void) {
+        int r;
+
+        if (hwdb)
+                return 0;
+
+        r = sd_hwdb_new(&hwdb);
+        if (r < 0)
+                return r;
+
+        log_debug("Loaded hardware database.");
+        return 0;
+}
+
+/* called on udev shutdown and reload request */
+static void builtin_hwdb_exit(void) {
+        hwdb = sd_hwdb_unref(hwdb);
+        log_debug("Unloaded hardware database.");
+}
+
+/* called every couple of seconds during event activity; 'true' if config has changed */
+static bool builtin_hwdb_should_reload(void) {
+        if (hwdb_should_reload(hwdb)) {
+                log_debug("hwdb needs reloading.");
+                return true;
+        }
+
+        return false;
+}
+
+const UdevBuiltin udev_builtin_hwdb = {
+        .name = "hwdb",
+        .cmd = builtin_hwdb,
+        .init = builtin_hwdb_init,
+        .exit = builtin_hwdb_exit,
+        .should_reload = builtin_hwdb_should_reload,
+        .help = "Hardware database",
+};

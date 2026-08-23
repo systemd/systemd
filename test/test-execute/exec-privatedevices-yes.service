@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for PrivateDevices=yes
+
+[Service]
+ExecStart=bash -c 'test ! -c /dev/kmsg'
+Type=oneshot
+PrivateDevices=yes

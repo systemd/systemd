@@ -1,0 +1,3119 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemctl"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemctl</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemctl</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemctl</refname>
+    <refpurpose>Control the systemd system and service manager</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemctl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">COMMAND</arg>
+      <arg choice="opt" rep="repeat">UNIT</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemctl</command> may be used to introspect and
+    control the state of the <literal>systemd</literal> system and
+    service manager. Please refer to
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    for an introduction into the basic concepts and functionality this
+    tool manages.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
+
+    <para>The following commands are understood:</para>
+
+    <refsect2>
+      <title>Unit Commands (Introspection and Modification)</title>
+
+      <variablelist>
+        <varlistentry>
+          <term><command>list-units</command> <optional><replaceable>PATTERN</replaceable>…</optional></term>
+
+          <listitem>
+            <para>List units that <command>systemd</command> currently has in memory. This includes units that are
+            either referenced directly or through a dependency, units that are pinned by applications programmatically,
+            or units that were active in the past and have failed. By default, only units which are active, have pending
+            jobs, or have failed are shown; this can be changed with option <option>--all</option>. If one or more
+            <replaceable>PATTERN</replaceable>s are specified, only units matching one of them are shown. The units
+            that are shown are additionally filtered by <option>--type=</option> and <option>--state=</option> if those
+            options are specified.</para>
+
+            <para>Note that this command does not show unit templates, but only instances of unit
+            templates. Units templates that are not instantiated are not runnable, and will thus never show up
+            in the output of this command. Specifically this means that <filename>foo@.service</filename>
+            will never be shown in this list — unless instantiated, e.g. as
+            <filename>foo@bar.service</filename>. Use <command>list-unit-files</command> (see below) for
+            listing installed unit template files.</para>
+
+            <para>Produces output similar to
+            <programlisting>  UNIT                         LOAD   ACTIVE SUB     DESCRIPTION
+  sys-module-fuse.device       loaded active plugged /sys/module/fuse
+  -.mount                      loaded active mounted Root Mount
+  boot-efi.mount               loaded active mounted /boot/efi
+  systemd-journald.service     loaded active running Journal Service
+  systemd-logind.service       loaded active running Login Service
+● user@1000.service            loaded failed failed  User Manager for UID 1000
+  …
+  systemd-tmpfiles-clean.timer loaded active waiting Daily Cleanup of Temporary Directories
+
+LOAD   = Reflects whether the unit definition was properly loaded.
+ACTIVE = The high-level unit activation state, i.e. generalization of SUB.
+SUB    = The low-level unit activation state, values depend on unit type.
+
+123 loaded units listed. Pass --all to see loaded but inactive units, too.
+To show all installed unit files use 'systemctl list-unit-files'.</programlisting></para>
+
+            <para>The header and the last unit of a given type are underlined if the terminal supports
+            that. A colored dot is shown next to services which were masked, not found, or otherwise
+            failed.</para>
+
+            <para>The LOAD column shows the load state, one of <constant>loaded</constant>,
+            <constant>not-found</constant>, <constant>bad-setting</constant>, <constant>error</constant>,
+            <constant>masked</constant>. The ACTIVE columns shows the general unit state, one of the
+            following:</para>
+
+            <xi:include href="unit-states.xml" xpointer="table"/>
+
+            <para>The SUB column shows the unit-type-specific detailed state of the unit, possible values
+            vary by unit type. The list of possible LOAD, ACTIVE, and SUB states is not constant and new
+            systemd releases may both add and remove values.
+            <programlisting>systemctl --state=help</programlisting> command may be used to display the
+            current set of possible values.</para>
+
+            <para>This is the default command.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>list-automounts</command> <optional><replaceable>PATTERN</replaceable>…</optional></term>
+
+          <listitem>
+            <para>List automount units currently in memory, ordered by mount path.  If one or more
+            <replaceable>PATTERN</replaceable>s are specified, only automount units matching one of them are shown.
+            Produces output similar to
+            <programlisting>
+WHAT        WHERE                    MOUNTED IDLE TIMEOUT UNIT
+/dev/sdb1   /mnt/test                no      120s         mnt-test.automount
+binfmt_misc /proc/sys/fs/binfmt_misc yes     0            proc-sys-fs-binfmt_misc.automount
+
+2 automounts listed.</programlisting>
+            </para>
+
+            <para>Also see <option>--show-types</option>, <option>--all</option>, and <option>--state=</option>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v252"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>list-paths</command> <optional><replaceable>PATTERN</replaceable>…</optional></term>
+
+          <listitem>
+            <para>List path units currently in memory, ordered by path.  If one or more
+            <replaceable>PATTERN</replaceable>s are specified, only path units matching one of them are shown.
+            Produces output similar to
+            <programlisting>
+PATH                           CONDITION         UNIT                               ACTIVATES
+/run/systemd/ask-password      DirectoryNotEmpty systemd-ask-password-plymouth.path systemd-ask-password-plymouth.service
+/run/systemd/ask-password      DirectoryNotEmpty systemd-ask-password-wall.path     systemd-ask-password-wall.service
+/var/cache/cups/org.cups.cupsd PathExists        cups.path                          cups.service
+
+3 paths listed.</programlisting>
+            </para>
+
+            <para>Also see <option>--show-types</option>, <option>--all</option>, and <option>--state=</option>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v254"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>list-sockets</command> <optional><replaceable>PATTERN</replaceable>…</optional></term>
+
+          <listitem>
+            <para>List socket units currently in memory, ordered by listening address.  If one or more
+            <replaceable>PATTERN</replaceable>s are specified, only socket units matching one of them are
+            shown. Produces output similar to
+            <programlisting>
+LISTEN           UNIT                        ACTIVATES
+kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
+/dev/rfkill      systemd-rfkill.socket       systemd-rfkill.service
+…
+
+5 sockets listed.</programlisting>
+            Note: because the addresses might contains spaces, this output
+            is not suitable for programmatic consumption.
+            </para>
+
+            <para>Also see <option>--show-types</option>, <option>--all</option>, and <option>--state=</option>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v202"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>list-timers</command> <optional><replaceable>PATTERN</replaceable>…</optional></term>
+
+          <listitem>
+            <para>List timer units currently in memory, ordered by the time they elapse next. If one or more
+            <replaceable>PATTERN</replaceable>s are specified, only units matching one of them are shown.
+            Produces output similar to
+            <programlisting>
+NEXT                         LEFT          LAST                         PASSED     UNIT                         ACTIVATES
+-                            -             Thu 2017-02-23 13:40:29 EST  3 days ago ureadahead-stop.timer        ureadahead-stop.service
+Sun 2017-02-26 18:55:42 EST  1min 14s left Thu 2017-02-23 13:54:44 EST  3 days ago systemd-tmpfiles-clean.timer systemd-tmpfiles-clean.service
+Sun 2017-02-26 20:37:16 EST  1h 42min left Sun 2017-02-26 11:56:36 EST  6h ago     apt-daily.timer              apt-daily.service
+Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago     snapd.refresh.timer          snapd.refresh.service
+</programlisting>
+            </para>
+
+            <para><emphasis>NEXT</emphasis> shows the next time the timer will run.</para>
+            <para><emphasis>LEFT</emphasis> shows how long till the next time the timer runs.</para>
+            <para><emphasis>LAST</emphasis> shows the last time the timer ran.</para>
+            <para><emphasis>PASSED</emphasis> shows how long has passed since the timer last ran.</para>
+            <para><emphasis>UNIT</emphasis> shows the name of the timer</para>
+            <para><emphasis>ACTIVATES</emphasis> shows the name the service the timer activates when it runs.</para>
+
+            <para>Also see <option>--all</option> and <option>--state=</option>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v209"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>is-active <replaceable>PATTERN</replaceable>…</command></term>
+
+          <listitem>
+            <para>Check whether any of the specified units are active
+            (i.e. running). Returns an exit code
+            <constant>0</constant> if at least one is active, or
+            non-zero otherwise. Unless <option>--quiet</option> is
+            specified, this will also print the current unit state to
+            standard output.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>is-failed <optional><replaceable>PATTERN</replaceable>…</optional></command></term>
+
+          <listitem>
+            <para>Check whether any of the specified units is in the "failed" state. If no unit is specified,
+            check whether there are any failed units or ordering cycles, which corresponds to the <literal>degraded</literal>
+            state returned by <command>is-system-running</command>. Returns an exit code <constant>0</constant>
+            if at least one has failed, non-zero otherwise. Unless <option>--quiet</option> is specified, this
+            will also print the current unit or system state to standard output.</para>
+
+            <xi:include href="version-info.xml" xpointer="v197"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>status</command> <optional><replaceable>PATTERN</replaceable>…|<replaceable>PID</replaceable>…]</optional></term>
+
+          <listitem>
+            <para>Show runtime status information about the whole system or about one or more units followed
+            by most recent log data from the journal. If no positional arguments are specified, and no unit
+            filter is given with <option>--type=</option>, <option>--state=</option>, or
+            <option>--failed</option>, shows the status of the whole system. If combined with
+            <option>--all</option>, follows that with the status of all units. If positional arguments are
+            specified, each positional argument is treated as either a unit name to show, or a glob pattern
+            to show units whose names match that pattern, or a PID to show the unit containing that PID. When
+            <option>--type=</option>, <option>--state=</option>, or <option>--failed</option> are used, units
+            are additionally filtered by the TYPE and ACTIVE state.</para>
+
+            <para>This function is intended to generate human-readable output. If you are looking for
+            computer-parsable output, use <command>show</command> instead. By default, this function only
+            shows 10 lines of output and ellipsizes lines to fit in the terminal window. This can be changed
+            with <option>--lines</option> and <option>--full</option>, see above. In addition,
+            <command>journalctl --unit=<replaceable>NAME</replaceable></command> or <command>journalctl
+            --user-unit=<replaceable>NAME</replaceable></command> use a similar filter for messages and might
+            be more convenient.</para>
+
+            <para>Note that this operation only displays <emphasis>runtime</emphasis> status, i.e. information about
+            the current invocation of the unit (if it is running) or the most recent invocation (if it is not
+            running anymore, and has not been released from memory). Information about earlier invocations,
+            invocations from previous system boots, or prior invocations that have already been released from
+            memory may be retrieved via <command>journalctl --unit=</command>.</para>
+
+            <para>systemd implicitly loads units as necessary, so just running the <command>status</command>
+            will attempt to load a file. The command is thus not useful for determining if something was
+            already loaded or not.  The units may possibly also be quickly unloaded after the operation is
+            completed if there's no reason to keep it in memory thereafter.</para>
+
+            <example>
+              <title>Example output from systemctl status </title>
+
+              <programlisting>$ systemctl status bluetooth
+● bluetooth.service - Bluetooth service
+   Loaded: loaded (/usr/lib/systemd/system/bluetooth.service; enabled; preset: enabled)
+   Active: active (running) since Wed 2017-01-04 13:54:04 EST; 1 weeks 0 days ago
+     Docs: man:bluetoothd(8)
+ Main PID: 930 (bluetoothd)
+   Status: "Running"
+    Tasks: 1
+   Memory: 648.0K
+      CPU: 435ms
+   CGroup: /system.slice/bluetooth.service
+           └─930 /usr/lib/bluetooth/bluetoothd
+
+Jan 12 10:46:45 example.com bluetoothd[8900]: Not enough free handles to register service
+Jan 12 10:46:45 example.com bluetoothd[8900]: Current Time Service could not be registered
+Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output error (5)
+</programlisting>
+
+            <para>The dot ("●") uses color on supported terminals to summarize the unit state at a
+            glance. Along with its color, its shape varies according to its state:
+            <literal>inactive</literal> or <literal>maintenance</literal> is a white circle ("○"),
+            <literal>active</literal> is a green dot ("●"), <literal>deactivating</literal> is a white dot,
+            <literal>failed</literal> or <literal>error</literal> is a red cross ("×"), and
+            <literal>reloading</literal> or <literal>refreshing</literal> is a green clockwise circle arrow
+            ("↻").</para>
+
+            <para>The "Loaded:" line in the output will show <literal>loaded</literal> if the unit has been
+            loaded into memory. Other possible values for "Loaded:" include: <literal>error</literal> if
+            there was a problem loading it, <literal>not-found</literal> if no unit file was found for this
+            unit, <literal>bad-setting</literal> if an essential unit file setting could not be parsed and
+            <literal>masked</literal> if the unit file has been masked. Along with showing the path to the
+            unit file, this line will also show the enablement state.  Enabled units are included in the
+            dependency network between units, and thus are started at boot or via some other form of
+            activation.  See the full table of possible enablement states — including the definition of
+            <literal>masked</literal> — in the documentation for the <command>is-enabled</command> command.
+            </para>
+
+            <para>The "Active:" line shows active state.  The value is usually <literal>active</literal> or
+            <literal>inactive</literal>. Active could mean started, bound, plugged in, etc depending on the
+            unit type.  The unit could also be in process of changing states, reporting a state of
+            <literal>activating</literal> or <literal>deactivating</literal>. A special
+            <literal>failed</literal> state is entered when the service failed in some way, such as a crash,
+            exiting with an error code or timing out. If the failed state is entered the cause will be logged
+            for later reference.</para>
+            </example>
+
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>show</command> <optional><replaceable>PATTERN</replaceable>…|<replaceable>JOB</replaceable>…</optional></term>
+
+          <listitem>
+            <para>Show properties of one or more units, jobs, or the manager itself. If no argument is specified,
+            properties of the manager will be shown. If a unit name is specified, properties of the unit are shown, and
+            if a job ID is specified, properties of the job are shown. By default, empty properties are suppressed. Use
+            <option>--all</option> to show those too. To select specific properties to show, use
+            <option>--property=</option>. This command is intended to be used whenever computer-parsable output is
+            required. Use <command>status</command> if you are looking for formatted human-readable output.</para>
+
+            <para>Many properties shown by <command>systemctl show</command> map directly to configuration settings of
+            the system and service manager and its unit files. Note that the properties shown by the command are
+            generally more low-level, normalized versions of the original configuration settings and expose runtime
+            state in addition to configuration. For example, properties shown for service units include the service's
+            current main process identifier as <literal>MainPID</literal> (which is runtime state), and time settings
+            are always exposed as properties ending in the <literal>…USec</literal> suffix even if a matching
+            configuration options end in <literal>…Sec</literal>, because microseconds is the normalized time unit used
+            internally by the system and service manager.</para>
+
+            <para>For details about many of these properties, see the documentation of the D-Bus interface
+            backing these properties, see
+            <citerefentry><refentrytitle>org.freedesktop.systemd1</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>cat <replaceable>PATTERN</replaceable>…</command></term>
+
+          <listitem>
+            <para>Show backing files of one or more units. Prints the
+            "fragment" and "drop-ins" (source files) of units. Each
+            file is preceded by a comment which includes the file
+            name. Note that this shows the contents of the backing files
+            on disk, which might not match the system manager's
+            understanding of these units if any unit files were
+            updated on disk and the <command>daemon-reload</command>
+            command was not issued since.</para>
+
+            <xi:include href="version-info.xml" xpointer="v209"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>help <replaceable>PATTERN</replaceable>…|<replaceable>PID</replaceable>…</command></term>
+
+          <listitem>
+            <para>Show manual pages for one or more units, if
+            available. If a PID is given, the manual pages for the unit
+            the process belongs to are shown.</para>
+
+            <xi:include href="version-info.xml" xpointer="v185"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term>
+            <command>list-dependencies</command>
+            <optional><replaceable>UNIT</replaceable>…</optional>
+          </term>
+
+          <listitem>
+            <para>Shows units required and wanted by the specified
+            units. This recursively lists units following the
+            <varname>Requires=</varname>, <varname>Requisite=</varname>,
+            <varname>Wants=</varname>, <varname>ConsistsOf=</varname>,
+            <varname>BindsTo=</varname>, and <varname>Upholds=</varname>
+            dependencies. If no units are specified,
+            <filename>default.target</filename> is implied.</para>
+
+            <para>The units that are shown are additionally filtered by <option>--type=</option> and
+            <option>--state=</option> if those options are specified. Note that we will not be able to
+            use a tree structure in this case, so <option>--plain</option> is implied.</para>
+
+            <para>By default, only target units are recursively
+            expanded. When <option>--all</option> is passed, all other
+            units are recursively expanded as well.</para>
+
+            <para>Options <option>--reverse</option>,
+            <option>--after</option>, <option>--before</option>
+            may be used to change what types of dependencies
+            are shown.</para>
+
+            <para>Note that this command only lists units currently loaded into memory by the service manager. In
+            particular, this command is not suitable to get a comprehensive list at all reverse dependencies on a
+            specific unit, as it will not list the dependencies declared by units currently not loaded.</para>
+
+            <xi:include href="version-info.xml" xpointer="v198"/>
+          </listitem>
+        </varlistentry>
+
+        <!-- Commands that modify unit state start here -->
+
+        <varlistentry>
+          <term><command>start <replaceable>PATTERN</replaceable>…</command></term>
+
+          <listitem>
+            <para>Start (activate) one or more units specified on the command line.</para>
+
+            <para>When more than one unit is specified, the units are enqueued in a single job transaction.
+            This ensures that ordering dependencies (<varname>After=</varname>/<varname>Before=</varname>)
+            configured between the listed units are honored, regardless of the order in which they are given
+            on the command line. The same applies to <command>stop</command>, <command>restart</command> and
+            the reload/restart variants below. If a single transaction cannot be put together, separate
+            transactions will be submitted separately instead as a fallback.</para>
+
+            <para>Note that unit glob patterns expand to names of units currently in memory. Units which are
+            not active and are not in a failed state usually are not in memory, and will not be matched by
+            any pattern. In addition, in case of instantiated units, systemd is often unaware of the instance
+            name until the instance has been started. Therefore, using glob patterns with
+            <command>start</command> has limited usefulness. Also, secondary alias names of units are not
+            considered.</para>
+
+            <para>Option <option>--all</option> may be used to also operate on inactive units which are
+            referenced by other loaded units. Note that this is not the same as operating on "all" possible
+            units, because as the previous paragraph describes, such a list is ill-defined. Nevertheless,
+            <command>systemctl start --all <replaceable>GLOB</replaceable></command> may be useful if all the
+            units that should match the pattern are pulled in by some target which is known to be loaded.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><command>stop <replaceable>PATTERN</replaceable>…</command></term>
+
+          <listitem>
+            <para>Stop (deactivate) one or more units specified on the command line.</para>
+
+            <para>This command will fail if the unit does not exist or if stopping of the unit is prohibited (see
+            <varname>RefuseManualStop=</varname> in
+            <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+            It will <emphasis>not</emphasis> fail if any of the commands configured to stop the unit
+            (<varname>ExecStop=</varname>, etc.) fail, because the manager will still forcibly terminate the
+            unit.</para>
+
+            <para>If a unit that gets stopped can still be triggered by other units, a warning containing
+            the names of the triggering units is shown. <option>--no-warn</option> can be used to suppress
+            the warning.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><command>reload <replaceable>PATTERN</replaceable>…</command></term>
+
+          <listitem>
+            <para>Asks all units listed on the command line to reload
+            their configuration. Note that this will reload the
+            service-specific configuration, not the unit configuration
+            file of systemd. If you want systemd to reload the
+            configuration file of a unit, use the
+            <command>daemon-reload</command> command. In other words:
+            for the example case of Apache, this will reload Apache's
+            <filename>httpd.conf</filename> in the web server, not the
+            <filename>apache.service</filename> systemd unit
+            file.</para>
+
+            <para>This command should not be confused with the
+            <command>daemon-reload</command> command.</para>
+          </listitem>
+
+        </varlistentry>
+        <varlistentry>
+          <term><command>restart <replaceable>PATTERN</replaceable>…</command></term>
+
+          <listitem>
+            <para>Stop and then start one or more units specified on the command line. If the units are not running
+            yet, they will be started.</para>
+
+            <para>Note that restarting a unit with this command does not necessarily flush out all of the unit's
+            resources before it is started again. For example, the per-service file descriptor storage facility (see
+            <varname>FileDescriptorStoreMax=</varname> in
+            <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>) will
+            remain intact as long as the unit has a job pending, and is only cleared when the unit is fully stopped and
+            no jobs are pending anymore. If it is intended that the file descriptor store is flushed out, too, during a
+            restart operation an explicit <command>systemctl stop</command> command followed by <command>systemctl
+            start</command> should be issued.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><command>try-restart <replaceable>PATTERN</replaceable>…</command></term>
+
+          <listitem>
+            <para>Stop and then start one or more units specified on the
+            command line if the units are running. This does nothing
+            if units are not running.</para>
+            <!-- Note that we do not document condrestart here, as that is just compatibility support, and we generally
+                 do not document that. -->
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>enqueue-marked</command></term>
+
+          <listitem><para>Enqueue start/stop/restart/reload jobs for all units that have the respective
+          <literal>needs-*</literal> markers set. When a unit marked for reload does not support reload,
+          restart will be queued. Those properties can be set using <command>set-property Markers=…</command>.</para>
+
+          <para>Note that <literal>needs-restart</literal> and <literal>needs-reload</literal> use
+          <command>try-restart</command>/<literal>try-reload</literal> semantics: inactive units are not started.
+          This differs from <command>reload-or-restart</command> without <option>--marked</option>, which
+          starts units that are not yet running. Markers such as <literal>needs-start</literal> still
+          enqueue an unconditional start job.</para>
+
+          <para>Unless <option>--no-block</option> is used, <command>systemctl</command> will wait for the
+          queued jobs to finish.</para>
+
+          <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>reload-or-restart <replaceable>PATTERN</replaceable>…</command></term>
+
+          <listitem>
+            <para>Reload one or more units if they support it. If not, stop and then start them instead. If the units
+            are not running yet, they will be started.</para>
+
+            <para>When used in combination with <option>--marked</option>, it is a deprecated alias of
+            <command>enqueue-marked</command>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><command>try-reload-or-restart <replaceable>PATTERN</replaceable>…</command></term>
+
+          <listitem>
+            <para>Reload one or more units if they support it. If not, stop and then start them instead. This does
+            nothing if the units are not running.</para>
+            <!-- Note that we do not document force-reload here, as that is just compatibility support, and we generally
+                 do not document that. -->
+
+            <xi:include href="version-info.xml" xpointer="v229"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><command>isolate <replaceable>UNIT</replaceable></command></term>
+
+          <listitem>
+            <para>Start the unit specified on the command line and its dependencies
+            and stop all others, unless they have
+            <option>IgnoreOnIsolate=yes</option> (see
+            <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+            If a unit name with no extension is given, an extension of
+            <literal>.target</literal> will be assumed.</para>
+
+            <para>This command is dangerous, since it will immediately stop processes that are not enabled in
+            the new target, possibly including the graphical environment or terminal you are currently using.
+            </para>
+
+            <para>Note that this operation is allowed only on units where
+            <option>AllowIsolate=</option> is enabled. See
+            <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            for details.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><command>kill <replaceable>PATTERN</replaceable>…</command></term>
+
+          <listitem>
+            <para>Send a UNIX process signal to one or more processes of the unit. Use
+            <option>--kill-whom=</option> to select which process to send the signal to. Use
+            <option>--signal=</option> to select the signal to send. Combine with
+            <option>--kill-value=</option> to enqueue a POSIX Realtime Signal with an associated
+            value.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><command>clean <replaceable>PATTERN</replaceable>…</command></term>
+
+          <listitem>
+            <para>Remove the configuration, state, cache, logs, runtime or file descriptor store data of the specified units. Use
+            <option>--what=</option> to select which kind of resource to remove. For service units this may
+            be used to remove the directories configured with <varname>ConfigurationDirectory=</varname>,
+            <varname>StateDirectory=</varname>, <varname>CacheDirectory=</varname>,
+            <varname>LogsDirectory=</varname> and <varname>RuntimeDirectory=</varname>, see
+            <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            for details. It may also be used to clear the file descriptor store as enabled via
+            <varname>FileDescriptorStoreMax=</varname>, see
+            <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            for details.  For timer units this may be used to clear out the persistent timestamp data if
+            <varname>Persistent=</varname> is used and <option>--what=state</option> is selected, see
+            <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>. This
+            command only applies to units that use either of these settings. If <option>--what=</option> is
+            not specified, the cache and runtime data as well as the file descriptor store are removed (as
+            these three types of resources are generally redundant and reproducible on the next invocation of
+            the unit). Multiple values can be separated by commas. Note that the specified units must be stopped
+            to invoke this operation.</para>
+
+            <table>
+              <title>
+                Possible values for <option>--what=</option>
+              </title>
+
+              <tgroup cols='2'>
+                <thead>
+                  <row>
+                    <entry>Value</entry>
+                    <entry>Unit Setting</entry>
+                  </row>
+                </thead>
+                <tbody>
+                  <row>
+                    <entry><literal>runtime</literal></entry>
+                    <entry><varname>RuntimeDirectory=</varname></entry>
+                  </row>
+                  <row>
+                    <entry><literal>state</literal></entry>
+                    <entry><varname>StateDirectory=</varname></entry>
+                  </row>
+                  <row>
+                    <entry><literal>cache</literal></entry>
+                    <entry><varname>CacheDirectory=</varname></entry>
+                  </row>
+                  <row>
+                    <entry><literal>logs</literal></entry>
+                    <entry><varname>LogsDirectory=</varname></entry>
+                  </row>
+                  <row>
+                    <entry><literal>configuration</literal></entry>
+                    <entry><varname>ConfigurationDirectory=</varname></entry>
+                  </row>
+                  <row>
+                    <entry><literal>fdstore</literal></entry>
+                    <entry><varname>FileDescriptorStorePreserve=</varname></entry>
+                  </row>
+                  <row>
+                    <entry><literal>all</literal></entry>
+                    <entry>All of the above</entry>
+                  </row>
+                  <row>
+                    <entry><literal>help</literal></entry>
+                    <entry>Show the supported values and exit</entry>
+                  </row>
+                </tbody>
+              </tgroup>
+            </table>
+
+            <xi:include href="version-info.xml" xpointer="v243"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><command>freeze <replaceable>PATTERN</replaceable>…</command></term>
+
+          <listitem>
+            <para>Freeze one or more units specified on the
+            command line using cgroup freezer</para>
+
+            <para>Freezing the unit will cause all processes contained within the cgroup corresponding to the unit
+            to be suspended. Being suspended means that unit's processes will not be scheduled to run on CPU until thawed.
+            Note that this command is supported only on systems that use unified cgroup hierarchy. Unit is automatically
+            thawed just before we execute a job against the unit, e.g. before the unit is stopped.</para>
+
+            <xi:include href="version-info.xml" xpointer="v246"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><command>thaw <replaceable>PATTERN</replaceable>…</command></term>
+
+          <listitem>
+            <para>Thaw (unfreeze) one or more units specified on the
+            command line.</para>
+
+            <para>This is the inverse operation to the <command>freeze</command> command and resumes the execution of
+            processes in the unit's cgroup.</para>
+
+            <xi:include href="version-info.xml" xpointer="v246"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><command>set-property <replaceable>UNIT</replaceable> <replaceable>PROPERTY</replaceable>=<replaceable>VALUE</replaceable>…</command></term>
+
+          <listitem>
+            <para>Set the specified unit properties at runtime where
+            this is supported. This allows changing configuration
+            parameter properties such as resource control settings at
+            runtime. Not all properties may be changed at runtime, but
+            many resource control settings (primarily those in
+            <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
+            may. The changes are applied immediately, and stored on disk
+            for future boots, unless <option>--runtime</option> is
+            passed, in which case the settings only apply until the
+            next reboot. The syntax of the property assignment follows
+            closely the syntax of assignments in unit files.</para>
+
+            <para>Example: <command>systemctl set-property foobar.service CPUWeight=200</command></para>
+
+            <para>If the specified unit appears to be inactive, the
+            changes will be only stored on disk as described
+            previously hence they will be effective when the unit will
+            be started.</para>
+
+            <para>Note that this command allows changing multiple properties at the same time, which is
+            preferable over setting them individually.</para>
+
+            <para>Example: <command>systemctl set-property foobar.service CPUWeight=200 MemoryMax=2G IPAccounting=yes</command></para>
+
+            <para>Like with unit file configuration settings, assigning an empty setting usually resets a
+            property to its defaults.</para>
+
+            <para>Example: <command>systemctl set-property avahi-daemon.service IPAddressDeny=</command></para>
+
+            <xi:include href="version-info.xml" xpointer="v206"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term>
+            <command>bind</command>
+            <replaceable>UNIT</replaceable>
+            <replaceable>PATH</replaceable>
+            [<replaceable>PATH</replaceable>]
+          </term>
+
+          <listitem><para>Bind-mounts a file or directory from the host into the specified unit's mount
+          namespace. The first path argument is the source file or directory on the host, the second path
+          argument is the destination file or directory in the unit's mount namespace. When the latter is
+          omitted, the destination path in the unit's mount namespace is the same as the source path on the
+          host. When combined with the <option>--read-only</option> switch, a read-only bind mount is
+          created. When combined with the <option>--mkdir</option> switch, the destination path is first
+          created before the mount is applied.</para>
+
+          <para>Note that this option is currently only supported for units that run within a mount namespace
+          (e.g.: with <option>RootImage=</option>, <option>PrivateMounts=</option>, etc.). This command
+          supports bind-mounting directories, regular files, device nodes, <constant>AF_UNIX</constant>
+          socket nodes, as well as FIFOs.  The bind mount is ephemeral, and it is undone as soon as the
+          current unit process exists. Note that the namespace mentioned here, where the bind mount will be
+          added to, is the one where the main service process runs. Other processes (those exececuted by
+          <option>ExecReload=</option>, <option>ExecStartPre=</option>, etc.) run in distinct namespaces.
+          </para>
+
+          <para>If supported by the kernel, any prior mount on the selected target will be replaced by the
+          new mount. If not supported, any prior mount will be over-mounted, but remain pinned and
+          inaccessible.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term>
+            <command>mount-image</command>
+            <replaceable>UNIT</replaceable>
+            <replaceable>IMAGE</replaceable>
+            [<replaceable>PATH</replaceable>
+            [<replaceable>PARTITION_NAME</replaceable>:<replaceable>MOUNT_OPTIONS</replaceable>]]
+          </term>
+
+          <listitem><para>Mounts an image from the host into the specified unit's mount namespace. The first
+          path argument is the source image on the host, the second path argument is the destination
+          directory in the unit's mount namespace (i.e. inside
+          <option>RootImage=</option>/<option>RootDirectory=</option>). The following argument, if any, is
+          interpreted as a colon-separated tuple of partition name and comma-separated list of mount options
+          for that partition. The format is the same as the service <option>MountImages=</option>
+          setting. When combined with the <option>--read-only</option> switch, a ready-only mount is
+          created. When combined with the <option>--mkdir</option> switch, the destination path is first
+          created before the mount is applied.</para>
+
+          <para>Note that this option is currently only supported for units that run within a mount namespace
+          (i.e. with <option>RootImage=</option>, <option>PrivateMounts=</option>, etc.). Note that the
+          namespace mentioned here where the image mount will be added to, is the one where the main service
+          process runs. Note that the namespace mentioned here, where the bind mount will be
+          added to, is the one where the main service process runs. Other processes (those exececuted by
+          <option>ExecReload=</option>, <option>ExecStartPre=</option>, etc.) run in distinct namespaces.
+          </para>
+
+          <para>If supported by the kernel, any prior mount on the selected target will be replaced by the
+          new mount. If not supported, any prior mount will be over-mounted, but remain pinned and
+          inaccessible.</para>
+
+          <para>Example:
+          <programlisting>systemctl mount-image foo.service /tmp/img.raw /var/lib/image root:ro,nosuid</programlisting>
+          <programlisting>systemctl mount-image --mkdir bar.service /tmp/img.raw /var/lib/baz/img</programlisting>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>service-log-level</command> <replaceable>SERVICE</replaceable> [<replaceable>LEVEL</replaceable>]</term>
+
+          <listitem><para>If the <replaceable>LEVEL</replaceable> argument is not given, print the current
+          log level as reported by service <replaceable>SERVICE</replaceable>.</para>
+
+          <para>If the optional argument <replaceable>LEVEL</replaceable> is provided, then change the
+          current log level of the service to <replaceable>LEVEL</replaceable>. The log level should be a
+          typical syslog log level, i.e. a value in the range 0…7 or one of the strings
+          <constant>emerg</constant>, <constant>alert</constant>, <constant>crit</constant>,
+          <constant>err</constant>, <constant>warning</constant>, <constant>notice</constant>,
+          <constant>info</constant>, <constant>debug</constant>; see <citerefentry
+          project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+          for details.</para>
+
+          <para>The service must have the appropriate
+          <varname>BusName=<replaceable>destination</replaceable></varname> property and also implement the
+          generic
+          <citerefentry><refentrytitle>org.freedesktop.LogControl1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          interface. (<filename>systemctl</filename> will use the generic D-Bus protocol to access the
+          <interfacename>org.freedesktop.LogControl1.LogLevel</interfacename> interface for the D-Bus name
+          <replaceable>destination</replaceable>.)</para>
+
+          <xi:include href="version-info.xml" xpointer="v247"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>service-log-target</command> <replaceable>SERVICE</replaceable> [<replaceable>TARGET</replaceable>]</term>
+
+          <listitem><para>If the <replaceable>TARGET</replaceable> argument is not given, print the current
+          log target as reported by service <replaceable>SERVICE</replaceable>.</para>
+
+          <para>If the optional argument <replaceable>TARGET</replaceable> is provided, then change the
+          current log target of the service to <replaceable>TARGET</replaceable>. The log target should be
+          one of the strings <constant>console</constant> (for log output to the service's standard error
+          stream), <constant>kmsg</constant> (for log output to the kernel log buffer),
+          <constant>journal</constant> (for log output to
+          <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          using the native journal protocol), <constant>syslog</constant> (for log output to the classic
+          syslog socket <filename>/dev/log</filename>), <constant>null</constant> (for no log output
+          whatsoever) or <constant>auto</constant> (for an automatically determined choice, typically
+          equivalent to <constant>console</constant> if the service is invoked interactively, and
+          <constant>journal</constant> or <constant>syslog</constant> otherwise).</para>
+
+          <para>For most services, only a small subset of log targets make sense. In particular, most
+          "normal" services should only implement <constant>console</constant>, <constant>journal</constant>,
+          and <constant>null</constant>. Anything else is only appropriate for low-level services that
+          are active in very early boot before proper logging is established.</para>
+
+          <para>The service must have the appropriate
+          <varname>BusName=<replaceable>destination</replaceable></varname> property and also implement the
+          generic
+          <citerefentry><refentrytitle>org.freedesktop.LogControl1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          interface. (<filename>systemctl</filename> will use the generic D-Bus protocol to access the
+          <interfacename>org.freedesktop.LogControl1.LogLevel</interfacename> interface for the D-Bus name
+          <replaceable>destination</replaceable>.)</para>
+
+          <xi:include href="version-info.xml" xpointer="v247"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>reset-failed [<replaceable>PATTERN</replaceable>…]</command></term>
+
+          <listitem>
+            <para>Reset the <literal>failed</literal> state of the specified units, or if no unit name is passed, reset
+            the state of all units. When a unit fails in some way (i.e. process exiting with non-zero error code,
+            terminating abnormally or timing out), it will automatically enter the <literal>failed</literal> state and
+            its exit code and status is recorded for introspection by the administrator until the service is
+            stopped/re-started or reset with this command.</para>
+
+            <para>In addition to resetting the <literal>failed</literal> state of a unit it also resets various other
+            per-unit properties: the start rate limit counter of all unit types is reset to zero, as is the restart
+            counter of service units. Thus, if a unit's start limit (as configured with
+            <varname>StartLimitIntervalSec=</varname>/<varname>StartLimitBurst=</varname>) is hit and the unit refuses
+            to be started again, use this command to make it startable again.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>whoami [<replaceable>PID</replaceable>…]</command></term>
+
+          <listitem><para>Returns the units the processes referenced by the given PIDs belong to (one per
+          line). If no PID is specified returns the unit the <command>systemctl</command> command is invoked
+          in.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+        </varlistentry>
+
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>Unit File Commands</title>
+
+      <variablelist>
+        <varlistentry>
+          <term><command>list-unit-files</command> <optional><replaceable>PATTERN…</replaceable></optional></term>
+
+          <listitem>
+            <para>List unit files installed on the system, in combination with their enablement state (as
+            reported by <command>is-enabled</command>). If one or more <replaceable>PATTERN</replaceable>s
+            are specified, only unit files whose name matches one of them are shown (patterns matching unit
+            file system paths are not supported).</para>
+
+            <para>Unlike <command>list-units</command> this command will list template units in addition to
+            explicitly instantiated units.</para>
+
+            <xi:include href="version-info.xml" xpointer="v233"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>enable <replaceable>UNIT</replaceable>…</command></term>
+          <term><command>enable <replaceable>PATH</replaceable>…</command></term>
+
+          <listitem>
+            <para>Enable one or more units or unit instances. This will create a set of symlinks, as encoded in the
+            [Install] sections of the indicated unit files. After the symlinks have been created,
+            the system manager configuration is reloaded (in a way equivalent to <command>daemon-reload</command>), in
+            order to ensure the changes are taken into account immediately. Note that this does
+            <emphasis>not</emphasis> have the effect of also starting any of the units being enabled. If this is
+            desired, combine this command with the <option>--now</option> switch, or invoke <command>start</command>
+            with appropriate arguments later. Note that in case of unit instance enablement (i.e. enablement of units of
+            the form <filename>foo@bar.service</filename>), symlinks named the same as instances are created in the
+            unit configuration directory, however they point to the single template unit file they are instantiated
+            from.</para>
+
+            <para>This command expects either valid unit names (in which case various unit file directories are
+            automatically searched for unit files with appropriate names), or absolute paths to unit files (in which
+            case these files are read directly). If a specified unit file is located outside of the usual unit file
+            directories, an additional symlink is created, linking it into the unit configuration path, thus ensuring
+            it is found when requested by commands such as <command>start</command>. The file system where the linked
+            unit files are located must be accessible when systemd is started (e.g. anything underneath
+            <filename>/home/</filename> or <filename>/var/</filename> is not allowed, unless those directories are
+            located on the root file system).</para>
+
+            <para>This command will print the file system operations executed. This output may be suppressed by passing
+            <option>--quiet</option>.
+            </para>
+
+            <para>Note that this operation creates only the symlinks suggested in the [Install]
+            section of the unit files. While this command is the recommended way to manipulate the unit configuration
+            directory, the administrator is free to make additional changes manually by placing or removing symlinks
+            below this directory. This is particularly useful to create configurations that deviate from the suggested
+            default installation. In this case, the administrator must make sure to invoke
+            <command>daemon-reload</command> manually as necessary, in order to ensure the changes are taken into
+            account.
+            </para>
+
+            <para>When using this operation on units without install information, a warning about it is shown.
+            <option>--no-warn</option> can be used to suppress the warning.</para>
+
+            <para>Enabling units should not be confused with starting (activating) units, as done by the
+            <command>start</command> command. Enabling and starting units is orthogonal: units may be enabled without
+            being started and started without being enabled. Enabling simply hooks the unit into various suggested
+            places (for example, so that the unit is automatically started on boot or when a particular kind of
+            hardware is plugged in). Starting actually spawns the daemon process (in case of service units), or binds
+            the socket (in case of socket units), and so on.</para>
+
+            <para>Depending on whether <option>--system</option>, <option>--user</option>, <option>--runtime</option>,
+            or <option>--global</option> is specified, this enables the unit for the system, for the calling user only,
+            for only this boot of the system, or for all future logins of all users.  Note that in the last case, no
+            systemd daemon configuration is reloaded.</para>
+
+            <para>Using <command>enable</command> on masked units is not supported and results in an error.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>disable <replaceable>UNIT</replaceable>…</command></term>
+
+          <listitem>
+            <para>Disables one or more units. This removes all symlinks to the unit files backing the specified units
+            from the unit configuration directory, and hence undoes any changes made by <command>enable</command> or
+            <command>link</command>. Note that this removes <emphasis>all</emphasis> symlinks to matching unit files,
+            including manually created symlinks, and not just those actually created by <command>enable</command> or
+            <command>link</command>. Note that while <command>disable</command> undoes the effect of
+            <command>enable</command>, the two commands are otherwise not symmetric, as <command>disable</command> may
+            remove more symlinks than a prior <command>enable</command> invocation of the same unit created.</para>
+
+            <para>This command expects valid unit names only, it does not accept paths to unit files.</para>
+
+            <para>In addition to the units specified as arguments, all units are disabled that are listed in the
+            <varname>Also=</varname> setting contained in the [Install] section of any of the unit
+            files being operated on.</para>
+
+            <para>This command implicitly reloads the system manager configuration after completing the operation. Note
+            that this command does not implicitly stop the units that are being disabled. If this is desired, either
+            combine this command with the <option>--now</option> switch, or invoke the <command>stop</command> command
+            with appropriate arguments later.</para>
+
+            <para>This command will print information about the file system operations (symlink removals)
+            executed. This output may be suppressed by passing <option>--quiet</option>.
+            </para>
+
+            <para>If a unit gets disabled but its triggering units are still active, a warning containing
+            the names of the triggering units is shown. <option>--no-warn</option> can be used to suppress
+            the warning.</para>
+
+            <para>When this command is used with <option>--user</option>, the units being operated on might
+            still be enabled in global scope, and thus get started automatically even after a successful
+            disablement in user scope. In this case, a warning about it is shown, which can be suppressed
+            using <option>--no-warn</option>.</para>
+
+            <para>This command honors <option>--system</option>, <option>--user</option>, <option>--runtime</option>,
+            <option>--global</option> and <option>--no-warn</option> in a similar way as <command>enable</command>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v238"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>reenable <replaceable>UNIT</replaceable>…</command></term>
+
+          <listitem>
+            <para>Reenable one or more units, as specified on the command line. This is a combination of
+            <command>disable</command> and <command>enable</command> and is useful to reset the symlinks a unit file is
+            enabled with to the defaults configured in its [Install] section. This command expects
+            a unit name only, it does not accept paths to unit files.</para>
+
+            <para>This command implicitly reloads the system manager configuration after completing the operation.
+            Note that this command does not implicitly restart the units that are being disabled. If this is
+            desired, either combine this command with the <option>--now</option> switch, or invoke
+            the <command>try-restart</command> command with appropriate arguments later.</para>
+
+            <xi:include href="version-info.xml" xpointer="v238"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>preset <replaceable>UNIT</replaceable>…</command></term>
+
+          <listitem>
+            <para>Reset the enable/disable status of one or more unit files, as specified on
+            the command line, to the defaults configured in the preset policy files. This
+            has the same effect as <command>disable</command> or
+            <command>enable</command>, depending how the unit is listed in the preset
+            files.</para>
+
+            <para>Use <option>--preset-mode=</option> to control whether units shall be
+            enabled and disabled, or only enabled, or only disabled.</para>
+
+            <para>If the unit carries no install information, it will be silently ignored
+            by this command. <replaceable>UNIT</replaceable> must be the real unit name,
+            any alias names are ignored silently.</para>
+
+            <para>For more information on the preset policy format, see
+            <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+            </para>
+
+            <xi:include href="version-info.xml" xpointer="v238"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>preset-all</command></term>
+
+          <listitem>
+            <para>Resets all installed unit files to the defaults
+            configured in the preset policy file (see above).</para>
+
+            <para>Use <option>--preset-mode=</option> to control
+            whether units shall be enabled and disabled, or only
+            enabled, or only disabled.</para>
+
+            <xi:include href="version-info.xml" xpointer="v215"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>is-enabled <replaceable>UNIT</replaceable>…</command></term>
+
+          <listitem>
+            <para>Checks whether any of the specified unit files are
+            enabled (as with <command>enable</command>). Returns an
+            exit code of 0 if at least one is enabled, non-zero
+            otherwise. Prints the current enable status (see table).
+            To suppress this output, use <option>--quiet</option>.
+            To show installation targets, use <option>--full</option>.
+            </para>
+
+            <table>
+              <title>
+                <command>is-enabled</command> output
+              </title>
+
+              <tgroup cols='3'>
+                <thead>
+                  <row>
+                    <entry>Name</entry>
+                    <entry>Description</entry>
+                    <entry>Exit Code</entry>
+                  </row>
+                </thead>
+                <tbody>
+                  <row>
+                    <entry><literal>enabled</literal></entry>
+                    <entry morerows='1'>Enabled via <filename>.wants/</filename>, <filename>.requires/</filename> or <varname>Alias=</varname> symlinks (permanently in <filename>/etc/systemd/system/</filename>, or transiently in <filename>/run/systemd/system/</filename>).</entry>
+                    <entry morerows='1'>0</entry>
+                  </row>
+                  <row>
+                    <entry><literal>enabled-runtime</literal></entry>
+                  </row>
+                  <row>
+                    <entry><literal>linked</literal></entry>
+                    <entry morerows='1'>Made available through one or more symlinks to the unit file (permanently in <filename>/etc/systemd/system/</filename> or transiently in <filename>/run/systemd/system/</filename>), even though the unit file might reside outside of the unit file search path.</entry>
+                    <entry morerows='1'>&gt; 0</entry>
+                  </row>
+                  <row>
+                    <entry><literal>linked-runtime</literal></entry>
+                  </row>
+                  <row>
+                    <entry><literal>alias</literal></entry>
+                    <entry>The name is an alias (symlink to another unit file).</entry>
+                    <entry>0</entry>
+                  </row>
+                  <row>
+                    <entry><literal>masked</literal></entry>
+                    <entry morerows='1'>Completely disabled, so that any start operation on it fails (permanently in <filename>/etc/systemd/system/</filename> or transiently in <filename>/run/systemd/systemd/</filename>).</entry>
+                    <entry morerows='1'>&gt; 0</entry>
+                  </row>
+                  <row>
+                    <entry><literal>masked-runtime</literal></entry>
+                  </row>
+                  <row>
+                    <entry><literal>static</literal></entry>
+                    <entry>The unit file is not enabled, and has no provisions for enabling in the [Install] unit file section.</entry>
+                    <entry>0</entry>
+                  </row>
+                  <row>
+                    <entry><literal>indirect</literal></entry>
+                    <entry>The unit file itself is not enabled, but it has a non-empty <varname>Also=</varname> setting in the [Install] unit file section, listing other unit files that might be enabled, or it has an alias under a different name through a symlink that is not specified in <varname>Also=</varname>. For template unit files, an instance different than the one specified in <varname>DefaultInstance=</varname> is enabled.</entry>
+                    <entry>0</entry>
+                  </row>
+                  <row>
+                    <entry><literal>disabled</literal></entry>
+                    <entry>The unit file is not enabled, but contains an [Install] section with installation instructions.</entry>
+                    <entry>&gt; 0</entry>
+                  </row>
+                  <row>
+                    <entry><literal>generated</literal></entry>
+                    <entry>The unit file was generated dynamically via a generator tool. See <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>. Generated unit files may not be enabled, they are enabled implicitly by their generator.</entry>
+                    <entry>0</entry>
+                  </row>
+                  <row>
+                    <entry><literal>transient</literal></entry>
+                    <entry>The unit file has been created dynamically with the runtime API. Transient units may not be enabled.</entry>
+                    <entry>0</entry>
+                  </row>
+                  <row>
+                    <entry><literal>bad</literal></entry>
+                    <entry>The unit file is invalid or another error occurred. Note that <command>is-enabled</command> will not actually return this state, but print an error message instead. However, the unit file listing printed by <command>list-unit-files</command> might show it.</entry>
+                    <entry>&gt; 0</entry>
+                  </row>
+                  <row>
+                    <entry><literal>not-found</literal></entry>
+                    <entry>The unit file does not exist.</entry>
+                    <entry>4</entry>
+                  </row>
+                </tbody>
+              </tgroup>
+            </table>
+
+            <xi:include href="version-info.xml" xpointer="v238"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>mask <replaceable>UNIT</replaceable>…</command></term>
+
+          <listitem>
+            <para>Mask one or more units, as specified on the command line. This will link these unit files
+            to <filename>/dev/null</filename>, making it impossible to start them. This is a stronger version
+            of <command>disable</command>, since it prohibits all kinds of activation of the unit, including
+            enablement and manual activation. Use this option with care. This honors the
+            <option>--runtime</option> option to only mask temporarily until the next reboot of the
+            system. The <option>--now</option> option may be used to ensure that the units are also
+            stopped. This command expects valid unit names only, it does not accept unit file paths.</para>
+
+            <para>Note that this will create a symlink under the unit's name in
+            <filename>/etc/systemd/system/</filename> (in case <option>--runtime</option> is not specified)
+            or <filename>/run/systemd/system/</filename> (in case <option>--runtime</option> is
+            specified). If a matching unit file already exists under these directories this operation will
+            hence fail. This means that the operation is primarily useful to mask units shipped by the vendor
+            (as those are shipped in <filename>/usr/lib/systemd/system/</filename> and not the aforementioned
+            two directories), but typically does not work for units created locally (as those are typically
+            placed precisely in the two aforementioned directories). Similar restrictions apply for
+            <option>--user</option> mode, in which case the directories are below the user's home directory
+            however.</para>
+
+            <para>If a unit gets masked but its triggering units are still active, a warning containing
+            the names of the triggering units is shown. <option>--no-warn</option> can be used to suppress
+            the warning.</para>
+
+            <xi:include href="version-info.xml" xpointer="v238"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>unmask <replaceable>UNIT</replaceable>…</command></term>
+
+          <listitem>
+            <para>Unmask one or more unit files, as specified on the command line. This will undo the effect of
+            <command>mask</command>. This command expects valid unit names only, it does not accept unit file
+            paths.</para>
+
+            <xi:include href="version-info.xml" xpointer="v238"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>link <replaceable>PATH</replaceable>…</command></term>
+
+          <listitem>
+            <para>Link a unit file that is not in the unit file search path into the unit file search path. This
+            command expects an absolute path to a unit file. The effect of this may be undone with
+            <command>disable</command>. The effect of this command is that a unit file is made available for commands
+            such as <command>start</command>, even though it is not installed directly in the unit search path. The
+            file system where the linked unit files are located must be accessible when systemd is started
+            (e.g. anything underneath <filename>/home/</filename> or <filename>/var/</filename> is not allowed, unless
+            those directories are located on the root file system).</para>
+
+            <xi:include href="version-info.xml" xpointer="v233"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>revert <replaceable>UNIT</replaceable>…</command></term>
+
+          <listitem>
+            <para>Revert one or more unit files to their vendor versions. This command removes drop-in configuration
+            files that modify the specified units, as well as any user-configured unit file that overrides a matching
+            vendor supplied unit file. Specifically, for a unit <literal>foo.service</literal> the matching directories
+            <literal>foo.service.d/</literal> with all their contained files are removed, both below the persistent and
+            runtime configuration directories (i.e. below <filename>/etc/systemd/system</filename> and
+            <filename>/run/systemd/system</filename>); if the unit file has a vendor-supplied version (i.e. a unit file
+            located below <filename>/usr/</filename>) any matching persistent or runtime unit file that overrides it is
+            removed, too. Note that if a unit file has no vendor-supplied version (i.e. is only defined below
+            <filename>/etc/systemd/system</filename> or <filename>/run/systemd/system</filename>, but not in a unit
+            file stored below <filename>/usr/</filename>), then it is not removed. Also, if a unit is masked, it is
+            unmasked.</para>
+
+            <para>Effectively, this command may be used to undo all changes made with <command>systemctl
+            edit</command>, <command>systemctl set-property</command> and <command>systemctl mask</command> and puts
+            the original unit file with its settings back in effect.</para>
+
+            <xi:include href="version-info.xml" xpointer="v230"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>add-wants <replaceable>TARGET</replaceable>
+          <replaceable>UNIT</replaceable>…</command></term>
+          <term><command>add-requires <replaceable>TARGET</replaceable>
+          <replaceable>UNIT</replaceable>…</command></term>
+
+          <listitem>
+            <para>Adds <literal>Wants=</literal> or <literal>Requires=</literal>
+            dependencies, respectively, to the specified
+            <replaceable>TARGET</replaceable> for one or more units. </para>
+
+            <para>This command honors <option>--system</option>,
+            <option>--user</option>, <option>--runtime</option> and
+            <option>--global</option> in a way similar to
+            <command>enable</command>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v217"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>edit <replaceable>UNIT</replaceable>…</command></term>
+
+          <listitem>
+            <para>Edit or replace a drop-in snippet or the main unit file, to extend or override the
+            definition of the specified unit.</para>
+
+            <para>Depending on whether <option>--system</option> (the default), <option>--user</option>, or
+            <option>--global</option> is specified, this command will operate on the system unit files, unit
+            files for the calling user, or the unit files shared between all users.</para>
+
+            <para>The editor (see the "Environment" section below) is invoked on temporary files which will
+            be written to the real location if the editor exits successfully. After the editing is finished,
+            configuration is reloaded, equivalent to <command>systemctl daemon-reload --system</command> or
+            <command>systemctl daemon-reload --user</command>. For <command>edit --global</command>, the
+            reload is not performed and the edits will take effect only for subsequent logins (or after a
+            reload is requested in a different way).</para>
+
+            <para>If <option>--full</option> is specified, a replacement for the main unit file will be
+            created or edited. Otherwise, a drop-in file will be created or edited.</para>
+
+            <para>If <option>--drop-in=</option> is specified, the given drop-in file name
+            will be used instead of the default <filename>override.conf</filename>.</para>
+
+            <para>The unit must exist, i.e. its main unit file must be present. If <option>--force</option>
+            is specified, this requirement is ignored and a new unit may be created (with
+            <option>--full</option>), or a drop-in for a nonexistent unit may be created.</para>
+
+            <para>If <option>--runtime</option> is specified, the changes will
+            be made temporarily in <filename>/run/</filename> and they will be
+            lost on the next reboot.</para>
+
+            <para>If <option>--stdin</option> is specified, the new contents will be read from standard
+            input. In this mode, the old contents of the file are discarded.</para>
+
+            <para>If the temporary file is empty upon exit, the modification of
+            the related unit is canceled.</para>
+
+            <para>Note that this command cannot be used to remotely edit units
+            and that you cannot temporarily edit units which are in
+            <filename>/etc/</filename>, since they take precedence over
+            <filename>/run/</filename>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v218"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>get-default</command></term>
+
+          <listitem>
+            <para>Return the default target to boot into. This returns
+            the target unit name <filename>default.target</filename>
+            is aliased (symlinked) to.</para>
+
+            <xi:include href="version-info.xml" xpointer="v205"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>set-default <replaceable>TARGET</replaceable></command></term>
+
+          <listitem>
+            <para>Set the default target to boot into. This sets
+            (symlinks) the <filename>default.target</filename> alias
+            to the given target unit.</para>
+
+            <xi:include href="version-info.xml" xpointer="v205"/>
+          </listitem>
+        </varlistentry>
+
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>Machine Commands</title>
+
+      <variablelist>
+        <varlistentry>
+          <term><command>list-machines</command> <optional><replaceable>PATTERN</replaceable>…</optional></term>
+
+          <listitem>
+            <para>List the host and all running local containers with
+            their state. If one or more
+            <replaceable>PATTERN</replaceable>s are specified, only
+            containers matching one of them are shown.
+            </para>
+
+            <xi:include href="version-info.xml" xpointer="v212"/>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>Job Commands</title>
+
+      <variablelist>
+        <varlistentry>
+          <term><command>list-jobs <optional><replaceable>PATTERN…</replaceable></optional></command></term>
+
+          <listitem>
+            <para>List jobs that are in progress. If one or more
+            <replaceable>PATTERN</replaceable>s are specified, only
+            jobs for units matching one of them are shown.</para>
+
+            <para>When combined with <option>--after</option> or <option>--before</option> the list is augmented with
+            information on which other job each job is waiting for, and which other jobs are waiting for it, see
+            above.</para>
+
+            <xi:include href="version-info.xml" xpointer="v233"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><command>cancel <optional><replaceable>JOB</replaceable>…</optional></command></term>
+
+          <listitem>
+            <para>Cancel one or more jobs specified on the command line
+            by their numeric job IDs. If no job ID is specified, cancel
+            all pending jobs.</para>
+
+            <xi:include href="version-info.xml" xpointer="v233"/>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>Environment Commands</title>
+
+      <para><command>systemd</command> supports an environment block that is passed to processes the manager
+      spawns. The names of the variables can contain ASCII letters, digits, and the underscore
+      character. Variable names cannot be empty or start with a digit. In variable values, most characters
+      are allowed, but the whole sequence must be valid UTF-8. (Note that control characters like newline
+      (<constant>NL</constant>), tab (<constant>TAB</constant>), or the escape character
+      (<constant>ESC</constant>), <emphasis>are</emphasis> valid ASCII and thus valid UTF-8). The total
+      length of the environment block is limited to <constant>_SC_ARG_MAX</constant> value defined by
+      <citerefentry project='man-pages'><refentrytitle>sysconf</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+      </para>
+
+      <variablelist>
+        <varlistentry>
+          <term><command>show-environment</command></term>
+
+          <listitem>
+            <para>Dump the systemd manager environment block. This is the environment block that is passed to
+            all processes the manager spawns. The environment block will be dumped in straightforward form
+            suitable for sourcing into most shells. If no special characters or whitespace is present in the
+            variable values, no escaping is performed, and the assignments have the form
+            <literal>VARIABLE=value</literal>. If whitespace or characters which have special meaning to the
+            shell are present, dollar-single-quote escaping is used, and assignments have the form
+            <literal>VARIABLE=$'value'</literal>.  This syntax is known to be supported by <citerefentry
+            project='die-net'><refentrytitle>bash</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+            <citerefentry
+            project='die-net'><refentrytitle>zsh</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+            <citerefentry
+            project='die-net'><refentrytitle>ksh</refentrytitle><manvolnum>1</manvolnum></citerefentry>, and
+            <citerefentry
+            project='die-net'><refentrytitle>busybox</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+            <citerefentry
+            project='die-net'><refentrytitle>ash</refentrytitle><manvolnum>1</manvolnum></citerefentry>, but
+            not <citerefentry
+            project='die-net'><refentrytitle>dash</refentrytitle><manvolnum>1</manvolnum></citerefentry> or
+            <citerefentry
+            project='die-net'><refentrytitle>fish</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+            </para>
+
+            <para>Note that this shows the <emphasis>effective</emphasis> block, i.e. the combination of
+            environment variables configured via configuration files, environment generators and via IPC
+            (i.e. via the <command>set-environment</command> described below). At the moment a unit process
+            is forked off, this combined environment block will be further combined with per-unit environment
+            variables, which are not visible in this command.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><command>set-environment <replaceable>VARIABLE=VALUE</replaceable>…</command></term>
+
+          <listitem>
+            <para>Set one or more service manager environment variables, as specified on the command
+            line. This command will fail if variable names and values do not conform to the rules listed
+            above.</para>
+
+            <para>Note that this operates on an environment block separate from the environment block
+            configured from service manager configuration and environment generators. Whenever a process is
+            invoked the two blocks are combined (also incorporating any per-service environment variables),
+            and passed to it. The <command>show-environment</command> verb will show the combination of the
+            blocks, see above.</para>
+
+            <xi:include href="version-info.xml" xpointer="v233"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><command>unset-environment <replaceable>VARIABLE</replaceable>…</command></term>
+
+          <listitem>
+            <para>Unset one or more systemd manager environment variables. If only a variable name is
+            specified, it will be removed regardless of its value. If a variable and a value are specified,
+            the variable is only removed if it has the specified value.</para>
+
+            <para>Note that this operates on an environment block separate from the environment block
+            configured from service manager configuration and environment generators. Whenever a process is
+            invoked the two blocks are combined (also incorporating any per-service environment variables),
+            and passed to it. The <command>show-environment</command> verb will show the combination of the
+            blocks, see above. Note that this means this command cannot be used to unset environment
+            variables defined in the service manager configuration files or via generators.</para>
+
+            <xi:include href="version-info.xml" xpointer="v233"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>
+            <command>import-environment</command>
+            <replaceable>VARIABLE…</replaceable>
+          </term>
+
+          <listitem>
+            <para>Import all, one or more environment variables set on the client into the systemd manager
+            environment block. If a list of environment variable names is passed, client-side values are then
+            imported into the manager's environment block. If any names are not valid environment variable
+            names or have invalid values according to the rules described above, an error is raised. If no
+            arguments are passed, the entire environment block inherited by the <command>systemctl</command>
+            process is imported. In this mode, any inherited invalid environment variables are quietly
+            ignored.</para>
+
+            <para>Importing of the full inherited environment block (calling this command without any
+            arguments) is deprecated. A shell will set dozens of variables which only make sense locally and
+            are only meant for processes which are descendants of the shell. Such variables in the global
+            environment block are confusing to other processes.</para>
+
+            <xi:include href="version-info.xml" xpointer="v209"/>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>Manager State Commands</title>
+
+      <variablelist>
+        <varlistentry>
+          <term><command>daemon-reload</command></term>
+
+          <listitem>
+            <para>Reload the systemd manager configuration. This will
+            rerun all generators (see
+            <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>),
+            reload all unit files, and recreate the entire dependency
+            tree. While the daemon is being reloaded, all sockets
+            systemd listens on behalf of user configuration will stay
+            accessible.</para>
+
+            <para>This command should not be confused with the
+            <command>reload</command> command.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>daemon-reexec</command></term>
+
+          <listitem>
+            <para>Reexecute the systemd manager. This will serialize the
+            manager state, reexecute the process and deserialize the
+            state again. This command is of little use except for
+            debugging and package upgrades. Sometimes, it might be
+            helpful as a heavy-weight <command>daemon-reload</command>.
+            While the daemon is being reexecuted, all sockets systemd listening
+            on behalf of user configuration will stay accessible.
+            </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry id='log-level'>
+          <term><command>log-level</command> [<replaceable>LEVEL</replaceable>]</term>
+
+          <listitem><para>If no argument is given, print the current log level of the manager. If an
+          optional argument <replaceable>LEVEL</replaceable> is provided, then the command changes the
+          current log level of the manager to <replaceable>LEVEL</replaceable> (accepts the same values as
+          <option>--log-level=</option> described in
+          <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>).
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>log-target</command> [<replaceable>TARGET</replaceable>]</term>
+
+          <listitem><para>If no argument is given, print the current log target of the manager. If an
+          optional argument <replaceable>TARGET</replaceable> is provided, then the command changes the
+          current log target of the manager to <replaceable>TARGET</replaceable> (accepts the same values as
+          <option>--log-target=</option>, described in
+          <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>).
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>service-watchdogs</command> [yes|no]</term>
+
+          <listitem><para>If no argument is given, print the current state of service runtime watchdogs of
+          the manager. If an optional boolean argument is provided, then globally enables or disables the
+          service runtime watchdogs (<option>WatchdogSec=</option>) and emergency actions (e.g.
+          <option>OnFailure=</option> or <option>StartLimitAction=</option>); see
+          <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          The hardware watchdog is not affected by this setting.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>System Commands</title>
+
+      <variablelist>
+        <varlistentry>
+          <term><command>is-system-running</command></term>
+
+          <listitem>
+            <para>Checks whether the system is operational. This
+            returns success (exit code 0) when the system is fully up
+            and running, specifically not in startup, shutdown or
+            maintenance mode, and with no failed services. Failure is
+            returned otherwise (exit code non-zero). In addition, the
+            current state is printed in a short string to standard
+            output, see the table below. Use <option>--quiet</option> to
+            suppress this output.</para>
+
+            <para>Use <option>--wait</option> to wait until the boot
+            process is completed before printing the current state and
+            returning the appropriate error status. If <option>--wait</option>
+            is in use, states <varname>initializing</varname> or
+            <varname>starting</varname> will not be reported, instead
+            the command will block until a later state (such as
+            <varname>running</varname> or <varname>degraded</varname>)
+            is reached.</para>
+
+            <table>
+              <title><command>is-system-running</command> output</title>
+              <tgroup cols='3'>
+                <colspec colname='name'/>
+                <colspec colname='description'/>
+                <colspec colname='exit-code'/>
+                <thead>
+                  <row>
+                    <entry>Name</entry>
+                    <entry>Description</entry>
+                    <entry>Exit Code</entry>
+                  </row>
+                </thead>
+                <tbody>
+                  <row>
+                    <entry><varname>initializing</varname></entry>
+                    <entry><para>Early bootup, before
+                    <filename>basic.target</filename> is reached
+                    or the <varname>maintenance</varname> state entered.
+                    </para></entry>
+                    <entry>&gt; 0</entry>
+                  </row>
+                  <row>
+                    <entry><varname>starting</varname></entry>
+                    <entry><para>Late bootup, before the job queue
+                    becomes idle for the first time, or one of the
+                    rescue targets are reached.</para></entry>
+                    <entry>&gt; 0</entry>
+                  </row>
+                  <row>
+                    <entry><varname>running</varname></entry>
+                    <entry><para>The system is fully
+                    operational.</para></entry>
+                    <entry>0</entry>
+                  </row>
+                  <row>
+                    <entry><varname>degraded</varname></entry>
+                    <entry><para>The system is operational but one or more
+                    units failed.</para></entry>
+                    <entry>&gt; 0</entry>
+                  </row>
+                  <row>
+                    <entry><varname>maintenance</varname></entry>
+                    <entry><para>The rescue or emergency target is
+                    active.</para></entry>
+                    <entry>&gt; 0</entry>
+                  </row>
+                  <row>
+                    <entry><varname>stopping</varname></entry>
+                    <entry><para>The manager is shutting
+                    down.</para></entry>
+                    <entry>&gt; 0</entry>
+                  </row>
+                  <row>
+                    <entry><varname>offline</varname></entry>
+                    <entry><para>The manager is not
+                    running. Specifically, this is the operational
+                    state if an incompatible program is running as
+                    system manager (PID 1).</para></entry>
+                    <entry>&gt; 0</entry>
+                  </row>
+                  <row>
+                    <entry><varname>unknown</varname></entry>
+                    <entry><para>The operational state could not be
+                    determined, due to lack of resources or another
+                    error cause.</para></entry>
+                    <entry>&gt; 0</entry>
+                  </row>
+                </tbody>
+              </tgroup>
+            </table>
+
+            <xi:include href="version-info.xml" xpointer="v215"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>default</command></term>
+
+          <listitem>
+            <para>Enter default mode. This is equivalent to <command>systemctl isolate default.target</command>. This
+            operation is blocking by default, use <option>--no-block</option> to request asynchronous behavior.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>rescue</command></term>
+
+          <listitem>
+            <para>Enter rescue mode. This is equivalent to <command>systemctl isolate rescue.target</command>. This
+            operation is blocking by default, use <option>--no-block</option> to request asynchronous behavior.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><command>emergency</command></term>
+
+          <listitem>
+            <para>Enter emergency mode. This is equivalent to <command>systemctl isolate
+            emergency.target</command>. This operation is blocking by default, use <option>--no-block</option> to
+            request asynchronous behavior.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><command>halt</command></term>
+
+          <listitem>
+            <para>Shut down and halt the system. This is mostly equivalent to <command>systemctl start halt.target
+            --job-mode=replace-irreversibly --no-block</command>, but also prints a wall message to all users. This command is
+            asynchronous; it will return after the halt operation is enqueued, without waiting for it to complete. Note
+            that this operation will simply halt the OS kernel after shutting down, leaving the hardware powered
+            on. Use <command>systemctl poweroff</command> for powering off the system (see below).</para>
+
+            <para>If combined with <option>--force</option>, shutdown of all running services is skipped, however all
+            processes are killed and all file systems are unmounted or mounted read-only, immediately followed by the
+            system halt.  If <option>--force</option> is specified twice, the operation is immediately executed without
+            terminating any processes or unmounting any file systems. This may result in data loss. Note that when
+            <option>--force</option> is specified twice the halt operation is executed by <command>systemctl</command>
+            itself, and the system manager is not contacted. This means the command should succeed even when the system
+            manager has crashed.</para>
+
+            <para>If combined with <option>--when=</option>, shutdown will be scheduled after the given timestamp.
+            And <option>--when=cancel</option> will cancel the shutdown.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><command>poweroff</command></term>
+
+          <listitem>
+            <para>Shut down and power-off the system. This is mostly equivalent to <command>systemctl start
+            poweroff.target --job-mode=replace-irreversibly --no-block</command>, but also prints a wall message to all
+            users. This command is asynchronous; it will return after the power-off operation is enqueued, without
+            waiting for it to complete.</para>
+
+            <para>This command honors <option>--force</option> and <option>--when=</option> in a similar way
+            as <command>halt</command>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><command>reboot</command></term>
+
+          <listitem>
+            <para>Shut down and reboot the system.</para>
+
+            <para>This command is mostly equivalent to <command>systemctl start reboot.target
+            --job-mode=replace-irreversibly --no-block</command>, but also prints a wall message to all
+            users. This command is asynchronous; it will return after the reboot operation is enqueued,
+            without waiting for it to complete.</para>
+
+            <para>If the switch <option>--reboot-argument=</option> is given, it will be passed as the optional
+            argument to the <citerefentry><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+            system call.</para>
+
+            <para>Options <option>--boot-loader-entry=</option>, <option>--boot-loader-menu=</option>, and
+            <option>--firmware-setup</option> can be used to select what to do <emphasis>after</emphasis> the
+            reboot. See the descriptions of those options for details.</para>
+
+            <para>This command honors <option>--force</option> and <option>--when=</option> in a similar way
+            as <command>halt</command>.</para>
+
+            <para>If a new kernel has been loaded via <command>kexec --load</command>, a
+            <command>kexec</command> will be performed instead of a reboot, unless
+            <literal>SYSTEMCTL_SKIP_AUTO_KEXEC=1</literal> has been set. If a new root file system has
+            been set up on <literal>/run/nextroot/</literal>, a <command>soft-reboot</command> will be
+            performed instead of a reboot, unless <literal>SYSTEMCTL_SKIP_AUTO_SOFT_REBOOT=1</literal> has
+            been set.</para>
+
+            <xi:include href="version-info.xml" xpointer="v246"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>kexec</command></term>
+
+          <listitem>
+            <para>Shut down and reboot the system via <command>kexec</command>. This command will load a
+            kexec kernel if one was not loaded yet or fail. A kernel may be loaded earlier by a separate step,
+            this is particularly useful if a custom initrd or additional kernel command line options are
+            desired. The <option>--force</option> can be used to continue without a kexec kernel, i.e. to
+            perform a normal reboot. The final reboot step is equivalent to
+            <command>systemctl start kexec.target --job-mode=replace-irreversibly --no-block</command>.
+            </para>
+
+            <para>To load a kernel, an enumeration is performed following the
+            <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink>,
+            and the default boot entry is loaded. For this step to succeed, the system must be using UEFI
+            and the boot loader entries must be configured appropriately. <command>bootctl list</command>
+            may be used to list boot entries, see
+            <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+            </para>
+
+            <para>This command is asynchronous; it will return after the reboot operation is enqueued,
+            without waiting for it to complete.</para>
+
+            <para>This command honors <option>--force</option> and <option>--when=</option> similarly
+            to <command>halt</command>.</para>
+
+            <para>If a new kernel has been loaded via <command>kexec --load</command>, a
+            <command>kexec</command> will be performed when <command>reboot</command> is invoked, unless
+            <literal>SYSTEMCTL_SKIP_AUTO_KEXEC=1</literal> has been set.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>soft-reboot</command></term>
+
+          <listitem>
+            <para>Shut down and reboot userspace. This is equivalent to <command>systemctl start
+            soft-reboot.target --job-mode=replace-irreversibly --no-block</command>. This command is
+            asynchronous; it will return after the reboot operation is enqueued, without waiting for it to
+            complete.</para>
+
+            <para>This command honors <option>--force</option> and <option>--when=</option> in a similar way
+            as <command>halt</command>.</para>
+
+            <para>This operation only reboots userspace, leaving the kernel running. See
+            <citerefentry><refentrytitle>systemd-soft-reboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            for details.</para>
+
+            <para>If a new root file system has been set up on <literal>/run/nextroot/</literal>, a
+            <command>soft-reboot</command> will be performed when <command>reboot</command> is invoked,
+            unless <literal>SYSTEMCTL_SKIP_AUTO_SOFT_REBOOT=1</literal> has been set.</para>
+
+            <xi:include href="version-info.xml" xpointer="v254"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>exit</command> <optional><replaceable>EXIT_CODE</replaceable></optional></term>
+
+          <listitem>
+            <para>Ask the service manager to quit. This is only supported for user service managers (i.e. in
+            conjunction with the <option>--user</option> option) or in containers and is equivalent to
+            <command>poweroff</command> otherwise. This command is asynchronous; it will return after the exit
+            operation is enqueued, without waiting for it to complete.</para>
+
+            <para>The service manager will exit with the specified exit code, if
+            <replaceable>EXIT_CODE</replaceable> is passed.</para>
+
+            <xi:include href="version-info.xml" xpointer="v227"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>switch-root</command> <optional><replaceable>ROOT</replaceable> <optional><replaceable>INIT</replaceable></optional></optional></term>
+
+          <listitem>
+            <para>Switches to a different root directory and executes a new system manager process below it.
+            This is intended for use in the initrd, and will transition from the initrd's system manager
+            process (a.k.a. "init" process, PID 1) to the main system manager process which is loaded from
+            the actual host root files system. This call takes two arguments: the directory that is to become
+            the new root directory, and the path to the new system manager binary below it to execute as PID
+            1.  If both are omitted or the former is an empty string it defaults to
+            <filename>/sysroot/</filename>. If the latter is omitted or is an empty string, a systemd binary
+            will automatically be searched for and used as service manager. If the system manager path is
+            omitted, equal to the empty string or identical to the path to the systemd binary, the state of
+            the initrd's system manager process is passed to the main system manager, which allows later
+            introspection of the state of the services involved in the initrd boot phase.</para>
+
+            <xi:include href="version-info.xml" xpointer="v209"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>sleep</command></term>
+
+          <listitem>
+            <para>Put the system to sleep, through <command>suspend</command>, <command>hibernate</command>,
+            <command>hybrid-sleep</command>, or <command>suspend-then-hibernate</command>. The sleep operation
+            to use is automatically selected by <citerefentry>
+            <refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+            By default, <command>suspend-then-hibernate</command> is used, and falls back to <command>suspend</command>
+            and then <command>hibernate</command> if not supported. Refer to <varname>SleepOperation=</varname>
+            setting in <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            for more details. This command is asynchronous, and will return after the sleep operation is
+            successfully enqueued. It will not wait for the sleep/resume cycle to complete.</para>
+
+            <xi:include href="version-info.xml" xpointer="v256"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>suspend</command></term>
+
+          <listitem>
+            <para>Suspend the system. This will trigger activation of the special target unit
+            <filename>suspend.target</filename>. This command is asynchronous, and will return after the suspend
+            operation is successfully enqueued. It will not wait for the suspend/resume cycle to complete.</para>
+
+            <para>If <option>--force</option> is specified, and <command>systemd-logind</command> returned
+            error for the operation, the error will be ignored and the operation will be tried again directly
+            through starting the target unit.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>hibernate</command></term>
+
+          <listitem>
+            <para>Hibernate the system. This will trigger activation of the special target unit
+            <filename>hibernate.target</filename>. This command is asynchronous, and will return after the hibernation
+            operation is successfully enqueued. It will not wait for the hibernate/thaw cycle to complete.</para>
+
+            <para>This command honors <option>--force</option> in the same way as <command>suspend</command>.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>hybrid-sleep</command></term>
+
+          <listitem>
+            <para>Hibernate and suspend the system. This will trigger activation of the special target unit
+            <filename>hybrid-sleep.target</filename>. This command is asynchronous, and will return after the hybrid
+            sleep operation is successfully enqueued. It will not wait for the sleep/wake-up cycle to complete.</para>
+
+            <para>This command honors <option>--force</option> in the same way as <command>suspend</command>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v196"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>suspend-then-hibernate</command></term>
+
+          <listitem>
+            <para>Suspend the system and hibernate it when the battery is low, or when the delay specified
+            in <filename>systemd-sleep.conf</filename> elapsed. This will trigger activation of the special
+            target unit <filename>suspend-then-hibernate.target</filename>. This command is asynchronous,
+            and will return after the hybrid sleep operation is successfully enqueued.
+            It will not wait for the sleep/wake-up or hibernate/thaw cycle to complete.</para>
+
+            <para>This command honors <option>--force</option> in the same way as <command>suspend</command>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v240"/>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>Parameter Syntax</title>
+
+      <para>Unit commands listed above take either a single unit name (designated as <replaceable>UNIT</replaceable>),
+      or multiple unit specifications (designated as <replaceable>PATTERN</replaceable>…). In the first case, the
+      unit name with or without a suffix must be given. If the suffix is not specified (unit name is "abbreviated"),
+      systemctl will append a suitable suffix, <literal>.service</literal> by default, and a type-specific suffix in
+      case of commands which operate only on specific unit types. For example,
+      <programlisting># systemctl start sshd</programlisting> and
+      <programlisting># systemctl start sshd.service</programlisting>
+      are equivalent, as are
+      <programlisting># systemctl isolate default</programlisting>
+      and
+      <programlisting># systemctl isolate default.target</programlisting>
+      Note that (absolute) paths to device nodes are automatically converted to device unit names, and other (absolute)
+      paths to mount unit names.
+      <programlisting># systemctl status /dev/sda
+# systemctl status /home</programlisting>
+      are equivalent to:
+      <programlisting># systemctl status dev-sda.device
+# systemctl status home.mount</programlisting>
+      In the second case, shell-style globs will be matched against the primary names of all units currently in memory;
+      literal unit names, with or without a suffix, will be treated as in the first case. This means that literal unit
+      names always refer to exactly one unit, but globs may match zero units and this is not considered an
+      error.</para>
+
+      <para>Glob patterns use
+      <citerefentry project='man-pages'><refentrytitle>fnmatch</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      so normal shell-style globbing rules are used, and
+      <literal>*</literal>, <literal>?</literal>,
+      <literal>[]</literal> may be used. See
+      <citerefentry project='man-pages'><refentrytitle>glob</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+      for more details. The patterns are matched against the primary names of
+      units currently in memory, and patterns which do not match anything
+      are silently skipped. For example:
+      <programlisting># systemctl stop "sshd@*.service"</programlisting>
+      will stop all <filename>sshd@.service</filename> instances. Note that alias names of units, and units that are not
+      in memory are not considered for glob expansion.
+      </para>
+
+      <para>For unit file commands, the specified <replaceable>UNIT</replaceable> should be the name of the unit file
+      (possibly abbreviated, see above), or the absolute path to the unit file:
+      <programlisting># systemctl enable foo.service</programlisting>
+      or
+      <programlisting># systemctl link /path/to/foo.service</programlisting>
+      </para>
+    </refsect2>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>-t</option></term>
+        <term><option>--type=</option></term>
+
+        <listitem>
+          <para>The argument is a comma-separated list of unit types such as <option>service</option> and
+          <option>socket</option>. When units are listed with <command>list-units</command>,
+          <command>list-dependencies</command>, <command>show</command>, or <command>status</command>,
+          only units of the specified types will be shown. By default, units of all types are shown.
+          Use <option>--type=</option> to reset the filter.</para>
+
+          <para>As a special case, if one of the arguments is <option>help</option>, a list of allowed values
+          will be printed and the program will exit.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--state=</option></term>
+
+        <listitem>
+          <para>The argument is a comma-separated list of unit LOAD, SUB, or ACTIVE states. When listing
+          units with <command>list-units</command>, <command>list-dependencies</command>,
+          <command>show</command> or <command>status</command>, show only those in the specified states. Use
+          <option>--state=failed</option> or <option>--failed</option> to show only failed units. Use
+          <option>--state=</option> to reset the filter.</para>
+
+          <para>As a special case, if one of the arguments is <option>help</option>, a list of allowed values
+          will be printed and the program will exit.</para>
+
+          <xi:include href="version-info.xml" xpointer="v206"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-p</option></term>
+        <term><option>--property=</option></term>
+
+        <listitem>
+          <para>When showing unit/job/manager properties with the
+          <command>show</command> command, limit display to properties
+          specified in the argument. The argument should be a
+          comma-separated list of property names, such as
+          <literal>MainPID</literal>. Unless specified, all known
+          properties are shown. If specified more than once, all
+          properties with the specified names are shown. Shell
+          completion is implemented for property names.</para>
+
+          <para>For the manager itself,
+          <command>systemctl show</command>
+          will show all available properties, most of which are derived or closely match the options described in
+          <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          </para>
+
+          <para>Properties for units vary by unit type, so showing any
+          unit (even a non-existent one) is a way to list properties
+          pertaining to this type. Similarly, showing any job will list
+          properties pertaining to all jobs. Properties for units are
+          documented in
+          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+          and the pages for individual unit types
+          <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+          <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+          etc.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-P</option></term>
+
+        <listitem>
+          <xi:include href="standard-options.xml" xpointer="xpointer(//varlistentry[@id='option-P']/listitem/para)" />
+          <xi:include href="version-info.xml" xpointer="v246"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-a</option></term>
+        <term><option>--all</option></term>
+
+        <listitem>
+          <para>When listing units with <command>list-units</command>, also show inactive units and
+          units which are following other units. When showing unit/job/manager properties, show all
+          properties regardless whether they are set or not.</para>
+
+          <para>To list all units installed in the file system, use the
+          <command>list-unit-files</command> command instead.</para>
+
+          <para>When listing units with <command>list-dependencies</command>, recursively show
+          dependencies of all dependent units (by default only dependencies of target units are
+          shown).</para>
+
+          <para>When used with <command>status</command>, show journal messages in full, even if they include
+          unprintable characters or are very long. By default, fields with unprintable characters are
+          abbreviated as "blob data". (Note that the pager may escape unprintable characters again.)</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-r</option></term>
+        <term><option>--recursive</option></term>
+
+        <listitem>
+          <para>When listing units, also show units of local
+          containers. Units of local containers will be prefixed with
+          the container name, separated by a single colon character
+          (<literal>:</literal>).</para>
+
+          <xi:include href="version-info.xml" xpointer="v212"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--reverse</option></term>
+
+        <listitem>
+          <para>Show reverse dependencies between units with
+          <command>list-dependencies</command>, i.e. follow
+          dependencies of type <varname>WantedBy=</varname>,
+          <varname>RequiredBy=</varname>, <varname>UpheldBy=</varname>,
+          <varname>PartOf=</varname>, <varname>BoundBy=</varname>,
+          instead of <varname>Wants=</varname> and similar.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v203"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--after</option></term>
+
+        <listitem>
+          <para>With <command>list-dependencies</command>, show the
+          units that are ordered before the specified unit. In other
+          words, recursively list units following the
+          <varname>After=</varname> dependency.</para>
+
+          <para>Note that any <varname>After=</varname> dependency is
+          automatically mirrored to create a
+          <varname>Before=</varname> dependency. Temporal dependencies
+          may be specified explicitly, but are also created implicitly
+          for units which are <varname>WantedBy=</varname> targets
+          (see
+          <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>),
+          and as a result of other directives (for example
+          <varname>RequiresMountsFor=</varname>). Both explicitly
+          and implicitly introduced dependencies are shown with
+          <command>list-dependencies</command>.</para>
+
+          <para>When passed to the <command>list-jobs</command> command, for each printed job show which other jobs are
+          waiting for it. May be combined with <option>--before</option> to show both the jobs waiting for each job as
+          well as all jobs each job is waiting for.</para>
+
+          <xi:include href="version-info.xml" xpointer="v203"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--before</option></term>
+
+        <listitem>
+          <para>With <command>list-dependencies</command>, show the
+          units that are ordered after the specified unit. In other
+          words, recursively list units following the
+          <varname>Before=</varname> dependency.</para>
+
+          <para>When passed to the <command>list-jobs</command> command, for each printed job show which other jobs it
+          is waiting for. May be combined with <option>--after</option> to show both the jobs waiting for each job as
+          well as all jobs each job is waiting for.</para>
+
+          <xi:include href="version-info.xml" xpointer="v212"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--with-dependencies</option></term>
+
+        <listitem>
+          <para>When used with <command>status</command>,
+          <command>cat</command>, <command>list-units</command>, and
+          <command>list-unit-files</command>, those commands print all
+          specified units and the dependencies of those units.</para>
+
+          <para>Options <option>--reverse</option>,
+          <option>--after</option>, <option>--before</option>
+          may be used to change what types of dependencies
+          are shown.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-l</option></term>
+        <term><option>--full</option></term>
+
+        <listitem>
+          <para>Do not ellipsize unit names, process tree entries,
+          journal output, or truncate unit descriptions in the output
+          of <command>status</command>, <command>list-units</command>,
+          <command>list-jobs</command>, and
+          <command>list-timers</command>.</para>
+          <para>Also, show installation targets in the output of
+          <command>is-enabled</command>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--value</option></term>
+
+        <listitem>
+          <para>When printing properties with <command>show</command>, only print the value, and skip the
+          property name and <literal>=</literal>. Also see option <option>-P</option> above.</para>
+
+          <xi:include href="version-info.xml" xpointer="v230"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--show-types</option></term>
+
+        <listitem>
+          <para>When showing sockets, show the type of the socket.</para>
+
+          <xi:include href="version-info.xml" xpointer="v202"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--job-mode=</option></term>
+
+        <listitem>
+          <para>When queuing a new job, this option controls how to deal with
+          already queued jobs. It takes one of <literal>fail</literal>,
+          <literal>lenient</literal>,
+          <literal>replace</literal>,
+          <literal>replace-irreversibly</literal>,
+          <literal>isolate</literal>,
+          <literal>ignore-dependencies</literal>,
+          <literal>ignore-requirements</literal>,
+          <literal>flush</literal>,
+          <literal>triggering</literal>, or
+          <literal>restart-dependencies</literal>. Defaults to
+          <literal>replace</literal>, except when the
+          <command>isolate</command> command is used which implies the
+          <literal>isolate</literal> job mode.</para>
+
+          <para>If <literal>fail</literal> is specified and a requested operation on weak dependencies
+          conflicts with a pending job (more specifically: causes an already pending start job to be reversed
+          into a stop job or vice versa), cause the operation to fail.</para>
+
+          <para>If <literal>lenient</literal> is specified and a requested operation conflicts with any
+          active/activating unit, cause the operation to fail.</para>
+
+          <para>If <literal>replace</literal> (the default) is
+          specified, any conflicting pending job will be replaced, as
+          necessary.</para>
+
+          <para>If <literal>replace-irreversibly</literal> is specified,
+          operate like <literal>replace</literal>, but also mark the new
+          jobs as irreversible. This prevents future conflicting
+          transactions from replacing these jobs (or even being enqueued
+          while the irreversible jobs are still pending). Irreversible
+          jobs can still be cancelled using the <command>cancel</command>
+          command. This job mode should be used on any transaction which
+          pulls in <filename>shutdown.target</filename>.</para>
+
+          <para><literal>isolate</literal> is only valid for start
+          operations and causes all other units to be stopped when the
+          specified unit is started. This mode is always used when the
+          <command>isolate</command> command is used.</para>
+
+          <para><literal>flush</literal> will cause all queued jobs to
+          be canceled when the new job is enqueued.</para>
+
+          <para>If <literal>ignore-dependencies</literal> is specified,
+          then all unit dependencies are ignored for this new job and
+          the operation is executed immediately. If passed, no required
+          units of the unit passed will be pulled in, and no ordering
+          dependencies will be honored. This is mostly a debugging and
+          rescue tool for the administrator and should not be used by
+          applications.</para>
+
+          <para><literal>ignore-requirements</literal> is similar to
+          <literal>ignore-dependencies</literal>, but only causes the
+          requirement dependencies to be ignored, the ordering
+          dependencies will still be honored.</para>
+
+          <para><literal>triggering</literal> may only be used with
+          <command>systemctl stop</command>. In this mode, the specified
+          unit and any active units that trigger it are stopped. See the
+          discussion of
+          <varname>Triggers=</varname> in <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for more information about triggering units.</para>
+
+          <para><literal>restart-dependencies</literal> may only be used with
+          <command>systemctl start</command>. In this mode, dependencies of
+          the specified unit will receive restart propagation, as if a restart
+          job had been enqueued for the unit.</para>
+
+          <xi:include href="version-info.xml" xpointer="v209"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-T</option></term>
+        <term><option>--show-transaction</option></term>
+
+        <listitem>
+          <para>When enqueuing a unit job (for example as effect of a <command>systemctl start</command>
+          invocation or similar), show brief information about all jobs enqueued, covering both the requested
+          job and any added because of unit dependencies. Note that the output will only include jobs
+          immediately part of the transaction requested. It is possible that service start-up program code
+          run as effect of the enqueued jobs might request further jobs to be pulled in. This means that
+          completion of the listed jobs might ultimately entail more jobs than the listed ones.</para>
+
+          <xi:include href="version-info.xml" xpointer="v242"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fail</option></term>
+
+        <listitem>
+          <para>Shorthand for <option>--job-mode=</option>fail.</para>
+          <para>When used with the <command>kill</command> command,
+          if no units were killed, the operation results in an error.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v227"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--check-inhibitors=</option></term>
+
+        <listitem>
+          <para>When system shutdown or sleep state is requested, this option controls checking of inhibitor
+          locks. It takes one of <literal>auto</literal>, <literal>yes</literal>, and <literal>no</literal>.
+          Defaults to <literal>auto</literal>, which means logind will perform the check and respect active
+          inhibitor locks, but <command>systemctl</command> will only do a client-side check for interactive
+          invocations (i.e. from a TTY), so that a more friendly and informative error can be returned to
+          users. <literal>no</literal> disables the checks both in <command>systemctl</command> and
+          <citerefentry><refentrytitle>systemd-logind</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+          </para>
+
+          <para>Applications can establish inhibitor locks to prevent certain important operations (such as
+          CD burning) from being interrupted by system shutdown or sleep. Any user may take these locks and
+          privileged users may override these locks. If any locks are taken, shutdown and sleep state
+          requests will normally fail (unless explicitly overridden with <literal>no</literal>).</para>
+
+          <para>Option <option>--force</option> provides another way to override inhibitors.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-i</option></term>
+
+        <listitem>
+          <para>Shortcut for <option>--check-inhibitors=no</option>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v198"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--dry-run</option></term>
+
+        <listitem>
+          <para>Just print what would be done. Currently supported by verbs
+          <command>halt</command>, <command>poweroff</command>, <command>reboot</command>,
+          <command>kexec</command>, <command>suspend</command>, <command>hibernate</command>,
+          <command>hybrid-sleep</command>, <command>suspend-then-hibernate</command>,
+          <command>default</command>, <command>rescue</command>,
+          <command>emergency</command>, and <command>exit</command>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v236"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-q</option></term>
+        <term><option>--quiet</option></term>
+
+        <listitem>
+          <para>Suppress printing of the results of various commands
+          and also the hints about truncated log lines. This does not
+          suppress output of commands for which the printed output is
+          the only result (like <command>show</command>). Errors are
+          always printed.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-v</option></term>
+        <term><option>--verbose</option></term>
+
+        <listitem>
+          <para>Display unit log output while executing unit operations.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--no-warn</option></term>
+
+        <listitem>
+          <para>Do not generate the warnings shown by default in the following cases:
+          <itemizedlist>
+            <listitem>
+              <para>when <command>systemctl</command> is invoked without procfs mounted on
+              <filename>/proc/</filename>,</para>
+            </listitem>
+            <listitem>
+              <para>when using <command>enable</command> or <command>disable</command> on units without
+              install information (i.e. do not have or have an empty [Install] section),</para>
+            </listitem>
+            <listitem>
+              <para>when using <command>disable</command> combined with <option>--user</option> on units
+              that are enabled in global scope,</para>
+            </listitem>
+            <listitem>
+              <para>when a <command>stop</command>-ped, <command>disable</command>-d, or <command>mask</command>-ed
+              unit still has active triggering units,</para>
+            </listitem>
+            <listitem>
+              <para>when a unit file is changed and requires <command>daemon-reload</command>.</para>
+            </listitem>
+          </itemizedlist>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--no-block</option></term>
+
+        <listitem>
+          <para>Do not synchronously wait for the requested operation
+          to finish. If this is not specified, the job will be
+          verified, enqueued and <command>systemctl</command> will
+          wait until the unit's start-up is completed. By passing this
+          argument, it is only verified and enqueued. This option may not be
+          combined with <option>--wait</option>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--wait</option></term>
+
+        <listitem>
+          <para>When used with <command>start</command> or <command>restart</command>, synchronously wait for
+          started units to terminate again. This option may not be combined with <option>--no-block</option>.
+          Note that this will wait forever if any given unit never terminates (by itself or by getting
+          stopped explicitly); particularly services which use <literal>RemainAfterExit=yes</literal>.</para>
+
+          <para>When used with <command>is-system-running</command>, wait until the boot process is completed
+          before returning.</para>
+
+          <para>When used with <command>kill</command>, wait until the signalled units terminate. Note that
+          this will wait forever if any given unit never terminates.</para>
+
+          <xi:include href="version-info.xml" xpointer="v232"/>
+        </listitem>
+      </varlistentry>
+
+      <xi:include href="user-system-options.xml" xpointer="user" />
+      <xi:include href="user-system-options.xml" xpointer="system" />
+
+      <varlistentry>
+        <term><option>--failed</option></term>
+
+        <listitem>
+          <para>List units in failed state. This is equivalent to
+          <option>--state=failed</option>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v233"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--no-wall</option></term>
+
+        <listitem>
+          <para>Do not send wall message before halt, power-off and reboot.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--global</option></term>
+
+        <listitem>
+          <para>When used with <command>enable</command> and
+          <command>disable</command>, operate on the global user
+          configuration directory, thus enabling or disabling a unit
+          file globally for all future logins of all users.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--no-reload</option></term>
+
+        <listitem>
+          <para>When used with <command>enable</command>, <command>disable</command>, <command>preset</command>,
+          <command>mask</command>, or <command>unmask</command>, do not implicitly reload daemon configuration
+          after executing the changes.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--kill-whom=</option></term>
+
+        <listitem>
+          <para>When used with <command>kill</command>, choose which processes to send a UNIX process signal
+          to. Must be one of <option>main</option>, <option>control</option>, <option>cgroup</option> or
+          <option>all</option> to select whether to kill only the main process, the control process, all
+          processes in the unit's control group or all processes of the unit. The main process of the unit is
+          the one that defines the life-time of it. A control process of a unit is one that is invoked by the
+          manager to induce state changes of it. For example, all processes started due to the
+          <varname>ExecStartPre=</varname>, <varname>ExecStop=</varname> or <varname>ExecReload=</varname>
+          settings of service units are control processes. Note that there is only one control process per
+          unit at a time, as only one state change is executed at a time. For services of type
+          <varname>Type=forking</varname>, the initial process started by the manager for
+          <varname>ExecStart=</varname> is a control process, while the process ultimately forked off by that
+          one is then considered the main process of the unit (if it can be determined). This is different
+          for service units of other types, where the process forked off by the manager for
+          <varname>ExecStart=</varname> is always the main process itself. A service unit consists of zero or
+          one main process, zero or one control process plus any number of additional processes part of the
+          unit's control group. Not all unit types manage processes of these types however. For example, for
+          mount units, control processes are defined (which are the invocations of
+          <filename>&MOUNT_PATH;</filename> and <filename>&UMOUNT_PATH;</filename>), but no main process is
+          defined. If omitted, defaults to <option>all</option>, except if <option>--kill-subgroup=</option>
+          is used in which case defaults to <option>cgroup</option>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--kill-value=<replaceable>INT</replaceable></option></term>
+
+        <listitem><para>If used with the <command>kill</command> command, enqueues a signal along with the
+        specified integer value parameter to the specified process(es). This operation is only available for
+        POSIX Realtime Signals (i.e. <option>--signal=SIGRTMIN+…</option> or
+        <option>--signal=SIGRTMAX-…</option>), and ensures the signals are generated via the <citerefentry
+        project='man-pages'><refentrytitle>sigqueue</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        system call, rather than <citerefentry
+        project='man-pages'><refentrytitle>kill</refentrytitle><manvolnum>3</manvolnum></citerefentry>. The
+        specified value must be a 32-bit signed integer, and may be specified either in decimal, in
+        hexadecimal (if prefixed with <literal>0x</literal>), octal (if prefixed with <literal>0o</literal>)
+        or binary (if prefixed with <literal>0b</literal>)</para>
+
+        <para>If this option is used the signal will only be enqueued on the control or main process of the
+        unit, never on other processes belonging to the unit, i.e. <option>--kill-whom=all</option> will only
+        affect main and control processes but no other processes.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--kill-subgroup=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>Takes a control group sub-path to send signals to, for use with the
+        <command>kill</command> command. By default the chosen signal is delivered to all processes of the
+        unit's cgroups (as well as the main/control processes (if outside) – subject to
+        <option>--kill-whom=</option>). But with this option a subgroup can be selelected instead. This
+        functionality is only available if <literal>cgroup</literal> or <literal>cgroup-fail</literal> are
+        used with <option>--kill-whom=</option>, and in fact the former is the default if
+        <option>--kill-subgroup=</option> is used.</para>
+
+        <para>The specified path may, but doesn't have to be prefixed with a slash, and its absence or
+        presence has no effect, the path is either way taken relative to the unit's main control group
+        path.</para>
+
+        <para>This functionality is only available on units where control group delegation is enabled (see
+        <varname>Delegate=</varname> in
+        <member><citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>).</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="signal" />
+
+      <varlistentry>
+        <term><option>--what=</option></term>
+
+        <listitem>
+          <para>Select what type of per-unit resources to remove when the <command>clean</command> command is
+          invoked, see above. Takes one of <constant>configuration</constant>, <constant>state</constant>,
+          <constant>cache</constant>, <constant>logs</constant>, <constant>runtime</constant>,
+          <constant>fdstore</constant> to select the type of resource. This option may be specified more than
+          once, in which case all specified resource types are removed. Also accepts the special value
+          <constant>all</constant> as a shortcut for specifying all six resource types. If this option is not
+          specified defaults to the combination of <constant>cache</constant>, <constant>runtime</constant>
+          and <constant>fdstore</constant>, i.e. the three kinds of resources that are generally considered
+          to be redundant and can be reconstructed on next invocation. The empty argument can be used to
+          reset to this default.</para>
+
+          <para>Note that the explicit removal of the <constant>fdstore</constant> resource type is only
+          useful if the <varname>FileDescriptorStorePreserve=</varname> option is enabled, since the file
+          descriptor store is otherwise cleaned automatically when the unit is stopped.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-f</option></term>
+        <term><option>--force</option></term>
+
+        <listitem>
+          <para>When used with <command>enable</command>, overwrite any existing conflicting symlinks.</para>
+
+          <para>When used with <command>edit</command>, create all of the specified units which do not already exist.</para>
+
+          <para>When used with <command>suspend</command>, <command>hibernate</command>, <command>hybrid-sleep</command>,
+          or <command>suspend-then-hibernate</command>, the error returned by <command>systemd-logind</command>
+          will be ignored, and the operation will be performed directly through starting the corresponding units.
+          </para>
+
+          <para>When used with <command>halt</command>, <command>poweroff</command>, <command>reboot</command>,
+          or <command>kexec</command>, execute the selected operation without shutting down all units. However,
+          all processes will be killed forcibly and all file systems are unmounted or remounted read-only.
+          This is hence a drastic but relatively safe option to request an immediate reboot. If <option>--force</option>
+          is specified twice for these operations (with the exception of <command>kexec</command>), they will
+          be executed immediately, without terminating any processes or unmounting any file systems.</para>
+
+          <warning>
+            <para>Specifying <option>--force</option> twice with any of these operations might result in data loss.
+            Note that when <option>--force</option> is specified twice the selected operation is executed by
+            <command>systemctl</command> itself, and the system manager is not contacted. This means the command
+            should succeed even when the system manager has crashed.</para>
+          </warning>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--message=</option></term>
+
+        <listitem>
+          <para>When used with <command>halt</command>, <command>poweroff</command> or <command>reboot</command>, set a
+          short message explaining the reason for the operation. The message will be logged together with the default
+          shutdown message.</para>
+
+          <xi:include href="version-info.xml" xpointer="v225"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--now</option></term>
+
+        <listitem>
+          <para>When used with <command>enable</command>, <command>disable</command>, <command>mask</command>,
+          or <command>reenable</command>, also start/stop/try-restart the units after the specified
+          unit file operations succeed.</para>
+
+          <xi:include href="version-info.xml" xpointer="v220"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--root=</option></term>
+
+        <listitem>
+          <para>When used with
+          <command>enable</command>/<command>disable</command>/<command>is-enabled</command>
+          (and related commands), use the specified root path when looking for unit
+          files. If this option is present, <command>systemctl</command> will operate on
+          the file system directly, instead of communicating with the <command>systemd</command>
+          daemon to carry out changes.</para>
+        </listitem>
+
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--image=<replaceable>image</replaceable></option></term>
+
+        <listitem><para>Takes a path to a disk image file or block device node. If specified, all operations
+        are applied to file system in the indicated disk image. This option is similar to
+        <option>--root=</option>, but operates on file systems stored in disk images or block devices. The
+        disk image should either contain just a file system or a set of file systems within a GPT partition
+        table, following the <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2 Discoverable Partitions
+        Specification</ulink>. For further information on supported disk images, see
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+        switch of the same name.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="image-policy-open" />
+
+      <varlistentry>
+        <term><option>--runtime</option></term>
+
+        <listitem>
+          <para>When used with <command>enable</command>,
+          <command>disable</command>, <command>edit</command>,
+          (and related commands), make changes only temporarily, so
+          that they are lost on the next reboot. This will have the
+          effect that changes are not made in subdirectories of
+          <filename>/etc/</filename> but in <filename>/run/</filename>,
+          with identical immediate effects, however, since the latter
+          is lost on reboot, the changes are lost too.</para>
+
+          <para>Similarly, when used with
+          <command>set-property</command>, make changes only
+          temporarily, so that they are lost on the next
+          reboot.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--preset-mode=</option></term>
+
+        <listitem>
+          <para>Takes one of <literal>full</literal> (the default),
+          <literal>enable-only</literal>,
+          <literal>disable-only</literal>. When used with the
+          <command>preset</command> or <command>preset-all</command>
+          commands, controls whether units shall be disabled and
+          enabled according to the preset rules, or only enabled, or
+          only disabled.</para>
+
+          <xi:include href="version-info.xml" xpointer="v215"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-n</option></term>
+        <term><option>--lines=</option></term>
+
+        <listitem>
+          <para>When used with <command>status</command>, controls the number of journal lines to show,
+          counting from the most recent ones. Takes a positive integer argument, or 0 to disable journal
+          output. Defaults to 10.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-o</option></term>
+        <term><option>--output=</option></term>
+
+        <listitem>
+          <para>When used with <command>status</command>, controls the
+          formatting of the journal entries that are shown. For the
+          available choices, see
+          <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+          Defaults to <literal>short</literal>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--firmware-setup</option></term>
+
+        <listitem>
+          <para>When used with the <command>reboot</command>, <command>poweroff</command>, or
+          <command>halt</command> command, indicate to the system's firmware to reboot into the firmware
+          setup interface for the next boot. Note that this functionality is not available on all systems.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v220"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--boot-loader-menu=<replaceable>timeout</replaceable></option></term>
+
+        <listitem>
+          <para>When used with the <command>reboot</command>, <command>poweroff</command>, or
+          <command>halt</command> command, indicate to the system's boot loader to show the boot loader menu
+          on the following boot. Takes a time value as parameter — indicating the menu timeout. Pass zero
+          in order to disable the menu timeout. Note that not all boot loaders support this functionality.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v242"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--boot-loader-entry=<replaceable>ID</replaceable></option></term>
+
+        <listitem>
+          <para>When used with the <command>reboot</command>, <command>poweroff</command>, or
+          <command>halt</command> command, indicate to the system's boot loader to boot into a specific
+          boot loader entry on the following boot. Takes a boot loader entry identifier as argument,
+          or <literal>help</literal> in order to list available entries. Note that not all boot loaders
+          support this functionality.</para>
+
+          <xi:include href="version-info.xml" xpointer="v242"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--reboot-argument=</option></term>
+
+        <listitem>
+          <para>This switch is used with <command>reboot</command>. The value is architecture and firmware
+          specific. As an example, <literal>recovery</literal> might be used to trigger system recovery, and
+          <literal>fota</literal> might be used to trigger a <quote>firmware over the air</quote>
+          update.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--kernel-cmdline=</option></term>
+
+        <listitem>
+          <para>When used with <command>kexec</command>, append the specified string to the kernel command
+          line options of the kexec kernel. The kernel command line is taken from the boot loader entry of
+          the currently booted kernel (as selected automatically when no kexec kernel is preloaded, see
+          <command>kexec</command> above). This string is appended, separated from the existing
+          options by a single space. This option may be specified more than once, in which case the
+          strings are appended in the order given. <command>systemctl kexec</command> will fail if this
+          option is specified when a kexec kernel is already loaded.</para>
+
+          <para>The kexec kernel command line is assembled in a fixed order, independent of the order in
+          which the options are specified on the command line: first the command line from the boot loader
+          entry, then the command line of the currently running kernel (if
+          <option>--kernel-cmdline-reuse</option> is used), and finally the strings specified with
+          <option>--kernel-cmdline=</option>. Afterwards, arguments that are exactly identical and appear
+          more than once are removed, keeping the last occurrence. Note that only byte-for-byte identical
+          arguments are deduplicated: for example <literal>foo=bar</literal> and
+          <literal>foo=quux</literal> are both kept, as they are not identical (the latter takes effect, as
+          the kernel uses the last assignment of a given parameter).</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--kernel-cmdline-reuse</option></term>
+
+        <listitem>
+          <para>Like <option>--kernel-cmdline=</option>, but instead of taking the string to append as an
+          argument, the command line of the currently running kernel is reused. This is useful to boot the
+          kexec kernel with the same command line options the running system was booted with, including any
+          modifications applied at boot time.
+          As with <option>--kernel-cmdline=</option>, the reused command line is added to the command line
+          taken from the boot loader entry, and <command>systemctl kexec</command> will fail if this option
+          is specified when a kexec kernel is already loaded. This option may be combined with
+          <option>--kernel-cmdline=</option>; see <option>--kernel-cmdline=</option> above for the order in
+          which the various command line sources are combined and deduplicated.</para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--plain</option></term>
+
+        <listitem>
+          <para>When used with <command>list-dependencies</command>,
+          <command>list-units</command> or <command>list-machines</command>,
+          the output is printed as a list instead of a tree, and the bullet
+          circles are omitted.</para>
+
+          <xi:include href="version-info.xml" xpointer="v203"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--timestamp=</option></term>
+
+        <listitem>
+          <para>Change the format of printed timestamps. The following values may be used:
+          </para>
+
+          <variablelist>
+            <varlistentry>
+              <term><option>pretty</option> (this is the default)</term>
+              <listitem><para><literal>Day YYYY-MM-DD HH:MM:SS TZ</literal></para>
+
+              <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+            </varlistentry>
+          </variablelist>
+
+          <variablelist>
+            <varlistentry>
+              <term><option>unix</option></term>
+              <listitem><para><literal>@seconds-since-the-epoch</literal></para>
+
+              <xi:include href="version-info.xml" xpointer="v251"/></listitem>
+            </varlistentry>
+          </variablelist>
+
+          <variablelist>
+            <varlistentry>
+              <term><option>us</option></term>
+              <term><option>μs</option></term>
+              <listitem><para><literal>Day YYYY-MM-DD HH:MM:SS.UUUUUU TZ</literal></para>
+
+              <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+            </varlistentry>
+          </variablelist>
+
+          <variablelist>
+            <varlistentry>
+              <term><option>utc</option></term>
+              <listitem><para><literal>Day YYYY-MM-DD HH:MM:SS UTC</literal></para>
+
+              <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+            </varlistentry>
+          </variablelist>
+
+          <variablelist>
+            <varlistentry>
+              <term><option>us+utc</option></term>
+              <term><option>μs+utc</option></term>
+              <listitem><para><literal>Day YYYY-MM-DD HH:MM:SS.UUUUUU UTC</literal></para>
+
+              <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+            </varlistentry>
+          </variablelist>
+
+          <xi:include href="version-info.xml" xpointer="v247"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--mkdir</option></term>
+
+        <listitem><para>When used with <command>bind</command>, creates the destination file or directory before
+        applying the bind mount. Note that even though the name of this option suggests that it is suitable only for
+        directories, this option also creates the destination file node to mount over if the object to mount is not
+        a directory, but a regular file, device node, socket or FIFO.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--read-only</option></term>
+
+        <listitem><para>When used with <command>bind</command>, creates a read-only bind mount.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--drop-in=<replaceable>NAME</replaceable></option></term>
+
+        <listitem><para>When used with <command>edit</command>, use <replaceable>NAME</replaceable> as the
+        drop-in file name instead of <filename>override.conf</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--when=</option></term>
+
+        <listitem>
+          <para>When used with <command>halt</command>, <command>poweroff</command>, <command>reboot</command>
+          or <command>kexec</command>, schedule the action to be performed at the given timestamp,
+          which should adhere to the syntax documented in <citerefentry
+          project='man-pages'><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+          section "PARSING TIMESTAMPS". Specially, if <literal>show</literal> is given, the currently scheduled
+          action will be shown, which can be canceled by passing an empty string or <literal>cancel</literal>.
+          <literal>auto</literal> will schedule the action according to maintenance window or one minute in
+          the future.</para>
+
+          <para>The specified timestamp is a lower bound only: it declares the earliest point in time the
+          requested action may take place, i.e. the action is executed as soon as possible, but not before the
+          given timestamp. It is <emphasis>not</emphasis> a condition that is checked, and specifying a
+          timestamp in the past is not an error: the action is then executed immediately. This is intentional,
+          as the alternative would be racy and surprising — consider <option>--when=now</option>, which by the
+          time the request is processed necessarily refers to the past, or
+          <option>--when=+50ms</option>, which might well already have elapsed due to scheduling latencies
+          before the request is dispatched. In both cases the requested action is still carried out, as
+          the user asked for it.</para>
+
+          <para>If a timestamp in the past shall not result in the action being executed, this must be checked
+          for explicitly before invoking <command>systemctl</command>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--stdin</option></term>
+
+        <listitem>
+          <para>When used with <command>edit</command>, the contents of the file will be read from standard
+          input and the editor will not be launched. In this mode, the old contents of the file are
+          completely replaced. This is useful to "edit" unit files from scripts:</para>
+
+          <programlisting>$ systemctl edit --drop-in=limits.conf --stdin some-service.service &lt;&lt;EOF
+[Unit]
+AllowedCPUs=7,11
+EOF
+</programlisting>
+
+          <para>Multiple drop-ins may be "edited" in this mode; the same contents will be written to all of
+          them.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <xi:include href="user-system-options.xml" xpointer="host" />
+      <xi:include href="user-system-options.xml" xpointer="machine" />
+      <xi:include href="user-system-options.xml" xpointer="capsule" />
+
+      <xi:include href="standard-options.xml" xpointer="no-ask-password" />
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="legend" />
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
+
+    <para><command>systemctl</command> uses the return codes defined by LSB, as defined in
+    <ulink url="http://refspecs.linuxbase.org/LSB_3.0.0/LSB-PDA/LSB-PDA/iniscrptact.html">LSB 3.0.0</ulink>.
+    </para>
+
+    <table>
+      <title>LSB return codes</title>
+
+      <tgroup cols='3'>
+        <thead>
+          <row>
+            <entry>Value</entry>
+            <entry>Description in LSB</entry>
+            <entry>Use in systemd</entry>
+          </row>
+        </thead>
+        <tbody>
+          <row>
+            <entry><constant>0</constant></entry>
+            <entry>"program is running or service is OK"</entry>
+            <entry>unit is active</entry>
+          </row>
+          <row>
+            <entry><constant>1</constant></entry>
+            <entry>"program is dead and <filename>/var/run</filename> pid file exists"</entry>
+            <entry>unit <emphasis>not</emphasis> failed (used by <command>is-failed</command>)</entry>
+          </row>
+          <row>
+            <entry><constant>2</constant></entry>
+            <entry>"program is dead and <filename>/var/lock</filename> lock file exists"</entry>
+            <entry>unused</entry>
+          </row>
+          <row>
+            <entry><constant>3</constant></entry>
+            <entry>"program is not running"</entry>
+            <entry>unit is not active</entry>
+          </row>
+          <row>
+            <entry><constant>4</constant></entry>
+            <entry>"program or service status is unknown"</entry>
+            <entry>no such unit</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+
+    <para>The mapping of LSB service states to systemd unit states is imperfect, so it is better to
+    not rely on those return values but to look for specific unit states and substates instead.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Environment</title>
+
+    <variablelist class='environment-variables'>
+      <varlistentry>
+        <term><varname>$SYSTEMD_EDITOR</varname></term>
+
+        <listitem><para>Editor to use when editing units; overrides
+        <varname>$EDITOR</varname> and <varname>$VISUAL</varname>. If neither
+        <varname>$SYSTEMD_EDITOR</varname> nor <varname>$EDITOR</varname> nor
+        <varname>$VISUAL</varname> are present or if it is set to an empty
+        string or if their execution failed, systemctl will try to execute well
+        known editors in this order:
+        <citerefentry project='die-net'><refentrytitle>editor</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry project='die-net'><refentrytitle>nano</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry project='die-net'><refentrytitle>vim</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry project='die-net'><refentrytitle>vi</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v218"/></listitem>
+      </varlistentry>
+      <xi:include href="common-variables.xml" xpointer="log-level"/>
+      <xi:include href="common-variables.xml" xpointer="log-color"/>
+      <xi:include href="common-variables.xml" xpointer="log-time"/>
+      <xi:include href="common-variables.xml" xpointer="log-location"/>
+      <xi:include href="common-variables.xml" xpointer="log-target"/>
+      <xi:include href="common-variables.xml" xpointer="pager"/>
+      <xi:include href="common-variables.xml" xpointer="less"/>
+      <xi:include href="common-variables.xml" xpointer="lesscharset"/>
+      <xi:include href="common-variables.xml" xpointer="lesssecure"/>
+      <xi:include href="common-variables.xml" xpointer="colors"/>
+      <xi:include href="common-variables.xml" xpointer="urlify"/>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>loginctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>wall</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>glob</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

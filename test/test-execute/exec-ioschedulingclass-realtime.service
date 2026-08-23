@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for IOSchedulingClass=realtime
+
+[Service]
+ExecStart=bash -x -c 'c=$$(LC_ALL=C ionice); test "$${c%%:*}" = "realtime"'
+Type=oneshot
+IOSchedulingClass=realtime

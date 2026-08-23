@@ -1,0 +1,134 @@
+#!/bin/sh
+# -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
+# ex: ts=8 sw=4 sts=4 et filetype=sh
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# This file is part of systemd.
+#
+# systemd is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
+#
+# systemd is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
+
+set -e
+
+COMMAND="${1:?}"
+KERNEL_VERSION="${2:?}"
+# shellcheck disable=SC2034
+ENTRY_DIR_ABS="$3"
+KERNEL_IMAGE="$4"
+
+ENTRY_TOKEN="$KERNEL_INSTALL_ENTRY_TOKEN"
+BOOT_ROOT="$KERNEL_INSTALL_BOOT_ROOT"
+ENTRY_NAME="${KERNEL_INSTALL_ENTRY_NAME:-$ENTRY_TOKEN-$KERNEL_VERSION}"
+
+UKI_DIR="$BOOT_ROOT/EFI/Linux"
+
+case "$COMMAND" in
+    remove)
+        if [ "$KERNEL_INSTALL_BOOT_ENTRY_TYPE" = "type1" ]; then
+            [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+                echo "BOOT_ENTRY_TYPE=type1, not removing UKI related."
+            exit 0
+        fi
+        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+            echo "Removing $UKI_DIR/$ENTRY_NAME*.efi and extras"
+        exec rm -rf \
+            "$UKI_DIR/$ENTRY_NAME.efi" \
+            "$UKI_DIR/$ENTRY_NAME.efi.extra.d/" \
+            "$UKI_DIR/$ENTRY_NAME+"*".efi"
+        ;;
+    add)
+        ;;
+    *)
+        exit 0
+        ;;
+esac
+
+[ "$KERNEL_INSTALL_LAYOUT" = "uki" ] || exit 0
+
+if ! [ -d "$UKI_DIR" ]; then
+    [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "creating $UKI_DIR"
+    mkdir -p "$UKI_DIR"
+fi
+
+TRIES_FILE="${KERNEL_INSTALL_CONF_ROOT:-/etc/kernel}/tries"
+
+if [ -f "$TRIES_FILE" ]; then
+    read -r TRIES <"$TRIES_FILE"
+    if ! echo "$TRIES" | grep -q '^[0-9][0-9]*$'; then
+        echo "$TRIES_FILE does not contain an integer." >&2
+        exit 1
+    fi
+    if [ -f "$UKI_DIR/$ENTRY_NAME.efi" ]; then
+        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+            echo "Removing previous UKI '$UKI_DIR/$ENTRY_NAME.efi' without boot counting." >&2
+        rm -f "$UKI_DIR/$ENTRY_NAME.efi"
+    fi
+    for uki in "$UKI_DIR/$ENTRY_NAME+"*.efi; do
+        [ "$uki" = "$UKI_DIR/$ENTRY_NAME+*.efi" ] && break
+        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+            echo "Removing previous UKI '$uki' that has not yet booted successfully." >&2
+        rm -f "$uki"
+    done
+
+    UKI_FILE="$UKI_DIR/$ENTRY_NAME+$TRIES.efi"
+else
+    UKI_FILE="$UKI_DIR/$ENTRY_NAME.efi"
+fi
+
+EXTRA_DIR="$UKI_DIR/$ENTRY_NAME.efi.extra.d"
+
+# If there is a UKI named uki.efi on the staging area use that, if not use what
+# was passed in as $KERNEL_IMAGE but insist it has a .efi extension
+if [ -f "$KERNEL_INSTALL_STAGING_AREA/uki.efi" ]; then
+    [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Installing $KERNEL_INSTALL_STAGING_AREA/uki.efi as $UKI_FILE"
+    install -m 0644 "$KERNEL_INSTALL_STAGING_AREA/uki.efi" "$UKI_FILE" || {
+        echo "Error: could not copy '$KERNEL_INSTALL_STAGING_AREA/uki.efi' to '$UKI_FILE'." >&2
+        exit 1
+    }
+    for f in "$KERNEL_INSTALL_STAGING_AREA/uki.efi.extra.d"/*; do
+        [ -f "$f" ] || continue
+        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Installing $f as $EXTRA_DIR/$(basename "$f")"
+        install -D -m 0644 "$f" "$EXTRA_DIR/$(basename "$f")" || {
+            echo "Error: could not copy '$f' to '$EXTRA_DIR/$(basename "$f")'." >&2
+            exit 1
+        }
+    done
+elif [ -n "$KERNEL_IMAGE" ]; then
+    [ -f "$KERNEL_IMAGE" ] || {
+        echo "Error: UKI '$KERNEL_IMAGE' not a file." >&2
+        exit 1
+    }
+    [ "$KERNEL_IMAGE" != "${KERNEL_IMAGE%*.efi}.efi" ] && {
+        echo "Error: $KERNEL_IMAGE is missing .efi suffix." >&2
+        exit 1
+    }
+    [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Installing $KERNEL_IMAGE as $UKI_FILE"
+    install -m 0644 "$KERNEL_IMAGE" "$UKI_FILE" || {
+        echo "Error: could not copy '$KERNEL_IMAGE' to '$UKI_FILE'." >&2
+        exit 1
+    }
+    for f in "$KERNEL_IMAGE.extra.d"/* "$KERNEL_INSTALL_STAGING_AREA/uki.efi.extra.d"/*; do
+        [ -f "$f" ] || continue
+        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Installing $f as $EXTRA_DIR/$(basename "$f")"
+        install -D -m 0644 "$f" "$EXTRA_DIR/$(basename "$f")" || {
+            echo "Error: could not copy '$f' to '$EXTRA_DIR/$(basename "$f")'." >&2
+            exit 1
+        }
+    done
+else
+    [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "No UKI available. Nothing to do."
+    exit 0
+fi
+chown root:root "$UKI_FILE" || :
+
+exit 0

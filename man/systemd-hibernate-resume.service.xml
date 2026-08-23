@@ -1,0 +1,61 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="systemd-hibernate-resume.service" conditional='ENABLE_HIBERNATE'>
+
+  <refentryinfo>
+    <title>systemd-hibernate-resume.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-hibernate-resume.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-hibernate-resume.service</refname>
+    <refname>systemd-hibernate-clear.service</refname>
+    <refname>systemd-hibernate-resume</refname>
+    <refpurpose>Resume from hibernation</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-hibernate-resume.service</filename></para>
+    <para><filename>systemd-hibernate-clear.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-hibernate-resume</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-hibernate-resume.service</filename> initiates the resume from hibernation.</para>
+
+    <para><command>systemd-hibernate-resume</command> only supports the in-kernel hibernation
+    implementation, see <ulink url="https://docs.kernel.org/power/swsusp.html">Swap suspend</ulink>.
+    Internally, it works by writing the major:minor of selected device node to
+    <filename>/sys/power/resume</filename>, along with the offset in memory pages
+    (<filename>/sys/power/resume_offset</filename>) if supported.</para>
+
+    <para>The resume device node is either passed directly through arguments, or automatically acquired
+    from kernel command line options and/or <varname>HibernateLocation</varname> EFI variable. The latter
+    will normally be cleared by <filename>systemd-hibernate-resume.service</filename> on resumption.
+    If a stale variable is detected, it would be cleared by
+    <filename>systemd-hibernate-clear.service</filename>.</para>
+
+    <para>Failing to initiate a resume is not an error condition. It may mean that there was
+    no resume image (e. g. if the system has been simply powered off and not hibernated).
+    In such cases, the boot is ordinarily continued.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-hibernate-resume-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

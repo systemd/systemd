@@ -1,0 +1,1181 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include <fcntl.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <syslog.h>
+
+#include "log.h"
+
+#if HAVE_SELINUX
+#include <malloc.h>
+#include <string.h>
+#include <sys/un.h>
+
+#include <selinux/avc.h>
+#include <selinux/context.h>
+#include <selinux/label.h>
+#include <selinux/selinux.h>
+
+#include "alloc-util.h"
+#include "fd-util.h"
+#include "string-util.h"
+#include "strv.h"
+#include "time-util.h"
+#endif
+
+#include "chase.h"
+#include "env-file.h"
+#include "errno-util.h"
+#include "label-util.h"
+#include "path-util.h"
+#include "selinux-util.h"
+#include "smack-util.h"
+
+#if HAVE_SELINUX
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(context_t, sym_context_free, context_freep, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct selabel_handle *, sym_selabel_close, selabel_closep, NULL);
+
+typedef enum Initialized {
+        UNINITIALIZED,
+        INITIALIZED,
+        LAZY_INITIALIZED,
+} Initialized;
+
+static int cached_use = -1;
+static Initialized initialized = UNINITIALIZED;
+static int last_policyload = 0;
+static struct selabel_handle *label_hnd = NULL;
+static bool have_status_page = false;
+
+struct LabelContext {
+        struct selabel_handle *label_hnd;
+        int rfd;
+        char *root;
+};
+
+static void selinux_policy_root_reset_and_freep(char **s) {
+        assert(s);
+        if (!*s)
+                return;
+        (void) sym_selinux_set_policy_root(*s);
+        *s = mfree(*s);
+}
+
+static int mac_selinux_label_pre(int dir_fd, const char *path, mode_t mode, LabelContext *label_context) {
+        return mac_selinux_create_file_prepare_at(dir_fd, path, mode, label_context);
+}
+
+static int mac_selinux_label_post(int dir_fd, const char *path, bool created, LabelContext *label_context) {
+        if (label_context) {
+                PROTECT_ERRNO;
+                (void) sym_setfscreatecon_raw(NULL);
+        } else
+                mac_selinux_create_file_clear();
+        return 0;
+}
+
+static const LabelOps selinux_label_ops = {
+        .pre = mac_selinux_label_pre,
+        .post = mac_selinux_label_post,
+};
+
+DLSYM_PROTOTYPE(avc_open) = NULL;
+DLSYM_PROTOTYPE(context_free) = NULL;
+DLSYM_PROTOTYPE(context_new) = NULL;
+DLSYM_PROTOTYPE(context_range_get) = NULL;
+DLSYM_PROTOTYPE(context_range_set) = NULL;
+DLSYM_PROTOTYPE(context_str) = NULL;
+DLSYM_PROTOTYPE(fgetfilecon_raw) = NULL;
+DLSYM_PROTOTYPE(fini_selinuxmnt) = NULL;
+DLSYM_PROTOTYPE(freecon) = NULL;
+DLSYM_PROTOTYPE(getcon_raw) = NULL;
+DLSYM_PROTOTYPE(getfilecon_raw) = NULL;
+DLSYM_PROTOTYPE(getpeercon_raw) = NULL;
+DLSYM_PROTOTYPE(getpidcon_raw) = NULL;
+DLSYM_PROTOTYPE(is_selinux_enabled) = NULL;
+DLSYM_PROTOTYPE(security_compute_create_raw) = NULL;
+DLSYM_PROTOTYPE(security_getenforce) = NULL;
+DLSYM_PROTOTYPE(selabel_close) = NULL;
+DLSYM_PROTOTYPE(selabel_lookup_raw) = NULL;
+DLSYM_PROTOTYPE(selabel_open) = NULL;
+DLSYM_PROTOTYPE(selinux_check_access) = NULL;
+DLSYM_PROTOTYPE(selinux_getenforcemode) = NULL;
+DLSYM_PROTOTYPE(selinux_init_load_policy) = NULL;
+DLSYM_PROTOTYPE(selinux_path) = NULL;
+DLSYM_PROTOTYPE(selinux_policy_root) = NULL;
+DLSYM_PROTOTYPE(selinux_set_callback) = NULL;
+DLSYM_PROTOTYPE(selinux_set_policy_root) = NULL;
+DLSYM_PROTOTYPE(selinux_status_close) = NULL;
+DLSYM_PROTOTYPE(selinux_status_getenforce) = NULL;
+DLSYM_PROTOTYPE(selinux_status_open) = NULL;
+DLSYM_PROTOTYPE(selinux_status_policyload) = NULL;
+DLSYM_PROTOTYPE(setcon_raw) = NULL;
+DLSYM_PROTOTYPE(setexeccon_raw) = NULL;
+DLSYM_PROTOTYPE(setfilecon_raw) = NULL;
+DLSYM_PROTOTYPE(setfscreatecon_raw) = NULL;
+DLSYM_PROTOTYPE(setsockcreatecon_raw) = NULL;
+DLSYM_PROTOTYPE(string_to_security_class) = NULL;
+#endif
+
+int dlopen_libselinux(int log_level) {
+#if HAVE_SELINUX
+        static void *libselinux_dl = NULL;
+
+        LIBSELINUX_NOTE(suggested);
+
+        return dlopen_many_sym_or_warn(
+                        &libselinux_dl,
+                        "libselinux.so.1",
+                        log_level,
+                        DLSYM_ARG(avc_open),
+                        DLSYM_ARG(context_free),
+                        DLSYM_ARG(context_new),
+                        DLSYM_ARG(context_range_get),
+                        DLSYM_ARG(context_range_set),
+                        DLSYM_ARG(context_str),
+                        DLSYM_ARG(fgetfilecon_raw),
+                        DLSYM_ARG(fini_selinuxmnt),
+                        DLSYM_ARG(freecon),
+                        DLSYM_ARG(getcon_raw),
+                        DLSYM_ARG(getfilecon_raw),
+                        DLSYM_ARG(getpeercon_raw),
+                        DLSYM_ARG(getpidcon_raw),
+                        DLSYM_ARG(is_selinux_enabled),
+                        DLSYM_ARG(security_compute_create_raw),
+                        DLSYM_ARG(security_getenforce),
+                        DLSYM_ARG(selabel_close),
+                        DLSYM_ARG(selabel_lookup_raw),
+                        DLSYM_ARG(selabel_open),
+                        DLSYM_ARG(selinux_check_access),
+                        DLSYM_ARG(selinux_getenforcemode),
+                        DLSYM_ARG(selinux_init_load_policy),
+                        DLSYM_ARG(selinux_path),
+                        DLSYM_ARG(selinux_policy_root),
+                        DLSYM_ARG(selinux_set_callback),
+                        DLSYM_ARG(selinux_set_policy_root),
+                        DLSYM_ARG(selinux_status_close),
+                        DLSYM_ARG(selinux_status_getenforce),
+                        DLSYM_ARG(selinux_status_open),
+                        DLSYM_ARG(selinux_status_policyload),
+                        DLSYM_ARG(setcon_raw),
+                        DLSYM_ARG(setexeccon_raw),
+                        DLSYM_ARG(setfilecon_raw),
+                        DLSYM_ARG(setfscreatecon_raw),
+                        DLSYM_ARG(setsockcreatecon_raw),
+                        DLSYM_ARG(string_to_security_class));
+#else
+        return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                              "libselinux support is not compiled in.");
+#endif
+}
+
+bool mac_selinux_use(void) {
+#if HAVE_SELINUX
+        if (_unlikely_(cached_use < 0)) {
+                if (dlopen_libselinux(LOG_DEBUG) < 0)
+                        return (cached_use = false);
+
+                cached_use = sym_is_selinux_enabled() > 0;
+                log_trace("SELinux enabled state cached to: %s", enabled_disabled(cached_use));
+        }
+
+        return cached_use;
+#else
+        return false;
+#endif
+}
+
+bool mac_selinux_enforcing(void) {
+        int r = 0;
+#if HAVE_SELINUX
+
+        /* If the SELinux status page has been successfully opened, retrieve the enforcing
+         * status over it to avoid system calls in security_getenforce(). */
+
+        if (dlopen_libselinux(LOG_DEBUG) < 0)
+                return false;
+
+        if (have_status_page)
+                r = sym_selinux_status_getenforce();
+        else
+                r = sym_security_getenforce();
+
+#endif
+        return r != 0;
+}
+
+void mac_selinux_retest(void) {
+#if HAVE_SELINUX
+        cached_use = -1;
+#endif
+}
+
+#if HAVE_SELINUX
+static int open_label_db(void) {
+        struct selabel_handle *hnd;
+        /* Avoid maybe-uninitialized false positives */
+        usec_t before_timestamp = USEC_INFINITY, after_timestamp = USEC_INFINITY;
+        struct mallinfo2 before_mallinfo = {};
+        int r;
+
+        r = dlopen_libselinux(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        if (DEBUG_LOGGING) {
+                before_mallinfo = mallinfo2();
+                before_timestamp = now(CLOCK_MONOTONIC);
+        }
+
+        hnd = sym_selabel_open(SELABEL_CTX_FILE, NULL, 0);
+        if (!hnd)
+                return log_selinux_enforcing_errno(errno, "Failed to initialize SELinux labeling handle: %m");
+
+        if (DEBUG_LOGGING) {
+                after_timestamp = now(CLOCK_MONOTONIC);
+                struct mallinfo2 after_mallinfo = mallinfo2();
+                size_t l = LESS_BY(after_mallinfo.uordblks, before_mallinfo.uordblks);
+                log_debug("Successfully loaded SELinux database in %s, size on heap is %zuK.",
+                          FORMAT_TIMESPAN(after_timestamp - before_timestamp, 0),
+                          DIV_ROUND_UP(l, 1024));
+        }
+
+        /* release memory after measurement */
+        if (label_hnd)
+                sym_selabel_close(label_hnd);
+        label_hnd = TAKE_PTR(hnd);
+
+        return 0;
+}
+#endif
+
+static int selinux_init(bool force) {
+#if HAVE_SELINUX
+        int r;
+
+        if (!mac_selinux_use())
+                return 0;
+
+        if (initialized == INITIALIZED)
+                return 1;
+
+        /* Internal call from this module? Unless we were explicitly configured to allow lazy initialization
+         * bail out immediately. Pretend all is good, we do not want callers to abort here, for example at
+         * early boot when the policy is being initialised. */
+        if (!force && initialized != LAZY_INITIALIZED)
+                return 1;
+
+        mac_selinux_disable_logging();
+
+        r = sym_selinux_status_open(/* netlink fallback= */ 1);
+        if (r < 0) {
+                if (!ERRNO_IS_PRIVILEGE(errno))
+                        return log_selinux_enforcing_errno(errno, "Failed to open SELinux status page: %m");
+                log_warning_errno(errno, "selinux_status_open() with netlink fallback failed, not checking for policy reloads: %m");
+        } else if (r == 1)
+                log_warning("selinux_status_open() failed to open the status page, using the netlink fallback.");
+        else
+                have_status_page = true;
+
+        r = open_label_db();
+        if (r < 0) {
+                sym_selinux_status_close();
+                return r;
+        }
+
+        r = label_ops_set(&selinux_label_ops);
+        if (r < 0)
+                return r;
+
+        /* Save the current policyload sequence number, so mac_selinux_maybe_reload() does not trigger on
+         * first call without any actual change. */
+        last_policyload = sym_selinux_status_policyload();
+
+        initialized = INITIALIZED;
+        return 1;
+#else
+        return 0;
+#endif
+}
+
+int mac_selinux_init(void) {
+        return selinux_init(/* force= */ true);
+}
+
+int mac_selinux_init_lazy(void) {
+#if HAVE_SELINUX
+        if (initialized == UNINITIALIZED)
+                initialized = LAZY_INITIALIZED; /* We'll be back later */
+#endif
+
+        return 0;
+}
+
+#if HAVE_SELINUX
+static int mac_selinux_reload(int seqno) {
+        log_debug("SELinux reload %d", seqno);
+
+        (void) open_label_db();
+
+        return 0;
+}
+#endif
+
+void mac_selinux_maybe_reload(void) {
+#if HAVE_SELINUX
+        int policyload;
+
+        if (!initialized)
+                return;
+
+        if (dlopen_libselinux(LOG_DEBUG) < 0)
+                return;
+
+        /* Do not use selinux_status_updated(3), cause since libselinux 3.2 selinux_check_access(3),
+         * called in core and user instances, does also use it under the hood.
+         * That can cause changes to be consumed by selinux_check_access(3) and not being visible here.
+         * Also do not use selinux callbacks, selinux_set_callback(3), cause they are only automatically
+         * invoked since libselinux 3.2 by selinux_status_updated(3).
+         * Relevant libselinux commit: https://github.com/SELinuxProject/selinux/commit/05bdc03130d741e53e1fb45a958d0a2c184be503
+         * Debian Bullseye is going to ship libselinux 3.1, so stay compatible for backports. */
+        policyload = sym_selinux_status_policyload();
+        if (policyload < 0) {
+                log_debug_errno(errno, "Failed to get SELinux policyload from status page: %m");
+                return;
+        }
+
+        if (policyload != last_policyload) {
+                mac_selinux_reload(policyload);
+                last_policyload = policyload;
+        }
+#endif
+}
+
+void mac_selinux_finish(void) {
+
+#if HAVE_SELINUX
+        if (label_hnd) {
+                sym_selabel_close(label_hnd);
+                label_hnd = NULL;
+        }
+
+        if (sym_selinux_status_close)
+                sym_selinux_status_close();
+
+        have_status_page = false;
+
+        initialized = false;
+#endif
+}
+
+#if HAVE_SELINUX
+_printf_(2,3)
+static int selinux_log_glue(int type, const char *fmt, ...) {
+        return 0;
+}
+#endif
+
+void mac_selinux_disable_logging(void) {
+#if HAVE_SELINUX
+        /* Turn off all of SELinux' own logging, we want to do that ourselves */
+        if (dlopen_libselinux(LOG_DEBUG) < 0)
+                return;
+
+        sym_selinux_set_callback(SELINUX_CB_LOG, (const union selinux_callback) { .func_log = selinux_log_glue });
+#endif
+}
+
+#if HAVE_SELINUX
+static int setfilecon_idempotent(int fd, const char *context) {
+        _cleanup_freecon_ char *oldcon = NULL;
+
+        assert(fd >= 0);
+        assert(context);
+
+        /* Read current context via /proc/self/fd/ so this works for O_PATH fds too */
+        if (sym_getfilecon_raw(FORMAT_PROC_FD_PATH(fd), &oldcon) >= 0 && streq_ptr(context, oldcon))
+                return 0; /* Already correct */
+
+        return RET_NERRNO(sym_setfilecon_raw(FORMAT_PROC_FD_PATH(fd), context));
+}
+
+static const char* strip_root_path(const char *path, const char *root) {
+        assert(path);
+        assert(root);
+
+        const char *suffix = path_startswith(path, root);
+        if (!suffix)
+                return NULL;
+
+        if (isempty(suffix))
+                return "/";
+
+        assert(suffix > path);
+        assert(suffix[-1] == '/');
+
+        return suffix - 1; /* back up to include the leading / */
+}
+
+static int selinux_fix_fd(
+                int fd,
+                const char *label_path,
+                LabelFixFlags flags,
+                LabelContext *c) {
+
+        _cleanup_freecon_ char* fcon = NULL;
+        struct selabel_handle *hnd;
+        const char *lookup_path;
+        struct stat st;
+        int r;
+
+        assert(fd >= 0);
+        assert(label_path);
+        assert(path_is_absolute(label_path));
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        if (c) {
+                hnd = c->label_hnd;
+
+                lookup_path = strip_root_path(label_path, c->root);
+                if (!lookup_path)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Path '%s' is not under root '%s', refusing SELinux label fix.", label_path, c->root);
+        } else {
+                /* Check for policy reload so 'label_hnd' is kept up-to-date by callbacks */
+                mac_selinux_maybe_reload();
+                if (!label_hnd)
+                        return 0;
+                hnd = label_hnd;
+                lookup_path = label_path;
+        }
+
+        if (sym_selabel_lookup_raw(hnd, &fcon, lookup_path, st.st_mode) < 0) {
+                /* If there's no label to set, then exit without warning */
+                if (errno == ENOENT)
+                        return 0;
+
+                if (c)
+                        return log_debug_errno(errno, "Unable to look up intended SELinux security context of %s (looked up as %s): %m", label_path, lookup_path);
+
+                return log_selinux_enforcing_errno(errno, "Unable to lookup intended SELinux security context of %s: %m", label_path);
+        }
+
+        r = setfilecon_idempotent(fd, fcon);
+        if (r >= 0)
+                return 0;
+
+        /* If the FS doesn't support labels, then exit without warning */
+        if (ERRNO_IS_NOT_SUPPORTED(r))
+                return 0;
+
+        /* If the FS is read-only and we were told to ignore failures caused by that, suppress error */
+        if (r == -EROFS && (flags & LABEL_IGNORE_EROFS))
+                return 0;
+
+        if (c) {
+                /* EINVAL means the host kernel doesn't know this context, degrade gracefully */
+                if (r == -EINVAL) {
+                        log_debug_errno(r, "Unable to fix SELinux security context of %s, ignoring: %m", label_path);
+                        return 0;
+                }
+
+                return log_debug_errno(r, "Unable to fix SELinux security context of %s: %m", label_path);
+        }
+
+        return log_selinux_enforcing_errno(r, "Unable to fix SELinux security context of %s: %m", label_path);
+}
+#endif
+
+int mac_selinux_fix_full(
+                int atfd,
+                const char *inode_path,
+                const char *label_path,
+                LabelFixFlags flags,
+                LabelContext *label_context) {
+
+        assert(atfd >= 0 || atfd == AT_FDCWD);
+        assert(atfd >= 0 || inode_path);
+
+#if HAVE_SELINUX
+        _cleanup_close_ int opened_fd = -EBADF;
+        _cleanup_free_ char *p = NULL;
+        int inode_fd, r;
+
+        LabelContext *c = label_context;
+
+        if (c) {
+                if (!c->label_hnd)
+                        return 0;
+        } else {
+                r = selinux_init(/* force= */ false);
+                if (r <= 0)
+                        return r;
+
+                if (!label_hnd)
+                        return 0;
+        }
+
+        if (inode_path) {
+                opened_fd = openat(atfd, inode_path, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+                if (opened_fd < 0) {
+                        if ((flags & LABEL_IGNORE_ENOENT) && errno == ENOENT)
+                                return 0;
+
+                        return -errno;
+                }
+
+                inode_fd = opened_fd;
+        } else
+                inode_fd = atfd;
+
+        if (!label_path) {
+                if (path_is_absolute(inode_path))
+                        label_path = inode_path;
+                else {
+                        r = fd_get_path(inode_fd, &p);
+                        if (r < 0)
+                                return r;
+
+                        label_path = p;
+                }
+        }
+
+        return selinux_fix_fd(inode_fd, label_path, flags, c);
+#else
+        return 0;
+#endif
+}
+
+int mac_selinux_apply(const char *path, const char *label) {
+
+        assert(path);
+
+#if HAVE_SELINUX
+        int r;
+
+        r = selinux_init(/* force= */ false);
+        if (r <= 0)
+                return r;
+
+        assert(label);
+
+        if (sym_setfilecon_raw(path, label) < 0)
+                return log_selinux_enforcing_errno(errno, "Failed to set SELinux security context %s on path %s: %m", label, path);
+#endif
+        return 0;
+}
+
+int mac_selinux_apply_fd(int fd, const char *path, const char *label) {
+
+        assert(fd >= 0);
+
+#if HAVE_SELINUX
+        int r;
+
+        r = selinux_init(/* force= */ false);
+        if (r <= 0)
+                return r;
+
+        assert(label);
+
+        r = setfilecon_idempotent(fd, label);
+        if (r < 0)
+                return log_selinux_enforcing_errno(r, "Failed to set SELinux security context %s on path %s: %m", label, strna(path));
+#endif
+        return 0;
+}
+
+int mac_selinux_get_create_label_from_exe(const char *exe, char **ret_label) {
+#if HAVE_SELINUX
+        _cleanup_freecon_ char *mycon = NULL, *fcon = NULL;
+        security_class_t sclass;
+        int r;
+
+        assert(exe);
+        assert(ret_label);
+
+        r = selinux_init(/* force= */ false);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EOPNOTSUPP;
+
+        if (sym_getcon_raw(&mycon) < 0)
+                return -errno;
+        if (!mycon)
+                return -EOPNOTSUPP;
+
+        if (sym_getfilecon_raw(exe, &fcon) < 0)
+                return -errno;
+        if (!fcon)
+                return -EOPNOTSUPP;
+
+        sclass = sym_string_to_security_class("process");
+        if (sclass == 0)
+                return -ENOSYS;
+
+        return RET_NERRNO(sym_security_compute_create_raw(mycon, fcon, sclass, ret_label));
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
+int mac_selinux_get_our_label(char **ret_label) {
+        assert(ret_label);
+
+#if HAVE_SELINUX
+        int r;
+
+        r = selinux_init(/* force= */ false);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EOPNOTSUPP;
+
+        _cleanup_freecon_ char *con = NULL;
+        if (sym_getcon_raw(&con) < 0)
+                return -errno;
+        if (!con)
+                return -EOPNOTSUPP;
+
+        *ret_label = TAKE_PTR(con);
+        return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
+int mac_selinux_get_peer_label(int socket_fd, char **ret_label) {
+        assert(socket_fd >= 0);
+        assert(ret_label);
+
+#if HAVE_SELINUX
+        int r;
+
+        r = selinux_init(/* force= */ false);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EOPNOTSUPP;
+
+        _cleanup_freecon_ char *con = NULL;
+        if (sym_getpeercon_raw(socket_fd, &con) < 0)
+                return -errno;
+        if (!con)
+                return -EOPNOTSUPP;
+
+        *ret_label = TAKE_PTR(con);
+        return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
+int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, const char *exec_label, char **ret_label) {
+#if HAVE_SELINUX
+        _cleanup_freecon_ char *mycon = NULL, *peercon = NULL, *fcon = NULL;
+        _cleanup_(context_freep) context_t pcon = NULL, bcon = NULL;
+        const char *range = NULL, *bcon_str = NULL;
+        security_class_t sclass;
+        int r;
+
+        assert(socket_fd >= 0);
+        assert(exe);
+        assert(ret_label);
+
+        r = selinux_init(/* force= */ false);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EOPNOTSUPP;
+
+        if (sym_getcon_raw(&mycon) < 0)
+                return -errno;
+        if (!mycon)
+                return -EOPNOTSUPP;
+
+        if (sym_getpeercon_raw(socket_fd, &peercon) < 0)
+                return -errno;
+        if (!peercon)
+                return -EOPNOTSUPP;
+
+        if (!exec_label) { /* If there is no context set for next exec let's use context of target executable */
+                if (sym_getfilecon_raw(exe, &fcon) < 0)
+                        return -errno;
+                if (!fcon)
+                        return -EOPNOTSUPP;
+        }
+
+        bcon = sym_context_new(mycon);
+        if (!bcon)
+                return -ENOMEM;
+
+        pcon = sym_context_new(peercon);
+        if (!pcon)
+                return -ENOMEM;
+
+        range = sym_context_range_get(pcon);
+        if (!range)
+                return -errno;
+
+        if (sym_context_range_set(bcon, range) != 0)
+                return -errno;
+
+        bcon_str = sym_context_str(bcon);
+        if (!bcon_str)
+                return -ENOMEM;
+
+        sclass = sym_string_to_security_class("process");
+        if (sclass == 0)
+                return -ENOSYS;
+
+        return RET_NERRNO(sym_security_compute_create_raw(bcon_str, fcon, sclass, ret_label));
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
+#if HAVE_SELINUX
+static int selinux_create_file_prepare_abspath(const char *abspath, mode_t mode) {
+        _cleanup_freecon_ char *filecon = NULL;
+        int r;
+
+        assert(abspath);
+        assert(path_is_absolute(abspath));
+
+        r = selinux_init(/* force= */ false);
+        if (r <= 0)
+                return r;
+
+        /* Check for policy reload so 'label_hnd' is kept up-to-date by callbacks */
+        mac_selinux_maybe_reload();
+        if (!label_hnd)
+                return 0;
+
+        r = sym_selabel_lookup_raw(label_hnd, &filecon, abspath, mode);
+        if (r < 0) {
+                /* No context specified by the policy? Proceed without setting it. */
+                if (errno == ENOENT)
+                        return 0;
+
+                return log_selinux_enforcing_errno(errno, "Failed to determine SELinux security context for %s: %m", abspath);
+        }
+
+        if (sym_setfscreatecon_raw(filecon) < 0)
+                return log_selinux_enforcing_errno(errno, "Failed to set SELinux security context %s for %s: %m", filecon, abspath);
+
+        return 0;
+}
+
+static int selinux_create_file_prepare_context(int dir_fd, const char *path, mode_t mode, LabelContext *c) {
+        _cleanup_free_ char *abspath = NULL;
+        _cleanup_freecon_ char *filecon = NULL;
+        const char *lookup_path;
+        int r;
+
+        assert(c);
+        assert(c->label_hnd);
+
+        /* Resolve the path to absolute if needed */
+        if (isempty(path) || !path_is_absolute(path)) {
+                r = fd_get_path(dir_fd, &abspath);
+                if (r < 0)
+                        return r;
+
+                if (!isempty(path) && !path_extend(&abspath, path))
+                        return -ENOMEM;
+
+                path = abspath;
+        }
+
+        /* Strip the root prefix so we look up the path as it would appear inside the image */
+        lookup_path = strip_root_path(path, c->root);
+        if (!lookup_path)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Path '%s' is not under root '%s', refusing SELinux labeling.", path, c->root);
+
+        r = RET_NERRNO(sym_selabel_lookup_raw(c->label_hnd, &filecon, lookup_path, mode));
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to determine SELinux security context for %s (looked up as %s): %m", path, lookup_path);
+
+        if (sym_setfscreatecon_raw(filecon) < 0) {
+                /* EINVAL means the host kernel doesn't know this context, degrade gracefully */
+                if (errno == EINVAL) {
+                        log_debug_errno(errno, "Failed to set SELinux security context %s for %s, ignoring: %m", filecon, path);
+                        return 0;
+                }
+
+                return log_debug_errno(errno, "Failed to set SELinux security context %s for %s: %m", filecon, path);
+        }
+
+        return 0;
+}
+#endif
+
+int mac_selinux_create_file_prepare_at(
+                int dir_fd,
+                const char *path,
+                mode_t mode,
+                LabelContext *label_context) {
+
+#if HAVE_SELINUX
+        _cleanup_free_ char *abspath = NULL;
+        int r;
+
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+
+        if (label_context)
+                return selinux_create_file_prepare_context(dir_fd, path, mode, label_context);
+
+        r = selinux_init(/* force= */ false);
+        if (r <= 0)
+                return r;
+
+        if (!label_hnd)
+                return 0;
+
+        if (isempty(path) || !path_is_absolute(path)) {
+                r = fd_get_path(dir_fd, &abspath);
+                if (r < 0)
+                        return r;
+
+                if (!isempty(path) && !path_extend(&abspath, path))
+                        return -ENOMEM;
+
+                path = abspath;
+        }
+
+        return selinux_create_file_prepare_abspath(path, mode);
+#else
+        return 0;
+#endif
+}
+
+int mac_selinux_create_file_prepare_label(const char *path, const char *label) {
+#if HAVE_SELINUX
+        int r;
+
+        if (!label)
+                return 0;
+
+        r = selinux_init(/* force= */ false);
+        if (r <= 0)
+                return r;
+
+        if (sym_setfscreatecon_raw(label) < 0)
+                return log_selinux_enforcing_errno(errno, "Failed to set specified SELinux security context '%s' for '%s': %m", label, strna(path));
+#endif
+        return 0;
+}
+
+void mac_selinux_create_file_clear(void) {
+
+#if HAVE_SELINUX
+        PROTECT_ERRNO;
+
+        if (selinux_init(/* force= */ false) <= 0)
+                return;
+
+        (void) sym_setfscreatecon_raw(NULL);
+#endif
+}
+
+int mac_selinux_create_socket_prepare(const char *label) {
+
+#if HAVE_SELINUX
+        int r;
+
+        assert(label);
+
+        r = selinux_init(/* force= */ false);
+        if (r <= 0)
+                return r;
+
+        if (sym_setsockcreatecon_raw(label) < 0)
+                return log_selinux_enforcing_errno(errno, "Failed to set SELinux security context %s for sockets: %m", label);
+#endif
+
+        return 0;
+}
+
+void mac_selinux_create_socket_clear(void) {
+
+#if HAVE_SELINUX
+        PROTECT_ERRNO;
+
+        if (selinux_init(/* force= */ false) <= 0)
+                return;
+
+        (void) sym_setsockcreatecon_raw(NULL);
+#endif
+}
+
+int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
+
+        /* Binds a socket and label its file system object according to the SELinux policy */
+
+#if HAVE_SELINUX
+        _cleanup_freecon_ char *fcon = NULL;
+        const struct sockaddr_un *un;
+        bool context_changed = false;
+        size_t sz;
+        char *path;
+        int r;
+
+        assert(fd >= 0);
+        assert(addr);
+        assert(addrlen >= sizeof(sa_family_t));
+
+        if (selinux_init(/* force= */ false) <= 0)
+                goto skipped;
+
+        if (!label_hnd)
+                goto skipped;
+
+        /* Filter out non-local sockets */
+        if (addr->sa_family != AF_UNIX)
+                goto skipped;
+
+        /* Filter out anonymous sockets */
+        if (addrlen < offsetof(struct sockaddr_un, sun_path) + 1)
+                goto skipped;
+
+        /* Filter out abstract namespace sockets */
+        un = (const struct sockaddr_un*) addr;
+        if (un->sun_path[0] == 0)
+                goto skipped;
+
+        sz = addrlen - offsetof(struct sockaddr_un, sun_path);
+        if (sz > PATH_MAX)
+                goto skipped;
+        path = strndupa_safe(un->sun_path, sz);
+
+        /* Check for policy reload so 'label_hnd' is kept up-to-date by callbacks */
+        mac_selinux_maybe_reload();
+        if (!label_hnd)
+                goto skipped;
+
+        if (path_is_absolute(path))
+                r = sym_selabel_lookup_raw(label_hnd, &fcon, path, S_IFSOCK);
+        else {
+                _cleanup_free_ char *newpath = NULL;
+
+                r = path_make_absolute_cwd(path, &newpath);
+                if (r < 0)
+                        return r;
+
+                r = sym_selabel_lookup_raw(label_hnd, &fcon, newpath, S_IFSOCK);
+        }
+
+        if (r < 0) {
+                /* No context specified by the policy? Proceed without setting it */
+                if (errno == ENOENT)
+                        goto skipped;
+
+                r = log_selinux_enforcing_errno(errno, "Failed to determine SELinux security context for %s: %m", path);
+                if (r < 0)
+                        return r;
+        } else {
+                if (sym_setfscreatecon_raw(fcon) < 0) {
+                        r = log_selinux_enforcing_errno(errno, "Failed to set SELinux security context %s for %s: %m", fcon, path);
+                        if (r < 0)
+                                return r;
+                } else
+                        context_changed = true;
+        }
+
+        r = RET_NERRNO(bind(fd, addr, addrlen));
+
+        if (context_changed)
+                (void) sym_setfscreatecon_raw(NULL);
+
+        return r;
+
+skipped:
+#endif
+        return RET_NERRNO(bind(fd, addr, addrlen));
+}
+
+#if HAVE_SELINUX
+static int get_selinux_policy_root(int rfd, const char *root, char **ret) {
+        _cleanup_free_ char *policytype = NULL;
+        int r;
+
+        assert(rfd >= 0);
+        assert(root);
+        assert(ret);
+
+        /* Read the SELinux config from the alternate root, trying /etc and /usr/lib */
+        FOREACH_STRING(config_dir, "/etc/selinux/config", "/usr/lib/selinux/config") {
+                _cleanup_close_ int fd = -EBADF;
+
+                r = chaseat(rfd, rfd, config_dir, CHASE_MUST_BE_REGULAR, /* ret_path= */ NULL, &fd);
+                if (IN_SET(r, -ENOENT, -ENOTDIR, -EISDIR))
+                        continue;
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to resolve SELinux config path in root '%s': %m", root);
+
+                r = parse_env_file_fd(fd, config_dir, "SELINUXTYPE", &policytype);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse SELinux config '%s' in root '%s': %m", config_dir, root);
+
+                if (!isempty(policytype))
+                        break;
+        }
+
+        if (isempty(policytype)) {
+                log_debug("No SELINUXTYPE configured in alternate root '%s', skipping label context setup.", root);
+                *ret = NULL;
+                return 0;
+        }
+
+        if (!filename_is_valid(policytype))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "SELINUXTYPE '%s' in alternate root '%s' is not a valid filename.", policytype, root);
+
+        /* Look for the policy database under the alternate root */
+        FOREACH_STRING(policy_dir, "/etc/selinux", "/usr/share/selinux") {
+                _cleanup_free_ char *p = NULL, *policy_subdir = NULL;
+
+                policy_subdir = path_join(policy_dir, policytype);
+                if (!policy_subdir)
+                        return log_oom();
+
+                r = chaseat(rfd, rfd, policy_subdir, CHASE_MUST_BE_DIRECTORY, &p, /* ret_fd= */ NULL);
+                if (IN_SET(r, -ENOENT, -ENOTDIR))
+                        continue;
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to resolve policy directory '%s' in root '%s': %m", policy_subdir, root);
+                        continue;
+                }
+
+                /* Validate that the file_contexts file resolves within the root, since libselinux
+                 * will open it with plain fopen() which follows symlinks without confinement */
+                _cleanup_free_ char *fc_subpath = NULL;
+                fc_subpath = path_join(policy_subdir, "contexts/files/file_contexts");
+                if (!fc_subpath)
+                        return log_oom();
+
+                r = chaseat(rfd, rfd, fc_subpath, CHASE_MUST_BE_REGULAR, /* ret_path= */ NULL, /* ret_fd= */ NULL);
+                if (IN_SET(r, -ENOENT, -ENOTDIR)) {
+                        log_debug_errno(r, "file_contexts not found at '%s' in root '%s', skipping.", fc_subpath, root);
+                        continue;
+                }
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to resolve file_contexts '%s' in root '%s': %m", fc_subpath, root);
+                        continue;
+                }
+
+                r = chaseat_prefix_root(p, root, ret);
+                if (r < 0)
+                        return r;
+
+                return 1;
+        }
+
+        log_debug("SELinux policy directory for type '%s' not found in alternate root '%s', skipping.", policytype, root);
+        *ret = NULL;
+        return 0;
+}
+#endif
+
+int mac_selinux_label_context_new(const char *root, LabelContext **ret) {
+        assert(root);
+        assert(!empty_or_root(root));
+        assert(ret);
+
+#if HAVE_SELINUX
+        _cleanup_free_ char *policyroot = NULL, *canonical_root = NULL;
+        _cleanup_close_ int rfd = -EBADF;
+        int r;
+
+        if (mac_smack_use()) {
+                *ret = NULL;
+                return 0;
+        }
+
+        r = dlopen_libselinux(LOG_ERR);
+        if (r < 0)
+                return r;
+
+        mac_selinux_disable_logging();
+
+        r = chaseat(AT_FDCWD, AT_FDCWD, root, CHASE_MUST_BE_DIRECTORY, &canonical_root, &rfd);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to open root directory '%s': %m", root);
+
+        r = get_selinux_policy_root(rfd, root, &policyroot);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                *ret = NULL;
+                return 0;
+        }
+
+        /* Temporarily switch the policy root so selabel_open() reads the image's file_contexts.
+         * The handle bakes in the database at open time, so we can reset the root immediately after.
+         * We must strdup the saved root because selinux_set_policy_root() frees the internal buffer. */
+        _cleanup_(selinux_policy_root_reset_and_freep) char *saved_policy_root = NULL;
+        const char *p = sym_selinux_policy_root();
+        if (p) {
+                saved_policy_root = strdup(p);
+                if (!saved_policy_root)
+                        return log_oom();
+        }
+
+        r = RET_NERRNO(sym_selinux_set_policy_root(policyroot));
+        if (r < 0)
+                return log_debug_errno(r, "Failed to set SELinux policy root to '%s': %m", policyroot);
+
+        _cleanup_(selabel_closep) struct selabel_handle *hnd = sym_selabel_open(SELABEL_CTX_FILE, /* opts= */ NULL, /* nopts= */ 0);
+        int saved_errno = errno;
+
+        /* Reset immediately - the handle baked in the database at open time */
+        selinux_policy_root_reset_and_freep(&saved_policy_root);
+
+        if (!hnd)
+                return log_debug_errno(saved_errno, "Failed to open SELinux label database for alternate root '%s': %m", root);
+
+        r = label_ops_set(&selinux_label_ops);
+        if (r < 0 && r != -EBUSY)
+                return r;
+
+        _cleanup_free_ LabelContext *c = new(LabelContext, 1);
+        if (!c)
+                return log_oom();
+
+        *c = (LabelContext) {
+                .label_hnd = TAKE_PTR(hnd),
+                .rfd = TAKE_FD(rfd),
+                .root = TAKE_PTR(canonical_root),
+        };
+
+        *ret = TAKE_PTR(c);
+        return 0;
+#else
+        *ret = NULL;
+        return 0;
+#endif
+}
+
+LabelContext* mac_selinux_label_context_free(LabelContext *c) {
+        if (!c)
+                return NULL;
+
+#if HAVE_SELINUX
+        if (c->label_hnd)
+                sym_selabel_close(c->label_hnd);
+
+        safe_close(c->rfd);
+        free(c->root);
+#endif
+
+        return mfree(c);
+}

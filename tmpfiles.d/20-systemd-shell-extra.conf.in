@@ -1,0 +1,12 @@
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+# See tmpfiles.d(5) for details.
+
+{% if LINK_SHELL_EXTRA_DROPIN %}
+L$ {{SHELLPROFILEDIR}}/70-systemd-shell-extra.sh - - - - {{LIBEXECDIR}}/profile.d/70-systemd-shell-extra.sh
+{% endif %}

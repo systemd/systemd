@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for AmbientCapabilities
+
+[Service]
+ExecStart=bash -x -c 'c=$$(grep "CapAmb:" /proc/self/status); test "$$c" = "CapAmb:	0000000000002001"'
+Type=oneshot
+User=nfsnobody
+AmbientCapabilities=CAP_CHOWN CAP_NET_RAW

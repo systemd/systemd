@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=wg99
+
+[Network]
+Address=192.168.124.1/24
+Address=fe80::1/64
+Address=169.254.11.1/24
+IPv6AcceptRA=no

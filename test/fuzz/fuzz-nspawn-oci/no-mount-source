@@ -1,0 +1,92 @@
+{
+    "ociVersion": "1.0.0",
+
+    "root": {
+        "path": "rootfs",
+        "readonly": true
+    },
+
+    "process": {
+        "terminal": false,
+        "consoleSize": {
+            "height":6667,
+            "width":6668
+        },
+
+        "user": {
+            "uid": 14,
+            "gid": 14,
+            "additionalGids": [59, 81]
+        },
+
+        "args": [
+            "/tmp/verify.sh"
+        ],
+
+        "env": [
+            "FOO=BAR",
+            "WITHSPACES=FOO BAR",
+            "WITHSHELLCHARS=$ASDF \\\"asdf asdf\\\" !",
+            "WITHCONTROLCHARS=\\123\\125\\010\\020",
+            "TERM=xterm"
+        ],
+
+        "cwd": "/tmp/src",
+
+        "rlimits": [
+            {
+                "type": "RLIMIT_NOFILE",
+                "hard": 1020,
+                "soft": 1020
+            }
+        ]
+    },
+
+    "mounts": [
+        {
+            "destination": "/tmp/src"       },
+        {
+       "source": "sysfs",
+            "options": [
+                "mode=777"
+            ]
+        },
+        {
+            "destination": "/sys/fs/cgroup",
+            "type": "cgroup",
+            "source": "cgroup",
+            "options": [
+                "mode=777"
+            ]
+        }
+    ],
+
+    "hooks": {},
+
+    "linux": {
+        "resources": {
+            "devices": [
+                {
+                    "allow": false,
+                    "access": "rwm"
+                }
+            ]
+        },
+        "namespaces": [
+            {
+                "type": "pid"
+            },
+            {
+                "type": "ipc"
+            },
+            {
+                "type": "mount"
+            }
+        ]
+    },
+
+    "annotations": {
+        "com.example.key1": "value1",
+        "com.example.key2": "value2"
+    }
+}

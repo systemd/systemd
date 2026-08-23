@@ -1,0 +1,233 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd.syntax">
+
+  <refentryinfo>
+    <title>systemd.syntax</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd.syntax</refentrytitle>
+    <manvolnum>7</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd.syntax</refname>
+    <refpurpose>General syntax of systemd configuration files</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Introduction</title>
+
+    <para>This page describes the basic principles of configuration files used by
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    and related programs for:
+    <itemizedlist>
+      <listitem><para>systemd unit files, see
+      <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.path</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      </para></listitem>
+
+      <listitem><para>link files, see
+      <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      </para></listitem>
+
+      <listitem><para>netdev and network files, see
+      <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      </para></listitem>
+
+      <listitem><para>daemon config files, see
+      <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-user.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>journal-remote.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>journal-upload.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-sleep.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>timesyncd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      </para></listitem>
+
+      <listitem><para>nspawn files, see
+        <citerefentry><refentrytitle>systemd.nspawn</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      </para></listitem>
+    </itemizedlist>
+    </para>
+
+    <para>The syntax is inspired by
+    <ulink url="https://standards.freedesktop.org/desktop-entry-spec/latest/">XDG Desktop Entry Specification</ulink>
+    <filename>.desktop</filename> files, which are in turn inspired by Microsoft Windows
+    <filename>.ini</filename> files.
+    </para>
+
+    <para>Each file is a plain text file divided into sections, with configuration entries in the style
+    <replaceable>key</replaceable>=<replaceable>value</replaceable>. Whitespace immediately before or after
+    the <literal>=</literal> is ignored. Empty lines and lines starting with <literal>#</literal> or
+    <literal>;</literal> are ignored, which may be used for commenting.</para>
+
+    <para>Lines ending in a backslash are concatenated with the following line while reading and the
+    backslash is replaced by a space character. This may be used to wrap long lines. The limit on
+    line length is very large (currently 1 MB), but it is recommended to avoid such long lines and
+    use multiple directives, variable substitution, or other mechanism as appropriate for the given
+    file type. When a comment line or lines follow a line ending with a backslash, the comment block
+    is ignored, so the continued line is concatenated with whatever follows the comment block.</para>
+
+    <informalexample><programlisting>[Section A]
+KeyOne=value 1
+KeyTwo=value 2
+
+# a comment
+
+[Section B]
+Setting="something" "some thing" "…"
+KeyTwo=value 2 \
+       value 2 continued
+
+[Section C]
+KeyThree=value 3\
+# this line is ignored
+; this line is ignored too
+       value 3 continued
+</programlisting></informalexample>
+
+    <para>Boolean arguments used in configuration files can be written in
+    various formats. For positive settings the strings
+    <option>1</option>, <option>yes</option>, <option>true</option>
+    and <option>on</option> are equivalent. For negative settings, the
+    strings <option>0</option>, <option>no</option>,
+    <option>false</option> and <option>off</option> are
+    equivalent.</para>
+
+    <para>Time span values encoded in configuration files can be written in various formats. A stand-alone
+    number specifies a time in seconds.  If suffixed with a time unit, the unit is honored. A
+    concatenation of multiple values with units is supported, in which case the values are added
+    up. Example: <literal>50</literal> refers to 50 seconds; <literal>2min 200ms</literal> refers to
+    2 minutes and 200 milliseconds, i.e. 120200 ms.  The following time units are understood:
+    <literal>s</literal>, <literal>min</literal>, <literal>h</literal>, <literal>d</literal>,
+    <literal>w</literal>, <literal>ms</literal>, <literal>us</literal>.  For details see
+    <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+
+    <para>Various settings are allowed to be specified more than once, in which case the
+    interpretation depends on the setting. Often, multiple settings form a list, and setting to an
+    empty value "resets", which means that previous assignments are ignored. When this is allowed,
+    it is mentioned in the description of the setting. Note that using multiple assignments to the
+    same value makes the file incompatible with parsers for the XDG <filename>.desktop</filename>
+    file format.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Quoting</title>
+
+    <para>For settings where quoting is allowed, the following general rules apply: double quotes ("…") and
+    single quotes ('…') may be used to wrap a whole item (the opening quote may appear only at the beginning
+    or after whitespace that is not quoted, and the closing quote must be followed by whitespace or the end
+    of line), in which case everything until the next matching quote becomes part of the same item. Quotes
+    themselves are removed. C-style escapes are supported. The table below contains the list of known escape
+    patterns. Only escape patterns which match the syntax in the table are allowed; other patterns may be
+    added in the future and unknown patterns will result in a warning. In particular, any backslashes should
+    be doubled. Finally, a trailing backslash (<literal>\</literal>) may be used to merge lines, as described
+    above. UTF-8 is accepted, and hence typical unicode characters do not need to be escaped.</para>
+
+    <table>
+      <title>Supported escapes</title>
+      <tgroup cols='2'>
+        <colspec colname='escape' />
+        <colspec colname='meaning' />
+        <thead>
+          <row>
+            <entry>Literal</entry>
+            <entry>Actual value</entry>
+          </row>
+        </thead>
+        <tbody>
+          <row>
+            <entry><literal>\a</literal></entry>
+            <entry>bell</entry>
+          </row>
+          <row>
+            <entry><literal>\b</literal></entry>
+            <entry>backspace</entry>
+          </row>
+          <row>
+            <entry><literal>\f</literal></entry>
+            <entry>form feed</entry>
+          </row>
+          <row>
+            <entry><literal>\n</literal></entry>
+            <entry>newline</entry>
+          </row>
+          <row>
+            <entry><literal>\r</literal></entry>
+            <entry>carriage return</entry>
+          </row>
+          <row>
+            <entry><literal>\t</literal></entry>
+            <entry>tab</entry>
+          </row>
+          <row>
+            <entry><literal>\v</literal></entry>
+            <entry>vertical tab</entry>
+          </row>
+          <row>
+            <entry><literal>\\</literal></entry>
+            <entry>backslash</entry>
+          </row>
+          <row>
+            <entry><literal>\"</literal></entry>
+            <entry>double quotation mark</entry>
+          </row>
+          <row>
+            <entry><literal>\'</literal></entry>
+            <entry>single quotation mark</entry>
+          </row>
+          <row>
+            <entry><literal>\s</literal></entry>
+            <entry>space</entry>
+          </row>
+          <row>
+            <entry><literal>\x<replaceable>xx</replaceable></literal></entry>
+            <entry>character number <replaceable>xx</replaceable> in hexadecimal encoding</entry>
+          </row>
+          <row>
+            <entry><literal>\<replaceable>nnn</replaceable></literal></entry>
+            <entry>character number <replaceable>nnn</replaceable> in octal encoding</entry>
+          </row>
+          <row>
+            <entry><literal>\u<replaceable>nnnn</replaceable></literal></entry>
+            <entry>unicode code point <replaceable>nnnn</replaceable> in hexadecimal encoding</entry>
+          </row>
+          <row>
+            <entry><literal>\U<replaceable>nnnnnnnn</replaceable></literal></entry>
+            <entry>unicode code point <replaceable>nnnnnnnn</replaceable> in hexadecimal encoding</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

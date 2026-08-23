@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for StandardOutput=file:
+
+[Service]
+ExecStartPre=bash -c 'printf "nooo\nhello\n" >/tmp/test-exec-standardoutput-output'
+ExecStartPre=bash -c 'printf "hello\nello\n" >/tmp/test-exec-standardoutput-expected'
+StandardInput=data
+StandardInputText=hello
+StandardOutput=file:/tmp/test-exec-standardoutput-output
+StandardError=null
+ExecStart=cat
+ExecStart=cmp /tmp/test-exec-standardoutput-expected /tmp/test-exec-standardoutput-output
+Type=oneshot

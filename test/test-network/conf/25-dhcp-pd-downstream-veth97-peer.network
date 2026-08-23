@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=veth97-peer
+
+[Network]
+IPv6PrivacyExtensions=yes
+IPv6AcceptRA=yes
+
+[IPv6AcceptRA]
+Token=eui64
+Token=::1a:2b:3c:4e

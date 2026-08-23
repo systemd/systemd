@@ -1,0 +1,669 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include <sys/stat.h>
+#include <unistd.h>
+
+#include "sd-device.h"
+#include "sd-json.h"
+
+#include "alloc-util.h"
+#include "build.h"
+#include "device-private.h"
+#include "device-util.h"
+#include "escape.h"
+#include "fileio.h"
+#include "main-func.h"
+#include "parse-util.h"
+#include "percent-util.h"
+#include "reboot-util.h"
+#include "string-util.h"
+#include "strv.h"
+#include "verbs.h"
+
+#define PCI_CLASS_GRAPHICS_CARD 0x30000
+
+COMMAND(
+        "systemd-backlight\0",
+        "Save and restore backlight brightness at shutdown and boot.",
+        .argspec = "COMMAND [backlight|leds]:DEVICE\0",
+        .man_pages = "systemd-backlight.8\0",
+);
+
+static int has_multiple_graphics_cards(void) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        bool found = false;
+        int r;
+
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_allow_uninitialized(e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_subsystem(e, "pci", /* match= */ true);
+        if (r < 0)
+                return r;
+
+        /* class is an unsigned number, let's validate the value later. */
+        r = sd_device_enumerator_add_match_sysattr(e, "class", NULL, /* match= */ true);
+        if (r < 0)
+                return r;
+
+        FOREACH_DEVICE(e, dev) {
+                uint32_t c;
+
+                if (device_get_sysattr_u32(dev, "class", &c) < 0)
+                        continue;
+
+                if (c != PCI_CLASS_GRAPHICS_CARD)
+                        continue;
+
+                if (found)
+                        return true; /* This is the second device. */
+
+                found = true; /* Found the first device. */
+        }
+
+        return false;
+}
+
+static int find_pci_or_platform_parent(sd_device *device, sd_device **ret) {
+        int r;
+
+        assert(device);
+        assert(ret);
+
+        for (;;) {
+                r = sd_device_get_parent(device, &device);
+                if (r < 0)
+                        return r;
+
+                r = device_in_subsystem(device, "drm");
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        const char *s;
+
+                        r = device_sysname_startswith_strv(device, STRV_MAKE("card"), &s);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                return -ENODATA;
+
+                        s += strspn(s, DIGITS);
+                        if (*s == '-' && !STARTSWITH_SET(s, "-LVDS-", "-Embedded DisplayPort-", "-eDP-"))
+                                /* A connector DRM device, let's ignore all but LVDS and eDP! */
+                                return -EOPNOTSUPP;
+
+                        continue;
+                }
+
+                r = device_in_subsystem(device, "pci");
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        uint32_t class;
+
+                        r = device_get_sysattr_u32(device, "class", &class);
+                        if (r == -ENOENT)
+                                continue;
+                        if (r < 0)
+                                return r;
+
+                        /* Graphics card */
+                        if (class == PCI_CLASS_GRAPHICS_CARD) {
+                                *ret = device;
+                                return 0;
+                        }
+
+                        continue;
+                }
+
+                r = device_in_subsystem(device, "platform");
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        *ret = device;
+                        return 0;
+                }
+        }
+}
+
+static int same_device(sd_device *a, sd_device *b) {
+        const char *a_val, *b_val;
+        int r;
+
+        assert(a);
+        assert(b);
+
+        r = sd_device_get_subsystem(a, &a_val);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_subsystem(b, &b_val);
+        if (r < 0)
+                return r;
+
+        if (!streq(a_val, b_val))
+                return false;
+
+        r = sd_device_get_sysname(a, &a_val);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_sysname(b, &b_val);
+        if (r < 0)
+                return r;
+
+        return streq(a_val, b_val);
+}
+
+static int validate_device(sd_device *device) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *enumerate = NULL;
+        const char *sysname;
+        sd_device *parent;
+        int r;
+
+        assert(device);
+
+        /* Verify whether we should actually care for a specific backlight device. For backlight devices
+         * there might be multiple ways to access the same control: "firmware" (i.e. ACPI), "platform"
+         * (i.e. via the machine's EC), and "raw" (via the graphics card). In general we should prefer
+         * "firmware" (i.e. ACPI) or "platform" access over "raw" access, in order not to confuse the
+         * BIOS/EC, and compatibility with possible low-level hotkey handling of screen brightness. The
+         * kernel will already make sure to expose only one of "firmware" and "platform" for the same
+         * device to userspace. However, we still need to make sure that we use "raw" only if no
+         * "firmware" or "platform" device for the same device exists. */
+
+        r = sd_device_get_sysname(device, &sysname);
+        if (r < 0)
+                return log_device_debug_errno(device, r, "Failed to get sysname: %m");
+
+        r = device_in_subsystem(device, "leds");
+        if (r < 0)
+                return log_device_debug_errno(device, r, "Failed to check if device is in leds subsystem: %m");
+        if (r > 0)
+                return true; /* We assume LED device is always valid. */
+
+        r = device_get_sysattr_streq(device, "type", "raw");
+        if (r < 0)
+                return log_device_debug_errno(device, r, "Failed to read 'type' sysattr: %m");
+        if (r == 0)
+                return true;
+
+        r = find_pci_or_platform_parent(device, &parent);
+        if (r < 0)
+                return log_device_debug_errno(device, r, "Failed to find PCI or platform parent: %m");
+
+        if (DEBUG_LOGGING) {
+                const char *s = NULL, *subsystem = NULL;
+
+                (void) sd_device_get_syspath(parent, &s);
+                (void) sd_device_get_subsystem(parent, &subsystem);
+                log_device_debug(device, "Found %s parent device: %s", strna(subsystem), strna(s));
+        }
+
+        r = sd_device_enumerator_new(&enumerate);
+        if (r < 0)
+                return log_oom_debug();
+
+        r = sd_device_enumerator_allow_uninitialized(enumerate);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to allow uninitialized devices: %m");
+
+        r = sd_device_enumerator_add_match_subsystem(enumerate, "backlight", /* match= */ true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to add subsystem match: %m");
+
+        r = sd_device_enumerator_add_nomatch_sysname(enumerate, sysname);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to add sysname unmatch: %m");
+
+        r = sd_device_enumerator_add_match_sysattr(enumerate, "type", "platform", /* match= */ true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to add sysattr match: %m");
+
+        r = sd_device_enumerator_add_match_sysattr(enumerate, "type", "firmware", /* match= */ true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to add sysattr match: %m");
+
+        if (device_in_subsystem(parent, "pci") > 0) {
+                r = has_multiple_graphics_cards();
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to check if the system has multiple graphics cards: %m");
+                if (r > 0) {
+                        /* If the system has multiple graphics cards, then we cannot associate platform
+                         * devices on non-PCI bus (especially WMI bus) with PCI devices. Let's ignore all
+                         * backlight devices that do not have the same parent PCI device. */
+                        log_debug("Found multiple graphics cards on PCI bus; "
+                                  "skipping deduplication of platform backlight devices not on PCI bus.");
+
+                        r = sd_device_enumerator_add_match_parent(enumerate, parent);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to add parent match: %m");
+                }
+        }
+
+        FOREACH_DEVICE(enumerate, other) {
+                sd_device *other_parent;
+
+                /* OK, so there's another backlight device, and it's a platform or firmware device.
+                 * Let's see if we can verify it belongs to the same device as ours. */
+                r = find_pci_or_platform_parent(other, &other_parent);
+                if (r < 0) {
+                        log_device_debug_errno(other, r, "Failed to get PCI or platform parent, ignoring: %m");
+                        continue;
+                }
+
+                if (same_device(parent, other_parent) > 0) {
+                        /* Both have the same PCI parent, that means we are out. */
+                        if (DEBUG_LOGGING) {
+                                const char *other_sysname = NULL, *other_type = NULL;
+
+                                (void) sd_device_get_sysname(other, &other_sysname);
+                                (void) device_get_sysattr_safe_string(other, "type", &other_type);
+                                log_device_debug(device,
+                                                 "Found another %s backlight device %s on the same PCI, skipping.",
+                                                 strna(other_type), strna(other_sysname));
+                        }
+                        return false;
+                }
+
+                if (device_in_subsystem(other_parent, "platform") > 0 && device_in_subsystem(parent, "pci") > 0) {
+                        /* The other is connected to the platform bus and we are a PCI device, that also means we are out. */
+                        if (DEBUG_LOGGING) {
+                                const char *other_sysname = NULL, *other_type = NULL;
+
+                                (void) sd_device_get_sysname(other, &other_sysname);
+                                (void) device_get_sysattr_safe_string(other, "type", &other_type);
+                                log_device_debug(device,
+                                                 "Found another %s backlight device %s, which has higher precedence, skipping.",
+                                                 strna(other_type), strna(other_sysname));
+                        }
+                        return false;
+                }
+        }
+
+        return true;
+}
+
+static int read_max_brightness(sd_device *device, unsigned *ret) {
+        unsigned max_brightness;
+        int r;
+
+        assert(device);
+        assert(ret);
+
+        r = device_get_sysattr_unsigned(device, "max_brightness", &max_brightness);
+        if (r < 0)
+                return log_device_warning_errno(device, r, "Failed to read 'max_brightness' attribute: %m");
+
+        /* If max_brightness is 0, then there is no actual backlight device. This happens on desktops
+         * with Asus mainboards that load the eeepc-wmi module. */
+        if (max_brightness == 0) {
+                log_device_warning(device, "Maximum brightness is 0, ignoring device.");
+                *ret = 0;
+                return 0;
+        }
+
+        log_device_debug(device, "Maximum brightness is %u", max_brightness);
+
+        *ret = max_brightness;
+        return 1; /* valid max brightness */
+}
+
+static int clamp_brightness(
+                sd_device *device,
+                unsigned percent,
+                bool saved,
+                unsigned max_brightness,
+                unsigned *brightness) {
+
+        unsigned new_brightness, min_brightness;
+        int r;
+
+        assert(device);
+        assert(brightness);
+
+        /* Some systems turn the backlight all the way off at the lowest levels. This clamps the saved
+         * brightness to at least 1 or 1% of max_brightness (whichever is bigger) in case of 'backlight' subsystem.
+         * This avoids preserving an unreadably dim screen, which would otherwise force the user to disable
+         * state restoration. */
+
+        min_brightness = (unsigned) ((double) max_brightness * percent / 100);
+        r = device_in_subsystem(device, "backlight");
+        if (r < 0)
+                return r;
+        if (r > 0)
+                min_brightness = MAX(1U, min_brightness);
+
+        new_brightness = CLAMP(*brightness, min_brightness, max_brightness);
+        if (new_brightness != *brightness)
+                log_device_info(device, "%s brightness %u is %s to %u.",
+                                saved ? "Saved" : "Current",
+                                *brightness,
+                                new_brightness > *brightness ?
+                                "too low; increasing" : "too high; decreasing",
+                                new_brightness);
+
+        *brightness = new_brightness;
+        return 0;
+}
+
+/* used as the default for devices in the backlight subsystem, or when ID_BACKLIGHT_CLAMP/ID_LEDS_CLAMP=yes. */
+#define DEFAULT_CLAMP_PERCENT 1u
+
+static int shall_clamp(sd_device *device, unsigned *ret) {
+        const char *property, *s;
+        unsigned default_percent;
+        int r;
+
+        assert(device);
+        assert(ret);
+
+        r = device_in_subsystem(device, "backlight");
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                property = "ID_BACKLIGHT_CLAMP";
+                default_percent = DEFAULT_CLAMP_PERCENT;
+        } else {
+                property = "ID_LEDS_CLAMP";
+                default_percent = 0; /* The clamping is disabled by default. */
+        }
+
+        r = sd_device_get_property_value(device, property, &s);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        log_device_debug_errno(device, r, "Failed to get %s property, ignoring: %m", property);
+                *ret = default_percent;
+                return default_percent > 0;
+        }
+
+        r = parse_boolean(s);
+        if (r >= 0) {
+                *ret = r ? DEFAULT_CLAMP_PERCENT : 0;
+                return r;
+        }
+
+        r = parse_percent(s);
+        if (r < 0) {
+                log_device_debug_errno(device, r, "Failed to parse %s property, ignoring: %m", property);
+                *ret = default_percent;
+                return default_percent > 0;
+        }
+
+        *ret = r;
+        return true;
+}
+
+static int read_brightness(sd_device *device, unsigned max_brightness, unsigned *ret_brightness) {
+        unsigned brightness;
+        int r;
+
+        assert(device);
+        assert(ret_brightness);
+
+        r = device_get_sysattr_unsigned(device, "brightness", &brightness);
+        if (r < 0)
+                return log_device_debug_errno(device, r, "Failed to read 'brightness' attribute: %m");
+
+        if (brightness > max_brightness)
+                return log_device_debug_errno(device, SYNTHETIC_ERRNO(EINVAL),
+                                              "brightness=%u is larger than max_brightness=%u",
+                                              brightness, max_brightness);
+
+        log_device_debug(device, "Current brightness is %u", brightness);
+        *ret_brightness = brightness;
+        return 0;
+}
+
+static int build_save_file_path(sd_device *device, char **ret) {
+        _cleanup_free_ char *escaped_subsystem = NULL, *escaped_sysname = NULL, *path = NULL;
+        const char *s;
+        int r;
+
+        assert(device);
+        assert(ret);
+
+        r = sd_device_get_subsystem(device, &s);
+        if (r < 0)
+                return log_device_error_errno(device, r, "Failed to get subsystem: %m");
+
+        escaped_subsystem = cescape(s);
+        if (!escaped_subsystem)
+                return log_oom();
+
+        r = sd_device_get_sysname(device, &s);
+        if (r < 0)
+                return log_device_error_errno(device, r, "Failed to get sysname: %m");
+
+        escaped_sysname = cescape(s);
+        if (!escaped_sysname)
+                return log_oom();
+
+        if (sd_device_get_property_value(device, "ID_PATH", &s) >= 0) {
+                _cleanup_free_ char *escaped_path_id = cescape(s);
+                if (!escaped_path_id)
+                        return log_oom();
+
+                path = strjoin("/var/lib/systemd/backlight/", escaped_path_id, ":", escaped_subsystem, ":", escaped_sysname);
+        } else
+                path = strjoin("/var/lib/systemd/backlight/", escaped_subsystem, ":", escaped_sysname);
+        if (!path)
+                return log_oom();
+
+        *ret = TAKE_PTR(path);
+        return 0;
+}
+
+static int read_saved_brightness(sd_device *device, unsigned *ret) {
+        _cleanup_free_ char *path = NULL, *value = NULL;
+        int r;
+
+        assert(device);
+        assert(ret);
+
+        r = build_save_file_path(device, &path);
+        if (r < 0)
+                return r;
+
+        r = read_one_line_file(path, &value);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        log_device_error_errno(device, r, "Failed to read %s: %m", path);
+                return r;
+        }
+
+        r = safe_atou(value, ret);
+        if (r < 0) {
+                log_device_warning_errno(device, r,
+                                         "Failed to parse saved brightness '%s', removing %s.",
+                                         value, path);
+                (void) unlink(path);
+                return r;
+        }
+
+        log_device_debug(device, "Using saved brightness %u.", *ret);
+        return 0;
+}
+
+static int device_new_from_arg(const char *s, sd_device **ret) {
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        _cleanup_free_ char *subsystem = NULL;
+        const char *sysname;
+        int r;
+
+        assert(s);
+        assert(ret);
+
+        sysname = strchr(s, ':');
+        if (!sysname)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Requires a subsystem and sysname pair specifying a backlight or LED device.");
+
+        subsystem = strndup(s, sysname - s);
+        if (!subsystem)
+                return log_oom();
+
+        sysname++;
+
+        if (!STR_IN_SET(subsystem, "backlight", "leds"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Not a backlight or LED device: '%s:%s'",
+                                       subsystem, sysname);
+
+        r = sd_device_new_from_subsystem_sysname(&device, subsystem, sysname);
+        if (r == -ENODEV) {
+                /* Some drivers, e.g. for AMD GPU, removes acpi backlight device soon after it is added.
+                 * See issue #21997. */
+                log_debug_errno(r, "Failed to get backlight or LED device '%s:%s', ignoring: %m", subsystem, sysname);
+                *ret = NULL;
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get backlight or LED device '%s:%s': %m", subsystem, sysname);
+
+        *ret = TAKE_PTR(device);
+        return 1; /* Found. */
+}
+
+VERB(verb_load, "load", "[backlight|leds]:DEVICE", 2, 2, VERB_ONLINE_ONLY,
+     "Set brightness to be the previously saved value");
+static int verb_load(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        unsigned max_brightness, brightness, percent;
+        bool clamp;
+        int r;
+
+        assert(argc == 2);
+
+        if (!shall_restore_state())
+                return 0;
+
+        r = device_new_from_arg(argv[1], &device);
+        if (r <= 0)
+                return r;
+
+        r = read_max_brightness(device, &max_brightness);
+        if (r <= 0)
+                return r;
+
+        /* Ignore any errors in validation, and use the device as is. */
+        if (validate_device(device) == 0)
+                return 0;
+
+        r = shall_clamp(device, &percent);
+        if (r < 0)
+                return r;
+        clamp = r;
+
+        r = read_saved_brightness(device, &brightness);
+        if (r < 0) {
+                /* Fallback to clamping current brightness or exit early if clamping is not
+                 * supported/enabled. */
+                if (!clamp)
+                        return 0;
+
+                r = read_brightness(device, max_brightness, &brightness);
+                if (r < 0)
+                        return log_device_error_errno(device, r, "Failed to read current brightness: %m");
+
+                (void) clamp_brightness(device, percent, /* saved= */ false, max_brightness, &brightness);
+        } else if (clamp)
+                (void) clamp_brightness(device, percent, /* saved= */ true, max_brightness, &brightness);
+
+        r = sd_device_set_sysattr_valuef(device, "brightness", "%u", brightness);
+        if (r < 0)
+                return log_device_error_errno(device, r, "Failed to write system 'brightness' attribute: %m");
+
+        return 0;
+}
+
+VERB(verb_save, "save", "[backlight|leds]:DEVICE", 2, 2, VERB_ONLINE_ONLY,
+     "Save current brightness");
+static int verb_save(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        _cleanup_free_ char *path = NULL;
+        unsigned max_brightness, brightness;
+        int r;
+
+        assert(argc == 2);
+
+        r = device_new_from_arg(argv[1], &device);
+        if (r <= 0)
+                return r;
+
+        r = read_max_brightness(device, &max_brightness);
+        if (r <= 0)
+                return r;
+
+        r = build_save_file_path(device, &path);
+        if (r < 0)
+                return r;
+
+        /* If there are multiple conflicting backlight devices, then their probing at boot-time might
+         * happen in any order. This means the validity checking of the device then is not reliable,
+         * since it might not see other devices conflicting with a specific backlight. To deal with
+         * this, we will actively delete backlight state files at shutdown (where device probing should
+         * be complete), so that the validity check at boot time doesn't have to be reliable. */
+        if (validate_device(device) == 0) {
+                (void) unlink(path);
+                return 0;
+        }
+
+        r = read_brightness(device, max_brightness, &brightness);
+        if (r < 0)
+                return log_device_error_errno(device, r, "Failed to read current brightness: %m");
+
+        r = write_string_filef(path, WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_MKDIR_0755, "%u", brightness);
+        if (r < 0)
+                return log_device_error_errno(device, r, "Failed to write %s: %m", path);
+
+        return 0;
+}
+
+VERB_COMMON_HELP_AUTO_HIDDEN("systemd-backlight");
+
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
+        assert(argc >= 0);
+        assert(argv);
+        assert(ret_args);
+
+        OptionParser opts = { argc, argv };
+
+        FOREACH_OPTION_OR_RETURN(c, &opts)
+                switch (c) {
+
+                OPTION_COMMON_HELP:
+                        return command_print_help("systemd-backlight");
+
+                OPTION_COMMON_VERSION:
+                        return version();
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
+                }
+
+        *ret_args = option_parser_get_args(&opts);
+        return 1;
+}
+
+static int run(int argc, char *argv[]) {
+        int r;
+
+        log_setup();
+
+        umask(0022);
+
+        char **args = NULL;
+        r = parse_argv(argc, argv, &args);
+        if (r <= 0)
+                return r;
+
+        return dispatch_verb(args, /* userdata= */ NULL);
+}
+
+DEFINE_MAIN_FUNCTION(run);

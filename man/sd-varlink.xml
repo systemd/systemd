@@ -1,0 +1,173 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd-varlink"
+  xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd-varlink</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd-varlink</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd-varlink</refname>
+    <refpurpose>APIs for Varlink IPC</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-varlink.h&gt;</funcsynopsisinfo>
+    </funcsynopsis>
+
+    <cmdsynopsis>
+      <command>pkg-config --cflags --libs libsystemd</command>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>sd-varlink.h</filename> is part of
+    <citerefentry><refentrytitle>libsystemd</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
+    provides APIs for implementing Varlink IPC clients and services. See <ulink url="https://varlink.org/"/>
+    for more information about Varlink IPC.</para>
+
+    <para>Varlink IPC uses <ulink url="https://json.org/">JSON</ulink> as marshalling format. The sd-varlink
+    API relies on the
+    <citerefentry><refentrytitle>sd-json</refentrytitle><manvolnum>3</manvolnum></citerefentry> API for JSON
+    serialization, deserialization and manipulation.</para>
+
+    <para>Canonical encoding rules: sd-varlink omits the <literal>"parameters"</literal> member on the wire in replies,
+    errors, and notifications when there are no parameters to transmit. This reduces message size and
+    avoids ambiguity. Receivers must be tolerant and accept any of the following encodings for the
+    absence of parameters: an omitted <literal>"parameters"</literal> key (preferred), a JSON <literal>null</literal>
+    value, or an empty object <literal>{}</literal>. When decoding, sd-varlink treats JSON <literal>null</literal>
+    as if the member was omitted.</para>
+
+    <para>The <citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> tool
+    makes the functionality implemented by sd-varlink available from the command line.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Recognizing Varlink Socket Inodes</title>
+
+    <para>On kernels that support extended attributes on socket inodes (available since Linux 7.0),
+    sd-varlink automatically tags the <constant>AF_UNIX</constant> socket inodes it creates and manages with
+    the <varname>user.varlink</varname> extended attribute. The attribute records the role the socket plays
+    in the Varlink communication, allowing other processes to discover and classify Varlink sockets, for
+    example via <command>varlinkctl list-sockets</command> (see
+    <citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>).</para>
+
+    <para>Four distinct roles are defined:</para>
+
+    <table>
+      <title><varname>user.varlink</varname> extended attribute roles</title>
+
+      <tgroup cols='2'>
+        <colspec colname='value' />
+        <colspec colname='meaning' />
+        <thead>
+          <row>
+            <entry>Attribute value</entry>
+            <entry>Meaning</entry>
+          </row>
+        </thead>
+        <tbody>
+          <row>
+            <entry><literal>client</literal></entry>
+            <entry>Set on the connecting end of a connection, i.e. a socket created via <function>socket()</function> + <function>connect()</function>. Only for inodes on the anonymous socket file system (<literal>sockfs</literal>).</entry>
+          </row>
+          <row>
+            <entry><literal>server</literal></entry>
+            <entry>Set on the serving end of a connection, i.e. a socket obtained via <function>accept()</function> on a listening socket. Only for inodes on the anonymous socket file system (<literal>sockfs</literal>).</entry>
+          </row>
+          <row>
+            <entry><literal>listen</literal></entry>
+            <entry>Set on a listening socket, i.e. a socket created via <function>socket()</function> + <function>listen()</function>. Only for inodes on the anonymous socket file system (<literal>sockfs</literal>).</entry>
+          </row>
+          <row>
+            <entry><literal>entrypoint</literal></entry>
+            <entry>Set on the entrypoint socket inode, i.e. the socket node bound into the regular file system that clients connect to. Unlike the other three, this attribute lives on a real file-system inode (not on <literal>sockfs</literal>) and is hence visible to any process that can resolve the socket path.</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+
+    <para>Note that for socket activated Varlink services it is recommended to set these extended attributes
+    via <varname>XAttrEntryPoint=</varname>, <varname>XAttrListen=</varname> and
+    <varname>XAttrAccept=</varname> settings on the socket units, see
+    <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details. Specifically, for socket units for which <varname>Accept=no</varname> is set:</para>
+
+    <programlisting>…
+[Socket]
+SocketMode=0644
+XAttrEntryPoint=user.varlink=entrypoint
+XAttrListen=user.varlink=listen
+…</programlisting>
+
+    <para>For socket units which have <varname>Accept=yes</varname>:</para>
+
+    <programlisting>…
+[Socket]
+Accept=yes
+SocketMode=0644
+XAttrEntryPoint=user.varlink=entrypoint
+XAttrListen=user.varlink=listen
+XAttrAccept=user.varlink=server
+…</programlisting>
+
+    <para>Note that for Varlink sockets that shall not be world-accessible it is recommended to unset the
+    relevant "w" bits in the socket access mode, but to keep the relevant "r" bits set. As the access check
+    done by <function>connect()</function> looks for the "w" bits, this does not make the service
+    unnecessarily accessible, however it has the benefit that the extended attributes that identify the
+    socket as Varlink-related may still be read by other users (as that's restricted by the "r" bit). Or in
+    other words, it's recommended to set <literal>SocketMode=0644</literal> for services that shall not be
+    accessible to arbitrary users, rather than <literal>SocketMode=0600</literal>.</para>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>Directories</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><filename>/usr/lib/systemd/varlink-bridges/</filename></term>
+        <listitem>
+          <para>When <function>sd_varlink_connect_url()</function> encounters a URL with a scheme that is not
+            natively supported, it looks for a bridge helper binary named after the URL scheme in this
+            directory. The binary is invoked the same way as <literal>exec:</literal> binaries but with the full
+            URL passed as the first command line argument.</para>
+
+          <para>For example, if
+            <command>varlinkctl introspect https://example.com/ws/sockets/io.systemd.Hostname</command>
+            is called, <command>varlinkctl</command> will look for an executable
+            <filename>/usr/lib/systemd/varlink-bridges/https</filename> and invoke it with
+            <literal>https://example.com/ws/sockets/io.systemd.Hostname</literal> as its only
+            argument.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-json</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

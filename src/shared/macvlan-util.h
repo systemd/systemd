@@ -1,0 +1,18 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+#pragma once
+
+#include <linux/if_link.h>
+
+#include "forward.h"
+
+typedef enum MacVlanMode {
+        NETDEV_MACVLAN_MODE_PRIVATE = MACVLAN_MODE_PRIVATE,
+        NETDEV_MACVLAN_MODE_VEPA = MACVLAN_MODE_VEPA,
+        NETDEV_MACVLAN_MODE_BRIDGE = MACVLAN_MODE_BRIDGE,
+        NETDEV_MACVLAN_MODE_PASSTHRU = MACVLAN_MODE_PASSTHRU,
+        NETDEV_MACVLAN_MODE_SOURCE = MACVLAN_MODE_SOURCE,
+        _NETDEV_MACVLAN_MODE_MAX,
+        _NETDEV_MACVLAN_MODE_INVALID = -EINVAL,
+} MacVlanMode;
+
+DECLARE_STRING_TABLE_LOOKUP(macvlan_mode, MacVlanMode);

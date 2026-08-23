@@ -1,0 +1,5 @@
+[Match]
+Name=dummy98
+
+[Link]
+MACAddress=00:01:02:aa:bb:cc

@@ -1,0 +1,59 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+%{
+_Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
+#if __GNUC__ >= 15
+_Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
+#endif
+#include <stddef.h>
+#include "conf-parser.h"
+#include "logind.h"
+#include "logind-user.h"
+%}
+struct ConfigPerfItem;
+%null_strings
+%language=ANSI-C
+%define slot-name section_and_lvalue
+%define hash-function-name logind_gperf_hash
+%define lookup-function-name logind_gperf_lookup
+%readonly-tables
+%omit-struct-type
+%struct-type
+%includes
+%%
+Login.NAutoVTs,                     config_parse_n_autovts,             0, offsetof(Manager, n_autovts)
+Login.ReserveVT,                    config_parse_unsigned,              0, offsetof(Manager, reserve_vt)
+Login.KillUserProcesses,            config_parse_bool,                  0, offsetof(Manager, kill_user_processes)
+Login.KillOnlyUsers,                config_parse_strv,                  0, offsetof(Manager, kill_only_users)
+Login.KillExcludeUsers,             config_parse_strv,                  0, offsetof(Manager, kill_exclude_users)
+Login.InhibitDelayMaxSec,           config_parse_sec,                   0, offsetof(Manager, inhibit_delay_max)
+Login.UserStopDelaySec,             config_parse_sec,                   0, offsetof(Manager, user_stop_delay)
+Login.SleepOperation,               config_parse_handle_action_sleep,   0, offsetof(Manager, handle_action_sleep_mask)
+Login.HandlePowerKey,               config_parse_handle_action,         0, offsetof(Manager, handle_power_key)
+Login.HandlePowerKeyLongPress,      config_parse_handle_action,         0, offsetof(Manager, handle_power_key_long_press)
+Login.HandleRebootKey,              config_parse_handle_action,         0, offsetof(Manager, handle_reboot_key)
+Login.HandleRebootKeyLongPress,     config_parse_handle_action,         0, offsetof(Manager, handle_reboot_key_long_press)
+Login.HandleSuspendKey,             config_parse_handle_action,         0, offsetof(Manager, handle_suspend_key)
+Login.HandleSuspendKeyLongPress,    config_parse_handle_action,         0, offsetof(Manager, handle_suspend_key_long_press)
+Login.HandleHibernateKey,           config_parse_handle_action,         0, offsetof(Manager, handle_hibernate_key)
+Login.HandleHibernateKeyLongPress,  config_parse_handle_action,         0, offsetof(Manager, handle_hibernate_key_long_press)
+Login.HandleLidSwitch,              config_parse_handle_action,         0, offsetof(Manager, handle_lid_switch)
+Login.HandleLidSwitchExternalPower, config_parse_handle_action,         0, offsetof(Manager, handle_lid_switch_ep)
+Login.HandleLidSwitchDocked,        config_parse_handle_action,         0, offsetof(Manager, handle_lid_switch_docked)
+Login.HandleSecureAttentionKey,     config_parse_handle_action,         0, offsetof(Manager, handle_secure_attention_key)
+Login.PowerKeyIgnoreInhibited,      config_parse_bool,                  0, offsetof(Manager, power_key_ignore_inhibited)
+Login.SuspendKeyIgnoreInhibited,    config_parse_bool,                  0, offsetof(Manager, suspend_key_ignore_inhibited)
+Login.HibernateKeyIgnoreInhibited,  config_parse_bool,                  0, offsetof(Manager, hibernate_key_ignore_inhibited)
+Login.LidSwitchIgnoreInhibited,     config_parse_bool,                  0, offsetof(Manager, lid_switch_ignore_inhibited)
+Login.RebootKeyIgnoreInhibited,     config_parse_bool,                  0, offsetof(Manager, reboot_key_ignore_inhibited)
+Login.HoldoffTimeoutSec,            config_parse_sec,                   0, offsetof(Manager, holdoff_timeout_usec)
+Login.IdleAction,                   config_parse_handle_action,         0, offsetof(Manager, idle_action)
+Login.IdleActionSec,                config_parse_sec,                   0, offsetof(Manager, idle_action_usec)
+Login.RuntimeDirectorySize,         config_parse_tmpfs_size,            0, offsetof(Manager, runtime_dir_size)
+Login.RuntimeDirectoryInodesMax,    config_parse_iec_uint64,            0, offsetof(Manager, runtime_dir_inodes)
+Login.RemoveIPC,                    config_parse_bool,                  0, offsetof(Manager, remove_ipc)
+Login.InhibitorsMax,                config_parse_uint64,                0, offsetof(Manager, inhibitors_max)
+Login.SessionsMax,                  config_parse_uint64,                0, offsetof(Manager, sessions_max)
+Login.DesignatedMaintenanceTime,    config_parse_calendar,              0, offsetof(Manager, maintenance_time)
+Login.UserTasksMax,                 config_parse_compat_user_tasks_max, 0, 0
+Login.StopIdleSessionSec,           config_parse_sec_fix_0,             0, offsetof(Manager, stop_idle_session_usec)
+Login.WallMessages,                 config_parse_bool,                  0, offsetof(Manager, wall_messages)

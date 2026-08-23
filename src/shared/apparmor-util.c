@@ -1,0 +1,67 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include "apparmor-util.h"
+#include "log.h"
+
+#if HAVE_APPARMOR
+
+#include <syslog.h>
+
+#include "fileio.h"
+
+DLSYM_PROTOTYPE(aa_change_onexec) = NULL;
+DLSYM_PROTOTYPE(aa_change_profile) = NULL;
+DLSYM_PROTOTYPE(aa_features_new_from_kernel) = NULL;
+DLSYM_PROTOTYPE(aa_features_unref) = NULL;
+DLSYM_PROTOTYPE(aa_policy_cache_dir_path_preview) = NULL;
+DLSYM_PROTOTYPE(aa_policy_cache_new) = NULL;
+DLSYM_PROTOTYPE(aa_policy_cache_replace_all) = NULL;
+DLSYM_PROTOTYPE(aa_policy_cache_unref) = NULL;
+
+bool mac_apparmor_use(void) {
+        static int cached_use = -1;
+        int r;
+
+        if (cached_use >= 0)
+                return cached_use;
+
+        r = read_boolean_file("/sys/module/apparmor/parameters/enabled");
+        if (r < 0) {
+                if (r != -ENOENT)
+                        log_debug_errno(r, "Failed to read and parse /sys/module/apparmor/parameters/enabled, assuming AppArmor is not available: %m");
+                return (cached_use = false);
+        }
+        if (r == 0)
+                return (cached_use = false);
+
+        if (dlopen_libapparmor(LOG_DEBUG) < 0)
+                return (cached_use = false);
+
+        return (cached_use = true);
+}
+
+#endif
+
+int dlopen_libapparmor(int log_level) {
+#if HAVE_APPARMOR
+        static void *libapparmor_dl = NULL;
+
+        LIBAPPARMOR_NOTE(suggested);
+
+        return dlopen_many_sym_or_warn(
+                        &libapparmor_dl,
+                        "libapparmor.so.1",
+                        log_level,
+                        DLSYM_ARG(aa_change_onexec),
+                        DLSYM_ARG(aa_change_profile),
+                        DLSYM_ARG(aa_features_new_from_kernel),
+                        DLSYM_ARG(aa_features_unref),
+                        DLSYM_ARG(aa_policy_cache_dir_path_preview),
+                        DLSYM_ARG(aa_policy_cache_new),
+                        DLSYM_ARG(aa_policy_cache_replace_all),
+                        DLSYM_ARG(aa_policy_cache_unref));
+#else
+        return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                              "libapparmor support is not compiled in.");
+#endif
+}

@@ -1,0 +1,839 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-boot" conditional='ENABLE_BOOTLOADER'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>systemd-boot</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-boot</refentrytitle>
+    <manvolnum>7</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-boot</refname>
+    <refname>sd-boot</refname>
+    <refpurpose>A simple UEFI boot manager</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-boot</command> (short: <command>sd-boot</command>) is a simple UEFI boot
+    manager. It provides a textual menu to select the entry to boot and an editor for the kernel command
+    line. <command>systemd-boot</command> supports systems with UEFI firmware only.</para>
+
+    <para><command>systemd-boot</command> loads boot entry information from the EFI system partition (ESP),
+    usually mounted at <filename>/efi/</filename>, <filename>/boot/</filename>, or
+    <filename>/boot/efi/</filename> during OS runtime, as well as from the Extended Boot Loader partition
+    (XBOOTLDR) if it exists (usually mounted to <filename>/boot/</filename>). Configuration file fragments,
+    kernels, initrds and other EFI images to boot generally need to reside on the ESP or the Extended Boot
+    Loader partition. Linux kernels must be built with <option>CONFIG_EFI_STUB</option> to be able to be
+    directly executed as an EFI image. During boot <command>systemd-boot</command> automatically assembles a
+    list of boot entries from the following sources:</para>
+
+    <itemizedlist>
+      <listitem><para>Boot entries defined with <ulink
+      url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink> Type #1
+      description files located in <filename>/loader/entries/</filename> on the ESP and the Extended Boot
+      Loader Partition. These usually describe Linux kernel images with associated initrd images, but
+      alternatively may also describe other arbitrary EFI executables.</para></listitem>
+
+      <listitem><para>Unified kernel images, <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot
+      Loader Specification</ulink> Type #2, which are executable EFI binaries in
+      <filename>/EFI/Linux/</filename> on the ESP and the Extended Boot Loader Partition.</para></listitem>
+
+      <listitem><para>The Microsoft Windows EFI boot manager, if installed.</para></listitem>
+
+      <listitem><para>The Apple macOS boot manager, if installed.</para></listitem>
+
+      <listitem><para>The EFI Shell binary, if installed.</para></listitem>
+
+      <listitem><para>A <literal>Reboot Into Firmware Interface</literal> option, if supported by the UEFI
+      firmware.</para></listitem>
+
+      <listitem><para>Secure Boot variable enrollment if the UEFI firmware is in setup mode and files are provided
+      on the ESP.</para></listitem>
+    </itemizedlist>
+
+    <para><command>systemd-boot</command> supports the following features:</para>
+
+    <itemizedlist>
+      <listitem><para>Basic boot manager configuration changes (such as timeout
+      configuration, default boot entry selection, …) may be made directly from the boot loader UI at
+      boot-time, as well as during system runtime with EFI variables.</para></listitem>
+
+      <listitem><para>The boot manager integrates with the <command>systemctl</command> command to implement
+      features such as <command>systemctl reboot --boot-loader-entry=…</command> (for rebooting into a
+      specific boot menu entry, i.e. "reboot into Windows") and <command>systemctl reboot
+      --boot-loader-menu=…</command> (for rebooting into the boot loader menu), by implementing the <ulink
+      url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>. See
+      <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+      details.</para></listitem>
+
+      <listitem><para>An EFI variable set by the boot loader informs the OS about the EFI System Partition used
+      during boot. This is then used to automatically mount the correct EFI System Partition to
+      <filename>/efi/</filename> or <filename>/boot/</filename> during OS runtime. See
+      <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      for details.</para></listitem>
+
+      <listitem><para>The boot manager provides information about the boot time spent in UEFI firmware using
+      the <ulink url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>. This
+      information can be displayed using
+      <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+      </para></listitem>
+
+      <listitem><para>The boot manager implements boot counting and automatic fallback to older, working boot
+      entries on failure. See <ulink url="https://systemd.io/AUTOMATIC_BOOT_ASSESSMENT">Automatic Boot
+      Assessment</ulink>.</para></listitem>
+
+      <listitem><para>The boot manager optionally reads a random seed from the ESP partition, combines it
+      with a 'system token' stored in a persistent EFI variable and derives a random seed to use by the OS as
+      entropy pool initialization, providing a full entropy pool during early boot.</para></listitem>
+
+      <listitem><para>The boot manager allows for Secure Boot variables to be enrolled if the UEFI firmware is
+      in setup mode. Additionally, variables can be automatically enrolled if configured.</para></listitem>
+    </itemizedlist>
+
+    <para><citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    may be used from a running system to locate the ESP and the Extended Boot Loader Partition, list
+    available entries, and install <command>systemd-boot</command> itself.</para>
+
+    <para><citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    may be used to copy kernel images onto the ESP or the Extended Boot Loader Partition and to generate
+    description files compliant with the Boot Loader
+    Specification.</para>
+
+    <para><citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    may be used as UEFI boot stub for executed kernels, which is useful to show graphical boot splashes
+    before transitioning into the Linux world. It is also capable of automatically picking up auxiliary
+    credential files (for boot parameterization) and system extension images, as companion files to the
+    booted kernel images.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Key bindings</title>
+    <para>The following keys may be used in the boot menu:</para>
+
+    <!-- Developer commands Q/v/Ctrl+l deliberately not advertised. -->
+
+    <variablelist>
+      <varlistentry>
+        <term><keycap>↑</keycap> (Up)</term>
+        <term><keycap>↓</keycap> (Down)</term>
+        <term><keycap>j</keycap></term>
+        <term><keycap>k</keycap></term>
+        <term><keycap>PageUp</keycap></term>
+        <term><keycap>PageDown</keycap></term>
+        <term><keycap>Home</keycap></term>
+        <term><keycap>End</keycap></term>
+        <listitem><para>Navigate up/down in the entry list</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><keycap>↵</keycap> (Enter)</term>
+        <term><keycap>→</keycap> (Right)</term>
+        <listitem><para>Boot selected entry</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><keycap>d</keycap></term>
+        <listitem><para>Make selected entry the preferred boot entry</para>
+
+        <para>An EFI variable is set to allow this setting to persist.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><keycap>D</keycap></term>
+        <listitem><para>Make selected entry the default boot entry</para>
+
+        <para>An EFI variable is set to allow this setting to persist.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><keycap>e</keycap></term>
+        <listitem><para>Edit the kernel command line for selected entry</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><keycap>+</keycap></term>
+        <term><keycap>t</keycap></term>
+        <listitem><para>Increase the timeout before default entry is booted</para>
+
+        <para>An EFI variable is set to allow this setting to persist.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><keycap>-</keycap></term>
+        <term><keycap>T</keycap></term>
+        <listitem><para>Decrease the timeout</para>
+
+        <para>An EFI variable is set to allow this setting to persist.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><keycap>r</keycap></term>
+        <listitem><para>Change screen resolution, skipping any unsupported modes.</para>
+
+        <para>An EFI variable is set to allow this setting to persist.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><keycap>R</keycap></term>
+        <listitem><para>Reset screen resolution to firmware or configuration file default.</para>
+
+        <para>An EFI variable is set to allow this setting to persist.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><keycap>p</keycap></term>
+        <listitem><para>Print status</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><keycap>h</keycap></term>
+        <term><keycap>?</keycap></term>
+        <term><keycap>F1</keycap></term>
+        <listitem><para>Show a help screen</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><keycap>f</keycap></term>
+        <listitem><para>Reboot into firmware interface.</para>
+
+        <para>For compatibility with the keybindings of several firmware implementations this operation
+        may also be reached with <keycap>F2</keycap>, <keycap>F10</keycap>, <keycap>Del</keycap> and
+        <keycap>Esc</keycap>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><keycombo><keycap>Shift</keycap><keycap>o</keycap></keycombo></term>
+        <listitem><para>Power off the system.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><keycombo><keycap>Shift</keycap><keycap>b</keycap></keycombo></term>
+        <listitem><para>Reboot the system.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>The following keys may be pressed during bootup or in the boot menu to directly boot a specific
+    entry:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><keycap>l</keycap></term>
+        <listitem><para>Linux</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><keycap>w</keycap></term>
+        <listitem><para>Windows</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><keycap>a</keycap></term>
+        <listitem><para>macOS</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><keycap>s</keycap></term>
+        <listitem><para>EFI shell</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><keycap>1</keycap></term>
+        <term><keycap>2</keycap></term>
+        <term><keycap>3</keycap></term>
+        <term><keycap>4</keycap></term>
+        <term><keycap>5</keycap></term>
+        <term><keycap>6</keycap></term>
+        <term><keycap>7</keycap></term>
+        <term><keycap>8</keycap></term>
+        <term><keycap>9</keycap></term>
+        <listitem><para>Boot entry number 1 … 9</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>The boot menu is shown when a non-zero menu timeout has been configured. If the menu timeout has
+    been set to zero, hold down a key (<keycap>space</keycap> is recommended) before the boot loader
+    initializes to bring up the boot menu. Note that depending on the firmware implementation the time window
+    where key presses are accepted before the boot loader initializes might be short. If the window is
+    missed, reboot and try again, possibly repeatedly pressing a suitable key; on most systems it should be
+    possible to hit the time window after a few attempts. Keys other than the space bar may be used, except
+    for the keys listed above. If showing the menu on demand doesn't work well, consider setting a non-zero
+    timeout to show the boot menu unconditionally. Some desktop environments might offer an option to boot
+    directly into the boot menu, which also avoids the problem altogether. Alternatively, use the command
+    line <command>systemctl reboot --boot-loader-menu=</command> with a non-zero value from the shell.</para>
+
+    <para>In the editor, most keys simply insert themselves, but the following keys
+    may be used to perform additional actions:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><keycap>←</keycap> (Left)</term>
+        <term><keycap>→</keycap> (Right)</term>
+        <term><keycap>Home</keycap></term>
+        <term><keycap>End</keycap></term>
+        <listitem><para>Navigate left/right</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><keycap>Esc</keycap></term>
+        <term><keycombo><keycap>Ctrl</keycap><keycap>c</keycap></keycombo></term>
+        <listitem><para>Abort the edit and quit the editor</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><keycombo><keycap>Ctrl</keycap><keycap>k</keycap></keycombo></term>
+        <listitem><para>Clear the command line forwards</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><keycombo><keycap>Ctrl</keycap><keycap>w</keycap></keycombo></term>
+        <term><keycombo><keycap>Alt</keycap><keycap>Backspace</keycap></keycombo></term>
+        <listitem><para>Delete word backwards</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><keycombo><keycap>Ctrl</keycap><keycap>Del</keycap></keycombo></term>
+        <term><keycombo><keycap>Alt</keycap><keycap>d</keycap></keycombo></term>
+        <listitem><para>Delete word forwards</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><keycap>↵</keycap> (Enter)</term>
+        <listitem><para>Boot entry with the edited command line</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>Note that unless configured otherwise in the UEFI firmware, systemd-boot will
+    use the US keyboard layout, so key labels might not match for keys like +/-.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Files</title>
+
+    <para>The files <command>systemd-boot</command> processes generally reside on the UEFI ESP which is
+    usually mounted to <filename>/efi/</filename>, <filename>/boot/</filename> or
+    <filename>/boot/efi/</filename> during OS runtime. It also processes files on the Extended Boot Loader
+    partition which is typically mounted to <filename>/boot/</filename>, if it
+    exists.</para>
+
+    <para><command>systemd-boot</command> reads runtime configuration such as the boot timeout and default
+    entry from <filename>/loader/loader.conf</filename> on the ESP (in combination with data read from EFI
+    variables). See
+    <citerefentry><refentrytitle>loader.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+    <para>Boot entry description files following the <ulink
+    url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink> are read from
+    <filename>/loader/entries/</filename> on the ESP and the Extended Boot Loader partition.</para>
+
+    <para>Unified kernel boot entries following the <ulink
+    url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink> are read from
+    <filename>/EFI/Linux/</filename> on the ESP and the Extended Boot Loader partition.</para>
+
+    <para>Optionally, a random seed for early boot entropy pool provisioning is stored in
+    <filename>/loader/random-seed</filename> in the ESP. If the read-only file attribute is set on this
+    file, it is neither updated nor used: a seed that cannot be updated would be identical on every boot,
+    and hence must not be credited. The file attribute may thus be used to explicitly turn off random seed
+    handling, for example in OS images that are replicated to multiple systems.</para>
+
+    <para>During initialization, <command>systemd-boot</command> automatically loads all driver files placed
+    in the <filename>/EFI/systemd/drivers/</filename> directory of the ESP. The files placed there must have
+    an extension of the EFI architecture ID followed by <filename>.efi</filename> (e.g. for x86-64 this means
+    a suffix of <filename>x64.efi</filename>). This may be used e.g. to add support for hardware not
+    supported natively by the firmware.</para>
+
+    <para>Enrollment of Secure Boot variables can be performed manually or automatically if files are available
+    under <filename>/loader/keys/<replaceable>NAME</replaceable>/{db,dbx,KEK,PK}.auth</filename>, <replaceable>NAME</replaceable>
+    being the display name for the set of variables in the menu. If one of the sets is named <filename>auto</filename>
+    then it might be enrolled automatically depending on the execution environment and the value of the <literal>secure-boot-enroll</literal> option.
+    See
+    <citerefentry><refentrytitle>loader.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Companion Files</title>
+
+    <para>For Type #1 boot loader entries (as defined in the <ulink
+    url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader
+    Specification</ulink>) <command>systemd-boot</command> will collect additional companion resources
+    declared via the <literal>extra</literal> key in the entry, dynamically generate
+    <command>cpio</command> initrd archives from them, and register those archives via the Linux initrd EFI
+    protocol so that they are passed to the kernel together with the entry's own initrd. This is supported
+    for entries referencing a Unified Kernel Image (UKI) via the <literal>uki</literal> or
+    <literal>uki-url</literal> keys. Each <literal>extra</literal> key references a single regular file
+    (relative to the root of the file system containing the entry snippet) and the key may be specified
+    multiple times. Companion resources are recognized by file name suffix:</para>
+
+    <itemizedlist>
+      <listitem><para>Files with the <filename>.cred</filename> suffix are packed into a
+      <command>cpio</command> archive placed in the <filename>/.extra/credentials/</filename> directory of
+      the initrd file hierarchy. This is intended to convey auxiliary, encrypted, authenticated credentials
+      for use with <varname>LoadCredentialEncrypted=</varname>. See
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> and
+      <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+      details on encrypted credentials. The generated <command>cpio</command> archive is measured into TPM
+      PCR 12 (if a TPM is present).</para></listitem>
+
+      <listitem><para>Files with the <filename>.sysext.raw</filename> suffix are packed into a
+      <command>cpio</command> archive placed in the <filename>/.extra/sysext/</filename> directory of the
+      initrd file hierarchy. This is intended to pass additional entry-specific system extension images to
+      the initrd. See
+      <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
+      details on system extension images. The generated <command>cpio</command> archive is measured into TPM
+      PCR 13 (if a TPM is present).</para></listitem>
+
+      <listitem><para>Files with the <filename>.confext.raw</filename> suffix are packed into a
+      <command>cpio</command> archive placed in the <filename>/.extra/confext/</filename> directory of the
+      initrd file hierarchy. This is intended to pass additional entry-specific configuration extension
+      images to the initrd. See
+      <citerefentry><refentrytitle>systemd-confext</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      for details on configuration extension images. The generated <command>cpio</command> archive is
+      measured into TPM PCR 12 (if a TPM is present).</para></listitem>
+    </itemizedlist>
+
+    <para>When the booted kernel is a UKI, the <command>systemd-stub</command> UEFI stub embedded in it will
+    combine the companion resources injected here with any companion files it itself collects from the UKI's
+    <filename>.extra.d/</filename> drop-in directory and from <filename>/loader/credentials/</filename> and
+    <filename>/loader/extensions/</filename>, so that all sources are merged uniformly into
+    <filename>/.extra/</filename> in the initrd. See
+    <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+    details.</para>
+
+    <para>Example Type #1 entry making use of the <literal>extra</literal> key:</para>
+
+    <programlisting>title       My OS
+version     1.2.3
+machine-id  6a9857a393724b7a981ebb5b8495b9ea
+uki         /6a9857a393724b7a981ebb5b8495b9ea/1.2.3/img.efi
+extra       /6a9857a393724b7a981ebb5b8495b9ea/1.2.3/foo.cred
+extra       /6a9857a393724b7a981ebb5b8495b9ea/1.2.3/bar.sysext.raw
+extra       /6a9857a393724b7a981ebb5b8495b9ea/1.2.3/baz.confext.raw</programlisting>
+  </refsect1>
+
+  <refsect1>
+    <title>EFI Variables</title>
+
+    <para>The following EFI variables are defined, and may be set or read by <command>systemd-boot</command>
+    for communication between the boot loader and the OS. The vendor UUID
+    <literal>4a67b082-0a4c-41cf-b6c7-440b29bb8c4f</literal> is used in all cases.</para>
+
+    <variablelist class='efi-variables'>
+      <varlistentry>
+        <term><varname>LoaderBootCountPath</varname></term>
+        <listitem><para>If boot counting is enabled, contains the path to the file in whose name the boot
+        counters are encoded. Set by the boot loader.
+        <citerefentry><refentrytitle>systemd-bless-boot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        uses this information to mark a boot as successful as determined by the successful activation of the
+        <filename>boot-complete.target</filename> target unit.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderConfigTimeout</varname></term>
+        <term><varname>LoaderConfigTimeoutOneShot</varname></term>
+        <listitem><para>The menu timeout in seconds. Read by the boot loader. <varname>LoaderConfigTimeout</varname>
+        is maintained persistently, while <varname>LoaderConfigTimeoutOneShot</varname> is a one-time override which is
+        read once (in which case it takes precedence over <varname>LoaderConfigTimeout</varname>) and then
+        removed. <varname>LoaderConfigTimeout</varname> may be manipulated with the
+        <keycap>t</keycap>/<keycap>T</keycap> keys, see above.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderConfigConsoleMode</varname></term>
+        <listitem><para>The numerical menu console mode. Read by the boot loader. <varname>LoaderConfigConsoleMode</varname>
+        is maintained persistently. <varname>LoaderConfigConsoleMode</varname> may be manipulated with the
+        <keycap>r</keycap>/<keycap>R</keycap> keys, see above.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderDevicePartUUID</varname></term>
+
+        <listitem><para>Contains the partition UUID of the partition the boot loader has been started from on
+        the current boot (usually an EFI System Partition). Set by the boot loader. (Note that
+        <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> will
+        set this too, if not set yet, to support systems that boot directly into a unified kernel image,
+        bypassing any boot loader.)
+        <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        uses this information to automatically find the disk booted from, in order to discover various other
+        partitions on the same disk automatically.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderDeviceURL</varname></term>
+
+        <listitem><para>If the boot loader has been invoked via network booting this variable contains the
+        originating URL. This may be used to automatically acquire additional resources from the same
+        source.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderEntries</varname></term>
+
+        <listitem><para>A list of the identifiers of all discovered boot loader entries. Set by the boot
+        loader.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderEntryPreferred</varname></term>
+        <term><varname>LoaderEntryDefault</varname></term>
+        <term><varname>LoaderEntrySysFail</varname></term>
+        <term><varname>LoaderEntryOneShot</varname></term>
+
+        <listitem><para>The identifier of the default boot loader entry. Can be set in the OS and the boot
+        loader. <varname>LoaderEntryOneShot</varname> sets the default entry for the next boot only, while
+        <varname>LoaderEntryDefault</varname> sets it persistently for all future boots.
+        <varname>LoaderEntryPreferred</varname> is like <varname>LoaderEntryDefault</varname> but additionally
+        takes into account boot assessment and skips boot entries with a tries-left counter equal to zero.
+        <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+        <option>set-default</option> and <option>set-oneshot</option> commands make use of these variables.
+        The boot loader modifies <varname>LoaderEntryDefault</varname> on request, when the
+        <keycap>d</keycap> key is used, see above.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderEntryLastBooted</varname></term>
+
+        <listitem><para>The identifier of the boot loader entry last attempted. Set and read by the boot loader,
+        only when <filename>/loader/loader.conf</filename> has default set to <literal>@saved</literal>. See
+        <citerefentry><refentrytitle>loader.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <para> The boot loader will ensure <varname>LoaderEntryLastBooted</varname> is up-to date for every boot,
+        updating it as needed and will omit changing it all together when <varname>LoaderEntryOneShot</varname>
+        is set.</para>
+
+        <para>The boot loader reads the variable, which takes higher priority than
+        <varname>LoaderEntryDefault</varname>. The variable is ignored when <varname>LoaderEntryOneShot</varname>
+        is set.</para>
+
+        <para><varname>LoaderEntryLastBooted</varname> cannot be used as indication that the last boot was
+        successful or not.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderEntrySelected</varname></term>
+
+        <listitem><para>The identifier of the boot loader entry currently being booted. Set by the boot
+        loader.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderFeatures</varname></term>
+
+        <listitem><para>A set of flags indicating the features the boot loader supports. Set by the boot loader. Use
+        <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> to view this
+        data.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderFirmwareInfo</varname></term>
+        <term><varname>LoaderFirmwareType</varname></term>
+
+        <listitem><para>Brief firmware information. Set by the boot loader. Use
+        <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> to view this
+        data.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderTpm2ActivePcrBanks</varname></term>
+
+        <listitem><para>Hexadecimal string representation of a bitmask with values defined by the TCG EFI
+        Protocol Specification for TPM 2.0 as EFI_TCG2_BOOT_HASH_ALG_*. If no TPM2 support or no active
+        banks were detected, will be set to <constant>0</constant>. Set by the boot loader. Use
+        <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        to view this data.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderPcrSMBIOS</varname></term>
+
+        <listitem><para>The PCR register index select SMBIOS structures are measured into — type 1
+        (system information, with the volatile "Wake-up Type" field zeroed out), type 2 (baseboard
+        information) and type 11 (OEM strings). Formatted as decimal ASCII string (e.g.
+        <literal>1</literal>). Set by the boot loader if a measurement was successfully completed, and remains
+        unset otherwise. (Note that <command>systemd-stub</command> performs the same measurement when booted
+        directly, bypassing the boot loader.)</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderImageIdentifier</varname></term>
+
+        <listitem><para>The file system path to the EFI executable of the boot loader for the current boot,
+        relative to the partition's root directory (i.e. relative to the partition indicated by
+        <varname>LoaderDevicePartUUID</varname>, see above). Set by the boot loader. (Note that
+        <command>systemd-stub</command> will set this too, if not set yet, to support systems that directly
+        boot into a unified kernel image, bypassing any boot loader.) Use
+        <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> to view
+        this data.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderInfo</varname></term>
+
+        <listitem><para>Brief information about the boot loader. Set by the boot loader. Use
+        <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> to view this
+        data.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderTimeExecUSec</varname></term>
+        <term><varname>LoaderTimeInitUSec</varname></term>
+        <term><varname>LoaderTimeMenuUsec</varname></term>
+
+        <listitem><para>Information about the time spent in various parts of the boot loader. Set by the boot
+        loader. Use <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        to view this data. </para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderSystemToken</varname></term>
+
+        <listitem><para>A binary random data field, that is used for generating the random seed to pass to
+        the OS (see above). Note that this random data is generally only generated once, during OS
+        installation, and is then never updated again.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>Many of these variables are defined by the <ulink
+    url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>SMBIOS Type 11 Strings</title>
+
+    <para><command>systemd-boot</command> can be configured using SMBIOS Type 11 strings. Applicable strings
+    consist of a name, followed by <literal>=</literal>, followed by the value. Unless
+    <command>systemd-boot</command> detects it is running inside a confidential computing environment,
+    <command>systemd-boot</command> will search the table for a string with a specific name, and if found,
+    use its value. The following strings are read:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><varname>io.systemd.boot.kernel-cmdline-extra</varname></term>
+        <listitem><para>If set, the value of this string is added to the list of kernel command line
+        arguments for Boot Loader Specification Type 1 entries that are measured in PCR12 and passed to the
+        kernel.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>io.systemd.boot-entries.extra:</varname><replaceable>ID=DEFINITION</replaceable></term>
+
+        <listitem><para>This allows inserting additional entries into the <command>systemd-boot</command>
+        menu. Take a pair of menu entry identifier and menu entry definition string. The former should be
+        suitable for use as a filename of a Boot Loader Specification Type #1 entry filename (note that it is
+        used for identification purposes only, no file of this name is actually accessed), the latter shall
+        follow the syntax of the contents of a Type #1 entry. Any menu entry defined this way is processed
+        and shown in pretty much the same way as a Type #1 entry read from the ESP or XBOOTLDR
+        partition. Example:</para>
+
+        <programlisting>io.systemd.boot-entries.extra:fooos-current.conf=title FooOS (Current)
+uki-url http://example.com/somedir/fooos.efi</programlisting>
+
+        <para>Note that this example contains a newline character. When generating this string from a shell
+        care must be taken to encode it correctly.</para>
+
+        <para>Pass multiple strings formatted this way to generate multiple menu entries.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>io.systemd.boot.loglevel</varname></term>
+        <listitem><para>If set, the value of this string is used as log level. Valid values (from most to
+        least critical) are <literal>emerg</literal>, <literal>alert</literal>, <literal>crit</literal>,
+        <literal>err</literal>, <literal>warning</literal>, <literal>notice</literal>, <literal>info</literal>,
+        and <literal>debug</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Boot Counting</title>
+
+    <para><command>systemd-boot</command> implements a simple boot counting mechanism on top of the <ulink
+    url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink>, for automatic and unattended
+    fallback to older kernel versions/boot loader entries when a specific entry continuously fails. Any boot loader
+    entry file and unified kernel image file that contains a <literal>+</literal> followed by one or two numbers (if
+    two they need to be separated by a <literal>-</literal>), before the <filename>.conf</filename> or
+    <filename>.efi</filename> suffix is subject to boot counting: the first of the two numbers ('tries left') is
+    decreased by one on every boot attempt, the second of the two numbers ('tries done') is increased by one (if 'tries
+    done' is absent it is considered equivalent to 0). Depending on the current value of these two counters the boot
+    entry is considered to be in one of three states:</para>
+
+    <orderedlist>
+      <listitem><para>If the 'tries left' counter of an entry is greater than zero the entry is considered to be in
+      'indeterminate' state. This means the entry has not completed booting successfully yet, but also has not been
+      determined not to work.</para></listitem>
+
+      <listitem><para>If the 'tries left' counter of an entry is zero it is considered to be in 'bad' state. This means
+      no further attempts to boot this item will be made (that is, unless all other boot entries are also in 'bad'
+      state), as all attempts to boot this entry have not completed successfully.</para></listitem>
+
+      <listitem><para>If the 'tries left' and 'tries done' counters of an entry are absent it is considered to be in
+      'good' state. This means further boot counting for the entry is turned off, as it successfully booted at least
+      once. The
+      <citerefentry><refentrytitle>systemd-bless-boot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      service moves the currently booted entry from 'indeterminate' into 'good' state when a boot attempt completed
+      successfully.</para></listitem>
+    </orderedlist>
+
+    <para>Generally, when new entries are added to the boot loader, they first start out in 'indeterminate' state,
+    i.e. with a 'tries left' counter greater than zero. The boot entry remains in this state until either it managed to
+    complete a full boot successfully at least once (in which case it will be in 'good' state) — or the 'tries left'
+    counter reaches zero (in which case it will be in 'bad' state).</para>
+
+    <para>Example: let's say a boot loader entry file <filename>foo.conf</filename> is set up for 3 boot tries. The
+    installer will hence create it under the name <filename>foo+3.conf</filename>. On first boot, the boot loader will
+    rename it to <filename>foo+2-1.conf</filename>. If that boot does not complete successfully, the boot loader will
+    rename it to <filename>foo+1-2.conf</filename> on the following boot. If that fails too, it will finally be renamed
+    <filename>foo+0-3.conf</filename> by the boot loader on next boot, after which it will be considered 'bad'. If the
+    boot succeeds however the entry file will be renamed to <filename>foo.conf</filename> by the OS, so that it is
+    considered 'good' from then on.</para>
+
+    <para>The boot menu takes the 'tries left' counter into account when sorting the menu entries: entries in 'bad'
+    state are ordered at the beginning of the list, and entries in 'good' or 'indeterminate' at the end. The user can
+    freely choose to boot any entry of the menu, including those already marked 'bad'. If the menu entry to boot is
+    automatically determined, this means that 'good' or 'indeterminate' entries are generally preferred (as the bottom
+    item of the menu is the one booted by default), and 'bad' entries will only be considered if there are no 'good' or
+    'indeterminate' entries left.</para>
+
+    <para>The <citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry> kernel
+    install framework optionally sets the initial 'tries left' counter to the value specified in
+    <filename>/etc/kernel/tries</filename> when a boot loader entry is first created.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Using <command>systemd-boot</command> in virtual machines</title>
+
+    <para>When using <ulink url="https://www.qemu.org/docs/master/">qemu</ulink> with
+    <ulink url="https://www.linux-kvm.org/downloads/lersek/ovmf-whitepaper-c770f8c.txt">OVMF</ulink>
+    (UEFI Firmware for virtual machines) the <option>-kernel</option> switch works not only for linux
+    kernels, but for any EFI binary, including <filename>systemd-boot</filename> and unified linux kernels
+    (UKIs). Example command line for loading <command>systemd-boot</command> on x64:</para>
+
+    <para>
+      <command>qemu-system-x86_64
+      -drive if=pflash,format=qcow2,readonly=on,file=/usr/share/edk2/ovmf/OVMF_CODE_4M.qcow2
+      -kernel /usr/lib/systemd/boot/efi/systemd-bootx64.efi
+      -drive file=<replaceable>...</replaceable>
+      <replaceable>[ ... ]</replaceable>
+      </command>
+    </para>
+
+    <para>(The path to the firmware file might need to be adjusted depending on the distribution.)
+    <filename>systemd-boot</filename> will detect that it was started directly instead of being loaded from
+    ESP and will search for the ESP in that case, taking into account boot order information from the
+    hypervisor (if available). Note that for this to yield a useful result, another <option>-drive</option>
+    argument needs to be used to attach an actual disk image with an ESP.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>loader.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-bless-boot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-boot-random-seed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink></member>
+      <member><ulink url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink></member>
+      <member><ulink url="https://systemd.io/TPM2_PCR_MEASUREMENTS">TPM2 PCR Measurements Made by systemd</ulink></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

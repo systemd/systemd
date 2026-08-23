@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=test1
+
+[Network]
+Address=192.168.20.21/24
+IPv6AcceptRA=no
+
+[Route]
+Destination=10.10.11.10
+# Nexthop 21 is configured as a group nexthop of 1 and 20
+NextHop=21

@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# Test fix for https://github.com/systemd/systemd/issues/33547.
+#
+#Type Name ID
+u     foo  -
+u     bar  300:foo

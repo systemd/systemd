@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?> <!--*-nxml-*-->
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+        "https://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+
+<!--
+  SPDX-License-Identifier: LGPL-2.1-or-later
+
+  This file is part of systemd.
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+-->
+
+<policyconfig>
+
+        <vendor>The systemd Project</vendor>
+        <vendor_url>https://systemd.io</vendor_url>
+
+        <!-- Allow mounting DDIs into the host user namespace -->
+        <action id="io.systemd.mount-file-system.mount-image">
+                <!-- This action is generally checked first: we'll first try to mount the image with
+                     signature checks on. If that fails, we'll retry with the untrusted action below. -->
+                <description gettext-domain="systemd">Allow mounting of file system image</description>
+                <message gettext-domain="systemd">Authentication is required for an application to mount a file system image.</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
+        <action id="io.systemd.mount-file-system.mount-untrusted-image">
+                <!-- If the image cannot be mounted via the regular action because it is not signed by a
+                     recognized key, we'll try this action. -->
+                <description gettext-domain="systemd">Allow mounting of untrusted file system image</description>
+                <message gettext-domain="systemd">Authentication is required for an application to mount a cryptographically unsigned file system image or an image whose cryptographic signature is not recognized.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin</allow_active>
+                </defaults>
+
+                <annotate key="org.freedesktop.policykit.imply">io.systemd.mount-file-system.mount-image</annotate>
+        </action>
+
+        <!-- Allow mounting DDIs into a private user namespace -->
+        <action id="io.systemd.mount-file-system.mount-image-privately">
+                <description gettext-domain="systemd">Allow private mounting of trusted file system image</description>
+                <message gettext-domain="systemd">Authentication is required for an application to privately mount a file system image or an image whose cryptographic signature is recognized.</message>
+                <defaults>
+                        <allow_any>yes</allow_any>
+                        <allow_inactive>yes</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
+        <action id="io.systemd.mount-file-system.mount-untrusted-image-privately">
+                <description gettext-domain="systemd">Allow private mounting of untrusted file system image</description>
+                <message gettext-domain="systemd">Authentication is required for an application to privately mount a cryptographically unsigned file system image or an image whose cryptographic signature is not recognized.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin</allow_active>
+                </defaults>
+
+                <annotate key="org.freedesktop.policykit.imply">io.systemd.mount-file-system.mount-image-privately</annotate>
+        </action>
+
+        <!-- Allow mounting directories into the host user namespace -->
+        <action id="io.systemd.mount-file-system.mount-directory">
+                <!-- If the directory is owned by the user (or by the foreign UID range, with a parent
+                     directory owned by the user), make little restrictions -->
+                <description gettext-domain="systemd">Allow mounting of directory</description>
+                <message gettext-domain="systemd">Authentication is required for an application to mount directory $(directory).</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
+        <action id="io.systemd.mount-file-system.mount-untrusted-directory">
+                <!-- If the directory is owned by an other user, require authentication -->
+                <description gettext-domain="systemd">Allow mounting of untrusted directory</description>
+                <message gettext-domain="systemd">Authentication is required for an application to mount directory $(directory) which is not owned by the user.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin</allow_active>
+                </defaults>
+
+                <annotate key="org.freedesktop.policykit.imply">io.systemd.mount-file-system.mount-directory</annotate>
+        </action>
+
+        <!-- Allow mounting directories into a private user namespace -->
+        <action id="io.systemd.mount-file-system.mount-directory-privately">
+                <description gettext-domain="systemd">Allow private mounting of directory</description>
+                <message gettext-domain="systemd">Authentication is required for an application to privately mount directory $(directory).</message>
+                <defaults>
+                        <allow_any>yes</allow_any>
+                        <allow_inactive>yes</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
+        <action id="io.systemd.mount-file-system.mount-untrusted-directory-privately">
+                <description gettext-domain="systemd">Allow private mounting of untrusted directory</description>
+                <message gettext-domain="systemd">Authentication is required for an application to privately mount directory $(directory) which is not owned by the user.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin</allow_active>
+                </defaults>
+
+                <annotate key="org.freedesktop.policykit.imply">io.systemd.mount-file-system.mount-directory-privately</annotate>
+        </action>
+
+        <!-- Allow making foreign UID range owned directories -->
+        <action id="io.systemd.mount-file-system.make-directory">
+                <description gettext-domain="systemd">Allow creating directory owned by the foreign UID range</description>
+                <message gettext-domain="systemd">Authentication is required for an application to create $(directory) owned by the foreign UID range.</message>
+                <defaults>
+                        <allow_any>yes</allow_any>
+                        <allow_inactive>yes</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
+        <action id="io.systemd.mount-file-system.make-directory-untrusted">
+                <description gettext-domain="systemd">Allow creating directory owned by the foreign UID range below directory not owned by the user</description>
+                <message gettext-domain="systemd">Authentication is required for an application to create $(directory) owned by the foreign UID range, below a directory not owned by the user.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin</allow_active>
+                </defaults>
+
+                <annotate key="org.freedesktop.policykit.imply">io.systemd.mount-file-system.make-directory</annotate>
+        </action>
+</policyconfig>

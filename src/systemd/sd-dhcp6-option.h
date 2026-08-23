@@ -1,0 +1,34 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+#ifndef foosddhcp6optionhfoo
+#define foosddhcp6optionhfoo
+
+/***
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <https://www.gnu.org/licenses/>.
+***/
+
+#include "_sd-common.h"
+#include "sd-dhcp6-protocol.h"  /* IWYU pragma: export */
+
+_SD_BEGIN_DECLARATIONS;
+
+typedef struct sd_dhcp6_option sd_dhcp6_option;
+
+int sd_dhcp6_option_new(uint16_t option, const void *data, size_t length, uint32_t enterprise_identifier, sd_dhcp6_option **ret);
+_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp6_option);
+
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_dhcp6_option, sd_dhcp6_option_unref);
+
+_SD_END_DECLARATIONS;
+
+#endif

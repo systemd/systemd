@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=client-p
+Name=router-p
+Name=router-high-p
+Name=router-low-p
+
+[Network]
+Bridge=bridge99
+IPv6AcceptRA=no

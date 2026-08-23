@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Service]
+Type=oneshot
+MountAPIVFS=yes
+PrivateTmp=yes
+ExecStart=test -e /tmp/shared-private-file

@@ -1,0 +1,138 @@
+# shellcheck shell=bash
+# systemd-sysupdate(8) completion                     -*- shell-script -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# This file is part of systemd.
+#
+# systemd is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
+#
+# systemd is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
+
+__contains_word() {
+    local w word=$1; shift
+    for w in "$@"; do
+        [[ $w = "$word" ]] && return
+    done
+}
+
+# List the components or features known to the installation. The argument is both
+# the verb to invoke ('components' or 'features') and the JSON array key to extract.
+__systemd_sysupdate_list() {
+    systemd-sysupdate --no-pager --json=short "$1" 2>/dev/null |
+        sed -n "s/.*\"$1\":\[\([^]]*\)\].*/\1/p" | tr ',' '\n' | tr -d '"'
+}
+
+_systemd-sysupdate() {
+    local i verb comps
+    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]} words cword
+    local -A OPTS=(
+        [STANDALONE]='-h --help --version
+                     --no-pager
+                     --no-legend
+                     -A --component-all
+                     -S --component-suggested
+                     -a --feature-all
+                     -s --feature-suggested
+                     --reboot
+                     --offline'
+        [ARG]='-C --component
+               --definitions
+               --root
+               --image
+               --image-policy
+               --transfer-source
+               -m --instances-max
+               --sync
+               --verify
+               --cleanup
+               --json'
+    )
+
+    local -A VERBS=(
+        [STANDALONE]='check-new
+                      vacuum
+                      cleanup
+                      pending
+                      reboot
+                      components'
+        [VERSION]='list
+                   update
+                   acquire'
+        [FEATURE]='features
+                   enable-feature
+                   disable-feature'
+        [COMPONENT]='enable-component
+                     disable-component'
+    )
+
+    _init_completion || return
+
+    if __contains_word "$prev" ${OPTS[ARG]}; then
+        case $prev in
+            -C|--component)
+                comps=$( __systemd_sysupdate_list components )
+                ;;
+            --definitions|--root|--transfer-source)
+                comps=$(compgen -A directory -- "$cur" )
+                compopt -o dirnames
+                ;;
+            --image)
+                comps=$(compgen -A file -- "$cur" )
+                compopt -o filenames
+                ;;
+            --image-policy)
+                comps=''
+                ;;
+            --instances-max|-m)
+                comps=''
+                ;;
+            --sync|--verify|--cleanup)
+                comps='no yes'
+                ;;
+            --json)
+                comps='pretty short off'
+                ;;
+        esac
+        COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+        return 0
+    fi
+
+    if [[ "$cur" = -* ]]; then
+        COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
+        return 0
+    fi
+
+    for ((i=0; i < COMP_CWORD; i++)); do
+        if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]} &&
+                ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
+            verb=${COMP_WORDS[i]}
+            break
+        fi
+    done
+
+    if [[ -z ${verb-} ]]; then
+        comps=${VERBS[*]}
+    elif __contains_word "$verb" ${VERBS[FEATURE]}; then
+        comps=$( __systemd_sysupdate_list features )
+    elif __contains_word "$verb" ${VERBS[COMPONENT]}; then
+        comps=$( __systemd_sysupdate_list components )
+    else
+        # STANDALONE verbs take no argument, VERSION verbs take a remote version
+        # that cannot be enumerated locally.
+        comps=''
+    fi
+
+    COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+    return 0
+}
+
+complete -F _systemd-sysupdate systemd-sysupdate

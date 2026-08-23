@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Ensure that already created groups are used when using the uid:gid syntax
+#
+#Type Name ID  GECOS HOMEDIR
+g xxx 310
+u yyy 311:310
+u xxx 312:310

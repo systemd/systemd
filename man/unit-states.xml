@@ -1,0 +1,61 @@
+<?xml version="1.0"?>
+<!DOCTYPE refsect1 PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+
+<!--
+  SPDX-License-Identifier: LGPL-2.1-or-later
+-->
+
+<refsect1>
+  <title/>
+
+  <table id="table">
+    <title>Unit ACTIVE states</title>
+    <tgroup cols='2'>
+      <colspec colname='state'/>
+      <colspec colname='description'/>
+      <thead>
+        <row>
+            <entry>State</entry>
+            <entry>Description</entry>
+        </row>
+      </thead>
+      <tbody>
+        <row>
+            <entry><varname>active</varname></entry>
+            <entry>Started, bound, plugged in, …, depending on the unit type.</entry>
+        </row>
+        <row>
+            <entry><varname>inactive</varname></entry>
+            <entry>Stopped, unbound, unplugged, …, depending on the unit type.</entry>
+        </row>
+        <row>
+            <entry><varname>failed</varname></entry>
+            <entry>Similar to <constant>inactive</constant>, but the unit failed in some way (process returned error code on exit, crashed, an operation timed out, or after too many restarts).
+            </entry>
+        </row>
+        <row>
+            <entry><varname>activating</varname></entry>
+            <entry>Changing from <constant>inactive</constant> to <constant>active</constant>.</entry>
+        </row>
+        <row>
+            <entry><varname>deactivating</varname></entry>
+            <entry>Changing from <constant>active</constant> to <constant>inactive</constant>.</entry>
+        </row>
+        <row>
+            <entry><varname>maintenance</varname></entry>
+            <entry>Unit is <constant>inactive</constant> and a maintenance operation is in progress.</entry>
+        </row>
+        <row>
+            <entry><varname>reloading</varname></entry>
+            <entry>Unit is <constant>active</constant> and it is reloading its configuration.</entry>
+        </row>
+        <row>
+            <entry><varname>refreshing</varname></entry>
+            <entry>Unit is <constant>active</constant> and a new mount is being activated in its namespace.
+            </entry>
+        </row>
+      </tbody>
+    </tgroup>
+  </table>
+
+</refsect1>

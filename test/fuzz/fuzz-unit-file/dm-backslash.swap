@@ -1,0 +1,10 @@
+swap
+[Unit]
+SourcePath=/etc/fstab
+Documentation=man:fstab(5) man:systemd-fstab-generator(8)
+
+[Swap]
+What=/dev/mapper/fedora_krowka-swap
+Options=defaults,x-systemd.device-timeout=0
+Priority=11
+TimeoutSec=123h 5min 2y

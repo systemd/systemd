@@ -1,0 +1,41 @@
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+# The superuser
+g root    0       -            -
+u root    0:0     "Super User" /root
+
+# The nobody user/group for NFS file systems
+g nobody 65534    -            -
+u nobody 65534:65534 "Kernel Overflow User"     -
+
+# Administrator group: can *see* more than normal users
+g adm     999     -            -
+
+# Administrator group: can *do* more than normal users
+g wheel   998     -            -
+
+# Access to shared database of users on the system
+g utmp    997     -            -
+
+# Physical and virtual hardware access groups
+g audio   996     -            -
+g cdrom   995     -            -
+g dialout 994     -            -
+g disk    993     -            -
+g input   992     -            -
+g kmem    991     -            -
+g kvm     990     -            -
+g lp      989     -            -
+g render  988     -            -
+g sgx     987     -            -
+g tape    986     -            -
+g tty     5       -            -
+g video   985     -            -
+
+# Default group for normal users
+g users   984     -            -

@@ -1,0 +1,104 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="systemd-veritysetup_.service" conditional='HAVE_LIBCRYPTSETUP'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-veritysetup@.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-veritysetup@.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-veritysetup@.service</refname>
+    <refname>systemd-veritysetup</refname>
+    <refpurpose>Disk verity protection logic</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-veritysetup@.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-veritysetup</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-veritysetup@.service</filename> is a service responsible for setting up verity
+    protection block devices. It should be instantiated for each device that requires verity
+    protection.</para>
+
+    <para>At early boot and when the system manager configuration is reloaded kernel command line configuration for
+    verity protected block devices is translated into <filename>systemd-veritysetup@.service</filename> units by
+    <citerefentry><refentrytitle>systemd-veritysetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+    <para><filename>systemd-veritysetup@.service</filename> calls <command>systemd-veritysetup</command>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
+
+    <para>The following commands are understood by <command>systemd-veritysetup</command>:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term>
+          <option>attach</option>
+          <replaceable>volume</replaceable>
+          <replaceable>datadevice</replaceable>
+          <replaceable>hashdevice</replaceable>
+          <replaceable>roothash</replaceable>
+          [<replaceable>option</replaceable>...]
+        </term>
+
+        <listitem><para>Create a block device <replaceable>volume</replaceable> using
+        <replaceable>datadevice</replaceable> and <replaceable>hashdevice</replaceable> as the backing
+        devices. <replaceable>roothash</replaceable> forms the root of the tree of hashes stored on
+        <replaceable>hashdevice</replaceable>. See
+        <ulink url="https://docs.kernel.org/admin-guide/device-mapper/verity.html">
+          Kernel dm-verity</ulink> documentation for details.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>
+          <option>detach</option>
+          <replaceable>volume</replaceable>
+        </term>
+
+        <listitem><para>Detach (destroy) the block device
+        <replaceable>volume</replaceable>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>
+          <option>help</option>
+        </term>
+
+        <listitem><para>Print short information about command syntax.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-veritysetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>veritysetup</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+     </simplelist></para>
+  </refsect1>
+
+</refentry>

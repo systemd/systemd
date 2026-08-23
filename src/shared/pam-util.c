@@ -1,0 +1,415 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include "log.h"
+#include "pam-util.h"
+
+#if HAVE_PAM
+
+#include <security/pam_ext.h>
+#include <syslog.h>
+
+#include "sd-bus.h"
+
+#include "alloc-util.h"
+#include "bus-internal.h"
+#include "errno-util.h"
+#include "fd-util.h"
+#include "format-util.h"
+#include "process-util.h"
+#include "stdio-util.h"
+#include "string-util.h"
+
+DLSYM_PROTOTYPE(pam_acct_mgmt) = NULL;
+DLSYM_PROTOTYPE(pam_close_session) = NULL;
+DLSYM_PROTOTYPE(pam_end) = NULL;
+DLSYM_PROTOTYPE(pam_get_authtok_noverify) = NULL;
+DLSYM_PROTOTYPE(pam_get_authtok_verify) = NULL;
+DLSYM_PROTOTYPE(pam_get_data) = NULL;
+DLSYM_PROTOTYPE(pam_get_item) = NULL;
+DLSYM_PROTOTYPE(pam_get_user) = NULL;
+DLSYM_PROTOTYPE(pam_getenv) = NULL;
+DLSYM_PROTOTYPE(pam_getenvlist) = NULL;
+DLSYM_PROTOTYPE(pam_open_session) = NULL;
+DLSYM_PROTOTYPE(pam_prompt) = NULL;
+DLSYM_PROTOTYPE(pam_putenv) = NULL;
+DLSYM_PROTOTYPE(pam_set_data) = NULL;
+DLSYM_PROTOTYPE(pam_set_item) = NULL;
+DLSYM_PROTOTYPE(pam_setcred) = NULL;
+DLSYM_PROTOTYPE(pam_start) = NULL;
+DLSYM_PROTOTYPE(pam_strerror) = NULL;
+DLSYM_PROTOTYPE(pam_syslog) = NULL;
+DLSYM_PROTOTYPE(pam_vsyslog) = NULL;
+
+void pam_log_setup(void) {
+        /* Make sure we don't leak the syslog fd we open by opening/closing the fd each time. */
+        log_set_open_when_needed(true);
+
+        /* pam logs to syslog so let's make our generic logging functions do the same thing. */
+        log_set_target(LOG_TARGET_SYSLOG);
+}
+
+int errno_to_pam_error(int error) {
+        return ERRNO_VALUE(error) == ENOMEM ? PAM_BUF_ERR : PAM_SERVICE_ERR;
+}
+
+int pam_syslog_errno(pam_handle_t *pamh, int level, int error, const char *format, ...) {
+        va_list ap;
+
+        error = ERRNO_VALUE(error);
+        LOCAL_ERRNO(error);
+
+        va_start(ap, format);
+        sym_pam_vsyslog(pamh, level, format, ap);
+        va_end(ap);
+
+        return errno_to_pam_error(error);
+}
+
+int pam_syslog_pam_error(pam_handle_t *pamh, int level, int error, const char *format, ...) {
+        /* This wraps pam_syslog() but will replace @PAMERR@ with a string from pam_strerror().
+         * @PAMERR@ must be at the very end. */
+
+        va_list ap;
+        va_start(ap, format);
+
+        const char *p = endswith(format, "@PAMERR@");
+        if (p) {
+                const char *pamerr = sym_pam_strerror(pamh, error);
+                if (strchr(pamerr, '%'))
+                        pamerr = "n/a";  /* We cannot have any formatting chars */
+
+                char buf[p - format + strlen(pamerr) + 1];
+                xsprintf(buf, "%.*s%s", (int)(p - format), format, pamerr);
+
+                DISABLE_WARNING_FORMAT_NONLITERAL;
+                sym_pam_vsyslog(pamh, level, buf, ap);
+                REENABLE_WARNING;
+        } else
+                sym_pam_vsyslog(pamh, level, format, ap);
+
+        va_end(ap);
+
+        return error;
+}
+
+/* A small structure we store inside the PAM session object, that allows us to reuse bus connections but pins
+ * it to the process thoroughly. */
+struct PamBusData {
+        sd_bus *bus;
+        pam_handle_t *pam_handle;
+        char *cache_id;
+};
+
+static PamBusData *pam_bus_data_free(PamBusData *d) {
+        /* The actual destructor */
+        if (!d)
+                return NULL;
+
+        /* NB: PAM sessions usually involve forking off a child process, and thus the PAM context might be
+         * duplicated in the child. This destructor might be called twice: both in the parent and in the
+         * child. sd_bus_flush_close_unref() however is smart enough to be a NOP when invoked in any other
+         * process than the one it was invoked from, hence we don't need to add any extra protection here to
+         * ensure that destruction of the bus connection in the child affects the parent's connection
+         * somehow. */
+        sd_bus_flush_close_unref(d->bus);
+        free(d->cache_id);
+
+        /* Note: we don't destroy pam_handle here, because this object is pinned by the handle, and not vice versa! */
+
+        return mfree(d);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(PamBusData*, pam_bus_data_free);
+
+static void pam_bus_data_destroy(pam_handle_t *pamh, void *data, int error_status) {
+        /* Destructor when called from PAM. Note that error_status is supposed to tell us via PAM_DATA_SILENT
+         * whether we are called in a forked off child of the PAM session or in the original parent. We don't
+         * bother with that however, and instead rely on the PID checks that sd_bus_flush_close_unref() does
+         * internally anyway. That said, we still generate a warning message, since this really shouldn't
+         * happen. */
+
+        if (!data)
+                return;
+
+        PamBusData *d = data;
+        if (FLAGS_SET(error_status, PAM_DATA_SILENT) &&
+            d->bus && bus_origin_changed(d->bus))
+                /* Please adjust test/units/end.sh when updating the log message. */
+                sym_pam_syslog(pamh, LOG_DEBUG,
+                               "Warning: cannot close sd-bus connection (%s) after fork when it was opened before the fork.",
+                               strna(d->cache_id));
+
+        pam_bus_data_free(data);
+}
+
+static char* pam_make_bus_cache_id(const char *module_name) {
+        char *id;
+
+        /* We want to cache bus connections between hooks. But we don't want to allow them to be reused in
+         * child processes (because sd-bus doesn't support that). We also don't want them to be reused
+         * between our own PAM modules, because they might be linked against different versions of our
+         * utility functions and share different state. Hence include both a module ID and a PID in the data
+         * field ID. */
+
+        if (asprintf(&id, "system-bus-%s-" PID_FMT, ASSERT_PTR(module_name), getpid_cached()) < 0)
+                return NULL;
+
+        return id;
+}
+
+void pam_bus_data_disconnectp(PamBusData **_d) {
+        PamBusData *d = *ASSERT_PTR(_d);
+        pam_handle_t *pamh;
+        int r;
+
+        /* Disconnects the connection explicitly (for use via _cleanup_()) when called */
+
+        if (!d)
+                return;
+
+        pamh = ASSERT_PTR(d->pam_handle); /* Keep a reference to the session even after 'd' might be invalidated */
+
+        r = sym_pam_set_data(pamh, ASSERT_PTR(d->cache_id), NULL, NULL);
+        if (r != PAM_SUCCESS)
+                pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to release PAM user record data, ignoring: @PAMERR@");
+
+        /* Note, the pam_set_data() call will invalidate 'd', don't access here anymore */
+}
+
+int pam_acquire_bus_connection(
+                pam_handle_t *pamh,
+                const char *module_name,
+                bool debug,
+                sd_bus **ret_bus,
+                PamBusData **ret_pam_bus_data) {
+
+        _cleanup_(pam_bus_data_freep) PamBusData *d = NULL;
+        _cleanup_free_ char *cache_id = NULL;
+        int r;
+
+        assert(pamh);
+        assert(module_name);
+        assert(ret_bus);
+
+        cache_id = pam_make_bus_cache_id(module_name);
+        if (!cache_id)
+                return pam_log_oom(pamh);
+
+        /* We cache the bus connection so that we can share it between the session and the authentication hooks */
+        r = sym_pam_get_data(pamh, cache_id, (const void**) &d);
+        if (r == PAM_SUCCESS && d)
+                goto success;
+        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
+                return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to get bus connection: @PAMERR@");
+
+        d = new(PamBusData, 1);
+        if (!d)
+                return pam_log_oom(pamh);
+
+        *d = (PamBusData) {
+                .cache_id = TAKE_PTR(cache_id),
+                .pam_handle = pamh,
+        };
+
+        r = sd_bus_open_system(&d->bus);
+        if (r < 0)
+                return pam_syslog_errno(pamh, LOG_ERR, r, "Failed to connect to system bus: %m");
+
+        r = sym_pam_set_data(pamh, d->cache_id, d, pam_bus_data_destroy);
+        if (r != PAM_SUCCESS)
+                return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to set PAM bus data: @PAMERR@");
+
+        pam_debug_syslog(pamh, debug, "New sd-bus connection (%s) opened.", d->cache_id);
+
+success:
+        *ret_bus = sd_bus_ref(d->bus);
+
+        if (ret_pam_bus_data)
+                *ret_pam_bus_data = d;
+
+        TAKE_PTR(d); /* don't auto-destroy anymore, it's installed now */
+
+        return PAM_SUCCESS;
+}
+
+int pam_get_bus_data(pam_handle_t *pamh, const char *module_name, PamBusData **ret) {
+        PamBusData *d = NULL;
+        _cleanup_free_ char *cache_id = NULL;
+        int r;
+
+        assert(pamh);
+        assert(module_name);
+        assert(ret);
+
+        cache_id = pam_make_bus_cache_id(module_name);
+        if (!cache_id)
+                return pam_log_oom(pamh);
+
+        /* We cache the bus connection so that we can share it between the session and the authentication hooks */
+        r = sym_pam_get_data(pamh, cache_id, (const void**) &d);
+        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
+                return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to get bus connection: @PAMERR@");
+
+        *ret = d;
+        return PAM_SUCCESS;
+}
+
+void pam_cleanup_free(pam_handle_t *pamh, void *data, int error_status) {
+        /* A generic destructor for pam_set_data() that just frees the specified data */
+        free(data);
+}
+
+void pam_cleanup_close(pam_handle_t *pamh, void *data, int error_status) {
+
+        /* A generic destructor for pam_set_data() that just closes the specified fd.
+         *
+         * As per pam_set_data() docs: the PAM_DATA_SILENT indicates whether we are called in the forked off
+         * payload child of the new session. However, all file descriptors are most likely already closed
+         * there (that's what /bin/login does after all), hence let's simply turn this into a NOP in the
+         * child, and only close the fd in the parent. */
+        if (FLAGS_SET(error_status, PAM_DATA_SILENT))
+                return;
+
+        safe_close(PTR_TO_FD(data));
+}
+
+int pam_get_item_many_internal(pam_handle_t *pamh, ...) {
+        va_list ap;
+        int r;
+
+        assert(pamh);
+
+        va_start(ap, pamh);
+        for (;;) {
+                int item_type = va_arg(ap, int);
+                if (item_type <= 0) {
+                        r = PAM_SUCCESS;
+                        break;
+                }
+
+                const void **value = ASSERT_PTR(va_arg(ap, const void **));
+                r = sym_pam_get_item(pamh, item_type, value);
+                if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS))
+                        break;
+        }
+        va_end(ap);
+
+        return r;
+}
+
+int pam_get_data_many_internal(pam_handle_t *pamh, ...) {
+        va_list ap;
+        int r;
+
+        assert(pamh);
+
+        va_start(ap, pamh);
+        for (;;) {
+                const char *data_name = va_arg(ap, const char *);
+                if (!data_name) {
+                        r = PAM_SUCCESS;
+                        break;
+                }
+
+                const void **value = ASSERT_PTR(va_arg(ap, const void **));
+                r = sym_pam_get_data(pamh, data_name, value);
+                if (!IN_SET(r, PAM_NO_MODULE_DATA, PAM_SUCCESS))
+                        break;
+        }
+        va_end(ap);
+
+        return r;
+}
+
+int pam_prompt_graceful(pam_handle_t *pamh, int style, char **ret_response, const char *fmt, ...) {
+        va_list args;
+        int r;
+
+        assert(pamh);
+        assert(fmt);
+
+        /* This is just like pam_prompt(), but does not noisily (i.e. beyond LOG_DEBUG) log on its own, but leaves that to the caller */
+
+        _cleanup_free_ char *msg = NULL;
+        va_start(args, fmt);
+        r = vasprintf(&msg, fmt, args);
+        va_end(args);
+        if (r < 0)
+                return PAM_BUF_ERR;
+
+        const struct pam_conv *conv = NULL;
+        r = sym_pam_get_item(pamh, PAM_CONV, (const void**) &conv);
+        if (!IN_SET(r, PAM_SUCCESS, PAM_BAD_ITEM))
+                return pam_syslog_pam_error(pamh, LOG_DEBUG, r, "Failed to get conversation function structure: @PAMERR@");
+        if (!conv || !conv->conv) {
+                sym_pam_syslog(pamh, LOG_DEBUG, "No conversation function.");
+                return PAM_SYSTEM_ERR;
+        }
+
+        struct pam_message message = {
+                .msg_style = style,
+                .msg = msg,
+        };
+        const struct pam_message *pmessage = &message;
+        _cleanup_free_ struct pam_response *response = NULL;
+        r = conv->conv(1, &pmessage, &response, conv->appdata_ptr);
+        _cleanup_(erase_and_freep) char *rr = response ? response->resp : NULL; /* make sure string is freed + erased */
+        if (r != PAM_SUCCESS)
+                return pam_syslog_pam_error(pamh, LOG_DEBUG, r, "Conversation function failed: @PAMERR@");
+
+        if (ret_response)
+                *ret_response = TAKE_PTR(rr);
+
+        return PAM_SUCCESS;
+}
+
+int pam_putenv_assign(pam_handle_t *pamh, const char *name, const char *value) {
+        _cleanup_(erase_and_freep) char *s = NULL;
+
+        assert(pamh);
+        assert(name);
+        assert(value);
+
+        if (asprintf(&s, "%s=%s", name, value) < 0)
+                return PAM_BUF_ERR;
+
+        return sym_pam_putenv(pamh, s);
+}
+
+#endif
+
+int dlopen_libpam(int log_level) {
+#if HAVE_PAM
+        static void *libpam_dl = NULL;
+
+        LIBPAM_NOTE(suggested);
+
+        return dlopen_many_sym_or_warn(
+                        &libpam_dl,
+                        "libpam.so.0",
+                        log_level,
+                        DLSYM_ARG(pam_acct_mgmt),
+                        DLSYM_ARG(pam_close_session),
+                        DLSYM_ARG(pam_end),
+                        DLSYM_ARG(pam_get_authtok_noverify),
+                        DLSYM_ARG(pam_get_authtok_verify),
+                        DLSYM_ARG(pam_get_data),
+                        DLSYM_ARG(pam_get_item),
+                        DLSYM_ARG(pam_get_user),
+                        DLSYM_ARG(pam_getenv),
+                        DLSYM_ARG(pam_getenvlist),
+                        DLSYM_ARG(pam_open_session),
+                        DLSYM_ARG(pam_prompt),
+                        DLSYM_ARG(pam_putenv),
+                        DLSYM_ARG(pam_set_data),
+                        DLSYM_ARG(pam_set_item),
+                        DLSYM_ARG(pam_setcred),
+                        DLSYM_ARG(pam_start),
+                        DLSYM_ARG(pam_strerror),
+                        DLSYM_ARG(pam_syslog),
+                        DLSYM_ARG(pam_vsyslog));
+#else
+        return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                              "libpam support is not compiled in.");
+#endif
+}

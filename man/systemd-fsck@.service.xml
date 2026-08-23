@@ -1,0 +1,158 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="systemd-fsck_.service" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-fsck@.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-fsck@.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-fsck@.service</refname>
+    <refname>systemd-fsck-root.service</refname>
+    <refname>systemd-fsck-usr.service</refname>
+    <refname>systemd-fsck</refname>
+    <refpurpose>File system checker logic</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><simplelist>
+      <member><filename>systemd-fsck@.service</filename></member>
+      <member><filename>systemd-fsck-root.service</filename></member>
+      <member><filename>systemd-fsck-usr.service</filename></member>
+      <member><filename>/usr/lib/systemd/systemd-fsck</filename></member>
+    </simplelist></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-fsck@.service</filename>, <filename>systemd-fsck-root.service</filename>, and
+    <filename>systemd-fsck-usr.service</filename> are services responsible for file system checks. They are
+    instantiated for each device that is configured for file system checking.
+    <filename>systemd-fsck-root.service</filename> and <filename>systemd-fsck-usr.service</filename> are
+    responsible for file system checks on the root and /usr file system, respectively, but only if the root
+    filesystem was not checked in the initrd. <filename>systemd-fsck@.service</filename> is used for all
+    other file systems and for the root file system in the initrd.</para>
+
+    <para>These services are started at boot if <option>passno</option> in <filename>/etc/fstab</filename>
+    for the file system is set to a value greater than zero, but only if it is also configured to be
+    mounted at boot (i.e. without <literal>noauto</literal> option). The file system check for root is
+    performed before the other file systems. Other file systems may be checked in parallel, except when
+    they are on the same rotating disk.</para>
+
+    <para><filename>systemd-fsck</filename> does not know any details
+    about specific filesystems, and simply executes file system
+    checkers specific to each filesystem type
+    (<filename>fsck.<replaceable>type</replaceable></filename>). These checkers will decide if
+    the filesystem should actually be checked based on the time since
+    last check, number of mounts, unclean unmount, etc.</para>
+
+    <para><filename>systemd-fsck-root.service</filename> and <filename>systemd-fsck-usr.service</filename>
+    will activate <filename>reboot.target</filename> if
+    <citerefentry project='man-pages'><refentrytitle>fsck</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    returns the "System
+    should reboot" condition, or <filename>emergency.target</filename> if <command>fsck</command>
+    returns the "Filesystem errors left uncorrected" condition.</para>
+
+    <para><filename>systemd-fsck@.service</filename> will fail if
+    <citerefentry project='man-pages'><refentrytitle>fsck</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    returns either the "System should reboot"
+    or the "Filesystem errors left uncorrected" condition. For filesystems
+    listed in <filename>/etc/fstab</filename> without <literal>nofail</literal>
+    or <literal>noauto</literal> options, <filename>local-fs.target</filename>
+    will then activate <filename>emergency.target</filename>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Kernel Command Line</title>
+
+    <para><command>systemd-fsck</command> understands these kernel
+    command line parameters:</para>
+
+    <variablelist class='kernel-commandline-options'>
+      <varlistentry>
+        <term><varname>fsck.mode=</varname></term>
+
+        <listitem><para>One of <literal>auto</literal>,
+        <literal>force</literal>, <literal>skip</literal>. Controls
+        the mode of operation. The default is <literal>auto</literal>,
+        and ensures that file system checks are done when the file
+        system checker deems them necessary. <literal>force</literal>
+        unconditionally results in full file system checks.
+        <literal>skip</literal> skips any file system
+        checks.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>fsck.repair=</varname></term>
+
+        <listitem><para>One of <literal>preen</literal>,
+        <literal>yes</literal>, <literal>no</literal>. Controls the
+        mode of operation. The default is <literal>preen</literal>,
+        and will automatically repair problems that can be safely
+        fixed. <literal>yes</literal> will answer yes to all
+        questions by fsck and <literal>no</literal> will answer no to
+        all questions. </para>
+
+        <xi:include href="version-info.xml" xpointer="v213"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Credentials</title>
+
+    <para><command>systemd-fsck</command> supports the service credentials logic as implemented by
+    <varname>ImportCredential=</varname>/<varname>LoadCredential=</varname>/<varname>SetCredential=</varname>
+    (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details). The following credentials are used when passed in:</para>
+
+    <variablelist class='system-credentials'>
+      <varlistentry>
+        <term><varname>fsck.mode</varname></term>
+        <term><varname>fsck.repair</varname></term>
+
+        <listitem>
+          <para>The contents of the credentials are parsed as same as the kernel command line options with
+          the same name. See above for more details.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>Note that by default the <filename>systemd-fsck@.service</filename>,
+    <filename>systemd-fsck-root.service</filename>, and <filename>systemd-fsck-usr.service</filename> unit
+    files are set up to inherit both <varname>fsck.mode</varname> and <varname>fsck.repair</varname>
+    credentials from the service manager.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>fsck</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-quotacheck@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='url'><refentrytitle url='https://btrfs.readthedocs.io/en/latest/fsck.btrfs.html'>fsck.btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>fsck.cramfs</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>fsck.ext4</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>fsck.fat</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>fsck.hfsplus</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>fsck.minix</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>fsck.ntfs</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>fsck.xfs</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

@@ -1,0 +1,88 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+#pragma once
+
+#include "conf-parser-forward.h"
+#include "forward.h"
+
+/* 127.0.0.53 in native endian (The IP address we listen on with the full DNS stub, i.e. that does LLMNR/mDNS, and stuff) */
+#define INADDR_DNS_STUB ((in_addr_t) 0x7f000035U)
+
+/* 127.0.0.54 in native endian (The IP address we listen on we only implement "proxy" mode) */
+#define INADDR_DNS_PROXY_STUB ((in_addr_t) 0x7f000036U)
+
+/* 127.0.0.2 is an address we always map to the local hostname. This is different from 127.0.0.1 which maps to "localhost" */
+#define INADDR_LOCALADDRESS ((in_addr_t) 0x7f000002U)
+
+typedef enum DnsCacheMode {
+        DNS_CACHE_MODE_NO,
+        DNS_CACHE_MODE_YES,
+        DNS_CACHE_MODE_NO_NEGATIVE,
+        _DNS_CACHE_MODE_MAX,
+        _DNS_CACHE_MODE_INVALID = -EINVAL,
+} DnsCacheMode;
+
+/* Do not change the order, see link_get_llmnr_support() or link_get_mdns_support(). */
+typedef enum ResolveSupport {
+        RESOLVE_SUPPORT_NO,
+        RESOLVE_SUPPORT_RESOLVE,
+        RESOLVE_SUPPORT_YES,
+        _RESOLVE_SUPPORT_MAX,
+        _RESOLVE_SUPPORT_INVALID = -EINVAL,
+} ResolveSupport;
+
+typedef enum DnssecMode {
+        /* No DNSSEC validation is done */
+        DNSSEC_NO,
+
+        /* Validate locally, if the server knows DO, but if not,
+         * don't. Don't trust the AD bit. If the server doesn't do
+         * DNSSEC properly, downgrade to non-DNSSEC operation. Of
+         * course, we then are vulnerable to a downgrade attack, but
+         * that's life and what is configured. */
+        DNSSEC_ALLOW_DOWNGRADE,
+
+        /* Insist on DNSSEC server support, and rather fail than downgrading. */
+        DNSSEC_YES,
+
+        _DNSSEC_MODE_MAX,
+        _DNSSEC_MODE_INVALID = -EINVAL,
+} DnssecMode;
+
+typedef enum DnsOverTlsMode {
+        /* No connection is made for DNS-over-TLS */
+        DNS_OVER_TLS_NO,
+
+        /* Try to connect using DNS-over-TLS, but if connection fails,
+         * fall back to using an unencrypted connection */
+        DNS_OVER_TLS_OPPORTUNISTIC,
+
+        /* Enforce DNS-over-TLS and require valid server certificates */
+        DNS_OVER_TLS_YES,
+
+        _DNS_OVER_TLS_MODE_MAX,
+        _DNS_OVER_TLS_MODE_INVALID = -EINVAL,
+} DnsOverTlsMode;
+
+CONFIG_PARSER_PROTOTYPE(config_parse_resolve_support);
+CONFIG_PARSER_PROTOTYPE(config_parse_dnssec_mode);
+CONFIG_PARSER_PROTOTYPE(config_parse_dns_over_tls_mode);
+CONFIG_PARSER_PROTOTYPE(config_parse_dns_cache_mode);
+
+DECLARE_STRING_TABLE_LOOKUP(resolve_support, ResolveSupport);
+
+DECLARE_STRING_TABLE_LOOKUP(dnssec_mode, DnssecMode);
+
+DECLARE_STRING_TABLE_LOOKUP(dns_over_tls_mode, DnsOverTlsMode);
+
+bool dns_server_address_valid(int family, const union in_addr_union *sa);
+
+DECLARE_STRING_TABLE_LOOKUP(dns_cache_mode, DnsCacheMode);
+
+/* A resolv.conf file containing the DNS server and domain data we learnt from uplink, i.e. the full uplink data */
+#define PRIVATE_UPLINK_RESOLV_CONF "/run/systemd/resolve/resolv.conf"
+
+/* A resolv.conf file containing the domain data we learnt from uplink, but our own DNS server address. */
+#define PRIVATE_STUB_RESOLV_CONF "/run/systemd/resolve/stub-resolv.conf"
+
+/* A static resolv.conf file containing no domains, but only our own DNS server address */
+#define PRIVATE_STATIC_RESOLV_CONF LIBEXECDIR "/resolv.conf"

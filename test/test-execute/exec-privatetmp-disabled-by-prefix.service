@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for PrivateTmp=yes with prefix
+
+[Service]
+ExecStart=bash -x -c 'test ! -f /tmp/test-exec_privatetmp'
+ExecStart=+bash -x -c 'test -f /tmp/test-exec_privatetmp'
+Type=oneshot
+PrivateTmp=yes

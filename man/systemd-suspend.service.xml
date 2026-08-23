@@ -1,0 +1,136 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-suspend.service"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-suspend.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-suspend.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-suspend.service</refname>
+    <refname>systemd-hibernate.service</refname>
+    <refname>systemd-hybrid-sleep.service</refname>
+    <refname>systemd-suspend-then-hibernate.service</refname>
+    <refname>systemd-sleep</refname>
+    <refpurpose>System sleep state logic</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><simplelist>
+      <member><filename>systemd-suspend.service</filename></member>
+      <member><filename>systemd-hibernate.service</filename></member>
+      <member><filename>systemd-hybrid-sleep.service</filename></member>
+      <member><filename>systemd-suspend-then-hibernate.service</filename></member>
+      <member><filename>/usr/lib/systemd/system-sleep</filename></member>
+    </simplelist></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-suspend.service</filename> is a system
+    service that is pulled in by <filename>suspend.target</filename>
+    and is responsible for the actual system suspend. Similarly,
+    <filename>systemd-hibernate.service</filename> is pulled in by
+    <filename>hibernate.target</filename> to execute the actual
+    hibernation. Finally,
+    <filename>systemd-hybrid-sleep.service</filename> is pulled in by
+    <filename>hybrid-sleep.target</filename> to execute hybrid
+    hibernation with system suspend and pulled in by
+    <filename>suspend-then-hibernate.target</filename> to execute system suspend
+    with a timeout that will activate hibernate later.</para>
+
+    <para>Immediately before entering system suspend and/or
+    hibernation <filename>systemd-suspend.service</filename> (and the
+    other mentioned units, respectively) will run all executables in
+    <filename>/usr/lib/systemd/system-sleep/</filename> and pass two
+    arguments to them. The first argument will be
+    <literal>pre</literal>, the second either
+    <literal>suspend</literal>, <literal>hibernate</literal>,
+    <literal>hybrid-sleep</literal>, or <literal>suspend-then-hibernate</literal>
+    depending on the chosen action. An environment variable called <literal>SYSTEMD_SLEEP_ACTION</literal>
+    will be set and contain the sleep action that is processing. This is primarily helpful for
+    <literal>suspend-then-hibernate</literal> where the value of the variable will be <literal>suspend</literal>, <literal>hibernate</literal>,
+    or <literal>suspend-after-failed-hibernate</literal> in cases where hibernation has failed.
+    Immediately after leaving system suspend and/or hibernation the
+    same executables are run, but the first argument is now
+    <literal>post</literal>. All executables in this directory are
+    executed in parallel, and execution of the action is not continued
+    until all executables have finished. Note that <filename>user.slice</filename> will
+    be frozen while the executables are running, so they should not attempt to
+    communicate with any user services expecting a reply.</para>
+
+    <para>Note that scripts or binaries dropped in
+    <filename>/usr/lib/systemd/system-sleep/</filename> are intended
+    for local use only and should be considered hacks. If applications
+    want to react to system suspend/hibernation and resume, they should rather use the
+    <ulink url="https://systemd.io/INHIBITOR_LOCKS">Inhibitor Locks</ulink>.</para>
+
+    <para>Note that <filename>systemd-suspend.service</filename>,
+    <filename>systemd-hibernate.service</filename>, <filename>systemd-hybrid-sleep.service</filename>, and
+    <filename>systemd-suspend-then-hibernate.service</filename> should never be executed directly. Instead,
+    trigger system sleep with a command such as <command>systemctl suspend</command> or <command>systemctl
+    hibernate</command>.</para>
+
+    <para>Internally, this service will echo a string like
+    <literal>mem</literal> into <filename>/sys/power/state</filename>,
+    to trigger the actual system suspend. What exactly is written
+    where can be configured in the [Sleep] section
+    of <filename>/etc/systemd/sleep.conf</filename> or a
+    <filename>sleep.conf.d</filename> file. See
+    <citerefentry><refentrytitle>systemd-sleep.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+
+    <para>Note that by default these services freeze <filename>user.slice</filename> while they run. This prevents
+    the execution of any process in any of the user sessions while the system is entering into and resuming from
+    sleep. Thus, this prevents the hooks in <filename>/usr/lib/systemd/system-sleep/</filename>, or any other process
+    for that matter, from communicating with any user session process during sleep.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para><command>systemd-sleep</command> understands the
+    following commands:</para>
+
+    <variablelist>
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+
+      <varlistentry>
+        <term><option>suspend</option></term>
+        <term><option>hibernate</option></term>
+        <term><option>suspend-then-hibernate</option></term>
+        <term><option>hybrid-sleep</option></term>
+
+        <listitem><para>Suspend, hibernate, suspend then hibernate, or put the
+        system to hybrid sleep.</para>
+
+        <xi:include href="version-info.xml" xpointer="v203"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd-sleep.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-halt.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

@@ -1,0 +1,43 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+#pragma once
+
+#include "core-forward.h"
+#include "unit.h"
+
+typedef enum AutomountResult {
+        AUTOMOUNT_SUCCESS,
+        AUTOMOUNT_FAILURE_RESOURCES,
+        AUTOMOUNT_FAILURE_UNMOUNTED,
+        AUTOMOUNT_FAILURE_START_LIMIT_HIT,
+        AUTOMOUNT_FAILURE_MOUNT_START_LIMIT_HIT,
+        _AUTOMOUNT_RESULT_MAX,
+        _AUTOMOUNT_RESULT_INVALID = -EINVAL,
+} AutomountResult;
+
+typedef struct Automount {
+        Unit meta;
+
+        AutomountState state, deserialized_state;
+
+        char *where;
+        char *extra_options;
+        usec_t timeout_idle_usec;
+
+        int pipe_fd;
+        sd_event_source *pipe_event_source;
+        mode_t directory_mode;
+        dev_t dev_id;
+
+        Set *tokens;
+        Set *expire_tokens;
+
+        sd_event_source *expire_event_source;
+
+        AutomountResult result;
+} Automount;
+
+extern const UnitVTable automount_vtable;
+
+DECLARE_STRING_TABLE_LOOKUP(automount_result, AutomountResult);
+
+DEFINE_CAST(AUTOMOUNT, Automount);

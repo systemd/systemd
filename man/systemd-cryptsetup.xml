@@ -1,0 +1,172 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="systemd-cryptsetup" conditional='HAVE_LIBCRYPTSETUP' xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-cryptsetup</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-cryptsetup</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-cryptsetup</refname>
+    <refname>systemd-cryptsetup@.service</refname>
+    <!-- <refname>system-systemd\x2dcryptsetup.slice</refname> — this causes meson to go haywire because it
+         thinks this is a (windows) path. Let's just not create the alias for this name, and only include it
+         in the synopsis. -->
+    <refpurpose>Full disk decryption logic</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-cryptsetup</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">attach</arg>
+      <arg choice="plain">VOLUME</arg>
+      <arg choice="plain">SOURCE-DEVICE</arg>
+      <arg choice="opt">KEY-FILE</arg>
+      <arg choice="opt">CRYPTTAB-OPTIONS</arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>systemd-cryptsetup</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">detach</arg>
+      <arg choice="plain">VOLUME</arg>
+    </cmdsynopsis>
+
+    <para><filename>systemd-cryptsetup@.service</filename></para>
+    <para><filename>system-systemd\x2dcryptsetup.slice</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-cryptsetup</command> is used to set up (with <command>attach</command>) and tear
+    down (with <command>detach</command>) access to an encrypted block device. It is primarily used via
+    <filename>systemd-cryptsetup@.service</filename> during early boot, but may also be called manually.
+    The positional arguments <parameter>VOLUME</parameter>, <parameter>SOURCE-DEVICE</parameter>,
+    <parameter>KEY-FILE</parameter>, and <parameter>CRYPTTAB-OPTIONS</parameter> have the same meaning as the
+    fields in <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+
+    <para><filename>systemd-cryptsetup@.service</filename> is a service responsible for providing access to
+    encrypted block devices. It is instantiated for each device that requires decryption.</para>
+
+    <para><filename>systemd-cryptsetup@.service</filename> instances are part of the
+    <filename>system-systemd\x2dcryptsetup.slice</filename> slice, which is destroyed only very late in the
+    shutdown procedure. This allows the encrypted devices to remain up until filesystems have been unmounted.
+    </para>
+
+    <para><filename>systemd-cryptsetup@.service</filename> will ask
+    for hard disk passwords via the <ulink
+    url="https://systemd.io/PASSWORD_AGENTS/">password agent logic</ulink>, in
+    order to query the user for the password using the right mechanism at boot
+    and during runtime.</para>
+
+    <para>At early boot and when the system manager configuration is reloaded, <filename>/etc/crypttab</filename> is
+    translated into <filename>systemd-cryptsetup@.service</filename> units by
+    <citerefentry><refentrytitle>systemd-cryptsetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+    <para>In order to unlock a volume a password or binary key is required.
+    <filename>systemd-cryptsetup@.service</filename> tries to acquire a suitable password or binary key via
+    the following mechanisms, tried in order:</para>
+
+    <orderedlist>
+      <listitem><para>If a key file is explicitly configured (via the third column in
+      <filename>/etc/crypttab</filename>), a key read from it is used. If a PKCS#11 token, FIDO2 token or
+      TPM2 device is configured (using the <varname>pkcs11-uri=</varname>, <varname>fido2-device=</varname>,
+      <varname>tpm2-device=</varname> options) the key is decrypted before use.</para></listitem>
+
+      <listitem><para>If no key file is configured explicitly this way, a key file is automatically loaded
+      from <filename>/etc/cryptsetup-keys.d/<replaceable>volume</replaceable>.key</filename> and
+      <filename>/run/cryptsetup-keys.d/<replaceable>volume</replaceable>.key</filename>, if present. Here
+      too, if a PKCS#11/FIDO2/TPM2 token/device is configured, any key found this way is decrypted before
+      use.</para></listitem>
+
+      <listitem><para>If the <varname>try-empty-password</varname> option is specified then unlocking the
+      volume with an empty password is attempted.</para></listitem>
+
+      <listitem><para>If the <varname>password-cache=</varname> option is set to <literal>yes</literal> or
+      <literal>read-only</literal>, the kernel keyring is then checked for a suitable cached password from
+      previous attempts.</para></listitem>
+
+      <listitem><para>Finally, the user is queried for a password, possibly multiple times, unless
+      the <varname>headless</varname> option is set.</para></listitem>
+    </orderedlist>
+
+    <para>If no suitable key may be acquired via any of the mechanisms describes above, volume activation fails.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Credentials</title>
+
+    <para><command>systemd-cryptsetup</command> supports the service credentials logic as implemented by
+    <varname>ImportCredential=</varname>/<varname>LoadCredential=</varname>/<varname>SetCredential=</varname>
+    (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details). The following credentials are used by <literal>systemd-crypsetup@root.service</literal>
+    (generated by <command>systemd-gpt-auto-generator</command>) when passed in:</para>
+
+    <variablelist class='system-credentials'>
+      <varlistentry>
+        <term><varname>cryptsetup.passphrase</varname></term>
+
+        <listitem><para>This credential specifies the passphrase of the LUKS volume.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>cryptsetup.tpm2-pin</varname></term>
+
+        <listitem><para>This credential specifies the TPM pin.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>cryptsetup.fido2-pin</varname></term>
+
+        <listitem><para>This credential specifies the FIDO2 token pin.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>cryptsetup.pkcs11-pin</varname></term>
+
+        <listitem><para>This credential specifies the PKCS11 token pin.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>cryptsetup.luks2-pin</varname></term>
+
+        <listitem><para>This credential specifies the pin requested by generic LUKS2 token modules.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-cryptsetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><ulink url="https://systemd.io/TPM2_PCR_MEASUREMENTS">TPM2 PCR Measurements Made by systemd</ulink></member>
+     </simplelist></para>
+  </refsect1>
+
+</refentry>

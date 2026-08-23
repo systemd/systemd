@@ -1,0 +1,153 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd.scope" xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>systemd.scope</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd.scope</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd.scope</refname>
+    <refpurpose>Scope unit configuration</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename><replaceable>scope</replaceable>.scope</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>Scope units are not configured via unit configuration files,
+    but are only created programmatically using the bus interfaces of
+    systemd. They are named similar to filenames. A unit whose name
+    ends in <literal>.scope</literal> refers to a scope unit. Scope
+    units manage a set of system processes. Unlike service units, scope
+    units manage externally created processes, and do not fork off
+    processes on their own.</para>
+
+    <para>The main purpose of scope units is grouping worker processes
+    of a system service for organization and for managing resources.</para>
+
+    <para><command>systemd-run <option>--scope</option></command> may
+    be used to easily launch a command in a new scope unit from the
+    command line.</para>
+
+    <para>See the <ulink
+    url="https://systemd.io/CONTROL_GROUP_INTERFACE">New
+    Control Group Interfaces</ulink> for an introduction on how to make
+    use of scope units from programs.</para>
+
+    <para>Note that, unlike service units, scope units have no "main" process: all processes in the scope are
+    equivalent. The lifecycle of the scope unit is thus not bound to the lifetime of one specific process,
+    but to the existence of at least one process in the scope. This also means that the exit statuses of
+    these processes are not relevant for the scope unit failure state. Scope units may still enter a failure
+    state, for example due to resource exhaustion or stop timeouts being reached, but not due to programs
+    inside of them terminating uncleanly. Since processes managed as scope units generally remain children of
+    the original process that forked them off, it is also the job of that process to collect their exit
+    statuses and act on them as needed.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Automatic Dependencies</title>
+
+    <refsect2>
+      <title>Implicit Dependencies</title>
+
+      <para>Implicit dependencies may be added as result of
+      resource control parameters as documented in
+      <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+    </refsect2>
+
+    <refsect2>
+      <title>Default Dependencies</title>
+
+      <para>The following dependencies are added unless
+      <varname>DefaultDependencies=no</varname> is set:</para>
+
+      <itemizedlist>
+        <listitem><para>Scope units will automatically have dependencies of
+        type <varname>Conflicts=</varname> and
+        <varname>Before=</varname> on
+        <filename>shutdown.target</filename>. These ensure
+        that scope units are removed prior to system
+        shutdown. Only scope units involved with early boot or
+        late system shutdown should disable
+        <varname>DefaultDependencies=</varname> option.</para></listitem>
+      </itemizedlist>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>Scope files may include a [Unit] section, which is described in
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+
+    <para>Scope files may include a [Scope]
+    section, which carries information about the scope and the
+    units it contains. A number of options that may be used in
+    this section are shared with other unit types. These options are
+    documented in
+    <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    The options specific to the [Scope] section
+    of scope units are the following:</para>
+
+    <variablelist class='unit-directives'>
+      <varlistentry id='oom-policy'>
+        <term><varname>OOMPolicy=</varname></term>
+        <listitem>
+          <xi:include href="systemd.service.xml" xpointer="xpointer(//varlistentry[@id='oom-policy']/listitem/para[position() &lt; last()])" />
+          <xi:include href="version-info.xml" xpointer="v253"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>RuntimeMaxSec=</varname></term>
+
+        <listitem><para>Configures a maximum time for the scope to run. If this is used and the scope has been
+        active for longer than the specified time it is terminated and put into a failure state. Pass
+        <literal>infinity</literal> (the default) to configure no runtime limit.</para>
+
+        <xi:include href="version-info.xml" xpointer="v244"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>RuntimeRandomizedExtraSec=</varname></term>
+
+        <listitem><para>This option modifies <varname>RuntimeMaxSec=</varname> by increasing the maximum runtime by an
+        evenly distributed duration between 0 and the specified value (in seconds). If <varname>RuntimeMaxSec=</varname> is
+        unspecified, then this feature will be disabled.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <xi:include href="systemd.service.xml" xpointer="shared-unit-options" />
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

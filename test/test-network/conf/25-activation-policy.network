@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=test1
+Name=vlan99
+
+[Network]
+Address=192.168.10.30/24
+Gateway=192.168.10.1
+IPv6AcceptRA=no

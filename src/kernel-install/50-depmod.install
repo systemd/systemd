@@ -1,0 +1,60 @@
+#!/bin/sh
+# -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
+# ex: ts=8 sw=4 sts=4 et filetype=sh
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# This file is part of systemd.
+#
+# systemd is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
+#
+# systemd is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
+
+set -e
+
+COMMAND="${1:?}"
+KERNEL_VERSION="${2:?}"
+
+[ -w "/lib/modules" ] || exit 0
+
+case "$COMMAND" in
+    add)
+        [ -d "/lib/modules/$KERNEL_VERSION/kernel" ] || exit 0
+        command -v depmod >/dev/null || exit 0
+        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "+depmod -a $KERNEL_VERSION"
+        exec depmod -a "$KERNEL_VERSION"
+        ;;
+    remove)
+        if [ -n "$KERNEL_INSTALL_BOOT_ENTRY_TYPE" ] && [ -d "/lib/modules/$KERNEL_VERSION/kernel" ]; then
+            [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+                echo "Multiple entry types may exist, not removing modules.dep or associated files."
+            exit 0
+        fi
+
+        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+            echo "Removing /lib/modules/${KERNEL_VERSION}/modules.dep and associated files"
+        exec rm -f \
+            "/lib/modules/$KERNEL_VERSION/modules.alias" \
+            "/lib/modules/$KERNEL_VERSION/modules.alias.bin" \
+            "/lib/modules/$KERNEL_VERSION/modules.builtin.bin" \
+            "/lib/modules/$KERNEL_VERSION/modules.builtin.alias.bin" \
+            "/lib/modules/$KERNEL_VERSION/modules.dep" \
+            "/lib/modules/$KERNEL_VERSION/modules.dep.bin" \
+            "/lib/modules/$KERNEL_VERSION/modules.devname" \
+            "/lib/modules/$KERNEL_VERSION/modules.softdep" \
+            "/lib/modules/$KERNEL_VERSION/modules.weakdep" \
+            "/lib/modules/$KERNEL_VERSION/modules.symbols" \
+            "/lib/modules/$KERNEL_VERSION/modules.symbols.bin"
+        ;;
+    *)
+        exit 0
+        ;;
+esac

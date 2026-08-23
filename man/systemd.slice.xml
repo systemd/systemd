@@ -1,0 +1,199 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd.slice" xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>systemd.slice</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd.slice</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd.slice</refname>
+    <refpurpose>Slice unit configuration</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename><replaceable>slice</replaceable>.slice</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>A unit configuration file whose name ends in <literal>.slice</literal> encodes information about a slice
+    unit. A slice unit is a concept for hierarchically managing resources of a group of processes. This management is
+    performed by creating a node in the Linux Control Group (cgroup) tree. Units that manage processes (primarily scope
+    and service units) may be assigned to a specific slice. For each slice, certain resource limits may be set that
+    apply to all processes of all units contained in that slice. Slices are organized hierarchically in a tree. The
+    name of the slice encodes the location in the tree. The name consists of a dash-separated series of names, which
+    describes the path to the slice from the root slice. The root slice is named <filename>-.slice</filename>. Example:
+    <filename>foo-bar.slice</filename> is a slice that is located within <filename>foo.slice</filename>, which in turn
+    is located in the root slice <filename>-.slice</filename>.
+    </para>
+
+    <para>Note that slice units cannot be templated, nor is possible to add multiple names to a slice unit by creating
+    additional symlinks to its unit file.</para>
+
+    <para>By default, service and scope units are placed in
+    <filename>system.slice</filename>, virtual machines and containers
+    registered with
+    <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    are found in <filename>machine.slice</filename>, and user sessions
+    handled by
+    <citerefentry><refentrytitle>systemd-logind</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    in <filename>user.slice</filename>. See
+    <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    for more information.</para>
+
+    <para>See
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for the common options of all unit configuration
+    files. The common configuration items are configured
+    in the generic [Unit] and [Install] sections. The
+    slice specific configuration options are configured in
+    the [Slice] section. Currently, only generic resource control settings
+    as described in
+    <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry> are allowed.
+    </para>
+
+    <para>See the <ulink
+    url="https://systemd.io/CONTROL_GROUP_INTERFACE">New
+    Control Group Interfaces</ulink> for an introduction on how to make
+    use of slice units from programs.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Automatic Dependencies</title>
+
+    <refsect2>
+      <title>Implicit Dependencies</title>
+
+      <para>The following dependencies are implicitly added:</para>
+
+      <itemizedlist>
+        <listitem><para>Slice units automatically gain dependencies of type
+        <varname>After=</varname> and <varname>Requires=</varname> on
+        their immediate parent slice unit.</para></listitem>
+      </itemizedlist>
+    </refsect2>
+
+    <refsect2>
+      <title>Default Dependencies</title>
+
+      <para>The following dependencies are added unless <varname>DefaultDependencies=no</varname> is set:</para>
+
+      <itemizedlist>
+        <listitem><para>Slice units will automatically have dependencies of type <varname>Conflicts=</varname> and
+        <varname>Before=</varname> on
+        <filename>shutdown.target</filename>. These ensure that slice units are removed prior to system shutdown.
+        Only slice units involved with late system shutdown should disable
+        <varname>DefaultDependencies=</varname> option.</para></listitem>
+      </itemizedlist>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>Slice unit files may include [Unit] and [Install] sections, which are described in
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+    <para>Slice files may include a [Slice] section. Many options that may be used in this section are shared
+    with other unit types. These options are documented in
+    <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+    <para>The options specific to the [Slice] section of slice units are the following:</para>
+
+    <variablelist class='unit-directives'>
+      <varlistentry>
+        <term><varname>ConcurrencyHardMax=</varname></term>
+        <term><varname>ConcurrencySoftMax=</varname></term>
+
+        <listitem><para>Configures a hard and a soft limit on the maximum number of units assigned to this
+        slice (or any descendent slices) that may be active at the same time. If the hard limit is reached no
+        further units associated with the slice may be activated, and their activation will fail with an
+        error. If the soft limit is reached any further requested activation of units will be queued, but no
+        immediate error is generated. The queued activation job will remain queued until the number of
+        concurrent active units within the slice is below the limit again.</para>
+
+        <para>If the special value <literal>infinity</literal> is specified, no concurrency limit is
+        enforced. This is the default.</para>
+
+        <para>Note that if multiple start jobs are queued for units, and all their dependencies are fulfilled
+        they'll be processed in an order that is dependent on the unit type, the CPU weight (for unit types
+        that know the concept, such as services), the nice level (similar), and finally in alphabetical order
+        by the unit name. This may be used to influence dispatching order when using
+        <varname>ConcurrencySoftMax=</varname> to pace concurrency within a slice unit.</para>
+
+        <para>Note that these options have a hierarchial effect: a limit set for a slice unit will apply to
+        both the units immediately within the slice, but also all units further down the slice tree. Also
+        note that each sub-slice unit counts as one unit each too, and thus when choosing a limit for a slice
+        hierarchy the limit must provide room for both the payload units (i.e. services, mounts, …) and
+        structural units (i.e. slice units), if any are defined.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ActivatingConcurrencyMax=</varname></term>
+
+        <listitem><para>Configures a limit on the maximum number of units assigned to this
+        slice (or any descendent slices) that may be in the <emphasis>activating</emphasis> state
+        at the same time. Unlike <varname>ConcurrencySoftMax=</varname> which limits units in the
+        <emphasis>active</emphasis> state, this option limits units while they are starting up.
+        Once a unit leaves the <emphasis>activating</emphasis> state (whether to
+        <emphasis>active</emphasis>, <emphasis>failed</emphasis>, or any other state), it no longer
+        counts toward this limit, allowing the next queued unit to begin starting.</para>
+
+        <para>This is particularly useful for managing the "thundering herd" problem during system
+        boot, where many long-running services (such as container workloads) attempt to start
+        simultaneously. By setting <varname>ActivatingConcurrencyMax=</varname>, you can pace the
+        startup process to limit CPU and I/O pressure, while still allowing all services to
+        eventually reach the <emphasis>active</emphasis> state.</para>
+
+        <para>When the limit is reached, further activation requests are queued and will be
+        dispatched automatically once running activations complete. No error is returned to the
+        caller. Note that if a unit becomes stuck in the activating state (for example, due to
+        a hung process or missing dependency), it will continue to occupy a slot until it
+        leaves that state. Configure appropriate timeouts (e.g.,
+        <varname>TimeoutStartSec=</varname>) on individual units to prevent indefinite blocking.</para>
+
+        <para>Setting <varname>ActivatingConcurrencyMax=0</varname> blocks all activation
+        requests in the slice hierarchy indefinitely. Queued units will never start until
+        the limit is raised. This can be used to intentionally freeze slice startup,
+        matching the behavior of <varname>ConcurrencySoftMax=0</varname>.</para>
+
+        <para>If the special value <literal>infinity</literal> is specified, no concurrency limit
+        is enforced. This is the default.</para>
+
+        <para>Note that this option has a hierarchical effect: a limit set for a slice unit will
+        apply to both the units immediately within the slice and all units further down the slice
+        tree. Note that slice units themselves never enter the activating state, so nested slices
+        do not count toward the limit.</para>
+
+        <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

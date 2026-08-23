@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=test1
+
+[Link]
+MTUBytes=9000
+
+[Network]
+Bridge=bridge99
+
+[Bridge]
+Priority=0
+Locked=true
+MACAuthenticationBypass=true

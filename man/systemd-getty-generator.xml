@@ -1,0 +1,157 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="systemd-getty-generator" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-getty-generator</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-getty-generator</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-getty-generator</refname>
+    <refpurpose>Generator for enabling getty instances on the
+    console</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>/usr/lib/systemd/system-generators/systemd-getty-generator</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-getty-generator</filename> is a generator that automatically instantiates
+    <filename>serial-getty@.service</filename> on the kernel consoles, if they can function as ttys and are
+    not provided by the virtual console subsystem. It will also instantiate
+    <filename>serial-getty@.service</filename> instances for virtualizer consoles, if execution in a
+    virtualized environment is detected. If execution in a container environment is detected, it will instead
+    enable <filename>console-getty.service</filename> for <filename>/dev/console</filename>, and
+    <filename>container-getty@.service</filename> instances for additional container pseudo TTYs as requested
+    by the container manager (see <ulink url="https://systemd.io/CONTAINER_INTERFACE"><filename>Container
+    Interface</filename></ulink>). This should ensure that the user is shown a login prompt at the right
+    place, regardless of which environment the system is started in. For example, it is sufficient to
+    redirect the kernel console with a kernel command line argument such as <varname>console=</varname> to
+    get both kernel messages and a getty prompt on a serial TTY. See <ulink
+    url="https://docs.kernel.org/admin-guide/kernel-parameters.html">The kernel's command-line
+    parameters</ulink> for more information on the <varname>console=</varname> kernel parameter.</para>
+
+    <para><filename>systemd-getty-generator</filename> implements
+    <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+
+    <para>Further information about configuration of gettys can be
+    found in
+    <ulink url="https://0pointer.de/blog/projects/serial-console.html">systemd
+    for Administrators, Part XVI: Gettys on Serial Consoles (and
+    Elsewhere)</ulink>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Kernel Command Line</title>
+
+    <para><filename>systemd-getty-generator</filename> understands the following
+    <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    parameters:</para>
+
+    <variablelist class='kernel-commandline-options'>
+      <varlistentry>
+        <term><varname>systemd.getty_auto=</varname></term>
+
+        <listitem>
+          <para>This kernel command line option may be used to control the execution mode of the generator.
+          Takes an optional boolean argument. Since v258, this also takes comma-separated list of special
+          values: <literal>credential</literal>, <literal>container</literal>, <literal>console</literal>,
+          and <literal>builtin</literal>.</para>
+
+          <para>When <literal>credential</literal> is specified, the two credentials
+          <varname>getty.ttys.serial</varname> and <varname>getty.ttys.container</varname> will be parsed.
+          See System Credentials section below for more details.</para>
+
+          <para>When <literal>container</literal> is specified, <filename>console-getty.service</filename>
+          and <filename>container-getty@.service</filename> will be enabled when the system is running in a
+          container. This option will be ignored when the system is not in a container.</para>
+
+          <para>When <literal>console</literal> is specified, <filename>serial-getty@.service</filename> for
+          active kernel consoles will be enabled. This option will be ignored when the system is running in a
+          container.</para>
+
+          <para>When <literal>builtins</literal> is specified, <filename>serial-getty@.service</filename> for
+          available virtualizer consoles will be enabled. This option will be ignored when the system is
+          running in a container.</para>
+
+          <para>When yes, the above four options will be enabled. When no, all options are disabled and no
+          service will be enabled. When the kernel command line option is specified without an argument,
+          defaults to yes. The generator is enabled by default, and a false value may be used to disable it.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Environment</title>
+
+    <variablelist class='environment-variables'>
+      <varlistentry>
+        <term><varname>$SYSTEMD_GETTY_AUTO</varname></term>
+
+        <listitem>
+          <para>This environment variable may be used to control the execution mode of the generator.
+          Takes the same value as <varname>systemd.getty_auto=</varname> kernel command line option.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>System Credentials</title>
+
+    <variablelist class='system-credentials'>
+      <varlistentry>
+        <term><varname>getty.auto</varname></term>
+
+        <listitem>
+          <para>The system credential may be used to control the execution mode of the generator.
+          Takes the same value as <varname>systemd.getty_auto=</varname> kernel command line option.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>getty.ttys.serial</varname></term>
+        <term><varname>getty.ttys.container</varname></term>
+
+        <listitem><para>These system credentials may be used to spawn additional login prompts on selected
+        TTYs. The two credentials should contain a newline-separated list of TTY names to spawn instances of
+        <filename>serial-getty@.service</filename> (in case of <varname>getty.ttys.serial</varname>) and
+        <filename>container-getty@.service</filename> (in case of <varname>getty.ttys.container</varname>)
+        on. Any lines starting with a <literal>#</literal> will be ignored.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.system-credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>agetty</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

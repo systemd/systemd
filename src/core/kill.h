@@ -1,0 +1,51 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+#pragma once
+
+#include "core-forward.h"
+
+typedef enum KillMode {
+        /* The kill mode is a property of a unit. */
+        KILL_CONTROL_GROUP = 0,
+        KILL_PROCESS,
+        KILL_MIXED,
+        KILL_NONE,
+        _KILL_MODE_MAX,
+        _KILL_MODE_INVALID = -EINVAL,
+} KillMode;
+
+typedef struct KillContext {
+        KillMode kill_mode;
+        int kill_signal;
+        int restart_kill_signal;
+        int final_kill_signal;
+        int watchdog_signal;
+        bool send_sigkill;
+        bool send_sighup;
+} KillContext;
+
+typedef enum KillWhom {
+        /* Kill whom is a property of an operation */
+        KILL_MAIN,
+        KILL_CONTROL,
+        KILL_ALL,
+        KILL_MAIN_FAIL,
+        KILL_CONTROL_FAIL,
+        KILL_ALL_FAIL,
+        KILL_CGROUP,
+        KILL_CGROUP_FAIL,
+        _KILL_WHOM_MAX,
+        _KILL_WHOM_INVALID = -EINVAL,
+} KillWhom;
+
+void kill_context_init(KillContext *c);
+void kill_context_dump(KillContext *c, FILE *f, const char *prefix);
+
+DECLARE_STRING_TABLE_LOOKUP(kill_mode, KillMode);
+
+DECLARE_STRING_TABLE_LOOKUP(kill_whom, KillWhom);
+
+static inline int restart_kill_signal(const KillContext *c) {
+        if (c->restart_kill_signal != 0)
+                return c->restart_kill_signal;
+        return c->kill_signal;
+}

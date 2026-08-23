@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=dummy98
+
+[Network]
+IPv4Forwarding=yes
+IPv6Forwarding=yes
+IPv6DuplicateAddressDetection=3
+IPv6HopLimit=5
+IPv4ProxyARP=yes
+IPv4ProxyARPPrivateVLAN=yes
+IPv6ProxyNDP=yes
+IPv6AcceptRA=no
+IPv4AcceptLocal=yes
+IPv4SrcValidMark=yes
+IPv4ReversePathFilter=no
+MulticastIGMPVersion=v1

@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?> <!--*-nxml-*-->
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+        "https://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+
+<!--
+  SPDX-License-Identifier: LGPL-2.1-or-later
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+-->
+
+<policyconfig>
+
+        <vendor>The systemd Project</vendor>
+        <vendor_url>https://systemd.io</vendor_url>
+
+        <action id="org.freedesktop.hostname1.set-hostname">
+                <description gettext-domain="systemd">Set hostname</description>
+                <message gettext-domain="systemd">Authentication is required to set the local hostname.</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+
+        <action id="org.freedesktop.hostname1.set-static-hostname">
+                <description gettext-domain="systemd">Set static hostname</description>
+                <message gettext-domain="systemd">Authentication is required to set the statically configured local hostname, as well as the pretty hostname.</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.hostname1.set-hostname org.freedesktop.hostname1.set-machine-info</annotate>
+        </action>
+
+        <action id="org.freedesktop.hostname1.set-machine-info">
+                <description gettext-domain="systemd">Set machine information</description>
+                <message gettext-domain="systemd">Authentication is required to set local machine information.</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+
+        <action id="org.freedesktop.hostname1.get-product-uuid">
+                <description gettext-domain="systemd">Get product UUID</description>
+                <message gettext-domain="systemd">Authentication is required to get product UUID.</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+
+        <action id="org.freedesktop.hostname1.get-hardware-serial">
+                <description gettext-domain="systemd">Get hardware serial number</description>
+                <message gettext-domain="systemd">Authentication is required to get hardware serial number.</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+
+        <action id="org.freedesktop.hostname1.get-description">
+                <description gettext-domain="systemd">Get system description</description>
+                <message gettext-domain="systemd">Authentication is required to get system description.</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+
+</policyconfig>

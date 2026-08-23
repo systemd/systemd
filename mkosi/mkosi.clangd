@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+
+if command -v flatpak-spawn >/dev/null; then
+    SPAWN=(flatpak-spawn --host)
+else
+    SPAWN=()
+fi
+
+exec "${SPAWN[@]}" \
+    mkosi box -- \
+        clangd \
+            --compile-commands-dir=build \
+            --path-mappings="\
+$(pwd)/mkosi/mkosi.tools/usr/include=/usr/include" \
+            "$@"

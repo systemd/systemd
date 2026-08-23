@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[NetDev]
+Kind=l2tp
+Name=l2tp99
+
+[L2TP]
+TunnelId=10
+PeerTunnelId=11
+UDPSourcePort=3000
+UDPDestinationPort=4000
+Local=static@test1
+Remote=192.168.30.101
+EncapsulationType=udp
+UDPCheckSum=true
+UDP6ChecksumRx=true
+UDP6ChecksumTx=true
+
+[L2TPSession]
+SessionId=15
+PeerSessionId=16
+Name=l2tp-ses1
+
+[L2TPSession]
+SessionId=17
+PeerSessionId=18
+Name=l2tp-ses2

@@ -1,0 +1,1 @@
+root=cifs://username:password@192.168.0.1:/cifsroot

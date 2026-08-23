@@ -1,0 +1,15 @@
+; SPDX-License-Identifier: LGPL-2.1-or-later
+; special .c mode with reduced indentation for man pages
+((c-mode . ((fill-column . 80)
+            (c-basic-offset . 2)
+            (eval . (c-set-offset 'substatement-open 0))
+            (eval . (c-set-offset 'statement-case-open 0))
+            (eval . (c-set-offset 'case-label 0))
+            (eval . (c-set-offset 'arglist-intro '++))
+            (eval . (c-set-offset 'arglist-close 0))))
+ (nxml-mode . ((nxml-child-indent . 2)
+               (fill-column . 109)))
+ (meson-mode . ((meson-indent-basic . 8)))
+ (nil . ((indent-tabs-mode . nil)
+         (tab-width . 8)
+         (fill-column . 79))))

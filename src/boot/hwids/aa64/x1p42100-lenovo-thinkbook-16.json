@@ -1,0 +1,20 @@
+{
+    "type": "devicetree",
+    "name": "LENOVO ThinkBook 16 G7 QOY",
+    "compatible": "lenovo,thinkbook-16",
+    "hwids": [
+        "e55d76ae-2ca4-543e-9144-86fdf0b0bf36",
+        "85f8bd67-fcad-50b8-8c67-0dbb786353b7",
+        "af0d539c-b28f-5a4d-b7a1-3640e2c4535f",
+        "ee9060fc-7565-54a3-ad4d-d6c637e9672d",
+        "11788bd3-612e-5b33-8d26-b8dd53d88ba0",
+        "894d8a8c-ab94-5193-ab7e-544927bdc40b",
+        "653dcb5a-527b-554c-921b-e4d93e112048",
+        "4279ea98-d0f8-588a-bb60-546a9bdefbbe",
+        "8442079a-81e2-5006-9aa0-f9c88bac9288",
+        "43977c23-c88a-5355-95ee-78667c5c4f1d",
+        "1f483d31-703d-5688-92a4-a72daaef38ec",
+        "e982f8e2-1687-5207-8674-44eea11e4b08",
+        "f81a6614-f23c-591a-b665-e19886a3d55e"
+    ]
+}

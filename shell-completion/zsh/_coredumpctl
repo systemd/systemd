@@ -1,0 +1,47 @@
+#compdef coredumpctl
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+(( $+functions[_coredumpctl_commands] )) ||
+_coredumpctl_commands(){
+    local -a _coredumpctl_cmds
+    _coredumpctl_cmds=(
+        'list:List available coredumps'
+        'info:Show detailed information about one or more coredumps'
+        'dump:Print coredump to stdout'
+        'debug:Start debugger (gdb) on a coredump'
+    )
+    if (( CURRENT == 1 )); then
+        _describe -t commands 'coredumpctl command' _coredumpctl_cmds
+    else
+        local curcontext="$curcontext"
+        local -a _dumps
+        cmd="${${_coredumpctl_cmds[(r)$words[1]:*]%%:*}}"
+        if (( $#cmd  )); then
+            _dumps=( "${(f)$(coredumpctl list -q --no-legend 2>/dev/null | awk 'BEGIN{OFS=":"} {sub(/[[ \t]+/, ""); print $4,$0}')}" )
+            if [[ -n "$_dumps" ]]; then
+                _describe -V -t pids 'coredumps' _dumps
+            else
+                _message "no coredumps"
+            fi
+        else
+            _message "no more options"
+        fi
+    fi
+}
+
+_arguments \
+    '(-o --output)'{-o+,--output=}'[Write output to FILE]:output file:_files' \
+    '(-F --field)'{-F+,--field=}'[Show field in list output]:field' \
+    '-1[Show information about most recent entry only]' \
+    '(-S --since)'{-S,--since}'[Print entries since the specified date]' \
+    '(-U --until)'{-U,--until}'[Print entries until the specified date]' \
+    '(-r --reverse)'{-r,--reverse}'[Show the newest entries first]' \
+    '--no-pager[Do not pipe output into a pager]' \
+    '--no-legend[Do not print the column headers]' \
+    '(- *)'{-h,--help}'[Show this help]' \
+    '(- *)--version[Show package version]' \
+    '--debugger=[Use the given debugger]:debugger: _command_names -e' \
+    '(-D --directory)'{-D,--directory=}'[Use the journal files in the specified dir]:directory: _directories' \
+    '(-q --quiet)'{-q,--quiet}'[Do not show info messages and privilege warning]' \
+    '--all[Look at all journal files instead of local ones]' \
+    '*::coredumpctl commands:_coredumpctl_commands'

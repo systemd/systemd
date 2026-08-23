@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+-- fc2e22bc6ee647b6b90729ab34a250b1
+Subject: Speicherabbild für Prozess @COREDUMP_PID@ (@COREDUMP_COMM@) generiert
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:core(5)
+
+Prozess @COREDUMP_PID@ (@COREDUMP_COMM@) ist abgebrochen worden und
+ein Speicherabbild wurde generiert.
+
+Üblicherweise ist dies ein Hinweis auf einen Programmfehler und sollte
+als Fehler dem jeweiligen Hersteller gemeldet werden.
+
+-- c7a787079b354eaaa9e77b371893cd27
+Subject: Zeitänderung
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Die System-Zeit wurde geändert auf @REALTIME@ Mikrosekunden nach dem 1. Januar 1970.

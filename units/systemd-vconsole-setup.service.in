@@ -1,0 +1,36 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Virtual Console Setup
+Documentation=man:systemd-vconsole-setup.service(8) man:vconsole.conf(5)
+
+ConditionPathExists=/dev/tty0
+
+DefaultDependencies=no
+Before=sysinit.target
+Before=initrd-switch-root.target shutdown.target
+
+# This unit will be restarted by udev whenever a new vtcon device appears or is
+# triggered. Usually that happens just a handful of times during boot, but some
+# systems may have hundreds or thousands of serial consoles connected, so let's
+# just disable the limit altogether.
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+# This service will be restarted by udev whenever a new vtcon device appears.
+# If the previous instance is still running, it shall be interrupted without
+# error.
+SuccessExitStatus=SIGTERM
+RemainAfterExit=yes
+
+ExecStart={{LIBEXECDIR}}/systemd-vconsole-setup
+
+ImportCredential=vconsole.*

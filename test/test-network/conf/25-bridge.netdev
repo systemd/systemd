@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[NetDev]
+Name=bridge99
+Kind=bridge
+
+[Bridge]
+HelloTimeSec=9
+MaxAgeSec=9
+AgeingTimeSec=9
+ForwardDelaySec=9
+Priority=9
+#GroupForwardMask=9 # This interferes with other settings
+DefaultPVID=9
+MulticastQuerier=yes
+MulticastSnooping=yes
+VLANFiltering=yes
+VLANProtocol=802.1ad
+STP=true
+MulticastIGMPVersion=3
+FDBMaxLearned=4
+LinkLocalLearning=no

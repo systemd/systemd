@@ -1,0 +1,1456 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# Brazilian Portuguese translation for systemd.
+# Enrico Nicoletto <liverig@gmail.com>, 2014.
+# Filipe Brandenburger <filbranden@gmail.com>, 2018.
+# Rafael Fontenelle <rafaelff@gnome.org>, 2015-2020, 2025, 2026.
+# Gustavo Costa <xfgusta@gmail.com>, 2021, 2026.
+# Tiago Rocha Cunha <tiagocunha.me@gmail.com>, 2024, 2026.
+# Gabriel Elyas <gabrielelyas@protonmail.com>, 2024, 2026.
+# Fábio Rodrigues Ribeiro <farribeiro@gmail.com>, 2024, 2026.
+# "Geraldo S. Simião Kutz" <geraldo.simiao.kutz@gmail.com>, 2024, 2026.
+# Weblate Translation Memory <noreply-mt-weblate-translation-memory@weblate.org>, 2026.
+msgid ""
+msgstr ""
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-06-01 11:49+0200\n"
+"PO-Revision-Date: 2026-08-02 00:16+0000\n"
+"Last-Translator: Fábio Rodrigues Ribeiro <farribeiro@gmail.com>\n"
+"Language-Team: Portuguese (Brazil) <https://translate.fedoraproject.org/"
+"projects/systemd/main/pt_BR/>\n"
+"Language: pt_BR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n > 1;\n"
+"X-Generator: Weblate 2026.7.1\n"
+
+#: src/core/org.freedesktop.systemd1.policy.in:22
+msgid "Send passphrase back to system"
+msgstr "Enviar frase secreta de volta ao sistema"
+
+#: src/core/org.freedesktop.systemd1.policy.in:23
+msgid ""
+"Authentication is required to send the entered passphrase back to the system."
+msgstr ""
+"É necessária autenticação para enviar a frase secreta informada de volta ao "
+"sistema."
+
+#: src/core/org.freedesktop.systemd1.policy.in:33
+msgid "Manage system services or other units"
+msgstr "Gerenciar serviços do sistema e outras unidades"
+
+#: src/core/org.freedesktop.systemd1.policy.in:34
+msgid "Authentication is required to manage system services or other units."
+msgstr ""
+"É necessária autenticação para gerenciar serviços do sistema ou outras "
+"unidades."
+
+#: src/core/org.freedesktop.systemd1.policy.in:43
+msgid "Manage system service or unit files"
+msgstr "Gerenciar arquivos de unidades e serviços do sistema"
+
+#: src/core/org.freedesktop.systemd1.policy.in:44
+msgid "Authentication is required to manage system service or unit files."
+msgstr ""
+"É necessária autenticação para gerenciar arquivos “unit” e “service” do "
+"sistema."
+
+#: src/core/org.freedesktop.systemd1.policy.in:54
+msgid "Set or unset system and service manager environment variables"
+msgstr ""
+"Definir ou retirar definição de variáveis de ambiente de gerenciador de "
+"serviço e sistema"
+
+#: src/core/org.freedesktop.systemd1.policy.in:55
+msgid ""
+"Authentication is required to set or unset system and service manager "
+"environment variables."
+msgstr ""
+"É necessária autenticação para definir ou retirar definição de variáveis de "
+"ambiente de gerenciador de serviço e sistema."
+
+#: src/core/org.freedesktop.systemd1.policy.in:64
+msgid "Reload the systemd state"
+msgstr "Recarregar o estado do sistema"
+
+#: src/core/org.freedesktop.systemd1.policy.in:65
+msgid "Authentication is required to reload the systemd state."
+msgstr "É necessária autenticação para recarregar o estado do sistema."
+
+#: src/core/org.freedesktop.systemd1.policy.in:74
+msgid "Dump the systemd state without rate limits"
+msgstr "Descarregue o estado do systemd sem limites de velocidade"
+
+#: src/core/org.freedesktop.systemd1.policy.in:75
+msgid ""
+"Authentication is required to dump the systemd state without rate limits."
+msgstr ""
+"A autenticação é necessária para descarregar o estado do systemd sem limites "
+"de taxa."
+
+#: src/home/org.freedesktop.home1.policy:13
+msgid "Create a home area"
+msgstr "Criar uma área home"
+
+#: src/home/org.freedesktop.home1.policy:14
+msgid "Authentication is required to create a user's home area."
+msgstr "É necessária autenticação para criar a área home de um usuário."
+
+#: src/home/org.freedesktop.home1.policy:23
+msgid "Remove a home area"
+msgstr "Remover uma área home"
+
+#: src/home/org.freedesktop.home1.policy:24
+msgid "Authentication is required to remove a user's home area."
+msgstr "É necessária autenticação para remover a área home de um usuário."
+
+#: src/home/org.freedesktop.home1.policy:33
+msgid "Check credentials of a home area"
+msgstr "Verificar credenciais de uma área home"
+
+#: src/home/org.freedesktop.home1.policy:34
+msgid ""
+"Authentication is required to check credentials against a user's home area."
+msgstr ""
+"É necessária autenticação para verificar credenciais da área home de um "
+"usuário."
+
+#: src/home/org.freedesktop.home1.policy:43
+msgid "Update a home area"
+msgstr "Atualizar uma área home"
+
+#: src/home/org.freedesktop.home1.policy:44
+msgid "Authentication is required to update a user's home area."
+msgstr "É necessária autenticação para atualizar a área home de um usuário."
+
+#: src/home/org.freedesktop.home1.policy:53
+msgid "Update your home area"
+msgstr "Atualizar seu espaço da home"
+
+#: src/home/org.freedesktop.home1.policy:54
+msgid "Authentication is required to update your home area."
+msgstr ""
+"É necessária autenticação para atualizar o espaço da home de um usuário."
+
+#: src/home/org.freedesktop.home1.policy:63
+msgid "Resize a home area"
+msgstr "Redimensionar uma área home"
+
+#: src/home/org.freedesktop.home1.policy:64
+msgid "Authentication is required to resize a user's home area."
+msgstr "É necessária autenticação para redimensionar a área home de um usuário."
+
+#: src/home/org.freedesktop.home1.policy:73
+msgid "Change password of a home area"
+msgstr "Alterar senha de uma área home"
+
+#: src/home/org.freedesktop.home1.policy:74
+msgid ""
+"Authentication is required to change the password of a user's home area."
+msgstr ""
+"É necessária autenticação para alterar a senha da área home de um usuário."
+
+#: src/home/org.freedesktop.home1.policy:83
+msgid "Activate a home area"
+msgstr "Ativar uma área home"
+
+#: src/home/org.freedesktop.home1.policy:84
+msgid "Authentication is required to activate a user's home area."
+msgstr "É necessária autenticação para criar o espaço da home de um usuário."
+
+#: src/home/org.freedesktop.home1.policy:93
+msgid "Manage Home Directory Signing Keys"
+msgstr "Gerenciar chaves de assinatura de diretório pessoal"
+
+#: src/home/org.freedesktop.home1.policy:94
+msgid "Authentication is required to manage signing keys for home directories."
+msgstr ""
+"É necessária autenticação para gerenciar chaves de assinatura de diretório "
+"pessoal."
+
+#: src/home/pam_systemd_home.c:327
+#, c-format
+msgid ""
+"Home of user %s is currently absent, please plug in the necessary storage "
+"device or backing file system."
+msgstr ""
+"A home do usuário %s está ausente no momento. Por favor, conecte o "
+"dispositivo de armazenamento necessário ou sistema de arquivo de recuperação."
+
+#: src/home/pam_systemd_home.c:332
+#, c-format
+msgid "Too frequent login attempts for user %s, try again later."
+msgstr ""
+"Muitas tentativas de login para o usuário %s, tente novamente mais tarde."
+
+#: src/home/pam_systemd_home.c:344
+msgid "Password: "
+msgstr "Senha: "
+
+#: src/home/pam_systemd_home.c:346
+#, c-format
+msgid "Password incorrect or not sufficient for authentication of user %s."
+msgstr "Senha incorreta ou insuficiente para autenticação do usuário %s."
+
+#: src/home/pam_systemd_home.c:347
+msgid "Sorry, try again: "
+msgstr "Desculpe, tente novamente: "
+
+#: src/home/pam_systemd_home.c:369
+msgid "Recovery key: "
+msgstr "Chave de recuperação: "
+
+#: src/home/pam_systemd_home.c:371
+#, c-format
+msgid ""
+"Password/recovery key incorrect or not sufficient for authentication of user "
+"%s."
+msgstr ""
+"Senha/chave de recuperação incorreta ou insuficiente para autenticação do "
+"usuário %s."
+
+#: src/home/pam_systemd_home.c:372
+msgid "Sorry, reenter recovery key: "
+msgstr "Desculpe, reinsira a chave de recuperação: "
+
+#: src/home/pam_systemd_home.c:392
+#, c-format
+msgid "Security token of user %s not inserted."
+msgstr "O token de segurança do usuário %s não foi inserido."
+
+#: src/home/pam_systemd_home.c:393 src/home/pam_systemd_home.c:396
+msgid "Try again with password: "
+msgstr "Tente a senha novamente: "
+
+#: src/home/pam_systemd_home.c:395
+#, c-format
+msgid ""
+"Password incorrect or not sufficient, and configured security token of user "
+"%s not inserted."
+msgstr ""
+"A senha está incorreta ou não é suficiente, e o token de segurança "
+"configurado do usuário %s não foi inserido."
+
+#: src/home/pam_systemd_home.c:415
+msgid "Security token PIN: "
+msgstr "PIN do token de segurança: "
+
+#: src/home/pam_systemd_home.c:432
+#, c-format
+msgid "Please authenticate physically on security token of user %s."
+msgstr "Faça a autenticação física no token de segurança do usuário %s."
+
+#: src/home/pam_systemd_home.c:443
+#, c-format
+msgid "Please confirm presence on security token of user %s."
+msgstr "Confirme a presença no token de segurança do usuário %s."
+
+#: src/home/pam_systemd_home.c:454
+#, c-format
+msgid "Please verify user on security token of user %s."
+msgstr "Verifique o usuário no token de segurança do usuário %s."
+
+#: src/home/pam_systemd_home.c:463
+msgid ""
+"Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
+"insertion might suffice.)"
+msgstr ""
+"O PIN do token de segurança está bloqueado, desbloqueie-o primeiro. (Dica: a "
+"remoção e a reinserção podem ser suficientes)"
+
+#: src/home/pam_systemd_home.c:471
+#, c-format
+msgid "Security token PIN incorrect for user %s."
+msgstr "PIN do token de segurança incorreto para o usuário %s."
+
+#: src/home/pam_systemd_home.c:472 src/home/pam_systemd_home.c:491
+#: src/home/pam_systemd_home.c:510
+msgid "Sorry, retry security token PIN: "
+msgstr "Desculpe, tente novamente o PIN do token de segurança: "
+
+#: src/home/pam_systemd_home.c:490
+#, c-format
+msgid "Security token PIN of user %s incorrect (only a few tries left!)"
+msgstr ""
+"O PIN do token de segurança do usuário %s está incorreto (restam apenas "
+"algumas tentativas!)"
+
+#: src/home/pam_systemd_home.c:509
+#, c-format
+msgid "Security token PIN of user %s incorrect (only one try left!)"
+msgstr ""
+"O PIN do token de segurança do usuário %s está incorreto (só resta uma "
+"tentativa!)"
+
+#: src/home/pam_systemd_home.c:676
+#, c-format
+msgid "Home of user %s is currently not active, please log in locally first."
+msgstr ""
+"A home do usuário %s não está ativa no momento. Primeiro, faça login "
+"localmente."
+
+#: src/home/pam_systemd_home.c:678
+#, c-format
+msgid "Home of user %s is currently locked, please unlock locally first."
+msgstr ""
+"A home do usuário %s está bloqueada no momento. Desbloqueie localmente "
+"primeiro."
+
+#: src/home/pam_systemd_home.c:712
+#, c-format
+msgid "Too many unsuccessful login attempts for user %s, refusing."
+msgstr "Muitas tentativas de login mal sucedidas para o usuário %s, recusando."
+
+#: src/home/pam_systemd_home.c:1021
+msgid "User record is blocked, prohibiting access."
+msgstr "O registro do usuário está bloqueado, proibindo o acesso."
+
+#: src/home/pam_systemd_home.c:1025
+msgid "User record is not valid yet, prohibiting access."
+msgstr "O registro do usuário ainda não é válido, proibindo o acesso."
+
+#: src/home/pam_systemd_home.c:1029
+msgid "User record is not valid anymore, prohibiting access."
+msgstr "O registro do usuário não é mais válido, proibindo o acesso."
+
+#: src/home/pam_systemd_home.c:1034 src/home/pam_systemd_home.c:1083
+msgid "User record not valid, prohibiting access."
+msgstr "Registro de usuário inválido, proibindo o acesso."
+
+#: src/home/pam_systemd_home.c:1044
+#, c-format
+msgid "Too many logins, try again in %s."
+msgstr "Muitos logins, tente novamente em %s."
+
+#: src/home/pam_systemd_home.c:1055
+msgid "Password change required."
+msgstr "É necessário alterar a senha."
+
+#: src/home/pam_systemd_home.c:1059
+msgid "Password expired, change required."
+msgstr "Senha expirou, é necessário alterá-la."
+
+#: src/home/pam_systemd_home.c:1065
+msgid "Password is expired, but can't change, refusing login."
+msgstr "A senha expirou, mas não é possível alterá-la, recusando o login."
+
+#: src/home/pam_systemd_home.c:1069
+msgid "Password will expire soon, please change."
+msgstr "A senha expirará em breve, altere-a."
+
+#: src/hostname/org.freedesktop.hostname1.policy:20
+msgid "Set hostname"
+msgstr "Definir nome de máquina"
+
+#: src/hostname/org.freedesktop.hostname1.policy:21
+msgid "Authentication is required to set the local hostname."
+msgstr "É necessária autenticação para definir o nome de máquina local."
+
+#: src/hostname/org.freedesktop.hostname1.policy:30
+msgid "Set static hostname"
+msgstr "Definir nome estático de máquina"
+
+#: src/hostname/org.freedesktop.hostname1.policy:31
+msgid ""
+"Authentication is required to set the statically configured local hostname, "
+"as well as the pretty hostname."
+msgstr ""
+"É necessária autenticação para definir o nome de máquina local configurado "
+"estaticamente, assim como o nome apresentável de máquina."
+
+#: src/hostname/org.freedesktop.hostname1.policy:41
+msgid "Set machine information"
+msgstr "Definir informações da máquina"
+
+#: src/hostname/org.freedesktop.hostname1.policy:42
+msgid "Authentication is required to set local machine information."
+msgstr "É necessária autenticação para definir informações de máquina local."
+
+#: src/hostname/org.freedesktop.hostname1.policy:51
+msgid "Get product UUID"
+msgstr "Obter UUID do produto"
+
+#: src/hostname/org.freedesktop.hostname1.policy:52
+msgid "Authentication is required to get product UUID."
+msgstr "É necessária autenticação para obter a UUID."
+
+#: src/hostname/org.freedesktop.hostname1.policy:61
+msgid "Get hardware serial number"
+msgstr "Obter o número de série do hardware"
+
+#: src/hostname/org.freedesktop.hostname1.policy:62
+msgid "Authentication is required to get hardware serial number."
+msgstr "A autenticação é necessária para obter o número de série do hardware."
+
+#: src/hostname/org.freedesktop.hostname1.policy:71
+msgid "Get system description"
+msgstr "Obter a descrição do sistema"
+
+#: src/hostname/org.freedesktop.hostname1.policy:72
+msgid "Authentication is required to get system description."
+msgstr "A autenticação é necessária para obter a descrição do sistema."
+
+#: src/import/org.freedesktop.import1.policy:22
+msgid "Import a disk image"
+msgstr "Importar uma imagem de disco"
+
+#: src/import/org.freedesktop.import1.policy:23
+msgid "Authentication is required to import an image."
+msgstr "A autenticação é necessária para importar uma imagem."
+
+#: src/import/org.freedesktop.import1.policy:32
+msgid "Export a disk image"
+msgstr "Exportar uma imagem de disco"
+
+#: src/import/org.freedesktop.import1.policy:33
+msgid "Authentication is required to export disk image."
+msgstr "A autenticação é necessária para exportar a imagem do disco."
+
+#: src/import/org.freedesktop.import1.policy:42
+msgid "Download a disk image"
+msgstr "Baixar uma imagem de disco"
+
+#: src/import/org.freedesktop.import1.policy:43
+msgid "Authentication is required to download a disk image."
+msgstr "É necessária autenticação para baixar uma imagem de disco."
+
+#: src/import/org.freedesktop.import1.policy:52
+msgid "Cancel transfer of a disk image"
+msgstr "Cancelar a transferência de uma imagem de disco"
+
+#: src/import/org.freedesktop.import1.policy:53
+msgid ""
+"Authentication is required to cancel the ongoing transfer of a disk image."
+msgstr ""
+"A autenticação é necessária para cancelar a transferência em andamento de "
+"uma imagem de disco."
+
+#: src/locale/org.freedesktop.locale1.policy:22
+msgid "Set system locale"
+msgstr "Definir configurações regionais do sistema"
+
+#: src/locale/org.freedesktop.locale1.policy:23
+msgid "Authentication is required to set the system locale."
+msgstr ""
+"É necessária autenticação para definir as configurações regionais do sistema."
+
+#: src/locale/org.freedesktop.locale1.policy:33
+msgid "Set system keyboard settings"
+msgstr "Definir configurações de teclado do sistema"
+
+#: src/locale/org.freedesktop.locale1.policy:34
+msgid "Authentication is required to set the system keyboard settings."
+msgstr ""
+"É necessária autenticação para definir as configurações de teclado do "
+"sistema."
+
+#: src/login/org.freedesktop.login1.policy:22
+msgid "Allow applications to inhibit system shutdown"
+msgstr "Permitir que aplicativos inibam o desligamento do sistema"
+
+#: src/login/org.freedesktop.login1.policy:23
+msgid ""
+"Authentication is required for an application to inhibit system shutdown."
+msgstr ""
+"É necessária autenticação para que um aplicativo iniba o desligamento do "
+"sistema."
+
+#: src/login/org.freedesktop.login1.policy:33
+msgid "Allow applications to delay system shutdown"
+msgstr "Permitir que aplicativos atrasem o desligamento do sistema"
+
+#: src/login/org.freedesktop.login1.policy:34
+msgid "Authentication is required for an application to delay system shutdown."
+msgstr ""
+"É necessária autenticação para que um aplicativo atrase o desligamento do "
+"sistema."
+
+#: src/login/org.freedesktop.login1.policy:44
+msgid "Allow applications to inhibit system sleep"
+msgstr "Permitir que aplicativos inibam a suspensão do sistema"
+
+#: src/login/org.freedesktop.login1.policy:45
+msgid "Authentication is required for an application to inhibit system sleep."
+msgstr ""
+"É necessária autenticação para que um aplicativo iniba a suspensão do "
+"sistema."
+
+#: src/login/org.freedesktop.login1.policy:55
+msgid "Allow applications to delay system sleep"
+msgstr "Permite que aplicativos atrasem a suspensão do sistema"
+
+#: src/login/org.freedesktop.login1.policy:56
+msgid "Authentication is required for an application to delay system sleep."
+msgstr ""
+"É necessária autenticação para que um aplicativo atrase a suspensão do "
+"sistema."
+
+#: src/login/org.freedesktop.login1.policy:65
+msgid "Allow applications to inhibit automatic system suspend"
+msgstr "Permitir que aplicativos inibam a suspensão automática do sistema"
+
+#: src/login/org.freedesktop.login1.policy:66
+msgid ""
+"Authentication is required for an application to inhibit automatic system "
+"suspend."
+msgstr ""
+"É necessária autenticação para que um aplicativo iniba a suspensão "
+"automática do sistema."
+
+#: src/login/org.freedesktop.login1.policy:75
+msgid "Allow applications to inhibit system handling of the power key"
+msgstr ""
+"Permitir que aplicativos inibam o sistema de gerenciar o botão de energia"
+
+#: src/login/org.freedesktop.login1.policy:76
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the power key."
+msgstr ""
+"É necessária autenticação para que um aplicativo iniba a manipulação do "
+"sistema sobre a chave de ligar/desligar."
+
+#: src/login/org.freedesktop.login1.policy:86
+msgid "Allow applications to inhibit system handling of the suspend key"
+msgstr ""
+"Permitir que aplicativos inibam o sistema de gerenciar o botão de suspensão"
+
+#: src/login/org.freedesktop.login1.policy:87
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the suspend key."
+msgstr ""
+"É necessária autenticação para que um aplicativo iniba a manipulação do "
+"sistema sobre a chave de suspensão."
+
+#: src/login/org.freedesktop.login1.policy:97
+msgid "Allow applications to inhibit system handling of the hibernate key"
+msgstr ""
+"Permitir que aplicativos inibam o sistema de gerenciar o botão de hibernação"
+
+#: src/login/org.freedesktop.login1.policy:98
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the hibernate key."
+msgstr ""
+"É necessária autenticação para que um aplicativo iniba a manipulação do "
+"sistema sobre a chave de hibernar."
+
+#: src/login/org.freedesktop.login1.policy:107
+msgid "Allow applications to inhibit system handling of the lid switch"
+msgstr ""
+"Permitir que aplicativos inibam o sistema de gerenciar a abertura/fechamento "
+"da tampa do dispositivo portátil"
+
+#: src/login/org.freedesktop.login1.policy:108
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the lid switch."
+msgstr ""
+"É necessária autenticação para que um aplicativo iniba a manipulação do "
+"sistema sobre o interruptor da tela."
+
+#: src/login/org.freedesktop.login1.policy:117
+msgid "Allow applications to inhibit system handling of the reboot key"
+msgstr ""
+"Permitir que os aplicativos inibam o gerenciamento do sistema da tecla de "
+"reinicialização"
+
+#: src/login/org.freedesktop.login1.policy:118
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the reboot key."
+msgstr ""
+"A autenticação é necessária para um aplicativo para inibir o gerenciamento "
+"do sistema da tecla de reinicialização."
+
+#: src/login/org.freedesktop.login1.policy:128
+msgid "Allow non-logged-in user to run programs"
+msgstr ""
+"Permitir que programas sejam executados por usuário que não possui sessão"
+
+#: src/login/org.freedesktop.login1.policy:129
+msgid "Explicit request is required to run programs as a non-logged-in user."
+msgstr ""
+"É necessária requisição explícita para executar programas como usuário sem "
+"sessão aberta."
+
+#: src/login/org.freedesktop.login1.policy:138
+msgid "Allow non-logged-in users to run programs"
+msgstr ""
+"Permitir que programas sejam executados por usuários que não possuem sessão"
+
+#: src/login/org.freedesktop.login1.policy:139
+msgid "Authentication is required to run programs as a non-logged-in user."
+msgstr ""
+"É necessária autenticação para executar programas como usuário sem sessão "
+"aberta."
+
+#: src/login/org.freedesktop.login1.policy:148
+msgid "Allow attaching devices to seats"
+msgstr "Permitir conectar dispositivos em estações"
+
+#: src/login/org.freedesktop.login1.policy:149
+msgid "Authentication is required to attach a device to a seat."
+msgstr "É necessária autenticação para conectar um dispositivo em uma estação."
+
+#: src/login/org.freedesktop.login1.policy:159
+msgid "Flush device to seat attachments"
+msgstr "Liberar dispositivo para conexões da estação"
+
+#: src/login/org.freedesktop.login1.policy:160
+msgid "Authentication is required to reset how devices are attached to seats."
+msgstr ""
+"É necessária autenticação para redefinir a quantidade de dispositivos "
+"conectados na estação."
+
+#: src/login/org.freedesktop.login1.policy:169
+msgid "Power off the system"
+msgstr "Desligar o sistema"
+
+#: src/login/org.freedesktop.login1.policy:170
+msgid "Authentication is required to power off the system."
+msgstr "É necessária autenticação para desligar o sistema."
+
+#: src/login/org.freedesktop.login1.policy:180
+msgid "Power off the system while other users are logged in"
+msgstr "Desligar o sistema enquanto outros usuários estão conectados"
+
+#: src/login/org.freedesktop.login1.policy:181
+msgid ""
+"Authentication is required to power off the system while other users are "
+"logged in."
+msgstr ""
+"É necessária autenticação para desligar o sistema enquanto outros usuários "
+"estão conectados."
+
+#: src/login/org.freedesktop.login1.policy:191
+msgid "Power off the system while an application is inhibiting this"
+msgstr "Desligar o sistema enquanto um aplicativo solicitou inibição"
+
+#: src/login/org.freedesktop.login1.policy:192
+msgid ""
+"Authentication is required to power off the system while an application is "
+"inhibiting this."
+msgstr ""
+"É necessária autenticação para desligar o sistema enquanto um aplicativo "
+"solicitou inibição."
+
+#: src/login/org.freedesktop.login1.policy:202
+msgid "Reboot the system"
+msgstr "Reiniciar o sistema"
+
+#: src/login/org.freedesktop.login1.policy:203
+msgid "Authentication is required to reboot the system."
+msgstr "É necessária autenticação para reiniciar o sistema."
+
+#: src/login/org.freedesktop.login1.policy:213
+msgid "Reboot the system while other users are logged in"
+msgstr "Reiniciar o sistema enquanto outros usuários estiverem conectados"
+
+#: src/login/org.freedesktop.login1.policy:214
+msgid ""
+"Authentication is required to reboot the system while other users are logged "
+"in."
+msgstr ""
+"É necessária autenticação para reiniciar o sistema enquanto outros usuários "
+"estiverem conectados."
+
+#: src/login/org.freedesktop.login1.policy:224
+msgid "Reboot the system while an application is inhibiting this"
+msgstr "Reiniciar o sistema enquanto um aplicativo solicitou inibição"
+
+#: src/login/org.freedesktop.login1.policy:225
+msgid ""
+"Authentication is required to reboot the system while an application is "
+"inhibiting this."
+msgstr ""
+"É necessária autenticação para reiniciar o sistema enquanto um aplicativo "
+"solicitou inibição."
+
+#: src/login/org.freedesktop.login1.policy:235
+msgid "Halt the system"
+msgstr "Parar o sistema"
+
+#: src/login/org.freedesktop.login1.policy:236
+msgid "Authentication is required to halt the system."
+msgstr "É necessária autenticação para parar o sistema."
+
+#: src/login/org.freedesktop.login1.policy:246
+msgid "Halt the system while other users are logged in"
+msgstr "Parar o sistema enquanto outros usuários estão logados"
+
+#: src/login/org.freedesktop.login1.policy:247
+msgid ""
+"Authentication is required to halt the system while other users are logged "
+"in."
+msgstr ""
+"É necessária autenticação para parar o sistema enquanto outros usuários "
+"estejam logados."
+
+#: src/login/org.freedesktop.login1.policy:257
+msgid "Halt the system while an application is inhibiting this"
+msgstr "Parar o sistema enquanto um aplicativo solicitou inibição"
+
+#: src/login/org.freedesktop.login1.policy:258
+msgid ""
+"Authentication is required to halt the system while an application is "
+"inhibiting this."
+msgstr ""
+"É necessária autenticação para parar o sistema enquanto um aplicativo "
+"solicitou inibição."
+
+#: src/login/org.freedesktop.login1.policy:268
+msgid "Suspend the system"
+msgstr "Suspender o sistema"
+
+#: src/login/org.freedesktop.login1.policy:269
+msgid "Authentication is required to suspend the system."
+msgstr "É necessária autenticação para suspender o sistema."
+
+#: src/login/org.freedesktop.login1.policy:278
+msgid "Suspend the system while other users are logged in"
+msgstr "Suspender o sistema enquanto outros usuários estiverem conectados"
+
+#: src/login/org.freedesktop.login1.policy:279
+msgid ""
+"Authentication is required to suspend the system while other users are "
+"logged in."
+msgstr ""
+"É necessária autenticação para suspender o sistema enquanto outros usuários "
+"estiverem conectados."
+
+#: src/login/org.freedesktop.login1.policy:289
+msgid "Suspend the system while an application is inhibiting this"
+msgstr "Suspender o sistema enquanto um aplicativo solicitou inibição"
+
+#: src/login/org.freedesktop.login1.policy:290
+msgid ""
+"Authentication is required to suspend the system while an application is "
+"inhibiting this."
+msgstr ""
+"É necessária autenticação para suspender o sistema enquanto um aplicativo "
+"solicitou inibição."
+
+#: src/login/org.freedesktop.login1.policy:300
+msgid "Hibernate the system"
+msgstr "Hibernar o sistema"
+
+#: src/login/org.freedesktop.login1.policy:301
+msgid "Authentication is required to hibernate the system."
+msgstr "É necessária autenticação para hibernar o sistema."
+
+#: src/login/org.freedesktop.login1.policy:310
+msgid "Hibernate the system while other users are logged in"
+msgstr "Hibernar o sistema enquanto outros usuários estiverem conectados"
+
+#: src/login/org.freedesktop.login1.policy:311
+msgid ""
+"Authentication is required to hibernate the system while other users are "
+"logged in."
+msgstr ""
+"É necessária autenticação para hibernar o sistema enquanto outros usuários "
+"estiverem conectados."
+
+#: src/login/org.freedesktop.login1.policy:321
+msgid "Hibernate the system while an application is inhibiting this"
+msgstr "Hibernar o sistema enquanto um aplicativo solicitou inibição"
+
+#: src/login/org.freedesktop.login1.policy:322
+msgid ""
+"Authentication is required to hibernate the system while an application is "
+"inhibiting this."
+msgstr ""
+"É necessária autenticação para hibernar o sistema enquanto um aplicativo "
+"solicitou inibição."
+
+#: src/login/org.freedesktop.login1.policy:332
+msgid "Manage active sessions, users and seats"
+msgstr "Gerenciar estações, usuários e sessões ativas"
+
+#: src/login/org.freedesktop.login1.policy:333
+msgid "Authentication is required to manage active sessions, users and seats."
+msgstr ""
+"A autenticação é necessária para gerenciar sessões ativas, usuários e "
+"estações."
+
+#: src/login/org.freedesktop.login1.policy:342
+msgid "Lock or unlock active sessions"
+msgstr "Travar ou destravar sessões ativas"
+
+#: src/login/org.freedesktop.login1.policy:343
+msgid "Authentication is required to lock or unlock active sessions."
+msgstr "É necessária autenticação para travar ou destravar sessões ativas."
+
+#: src/login/org.freedesktop.login1.policy:352
+msgid "Set the reboot \"reason\" in the kernel"
+msgstr "Definir o “motivo” de reinicialização no kernel"
+
+#: src/login/org.freedesktop.login1.policy:353
+msgid "Authentication is required to set the reboot \"reason\" in the kernel."
+msgstr ""
+"É necessária autenticação para definir o “motivo” de reinicialização no "
+"kernel."
+
+#: src/login/org.freedesktop.login1.policy:363
+msgid "Indicate to the firmware to boot to setup interface"
+msgstr "Indicar para o firmware inicializar para a interface de configuração"
+
+#: src/login/org.freedesktop.login1.policy:364
+msgid ""
+"Authentication is required to indicate to the firmware to boot to setup "
+"interface."
+msgstr ""
+"É necessária autenticação para indicar para o firmware inicializar para a "
+"interface de configuração."
+
+#: src/login/org.freedesktop.login1.policy:374
+msgid "Indicate to the boot loader to boot to the boot loader menu"
+msgstr "Indicar para o carregador de inicialização iniciar seu menu"
+
+#: src/login/org.freedesktop.login1.policy:375
+msgid ""
+"Authentication is required to indicate to the boot loader to boot to the "
+"boot loader menu."
+msgstr ""
+"É necessária autenticação para indicar para o carregador de inicialização "
+"iniciar seu menu."
+
+#: src/login/org.freedesktop.login1.policy:385
+msgid "Indicate to the boot loader to boot a specific entry"
+msgstr "Indicar para o carregador de inicializar iniciar uma entrada específica"
+
+#: src/login/org.freedesktop.login1.policy:386
+msgid ""
+"Authentication is required to indicate to the boot loader to boot into a "
+"specific boot loader entry."
+msgstr ""
+"É necessária autenticação para indicar para o carregador de inicializar "
+"iniciar uma entrada específica."
+
+#: src/login/org.freedesktop.login1.policy:396
+msgid "Set a wall message"
+msgstr "Definir uma mensagem de parede"
+
+#: src/login/org.freedesktop.login1.policy:397
+msgid "Authentication is required to set a wall message."
+msgstr "É necessária autenticação para definir uma mensagem de parede."
+
+#: src/login/org.freedesktop.login1.policy:406
+msgid "Change Session"
+msgstr "Alterar sessão"
+
+#: src/login/org.freedesktop.login1.policy:407
+msgid "Authentication is required to change the virtual terminal."
+msgstr "É necessária autenticação para alterar o terminal virtual."
+
+#: src/machine/org.freedesktop.machine1.policy:22
+msgid "Log into a local container"
+msgstr "Conectar a um contêiner local"
+
+#: src/machine/org.freedesktop.machine1.policy:23
+msgid "Authentication is required to log into a local container."
+msgstr "É necessária autenticação para se conectar a um contêiner local."
+
+#: src/machine/org.freedesktop.machine1.policy:32
+msgid "Log into the local host"
+msgstr "Conectar a uma máquina local"
+
+#: src/machine/org.freedesktop.machine1.policy:33
+msgid "Authentication is required to log into the local host."
+msgstr "É necessária autenticação para se conectar a uma máquina local."
+
+#: src/machine/org.freedesktop.machine1.policy:42
+msgid "Acquire a shell in a local container"
+msgstr "Adquirir uma shell em um contêiner local"
+
+#: src/machine/org.freedesktop.machine1.policy:43
+msgid "Authentication is required to acquire a shell in a local container."
+msgstr ""
+"É necessária autenticação para adquirir uma shell em um contêiner local."
+
+#: src/machine/org.freedesktop.machine1.policy:53
+msgid "Acquire a shell on the local host"
+msgstr "Adquirir uma shell na máquina local"
+
+#: src/machine/org.freedesktop.machine1.policy:54
+msgid "Authentication is required to acquire a shell on the local host."
+msgstr "É necessária autenticação para adquirir uma shell em uma máquina local."
+
+#: src/machine/org.freedesktop.machine1.policy:64
+msgid "Acquire a pseudo TTY in a local container"
+msgstr "Adquirir um pseudo TTY em um contêiner local"
+
+#: src/machine/org.freedesktop.machine1.policy:65
+msgid ""
+"Authentication is required to acquire a pseudo TTY in a local container."
+msgstr ""
+"É necessária autenticação para adquirir um pseudo TTY em um contêiner local."
+
+#: src/machine/org.freedesktop.machine1.policy:74
+msgid "Acquire a pseudo TTY on the local host"
+msgstr "Adquiri um pseudo TTY na máquina local"
+
+#: src/machine/org.freedesktop.machine1.policy:75
+msgid "Authentication is required to acquire a pseudo TTY on the local host."
+msgstr "A autenticação é necessária para adquirir um pseudo TTY no host local."
+
+#: src/machine/org.freedesktop.machine1.policy:84
+msgid "Manage local virtual machines and containers"
+msgstr "Gerenciar máquinas virtuais locais e contêineres"
+
+#: src/machine/org.freedesktop.machine1.policy:85
+msgid ""
+"Authentication is required to manage local virtual machines and containers."
+msgstr ""
+"É necessária autenticação para gerenciar máquinas virtuais locais e "
+"contêineres."
+
+#: src/machine/org.freedesktop.machine1.policy:95
+msgid "Inspect local virtual machines and containers"
+msgstr "Inspecionar contêineres e máquinas virtuais locais"
+
+#: src/machine/org.freedesktop.machine1.policy:96
+msgid ""
+"Authentication is required to inspect local virtual machines and containers."
+msgstr ""
+"É necessária autenticação para inspecionar contêineres e máquinas virtuais "
+"locais."
+
+#: src/machine/org.freedesktop.machine1.policy:105
+msgid "Create a local virtual machine or container"
+msgstr "Crie uma máquina virtual local ou um contêiner"
+
+#: src/machine/org.freedesktop.machine1.policy:106
+msgid ""
+"Authentication is required to create a local virtual machine or container."
+msgstr ""
+"É necessária autenticação para criar máquinas virtuais locais e contêineres."
+
+#: src/machine/org.freedesktop.machine1.policy:116
+msgid "Register a local virtual machine or container"
+msgstr "Registrar uma máquina virtual local ou um contêiner"
+
+#: src/machine/org.freedesktop.machine1.policy:117
+msgid ""
+"Authentication is required to register a local virtual machine or container."
+msgstr ""
+"É necessária autenticação para registrar máquinas virtuais locais e "
+"contêineres."
+
+#: src/machine/org.freedesktop.machine1.policy:126
+msgid "Manage local virtual machine and container images"
+msgstr "Gerenciar máquinas virtuais locais e imagens contêineres"
+
+#: src/machine/org.freedesktop.machine1.policy:127
+msgid ""
+"Authentication is required to manage local virtual machine and container "
+"images."
+msgstr ""
+"É necessária autenticação para gerenciar máquinas virtuais locais e imagens "
+"contêineres."
+
+#: src/machine/org.freedesktop.machine1.policy:137
+msgid "Inspect local virtual machine and container images"
+msgstr "Inspecionar imagens de contêiner e máquina virtual local"
+
+#: src/machine/org.freedesktop.machine1.policy:138
+msgid ""
+"Authentication is required to inspect local virtual machine and container "
+"images."
+msgstr ""
+"É necessária autenticação para inspecionar imagens de contêiner e máquina "
+"virtual local."
+
+#: src/network/org.freedesktop.network1.policy:22
+msgid "Set NTP servers"
+msgstr "Definir servidores NTP"
+
+#: src/network/org.freedesktop.network1.policy:23
+msgid "Authentication is required to set NTP servers."
+msgstr "É necessária autenticação para definir os servidores NTP."
+
+#: src/network/org.freedesktop.network1.policy:33
+#: src/resolve/org.freedesktop.resolve1.policy:44
+msgid "Set DNS servers"
+msgstr "Definir servidores DNS"
+
+#: src/network/org.freedesktop.network1.policy:34
+#: src/resolve/org.freedesktop.resolve1.policy:45
+msgid "Authentication is required to set DNS servers."
+msgstr "É necessária autenticação para definir os servidores DNS."
+
+#: src/network/org.freedesktop.network1.policy:44
+#: src/resolve/org.freedesktop.resolve1.policy:55
+msgid "Set domains"
+msgstr "Definir domínios"
+
+#: src/network/org.freedesktop.network1.policy:45
+#: src/resolve/org.freedesktop.resolve1.policy:56
+msgid "Authentication is required to set domains."
+msgstr "É necessária autenticação para definir domínios."
+
+#: src/network/org.freedesktop.network1.policy:55
+#: src/resolve/org.freedesktop.resolve1.policy:66
+msgid "Set default route"
+msgstr "Definir rota padrão"
+
+#: src/network/org.freedesktop.network1.policy:56
+#: src/resolve/org.freedesktop.resolve1.policy:67
+msgid "Authentication is required to set default route."
+msgstr "A autenticação é necessária para definir a rota padrão."
+
+#: src/network/org.freedesktop.network1.policy:66
+#: src/resolve/org.freedesktop.resolve1.policy:77
+msgid "Enable/disable LLMNR"
+msgstr "Habilitar/desabilitar LLMNR"
+
+#: src/network/org.freedesktop.network1.policy:67
+#: src/resolve/org.freedesktop.resolve1.policy:78
+msgid "Authentication is required to enable or disable LLMNR."
+msgstr "É necessária autenticação para definir habilitar ou desabilitar LLMNR."
+
+#: src/network/org.freedesktop.network1.policy:77
+#: src/resolve/org.freedesktop.resolve1.policy:88
+msgid "Enable/disable multicast DNS"
+msgstr "Habilitar/desabilitar DNS multicast"
+
+#: src/network/org.freedesktop.network1.policy:78
+#: src/resolve/org.freedesktop.resolve1.policy:89
+msgid "Authentication is required to enable or disable multicast DNS."
+msgstr "É necessária autenticação para habilitar ou desabilitar DNS multicast."
+
+#: src/network/org.freedesktop.network1.policy:88
+#: src/resolve/org.freedesktop.resolve1.policy:99
+msgid "Enable/disable DNS over TLS"
+msgstr "Habilitar/desabilitar DNS por TLS"
+
+#: src/network/org.freedesktop.network1.policy:89
+#: src/resolve/org.freedesktop.resolve1.policy:100
+msgid "Authentication is required to enable or disable DNS over TLS."
+msgstr "É necessária autenticação para habilitar ou desabilitar DNS por TLS."
+
+#: src/network/org.freedesktop.network1.policy:99
+#: src/resolve/org.freedesktop.resolve1.policy:110
+msgid "Enable/disable DNSSEC"
+msgstr "Habilitar/desabilitar DNSSEC"
+
+#: src/network/org.freedesktop.network1.policy:100
+#: src/resolve/org.freedesktop.resolve1.policy:111
+msgid "Authentication is required to enable or disable DNSSEC."
+msgstr "É necessária autenticação para habilitar ou desabilitar DNSSEC."
+
+#: src/network/org.freedesktop.network1.policy:110
+#: src/resolve/org.freedesktop.resolve1.policy:121
+msgid "Set DNSSEC Negative Trust Anchors"
+msgstr "Definir DNSSEC Negative Trust Anchors"
+
+#: src/network/org.freedesktop.network1.policy:111
+#: src/resolve/org.freedesktop.resolve1.policy:122
+msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
+msgstr "É necessária autenticação para definir DNSSEC Negative Trust Anchors."
+
+#: src/network/org.freedesktop.network1.policy:121
+msgid "Revert NTP settings"
+msgstr "Reverter configurações de NTP"
+
+#: src/network/org.freedesktop.network1.policy:122
+msgid "Authentication is required to reset NTP settings."
+msgstr "É necessária autenticação para redefinir as configurações de NTP."
+
+#: src/network/org.freedesktop.network1.policy:132
+msgid "Revert DNS settings"
+msgstr "Reverter configurações de DNS"
+
+#: src/network/org.freedesktop.network1.policy:133
+msgid "Authentication is required to reset DNS settings."
+msgstr "A autenticação é necessária para redefinir as configurações de DNS."
+
+#: src/network/org.freedesktop.network1.policy:143
+msgid "DHCP server sends force renew message"
+msgstr "Servidor DHCP envia mensagem de renovação forçada"
+
+#: src/network/org.freedesktop.network1.policy:144
+msgid ""
+"Authentication is required to send a force renew message from the DHCP "
+"server."
+msgstr ""
+"É necessária autenticação para enviar uma mensagem de renovação forçada a "
+"partir do servidor DHCP."
+
+#: src/network/org.freedesktop.network1.policy:154
+msgid "Renew dynamic addresses"
+msgstr "Renovar endereços dinâmicos"
+
+#: src/network/org.freedesktop.network1.policy:155
+msgid "Authentication is required to renew dynamic addresses."
+msgstr "É necessária autenticação para renovar endereços dinâmicos."
+
+#: src/network/org.freedesktop.network1.policy:165
+msgid "Reload network settings"
+msgstr "Recarregar configurações de rede"
+
+#: src/network/org.freedesktop.network1.policy:166
+msgid "Authentication is required to reload network settings."
+msgstr "A autenticação é necessária para recarregar as configurações de rede."
+
+#: src/network/org.freedesktop.network1.policy:176
+msgid "Reconfigure network interface"
+msgstr "Reconfigurar interface de rede"
+
+#: src/network/org.freedesktop.network1.policy:177
+msgid "Authentication is required to reconfigure network interface."
+msgstr "É necessária autenticação para reconfigurar a interface de rede."
+
+#: src/network/org.freedesktop.network1.policy:187
+msgid "Specify whether persistent storage for systemd-networkd is available"
+msgstr ""
+"Especificar se o armazenamento persistente para systemd-networkd está "
+"disponível"
+
+#: src/network/org.freedesktop.network1.policy:188
+msgid ""
+"Authentication is required to specify whether persistent storage for systemd-"
+"networkd is available."
+msgstr ""
+"A autenticação é necessária para especificar se o armazenamento persistente "
+"para systemd-networkd está disponível."
+
+#: src/network/org.freedesktop.network1.policy:198
+msgid "Manage network links"
+msgstr "Gerenciar conexões de rede"
+
+#: src/network/org.freedesktop.network1.policy:199
+msgid "Authentication is required to manage network links."
+msgstr "A autenticação é necessária para gerenciar conexões de rede."
+
+#: src/portable/org.freedesktop.portable1.policy:13
+msgid "Inspect a portable service image"
+msgstr "Inspecionar uma imagem de serviço portável"
+
+#: src/portable/org.freedesktop.portable1.policy:14
+msgid "Authentication is required to inspect a portable service image."
+msgstr ""
+"É necessária autenticação para inspecionar uma imagem de serviço portável."
+
+#: src/portable/org.freedesktop.portable1.policy:23
+msgid "Attach or detach a portable service image"
+msgstr "Conectar ou desconectar uma imagem de serviço portável"
+
+#: src/portable/org.freedesktop.portable1.policy:24
+msgid ""
+"Authentication is required to attach or detach a portable service image."
+msgstr ""
+"É necessária autenticação para conectar ou desconectar uma imagem de serviço "
+"portável."
+
+#: src/portable/org.freedesktop.portable1.policy:34
+msgid "Delete or modify portable service image"
+msgstr "Remover ou modificar imagem de serviço portável"
+
+#: src/portable/org.freedesktop.portable1.policy:35
+msgid ""
+"Authentication is required to delete or modify a portable service image."
+msgstr ""
+"É necessária autenticação para remover ou modificar imagem de serviço "
+"portável."
+
+#: src/resolve/org.freedesktop.resolve1.policy:22
+msgid "Register a DNS-SD service"
+msgstr "Registrar um serviço DNS-SD"
+
+#: src/resolve/org.freedesktop.resolve1.policy:23
+msgid "Authentication is required to register a DNS-SD service."
+msgstr "É necessária a autenticação para registrar um serviço DNS-SD."
+
+#: src/resolve/org.freedesktop.resolve1.policy:33
+msgid "Unregister a DNS-SD service"
+msgstr "Remover um serviço DNS-SD"
+
+#: src/resolve/org.freedesktop.resolve1.policy:34
+msgid "Authentication is required to unregister a DNS-SD service."
+msgstr "É necessária autenticação para remover um serviço DNS-SD."
+
+#: src/resolve/org.freedesktop.resolve1.policy:132
+msgid "Revert name resolution settings"
+msgstr "Reverter configurações de resolução de nome"
+
+#: src/resolve/org.freedesktop.resolve1.policy:133
+msgid "Authentication is required to reset name resolution settings."
+msgstr ""
+"É necessária autenticação para redefinir as configurações de resolução de "
+"nome."
+
+#: src/resolve/org.freedesktop.resolve1.policy:143
+msgid "Subscribe query results"
+msgstr "Assinar resultados da consulta"
+
+#: src/resolve/org.freedesktop.resolve1.policy:144
+msgid "Authentication is required to subscribe query results."
+msgstr "A autenticação é necessária para assinar os resultados da consulta."
+
+#: src/resolve/org.freedesktop.resolve1.policy:154
+msgid "Subscribe to DNS configuration"
+msgstr "Assinar para uma configuração DNS"
+
+#: src/resolve/org.freedesktop.resolve1.policy:155
+msgid "Authentication is required to subscribe to DNS configuration."
+msgstr "A autenticação é necessária para assinar a configuração DNS."
+
+#: src/resolve/org.freedesktop.resolve1.policy:165
+msgid "Dump cache"
+msgstr "Despejar cache"
+
+#: src/resolve/org.freedesktop.resolve1.policy:166
+msgid "Authentication is required to dump cache."
+msgstr "É necessária autenticação para descarregar o cache."
+
+#: src/resolve/org.freedesktop.resolve1.policy:176
+msgid "Dump server state"
+msgstr "Despejar o estado do servidor"
+
+#: src/resolve/org.freedesktop.resolve1.policy:177
+msgid "Authentication is required to dump server state."
+msgstr "A autenticação é necessária para despejar o estado do servidor."
+
+#: src/resolve/org.freedesktop.resolve1.policy:187
+msgid "Dump statistics"
+msgstr "Estatísticas do despejo"
+
+#: src/resolve/org.freedesktop.resolve1.policy:188
+msgid "Authentication is required to dump statistics."
+msgstr "A autenticação é necessária para o despejo de estatísticas."
+
+#: src/resolve/org.freedesktop.resolve1.policy:198
+msgid "Reset statistics"
+msgstr "Redefinir estatísticas"
+
+#: src/resolve/org.freedesktop.resolve1.policy:199
+msgid "Authentication is required to reset statistics."
+msgstr "A autenticação é necessária para redefinir as estatísticas."
+
+#: src/resolve/org.freedesktop.resolve1.policy:209
+msgid "Flush DNS caches"
+msgstr "Limpar caches DNS"
+
+#: src/resolve/org.freedesktop.resolve1.policy:210
+msgid "Authentication is required to flush DNS caches."
+msgstr "É necessária autenticação para limpar caches DNS."
+
+#: src/resolve/org.freedesktop.resolve1.policy:220
+msgid "Reset server features"
+msgstr "Redefinir recursos do servidor"
+
+#: src/resolve/org.freedesktop.resolve1.policy:221
+msgid "Authentication is required to reset server features."
+msgstr "É necessária autenticação para redefinir recursos do servidor."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:38
+msgid "Check for system updates"
+msgstr "Verifique se há atualizações do sistema"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:39
+msgid "Authentication is required to check for system updates."
+msgstr "É necessária autenticação para verificar por atualizações do sistema."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:48
+msgid "Cancel checking for system updates"
+msgstr "Cancelar verificação por atualizações do sistema"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:49
+msgid "Authentication is required to cancel checking for system updates."
+msgstr ""
+"É necessária autenticação para o cancelar verificação por atualizações do "
+"sistema."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:58
+msgid "Install system updates"
+msgstr "Instalar atualizações do sistema"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:59
+msgid "Authentication is required to install system updates."
+msgstr "É necessária autenticação para instalar atualizações do sistema."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:68
+msgid "Cancel installing system updates"
+msgstr "Cancelar instalação de atualizações do sistema"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:69
+msgid "Authentication is required to cancel installing system updates."
+msgstr ""
+"É necessária autenticação para cancelar instalação de atualizações do "
+"sistema."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:78
+msgid "Install specific system version"
+msgstr "Instalar versão específica do sistema"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:79
+msgid ""
+"Authentication is required to update the system to a specific (possibly old) "
+"version."
+msgstr ""
+"A autenticação é necessária para atualizar o sistema para uma versão "
+"específica (possivelmente antiga)."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:88
+msgid "Cancel installing specific system version"
+msgstr "Cancelar instalação de uma versão específica do sistema"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:89
+msgid ""
+"Authentication is required to cancel updating the system to a specific "
+"(possibly old) version."
+msgstr ""
+"É necessária autenticação para cancelar instalação de uma versão específica "
+"(possivelmente antiga) do sistema."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:98
+msgid "Clean up old system updates"
+msgstr "Limpar atualizações antigas do sistema"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:99
+msgid "Authentication is required to clean up old system updates."
+msgstr "É necessária autenticação para limpar atualizações antigas do sistema."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:108
+msgid "Cancel cleaning up old system updates"
+msgstr "Cancelar limpeza de atualizações antigas do sistema"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:109
+msgid "Authentication is required to cancel cleanup of old system updates."
+msgstr ""
+"É necessária autenticação para cancelar limpeza de atualizações antigas do "
+"sistema."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:118
+msgid "Manage optional features"
+msgstr "Gerenciar recursos opcionais"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:119
+msgid "Authentication is required to manage optional features."
+msgstr "A autenticação é necessária para gerenciar recursos opcionais."
+
+#: src/timedate/org.freedesktop.timedate1.policy:22
+msgid "Set system time"
+msgstr "Definir horário do sistema"
+
+#: src/timedate/org.freedesktop.timedate1.policy:23
+msgid "Authentication is required to set the system time."
+msgstr "É necessária autenticação para definir o horário do sistema."
+
+#: src/timedate/org.freedesktop.timedate1.policy:33
+msgid "Set system timezone"
+msgstr "Definir fuso horário do sistema"
+
+#: src/timedate/org.freedesktop.timedate1.policy:34
+msgid "Authentication is required to set the system timezone."
+msgstr "É necessária autenticação para definir o fuso horário do sistema."
+
+#: src/timedate/org.freedesktop.timedate1.policy:43
+msgid "Set RTC to local timezone or UTC"
+msgstr "Definir RTC para fuso horário local ou UTC"
+
+#: src/timedate/org.freedesktop.timedate1.policy:44
+msgid ""
+"Authentication is required to control whether the RTC stores the local or "
+"UTC time."
+msgstr ""
+"É necessária autenticação para controlar se o RTC deve, ou não, armazenar o "
+"horário local ou de UTC."
+
+#: src/timedate/org.freedesktop.timedate1.policy:53
+msgid "Turn network time synchronization on or off"
+msgstr "Ligar/desligar a sincronização do horário em rede"
+
+#: src/timedate/org.freedesktop.timedate1.policy:54
+msgid ""
+"Authentication is required to control whether network time synchronization "
+"shall be enabled."
+msgstr ""
+"É necessária autenticação para controlar se deve ser habilitada, ou não, a "
+"sincronização de horário através de rede."
+
+#: src/core/dbus-unit.c:372
+msgid "Authentication is required to start '$(unit)'."
+msgstr "É necessária autenticação para iniciar “$(unit)”."
+
+#: src/core/dbus-unit.c:373
+msgid "Authentication is required to stop '$(unit)'."
+msgstr "É necessária autenticação para parar “$(unit)”."
+
+#: src/core/dbus-unit.c:374
+msgid "Authentication is required to reload '$(unit)'."
+msgstr "É necessária autenticação para recarregar “$(unit)”."
+
+#: src/core/dbus-unit.c:375 src/core/dbus-unit.c:376
+msgid "Authentication is required to restart '$(unit)'."
+msgstr "É necessária autenticação para reiniciar “$(unit)”."
+
+#: src/core/dbus-unit.c:568
+msgid ""
+"Authentication is required to send a UNIX signal to the processes of '$"
+"(unit)'."
+msgstr ""
+"É necessária autenticação para enviar um sinal UNIX para os processos de “$"
+"(unit)”."
+
+#: src/core/dbus-unit.c:621
+msgid ""
+"Authentication is required to send a UNIX signal to the processes of "
+"subgroup of '$(unit)'."
+msgstr ""
+"É necessária autenticação para enviar um sinal UNIX para os processos de "
+"subgrupo de “$(unit)”."
+
+#: src/core/dbus-unit.c:649
+msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
+msgstr ""
+"É necessária autenticação para reiniciar o estado “failed” de “$(unit)”."
+
+#: src/core/dbus-unit.c:679
+msgid "Authentication is required to set properties on '$(unit)'."
+msgstr "É necessária autenticação para definir propriedades em “$(unit)”."
+
+#: src/core/dbus-unit.c:776
+msgid ""
+"Authentication is required to delete files and directories associated with '$"
+"(unit)'."
+msgstr ""
+"É necessária autenticação para excluir arquivos e diretórios associados com "
+"“$(unit)”."
+
+#: src/core/dbus-unit.c:813
+msgid ""
+"Authentication is required to freeze or thaw the processes of '$(unit)' unit."
+msgstr ""
+"É necessária autenticação para congelar ou descongelar os processos da "
+"unidade “$(unit)”."
+
+#: src/shared/libfido2-util.c:500 src/shared/libfido2-util.c:557
+msgid "Please confirm presence on security token to unlock."
+msgstr "Confirme a presença do token de segurança para desbloquear."
+
+#: src/shared/libfido2-util.c:516
+msgid "Please verify user on security token to unlock."
+msgstr "Verifique o usuário no token de segurança para desbloquear."
+
+#: src/shared/libfido2-util.c:936
+#, c-format
+msgid ""
+"Please enter security token PIN (remaining attempts before lock-out: %d):"
+msgstr ""
+"Insira o PIN do token de segurança (tentativas restantes antes do bloqueio: "
+"%d):"
+
+#: src/shared/libfido2-util.c:948
+msgid "Please enter security token PIN:"
+msgstr "Insira o PIN do token de segurança:"
+
+#~ msgid "Cleanup old system updates"
+#~ msgstr "Limpar velhas atualizações do sistema"
+
+#~ msgid "Authentication is required to cleanup old system updates."
+#~ msgstr ""
+#~ "A autenticação é necessária para limpar atualizações antigas do sistema."
