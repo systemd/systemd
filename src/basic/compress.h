@@ -102,6 +102,12 @@ int dlopen_zstd(int log_level) _dlopen_loader_;
 int dlopen_zlib(int log_level) _dlopen_loader_;
 int dlopen_bzip2(int log_level) _dlopen_loader_;
 
+int dlopen_compress(Compression c, int log_level);
+int dlopen_compress_journal(Compression c, int log_level);
+static inline int dlopen_compress_default(int log_level) {
+        return dlopen_compress_journal(DEFAULT_COMPRESSION, log_level);
+}
+
 static inline const char* default_compression_extension(void) {
         return compression_extension_to_string(DEFAULT_COMPRESSION) ?: "";
 }
