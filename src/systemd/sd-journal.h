@@ -105,6 +105,7 @@ int sd_journal_set_data_threshold(sd_journal *j, size_t sz);
 int sd_journal_get_data_threshold(sd_journal *j, size_t *sz);
 
 int sd_journal_get_data(sd_journal *j, const char *field, const void **ret_data, size_t *ret_size);
+int sd_journal_get_data_to_fd(sd_journal *j, const char *field, int skip_field, int fd, size_t *ret_size);
 int sd_journal_enumerate_data(sd_journal *j, const void **ret_data, size_t *ret_size);
 int sd_journal_enumerate_available_data(sd_journal *j, const void **ret_data, size_t *ret_size);
 void sd_journal_restart_data(sd_journal *j);
