@@ -4,8 +4,10 @@
 #include <sys/socket.h>
 
 #include "dns-answer.h"
+#include "dns-question.h"
 #include "dns-rr.h"
 #include "resolved-dns-browse-services.h"
+#include "resolved-manager.h"
 #include "tests.h"
 
 static DnsResourceRecord *new_test_service_rr(uint32_t ttl) {
@@ -119,10 +121,10 @@ TEST(mdns_answer_contains_service_ifindex) {
         ASSERT_NOT_NULL(answer3 = dns_answer_new(0));
         ASSERT_NOT_NULL(rr = new_test_service_rr(120));
 
-        DnsServiceBrowser sb_all = {
+        DnsServiceQuerier sq_all = {
                 .ifindex = 0,
         };
-        DnsServiceBrowser sb_scoped = {
+        DnsServiceQuerier sq_scoped = {
                 .ifindex = 2,
         };
         DnssdDiscoveredService service = {
@@ -132,19 +134,47 @@ TEST(mdns_answer_contains_service_ifindex) {
         };
 
         ASSERT_OK_POSITIVE(dns_answer_add(answer, rr, 3, DNS_ANSWER_CACHEABLE, /* rrsig= */ NULL));
-        ASSERT_OK_ZERO(mdns_answer_contains_service(&sb_all, answer, &service));
+        ASSERT_OK_ZERO(mdns_answer_contains_service(&sq_all, answer, &service));
 
         ASSERT_OK_POSITIVE(dns_answer_add(answer, rr, 2, DNS_ANSWER_CACHEABLE, /* rrsig= */ NULL));
-        ASSERT_OK_POSITIVE(mdns_answer_contains_service(&sb_all, answer, &service));
+        ASSERT_OK_POSITIVE(mdns_answer_contains_service(&sq_all, answer, &service));
 
         ASSERT_OK_POSITIVE(dns_answer_add(answer2, rr, 0, DNS_ANSWER_CACHEABLE, /* rrsig= */ NULL));
-        ASSERT_OK_POSITIVE(mdns_answer_contains_service(&sb_scoped, answer2, &service));
+        ASSERT_OK_POSITIVE(mdns_answer_contains_service(&sq_scoped, answer2, &service));
 
         ASSERT_OK_POSITIVE(dns_answer_add(answer3, rr, 3, DNS_ANSWER_CACHEABLE, /* rrsig= */ NULL));
-        ASSERT_OK_ZERO(mdns_answer_contains_service(&sb_scoped, answer3, &service));
+        ASSERT_OK_ZERO(mdns_answer_contains_service(&sq_scoped, answer3, &service));
 
-        sb_scoped.ifindex = 3;
-        ASSERT_OK_ZERO(mdns_answer_contains_service(&sb_scoped, answer2, &service));
+        sq_scoped.ifindex = 3;
+        ASSERT_OK_ZERO(mdns_answer_contains_service(&sq_scoped, answer2, &service));
+}
+
+/* dns_query_go() completes a query synchronously when no scope matches its question, and the
+ * completion handler then frees the query. The ladder tracks its maintenance query by pointer, so the
+ * pointer has to be stored before the query is started and be gone again once the handler returns — a
+ * manager without any scope makes the completion synchronous. */
+TEST(mdns_querier_maintenance_query_completing_synchronously) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        Manager manager = {};
+
+        ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_PTR, "_http._tcp.local"));
+        ASSERT_NOT_NULL(question = dns_question_new(1));
+        ASSERT_OK(dns_question_add(question, key, /* flags= */ 0));
+
+        DnsServiceQuerier sq = {
+                .n_ref = 1,
+                .manager = &manager,
+                .question_idna = question,
+                .question_utf8 = question,
+                .rr_ttl_state = DNS_RECORD_TTL_STATE_80_PERCENT,
+        };
+
+        ASSERT_OK(mdns_querier_maintenance(/* s= */ NULL, /* usec= */ 0, &sq));
+
+        ASSERT_NULL(sq.maintenance_query);
+        ASSERT_EQ(sq.n_ref, 1u);
+        ASSERT_EQ(manager.n_dns_queries, 0u);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
