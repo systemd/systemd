@@ -106,9 +106,8 @@ typedef struct DnsQuery {
         DnsAnswer *reply_additional;
         DnsStubListenerExtra *stub_listener_extra;
 
-        /* Browser Service and Dnssd Discovered Service Information */
-        DnssdDiscoveredService *dnsservice_request;
-        DnsServiceBrowser *service_browser_request;
+        /* Shared service querier this (browse or maintenance) query belongs to */
+        DnsServiceQuerier *service_querier_request;
 
         /* Pending query to any installed hooks */
         HookQuery *hook_query;
