@@ -118,6 +118,8 @@ typedef struct sd_varlink_interface sd_varlink_interface;
 typedef int (*sd_varlink_method_t)(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
 
 typedef struct sd_journal sd_journal;
+enum ENUM_TYPE_S64(sd_journal_data_flags_t);
+typedef enum sd_journal_data_flags_t sd_journal_data_flags_t;
 
 typedef struct sd_resolve sd_resolve;
 typedef struct sd_resolve_query sd_resolve_query;
