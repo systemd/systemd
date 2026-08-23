@@ -48,7 +48,7 @@ struct DnsCacheItem {
         DnsAnswer *answer;       /* The full validated answer, if this is an RRset acquired via a "primary" lookup */
         DnsPacket *full_packet;  /* The full packet this information was acquired with */
 
-        usec_t until;            /* If StaleRetentionSec is greater than zero, until is set to a duration of StaleRetentionSec from the time of TTL expiry. If StaleRetentionSec is zero, both until and until_valid will be set to ttl. */
+        usec_t until;            /* For unicast DNS entries with StaleRetentionSec greater than zero, until is set to a duration of StaleRetentionSec from the time of TTL expiry. Otherwise (and always for LLMNR/mDNS entries, see dns_cache_put()), both until and until_valid will be set to ttl. */
         usec_t until_valid;      /* The key is for storing the time when the TTL set to expire. */
         uint64_t query_flags;    /* SD_RESOLVED_AUTHENTICATED and/or SD_RESOLVED_CONFIDENTIAL */
         DnssecResult dnssec_result;
@@ -514,10 +514,10 @@ static int dns_cache_put_positive(
         if (!i)
                 return -ENOMEM;
 
-        /* If StaleRetentionSec is greater than zero, the 'until' property is set to a duration
-         * of StaleRetentionSec from the time of TTL expiry.
-         * If StaleRetentionSec is zero, both the 'until' and 'until_valid' are set to the TTL duration,
-         * leading to the eviction of the record once the TTL expires. */
+        /* If stale retention is in effect (unicast DNS only, see dns_cache_put()), the 'until' property
+         * is set to a duration of StaleRetentionSec from the time of TTL expiry. Otherwise, both the
+         * 'until' and 'until_valid' are set to the TTL duration, leading to the eviction of the record
+         * once the TTL expires. */
         usec_t until_valid = calculate_until_valid(rr, min_ttl, UINT32_MAX, timestamp, false);
         *i = (DnsCacheItem) {
                 .type = DNS_CACHE_POSITIVE,
@@ -755,6 +755,17 @@ int dns_cache_put(
         /* Check cache mode here too, since the mDNS caller doesn't guard against Cache=no. */
         if (cache_mode == DNS_CACHE_MODE_NO || c->cache_max == 0)
                 return 0;
+
+        /* Stale retention is a resilience feature for unicast DNS, where an expired answer beats no
+         * answer while the configured servers are unreachable. The link-local protocols have no
+         * configured server that could be unreachable — peers just come and go. For mDNS in
+         * particular, RFC 6762 gives TTL expiry an entirely different meaning: it is a presence
+         * signal — a host or service whose records lapse is gone (goodbye packets even force this
+         * early via TTL=0), and § 5.2 cache maintenance exists so that expiry happens on time.
+         * Retaining expired records here would keep vanished peers alive in the cache for the whole
+         * retention window, so restrict retention to unicast DNS. */
+        if (protocol != DNS_PROTOCOL_DNS)
+                stale_retention_usec = 0;
 
         dns_cache_remove_previous(c, key, answer);
 
