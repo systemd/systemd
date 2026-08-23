@@ -1107,6 +1107,7 @@ global:
 
 LIBSYSTEMD_262 {
 global:
+        sd_journal_get_data_to_fd;
         sd_varlink_bind_upgrade;
         sd_varlink_call_and_upgradeb;
         sd_varlink_respond_and_upgrade;

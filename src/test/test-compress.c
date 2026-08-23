@@ -9,6 +9,7 @@
 #include "compress.h"
 #include "fd-util.h"
 #include "io-util.h"
+#include "memfd-util.h"
 #include "path-util.h"
 #include "random-util.h"
 #include "tests.h"
@@ -35,6 +36,8 @@ static const char* cat_for_compression(Compression c) {
 }
 
 TEST(compress_decompress_blob) {
+        int r;
+
         for (Compression c = 0; c < _COMPRESSION_MAX; c++) {
                 if (c == COMPRESSION_NONE || !compression_supported(c))
                         continue;
@@ -46,10 +49,9 @@ TEST(compress_decompress_blob) {
                         size_t input_len = t == 0 ? sizeof(text) : sizeof(data);
                         bool may_fail = t == 1;
 
-                        char compressed[512];
+                        char compressed[sizeof(data) * 2];
                         size_t csize;
                         _cleanup_free_ char *decompressed = NULL;
-                        int r;
 
                         log_info("/* testing %s %s blob compression/decompression */", label, input);
 
@@ -66,6 +68,99 @@ TEST(compress_decompress_blob) {
 
                         ASSERT_FAIL(decompress_blob(c, "garbage", 7, (void **) &decompressed, &csize, 0));
                 }
+        }
+}
+
+TEST(decompress_blob_to_fd) {
+        int r;
+
+        for (Compression c = 0; c < _COMPRESSION_MAX; c++) {
+                if (c == COMPRESSION_NONE || !compression_supported(c))
+                        continue;
+
+                const char *label = compression_to_string(c);
+
+                for (size_t t = 0; t < 2; t++) {
+                        const char *input = t == 0 ? text : data;
+                        size_t input_len = t == 0 ? sizeof(text) : sizeof(data);
+                        bool may_fail = t == 1;
+
+                        char compressed[sizeof(data) * 2];
+                        size_t csize;
+
+                        log_info("/* testing %s %s blob decompression to fd */", label, input);
+
+                        r = compress_blob(c, input, input_len, compressed, sizeof(compressed), &csize, -1);
+                        if (r == -ENOBUFS) {
+                                log_info_errno(r, "compression failed: %m");
+                                ASSERT_TRUE(may_fail);
+                                continue;
+                        }
+                        ASSERT_OK(r);
+
+                        _cleanup_close_ int fd = ASSERT_OK(memfd_new("decompress-blob-to-fd-test"));
+                        size_t sz;
+                        ASSERT_OK(decompress_blob_to_fd(c, compressed, csize, fd, UINT64_MAX, 0, &sz));
+                        ASSERT_EQ(sz, (uint64_t) input_len);
+
+                        uint64_t sz64;
+                        ASSERT_OK(memfd_get_size(fd, &sz64));
+                        ASSERT_EQ(sz64, input_len);
+
+                        _cleanup_free_ void *decompressed = ASSERT_NOT_NULL(malloc(input_len));
+                        ASSERT_OK_EQ_ERRNO(pread(fd, decompressed, input_len, 0), (ssize_t) input_len);
+                        ASSERT_EQ(memcmp(decompressed, input, input_len), 0);
+                }
+
+                /* Neither `text` nor `data` is large enough to cross COMPRESS_PIPE_BUFFER_SIZE,
+                 * so the chunked flush loop inside decompressor_push() never actually runs more
+                 * than once. Use `huge` (4MB) to verify decompress_blob_to_fd()'s actual purpose:
+                 * streaming output straight to an fd instead of growing one huge in-memory buffer.
+                 *
+                 * LZ4 is special: compress_blob()/decompress_blob_lz4() use the raw block format
+                 * (with a custom 8-byte size header), which is incompatible with the LZ4 Frame
+                 * format produced by compressor_start/finish. So huge must also be compressed in
+                 * raw block format for LZ4. */
+                log_info("/* testing %s huge blob decompression to fd */", label);
+
+                _cleanup_free_ void *full_compressed = NULL;
+                size_t total_compressed;
+
+                if (c == COMPRESSION_LZ4) {
+                        /* LZ4_compressBound()-equivalent margin + the custom 8-byte header */
+                        size_t bound = HUGE_SIZE + HUGE_SIZE / 255 + 16 + 8;
+
+                        full_compressed = ASSERT_NOT_NULL(malloc(bound));
+
+                        ASSERT_OK(compress_blob(c, huge, HUGE_SIZE, full_compressed, bound, &total_compressed, -1));
+                } else {
+                        _cleanup_(compressor_freep) Compressor *compressor = NULL;
+                        _cleanup_free_ void *hcompressed = NULL, *finish_buf = NULL;
+                        size_t hcompressed_size = 0, hcompressed_alloc = 0;
+                        size_t finish_size = 0, finish_alloc = 0;
+
+                        ASSERT_OK(compressor_new(&compressor, c));
+                        ASSERT_OK(compressor_start(compressor, huge, HUGE_SIZE, &hcompressed, &hcompressed_size, &hcompressed_alloc));
+                        ASSERT_OK(compressor_finish(compressor, &finish_buf, &finish_size, &finish_alloc));
+                        compressor = compressor_free(compressor);
+
+                        total_compressed = hcompressed_size + finish_size;
+                        full_compressed = ASSERT_NOT_NULL(malloc(total_compressed));
+                        memcpy_safe(mempcpy(full_compressed, hcompressed, hcompressed_size), finish_buf, finish_size);
+                }
+
+                _cleanup_close_ int hfd = ASSERT_OK(memfd_new("decompress-blob-to-fd-huge-test"));
+                size_t hsz;
+                ASSERT_OK(decompress_blob_to_fd(c, full_compressed, total_compressed, hfd, UINT64_MAX, 0, &hsz));
+                ASSERT_EQ(hsz, (size_t) HUGE_SIZE);
+
+                uint64_t hsz64;
+                ASSERT_OK(memfd_get_size(hfd, &hsz64));
+                ASSERT_EQ(hsz64, (uint64_t) HUGE_SIZE);
+
+                _cleanup_free_ char *hdecompressed = ASSERT_NOT_NULL(malloc(HUGE_SIZE));
+                ASSERT_OK_EQ_ERRNO(pread(hfd, hdecompressed, HUGE_SIZE, 0), (ssize_t) HUGE_SIZE);
+                ASSERT_EQ(memcmp(hdecompressed, huge, HUGE_SIZE), 0);
         }
 }
 

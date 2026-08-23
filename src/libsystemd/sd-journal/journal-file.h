@@ -213,15 +213,36 @@ static inline size_t journal_file_entry_item_size(JournalFile *f) {
 
 uint64_t journal_file_entry_n_items(JournalFile *f, Object *o) _pure_;
 
-int journal_file_data_payload(
+int journal_file_data_payload_full(
+                JournalFile *f,
+                Object *o,
+                uint64_t offset,
+                const char *field,
+                size_t field_length,
+                bool skip_field,
+                size_t data_threshold,
+                int fd,
+                const void **ret_data,
+                size_t *ret_size);
+
+static inline int journal_file_data_payload(
                 JournalFile *f,
                 Object *o,
                 uint64_t offset,
                 const char *field,
                 size_t field_length,
                 size_t data_threshold,
-                void **ret_data,
-                size_t *ret_size);
+                const void **ret_data,
+                size_t *ret_size) {
+
+        return journal_file_data_payload_full(
+                        f, o, offset,
+                        field, field_length,
+                        /* skip_field= */ false,
+                        data_threshold,
+                        /* fd= */ -EBADF,
+                        ret_data, ret_size);
+}
 
 static inline size_t journal_file_data_payload_offset(JournalFile *f) {
         return JOURNAL_HEADER_COMPACT(f->header)

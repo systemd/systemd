@@ -52,8 +52,8 @@ int compressor_new(Compressor **ret, Compression type);
 int compressor_start(Compressor *c, const void *data, size_t size, void **buffer, size_t *buffer_size, size_t *buffer_allocated);
 int compressor_finish(Compressor *c, void **buffer, size_t *buffer_size, size_t *buffer_allocated);
 
-int decompressor_detect(Decompressor **ret, const void *data, size_t size);
-int decompressor_force_off(Decompressor **ret);
+int decompressor_detect(Decompressor **decompressor, const void *data, size_t size);
+int decompressor_force_off(Decompressor **decompressor);
 int decompressor_push(Decompressor *c, const void *data, size_t size, DecompressorCallback callback, void *userdata);
 
 Compression compressor_type(const Compressor *c);
@@ -74,6 +74,23 @@ int decompress_blob_journal(
 int decompress_blob(Compression compression,
                     const void *src, uint64_t src_size,
                     void **dst, size_t *dst_size, size_t dst_max);
+
+int decompress_blob_to_fd_journal(
+                Compression type,
+                const void *src,
+                uint64_t src_size,
+                int fdt,
+                uint64_t max_bytes,
+                uint64_t skip,
+                size_t *ret_size);
+int decompress_blob_to_fd(
+                Compression type,
+                const void *src,
+                uint64_t src_size,
+                int fdt,
+                uint64_t max_bytes,
+                uint64_t skip,
+                size_t *ret_size);
 
 int decompress_zlib_raw(const void *src, uint64_t src_size,
                         void *dst, size_t dst_size, int wbits);

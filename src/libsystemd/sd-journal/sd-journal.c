@@ -2607,7 +2607,7 @@ static int journal_file_entry_get_machine_id(JournalFile *f, Object *o, sd_id128
         uint64_t n = journal_file_entry_n_items(f, o);
         for (uint64_t i = 0; i < n; i++) {
                 uint64_t p;
-                void *d;
+                const void *d;
                 size_t l;
                 int r;
 
@@ -2886,7 +2886,7 @@ static bool field_is_valid(const char *field) {
         return true;
 }
 
-_public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **ret_data, size_t *ret_size) {
+static int journal_get_data(sd_journal *j, const char *field, bool skip_field, int fd, const void **ret_data, size_t *ret_size) {
         JournalFile *f;
         size_t field_length;
         Object *o;
@@ -2913,12 +2913,15 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
         uint64_t n = journal_file_entry_n_items(f, o);
         for (uint64_t i = 0; i < n; i++) {
                 uint64_t p;
-                void *d;
+                const void *d;
                 size_t l;
 
                 p = journal_file_entry_item_object_offset(f, o, i);
-                r = journal_file_data_payload(f, NULL, p, field, field_length, j->data_threshold,
-                                              ret_data ? &d : NULL, ret_size ? &l : NULL);
+                r = journal_file_data_payload_full(
+                                f, /* o= */ NULL, p,
+                                field, field_length, skip_field,
+                                j->data_threshold, fd,
+                                ret_data ? &d : NULL, ret_size ? &l : NULL);
                 if (r == 0)
                         continue;
                 if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
@@ -2937,6 +2940,15 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
         }
 
         return -ENOENT;
+}
+
+_public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **ret_data, size_t *ret_size) {
+        return journal_get_data(j, field, /* skip_field= */ false, /* fd= */ -EBADF, ret_data, ret_size);
+}
+
+_public_ int sd_journal_get_data_to_fd(sd_journal *j, const char *field, int skip_field, int fd, size_t *ret_size) {
+        assert_return(fd >= 0, -EBADF);
+        return journal_get_data(j, field, skip_field, fd, /* ret_data= */ NULL, ret_size);
 }
 
 _public_ int sd_journal_enumerate_data(sd_journal *j, const void **ret_data, size_t *ret_size) {
@@ -2962,7 +2974,7 @@ _public_ int sd_journal_enumerate_data(sd_journal *j, const void **ret_data, siz
 
         for (uint64_t n = journal_file_entry_n_items(f, o); j->current_field < n; j->current_field++) {
                 uint64_t p;
-                void *d;
+                const void *d;
                 size_t l;
 
                 p = journal_file_entry_item_object_offset(f, o, j->current_field);
@@ -3452,7 +3464,7 @@ _public_ int sd_journal_enumerate_unique(
         for (;;) {
                 JournalFile *of;
                 Object *o;
-                void *odata;
+                const void *odata;
                 size_t ol;
                 bool found;
                 int r;
