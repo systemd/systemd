@@ -1066,7 +1066,7 @@ static int verb_list_images(int argc, char *argv[], uintptr_t _data, void *userd
         return 0;
 }
 
-VERB_COMMON_HELP_AUTO("importctl");
+VERB_COMMON_HELP_AUTO();
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         int r;
@@ -1080,7 +1080,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return command_print_help("importctl");
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();

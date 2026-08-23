@@ -53,7 +53,7 @@ COMMAND(
         .pager_flags = &arg_pager_flags,
 );
 
-VERB_COMMON_HELP_AUTO_HIDDEN("storagectl");
+VERB_COMMON_HELP_AUTO_HIDDEN();
 
 static const char *ro_color(int ro) {
         if (ro > 0)
@@ -391,7 +391,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_NAMESPACE("storagectl"): {}
 
                 OPTION_COMMON_HELP:
-                        return command_print_help("storagectl");
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();

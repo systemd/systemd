@@ -1499,7 +1499,7 @@ static int verb_terminate_seat(int argc, char *argv[], uintptr_t _data, void *us
         return 0;
 }
 
-VERB_COMMON_HELP_AUTO_HIDDEN("loginctl");
+VERB_COMMON_HELP_AUTO_HIDDEN();
 
 static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         int r;
@@ -1514,7 +1514,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return command_print_help("loginctl");
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();

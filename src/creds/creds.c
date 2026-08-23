@@ -779,7 +779,7 @@ static int verb_has_tpm2(int argc, char *argv[], uintptr_t _data, void *userdata
         return verb_has_tpm2_generic(arg_quiet);
 }
 
-VERB_COMMON_HELP_AUTO("systemd-creds");
+VERB_COMMON_HELP_AUTO();
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
@@ -792,7 +792,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return command_print_help("systemd-creds");
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();
