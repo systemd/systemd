@@ -704,9 +704,11 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:br*:efr*:svnHP:pnHPPavilionGamingLaptop15-dk1*:*
  KEYBOARD_KEY_d7=unknown
  KEYBOARD_KEY_d8=unknown
 
-# Spectre x360 13 (Prevents random airplane mode activation)
+# Spectre x360 13 / ENVY x360 Convertible 13 (Prevents random airplane mode
+# activation; on the ENVY the EC emits e057 on every lid open)
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*[sS][pP][eE][cC][tT][rR][eE]*x360*13*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pn*[sS][pP][eE][cC][tT][rR][eE]*x360Convertible*:*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPENVYx360Convertible13*:*
  KEYBOARD_KEY_d7=unknown
 
 # Spectre x360 13
