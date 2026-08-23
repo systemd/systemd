@@ -986,23 +986,30 @@ TEST(dns_cache_prune) {
         answer_add_a(&put_args, key, 0x7f01a8cc, 3, DNS_ANSWER_CACHEABLE);
         dns_resource_key_unref(key);
 
+        usec_t t0 = now(CLOCK_BOOTTIME);
         cache_put(&cache, &put_args);
 
         dns_cache_prune(&cache);
         ASSERT_EQ(dns_cache_size(&cache), 2u);
-        ASSERT_TRUE(dns_cache_expiry_in_one_second(&cache, now(CLOCK_BOOTTIME)));
+        /* The returned expiry is the head of the queue, i.e. the TTL=1 item's, not the TTL=3 one's. */
+        usec_t until = dns_cache_expiry_in_one_second(&cache, now(CLOCK_BOOTTIME));
+        ASSERT_GE(until, usec_add(t0, USEC_PER_SEC));
+        ASSERT_LE(until, usec_add(t0, 2 * USEC_PER_SEC));
 
         sleep(2);
 
         dns_cache_prune(&cache);
         ASSERT_EQ(dns_cache_size(&cache), 1u);
-        ASSERT_TRUE(dns_cache_expiry_in_one_second(&cache, now(CLOCK_BOOTTIME)));
+        /* The TTL=3 item is the head now, and within a second of expiring. */
+        until = dns_cache_expiry_in_one_second(&cache, now(CLOCK_BOOTTIME));
+        ASSERT_GE(until, usec_add(t0, 3 * USEC_PER_SEC));
+        ASSERT_LE(until, usec_add(t0, 4 * USEC_PER_SEC));
 
         sleep(2);
 
         dns_cache_prune(&cache);
         ASSERT_TRUE(dns_cache_is_empty(&cache));
-        ASSERT_FALSE(dns_cache_expiry_in_one_second(&cache, now(CLOCK_BOOTTIME)));
+        ASSERT_EQ(dns_cache_expiry_in_one_second(&cache, now(CLOCK_BOOTTIME)), (usec_t) 0);
 }
 
 /* ================================================================

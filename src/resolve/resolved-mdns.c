@@ -371,8 +371,9 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
         return 0;
 }
 
-static int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userdata) {
+int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userdata) {
         DnsScope *scope = userdata;
+        usec_t until;
         int r;
 
         assert(s);
@@ -386,12 +387,17 @@ static int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userda
         if (r < 0)
                 log_warning_errno(r, "mDNS: Failed to notify service subscribers of goodbyes, ignoring: %m");
 
-        if (dns_cache_expiry_in_one_second(&scope->cache, usec)) {
-                r = sd_event_add_time_relative(
+        /* Re-arm right at the next expiry rather than a flat second out, so the prune that drops the
+         * record — and tells the browsers — runs when the record actually expires. Measure against the
+         * current time: 'usec' is the deadline this firing was scheduled for, and it lags the clock by
+         * up to the timer's accuracy window. */
+        until = dns_cache_expiry_in_one_second(&scope->cache, now(CLOCK_BOOTTIME));
+        if (until > 0) {
+                r = sd_event_add_time(
                                 scope->manager->event,
                                 &scope->mdns_goodbye_event_source,
                                 CLOCK_BOOTTIME,
-                                USEC_PER_SEC,
+                                until,
                                 /* accuracy= */ 0,
                                 mdns_goodbye_callback,
                                 scope);
