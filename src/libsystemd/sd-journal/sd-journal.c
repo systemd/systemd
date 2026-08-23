@@ -2607,7 +2607,7 @@ static int journal_file_entry_get_machine_id(JournalFile *f, Object *o, sd_id128
         uint64_t n = journal_file_entry_n_items(f, o);
         for (uint64_t i = 0; i < n; i++) {
                 uint64_t p;
-                void *d;
+                const void *d;
                 size_t l;
                 int r;
 
@@ -2913,7 +2913,7 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
         uint64_t n = journal_file_entry_n_items(f, o);
         for (uint64_t i = 0; i < n; i++) {
                 uint64_t p;
-                void *d;
+                const void *d;
                 size_t l;
 
                 p = journal_file_entry_item_object_offset(f, o, i);
@@ -2962,7 +2962,7 @@ _public_ int sd_journal_enumerate_data(sd_journal *j, const void **ret_data, siz
 
         for (uint64_t n = journal_file_entry_n_items(f, o); j->current_field < n; j->current_field++) {
                 uint64_t p;
-                void *d;
+                const void *d;
                 size_t l;
 
                 p = journal_file_entry_item_object_offset(f, o, j->current_field);
@@ -3452,7 +3452,7 @@ _public_ int sd_journal_enumerate_unique(
         for (;;) {
                 JournalFile *of;
                 Object *o;
-                void *odata;
+                const void *odata;
                 size_t ol;
                 bool found;
                 int r;

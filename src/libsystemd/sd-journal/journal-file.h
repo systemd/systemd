@@ -220,7 +220,7 @@ int journal_file_data_payload(
                 const char *field,
                 size_t field_length,
                 size_t data_threshold,
-                void **ret_data,
+                const void **ret_data,
                 size_t *ret_size);
 
 static inline size_t journal_file_data_payload_offset(JournalFile *f) {

@@ -1685,7 +1685,7 @@ int journal_file_find_data_object_with_hash(
 
         while (p > 0) {
                 Object *o;
-                void *d;
+                const void *d;
                 size_t rsize;
 
                 r = journal_file_move_to_object(f, OBJECT_DATA, p, &o);
@@ -1960,13 +1960,13 @@ static int journal_file_append_data(
 
 static int maybe_decompress_payload(
                 JournalFile *f,
-                uint8_t *payload,
+                const uint8_t *payload,
                 uint64_t size,
                 Compression compression,
                 const char *field,
                 size_t field_length,
                 size_t data_threshold,
-                void **ret_data,
+                const void **ret_data,
                 size_t *ret_size) {
 
         assert(f);
@@ -2039,7 +2039,7 @@ int journal_file_data_payload(
                 const char *field,
                 size_t field_length,
                 size_t data_threshold,
-                void **ret_data,
+                const void **ret_data,
                 size_t *ret_size) {
 
         uint64_t size;
@@ -4501,7 +4501,7 @@ int journal_file_copy_entry(
 
         for (uint64_t i = 0; i < n; i++) {
                 uint64_t h, q;
-                void *data;
+                const void *data;
                 size_t l;
                 Object *u;
 
