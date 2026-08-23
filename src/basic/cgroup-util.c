@@ -832,28 +832,6 @@ int cg_path_get_unit_full(const char *path, char **ret_unit, char **ret_subgroup
         return 0;
 }
 
-int cg_path_get_unit_path(const char *path, char **ret) {
-        _cleanup_free_ char *path_copy = NULL;
-        char *unit_name;
-
-        assert(path);
-        assert(ret);
-
-        path_copy = strdup(path);
-        if (!path_copy)
-                return -ENOMEM;
-
-        unit_name = (char*) skip_slices(path_copy);
-        unit_name[strcspn(unit_name, "/")] = 0;
-
-        if (!unit_name_is_valid(cg_unescape(unit_name), UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
-                return -ENXIO;
-
-        *ret = TAKE_PTR(path_copy);
-
-        return 0;
-}
-
 int cg_pid_get_unit_full(pid_t pid, char **ret_unit, char **ret_subgroup) {
         int r;
 
@@ -986,6 +964,47 @@ int cg_path_get_user_unit_full(const char *path, char **ret_unit, char **ret_sub
         /* And from here on it looks pretty much the same as for a system unit, hence let's use the same
          * parser. */
         return cg_path_get_unit_full(t, ret_unit, ret_subgroup);
+}
+
+static int path_get_unit_path_internal(const char *path, bool descend_user_manager, char **ret) {
+        _cleanup_free_ char *path_copy = NULL;
+        char *e;
+
+        assert(path);
+        assert(ret);
+
+        path_copy = strdup(path);
+        if (!path_copy)
+                return -ENOMEM;
+
+        e = (char*) skip_slices(path_copy);
+        if (descend_user_manager) {
+                const char *t = skip_user_manager(e);
+                if (t)
+                        e = (char*) skip_slices(t);
+        }
+
+        e[strcspn(e, "/")] = 0;
+
+        if (!unit_name_is_valid(cg_unescape(e), UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
+                return -ENXIO;
+
+        *ret = TAKE_PTR(path_copy);
+
+        return 0;
+}
+
+int cg_path_get_unit_path(const char *path, char **ret) {
+        return path_get_unit_path_internal(path, /* descend_user_manager= */ false, ret);
+}
+
+/* Like cg_path_get_unit_path(), but if the path is below the cgroup of a user or capsule manager,
+ * the path of the first unit below the manager is returned instead of the manager's own one.
+ * Exactly one manager is descended into, and nothing below any other unit, e.g. a session scope,
+ * is descended into at all. Returns -ENXIO if there is no unit below the manager, e.g. because
+ * the path is the manager's own cgroup. */
+int cg_path_get_unit_path_below_manager(const char *path, char **ret) {
+        return path_get_unit_path_internal(path, /* descend_user_manager= */ true, ret);
 }
 
 int cg_pid_get_user_unit_full(pid_t pid, char **ret_unit, char **ret_subgroup) {
