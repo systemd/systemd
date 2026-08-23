@@ -988,6 +988,38 @@ int cg_path_get_user_unit_full(const char *path, char **ret_unit, char **ret_sub
         return cg_path_get_unit_full(t, ret_unit, ret_subgroup);
 }
 
+int cg_path_get_leaf_unit_path(const char *path, char **ret) {
+        _cleanup_free_ char *path_copy = NULL;
+        char *e;
+        const char *t;
+
+        assert(path);
+        assert(ret);
+
+        /* Like cg_path_get_unit_path(), but if the path is below the cgroup of a user or capsule
+         * manager, return the path of the innermost unit below it instead of the manager's own.
+         * Returns -ENXIO if there is no such unit, e.g. because the path is the manager's own
+         * cgroup. */
+
+        path_copy = strdup(path);
+        if (!path_copy)
+                return -ENOMEM;
+
+        e = (char*) skip_slices(path_copy);
+        t = skip_user_manager(e);
+        if (t)
+                e = (char*) skip_slices(t);
+
+        e[strcspn(e, "/")] = 0;
+
+        if (!unit_name_is_valid(cg_unescape(e), UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
+                return -ENXIO;
+
+        *ret = TAKE_PTR(path_copy);
+
+        return 0;
+}
+
 int cg_pid_get_user_unit_full(pid_t pid, char **ret_unit, char **ret_subgroup) {
         int r;
 
