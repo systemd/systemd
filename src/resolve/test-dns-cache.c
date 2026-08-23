@@ -1005,6 +1005,107 @@ TEST(dns_cache_prune) {
         ASSERT_FALSE(dns_cache_expiry_in_one_second(&cache, now(CLOCK_BOOTTIME)));
 }
 
+TEST(dns_cache_stale_retention_honored_for_unicast) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+        DnsResourceKey *key = NULL;
+
+        put_args.stale_retention_usec = USEC_PER_HOUR;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "ns1.example.com");
+        ASSERT_NOT_NULL(key);
+        answer_add_a(&put_args, key, 0xc0a8017f, 1, DNS_ANSWER_CACHEABLE);
+        dns_resource_key_unref(key);
+
+        ASSERT_OK(cache_put(&cache, &put_args));
+        ASSERT_EQ(dns_cache_size(&cache), 1u);
+        ASSERT_FALSE(dns_cache_expiry_in_one_second(&cache, now(CLOCK_BOOTTIME)));
+
+        sleep(2);
+
+        /* The TTL has lapsed, but the entry is retained for the whole retention window. */
+        dns_cache_prune(&cache);
+        ASSERT_EQ(dns_cache_size(&cache), 1u);
+        ASSERT_FALSE(dns_cache_expiry_in_one_second(&cache, now(CLOCK_BOOTTIME)));
+}
+
+TEST(dns_cache_stale_retention_ignored_for_mdns) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+        DnsResourceKey *key = NULL;
+
+        put_args.protocol = DNS_PROTOCOL_MDNS;
+        put_args.stale_retention_usec = USEC_PER_HOUR;
+
+        /* A TTL of 1 would be taken for a goodbye and not cached at all, so use 2. */
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "ns1.example.local");
+        ASSERT_NOT_NULL(key);
+        answer_add_a(&put_args, key, 0xc0a8017f, 2, DNS_ANSWER_CACHEABLE | DNS_ANSWER_SHARED_OWNER);
+        dns_resource_key_unref(key);
+
+        ASSERT_OK(cache_put(&cache, &put_args));
+        ASSERT_EQ(dns_cache_size(&cache), 1u);
+
+        sleep(1);
+
+        /* Expiry must be scheduled by the TTL, not by the retention window. */
+        ASSERT_TRUE(dns_cache_expiry_in_one_second(&cache, now(CLOCK_BOOTTIME)));
+
+        sleep(2);
+
+        dns_cache_prune(&cache);
+        ASSERT_TRUE(dns_cache_is_empty(&cache));
+}
+
+TEST(dns_cache_stale_retention_ignored_for_mdns_goodbye) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(put_args_unrefp) PutArgs args1 = mk_put_args(), args2 = mk_put_args();
+        DnsResourceKey *key = NULL;
+
+        args1.protocol = DNS_PROTOCOL_MDNS;
+        args1.stale_retention_usec = USEC_PER_HOUR;
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "ns1.example.local");
+        ASSERT_NOT_NULL(key);
+        answer_add_a(&args1, key, 0xc0a8017f, 3600, DNS_ANSWER_CACHEABLE | DNS_ANSWER_SHARED_OWNER);
+        dns_resource_key_unref(key);
+
+        ASSERT_OK(cache_put(&cache, &args1));
+        ASSERT_EQ(dns_cache_size(&cache), 1u);
+        ASSERT_FALSE(dns_cache_expiry_in_one_second(&cache, now(CLOCK_BOOTTIME)));
+
+        /* A goodbye (RFC 6762 § 10.1) rewrites the existing entry with TTL=1. Its expiry must then land
+         * a second out, not a retention window out, or the one-second goodbye prune would never drop it. */
+        args2.protocol = DNS_PROTOCOL_MDNS;
+        args2.stale_retention_usec = USEC_PER_HOUR;
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "ns1.example.local");
+        ASSERT_NOT_NULL(key);
+        answer_add_a(&args2, key, 0xc0a8017f, 1, DNS_ANSWER_CACHEABLE | DNS_ANSWER_SHARED_OWNER);
+        dns_resource_key_unref(key);
+
+        ASSERT_OK(cache_put(&cache, &args2));
+        ASSERT_EQ(dns_cache_size(&cache), 1u);
+        ASSERT_TRUE(dns_cache_expiry_in_one_second(&cache, now(CLOCK_BOOTTIME)));
+}
+
+TEST(dns_cache_stale_retention_ignored_for_llmnr) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+
+        put_args.protocol = DNS_PROTOCOL_LLMNR;
+        put_args.stale_retention_usec = USEC_PER_HOUR;
+
+        put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "ns1.local");
+        ASSERT_NOT_NULL(put_args.key);
+        answer_add_a(&put_args, put_args.key, 0xc0a8017f, 1, DNS_ANSWER_CACHEABLE);
+
+        ASSERT_OK(cache_put(&cache, &put_args));
+        ASSERT_EQ(dns_cache_size(&cache), 1u);
+
+        /* Like mDNS, LLMNR peers are link-local hosts that come and go, so the entry must expire with
+         * its TTL rather than at the end of the retention window. */
+        ASSERT_TRUE(dns_cache_expiry_in_one_second(&cache, now(CLOCK_BOOTTIME)));
+}
+
 /* ================================================================
  * dns_cache_check_conflicts()
  * ================================================================ */
