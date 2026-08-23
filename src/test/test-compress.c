@@ -35,6 +35,8 @@ static const char* cat_for_compression(Compression c) {
 }
 
 TEST(compress_decompress_blob) {
+        int r;
+
         for (Compression c = 0; c < _COMPRESSION_MAX; c++) {
                 if (c == COMPRESSION_NONE || !compression_supported(c))
                         continue;
@@ -46,10 +48,9 @@ TEST(compress_decompress_blob) {
                         size_t input_len = t == 0 ? sizeof(text) : sizeof(data);
                         bool may_fail = t == 1;
 
-                        char compressed[512];
+                        char compressed[sizeof(data) * 2];
                         size_t csize;
                         _cleanup_free_ char *decompressed = NULL;
-                        int r;
 
                         log_info("/* testing %s %s blob compression/decompression */", label, input);
 
