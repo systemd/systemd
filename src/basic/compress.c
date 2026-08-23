@@ -2,7 +2,6 @@
 
 #include <fcntl.h>
 #include <stdio.h>
-#include <sys/stat.h>
 #include <unistd.h>
 
 #if HAVE_XZ
@@ -49,6 +48,7 @@
 #include "dlfcn-util.h"
 #include "io-util.h"
 #include "log.h"
+#include "stat-util.h"
 #include "string-table.h"
 #include "unaligned.h"
 
@@ -422,6 +422,32 @@ int dlopen_bzip2(int log_level) {
         return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
                               "bzip2 support is not compiled in.");
 #endif
+}
+
+static int dlopen_compress_journal(Compression c, int log_level) {
+        switch (c) {
+        case COMPRESSION_NONE:
+                return 0;
+        case COMPRESSION_XZ:
+                return dlopen_xz(log_level);
+        case COMPRESSION_LZ4:
+                return dlopen_lz4(log_level);
+        case COMPRESSION_ZSTD:
+                return dlopen_zstd(log_level);
+        default:
+                return -EOPNOTSUPP;
+        }
+}
+
+static int dlopen_compress(Compression c, int log_level) {
+        switch (c) {
+        case COMPRESSION_GZIP:
+                return dlopen_zlib(log_level);
+        case COMPRESSION_BZIP2:
+                return dlopen_bzip2(log_level);
+        default:
+                return dlopen_compress_journal(c, log_level);
+        }
 }
 
 static int compress_blob_xz(
@@ -1608,23 +1634,6 @@ int compress_stream(
         return 0;
 }
 
-/* Determine whether sparse writes should be used for this fd. Sparse writes are only safe on
- * regular files without O_APPEND (O_APPEND ignores lseek position, which would collapse holes). */
-static int should_sparse(int fd) {
-        struct stat st;
-
-        assert(fd >= 0);
-
-        if (fstat(fd, &st) < 0)
-                return -errno;
-
-        int flags = fcntl(fd, F_GETFL);
-        if (flags < 0)
-                return -errno;
-
-        return S_ISREG(st.st_mode) && !FLAGS_SET(flags, O_APPEND);
-}
-
 /* After sparse decompression, set the file size to the current position to account for
  * trailing holes that sparse_write() created via lseek but never extended the file size for. */
 static int finalize_sparse(int fd) {
@@ -1648,12 +1657,16 @@ struct decompress_stream_userdata {
         int fd;
         uint64_t max_bytes;
         uint64_t total_out;
+        uint64_t skip; /* bytes to discard from the very start of the decompressed stream before anything is
+                        * actually written */
         bool sparse;
 };
 
 static int decompress_stream_write_callback(const void *data, size_t size, void *userdata) {
         struct decompress_stream_userdata *u = ASSERT_PTR(userdata);
 
+        /* Accounting (max_bytes/total_out) happens against the *full* decompressed stream, including the
+         * part we're about to skip. */
         if (u->max_bytes != UINT64_MAX) {
                 if (u->max_bytes < size)
                         return -EFBIG;
@@ -1661,6 +1674,20 @@ static int decompress_stream_write_callback(const void *data, size_t size, void 
         }
 
         u->total_out += size;
+
+        if (u->skip > 0) {
+                if (u->skip >= size) {
+                        u->skip -= size;
+                        return 0;
+                }
+
+                data = (const uint8_t*) data + u->skip;
+                size -= u->skip;
+                u->skip = 0;
+        }
+
+        if (size == 0)
+                return 0;
 
         if (u->sparse) {
                 /* Note: sparse_write() does not retry on EINTR and converts short writes to -EIO.
@@ -1676,7 +1703,7 @@ static int decompress_stream_write_callback(const void *data, size_t size, void 
 }
 
 static int decompressor_new(Decompressor **ret, Compression type) {
-#if HAVE_XZ || HAVE_LZ4 || HAVE_ZSTD || HAVE_ZLIB || HAVE_BZIP2
+#if HAVE_ZLIB || HAVE_BZIP2
         int r;
 #endif
 
@@ -1689,13 +1716,11 @@ static int decompressor_new(Decompressor **ret, Compression type) {
         c->type = _COMPRESSION_INVALID;
 
         switch (type) {
+        case COMPRESSION_NONE:
+                break;
 
 #if HAVE_XZ
         case COMPRESSION_XZ:
-                r = dlopen_xz(LOG_DEBUG);
-                if (r < 0)
-                        return r;
-
                 if (sym_lzma_stream_decoder(&c->xz, UINT64_MAX, LZMA_TELL_UNSUPPORTED_CHECK | LZMA_CONCATENATED) != LZMA_OK)
                         return -EIO;
                 break;
@@ -1703,10 +1728,6 @@ static int decompressor_new(Decompressor **ret, Compression type) {
 
 #if HAVE_LZ4
         case COMPRESSION_LZ4: {
-                r = dlopen_lz4(LOG_DEBUG);
-                if (r < 0)
-                        return r;
-
                 size_t rc = sym_LZ4F_createDecompressionContext(&c->d_lz4, LZ4F_VERSION);
                 if (sym_LZ4F_isError(rc))
                         return -ENOMEM;
@@ -1717,10 +1738,6 @@ static int decompressor_new(Decompressor **ret, Compression type) {
 
 #if HAVE_ZSTD
         case COMPRESSION_ZSTD:
-                r = dlopen_zstd(LOG_DEBUG);
-                if (r < 0)
-                        return r;
-
                 c->d_zstd = sym_ZSTD_createDCtx();
                 if (!c->d_zstd)
                         return -ENOMEM;
@@ -1729,10 +1746,6 @@ static int decompressor_new(Decompressor **ret, Compression type) {
 
 #if HAVE_ZLIB
         case COMPRESSION_GZIP:
-                r = dlopen_zlib(LOG_DEBUG);
-                if (r < 0)
-                        return r;
-
                 r = sym_inflateInit2_(&c->gzip, /* windowBits= */ ZLIB_WBITS_GZIP, ZLIB_VERSION, (int) sizeof(c->gzip));
                 if (r != Z_OK)
                         return -EIO;
@@ -1741,10 +1754,6 @@ static int decompressor_new(Decompressor **ret, Compression type) {
 
 #if HAVE_BZIP2
         case COMPRESSION_BZIP2:
-                r = dlopen_bzip2(LOG_DEBUG);
-                if (r < 0)
-                        return r;
-
                 r = sym_BZ2_bzDecompressInit(&c->bzip2, /* verbosity= */ 0, /* small= */ 0);
                 if (r != BZ_OK)
                         return -EIO;
@@ -1752,13 +1761,132 @@ static int decompressor_new(Decompressor **ret, Compression type) {
 #endif
 
         default:
-                return -EOPNOTSUPP;
+                assert_not_reached();
         }
 
         c->type = type;
         c->encoding = false;
         *ret = TAKE_PTR(c);
         return 0;
+}
+
+static int decompress_blob_to_fd_impl(
+                Compression type,
+                const void *src,
+                uint64_t src_size,
+                int fdt,
+                uint64_t max_bytes,
+                uint64_t skip,
+                size_t *ret_size) {
+
+        int r;
+
+        assert(src);
+        assert(fdt >= 0);
+
+        if (type == COMPRESSION_NONE)
+                return -EOPNOTSUPP;
+
+        if (src_size == 0)
+                return -EBADMSG;
+
+        /* LZ4 is special: compress_blob() produces the raw LZ4 block format (with a custom
+         * 8-byte size header), while the streaming decompressor infra (decompressor_push())
+         * expects LZ4 Frame format, as produced by compress_stream(). The two are not
+         * interchangeable, so route LZ4 blobs through the raw block decoder instead. */
+        if (type == COMPRESSION_LZ4) {
+                _cleanup_free_ void *buf = NULL;
+                size_t size;
+
+                r = decompress_blob_lz4(src, src_size, &buf, &size,
+                                        max_bytes >= SIZE_MAX ? 0 : (size_t) max_bytes);
+                if (r < 0)
+                        return r;
+
+                if (size < skip)
+                        return -EBADMSG;
+
+                r = loop_write(fdt, (uint8_t*) buf + skip, size - skip);
+                if (r < 0)
+                        return r;
+
+                log_debug("lz4 decompression finished (%" PRIu64 " -> %zu bytes, %.1f%%)",
+                          src_size, size, (double) size / src_size * 100);
+
+                if (ret_size)
+                        *ret_size = size - skip;
+                return 0;
+        }
+
+        _cleanup_(compressor_freep) Decompressor *c = NULL;
+        r = decompressor_new(&c, type);
+        if (r < 0)
+                return r;
+
+        struct decompress_stream_userdata userdata = {
+                .fd = fdt,
+                .max_bytes = max_bytes,
+                .skip = skip,
+                .sparse = fd_can_sparse(fdt) > 0,
+        };
+
+        r = decompressor_push(c, src, src_size, decompress_stream_write_callback, &userdata);
+        if (r < 0)
+                return r;
+
+        if (userdata.total_out < skip)
+                return -EBADMSG;
+
+        if (userdata.sparse) {
+                r = finalize_sparse(fdt);
+                if (r < 0)
+                        return r;
+        }
+
+        log_debug("%s decompression finished (%" PRIu64 " -> %" PRIu64 " bytes, %.1f%%)",
+                  compression_to_string(type), src_size, userdata.total_out,
+                  (double) userdata.total_out / src_size * 100);
+
+        if (ret_size)
+                *ret_size = userdata.total_out - skip;
+
+        return 0;
+}
+
+int decompress_blob_to_fd_journal(
+                Compression type,
+                const void *src,
+                uint64_t src_size,
+                int fdt,
+                uint64_t max_bytes,
+                uint64_t skip,
+                size_t *ret_size) {
+
+        int r;
+
+        r = dlopen_compress_journal(type, LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        return decompress_blob_to_fd_impl(type, src, src_size, fdt, max_bytes, skip, ret_size);
+}
+
+int decompress_blob_to_fd(
+                Compression type,
+                const void *src,
+                uint64_t src_size,
+                int fdt,
+                uint64_t max_bytes,
+                uint64_t skip,
+                size_t *ret_size) {
+
+        int r;
+
+        r = dlopen_compress(type, LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        return decompress_blob_to_fd_impl(type, src, src_size, fdt, max_bytes, skip, ret_size);
 }
 
 int decompress_stream(
@@ -1774,6 +1902,13 @@ int decompress_stream(
         assert(fdf >= 0);
         assert(fdt >= 0);
 
+        if (type == COMPRESSION_NONE)
+                return -EOPNOTSUPP;
+
+        r = dlopen_compress(type, LOG_DEBUG);
+        if (r < 0)
+                return r;
+
         r = decompressor_new(&c, type);
         if (r < 0)
                 return r;
@@ -1781,7 +1916,7 @@ int decompress_stream(
         struct decompress_stream_userdata userdata = {
                 .fd = fdt,
                 .max_bytes = max_bytes,
-                .sparse = should_sparse(fdt) > 0,
+                .sparse = fd_can_sparse(fdt) > 0,
         };
 
         buf = new(uint8_t, COMPRESS_PIPE_BUFFER_SIZE);
@@ -1897,14 +2032,12 @@ Compression compressor_type(const Compressor *c) {
         return c ? c->type : _COMPRESSION_INVALID;
 }
 
-int decompressor_detect(Decompressor **ret, const void *data, size_t size) {
-#if HAVE_XZ || HAVE_LZ4 || HAVE_ZSTD || HAVE_ZLIB || HAVE_BZIP2
+int decompressor_detect(Decompressor **decompressor, const void *data, size_t size) {
         int r;
-#endif
 
-        assert(ret);
+        assert(decompressor);
 
-        if (*ret)
+        if (*decompressor)
                 return 1;
 
         if (size < COMPRESSION_MAGIC_BYTES_MAX)
@@ -1913,119 +2046,30 @@ int decompressor_detect(Decompressor **ret, const void *data, size_t size) {
         assert(data);
 
         Compression type = compression_detect_from_magic(data);
-
-        _cleanup_(compressor_freep) Decompressor *c = new0(Decompressor, 1);
-        if (!c)
-                return -ENOMEM;
-
-        switch (type) {
-
-#if HAVE_XZ
-        case COMPRESSION_XZ: {
-                r = dlopen_xz(LOG_DEBUG);
-                if (r < 0)
-                        return r;
-
-                lzma_ret xzr = sym_lzma_stream_decoder(&c->xz, UINT64_MAX, LZMA_TELL_UNSUPPORTED_CHECK | LZMA_CONCATENATED);
-                if (xzr != LZMA_OK)
-                        return -EIO;
-
-                break;
-        }
-#endif
-
-#if HAVE_LZ4
-        case COMPRESSION_LZ4: {
-                r = dlopen_lz4(LOG_DEBUG);
-                if (r < 0)
-                        return r;
-
-                size_t rc = sym_LZ4F_createDecompressionContext(&c->d_lz4, LZ4F_VERSION);
-                if (sym_LZ4F_isError(rc))
-                        return -ENOMEM;
-
-                break;
-        }
-#endif
-
-#if HAVE_ZSTD
-        case COMPRESSION_ZSTD: {
-                r = dlopen_zstd(LOG_DEBUG);
-                if (r < 0)
-                        return r;
-
-                c->d_zstd = sym_ZSTD_createDCtx();
-                if (!c->d_zstd)
-                        return -ENOMEM;
-
-                break;
-        }
-#endif
-
-#if HAVE_ZLIB
-        case COMPRESSION_GZIP: {
-                r = dlopen_zlib(LOG_DEBUG);
-                if (r < 0)
-                        return r;
-
-                r = sym_inflateInit2_(&c->gzip, /* windowBits= */ ZLIB_WBITS_GZIP, ZLIB_VERSION, (int) sizeof(c->gzip));
-                if (r != Z_OK)
-                        return -EIO;
-
-                break;
-        }
-#endif
-
-#if HAVE_BZIP2
-        case COMPRESSION_BZIP2: {
-                r = dlopen_bzip2(LOG_DEBUG);
-                if (r < 0)
-                        return r;
-
-                r = sym_BZ2_bzDecompressInit(&c->bzip2, /* verbosity= */ 0, /* small= */ 0);
-                if (r != BZ_OK)
-                        return -EIO;
-
-                break;
-        }
-#endif
-
-        default:
-                if (type != _COMPRESSION_INVALID)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                               "Detected %s compression, but support is not compiled in.",
-                                               compression_to_string(type));
+        if (type == _COMPRESSION_INVALID)
                 type = COMPRESSION_NONE;
-                break;
-        }
 
-        c->type = type;
-        c->encoding = false;
+        log_debug("Detected compression type: %s", compression_to_string(type));
 
-        log_debug("Detected compression type: %s", compression_to_string(c->type));
-        *ret = TAKE_PTR(c);
+        r = dlopen_compress(type, LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        r = decompressor_new(decompressor, type);
+        if (r < 0)
+                return r;
+
         return 1;
 }
 
-int decompressor_force_off(Decompressor **ret) {
-        assert(ret);
+int decompressor_force_off(Decompressor **decompressor) {
+        assert(decompressor);
 
-        *ret = compressor_free(*ret);
-
-        Decompressor *c = new0(Decompressor, 1);
-        if (!c)
-                return -ENOMEM;
-
-        c->type = COMPRESSION_NONE;
-        c->encoding = false;
-        *ret = c;
-        return 0;
+        *decompressor = compressor_free(*decompressor);
+        return decompressor_new(decompressor, COMPRESSION_NONE);
 }
 
 int decompressor_push(Decompressor *c, const void *data, size_t size, DecompressorCallback callback, void *userdata) {
-#if HAVE_XZ || HAVE_LZ4 || HAVE_ZSTD || HAVE_ZLIB || HAVE_BZIP2
-        _cleanup_free_ uint8_t *buffer = NULL;
-#endif
         int r;
 
         assert(c);
@@ -2040,6 +2084,7 @@ int decompressor_push(Decompressor *c, const void *data, size_t size, Decompress
         assert(data);
 
 #if HAVE_XZ || HAVE_LZ4 || HAVE_ZSTD || HAVE_ZLIB || HAVE_BZIP2
+        _cleanup_free_ uint8_t *buffer = NULL;
         if (c->type != COMPRESSION_NONE) {
                 buffer = new(uint8_t, COMPRESS_PIPE_BUFFER_SIZE);
                 if (!buffer)
@@ -2203,11 +2248,13 @@ int decompressor_push(Decompressor *c, const void *data, size_t size, Decompress
 }
 
 int compressor_new(Compressor **ret, Compression type) {
-#if HAVE_XZ || HAVE_LZ4 || HAVE_ZSTD || HAVE_ZLIB || HAVE_BZIP2
         int r;
-#endif
 
         assert(ret);
+
+        r = dlopen_compress(type, LOG_DEBUG);
+        if (r < 0)
+                return r;
 
         _cleanup_(compressor_freep) Compressor *c = new0(Compressor, 1);
         if (!c)
@@ -2223,10 +2270,6 @@ int compressor_new(Compressor **ret, Compression type) {
 
 #if HAVE_XZ
         case COMPRESSION_XZ: {
-                r = dlopen_xz(LOG_DEBUG);
-                if (r < 0)
-                        return r;
-
                 lzma_ret xzr = sym_lzma_easy_encoder(&c->xz, LZMA_PRESET_DEFAULT, LZMA_CHECK_CRC64);
                 if (xzr != LZMA_OK)
                         return -EIO;
@@ -2238,10 +2281,6 @@ int compressor_new(Compressor **ret, Compression type) {
 
 #if HAVE_LZ4
         case COMPRESSION_LZ4: {
-                r = dlopen_lz4(LOG_DEBUG);
-                if (r < 0)
-                        return r;
-
                 size_t rc = sym_LZ4F_createCompressionContext(&c->c_lz4, LZ4F_VERSION);
                 if (sym_LZ4F_isError(rc))
                         return -ENOMEM;
@@ -2264,10 +2303,6 @@ int compressor_new(Compressor **ret, Compression type) {
 
 #if HAVE_ZSTD
         case COMPRESSION_ZSTD:
-                r = dlopen_zstd(LOG_DEBUG);
-                if (r < 0)
-                        return r;
-
                 c->c_zstd = sym_ZSTD_createCCtx();
                 if (!c->c_zstd)
                         return -ENOMEM;
@@ -2287,10 +2322,6 @@ int compressor_new(Compressor **ret, Compression type) {
 
 #if HAVE_ZLIB
         case COMPRESSION_GZIP:
-                r = dlopen_zlib(LOG_DEBUG);
-                if (r < 0)
-                        return r;
-
                 r = sym_deflateInit2_(&c->gzip,
                                       Z_DEFAULT_COMPRESSION,
                                       /* method= */ Z_DEFLATED,
@@ -2307,10 +2338,6 @@ int compressor_new(Compressor **ret, Compression type) {
 
 #if HAVE_BZIP2
         case COMPRESSION_BZIP2:
-                r = dlopen_bzip2(LOG_DEBUG);
-                if (r < 0)
-                        return r;
-
                 r = sym_BZ2_bzCompressInit(&c->bzip2, /* blockSize100k= */ 9, /* verbosity= */ 0, /* workFactor= */ 0);
                 if (r != BZ_OK)
                         return -EIO;
