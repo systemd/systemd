@@ -3682,6 +3682,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
         and similar functions).</para>
 
+        <para>Note that this functionality is currently only available in system services, not in per-user
+        services.</para>
+
         <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
 

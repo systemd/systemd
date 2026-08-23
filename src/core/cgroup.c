@@ -50,6 +50,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "syslog-util.h"
 #include "virt.h"
 
 #if BPF_FRAMEWORK
@@ -885,6 +886,33 @@ static int cgroup_log_xattr_apply(Unit *u) {
         return 0;
 }
 
+void unit_apply_log_level_max_xattr(Unit *u) {
+        const ExecContext *c;
+
+        assert(u);
+
+        c = unit_get_exec_context(u);
+        if (!c)
+                /* Some unit types have a cgroup context but no exec context, so they cannot have a
+                 * LogLevelMax= configured. */
+                return;
+
+        /* Export LogLevelMax= as a cgroup xattr, so that journald can pick it up for messages of
+         * this unit. This works the same for system and user units: the manager that owns the unit
+         * sets the xattr on the unit's cgroup, and journald reads it from there, regardless of
+         * which manager the unit belongs to. */
+        if (u->debug_invocation || c->log_level_max >= 0) {
+                int level = u->debug_invocation ? LOG_DEBUG : c->log_level_max;
+                /* The level is validated when parsed, so an out-of-range value is a bug rather
+                 * than something to mask out. */
+                assert_se(log_level_is_valid(level));
+
+                char value = '0' + level;
+                unit_set_xattr_graceful(u, "user.journald_log_level_max", &value, 1);
+        } else
+                unit_remove_xattr_graceful(u, "user.journald_log_level_max");
+}
+
 static void cgroup_invocation_id_xattr_apply(Unit *u) {
         bool b;
 
@@ -951,6 +979,7 @@ static void cgroup_xattr_apply(Unit *u) {
         /* The 'user.*' xattrs can be set from a user manager. */
         cgroup_oomd_xattr_apply(u);
         cgroup_log_xattr_apply(u);
+        unit_apply_log_level_max_xattr(u);
         cgroup_coredump_xattr_apply(u);
 
         if (!MANAGER_IS_SYSTEM(u->manager))
