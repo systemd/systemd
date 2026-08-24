@@ -1281,7 +1281,153 @@ EOF
     cmp "$sigdir/payload-v2.raw" "$target/payload-v2.raw"
 }
 
+backup_import_keyring() {
+    local path="$1"
+    local backup="$2"
+
+    rm -f "$backup"
+    if [ -e "$path" ] || [ -L "$path" ]; then
+        mv "$path" "$backup"
+    fi
+}
+
+restore_import_keyring() {
+    local path="$1"
+    local backup="$2"
+
+    rm -f "$path"
+    if [ -e "$backup" ] || [ -L "$backup" ]; then
+        mv "$backup" "$path"
+    fi
+}
+
+test_signature_keyring_overlay() (
+    if ! command -v gpg >/dev/null; then
+        echo "gpg not available, skipping signature overlay test"
+        exit 0
+    fi
+
+    local gpg_version gpg_rest
+    gpg_version="$(gpg --version | sed -n '1p' | awk '{print $NF}')"
+    gpg_rest="${gpg_version#*.}"
+    if [ "${gpg_version%%.*}" -lt 2 ] || { [ "${gpg_version%%.*}" -eq 2 ] && [ "${gpg_rest%%.*}" -lt 4 ]; }; then
+        echo "gpg $gpg_version too old (need >= 2.4), skipping signature overlay test"
+        exit 0
+    fi
+
+    local sigdir="$WORKDIR/sigtest-overlay-source"
+    local defdir="$WORKDIR/sigtest-overlay-defs"
+    local user_home="$WORKDIR/sigtest-overlay-userhome"
+    local vendor_home="$WORKDIR/sigtest-overlay-vendorhome"
+    local other_home="$WORKDIR/sigtest-overlay-otherhome"
+    local target="$WORKDIR/sigtest-overlay-target"
+    local user_keyring="$WORKDIR/sigtest-overlay-user.gpg"
+    local vendor_keyring="$WORKDIR/sigtest-overlay-vendor.gpg"
+    local other_keyring="$WORKDIR/sigtest-overlay-other.gpg"
+    local etc_pgp_backup="$WORKDIR/import-pubring.etc.pgp.bak"
+    local etc_gpg_backup="$WORKDIR/import-pubring.etc.gpg.bak"
+    local usr_pgp_backup="$WORKDIR/import-pubring.usr.pgp.bak"
+    # Called via trap on EXIT; shellcheck cannot see the indirect invocation.
+    # shellcheck disable=SC2329,SC2317
+    cleanup_overlay_keyrings() {
+        set +e
+        gpgconf --homedir "$user_home" --kill all 2>/dev/null || :
+        gpgconf --homedir "$vendor_home" --kill all 2>/dev/null || :
+        gpgconf --homedir "$other_home" --kill all 2>/dev/null || :
+        restore_import_keyring /etc/systemd/import-pubring.pgp "$etc_pgp_backup"
+        restore_import_keyring /etc/systemd/import-pubring.gpg "$etc_gpg_backup"
+        restore_import_keyring /usr/lib/systemd/import-pubring.pgp "$usr_pgp_backup"
+    }
+
+    mkdir -p "$sigdir" "$defdir" "$user_home" "$vendor_home" "$other_home" "$target" /etc/systemd /usr/lib/systemd
+    chmod 700 "$user_home" "$vendor_home" "$other_home"
+
+    trap cleanup_overlay_keyrings EXIT
+
+    backup_import_keyring /etc/systemd/import-pubring.pgp "$etc_pgp_backup"
+    backup_import_keyring /etc/systemd/import-pubring.gpg "$etc_gpg_backup"
+    backup_import_keyring /usr/lib/systemd/import-pubring.pgp "$usr_pgp_backup"
+
+    GNUPGHOME="$user_home" gpg --batch --pinentry-mode loopback --passphrase '' \
+        --quick-gen-key 'Overlay User <overlay-user@example.com>' rsa2048 cert,sign never
+    GNUPGHOME="$user_home" gpg --export --output "$user_keyring"
+
+    GNUPGHOME="$vendor_home" gpg --batch --pinentry-mode loopback --passphrase '' \
+        --quick-gen-key 'Overlay Vendor <overlay-vendor@example.com>' rsa2048 cert,sign never
+    GNUPGHOME="$vendor_home" gpg --export --output "$vendor_keyring"
+
+    GNUPGHOME="$other_home" gpg --batch --pinentry-mode loopback --passphrase '' \
+        --quick-gen-key 'Overlay Other <overlay-other@example.com>' rsa2048 cert,sign never
+    GNUPGHOME="$other_home" gpg --export --output "$other_keyring"
+
+    install -Dm0644 "$user_keyring" /etc/systemd/import-pubring.gpg
+    install -Dm0644 "$vendor_keyring" /usr/lib/systemd/import-pubring.pgp
+    rm -f /etc/systemd/import-pubring.pgp
+
+    dd if=/dev/urandom of="$sigdir/payload-v1.raw" bs=1024 count=8 status=none
+    (cd "$sigdir" && sha256sum payload-v1.raw > SHA256SUMS)
+    GNUPGHOME="$vendor_home" gpg --batch --pinentry-mode loopback --passphrase '' \
+        --detach-sign --include-key-block --yes \
+        --output "$sigdir/SHA256SUMS.gpg" "$sigdir/SHA256SUMS"
+
+    cat >"$defdir/01-sigtest.transfer" <<EOF
+[Source]
+Type=url-file
+Path=file://$sigdir
+MatchPattern=payload-@v.raw
+
+[Target]
+Type=regular-file
+Path=$target
+MatchPattern=payload-@v.raw
+InstancesMax=3
+EOF
+
+    "$SYSUPDATE" --definitions="$defdir" check-new
+    "$SYSUPDATE" --definitions="$defdir" update
+    cmp "$sigdir/payload-v1.raw" "$target/payload-v1.raw"
+
+    dd if=/dev/urandom of="$sigdir/payload-v2.raw" bs=1024 count=8 status=none
+    (cd "$sigdir" && sha256sum payload-v1.raw payload-v2.raw > SHA256SUMS)
+    GNUPGHOME="$other_home" gpg --batch --pinentry-mode loopback --passphrase '' \
+        --detach-sign --include-key-block --yes \
+        --output "$sigdir/SHA256SUMS.gpg" "$sigdir/SHA256SUMS"
+    if "$SYSUPDATE" --definitions="$defdir" update; then
+        echo "ERROR: accepted an update signed by a key not in the default keyrings" >&2
+        exit 1
+    fi
+    if [ -f "$target/payload-v2.raw" ]; then
+        echo "ERROR: payload-v2 should not have been installed" >&2
+        exit 1
+    fi
+
+    dd if=/dev/urandom of="$sigdir/payload-v3.raw" bs=1024 count=8 status=none
+    (cd "$sigdir" && sha256sum payload-v1.raw payload-v2.raw payload-v3.raw > SHA256SUMS)
+    GNUPGHOME="$vendor_home" gpg --batch --pinentry-mode loopback --passphrase '' \
+        --detach-sign --include-key-block --yes \
+        --output "$sigdir/SHA256SUMS.gpg" "$sigdir/SHA256SUMS"
+    if SYSTEMD_OPENPGP_KEYRING="$other_keyring" "$SYSUPDATE" --definitions="$defdir" update; then
+        echo "ERROR: accepted an update with an override keyring that lacks the signing key" >&2
+        exit 1
+    fi
+    if [ -f "$target/payload-v3.raw" ]; then
+        echo "ERROR: payload-v3 should not have been installed" >&2
+        exit 1
+    fi
+
+    install -Dm0644 "$user_keyring" /etc/systemd/import-pubring.pgp
+    rm -f /etc/systemd/import-pubring.gpg
+    dd if=/dev/urandom of="$sigdir/payload-v4.raw" bs=1024 count=8 status=none
+    (cd "$sigdir" && sha256sum payload-v1.raw payload-v2.raw payload-v3.raw payload-v4.raw > SHA256SUMS)
+    GNUPGHOME="$user_home" gpg --batch --pinentry-mode loopback --passphrase '' \
+        --detach-sign --include-key-block --yes \
+        --output "$sigdir/SHA256SUMS.gpg" "$sigdir/SHA256SUMS"
+    "$SYSUPDATE" --definitions="$defdir" update
+    cmp "$sigdir/payload-v4.raw" "$target/payload-v4.raw"
+)
+
 test_signature_verification
+test_signature_keyring_overlay
 
 # Test '**/' as prefix in MatchPattern= for subpaths in SHA256SUMS
 rm -rf "$CONFIGDIR" "$WORKDIR/blobs" "$WORKDIR/source/sub"
