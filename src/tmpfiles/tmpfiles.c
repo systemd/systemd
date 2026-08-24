@@ -1298,8 +1298,24 @@ static int parse_acl_cond_exec(
                         if (sym_acl_get_tag_type(entry, &tag) < 0)
                                 return -errno;
 
-                        if (tag == ACL_MASK)
-                                continue;
+                        if (tag == ACL_MASK) {
+                                if (sym_acl_get_permset(entry, &permset) < 0)
+                                        return -errno;
+
+                                r = sym_acl_get_perm(permset, ACL_EXECUTE);
+                                if (r < 0)
+                                        return -errno;
+
+                                /* If the mask does not allow ACL_EXECUTE,
+                                 * we can already break the loop and set
+                                 * has_exec to false, since the permissions
+                                 * are effectively missing. */
+                                if (r == 0) {
+                                        has_exec = false;
+                                        break;
+                                } else
+                                        continue;
+                        }
 
                         /* If not appending, skip ACL definitions */
                         if (!append && IN_SET(tag, ACL_USER, ACL_GROUP))
@@ -1313,7 +1329,6 @@ static int parse_acl_cond_exec(
                                 return -errno;
                         if (r > 0) {
                                 has_exec = true;
-                                break;
                         }
                 }
                 if (r < 0)
