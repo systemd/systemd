@@ -11,6 +11,7 @@
 #include "errno-util.h"
 #include "fiber-ops.h"
 #include "io-util.h"
+#include "stat-util.h"
 #include "time-util.h"
 
 uint32_t poll_events_to_epoll(uint32_t events) {
@@ -352,8 +353,14 @@ ssize_t sparse_write(int fd, const void *p, size_t sz, size_t run_length) {
                                 l = write(fd, w, q - w);
                                 if (l < 0)
                                         return -errno;
-                                if (l != q -w)
+                                if (l != q - w) {
+                                        uint64_t free_bytes;
+
+                                        if (vfs_free_bytes(fd, &free_bytes) >= 0 && free_bytes < (uint64_t) (q - w))
+                                                return -ENOSPC;
+
                                         return -EIO;
+                                }
                         }
 
                         if (lseek(fd, n, SEEK_CUR) < 0)
@@ -371,8 +378,14 @@ ssize_t sparse_write(int fd, const void *p, size_t sz, size_t run_length) {
                 l = write(fd, w, q - w);
                 if (l < 0)
                         return -errno;
-                if (l != q - w)
+                if (l != q - w) {
+                        uint64_t free_bytes;
+
+                        if (vfs_free_bytes(fd, &free_bytes) >= 0 && free_bytes < (uint64_t) (q - w))
+                                return -ENOSPC;
+
                         return -EIO;
+                }
         }
 
         return q - (const uint8_t*) p;
