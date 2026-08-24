@@ -11,6 +11,7 @@
 #include "ethtool-util.h"
 #include "forward.h"
 #include "in-addr-util.h"
+#include "time-util.h"
 
 typedef struct VxLanInfo {
         uint32_t vni;
@@ -63,6 +64,12 @@ typedef struct LinkInfo {
         /* DHCPv4 */
         sd_dhcp_message *dhcp_message;
         sd_dhcp_client_id dhcp_client_id;
+        const char *dhcp4_client_state;
+        usec_t dhcp4_lease_timestamp;
+
+        /* DHCPv6 */
+        const char *dhcp6_client_state;
+        usec_t dhcp6_lease_timestamp;
 
         /* bridge info */
         uint32_t forward_delay;
