@@ -1488,7 +1488,11 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
 
                         log_debug_errno(r, "Connection failure for DNS UDP packet: %m");
                         assert_se(sd_event_now(t->scope->manager->event, CLOCK_BOOTTIME, &usec) >= 0);
-                        dns_server_packet_lost(t->server, IPPROTO_UDP, t->current_feature_level);
+                        /* "No route" errors are local so they tell us nothing about the server's
+                         * feature level. Only count errors that indicate the server actually saw and
+                         * rejected, or ignored the packet. */
+                        if (!IN_SET(r, -EHOSTUNREACH, -ENETUNREACH))
+                                dns_server_packet_lost(t->server, IPPROTO_UDP, t->current_feature_level);
 
                         dns_transaction_close_connection(t, /* use_graveyard= */ false);
 
