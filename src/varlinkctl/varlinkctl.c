@@ -92,7 +92,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return command_print_help("varlinkctl");
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -1458,7 +1458,7 @@ static int verb_serve(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return 0;
 }
 
-VERB_COMMON_HELP_AUTO("varlinkctl");
+VERB_COMMON_HELP_AUTO();
 
 static int run(int argc, char *argv[]) {
         int r;

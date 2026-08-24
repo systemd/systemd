@@ -3306,7 +3306,7 @@ static int verb_enable_component(int argc, char *argv[], uintptr_t _data, void *
         return 0;
 }
 
-VERB_COMMON_HELP_AUTO_HIDDEN("systemd-sysupdate");
+VERB_COMMON_HELP_AUTO_HIDDEN();
 
 static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         assert(argc >= 0);
@@ -3320,7 +3320,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return command_print_help("systemd-sysupdate");
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();

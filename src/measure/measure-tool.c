@@ -72,7 +72,7 @@ COMMAND(
         .pager_flags = &arg_pager_flags,
 );
 
-VERB_COMMON_HELP_AUTO_HIDDEN("systemd-measure");
+VERB_COMMON_HELP_AUTO_HIDDEN();
 
 static char *normalize_phase(const char *s) {
         _cleanup_strv_free_ char **l = NULL;
@@ -101,7 +101,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return command_print_help("systemd-measure");
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();

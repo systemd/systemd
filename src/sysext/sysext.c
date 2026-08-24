@@ -38,7 +38,6 @@
 #include "format-table.h"
 #include "fs-util.h"
 #include "hashmap.h"
-#include "help-util.h"
 #include "image-policy.h"
 #include "initrd-util.h"
 #include "label-util.h"                 /* IWYU pragma: keep */
@@ -49,7 +48,6 @@
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
-#include "options.h"
 #include "os-util.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -133,14 +131,27 @@ static ImageClass arg_image_class = IMAGE_SYSEXT;
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
+COMMAND(
+        "systemd-sysext\0",
+        "Merge system extension images into /usr/ and /opt/.",
+        .man_pages = "systemd-sysext.8\0",
+        .flags = COMMAND_VERBS_SHARED,
+        .pager_flags = &arg_pager_flags,
+);
+COMMAND(
+        "systemd-confext\0",
+        "Merge configuration extension images into /etc/.",
+        .man_pages = "systemd-confext.8\0",
+        .flags = COMMAND_VERBS_SHARED,
+        .pager_flags = &arg_pager_flags,
+);
+
 /* Helper struct for naming simplicity and reusability */
 static const struct {
-        const char *full_identifier;
         const char *short_identifier;
         const char *short_identifier_plural;
         const char *polkit_rw_action_id;
         const char *polkit_ro_action_id;
-        const char *blurb;
         const char *dot_directory_name;
         const char *directory_name;
         const char *level_env;
@@ -152,12 +163,10 @@ static const struct {
         unsigned long default_mount_flags;
 } image_class_info[_IMAGE_CLASS_MAX] = {
         [IMAGE_SYSEXT] = {
-                .full_identifier = "systemd-sysext",
                 .short_identifier = "sysext",
                 .short_identifier_plural = "extensions",
                 .polkit_rw_action_id = "io.systemd.sysext.manage",
                 .polkit_ro_action_id = "io.systemd.sysext.read",
-                .blurb = "Merge system extension images into /usr/ and /opt/.",
                 .dot_directory_name = ".systemd-sysext",
                 .level_env = "SYSEXT_LEVEL",
                 .scope_env = "SYSEXT_SCOPE",
@@ -168,12 +177,10 @@ static const struct {
                 .default_mount_flags = MS_RDONLY|MS_NODEV,
         },
         [IMAGE_CONFEXT] = {
-                .full_identifier = "systemd-confext",
                 .short_identifier = "confext",
                 .short_identifier_plural = "confexts",
                 .polkit_rw_action_id = "io.systemd.confext.manage",
                 .polkit_ro_action_id = "io.systemd.confext.read",
-                .blurb = "Merge configuration extension images into /etc/.",
                 .dot_directory_name = ".systemd-confext",
                 .level_env = "CONFEXT_LEVEL",
                 .scope_env = "CONFEXT_SCOPE",
@@ -3129,45 +3136,12 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         return 0;
 }
 
-static int help(void) {
-        _cleanup_(table_unrefp) Table *verbs = NULL, *commands = NULL, *options = NULL;
-        int r;
-
-        r = verbs_get_help_table(&verbs);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table(&commands);
-        if (r < 0)
-                return r;
-
-        r = option_parser_get_help_table_group("Options", &options);
-        if (r < 0)
-                return r;
-
-        (void) table_sync_column_widths(0, verbs, commands, options);
-
-        help_cmdline("[OPTIONS...] COMMAND");
-        help_abstract(image_class_info[arg_image_class].blurb);
-
-        help_section("Commands");
-        r = table_print_or_warn(verbs);
-        if (r < 0)
-                return r;
-        r = table_print_or_warn(commands);
-        if (r < 0)
-                return r;
-
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        help_man_page_reference(image_class_info[arg_image_class].full_identifier, "8");
-        return 0;
+VERB_FULL(verb_help, "help", NULL, VERB_ANY, VERB_ANY, 0, /* dat= */ 0u, /* help= */ NULL);
+static int verb_help(int argc, char **argv, uintptr_t data, void *userdata) {
+        return command_print_help_full(
+                        arg_image_class == IMAGE_SYSEXT ? "systemd-sysext" : "systemd-confext",
+                        /* footer_ansi_seq= */ NULL);
 }
-
-VERB_COMMON_HELP_HIDDEN(help);
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         int r;
@@ -3182,12 +3156,12 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return help();
+                        return command_print_help_full(
+                                        arg_image_class == IMAGE_SYSEXT ? "systemd-sysext" : "systemd-confext",
+                                        /* footer_ansi_seq= */ NULL);
 
                 OPTION_COMMON_VERSION:
                         return version();
-
-                OPTION_GROUP("Options"): {}
 
                 OPTION_LONG("root", "PATH", "Operate relative to root PATH"):
                         r = parse_path_argument(opts.arg, false, &arg_root);
@@ -3255,6 +3229,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         if (r <= 0)
                                 return r;
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(arg_json_format_flags);
                 }
 
         r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);

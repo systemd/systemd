@@ -1558,7 +1558,7 @@ static int verb_load_credentials(int argc, char *argv[], uintptr_t _data, void *
         return r;
 }
 
-VERB_COMMON_HELP_AUTO_HIDDEN("userdbctl");
+VERB_COMMON_HELP_AUTO_HIDDEN();
 
 static int parse_from_file(const char *arg, sd_json_variant **ret) {
         sd_json_variant *v = NULL;
@@ -1612,7 +1612,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return command_print_help("userdbctl");
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();

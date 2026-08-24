@@ -181,7 +181,7 @@ int resolvconf_parse_argv(int argc, char *argv[]) {
                 OPTION_NAMESPACE("resolvconf"): {}
 
                 OPTION_COMMON_HELP:
-                        return command_print_help("resolvconf");
+                        return command_print_help_full("resolvconf", /* footer_ansi_seq= */ NULL);
 
                 OPTION_COMMON_VERSION:
                         return version();
