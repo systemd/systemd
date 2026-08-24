@@ -9,6 +9,7 @@
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "iovec-util.h"
 #include "journal-internal.h"
@@ -26,7 +27,6 @@
 #include "selinux-util.h"
 #include "set.h"
 #include "string-util.h"
-#include "syslog-util.h"
 #include "time-util.h"
 #include "unaligned.h"
 #include "user-util.h"
@@ -283,6 +283,11 @@ static int client_context_read_cgroup(Manager *m, ClientContext *c, const char *
 
         assert(c);
 
+        /* The log level max can only be read from the unit's cgroup, see
+         * client_context_read_log_level_max() in journald-client.c. If we cannot resolve the
+         * cgroup at all there is no level, hence reset it here so that no stale one is retained. */
+        c->log_level_max = -1;
+
         /* Try to acquire the current cgroup path */
         r = cg_pid_get_path_shifted(c->pid, m->cgroup_root, &t);
         if (r < 0 || empty_or_root(t)) {
@@ -299,6 +304,7 @@ static int client_context_read_cgroup(Manager *m, ClientContext *c, const char *
         }
 
         (void) client_context_read_log_filter_patterns(c, t);
+        client_context_read_log_level_max(c, t);
 
         /* Let's shortcut this if the cgroup path didn't change */
         if (streq_ptr(c->cgroup, t))
@@ -327,6 +333,33 @@ static int client_context_read_cgroup(Manager *m, ClientContext *c, const char *
         return 0;
 }
 
+static bool client_context_is_user_area(const ClientContext *c) {
+        assert(c);
+
+        return c->user_unit && uid_is_valid(c->owner_uid);
+}
+
+static char *client_context_system_state_file_path(const ClientContext *c, const char *name) {
+        assert(c);
+        assert(name);
+        assert(c->unit);
+
+        return strjoin("/run/systemd/units/", name, c->unit);
+}
+
+static char *client_context_state_file_path(const ClientContext *c, const char *name) {
+        assert(c);
+        assert(name);
+        assert(c->unit);
+
+        /* Per-unit state files for journald: PID 1 stores them in /run/systemd/units/, user managers
+         * store them under /run/user/<uid>/systemd/units/. */
+        if (client_context_is_user_area(c))
+                return strjoin("/run/user/", FORMAT_UID(c->owner_uid), "/systemd/units/", name, c->user_unit);
+
+        return client_context_system_state_file_path(c, name);
+}
+
 static int client_context_read_invocation_id(
                 Manager *m,
                 ClientContext *c) {
@@ -337,52 +370,24 @@ static int client_context_read_invocation_id(
         assert(m);
         assert(c);
 
-        /* Read the invocation ID of a unit off a unit.
-         * PID 1 stores it in a per-unit symlink in /run/systemd/units/
-         * User managers store it in a per-unit symlink under /run/user/<uid>/systemd/units/ */
-
         if (!c->unit)
                 return 0;
 
-        if (c->user_unit) {
-                r = asprintf(&p, "/run/user/" UID_FMT "/systemd/units/invocation:%s", c->owner_uid, c->user_unit);
-                if (r < 0)
-                        return r;
-        } else {
-                p = strjoin("/run/systemd/units/invocation:", c->unit);
-                if (!p)
-                        return -ENOMEM;
-        }
+        /* Capsules have no /run/user/<uid>/ directory, and no invocation ID was read for their
+         * units before; leave the field unset instead of attributing them to the invocation ID
+         * of the capsule manager service. */
+        if (c->user_unit && !client_context_is_user_area(c))
+                return 0;
+
+        p = client_context_state_file_path(c, "invocation:");
+        if (!p)
+                return -ENOMEM;
 
         r = readlink_malloc(p, &value);
         if (r < 0)
                 return r;
 
         return sd_id128_from_string(value, &c->invocation_id);
-}
-
-static int client_context_read_log_level_max(
-                Manager *m,
-                ClientContext *c) {
-
-        _cleanup_free_ char *value = NULL;
-        const char *p;
-        int r, ll;
-
-        if (!c->unit)
-                return 0;
-
-        p = strjoina("/run/systemd/units/log-level-max:", c->unit);
-        r = readlink_malloc(p, &value);
-        if (r < 0)
-                return r;
-
-        ll = log_level_from_string(value);
-        if (ll < 0)
-                return ll;
-
-        c->log_level_max = ll;
-        return 0;
 }
 
 static int client_context_read_extra_fields(
@@ -394,14 +399,16 @@ static int client_context_read_extra_fields(
         _cleanup_free_ void *data = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         struct stat st;
-        const char *p;
+        _cleanup_free_ char *p = NULL;
         uint8_t *q;
         int r;
 
         if (!c->unit)
                 return 0;
 
-        p = strjoina("/run/systemd/units/log-extra-fields:", c->unit);
+        p = client_context_system_state_file_path(c, "log-extra-fields:");
+        if (!p)
+                return -ENOMEM;
 
         if (c->extra_fields_mtime != NSEC_INFINITY) {
                 if (stat(p, &st) < 0) {
@@ -479,8 +486,7 @@ static int client_context_read_extra_fields(
 }
 
 static int client_context_read_log_ratelimit_interval(ClientContext *c) {
-        _cleanup_free_ char *value = NULL;
-        const char *p;
+        _cleanup_free_ char *p = NULL, *value = NULL;
         int r;
 
         assert(c);
@@ -488,7 +494,10 @@ static int client_context_read_log_ratelimit_interval(ClientContext *c) {
         if (!c->unit)
                 return 0;
 
-        p = strjoina("/run/systemd/units/log-rate-limit-interval:", c->unit);
+        p = client_context_system_state_file_path(c, "log-rate-limit-interval:");
+        if (!p)
+                return -ENOMEM;
+
         r = readlink_malloc(p, &value);
         if (r < 0)
                 return r;
@@ -502,8 +511,7 @@ static int client_context_read_log_ratelimit_interval(ClientContext *c) {
 }
 
 static int client_context_read_log_ratelimit_burst(ClientContext *c) {
-        _cleanup_free_ char *value = NULL;
-        const char *p;
+        _cleanup_free_ char *p = NULL, *value = NULL;
         int r;
 
         assert(c);
@@ -511,7 +519,10 @@ static int client_context_read_log_ratelimit_burst(ClientContext *c) {
         if (!c->unit)
                 return 0;
 
-        p = strjoina("/run/systemd/units/log-rate-limit-burst:", c->unit);
+        p = client_context_system_state_file_path(c, "log-rate-limit-burst:");
+        if (!p)
+                return -ENOMEM;
+
         r = readlink_malloc(p, &value);
         if (r < 0)
                 return r;
@@ -548,7 +559,6 @@ static void client_context_really_refresh(
 
         (void) client_context_read_cgroup(m, c, unit_id);
         (void) client_context_read_invocation_id(m, c);
-        (void) client_context_read_log_level_max(m, c);
         (void) client_context_read_extra_fields(m, c);
         (void) client_context_read_log_ratelimit_interval(c);
         (void) client_context_read_log_ratelimit_burst(c);

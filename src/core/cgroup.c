@@ -50,6 +50,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "syslog-util.h"
 #include "virt.h"
 
 #if BPF_FRAMEWORK
@@ -885,6 +886,35 @@ static int cgroup_log_xattr_apply(Unit *u) {
         return 0;
 }
 
+void cgroup_log_level_max_xattr_apply(Unit *u) {
+        int level;
+
+        assert(u);
+
+        /* Export the maximum log level in effect for this unit as a cgroup xattr, so that journald
+         * can pick it up for messages of this unit. This works the same for system and user units:
+         * the manager that owns the unit sets the xattr on the unit's cgroup, and journald reads
+         * it from there, regardless of which manager the unit belongs to. */
+        if (!unit_get_exec_context(u))
+                /* Units without an exec context, e.g. slices, cannot have a LogLevelMax=
+                 * configured. Their cgroups may carry xattrs set by whoever owns the surrounding
+                 * hierarchy instead: for the root slice of PID 1 that is the root of the whole
+                 * cgroup tree, for the root slice of a user manager the cgroup of the enclosing,
+                 * delegated user@<UID>.service. Leave those alone. */
+                return;
+
+        level = unit_effective_log_level_max(u);
+        if (level >= 0) {
+                /* The level comes from the parsed configuration or is LOG_DEBUG, so an out-of-range
+                 * value is a bug rather than something to mask out. */
+                assert_se(log_level_is_valid(level));
+
+                char value = '0' + level;
+                unit_set_xattr_graceful(u, "user.journald_log_level_max", &value, 1);
+        } else
+                unit_remove_xattr_graceful(u, "user.journald_log_level_max");
+}
+
 static void cgroup_invocation_id_xattr_apply(Unit *u) {
         bool b;
 
@@ -951,6 +981,7 @@ static void cgroup_xattr_apply(Unit *u) {
         /* The 'user.*' xattrs can be set from a user manager. */
         cgroup_oomd_xattr_apply(u);
         cgroup_log_xattr_apply(u);
+        cgroup_log_level_max_xattr_apply(u);
         cgroup_coredump_xattr_apply(u);
 
         if (!MANAGER_IS_SYSTEM(u->manager))
@@ -2574,8 +2605,15 @@ static int unit_realize_cgroup_now(Unit *u, ManagerState state) {
         target_mask = unit_get_target_mask(u);
         enable_mask = unit_get_enable_mask(u);
 
-        if (unit_has_mask_realized(u, target_mask, enable_mask))
+        if (unit_has_mask_realized(u, target_mask, enable_mask)) {
+                /* The log level max and log filter pattern xattrs follow settings that the
+                 * realization masks know nothing about: a realization with the masks already in
+                 * order is no guarantee that they are current. Re-apply them to converge; the
+                 * other xattrs are handled when the cgroup itself is created or updated below. */
+                cgroup_log_xattr_apply(u);
+                cgroup_log_level_max_xattr_apply(u);
                 return 0;
+        }
 
         /* Disable controllers below us, if there are any */
         r = unit_realize_cgroup_now_disable(u, state);
