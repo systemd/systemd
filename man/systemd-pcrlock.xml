@@ -78,7 +78,9 @@
     <para>Use tools such as
     <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     or <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry> to
-    bind disk encryption to such a <command>systemd-pcrlock</command> TPM2 policy. Specifically, see the
+    bind disk encryption to such a <command>systemd-pcrlock</command> TPM2 policy, or
+    <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry> to
+    bind encrypted service credentials to it. Specifically, see the
     <option>--tpm2-pcrlock=</option> switches of these tools.</para>
 
     <para>The access policy logic requires a TPM2 device that implements the

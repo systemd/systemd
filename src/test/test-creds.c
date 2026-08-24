@@ -139,6 +139,7 @@ static void test_encrypt_decrypt_with(sd_id128_t mode, uid_t uid) {
                         /* tpm2_hash_pcr_mask= */ 0,
                         /* tpm2_pubkey_path= */ NULL,
                         /* tpm2_pubkey_pcr_mask= */ 0,
+                        /* tpm2_pcrlock_path= */ NULL,
                         uid,
                         &plaintext,
                         CREDENTIAL_ALLOW_NULL,
@@ -160,6 +161,7 @@ static void test_encrypt_decrypt_with(sd_id128_t mode, uid_t uid) {
                         /* validate_timestamp= */ USEC_INFINITY,
                         /* tpm2_device= */ NULL,
                         /* tpm2_signature_path= */ NULL,
+                        /* tpm2_pcrlock_path= */ NULL,
                         uid,
                         &encrypted,
                         CREDENTIAL_ALLOW_NULL,
@@ -171,6 +173,7 @@ static void test_encrypt_decrypt_with(sd_id128_t mode, uid_t uid) {
                         /* validate_timestamp= */ USEC_INFINITY,
                         /* tpm2_device= */ NULL,
                         /* tpm2_signature_path= */ NULL,
+                        /* tpm2_pcrlock_path= */ NULL,
                         uid,
                         &encrypted,
                         CREDENTIAL_ALLOW_NULL,
@@ -231,6 +234,71 @@ TEST(credential_encrypt_decrypt) {
                 ASSERT_OK_ERRNO(setenv("SYSTEMD_CREDENTIAL_SECRET", ec, true));
 }
 
+TEST(credential_encrypt_pcrlock_refused) {
+        static const struct iovec plaintext = CONST_IOVEC_MAKE_STRING("this is a super secret string");
+        _cleanup_(iovec_done) struct iovec encrypted = {};
+        int r;
+
+        /* These failure paths are deterministic and hit before any file is read or the TPM is talked to,
+         * hence we can test them without a TPM2 device. */
+
+        /* Combining a pcrlock policy with a signed PCR policy is not supported */
+        r = encrypt_credential_and_warn(
+                        CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK_PINNED_SRK,
+                        "foo",
+                        /* timestamp= */ USEC_INFINITY,
+                        /* not_after= */ USEC_INFINITY,
+                        /* tpm2_device= */ NULL,
+                        /* tpm2_hash_pcr_mask= */ 0,
+                        /* tpm2_pubkey_path= */ NULL,
+                        /* tpm2_pubkey_pcr_mask= */ 0,
+                        /* tpm2_pcrlock_path= */ "/dev/null",
+                        UID_INVALID,
+                        &plaintext,
+                        /* flags= */ 0,
+                        &encrypted);
+        ASSERT_ERROR(r, EOPNOTSUPP);
+
+#if HAVE_TPM2
+        /* A pcrlock key type requires a pcrlock policy */
+        r = encrypt_credential_and_warn(
+                        CRED_AES256_GCM_BY_TPM2_HMAC_PINNED_SRK_PCRLOCK,
+                        "foo",
+                        /* timestamp= */ USEC_INFINITY,
+                        /* not_after= */ USEC_INFINITY,
+                        /* tpm2_device= */ NULL,
+                        /* tpm2_hash_pcr_mask= */ 0,
+                        /* tpm2_pubkey_path= */ NULL,
+                        /* tpm2_pubkey_pcr_mask= */ 0,
+                        /* tpm2_pcrlock_path= */ NULL,
+                        UID_INVALID,
+                        &plaintext,
+                        /* flags= */ 0,
+                        &encrypted);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                log_notice_errno(r, "Skipping pcrlock key type test, because encrypted credentials are not supported.");
+        else
+                ASSERT_ERROR(r, ENOENT);
+
+        /* Key types without a pcrlock-bound counterpart cannot be combined with a pcrlock policy */
+        r = encrypt_credential_and_warn(
+                        CRED_AES256_GCM_BY_TPM2_HMAC,
+                        "foo",
+                        /* timestamp= */ USEC_INFINITY,
+                        /* not_after= */ USEC_INFINITY,
+                        /* tpm2_device= */ NULL,
+                        /* tpm2_hash_pcr_mask= */ 0,
+                        /* tpm2_pubkey_path= */ NULL,
+                        /* tpm2_pubkey_pcr_mask= */ 0,
+                        /* tpm2_pcrlock_path= */ "/dev/null",
+                        UID_INVALID,
+                        &plaintext,
+                        /* flags= */ 0,
+                        &encrypted);
+        ASSERT_ERROR(r, EOPNOTSUPP);
+#endif
+}
+
 TEST(credential_boot_policy) {
 
         /* String table round-trip */
@@ -277,6 +345,9 @@ TEST(mime_type_matches) {
                 CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK,
                 CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_PINNED_SRK,
                 CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED_PINNED_SRK,
+                CRED_AES256_GCM_BY_TPM2_HMAC_PINNED_SRK_PCRLOCK,
+                CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK_PCRLOCK,
+                CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK_PCRLOCK,
                 CRED_AES256_GCM_BY_NULL,
         };
 
