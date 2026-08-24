@@ -350,17 +350,17 @@ int pidref_get_cmdline_strv(const PidRef *pid, ProcessCmdlineFlags flags, char *
         return 0;
 }
 
-int pid_is_kernel_thread(pid_t pid) {
+int procfs_get_stat_flags(const char *path, unsigned long long *ret) {
         int r;
 
-        if (IN_SET(pid, 0, 1) || pid == getpid_cached()) /* pid 1, and we ourselves certainly aren't a kernel thread */
-                return 0;
-        if (!pid_is_valid(pid))
-                return -EINVAL;
+        assert(path);
+        assert(ret);
 
-        const char *p = procfs_file_alloca(pid, "stat");
+        /* Read the 'flags' field (9th field, task->flags) from the given /proc/[pid]/stat or
+         * /proc/[pid]/task/[tid]/stat file. */
+
         _cleanup_free_ char *line = NULL;
-        r = read_one_line_file(p, &line);
+        r = read_one_line_file(path, &line);
         if (r == -ENOENT)
                 return -ESRCH;
         if (r < 0)
@@ -397,8 +397,21 @@ int pid_is_kernel_thread(pid_t pid) {
                 return -EINVAL;
         q[l] = 0;
 
+        return safe_atollu(q, ret);
+}
+
+int pid_is_kernel_thread(pid_t pid) {
+        int r;
+
+        if (IN_SET(pid, 0, 1) || pid == getpid_cached()) /* pid 1, and we ourselves certainly aren't a kernel thread */
+                return 0;
+        if (!pid_is_valid(pid))
+                return -EINVAL;
+
+        const char *p = procfs_file_alloca(pid, "stat");
+
         unsigned long long flags;
-        r = safe_atollu(q, &flags);
+        r = procfs_get_stat_flags(p, &flags);
         if (r < 0)
                 return r;
 
