@@ -2124,7 +2124,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_COMMON_HELP:
-                        return command_print_help("systemd-sysusers");
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();

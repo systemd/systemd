@@ -226,6 +226,8 @@ typedef struct OptionParser {
         char **argv;                  /* The argv array, possibly reordered. */
         OptionParserMode mode;
         const char *namespace;        /* The namespace, may be NULL. */
+        const char *option_groups;    /* Optional nulstr with option groups to look at. When specified,
+                                       * only named option groups found in this list are used. */
         int log_level_shift;          /* The log level difference from the default of LOG_ERR.
                                        * Allowed values are -3..4.
                                        * Use 4 == LOG_DEBUG - LOG_ERR to log at debug level. */
@@ -297,6 +299,7 @@ int _option_parser_get_help_table_full(
 int options_get_help_table_group(
                 const Option options[],
                 const Option options_end[],
+                const char *option_groups,
                 Table **ret,
                 const char **ret_group);
 
@@ -306,4 +309,5 @@ int options_build_json(
                 const Option options[],
                 const Option options_end[],
                 const char *namespace,
+                const char *option_groups,
                 sd_json_variant **ret);

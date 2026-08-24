@@ -18,11 +18,13 @@ INTROSPECTABLE=(
     coredumpctl
     dmi_memory_id
     fido_id
+    halt
     homectl
     hostnamectl
     importctl
     iocost
     journalctl
+    kernel-install
     localectl
     loginctl
     machinectl
@@ -30,10 +32,14 @@ INTROSPECTABLE=(
     networkctl
     oomctl
     portablectl
+    poweroff
+    reboot
     resolvectl
     run0
     scsi_id
+    shutdown
     storagectl
+    systemctl
     systemd-ac-power
     systemd-analyze
     systemd-ask-password
@@ -47,6 +53,7 @@ INTROSPECTABLE=(
     systemd-cgls
     systemd-cgtop
     systemd-clonesetup
+    systemd-confext
     systemd-creds
     systemd-cryptenroll
     systemd-cryptsetup
@@ -73,6 +80,7 @@ INTROSPECTABLE=(
     systemd-machine-id-setup
     systemd-measure
     systemd-modules-load
+    systemd-mount
     systemd-mstack
     systemd-mute-console
     systemd-network-generator
@@ -104,6 +112,7 @@ INTROSPECTABLE=(
     systemd-storage-fs
     systemd-storagetm
     systemd-sysctl
+    systemd-sysext
     systemd-sysinstall
     systemd-sysupdate
     systemd-sysusers
@@ -111,6 +120,7 @@ INTROSPECTABLE=(
     systemd-tpm2-clear
     systemd-tpm2-setup
     systemd-tty-ask-password-agent
+    systemd-umount
     systemd-update-done
     systemd-validatefs
     systemd-veritysetup
@@ -137,7 +147,12 @@ for i in "${INTROSPECTABLE[@]}"; do
     $i --intro | grep -e --help
 
     # If the tool has a "help" verb, it must work too
-    if $i --introspect-cli | jq -e 'any(.commands[]; (.verbs // []) | any(.names[0] == "help"))' >/dev/null; then
+    if $i --introspect-cli | jq -e --arg name "$i" \
+            'any(.commands[]; any(.names[]; . == $name) and ((.verbs // []) | any(.names[0] == "help")))' \
+             >/dev/null; then
+        # 'systemctl help' shows unit manuals
+        [[ "$i" == systemctl ]] && continue
+
         $i help >/dev/null
     fi
 done
@@ -163,8 +178,14 @@ systemd-dissect --introspect-cli | jq -e \
 systemd-id128 --introspect-cli | jq -e \
     '.commands[0].verbs | map(.names[0]) | contains(["new", "machine-id", "show", "help"])'
 
+systemd-mount --introspect-cli | jq -e \
+    '[.commands[].names[0]] | sort == ["systemd-mount", "systemd-umount"]'
+
 systemd-mstack --introspect-cli | jq -e \
     '[.commands[].names[0]] | sort == ["mount.mstack", "systemd-mstack"]'
 
 systemd-run --introspect-cli | jq -e \
     '[.commands[].names[0]] | sort == ["run0", "systemd-run"]'
+
+systemctl --introspect-cli | jq -e \
+    '[.commands[].names[0]] | sort == ["halt", "poweroff", "reboot", "shutdown", "systemctl"]'

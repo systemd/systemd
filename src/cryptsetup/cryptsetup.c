@@ -2379,7 +2379,7 @@ static int attach_luks_or_plain_or_bitlk(
         return attach_luks_or_plain_or_bitlk_by_passphrase(cd, name, passwords, flags, pass_volume_key);
 }
 
-VERB_COMMON_HELP_AUTO_HIDDEN("systemd-cryptsetup");
+VERB_COMMON_HELP_AUTO_HIDDEN();
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
@@ -2392,7 +2392,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return command_print_help("systemd-cryptsetup");
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();

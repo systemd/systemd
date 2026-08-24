@@ -203,7 +203,7 @@ COMMAND(
         .pager_flags = &arg_pager_flags,
 );
 
-VERB_COMMON_HELP_AUTO_HIDDEN("systemd-analyze");
+VERB_COMMON_HELP_AUTO_HIDDEN();
 
 /* When updating this list, including descriptions, apply changes to
  * shell-completion/bash/systemd-analyze and shell-completion/zsh/_systemd-analyze too. */
@@ -336,7 +336,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_COMMON_HELP:
-                        return command_print_help("systemd-analyze");
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();

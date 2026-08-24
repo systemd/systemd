@@ -208,7 +208,7 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_NAMESPACE("systemd-run"): {}
 
                 OPTION_COMMON_HELP:
-                        return command_print_help("systemd-run");
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -784,7 +784,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 OPTION_NAMESPACE("run0"): {}
 
                 OPTION_COMMON_HELP:
-                        return command_print_help("run0");
+                        return command_print_help();
 
                 OPTION('V', "version", NULL, "Show package version"):
                         return version();
