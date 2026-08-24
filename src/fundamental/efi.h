@@ -38,6 +38,9 @@ typedef struct {
         uint16_t wCertificateType;
 } WIN_CERTIFICATE_HEADER;
 
+#define WIN_CERT_REVISION_2_0  UINT16_C(0x0200)
+#define WIN_CERT_TYPE_EFI_GUID UINT16_C(0x0ef1)
+
 typedef struct {
         WIN_CERTIFICATE_HEADER Hdr;
         EFI_GUID CertType;
