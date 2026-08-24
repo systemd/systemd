@@ -6109,7 +6109,7 @@ void unit_unlink_state_files(Unit *u) {
         }
 
         if (u->exported_log_extra_fields) {
-                p = strjoina("/run/systemd/units/extra-fields:", u->id);
+                p = strjoina("/run/systemd/units/log-extra-fields:", u->id);
                 (void) unlink(p);
 
                 u->exported_log_extra_fields = false;
