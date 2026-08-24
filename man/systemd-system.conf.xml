@@ -560,7 +560,10 @@
         layer may still control a binary's ownership and setuid bits. Multi-device filesystems such as
         btrfs are unsupported.</para>
 
-        <para>Note that, without further measures to secure the system, kexec can be used to circumvent this.</para>
+        <para>Note that, without further measures to secure the system, kexec can be used to circumvent
+        this. Writable and executable memory mappings can also be used to circumvent this, so they need to
+        be blocked, which can be achieved using other LSMs, or on a per-service basis by using the
+        <varname>MemoryDenyWriteExecute=</varname> setting.</para>
 
         <para>This requires the kernel to be booted with <literal>dm_verity.require_signatures=1</literal>
         on the kernel command line and with BPF LSM enabled (<literal>lsm=...,bpf</literal>). If either
