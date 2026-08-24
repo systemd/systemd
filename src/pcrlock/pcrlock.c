@@ -5325,7 +5325,7 @@ static int verb_lock_raw(int argc, char *argv[], uintptr_t _data, void *userdata
 VERB_NOARG(verb_unlock_simple, "unlock-raw",
            "Remove .pcrlock file for raw data");
 
-VERB_COMMON_HELP_AUTO_HIDDEN("systemd-pcrlock");
+VERB_COMMON_HELP_AUTO_HIDDEN();
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
@@ -5340,7 +5340,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return command_print_help("systemd-pcrlock");
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();

@@ -2376,7 +2376,7 @@ static int chainload_importctl(char **args) {
         return log_error_errno(r, "Failed to invoke 'importctl': %m");
 }
 
-VERB_COMMON_HELP_AUTO_HIDDEN("machinectl");
+VERB_COMMON_HELP_AUTO_HIDDEN();
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
@@ -2409,7 +2409,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_COMMON_HELP:
-                        return command_print_help("machinectl");
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();

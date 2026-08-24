@@ -223,7 +223,7 @@ static int set_options(int argc, char **argv, char *maj_min_dev) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return command_print_help("scsi_id");
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION_WITH_HIDDEN_V:
                         return version();

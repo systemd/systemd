@@ -439,7 +439,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_GROUP("Commands"): {}
 
                 OPTION_COMMON_HELP:
-                        return command_print_help("systemd-sysctl");
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();

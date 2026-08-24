@@ -295,7 +295,7 @@ GracefulMode arg_graceful(void) {
         return _arg_graceful;
 }
 
-VERB_COMMON_HELP_AUTO_HIDDEN("bootctl");
+VERB_COMMON_HELP_AUTO_HIDDEN();
 
 VERB_GROUP("Generic EFI Firmware/Boot Loader Commands");
 
@@ -413,7 +413,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_GROUP("Options"): {}
 
                 OPTION_COMMON_HELP:
-                        return command_print_help("bootctl");
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();
