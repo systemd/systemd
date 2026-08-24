@@ -417,6 +417,29 @@ static int test_decompressor_callback(const void *p, size_t size, void *userdata
         return 0;
 }
 
+static void compare_fd(int fda, int fdb) {
+        struct stat sta, stb;
+
+        /* Verify apparent size matches */
+        ASSERT_OK_ERRNO(fstat(fda, &sta));
+        ASSERT_OK_ERRNO(fstat(fdb, &stb));
+        ASSERT_EQ(sta.st_size, stb.st_size);
+
+        /* Verify content matches by comparing bytes */
+        ASSERT_OK_EQ_ERRNO(lseek(fda, 0, SEEK_SET), (off_t) 0);
+        ASSERT_OK_EQ_ERRNO(lseek(fdb, 0, SEEK_SET), (off_t) 0);
+
+        for (off_t offset = 0; offset < sta.st_size;) {
+                uint8_t bufa[4096], bufb[4096];
+                size_t to_read = MIN((size_t) (sta.st_size - offset), sizeof(bufa));
+
+                ASSERT_OK_EQ(loop_read(fda, bufa, to_read, true), (ssize_t) to_read);
+                ASSERT_OK_EQ(loop_read(fdb, bufb, to_read, true), (ssize_t) to_read);
+                ASSERT_EQ(memcmp(bufa, bufb, to_read), 0);
+                offset += to_read;
+        }
+}
+
 TEST(decompress_stream_sparse) {
         for (Compression c = 0; c < _COMPRESSION_MAX; c++) {
                 if (c == COMPRESSION_NONE || !compression_supported(c))
@@ -460,24 +483,9 @@ TEST(decompress_stream_sparse) {
                 ASSERT_EQ(lseek(compressed, 0, SEEK_SET), (off_t) 0);
                 ASSERT_OK_ZERO(decompress_stream(c, compressed, decompressed, st_src.st_size));
 
-                /* Verify apparent size matches */
+                compare_fd(src, decompressed);
+
                 ASSERT_OK_ERRNO(fstat(decompressed, &st_decompressed));
-                ASSERT_EQ(st_decompressed.st_size, st_src.st_size);
-
-                /* Verify content matches by comparing bytes */
-                ASSERT_EQ(lseek(src, 0, SEEK_SET), (off_t) 0);
-                ASSERT_EQ(lseek(decompressed, 0, SEEK_SET), (off_t) 0);
-
-                for (off_t offset = 0; offset < st_src.st_size;) {
-                        uint8_t buf_src[4096], buf_dst[4096];
-                        size_t to_read = MIN((size_t) (st_src.st_size - offset), sizeof(buf_src));
-
-                        ASSERT_EQ(loop_read(src, buf_src, to_read, true), (ssize_t) to_read);
-                        ASSERT_EQ(loop_read(decompressed, buf_dst, to_read, true), (ssize_t) to_read);
-                        ASSERT_EQ(memcmp(buf_src, buf_dst, to_read), 0);
-                        offset += to_read;
-                }
-
                 /* Verify the decompressed file is actually sparse (uses less disk than apparent size).
                  * st_blocks is in 512-byte units. The file has 128K of zeros, so disk usage should be
                  * noticeably less than the apparent size if sparse writes worked.
@@ -490,6 +498,26 @@ TEST(decompress_stream_sparse) {
                         ASSERT_LT(st_decompressed.st_blocks * 512, st_decompressed.st_size);
                 else
                         log_debug("Filesystem does not support holes, skipping sparsity check");
+
+                /* Check if the decompress clears previous data.
+                 * The original data is 4K data, 64K zeros, 4K data, 64K zeros.
+                 * Now, fill the file with 4K zeros, 64K data, 4K zeros, 64K data. */
+                ASSERT_OK_ERRNO(ftruncate(decompressed, 0));
+                ASSERT_OK_ERRNO(lseek(decompressed, 0, SEEK_SET));
+                ASSERT_OK_ERRNO(ftruncate(decompressed, 4096));
+                ASSERT_OK_ERRNO(lseek(decompressed, 4096, SEEK_SET));
+                for (unsigned i = 0; i < 16; i++)
+                        ASSERT_OK(loop_write(decompressed, data_block, sizeof(data_block)));
+                ASSERT_OK_ERRNO(ftruncate(decompressed, 4096 + 16 * sizeof(data_block) + 4096));
+                ASSERT_OK_ERRNO(lseek(decompressed, 4096 + 16 * sizeof(data_block) + 4096, SEEK_SET));
+                for (unsigned i = 0; i < 16; i++)
+                        ASSERT_OK(loop_write(decompressed, data_block, sizeof(data_block)));
+
+                ASSERT_OK_ERRNO(lseek(compressed, 0, SEEK_SET));
+                ASSERT_OK_ERRNO(lseek(decompressed, 0, SEEK_SET));
+                ASSERT_OK_ZERO(decompress_stream(c, compressed, decompressed, st_src.st_size));
+
+                compare_fd(src, decompressed);
 
                 /* Test all-zeros input: entire output should be a hole */
                 log_debug("/* testing %s sparse decompression of all-zeros */", compression_to_string(c));
@@ -515,8 +543,9 @@ TEST(decompress_stream_sparse) {
                         ASSERT_EQ(lseek(zcompressed, 0, SEEK_SET), (off_t) 0);
                         ASSERT_OK_ZERO(decompress_stream(c, zcompressed, zdecompressed, sizeof(zeros)));
 
+                        compare_fd(zsrc, zdecompressed);
+
                         ASSERT_OK_ERRNO(fstat(zdecompressed, &zst));
-                        ASSERT_EQ(zst.st_size, (off_t) sizeof(zeros));
                         /* All zeros — disk usage should be minimal */
                         log_debug("%s all-zeros sparse: apparent=%jd disk=%jd",
                                   compression_to_string(c), (intmax_t) zst.st_size, (intmax_t) zst.st_blocks * 512);
@@ -534,7 +563,6 @@ TEST(decompress_stream_sparse) {
                                 dp_src[] = "/tmp/systemd-test.sparse-end-src.XXXXXX",
                                 dp_compressed[] = "/tmp/systemd-test.sparse-end-compressed.XXXXXX",
                                 dp_decompressed[] = "/tmp/systemd-test.sparse-end-decompressed.XXXXXX";
-                        struct stat dst;
                         uint64_t dsize;
                         uint8_t zeros[65536] = {};
 
@@ -552,8 +580,7 @@ TEST(decompress_stream_sparse) {
                         ASSERT_EQ(lseek(dcompressed, 0, SEEK_SET), (off_t) 0);
                         ASSERT_OK_ZERO(decompress_stream(c, dcompressed, ddecompressed, dsize));
 
-                        ASSERT_OK_ERRNO(fstat(ddecompressed, &dst));
-                        ASSERT_EQ(dst.st_size, (off_t)(sizeof(zeros) + sizeof(data_block)));
+                        compare_fd(dsrc, ddecompressed);
                 }
         }
 }
