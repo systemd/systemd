@@ -433,8 +433,8 @@ static void compare_fd(int fda, int fdb) {
                 uint8_t bufa[4096], bufb[4096];
                 size_t to_read = MIN((size_t) (sta.st_size - offset), sizeof(bufa));
 
-                ASSERT_OK_EQ(loop_read(fda, bufa, to_read, true), (ssize_t) to_read);
-                ASSERT_OK_EQ(loop_read(fdb, bufb, to_read, true), (ssize_t) to_read);
+                ASSERT_OK(loop_read_exact(fda, bufa, to_read, /* do_poll= */ false));
+                ASSERT_OK(loop_read_exact(fdb, bufb, to_read, /* do_poll= */ false));
                 ASSERT_EQ(memcmp(bufa, bufb, to_read), 0);
                 offset += to_read;
         }
@@ -498,6 +498,27 @@ TEST(decompress_stream_sparse) {
                         ASSERT_LT(st_decompressed.st_blocks * 512, st_decompressed.st_size);
                 else
                         log_debug("Filesystem does not support holes, skipping sparsity check");
+
+                /* Check if the decompressor clears previous data.
+                 * The original data is 4K data, 64K zeros, 4K data, 64K zeros.
+                 * Now, fill the file with 4K zeros, 64K data, 4K zeros, 64K data. */
+                log_debug("/* testing %s sparse decompression to an existing file */", compression_to_string(c));
+
+                ASSERT_OK_ERRNO(ftruncate(decompressed, 0));
+                ASSERT_OK_ERRNO(ftruncate(decompressed, 4096));
+                ASSERT_OK_ERRNO(lseek(decompressed, 4096, SEEK_SET));
+                for (unsigned i = 0; i < 16; i++)
+                        ASSERT_OK(loop_write(decompressed, data_block, sizeof(data_block)));
+                ASSERT_OK_ERRNO(ftruncate(decompressed, 4096 + 16 * sizeof(data_block) + 4096));
+                ASSERT_OK_ERRNO(lseek(decompressed, 4096 + 16 * sizeof(data_block) + 4096, SEEK_SET));
+                for (unsigned i = 0; i < 16; i++)
+                        ASSERT_OK(loop_write(decompressed, data_block, sizeof(data_block)));
+
+                ASSERT_OK_ERRNO(lseek(compressed, 0, SEEK_SET));
+                ASSERT_OK_ERRNO(lseek(decompressed, 0, SEEK_SET));
+                ASSERT_OK_ZERO(decompress_stream(c, compressed, decompressed, st_src.st_size));
+
+                compare_fd(src, decompressed);
 
                 /* Test all-zeros input: entire output should be a hole */
                 log_debug("/* testing %s sparse decompression of all-zeros */", compression_to_string(c));
