@@ -247,6 +247,9 @@ int manager_reset_kill_workers_timer(Manager *manager) {
 void manager_exit(Manager *manager) {
         assert(manager);
 
+        if (manager->exit)
+                return;
+
         manager->exit = true;
 
         (void) sd_notify(/* unset_environment= */ false, NOTIFY_STOPPING_MESSAGE);
@@ -277,6 +280,9 @@ void notify_ready(Manager *manager) {
 
         assert(manager);
 
+        if (manager->exit)
+                return;
+
         r = sd_notifyf(/* unset_environment= */ false,
                        "READY=1\n"
                        "STATUS=Processing with %u children at max", manager->config.children_max);
@@ -291,6 +297,9 @@ void manager_reload(Manager *manager, bool force) {
         int r;
 
         assert(manager);
+
+        if (manager->exit)
+                return;
 
         assert_se(sd_event_now(manager->event, CLOCK_MONOTONIC, &now_usec) >= 0);
         if (!force && now_usec < usec_add(manager->last_usec, 3 * USEC_PER_SEC))
