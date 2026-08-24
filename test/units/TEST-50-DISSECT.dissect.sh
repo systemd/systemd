@@ -1080,7 +1080,9 @@ systemd-confext merge
 grep -q -F "MARKER_CONFEXT_123" /etc/testfile
 (! /etc/testscript)
 systemd-confext status
+systemd-confext status --json=pretty | jq -e 'any(.[]; .hierarchy == "/etc" and .extensions == ["test"] and .since != null)' >/dev/null
 systemd-confext unmerge
+systemd-confext status --json=pretty | jq -e 'any(.[]; .hierarchy == "/etc" and .extensions == [] and .since == null)' >/dev/null
 rm -rf /run/confexts/
 
 cleanup_sysupdate_notify_confext_mutable() {
