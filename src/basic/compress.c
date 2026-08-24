@@ -1663,9 +1663,8 @@ static int decompress_stream_write_callback(const void *data, size_t size, void 
         u->total_out += size;
 
         if (u->sparse) {
-                /* Note: sparse_write() does not retry on EINTR and converts short writes to -EIO.
-                 * This is fine here since sparse mode is only used on regular files, where short
-                 * writes and EINTR are not expected in practice. */
+                /* sparse_write() retries short writes so that filesystem errors such as ENOSPC
+                 * are surfaced. */
                 ssize_t k = sparse_write(u->fd, data, size, 64);
                 if (k < 0)
                         return (int) k;
