@@ -686,6 +686,138 @@ TEST(dns_cache_lookup_clamp_ttl) {
         ASSERT_TRUE(dns_answer_contains(ret_answer, rr));
 }
 
+TEST(dns_cache_lookup_does_not_apply_stale_clamp_to_fresh_entry) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+        _cleanup_(dns_answer_unrefp) DnsAnswer *ret_answer = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        DnsAnswerItem *item;
+        usec_t t;
+
+        put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(put_args.key);
+        put_args.stale_retention_usec = USEC_PER_HOUR;
+        answer_add_a(&put_args, put_args.key, 0xc0a8017f, 3600, DNS_ANSWER_CACHEABLE);
+
+        t = now(CLOCK_BOOTTIME);
+        ASSERT_OK(cache_put(&cache, &put_args));
+        ASSERT_EQ(dns_cache_size(&cache), 1u);
+
+        /* A serve-stale lookup (SD_RESOLVED_NO_STALE unset) of an entry whose TTL has not expired must
+         * report the entry's real TTL and expiry time, not the stale clamp (CACHE_STALE_TTL_MAX_USEC).
+         * The expiry is bracketed from both sides: at least TTL past the pre-put reading, at most TTL
+         * past a later reading — a regression to reporting the retention-extended 'until' trips the
+         * upper bound. */
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        ASSERT_OK_POSITIVE(dns_cache_lookup(&cache, key, SD_RESOLVED_CLAMP_TTL,
+                                            /* ret_rcode= */ NULL, &ret_answer,
+                                            /* ret_full_packet= */ NULL, /* ret_query_flags= */ NULL,
+                                            /* ret_dnssec_result= */ NULL));
+
+        ASSERT_EQ(dns_answer_size(ret_answer), 1u);
+        DNS_ANSWER_FOREACH_ITEM(item, ret_answer) {
+                ASSERT_GT(item->rr->ttl, (uint32_t) (CACHE_STALE_TTL_MAX_USEC / USEC_PER_SEC));
+                ASSERT_GE(item->until, usec_add(t, 3600 * USEC_PER_SEC));
+                ASSERT_LE(item->until, usec_add(now(CLOCK_BOOTTIME), 3600 * USEC_PER_SEC));
+        }
+}
+
+TEST(dns_cache_lookup_applies_stale_clamp_to_expired_entry) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+        _cleanup_(dns_answer_unrefp) DnsAnswer *ret_answer = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        DnsAnswerItem *item;
+        usec_t t_lookup, t_put;
+
+        put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(put_args.key);
+        put_args.stale_retention_usec = USEC_PER_HOUR;
+        answer_add_a(&put_args, put_args.key, 0xc0a8017f, 1, DNS_ANSWER_CACHEABLE);
+
+        t_put = now(CLOCK_BOOTTIME);
+        ASSERT_OK(cache_put(&cache, &put_args));
+        ASSERT_EQ(dns_cache_size(&cache), 1u);
+
+        sleep(2);
+
+        /* The TTL has lapsed but the retention window keeps the entry served in serve-stale mode,
+         * with its expiry stamped CACHE_STALE_TTL_MAX_USEC out — that bracket is the regression pin
+         * for the stale clamp. (The wire TTL stays at the original 1: clamping never raises a
+         * TTL.) */
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(key);
+        t_lookup = now(CLOCK_BOOTTIME);
+        ASSERT_OK_POSITIVE(dns_cache_lookup(&cache, key, SD_RESOLVED_CLAMP_TTL,
+                                            /* ret_rcode= */ NULL, &ret_answer,
+                                            /* ret_full_packet= */ NULL, /* ret_query_flags= */ NULL,
+                                            /* ret_dnssec_result= */ NULL));
+
+        ASSERT_EQ(dns_answer_size(ret_answer), 1u);
+        DNS_ANSWER_FOREACH_ITEM(item, ret_answer) {
+                ASSERT_EQ(item->rr->ttl, 1u);
+                ASSERT_GE(item->until, usec_add(t_lookup, CACHE_STALE_TTL_MAX_USEC));
+                ASSERT_LE(item->until, usec_add(now(CLOCK_BOOTTIME), CACHE_STALE_TTL_MAX_USEC));
+        }
+
+        /* The same expired entry must make a SD_RESOLVED_NO_STALE lookup miss entirely. */
+        ret_answer = dns_answer_unref(ret_answer);
+        ASSERT_OK_ZERO(dns_cache_lookup(&cache, key, SD_RESOLVED_CLAMP_TTL|SD_RESOLVED_NO_STALE,
+                                        /* ret_rcode= */ NULL, &ret_answer,
+                                        /* ret_full_packet= */ NULL, /* ret_query_flags= */ NULL,
+                                        /* ret_dnssec_result= */ NULL));
+
+        /* A flag-less lookup of the expired entry reports the real, already-past expiry — cache
+         * truth for the browse bookkeeping — not a clamp. */
+        ret_answer = dns_answer_unref(ret_answer);
+        ASSERT_OK_POSITIVE(dns_cache_lookup(&cache, key, /* query_flags= */ 0,
+                                            /* ret_rcode= */ NULL, &ret_answer,
+                                            /* ret_full_packet= */ NULL, /* ret_query_flags= */ NULL,
+                                            /* ret_dnssec_result= */ NULL));
+
+        ASSERT_EQ(dns_answer_size(ret_answer), 1u);
+        DNS_ANSWER_FOREACH_ITEM(item, ret_answer) {
+                ASSERT_GE(item->until, usec_add(t_put, USEC_PER_SEC));
+                ASSERT_LE(item->until, usec_add(now(CLOCK_BOOTTIME), USEC_PER_SEC));
+        }
+}
+
+TEST(dns_cache_lookup_mdns_reports_real_expiry_without_flags) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+        _cleanup_(dns_answer_unrefp) DnsAnswer *ret_answer = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        DnsAnswerItem *item;
+        usec_t t;
+
+        put_args.protocol = DNS_PROTOCOL_MDNS;
+
+        /* The mDNS browse path looks up cache entries with neither SD_RESOLVED_NO_STALE nor
+         * SD_RESOLVED_CLAMP_TTL set, and schedules its RFC 6762 § 5.2 cache maintenance from the
+         * expiry time returned on the answer items. */
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "ns1.example.local");
+        ASSERT_NOT_NULL(key);
+        answer_add_a(&put_args, key, 0xc0a8017f, 3600, DNS_ANSWER_CACHEABLE | DNS_ANSWER_SHARED_OWNER);
+
+        t = now(CLOCK_BOOTTIME);
+        ASSERT_OK(cache_put(&cache, &put_args));
+        ASSERT_EQ(dns_cache_size(&cache), 1u);
+
+        ASSERT_OK_POSITIVE(dns_cache_lookup(&cache, key, /* query_flags= */ 0,
+                                            /* ret_rcode= */ NULL, &ret_answer,
+                                            /* ret_full_packet= */ NULL, /* ret_query_flags= */ NULL,
+                                            /* ret_dnssec_result= */ NULL));
+
+        ASSERT_EQ(dns_answer_size(ret_answer), 1u);
+        DNS_ANSWER_FOREACH_ITEM(item, ret_answer) {
+                /* No SD_RESOLVED_CLAMP_TTL: the wire TTL passes through unclamped, too. */
+                ASSERT_EQ(item->rr->ttl, 3600u);
+                ASSERT_GE(item->until, usec_add(t, 3600 * USEC_PER_SEC));
+                ASSERT_LE(item->until, usec_add(now(CLOCK_BOOTTIME), 3600 * USEC_PER_SEC));
+        }
+}
+
 TEST(dns_cache_lookup_returns_most_recent_response) {
         _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
         _cleanup_(put_args_unrefp) PutArgs args1 = mk_put_args(), args2 = mk_put_args();
