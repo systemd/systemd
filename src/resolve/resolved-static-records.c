@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "conf-files.h"
 #include "constants.h"
+#include "creds-util.h"
 #include "dns-answer.h"
 #include "dns-domain.h"
 #include "dns-question.h"
@@ -13,10 +14,13 @@
 #include "hashmap.h"
 #include "json-util.h"
 #include "log.h"
+#include "path-util.h"
 #include "resolved-manager.h"
 #include "resolved-static-records.h"
 #include "set.h"
 #include "stat-util.h"
+#include "string-util.h"
+#include "strv.h"
 
 /* This implements a mechanism to extend what systemd-resolved resolves locally, via .rr drop-ins in
  * {/etc,/run,/usr/local/lib,/usr/lib}/systemd/resolve/static.d/. These files are in JSON format, and are RR
@@ -45,7 +49,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 DnsAnswer,
                 dns_answer_unref);
 
-static int load_static_record_file_item(sd_json_variant *rj, Hashmap **records) {
+static int load_static_record_file_item(sd_json_variant *rj, const char *source, Hashmap **records) {
         int r;
 
         assert(records);
@@ -53,14 +57,14 @@ static int load_static_record_file_item(sd_json_variant *rj, Hashmap **records) 
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
         r = dns_resource_record_from_json(rj, &rr);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse DNS record from JSON: %m");
+                return log_error_errno(r, "Failed to parse DNS record from %s: %m", source);
 
         _cleanup_(dns_answer_unrefp) DnsAnswer *a =
                 hashmap_remove(*records, dns_resource_key_name(rr->key));
 
         r = dns_answer_add_extend_full(&a, rr, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL, /* until= */ USEC_INFINITY);
         if (r < 0)
-                return log_error_errno(r, "Failed to append RR to DNS answer: %m");
+                return log_error_errno(r, "Failed to append RR from %s to DNS answer: %m", source);
 
         DnsAnswerItem *item = ASSERT_PTR(ordered_set_first(a->items));
 
@@ -72,6 +76,113 @@ static int load_static_record_file_item(sd_json_variant *rj, Hashmap **records) 
 
         log_debug("Added static resource record: %s", dns_resource_record_to_string(rr));
         return 1;
+}
+
+static int load_static_record_json(sd_json_variant *j, const char *source, Hashmap **records) {
+        assert(j);
+        assert(source);
+        assert(records);
+
+        if (sd_json_variant_is_array(j)) {
+                sd_json_variant *i;
+                int ret = 0;
+
+                JSON_VARIANT_ARRAY_FOREACH(i, j)
+                        RET_GATHER(ret, load_static_record_file_item(i, source, records));
+                return ret;
+        }
+
+        if (sd_json_variant_is_object(j))
+                return load_static_record_file_item(j, source, records);
+
+        log_warning("JSON source %s contains neither array nor object, skipping.", source);
+        return 0;
+}
+
+static int merge_static_record_overrides(Hashmap **records, Hashmap *source) {
+        DnsAnswer *a;
+        int r;
+
+        assert(records);
+
+        HASHMAP_FOREACH(a, source) {
+                DnsAnswerItem *item = ASSERT_PTR(ordered_set_first(a->items));
+                const char *name = dns_resource_key_name(item->rr->key);
+                _cleanup_(dns_answer_unrefp) DnsAnswer *copy = dns_answer_ref(a);
+
+                dns_answer_unref(hashmap_remove(*records, name));
+
+                r = hashmap_ensure_put(records, &answer_by_name_hash_ops, name, copy);
+                if (r < 0)
+                        return r;
+
+                TAKE_PTR(copy);
+        }
+
+        return 0;
+}
+
+static int add_static_record_stat(Set **stats, const struct stat *st) {
+        assert(stats);
+        assert(st);
+
+        _cleanup_free_ struct stat *copy = memdup(st, sizeof(*st));
+        if (!copy)
+                return log_oom();
+
+        if (set_ensure_consume(stats, &inode_unmodified_hash_ops, TAKE_PTR(copy)) < 0)
+                return log_oom();
+
+        return 0;
+}
+
+static int get_static_record_credential_path(char **ret) {
+        _cleanup_free_ char *path = NULL;
+        const char *dir;
+        int r;
+
+        assert(ret);
+
+        r = get_credentials_dir(&dir);
+        if (r < 0)
+                return r;
+
+        path = path_join(dir, "network.rr");
+        if (!path)
+                return log_oom();
+
+        *ret = TAKE_PTR(path);
+        return 0;
+}
+
+static int static_record_source_stat(
+                const char *path,
+                Set *old_stats,
+                size_t *ret_n_stats,
+                bool *ret_changed) {
+
+        struct stat st;
+        int r;
+
+        assert(path);
+        assert(ret_n_stats);
+        assert(ret_changed);
+
+        if (stat(path, &st) < 0) {
+                r = -errno;
+                if (r == -ENOENT)
+                        return 0;
+
+                log_debug_errno(r, "Failed to stat static DNS record source '%s', assuming it changed: %m", path);
+                *ret_changed = true;
+                return 0;
+        }
+
+        (*ret_n_stats)++;
+        if (!old_stats || !set_contains(old_stats, &st))
+                *ret_changed = true;
+
+        return 0;
 }
 
 static int load_static_record_file(const ConfFile *cf, Hashmap **records, Set **stats) {
@@ -87,12 +198,9 @@ static int load_static_record_file(const ConfFile *cf, Hashmap **records, Set **
         if (set_contains(*stats, &cf->st))
                 return 0;
 
-        _cleanup_free_ struct stat *st_copy = memdup(&cf->st, sizeof(cf->st));
-        if (!st_copy)
-                return log_oom();
-
-        if (set_ensure_consume(stats, &inode_unmodified_hash_ops, TAKE_PTR(st_copy)) < 0)
-                return log_oom();
+        r = add_static_record_stat(stats, &cf->st);
+        if (r < 0)
+                return r;
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
         unsigned line = 0, column = 0;
@@ -105,23 +213,111 @@ static int load_static_record_file(const ConfFile *cf, Hashmap **records, Set **
                 return 0;
         }
 
-        if (sd_json_variant_is_array(j)) {
-                sd_json_variant *i;
-                int ret = 0;
-                JSON_VARIANT_ARRAY_FOREACH(i, j)
-                        RET_GATHER(ret, load_static_record_file_item(i, records));
-                if (ret < 0)
-                        return ret;
-        } else if (sd_json_variant_is_object(j)) {
-                r = load_static_record_file_item(j, records);
-                if (r < 0)
-                        return r;
-        } else {
-                log_warning("JSON file '%s' contains neither array nor object, skipping.", cf->result);
+        return load_static_record_json(j, cf->result, records);
+}
+
+static int load_static_record_path(const char *path, Hashmap **records, Set **stats) {
+        _cleanup_(hashmap_freep) Hashmap *source = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        struct stat st;
+        unsigned line = 0, column = 0;
+        int r;
+
+        assert(path);
+        assert(records);
+        assert(stats);
+
+        if (stat(path, &st) < 0) {
+                r = -errno;
+                log_warning_errno(r, "Failed to stat static DNS record file '%s', skipping: %m", path);
                 return 0;
         }
 
-        return 1;
+        r = add_static_record_stat(stats, &st);
+        if (r < 0)
+                return r;
+
+        r = sd_json_parse_file(
+                        /* f= */ NULL,
+                        path,
+                        /* flags= */ 0,
+                        &j,
+                        &line,
+                        &column);
+        if (r < 0) {
+                if (line > 0)
+                        log_syntax(/* unit= */ NULL, LOG_WARNING, path, line, r, "Failed to parse JSON, skipping: %m");
+                else
+                        log_warning_errno(r, "Failed to parse JSON file '%s', skipping: %m", path);
+                return 0;
+        }
+
+        r = load_static_record_json(j, path, &source);
+        if (r < 0)
+                return r;
+
+        return merge_static_record_overrides(records, source);
+}
+
+static int load_static_record_credential(Hashmap **records, Set **stats) {
+        _cleanup_(hashmap_freep) Hashmap *source = NULL;
+        _cleanup_free_ char *path = NULL;
+        _cleanup_free_ void *data = NULL;
+        _cleanup_free_ char *text = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        struct stat st;
+        size_t size;
+        unsigned line = 0, column = 0;
+        int r;
+
+        assert(records);
+        assert(stats);
+
+        r = get_static_record_credential_path(&path);
+        if (IN_SET(r, -ENXIO, -ENOENT))
+                return 0;
+        if (r < 0)
+                return log_warning_errno(r, "Failed to determine credential network.rr path, ignoring: %m");
+
+        if (stat(path, &st) < 0) {
+                r = -errno;
+                if (r != -ENOENT)
+                        log_warning_errno(r, "Failed to stat credential network.rr, ignoring: %m");
+                return 0;
+        }
+
+        r = add_static_record_stat(stats, &st);
+        if (r < 0)
+                return r;
+
+        r = read_credential("network.rr", &data, &size);
+        if (IN_SET(r, -ENXIO, -ENOENT))
+                return 0;
+        if (r < 0)
+                return log_warning_errno(r, "Failed to read credential network.rr, ignoring: %m");
+
+        if (memchr(data, 0, size))
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Credential network.rr contains NUL bytes, ignoring.");
+
+        text = memdup_suffix0(data, size);
+        if (!text)
+                return log_oom();
+
+        r = sd_json_parse_with_source(text, "credential network.rr", /* flags= */ 0, &j, &line, &column);
+        if (r < 0) {
+                if (line > 0)
+                        log_syntax(/* unit= */ NULL, LOG_WARNING, "credential network.rr", line, r,
+                                   "Failed to parse JSON, skipping: %m");
+                else
+                        log_warning_errno(r, "Failed to parse credential network.rr, skipping: %m");
+                return 0;
+        }
+
+        r = load_static_record_json(j, "credential network.rr", &source);
+        if (r < 0)
+                return r;
+
+        return merge_static_record_overrides(records, source);
 }
 
 static int manager_static_records_read(Manager *m) {
@@ -152,17 +348,30 @@ static int manager_static_records_read(Manager *m) {
 
         /* Let's suppress reloads if nothing changed. For that keep the set of inodes from the previous
          * reload around, and see if there are any changes on them. */
-        bool reload;
-        if (set_size(m->static_records_stat) != n_files)
-                reload = true;
-        else {
-                reload = false;
+        bool reload = !m->static_records_loaded;
+        size_t n_stats = n_files;
+        if (!reload)
                 FOREACH_ARRAY(f, files, n_files)
                         if (!set_contains(m->static_records_stat, &(*f)->st)) {
                                 reload = true;
                                 break;
                         }
-        }
+
+        _cleanup_free_ char *credential_path = NULL;
+        if (get_static_record_credential_path(&credential_path) >= 0)
+                (void) static_record_source_stat(credential_path,
+                                                  m->static_records_loaded ? m->static_records_stat : NULL,
+                                                  &n_stats,
+                                                  &reload);
+
+        STRV_FOREACH(path, m->static_record_override_paths)
+                (void) static_record_source_stat(*path,
+                                                  m->static_records_loaded ? m->static_records_stat : NULL,
+                                                  &n_stats,
+                                                  &reload);
+
+        if (m->static_records_loaded && set_size(m->static_records_stat) != n_stats)
+                reload = true;
 
         if (!reload) {
                 log_debug("No static record files changed, not re-reading.");
@@ -170,15 +379,23 @@ static int manager_static_records_read(Manager *m) {
         }
 
         _cleanup_(hashmap_freep) Hashmap *records = NULL;
+        _cleanup_(hashmap_freep) Hashmap *overrides = NULL;
         _cleanup_(set_freep) Set *stats = NULL;
         FOREACH_ARRAY(f, files, n_files)
                 (void) load_static_record_file(*f, &records, &stats);
 
+        (void) load_static_record_credential(&overrides, &stats);
+        STRV_FOREACH(path, m->static_record_override_paths)
+                (void) load_static_record_path(*path, &overrides, &stats);
+
         hashmap_free(m->static_records);
         m->static_records = TAKE_PTR(records);
+        hashmap_free(m->static_record_overrides);
+        m->static_record_overrides = TAKE_PTR(overrides);
 
         set_free(m->static_records_stat);
         m->static_records_stat = TAKE_PTR(stats);
+        m->static_records_loaded = true;
 
         return 0;
 }
@@ -210,9 +427,38 @@ int manager_static_records_lookup(Manager *m, DnsQuestion *q, DnsAnswer **answer
         return 1;
 }
 
+int manager_static_record_overrides_lookup(Manager *m, DnsQuestion *q, DnsAnswer **answer) {
+        int r;
+
+        assert(m);
+        assert(q);
+        assert(answer);
+
+        if (!m->read_static_records)
+                return 0;
+
+        (void) manager_static_records_read(m);
+
+        const char *n = dns_question_first_name(q);
+        if (!n)
+                return 0;
+
+        DnsAnswer *f = hashmap_get(m->static_record_overrides, n);
+        if (!f)
+                return 0;
+
+        r = dns_answer_extend(answer, f);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
 void manager_static_records_flush(Manager *m) {
         assert(m);
 
         m->static_records = hashmap_free(m->static_records);
+        m->static_record_overrides = hashmap_free(m->static_record_overrides);
         m->static_records_stat = set_free(m->static_records_stat);
+        m->static_records_loaded = false;
 }

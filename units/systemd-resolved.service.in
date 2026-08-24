@@ -53,6 +53,7 @@ Type=notify-reload
 User=systemd-resolve
 ImportCredential=network.dns
 ImportCredential=network.search_domains
+ImportCredential=network.rr
 {{SERVICE_WATCHDOG}}
 
 [Install]

@@ -59,6 +59,16 @@
     <para>This JSON serialization of DNS RRs matches the one returned by <command>resolvectl</command>.</para>
 
     <para>Currently no other RR types are supported.</para>
+
+    <para>For temporary or image-specific overrides, the same JSON format may be supplied in the
+    <varname>network.rr</varname> service credential, or in a file selected with the
+    <varname>systemd.resolved.rr=</varname> kernel command line option. Records supplied through either of
+    these mechanisms take precedence over records from the directories listed above. The kernel command line
+    option may be specified more than once.</para>
+
+    <para>These records affect DNS resolution only. They do not change the hostname in a URL, the HTTP
+    <literal>Host</literal> header, or the TLS SNI name. In particular, a redirected HTTPS service must still
+    accept the original hostname and provide a certificate valid for it.</para>
   </refsect1>
 
   <refsect1>

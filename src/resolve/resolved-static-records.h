@@ -5,3 +5,4 @@
 
 void manager_static_records_flush(Manager *m);
 int manager_static_records_lookup(Manager *m, DnsQuestion* q, DnsAnswer **answer);
+int manager_static_record_overrides_lookup(Manager *m, DnsQuestion* q, DnsAnswer **answer);
