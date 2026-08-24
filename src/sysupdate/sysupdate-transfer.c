@@ -16,6 +16,7 @@
 #include "event-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "gpt.h"
@@ -33,6 +34,7 @@
 #include "rm-rf.h"
 #include "signal-util.h"
 #include "specifier.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "strv.h"
 #include "sync-util.h"
@@ -1323,6 +1325,111 @@ int transfer_compute_temporary_paths(Transfer *t, Instance *i, InstanceMetadata 
 
                 t->final_partition_label = TAKE_PTR(formatted_pattern);
         }
+
+        return 0;
+}
+
+typedef struct TransferFreeSpaceCheck {
+        dev_t dev;
+        uint64_t required;
+        uint64_t free;
+        const char *path;
+} TransferFreeSpaceCheck;
+
+int transfer_check_free_space(Transfer *const *transfers, Instance *const *instances, size_t n_transfers) {
+        _cleanup_free_ TransferFreeSpaceCheck *checks = NULL;
+        size_t n_checks = 0;
+
+        assert(transfers);
+        assert(instances);
+
+        for (size_t i = 0; i < n_transfers; i++) {
+                Transfer *t = transfers[i];
+                Instance *inst = instances[i];
+                _cleanup_close_ int parent_fd = -EBADF;
+                struct stat st;
+                uint64_t required;
+                uint64_t free_bytes;
+                size_t j;
+                int r;
+
+                assert(t);
+                assert(inst);
+
+                if (!RESOURCE_IS_FILESYSTEM(t->target.type) ||
+                    inst->resource == &t->target ||
+                    resource_find_instance(&t->target, inst->metadata.version))
+                        continue;
+
+                assert(t->final_path);
+
+                required = inst->metadata.size;
+                if (required == UINT64_MAX) {
+                        struct stat source_st;
+
+                        if (RESOURCE_IS_URL(inst->resource->type))
+                                continue;
+
+                        if (stat(inst->path, &source_st) < 0) {
+                                log_debug_errno(errno, "Failed to stat local source '%s', skipping free space check: %m", inst->path);
+                                continue;
+                        }
+                        if (!S_ISREG(source_st.st_mode))
+                                continue;
+
+                        /* This is only a lower bound for compressed sources. Keep it local to the
+                         * advisory check: InstanceMetadata.size is also used for partition sizing
+                         * and means the uncompressed size there. */
+                        required = (uint64_t) source_st.st_size;
+                }
+
+                parent_fd = open_parent(t->final_path, O_RDONLY|O_CLOEXEC|O_DIRECTORY, 0);
+                if (parent_fd < 0) {
+                        log_debug_errno(parent_fd, "Failed to open parent directory of '%s', skipping free space check: %m", t->final_path);
+                        continue;
+                }
+
+                if (fstat(parent_fd, &st) < 0) {
+                        log_debug_errno(errno, "Failed to stat parent directory of '%s', skipping free space check: %m", t->final_path);
+                        continue;
+                }
+
+                r = vfs_free_bytes(parent_fd, &free_bytes);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to determine free space for '%s', skipping free space check: %m", t->final_path);
+                        continue;
+                }
+
+                for (j = 0; j < n_checks; j++)
+                        if (checks[j].dev == st.st_dev)
+                                break;
+
+                if (j >= n_checks) {
+                        if (!GREEDY_REALLOC(checks, n_checks + 1))
+                                return log_oom();
+
+                        checks[j] = (TransferFreeSpaceCheck) {
+                                .dev = st.st_dev,
+                                .free = free_bytes,
+                                .path = t->final_path,
+                        };
+                        n_checks++;
+                }
+
+                if (checks[j].required > UINT64_MAX - required)
+                        checks[j].required = UINT64_MAX;
+                else
+                        checks[j].required += required;
+        }
+
+        for (size_t i = 0; i < n_checks; i++)
+                if (checks[i].free < checks[i].required)
+                        log_warning_errno(
+                                        SYNTHETIC_ERRNO(ENOSPC),
+                                        "Not enough free space on the filesystem containing '%s' to acquire the update: need %s, have %s; proceeding anyway.",
+                                        checks[i].path,
+                                        FORMAT_BYTES(checks[i].required),
+                                        FORMAT_BYTES(checks[i].free));
 
         return 0;
 }

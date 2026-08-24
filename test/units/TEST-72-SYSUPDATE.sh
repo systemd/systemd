@@ -62,6 +62,7 @@ SIGTEST_OTHERHOME=
 at_exit() {
     set +e
 
+    umount "$WORKDIR/full-esp" "$WORKDIR/full-esp-good" 2>/dev/null
     systemctl stop test-sysupdate-notify-recorder.socket
     rm -f /run/systemd/system/test-sysupdate-notify-recorder.socket \
           /run/systemd/system/test-sysupdate-notify-recorder@.service
@@ -256,6 +257,55 @@ verify_object_fields() {
 
     [[ "${updatectl_output}" != *"Unrecognized object field"* ]]
 }
+
+# Verify that filesystem free-space checks are advisory and cover local sources without @s metadata.
+FULL_ESP="$WORKDIR/full-esp"
+FULL_ESP_GOOD="$WORKDIR/full-esp-good"
+FULL_ESP_DEFS="$WORKDIR/full-esp-definitions"
+FULL_ESP_SRC="$WORKDIR/full-esp-source"
+rm -rf "$FULL_ESP" "$FULL_ESP_GOOD" "$FULL_ESP_DEFS" "$FULL_ESP_SRC"
+mkdir -p "$FULL_ESP" "$FULL_ESP_GOOD" "$FULL_ESP_DEFS" "$FULL_ESP_SRC"
+if ! mount -t tmpfs -o size=1M tmpfs "$FULL_ESP"; then
+    echo "No tmpfs support"
+    exit 77
+fi
+
+mkdir -p "$FULL_ESP/EFI/Linux"
+dd if=/dev/urandom of="$FULL_ESP_SRC/uki-v1.efi" bs=1M count=2
+
+cat >"$FULL_ESP_DEFS/01-full.transfer" <<EOF
+[Source]
+Type=regular-file
+Path=$FULL_ESP_SRC
+MatchPattern=uki-@v.efi
+
+[Target]
+Type=regular-file
+Path=/EFI/Linux
+PathRelativeTo=esp
+MatchPattern=uki_@v.efi
+Mode=0444
+EOF
+
+if ! mount -t tmpfs -o size=8M tmpfs "$FULL_ESP_GOOD"; then
+    echo "No tmpfs support"
+    exit 77
+fi
+mkdir -p "$FULL_ESP_GOOD/EFI/Linux"
+SYSTEMD_ESP_PATH="$FULL_ESP_GOOD" "$SYSUPDATE" --definitions="$FULL_ESP_DEFS" --verify=no update
+cmp "$FULL_ESP_SRC/uki-v1.efi" "$FULL_ESP_GOOD/EFI/Linux/uki_v1.efi"
+umount "$FULL_ESP_GOOD"
+
+set +e
+SYSTEMD_ESP_PATH="$FULL_ESP" "$SYSUPDATE" --definitions="$FULL_ESP_DEFS" --verify=no update &>"$FULL_ESP/update.log"
+rc=$?
+set -e
+[[ $rc -ne 0 ]]
+grep -F "Not enough free space on the filesystem containing" "$FULL_ESP/update.log" >/dev/null
+grep -F "No space left on device" "$FULL_ESP/update.log" >/dev/null
+[[ -z "$(find "$FULL_ESP" -name '.sysupdate.partial.*' -print -quit)" ]]
+umount "$FULL_ESP"
+rm -rf "$FULL_ESP" "$FULL_ESP_GOOD" "$FULL_ESP_DEFS" "$FULL_ESP_SRC"
 
 for sector_size in "${SECTOR_SIZES[@]}"; do
 for client in sysupdate-cli varlink; do
