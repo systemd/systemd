@@ -336,6 +336,11 @@ manual_testcase_01_resolvectl() {
     assert_in '_localdnsstub' "$(dig @127.0.0.53 -x 127.0.0.53)"
     assert_in '127.0.0.54' "$(dig @127.0.0.53 _localdnsproxy)"
     assert_in '_localdnsproxy' "$(dig @127.0.0.53 -x 127.0.0.54)"
+
+    resolvectl log-level warning
+    assert_eq "$(resolvectl log-level)" "warning"
+    resolvectl log-level debug
+    assert_eq "$(resolvectl log-level)" "debug"
 }
 
 # Tests for mDNS and LLMNR settings
