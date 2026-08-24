@@ -30,6 +30,7 @@ _alias_(verb_noop)
         verb_is_failed,
         verb_is_system_running,
         verb_kill,
+        verb_limits,
         verb_list_automounts,
         verb_list_dependencies,
         verb_list_jobs,
