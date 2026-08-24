@@ -1,16 +1,26 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
 #include "ansi-color.h"
+#include "chase.h"
 #include "errno-util.h"
+#include "fd-util.h"
 #include "glyph-util.h"
 #include "homectl-recovery-key.h"
+#include "io-util.h"
 #include "json-util.h"
 #include "libcrypt-util.h"
 #include "log.h"
 #include "memory-util.h"
+#include "path-util.h"
 #include "qrcode-util.h"
 #include "recovery-key.h"
 #include "strv.h"
+#include "tmpfile-util.h"
 
 static int add_privileged(sd_json_variant **v, const char *hashed) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *e = NULL, *w = NULL, *l = NULL;
@@ -103,11 +113,12 @@ static int add_secret(sd_json_variant **v, const char *password) {
         return 0;
 }
 
-int identity_add_recovery_key(sd_json_variant **v) {
+int identity_add_recovery_key(sd_json_variant **v, char **ret_recovery_key) {
         _cleanup_(erase_and_freep) char *password = NULL, *hashed = NULL;
         int r;
 
         assert(v);
+        assert(ret_recovery_key);
 
         /* First, let's generate a secret key  */
         r = make_recovery_key(&password);
@@ -134,6 +145,13 @@ int identity_add_recovery_key(sd_json_variant **v) {
         if (r < 0)
                 return r;
 
+        *ret_recovery_key = TAKE_PTR(password);
+        return 0;
+}
+
+void show_recovery_key(const char *recovery_key) {
+        assert(recovery_key);
+
         /* We output the key itself with a trailing newline to stdout and the decoration around it to stderr
          * instead. */
 
@@ -146,7 +164,7 @@ int identity_add_recovery_key(sd_json_variant **v) {
                 ansi_highlight());
         fflush(stderr);
 
-        fputs(password, stdout);
+        fputs(recovery_key, stdout);
         fflush(stdout);
 
         fputs(ansi_normal(), stderr);
@@ -161,7 +179,48 @@ int identity_add_recovery_key(sd_json_variant **v) {
               "whenever authentication is requested.\n", stderr);
         fflush(stderr);
 
-        (void) print_qrcode(stderr, "Optionally scan the recovery key for safekeeping", password);
+        (void) print_qrcode(stderr, "Optionally scan the recovery key for safekeeping", recovery_key);
+}
 
+int recovery_key_file_write(const char *path, const char *recovery_key) {
+        _cleanup_free_ char *filename = NULL, *tmp = NULL;
+        _cleanup_close_ int dir_fd = -EBADF, fd = -EBADF;
+        int r;
+
+        assert(path);
+        assert(recovery_key);
+
+        r = chase(path,
+                  /* root= */ NULL,
+                  CHASE_PARENT|CHASE_EXTRACT_FILENAME|CHASE_PROHIBIT_SYMLINKS,
+                  &filename,
+                  &dir_fd);
+        if (r < 0)
+                return r;
+        if (!filename_is_valid(filename))
+                return -EINVAL;
+
+        fd = open_tmpfile_linkable_at(dir_fd, filename, O_WRONLY|O_CLOEXEC, &tmp);
+        if (fd < 0)
+                return fd;
+
+        CLEANUP_TMPFILE_AT(dir_fd, tmp);
+
+        if (fchmod(fd, 0600) < 0)
+                return -errno;
+
+        r = loop_write(fd, recovery_key, strlen(recovery_key));
+        if (r < 0)
+                return r;
+
+        r = loop_write(fd, "\n", 1);
+        if (r < 0)
+                return r;
+
+        r = link_tmpfile_at(fd, dir_fd, tmp, filename, LINK_TMPFILE_SYNC);
+        if (r < 0)
+                return r;
+
+        tmp = mfree(tmp); /* disarm CLEANUP_TMPFILE_AT() */
         return 0;
 }
