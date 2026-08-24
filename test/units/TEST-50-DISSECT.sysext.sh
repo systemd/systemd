@@ -1270,7 +1270,9 @@ prepare_read_only_hierarchy "$fake_root" "$hierarchy"
 
 # Should be a no-op, thus we also don't run unmerge afterwards (otherwise the test is broken)
 run_systemd_sysext "$fake_root" merge
-if run_systemd_sysext "$fake_root" status --json=pretty |  jq -r '.[].extensions' | grep -v '^none$' ; then
+status_json=$(run_systemd_sysext "$fake_root" status --json=pretty)
+jq -e 'any(.[]; .hierarchy == "/opt")' >/dev/null <<<"$status_json"
+if jq -e 'any(.[]; .extensions != [])' >/dev/null <<<"$status_json"; then
     echo >&2 "Extension got loaded for an initrd structure passed as --root= while the extension does not declare itself compatible with the initrd scope"
     exit 1
 fi

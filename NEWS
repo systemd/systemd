@@ -1,5 +1,18 @@
 systemd System and Service Manager
 
+CHANGES WITH 263:
+
+        Feature Removals and Incompatible Changes:
+
+        * The "extensions" field of "systemd-sysext status --json=" and
+          "systemd-confext status --json=" is now always an array. A hierarchy
+          with no merged extensions reports an empty array, instead of the
+          string "none" returned previously. Scripts that need to work with both
+          old and new versions can detect an unmerged hierarchy via the "since"
+          field, which is null in that case and is not affected by this change.
+          In the human-readable table output such a hierarchy is now shown as
+          "-" instead of "none".
+
 CHANGES WITH 262 in spe:
 
         Announcements of Future Feature Removals and Incompatible Changes:
