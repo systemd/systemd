@@ -206,6 +206,7 @@ int manager_open_varlink(Manager *m, const char *socket, int fd) {
                         "io.systemd.Journal.RelinquishVar",  vl_method_relinquish_var,
                         "io.systemd.service.Ping",           varlink_method_ping,
                         "io.systemd.service.SetLogLevel",    varlink_method_set_log_level,
+                        "io.systemd.service.GetLogLevel",    varlink_method_get_log_level,
                         "io.systemd.service.GetEnvironment", varlink_method_get_environment);
         if (r < 0)
                 return r;
