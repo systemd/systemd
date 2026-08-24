@@ -74,7 +74,7 @@ int varlink_get_log_level_string(sd_varlink *vl, char **ret) {
 
         int level;
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "level", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_log_level, 0, SD_JSON_MANDATORY },
+                { "level", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_log_level, 0, SD_JSON_MANDATORY|SD_JSON_STRICT },
                 {}
         };
 
@@ -85,7 +85,7 @@ int varlink_get_log_level_string(sd_varlink *vl, char **ret) {
         _cleanup_free_ char *level_str = NULL;
         r = log_level_to_string_alloc(level, &level_str);
         if (r < 0)
-                return log_debug_errno(r, "Failed to convert log level to string: %m");
+                return log_error_errno(r, "Failed to convert log level to string: %m");
 
         *ret = TAKE_PTR(level_str);
         return 0;
@@ -114,7 +114,7 @@ int varlink_set_log_level_string(sd_varlink *vl, const char *value) {
                         /* reply= */ NULL,
                         SD_JSON_BUILD_PAIR_VARIANT("level", v));
         if (r < 0)
-                return log_debug_errno(r, "io.systemd.service.SetLogLevel call failed: %m");
+                return r;
 
         return 0;
 }
