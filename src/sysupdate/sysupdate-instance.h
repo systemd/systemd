@@ -54,6 +54,7 @@ struct Instance {
 
 void instance_metadata_destroy(InstanceMetadata *m);
 
+uint64_t instance_get_expected_size(const Instance *i);
 int instance_new(Resource *rr, const char *path, const InstanceMetadata *f, Instance **ret);
 Instance *instance_free(Instance *i);
 
