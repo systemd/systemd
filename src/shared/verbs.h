@@ -21,7 +21,8 @@ typedef struct CommandDescription {
         const char *argspec;           /* optional specification of positional args in synopsis */
         const char *footer;            /* optional footer to print right above man page links */
         const char *man_pages;         /* nulstr with man page names */
-        const char *option_namespace;  /* to be used when the options are in a namespace */
+        const char *option_namespace;  /* optional option namespace for this command */
+        const char *option_groups;     /* optional nulstr with option groups for this command */
         const PagerFlags *pager_flags; /* optional pointer to the runtime pager flags variable */
         CommandFlags flags;
 } CommandDescription;
@@ -107,7 +108,13 @@ bool running_in_chroot_or_offline(void);
 
 bool should_bypass(const char *env_prefix);
 
-const Verb* verbs_find_verb(const char *name, const Verb verbs[], const Verb verbs_end[]);
+const Verb* _verbs_find_command(const Verb verbs[], const Verb verbs_end[], const char *name, const CommandDescription **ret_cmd);
+#define verbs_find_command(name, ret_cmd)                               \
+        _verbs_find_command(__start_SYSTEMD_VERBS, __stop_SYSTEMD_VERBS, name, ret_cmd)
+
+const Verb* _verbs_find_verb(const Verb verbs[], const Verb verbs_end[], const char *name);
+#define verbs_find_verb(name) \
+        _verbs_find_verb(__start_SYSTEMD_VERBS, __stop_SYSTEMD_VERBS, name)
 
 int _dispatch_verb(char **args, const Verb verbs[], const Verb verbs_end[], void *userdata);
 #define dispatch_verb(args, userdata) \

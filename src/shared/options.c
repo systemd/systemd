@@ -4,6 +4,7 @@
 
 #include "format-table.h"
 #include "log.h"
+#include "nulstr-util.h"
 #include "options.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -198,18 +199,27 @@ int option_parse(
                  * First, figure out if we have a long option or a short option. */
                 assert(handling_positional_arg || state->argv[state->optind][0] == '-');
 
-                if (handling_positional_arg)
-                        /* We are supposed to return the positional arg to be handled. */
+                if (handling_positional_arg) {
+                        /* Find the positional arg to be handled. */
+
+                        const char *group = NULL;  /* We start in the default unnamed group. */
+
                         for (option = state->namespace_start;; option++) {
                                 /* If OPTION_PARSER_RETURN_POSITIONAL_ARGS is specified,
                                  * OPTION_POSITIONAL must be used. */
                                 assert(option < state->namespace_end);
 
+                                /* If state.option_groups are specified, ignore options outside of the group */
+                                if (FLAGS_SET(option->flags, OPTION_GROUP_MARKER))  /* Start of a new option group */
+                                        group = option->long_code;
+                                if (state->option_groups && !(group && nulstr_contains(state->option_groups, group)))
+                                        continue;
+
                                 if (FLAGS_SET(option->flags, OPTION_POSITIONAL_ENTRY))
                                         break;
                         }
 
-                else if (state->argv[state->optind][1] == '-') {
+                } else if (state->argv[state->optind][1] == '-') {
                         /* We have a long option. */
                         char *eq = strchr(state->argv[state->optind], '=');
                         if (eq) {
@@ -238,6 +248,8 @@ int option_parse(
                         const Option *last_partial = NULL;
                         unsigned n_partial_matches = 0;  /* The commandline option matches a defined prefix. */
 
+                        const char *group = NULL;  /* We start in the default unnamed group. */
+
                         for (option = state->namespace_start;; option++) {
                                 if (option >= state->namespace_end) {
                                         if (n_partial_matches == 0) {
@@ -261,6 +273,12 @@ int option_parse(
                                         option = last_partial;
                                         break;
                                 }
+
+                                /* If state.option_groups are specified, ignore options outside of the group */
+                                if (FLAGS_SET(option->flags, OPTION_GROUP_MARKER))  /* Start of a new option group */
+                                        group = option->long_code;
+                                if (state->option_groups && !(group && nulstr_contains(state->option_groups, group)))
+                                        continue;
 
                                 if (option_is_metadata(option) || !option->long_code)
                                         continue;
@@ -290,6 +308,8 @@ int option_parse(
                 }
                 optname = _optname;
 
+                const char *group = NULL;  /* We start in the default unnamed group. */
+
                 for (option = state->namespace_start;; option++) {
                         if (option >= state->namespace_end) {
                                 r = log_full_errno(LOG_ERR + state->log_level_shift,
@@ -298,6 +318,12 @@ int option_parse(
                                                    program_invocation_short_name, optname);
                                 goto fail;
                         }
+
+                        /* If state.option_groups are specified, ignore options outside of the group */
+                        if (FLAGS_SET(option->flags, OPTION_GROUP_MARKER))  /* Start of a new option group */
+                                group = option->long_code;
+                        if (state->option_groups && !(group && nulstr_contains(state->option_groups, group)))
+                                continue;
 
                         if (option_is_metadata(option) || optchar != option->short_code)
                                 continue;
@@ -573,6 +599,7 @@ int _option_parser_get_help_table_full(
 int options_get_help_table_group(
                 const Option options[],
                 const Option options_end[],
+                const char *option_groups,
                 Table **ret,
                 const char **ret_group) {
         int r;
@@ -580,14 +607,23 @@ int options_get_help_table_group(
         assert(ret);
         assert(ret_group);
 
-        _cleanup_(table_unrefp) Table *table = table_new("names", "help");
-        if (!table)
-                return log_oom();
+        _cleanup_(table_unrefp) Table *table = NULL;
 
         assert(options_end > options);
 
         bool group_marker = FLAGS_SET(options[0].flags, OPTION_GROUP_MARKER);
         const char *group = group_marker ? ASSERT_PTR(options[0].long_code) : NULL;
+
+        /* Determine if we should ignore the whole option group. We do this if the option_groups option is
+         * specified and the current group name is not listed. The unnamed group cannot be specified by the
+         * nulstr, so always ignore it. */
+        bool ignore_group = option_groups && !(group && nulstr_contains(option_groups, group));
+
+        if (!ignore_group) {
+                table = table_new("names", "help");
+                if (!table)
+                        return log_oom();
+        }
 
         const Option *opt;
         for (opt = options + group_marker; opt < options_end; opt++) {
@@ -598,6 +634,9 @@ int options_get_help_table_group(
                 if (FLAGS_SET(opt->flags, OPTION_GROUP_MARKER))
                         /* End of the group */
                         break;
+
+                if (ignore_group)
+                        continue;
 
                 if (!opt->help)
                         /* No help string — we do not show the option */
@@ -629,9 +668,11 @@ int options_get_help_table_group(
                         return table_log_add_error(r);
         }
 
-        assert(!table_isempty(table));  /* Empty group? Something is off. */
+        if (!ignore_group) {
+                assert(!table_isempty(table));  /* Empty group? Something is off. */
+                table_set_header(table, false);
+        }
 
-        table_set_header(table, false);
         *ret = TAKE_PTR(table);
         *ret_group = group;
 
@@ -687,6 +728,7 @@ int options_build_json(
                 const Option options[],
                 const Option options_end[],
                 const char *namespace,
+                const char *option_groups,
                 sd_json_variant **ret) {
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
@@ -712,6 +754,10 @@ int options_build_json(
 
                 if (option_is_metadata(opt))
                         /* Positional and help entries are only used for display */
+                        continue;
+
+                if (option_groups && !(group && nulstr_contains(option_groups, group)))
+                        /* This group shall be ignored */
                         continue;
 
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *o = NULL;
