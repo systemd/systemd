@@ -139,6 +139,21 @@ CHANGES WITH 262:
           report is emitted as a JSON-SEQ stream: the report object followed by
           one signature object per acquired signature.
 
+        Changes in systemd-stub and ukify:
+
+        * systemd-stub can now apply a UEFI firmware capsule embedded in a
+          ".efifw" section, gated on a target CHID. When the section carries a
+          target CHID, its payload is treated as a complete UEFI capsule: the
+          stub compares the CHID against the running system's CHIDs and, if the
+          firmware is not already at that version, applies the capsule via the
+          UpdateCapsule() runtime service and resets, instead of booting the
+          kernel. This allows firmware and Linux operating system to be jointly
+          updated, which can be desirable on "appliance" (embedded) deployments
+          where the entire system should be updated or rolled back atomically.
+          To build such an image, a firmware directory passed to ukify's
+          "--efifw=" option may contain a file named "hwid" holding the target
+          CHID, which marks the accompanying firmware image as a UEFI capsule.
+
 CHANGES WITH 261:
 
         Announcements of Future Feature Removals and Incompatible Changes:

@@ -17,6 +17,9 @@ typedef struct {
 static inline bool efi_guid_equal(const EFI_GUID *a, const EFI_GUID *b) {
         return memcmp(a, b, sizeof(EFI_GUID)) == 0;
 }
+static inline bool efi_guid_is_zero(const EFI_GUID *a) {
+        return efi_guid_equal(a, &(const EFI_GUID) {});
+}
 #endif
 
 typedef struct {

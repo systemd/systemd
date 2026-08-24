@@ -39,6 +39,11 @@ typedef struct RawSmbiosInfo {
         const char *family;
         const char *baseboard_product;
         const char *baseboard_manufacturer;
+        const char *bios_vendor;
+        const char *bios_version;
+        uint8_t bios_major;
+        uint8_t bios_minor;
+        bool bios_release_valid;
 } RawSmbiosInfo;
 
 void smbios_raw_info_populate(RawSmbiosInfo *ret_info);

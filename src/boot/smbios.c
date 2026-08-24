@@ -48,6 +48,8 @@ typedef struct {
         uint8_t bios_size;
         uint64_t bios_characteristics;
         uint8_t bios_characteristics_ext[2];
+        uint8_t bios_major_release;    /* SMBIOS 2.4+ */
+        uint8_t bios_minor_release;    /* SMBIOS 2.4+ */
 } _packed_ SmbiosTableType0;
 
 typedef struct {
@@ -202,8 +204,9 @@ void smbios_foreach(SmbiosForeachFunc func, void *userdata) {
 }
 
 bool smbios_in_hypervisor(void) {
-        /* Look up BIOS Information (Type 0). */
-        const SmbiosTableType0 *type0 = (const SmbiosTableType0 *) get_smbios_table(0, sizeof(SmbiosTableType0), /* ret_size_left= */ NULL);
+        /* Only require the characteristics extension bytes */
+        const SmbiosTableType0 *type0 = (const SmbiosTableType0 *) get_smbios_table(
+                        0, offsetof(SmbiosTableType0, bios_major_release), /* ret_size_left= */ NULL);
         if (!type0)
                 return false;
 
@@ -286,6 +289,30 @@ void smbios_raw_info_populate(RawSmbiosInfo *ret_info) {
         } else {
                 ret_info->baseboard_manufacturer = NULL;
                 ret_info->baseboard_product = NULL;
+        }
+
+        /* Accept a Type 0 table down to the characteristics extension bytes; the major/minor release bytes
+         * only exist from SMBIOS 2.4, so gate them on header.length. */
+        const SmbiosTableType0 *type0 = (const SmbiosTableType0 *) get_smbios_table(
+                        0, offsetof(SmbiosTableType0, bios_major_release), &left);
+        if (type0) {
+                ret_info->bios_vendor = smbios_get_string(&type0->header, type0->vendor, left);
+                ret_info->bios_version = smbios_get_string(&type0->header, type0->bios_version, left);
+                if (type0->header.length >= offsetof(SmbiosTableType0, bios_minor_release) + sizeof(uint8_t)) {
+                        ret_info->bios_major = type0->bios_major_release;
+                        ret_info->bios_minor = type0->bios_minor_release;
+                        ret_info->bios_release_valid = true;
+                } else {
+                        ret_info->bios_major = 0;
+                        ret_info->bios_minor = 0;
+                        ret_info->bios_release_valid = false;
+                }
+        } else {
+                ret_info->bios_vendor = NULL;
+                ret_info->bios_version = NULL;
+                ret_info->bios_major = 0;
+                ret_info->bios_minor = 0;
+                ret_info->bios_release_valid = false;
         }
 }
 
