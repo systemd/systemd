@@ -1634,21 +1634,34 @@ int compress_stream(
         return 0;
 }
 
-/* Determine whether sparse writes should be used for this fd. Sparse writes are only safe on
- * regular files without O_APPEND (O_APPEND ignores lseek position, which would collapse holes). */
 static int should_sparse(int fd) {
         struct stat st;
 
         assert(fd >= 0);
 
+        /* Determine whether sparse writes should be used for this fd. Sparse writes are only safe on regular
+         * files, without O_APPEND (which ignores the lseek position, collapsing any holes we try to create),
+         * and only when starting from a position at or beyond the current end of file (otherwise the skipped
+         * ranges would overlap pre-existing data instead of being genuinely unwritten). */
+
         if (fstat(fd, &st) < 0)
                 return -errno;
+
+        if (!S_ISREG(st.st_mode))
+                return false;
 
         int flags = fcntl(fd, F_GETFL);
         if (flags < 0)
                 return -errno;
 
-        return S_ISREG(st.st_mode) && !FLAGS_SET(flags, O_APPEND);
+        if (FLAGS_SET(flags, O_APPEND))
+                return false;
+
+        off_t pos = lseek(fd, 0, SEEK_CUR);
+        if (pos < 0)
+                return -errno;
+
+        return pos >= st.st_size;
 }
 
 /* After sparse decompression, set the file size to the current position to account for
