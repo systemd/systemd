@@ -1621,6 +1621,10 @@ static int context_acquire(
                         return r;
         }
 
+        r = transfer_check_free_space(c->transfers, us->instances, c->n_transfers);
+        if (r < 0)
+                return r;
+
         (void) sd_notifyf(/* unset_environment= */ false,
                           "READY=1\n"
                           "X_SYSUPDATE_VERSION=%s\n"
