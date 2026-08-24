@@ -74,13 +74,18 @@ REQUIREMENTS:
                      ≥ 6.6 for quota support on tmpfs
                      ≥ 6.7 for cgroup2fs memory_hugetlb_accounting option
                      ≥ 6.8 for STATX_MNT_ID_UNIQUE
-                     ≥ 6.9 for pidfs and MPOL_WEIGHTED_INTERLEAVE NUMA policy
+                     ≥ 6.9 for pidfs, PIDFD_THREAD flag for pidfd_open(), and
+                               MPOL_WEIGHTED_INTERLEAVE NUMA policy
                      ≥ 6.10 for fcntl(F_DUPFD_QUERY), unprivileged linkat(AT_EMPTY_PATH),
                                 and block device 'partscan' sysfs attribute
                      ≥ 6.12 for AT_HANDLE_MNT_ID_UNIQUE
                      ≥ 6.13 for PIDFD_GET_INFO, {set,remove}xattrat(), and
                                 FSCONFIG_SET_FD support for overlayfs layers
-                     ≥ 6.16 for coredump pattern '%F' (pidfd) specifier and SO_PASSRIGHTS
+                     ≥ 6.16 for coredump pattern '%F' (pidfd) specifier and SO_PASSRIGHTS,
+                                PIDFD_INFO_COREDUMP by ioctl(PIDFD_GET_INFO)
+                     ≥ 6.17 for coredump socket pattern ('@@' prefix)
+                     ≥ 6.19 for PIDFD_INFO_SUPPORTED_MASK and PIDFD_INFO_COREDUMP_SIGNAL
+                     ≥ 7.1 for PIDFD_INFO_COREDUMP_CODE
 
         ✅ systemd utilizes several new kernel APIs, but will fall back gracefully
            when unavailable.
