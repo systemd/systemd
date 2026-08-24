@@ -616,6 +616,11 @@ CHANGES WITH 261:
         * systemd-sysupdate is now installed in /usr/bin/ alongside the
           other user-facing tools, as it is no longer considered experimental.
 
+        * The default OpenPGP keyring lookup now combines the admin-managed
+          keyrings in /etc with the vendor keyring in /usr. Deployments that
+          relied on a single /etc keyring to exclude vendor trust should set
+          $SYSTEMD_OPENPGP_KEYRING explicitly.
+
         Changes in systemd-nspawn, systemd-vmspawn, systemd-machined:
 
         * systemd-nspawn now supports persisting the payload's system manager

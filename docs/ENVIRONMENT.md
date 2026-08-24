@@ -516,8 +516,9 @@ is suppressed by default.
 
 * `$SYSTEMD_OPENPGP_KEYRING` — takes an absolute path to an OpenPGP keyring
   file. If set and non-empty, signature verification on download uses this
-  keyring instead of the default `/etc/systemd/import-pubring.pgp` and
-  `/usr/lib/systemd/import-pubring.pgp` keyrings.
+  keyring instead of the default `/etc/systemd/import-pubring.pgp`,
+  `/etc/systemd/import-pubring.gpg`, and `/usr/lib/systemd/import-pubring.pgp`
+  keyrings.
   Useful when running unprivileged in the user context, with custom transfer
   definitions (e.g. `systemd-sysupdate --definitions=…`), or for testing.
   Has no effect when signature verification is disabled.
