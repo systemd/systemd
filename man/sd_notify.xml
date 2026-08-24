@@ -209,6 +209,11 @@
         to allow the service manager to track the service's internal state, and present it to the user.
         </para>
 
+        <para>Starting with version 259, transitioning to the STOPPING state is final and cannot be undone
+        with another notification. If after sending <literal>STOPPING=1</literal> the service doesn't
+        terminate within the stop timeout, all remaining processes in the unit will be killed.
+        </para>
+
         <xi:include href="version-info.xml" xpointer="v217"/></listitem>
       </varlistentry>
 
