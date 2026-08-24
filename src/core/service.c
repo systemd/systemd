@@ -5015,11 +5015,12 @@ static void service_notify_message_process_state(Service *s, char * const *tags)
                 return;
         }
 
-        /* Disallow resurrecting a dying service */
-        if (s->notify_state == NOTIFY_STOPPING)
-                return;
-
         if (strv_contains(tags, "READY=1")) {
+                if (s->notify_state == NOTIFY_STOPPING) {
+                        log_unit_error(UNIT(s),
+                                       "Service must stop after STOPPING=1 notification, refusing attempted transition to READY.");
+                        return;
+                }
 
                 if (s->notify_state == NOTIFY_RELOADING)
                         s->notify_state = NOTIFY_RELOAD_READY;
@@ -5057,6 +5058,11 @@ static void service_notify_message_process_state(Service *s, char * const *tags)
                         service_enter_reload_post(s);
 
         } else if (strv_contains(tags, "RELOADING=1")) {
+                if (s->notify_state == NOTIFY_STOPPING) {
+                        log_unit_error(UNIT(s),
+                                       "Service must stop after STOPPING=1 notification, refusing attempted transition to RELOADING.");
+                        return;
+                }
 
                 s->notify_state = NOTIFY_RELOADING;
 
