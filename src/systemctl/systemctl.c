@@ -1093,8 +1093,7 @@ VERB_SCOPE(, verb_start,             "condrestart",      NULL, 2,      VERB_ANY,
 VERB_SCOPE(, verb_is_active,         "check",            NULL, 2,      VERB_ANY, VERB_ONLINE_ONLY, /* help= */ NULL); /* deprecated alias of is-active */
 
 int systemctl_main(char **args) {
-        assert((uintptr_t) __start_SYSTEMD_VERBS % sizeof(void*) == 0);
-        const Verb *verb = verbs_find_verb(args[0], __start_SYSTEMD_VERBS, __stop_SYSTEMD_VERBS);
+        const Verb *verb = verbs_find_verb(args[0]);
 
         if (verb && (verb->flags & VERB_ONLINE_ONLY) && arg_root)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
