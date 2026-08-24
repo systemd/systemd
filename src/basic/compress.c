@@ -1634,21 +1634,34 @@ int compress_stream(
         return 0;
 }
 
-/* Determine whether sparse writes should be used for this fd. Sparse writes are only safe on
- * regular files without O_APPEND (O_APPEND ignores lseek position, which would collapse holes). */
 static int should_sparse(int fd) {
         struct stat st;
 
         assert(fd >= 0);
 
+        /* Determine whether sparse writes should be used for this fd. Sparse writes are only safe on regular
+         * files, without O_APPEND (which ignores the lseek position, collapsing any holes we try to create),
+         * and only when starting from a position at or beyond the current end of file (otherwise the skipped
+         * ranges would overlap pre-existing data instead of being genuinely unwritten). */
+
         if (fstat(fd, &st) < 0)
                 return -errno;
+
+        if (!S_ISREG(st.st_mode))
+                return false;
 
         int flags = fcntl(fd, F_GETFL);
         if (flags < 0)
                 return -errno;
 
-        return S_ISREG(st.st_mode) && !FLAGS_SET(flags, O_APPEND);
+        if (FLAGS_SET(flags, O_APPEND))
+                return false;
+
+        off_t pos = lseek(fd, 0, SEEK_CUR);
+        if (pos < 0)
+                return -errno;
+
+        return pos >= st.st_size;
 }
 
 /* After sparse decompression, set the file size to the current position to account for
@@ -1674,12 +1687,16 @@ struct decompress_stream_userdata {
         int fd;
         uint64_t max_bytes;
         uint64_t total_out;
+        uint64_t skip; /* bytes to discard from the very start of the decompressed stream before anything is
+                        * actually written */
         bool sparse;
 };
 
 static int decompress_stream_write_callback(const void *data, size_t size, void *userdata) {
         struct decompress_stream_userdata *u = ASSERT_PTR(userdata);
 
+        /* Accounting (max_bytes/total_out) happens against the *full* decompressed stream, including the
+         * part we're about to skip. */
         if (u->max_bytes != UINT64_MAX) {
                 if (u->max_bytes < size)
                         return -EFBIG;
@@ -1687,6 +1704,20 @@ static int decompress_stream_write_callback(const void *data, size_t size, void 
         }
 
         u->total_out += size;
+
+        if (u->skip > 0) {
+                if (u->skip >= size) {
+                        u->skip -= size;
+                        return 0;
+                }
+
+                data = (const uint8_t*) data + u->skip;
+                size -= u->skip;
+                u->skip = 0;
+        }
+
+        if (size == 0)
+                return 0;
 
         if (u->sparse) {
                 /* Note: sparse_write() does not retry on EINTR and converts short writes to -EIO.
@@ -1767,6 +1798,125 @@ static int decompressor_new(Decompressor **ret, Compression type) {
         c->encoding = false;
         *ret = TAKE_PTR(c);
         return 0;
+}
+
+static int decompress_blob_to_fd_impl(
+                Compression type,
+                const void *src,
+                uint64_t src_size,
+                int fdt,
+                uint64_t max_bytes,
+                uint64_t skip,
+                size_t *ret_size) {
+
+        int r;
+
+        assert(src);
+        assert(fdt >= 0);
+
+        if (type == COMPRESSION_NONE)
+                return -EOPNOTSUPP;
+
+        if (src_size == 0)
+                return -EBADMSG;
+
+        /* LZ4 is special: compress_blob() produces the raw LZ4 block format (with a custom
+         * 8-byte size header), while the streaming decompressor infra (decompressor_push())
+         * expects LZ4 Frame format, as produced by compress_stream(). The two are not
+         * interchangeable, so route LZ4 blobs through the raw block decoder instead. */
+        if (type == COMPRESSION_LZ4) {
+                _cleanup_free_ void *buf = NULL;
+                size_t size;
+
+                r = decompress_blob_lz4(src, src_size, &buf, &size,
+                                        max_bytes >= SIZE_MAX ? 0 : (size_t) max_bytes);
+                if (r < 0)
+                        return r;
+
+                if (size < skip)
+                        return -EBADMSG;
+
+                r = loop_write(fdt, (uint8_t*) buf + skip, size - skip);
+                if (r < 0)
+                        return r;
+
+                log_debug("lz4 decompression finished (%" PRIu64 " -> %zu bytes, %.1f%%)",
+                          src_size, size, (double) size / src_size * 100);
+
+                if (ret_size)
+                        *ret_size = size - skip;
+                return 0;
+        }
+
+        _cleanup_(compressor_freep) Decompressor *c = NULL;
+        r = decompressor_new(&c, type);
+        if (r < 0)
+                return r;
+
+        struct decompress_stream_userdata userdata = {
+                .fd = fdt,
+                .max_bytes = max_bytes,
+                .skip = skip,
+                .sparse = should_sparse(fdt) > 0,
+        };
+
+        r = decompressor_push(c, src, src_size, decompress_stream_write_callback, &userdata);
+        if (r < 0)
+                return r;
+
+        if (userdata.total_out < skip)
+                return -EBADMSG;
+
+        if (userdata.sparse) {
+                r = finalize_sparse(fdt);
+                if (r < 0)
+                        return r;
+        }
+
+        log_debug("%s decompression finished (%" PRIu64 " -> %" PRIu64 " bytes, %.1f%%)",
+                  compression_to_string(type), src_size, userdata.total_out,
+                  (double) userdata.total_out / src_size * 100);
+
+        if (ret_size)
+                *ret_size = userdata.total_out - skip;
+
+        return 0;
+}
+
+int decompress_blob_to_fd_journal(
+                Compression type,
+                const void *src,
+                uint64_t src_size,
+                int fdt,
+                uint64_t max_bytes,
+                uint64_t skip,
+                size_t *ret_size) {
+
+        int r;
+
+        r = dlopen_compress_journal(type, LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        return decompress_blob_to_fd_impl(type, src, src_size, fdt, max_bytes, skip, ret_size);
+}
+
+int decompress_blob_to_fd(
+                Compression type,
+                const void *src,
+                uint64_t src_size,
+                int fdt,
+                uint64_t max_bytes,
+                uint64_t skip,
+                size_t *ret_size) {
+
+        int r;
+
+        r = dlopen_compress(type, LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        return decompress_blob_to_fd_impl(type, src, src_size, fdt, max_bytes, skip, ret_size);
 }
 
 int decompress_stream(

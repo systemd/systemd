@@ -2886,7 +2886,14 @@ static bool field_is_valid(const char *field) {
         return true;
 }
 
-_public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **ret_data, size_t *ret_size) {
+static int journal_get_data(
+                sd_journal *j,
+                const char *field,
+                sd_journal_data_flags_t flags,
+                int fd,
+                const void **ret_data,
+                size_t *ret_size) {
+
         JournalFile *f;
         size_t field_length;
         Object *o;
@@ -2917,8 +2924,11 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
                 size_t l;
 
                 p = journal_file_entry_item_object_offset(f, o, i);
-                r = journal_file_data_payload(f, NULL, p, field, field_length, j->data_threshold,
-                                              ret_data ? &d : NULL, ret_size ? &l : NULL);
+                r = journal_file_data_payload_full(
+                                f, /* o= */ NULL, p,
+                                field, field_length, flags,
+                                j->data_threshold, fd,
+                                ret_data ? &d : NULL, ret_size ? &l : NULL);
                 if (r == 0)
                         continue;
                 if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
@@ -2937,6 +2947,17 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
         }
 
         return -ENOENT;
+}
+
+_public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **ret_data, size_t *ret_size) {
+        return journal_get_data(j, field, /* flags= */ 0, /* fd= */ -EBADF, ret_data, ret_size);
+}
+
+_public_ int sd_journal_get_data_to_fd(sd_journal *j, const char *field, sd_journal_data_flags_t flags, int fd, size_t *ret_size) {
+        assert_return(fd >= 0, -EBADF);
+        assert_return((flags & ~SD_JOURNAL_DATA_SKIP_FIELD) == 0, -EINVAL);
+
+        return journal_get_data(j, field, flags, fd, /* ret_data= */ NULL, ret_size);
 }
 
 _public_ int sd_journal_enumerate_data(sd_journal *j, const void **ret_data, size_t *ret_size) {
