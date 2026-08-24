@@ -22,6 +22,11 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(level, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
+                GetLogLevel,
+                SD_VARLINK_FIELD_COMMENT("The current maximum log level, using BSD syslog level integers."),
+                SD_VARLINK_DEFINE_OUTPUT(level, SD_VARLINK_INT, 0));
+
+static SD_VARLINK_DEFINE_METHOD(
                 GetEnvironment,
                 SD_VARLINK_FIELD_COMMENT("Returns the current environment block, i.e. the contents of environ[]."),
                 SD_VARLINK_DEFINE_OUTPUT(environment, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY));
@@ -39,6 +44,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_Reload,
                 SD_VARLINK_SYMBOL_COMMENT("Sets the maximum log level."),
                 &vl_method_SetLogLevel,
+                SD_VARLINK_SYMBOL_COMMENT("Gets the maximum log level."),
+                &vl_method_GetLogLevel,
                 SD_VARLINK_SYMBOL_COMMENT("Get current environment block."),
                 &vl_method_GetEnvironment,
                 SD_VARLINK_SYMBOL_COMMENT("Returned if the environment block is currently not in a valid state."),
@@ -89,6 +96,21 @@ int varlink_method_set_log_level(sd_varlink *link, sd_json_variant *parameters, 
         log_set_max_level(level);
 
         return sd_varlink_reply(link, NULL);
+}
+
+int varlink_method_get_log_level(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        log_debug("Received io.systemd.service.GetLogLevel()");
+
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_INTEGER("level", log_get_max_level()));
 }
 
 int varlink_method_get_environment(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {

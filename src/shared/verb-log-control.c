@@ -1,13 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-bus.h"
+#include "sd-json.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "json-util.h"
 #include "log.h"
 #include "string-util.h"
 #include "syslog-util.h"
+#include "varlink-util.h"
 #include "verb-log-control.h"
 
 int verb_log_control_common(sd_bus *bus, const char *destination, const char *verb, const char *value) {
@@ -49,6 +53,68 @@ int verb_log_control_common(sd_bus *bus, const char *destination, const char *ve
                                                bloc.destination, bus_error_message(&error, r));
                 puts(t);
         }
+
+        return 0;
+}
+
+int varlink_get_log_level_string(sd_varlink *vl, char **ret) {
+        int r;
+
+        assert(vl);
+        assert(ret);
+
+        sd_json_variant *reply = NULL;
+        r = varlink_call_and_log(
+                        vl,
+                        "io.systemd.service.GetLogLevel",
+                        /* parameters= */ NULL,
+                        &reply);
+        if (r < 0)
+                return r;
+
+        int level;
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "level", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_log_level, 0, SD_JSON_MANDATORY },
+                {}
+        };
+
+        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &level);
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ char *level_str = NULL;
+        r = log_level_to_string_alloc(level, &level_str);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to convert log level to string: %m");
+
+        *ret = TAKE_PTR(level_str);
+        return 0;
+}
+
+int varlink_set_log_level_string(sd_varlink *vl, const char *value) {
+        int r;
+
+        assert(vl);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        if (value) {
+                int level = log_level_from_string(value);
+                if (level < 0)
+                        return log_error_errno(level, "Failed to convert log level '%s': %m", value);
+
+                r = sd_json_variant_new_integer(&v, level);
+        } else
+                r = sd_json_variant_new_null(&v);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create JSON variant: %m");
+
+        r = varlink_callbo_and_log(
+                        vl,
+                        "io.systemd.service.SetLogLevel",
+                        /* reply= */ NULL,
+                        SD_JSON_BUILD_PAIR_VARIANT("level", v));
+        if (r < 0)
+                return log_debug_errno(r, "io.systemd.service.SetLogLevel call failed: %m");
 
         return 0;
 }
