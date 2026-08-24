@@ -10,6 +10,7 @@ int stat_verify_regular(const struct stat *st);
 int statx_verify_regular(const struct statx *stx);
 int verify_regular_at(int fd, const char *path, bool follow);
 int fd_verify_regular(int fd);
+int fd_can_sparse(int fd);
 
 int stat_verify_directory(const struct stat *st);
 int statx_verify_directory(const struct statx *stx);
