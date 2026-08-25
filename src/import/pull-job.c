@@ -421,6 +421,11 @@ static int pull_job_curl_on_finished(CurlSlot *slot, CURL *curl, CURLcode result
         if (j->state != PULL_JOB_RUNNING)
                 return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Premature connection termination."));
 
+        /* Finalize decompressor. */
+        r = decompressor_push(j->compress, /* src= */ NULL, /* src_size= */ 0, pull_job_write_uncompressed, j);
+        if (r < 0)
+                return pull_job_finish(j, r);
+
         uint64_t cl = pull_job_content_length_effective(j);
         if (cl != UINT64_MAX &&
             cl != j->written_compressed)
