@@ -3156,9 +3156,8 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return command_print_help_full(
-                                        arg_image_class == IMAGE_SYSEXT ? "systemd-sysext" : "systemd-confext",
-                                        /* footer_ansi_seq= */ NULL);
+                        return command_print_help_name(
+                                        arg_image_class == IMAGE_SYSEXT ? "systemd-sysext" : "systemd-confext");
 
                 OPTION_COMMON_VERSION:
                         return version();

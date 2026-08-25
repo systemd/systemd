@@ -2,58 +2,20 @@
 
 #include <stdio.h>
 
+#include "sd-json.h"
+
 #include "build.h"
 #include "bus-object.h"
-#include "format-table.h"
-#include "help-util.h"
 #include "log.h"
+#include "nulstr-util.h"
 #include "options.h"
 #include "runtime-scope.h"
 #include "service-util.h"
+#include "string-util.h"
 
-static int help(const char *service,
-                const char *description,
-                bool with_bus_introspect,
-                bool with_runtime_scope) {
-
-        static const char* const groups[] = {
-                NULL,
-                "Bus introspection",
-                "Runtime scope",
-        };
-
-        bool conds[ELEMENTSOF(groups)] = { true, with_bus_introspect, with_runtime_scope };
-        Table* tables[ELEMENTSOF(groups)] = {};
-        CLEANUP_ELEMENTS(tables, table_unref_array_clear);
-        int r;
-
-        for (size_t i = 0; i < ELEMENTSOF(groups); i++)
-                if (conds[i]) {
-                        r = option_parser_get_help_table_group(groups[i], &tables[i]);
-                        if (r < 0)
-                                return r;
-                }
-
-        (void) table_sync_column_widths(0, tables[0], tables[1] ?: tables[2], tables[1] ? tables[2] : NULL);
-
-        help_cmdline("[OPTIONS...]");
-        help_abstract(description);
-
-        help_section("Options");
-        for (size_t i = 0; i < ELEMENTSOF(groups); i++)
-                if (conds[i]) {
-                        r = table_print_or_warn(tables[i]);
-                        if (r < 0)
-                                return r;
-                }
-
-        help_man_page_reference(service, "8");
-        return 0; /* No further action */
-}
-
-int service_parse_argv(
-                const char *service,
-                const char *description,
+int service_parse_argv_full(
+                const Verb *verbs,
+                const Verb *verbs_end,
                 const BusObjectImplementation* const* bus_objects,
                 RuntimeScope *runtime_scope,
                 int argc, char *argv[]) {
@@ -61,30 +23,50 @@ int service_parse_argv(
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser opts = { argc, argv };
+        const CommandDescription *cmd = NULL;
+        assert_se(_verbs_find_command(verbs, verbs_end, /* name= */ NULL, &cmd));
+
+        /* The COMMAND description must reference the option namespace defined below, and list
+         * exactly the option groups matching the features the service supports. Options outside of
+         * the listed groups are treated as unknown. */
+        assert(streq_ptr(cmd->option_namespace, "service"));
+        assert(nulstr_contains(cmd->option_groups, "Options"));
+        assert(!!bus_objects == nulstr_contains(cmd->option_groups, "Bus introspection"));
+        assert(!!runtime_scope == nulstr_contains(cmd->option_groups, "Runtime scope"));
+
+        OptionParser opts = {
+                argc, argv,
+                .namespace = "service",
+                .option_groups = cmd->option_groups,
+        };
 
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
+                OPTION_NAMESPACE("service"): {}
+
+                OPTION_GROUP("Options"): {}
+
                 OPTION_COMMON_HELP:
-                        return help(service,
-                                    description,
-                                    /* with_bus_introspect= */ bus_objects,
-                                    /* with_runtime_scope= */ runtime_scope);
+                        return _command_print_help_full(
+                                        verbs, verbs_end,
+                                        __start_SYSTEMD_OPTIONS, __stop_SYSTEMD_OPTIONS,
+                                        cmd->names,
+                                        /* footer_ansi_seq= */ NULL);
 
                 OPTION_COMMON_VERSION:
                         return version();
 
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return _introspect_cli(
+                                        verbs, verbs_end,
+                                        __start_SYSTEMD_OPTIONS, __stop_SYSTEMD_OPTIONS,
+                                        SD_JSON_FORMAT_OFF);
+
                 OPTION_GROUP("Bus introspection"): {}
 
                 OPTION_LONG("bus-introspect", "PATH", "Write D-Bus XML introspection data"):
-                        /* The option is defined in the shared option table, but it's not supported in this binary,
-                         * so we pretend it doesn't exist. */
-                        if (!bus_objects)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "This service does not support the --bus-introspect= option.");
-
-                        return bus_introspect_implementations(stdout, opts.arg, bus_objects);
+                        return bus_introspect_implementations(stdout, opts.arg, ASSERT_PTR(bus_objects));
 
                 OPTION_GROUP("Runtime scope"): {}
 
@@ -92,11 +74,7 @@ int service_parse_argv(
                                  "Start service in system mode"): {}
                 OPTION_LONG_DATA("user", NULL, /* data= */ RUNTIME_SCOPE_USER,
                                  "Start service in user mode"):
-                        if (!runtime_scope)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "This service does not support the --system/--user options.");
-
-                        *runtime_scope = opts.opt->data;
+                        *ASSERT_PTR(runtime_scope) = opts.opt->data;
                         break;
                 }
 

@@ -46,6 +46,7 @@
 #include "terminal-util.h"
 #include "udev-util.h"
 #include "user-util.h"
+#include "verbs.h"
 
 static Manager* manager_free(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
@@ -1347,6 +1348,16 @@ static int manager_run(Manager *m) {
         }
 }
 
+COMMAND(
+        "systemd-logind\0",
+        "Manage user logins and devices and privileged operations.",
+        .man_pages = "systemd-logind.service.8\0",
+        .option_namespace = "service",
+        .option_groups =
+                "Options\0"
+                "Bus introspection\0",
+);
+
 static int run(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
@@ -1359,9 +1370,7 @@ static int run(int argc, char *argv[]) {
         log_set_facility(LOG_AUTH);
         log_setup();
 
-        r = service_parse_argv("systemd-logind.service",
-                               "Manager for user logins and devices and privileged operations.",
-                               BUS_IMPLEMENTATIONS(&manager_object,
+        r = service_parse_argv(BUS_IMPLEMENTATIONS(&manager_object,
                                                    &log_control_object),
                                /* runtime_scope= */ NULL,
                                argc, argv);

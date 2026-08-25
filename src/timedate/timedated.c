@@ -46,6 +46,7 @@
 #include "time-util.h"
 #include "unit-def.h"
 #include "unit-name.h"
+#include "verbs.h"
 
 #define NULL_ADJTIME_UTC "0.0 0 0\n0\nUTC\n"
 #define NULL_ADJTIME_LOCAL "0.0 0 0\n0\nLOCAL\n"
@@ -1167,6 +1168,16 @@ static bool context_check_idle(void *userdata) {
         return hashmap_isempty(c->polkit_registry);
 }
 
+COMMAND(
+        "systemd-timedated\0",
+        "Manage the system clock and timezone and NTP enablement.",
+        .man_pages = "systemd-timedated.service.8\0",
+        .option_namespace = "service",
+        .option_groups =
+                "Options\0"
+                "Bus introspection\0",
+);
+
 static int run(int argc, char *argv[]) {
         _cleanup_(context_clear) Context context = {};
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -1177,9 +1188,7 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = service_parse_argv("systemd-timedated.service",
-                               "Manage the system clock and timezone and NTP enablement.",
-                               BUS_IMPLEMENTATIONS(&manager_object,
+        r = service_parse_argv(BUS_IMPLEMENTATIONS(&manager_object,
                                                    &log_control_object),
                                /* runtime_scope= */ NULL,
                                argc, argv);

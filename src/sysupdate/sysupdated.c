@@ -41,6 +41,7 @@
 #include "strv.h"
 #include "sysupdate-target.h"
 #include "sysupdate-util.h"
+#include "verbs.h"
 
 #define FEATURES_DROPIN_NAME "systemd-sysupdate-enabled"
 
@@ -2160,15 +2161,23 @@ static int manager_run(Manager *m) {
                                         m);
 }
 
+COMMAND(
+        "systemd-sysupdated\0",
+        "Manage system updates.",
+        .man_pages = "systemd-sysupdated.service.8\0",
+        .option_namespace = "service",
+        .option_groups =
+                "Options\0"
+                "Bus introspection\0",
+);
+
 static int run(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
 
         log_setup();
 
-        r = service_parse_argv("systemd-sysupdated.service",
-                               "System update management service.",
-                               BUS_IMPLEMENTATIONS(&manager_object,
+        r = service_parse_argv(BUS_IMPLEMENTATIONS(&manager_object,
                                                    &log_control_object),
                                /* runtime_scope= */ NULL,
                                argc, argv);
