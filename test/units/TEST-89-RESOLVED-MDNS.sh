@@ -689,9 +689,9 @@ EOF
     # container still answers for it: the goodbye-triggered re-query must rescue it within the
     # RFC 6762 section 10.1 one-second grace, so no 'removed' may have been emitted for it. The
     # control above pins the window: the grace period that would have flapped it has demonstrably
-    # elapsed. (A late 'added' for the other address family is benign, so only 'removed' events
-    # count here.)
-    sleep 3
+    # elapsed, so one settling second suffices. (A late 'added' for the other address family is
+    # benign, so only 'removed' events count here.)
+    sleep 1
     if tail -c "+$((off + 1))" "$out_file" | { grep -oE '"updateFlag":"removed"[^}]*"name":"[^"]*"' || :; } | grep "Shared Goodbye Canary" >/dev/null; then
         echo >&2 "A goodbye flapped the shared instance although another publisher still answers for it:"
         tail -c "+$((off + 1))" "$out_file" >&2
