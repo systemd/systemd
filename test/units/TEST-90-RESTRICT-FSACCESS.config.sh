@@ -92,8 +92,16 @@ testcase_no_require_signatures_helper() {
 
     # The helper's "check" command runs the same bpf_restrict_fsaccess_check_prerequisites()
     # checks that PID1 uses. It must fail because require_signatures is not enabled.
-    if "$HELPER" check; then
+    local out
+    if out=$("$HELPER" check 2>&1); then
         echo "ERROR: helper check succeeded but require_signatures is not enabled"
+        return 1
+    fi
+    # ... and for that reason, not some other broken gate (meson.build sets
+    # proc_mem.force_override=never for this subtest to keep the others green).
+    if ! grep -F 'dm-verity require_signatures is not enabled' <<<"$out" >/dev/null; then
+        echo "ERROR: helper check failed for a reason other than require_signatures:"
+        echo "$out"
         return 1
     fi
     echo "Helper correctly rejected setup: require_signatures not enabled"
