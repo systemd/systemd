@@ -8,8 +8,9 @@
 # while execution from the rootfs continues to work. If dm-verity signing
 # support is available, also tests execution from a signed verity device.
 #
-# Requires the VM to be booted with dm-verity.require_signatures=1 on the
-# kernel command line (set in the test's meson.build).
+# Requires the VM to be booted with dm_verity.require_signatures=1 and
+# proc_mem.force_override=never on the kernel command line (set in the test's
+# meson.build).
 set -eux
 set -o pipefail
 
@@ -61,15 +62,6 @@ expect_probe() {
     fi
 }
 
-# Helper exits 77 when systemd was built with bpf-framework=enabled but no
-# vmlinux.h (HAVE_LSM_INTEGRITY_TYPE=0), so the BPF program isn't compiled in.
-rc=0
-"$HELPER" check >/dev/null 2>&1 || rc=$?
-if [[ "$rc" -eq 77 ]]; then
-    echo "test-bpf-restrict-fsaccess built without BPF attach support, skipping"
-    exit 77
-fi
-
 # require_signatures is read-only — must be set via kernel cmdline
 if [[ ! -e /sys/module/dm_verity/parameters/require_signatures ]]; then
     modprobe dm_verity 2>/dev/null || true
@@ -81,6 +73,51 @@ fi
 val="$(cat /sys/module/dm_verity/parameters/require_signatures)"
 if [[ "$val" != "Y" && "$val" != "1" ]]; then
     echo "require_signatures not enabled (need dm-verity.require_signatures=1 on cmdline), skipping"
+    exit 77
+fi
+
+# proc_mem.force_override is __ro_after_init and has no readout: like
+# require_signatures it must come from the kernel cmdline (set in meson.build).
+if ! grep -E '(^|[[:space:]])proc_mem\.force_override=never([[:space:]]|$)' /proc/cmdline >/dev/null; then
+    echo "proc_mem.force_override=never not on the kernel cmdline (set in meson.build), skipping"
+    exit 77
+fi
+
+# The kernel silently ignores the option if it predates it (Linux 6.12), which "check" below would
+# report as a hard failure: skip on such a kernel. A newer one that lets the write through is broken.
+rc=0
+"$HELPER" procmem-cow /usr/bin/true || rc=$?
+case "$rc" in
+    1) ;;
+    0)
+        if systemd-analyze compare-versions "$(uname -r)" lt 6.12; then
+            echo "Kernel $(uname -r) predates proc_mem.force_override= (Linux 6.12), skipping"
+            exit 77
+        fi
+        echo "ERROR: kernel $(uname -r) does not honour proc_mem.force_override=never!" >&2
+        exit 1
+        ;;
+    *)
+        echo "ERROR: procmem-cow probe could not run (rc=$rc)!" >&2
+        exit 1
+        ;;
+esac
+
+# PID1 refuses the policy without seccomp support, and so does the helper's "check".
+if ! systemctl --version | grep -F -- "+SECCOMP" >/dev/null; then
+    echo "seccomp support not compiled in, skipping"
+    exit 77
+fi
+
+# Helper exits 77 when systemd was built with bpf-framework=enabled but no
+# vmlinux.h (HAVE_LSM_INTEGRITY_TYPE=0), so the BPF program isn't compiled in.
+# Run it only once, and only now that dm_verity is loaded so a pass is
+# meaningful: a passing "check" briefly attaches the bprm_check program with
+# an empty trust map, denying every execve() on the system meanwhile.
+CHECK_RC=0
+"$HELPER" check || CHECK_RC=$?
+if [[ "$CHECK_RC" -eq 77 ]]; then
+    echo "test-bpf-restrict-fsaccess built without BPF attach support, skipping"
     exit 77
 fi
 
@@ -103,6 +140,70 @@ at_exit() {
     rm -rf /tmp/restrict-fsaccess-attach.out
 }
 trap at_exit EXIT
+
+# ------ Preconditions: helper "check" must agree with the cmdline ------
+# "check" runs the same gates as PID1: BPF LSM, require_signatures,
+# proc_mem.force_override=never on the cmdline plus a /proc/self/mem self-probe
+# verifying the kernel honours it, and the ptrace seccomp filter.
+# SYSTEMD_PROC_CMDLINE overrides what the helper considers the kernel command
+# line; the gates run before any BPF program is loaded, so the rejections
+# below are cheap and attach nothing.
+
+if [[ "$CHECK_RC" -ne 0 ]]; then
+    echo "ERROR: helper check failed (rc=$CHECK_RC) although all prerequisites are met!" >&2
+    exit 1
+fi
+echo "Helper check with proc_mem.force_override=never: OK"
+
+# "never ptrace" being rejected shows the last occurrence wins, like the
+# kernel's early_param handling.
+for bad in "" "proc_mem.force_override=always" "proc_mem.force_override=ptrace" \
+           "proc_mem.force_override=never proc_mem.force_override=ptrace"; do
+    if SYSTEMD_PROC_CMDLINE="$bad" "$HELPER" check 2>/dev/null; then
+        echo "ERROR: helper check should have rejected cmdline '$bad'!" >&2
+        exit 1
+    fi
+done
+echo "Helper check rejects always/ptrace/unset and honours the last occurrence: OK"
+
+# ------ Test: /proc/self/mem cannot rewrite an executable page ------
+# Independent of the BPF programs: with proc_mem.force_override=never the
+# kernel drops FOLL_FORCE, so the copy-on-write through /proc/self/mem is
+# refused with EIO.
+
+expect_probe 1 "/proc/self/mem rewrite of an executable page" procmem-cow /usr/bin/true
+echo "/proc/self/mem rewrite of executable page refused: OK"
+
+# ------ Test: the ptrace seccomp filter refuses PTRACE_POKE{TEXT,DATA} ------
+# The helper installs the same filter PID1 uses and pokes a traced child; the
+# probe only counts as a denial if PTRACE_PEEKTEXT still worked.
+
+expect_probe 1 "PTRACE_POKETEXT/PTRACE_POKEDATA" poketext
+echo "PTRACE_POKETEXT/PTRACE_POKEDATA refused by seccomp filter: OK"
+
+# ------ Baseline: W^X probes succeed WITHOUT our BPF ------
+# Another LSM (e.g. SELinux execmem/execmod) may deny these on its own, which
+# the helper reports as exit 3 (refused with an errno other than EPERM). A
+# denial with BPF attached would then prove nothing, so skip them. Anything
+# else is a broken probe or a stray policy and fails the test.
+
+WX_BASELINE=1
+for probe in mmap-wx mprotect-cow-exec mprotect-wx mprotect-exec; do
+    rc=0
+    "$HELPER" "$probe" /usr/bin/true || rc=$?
+    case "$rc" in
+        0) ;;
+        3)
+            echo "WARNING: $probe denied BEFORE BPF attach by another LSM, skipping W^X tests" >&2
+            WX_BASELINE=0
+            break
+            ;;
+        *)
+            echo "ERROR: $probe failed BEFORE BPF attach (rc=$rc)!" >&2
+            exit 1
+            ;;
+    esac
+done
 
 # ------ Baseline: verify tmpfs exec works WITHOUT our BPF ------
 #
@@ -189,6 +290,23 @@ echo "Anonymous PROT_EXEC mmap blocked: OK"
 # mmap PROT_READ then mprotect to PROT_EXEC — the file_mprotect hook should deny this.
 expect_probe 1 "mprotect PROT_EXEC on tmpfs file" mprotect-exec /tmp/restrict-fsaccess-test/testfile
 echo "mprotect PROT_EXEC from tmpfs blocked: OK"
+
+# ------ Test: W^X on a trusted file (mmap_file + file_mprotect hooks) ------
+# /usr/bin/true lives on the trusted rootfs, so a denial here is due to the
+# W^X rules, not provenance.
+
+if [[ "$WX_BASELINE" == 1 ]]; then
+    for probe in mmap-wx mprotect-cow-exec mprotect-wx; do
+        expect_probe 1 "$probe on a trusted file" "$probe" /usr/bin/true
+        echo "W^X probe $probe blocked: OK"
+    done
+
+    # Positive control: an unmodified trusted file mapping may still be made
+    # executable — the copy-on-write heuristic must not over-deny.
+    expect_probe 0 "PROT_EXEC mmap of trusted file" mmap-exec /usr/bin/true
+    expect_probe 0 "mprotect PROT_EXEC on trusted file" mprotect-exec /usr/bin/true
+    echo "Executable mappings of unmodified trusted file allowed: OK"
+fi
 
 # ------ Test: Execution from signed dm-verity device ------
 # Trust path: .platform keyring (SecureBoot DB auto-enrolled by mkosi, made
