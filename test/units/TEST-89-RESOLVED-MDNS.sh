@@ -112,6 +112,13 @@ check_first() {
     return 1
 }
 
+# Did any 'removed' event whose name matches $3 arrive in $1 after byte offset $2?
+removed_since() {
+    local file="${1:?}" off="${2:?}" needle="${3:?}"
+
+    tail -c "+$((off + 1))" "$file" | { grep -oE '"updateFlag":"removed"[^}]*"name":"[^"]*"' || :; } | grep -e "$needle" >/dev/null
+}
+
 run_and_check_services() {
     local service_id="${1:?}"
     local check_func="${2:?}"
@@ -220,17 +227,35 @@ testcase_mdns_goodbye_on_stop() {
         varlinkctl call --more --timeout=infinity /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices \
         "{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": ${BRIDGE_INDEX:?}, \"flags\": 16785432 }"
 
-    # Wait until the second container's services have been discovered.
-    local ok=0
-    for _ in {0..14}; do
-        if grep "on $CONTAINER_2" "$out_file" >/dev/null; then ok=1; break; fi
+    # Wait until ALL of the second container's instances of this type have been discovered: a
+    # 'removed' is only emitted for an instance the browser knew about, so the assertion below
+    # requires every one of the $SERVICE_COUNT instances to have arrived before the stop.
+    local ok=0 seen
+    for _ in {0..29}; do
+        seen="$( { grep -oE '"updateFlag":"added"[^}]*"name":"[^"]*"' "$out_file" || :; } \
+                 | { grep "on $CONTAINER_2" || :; } \
+                 | sed 's/.*"name":"//;s/"$//' | sort -u | { grep -c . || :; })"
+        if [[ "$seen" -ge "$SERVICE_COUNT" ]]; then ok=1; break; fi
         sleep 2
     done
     if [[ "$ok" -ne 1 ]]; then
-        echo >&2 "Never discovered $CONTAINER_2 services"
+        echo >&2 "Only discovered $seen of $SERVICE_COUNT $CONTAINER_2 services"
         cat "$out_file" "$error_file" >&2
         return 1
     fi
+
+    # The shutdown goodbye must withdraw the published DNS-SD records only. Pin the host's own
+    # address records as the negative: resolve the container's hostname so its A record sits in
+    # the cache, and assert after the stop that the goodbyes did not flush it -- a TTL=0
+    # cache-flush goodbye for it would break resolution of the still-present host for the whole
+    # restart.
+    resolvectl query -p mdns "$CONTAINER_2.local"
+    resolvectl show-cache | grep "$CONTAINER_2" >/dev/null
+
+    # Debug logging for the retransmission assertion below; runtime-only, reset by the restart.
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- resolvectl log-level debug
+    local since
+    since="$(systemd-run -M "$CONTAINER_2" --wait --pipe -- date '+%Y-%m-%d %H:%M:%S')"
 
     # Checkpoint the output so we only count 'removed' events produced AFTER the
     # stop -- a match is then provably caused by the goodbye, not by earlier churn.
@@ -269,6 +294,29 @@ testcase_mdns_goodbye_on_stop() {
         return 1
     fi
 
+    # RFC 6762 §8.3 wants unsolicited announcements -- goodbyes included -- sent at least twice,
+    # one second apart: by the time 'systemctl stop' returned, resolved held its exit for the
+    # grace second and retransmitted. Both transmissions log at debug level; poll briefly since
+    # the linked journal can lag the stop.
+    local goodbyes=0
+    for _ in {0..9}; do
+        goodbyes="$( { journalctl -M "$CONTAINER_2" -u systemd-resolved.service --since "$since" || :; } \
+                     | { grep -c "Sending mDNS goodbye announcements" || :; })"
+        if [[ "$goodbyes" -ge 2 ]]; then break; fi
+        sleep 1
+    done
+    if [[ "$goodbyes" -lt 2 ]]; then
+        echo >&2 "Expected 2 goodbye transmissions (RFC 6762 §8.3), saw $goodbyes"
+        journalctl -M "$CONTAINER_2" -u systemd-resolved.service --since "$since" >&2 || :
+        systemd-run -M "$CONTAINER_2" --wait --pipe -- systemctl start systemd-resolved.service || :
+        return 1
+    fi
+
+    # The negative pinned before the stop: the container's address record survived the service
+    # withdrawal, so the still-present host stays resolvable from the cache while its resolver
+    # is down.
+    resolvectl show-cache | grep "$CONTAINER_2" >/dev/null
+
     # Restore the second container's resolved (and its per-link mDNS/LLMNR
     # overrides, which a resolved restart drops) for the remaining testcases.
     # The freshly started resolved may not have re-enumerated its links yet, in
@@ -292,6 +340,125 @@ testcase_mdns_goodbye_on_stop() {
     echo testcase_end
 }
 
+testcase_mdns_bus_client_vanish_withdrawal() {
+    : "A bus-registered service must be withdrawn with a goodbye when its client vanishes"
+    resolvectl flush-caches
+
+    local out_file error_file unit_name service_type off ok removed
+    out_file="$(mktemp)"
+    error_file="$(mktemp)"
+    unit_name="varlinkctl-vanish-$SRANDOM.service"
+    service_type="_vanishBye._udp"
+
+    # shellcheck disable=SC2064
+    trap "systemctl stop $unit_name 2>/dev/null || :; \
+          systemd-run -M $CONTAINER_2 --wait --pipe -- systemctl stop vanish-client.service 2>/dev/null || :; \
+          rm -f $out_file $error_file" EXIT
+
+    # A DNS-SD service registered over the bus (RegisterService) rather than from a .dnssd file:
+    # resolved tracks the registering connection and must withdraw the service with a goodbye
+    # when the client goes away without unregistering. The client holds its bus connection open
+    # from a transient unit until it is SIGKILLed below -- busctl cannot stand in for it, it
+    # disconnects right after the call returns, before the service would even finish probing.
+    systemd-run -M "$CONTAINER_2" --unit=vanish-client.service --service-type=exec -- \
+        python3 -c '
+import ctypes, time
+sd = ctypes.CDLL("libsystemd.so.0")
+bus = ctypes.c_void_p()
+r = sd.sd_bus_open_system(ctypes.byref(bus))
+assert r >= 0, r
+r = sd.sd_bus_call_method(
+        bus, b"org.freedesktop.resolve1", b"/org/freedesktop/resolve1",
+        b"org.freedesktop.resolve1.Manager", b"RegisterService", None, None,
+        b"sssqqqaa{say}",
+        b"vanishbye", b"Vanish Canary", b"_vanishBye._udp",
+        ctypes.c_int(8010), ctypes.c_int(0), ctypes.c_int(0), ctypes.c_uint(0))
+assert r >= 0, r
+time.sleep(3600)
+'
+
+    # --timeout=infinity: the subscription idles between the events asserted below, longer than
+    # varlinkctl's default 45s method-call timeout.
+    systemd-run --unit="$unit_name" --service-type=exec -p StandardOutput="file:$out_file" -p StandardError="file:$error_file" \
+        varlinkctl call --more --timeout=infinity /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices \
+        "{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": ${BRIDGE_INDEX:?}, \"flags\": 16785432 }"
+
+    ok=0
+    for _ in {0..14}; do
+        if grep "Vanish Canary" "$out_file" >/dev/null; then
+            ok=1
+            break
+        fi
+        sleep 2
+    done
+    if [[ "$ok" -ne 1 ]]; then
+        echo >&2 "Never discovered the bus-registered canary"
+        systemd-run -M "$CONTAINER_2" --wait --pipe -- systemctl status vanish-client.service >&2 || :
+        cat "$out_file" "$error_file" >&2
+        return 1
+    fi
+
+    # Checkpoint, then kill the client without any chance to clean up: only the tracked bus
+    # connection's demise tells resolved the service's owner is gone.
+    off="$(wc -c <"$out_file")"
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- systemctl kill --signal=SIGKILL vanish-client.service
+
+    removed=0
+    for _ in {0..14}; do
+        if removed_since "$out_file" "$off" "Vanish Canary"; then
+            removed=1
+            break
+        fi
+        sleep 1
+    done
+    if [[ "$removed" -ne 1 ]]; then
+        echo >&2 "The canary was not withdrawn after its registering client vanished"
+        cat "$out_file" "$error_file" >&2
+        return 1
+    fi
+
+    echo testcase_end
+}
+
+testcase_mdns_no_goodbye_without_services() {
+    : "A resolved with no published services must stop without goodbyes or the grace second"
+
+    # The host's resolved browses but publishes no DNS-SD services, so its stop must take the
+    # fast path: no goodbye transmission, no one-second exit hold. Debug logging is runtime-only
+    # state, dropped again by the restart below.
+    resolvectl log-level debug
+    local since ok
+    since="$(date '+%Y-%m-%d %H:%M:%S')"
+
+    systemctl stop systemd-resolved.service
+    journalctl --sync || :
+    if journalctl -u systemd-resolved.service --since "$since" | grep "Sending mDNS goodbye announcements" >/dev/null; then
+        echo >&2 "A service-less resolved sent goodbye announcements on stop:"
+        journalctl -u systemd-resolved.service --since "$since" >&2 || :
+        systemctl start systemd-resolved.service || :
+        return 1
+    fi
+
+    # Restore: the restart drops the runtime per-link mDNS/LLMNR switches from setup, and the
+    # freshly started resolved may not have re-enumerated its links yet -- retry briefly.
+    systemctl start systemd-resolved.service
+    ok=0
+    for _ in {0..9}; do
+        if resolvectl mdns "vz-$CONTAINER_ZONE" on && resolvectl llmnr "vz-$CONTAINER_ZONE" on; then
+            ok=1
+            break
+        fi
+        sleep 1
+    done
+    if [[ "$ok" -ne 1 ]]; then
+        echo >&2 "Could not re-enable mDNS/LLMNR on the bridge after restarting resolved"
+        return 1
+    fi
+    [[ "$(resolvectl mdns "vz-$CONTAINER_ZONE")" =~ :\ yes$ ]]
+
+    echo testcase_end
+}
+
 testcase_mdns_runtime_withdrawal() {
     : "Unregistering a service or dropping its file on reload must withdraw exactly that service"
     resolvectl flush-caches
@@ -308,8 +475,10 @@ testcase_mdns_runtime_withdrawal() {
     # shellcheck disable=SC2064
     trap "systemctl stop $unit_name 2>/dev/null || :; rm -f $out_file $error_file" EXIT
 
-    # Two canary services in the second container. Their ids double as their bus object paths,
-    # so they must not contain characters the bus path encoding would escape.
+    # Three canary services in the second container. Their ids double as their bus object paths,
+    # so they must not contain characters the bus path encoding would escape. The third stays
+    # published throughout: it is the control that an unchanged .dnssd file survives a reload
+    # without being withdrawn.
     systemd-run -M "$CONTAINER_2" --wait --pipe -- tee /etc/systemd/dnssd/unregbye.dnssd <<EOF
 [Service]
 Name=Unregister Canary
@@ -324,6 +493,13 @@ Type=$service_type
 Port=8010
 TxtText=DC=Device PN=123456 SN=1234567890
 EOF
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- tee /etc/systemd/dnssd/keepbye.dnssd <<EOF
+[Service]
+Name=Keep Canary
+Type=$service_type
+Port=8010
+TxtText=DC=Device PN=123456 SN=1234567890
+EOF
     # Reload rather than restart: it re-runs dnssd_load() to pick up the new files while
     # leaving the runtime per-link mDNS switches from setup intact.
     systemd-run -M "$CONTAINER_2" --wait --pipe -- systemctl reload systemd-resolved.service
@@ -334,18 +510,19 @@ EOF
         varlinkctl call --more --timeout=infinity /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices \
         "{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": ${BRIDGE_INDEX:?}, \"flags\": 16785432 }"
 
-    # Wait until both canaries are discovered.
+    # Wait until all three canaries are discovered.
     local ok=0
     for _ in {0..14}; do
-        if grep "Unregister Canary" >/dev/null "$out_file" &&
-           grep "Reload Canary" >/dev/null "$out_file"; then
+        if grep "Unregister Canary" "$out_file" >/dev/null &&
+           grep "Reload Canary" "$out_file" >/dev/null &&
+           grep "Keep Canary" "$out_file" >/dev/null; then
             ok=1
             break
         fi
         sleep 2
     done
     if [[ "$ok" -ne 1 ]]; then
-        echo >&2 "Never discovered both canary instances"
+        echo >&2 "Never discovered all three canary instances"
         cat "$out_file" "$error_file" >&2
         return 1
     fi
@@ -363,7 +540,7 @@ EOF
     # Its goodbye must remove it well before the 120s record TTL...
     local removed=0
     for _ in {0..14}; do
-        if tail -c "+$((off + 1))" "$out_file" | { grep -oE '"updateFlag":"removed"[^}]*"name":"[^"]*"' || :; } | grep "Unregister Canary" >/dev/null; then
+        if removed_since "$out_file" "$off" "Unregister Canary"; then
             removed=1
             break
         fi
@@ -376,9 +553,26 @@ EOF
     fi
 
     # ...and must withdraw only that service: the sibling canary stays published, so a 'removed'
-    # for it here means the unregister withdrew more than the unregistered service.
-    sleep 3
-    if tail -c "+$((off + 1))" "$out_file" | { grep -oE '"updateFlag":"removed"[^}]*"name":"[^"]*"' || :; } | grep "Reload Canary" >/dev/null; then
+    # for it here means the unregister withdrew more than the unregistered service. Anchor the
+    # negative on a positive fact rather than a bare sleep, so a too-short window cannot make it
+    # pass vacuously: once the sibling still resolves freshly after the goodbye's one-second
+    # retransmission window has passed, any spurious withdrawal would have reached the browser's
+    # output by now.
+    sleep 2
+    ok=0
+    for _ in {0..14}; do
+        if resolvectl service "Reload Canary" "$service_type" local >/dev/null; then
+            ok=1
+            break
+        fi
+        sleep 1
+    done
+    if [[ "$ok" -ne 1 ]]; then
+        echo >&2 "The sibling canary no longer resolves after unregistering its sibling"
+        cat "$out_file" "$error_file" >&2
+        return 1
+    fi
+    if removed_since "$out_file" "$off" "Reload Canary"; then
         echo >&2 "Unregistering one service withdrew its still-published sibling:"
         tail -c "+$((off + 1))" "$out_file" >&2
         return 1
@@ -392,7 +586,7 @@ EOF
 
     removed=0
     for _ in {0..14}; do
-        if tail -c "+$((off + 1))" "$out_file" | { grep -oE '"updateFlag":"removed"[^}]*"name":"[^"]*"' || :; } | grep "Reload Canary" >/dev/null; then
+        if removed_since "$out_file" "$off" "Reload Canary"; then
             removed=1
             break
         fi
@@ -403,6 +597,59 @@ EOF
         cat "$out_file" "$error_file" >&2
         return 1
     fi
+
+    # The reload must leave the untouched canary alone: a 'removed' for it means the reload
+    # reconciliation withdrew a service whose file survived unchanged. Same positive anchoring
+    # as above.
+    sleep 2
+    ok=0
+    for _ in {0..14}; do
+        if resolvectl service "Keep Canary" "$service_type" local >/dev/null; then
+            ok=1
+            break
+        fi
+        sleep 1
+    done
+    if [[ "$ok" -ne 1 ]]; then
+        echo >&2 "The kept canary no longer resolves after the reload"
+        cat "$out_file" "$error_file" >&2
+        return 1
+    fi
+    if removed_since "$out_file" "$off" "Keep Canary"; then
+        echo >&2 "A reload withdrew a service whose .dnssd file survived unchanged:"
+        tail -c "+$((off + 1))" "$out_file" >&2
+        return 1
+    fi
+
+    # Reload reconciliation is per-RR, not per-service: change only the port. The PTR and TXT
+    # survive unchanged -- the browser must see no 'removed' -- while the SRV is replaced, so
+    # the service must come to resolve with the new port.
+    off="$(wc -c <"$out_file")"
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- sed -i 's/^Port=8010$/Port=8011/' /etc/systemd/dnssd/keepbye.dnssd
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- systemctl reload systemd-resolved.service
+
+    ok=0
+    for _ in {0..14}; do
+        if resolvectl service "Keep Canary" "$service_type" local | grep ":8011" >/dev/null; then
+            ok=1
+            break
+        fi
+        sleep 1
+    done
+    if [[ "$ok" -ne 1 ]]; then
+        echo >&2 "The kept canary did not come to resolve with its changed port"
+        cat "$out_file" "$error_file" >&2
+        return 1
+    fi
+    if removed_since "$out_file" "$off" "Keep Canary"; then
+        echo >&2 "A port-only change withdrew the whole service on reload:"
+        tail -c "+$((off + 1))" "$out_file" >&2
+        return 1
+    fi
+
+    # Withdraw the kept canary again. Best-effort cleanup.
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- rm /etc/systemd/dnssd/keepbye.dnssd || :
+    systemd-run -M "$CONTAINER_2" --wait --pipe -- systemctl reload systemd-resolved.service || :
 
     echo testcase_end
 }
