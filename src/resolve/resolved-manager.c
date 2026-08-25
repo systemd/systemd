@@ -654,6 +654,15 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
         Link *l;
         int r;
 
+        /* A reload racing the shutdown withdrawal would republish what the goodbyes just took
+         * back; the next instance picks the configuration up. No notify-reload handshake: PID 1
+         * has latched the STOPPING=1 sent with the withdrawal flag and refuses RELOADING=1 and
+         * READY=1 after it. */
+        if (m->mdns_withdrawing) {
+                log_debug("Not reloading the configuration, already shutting down.");
+                return 0;
+        }
+
         (void) notify_reloading();
 
         dns_server_unlink_on_reload(m->dns_servers);
@@ -738,10 +747,11 @@ static bool manager_needs_mdns_goodbyes(Manager *m) {
                 return false;
 
         HASHMAP_FOREACH(l, m->links) {
-                if (l->mdns_ipv4_scope && !dns_zone_is_empty(&l->mdns_ipv4_scope->zone))
-                        return true;
-                if (l->mdns_ipv6_scope && !dns_zone_is_empty(&l->mdns_ipv6_scope->zone))
-                        return true;
+                DnsScope *scope;
+
+                FOREACH_ARGUMENT(scope, l->mdns_ipv4_scope, l->mdns_ipv6_scope)
+                        if (dns_scope_shutdown_goodbye_has_content(scope))
+                                return true;
         }
 
         return false;
