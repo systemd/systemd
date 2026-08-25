@@ -173,7 +173,7 @@ TEST(mdns_querier_maintenance_query_completing_synchronously) {
                 .rr_ttl_state = DNS_RECORD_TTL_STATE_80_PERCENT,
         };
 
-        ASSERT_OK(mdns_querier_maintenance(/* s= */ NULL, /* usec= */ 0, &sq));
+        ASSERT_OK(mdns_querier_run_maintenance(&sq));
 
         /* The rung advanced, the query was issued and is gone again, and nothing leaked. */
         ASSERT_EQ(sq.rr_ttl_state, DNS_RECORD_TTL_STATE_85_PERCENT);
@@ -194,8 +194,46 @@ TEST(mdns_querier_maintenance_terminal_rung_resets_ladder) {
                 .rr_ttl_state = DNS_RECORD_TTL_STATE_100_PERCENT,
         };
 
-        ASSERT_OK(mdns_querier_maintenance(/* s= */ NULL, /* usec= */ 0, &sq));
+        ASSERT_OK(mdns_querier_run_maintenance(&sq));
 
+        ASSERT_EQ(sq.rr_ttl_state, DNS_RECORD_TTL_STATE_80_PERCENT);
+        ASSERT_NULL(sq.maintenance_query);
+        /* With nothing discovered there is nothing to re-arm against, so the ladder stays off. The
+         * companion test below covers the rung that does have something to reconcile. */
+        ASSERT_NULL(sq.maintenance_event);
+        ASSERT_EQ(sq.n_ref, 1u);
+        ASSERT_EQ(manager.n_dns_queries, 0u);
+}
+
+/* The other half of the terminal rung: it reconciles before deciding. With a discovered service on
+ * the list and no scope left that could still answer for it, the pass must drop it — that removal
+ * (and the "removed" event with it) is what the rung exists for, and a branch that just rescheduled
+ * without revisiting would leave the service listed forever. */
+TEST(mdns_querier_maintenance_terminal_rung_reconciles_services) {
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        usec_t t = now(CLOCK_BOOTTIME);
+
+        ASSERT_OK(sd_event_new(&event));
+
+        Manager manager = {
+                .event = event,
+        };
+        DnsServiceQuerier sq = {
+                .n_ref = 1,
+                .manager = &manager,
+                .ifindex = 2,
+        };
+
+        ASSERT_NOT_NULL(rr = new_test_service_rr(120));
+        ASSERT_OK(dns_add_new_service(&sq, rr, AF_INET, /* ifindex= */ 2, usec_add(t, 60 * USEC_PER_SEC)));
+        sq.rr_ttl_state = DNS_RECORD_TTL_STATE_100_PERCENT;
+        ASSERT_NOT_NULL(sq.dns_services);
+
+        ASSERT_OK(mdns_querier_run_maintenance(&sq));
+
+        /* Reconciled away, and with nothing left the ladder winds down instead of re-arming. */
+        ASSERT_NULL(sq.dns_services);
         ASSERT_EQ(sq.rr_ttl_state, DNS_RECORD_TTL_STATE_80_PERCENT);
         ASSERT_NULL(sq.maintenance_query);
         ASSERT_NULL(sq.maintenance_event);
