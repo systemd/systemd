@@ -505,6 +505,66 @@ EOF
     systemctl reload systemd-oomd.service
 }
 
+# Track the forked listeners so the phase boundary and the exit path can
+# kill them. systemd-notify --fork orphans them, so they are not children
+# of this shell and cannot be waited for.
+PREKILL_LISTENER_PIDS=()
+
+# Fork a listener for the given prekill hook socket, appending everything
+# it receives to $output, one cat per accepted connection. systemd-oomd
+# looks at the hook sockets only at kill time and treats a non-connectible
+# socket as stale, killing at once without any notification (see
+# oomd_prekill_hook() in src/oom/oomd-util.c), so the listener must be
+# accepting before the bloat unit starts: systemd-socket-activate sends
+# READY=1 once its socket is listening, and systemd-notify --fork returns
+# only when that arrives, or fails if the listener dies first. A stale
+# socket file left by an earlier run is replaced on bind
+# (socket_address_listen() unlinks on EADDRINUSE and retries).
+start_prekill_listener() {
+    local sock="${1:?}" output="${2:?}"
+    local pid
+
+    # The forked cat opens the capture file only on the first connection,
+    # but the check below must be able to read the file also when no
+    # connection ever arrived.
+    : >"$output"
+
+    pid=$(systemd-notify --fork -- systemd-socket-activate --accept --inetd -l "$sock" -- sh -c "cat >>'$output'")
+    PREKILL_LISTENER_PIDS+=("$pid")
+}
+
+# The capture may hold more than one NUL-terminated varlink frame, since
+# the listener keeps accepting for the whole phase and systemd-oomd
+# connects once per kill: strip the NULs and require at least one frame,
+# all of them notifications.
+check_prekill_notification() {
+    local output="${1:?}"
+
+    if [[ "$(tr -d '\0' <"$output" | jq -sr 'length > 0 and all(.[]; .method == "io.systemd.oom.Prekill.Notify")')" != "true" ]]; then
+        echo "No valid notification captured in $output:"
+        cat "$output"
+        ls -la /run/systemd/oomd.prekill.hook/
+        return 1
+    fi
+}
+
+kill_prekill_listeners() {
+    kill "${PREKILL_LISTENER_PIDS[@]}" 2>/dev/null || :
+    PREKILL_LISTENER_PIDS=()
+}
+
+# Leave the system as the testcase found it, also when set -e aborts the
+# testcase mid-phase: a leftover listener would keep its socket bound and
+# cascade into later runs, and run_testcases runs the remaining testcases
+# in the same boot, so the shortened PrekillHookTimeoutSec= must not stay
+# loaded either.
+prekill_hook_at_exit() {
+    kill_prekill_listeners
+    rm -rf /run/systemd/oomd.prekill.hook/ /tmp/oomd_event*.json
+    rm -f /run/systemd/oomd.conf.d/99-oomd-prekill-test.conf
+    systemctl reload systemd-oomd.service || :
+}
+
 testcase_prekill_hook() {
     [[ "$STRESS_NG_BROKEN" == "1" ]] && { echo "stress-ng is broken on this host, skipping ${FUNCNAME[0]}"; return 0; }
 
@@ -513,27 +573,39 @@ testcase_prekill_hook() {
 PrekillHookTimeoutSec=3s
 EOF
 
+    # run_testcases invokes each testcase in a subshell, so this also fires
+    # when set -e aborts the testcase mid-phase.
+    trap prekill_hook_at_exit EXIT
+
     # no hooks
     systemctl reload systemd-oomd.service
     ! systemctl start --wait TEST-55-OOMD-testbloat.service || exit 1
 
     # one hook
     mkdir -p /run/systemd/oomd.prekill.hook/
-    socat -u UNIX-LISTEN:/run/systemd/oomd.prekill.hook/althook STDOUT >/tmp/oomd_event.json &
+    start_prekill_listener /run/systemd/oomd.prekill.hook/althook /tmp/oomd_event.json
     ! systemctl start --wait TEST-55-OOMD-testbloat.service || exit 1
-    [[ $(jq -r .method </tmp/oomd_event.json) = 'io.systemd.oom.Prekill.Notify' ]]
+    check_prekill_notification /tmp/oomd_event.json
 
+    # The listener keeps accepting and its socket file is not unlinked on
+    # kill, so remove it, or oomd would still notify it in the next phase.
+    kill_prekill_listeners
     rm -f /run/systemd/oomd.prekill.hook/* /tmp/oomd_event.json
 
     # many hooks
     for i in {1..4}; do
-        socat -u "UNIX-LISTEN:/run/systemd/oomd.prekill.hook/althook$i" STDOUT >"/tmp/oomd_event$i.json" &
+        start_prekill_listener "/run/systemd/oomd.prekill.hook/althook$i" "/tmp/oomd_event$i.json"
     done
 
     ! systemctl start --wait TEST-55-OOMD-testbloat.service || exit 1
-    for j in /tmp/oomd_event*.json; do
-        [[ $(jq -r .method <"$j") = 'io.systemd.oom.Prekill.Notify' ]]
+
+    # Check all listeners before failing: whether one notification went
+    # missing or all four distinguishes an oomd bug from a flaky listener.
+    local rc=0
+    for i in {1..4}; do
+        check_prekill_notification "/tmp/oomd_event$i.json" || rc=1
     done
+    [[ $rc -eq 0 ]]
 }
 
 run_testcases
