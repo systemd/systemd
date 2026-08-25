@@ -197,7 +197,7 @@ static int verb_export_raw(int argc, char *argv[], uintptr_t _data, void *userda
         return -r;
 }
 
-VERB_COMMON_HELP_AUTO_HIDDEN("systemd-export");
+VERB_COMMON_HELP_AUTO_HIDDEN();
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
@@ -210,7 +210,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return command_print_help("systemd-export");
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();

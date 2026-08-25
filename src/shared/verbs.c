@@ -72,7 +72,7 @@ static bool verb_is_metadata(const Verb *verb) {
                 FLAGS_SET(ASSERT_PTR(verb)->flags, VERB_GROUP_MARKER);
 }
 
-const Verb* verbs_find_verb(const char *name, const Verb verbs[], const Verb verbs_end[]) {
+const Verb* _verbs_find_verb(const Verb verbs[], const Verb verbs_end[], const char *name) {
         assert(verbs);
         assert(verbs_end > verbs);
         assert((uintptr_t) verbs % sizeof(void*) == 0);
@@ -101,7 +101,7 @@ int _dispatch_verb(char **args, const Verb verbs[], const Verb verbs_end[], void
         const char *name = args ? args[0] : NULL;
         size_t left = strv_length(args);
 
-        const Verb *verb = verbs_find_verb(name, verbs, verbs_end);
+        const Verb *verb = _verbs_find_verb(verbs, verbs_end, name);
         if (!verb) {
                 _cleanup_strv_free_ char **verb_strv = NULL;
 
@@ -224,20 +224,30 @@ static int verb_add_help_one(Table *table, const Verb *verb) {
         return 0;
 }
 
-static const Verb* verbs_get_command(const Verb verbs[], const Verb verbs_end[], const char *name) {
+const Verb* _verbs_find_command(
+                const Verb verbs[],
+                const Verb verbs_end[],
+                const char *name,
+                const CommandDescription **ret_cmd) {
+
         assert(verbs);
         assert(verbs_end > verbs);
         assert((uintptr_t) verbs % sizeof(void*) == 0);
         assert(FLAGS_SET(verbs[0].flags, VERB_COMMAND_MARKER) || verbs[0].verb);
-        assert(name);
 
         for (const Verb *verb = verbs; verb < verbs_end; verb++) {
                 if (!FLAGS_SET(verb->flags, VERB_COMMAND_MARKER))
                         continue;
 
                 const CommandDescription *cmd = (const CommandDescription*) ASSERT_PTR(verb->data);
-                if (nulstr_contains(cmd->names, name))
-                        return verb;
+                if (name && !nulstr_contains(cmd->names, name))
+                        continue;
+
+                /* This function returns the Verb slot through the return value, and the
+                 * CommandDescription it points to in the optional output parameter. */
+                if (ret_cmd)
+                        *ret_cmd = cmd;
+                return verb;
         }
 
         /* At the end of the list? */
@@ -333,7 +343,8 @@ static int print_verb_option_help(
 
                 assert(verb->verb);
 
-                /* What is the the first group? */
+                /* The group marker gives us the group name.
+                 * If it's missing, we're in the default (unnamed) group. */
                 const char *group = FLAGS_SET(verb->flags, VERB_GROUP_MARKER) ? verb->verb : NULL;
 
                 _cleanup_(table_unrefp) Table *table = NULL;
@@ -369,17 +380,19 @@ static int print_verb_option_help(
                         /* End of our namespace */
                         break;
 
-                r = options_get_help_table_group(opt, options_end, &table, &group);
+                r = options_get_help_table_group(opt, options_end, cmd->option_groups, &table, &group);
                 if (r < 0)
                         return r;
 
-                if (!GREEDY_REALLOC0(tables, n_verbs + n_opts + 2))
-                        return -ENOMEM;
-                if (!GREEDY_REALLOC0(groups, n_verbs + n_opts + 2))
-                        return -ENOMEM;
+                if (table) {
+                        if (!GREEDY_REALLOC0(tables, n_verbs + n_opts + 2))
+                                return -ENOMEM;
+                        if (!GREEDY_REALLOC0(groups, n_verbs + n_opts + 2))
+                                return -ENOMEM;
 
-                tables[n_verbs + n_opts] = TAKE_PTR(table);
-                groups[n_verbs + n_opts++] = group ?: "Options";
+                        tables[n_verbs + n_opts] = TAKE_PTR(table);
+                        groups[n_verbs + n_opts++] = group ?: "Options";
+                }
 
                 opt += r; /* Skip over the whole option group */
         }
@@ -431,7 +444,7 @@ static bool verbs_array_has_verbs(const Verb verbs[], const Verb verbs_end[]) {
         return false;
 }
 
-static int print_wrapped(const char *text, bool abstract) {
+static int print_wrapped(const char *text, const char *ansi_seq) {
 
         /* Print the text wrapped at spaces to the specified width. Newlines embedded in the text
          * are preserved and each line is wrapped independently, so explicit line breaks (e.g.
@@ -457,10 +470,9 @@ static int print_wrapped(const char *text, bool abstract) {
         putchar('\n');
 
         STRV_FOREACH(line, lines2)
-                if (abstract)
-                        printf("%s%s%s%s\n",
-                               ansi_highlight(),
-                               ansi_add_italics(),
+                if (ansi_seq)
+                        printf("%s%s%s\n",
+                               ansi_seq,
                                *line,
                                ansi_normal());
                 else
@@ -469,20 +481,39 @@ static int print_wrapped(const char *text, bool abstract) {
         return 0;
 }
 
-int _command_print_help(
+static const Verb* verbs_find_cmd_verbs(const Verb *cmdverb, const Verb verbs_end[]) {
+        assert(cmdverb);
+        assert(FLAGS_SET(cmdverb->flags, VERB_COMMAND_MARKER));
+        assert(cmdverb < verbs_end);
+
+        const CommandDescription *cmd = (const CommandDescription*) ASSERT_PTR(cmdverb->data);
+
+        /* With COMMAND_VERBS_SHARED, we have a group of VERB_COMMAND_MARKER entries, and
+         * then the shared verbs below. Thus, we need to skip over them to locate the
+         * first actual verb. Without COMMAND_VERBS_SHARED, the verbs start immediately
+         * after the VERB_COMMAND_MARKER entry. */
+        const Verb *actual = cmdverb + 1;
+        if (FLAGS_SET(cmd->flags, COMMAND_VERBS_SHARED))
+                while (actual < verbs_end &&
+                       FLAGS_SET(actual->flags, VERB_COMMAND_MARKER) &&
+                       FLAGS_SET(((const CommandDescription*) ASSERT_PTR(actual->data))->flags,
+                                 COMMAND_VERBS_SHARED))
+                        actual++;
+        return actual;
+}
+
+int _command_print_help_full(
                 const Verb verbs[],
                 const Verb verbs_end[],
                 const Option options[],
                 const Option options_end[],
-                const char *name) {
+                const char *name,
+                const char *footer_ansi_seq) {
         int r;
 
-        const Verb *cmdverb = verbs_get_command(verbs, verbs_end, name);
-        if (!cmdverb)
-                return log_error_errno(SYNTHETIC_ERRNO(ENODATA),
-                                       "Command %s not known", name);
-
-        const CommandDescription *cmd = (const CommandDescription*) ASSERT_PTR(cmdverb->data);
+        const CommandDescription *cmd;
+        const Verb *cmdverb = ASSERT_PTR(_verbs_find_command(verbs, verbs_end, name, &cmd));
+        const Verb *verbverbs = ASSERT_PTR(verbs_find_cmd_verbs(cmdverb, verbs_end));
 
         if (cmd->pager_flags)
                 pager_open(*cmd->pager_flags);
@@ -495,19 +526,20 @@ int _command_print_help(
                         help_cmdline(line);
                 }
         else {
-                bool have_verbs = verbs_array_has_verbs(cmdverb + 1, verbs_end);
+                bool have_verbs = verbs_array_has_verbs(verbverbs, verbs_end);
                 help_cmdline(have_verbs ? "[OPTION…] COMMAND …" : "[OPTION…]");
         }
 
-        r = print_wrapped(cmd->abstract, /* abstract= */ true);
+        const char *seq = strjoina(ansi_highlight(), ansi_add_italics());
+        r = print_wrapped(cmd->abstract, seq);
         if (r < 0)
                 return r;
 
-        r = print_verb_option_help(cmd, cmdverb + 1, verbs_end, options, options_end);
+        r = print_verb_option_help(cmd, verbverbs, verbs_end, options, options_end);
         if (r < 0)
                 return log_error_errno(r, "Failed to print verb&option help: %m");
 
-        r = print_wrapped(cmd->footer, /* abstract= */ false);
+        r = print_wrapped(cmd->footer, footer_ansi_seq);
         if (r < 0)
                 return r;
 
@@ -568,9 +600,11 @@ static int command_build_json(
 
         assert(cmdverb);
         assert(FLAGS_SET(cmdverb->flags, VERB_COMMAND_MARKER));
+        assert(cmdverb < verbs_end);
         assert(ret);
 
         const CommandDescription *cmd = (const CommandDescription*) ASSERT_PTR(cmdverb->data);
+        const Verb *verbverbs = verbs_find_cmd_verbs(cmdverb, verbs_end);
 
         NULSTR_FOREACH(name, cmd->names) {
                 r = sd_json_variant_append_arrayb(&names, SD_JSON_BUILD_STRING(name));
@@ -579,11 +613,11 @@ static int command_build_json(
         }
         assert(names);  /* At least the primary name must be defined */
 
-        r = options_build_json(options, options_end, cmd->option_namespace, &opts);
+        r = options_build_json(options, options_end, cmd->option_namespace, cmd->option_groups, &opts);
         if (r < 0)
                 return r;
 
-        for (const Verb *verb = cmdverb + 1; verb < verbs_end; verb++) {
+        for (const Verb *verb = verbverbs; verb < verbs_end; verb++) {
                 if (FLAGS_SET(verb->flags, VERB_COMMAND_MARKER))
                         break;  /* Start of entries for another command */
 

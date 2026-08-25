@@ -1,12 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-daemon.h"
+#include "sd-json.h"
 
 #include "ansi-color.h"
-#include "format-table.h"
-#include "help-util.h"
 #include "log.h"
-#include "options.h"
 #include "process-util.h"
 #include "reboot-util.h"
 #include "systemctl.h"
@@ -15,40 +13,35 @@
 #include "systemctl-start-unit.h"
 #include "systemctl-util.h"
 #include "utmp-wtmp.h"
+#include "verbs.h"
 
-static int halt_help(void) {
-        _cleanup_(table_unrefp) Table *options = NULL;
-        int r;
+COMMAND(
+        "halt\0",
+        "Halt the system.",
+        .footer = "This is a compatibility interface, please use the more powerful "
+                  "'systemctl halt' command instead.",
+        .man_pages = "halt.8\0",
+        .option_namespace = "halt",
+);
 
-        r = option_parser_get_help_table_ns("halt", &options);
-        if (r < 0)
-                return r;
+COMMAND(
+        "poweroff\0",
+        "Power off the system.",
+        .footer = "This is a compatibility interface, please use the more powerful "
+                  "'systemctl poweroff' command instead.",
+        .man_pages = "poweroff.8\0",
+        .option_namespace = "halt",
+);
 
-        /* Note: if you are tempted to add new command line switches here, please do not. Let this
-         * compatibility command rest in peace. Its interface is not even owned by us as much as it is by
-         * sysvinit. If you add something new, add it to "systemctl halt", "systemctl reboot", "systemctl
-         * poweroff" instead. */
-
-        help_cmdline(arg_action == ACTION_REBOOT ? "[OPTIONS…] [ARG]" : "[OPTIONS…]");
-        help_abstract(arg_action == ACTION_REBOOT   ? "Reboot the system." :
-                      arg_action == ACTION_POWEROFF ? "Power off the system." :
-                                                      "Halt the system.");
-
-        help_section("Options");
-        r = table_print_or_warn(options);
-        if (r < 0)
-                return r;
-
-        printf("\n%sThis is a compatibility interface, please use the more powerful 'systemctl %s' command instead.%s\n",
-               ansi_highlight_red(),
-               arg_action == ACTION_REBOOT   ? "reboot" :
-               arg_action == ACTION_POWEROFF ? "poweroff" :
-                                               "halt",
-               ansi_normal());
-
-        help_man_page_reference("halt", "8");
-        return 0;
-}
+COMMAND(
+        "reboot\0",
+        "Reboot the system.",
+        .argspec = "[ARG]\0",
+        .footer = "This is a compatibility interface, please use the more powerful "
+                  "'systemctl reboot' command instead.",
+        .man_pages = "reboot.8\0",
+        .option_namespace = "halt",
+);
 
 int halt_parse_argv(int argc, char *argv[], int log_level_shift) {
         int r;
@@ -62,13 +55,20 @@ int halt_parse_argv(int argc, char *argv[], int log_level_shift) {
                 .log_level_shift = log_level_shift,
         };
 
+        /* Note: if you are tempted to add new command line switches here, please do not. Let this
+         * compatibility command rest in peace. Its interface is not even owned by us as much as it
+         * is by sysvinit. If you add something new, add it to "systemctl halt", "systemctl
+         * reboot", "systemctl poweroff" instead. */
+
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
 
                 OPTION_NAMESPACE("halt"): {}
 
                 OPTION_LONG("help", NULL, "Show this help"):
-                        return halt_help();
+                        return command_print_help_full(
+                                        action_table[arg_action].verb,
+                                        /* footer_ansi_seq= */ ansi_highlight_red());
 
                 OPTION_LONG("halt", NULL, "Halt the machine"):
                         arg_action = ACTION_HALT;
@@ -108,6 +108,9 @@ int halt_parse_argv(int argc, char *argv[], int log_level_shift) {
                 OPTION_SHORT('h', NULL, /* help= */ NULL):
                         /* Compatibility nops */
                         break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         char **args = option_parser_get_args(&opts);

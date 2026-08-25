@@ -56,7 +56,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return command_print_help("systemd-cgls");
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();

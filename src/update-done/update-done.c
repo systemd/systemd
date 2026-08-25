@@ -79,7 +79,7 @@ static int parse_argv(int argc, char *argv[]) {
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
                 OPTION_COMMON_HELP:
-                        return command_print_help("systemd-update-done");
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();

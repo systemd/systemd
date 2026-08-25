@@ -183,7 +183,7 @@ static int acquire_journal(sd_journal **ret, char **matches) {
         return 0;
 }
 
-VERB_COMMON_HELP_AUTO_HIDDEN("coredumpctl");
+VERB_COMMON_HELP_AUTO_HIDDEN();
 
 static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         int r;
@@ -198,7 +198,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return command_print_help("coredumpctl");
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();

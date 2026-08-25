@@ -2081,7 +2081,7 @@ static int verb_set_property(int argc, char *argv[], uintptr_t _data, void *user
         return 0;
 }
 
-VERB_COMMON_HELP_AUTO("busctl");
+VERB_COMMON_HELP_AUTO();
 
 static int parse_argv(int argc, char *argv[], char ***remaining_args) {
         assert(argc >= 0);
@@ -2095,7 +2095,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return command_print_help("busctl");
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();

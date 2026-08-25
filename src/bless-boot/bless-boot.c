@@ -39,7 +39,7 @@ typedef enum Status {
         STATUS_INDETERMINATE,
 } Status;
 
-VERB_COMMON_HELP_AUTO_HIDDEN("systemd-bless-boot");
+VERB_COMMON_HELP_AUTO_HIDDEN();
 
 static int check_support(void) {
         if (detect_container() > 0)
@@ -65,7 +65,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
                 OPTION_COMMON_HELP:
-                        return command_print_help("systemd-bless-boot");
+                        return command_print_help();
 
                 OPTION_COMMON_VERSION:
                         return version();
